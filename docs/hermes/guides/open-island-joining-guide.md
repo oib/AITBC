@@ -1,10 +1,10 @@
 # Open Island Joining Guide - hub.aitbc.bubuit.net
 
-**Last Updated:** 2026-05-28
+**Last Updated:** 2026-06-20
 
 ## Overview
 
-hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent can join this island to test AITBC blockchain functionality, P2P networking, and hermes agent coordination.
+hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent can join this island to test AITBC blockchain functionality, lease-based block subscription, and hermes agent coordination.
 
 ## Island Configuration
 
@@ -12,11 +12,21 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent
 - **Host**: hub.aitbc.bubuit.net
 - **Chain ID**: `ait-hub.aitbc.bubuit.net`
 - **Island ID**: `ait-hub.aitbc.bubuit.net-island`
-- **P2P Port**: 8200 (open to all)
-- **RPC Port**: 8202 (open to all)
+- **RPC URL**: `https://hub.aitbc.bubuit.net/rpc` (HTTP + WebSocket, open to all)
 - **Access**: Open - no authentication required for joining
 
 > **Note:** For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
+
+## How Follower Sync Works
+
+Follower nodes do **not** connect to a separate P2P port. Instead, they use the **lease-based subscription system** over the hub's RPC endpoint:
+
+1. **Register**: Follower sends `POST /rpc/subscribe` to the hub's RPC URL to register and obtain a lease
+2. **Receive blocks**: Follower opens a WebSocket to `wss://hub.aitbc.bubuit.net/rpc/subscribe/ws` for real-time block push
+3. **Heartbeat**: Follower periodically sends `POST /rpc/heartbeat` to extend the lease
+4. **Bulk catch-up**: If the follower falls behind, it uses `POST /rpc/sync` to pull blocks in batches via HTTP
+
+The hub's `aitbc-blockchain-p2p` service (port 7070) is an internal gossip relay for the hub's own services and is **not used by followers**.
 
 ## Prerequisites for New Nodes
 
@@ -28,9 +38,8 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent
 
 2. **Network Requirements**:
    - Outbound internet access
-   - Ability to connect to hub.aitbc.bubuit.net:8200 (P2P)
-   - Ability to connect to https://hub.aitbc.bubuit.net/ (RPC and API Gateway)
-   - Ability to connect to https://hub.aitbc.bubuit.net/api/v1/hermes (Hermes service)
+   - Ability to connect to `https://hub.aitbc.bubuit.net/` (RPC, subscription, and API Gateway)
+   - Ability to connect to `https://hub.aitbc.bubuit.net/api/v1/hermes` (Hermes service)
 
 ## Quick Start Setup
 
@@ -46,6 +55,8 @@ cd /opt/aitbc
 The hub website provides public endpoints for downloading configuration files:
 
 ```bash
+mkdir -p /etc/aitbc
+
 # Download blockchain configuration (public, non-sensitive)
 curl -o /etc/aitbc/blockchain.env https://hub.aitbc.bubuit.net/agent/blockchain.env
 
@@ -110,31 +121,39 @@ Or use systemd service (recommended):
 # Link systemd service files from repository (keeps them in sync)
 /opt/aitbc/scripts/utils/link-systemd.sh
 
-# Start services
+# Start services (follower only needs blockchain-node and blockchain-rpc)
 systemctl start aitbc-blockchain-node.service
-systemctl start aitbc-blockchain-p2p.service
 systemctl enable aitbc-blockchain-node.service
-systemctl enable aitbc-blockchain-p2p.service
 ```
+
+The blockchain-node will automatically:
+1. Connect to the hub's RPC URL (from `default_peer_rpc_url` in `blockchain.env`)
+2. Register a subscription lease via `POST /rpc/subscribe`
+3. Open a WebSocket to `wss://hub.aitbc.bubuit.net/rpc/subscribe/ws` for block push
+4. Send periodic heartbeats to maintain the lease
+
+> **Note:** Followers do **not** need to start `aitbc-blockchain-p2p`. That service is hub-only and provides the internal gossip relay on port 7070.
 
 ### Step 8: Verify Connection
 
 ```bash
-# Test P2P connectivity
-nc -zv hub.aitbc.bubuit.net 8200
-
-# Test RPC connectivity
-curl https://hub.aitbc.bubuit.net/health
+# Test RPC connectivity to hub
+curl https://hub.aitbc.bubuit.net/rpc/head
 
 # Check local node status
 curl http://localhost:8202/health
 curl http://localhost:8202/rpc/head
+
+# Check subscription status in logs
+journalctl -u aitbc-blockchain-node.service -f | grep -i "subscribe\|lease\|websocket"
 ```
 
 ### Step 9: Sync with Hub
 
+The subscription system automatically pushes new blocks to followers. For initial catch-up or manual sync:
+
 ```bash
-# Trigger sync with hub
+# Trigger bulk sync with hub
 curl -X POST http://localhost:8202/rpc/sync \
   -H "Content-Type: application/json" \
   -d '{"peer":"https://hub.aitbc.bubuit.net/"}'
@@ -190,13 +209,24 @@ cd /opt/aitbc/scripts/workflow-hermes
 ```bash
 # Check if hub is reachable
 ping hub.aitbc.bubuit.net
-nc -zv hub.aitbc.bubuit.net 8200
 nc -zv hub.aitbc.bubuit.net 443
 
 # Check local services
 systemctl status aitbc-blockchain-node.service
-systemctl status aitbc-blockchain-p2p.service
 journalctl -u aitbc-blockchain-node.service -f
+```
+
+### Subscription Issues
+
+```bash
+# Check subscription logs
+journalctl -u aitbc-blockchain-node.service -f | grep -i "subscribe\|lease\|websocket\|heartbeat"
+
+# Verify hub RPC is accessible
+curl https://hub.aitbc.bubuit.net/rpc/head
+
+# Check if default_peer_rpc_url is set
+grep default_peer_rpc_url /etc/aitbc/blockchain.env
 ```
 
 ### Sync Issues
@@ -210,19 +240,6 @@ curl https://hub.aitbc.bubuit.net/rpc/head
 curl -X POST http://localhost:8202/rpc/sync \
   -H "Content-Type: application/json" \
   -d '{"peer":"https://hub.aitbc.bubuit.net/","force":true}'
-```
-
-### P2P Issues
-
-```bash
-# Check P2P service logs
-journalctl -u aitbc-blockchain-p2p.service -f
-
-# Verify P2P configuration
-cat /etc/aitbc/blockchain.env | grep p2p
-
-# Restart P2P service
-systemctl restart aitbc-blockchain-p2p.service
 ```
 
 ## Network Security
@@ -259,6 +276,6 @@ After joining the open island:
 
 ---
 
-**Last Updated**: 2026-05-26
+**Last Updated**: 2026-06-20
 **Island Status**: Open for Testing
-**Hub Node**: hub.aitbc.bubuit.net:8200 (P2P), https://hub.aitbc.bubuit.net/ (RPC)
+**Hub Node**: https://hub.aitbc.bubuit.net/ (RPC + WebSocket subscription)

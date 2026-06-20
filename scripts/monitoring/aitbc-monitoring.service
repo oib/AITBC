@@ -37,3 +37,6 @@ ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
 # Security hardening (v0.5.0)
 WatchdogSec=30
 NotifyAccess=all
+
+[Install]
+WantedBy=multi-user.target

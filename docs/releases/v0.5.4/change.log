@@ -1,0 +1,254 @@
+# v0.5.4 Release Plan
+
+**Theme**: Deployment hardening & documentation accuracy — backup service integration, role-based service selection, subscription system documentation, and critical security/bug fixes.
+
+**Goal**: Ensure `setup.sh` correctly configures all node roles without overwriting existing configs, wire up the backup service for every node, and fix documentation to accurately reflect how the lease-based subscription system works (replacing incorrect P2P port references).
+
+---
+
+## Completed Changes
+
+### 1. Backup Service Integration
+
+**Problem:** The backup script (`aitbc-backup.sh`) existed but had no systemd service/timer files. A stale broken symlink was all that remained after `link-systemd.sh` deleted the units. Backups were running but the timer was gone after the last relink.
+
+**Fix:**
+- Created `aitbc-backup.service` (oneshot, runs as root)
+- Created `aitbc-backup.timer` (daily at 01:00, 5 min random delay, persistent)
+- Added `aitbc-backup.timer` to base services in `get_services_for_role()` — **all node roles** get backup
+- Added `setup_backup()` function as Step 12/12 in `setup.sh` main()
+- Updated `install_services()` fallback to handle `.timer` units (not just `.service`)
+- Documented backup service in `SETUP.md` (what gets backed up, schedule, retention, management commands)
+
+**Files changed:**
+- `scripts/maintenance/aitbc-backup.service` (new)
+- `scripts/maintenance/aitbc-backup.timer` (new)
+- `scripts/deployment/setup.sh` — `get_services_for_role()`, `setup_backup()`, `install_services()`, `main()`, final output
+- `docs/getting-started/SETUP.md` — new Backup Service section
+
+### 2. Backup Script: PostgreSQL Password Fix
+
+**Problem:** The backup script sourced `blockchain-secrets.env` for `PGPASSWORD`, but that file is published on the website (open island) and must never contain database credentials. PostgreSQL backup was always failing.
+
+**Fix:**
+- Removed sourcing of `blockchain-secrets.env` from backup script
+- Now reads password from `/etc/aitbc/credentials/postgres_aitbc_governance_password` (created by `setup_postgresql_databases.sh`, 600 permissions)
+- Fallback: reads `DB_PASS` from `/etc/aitbc/aitbc-governance.env`
+- Updated `SETUP.md` PostgreSQL backup note to reflect correct password source
+
+**Files changed:**
+- `scripts/maintenance/aitbc-backup.sh`
+- `docs/getting-started/SETUP.md`
+
+### 3. Role-Based Service Selection in setup.sh
+
+**Problem:** `setup.sh` only worked correctly for hub nodes. Shop, customer, and follower nodes got incorrect service lists.
+
+**Fix:**
+- Added `get_node_role()` — reads `BLOCKCHAIN_MODE`, `MARKET_ROLE`, `HARDWARE_PROFILE` and returns `hub`/`follower`/`shop`/`customer`
+- Added `get_services_for_role()` — returns appropriate service list per role
+- Updated `start_services()`, `setup_autostart()`, `install_services()` to use role-based selection
+
+**Service selection per role:**
+| Role | Base | Extra | Total |
+|------|------|-------|-------|
+| hub | blockchain-node, blockchain-rpc, wallet, recovery, monitoring, backup.timer | p2p, coordinator-api, api-gateway, governance, exchange, marketplace, bridge-monitor, event-bridge, hermes, agent-management, agent-coordinator, agent-daemon, blockchain-explorer | 19 |
+| follower | base | blockchain-sync, blockchain-explorer | 8 |
+| shop | base | gpu, miner, blockchain-sync, blockchain-explorer | 10 |
+| customer | base | (none) | 6 |
+
+**Files changed:**
+- `scripts/deployment/setup.sh`
+
+### 4. Critical Bug: setup.sh Overwrites Existing Configs
+
+**Problem:** `setup_node_identities()` unconditionally copied example files over existing `blockchain.env` and `node.env`, destroying hub configurations on re-run.
+
+**Fix:**
+- Added existence checks — only copies example files if config files don't already exist
+- For existing files, updates specific variables within the file instead of overwriting
+- Restored hub `node.env` and `blockchain.env` from backup after accidental overwrite
+
+**Files changed:**
+- `scripts/deployment/setup.sh` — `setup_node_identities()`
+
+### 5. MEMPOOL_DB_URL Password Sync
+
+**Problem:** After accidental `setup.sh` run regenerated PostgreSQL passwords, `node.env` still had the old mempool password (`aitbc_mempool_password`), causing `psycopg2.OperationalError: password authentication failed for user "aitbc_mempool"`.
+
+**Fix:**
+- Updated `MEMPOOL_DB_URL` in `node.env` with correct password from `/etc/aitbc/credentials/postgres_aitbc_mempool_password`
+
+**Files changed:**
+- `/etc/aitbc/node.env`
+
+### 6. P2P Gossip Relay: Access Logging
+
+**Problem:** `aitbc-blockchain-p2p` service had no access logging — impossible to see follower connections or gossip activity.
+
+**Fix:**
+- Added `--access-log` CLI argument to `gossip/relay.py` `main()`
+- Added `--access-log` flag to `aitbc-blockchain-p2p-wrapper.py` exec command
+- Passes `access_log=args.access_log` to `uvicorn.run()`
+
+**Files changed:**
+- `apps/blockchain-node/src/aitbc_chain/gossip/relay.py`
+- `apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py`
+
+### 7. Nginx: WebSocket Routes for Subscription System
+
+**Problem:** Nginx only had WebSocket upgrade headers on `/rpc/subscribe/ws`. The `/rpc/blocks` and `/rpc/transactions` WebSocket endpoints would fail because the general `/rpc/` route didn't have upgrade headers.
+
+**Fix:**
+- Replaced single `/rpc/subscribe/ws` location with regex matching all 3 WebSocket endpoints: `/rpc/subscribe/ws`, `/rpc/blocks`, `/rpc/transactions`
+- All WebSocket routes now have proper `Upgrade`/`Connection` headers and 3600s timeouts
+
+**Files changed:**
+- `/etc/nginx/sites-enabled/aitbc`
+
+### 8. Subscription System Documentation (Major Rewrite)
+
+**Problem:** Documentation incorrectly told followers to connect to P2P port 8200/7070 and start `aitbc-blockchain-p2p`. In reality, followers receive blocks via the lease-based subscription system over the hub's RPC endpoint (HTTP + WebSocket). The `default_peer_rpc_url` config key was missing from the published `blockchain.env`, so followers could never actually connect.
+
+**Fix — Documentation:**
+- `docs/hermes/guides/open-island-joining-guide.md` — Rewrote: removed P2P instructions for followers, added "How Follower Sync Works" section, removed `aitbc-blockchain-p2p` from follower startup, corrected network requirements (port 443 only, not 8200)
+- `docs/blockchain/ENVIRONMENT_CONFIGURATION.md` — Fixed P2P section (hub-only), added "Subscription Configuration" section with `default_peer_rpc_url`/`subscription_enabled`/`subscription_transport`, removed `p2p_peers` from follower example, fixed validation checklist
+- `docs/reference/SERVICE_PORTS.md` — Fixed Blockchain P2P port from 8200 to 7070, clarified hub-only gossip relay, added follower subscription WebSocket endpoints, fixed API Gateway port reference (8200→8201)
+- `docs/getting-started/SETUP.md` — Rewrote Lease-Based Subscription System section (transport: websocket not redis), added `default_peer_rpc_url`, documented WebSocket endpoints, fixed "Join Open Island" section
+- `docs/architecture/4_blockchain-node.md` — Rewrote Networking section: 3 layers (internal Redis gossip, external subscription over RPC, hub-only gossip relay), fixed WebSocket endpoint names
+
+**Fix — Configuration:**
+- `examples/blockchain.env.open-island` — Added `default_peer_rpc_url`, changed `SUBSCRIPTION_TRANSPORT=redis` to `subscription_transport=websocket`, removed legacy `HUB_P2P_HOST`/`HUB_P2P_PORT`/`p2p_peers`
+- `/etc/aitbc/blockchain.env` (published on website) — Same fixes as example file
+
+**Key insight:** `aitbc-blockchain-p2p` (port 7070) is a **hub-only** internal gossip relay. Followers do not need it. Followers connect to the hub's RPC URL (`default_peer_rpc_url`) and use:
+1. `POST /rpc/subscribe` — register lease
+2. `WS /rpc/subscribe/ws` — receive block push
+3. `POST /rpc/heartbeat` — extend lease
+4. `POST /rpc/sync` — bulk catch-up fallback
+
+### 9. Security: Private Keys Moved from blockchain.env to node.env
+
+**Problem:** The published `blockchain.env` (served at `https://hub.aitbc.bubuit.net/agent/blockchain.env`) contained `PRIVATE_KEY`, `GENESIS_WALLET_PRIVATE_KEY`, `INFURA_API_KEY`, `ETH_RPC_URL`, and bridge contract addresses — all sensitive hub-only credentials exposed publicly.
+
+**Fix:**
+- Moved all Ethereum/bridge secrets from `blockchain.env` to `node.env` (private, hub-only):
+  - `PRIVATE_KEY`, `GENESIS_WALLET_PRIVATE_KEY`
+  - `ETH_RPC_URL`, `INFURA_API_KEY`, `ETH_NETWORK`
+  - `BRIDGE_CONTRACT_ADDRESS`, `BRIDGE_ETH_ADDRESS`
+  - `MIN_ETH_DEPOSIT`, `BRIDGE_POLL_INTERVAL`
+- Kept only public information in `blockchain.env`:
+  - `GENESIS_WALLET_ADDRESS` (public address, not a key)
+  - `AIT_USD_FIXED_PRICE` (public pricing)
+- Verified `bridge-monitor` and `wallet` services still have all keys (both load `node.env`)
+- Updated `examples/blockchain.env.open-island` to match
+
+**Files changed:**
+- `/etc/aitbc/blockchain.env`
+- `/etc/aitbc/node.env`
+- `examples/blockchain.env.open-island`
+
+### 10. Bug Fix: @rate_limit Decorator Crashes Sync Endpoints
+
+**Problem:** The `@rate_limit` decorator in `aitbc/rate_limiting.py` was always creating an `async def wrapper` that does `return await func(...)`. When decorating a regular (non-async) function like `list_wallets`, this caused `TypeError: object WalletListResponse can't be used in 'await' expression` and a 500 error on `GET /v1/wallets`. This also prevented the wallet service from auto-importing the genesis wallet on startup.
+
+**Fix:**
+- Check `asyncio.iscoroutinefunction(func)` in the decorator
+- Use `async def wrapper` with `await` for async functions
+- Use regular `def wrapper` with direct return for sync functions
+
+**Files changed:**
+- `aitbc/rate_limiting.py`
+
+---
+
+## Services Status (Hub Node)
+
+All 19 hub services active and healthy after changes:
+- aitbc-blockchain-node, aitbc-blockchain-rpc, aitbc-blockchain-p2p
+- aitbc-wallet (now returns 200 on /v1/wallets with genesis wallet auto-imported)
+- aitbc-bridge-monitor (still has GENESIS_WALLET_PRIVATE_KEY from node.env)
+- aitbc-exchange, aitbc-governance, aitbc-marketplace
+- aitbc-coordinator-api, aitbc-api-gateway
+- aitbc-hermes, aitbc-agent-management, aitbc-agent-coordinator, aitbc-agent-daemon
+- aitbc-blockchain-event-bridge, aitbc-blockchain-explorer
+- aitbc-recovery, aitbc-monitoring
+- aitbc-backup.timer (daily at 01:00, next: 2026-06-21 01:03)
+
+---
+
+## Files Changed Summary
+
+| File | Change |
+|------|--------|
+| `scripts/deployment/setup.sh` | Role-based service selection, setup_backup(), config overwrite fix, install_services() timer handling |
+| `scripts/maintenance/aitbc-backup.sh` | PostgreSQL password from credentials dir, not blockchain-secrets.env |
+| `scripts/maintenance/aitbc-backup.service` | New — systemd oneshot service |
+| `scripts/maintenance/aitbc-backup.timer` | New — daily systemd timer |
+| `apps/blockchain-node/src/aitbc_chain/gossip/relay.py` | Added --access-log CLI arg |
+| `apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py` | Pass --access-log to relay |
+| `aitbc/rate_limiting.py` | Fix async/sync decorator wrapper |
+| `/etc/nginx/sites-enabled/aitbc` | WebSocket routes for /rpc/blocks, /rpc/transactions |
+| `/etc/aitbc/blockchain.env` | Removed private keys, added default_peer_rpc_url + subscription config |
+| `/etc/aitbc/node.env` | Added Ethereum/bridge secrets, fixed MEMPOOL_DB_URL password |
+| `examples/blockchain.env.open-island` | Match published blockchain.env (public info only) |
+| `docs/getting-started/SETUP.md` | Backup service docs, subscription system rewrite, open island join fix |
+| `docs/hermes/guides/open-island-joining-guide.md` | Full rewrite — subscription system, no P2P for followers |
+| `docs/blockchain/ENVIRONMENT_CONFIGURATION.md` | P2P hub-only, subscription config section, follower example fix |
+| `docs/reference/SERVICE_PORTS.md` | P2P port 7070, subscription WebSocket endpoints, API Gateway port fix |
+| `docs/architecture/4_blockchain-node.md` | Networking section rewrite — 3 layer model |
+
+---
+
+## Additional Fixes (Post-Review)
+
+### 11. setup_postgresql_databases.sh: Sync MEMPOOL_DB_URL to node.env
+
+**Problem:** When `setup_postgresql_databases.sh` generates a new mempool password, it writes to `aitbc-blockchain-p2p.env` but not `node.env`. The blockchain-node reads `MEMPOOL_DB_URL` from `node.env`, so re-running setup breaks the node with a stale password.
+
+**Fix:** Added logic to update `MEMPOOL_DB_URL` in `node.env` if it exists (sed replace if present, append if missing).
+
+**Files changed:** `scripts/deployment/setup_postgresql_databases.sh`
+
+### 12. Fix p2p_bind_port and network-info Endpoint
+
+**Problem:** `node.env` had `p2p_bind_port=8200` but the actual gossip relay runs on port 7070 (hardcoded in wrapper script). The `/rpc/network-info` endpoint read this and told followers to "Connect via P2P protocol to hub:8200" — wrong port and wrong instructions.
+
+**Fix:**
+- Changed `p2p_bind_port` from 8200 to 7070 in `node.env`
+- Updated `/rpc/network-info` endpoint to give subscription instructions instead of P2P instructions
+- Updated version string to 0.5.4
+
+**Files changed:**
+- `/etc/aitbc/node.env`
+- `apps/blockchain-node/src/aitbc_chain/rpc/router.py`
+
+### 13. Remove Unused PRIVATE_KEY from node.env
+
+**Problem:** `PRIVATE_KEY` (an Ethereum private key) was in `node.env` but no Python code reads it. Only `GENESIS_WALLET_PRIVATE_KEY` is used (by bridge-monitor). Reducing secret surface.
+
+**Fix:** Removed `PRIVATE_KEY` line from `node.env`. Verified bridge-monitor still works (no warnings).
+
+**Files changed:** `/etc/aitbc/node.env`
+
+### 14. Follower Join Flow Verified End-to-End
+
+Tested the complete follower join flow through nginx:
+1. `GET /agent/blockchain.env` — downloads clean config with `default_peer_rpc_url`
+2. `GET /agent/blockchain-secrets.env` — downloads shared auth secrets
+3. `GET /rpc/network-info` — returns correct subscription instructions (port 7070, version 0.5.4)
+4. `GET /rpc/head` — follower can read hub block height (30214)
+5. `POST /rpc/subscribe` — lease registration works (3600s lease, websocket transport)
+6. `POST /rpc/heartbeat` — lease extension works
+7. `WS /rpc/subscribe/ws` — WebSocket block push works through nginx (received block)
+8. `DELETE /rpc/lease/{node_id}` — lease revocation works
+9. `GET /rpc/subscribers` — subscriber list correct
+
+All endpoints verified working through nginx reverse proxy with correct WebSocket upgrade headers.
+
+---
+
+**Session Date:** 2026-06-20
+**Node:** hub.aitbc.bubuit.net
+**Backup verified:** Yes (36 snapshots retained, PostgreSQL backup now working)
+**Published config verified:** `curl https://hub.aitbc.bubuit.net/agent/blockchain.env` — no private keys exposed

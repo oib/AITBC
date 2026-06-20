@@ -62,6 +62,124 @@ source "$DEPLOY_COMMON_PATH"
 HEALTH_CHECK_SCRIPT="/opt/aitbc/scripts/monitoring/health_check.sh"
 LEGACY_HEALTH_CHECK_PATH="/opt/aitbc/health-check.sh"
 
+# Determine the node role from config for service selection
+# Roles: hub, follower, shop, customer
+get_node_role() {
+    local blockchain_mode="" market_role="" hardware_profile=""
+    if [ -f "/etc/aitbc/blockchain.env" ]; then
+        # shellcheck disable=SC1091
+        source /etc/aitbc/blockchain.env 2>/dev/null
+        blockchain_mode="$BLOCKCHAIN_MODE"
+        market_role="$MARKET_ROLE"
+        hardware_profile="$HARDWARE_PROFILE"
+    fi
+    if [ -f "/etc/aitbc/node.env" ]; then
+        # shellcheck disable=SC1091
+        source /etc/aitbc/node.env 2>/dev/null
+        blockchain_mode="${blockchain_mode:-$BLOCKCHAIN_MODE}"
+        market_role="${market_role:-$MARKET_ROLE}"
+        hardware_profile="${hardware_profile:-$HARDWARE_PROFILE}"
+    fi
+
+    if [ "$blockchain_mode" = "hub" ]; then
+        echo "hub"
+    elif [ "$market_role" = "shop" ] && [ "$hardware_profile" = "gpu" ]; then
+        echo "shop"
+    elif [ "$market_role" = "customer" ]; then
+        echo "customer"
+    else
+        echo "follower"
+    fi
+}
+
+# Get the list of services to enable/start for a given node role
+# Usage: get_services_for_role <role>
+# Outputs space-separated service names (without .service suffix)
+get_services_for_role() {
+    local role="${1:-follower}"
+
+    # Base services — always enabled on every node
+    local base_services=(
+        aitbc-blockchain-node
+        aitbc-blockchain-rpc
+        aitbc-wallet
+        aitbc-recovery
+        aitbc-monitoring
+        aitbc-backup.timer
+    )
+
+    # Hub-specific services
+    local hub_services=(
+        aitbc-blockchain-p2p
+        aitbc-coordinator-api
+        aitbc-api-gateway
+        aitbc-governance
+        aitbc-exchange
+        aitbc-marketplace
+        aitbc-bridge-monitor
+        aitbc-blockchain-event-bridge
+        aitbc-hermes
+        aitbc-agent-management
+        aitbc-agent-coordinator
+        aitbc-agent-daemon
+        aitbc-blockchain-explorer
+    )
+
+    # Follower-specific services (in addition to base)
+    local follower_services=(
+        aitbc-blockchain-sync
+        aitbc-blockchain-explorer
+    )
+
+    # Shop-specific services (GPU provider, in addition to base)
+    local shop_services=(
+        aitbc-gpu
+        aitbc-miner
+    )
+
+    # Customer nodes: base only (interacts with hub via CLI)
+    # No additional services
+
+    local services=("${base_services[@]}")
+
+    case "$role" in
+        hub)
+            services+=("${hub_services[@]}")
+            ;;
+        follower)
+            services+=("${follower_services[@]}")
+            ;;
+        shop)
+            services+=("${shop_services[@]}")
+            # Shop nodes also need sync (they follow a hub)
+            services+=("${follower_services[@]}")
+            ;;
+        customer)
+            # Customer nodes: base only
+            ;;
+        *)
+            warning "Unknown role '$role', defaulting to follower services"
+            services+=("${follower_services[@]}")
+            ;;
+    esac
+
+    echo "${services[@]}"
+}
+
+# Validate hub connection (only relevant for follower nodes)
+validate_hub_connection() {
+    if [ "$SKIP_INTERACTIVE" = true ] && [ -n "$OPEN_ISLAND_HUB" ]; then
+        log "Validating connection to hub: $OPEN_ISLAND_HUB"
+        if curl -sf "$OPEN_ISLAND_HUB/health" >/dev/null 2>&1; then
+            success "Hub connection validated: $OPEN_ISLAND_HUB"
+        else
+            warning "Could not reach hub at $OPEN_ISLAND_HUB — services will retry on startup"
+        fi
+    else
+        log "Skipping hub connection validation (hub node or interactive mode)"
+    fi
+}
+
 # Check prerequisites
 check_prerequisites() {
     log "Checking prerequisites..."
@@ -208,8 +326,8 @@ setup_runtime_directories() {
     chown root:root /var/lib/aitbc/keystore/config
     chown root:root /var/lib/aitbc/keystore/passwords
     chown root:root /var/lib/aitbc/data
-    # Fix data directory permissions for blockchain-node service
-    chown -R aitbc-blockchain:aitbc-services /var/lib/aitbc/data
+    # Fix data directory permissions for blockchain-node service (runs as aitbc user)
+    chown -R aitbc:aitbc /var/lib/aitbc/data 2>/dev/null || log "aitbc user not yet created — will chown after service users are set up"
     chown root:root /var/log/aitbc
     chown root:root /etc/aitbc
     chown root:root /etc/aitbc/credentials
@@ -240,7 +358,23 @@ setup_runtime_directories() {
 setup_service_users() {
     log "Setting up service users for security isolation..."
 
-    # Create service group
+    # Create primary aitbc group (used by all systemd services as Group=aitbc)
+    if ! getent group aitbc >/dev/null 2>&1; then
+        log "Creating aitbc group..."
+        groupadd aitbc || warning "Failed to create aitbc group (may already exist)"
+    else
+        log "aitbc group already exists"
+    fi
+
+    # Create primary aitbc user (all services run as User=aitbc)
+    if ! id aitbc >/dev/null 2>&1; then
+        log "Creating aitbc user (primary service user)..."
+        useradd -r -s /bin/false -g aitbc -d /opt/aitbc aitbc || warning "Failed to create aitbc user (may already exist)"
+    else
+        log "aitbc user already exists"
+    fi
+
+    # Create service group for supplementary isolation
     if ! getent group aitbc-services >/dev/null 2>&1; then
         log "Creating aitbc-services group..."
         groupadd aitbc-services || warning "Failed to create aitbc-services group (may already exist)"
@@ -248,7 +382,7 @@ setup_service_users() {
         log "aitbc-services group already exists"
     fi
 
-    # Create service users based on exposure level
+    # Create specialized service users for security isolation
     service_users=(
         "aitbc-public:Public exposure services (API Gateway, Edge, Whisper)"
         "aitbc-internal:Internal services (Marketplace, Hermes, Agent Coordinator)"
@@ -291,6 +425,10 @@ setup_service_users() {
     chmod 750 /var/lib/aitbc/wallets
     chmod 750 /var/lib/aitbc/whisper-cache
 
+    # Fix data directory ownership now that aitbc user exists
+    # (setup_runtime_directories runs before this step, so chown may have been skipped)
+    chown -R aitbc:aitbc /var/lib/aitbc/data 2>/dev/null || true
+
     success "Service users setup completed"
 }
 
@@ -317,9 +455,9 @@ setup_postgresql_databases() {
     fi
 
     # Use centralized database setup script if available
-    if [ -f "/opt/aitbc/infra/scripts/setup_postgresql_databases.sh" ]; then
+    if [ -f "/opt/aitbc/scripts/deployment/setup_postgresql_databases.sh" ]; then
         log "Using centralized PostgreSQL setup script..."
-        /opt/aitbc/infra/scripts/setup_postgresql_databases.sh
+        /opt/aitbc/scripts/deployment/setup_postgresql_databases.sh
     else
         warning "Centralized PostgreSQL setup script not found"
         warning "Creating individual databases manually..."
@@ -388,7 +526,6 @@ generate_uuid() {
 # - HARDWARE_PROFILE: nogpu (no GPU) or gpu (GPU available)
 # These profiles are set in /etc/aitbc/blockchain.env (read by blockchain node)
 setup_node_profiles() {
-setup_node_profiles() {
     log "Setting up node profiles..."
 
     # Skip interactive prompts if blockchain.env already exists or --open-island was used
@@ -424,68 +561,6 @@ setup_node_profiles() {
     # Prompt for blockchain mode
     echo ""
     echo "=== Blockchain Mode Selection ==="
-    echo "Select the blockchain mode for this node:"
-    echo "  1) follower - Receives blocks from hub (default for open island)"
-    echo "  2) hub     - Produces and broadcasts blocks"
-    read -p "Enter choice [1-2] (default: 1): " blockchain_choice
-    blockchain_choice=${blockchain_choice:-1}
-
-    case "$blockchain_choice" in
-        1)
-            BLOCKCHAIN_MODE="follower"
-            ;;
-        2)
-            BLOCKCHAIN_MODE="hub"
-            ;;
-        *)
-            log "Invalid choice, defaulting to follower"
-            BLOCKCHAIN_MODE="follower"
-            ;;
-    esac
-
-    # Prompt for market role
-    echo ""
-    echo "=== Market Role Selection ==="
-    echo "Select the market role for this node:"
-    echo "  1) customer - Consumes GPU resources (default)"
-    echo "  2) shop     - Provides GPU resources"
-    read -p "Enter choice [1-2] (default: 1): " market_choice
-    market_choice=${market_choice:-1}
-
-    case "$market_choice" in
-        1)
-            MARKET_ROLE="customer"
-            ;;
-        2)
-            MARKET_ROLE="shop"
-            ;;
-        *)
-            log "Invalid choice, defaulting to customer"
-            MARKET_ROLE="customer"
-            ;;
-    esac
-
-    # Prompt for hardware profile
-    echo ""
-    echo "=== Hardware Profile Selection ==="
-    echo "Select the hardware profile for this node:"
-    echo "  1) nogpu - No GPU available (default)"
-    echo "  2) gpu   - GPU available for compute"
-    read -p "Enter choice [1-2] (default: 1): " hardware_choice
-    hardware_choice=${hardware_choice:-1}
-
-    case "$hardware_choice" in
-        1)
-            HARDWARE_PROFILE="nogpu"
-            ;;
-        2)
-            HARDWARE_PROFILE="gpu"
-            ;;
-        *)
-            log "Invalid choice, defaulting to nogpu"
-            HARDWARE_PROFILE="nogpu"
-            ;;
-    esac
     echo "Select the blockchain mode for this node:"
     echo "  1) follower - Receives blocks from hub (default for open island)"
     echo "  2) hub     - Produces and broadcasts blocks"
@@ -592,15 +667,24 @@ setup_node_identities() {
     PROPOSER_ID="ait1$(generate_uuid | tr -d '-')"
     P2P_NODE_ID="node-$(generate_uuid | tr -d '-')"
 
-    # Use pre-configured example if available, otherwise create minimal config
-    if [ -f "/opt/aitbc/examples/blockchain.env.open-island" ]; then
+    # Use pre-configured example if available AND no existing config, otherwise create minimal config
+    if [ -f "/etc/aitbc/blockchain.env" ]; then
+        # Existing config — preserve it, only add missing IDs
+        log "Preserving existing /etc/aitbc/blockchain.env"
+        if ! grep -q "^proposer_id=" /etc/aitbc/blockchain.env; then
+            set_env proposer_id "$PROPOSER_ID"
+            log "Added unique proposer_id to /etc/aitbc/blockchain.env"
+        else
+            log "proposer_id already exists in /etc/aitbc/blockchain.env"
+        fi
+    elif [ -f "/opt/aitbc/examples/blockchain.env.open-island" ]; then
         log "Using pre-configured open-island example as base..."
         cp /opt/aitbc/examples/blockchain.env.open-island /etc/aitbc/blockchain.env
         # Override with unique IDs
         set_env proposer_id "$PROPOSER_ID"
         set_env p2p_node_id "$P2P_NODE_ID"
         log "Configured blockchain.env from open-island example with unique IDs"
-    elif [ ! -f "/etc/aitbc/blockchain.env" ]; then
+    else
         log "Creating minimal blockchain.env with unique IDs..."
         cat > /etc/aitbc/blockchain.env << EOF
 # AITBC Blockchain Configuration
@@ -609,33 +693,34 @@ proposer_id=$PROPOSER_ID
 p2p_node_id=$P2P_NODE_ID
 gossip_backend=broadcast
 gossip_broadcast_url=redis://localhost:6379
-default_peer_rpc_url=http://127.0.0.1:8006
+default_peer_rpc_url=http://127.0.0.1:8202
 EOF
         log "Created /etc/aitbc/blockchain.env with unique IDs"
-    else
-        # Existing file - ensure proposer_id exists
-        if ! grep -q "^proposer_id=" /etc/aitbc/blockchain.env; then
-            set_env proposer_id "$PROPOSER_ID"
-            log "Added unique proposer_id to /etc/aitbc/blockchain.env"
-        else
-            log "proposer_id already exists in /etc/aitbc/blockchain.env"
-        fi
     fi
 
     # Ensure blockchain gossip defaults exist
     set_env gossip_backend broadcast
     set_env gossip_broadcast_url redis://localhost:6379
-    set_env default_peer_rpc_url http://127.0.0.1:8006
+    set_env default_peer_rpc_url http://127.0.0.1:8202
 
-    # Use pre-configured node.env example if available
-    if [ -f "/opt/aitbc/examples/node.env.open-island" ]; then
+    # Use pre-configured node.env example if available AND no existing config
+    if [ -f "/etc/aitbc/node.env" ]; then
+        # Existing config — preserve it, only add missing p2p_node_id
+        log "Preserving existing /etc/aitbc/node.env"
+        if ! grep -q "^p2p_node_id=" /etc/aitbc/node.env; then
+            echo "p2p_node_id=$P2P_NODE_ID" >> /etc/aitbc/node.env
+            log "Added unique p2p_node_id to /etc/aitbc/node.env"
+        else
+            log "p2p_node_id already exists in /etc/aitbc/node.env"
+        fi
+    elif [ -f "/opt/aitbc/examples/node.env.open-island" ]; then
         log "Using pre-configured open-island node.env example as base..."
         cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
         # Override with unique NODE_ID and p2p_node_id
         sed -i "s|^NODE_ID=.*|NODE_ID=aitbc|" /etc/aitbc/node.env
         sed -i "s|^p2p_node_id=.*|p2p_node_id=$P2P_NODE_ID|" /etc/aitbc/node.env
         log "Configured node.env from open-island example with unique IDs"
-    elif [ ! -f "/etc/aitbc/node.env" ]; then
+    else
         log "Creating minimal node.env with unique p2p_node_id..."
         cat > /etc/aitbc/node.env << EOF
 # AITBC Node-Specific Environment Configuration
@@ -653,14 +738,6 @@ p2p_node_id=$P2P_NODE_ID
 p2p_peers=
 EOF
         log "Created /etc/aitbc/node.env with unique p2p_node_id"
-    else
-        # Existing file - ensure p2p_node_id exists
-        if ! grep -q "^p2p_node_id=" /etc/aitbc/node.env; then
-            echo "p2p_node_id=$P2P_NODE_ID" >> /etc/aitbc/node.env
-            log "Added unique p2p_node_id to /etc/aitbc/node.env"
-        else
-            log "p2p_node_id already exists in /etc/aitbc/node.env"
-        fi
     fi
 
     success "Node identities setup completed"
@@ -765,6 +842,32 @@ setup_credentials() {
         echo "API_KEY_HASH_SECRET=$(cat /etc/aitbc/credentials/api_hash_secret)" >> /etc/aitbc/blockchain.env
         log "Added API_KEY_HASH_SECRET to blockchain.env"
     fi
+
+    # Write JWT_SECRET and API_KEY_HASH_SECRET to coordinator-api %N.env file
+    # systemd %N expands to unit name without .service suffix
+    local COORD_ENV="/etc/aitbc/aitbc-coordinator-api.env"
+    mkdir -p /etc/aitbc
+    if [ -f "$COORD_ENV" ]; then
+        # Update existing values or append
+        if grep -q "^JWT_SECRET=" "$COORD_ENV"; then
+            sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(cat /etc/aitbc/credentials/jwt_secret)|g" "$COORD_ENV"
+        else
+            echo "JWT_SECRET=$(cat /etc/aitbc/credentials/jwt_secret)" >> "$COORD_ENV"
+        fi
+        if grep -q "^API_KEY_HASH_SECRET=" "$COORD_ENV"; then
+            sed -i "s|^API_KEY_HASH_SECRET=.*|API_KEY_HASH_SECRET=$(cat /etc/aitbc/credentials/api_hash_secret)|g" "$COORD_ENV"
+        else
+            echo "API_KEY_HASH_SECRET=$(cat /etc/aitbc/credentials/api_hash_secret)" >> "$COORD_ENV"
+        fi
+    else
+        cat > "$COORD_ENV" << EOF
+# AITBC Coordinator API service-specific configuration
+JWT_SECRET=$(cat /etc/aitbc/credentials/jwt_secret)
+API_KEY_HASH_SECRET=$(cat /etc/aitbc/credentials/api_hash_secret)
+REDIS_URL=redis://localhost:6379/0
+EOF
+    fi
+    log "Wrote JWT_SECRET and API_KEY_HASH_SECRET to $COORD_ENV"
 
     # Generate runtime secrets file for systemd services
     log "Generating runtime secrets file..."
@@ -899,31 +1002,27 @@ install_services() {
         /opt/aitbc/scripts/utils/link-systemd.sh
     else
         warning "link-systemd.sh not found, using manual installation..."
-        # Install core services
-        services=(
-            "aitbc-wallet.service"
-            "aitbc-coordinator-api.service"
-            "aitbc-exchange-api.service"
-            "aitbc-blockchain-node.service"
-            "aitbc-blockchain-rpc.service"
-            "aitbc-marketplace.service"
-            "aitbc-hermes.service"
-            "aitbc-ai.service"
-            "aitbc-learning.service"
-            "aitbc-explorer.service"
-            "aitbc-web-ui.service"
-            "aitbc-agent-coordinator.service"
-            "aitbc-agent-registry.service"
-            "aitbc-multimodal.service"
-            "aitbc-modality-optimization.service"
-        )
+        # Install services based on node role
+        local role
+        role=$(get_node_role)
+        local role_services
+        read -ra role_services <<< "$(get_services_for_role "$role")"
+        log "Installing ${#role_services[@]} services for role '$role'..."
 
-        for service in "${services[@]}"; do
-            if [ -f "/opt/aitbc/systemd/$service" ]; then
-                log "Installing $service..."
-                ln -sf "/opt/aitbc/systemd/$service" /etc/systemd/system/
+        for svc_base in "${role_services[@]}"; do
+            # Handle both .service and .timer units
+            if [[ "$svc_base" == *.timer ]]; then
+                local unit="${svc_base}"
             else
-                warning "Service file not found: $service"
+                local unit="${svc_base}.service"
+            fi
+            # Find unit file in app directories
+            svc_file=$(find /opt/aitbc/apps /opt/aitbc/scripts -name "$unit" -print -quit 2>/dev/null)
+            if [ -n "$svc_file" ]; then
+                log "Installing $unit..."
+                ln -sf "$svc_file" /etc/systemd/system/
+            else
+                warning "Unit file not found: $unit"
             fi
         done
 
@@ -944,6 +1043,47 @@ EOF
     success "Systemd services installed"
 }
 
+# Setup backup service
+setup_backup() {
+    log "Setting up backup service..."
+
+    local backup_script="/opt/aitbc/scripts/maintenance/aitbc-backup.sh"
+    local backup_service="/opt/aitbc/scripts/maintenance/aitbc-backup.service"
+    local backup_timer="/opt/aitbc/scripts/maintenance/aitbc-backup.timer"
+
+    if [ ! -f "$backup_script" ]; then
+        warning "Backup script not found: $backup_script"
+        return 0
+    fi
+
+    # Make script executable
+    chmod +x "$backup_script"
+
+    # Create backup directory
+    mkdir -p /var/backups/aitbc
+
+    # Link service and timer files if they exist
+    if [ -f "$backup_service" ]; then
+        ln -sf "$backup_service" /etc/systemd/system/
+    else
+        warning "Backup service file not found: $backup_service"
+    fi
+
+    if [ -f "$backup_timer" ]; then
+        ln -sf "$backup_timer" /etc/systemd/system/
+    else
+        warning "Backup timer file not found: $backup_timer"
+    fi
+
+    systemctl daemon-reload
+
+    # Enable and start the timer
+    systemctl enable aitbc-backup.timer 2>/dev/null && log "  Backup timer enabled" || warning "  Could not enable backup timer"
+    systemctl start aitbc-backup.timer 2>/dev/null && log "  Backup timer started" || warning "  Could not start backup timer"
+
+    success "Backup service configured (daily at 01:00, 30-day retention)"
+}
+
 prepare_health_check() {
     log "Preparing health check script..."
 
@@ -961,50 +1101,61 @@ prepare_health_check() {
 start_services() {
     log "Starting AITBC services..."
 
-    # Try systemd first
-    if systemctl start aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-gpu aitbc-marketplace aitbc-hermes aitbc-ai aitbc-learning aitbc-explorer aitbc-agent-coordinator aitbc-agent-registry aitbc-multimodal aitbc-modality-optimization 2>/dev/null; then
-        log "Services started via systemd"
-        sleep 5
+    local role
+    role=$(get_node_role)
+    log "Node role: $role"
 
-        # Check if services are running
-        if systemctl is-active --quiet aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-gpu aitbc-marketplace aitbc-hermes aitbc-ai aitbc-learning aitbc-explorer aitbc-agent-coordinator aitbc-agent-registry aitbc-multimodal aitbc-modality-optimization; then
-            success "Services started successfully via systemd"
+    # Get services for this role
+    local services
+    read -ra services <<< "$(get_services_for_role "$role")"
+    log "Starting ${#services[@]} services for role '$role'..."
+
+    local failed=()
+    for svc in "${services[@]}"; do
+        if systemctl start "$svc" 2>/dev/null; then
+            log "  Started: $svc"
         else
-            warning "Some systemd services failed, falling back to manual startup"
-            /opt/aitbc/start-services.sh
+            warning "  Failed to start: $svc"
+            failed+=("$svc")
         fi
-    else
-        log "Systemd services not available, using manual startup"
-        /opt/aitbc/start-services.sh
-    fi
+    done
 
     # Wait for services to initialize
     sleep 10
 
+    # Report status
+    local active_count=0
+    for svc in "${services[@]}"; do
+        if systemctl is-active --quiet "$svc" 2>/dev/null; then
+            ((active_count++))
+        fi
+    done
+    log "Services active: ${active_count}/${#services[@]}"
+
+    if [ "${#failed[@]}" -gt 0 ]; then
+        warning "Failed services: ${failed[*]}"
+        warning "Check logs: journalctl -u <service-name> -f"
+    fi
+
     # Run health check
-    "$HEALTH_CHECK_SCRIPT"
+    "$HEALTH_CHECK_SCRIPT" || warning "Health check reported issues"
 }
 
 # Setup auto-start
 setup_autostart() {
     log "Setting up auto-start..."
 
-    # Enable services for auto-start on boot
-    systemctl enable aitbc-wallet.service
-    systemctl enable aitbc-coordinator-api.service
-    systemctl enable aitbc-exchange-api.service
-    systemctl enable aitbc-blockchain-node.service
-    systemctl enable aitbc-blockchain-rpc.service
-    systemctl enable aitbc-marketplace.service
-    systemctl enable aitbc-hermes.service
-    systemctl enable aitbc-ai.service
-    systemctl enable aitbc-learning.service
-    systemctl enable aitbc-explorer.service
-    systemctl enable aitbc-web-ui.service
-    systemctl enable aitbc-agent-coordinator.service
-    systemctl enable aitbc-agent-registry.service
-    systemctl enable aitbc-multimodal.service
-    systemctl enable aitbc-modality-optimization.service
+    local role
+    role=$(get_node_role)
+    log "Node role: $role"
+
+    local services
+    read -ra services <<< "$(get_services_for_role "$role")"
+    log "Enabling ${#services[@]} services for role '$role'..."
+
+    for svc in "${services[@]}"; do
+        systemctl enable "$svc" 2>/dev/null && log "  Enabled: $svc" || warning "  Could not enable: $svc"
+    done
 
     success "Auto-start configured"
 }
@@ -1014,49 +1165,53 @@ main() {
     echo "=== AITBC SETUP STARTED ==="
     log "Starting AITBC setup..."
 
-    echo "[STEP 1/10] Checking root privileges..."
+    echo "[STEP 1/12] Checking root privileges..."
     check_root
-    echo "[STEP 1/10] ✓ Root privileges verified"
+    echo "[STEP 1/12] ✓ Root privileges verified"
 
-    echo "[STEP 2/10] Checking prerequisites..."
+    echo "[STEP 2/12] Checking prerequisites..."
     check_prerequisites
-    echo "[STEP 2/10] ✓ Prerequisites check passed"
+    echo "[STEP 2/12] ✓ Prerequisites check passed"
 
-    echo "[STEP 3/10] Cloning repository..."
+    echo "[STEP 3/12] Cloning repository..."
     clone_repo
-    echo "[STEP 3/10] ✓ Repository cloned"
+    echo "[STEP 3/12] ✓ Repository cloned"
 
-    echo "[STEP 4/10] Setting up runtime directories..."
+    echo "[STEP 4/12] Setting up runtime directories..."
     setup_runtime_directories
-    echo "[STEP 4/10] ✓ Runtime directories created"
+    echo "[STEP 4/12] ✓ Runtime directories created"
 
-    echo "[STEP 5/11] Setting up service users..."
+    echo "[STEP 5/12] Setting up service users..."
     setup_service_users
-    echo "[STEP 5/11] ✓ Service users created"
+    echo "[STEP 5/12] ✓ Service users created"
 
-    echo "[STEP 6/11] Setting up PostgreSQL databases..."
+    echo "[STEP 6/12] Setting up PostgreSQL databases..."
     setup_postgresql_databases
-    echo "[STEP 6/11] ✓ PostgreSQL databases configured"
+    echo "[STEP 6/12] ✓ PostgreSQL databases configured"
 
-    echo "[STEP 7/11] Setting up node profiles..."
+    echo "[STEP 7/12] Setting up node profiles..."
     setup_node_profiles
-    echo "[STEP 7/11] ✓ Node profiles configured"
+    echo "[STEP 7/12] ✓ Node profiles configured"
 
-    echo "[STEP 8/11] Setting up node identities..."
+    echo "[STEP 8/12] Setting up node identities..."
     setup_node_identities
-    echo "[STEP 8/11] ✓ Node identities configured"
+    echo "[STEP 8/12] ✓ Node identities configured"
 
-    echo "[STEP 9/11] Setting up credentials..."
+    echo "[STEP 9/12] Setting up credentials..."
     setup_credentials
-    echo "[STEP 9/11] ✓ Credentials configured"
+    echo "[STEP 9/12] ✓ Credentials configured"
 
-    echo "[STEP 10/11] Setting up virtual environments..."
+    echo "[STEP 10/12] Setting up virtual environments..."
     setup_venvs
-    echo "[STEP 10/11] ✓ Virtual environments created"
+    echo "[STEP 10/12] ✓ Virtual environments created"
 
-    echo "[STEP 11/11] Installing systemd services..."
+    echo "[STEP 11/12] Installing systemd services..."
     install_services
-    echo "[STEP 11/11] ✓ Systemd services installed"
+    echo "[STEP 11/12] ✓ Systemd services installed"
+
+    echo "[STEP 12/12] Setting up backup service..."
+    setup_backup
+    echo "[STEP 12/12] ✓ Backup service configured"
 
     echo "[PREPARING] Preparing health check..."
     echo "[VALIDATING] Validating hub connection..."
@@ -1077,9 +1232,12 @@ main() {
     echo "=== AITBC SETUP COMPLETED ==="
     echo ""
     echo "Service Information:"
-    echo "  Wallet API: http://localhost:8015/health"
-    echo "  Exchange API: http://localhost:8010/api/health"
+    echo "  Wallet API: http://localhost:8108/health"
+    echo "  Exchange API: http://localhost:8106/api/health"
     echo "  Coordinator API: http://localhost:8203/health"
+    echo "  API Gateway: http://localhost:8201/health"
+    echo "  Blockchain RPC: http://localhost:8202/health"
+    echo "  Event Bridge: http://localhost:8205/health"
     echo ""
     echo "Runtime Directories:"
     echo "  Keystore: /var/lib/aitbc/keystore/"
@@ -1088,17 +1246,22 @@ main() {
     echo "  Config: /etc/aitbc/"
     echo "  Credentials: /etc/aitbc/credentials/ (600 permissions)"
     echo "  Runtime secrets: /run/aitbc/secrets/ (tmpfs)"
+    echo "  Backups: /var/backups/aitbc/ (30-day retention)"
     echo ""
     echo "Management Commands:"
     echo "  Health check: $HEALTH_CHECK_SCRIPT"
     echo "  Load secrets: /opt/aitbc/scripts/utils/load-keystore-secrets.sh"
-    echo "  Restart services: systemctl restart aitbc-wallet aitbc-coordinator-api aitbc-exchange-api"
+    echo "  Restart services: systemctl restart aitbc-wallet aitbc-coordinator-api aitbc-exchange"
     echo "  View logs: journalctl -u aitbc-wallet -f"
+    echo "  Manual backup: /opt/aitbc/scripts/maintenance/aitbc-backup.sh"
+    echo "  Backup timer: systemctl status aitbc-backup.timer"
     echo ""
     echo "Security Notes:"
     echo "  - Secrets stored in /etc/aitbc/credentials/ with 600 permissions"
     echo "  - Services load secrets at runtime via systemd ExecStartPre"
     echo "  - API_KEY_HASH_SECRET required (no insecure default)"
+    echo "  - Per-service env files in /etc/aitbc/<service-name>.env (systemd %N.env)"
+    echo "  - DATABASE_URL includes credentials (generated by setup_postgresql_databases.sh)"
 }
 
 # Run main function

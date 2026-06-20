@@ -276,17 +276,18 @@ async def get_network_info_route(request: Request) -> dict[str, Any]:
     if request.url.scheme:
         protocol = request.url.scheme
     contact_email = os.getenv("CONTACT_EMAIL", "andreas.fleckl@bubuit.net")
+    rpc_endpoint = f"{protocol}://{hostname}/rpc"
     return {
         "p2p_endpoint": p2p_endpoint,
         "p2p_node_id": p2p_node_id,
         "chain_id": chain_id,
         "network_type": "open_island",
         "supported_chains": supported_chains,
-        "connection_instructions": f"Connect via P2P protocol to {p2p_endpoint}",
-        "rpc_endpoint": f"{protocol}://{hostname}/rpc",
+        "connection_instructions": f"Set default_peer_rpc_url={rpc_endpoint} and enable subscription (subscription_enabled=true, subscription_transport=websocket). Blocks are pushed via WebSocket to {rpc_endpoint}/subscribe/ws",
+        "rpc_endpoint": rpc_endpoint,
         "api_gateway": f"{protocol}://{hostname}/api",
         "contact_email": contact_email,
-        "version": "0.4.3",
+        "version": "0.5.4",
     }
 
 

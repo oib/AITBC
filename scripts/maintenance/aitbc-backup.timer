@@ -1,0 +1,11 @@
+[Unit]
+Description=AITBC Daily Backup Timer
+Requires=aitbc-backup.service
+
+[Timer]
+OnCalendar=*-*-* 01:00:00
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target
