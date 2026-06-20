@@ -233,6 +233,71 @@ async def api_chain_head(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]
     return await get_chain_head(chain_id)  # type: ignore[arg-type]
 
 
+@app.get("/api/analytics/activity")
+async def api_activity_timeline(
+    chain_id: str | None = DEFAULT_CHAIN,
+    days: int = 30,
+) -> dict[str, Any]:
+    """Get daily transaction counts for activity timeline chart"""
+    try:
+        import sqlite3
+        from pathlib import Path
+        from datetime import datetime, timedelta
+
+        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        if not chain_db_path.exists():
+            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+
+        if not chain_db_path.exists():
+            return {"labels": [], "datasets": []}
+
+        conn = sqlite3.connect(str(chain_db_path))
+        cursor = conn.cursor()
+
+        # Get daily transaction counts for the last N days
+        cursor.execute("""
+            SELECT DATE(created_at) as day, type, COUNT(*) as count
+            FROM "transaction"
+            WHERE created_at >= datetime('now', '-{} days')
+            GROUP BY DATE(created_at), type
+            ORDER BY day
+        """.format(days))
+
+        # Organize by day and type
+        data: dict[str, dict[str, int]] = {}
+        tx_types: set[str] = set()
+        for row in cursor.fetchall():
+            day, tx_type, count = row
+            if day not in data:
+                data[day] = {}
+            data[day][tx_type] = count
+            tx_types.add(tx_type)
+
+        conn.close()
+
+        labels = sorted(data.keys())
+        type_colors = {
+            "TRANSFER": "#10b981",
+            "GPU_MARKETPLACE": "#3b82f6",
+            "ESCROW_RELEASE": "#8b5cf6",
+            "FAUCET": "#f59e0b",
+            "GPU_REGISTER": "#ef4444",
+        }
+
+        datasets = []
+        for tx_type in sorted(tx_types):
+            datasets.append({
+                "label": tx_type,
+                "data": [data.get(day, {}).get(tx_type, 0) for day in labels],
+                "backgroundColor": type_colors.get(tx_type, "#6b7280"),
+            })
+
+        return {"labels": labels, "datasets": datasets}
+    except Exception as e:
+        print(f"Error getting activity timeline: {e}")
+        return {"labels": [], "datasets": []}
+
+
 @app.get("/api/blocks/latest")
 async def api_latest_blocks(
     chain_id: str | None = DEFAULT_CHAIN,

@@ -521,6 +521,12 @@ input[type="number"] {
     border-top: 1px solid var(--border);
 }
 
+/* Activity chart */
+#activity-chart-container {
+    height: 280px;
+    margin-top: 1rem;
+}
+
 /* Explorer-specific styles */
 .explorer-container {
     max-width: 1200px;
