@@ -283,33 +283,33 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="transactions-header">Transactions (${item.transactions.length}):</div>
                             ${item.transactions.map(tx => {
                                 let txDetails = '';
-                                if (tx.type === 'GPU_MARKETPLACE') {
-                                    try {
-                                        const payload = typeof tx.payload === 'string' ? JSON.parse(tx.payload) : tx.payload;
-                                        if (payload.action === 'offer') {
-                                            txDetails = `
-                                                <div class="tx-marketplace-details">
+                                try {
+                                    const payload = typeof tx.payload === 'string' ? JSON.parse(tx.payload) : tx.payload;
+                                    if (typeof payload === 'object' && payload !== null) {
+                                        const detailRows = Object.entries(payload)
+                                            .filter(([key]) => key !== 'chain_id' && key !== 'island_id')
+                                            .map(([key, value]) => {
+                                                let displayValue = value;
+                                                if (typeof value === 'object') {
+                                                    displayValue = JSON.stringify(value);
+                                                }
+                                                if (String(displayValue).length > 60) {
+                                                    displayValue = String(displayValue).substring(0, 57) + '...';
+                                                }
+                                                return `
                                                     <div class="tx-detail-item">
-                                                        <span class="tx-detail-label">Offer ID:</span>
-                                                        <span class="tx-detail-value">${payload.offer_id || 'N/A'}</span>
+                                                        <span class="tx-detail-label">${key}:</span>
+                                                        <span class="tx-detail-value">${displayValue}</span>
                                                     </div>
-                                                    <div class="tx-detail-item">
-                                                        <span class="tx-detail-label">Description:</span>
-                                                        <span class="tx-detail-value">${payload.description || 'N/A'}</span>
-                                                    </div>
-                                                    <div class="tx-detail-item">
-                                                        <span class="tx-detail-label">Price:</span>
-                                                        <span class="tx-detail-value">${payload.price_per_hour || 0} per hour</span>
-                                                    </div>
-                                                    <div class="tx-detail-item">
-                                                        <span class="tx-detail-label">Provider:</span>
-                                                        <span class="tx-detail-value">${payload.provider_node_id || tx.sender || 'N/A'}</span>
-                                                    </div>
-                                                </div>
-                                            `;
+                                                `;
+                                            }).join('');
+                                        if (detailRows) {
+                                            txDetails = `<div class="tx-marketplace-details">${detailRows}</div>`;
                                         }
-                                    } catch (e) {
-                                        console.error('Error parsing marketplace payload:', e);
+                                    }
+                                } catch (e) {
+                                    if (tx.payload) {
+                                        txDetails = `<div class="tx-marketplace-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${tx.payload}</span></div></div>`;
                                     }
                                 }
                                 
@@ -350,9 +350,33 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${transactionsHtml}
                 `;
             } else {
+                // Parse payload for transaction details
+                let payloadDetails = '';
+                try {
+                    const payload = typeof item.payload === 'string' ? JSON.parse(item.payload) : item.payload;
+                    if (typeof payload === 'object' && payload !== null) {
+                        const rows = Object.entries(payload)
+                            .filter(([key]) => key !== 'chain_id' && key !== 'island_id')
+                            .map(([key, value]) => {
+                                let displayValue = value;
+                                if (typeof value === 'object') displayValue = JSON.stringify(value);
+                                if (String(displayValue).length > 60) displayValue = String(displayValue).substring(0, 57) + '...';
+                                return `<div class="tx-detail-item"><span class="tx-detail-label">${key}:</span><span class="tx-detail-value">${displayValue}</span></div>`;
+                            }).join('');
+                        if (rows) payloadDetails = `<div class="tx-marketplace-details">${rows}</div>`;
+                    }
+                } catch (e) {
+                    if (item.payload) {
+                        payloadDetails = `<div class="tx-marketplace-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${item.payload}</span></div></div>`;
+                    }
+                }
+                
                 details = `
                     <div class="result-hash">
                         Hash: ${item.tx_hash || item.hash || 'N/A'}
+                    </div>
+                    <div class="result-detail">
+                        Type: ${item.type || 'Unknown'}
                     </div>
                     <div class="result-detail">
                         Block: ${item.block_height || 'N/A'}
@@ -363,6 +387,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="result-detail">
                         To: ${item.to || item.recipient || 'N/A'}
                     </div>
+                    ${payloadDetails}
                 `;
             }
 
@@ -370,7 +395,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="endpoint fade-in block-item">
                 <div class="block-header">
                     <div class="flex-center">
-                        <span class="badge badge-primary">${type === 'block' ? '#' + item.height : item.tx_hash || item.hash || 'N/A'}</span>
+                        <span class="badge badge-primary">${type === 'block' ? '#' + item.height : (item.type ? item.type + ' - ' : '') + (item.tx_hash || item.hash || 'N/A').substring(0, 16) + '...'}</span>
                     </div>
                     <div class="result-timestamp">
                         ${timestamp}
