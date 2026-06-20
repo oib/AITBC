@@ -277,4 +277,36 @@ document.addEventListener('DOMContentLoaded', function() {
     // Auto-refresh every 30 seconds
     setInterval(fetchOffers, 30000);
     setInterval(updateTimestamp, 30000);
+    setInterval(checkServiceHealth, 30000);
+    checkServiceHealth();
 });
+
+// Service health check
+async function checkServiceHealth() {
+    const services = [
+        { name: 'marketplace', url: '/v1/marketplace/status' },
+        { name: 'explorer', url: '/api/chain/head' },
+        { name: 'coordinator', url: '/v1/explorer/status' },
+    ];
+
+    for (const svc of services) {
+        const start = performance.now();
+        try {
+            const response = await fetch(svc.url, { method: 'GET' });
+            const latency = Math.round(performance.now() - start);
+            const up = response.ok;
+            updateHealthItem(svc.name, up, latency);
+        } catch (e) {
+            updateHealthItem(svc.name, false, 0);
+        }
+    }
+}
+
+function updateHealthItem(name, up, latency) {
+    const item = document.querySelector(`.health-item[data-service="${name}"]`);
+    if (!item) return;
+    const statusEl = item.querySelector('.health-status');
+    const latencyEl = item.querySelector('.health-latency');
+    statusEl.className = 'health-status ' + (up ? 'up' : 'down');
+    latencyEl.textContent = up ? `${latency}ms` : 'DOWN';
+}
