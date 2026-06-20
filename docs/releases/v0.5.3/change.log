@@ -300,7 +300,7 @@ already in place.
 
 **Acceptance Criteria:**
 - [x] Tests for `explorer.py` CLI commands
-- [ ] Coverage increased to 65%
+- [x] Coverage increased to 65%
 
 **Progress (Agent A, v0.5.3):** Added 39 unit tests for all 14 explorer CLI
 subcommands (`cli/tests/test_explorer.py`). Tests cover success paths, not-found
@@ -310,7 +310,16 @@ handling, and generic exception handling. Also fixed test collection for all
 guard and adding `cli/tests/conftest.py` for sys.path setup. Previously 0 tests
 could collect (ImportError); now 64 pass.
 
-Remaining: blockchain explorer API tests and marketplace integration tests.
+**Progress (Agent A, v0.5.3 — API tests):** Added 48 API endpoint tests for
+`apps/blockchain-explorer/main.py` (`tests/test_api_endpoints.py`). Tests cover
+all public endpoints: chains, health, chain/head, blocks (latest, non-empty,
+by height, by hash), transactions (by hash, search, normalized), analytics
+(activity, network-stats, top-addresses, provider-reputation, overview),
+advanced search (transactions, blocks via data layer), export (CSV/JSON for
+search and blocks), and SSRF validation helpers. Coverage: 35% → 67% (target
+was 65%). All 93 explorer API tests pass (48 new + 45 existing).
+
+Remaining: marketplace integration tests (deferred to v0.5.4+).
 
 ---
 
@@ -509,7 +518,7 @@ Tasks are split to avoid file conflicts. Agent A owns `cli/` and project root. A
 | B5 | P1.7 Website URLs | `website/exchange.js`, `website/explorer.js`, `website/marketplace.js` | ✅ DONE — 2 absolute URLs in exchange.js → relative paths; verified no absolute URLs remain |
 | B6 | Item 13 Chain ID Config | `website/config.js` (new), all `website/*.html` | ✅ DONE — created `config.js` with `window.AITBC_CONFIG`; explorer.js + marketplace.js use it; added `<script>` to explorer.html + marketplace.html |
 | B7 | P2.9 Mypy Config | `pyproject.toml`, `pyproject.toml.new` | ✅ DONE by Agent A — `pyproject.toml.new` deleted (mypy config already present in `pyproject.toml`) |
-| B8 | P2.10 Test Coverage | `tests/` | ✅ DONE by Agent A — 39 unit tests for explorer CLI commands (`cli/tests/test_explorer.py`); all 39 pass; also fixed test collection (64 tests now collect) |
+| B8 | P2.10 Test Coverage | `tests/` | ✅ DONE — 39 explorer CLI tests + 48 explorer API tests (87 total); explorer API coverage 35%→67% (target 65% met); also fixed CLI test collection (64 tests now collect) |
 | B9 | P1.8 Secrets Baseline | `.secrets.baseline` | ✅ DONE — regenerated: 3394→2658 lines, 55 stale entries removed, audit passes |
 
 **Agent B Acceptance Criteria:**
