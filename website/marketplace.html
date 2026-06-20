@@ -74,6 +74,56 @@
             </div>
         </div>
 
+        <!-- Create Offer -->
+        <div class="card">
+            <h2>Create Offer</h2>
+            <form id="create-offer-form" class="offer-form">
+                <div class="form-row">
+                    <label>Service Type</label>
+                    <select name="service_type" required>
+                        <option value="ollama">Ollama</option>
+                        <option value="whisper">Whisper</option>
+                        <option value="peertube_pruner">PeerTube Pruner</option>
+                        <option value="ffmpeg">FFmpeg</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Model</label>
+                    <input type="text" name="model" placeholder="e.g. llama3, base" required>
+                </div>
+                <div class="form-row">
+                    <label>Price</label>
+                    <input type="number" name="price" step="0.01" placeholder="0.00" required>
+                </div>
+                <div class="form-row">
+                    <label>Price Unit</label>
+                    <select name="price_unit">
+                        <option value="per_1k_tokens">per 1k tokens</option>
+                        <option value="per_audio_min">per audio min</option>
+                        <option value="per_processing_hour">per processing hour</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Endpoint</label>
+                    <input type="text" name="public_endpoint" placeholder="http://..." required>
+                </div>
+                <div class="form-row">
+                    <label>Provider Address</label>
+                    <input type="text" name="provider_address" placeholder="Node ID or wallet address" required>
+                </div>
+                <div class="form-row">
+                    <label>GPU Name</label>
+                    <input type="text" name="gpu_name" placeholder="e.g. NVIDIA RTX 4090">
+                </div>
+                <div class="form-row">
+                    <label>Description</label>
+                    <textarea name="description" rows="2" placeholder="Short description of the offer"></textarea>
+                </div>
+                <button type="submit" class="btn-primary">Submit Offer</button>
+                <p id="offer-form-status" class="endpoint-note" style="margin-top:0.5rem;"></p>
+            </form>
+        </div>
+
         <!-- Filter Card -->
         <div class="card">
             <h2>Filter Offers</h2>
