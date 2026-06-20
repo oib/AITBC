@@ -99,23 +99,14 @@
                 document.getElementById('block-height-badge').textContent = `#${data.height}`;
                 document.getElementById('block-hash-display').textContent = data.hash || '';
 
-                function linkableHash(hash) {
+                function plainHash(hash) {
                     if (!hash || hash === 'N/A') return 'N/A';
-                    return `<span class="clickable-value" onclick="navigator.clipboard.writeText('${hash}');this.style.color='var(--success)';setTimeout(()=>this.style.color='',800)" title="Click to copy">${hash}</span>`;
+                    return `<span style="font-family:var(--font-mono);">${hash}</span>`;
                 }
                 function linkableAddress(addr) {
                     if (!addr || addr === 'N/A') return 'N/A';
                     return `<a href="/search.html?query=${encodeURIComponent(addr)}" class="clickable-value" title="Search address">${addr}</a>`;
                 }
-
-                const details = [
-                    { label: 'Height', value: data.height },
-                    { label: 'Hash', value: linkableHash(data.hash) + ' ' + copyBtn(data.hash || '') },
-                    { label: 'Proposer', value: linkableAddress(data.proposer) + ' ' + copyBtn(data.proposer || '') },
-                    { label: 'Timestamp', value: data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A' },
-                    { label: 'Transactions', value: data.txCount ?? data.transactions?.length ?? 0 },
-                    { label: 'State Root', value: linkableHash(data.stateRoot) + ' ' + copyBtn(data.stateRoot || '') },
-                ];
 
                 function addrLink(addr) {
                     if (!addr || addr === 'N/A') return 'N/A';
@@ -126,11 +117,11 @@
                     <div class="endpoint fade-in block-item" style="padding:0;">
                         <table class="block-list-table">
                             <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> #${data.height}</td></tr>
-                            <tr><td>Hash</td><td>${linkableHash(data.hash)} ${copyBtn(data.hash || '')}</td></tr>
+                            <tr><td>Hash</td><td>${plainHash(data.hash)} ${copyBtn(data.hash || '')}</td></tr>
                             <tr><td>Proposer</td><td>${linkableAddress(data.proposer)} ${copyBtn(data.proposer || '')}</td></tr>
                             <tr><td>Timestamp</td><td>${data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A'}</td></tr>
                             <tr><td>Transactions</td><td>${data.txCount ?? data.transactions?.length ?? 0}</td></tr>
-                            <tr><td>State Root</td><td>${linkableHash(data.stateRoot)} ${copyBtn(data.stateRoot || '')}</td></tr>
+                            <tr><td>State Root</td><td>${plainHash(data.stateRoot)} ${copyBtn(data.stateRoot || '')}</td></tr>
                         </table>
                     </div>
                 `;
