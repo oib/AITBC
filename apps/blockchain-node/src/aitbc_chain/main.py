@@ -153,7 +153,8 @@ class BlockchainNode:
             from .mempool import get_mempool
             from .rpc.utils import normalize_transaction_data
 
-            mempool = get_mempool()
+            from .mempool import get_mempool as get_mempool_instance
+            mempool = get_mempool_instance()
             while True:
                 try:
                     tx_data = await tx_sub.queue.get()
