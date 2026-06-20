@@ -18,28 +18,32 @@
         .detail-header h2 {
             margin: 0;
         }
-        .detail-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1rem;
+        .detail-list {
+            width: 100%;
+            border-collapse: collapse;
             margin-bottom: 1.5rem;
+            font-size: 0.9rem;
         }
-        .detail-card {
-            background: var(--code);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 1rem;
+        .detail-list tr {
+            border-bottom: 1px solid var(--border);
         }
-        .detail-label {
+        .detail-list tr:last-child {
+            border-bottom: none;
+        }
+        .detail-list td {
+            padding: 0.6rem 0.75rem;
+            vertical-align: top;
+        }
+        .detail-list td:first-child {
             color: var(--text-muted);
             font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-bottom: 0.25rem;
+            width: 140px;
+            white-space: nowrap;
         }
-        .detail-value {
+        .detail-list td:last-child {
             font-family: var(--font-mono);
-            font-size: 0.9rem;
             word-break: break-all;
         }
         .tx-list {
@@ -80,7 +84,7 @@
                 <span id="block-hash-display" class="detail-value" style="font-size:0.8rem;color:var(--text-muted);"></span>
             </div>
 
-            <div class="detail-grid" id="block-details"></div>
+            <table class="detail-list" id="block-details"></table>
 
             <div class="card">
                 <h2>Transactions <span id="tx-count"></span></h2>
@@ -142,10 +146,7 @@
                 ];
 
                 document.getElementById('block-details').innerHTML = details.map(d => `
-                    <div class="detail-card">
-                        <div class="detail-label">${d.label}</div>
-                        <div class="detail-value">${d.value}</div>
-                    </div>
+                    <tr><td>${d.label}</td><td>${d.value}</td></tr>
                 `).join('');
 
                 const txs = data.transactions || [];
