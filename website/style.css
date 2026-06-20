@@ -985,6 +985,52 @@ button:active {
     color: var(--text);
     text-decoration: none;
 }
+.offer-form {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+.form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.form-row label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+.form-row input,
+.form-row select,
+.form-row textarea {
+    padding: 0.6rem 0.75rem;
+    background: var(--code);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.9rem;
+}
+.form-row input:focus,
+.form-row select:focus,
+.form-row textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+.btn-primary {
+    padding: 0.6rem 1.25rem;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: 500;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.btn-primary:hover {
+    background: var(--primary-dark);
+}
+
 .top-addresses-table td a:hover {
     text-decoration: underline;
 }
