@@ -1,9 +1,0 @@
-aitbc
-aitbc_cli
-auth
-config_data
-handlers
-models
-security
-tests
-utils
