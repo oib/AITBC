@@ -326,7 +326,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     transactionsHtml = `
                         <div class="block-transactions">
-                            <div class="transactions-header">Transactions: ${item.tx_count || 0}</div>
+                            <div class="transactions-header">Transactions: ${item.txCount || item.tx_count || 0}</div>
                             <div class="no-transactions">No transactions in this block</div>
                         </div>
                     `;

@@ -263,10 +263,32 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
             """, (clean_hash.lower(),))
             
             result = cursor.fetchone()
-            conn.close()
             
             if result:
                 height, block_hash, proposer, timestamp, tx_count, state_root = result
+                
+                # Get transactions for this block
+                cursor.execute("""
+                    SELECT tx_hash, sender, recipient, payload, type, status, created_at
+                    FROM "transaction" 
+                    WHERE block_height = ?
+                    ORDER BY created_at
+                """, (height,))
+                
+                transactions = []
+                for row in cursor.fetchall():
+                    tx_hash, sender, recipient, payload, tx_type, status, created_at = row
+                    transactions.append({
+                        "tx_hash": tx_hash,
+                        "sender": sender,
+                        "recipient": recipient,
+                        "payload": payload,
+                        "type": tx_type,
+                        "status": status,
+                        "created_at": created_at,
+                    })
+                
+                conn.close()
                 return {
                     "height": height,
                     "hash": block_hash,
@@ -274,7 +296,10 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
                     "timestamp": timestamp,
                     "txCount": tx_count,
                     "stateRoot": state_root,
+                    "transactions": transactions,
                 }
+            
+            conn.close()
         
         # Fallback to RPC method
         rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
