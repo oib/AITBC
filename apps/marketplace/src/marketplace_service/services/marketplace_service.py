@@ -214,12 +214,14 @@ class MarketplaceService:
                     conn = sqlite3.connect(str(chain_db_path))
                     cursor = conn.cursor()
                     
-                    # Query GPU_MARKETPLACE transactions
+                    # Query GPU_MARKETPLACE transactions with block information
                     cursor.execute("""
-                        SELECT type, payload, sender, recipient, created_at, timestamp, tx_hash
-                        FROM "transaction" 
-                        WHERE type = 'GPU_MARKETPLACE'
-                        ORDER BY created_at DESC
+                        SELECT t.type, t.payload, t.sender, t.recipient, t.created_at, t.timestamp, t.tx_hash, 
+                               t.block_height, b.hash as block_hash, b.timestamp as block_timestamp, b.proposer
+                        FROM "transaction" t
+                        LEFT JOIN block b ON t.block_height = b.height
+                        WHERE t.type = 'GPU_MARKETPLACE'
+                        ORDER BY t.created_at DESC
                         LIMIT 500
                     """)
                     
@@ -228,7 +230,7 @@ class MarketplaceService:
                     
                     import json
                     for row in rows:
-                        tx_type, payload_str, sender, recipient, created_at, timestamp, tx_hash = row
+                        tx_type, payload_str, sender, recipient, created_at, timestamp, tx_hash, block_height, block_hash, block_timestamp, proposer = row
                         try:
                             payload = json.loads(payload_str) if isinstance(payload_str, str) else payload_str
                             if isinstance(payload, dict) and payload.get("action") == "offer":
@@ -255,6 +257,13 @@ class MarketplaceService:
                                     "updated_at": created_at,
                                     "avg_rating": 0,
                                     "rating_count": 0,
+                                    # Blockchain verification information
+                                    "block_height": block_height,
+                                    "block_hash": block_hash,
+                                    "block_timestamp": block_timestamp,
+                                    "block_proposer": proposer,
+                                    "tx_hash": tx_hash,
+                                    "confirmed": block_height is not None,
                                 })
                         except Exception as e:
                             logger.warning("Failed to parse blockchain payload: %s", e)
@@ -296,6 +305,13 @@ class MarketplaceService:
                     "updated_at": s.updated_at.isoformat() if s.updated_at else None,
                     "avg_rating": s.avg_rating,
                     "rating_count": s.rating_count,
+                    # Blockchain verification information (local offers not yet on blockchain)
+                    "block_height": None,
+                    "block_hash": None,
+                    "block_timestamp": None,
+                    "block_proposer": None,
+                    "tx_hash": None,
+                    "confirmed": False,
                 }
                 for s in local_services
             ]
