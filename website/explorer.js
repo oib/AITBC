@@ -479,18 +479,152 @@ document.addEventListener('DOMContentLoaded', function() {
     // Search by address
     async function searchByAddress(address) {
         try {
-            const response = await fetch(`${EXPLORER_API_URL}/api/transactions/search?address=${encodeURIComponent(address)}&chain_id=${currentChain}`);
-            const data = await response.json();
-            const txs = data.transactions || [];
-            if (txs.length === 0) {
-                displayError('No transactions found for this address/node ID');
+            const [txResp, blockResp] = await Promise.all([
+                fetch(`${EXPLORER_API_URL}/api/transactions/search?address=${encodeURIComponent(address)}&chain_id=${currentChain}`),
+                fetch(`${EXPLORER_API_URL}/api/blocks/by-address/${encodeURIComponent(address)}?chain_id=${currentChain}`),
+            ]);
+            const txData = await txResp.json();
+            const blockData = await blockResp.json();
+            const txs = txData.transactions || [];
+            const blocks = blockData.blocks || [];
+            if (txs.length === 0 && blocks.length === 0) {
+                displayError('No transactions or blocks found for this address/node ID');
                 return;
             }
-            displayResults(txs, 'transaction', address);
+            displayAddressResults(blocks, txs, address);
         } catch (error) {
             console.error('Error searching by address:', error);
-            displayError('No transactions found for address');
+            displayError('No transactions or blocks found for address');
         }
+    }
+
+    function displayAddressResults(blocks, txs, searchedAddress) {
+        const section = document.getElementById('results-section');
+        const container = document.getElementById('results-container');
+        const count = document.getElementById('results-count');
+
+        section.style.display = 'block';
+        count.textContent = `${blocks.length} block${blocks.length !== 1 ? 's' : ''}, ${txs.length} transaction${txs.length !== 1 ? 's' : ''}`;
+
+        let html = '';
+
+        if (blocks.length > 0) {
+            html += `<h3 style="margin:1.5rem 0 0.5rem;color:var(--text-muted);font-size:0.85rem;text-transform:uppercase;letter-spacing:0.05em;">Blocks (${blocks.length})</h3>`;
+            html += blocks.map(block => renderBlockCard(block)).join('');
+        }
+
+        if (txs.length > 0) {
+            html += `<h3 style="margin:1.5rem 0 0.5rem;color:var(--text-muted);font-size:0.85rem;text-transform:uppercase;letter-spacing:0.05em;">Transactions (${txs.length})</h3>`;
+            html += displayResultsHtml(txs, 'transaction', searchedAddress);
+        }
+
+        container.innerHTML = html || '<p class="loading-text">No results found.</p>';
+    }
+
+    function displayResultsHtml(results, type, searchedAddress) {
+        const validResults = results.filter(item => {
+            if (type === 'block') {
+                return item && item.height;
+            } else {
+                return item && (item.hash || item.tx_hash);
+            }
+        });
+
+        if (validResults.length === 0) {
+            return '<p class="loading-text">No valid results found.</p>';
+        }
+
+        return validResults.map(item => {
+            let timestamp = '-';
+            if (item.timestamp) {
+                if (typeof item.timestamp === 'string') {
+                    timestamp = new Date(item.timestamp).toLocaleString();
+                } else if (typeof item.timestamp === 'number') {
+                    timestamp = new Date(item.timestamp * 1000).toLocaleString();
+                }
+            }
+            if (item.created_at) {
+                timestamp = new Date(item.created_at).toLocaleString();
+            }
+
+            let details = '';
+            if (type === 'block') {
+                details = `
+                    <div class="result-hash">
+                        Hash: ${item.hash || 'N/A'} ${copyBtn(item.hash || '')}
+                    </div>
+                    <div class="result-detail">
+                        Proposer: ${item.proposer || 'N/A'}
+                    </div>
+                    <div class="result-detail">
+                        Transactions: ${item.txCount || 0}
+                    </div>
+                `;
+            } else {
+                let payloadDetails = '';
+                try {
+                    if (item.payload) {
+                        const payload = typeof item.payload === 'string' ? JSON.parse(item.payload) : item.payload;
+                        if (payload && typeof payload === 'object') {
+                            const rows = Object.entries(payload).map(([key, value]) => {
+                                let displayValue = value;
+                                if (typeof value === 'object') displayValue = JSON.stringify(value);
+                                if (String(displayValue).length > 60) displayValue = String(displayValue).substring(0, 57) + '...';
+                                return `<div class="tx-detail-item"><span class="tx-detail-label">${key}:</span><span class="tx-detail-value">${displayValue}</span></div>`;
+                            }).join('');
+                            if (rows) payloadDetails = `<div class="tx-marketplace-details">${rows}</div>`;
+                        }
+                    }
+                } catch (e) {
+                    if (item.payload) {
+                        payloadDetails = `<div class="tx-marketplace-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${item.payload}</span></div></div>`;
+                    }
+                }
+
+                const txHashVal = item.tx_hash || item.hash || 'N/A';
+                const fromAddr = item.from || item.sender || 'N/A';
+                const toAddr = item.to || item.recipient || 'N/A';
+                details = `
+                    <div class="result-hash">
+                        Hash: ${txHashVal} ${copyBtn(txHashVal)}
+                    </div>
+                    <div class="result-detail">
+                        Type: ${item.type || 'Unknown'}
+                    </div>
+                    <div class="result-detail">
+                        Block: ${item.block_height || 'N/A'}
+                    </div>
+                    <div class="result-detail">
+                        From: ${fromAddr} ${copyBtn(fromAddr)}
+                    </div>
+                    <div class="result-detail">
+                        To: ${toAddr} ${copyBtn(toAddr)}
+                    </div>
+                    ${payloadDetails}
+                `;
+            }
+
+            const dir = type === 'transaction' ? getTxDirection(item, searchedAddress) : '';
+            const clickTarget = type === 'block'
+                ? `/block.html?height=${item.height}`
+                : `/tx.html?hash=${encodeURIComponent(item.tx_hash || item.hash || '')}`;
+            const isBlock = type === 'block';
+            return `
+            <div class="endpoint fade-in block-item" style="cursor:pointer;" onclick="location.href='${clickTarget}'">
+                <div class="block-header">
+                    <div class="flex-center">
+                        <span class="badge badge-primary">${isBlock ? '#' + item.height : (item.type ? item.type + ' - ' : '') + (item.tx_hash || item.hash || 'N/A').substring(0, 16) + '...'}</span>
+                        ${directionBadge(dir)}
+                    </div>
+                    <div class="result-timestamp">
+                        ${timestamp}
+                    </div>
+                </div>
+                ${details}
+                ${item.note ? `<div class="result-note">${item.note}</div>` : ''}
+            </div>
+        `;
+        }).join('');
     }
 
     // Compute transaction direction relative to searched address
