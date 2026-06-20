@@ -176,6 +176,11 @@
                     <tr><td>${d.label}</td><td>${d.value}</td></tr>
                 `).join('');
 
+                function addrLink(addr) {
+                    if (!addr || addr === 'N/A') return 'N/A';
+                    return `<a href="/explorer.html?search=${encodeURIComponent(addr)}" class="clickable-value">${addr}</a>`;
+                }
+
                 const txs = data.transactions || [];
                 document.getElementById('tx-count').textContent = `(${txs.length})`;
                 document.getElementById('tx-list').innerHTML = txs.map(tx => {
@@ -184,8 +189,8 @@
                     <table class="detail-list" style="margin-bottom:0.5rem;">
                         <tr><td>Type</td><td><span class="badge badge-primary">${tx.type || 'TX'}</span></td></tr>
                         <tr><td>Hash</td><td>${hashLink} ${copyBtn(tx.tx_hash)}</td></tr>
-                        <tr><td>From</td><td>${tx.sender || 'N/A'}</td></tr>
-                        <tr><td>To</td><td>${tx.recipient || 'N/A'}</td></tr>
+                        <tr><td>From</td><td>${addrLink(tx.sender)} ${copyBtn(tx.sender || '')}</td></tr>
+                        <tr><td>To</td><td>${addrLink(tx.recipient)} ${copyBtn(tx.recipient || '')}</td></tr>
                         <tr><td>Status</td><td>${tx.status || 'N/A'}</td></tr>
                         <tr><td>Time</td><td>${tx.created_at ? new Date(tx.created_at).toLocaleString() : 'N/A'}</td></tr>
                     </table>
