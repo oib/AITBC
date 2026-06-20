@@ -50,6 +50,7 @@ These services are accessible directly without nginx proxy.
 | Service | Port | Health Endpoint | Binding | Notes |
 |---------|------|----------------|---------|-------|
 | **Blockchain P2P (Gossip Relay)** | 7070 | N/A | 0.0.0.0 | Hub-only internal gossip relay (WebSocket). Followers do not connect to this port — they use the lease-based subscription system via the hub's RPC endpoint. |
+| **Blockchain Explorer API** | 8100 | `http://localhost:8100/health` | 0.0.0.0 | Block/tx search, analytics, real-time feed. Proxied via nginx at `/explorer-api/`. |
 | **Blockchain Event Bridge** | 8205 | `http://localhost:8205/health` | 0.0.0.0 | Blockchain event streaming service |
 
 ### Internal Services (Ports 8101-8105)
