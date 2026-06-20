@@ -335,7 +335,6 @@ class SubscriptionClient:
             result = sync.import_block(
                 block_data,
                 transactions=block_data.get("transactions"),
-                skip_state_root_validation=True,
             )
             if result.accepted:
                 logger.info(
