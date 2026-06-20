@@ -295,20 +295,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         const txCount = block.txCount || 0;
         const blockHash = block.hash || 'N/A';
+        const proposer = block.proposer || 'N/A';
         return `
-            <div class="endpoint fade-in block-item" data-height="${block.height}" style="cursor:pointer;" onclick="location.href='/block.html?height=${block.height}'">
-                <div class="block-header">
-                    <span class="badge badge-primary">#${block.height}</span>
-                    <span class="block-hash">${blockHash}</span>
-                    ${copyBtn(blockHash)}
-                    <span class="expand-indicator">→</span>
-                </div>
-                <div class="block-timestamp">
-                    ${timestamp} UTC
-                </div>
-                <div class="block-meta">
-                    Transactions: ${txCount}
-                </div>
+            <div class="endpoint fade-in block-item" data-height="${block.height}" style="cursor:pointer;padding:0;" onclick="location.href='/block.html?height=${block.height}'">
+                <table class="block-list-table">
+                    <tr><td>Height</td><td><span class="badge badge-primary">#${block.height}</span></td></tr>
+                    <tr><td>Hash</td><td>${blockHash} ${copyBtn(blockHash)}</td></tr>
+                    <tr><td>Proposer</td><td>${proposer}</td></tr>
+                    <tr><td>Transactions</td><td>${txCount}</td></tr>
+                    <tr><td>Timestamp</td><td>${timestamp} UTC</td></tr>
+                </table>
             </div>
         `;
     }
