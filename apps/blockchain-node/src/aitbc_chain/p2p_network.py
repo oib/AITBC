@@ -170,7 +170,8 @@ class P2PNetworkService:
         self.seen_txs: set[tuple[str, str]] = set()
         while not self._stop_event.is_set():
             try:
-                mempool = get_mempool()
+                from .mempool import get_mempool as get_mempool_instance
+                mempool = get_mempool_instance()
                 txs_to_broadcast = []
                 if hasattr(mempool, "_transactions"):
                     with mempool._lock:
@@ -477,7 +478,8 @@ class P2PNetworkService:
                                 if seen_key not in self.seen_txs:
                                     logger.info("Received new P2P transaction: %s", tx_hash)
                                     self.seen_txs.add(seen_key)
-                                    mempool = get_mempool()
+                                    from .mempool import get_mempool as get_mempool_instance
+                mempool = get_mempool_instance()
                                     mempool.add(tx_data, chain_id=chain_id)
                                     forward_msg = {"type": "new_transaction", "tx": tx_data}
                                     writers = list(self.active_connections.values())

@@ -465,3 +465,136 @@ button:active {
 .btn-secondary:hover {
     background: var(--code);
 }
+
+/* Marketplace page styles */
+.filter-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+.filter-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.filter-btn:hover {
+    background: var(--code);
+    color: var(--text);
+}
+.filter-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+.status-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+.status-filter label {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+.status-filter select {
+    background: var(--code);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-family: inherit;
+    cursor: pointer;
+}
+.offer-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+.offer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+.offer-title {
+    font-size: 1.1rem;
+    color: var(--primary);
+    font-weight: 600;
+}
+.offer-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.offer-status.active {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success);
+}
+.offer-status.inactive {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+.offer-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.offer-detail {
+    background: var(--code);
+    padding: 0.75rem;
+    border-radius: 4px;
+}
+.offer-detail-label {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+.offer-detail-value {
+    color: var(--text);
+    font-size: 0.875rem;
+    font-family: 'Courier New', monospace;
+}
+.offer-description {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+.offer-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+.offer-rating {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+.offer-rating-value {
+    color: var(--success);
+    font-weight: 600;
+}
+.no-offers {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+}
+.no-offers-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}

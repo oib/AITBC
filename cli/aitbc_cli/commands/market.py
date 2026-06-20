@@ -142,14 +142,65 @@ def market():
 @market.command()
 @click.option("--provider", help="Filter by provider address")
 @click.option("--status", help="Filter by status (active, inactive)")
+@click.option("--service-type", help="Filter by service type (ollama, whisper, ffmpeg, peertube_pruner)")
 @click.pass_context
-def list(ctx, provider: str | None, status: str | None):
+def list(ctx, provider: str | None, status: str | None, service_type: str | None):
     """List blockchain marketplace offers and bids"""
     try:
         # Load CLI config
         config = get_config()
 
-        # Query blockchain for GPU marketplace transactions
+        # Try marketplace service API first (new approach)
+        try:
+            # Use the marketplace service API
+            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+            http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
+            
+            # Build query parameters
+            params = {}
+            if service_type:
+                params["service_type"] = service_type
+            if status:
+                params["status"] = status
+            
+            result = http_client.get("/v1/marketplace/offer", params=params)
+            
+            if result and "offers" in result and result["offers"]:
+                offers = result["offers"]
+                
+                # Apply additional filters
+                if provider:
+                    offers = [o for o in offers if o.get("provider_address") == provider]
+                if status:
+                    offers = [o for o in offers if o.get("status") == status]
+                if service_type:
+                    offers = [o for o in offers if o.get("service_type") == service_type]
+                
+                if offers:
+                    # Format output for marketplace offers
+                    market_data = []
+                    for offer in offers:
+                        market_data.append({
+                            "Plugin ID": offer.get("plugin_id", "N/A"),
+                            "Service Type": offer.get("service_type", "N/A"),
+                            "Model": offer.get("model", "N/A"),
+                            "Price": f"{offer.get('price', 0)} {offer.get('price_unit', 'units')}",
+                            "Provider": offer.get("provider_address", "N/A")[:16] + "..." if len(offer.get("provider_address", "")) > 16 else offer.get("provider_address", "N/A"),
+                            "Node ID": offer.get("node_id", "N/A"),
+                            "GPU": f"{offer.get('gpu_name', 'N/A')} ({offer.get('gpu_device', 'N/A')})",
+                            "Status": offer.get("status", "unknown"),
+                            "Rating": f"{offer.get('avg_rating', 0):.1f} ({offer.get('rating_count', 0)} reviews)",
+                        })
+                    
+                    output(market_data, ctx.obj.get("output_format", "table"))
+                    success(f"Found {len(offers)} marketplace offers")
+                    return
+        except NetworkError as e:
+            logger.warning("Marketplace service not available: %s", e)
+        except Exception as e:
+            logger.warning("Error querying marketplace service: %s", e)
+
+        # Fallback to blockchain query (original approach)
         transactions = None
         try:
             # Query hub directly (HTTP) for confirmed GPU_MARKETPLACE transactions
