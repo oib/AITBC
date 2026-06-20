@@ -31,7 +31,17 @@ Hybrid PoA/PoS with proposer rotation and validator sets
 SQLModel with SQLite/PostgreSQL support
 
 #### Networking
-WebSocket gossip + REST API
+Two distinct networking layers:
+
+1. **Internal gossip** (Redis pub/sub) — Used by the blockchain node process to broadcast blocks/transactions to other services on the same machine (wallet, marketplace, etc.) via `GOSSIP_BROADCAST_URL=redis://127.0.0.1:6379`
+
+2. **External block subscription** (HTTP + WebSocket over RPC) — Followers receive blocks from the hub via the lease-based subscription system:
+   - Follower registers via `POST /rpc/subscribe` on the hub's RPC endpoint
+   - Hub pushes blocks via WebSocket on `/rpc/subscribe/ws`
+   - Follower sends periodic heartbeats to maintain the lease
+   - Falls back to periodic pull sync (`POST /rpc/sync`) if subscription fails
+
+3. **Gossip relay** (`aitbc-blockchain-p2p`, port 7070, hub-only) — A Starlette WebSocket server that bridges the internal Redis gossip to external peers. Followers do **not** connect to this service; they use the subscription system over the hub's RPC endpoint.
 
 #### Observability
 Prometheus metrics + structured logging
@@ -56,9 +66,9 @@ Get block by height
 
 ### WebSocket Subscriptions
 
-- `new_blocks` - Real-time block notifications
-- `new_transactions` - Transaction pool updates
-- `consensus_events` - Consensus round updates
+- `/rpc/subscribe/ws` - Lease-based block push to subscribed followers (hub → follower)
+- `/rpc/blocks` - Real-time block stream (public)
+- `/rpc/transactions` - Transaction pool updates (public)
 
 ## Configuration
 

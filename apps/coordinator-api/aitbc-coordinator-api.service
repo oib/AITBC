@@ -52,3 +52,6 @@ ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
 
 # Note: WatchdogSec disabled - requires application-level sd_notify support
 # Re-enable after adding watchdog notification to FastAPI lifespan
+
+[Install]
+WantedBy=multi-user.target
