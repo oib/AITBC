@@ -110,6 +110,11 @@ def normalize_block(data: dict[str, Any]) -> dict[str, Any]:
     # Map proposer -> validator for UI consistency
     if "proposer" in data and "validator" not in data:
         data["validator"] = data["proposer"]
+    # Normalize snake_case -> camelCase for frontend consistency
+    if "tx_count" in data and "txCount" not in data:
+        data["txCount"] = data["tx_count"]
+    if "state_root" in data and "stateRoot" not in data:
+        data["stateRoot"] = data["state_root"]
     return data
 
 
