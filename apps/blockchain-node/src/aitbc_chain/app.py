@@ -98,11 +98,12 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         except Exception as exc:
             duration = time.perf_counter() - start
             metrics_registry.increment("rpc_unhandled_errors_total")
+            import traceback
             _app_logger.exception(
-                "Unhandled error in request",
-                extra={"method": method, "path": path, "error": str(exc), "duration_ms": round(duration * 1000, 2)},
+                f"Unhandled error in request: {method} {path}",
+                extra={"method": method, "path": path, "error": str(exc), "duration_ms": round(duration * 1000, 2)}
             )
-            return JSONResponse(status_code=503, content={"detail": "Internal server error"})
+            return JSONResponse(status_code=503, content={"detail": f"Internal server error: {str(exc)}"})
 
 
 @asynccontextmanager
@@ -200,7 +201,7 @@ def create_app() -> FastAPI:
     configure_logging(level="INFO")
     app = FastAPI(title="AITBC Blockchain Node", version="v0.2.2", lifespan=lifespan)
     app.add_middleware(RequestLoggingMiddleware)
-    app.add_middleware(RateLimitMiddleware, max_requests=5000, window_seconds=60)
+    # app.add_middleware(RateLimitMiddleware, max_requests=100000, window_seconds=60)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
