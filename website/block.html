@@ -178,13 +178,19 @@
 
                 const txs = data.transactions || [];
                 document.getElementById('tx-count').textContent = `(${txs.length})`;
-                document.getElementById('tx-list').innerHTML = txs.map(tx => `
-                    <div class="list-item">
-                        <span class="badge badge-primary">${tx.type || 'TX'}</span>
-                        <a href="/tx.html?hash=${encodeURIComponent(tx.tx_hash)}">${tx.tx_hash}</a>
-                        <span style="color:var(--text-muted);font-size:0.75rem;white-space:nowrap;">${tx.sender?.substring(0, 12) || ''}...</span>
-                    </div>
-                `).join('') || '<p class="loading-text">No transactions in this block.</p>';
+                document.getElementById('tx-list').innerHTML = txs.map(tx => {
+                    const hashLink = `<a href="/tx.html?hash=${encodeURIComponent(tx.tx_hash)}">${tx.tx_hash}</a>`;
+                    return `
+                    <table class="detail-list" style="margin-bottom:0.5rem;">
+                        <tr><td>Type</td><td><span class="badge badge-primary">${tx.type || 'TX'}</span></td></tr>
+                        <tr><td>Hash</td><td>${hashLink} ${copyBtn(tx.tx_hash)}</td></tr>
+                        <tr><td>From</td><td>${tx.sender || 'N/A'}</td></tr>
+                        <tr><td>To</td><td>${tx.recipient || 'N/A'}</td></tr>
+                        <tr><td>Status</td><td>${tx.status || 'N/A'}</td></tr>
+                        <tr><td>Time</td><td>${tx.created_at ? new Date(tx.created_at).toLocaleString() : 'N/A'}</td></tr>
+                    </table>
+                    `;
+                }).join('') || '<p class="loading-text">No transactions in this block.</p>';
 
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('content').style.display = 'block';
