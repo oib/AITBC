@@ -18,62 +18,7 @@
         .detail-header h2 {
             margin: 0;
         }
-        .detail-list {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 1.5rem;
-            font-size: 0.9rem;
-        }
-        .detail-list tr {
-            border-bottom: 1px solid var(--border);
-        }
-        .detail-list tr:last-child {
-            border-bottom: none;
-        }
-        .detail-list td {
-            padding: 0.6rem 0.75rem;
-            vertical-align: top;
-        }
-        .detail-list td:first-child {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            width: 140px;
-            white-space: nowrap;
-        }
-        .detail-list td:last-child {
-            font-family: var(--font-mono);
-            word-break: break-all;
-        }
-        .tx-list {
-            margin-top: 1rem;
-        }
-        .list-item {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.6rem 0.5rem;
-            border-bottom: 1px solid var(--border);
-            transition: background 0.15s;
-        }
-        .list-item:last-child {
-            border-bottom: none;
-        }
-        .list-item:hover {
-            background: rgba(255,255,255,0.03);
-        }
-        .list-item a {
-            color: var(--text);
-            text-decoration: none;
-            font-family: var(--font-mono);
-            font-size: 0.85rem;
-            flex: 1;
-            word-break: break-all;
-        }
-        .list-item a:hover {
-            text-decoration: underline;
-        }
+
         .clickable-value {
             cursor: pointer;
             color: var(--primary);
@@ -99,14 +44,14 @@
             <div class="detail-header">
                 <span class="badge badge-primary">BLOCK</span>
                 <span id="block-height-badge">#--</span>
-                <span id="block-hash-display" class="detail-value" style="font-size:0.8rem;color:var(--text-muted);"></span>
+                <span id="block-hash-display" style="font-size:0.8rem;color:var(--text-muted);font-family:var(--font-mono);"></span>
             </div>
 
-            <table class="detail-list" id="block-details"></table>
+            <div id="block-details"></div>
 
-            <div class="card">
+            <div class="card" style="margin-top:1.5rem;">
                 <h2>Transactions <span id="tx-count"></span></h2>
-                <div class="tx-list" id="tx-list"></div>
+                <div id="tx-list"></div>
             </div>
         </div>
 
@@ -172,28 +117,38 @@
                     { label: 'State Root', value: linkableHash(data.stateRoot) + ' ' + copyBtn(data.stateRoot || '') },
                 ];
 
-                document.getElementById('block-details').innerHTML = details.map(d => `
-                    <tr><td>${d.label}</td><td>${d.value}</td></tr>
-                `).join('');
-
                 function addrLink(addr) {
                     if (!addr || addr === 'N/A') return 'N/A';
-                    return `<a href="/explorer.html?search=${encodeURIComponent(addr)}" class="clickable-value">${addr}</a>`;
+                    return `<a href="/search.html?query=${encodeURIComponent(addr)}" class="clickable-value">${addr}</a>`;
                 }
+
+                document.getElementById('block-details').innerHTML = `
+                    <div class="endpoint fade-in block-item" style="padding:0;">
+                        <table class="block-list-table">
+                            <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> #${data.height}</td></tr>
+                            <tr><td>Hash</td><td>${linkableHash(data.hash)} ${copyBtn(data.hash || '')}</td></tr>
+                            <tr><td>Proposer</td><td>${linkableAddress(data.proposer)} ${copyBtn(data.proposer || '')}</td></tr>
+                            <tr><td>Timestamp</td><td>${data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A'}</td></tr>
+                            <tr><td>Transactions</td><td>${data.txCount ?? data.transactions?.length ?? 0}</td></tr>
+                            <tr><td>State Root</td><td>${linkableHash(data.stateRoot)} ${copyBtn(data.stateRoot || '')}</td></tr>
+                        </table>
+                    </div>
+                `;
 
                 const txs = data.transactions || [];
                 document.getElementById('tx-count').textContent = `(${txs.length})`;
                 document.getElementById('tx-list').innerHTML = txs.map(tx => {
-                    const hashLink = `<a href="/tx.html?hash=${encodeURIComponent(tx.tx_hash)}">${tx.tx_hash}</a>`;
                     return `
-                    <table class="detail-list" style="margin-bottom:0.5rem;">
-                        <tr><td>Type</td><td><span class="badge badge-primary">${tx.type || 'TX'}</span></td></tr>
-                        <tr><td>Hash</td><td>${hashLink} ${copyBtn(tx.tx_hash)}</td></tr>
-                        <tr><td>From</td><td>${addrLink(tx.sender)} ${copyBtn(tx.sender || '')}</td></tr>
-                        <tr><td>To</td><td>${addrLink(tx.recipient)} ${copyBtn(tx.recipient || '')}</td></tr>
-                        <tr><td>Status</td><td>${tx.status || 'N/A'}</td></tr>
-                        <tr><td>Time</td><td>${tx.created_at ? new Date(tx.created_at).toLocaleString() : 'N/A'}</td></tr>
-                    </table>
+                    <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" onclick="location.href='/tx.html?hash=${encodeURIComponent(tx.tx_hash)}'">
+                        <table class="block-list-table">
+                            <tr><td>Type</td><td><span class="badge badge-primary">${tx.type || 'TX'}</span></td></tr>
+                            <tr><td>Hash</td><td>${tx.tx_hash} ${copyBtn(tx.tx_hash)}</td></tr>
+                            <tr><td>From</td><td>${addrLink(tx.sender)}</td></tr>
+                            <tr><td>To</td><td>${addrLink(tx.recipient)}</td></tr>
+                            <tr><td>Status</td><td>${tx.status || 'N/A'}</td></tr>
+                            <tr><td>Time</td><td>${tx.created_at ? new Date(tx.created_at).toLocaleString() : 'N/A'}</td></tr>
+                        </table>
+                    </div>
                     `;
                 }).join('') || '<p class="loading-text">No transactions in this block.</p>';
 
