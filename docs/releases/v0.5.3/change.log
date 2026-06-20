@@ -286,8 +286,18 @@ already in place.
 - Marketplace service — verify blockchain integration tests
 
 **Acceptance Criteria:**
-- [ ] Tests for `explorer.py` CLI commands
+- [x] Tests for `explorer.py` CLI commands
 - [ ] Coverage increased to 65%
+
+**Progress (Agent A, v0.5.3):** Added 39 unit tests for all 14 explorer CLI
+subcommands (`cli/tests/test_explorer.py`). Tests cover success paths, not-found
+results, option passing (--chain-id, --limit, --offset, --period), NetworkError
+handling, and generic exception handling. Also fixed test collection for all
+`cli/tests/` by moving the import in `cli/__init__.py` inside the `__main__`
+guard and adding `cli/tests/conftest.py` for sys.path setup. Previously 0 tests
+could collect (ImportError); now 64 pass.
+
+Remaining: blockchain explorer API tests and marketplace integration tests.
 
 ---
 
