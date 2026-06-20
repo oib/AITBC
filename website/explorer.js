@@ -299,7 +299,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return `
             <div class="endpoint fade-in block-item" data-height="${block.height}" style="cursor:pointer;padding:0;" onclick="location.href='/block.html?height=${block.height}'">
                 <table class="block-list-table">
-                    <tr><td>Height</td><td><span class="badge badge-primary">#${block.height}</span></td></tr>
+                    <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> #${block.height}</td></tr>
                     <tr><td>Hash</td><td>${blockHash} ${copyBtn(blockHash)}</td></tr>
                     <tr><td>Proposer</td><td>${proposer}</td></tr>
                     <tr><td>Transactions</td><td>${txCount}</td></tr>
@@ -613,7 +613,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="endpoint fade-in block-item" style="cursor:pointer;" onclick="location.href='${clickTarget}'">
                 <div class="block-header">
                     <div class="flex-center">
-                        <span class="badge badge-primary">${isBlock ? '#' + item.height : (item.type ? item.type + ' - ' : '') + (item.tx_hash || item.hash || 'N/A').substring(0, 16) + '...'}</span>
+                        <span class="badge badge-primary">${isBlock ? 'BLOCK' : (item.type || 'TX')}</span>
                         ${directionBadge(dir)}
                     </div>
                     <div class="result-timestamp">
@@ -825,7 +825,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="endpoint fade-in block-item" style="cursor:pointer;" onclick="location.href='${clickTarget}'">
                 <div class="block-header">
                     <div class="flex-center">
-                        <span class="badge badge-primary">${isBlock ? '#' + item.height : (item.type ? item.type + ' - ' : '') + (item.tx_hash || item.hash || 'N/A').substring(0, 16) + '...'}</span>
+                        <span class="badge badge-primary">${isBlock ? 'BLOCK' : (item.type || 'TX')}</span>
                         ${directionBadge(dir)}
                     </div>
                     <div class="result-timestamp">
