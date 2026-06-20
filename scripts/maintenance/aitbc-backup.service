@@ -1,0 +1,14 @@
+[Unit]
+Description=AITBC Daily Backup
+After=network.target redis.service postgresql.service
+Wants=redis.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/opt/aitbc/scripts/maintenance/aitbc-backup.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-backup
+# No restart — timer handles scheduling

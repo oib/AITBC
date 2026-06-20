@@ -35,15 +35,21 @@ These services should be accessed through nginx for SSL termination, security he
 
 **Network Discovery Endpoint:**
 - `/rpc/network-info` - Provides network configuration for open island joining
-  - Returns P2P endpoint, node ID, chain ID, and connection instructions
+  - Returns RPC endpoint, node ID, chain ID, and subscription instructions
   - Accessible via direct port (8202) or nginx proxy (/rpc/)
 
+**Follower Block Subscription (WebSocket via nginx):**
+- `wss://hub.aitbc.bubuit.net/rpc/subscribe/ws` - Real-time block push to followers
+- `POST /rpc/subscribe` - Register subscription lease
+- `POST /rpc/heartbeat` - Extend subscription lease
+- Nginx routes `/rpc/subscribe/ws`, `/rpc/blocks`, `/rpc/transactions` with WebSocket upgrade headers
+
 ### Public Services (Direct Access)
-These services are accessible directly without nginx proxy (typically P2P protocols).
+These services are accessible directly without nginx proxy.
 
 | Service | Port | Health Endpoint | Binding | Notes |
 |---------|------|----------------|---------|-------|
-| **Blockchain P2P** | 8200 | N/A | 0.0.0.0 | P2P network communication (direct access required) |
+| **Blockchain P2P (Gossip Relay)** | 7070 | N/A | 0.0.0.0 | Hub-only internal gossip relay (WebSocket). Followers do not connect to this port — they use the lease-based subscription system via the hub's RPC endpoint. |
 | **Blockchain Event Bridge** | 8205 | `http://localhost:8205/health` | 0.0.0.0 | Blockchain event streaming service |
 
 ### Internal Services (Ports 8101-8105)
@@ -74,7 +80,7 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 ## Port Configuration Sources
 
 ### Service Wrapper Scripts
-- **API Gateway**: `apps/api-gateway/src/api_gateway/main.py` (line 325: `port=8200`)
+- **API Gateway**: `apps/api-gateway/src/api_gateway/main.py` (line 325: `port=8201`)
 - **Coordinator API**: `apps/coordinator-api/aitbc-coordinator-api-wrapper.py` (line 32: `--port 8203`)
 - **Blockchain P2P**: `apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py` (uses env var `p2p_bind_port` from blockchain.env)
 - **Blockchain RPC**: `apps/blockchain-node/aitbc-blockchain-node-wrapper.py` (uses combined_main with settings.rpc_bind_port)
@@ -103,8 +109,8 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 - **Edge Service**: `apps/edge/src/aitbc_edge/main.py` (line 42: `port=8111`)
 
 ### Environment Configuration Files
-- **Blockchain Configuration**: `/etc/aitbc/blockchain.env` (RPC_BIND_PORT=8202, p2p_bind_port=8200)
-- **Node Configuration**: `/etc/aitbc/node.env` (P2P_BIND_PORT=8200)
+- **Blockchain Configuration**: `/etc/aitbc/blockchain.env` (rpc_bind_port=8202, default_peer_rpc_url for followers)
+- **Node Configuration**: `/etc/aitbc/node.env` (P2P_BIND_PORT=7070 for hub gossip relay)
 
 ### CLI Configuration
 - **CLI Config**: `cli/aitbc_cli/config.py` (service URLs for all microservices)
@@ -115,8 +121,8 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 - **Wallet API**: Previously documented as 8003 in SETUP.md, corrected to 8015 (actual port from app/main.py)
 - **Coordinator API**: Previously documented as 8000 in SETUP.md, corrected to 8203
 - **Blockchain RPC**: Previously on 8006, moved to 8202 as part of public port reorganization
-- **Blockchain P2P**: Previously on 8001, moved to 8200 as part of public port reorganization
-- **API Gateway**: Previously on 8080, moved to 8200 as part of public port reorganization
+- **Blockchain P2P**: Previously on 8001, now on 7070 (gossip relay, hub-only)
+- **API Gateway**: Previously on 8080, moved to 8201 as part of public port reorganization
 - **Miner Coordinator**: Previously using legacy port 8011, updated to 8203 (current coordinator port)
 - **Edge Service**: Previously on 8110 (conflict with whisper), moved to 8111
 - **Blockchain Event Bridge**: Previously on 8204 (conflict with coordinator), moved to 8205
@@ -125,8 +131,9 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 - Ports are typically configured in service wrapper scripts or systemd unit files
 - Environment variables in `/etc/aitbc/blockchain.env` and `/etc/aitbc/node.env` may override defaults
 - Some services support port configuration via environment variables (e.g., `rpc_bind_port`, `p2p_bind_port`)
-- Public services (8200-8203) bind to 0.0.0.0 for external access
-- Internal services (8101-8105) bind to 127.0.0.1 for security
+- Public services (8201-8205) bind to 127.0.0.0.0 for external access via nginx
+- P2P gossip relay (7070) binds to 0.0.0.0 (hub-only, direct access)
+- Internal services (8101-8110) bind to 127.0.0.1 for security
 
 ## Health Check Patterns
 
