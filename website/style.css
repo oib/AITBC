@@ -1205,4 +1205,55 @@ button:active {
     .filter-btn {
         width: 100%;
     }
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .health-grid {
+        grid-template-columns: 1fr;
+    }
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+    .top-addresses-table table {
+        font-size: 0.75rem;
+    }
+    .top-addresses-table td {
+        padding: 0.4rem 0.3rem;
+    }
+    .live-feed-item {
+        padding: 0.5rem 0.3rem;
+    }
+    .form-row input,
+    .form-row select,
+    .form-row textarea {
+        font-size: 16px; /* prevent iOS zoom */
+    }
+    .search-row {
+        flex-direction: column;
+    }
+    .search-row button {
+        width: 100%;
+    }
+    .block-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    .result-hash {
+        font-size: 0.75rem;
+    }
+    .transaction-item .tx-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+    #activity-chart-container {
+        height: 200px;
+    }
 }
