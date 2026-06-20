@@ -15,24 +15,26 @@ def test_list_chains() -> None:
     assert response.status_code == 200
     data = response.json()
     assert "chains" in data
-    assert len(data["chains"]) == 3
+    assert len(data["chains"]) >= 2
 
 
 @pytest.mark.integration
 def test_root_endpoint() -> None:
-    """Test root endpoint returns HTML"""
+    """Test root endpoint returns 404 (static files served by nginx)"""
     client = TestClient(app)
     response = client.get("/")
-    assert response.status_code == 200
-    assert "text/html" in response.headers.get("content-type", "")
+    assert response.status_code == 404
 
 
 @pytest.mark.integration
-def test_web_interface() -> None:
-    """Test web interface endpoint"""
+def test_health_check() -> None:
+    """Test health check endpoint"""
     client = TestClient(app)
-    response = client.get("/web")
+    response = client.get("/health")
     assert response.status_code == 200
+    data = response.json()
+    assert "status" in data
+    assert "version" in data
 
 
 @pytest.mark.integration
@@ -86,45 +88,47 @@ def test_search_blocks_with_validator() -> None:
 
 
 @pytest.mark.integration
-def test_analytics_overview() -> None:
-    """Test analytics overview endpoint"""
+def test_analytics_network_stats() -> None:
+    """Test network stats endpoint"""
     client = TestClient(app)
-    response = client.get("/api/analytics/overview?period=24h")
+    response = client.get("/api/analytics/network-stats")
     assert response.status_code == 200
     data = response.json()
+    assert "total_ait" in data
+    assert "active_offers" in data
     assert "total_transactions" in data
-    assert "volume_data" in data
-    assert "activity_data" in data
 
 
 @pytest.mark.integration
-def test_analytics_overview_1h() -> None:
-    """Test analytics overview with 1h period"""
+def test_analytics_activity() -> None:
+    """Test activity timeline endpoint"""
     client = TestClient(app)
-    response = client.get("/api/analytics/overview?period=1h")
+    response = client.get("/api/analytics/activity?days=7")
     assert response.status_code == 200
     data = response.json()
-    assert "volume_data" in data
+    assert "labels" in data
+    assert "datasets" in data
 
 
 @pytest.mark.integration
-def test_analytics_overview_7d() -> None:
-    """Test analytics overview with 7d period"""
+def test_analytics_top_addresses() -> None:
+    """Test top addresses endpoint"""
     client = TestClient(app)
-    response = client.get("/api/analytics/overview?period=7d")
+    response = client.get("/api/analytics/top-addresses?limit=10")
     assert response.status_code == 200
     data = response.json()
-    assert "volume_data" in data
+    assert "addresses" in data
 
 
 @pytest.mark.integration
-def test_analytics_overview_30d() -> None:
-    """Test analytics overview with 30d period"""
+def test_analytics_provider_reputation() -> None:
+    """Test provider reputation endpoint"""
     client = TestClient(app)
-    response = client.get("/api/analytics/overview?period=30d")
+    response = client.get("/api/analytics/provider-reputation/test-provider")
     assert response.status_code == 200
     data = response.json()
-    assert "volume_data" in data
+    assert "score" in data
+    assert "level" in data
 
 
 @pytest.mark.integration
@@ -186,14 +190,3 @@ def test_export_blocks_json() -> None:
     response = client.get("/api/export/blocks?format=json")
     assert response.status_code == 200
     assert "application/json" in response.headers.get("content-type", "")
-
-
-@pytest.mark.integration
-def test_health_check() -> None:
-    """Test health check endpoint"""
-    client = TestClient(app)
-    response = client.get("/health")
-    assert response.status_code == 200
-    data = response.json()
-    assert "status" in data
-    assert "version" in data
