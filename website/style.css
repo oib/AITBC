@@ -358,8 +358,11 @@ input[type="number"] {
 }
 .tx-hash {
     font-family: 'Courier New', monospace;
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
+    overflow-wrap: break-word;
+    word-break: break-all;
+    max-width: 100%;
 }
 .tx-status {
     display: inline-block;

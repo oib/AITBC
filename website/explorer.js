@@ -1,7 +1,6 @@
 function formatHash(hash) {
     if (!hash) return 'N/A';
-    if (hash.length <= 16) return hash;
-    return `${hash.substring(0, 10)}...${hash.substring(hash.length - 8)}`;
+    return hash;
 }
 
 // Wait for DOM to be ready
