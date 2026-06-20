@@ -797,6 +797,56 @@ async def api_search_transactions(
         return {"transactions": []}
 
 
+@app.get("/api/blocks/by-address/{address}")
+async def api_blocks_by_address(
+    address: str,
+    chain_id: str | None = DEFAULT_CHAIN,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """Get all blocks that contain transactions referencing a given address"""
+    try:
+        import sqlite3
+        from pathlib import Path
+
+        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        if not chain_db_path.exists():
+            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+
+        if not chain_db_path.exists():
+            return {"blocks": []}
+
+        conn = sqlite3.connect(str(chain_db_path))
+        cursor = conn.cursor()
+
+        search_term = f"%{address}%"
+        cursor.execute("""
+            SELECT DISTINCT b.height, b.hash, b.proposer, b.timestamp, b.tx_count, b.state_root
+            FROM block b
+            JOIN "transaction" t ON b.height = t.block_height
+            WHERE t.sender LIKE ? OR t.recipient LIKE ? OR t.payload LIKE ?
+            ORDER BY b.height DESC
+            LIMIT ?
+        """, (search_term, search_term, search_term, limit))
+
+        blocks = []
+        for row in cursor.fetchall():
+            height, block_hash, proposer, timestamp, tx_count, state_root = row
+            blocks.append({
+                "height": height,
+                "hash": block_hash,
+                "proposer": proposer,
+                "timestamp": timestamp,
+                "txCount": tx_count,
+                "stateRoot": state_root,
+            })
+
+        conn.close()
+        return {"blocks": blocks}
+    except Exception as e:
+        print(f"Error getting blocks for address {address}: {e}")
+        return {"blocks": []}
+
+
 @app.get("/api/blocks/{height}")
 async def api_block(height: int, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
     """API endpoint for block data"""
