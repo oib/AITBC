@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AITBC Marketplace - Hardware+Software Bundles</title>
+    <meta name="description" content="AITBC Marketplace - Discover hardware+software bundle offers for GPU computing, AI inference, and media processing">
+    <meta name="robots" content="index, follow">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="/style.css">
+    <script src="marketplace.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-nav">
+                <a href="/">Home</a>
+                <a href="/exchange.html">Exchange</a>
+                <a href="/explorer.html">Explorer</a>
+                <a href="/marketplace.html">Marketplace</a>
+            </div>
+            <h1>AITBC Marketplace</h1>
+            <p class="subtitle">Hardware+Software Bundle Offers from the Island Plan</p>
+        </header>
+
+        <!-- Filter Card -->
+        <div class="card">
+            <h2>Filter Offers</h2>
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">All Services</button>
+                <button class="filter-btn" data-filter="ollama">Ollama</button>
+                <button class="filter-btn" data-filter="whisper">Whisper</button>
+                <button class="filter-btn" data-filter="peertube_pruner">PeerTube Pruner</button>
+                <button class="filter-btn" data-filter="ffmpeg">FFmpeg</button>
+            </div>
+            <div class="status-filter">
+                <label for="status-filter">Status:</label>
+                <select id="status-filter" class="endpoint">
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+            </div>
+            <p class="endpoint-note" id="offer-count">Loading offers...</p>
+        </div>
+
+        <!-- Offers Container -->
+        <div id="offers-container">
+            <p class="loading">Loading marketplace offers...</p>
+        </div>
+
+        <!-- API Endpoints Card -->
+        <div class="card">
+            <h2>API Endpoints</h2>
+            <a href="/v1/marketplace/offer" class="endpoint endpoint-link" target="_blank">
+                <span class="method">GET</span> <span class="path">/v1/marketplace/offer</span>
+            </a>
+            <p class="endpoint-note">List all marketplace offers (hardware+software bundles)</p>
+
+            <a href="/v1/marketplace/offer/{plugin_id}" class="endpoint endpoint-link">
+                <span class="method">GET</span> <span class="path">/v1/marketplace/offer/{plugin_id}</span>
+            </a>
+            <p class="endpoint-note">Get specific offer details by plugin ID</p>
+
+            <a href="/v1/marketplace/status" class="endpoint endpoint-link">
+                <span class="method">GET</span> <span class="path">/v1/marketplace/status</span>
+            </a>
+            <p class="endpoint-note">Marketplace service status</p>
+        </div>
+
+        <!-- Quick Actions Card -->
+        <div class="card">
+            <h2>Quick Actions</h2>
+            <div class="grid">
+                <a href="/" class="endpoint endpoint-link">
+                    <span class="method">HOME</span> <span class="path">Main Page</span>
+                </a>
+                <a href="/exchange.html" class="endpoint endpoint-link">
+                    <span class="method">EXCH</span> <span class="path">Exchange</span>
+                </a>
+                <a href="https://github.com/oib/AITBC" class="endpoint endpoint-link" target="_blank">
+                    <span class="method">DOC</span> <span class="path">Documentation</span>
+                </a>
+            </div>
+            <p class="endpoint-note" id="last-updated">Last updated: loading...</p>
+        </div>
+    </div>
+</body>
+</html>

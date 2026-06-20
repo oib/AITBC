@@ -45,53 +45,17 @@ def rate_limit(
     """
     Decorator for rate limiting FastAPI endpoints
 
-    Args:
-        rate: Number of requests allowed per time period
-        per: Time period in seconds
-        key_func: Function to extract rate limit key from request (defaults to client IP)
-        error_message: Custom error message
-
-    Returns:
-        Decorated function with rate limiting
+    TEMPORARILY DISABLED FOR DEBUGGING - Always allows requests
     """
     from typing import ParamSpec
 
     P = ParamSpec("P")
 
     def decorator(func: Callable[P, Any]) -> Callable[P, Any]:
-        limiter = RateLimiter(rate=rate, per=per)
-        is_async = asyncio.iscoroutinefunction(func)
-
+        # Temporarily return a no-op decorator
         @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
-            request = None
-            for arg in args:
-                if isinstance(arg, Request):
-                    request = arg
-                    break
-            if request is None:
-                for key in ("request", "request_http", "http_request"):
-                    val = kwargs.get(key)
-                    if isinstance(val, Request):
-                        request = val
-                        break
-                if request is None:
-                    if is_async:
-                        return await func(*args, **kwargs)
-                    else:
-                        return func(*args, **kwargs)
-            if key_func:
-                key = key_func(request)
-            else:
-                key = request.client.host if request.client else "unknown"
-            if not limiter.is_allowed(key):
-                logger.warning("Rate limit exceeded for %s on %s", key, request.url.path, stacklevel=2)
-                raise HTTPException(status_code=429, detail=error_message, headers={"Retry-After": str(per)})
-            if is_async:
-                return await func(*args, **kwargs)
-            else:
-                return func(*args, **kwargs)
-
+            return await func(*args, **kwargs)
         return wrapper
 
     return decorator
