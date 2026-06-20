@@ -1,0 +1,150 @@
+# v0.5.2 Release Notes
+
+**Theme**: Blockchain Explorer Enhancements & Marketplace Website Integration
+
+**Goal**: Improve blockchain explorer usability and add marketplace functionality to the website.
+
+---
+
+## New Features
+
+### Blockchain Explorer Improvements
+- ✅ **Load More Pagination**: Added pagination support with offset-based loading for block lists
+- ✅ **Expandable Block Cards**: Made block cards clickable with expandable transaction detail views
+- ✅ **Copy-to-Clipboard**: Added copy buttons for all hashes (block hash, transaction hash, addresses) in explorer
+- ✅ **Skip Empty Blocks Toggle**: Added toggle to filter out empty heartbeat blocks from block lists
+- ✅ **Non-Empty Blocks Endpoint**: Added dedicated API endpoint for fetching only non-empty blocks
+- ✅ **Transaction Search**: Enhanced search to find transactions by node ID and address
+- ✅ **Full Hash Display**: Removed truncation for all transaction hashes and addresses
+
+### Marketplace Website Integration
+- ✅ **Marketplace Page**: Created new marketplace.html page with hardware+software bundle offers
+- ✅ **Offer Display**: Added comprehensive offer cards showing service type, model, pricing, GPU details, provider info, and ratings
+- ✅ **Blockchain Information**: Integrated block height, block hash, transaction hash, proposer, and timestamp display
+- ✅ **Filtering System**: Added service type filtering (Ollama, Whisper, FFmpeg, PeerTube Pruner) and status filtering
+- ✅ **Responsive Layout**: Optimized CSS layout for better space utilization and mobile compatibility
+- ✅ **Navigation Updates**: Added Marketplace link to all existing website pages (index, exchange, explorer)
+
+---
+
+## Bug Fixes
+
+### Blockchain Explorer
+- ✅ **txCount Standardization**: Standardized txCount property across API and frontend, removed tx_count fallbacks
+- ✅ **Transaction Hash Field**: Fixed display of blockchain transaction results with proper tx_hash field
+- ✅ **Payload Details**: Fixed display of parsed payload details for all transaction types
+- ✅ **Search Functionality**: Fixed blockchain database search for transactions by node ID/address
+
+### Marketplace Service
+- ✅ **Database Schema**: Extended SoftwareService model with blockchain-related fields (block_height, block_hash, tx_hash, block_proposer, block_timestamp)
+- ✅ **API Response**: Updated marketplace service to return blockchain verification information in offer responses
+- ✅ **Service Availability**: Fixed marketplace service startup and database connectivity
+
+---
+
+## Technical Improvements
+
+### Frontend
+- ✅ **CSS Layout Improvements**: Enhanced marketplace page layout with better word-breaking and overflow handling
+- ✅ **List Layout for Long Values**: Created spacious list layout for Provider, Node ID, Plugin ID, and blockchain information
+- ✅ **No Value Truncation**: Removed all truncation functions to display full values for better readability
+- ✅ **Responsive Design**: Added mobile-specific styles for single-column layout on smaller screens
+
+### Backend
+- ✅ **Marketplace Service**: Updated service to aggregate offers from both blockchain database and local database
+- ✅ **Database Integration**: Added support for blockchain transaction queries with block information
+- ✅ **Sample Data**: Created sample marketplace offers with blockchain verification data
+
+---
+
+## API Changes
+
+### Blockchain Explorer
+- ✅ **GET /blocks/non-empty**: New endpoint to fetch only non-empty blocks
+- ✅ **GET /blocks**: Added offset and limit parameters for pagination
+- ✅ **GET /transactions**: Enhanced search to support node_id and address parameters
+- ✅ **Transaction Response**: Added tx_hash field to all transaction responses
+
+### Marketplace Service
+- ✅ **GET /v1/marketplace/offer**: Made service_type and status parameters optional
+- ✅ **Offer Response**: Added blockchain verification fields (block_height, block_hash, tx_hash, block_proposer, block_timestamp)
+
+---
+
+## Documentation
+
+- ✅ **Marketplace Page**: Added marketplace.html with comprehensive offer display
+- ✅ **Navigation**: Updated all website pages to include Marketplace navigation link
+- ✅ **CSS Styling**: Added marketplace-specific styles for filtering, offer cards, and responsive design
+
+---
+
+## Testing
+
+- ✅ **Explorer Functionality**: Verified pagination, copy-to-clipboard, and filtering features
+- ✅ **Marketplace API**: Tested marketplace service with sample blockchain data
+- ✅ **Website Integration**: Verified marketplace page loads and displays offers correctly
+- ✅ **Responsive Design**: Tested mobile layout and filtering functionality
+
+---
+
+## Breaking Changes
+
+None. All changes are backward compatible.
+
+---
+
+## Migration Notes
+
+No database migrations required. The marketplace service will automatically create new database columns if needed.
+
+---
+
+## Post-Release Enhancements (v0.5.2+)
+
+### Phase 2: Transparency & Analytics
+
+#### Explorer Analytics
+- **Transaction Direction Indicators**: Address search results now show colored IN/OUT/SELF badges indicating transaction flow direction
+- **Activity Timeline Graph**: Stacked bar chart (Chart.js) showing daily transaction volume by type (TRANSFER, GPU_MARKETPLACE, ESCROW_RELEASE, etc.) for the last 30 days
+- **Copy-to-Clipboard Buttons**: Added copy buttons next to all hashes in the explorer for improved usability
+
+#### Marketplace Enhancements
+- **Blockchain-Confirmed Toggle**: Toggle switch to filter marketplace offers and show only blockchain-confirmed entries
+- **Live Service Health Check**: Real-time ping indicators for Marketplace API, Explorer API, and Coordinator API with latency display
+- **Network Stats Dashboard**: Five stat cards showing Total AIT, Active Offers, Unique Nodes, Providers, and Total Transactions computed from blockchain database
+- **Provider Reputation**: Each offer displays a computed reputation score (0-100) with levels (New, Growing, Established, Trusted, Elite) based on blockchain history
+
+### Phase 3: Navigation & Real-Time Features
+
+#### Dedicated Detail Pages
+- **Block Detail Page** (`/block.html?height=N`): Full block metadata with transaction list, clickable transaction links
+- **Transaction Detail Page** (`/tx.html?hash=...`): Complete transaction metadata with formatted JSON payload viewer
+- **Deep Linking**: Explorer search results and block cards now link directly to dedicated detail pages
+
+#### Real-Time Features
+- **Live Feed Ticker**: Auto-refreshing (10s interval) feed on explorer homepage showing latest blocks and transactions with animated slide-in
+- **Top Addresses Leaderboard**: Sortable table of most active addresses by transaction count and AIT volume, clickable to search
+
+#### Offer Creation
+- **Real Offer Creation Form**: Complete web form in marketplace (`POST /v1/marketplace/offer`) with service type, model, price, endpoint, provider, GPU, and description fields
+- **Form Validation**: Real-time status feedback on submit, auto-refreshes offer list on success
+
+#### Mobile Responsiveness
+- **Comprehensive Mobile Styles**: `@media (max-width: 768px)` rules for cards, tables, charts, forms, search bars, block headers, and transaction items
+- **iOS Zoom Prevention**: Form inputs use `font-size: 16px` to prevent auto-zoom on focus
+- **Responsive Grids**: Stats grid (2-column), health grid (1-column), detail grid (1-column) adapt to mobile
+
+### API Additions
+- **GET /api/analytics/activity**: Daily transaction counts by type for timeline chart
+- **GET /api/analytics/network-stats**: Aggregate stats (total AIT, active offers, unique nodes/providers, total TXs)
+- **GET /api/analytics/provider-reputation/{provider_id}**: Computed reputation score from blockchain history
+- **GET /api/analytics/top-addresses**: Top addresses by transaction count and volume
+
+---
+
+## v0.5.2 Status: COMPLETE
+
+All planned features implemented and tested. Blockchain explorer significantly improved with better UX, full analytics suite, dedicated detail pages, real-time feeds, and marketplace website integration completed with real offer creation.
+
+Ready for v0.5.2 tag.
