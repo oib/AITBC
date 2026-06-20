@@ -338,20 +338,20 @@ After the v0.5.4 pull, the shop node (`aitbc3`, follower of `hub.aitbc.bubuit.ne
 
 ---
 
-**Shop Node Final State (2026-06-20):**
+**Shop Node Final State (2026-06-20, updated 2026-06-21):**
 
 | Service | Status |
 |---------|--------|
-| aitbc-blockchain-node | active (follower, syncing via subscription) |
+| aitbc-blockchain-node | active (follower, WebSocket push + periodic pull) |
 | aitbc-blockchain-rpc | active |
 | aitbc-blockchain-explorer | active |
-| aitbc-blockchain-sync | oneshot + timer (every 5 min) |
-| aitbc-coordinator-api | active |
+| aitbc-blockchain-sync | oneshot + timer (every 5 min, pulls from hub) |
+| aitbc-coordinator-api | active (0 errors) |
 | aitbc-gpu | active (RTX 4060 Ti) |
-| aitbc-miner | active (registered, heartbeats sending) |
+| aitbc-miner | active (registered, heartbeats every 15s) |
 | aitbc-wallet | active |
-| aitbc-monitoring | active |
-| aitbc-recovery | active/exited (oneshot) |
+| aitbc-monitoring | active (no more watchdog loop) |
+| aitbc-recovery | active/exited (oneshot, role-aware) |
 | aitbc-backup.timer | active (daily 01:00) |
 | aitbc-blockchain-sync.timer | active (every 5 min) |
 
@@ -402,24 +402,116 @@ End-to-end WebSocket block push verified through nginx:
 
 The follower (`aitbc3`) now receives blocks via WebSocket push in real-time, with periodic pull sync as fallback.
 
-### Known Issue: State Root Divergence (Follower)
+### Known Issue: State Root Divergence (Follower) — RESOLVED
 
-The follower computes a different state root (`0xe85d3fd6...`) than the hub (`0x885bc46a...`). Investigation on the hub confirmed:
+The follower computed a different state root (`0xe85d3fd6...`) than the hub (`0x885bc46a...`). Investigation on the hub confirmed:
 - Hub has 11 accounts, follower has 8
 - Hub's state root `0x885bc46a...` matches what's in the blocks
-- The divergence happened at some earlier point (follower missed account creations or balance changes during bulk sync)
+- The divergence happened because bulk block sync skips state root validation and doesn't replay all transaction types that create accounts (e.g. genesis allocations, special registration transactions)
 
-**Current mitigation:** Both push and pull sync paths use `skip_state_root_validation=True`, allowing the follower to accept blocks despite the divergence.
+**Temporary mitigation (item #27):** Both push and pull sync paths used `skip_state_root_validation=True`.
 
-**Future fix:** Either sync account state from the hub (state snapshot endpoint) or replay all transactions from genesis to reconstruct account state on the follower.
+**Permanent fix (items #28-29):** State snapshot endpoint + follower state sync. See below.
 
-### 27. Subscription Client: Skip State Root Validation on Push Path
+### 27. Subscription Client: Skip State Root Validation on Push Path (Temporary)
 
 **Problem:** The WebSocket push path called `import_block()` without `skip_state_root_validation=True`, while the bulk pull sync path did skip it. This caused blocks received via WebSocket push to be rejected due to state root divergence.
 
 **Fix:** Added `skip_state_root_validation=True` to the `import_block()` call in the subscription client's push path, making it consistent with the bulk pull sync path.
 
+**Note:** This was a temporary measure. Once state sync (items #28-29) reconciled account state, validation was re-enabled (item #30).
+
 **Files changed:** `apps/blockchain-node/src/aitbc_chain/subscription_client.py`
+
+---
+
+## Additional Fixes (2026-06-20/21)
+
+### 28. State Snapshot Endpoint
+
+**Problem:** Followers had no way to sync account state from the hub. Bulk block sync imported blocks but didn't replay all transaction types that create accounts, leading to missing accounts and state root divergence.
+
+**Fix:** Added `GET /rpc/state/snapshot` endpoint that returns all accounts (address, balance, nonce) for a chain along with the computed state root. Rate-limited to 10 req/min (heavy query, only needed by followers).
+
+**Files changed:**
+- `apps/blockchain-node/src/aitbc_chain/rpc/accounts.py` (new `get_state_snapshot()`)
+- `apps/blockchain-node/src/aitbc_chain/rpc/router.py` (new route)
+
+### 29. Follower State Sync
+
+**Problem:** Followers needed a mechanism to pull the state snapshot and reconcile local accounts.
+
+**Fix:** Added `ChainSync.sync_state_from(source_url)` method that:
+- Pulls the state snapshot from the hub via `/rpc/state/snapshot`
+- Creates missing accounts with correct balances/nonces
+- Updates existing accounts if balances/nonces diverged
+- Verifies the local state root matches the remote after sync
+- Returns a summary: `{created, updated, local_root, remote_root, match}`
+
+Integrated into `_periodic_sync_task` in `main.py`:
+- Runs on startup and every 10 periodic sync cycles (~5 min)
+- Failures are logged as warnings but don't break block sync
+- Handles 404 gracefully (when hub hasn't deployed the endpoint yet)
+
+**Result:** Follower created 3 missing accounts (`0x6946...`, `0x97b6...`, `0xe789...`), state roots now match: `0x885bc46a...` = `0x885bc46a...`
+
+**Files changed:**
+- `apps/blockchain-node/src/aitbc_chain/sync.py` (new `sync_state_from()`)
+- `apps/blockchain-node/src/aitbc_chain/main.py` (state sync in periodic task)
+
+### 30. Re-enable State Root Validation on Push Path
+
+**Problem:** With state roots now matching, the temporary `skip_state_root_validation=True` on the push path (item #27) was no longer needed.
+
+**Fix:** Removed `skip_state_root_validation=True` from the subscription client's `import_block()` call. Blocks are now fully validated on WebSocket push import.
+
+**Verified:** Block 30322 imported via push sync with validation enabled, no mismatch errors.
+
+**Files changed:** `apps/blockchain-node/src/aitbc_chain/subscription_client.py`
+
+### 31. Blockchain-Node: Logging Not Configured
+
+**Problem:** `main.py` (blockchain-node entry point) never called `configure_logging()`. The root logger stayed at WARNING (30) with no handlers. All INFO logs from the subscription client, periodic sync, and gossip broker were silently dropped — making it impossible to diagnose sync issues.
+
+**Root cause:** `get_blockchain_logger()` sets the named logger to INFO (20), but with no handlers and `propagate=True`, messages propagate to the root logger which is at WARNING — so INFO messages are discarded.
+
+**Fix:** Added `configure_logging(level="INFO")` to the `run()` function in `main.py`, matching how `app.py` (blockchain-rpc) already configures logging.
+
+**Files changed:** `apps/blockchain-node/src/aitbc_chain/main.py`
+
+### 32. Blockchain Sync: Pulling from Localhost Instead of Hub
+
+**Problem:** `aitbc-blockchain-sync-wrapper.py` defaulted `AITBC_SYNC_SOURCE` to `http://127.0.0.1:8202` (the local RPC), not the hub. The sync service was syncing the node with itself — completely useless.
+
+**Fix:** Changed the default to fall back to `default_peer_rpc_url` from the environment (set to `https://hub.aitbc.bubuit.net` in `blockchain.env`). The sync service now pulls blocks from the hub.
+
+**Files changed:** `apps/blockchain-node/aitbc-blockchain-sync-wrapper.py`
+
+### 33. Monitoring Service: Watchdog Timeout Loop
+
+**Problem:** `aitbc-monitoring.service` had `WatchdogSec=30` + `NotifyAccess=all`, but the monitoring service is a plain uvicorn/FastAPI app with no `sd_notify` integration. systemd killed it every 30s, it restarted, ran 30s, got killed again — an infinite restart loop.
+
+**Fix:** Removed `WatchdogSec=30` and `NotifyAccess=all` from the unit file, matching the pattern used by other services (coordinator-api, blockchain-rpc, etc. all have `# WatchdogSec disabled - requires application-level sd_notify support`).
+
+**Files changed:** `scripts/monitoring/aitbc-monitoring.service`
+
+### 34. Middleware Log Spam Reduction
+
+**Problem:** Three middleware layers each logged every request at INFO level, producing 144 lines/min (72 `request_id` + 36 `uvicorn.access` + 36 `performance`). High-frequency endpoints (`/health`, `/prometheus`, `/v1/miners/poll`) dominated the logs.
+
+**Fix:**
+- `RequestIDMiddleware`: Quiet paths (`/health`, `/prometheus`, `/metrics`, `/v1/miners/poll`) logged at DEBUG. Errors logged at INFO (4xx) or WARNING (5xx). Non-quiet successful requests at DEBUG.
+- `PerformanceLoggingMiddleware`: Same quiet path logic. Slow requests (>1000ms) logged at WARNING.
+- `aitbc_logging.py`: Set `uvicorn.access` logger to WARNING (request logging handled by middleware).
+- `coordinator-api.service`: Changed `--access-log` to `--no-access-log`.
+
+**Result:** Log volume reduced from 144 lines/min to ~6 lines/min (only heartbeats at INFO).
+
+**Files changed:**
+- `aitbc/middleware/request_id.py`
+- `aitbc/middleware/performance.py`
+- `aitbc/aitbc_logging.py`
+- `apps/coordinator-api/aitbc-coordinator-api.service`
 
 ---
 
@@ -427,14 +519,48 @@ The follower computes a different state root (`0xe85d3fd6...`) than the hub (`0x
 
 Hub:
 - All services active, 0 failed
-- Block height: 30310+ (producing ~1 block/min)
+- Block height: 30325+ (producing ~1 block/min)
 - 1 subscriber (follower `aitbc`)
 - Redis pub/sub delivering blocks to RPC → WebSocket → follower
 - `network-info` endpoint reports port 7070, version 0.5.4, subscription instructions
 - Published `blockchain.env` contains no private keys
+- State snapshot endpoint live: 11 accounts, state root `0x885bc46a...`
 
 Follower (aitbc3):
-- Receiving blocks via WebSocket push (verified: blocks 30305-30307 received via push)
+- Receiving blocks via WebSocket push in real-time (verified: blocks 30305-30322+)
 - Lease active, heartbeats every 60s
 - Local height matches hub height
-- State root divergence mitigated (skip_state_root_validation on both paths)
+- State roots match: `0x885bc46a...` = `0x885bc46a...` (11 accounts each)
+- State root validation re-enabled on push path (no rejections)
+- State sync runs every ~5 min to reconcile accounts
+- Miner registered, heartbeats sending (GPU: RTX 4060 Ti)
+- Coordinator-api: 0 unhandled exceptions, 0 500 errors
+- Log volume: ~6 lines/min (down from 144)
+- 0 failed units
+
+| Service | Status |
+|---------|--------|
+| aitbc-blockchain-node | active (follower, WebSocket push + periodic pull) |
+| aitbc-blockchain-rpc | active |
+| aitbc-blockchain-explorer | active |
+| aitbc-blockchain-sync | oneshot + timer (every 5 min, pulls from hub) |
+| aitbc-coordinator-api | active (0 errors) |
+| aitbc-gpu | active (RTX 4060 Ti) |
+| aitbc-miner | active (registered, heartbeats every 15s) |
+| aitbc-wallet | active |
+| aitbc-monitoring | active (no more watchdog loop) |
+| aitbc-recovery | active/exited (oneshot, role-aware) |
+| aitbc-backup.timer | active (daily 01:00) |
+| aitbc-blockchain-sync.timer | active (every 5 min) |
+
+10 hub-only services stopped, disabled, and no longer linked by `link-systemd.sh`.
+
+## Commits
+
+| Commit | Description |
+|--------|-------------|
+| `baa5634d` | feat(v0.5.4): logging improvements + blockchain sync timer service |
+| `45a1731f` | fix(v0.5.4): gossip backend — switch to redis-py direct for cross-process pub/sub |
+| `50ee11ca` | docs(v0.5.4): change.log update (hub-side WebSocket fixes) |
+| `101c7bff` | feat(v0.5.4): state snapshot endpoint + follower state sync |
+| `a5e7c7ac` | fix(v0.5.4): re-enable state root validation on push path |
