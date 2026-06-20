@@ -13,6 +13,18 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+# High-frequency paths that are logged at DEBUG to avoid log spam.
+# These are health checks, metrics scraping, and polling endpoints.
+_QUIET_PATHS = frozenset(
+    {
+        "/health",
+        "/prometheus",
+        "/prometheus/",
+        "/metrics",
+        "/metrics/",
+    }
+)
+
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
     """Middleware to add request ID to all requests for correlation"""
@@ -25,14 +37,34 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         request_id = request.headers.get(self.header_name) or str(uuid.uuid4())
         request.state.request_id = request_id
         request.state.correlation_id = request_id  # Alias for correlation tracking
-        logger.info(
-            "Incoming request - ID: %s, Method: %s, Path: %s, Client: %s",
-            request_id,
-            request.method,
-            request.url.path,
-            request.client.host if request.client else "unknown",
-        )
+
+        path = request.url.path
+        is_quiet = path in _QUIET_PATHS or path.startswith("/v1/miners/poll")
+
+        if not is_quiet:
+            logger.info(
+                "Incoming request - ID: %s, Method: %s, Path: %s, Client: %s",
+                request_id,
+                request.method,
+                path,
+                request.client.host if request.client else "unknown",
+            )
+
         response = await call_next(request)
         response.headers[self.header_name] = request_id
-        logger.info("Request completed - ID: %s, Status: %s", request_id, response.status_code)
+
+        # Log completion at appropriate level:
+        # - DEBUG for quiet paths and successful 2xx/3xx
+        # - INFO for 4xx client errors
+        # - WARNING for 5xx server errors
+        status = response.status_code
+        if is_quiet and status < 400:
+            logger.debug("Request completed - ID: %s, Status: %s", request_id, status)
+        elif status >= 500:
+            logger.warning("Request completed - ID: %s, Status: %s, Path: %s", request_id, status, path)
+        elif status >= 400:
+            logger.info("Request completed - ID: %s, Status: %s, Path: %s", request_id, status, path)
+        else:
+            logger.debug("Request completed - ID: %s, Status: %s", request_id, status)
+
         return response

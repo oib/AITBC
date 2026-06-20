@@ -150,10 +150,10 @@ class BlockchainNode:
             return
 
         async def process_txs() -> None:
-            from .mempool import get_mempool
             from .rpc.utils import normalize_transaction_data
 
             from .mempool import get_mempool as get_mempool_instance
+
             mempool = get_mempool_instance()
             while True:
                 try:
@@ -451,6 +451,9 @@ async def node_app() -> AsyncIterator[BlockchainNode]:
 
 
 def run() -> None:
+    from aitbc.aitbc_logging import configure_logging
+
+    configure_logging(level="INFO")
     asyncio.run(_run())
 
 
