@@ -59,6 +59,12 @@ class SoftwareService(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     avg_rating: float = Field(default=0.0)  # Average service rating (1-5 scale)
     rating_count: int = Field(default=0)  # Number of ratings received
+    # Blockchain-related fields
+    block_height: int | None = Field(default=None)
+    block_hash: str | None = Field(default=None)
+    tx_hash: str | None = Field(default=None)
+    block_proposer: str | None = Field(default=None)
+    block_timestamp: datetime | None = Field(default=None)
 
 
 class ServiceRating(SQLModel, table=True):
