@@ -128,13 +128,16 @@ get_services_for_role() {
     # Follower-specific services (in addition to base)
     local follower_services=(
         aitbc-blockchain-sync
+        aitbc-blockchain-sync.timer
         aitbc-blockchain-explorer
     )
 
     # Shop-specific services (GPU provider, in addition to base)
+    # coordinator-api is required by the miner (COORDINATOR_URL=http://localhost:8203)
     local shop_services=(
         aitbc-gpu
         aitbc-miner
+        aitbc-coordinator-api
     )
 
     # Customer nodes: base only (interacts with hub via CLI)

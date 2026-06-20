@@ -248,7 +248,111 @@ All endpoints verified working through nginx reverse proxy with correct WebSocke
 
 ---
 
-**Session Date:** 2026-06-20
-**Node:** hub.aitbc.bubuit.net
-**Backup verified:** Yes (36 snapshots retained, PostgreSQL backup now working)
-**Published config verified:** `curl https://hub.aitbc.bubuit.net/agent/blockchain.env` — no private keys exposed
+## Post-Deployment Fixes (Shop Node — 2026-06-20)
+
+After the v0.5.4 pull, the shop node (`aitbc3`, follower of `hub.aitbc.bubuit.net`) was found in an incorrect state: `MARKET_ROLE=customer` instead of `shop`, 10 hub-only services running, backup timer not installed, and several pre-existing code bugs. The following fixes were applied:
+
+### 15. Shop Node Role Configuration
+
+**Problem:** `/etc/aitbc/node.env` had `MARKET_ROLE=customer` and `HARDWARE_PROFILE=nogpu` despite this being a GPU-equipped shop node (RTX 4060 Ti).
+
+**Fix:** Updated `node.env` to `MARKET_ROLE=shop` and `HARDWARE_PROFILE=gpu`.
+
+**Files changed:** `/etc/aitbc/node.env`
+
+### 16. setup.sh: coordinator-api Missing from shop_services
+
+**Problem:** `get_services_for_role("shop")` did not include `aitbc-coordinator-api`, but the miner service depends on it (`COORDINATOR_URL=http://localhost:8203`, `wait_for_coordinator()` in `production_miner.py`).
+
+**Fix:** Added `aitbc-coordinator-api` to `shop_services` array in `setup.sh`.
+
+**Files changed:** `scripts/deployment/setup.sh`
+
+### 17. link-systemd.sh: Role-Aware Service Linking
+
+**Problem:** `link-systemd.sh` unconditionally linked ALL aitbc-* unit files from the repo, including hub-only services on shop/follower/customer nodes. When `aitbc-recovery.service` ran `link-systemd.sh` on boot, it re-linked disabled hub services.
+
+**Fix:**
+- Added `get_node_role()` and `get_allowed_services()` functions (mirroring `setup.sh` logic)
+- Only links services appropriate for the current node role
+- Fixed `find -delete` to also remove symlinks (`-type f -o -type l`), not just regular files
+- Falls back to linking everything if role config is unavailable (initial setup)
+
+**Files changed:** `scripts/utils/link-systemd.sh`
+
+### 18. Coordinator-API: get_token Depends Injection Bug
+
+**Problem:** `require_auth()`, `require_admin()`, `require_client()`, `require_miner()` in `auth/dependencies.py` called `get_token()` directly instead of using `Depends(get_token)`. Since `get_token` has `authorization: str | None = Header(default=None, alias="Authorization")` as a default parameter, calling it directly passed the `Header()` object (not the actual header value), causing `TypeError: 'Header' object has no attribute 'startswith'` → 500 error on every authenticated endpoint.
+
+**Fix:** Changed all `require_*` functions to accept `token: str = Depends(get_token)` as a parameter, letting FastAPI properly resolve the dependency.
+
+**Files changed:** `apps/coordinator-api/src/app/auth/dependencies.py`
+
+### 19. Coordinator-API: Miner API Key Auth Support
+
+**Problem:** The miner sends `X-Api-Key` header for authentication, but the coordinator-api was migrated to JWT-only auth (`get_api_key()` raises `RuntimeError`). The miner could never register — got 500 (from bug #18) then would have gotten 401.
+
+**Fix:**
+- Added `require_miner_api_key()` dependency that validates `X-Api-Key` against `config.settings.miner_api_keys`, falling back to `COORDINATOR_API_KEY` env var
+- Created combined `require_miner()` that tries JWT first, falls back to API key
+- Updated `MinerDep` to use the combined dependency
+- Set `MINER_API_KEY` in `/etc/aitbc/aitbc-miner.env` to match `COORDINATOR_API_KEY`
+
+**Files changed:**
+- `apps/coordinator-api/src/app/auth/dependencies.py`
+- `/etc/aitbc/aitbc-miner.env`
+
+### 20. Miner: Logging Format String Bug
+
+**Problem:** `logger.info("Heartbeat sent (GPU: %s%)", ...)` — the trailing `%` was interpreted as a format specifier, causing `TypeError: not enough arguments for format string` on every heartbeat.
+
+**Fix:** Changed to `"Heartbeat sent (GPU: %s%%)"` (escaped literal `%`).
+
+**Files changed:** `apps/miner/production_miner.py`
+
+### 21. Blockchain Sync: Type=oneshot + Timer
+
+**Problem:** `aitbc-blockchain-sync.service` was `Type=simple` but `sync_cli` is a one-shot bulk catch-up tool that exits after catching up. systemd showed it as "inactive/dead" which looked like a failure.
+
+**Fix:**
+- Changed service to `Type=oneshot` (removed `Restart=on-failure` which is meaningless for oneshot)
+- Created `aitbc-blockchain-sync.timer` (runs 30s after boot, then every 5 minutes)
+- Added timer to `get_services_for_role()` follower/shop lists in `setup.sh`
+
+**Files changed:**
+- `apps/blockchain-node/aitbc-blockchain-sync.service`
+- `apps/blockchain-node/aitbc-blockchain-sync.timer` (new)
+- `scripts/deployment/setup.sh`
+
+### 22. MEMPOOL_DB_URL Password Fix (Live Node)
+
+**Problem:** `MEMPOOL_DB_URL` in `/etc/aitbc/blockchain.env` and `/etc/aitbc/aitbc-blockchain-node.env` had password `aitbc_mempool` which matched PostgreSQL. The credentials file `/etc/aitbc/credentials/postgres_aitbc_mempool_password` had a different password (`Mrg9-...`) that was never applied to PostgreSQL. Attempting to use the credentials file password broke the blockchain-node.
+
+**Fix:** Kept PostgreSQL password as `aitbc_mempool` (matching the working state) and reverted env files to match. The credentials file appears to be stale from a `setup_postgresql_databases.sh` run that didn't complete.
+
+**Files changed:** `/etc/aitbc/blockchain.env`, `/etc/aitbc/aitbc-blockchain-node.env`
+
+### 23. Orphaned Unit Cleanup
+
+**Fix:** Removed orphaned `aitbc-explorer.service` symlink (pointed to renamed `aitbc-blockchain-explorer.service`, state was `bad`). Reset failed `aitbc-security-audit.timer` (service file doesn't exist in repo).
+
+---
+
+**Shop Node Final State (2026-06-20):**
+
+| Service | Status |
+|---------|--------|
+| aitbc-blockchain-node | active (follower, syncing via subscription) |
+| aitbc-blockchain-rpc | active |
+| aitbc-blockchain-explorer | active |
+| aitbc-blockchain-sync | oneshot + timer (every 5 min) |
+| aitbc-coordinator-api | active |
+| aitbc-gpu | active (RTX 4060 Ti) |
+| aitbc-miner | active (registered, heartbeats sending) |
+| aitbc-wallet | active |
+| aitbc-monitoring | active |
+| aitbc-recovery | active/exited (oneshot) |
+| aitbc-backup.timer | active (daily 01:00) |
+| aitbc-blockchain-sync.timer | active (every 5 min) |
+
+10 hub-only services stopped, disabled, and no longer linked by `link-systemd.sh`.

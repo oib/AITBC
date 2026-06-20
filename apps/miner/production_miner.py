@@ -226,7 +226,7 @@ def send_heartbeat():
         client = AITBCHTTPClient(base_url=COORDINATOR_URL, headers=headers, timeout=5)
         response = client.post("/v1/miners/heartbeat", json=heartbeat_data)
         if response:
-            logger.info("Heartbeat sent (GPU: %s%)", gpu_info["utilization"] if gpu_info else "N/A")
+            logger.info("Heartbeat sent (GPU: %s%%)", gpu_info["utilization"] if gpu_info else "N/A")
         else:
             logger.error("Heartbeat failed")
     except NetworkError as e:

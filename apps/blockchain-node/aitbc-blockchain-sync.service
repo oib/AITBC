@@ -1,9 +1,9 @@
 [Unit]
-Description=AITBC Blockchain Sync Service
+Description=AITBC Blockchain Sync Service (bulk catch-up)
 After=network.target postgresql.service aitbc-blockchain-rpc.service
 
 [Service]
-Type=simple
+Type=oneshot
 User=aitbc
 Group=aitbc
 WorkingDirectory=/opt/aitbc
@@ -12,8 +12,6 @@ Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/blockchain-node/aitbc-blockchain-sync-wrapper.py
-Restart=on-failure
-RestartSec=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-blockchain-sync
@@ -34,9 +32,6 @@ SystemCallFilter=@system-service
 # Security hardening (v0.5.0)
 ProtectSystem=full
 ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
-
-# Security hardening (v0.5.0)
-# WatchdogSec=30 # Disabled - requires application-level sd_notify support
 
 [Install]
 WantedBy=multi-user.target
