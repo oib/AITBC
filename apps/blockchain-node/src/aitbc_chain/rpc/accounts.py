@@ -248,3 +248,32 @@ async def reconcile_balance(request: Request, address: str, chain_id: str | None
     except Exception as e:
         _logger.error("Balance reconciliation failed: %s", e)
         raise HTTPException(status_code=500, detail=f"Reconciliation failed: {str(e)}") from e
+
+
+async def get_state_snapshot(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    """Return all accounts for a chain — used by followers to sync state.
+
+    Returns the full account set (address, balance, nonce) so followers
+    can reconcile their local state with the hub's state root.
+    """
+    chain_id = get_chain_id(chain_id)
+    with session_scope() as session:
+        accounts = session.exec(select(Account).where(Account.chain_id == chain_id)).all()
+        from ..state.merkle_patricia_trie import StateManager
+
+        state_manager = StateManager()
+        account_dict = {acc.address: acc for acc in accounts}
+        state_root = state_manager.compute_state_root(account_dict)
+        return {
+            "chain_id": chain_id,
+            "account_count": len(accounts),
+            "state_root": f"0x{state_root.hex()}",
+            "accounts": [
+                {
+                    "address": acc.address,
+                    "balance": acc.balance,
+                    "nonce": acc.nonce,
+                }
+                for acc in accounts
+            ],
+        }
