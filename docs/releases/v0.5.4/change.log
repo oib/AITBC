@@ -356,3 +356,48 @@ After the v0.5.4 pull, the shop node (`aitbc3`, follower of `hub.aitbc.bubuit.ne
 | aitbc-blockchain-sync.timer | active (every 5 min) |
 
 10 hub-only services stopped, disabled, and no longer linked by `link-systemd.sh`.
+
+---
+
+## Hub-Side Fixes: WebSocket Block Push (2026-06-20)
+
+After the shop node fixes, the follower reported that the subscription WebSocket connected but blocks were not being pushed through it — only periodic pull sync was working. Investigation on the hub revealed three bugs preventing WebSocket block push.
+
+### 24. Gossip Backend: Memory Instead of Redis
+
+**Problem:** The hub's blockchain-node and blockchain-rpc are separate processes. The blockchain-node produces blocks and publishes them to a gossip broker. The blockchain-rpc's WebSocket endpoint subscribes to the same broker to push blocks to followers. But the gossip backend defaulted to `memory` (in-process), so messages published by the node process never reached the RPC process.
+
+**Fix:** Added `gossip_backend=redis` to `/etc/aitbc/node.env` (loaded by both services).
+
+**Files changed:** `/etc/aitbc/node.env`
+
+### 25. app.py: create_backend() Result Discarded
+
+**Problem:** `app.py` (blockchain-rpc) called `create_backend("broadcast", ...)` but threw away the result — it never called `gossip_broker.set_backend(backend)`. The global `gossip_broker` kept using the default `InMemoryGossipBackend` regardless of the `gossip_backend` setting.
+
+**Fix:** Changed to `backend = create_backend(...)` followed by `await gossip_broker.set_backend(backend)`, matching how `main.py` does it.
+
+**Files changed:** `apps/blockchain-node/src/aitbc_chain/app.py`
+
+### 26. BroadcastGossipBackend: broadcaster Library Incompatible with redis-py 8.x
+
+**Problem:** The `BroadcastGossipBackend` used the `broadcaster` library (v0.3.1) for Redis pub/sub. The `broadcaster` library is incompatible with `redis-py 8.0.0` — its `_pubsub_listener` task silently fails to deliver messages. Direct `redis-py` async pubsub works correctly.
+
+**Fix:** Rewrote `BroadcastGossipBackend` to use `redis-py` directly instead of the `broadcaster` library:
+- `publish()`: uses `redis.publish(topic, payload)` directly
+- `subscribe()`: creates a dedicated `redis.asyncio.Redis` connection with `socket_timeout=None` (required for `listen()` which blocks indefinitely), subscribes via `pubsub.subscribe(topic)`, and iterates `pubsub.listen()` in a background task
+- Removed dependency on `broadcaster` package
+
+**Key insight:** `redis-py 8.0.0`'s `from_url()` doesn't properly propagate `socket_timeout=None` to the connection, causing a 5-second timeout. Using `Redis.from_url(url, socket_timeout=None, socket_connect_timeout=5)` fixes this.
+
+**Files changed:** `apps/blockchain-node/src/aitbc_chain/gossip/broker.py`
+
+### Verification
+
+End-to-end WebSocket block push verified through nginx:
+1. `POST /rpc/subscribe` → lease registered (3600s)
+2. `WS /rpc/subscribe/ws` → connected, subscription confirmed
+3. Block 30295 pushed through nginx WebSocket to test subscriber
+4. `DELETE /rpc/lease/{node_id}` → lease revoked
+
+The follower (`aitbc3`) now receives blocks via WebSocket push in real-time, with periodic pull sync as fallback.
