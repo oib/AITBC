@@ -393,6 +393,61 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAI
         return {}
 
 
+@app.get("/api/transactions/search")
+async def api_search_transactions(
+    address: str,
+    chain_id: str | None = DEFAULT_CHAIN,
+    limit: int = 100,
+) -> dict[str, Any]:
+    """Search transactions by address or node ID in blockchain database"""
+    try:
+        import sqlite3
+        from pathlib import Path
+        
+        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        if not chain_db_path.exists():
+            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+        
+        if chain_db_path.exists():
+            conn = sqlite3.connect(str(chain_db_path))
+            cursor = conn.cursor()
+            
+            # Search for transactions where sender, recipient, or payload contains the address
+            # Using LIKE for partial matching (payload contains node IDs like provider_node_id)
+            search_term = f"%{address}%"
+            cursor.execute("""
+                SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
+                FROM "transaction" 
+                WHERE sender LIKE ? 
+                   OR recipient LIKE ? 
+                   OR payload LIKE ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            """, (search_term, search_term, search_term, limit))
+            
+            transactions = []
+            for row in cursor.fetchall():
+                tx_hash, sender, recipient, payload, block_height, created_at, tx_type, status = row
+                transactions.append({
+                    "tx_hash": tx_hash,
+                    "sender": sender,
+                    "recipient": recipient,
+                    "payload": payload,
+                    "block_height": block_height,
+                    "created_at": created_at,
+                    "type": tx_type,
+                    "status": status,
+                })
+            
+            conn.close()
+            return {"transactions": transactions}
+        
+        return {"transactions": []}
+    except Exception as e:
+        print(f"Error searching transactions for address {address}: {e}")
+        return {"transactions": []}
+
+
 @app.get("/api/blocks/{height}")
 async def api_block(height: int, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
     """API endpoint for block data"""
