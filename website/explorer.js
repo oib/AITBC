@@ -51,22 +51,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load latest blocks
     async function loadLatestBlocks() {
         try {
-            // If skipping empty blocks, fetch more to find enough non-empty ones
-            const fetchLimit = skipEmptyBlocks ? 200 : 10;
-            const displayLimit = 10;
-            
-            const response = await fetch(`${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=${fetchLimit}`);
+            // Use dedicated non-empty endpoint when toggle is on
+            const endpoint = skipEmptyBlocks
+                ? `${EXPLORER_API_URL}/api/blocks/non-empty?chain_id=${currentChain}&limit=10`
+                : `${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=10`;
+
+            const response = await fetch(endpoint);
             const data = await response.json();
-            
-            let blocks = data.blocks || [];
-            
-            // Filter out empty blocks if toggle is on
-            if (skipEmptyBlocks) {
-                blocks = blocks.filter(block => (block.txCount || block.tx_count || 0) > 0);
-                // Limit to display count after filtering
-                blocks = blocks.slice(0, displayLimit);
-            }
-            
+            const blocks = data.blocks || [];
+
             const container = document.getElementById('blocks-container');
             if (blocks.length > 0) {
                 container.innerHTML = blocks.map(block => {
@@ -80,7 +73,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
                     const txCount = block.txCount || block.tx_count || 0;
-                    
+
                     return `
                     <div class="endpoint fade-in block-item">
                         <div class="block-header">
@@ -97,7 +90,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
                 }).join('');
             } else {
-                container.innerHTML = '<p class="loading-text">No non-empty blocks found in recent history</p>';
+                container.innerHTML = '<p class="loading-text">No blocks available</p>';
             }
         } catch (error) {
             console.error('Error loading blocks:', error);
