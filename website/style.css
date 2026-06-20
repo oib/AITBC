@@ -815,6 +815,34 @@ button:active {
     color: var(--primary);
     margin-bottom: 0.25rem;
 }
+
+/* Provider reputation */
+.reputation-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.75rem;
+    background: var(--code);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+}
+.rep-score {
+    font-weight: 700;
+    color: var(--primary);
+}
+.rep-level {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+}
+.rep-level.rep-elite { color: #f59e0b; }
+.rep-level.rep-trusted { color: #10b981; }
+.rep-level.rep-established { color: #3b82f6; }
+.rep-level.rep-growing { color: #8b5cf6; }
+
 .stat-label {
     font-size: 0.75rem;
     color: var(--text-muted);
