@@ -166,8 +166,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        console.log('Neither block nor transaction found by hash');
-        displayResults([], 'block');
+        console.log('Neither block nor transaction found by hash, trying address search');
+        // If no block or transaction found, the "hash" might actually be a node ID or address
+        await searchByAddress(hash);
     }
 
     // Search block by height
@@ -249,7 +250,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (type === 'block') {
                 return item && item.height;
             } else {
-                return item && item.hash;
+                return item && (item.hash || item.tx_hash);
             }
         });
 
@@ -351,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 details = `
                     <div class="result-hash">
-                        Hash: ${item.hash || 'N/A'}
+                        Hash: ${item.tx_hash || item.hash || 'N/A'}
                     </div>
                     <div class="result-detail">
                         Block: ${item.block_height || 'N/A'}
@@ -369,7 +370,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="endpoint fade-in block-item">
                 <div class="block-header">
                     <div class="flex-center">
-                        <span class="badge badge-primary">${type === 'block' ? '#' + item.height : item.hash || 'N/A'}</span>
+                        <span class="badge badge-primary">${type === 'block' ? '#' + item.height : item.tx_hash || item.hash || 'N/A'}</span>
                     </div>
                     <div class="result-timestamp">
                         ${timestamp}
