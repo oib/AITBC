@@ -122,6 +122,13 @@
                 const data = await resp.json();
 
                 if (!data || !data.hash) {
+                    // Not a tx hash — try as block hash and redirect if found
+                    const blockResp = await fetch(`${EXPLORER_API_URL}/api/blocks/by-hash/${hash}`);
+                    const blockData = await blockResp.json();
+                    if (blockData && blockData.height) {
+                        location.href = `/block.html?height=${blockData.height}`;
+                        return;
+                    }
                     throw new Error('Transaction not found');
                 }
 
