@@ -328,6 +328,16 @@ Three separate exchange-related command implementations exist. The `exchange/` s
 
 **Action:** Audit overlap between `exchange.py`, `exchange_island.py`, and `exchange/` subpackage. Consolidate or clarify which is canonical.
 
+**RESOLVED (Agent A, v0.5.3):** `exchange.py` (1279 lines) was dead code — completely
+shadowed by the `exchange/` subpackage. Python package resolution gives `exchange/`
+(`__init__.py` re-exports from `exchange/main.py`) precedence over the `exchange.py`
+module, so `from aitbc_cli.commands.exchange import exchange` always loaded the
+subpackage's 7 commands (add-liquidity, create-pair, list, monitor, register,
+start-trading, status), never `exchange.py`. Deleted `exchange.py`.
+
+`exchange_island.py` is distinct and active — island-specific AIT/BTC/ETH trading
+(buy, sell, orderbook, orders, rates, cancel). Kept as-is.
+
 ### 12. GPU Command Duplication
 
 **Files:** `cli/aitbc_cli/commands/gpu_marketplace.py` (registered as `gpu`), `cli/aitbc_cli/commands/gpu_resources.py` (registered as `gpu_onchain`)
@@ -438,8 +448,8 @@ Tasks are split to avoid file conflicts. Agent A owns `cli/` and project root. A
 |------|------|-------|--------|
 | B1 | P0.4a Missing Env Files | `/etc/aitbc/aitbc-edge.env`, `/etc/aitbc/aitbc-gpu.env`, `/etc/aitbc/aitbc-miner.env` | ✅ DONE — env files existed; fixed edge `JWT_SECRET`→`JWT_SECRET_KEY` naming bug; documented gpu/miner vars |
 | B2 | P0.4b Unused Systemd Units | `/etc/systemd/system/aitbc-learning.service`, `aitbc-modality-optimization.service`, `aitbc-multimodal.service`, `aitbc-plugin.service`, `aitbc-recovery.service` | ✅ VERIFIED NO-ACTION — all 5 have backing code (coordinator-api sub-apps / scripts); removing would break system |
-| B3 | P1.5 Network Hardening | `apps/ai-engine/src/ai_service.py`, `apps/coordinator-api/src/app/services/*.py`, `apps/coordinator-api/src/app/routers/*.py` | Change `0.0.0.0` to `127.0.0.1` for internal services |
-| B4 | P1.5 Network Policy Doc | `docs/operations/NETWORK_POLICY.md` | Update exposure map |
+| B3 | P1.5 Network Hardening | `apps/ai-engine/src/ai_service.py`, `apps/coordinator-api/src/app/services/*.py`, `apps/coordinator-api/src/app/routers/*.py` | ✅ DONE — aitbc-ai systemd unit + 9 `__main__` blocks hardened to 127.0.0.1; 10 env-var-default services flagged for operator review |
+| B4 | P1.5 Network Policy Doc | `docs/operations/NETWORK_POLICY.md` | ✅ DONE — rewritten with authoritative exposure map |
 | B5 | P1.7 Website URLs | `website/exchange.js`, `website/explorer.js`, `website/marketplace.js` | Replace hardcoded URLs with relative paths |
 | B6 | Item 13 Chain ID Config | `website/config.js` (new), all `website/*.html` | Extract chain_id to shared config |
 | B7 | P2.9 Mypy Config | `pyproject.toml`, `pyproject.toml.new` | Merge mypy section, delete `.new` |
