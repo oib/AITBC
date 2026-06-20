@@ -278,7 +278,9 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(fetchOffers, 30000);
     setInterval(updateTimestamp, 30000);
     setInterval(checkServiceHealth, 30000);
+    setInterval(fetchNetworkStats, 30000);
     checkServiceHealth();
+    fetchNetworkStats();
 });
 
 // Service health check
@@ -309,4 +311,19 @@ function updateHealthItem(name, up, latency) {
     const latencyEl = item.querySelector('.health-latency');
     statusEl.className = 'health-status ' + (up ? 'up' : 'down');
     latencyEl.textContent = up ? `${latency}ms` : 'DOWN';
+}
+
+// Fetch network stats
+async function fetchNetworkStats() {
+    try {
+        const response = await fetch('/api/analytics/network-stats?chain_id=ait-hub.aitbc.bubuit.net');
+        const data = await response.json();
+        document.getElementById('stat-total-ait').textContent = data.total_ait.toLocaleString();
+        document.getElementById('stat-active-offers').textContent = data.active_offers.toLocaleString();
+        document.getElementById('stat-unique-nodes').textContent = data.unique_nodes.toLocaleString();
+        document.getElementById('stat-unique-providers').textContent = data.unique_providers.toLocaleString();
+        document.getElementById('stat-total-txs').textContent = data.total_transactions.toLocaleString();
+    } catch (error) {
+        console.error('Error fetching network stats:', error);
+    }
 }

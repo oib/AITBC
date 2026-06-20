@@ -795,6 +795,33 @@ button:active {
     color: var(--text-muted);
     font-size: 0.875rem;
 }
+/* Stats dashboard grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+.stat-card {
+    text-align: center;
+    padding: 1rem;
+    background: var(--code);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 0.25rem;
+}
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
 /* Health check grid */
 .health-grid {
     display: grid;
