@@ -14,7 +14,7 @@ EnvironmentFile=/etc/aitbc/node.env
 EnvironmentFile=/etc/aitbc/aitbc-blockchain-p2p.env
 Environment=AITBC_FORCE_ENABLE_BLOCK_PRODUCTION=false
 Environment=enable_block_production=false
-ExecStart=/opt/aitbc/venv/bin/python -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8202 --workers 1 --timeout-keep-alive 30 --limit-concurrency 100 --backlog 256 --log-level debug --access-log
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8202 --workers 1 --timeout-keep-alive 30 --limit-concurrency 100 --backlog 256 --log-level info
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
