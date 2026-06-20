@@ -411,6 +411,50 @@ input[type="number"] {
     font-size: 0.85rem;
 }
 
+/* Toggle switch for skip empty blocks */
+.toggle-switch {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    gap: 0.5rem;
+    margin-right: 0.75rem;
+}
+.toggle-switch input {
+    display: none;
+}
+.toggle-slider {
+    width: 36px;
+    height: 20px;
+    background: var(--border);
+    border-radius: 10px;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: var(--text);
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s;
+}
+.toggle-switch input:checked + .toggle-slider {
+    background: var(--primary);
+}
+.toggle-switch input:checked + .toggle-slider::before {
+    transform: translateX(16px);
+    background: #fff;
+}
+.toggle-label {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    user-select: none;
+}
+
 /* Explorer-specific styles */
 .explorer-container {
     max-width: 1200px;
