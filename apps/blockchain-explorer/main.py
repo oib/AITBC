@@ -298,6 +298,75 @@ async def api_activity_timeline(
         return {"labels": [], "datasets": []}
 
 
+@app.get("/api/analytics/network-stats")
+async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+    """Get aggregate network stats: total AIT, active offers, unique nodes/providers"""
+    try:
+        import sqlite3
+        from pathlib import Path
+
+        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        if not chain_db_path.exists():
+            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+
+        if not chain_db_path.exists():
+            return {"total_ait": 0, "active_offers": 0, "unique_nodes": 0, "unique_providers": 0, "total_transactions": 0}
+
+        conn = sqlite3.connect(str(chain_db_path))
+        cursor = conn.cursor()
+
+        # Total AIT from TRANSFER + GPU_MARKETPLACE transactions (sum of amounts)
+        cursor.execute("""
+            SELECT COALESCE(SUM(CAST(amount AS REAL)), 0)
+            FROM "transaction"
+            WHERE type IN ('TRANSFER', 'GPU_MARKETPLACE')
+        """)
+        total_ait = cursor.fetchone()[0] or 0
+
+        # Active offers (GPU_MARKETPLACE transactions)
+        cursor.execute("""
+            SELECT COUNT(DISTINCT tx_hash) FROM "transaction" WHERE type = 'GPU_MARKETPLACE'
+        """)
+        active_offers = cursor.fetchone()[0] or 0
+
+        # Unique nodes (distinct senders)
+        cursor.execute("""
+            SELECT COUNT(DISTINCT sender) FROM "transaction"
+        """)
+        unique_nodes = cursor.fetchone()[0] or 0
+
+        # Unique providers from GPU_MARKETPLACE payload
+        cursor.execute("""
+            SELECT payload FROM "transaction" WHERE type = 'GPU_MARKETPLACE'
+        """)
+        providers = set()
+        for row in cursor.fetchall():
+            try:
+                payload = json.loads(row[0]) if row[0] else {}
+                pid = payload.get("provider_node_id") or payload.get("node_id")
+                if pid:
+                    providers.add(pid)
+            except Exception:
+                pass
+        unique_providers = len(providers)
+
+        # Total transactions
+        cursor.execute("SELECT COUNT(*) FROM \"transaction\"")
+        total_transactions = cursor.fetchone()[0] or 0
+
+        conn.close()
+        return {
+            "total_ait": round(total_ait, 2),
+            "active_offers": active_offers,
+            "unique_nodes": unique_nodes,
+            "unique_providers": unique_providers,
+            "total_transactions": total_transactions,
+        }
+    except Exception as e:
+        print(f"Error getting network stats: {e}")
+        return {"total_ait": 0, "active_offers": 0, "unique_nodes": 0, "unique_providers": 0, "total_transactions": 0}
+
+
 @app.get("/api/blocks/latest")
 async def api_latest_blocks(
     chain_id: str | None = DEFAULT_CHAIN,
