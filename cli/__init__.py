@@ -4,7 +4,6 @@ AITBC CLI - Main entry point for CLI
 Redirects to the core main module
 """
 
-import importlib.util
 import sys
 from pathlib import Path
 
@@ -13,11 +12,7 @@ CLI_DIR = Path(__file__).parent
 sys.path.insert(0, str(CLI_DIR))
 
 # Import and run the main CLI
-_CLI_FILE = CLI_DIR / "aitbc_cli.py"
-_CLI_SPEC = importlib.util.spec_from_file_location("aitbc_cli_file", _CLI_FILE)
-_CLI_MODULE = importlib.util.module_from_spec(_CLI_SPEC)
-_CLI_SPEC.loader.exec_module(_CLI_MODULE)
-main = _CLI_MODULE.main
+from aitbc_cli.core.main import main  # noqa: E402
 
 if __name__ == "__main__":
     main()

@@ -46,6 +46,7 @@ class CLIConfig(BaseAITBCConfig):
     wallet_daemon_url: str = Field(default="http://localhost:8108", description="Wallet daemon URL")
     wallet_url: str = Field(default="http://localhost:8108", description="Wallet daemon URL (alias for compatibility)")
     blockchain_rpc_url: str = Field(default="http://localhost:8202", description="Blockchain RPC URL")
+    explorer_api_url: str = Field(default="http://localhost:8100", description="Blockchain Explorer API URL")
 
     # Legacy coordinator URL (deprecated, kept for backward compatibility during migration)
     coordinator_url: str = Field(default="http://localhost:8203", description="Coordinator API URL (deprecated)")

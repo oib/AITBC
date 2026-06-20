@@ -287,46 +287,6 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(fetchNetworkStats, 30000);
     checkServiceHealth();
     fetchNetworkStats();
-
-    // Offer creation form
-    const offerForm = document.getElementById('create-offer-form');
-    if (offerForm) {
-        offerForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const statusEl = document.getElementById('offer-form-status');
-            statusEl.textContent = 'Submitting...';
-            statusEl.style.color = 'var(--text-muted)';
-
-            const formData = new FormData(offerForm);
-            const payload = {};
-            formData.forEach((value, key) => {
-                if (value !== '') payload[key] = value;
-            });
-            // Set defaults
-            payload.status = 'active';
-
-            try {
-                const response = await fetch('/v1/marketplace/offer', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                });
-                const result = await response.json();
-                if (response.ok && result.plugin_id) {
-                    statusEl.textContent = `Offer created: ${result.plugin_id}`;
-                    statusEl.style.color = '#10b981';
-                    offerForm.reset();
-                    fetchOffers();
-                } else {
-                    statusEl.textContent = 'Error: ' + (result.error || response.statusText);
-                    statusEl.style.color = '#ef4444';
-                }
-            } catch (err) {
-                statusEl.textContent = 'Error: ' + err.message;
-                statusEl.style.color = '#ef4444';
-            }
-        });
-    }
 });
 
 // Fetch and display provider reputation
