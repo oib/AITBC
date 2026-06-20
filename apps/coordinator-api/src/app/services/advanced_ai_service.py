@@ -330,4 +330,4 @@ async def delete_model(model_id: str) -> Any:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8015)
+    uvicorn.run(app, host="127.0.0.1", port=8015)
