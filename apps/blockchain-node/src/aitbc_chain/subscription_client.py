@@ -332,7 +332,11 @@ class SubscriptionClient:
                 },
             )
             sync = ChainSync(session_factory=lambda chain_id=self._chain_id: session_scope(chain_id), chain_id=self._chain_id)  # type: ignore[arg-type, return-value]
-            result = sync.import_block(block_data, transactions=block_data.get("transactions"))
+            result = sync.import_block(
+                block_data,
+                transactions=block_data.get("transactions"),
+                skip_state_root_validation=True,
+            )
             if result.accepted:
                 logger.info(
                     "Block imported via push sync",
