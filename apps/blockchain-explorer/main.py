@@ -182,6 +182,40 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
     # Strip 0x prefix for comparison
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
+        # First try blockchain database for direct lookup
+        import sqlite3
+        from pathlib import Path
+        
+        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        if not chain_db_path.exists():
+            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+        
+        if chain_db_path.exists():
+            conn = sqlite3.connect(str(chain_db_path))
+            cursor = conn.cursor()
+            
+            # Search for block by hash (case-insensitive, with or without 0x prefix)
+            cursor.execute("""
+                SELECT height, hash, proposer, timestamp, tx_count, state_root
+                FROM block 
+                WHERE lower(replace(hash, '0x', '')) = ?
+            """, (clean_hash.lower(),))
+            
+            result = cursor.fetchone()
+            conn.close()
+            
+            if result:
+                height, block_hash, proposer, timestamp, tx_count, state_root = result
+                return {
+                    "height": height,
+                    "hash": block_hash,
+                    "proposer": proposer,
+                    "timestamp": timestamp,
+                    "txCount": tx_count,
+                    "stateRoot": state_root,
+                }
+        
+        # Fallback to RPC method
         rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
 
         # Get current head to determine height range
@@ -214,6 +248,62 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
         return {}
     except Exception as e:
         print(f"Error getting block by hash {hash}: {e}")
+        return {}
+
+
+@app.get("/api/transactions/by-hash/{hash}")
+async def api_transaction_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+    """API endpoint for transaction by hash"""
+    if not validate_tx_hash(hash):
+        return {}
+    # Strip 0x prefix for comparison
+    clean_hash = hash[2:] if hash.startswith("0x") else hash
+    try:
+        # First try blockchain database for direct lookup
+        import sqlite3
+        from pathlib import Path
+        
+        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        if not chain_db_path.exists():
+            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+        
+        if chain_db_path.exists():
+            conn = sqlite3.connect(str(chain_db_path))
+            cursor = conn.cursor()
+            
+            # Search for transaction by hash (case-insensitive, with or without 0x prefix)
+            cursor.execute("""
+                SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
+                FROM "transaction" 
+                WHERE lower(replace(tx_hash, '0x', '')) = ?
+            """, (clean_hash.lower(),))
+            
+            result = cursor.fetchone()
+            conn.close()
+            
+            if result:
+                tx_hash, sender, recipient, payload, block_height, created_at, tx_type, status = result
+                return {
+                    "tx_hash": tx_hash,
+                    "sender": sender,
+                    "recipient": recipient,
+                    "payload": payload,
+                    "block_height": block_height,
+                    "created_at": created_at,
+                    "type": tx_type,
+                    "status": status,
+                }
+        
+        # Fallback to RPC method
+        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{rpc_url}/rpc/tx/{hash}", params={"chain_id": chain_id})
+            if response.status_code == 200:
+                return response.json()
+        
+        return {}
+    except Exception as e:
+        print(f"Error getting transaction by hash {hash}: {e}")
         return {}
 
 
