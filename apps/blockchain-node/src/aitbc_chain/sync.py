@@ -397,6 +397,84 @@ class ChainSync:
         self._last_bulk_sync_time = int(current_time)
         return imported
 
+    async def sync_state_from(self, source_url: str) -> dict[str, Any]:
+        """Pull account state snapshot from a peer and reconcile local accounts.
+
+        Creates missing accounts and corrects balances/nonces to match
+        the peer's state root.  Does NOT delete accounts that exist locally
+        but not on the peer (those may be from local transactions).
+        """
+        self._logger.info("Starting state sync from %s", source_url)
+        try:
+            resp = await self._client.get(
+                f"{source_url}/rpc/state/snapshot",
+                params={"chain_id": self._chain_id},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            self._logger.error("Failed to fetch state snapshot: %s", e)
+            return {"synced": 0, "error": str(e)}
+
+        remote_accounts = data.get("accounts", [])
+        remote_root = data.get("state_root", "")
+        self._logger.info(
+            "State snapshot: %s accounts, state_root=%s",
+            len(remote_accounts),
+            remote_root,
+        )
+
+        created = 0
+        updated = 0
+        with self._session_factory() as session:
+            for acct_data in remote_accounts:
+                addr = acct_data["address"]
+                balance = acct_data["balance"]
+                nonce = acct_data["nonce"]
+                existing = session.get(Account, (self._chain_id, addr))
+                if existing is None:
+                    session.add(
+                        Account(
+                            chain_id=self._chain_id,
+                            address=addr,
+                            balance=balance,
+                            nonce=nonce,
+                        )
+                    )
+                    created += 1
+                elif existing.balance != balance or existing.nonce != nonce:
+                    existing.balance = balance
+                    existing.nonce = nonce
+                    updated += 1
+            session.commit()
+
+        # Verify state root matches now
+        from .state.merkle_patricia_trie import StateManager
+
+        with self._session_factory() as session:
+            accounts = session.exec(select(Account).where(Account.chain_id == self._chain_id)).all()
+            account_dict = {acc.address: acc for acc in accounts}
+            computed_root = StateManager().compute_state_root(account_dict)
+            computed_hex = f"0x{computed_root.hex()}"
+
+        match = computed_hex == remote_root
+        self._logger.info(
+            "State sync complete: created=%s, updated=%s, local_root=%s, remote_root=%s, match=%s",
+            created,
+            updated,
+            computed_hex,
+            remote_root,
+            match,
+        )
+        return {
+            "synced": created + updated,
+            "created": created,
+            "updated": updated,
+            "local_state_root": computed_hex,
+            "remote_state_root": remote_root,
+            "match": match,
+        }
+
     def import_block(
         self,
         block_data: dict[str, Any],

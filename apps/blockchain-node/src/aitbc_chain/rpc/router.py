@@ -18,6 +18,7 @@ from .accounts import (
     get_account,
     get_account_alias,
     get_balance_breakdown,
+    get_state_snapshot,
     reconcile_balance,
 )
 from .blocks import get_block, get_blocks_range, get_genesis_allocations, get_head, import_block
@@ -311,6 +312,7 @@ async def get_mempool_api_route(request: Request, chain_id: str | None = None, l
     """Get pending transactions from mempool"""
     # Import locally to avoid circular dependency
     from .transactions import get_mempool
+
     return await get_mempool(request, chain_id, limit)
 
 
@@ -349,6 +351,13 @@ async def get_account_route(request: Request, address: str, chain_id: str | None
 async def get_account_alias_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get account information (alias endpoint)"""
     return await get_account_alias(request, address, chain_id)
+
+
+@router.get("/state/snapshot", summary="Get full account state snapshot")
+@rate_limit(rate=10, per=60)
+async def get_state_snapshot_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    """Return all accounts and the computed state root for follower state sync."""
+    return await get_state_snapshot(request, chain_id)
 
 
 @router.post("/register-account", summary="Create/register a new account on the blockchain")

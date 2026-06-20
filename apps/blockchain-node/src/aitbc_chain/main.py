@@ -358,8 +358,30 @@ class BlockchainNode:
             logger.warning("Periodic sync disabled: no default_peer_rpc_url or genesis_node configured")
             return
         logger.info("Starting periodic sync task (interval=%ss, source=%s)", sync_interval, source_url)
+
+        # Sync account state from hub on startup (every 10 cycles thereafter)
+        state_sync_counter = 0
+        state_sync_every = 10
         while not self._stop_event.is_set():
             try:
+                # State sync: reconcile accounts with hub
+                if state_sync_counter % state_sync_every == 0:
+                    for chain_id in chains:
+                        try:
+                            sync = ChainSync(
+                                session_factory=lambda chain_id=chain_id: session_scope(chain_id), chain_id=chain_id
+                            )
+                            result = await sync.sync_state_from(source_url)
+                            if result.get("synced", 0) > 0:
+                                logger.info(
+                                    "State sync: created=%s, updated=%s, match=%s",
+                                    result.get("created", 0),
+                                    result.get("updated", 0),
+                                    result.get("match", False),
+                                )
+                        except Exception as e:
+                            logger.warning("State sync failed for chain %s: %s", chain_id, e)
+                state_sync_counter += 1
                 # Check if we should force pull sync (gap threshold exceeded)
                 force_pull = False
                 if subscription_client and subscription_client.get_sync_mode() == "push":
