@@ -21,6 +21,7 @@ env/
 .eggs/
 pip-wheel-metadata/
 .pytest_cache/
+**/.pytest_cache/
 .coverage
 htmlcov/
 tests/htmlcov/
