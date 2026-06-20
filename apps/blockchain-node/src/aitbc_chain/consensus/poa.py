@@ -171,10 +171,10 @@ class PoAProposer:
 
     async def _propose_block(self) -> bool:
         from ..config import settings
-        from ..mempool import get_mempool
+        from ..mempool import get_mempool as get_mempool_instance
         from ..models import Account, Transaction
 
-        mempool = get_mempool()
+        mempool = get_mempool_instance()
         block_generation_mode = getattr(settings, "block_generation_mode", "hybrid")
         max_empty_block_interval = getattr(settings, "max_empty_block_interval", 60)
         if block_generation_mode in ["mempool-only", "hybrid"]:
