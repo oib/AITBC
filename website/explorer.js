@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             timestamp = new Date(block.timestamp * 1000).toLocaleString();
                         }
                     }
-                    const txCount = block.txCount || block.tx_count || 0;
+                    const txCount = block.txCount || 0;
 
                     return `
                     <div class="endpoint fade-in block-item">
@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     transactionsHtml = `
                         <div class="block-transactions">
-                            <div class="transactions-header">Transactions: ${item.txCount || item.tx_count || 0}</div>
+                            <div class="transactions-header">Transactions: ${item.txCount || 0}</div>
                             <div class="no-transactions">No transactions in this block</div>
                         </div>
                     `;
@@ -493,7 +493,7 @@ document.addEventListener('DOMContentLoaded', function() {
             block.height,
             block.hash,
             block.validator,
-            block.tx_count,
+            block.txCount,
             block.timestamp
         ]);
 
