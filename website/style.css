@@ -898,6 +898,64 @@ button:active {
     color: var(--text-muted);
 }
 
+.live-indicator {
+    color: #ef4444;
+    font-size: 0.75rem;
+    font-weight: 600;
+    animation: blink 1.5s infinite;
+}
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+.live-feed-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+.live-feed-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+    animation: slideIn 0.3s ease-out;
+}
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+.live-feed-item:hover {
+    background: rgba(255,255,255,0.03);
+}
+.live-feed-item:last-child {
+    border-bottom: none;
+}
+.live-feed-type {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    background: var(--code);
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.live-feed-hash {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.live-feed-time {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
 .status-filter select {
     background: var(--code);
     border: 1px solid var(--border);
