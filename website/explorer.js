@@ -117,6 +117,7 @@ document.addEventListener('DOMContentLoaded', function() {
         await updateChainStats();
         await loadActivityChart();
         await loadLatestBlocks();
+        await updateLiveFeed();
     }
 
     // Load activity timeline chart
@@ -153,6 +154,71 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Error loading activity chart:', error);
         }
+    }
+
+    // Live feed
+    let liveFeedItems = [];
+    async function updateLiveFeed() {
+        try {
+            const [blocksResp, txsResp] = await Promise.all([
+                fetch(`${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=5`),
+                fetch(`${EXPLORER_API_URL}/api/transactions/search?chain_id=${currentChain}&limit=5`),
+            ]);
+            const blocksData = await blocksResp.json();
+            const txsData = await txsResp.json();
+
+            const newItems = [];
+            (blocksData.blocks || []).forEach(b => {
+                newItems.push({
+                    type: 'BLOCK',
+                    label: `#${b.height}`,
+                    hash: b.hash,
+                    time: b.timestamp,
+                    url: `/block.html?height=${b.height}`,
+                });
+            });
+            (txsData.transactions || []).forEach(t => {
+                newItems.push({
+                    type: t.type || 'TX',
+                    label: (t.tx_hash || t.hash || '').substring(0, 16) + '...',
+                    hash: t.tx_hash || t.hash,
+                    time: t.created_at,
+                    url: `/tx.html?hash=${encodeURIComponent(t.tx_hash || t.hash || '')}`,
+                });
+            });
+
+            // Sort by time descending
+            newItems.sort((a, b) => {
+                const ta = a.time ? new Date(a.time).getTime() : 0;
+                const tb = b.time ? new Date(b.time).getTime() : 0;
+                return tb - ta;
+            });
+
+            // Keep only top 10
+            liveFeedItems = newItems.slice(0, 10);
+            renderLiveFeed();
+        } catch (error) {
+            console.error('Error updating live feed:', error);
+        }
+    }
+
+    function renderLiveFeed() {
+        const container = document.getElementById('live-feed-list');
+        if (!container) return;
+        if (liveFeedItems.length === 0) {
+            container.innerHTML = '<p class="loading-text">Waiting for activity...</p>';
+            return;
+        }
+        container.innerHTML = liveFeedItems.map(item => {
+            const timeStr = item.time ? new Date(item.time).toLocaleTimeString() : '';
+            return `
+                <div class="live-feed-item" onclick="location.href='${item.url}'">
+                    <span class="live-feed-type">${item.type}</span>
+                    <span class="live-feed-hash">${item.label}</span>
+                    <span class="live-feed-time">${timeStr}</span>
+                </div>
+            `;
+        }).join('');
     }
 
     // Update chain stats
@@ -716,6 +782,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Auto-refresh every 30 seconds
     setInterval(refreshData, 30000);
+    // Live feed refreshes more frequently
+    setInterval(updateLiveFeed, 10000);
 
     // Event listeners
     document.getElementById('clear-search-btn').addEventListener('click', clearSearch);
