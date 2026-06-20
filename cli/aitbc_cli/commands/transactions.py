@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 from aitbc import ValidationError
 from aitbc.utils.validation import validate_address
 
+from ..config import get_config
 from ..utils import error, success
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet import decrypt_private_key
@@ -153,6 +154,7 @@ def _send_transaction_impl(
 @click.option("--password", help="Wallet password")
 @click.option("--password-file", help="File containing wallet password")
 @click.option("--rpc-url", help="Blockchain RPC URL")
+@click.option("--use-explorer", is_flag=True, help="Use Explorer API for status checks")
 def send(
     from_wallet: str,
     to_address: str,
@@ -161,6 +163,7 @@ def send(
     password: str | None,
     password_file: str | None,
     rpc_url: str | None,
+    use_explorer: bool,
 ):
     """Send transaction from one wallet to another"""
     # Password resolution priority:
@@ -226,6 +229,19 @@ def send(
     tx_hash = _send_transaction_impl(from_wallet, to_address, amount, fee, password, rpc_url=rpc_url)
     if tx_hash:
         success(f"Transaction sent: {tx_hash}")
+        
+        # Optionally check status via Explorer API
+        if use_explorer:
+            try:
+                config = get_config()
+                http_client = AITBCHTTPClient(base_url=config.explorer_api_url, timeout=30)
+                result = http_client.get(f"/api/transactions/by-hash/{tx_hash}")
+                success(f"Transaction status (via Explorer):")
+                click.echo(json.dumps(result, indent=2))
+            except NetworkError as e:
+                error(f"Explorer API unavailable: {e}")
+            except Exception as e:
+                error(f"Error checking status via Explorer: {e}")
 
 
 @transactions.command()
@@ -340,20 +356,33 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
 @transactions.command()
 @click.argument("tx_hash")
 @click.option("--rpc-url", help="Blockchain RPC URL")
-def status(tx_hash: str, rpc_url: str | None):
+@click.option("--use-explorer", is_flag=True, help="Use Explorer API instead of RPC")
+def status(tx_hash: str, rpc_url: str | None, use_explorer: bool):
     """Get transaction status"""
-    if not rpc_url:
-        rpc_url = DEFAULT_RPC_URL
+    if use_explorer:
+        try:
+            config = get_config()
+            http_client = AITBCHTTPClient(base_url=config.explorer_api_url, timeout=30)
+            result = http_client.get(f"/api/transactions/by-hash/{tx_hash}")
+            success(f"Transaction status for {tx_hash} (via Explorer)")
+            click.echo(json.dumps(result, indent=2))
+        except NetworkError as e:
+            error(f"Explorer API unavailable: {e}")
+        except Exception as e:
+            error(f"Error: {e}")
+    else:
+        if not rpc_url:
+            rpc_url = DEFAULT_RPC_URL
 
-    try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-        result = http_client.get(f"/rpc/transaction/{tx_hash}")
-        success(f"Transaction status for {tx_hash}")
-        click.echo(json.dumps(result, indent=2))
-    except NetworkError as e:
-        error(f"Error getting transaction status: {e}")
-    except Exception as e:
-        error(f"Error: {e}")
+        try:
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            result = http_client.get(f"/rpc/transaction/{tx_hash}")
+            success(f"Transaction status for {tx_hash}")
+            click.echo(json.dumps(result, indent=2))
+        except NetworkError as e:
+            error(f"Error getting transaction status: {e}")
+        except Exception as e:
+            error(f"Error: {e}")
 
 
 @transactions.command()
@@ -407,3 +436,27 @@ def estimate_fee(from_wallet: str, to_address: str, amount: float, rpc_url: str 
     except Exception as e:
         error(f"Error estimating fee: {e}")
         success("Estimated fee: 10.0 AIT (default)")
+
+
+@transactions.command()
+@click.argument("address")
+@click.option("--limit", default=100, help="Number of transactions to return")
+@click.option("--use-explorer", is_flag=True, help="Use Explorer API instead of RPC")
+def search(address: str, limit: int, use_explorer: bool):
+    """Search transactions by address or node ID"""
+    if use_explorer:
+        try:
+            config = get_config()
+            http_client = AITBCHTTPClient(base_url=config.explorer_api_url, timeout=30)
+            params = {"address": address, "limit": limit}
+            result = http_client.get("/api/transactions/search", params=params)
+            transactions = result.get("transactions", [])
+            success(f"Found {len(transactions)} transactions for {address} (via Explorer)")
+            click.echo(json.dumps(transactions, indent=2))
+        except NetworkError as e:
+            error(f"Explorer API unavailable: {e}")
+        except Exception as e:
+            error(f"Error searching transactions: {e}")
+    else:
+        # Fallback to RPC method if available
+        error("Transaction search via RPC not implemented. Use --use-explorer flag to use Explorer API.")
