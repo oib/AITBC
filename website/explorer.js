@@ -12,6 +12,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const EXPLORER_API_URL = '/explorer-api'; // Use nginx proxy
     let currentChain = 'ait-hub.aitbc.bubuit.net';
 
+    // Toggle state: skip empty (heartbeat) blocks
+    let skipEmptyBlocks = false;
+
     // Refresh data
     async function refreshData() {
         await updateChainStats();
@@ -48,12 +51,25 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load latest blocks
     async function loadLatestBlocks() {
         try {
-            const response = await fetch(`${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=10`);
+            // If skipping empty blocks, fetch more to find enough non-empty ones
+            const fetchLimit = skipEmptyBlocks ? 200 : 10;
+            const displayLimit = 10;
+            
+            const response = await fetch(`${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=${fetchLimit}`);
             const data = await response.json();
             
+            let blocks = data.blocks || [];
+            
+            // Filter out empty blocks if toggle is on
+            if (skipEmptyBlocks) {
+                blocks = blocks.filter(block => (block.txCount || block.tx_count || 0) > 0);
+                // Limit to display count after filtering
+                blocks = blocks.slice(0, displayLimit);
+            }
+            
             const container = document.getElementById('blocks-container');
-            if (data.blocks && data.blocks.length > 0) {
-                container.innerHTML = data.blocks.map(block => {
+            if (blocks.length > 0) {
+                container.innerHTML = blocks.map(block => {
                     // Handle both timestamp formats (ISO string and Unix timestamp)
                     let timestamp = 'N/A';
                     if (block.timestamp) {
@@ -63,6 +79,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             timestamp = new Date(block.timestamp * 1000).toLocaleString();
                         }
                     }
+                    const txCount = block.txCount || block.tx_count || 0;
                     
                     return `
                     <div class="endpoint fade-in block-item">
@@ -74,13 +91,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             ${timestamp} UTC
                         </div>
                         <div class="block-meta">
-                            Transactions: ${block.tx_count || 0}
+                            Transactions: ${txCount}
                         </div>
                     </div>
                 `;
                 }).join('');
             } else {
-                container.innerHTML = '<p class="loading-text">No blocks available</p>';
+                container.innerHTML = '<p class="loading-text">No non-empty blocks found in recent history</p>';
             }
         } catch (error) {
             console.error('Error loading blocks:', error);
@@ -523,6 +540,15 @@ document.addEventListener('DOMContentLoaded', function() {
             performSearch();
         }
     });
+
+    // Skip empty blocks toggle
+    const skipEmptyToggle = document.getElementById('skip-empty-blocks');
+    if (skipEmptyToggle) {
+        skipEmptyToggle.addEventListener('change', function() {
+            skipEmptyBlocks = this.checked;
+            loadLatestBlocks();
+        });
+    }
 
     // Initial load
     refreshData();
