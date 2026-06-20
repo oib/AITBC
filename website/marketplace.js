@@ -1,6 +1,7 @@
 let allOffers = [];
 let currentFilter = 'all';
 let currentStatusFilter = 'all';
+let confirmedOnly = false;
 
 async function fetchOffers() {
     try {
@@ -40,7 +41,8 @@ function filterOffers(offers, serviceType, status) {
     return offers.filter(offer => {
         const matchesServiceType = serviceType === 'all' || offer.service_type === serviceType;
         const matchesStatus = status === 'all' || offer.status === status;
-        return matchesServiceType && matchesStatus;
+        const matchesConfirmed = !confirmedOnly || offer.confirmed === true;
+        return matchesServiceType && matchesStatus && matchesConfirmed;
     });
 }
 
@@ -138,28 +140,49 @@ function createOfferCard(offer) {
                     <div class="offer-detail-value">${offer.price || 0} ${offer.price_unit || 'units'}</div>
                 </div>
                 <div class="offer-detail">
-                    <div class="offer-detail-label">Provider</div>
-                    <div class="offer-detail-value">${formatAddress(offer.provider_address)}</div>
-                </div>
-                <div class="offer-detail">
-                    <div class="offer-detail-label">Node ID</div>
-                    <div class="offer-detail-value">${offer.node_id || 'N/A'}</div>
-                </div>
-                <div class="offer-detail">
                     <div class="offer-detail-label">GPU</div>
-                    <div class="offer-detail-value">${offer.gpu_name || 'N/A'} (${offer.gpu_device || 'N/A'})</div>
+                    <div class="offer-detail-value">${formatGPU(offer.gpu_name, offer.gpu_device)}</div>
                 </div>
                 <div class="offer-detail">
                     <div class="offer-detail-label">Endpoint</div>
                     <div class="offer-detail-value">${formatEndpoint(offer.public_endpoint || offer.endpoint)}</div>
                 </div>
-                <div class="offer-detail">
-                    <div class="offer-detail-label">Plugin ID</div>
-                    <div class="offer-detail-value">${offer.plugin_id || 'N/A'}</div>
-                </div>
             </div>
             
-            ${blockInfo}
+            <div class="offer-details-list">
+                <div class="offer-list-item">
+                    <span class="offer-list-label">Provider:</span>
+                    <span class="offer-list-value">${formatAddress(offer.provider_address)}</span>
+                </div>
+                <div class="offer-list-item">
+                    <span class="offer-list-label">Node ID:</span>
+                    <span class="offer-list-value">${offer.node_id || 'N/A'}</span>
+                </div>
+                <div class="offer-list-item">
+                    <span class="offer-list-label">Plugin ID:</span>
+                    <span class="offer-list-value">${formatHash(offer.plugin_id)}</span>
+                </div>
+                <div class="offer-list-item">
+                    <span class="offer-list-label">Block Height:</span>
+                    <span class="offer-list-value">${offer.block_height || 'N/A'}</span>
+                </div>
+                <div class="offer-list-item">
+                    <span class="offer-list-label">Block Hash:</span>
+                    <span class="offer-list-value">${formatHash(offer.block_hash)}</span>
+                </div>
+                <div class="offer-list-item">
+                    <span class="offer-list-label">TX Hash:</span>
+                    <span class="offer-list-value">${formatHash(offer.tx_hash)}</span>
+                </div>
+                <div class="offer-list-item">
+                    <span class="offer-list-label">Proposer:</span>
+                    <span class="offer-list-value">${formatAddress(offer.block_proposer)}</span>
+                </div>
+                <div class="offer-list-item">
+                    <span class="offer-list-label">Block Time:</span>
+                    <span class="offer-list-value">${formatTimestamp(offer.block_timestamp)}</span>
+                </div>
+            </div>
             
             <div class="offer-meta">
                 <div class="offer-rating">
@@ -182,21 +205,31 @@ function formatServiceTitle(offer) {
 }
 
 function formatAddress(address) {
-    if (!address) return 'N/A';
-    if (address.length <= 16) return address;
-    return `${address.substring(0, 8)}...${address.substring(address.length - 8)}`;
+    return address || 'N/A';
 }
 
 function formatHash(hash) {
-    if (!hash) return 'N/A';
-    if (hash.length <= 16) return hash;
-    return `${hash.substring(0, 10)}...${hash.substring(hash.length - 8)}`;
+    return hash || 'N/A';
 }
 
 function formatEndpoint(endpoint) {
-    if (!endpoint) return 'N/A';
-    if (endpoint.length <= 30) return endpoint;
-    return `${endpoint.substring(0, 20)}...`;
+    return endpoint || 'N/A';
+}
+
+function formatGPU(gpuName, gpuDevice) {
+    if (!gpuName) return 'N/A';
+    const device = gpuDevice || 'N/A';
+    return `${gpuName} (${device})`;
+}
+
+function formatTimestamp(timestamp) {
+    if (!timestamp) return 'N/A';
+    try {
+        const date = new Date(timestamp);
+        return date.toLocaleString();
+    } catch (e) {
+        return timestamp;
+    }
 }
 
 function setupFilterButtons() {
@@ -232,7 +265,15 @@ document.addEventListener('DOMContentLoaded', function() {
     fetchOffers();
     setupFilterButtons();
     updateTimestamp();
-    
+
+    const confirmedToggle = document.getElementById('confirmed-only-toggle');
+    if (confirmedToggle) {
+        confirmedToggle.addEventListener('change', function() {
+            confirmedOnly = this.checked;
+            renderOffers();
+        });
+    }
+
     // Auto-refresh every 30 seconds
     setInterval(fetchOffers, 30000);
     setInterval(updateTimestamp, 30000);
