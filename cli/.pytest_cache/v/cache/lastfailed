@@ -1,8 +1,0 @@
-{
-  "tests/test_cli_basic.py::TestCLIImports::test_cli_commands_import": true,
-  "tests/test_cli_basic.py::TestCLIBasicFunctionality::test_cli_version_output": true,
-  "tests/test_cli_basic.py::TestCLIBasicFunctionality::test_nested_wallet_list_command": true,
-  "tests/test_cli_basic.py::TestCLIBasicFunctionality::test_legacy_wallet_list_alias": true,
-  "tests/test_cli_basic.py::TestCLIBasicFunctionality::test_json_output_flag": true,
-  "tests/test_cli_basic.py::TestCLIErrorHandling::test_wallet_balance_requires_target": true
-}
