@@ -135,6 +135,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Strip 0x prefix if present for API calls
         const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
         console.log('Clean hash for API:', cleanHash);
+        
         // First try to search as block
         const blockResponse = await fetch(`${EXPLORER_API_URL}/api/blocks/by-hash/${cleanHash}?chain_id=${currentChain}`);
         console.log('Block by hash response status:', blockResponse.status);
@@ -147,7 +148,20 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        console.log('Block not found by hash');
+        console.log('Block not found by hash, trying transaction search');
+        // If block not found, try to search as transaction
+        const txResponse = await fetch(`${EXPLORER_API_URL}/api/transactions/by-hash/${cleanHash}?chain_id=${currentChain}`);
+        console.log('Transaction by hash response status:', txResponse.status);
+        if (txResponse.ok) {
+            const txData = await txResponse.json();
+            console.log('Transaction by hash data:', txData);
+            if (txData && txData.tx_hash) {
+                displayResults([txData], 'transaction');
+                return;
+            }
+        }
+        
+        console.log('Neither block nor transaction found by hash');
         displayResults([], 'block');
     }
 
