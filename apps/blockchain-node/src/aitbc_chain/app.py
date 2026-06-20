@@ -119,7 +119,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         min_fee=settings.min_fee,
     )
     _app_logger.info("Initializing gossip backend: %s, url: %s", settings.gossip_backend, settings.gossip_broadcast_url)
-    create_backend("broadcast", broadcast_url=settings.gossip_broadcast_url)
+    _backend = create_backend(settings.gossip_backend, broadcast_url=settings.gossip_broadcast_url)
+    await gossip_broker.set_backend(_backend)
 
     try:
         node_id = os.getenv("NODE_ID", "unknown-node")
