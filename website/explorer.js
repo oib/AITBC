@@ -105,9 +105,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize icons
     lucide.createIcons();
 
-    // Configuration - API endpoint
-    const EXPLORER_API_URL = '/explorer-api'; // Use nginx proxy
-    let currentChain = 'ait-hub.aitbc.bubuit.net';
+    // Configuration - API endpoint (from shared website/config.js)
+    const EXPLORER_API_URL = window.AITBC_CONFIG.explorerApiUrl; // Use nginx proxy
+    let currentChain = window.AITBC_CONFIG.chainId;
 
     // Toggle state: skip empty (heartbeat) blocks
     let skipEmptyBlocks = false;
@@ -259,11 +259,11 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch(`${EXPLORER_API_URL}/api/chain/head?chain_id=${currentChain}`);
             const data = await response.json();
-            
+
             if (data.height) {
                 document.getElementById('chain-height').textContent = data.height;
             }
-            
+
             document.getElementById('node-status').textContent = 'Connected';
             document.getElementById('node-status').style.color = 'var(--success)';
         } catch (error) {
@@ -394,7 +394,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Strip 0x prefix if present for API calls
         const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
         console.log('Clean hash for API:', cleanHash);
-        
+
         // First try to search as block
         const blockResponse = await fetch(`${EXPLORER_API_URL}/api/blocks/by-hash/${cleanHash}?chain_id=${currentChain}`);
         console.log('Block by hash response status:', blockResponse.status);
@@ -406,7 +406,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
         }
-        
+
         console.log('Block not found by hash, trying transaction search');
         // If block not found, try to search as transaction
         const txResponse = await fetch(`${EXPLORER_API_URL}/api/transactions/by-hash/${cleanHash}?chain_id=${currentChain}`);
@@ -419,7 +419,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
         }
-        
+
         console.log('Neither block nor transaction found by hash, trying address search');
         // If no block or transaction found, the "hash" might actually be a node ID or address
         await searchByAddress(hash);
@@ -723,7 +723,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         txDetails = `<div class="tx-marketplace-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${tx.payload}</span></div></div>`;
                                     }
                                 }
-                                
+
                                 const innerTxHash = tx.tx_hash || 'N/A';
                                 return `
                                     <div class="transaction-item">
@@ -748,7 +748,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     `;
                 }
-                
+
                 const blockHashVal = item.hash || 'N/A';
                 details = `
                     <div class="result-hash">
@@ -783,7 +783,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         payloadDetails = `<div class="tx-marketplace-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${item.payload}</span></div></div>`;
                     }
                 }
-                
+
                 const txHashVal = item.tx_hash || item.hash || 'N/A';
                 const fromAddr = item.from || item.sender || 'N/A';
                 const toAddr = item.to || item.recipient || 'N/A';
