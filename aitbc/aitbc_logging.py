@@ -152,7 +152,29 @@ def setup_logger(
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Get a logger instance"""
+    """Get a logger instance.
+
+    When a module is run directly (python -m foo.bar or python script.py),
+    __name__ is '__main__' which produces unhelpful log output. Replace it
+    with the actual module name inferred from sys.argv so logs show the
+    real service name.
+    """
+    if name == "__main__":
+        import sys
+
+        argv = sys.argv if sys.argv else []
+        if len(argv) >= 3 and argv[1] == "-m":
+            # python -m bridge_monitor.main  ->  bridge_monitor
+            name = argv[2].rsplit(".", 1)[0] if "." in argv[2] else argv[2]
+        elif argv:
+            # python /path/to/bridge_monitor/main.py  ->  bridge_monitor
+            stem = Path(argv[0]).stem
+            if stem == "main":
+                name = Path(argv[0]).parent.name
+            else:
+                name = stem
+        else:
+            name = "app"
     return logging.getLogger(name)
 
 
@@ -164,11 +186,25 @@ def get_blockchain_logger(name: str) -> logging.Logger:
 
 
 def configure_uvicorn_logging() -> None:
-    """Make uvicorn loggers reuse the shared AITBC log format."""
-    for logger_name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+    """Make uvicorn loggers reuse the shared AITBC log format.
+
+    Renames uvicorn's internal loggers to cleaner names so journal output
+    reads as [uvicorn] instead of the confusing [uvicorn.error] / [uvicorn.access].
+    """
+    # Map uvicorn's internal logger names to cleaner display names
+    _UVICORN_LOGGER_RENAMES = {
+        "uvicorn": "uvicorn",
+        "uvicorn.error": "uvicorn",
+        "uvicorn.access": "uvicorn.access",
+    }
+
+    for logger_name, display_name in _UVICORN_LOGGER_RENAMES.items():
         logger = logging.getLogger(logger_name)
         logger.propagate = True
         logger.handlers = []
+        # Override the name shown in log output without breaking uvicorn's
+        # internal references (it looks up loggers by original name)
+        logger.name = display_name
 
     # Suppress uvicorn access logs — request logging is handled by
     # RequestIDMiddleware and PerformanceLoggingMiddleware which use
