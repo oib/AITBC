@@ -145,57 +145,78 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 30000);
 
+    // Block list pagination state
+    let blocksOffset = 0;
+
+    function renderBlockCard(block) {
+        let timestamp = 'N/A';
+        if (block.timestamp) {
+            if (typeof block.timestamp === 'string') {
+                timestamp = new Date(block.timestamp).toLocaleString();
+            } else if (typeof block.timestamp === 'number') {
+                timestamp = new Date(block.timestamp * 1000).toLocaleString();
+            }
+        }
+        const txCount = block.txCount || 0;
+        const blockHash = block.hash || 'N/A';
+        return `
+            <div class="endpoint fade-in block-item block-collapsed" data-height="${block.height}" onclick="toggleBlockDetail(${block.height}, this)">
+                <div class="block-header">
+                    <span class="badge badge-primary">#${block.height}</span>
+                    <span class="block-hash">${blockHash}</span>
+                    ${copyBtn(blockHash)}
+                    <span class="expand-indicator">▼</span>
+                </div>
+                <div class="block-timestamp">
+                    ${timestamp} UTC
+                </div>
+                <div class="block-meta">
+                    Transactions: ${txCount}
+                </div>
+                <div class="block-detail-panel" style="display:none;"></div>
+            </div>
+        `;
+    }
+
     // Load latest blocks
-    async function loadLatestBlocks() {
+    async function loadLatestBlocks(reset = true) {
         try {
-            // Use dedicated non-empty endpoint when toggle is on
+            if (reset) {
+                blocksOffset = 0;
+            }
+            const limit = 10;
             const endpoint = skipEmptyBlocks
-                ? `${EXPLORER_API_URL}/api/blocks/non-empty?chain_id=${currentChain}&limit=10`
-                : `${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=10`;
+                ? `${EXPLORER_API_URL}/api/blocks/non-empty?chain_id=${currentChain}&limit=${limit}&offset=${blocksOffset}`
+                : `${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=${limit}&offset=${blocksOffset}`;
 
             const response = await fetch(endpoint);
             const data = await response.json();
             const blocks = data.blocks || [];
 
             const container = document.getElementById('blocks-container');
-            if (blocks.length > 0) {
-                container.innerHTML = blocks.map(block => {
-                    // Handle both timestamp formats (ISO string and Unix timestamp)
-                    let timestamp = 'N/A';
-                    if (block.timestamp) {
-                        if (typeof block.timestamp === 'string') {
-                            timestamp = new Date(block.timestamp).toLocaleString();
-                        } else if (typeof block.timestamp === 'number') {
-                            timestamp = new Date(block.timestamp * 1000).toLocaleString();
-                        }
-                    }
-                    const txCount = block.txCount || 0;
+            const loadMoreContainer = document.getElementById('load-more-container');
 
-                    const blockHash = block.hash || 'N/A';
-                    return `
-                    <div class="endpoint fade-in block-item block-collapsed" data-height="${block.height}" onclick="toggleBlockDetail(${block.height}, this)">
-                        <div class="block-header">
-                            <span class="badge badge-primary">#${block.height}</span>
-                            <span class="block-hash">${blockHash}</span>
-                            ${copyBtn(blockHash)}
-                            <span class="expand-indicator">▼</span>
-                        </div>
-                        <div class="block-timestamp">
-                            ${timestamp} UTC
-                        </div>
-                        <div class="block-meta">
-                            Transactions: ${txCount}
-                        </div>
-                        <div class="block-detail-panel" style="display:none;"></div>
-                    </div>
-                `;
-                }).join('');
-            } else {
+            if (blocks.length > 0) {
+                const html = blocks.map(renderBlockCard).join('');
+                if (reset) {
+                    container.innerHTML = html;
+                } else {
+                    container.insertAdjacentHTML('beforeend', html);
+                }
+                blocksOffset += blocks.length;
+                loadMoreContainer.style.display = 'block';
+            } else if (reset) {
                 container.innerHTML = '<p class="loading-text">No blocks available</p>';
+                loadMoreContainer.style.display = 'none';
+            } else {
+                // No more blocks to load
+                loadMoreContainer.style.display = 'none';
             }
         } catch (error) {
             console.error('Error loading blocks:', error);
-            document.getElementById('blocks-container').innerHTML = '<p class="error-text">Error loading blocks</p>';
+            if (reset) {
+                document.getElementById('blocks-container').innerHTML = '<p class="error-text">Error loading blocks</p>';
+            }
         }
     }
 
@@ -645,7 +666,15 @@ document.addEventListener('DOMContentLoaded', function() {
     if (skipEmptyToggle) {
         skipEmptyToggle.addEventListener('change', function() {
             skipEmptyBlocks = this.checked;
-            loadLatestBlocks();
+            loadLatestBlocks(true);
+        });
+    }
+
+    // Load more blocks
+    const loadMoreBtn = document.getElementById('load-more-btn');
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', function() {
+            loadLatestBlocks(false);
         });
     }
 
