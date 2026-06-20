@@ -68,14 +68,16 @@ function renderOffers() {
 
     container.innerHTML = html;
     updateOfferCount();
+    loadReputations();
 }
 
 function createOfferCard(offer) {
     const statusClass = offer.status === 'active' ? 'active' : 'inactive';
     const statusText = offer.status ? offer.status.charAt(0).toUpperCase() + offer.status.slice(1) : 'Unknown';
-    
+
     const ratingStars = offer.avg_rating ? '★'.repeat(Math.round(offer.avg_rating)) : 'N/A';
     const ratingCount = offer.rating_count || 0;
+    const providerId = offer.provider_address || offer.node_id || '';
     
     const registeredDate = offer.registered_at ? new Date(offer.registered_at).toLocaleDateString() : 'N/A';
     const updatedDate = offer.updated_at ? new Date(offer.updated_at).toLocaleDateString() : 'N/A';
@@ -121,7 +123,11 @@ function createOfferCard(offer) {
             <div class="blockchain-status">
                 ${confirmationBadge}
             </div>
-            
+            <div class="reputation-badge" data-provider="${providerId}" id="rep-${offer.plugin_id || offer.id || Math.random().toString(36).slice(2)}">
+                <span class="rep-score">--</span>
+                <span class="rep-level">Loading...</span>
+            </div>
+
             <div class="offer-description">
                 ${offer.description || 'No description available'}
             </div>
@@ -282,6 +288,37 @@ document.addEventListener('DOMContentLoaded', function() {
     checkServiceHealth();
     fetchNetworkStats();
 });
+
+// Fetch and display provider reputation
+async function fetchReputation(providerId, elementId) {
+    if (!providerId) return;
+    try {
+        const response = await fetch(`/api/analytics/provider-reputation/${encodeURIComponent(providerId)}?chain_id=ait-hub.aitbc.bubuit.net`);
+        const data = await response.json();
+        const el = document.getElementById(elementId);
+        if (el) {
+            const scoreEl = el.querySelector('.rep-score');
+            const levelEl = el.querySelector('.rep-level');
+            if (scoreEl) scoreEl.textContent = data.score;
+            if (levelEl) {
+                levelEl.textContent = data.level;
+                levelEl.className = 'rep-level rep-' + data.level.toLowerCase();
+            }
+            el.title = `${data.transactions} transactions, ${data.days_active} days active, ${data.total_volume} AIT volume`;
+        }
+    } catch (error) {
+        console.error('Error fetching reputation:', error);
+    }
+}
+
+function loadReputations() {
+    document.querySelectorAll('.reputation-badge[data-provider]').forEach(el => {
+        const providerId = el.getAttribute('data-provider');
+        if (providerId) {
+            fetchReputation(providerId, el.id);
+        }
+    });
+}
 
 // Service health check
 async function checkServiceHealth() {

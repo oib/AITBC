@@ -367,6 +367,86 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
         return {"total_ait": 0, "active_offers": 0, "unique_nodes": 0, "unique_providers": 0, "total_transactions": 0}
 
 
+@app.get("/api/analytics/provider-reputation/{provider_id}")
+async def api_provider_reputation(provider_id: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+    """Compute provider reputation score from blockchain history"""
+    try:
+        import sqlite3
+        from pathlib import Path
+        from datetime import datetime
+
+        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        if not chain_db_path.exists():
+            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+
+        if not chain_db_path.exists():
+            return {"provider_id": provider_id, "score": 0, "level": "New", "transactions": 0, "days_active": 0}
+
+        conn = sqlite3.connect(str(chain_db_path))
+        cursor = conn.cursor()
+
+        # Find all transactions related to this provider
+        cursor.execute("""
+            SELECT type, amount, created_at, payload
+            FROM "transaction"
+            WHERE sender = ? OR recipient = ?
+            ORDER BY created_at ASC
+        """, (provider_id, provider_id))
+
+        txs = cursor.fetchall()
+        conn.close()
+
+        gpu_offers = 0
+        total_volume = 0.0
+        first_tx_date = None
+        confirmed_count = 0
+
+        for tx in txs:
+            tx_type, amount, created_at, payload = tx
+            if first_tx_date is None:
+                first_tx_date = created_at
+            if tx_type == "GPU_MARKETPLACE":
+                gpu_offers += 1
+            try:
+                total_volume += float(amount or 0)
+            except Exception:
+                pass
+            confirmed_count += 1
+
+        days_active = 0
+        if first_tx_date:
+            try:
+                first_dt = datetime.strptime(first_tx_date, "%Y-%m-%d %H:%M:%S")
+                days_active = (datetime.utcnow() - first_dt).days
+            except Exception:
+                pass
+
+        # Simple reputation formula
+        score = min(100, 10 + (gpu_offers * 15) + (days_active * 2) + (confirmed_count * 5))
+        level = "New"
+        if score >= 80:
+            level = "Elite"
+        elif score >= 60:
+            level = "Trusted"
+        elif score >= 40:
+            level = "Established"
+        elif score >= 20:
+            level = "Growing"
+
+        return {
+            "provider_id": provider_id,
+            "score": score,
+            "level": level,
+            "transactions": confirmed_count,
+            "gpu_offers": gpu_offers,
+            "days_active": days_active,
+            "total_volume": round(total_volume, 2),
+        }
+    except Exception as e:
+        print(f"Error getting provider reputation: {e}")
+        return {"provider_id": provider_id, "score": 0, "level": "New", "transactions": 0, "days_active": 0}
+
+
 @app.get("/api/blocks/latest")
 async def api_latest_blocks(
     chain_id: str | None = DEFAULT_CHAIN,
