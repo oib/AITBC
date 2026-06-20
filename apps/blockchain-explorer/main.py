@@ -234,9 +234,13 @@ async def api_chain_head(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]
 
 
 @app.get("/api/blocks/latest")
-async def api_latest_blocks(chain_id: str | None = DEFAULT_CHAIN, limit: int = 10) -> dict[str, Any]:
+async def api_latest_blocks(
+    chain_id: str | None = DEFAULT_CHAIN,
+    limit: int = 10,
+    offset: int = 0,
+) -> dict[str, Any]:
     """API endpoint for latest blocks"""
-    blocks = await get_latest_blocks(limit, chain_id)  # type: ignore[arg-type]
+    blocks = await get_latest_blocks(limit, chain_id, offset)  # type: ignore[arg-type]
     return {"blocks": blocks}
 
 
@@ -244,7 +248,7 @@ async def api_latest_blocks(chain_id: str | None = DEFAULT_CHAIN, limit: int = 1
 async def api_non_empty_blocks(
     chain_id: str | None = DEFAULT_CHAIN,
     limit: int = 10,
-    search_limit: int = 10000,
+    offset: int = 0,
 ) -> dict[str, Any]:
     """API endpoint for non-empty blocks (blocks with transactions)"""
     try:
@@ -273,8 +277,8 @@ async def api_non_empty_blocks(
             INNER JOIN "transaction" t ON b.height = t.block_height
             WHERE b.height <= ?
             ORDER BY b.height DESC
-            LIMIT ?
-        """, (max_height, limit))
+            LIMIT ? OFFSET ?
+        """, (max_height, limit, offset))
 
         blocks = []
         for row in cursor.fetchall():
@@ -847,7 +851,7 @@ async def export_blocks(format: str = "csv") -> StreamingResponse:
 
 
 # Helper functions
-async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN) -> list[dict[str, Any]]:
+async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN, offset: int = 0) -> list[dict[str, Any]]:
     """Get latest blocks from blockchain DB via RPC"""
     try:
         # First try blockchain database for direct lookup
@@ -862,13 +866,13 @@ async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN) -> l
             conn = sqlite3.connect(str(chain_db_path))
             cursor = conn.cursor()
             
-            # Get latest blocks
+            # Get latest blocks with offset
             cursor.execute("""
                 SELECT height, hash, proposer, timestamp, tx_count, state_root
                 FROM block 
                 ORDER BY height DESC
-                LIMIT ?
-            """, (limit,))
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
             
             blocks = []
             for row in cursor.fetchall():
