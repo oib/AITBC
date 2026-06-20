@@ -3,6 +3,7 @@
 # AITBC Systemd Link Script
 # Creates symbolic links from active systemd to repository systemd files
 # Keeps active systemd always in sync with repository
+# Role-aware: only links services appropriate for this node's role
 
 # set -e  # Disabled to allow script to continue even if some operations fail
 
@@ -38,11 +39,139 @@ if [[ ! -d "$REPO_SCRIPTS_DIR" ]]; then
     exit 1
 fi
 
+# -----------------------------------------------------------------------------
+# Role-aware service selection
+# Determines which services to link based on node role from env config.
+# Falls back to linking everything if role config is unavailable (initial setup).
+# -----------------------------------------------------------------------------
+
+get_node_role() {
+    local blockchain_mode="" market_role="" hardware_profile=""
+    if [ -f "/etc/aitbc/blockchain.env" ]; then
+        source /etc/aitbc/blockchain.env 2>/dev/null
+        blockchain_mode="$BLOCKCHAIN_MODE"
+        market_role="$MARKET_ROLE"
+        hardware_profile="$HARDWARE_PROFILE"
+    fi
+    if [ -f "/etc/aitbc/node.env" ]; then
+        source /etc/aitbc/node.env 2>/dev/null
+        blockchain_mode="${blockchain_mode:-$BLOCKCHAIN_MODE}"
+        market_role="${market_role:-$MARKET_ROLE}"
+        hardware_profile="${hardware_profile:-$HARDWARE_PROFILE}"
+    fi
+
+    if [ "$blockchain_mode" = "hub" ]; then
+        echo "hub"
+    elif [ "$market_role" = "shop" ] && [ "$hardware_profile" = "gpu" ]; then
+        echo "shop"
+    elif [ "$market_role" = "customer" ]; then
+        echo "customer"
+    else
+        echo "follower"
+    fi
+}
+
+# Get allowed service basenames (without .service/.timer suffix) for a role.
+# Also includes infrastructure services that should always be linked.
+get_allowed_services() {
+    local role="${1:-all}"
+
+    # Infrastructure services — always linked regardless of role
+    local infra_services=(
+        aitbc-load-secrets
+        aitbc-recovery
+    )
+
+    # Base services — always enabled on every node
+    local base_services=(
+        aitbc-blockchain-node
+        aitbc-blockchain-rpc
+        aitbc-wallet
+        aitbc-recovery
+        aitbc-monitoring
+        aitbc-backup
+    )
+
+    # Hub-specific services
+    local hub_services=(
+        aitbc-blockchain-p2p
+        aitbc-coordinator-api
+        aitbc-api-gateway
+        aitbc-governance
+        aitbc-exchange
+        aitbc-marketplace
+        aitbc-bridge-monitor
+        aitbc-blockchain-event-bridge
+        aitbc-hermes
+        aitbc-agent-management
+        aitbc-agent-coordinator
+        aitbc-agent-daemon
+        aitbc-blockchain-explorer
+    )
+
+    # Follower-specific services (in addition to base)
+    local follower_services=(
+        aitbc-blockchain-sync
+        aitbc-blockchain-explorer
+    )
+
+    # Shop-specific services (GPU provider, in addition to base)
+    local shop_services=(
+        aitbc-gpu
+        aitbc-miner
+        aitbc-coordinator-api
+    )
+
+    case "$role" in
+        hub)
+            for s in "${infra_services[@]}" "${base_services[@]}" "${hub_services[@]}"; do echo "$s"; done
+            ;;
+        follower)
+            for s in "${infra_services[@]}" "${base_services[@]}" "${follower_services[@]}"; do echo "$s"; done
+            ;;
+        shop)
+            for s in "${infra_services[@]}" "${base_services[@]}" "${shop_services[@]}" "${follower_services[@]}"; do echo "$s"; done
+            ;;
+        customer)
+            for s in "${infra_services[@]}" "${base_services[@]}"; do echo "$s"; done
+            ;;
+        *)
+            # Unknown role or initial setup — link everything
+            echo "all"
+            ;;
+    esac
+}
+
+# Determine node role
+NODE_ROLE=$(get_node_role)
+echo "🎯 Node role: $NODE_ROLE"
+
+# Get allowed services list
+ALLOWED_SERVICES=$(get_allowed_services "$NODE_ROLE")
+
+# Check if we should filter (role-aware) or link everything
+if [ "$ALLOWED_SERVICES" = "all" ]; then
+    echo "ℹ️  No role config found — linking all services (initial setup mode)"
+    ROLE_FILTER=false
+else
+    echo "📋 Role-based service filtering enabled"
+    ROLE_FILTER=true
+fi
+
+# Check if a service basename is in the allowed list
+is_service_allowed() {
+    local basename="$1"
+    if [ "$ROLE_FILTER" = "false" ]; then
+        return 0  # Allow all
+    fi
+    echo "$ALLOWED_SERVICES" | grep -qxF "$basename"
+}
+
 echo "🔍 Creating symbolic links for AITBC systemd files..."
 
 # Remove existing aitbc-* files and stale drop-in directories
 echo "🧹 Removing existing systemd files..."
-find "$ACTIVE_SYSTEMD_DIR" -name "aitbc-*" -type f -delete 2>/dev/null || true
+find "$ACTIVE_SYSTEMD_DIR" -maxdepth 1 -name "aitbc-*" \( -type f -o -type l \) -delete 2>/dev/null || true
 find "$ACTIVE_SYSTEMD_DIR" -maxdepth 1 -name "aitbc-*.d" -exec rm -rf {} + 2>/dev/null || true
 
 # Create symbolic links
@@ -57,6 +186,14 @@ for file in "$REPO_APPS_DIR"/*/aitbc-*.service "$REPO_APPS_DIR"/*/aitbc-*.timer;
         filename=$(basename "$file")
         target="$ACTIVE_SYSTEMD_DIR/$filename"
         source="$file"
+
+        # Role-aware filtering: skip services not in this node's role
+        svc_base="${filename%.service}"
+        svc_base="${svc_base%.timer}"
+        if ! is_service_allowed "$svc_base"; then
+            echo "  ⏭️  Skipping (not in $NODE_ROLE role): $filename"
+            continue
+        fi
 
         echo "  🔗 Linking: $filename -> $source"
 
@@ -98,6 +235,14 @@ for file in "$REPO_SCRIPTS_DIR"/*/aitbc-*.service "$REPO_SCRIPTS_DIR"/*/aitbc-*.
         filename=$(basename "$file")
         target="$ACTIVE_SYSTEMD_DIR/$filename"
         source="$file"
+
+        # Role-aware filtering: skip services not in this node's role
+        svc_base="${filename%.service}"
+        svc_base="${svc_base%.timer}"
+        if ! is_service_allowed "$svc_base"; then
+            echo "  ⏭️  Skipping (not in $NODE_ROLE role): $filename"
+            continue
+        fi
 
         echo "  🔗 Linking: $filename -> $source"
 
