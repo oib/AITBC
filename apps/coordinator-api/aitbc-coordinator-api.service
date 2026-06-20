@@ -17,7 +17,7 @@ EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
 # Set LOG_FORMAT after EnvironmentFile to prevent secrets from clobbering this setting
 Environment=LOG_FORMAT=json
-ExecStart=/opt/aitbc/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8203 --workers 1 --timeout-keep-alive 30 --limit-concurrency 100 --backlog 256 --log-level info --access-log
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8203 --workers 1 --timeout-keep-alive 30 --limit-concurrency 100 --backlog 256 --log-level info --no-access-log
 KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=30

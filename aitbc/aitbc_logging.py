@@ -170,6 +170,11 @@ def configure_uvicorn_logging() -> None:
         logger.propagate = True
         logger.handlers = []
 
+    # Suppress uvicorn access logs — request logging is handled by
+    # RequestIDMiddleware and PerformanceLoggingMiddleware which use
+    # appropriate log levels (DEBUG for routine, WARNING for errors).
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+
 
 def configure_logging(
     level: str = "INFO",
