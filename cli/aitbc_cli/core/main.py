@@ -22,8 +22,8 @@ from aitbc_cli.commands.economics import economics
 from aitbc_cli.commands.edge import edge
 from aitbc_cli.commands.explorer import explorer
 
-# from aitbc_cli.commands.node import node  # Disabled - imports from non-existent aitbc_cli.core
-# from aitbc_cli.commands.agent_comm import agent_comm  # Disabled - imports from non-existent aitbc_cli.core
+from aitbc_cli.commands.agent_comm import agent_comm
+from aitbc_cli.commands.node import node
 from aitbc_cli.commands.exchange import exchange
 from aitbc_cli.commands.exchange_island import exchange_island
 from aitbc_cli.commands.genesis import genesis
@@ -39,7 +39,6 @@ from aitbc_cli.commands.marketplace_cmd import marketplace
 from aitbc_cli.commands.messaging import messaging
 from aitbc_cli.commands.mining import mining
 
-# from aitbc_cli.commands.deployment import deployment  # Disabled - missing core.deployment module
 from aitbc_cli.commands.monitor import monitor  # Re-enabled - no core dependency
 from aitbc_cli.commands.network import network
 from aitbc_cli.commands.operations import operations
@@ -130,10 +129,9 @@ cli.add_command(analytics)  # Re-enabled - core.analytics exists
 cli.add_command(cross_chain, name="crosschain")  # Re-enabled - no core dependency
 cli.add_command(reputation)  # Reputation management
 cli.add_command(governance)  # Governance operations
-# cli.add_command(deployment)  # Disabled - missing core.deployment module
 cli.add_command(monitor)  # Re-enabled - no core dependency
-# cli.add_command(node)  # Disabled - imports from non-existent aitbc_cli.core
-# cli.add_command(agent_comm, name="agent")  # Disabled - imports from non-existent aitbc_cli.core
+cli.add_command(node)
+cli.add_command(agent_comm)  # Cross-chain agent communication (distinct from `agent` SDK group)
 cli.add_command(exchange)
 cli.add_command(config_cmd, name="config")
 cli.add_command(list_wallets)
