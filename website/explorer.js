@@ -976,4 +976,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initial load
     refreshData();
+
+    // Handle search from URL param (e.g. from Top Addresses click)
+    const urlSearch = new URL(window.location.href).searchParams.get('search');
+    if (urlSearch) {
+        document.getElementById('search-input').value = urlSearch;
+        performSearch();
+    }
 });
