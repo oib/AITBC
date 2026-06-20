@@ -57,6 +57,13 @@
             font-size: 0.8rem;
             color: var(--text);
         }
+        .clickable-value {
+            cursor: pointer;
+            color: var(--primary);
+        }
+        .clickable-value:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -122,13 +129,22 @@
                 document.getElementById('tx-type-badge').textContent = data.type || 'TX';
                 document.getElementById('tx-hash-display').textContent = data.hash;
 
+                function linkableHash(hash) {
+                    if (!hash || hash === 'N/A') return 'N/A';
+                    return `<span class="clickable-value" onclick="navigator.clipboard.writeText('${hash}');this.style.color='var(--success)';setTimeout(()=>this.style.color='',800)" title="Click to copy">${hash}</span>`;
+                }
+                function linkableAddress(addr) {
+                    if (!addr || addr === 'N/A') return 'N/A';
+                    return `<a href="/explorer.html?search=${encodeURIComponent(addr)}" class="clickable-value" title="Search address">${addr}</a>`;
+                }
+
                 const details = [
-                    { label: 'Hash', value: data.hash + ' ' + copyBtn(data.hash) },
+                    { label: 'Hash', value: linkableHash(data.hash) + ' ' + copyBtn(data.hash) },
                     { label: 'Type', value: data.type || 'Unknown' },
                     { label: 'Status', value: data.status || 'Unknown' },
                     { label: 'Block Height', value: `<a href="/block.html?height=${data.block_height}">${data.block_height}</a>` },
-                    { label: 'From', value: (data.from || data.sender || 'N/A') + ' ' + copyBtn(data.from || data.sender || '') },
-                    { label: 'To', value: (data.to || data.recipient || 'N/A') + ' ' + copyBtn(data.to || data.recipient || '') },
+                    { label: 'From', value: linkableAddress(data.from || data.sender) + ' ' + copyBtn(data.from || data.sender || '') },
+                    { label: 'To', value: linkableAddress(data.to || data.recipient) + ' ' + copyBtn(data.to || data.recipient || '') },
                     { label: 'Value', value: data.value !== undefined ? data.value : 'N/A' },
                     { label: 'Fee', value: data.fee !== undefined ? data.fee : 'N/A' },
                     { label: 'Nonce', value: data.nonce !== undefined ? data.nonce : 'N/A' },
