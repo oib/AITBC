@@ -24,7 +24,80 @@ function copyToClipboard(text, btnEl) {
 }
 
 function copyBtn(text) {
-    return `<button class="copy-btn" onclick="copyToClipboard('${text}', this)" title="Copy to clipboard">📋</button>`;
+    return `<button class="copy-btn" onclick="event.stopPropagation(); copyToClipboard('${text}', this)" title="Copy to clipboard">📋</button>`;
+}
+
+function renderBlockTransactions(block) {
+    const txs = block.transactions || [];
+    if (txs.length === 0) {
+        return '<div class="no-transactions">No transactions in this block</div>';
+    }
+    return txs.map(tx => {
+        let txDetails = '';
+        try {
+            const payload = typeof tx.payload === 'string' ? JSON.parse(tx.payload) : tx.payload;
+            if (typeof payload === 'object' && payload !== null) {
+                const rows = Object.entries(payload)
+                    .filter(([key]) => key !== 'chain_id' && key !== 'island_id')
+                    .map(([key, value]) => {
+                        let displayValue = value;
+                        if (typeof value === 'object') displayValue = JSON.stringify(value);
+                        if (String(displayValue).length > 60) displayValue = String(displayValue).substring(0, 57) + '...';
+                        return `<div class="tx-detail-item"><span class="tx-detail-label">${key}:</span><span class="tx-detail-value">${displayValue}</span></div>`;
+                    }).join('');
+                if (rows) txDetails = `<div class="tx-marketplace-details">${rows}</div>`;
+            }
+        } catch (e) {
+            if (tx.payload) {
+                txDetails = `<div class="tx-marketplace-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${tx.payload}</span></div></div>`;
+            }
+        }
+        const txHash = tx.tx_hash || 'N/A';
+        return `
+            <div class="transaction-item">
+                <div class="tx-header">
+                    <span class="tx-type">${tx.type || 'Unknown'}</span>
+                    <span class="tx-hash">${formatHash(txHash)} ${copyBtn(txHash)}</span>
+                </div>
+                <div class="tx-status ${tx.status === 'confirmed' ? 'confirmed' : 'pending'}">${tx.status || 'Unknown'}</div>
+                <div class="result-detail">From: ${tx.sender || 'N/A'} ${copyBtn(tx.sender || '')}</div>
+                <div class="result-detail">To: ${tx.recipient || 'N/A'} ${copyBtn(tx.recipient || '')}</div>
+                ${txDetails}
+            </div>
+        `;
+    }).join('');
+}
+
+async function toggleBlockDetail(height, cardEl) {
+    event.stopPropagation();
+    const panel = cardEl.querySelector('.block-detail-panel');
+    const indicator = cardEl.querySelector('.expand-indicator');
+    if (panel.style.display === 'block') {
+        panel.style.display = 'none';
+        indicator.textContent = '▼';
+        cardEl.classList.add('block-collapsed');
+        cardEl.classList.remove('block-expanded');
+        return;
+    }
+    // Show loading
+    panel.innerHTML = '<p class="loading-text">Loading transactions...</p>';
+    panel.style.display = 'block';
+    indicator.textContent = '▲';
+    cardEl.classList.remove('block-collapsed');
+    cardEl.classList.add('block-expanded');
+    try {
+        const res = await fetch(`${EXPLORER_API_URL}/api/blocks/${height}?chain_id=${currentChain}`);
+        const block = await res.json();
+        const txsHtml = renderBlockTransactions(block);
+        panel.innerHTML = `
+            <div class="block-transactions">
+                <div class="transactions-header">Transactions (${block.transactions ? block.transactions.length : 0}):</div>
+                ${txsHtml}
+            </div>
+        `;
+    } catch (err) {
+        panel.innerHTML = '<p class="error-text">Failed to load block details</p>';
+    }
 }
 
 // Wait for DOM to be ready
@@ -100,11 +173,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     const blockHash = block.hash || 'N/A';
                     return `
-                    <div class="endpoint fade-in block-item">
+                    <div class="endpoint fade-in block-item block-collapsed" data-height="${block.height}" onclick="toggleBlockDetail(${block.height}, this)">
                         <div class="block-header">
                             <span class="badge badge-primary">#${block.height}</span>
                             <span class="block-hash">${blockHash}</span>
                             ${copyBtn(blockHash)}
+                            <span class="expand-indicator">▼</span>
                         </div>
                         <div class="block-timestamp">
                             ${timestamp} UTC
@@ -112,6 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="block-meta">
                             Transactions: ${txCount}
                         </div>
+                        <div class="block-detail-panel" style="display:none;"></div>
                     </div>
                 `;
                 }).join('');
