@@ -333,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
 async function fetchReputation(providerId, elementId) {
     if (!providerId) return;
     try {
-        const response = await fetch(`/api/analytics/provider-reputation/${encodeURIComponent(providerId)}?chain_id=ait-hub.aitbc.bubuit.net`);
+        const response = await fetch(`/explorer-api/api/analytics/provider-reputation/${encodeURIComponent(providerId)}?chain_id=ait-hub.aitbc.bubuit.net`);
         const data = await response.json();
         const el = document.getElementById(elementId);
         if (el) {
@@ -393,7 +393,7 @@ function updateHealthItem(name, up, latency) {
 // Fetch network stats
 async function fetchNetworkStats() {
     try {
-        const response = await fetch('/api/analytics/network-stats?chain_id=ait-hub.aitbc.bubuit.net');
+        const response = await fetch('/explorer-api/api/analytics/network-stats?chain_id=ait-hub.aitbc.bubuit.net');
         const data = await response.json();
         document.getElementById('stat-total-ait').textContent = data.total_ait.toLocaleString();
         document.getElementById('stat-active-offers').textContent = data.active_offers.toLocaleString();
