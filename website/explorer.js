@@ -1,3 +1,9 @@
+function formatHash(hash) {
+    if (!hash) return 'N/A';
+    if (hash.length <= 16) return hash;
+    return `${hash.substring(0, 10)}...${hash.substring(hash.length - 8)}`;
+}
+
 // Wait for DOM to be ready
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize icons
@@ -264,16 +270,79 @@ document.addEventListener('DOMContentLoaded', function() {
             // Build details based on type
             let details = '';
             if (type === 'block') {
+                // Build transactions list if available
+                let transactionsHtml = '';
+                if (item.transactions && item.transactions.length > 0) {
+                    transactionsHtml = `
+                        <div class="block-transactions">
+                            <div class="transactions-header">Transactions (${item.transactions.length}):</div>
+                            ${item.transactions.map(tx => {
+                                let txDetails = '';
+                                if (tx.type === 'GPU_MARKETPLACE') {
+                                    try {
+                                        const payload = typeof tx.payload === 'string' ? JSON.parse(tx.payload) : tx.payload;
+                                        if (payload.action === 'offer') {
+                                            txDetails = `
+                                                <div class="tx-marketplace-details">
+                                                    <div class="tx-detail-item">
+                                                        <span class="tx-detail-label">Offer ID:</span>
+                                                        <span class="tx-detail-value">${payload.offer_id || 'N/A'}</span>
+                                                    </div>
+                                                    <div class="tx-detail-item">
+                                                        <span class="tx-detail-label">Description:</span>
+                                                        <span class="tx-detail-value">${payload.description || 'N/A'}</span>
+                                                    </div>
+                                                    <div class="tx-detail-item">
+                                                        <span class="tx-detail-label">Price:</span>
+                                                        <span class="tx-detail-value">${payload.price_per_hour || 0} per hour</span>
+                                                    </div>
+                                                    <div class="tx-detail-item">
+                                                        <span class="tx-detail-label">Provider:</span>
+                                                        <span class="tx-detail-value">${payload.provider_node_id || tx.sender || 'N/A'}</span>
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }
+                                    } catch (e) {
+                                        console.error('Error parsing marketplace payload:', e);
+                                    }
+                                }
+                                
+                                return `
+                                    <div class="transaction-item">
+                                        <div class="tx-header">
+                                            <span class="tx-type">${tx.type || 'Unknown'}</span>
+                                            <span class="tx-hash">${formatHash(tx.tx_hash)}</span>
+                                        </div>
+                                        <div class="tx-status ${tx.status === 'confirmed' ? 'confirmed' : 'pending'}">
+                                            ${tx.status || 'Unknown'}
+                                        </div>
+                                        ${txDetails}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                } else {
+                    transactionsHtml = `
+                        <div class="block-transactions">
+                            <div class="transactions-header">Transactions: ${item.tx_count || 0}</div>
+                            <div class="no-transactions">No transactions in this block</div>
+                        </div>
+                    `;
+                }
+                
                 details = `
                     <div class="result-hash">
                         Hash: ${item.hash || 'N/A'}
                     </div>
                     <div class="result-detail">
-                        Validator: ${item.validator || 'unknown'}
+                        Validator: ${item.proposer || item.validator || 'unknown'}
                     </div>
                     <div class="result-detail">
-                        Transactions: ${item.tx_count || 0}
+                        Height: ${item.height || 'N/A'}
                     </div>
+                    ${transactionsHtml}
                 `;
             } else {
                 details = `
@@ -284,10 +353,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         Block: ${item.block_height || 'N/A'}
                     </div>
                     <div class="result-detail">
-                        From: ${item.from || 'N/A'}
+                        From: ${item.from || item.sender || 'N/A'}
                     </div>
                     <div class="result-detail">
-                        To: ${item.to || 'N/A'}
+                        To: ${item.to || item.recipient || 'N/A'}
                     </div>
                 `;
             }
