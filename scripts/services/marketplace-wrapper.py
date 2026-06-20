@@ -37,5 +37,6 @@ logger.info(f"Executing: {' '.join(exec_cmd)}")
 # Ensure PYTHONPATH is set for the child process
 env = os.environ.copy()
 env["PYTHONPATH"] = "/opt/aitbc:/opt/aitbc/apps/marketplace/src"
+env["MARKETPLACE_DATABASE_URL"] = "sqlite+aiosqlite:////opt/aitbc/data/marketplace_service.db"
 
 os.execvpe(exec_cmd[0], exec_cmd, env)
