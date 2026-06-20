@@ -19,66 +19,6 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
-        .detail-list {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-        }
-        .detail-list tr {
-            border-bottom: 1px solid var(--border);
-        }
-        .detail-list tr:last-child {
-            border-bottom: none;
-        }
-        .detail-list td {
-            padding: 0.5rem 0.75rem;
-            vertical-align: top;
-        }
-        .detail-list td:first-child {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            width: 100px;
-            white-space: nowrap;
-        }
-        .detail-list td:last-child {
-            font-family: var(--font-mono);
-            word-break: break-all;
-        }
-        .list-item {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.6rem 0.5rem;
-            border-bottom: 1px solid var(--border);
-            transition: background 0.15s;
-        }
-        .list-item:last-child {
-            border-bottom: none;
-        }
-        .list-item:hover {
-            background: rgba(255,255,255,0.03);
-        }
-        .list-item a {
-            color: var(--text);
-            text-decoration: none;
-            font-family: var(--font-mono);
-            font-size: 0.85rem;
-            flex: 1;
-            word-break: break-all;
-        }
-        .list-item a:hover {
-            text-decoration: underline;
-        }
-        .clickable-value {
-            cursor: pointer;
-            color: var(--primary);
-        }
-        .clickable-value:hover {
-            text-decoration: underline;
-        }
         .dir-badge {
             display: inline-block;
             padding: 0.15rem 0.4rem;
@@ -87,18 +27,9 @@
             font-weight: 600;
             margin-left: 0.5rem;
         }
-        .dir-out {
-            background: rgba(239, 68, 68, 0.15);
-            color: #ef4444;
-        }
-        .dir-in {
-            background: rgba(16, 185, 129, 0.15);
-            color: #10b981;
-        }
-        .dir-self {
-            background: rgba(59, 130, 246, 0.15);
-            color: #3b82f6;
-        }
+        .dir-out { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+        .dir-in { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .dir-self { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
     </style>
 </head>
 <body>
@@ -139,7 +70,7 @@
         }
 
         function copyBtn(text) {
-            return `<button class="copy-btn" onclick="navigator.clipboard.writeText('${text}')" title="Copy">&#x29c9;</button>`;
+            return `<button class="copy-btn" onclick="event.stopPropagation();navigator.clipboard.writeText('${text}')" title="Copy">&#x29c9;</button>`;
         }
 
         function addrLink(addr) {
@@ -162,7 +93,7 @@
             else if (s === a) dir = 'out';
             else if (r === a) dir = 'in';
             if (!dir) return '';
-            const labels = { out: 'OUT →', in: 'IN ←', self: 'SELF ↻' };
+            const labels = { out: 'OUT &rarr;', in: 'IN &larr;', self: 'SELF &orarr;' };
             return `<span class="dir-badge dir-${dir}">${labels[dir]}</span>`;
         }
 
@@ -195,35 +126,37 @@
                     return;
                 }
 
-                // Blocks
                 if (blocks.length > 0) {
                     document.getElementById('blocks-section').style.display = 'block';
                     document.getElementById('blocks-list').innerHTML = blocks.map(b => `
-                        <table class="detail-list" style="margin-bottom:0.5rem;">
-                            <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> <a href="/block.html?height=${b.height}">#${b.height}</a></td></tr>
-                            <tr><td>Hash</td><td><a href="/block.html?height=${b.height}">${b.hash}</a> ${copyBtn(b.hash || '')}</td></tr>
-                            <tr><td>Proposer</td><td>${addrLink(b.proposer)}</td></tr>
-                            <tr><td>TXs</td><td>${b.txCount || 0}</td></tr>
-                            <tr><td>Time</td><td>${b.timestamp ? new Date(b.timestamp).toLocaleString() : 'N/A'}</td></tr>
-                        </table>
+                        <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" onclick="location.href='/block.html?height=${b.height}'">
+                            <table class="block-list-table">
+                                <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> #${b.height}</td></tr>
+                                <tr><td>Hash</td><td>${b.hash || 'N/A'} ${copyBtn(b.hash || '')}</td></tr>
+                                <tr><td>Proposer</td><td>${addrLink(b.proposer)}</td></tr>
+                                <tr><td>Transactions</td><td>${b.txCount || 0}</td></tr>
+                                <tr><td>Timestamp</td><td>${b.timestamp ? new Date(b.timestamp).toLocaleString() : 'N/A'}</td></tr>
+                            </table>
+                        </div>
                     `).join('');
                 }
 
-                // Transactions
                 if (txs.length > 0) {
                     document.getElementById('txs-section').style.display = 'block';
                     document.getElementById('txs-list').innerHTML = txs.map(tx => {
                         const dBadge = dirBadge(tx, query);
                         return `
-                        <table class="detail-list" style="margin-bottom:0.5rem;">
-                            <tr><td>Type</td><td><span class="badge badge-primary">${tx.type || 'TX'}</span> ${dBadge}</td></tr>
-                            <tr><td>Hash</td><td>${hashLink(tx.tx_hash)} ${copyBtn(tx.tx_hash || '')}</td></tr>
-                            <tr><td>From</td><td>${addrLink(tx.sender)}</td></tr>
-                            <tr><td>To</td><td>${addrLink(tx.recipient)}</td></tr>
-                            <tr><td>Block</td><td><a href="/block.html?height=${tx.block_height}">${tx.block_height}</a></td></tr>
-                            <tr><td>Status</td><td>${tx.status || 'N/A'}</td></tr>
-                            <tr><td>Time</td><td>${tx.created_at ? new Date(tx.created_at).toLocaleString() : 'N/A'}</td></tr>
-                        </table>
+                        <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" onclick="location.href='/tx.html?hash=${encodeURIComponent(tx.tx_hash)}'">
+                            <table class="block-list-table">
+                                <tr><td>Type</td><td><span class="badge badge-primary">${tx.type || 'TX'}</span> ${dBadge}</td></tr>
+                                <tr><td>Hash</td><td>${tx.tx_hash || 'N/A'} ${copyBtn(tx.tx_hash || '')}</td></tr>
+                                <tr><td>From</td><td>${addrLink(tx.sender)}</td></tr>
+                                <tr><td>To</td><td>${addrLink(tx.recipient)}</td></tr>
+                                <tr><td>Block</td><td><a href="/block.html?height=${tx.block_height}">${tx.block_height}</a></td></tr>
+                                <tr><td>Status</td><td>${tx.status || 'N/A'}</td></tr>
+                                <tr><td>Time</td><td>${tx.created_at ? new Date(tx.created_at).toLocaleString() : 'N/A'}</td></tr>
+                            </table>
+                        </div>
                         `;
                     }).join('');
                 }
