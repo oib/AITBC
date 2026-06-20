@@ -215,9 +215,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Search by address
     async function searchByAddress(address) {
         try {
-            const response = await fetch(`${EXPLORER_API_URL}/api/transactions/search?address=${address}&chain_id=${currentChain}`);
+            const response = await fetch(`${EXPLORER_API_URL}/api/transactions/search?address=${encodeURIComponent(address)}&chain_id=${currentChain}`);
             const data = await response.json();
-            displayResults(data.transactions || [], 'transaction');
+            const txs = data.transactions || [];
+            if (txs.length === 0) {
+                displayError('No transactions found for this address/node ID');
+                return;
+            }
+            displayResults(txs, 'transaction');
         } catch (error) {
             console.error('Error searching by address:', error);
             displayError('No transactions found for address');
