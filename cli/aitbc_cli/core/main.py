@@ -20,6 +20,7 @@ from aitbc_cli.commands.contract import contract
 from aitbc_cli.commands.cross_chain import cross_chain  # Re-enabled - no core dependency
 from aitbc_cli.commands.economics import economics
 from aitbc_cli.commands.edge import edge
+from aitbc_cli.commands.explorer import explorer
 
 # from aitbc_cli.commands.node import node  # Disabled - imports from non-existent aitbc_cli.core
 # from aitbc_cli.commands.agent_comm import agent_comm  # Disabled - imports from non-existent aitbc_cli.core
@@ -167,11 +168,17 @@ cli.add_command(security)
 cli.add_command(compliance)
 cli.add_command(hermes_training)
 cli.add_command(coin_requests)
+cli.add_command(explorer)
 
 
 def main(argv=None):
     """Entry point for console scripts and compatibility wrappers."""
-    return cli.main(args=argv, prog_name="aitbc", standalone_mode=False)
+    try:
+        return cli.main(args=argv, prog_name="aitbc", standalone_mode=False)
+    except click.exceptions.NoArgsIsHelpError as e:
+        # Show help message and exit cleanly
+        click.echo(str(e))
+        return 0
 
 
 if __name__ == "__main__":

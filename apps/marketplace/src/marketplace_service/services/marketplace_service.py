@@ -305,13 +305,13 @@ class MarketplaceService:
                     "updated_at": s.updated_at.isoformat() if s.updated_at else None,
                     "avg_rating": s.avg_rating,
                     "rating_count": s.rating_count,
-                    # Blockchain verification information (local offers not yet on blockchain)
-                    "block_height": None,
-                    "block_hash": None,
-                    "block_timestamp": None,
-                    "block_proposer": None,
-                    "tx_hash": None,
-                    "confirmed": False,
+                    # Blockchain verification information
+                    "block_height": s.block_height,
+                    "block_hash": s.block_hash,
+                    "block_timestamp": s.block_timestamp.isoformat() if s.block_timestamp else None,
+                    "block_proposer": s.block_proposer,
+                    "tx_hash": s.tx_hash,
+                    "confirmed": bool(s.block_height),  # Consider confirmed if it has block info
                 }
                 for s in local_services
             ]
