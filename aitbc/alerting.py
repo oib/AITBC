@@ -41,7 +41,7 @@ class Alert:
     title: str
     message: str
     source: str
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     status: AlertStatus = AlertStatus.ACTIVE
     metadata: dict[str, Any] = field(default_factory=dict)
     acknowledged_by: str | None = None
