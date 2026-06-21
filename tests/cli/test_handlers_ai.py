@@ -3,9 +3,12 @@ AI Handlers Tests
 Tests for ai CLI handlers
 """
 
-from unittest.mock import patch
-
 import pytest
+
+
+# The handlers package was removed during CLI consolidation; skip all
+# tests in this module rather than failing on the @patch decorator.
+pytestmark = pytest.mark.skip(reason="handlers package no longer exists (consolidated into aitbc_cli.commands)")
 
 
 class TestAIHandlers:
@@ -13,17 +16,15 @@ class TestAIHandlers:
 
     def test_handle_ai_submit_function_exists(self):
         """Test that handle_ai_submit function exists"""
-        try:
-            from handlers.ai import handle_ai_submit
+        from handlers.ai import handle_ai_submit
 
-            assert handle_ai_submit is not None
-        except ImportError as e:
-            pytest.skip(f"Cannot import AI handlers: {e}")
+        assert handle_ai_submit is not None
 
-    @patch("handlers.ai.requests")
-    def test_handle_ai_submit_command(self, mock_requests):
+    def test_handle_ai_submit_command(self):
         """Test handle_ai_submit - skip due to complex keystore and RPC dependencies"""
-        pytest.skip("AI handlers have complex keystore, RPC, and coordinator dependencies")
+        from handlers.ai import handle_ai_submit
+
+        assert handle_ai_submit is not None
 
 
 if __name__ == "__main__":
