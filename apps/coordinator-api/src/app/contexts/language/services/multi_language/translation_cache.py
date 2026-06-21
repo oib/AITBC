@@ -5,7 +5,6 @@ Redis-based caching for translation results to improve performance
 
 import hashlib
 import json
-import pickle
 import time
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -15,7 +14,7 @@ from redis.asyncio import Redis
 
 from aitbc.aitbc_logging import get_logger
 
-from ...services.secure_pickle import safe_loads  # type: ignore[import-not-found]
+from ...services.secure_pickle import safe_dumps, safe_loads  # type: ignore[import-not-found]
 from .translation_engine import TranslationProvider, TranslationResponse
 
 logger = get_logger(__name__)
@@ -83,7 +82,7 @@ class TranslationCache:
         try:
             cached_data = await self.redis.get(cache_key)
             if cached_data:
-                cache_entry = safe_loads(cached_data)
+                cache_entry = CacheEntry(**safe_loads(cached_data))
                 cache_entry.access_count += 1
                 cache_entry.last_accessed = time.time()
                 await self.redis.hset(f"{cache_key}:stats", "access_count", cache_entry.access_count)
@@ -131,7 +130,7 @@ class TranslationCache:
                 access_count=1,
                 last_accessed=time.time(),
             )
-            serialized_entry = pickle.dumps(cache_entry)
+            serialized_entry = safe_dumps(asdict(cache_entry))
             pipe = self.redis.pipeline()
             pipe.setex(cache_key, ttl, serialized_entry)
             stats_key = f"{cache_key}:stats"
