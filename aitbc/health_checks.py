@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any
+from collections.abc import Callable
 
 from .aitbc_logging import get_logger
 
@@ -46,10 +47,10 @@ class HealthChecker:
             service_name: Name of the service
         """
         self.service_name = service_name
-        self._checks: dict[str, callable] = {}
+        self._checks: dict[str, Callable[[], tuple[HealthStatus, str, dict[str, Any]]]] = {}
         self._last_check: HealthCheck | None = None
 
-    def register_check(self, name: str, check_func: callable) -> None:
+    def register_check(self, name: str, check_func: Callable[[], tuple[HealthStatus, str, dict[str, Any]]]) -> None:
         """
         Register a health check function
 
@@ -69,7 +70,7 @@ class HealthChecker:
         """
         results = []
         overall_status = HealthStatus.HEALTHY
-        all_details = {}
+        all_details: dict[str, Any] = {}
         for name, check_func in self._checks.items():
             try:
                 status, message, details = check_func()

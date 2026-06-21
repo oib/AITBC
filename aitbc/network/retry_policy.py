@@ -43,7 +43,7 @@ class RetryPolicy:
         """
         import requests
 
-        last_error = None
+        last_error: requests.RequestException | None = None
         for attempt in range(self.max_retries + 1):
             try:
                 if attempt > 0:
@@ -93,7 +93,7 @@ class RetryPolicy:
         """
         import requests
 
-        last_error = None
+        last_error: requests.RequestException | None = None
         for attempt in range(self.max_retries + 1):
             try:
                 if attempt > 0:

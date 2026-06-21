@@ -8,7 +8,7 @@ across microservice boundaries.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -24,7 +24,7 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
     - Adds X-Request-ID to response headers
     """
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         # Extract or generate correlation ID
         correlation_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
 
