@@ -8,9 +8,9 @@ This document catalogs the authentication and authorization patterns used across
 ### Coordinator API
 **Location**: `apps/coordinator-api/src/app/deps.py`
 **Auth Method**: API Key Validation
-**Implementation**: 
+**Implementation**:
 - `require_client_key()` - Client API key via X-Api-Key header
-- `require_miner_key()` - Miner API key via X-Api-Key header  
+- `require_miner_key()` - Miner API key via X-Api-Key header
 - `require_admin_key()` - Admin API key via X-Api-Key header
 - `get_miner_id()` - Miner ID via X-Miner-ID header
 - Legacy `APIKeyValidator` class for backward compatibility

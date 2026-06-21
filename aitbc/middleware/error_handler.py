@@ -2,9 +2,9 @@
 Standardized error response middleware for FastAPI
 """
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 class ErrorHandlerMiddleware(BaseHTTPMiddleware):
     """Middleware to standardize error responses"""
 
-    async def dispatch(self, request: Request, call_next: Callable) -> JSONResponse:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         try:
             response = await call_next(request)
             return response

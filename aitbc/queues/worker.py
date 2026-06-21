@@ -95,6 +95,8 @@ class BackgroundTaskManager:
             await self.cancel_task(task_id)
             raise TimeoutError(f"Task {task_id} timed out") from None
         info = self.task_info.get(task_id)
+        if info is None:
+            raise ValueError(f"Task {task_id} info not found")
         if info["status"] == "failed":
             raise Exception(info["error"])
         return info["result"]
@@ -129,7 +131,7 @@ class WorkerPool:
 
     async def submit(self, func: Callable, *args, **kwargs) -> Any:
         """Submit task to worker pool"""
-        future = asyncio.Future()
+        future: asyncio.Future[Any] = asyncio.Future()
         await self.queue.put((func, args, kwargs, future))
         return await future
 

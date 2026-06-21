@@ -3,7 +3,7 @@ Database utility functions for AITBC applications.
 """
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import DatabaseError
@@ -70,7 +70,7 @@ def get_table_info(db_path: Path, table_name: str) -> list[dict[str, Any]]:
         List of column information dictionaries
     """
     with DatabaseConnection(db_path) as db:
-        return db.fetch_all(f"PRAGMA table_info({table_name})")
+        return cast(list[dict[str, Any]], db.fetch_all(f"PRAGMA table_info({table_name})"))
 
 
 def table_exists(db_path: Path, table_name: str) -> bool:
