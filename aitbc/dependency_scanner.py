@@ -8,7 +8,7 @@ import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .aitbc_logging import get_logger
 
@@ -91,7 +91,7 @@ class DependencyScanner:
             )
             try:
                 bandit_data = json.loads(result.stdout)
-                return bandit_data.get("results", [])
+                return cast(list[dict[str, Any]], bandit_data.get("results", []))
             except json.JSONDecodeError:
                 logger.warning("Failed to parse Bandit JSON output")
                 return []

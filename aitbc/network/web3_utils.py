@@ -3,11 +3,12 @@ Web3 utilities for AITBC
 Provides Ethereum blockchain interaction utilities using web3.py
 """
 
-from typing import Any
+from typing import Any, cast
 
 try:
     from web3 import Web3
-    from web3.middleware import geth_poa_middleware
+    from web3.middleware import geth_poa_middleware  # type: ignore[attr-defined]
+    from web3.types import HexStr, TxParams
 
     WEB3_AVAILABLE = True
 except ImportError:
@@ -36,7 +37,7 @@ class Web3Client:
     def get_eth_balance(self, address: str) -> str:
         """Get ETH balance in wei"""
         try:
-            balance_wei = self.w3.eth.get_balance(address)
+            balance_wei = self.w3.eth.get_balance(cast("Any", address))
             return str(balance_wei)
         except Exception as e:
             raise ValueError(f"Failed to get ETH balance: {e}") from e
@@ -50,19 +51,19 @@ class Web3Client:
             padded_address = address[2:].lower().zfill(64)
             call_data = balance_of_signature + padded_address
 
-            result = self.w3.eth.call({"to": token_address, "data": f"0x{call_data}"})
+            result = self.w3.eth.call({"to": token_address, "data": cast(HexStr, f"0x{call_data}")})
 
             balance = int(result.hex(), 16)
 
             # Get token decimals
             decimals_signature = "0x313ce567"
-            decimals_result = self.w3.eth.call({"to": token_address, "data": decimals_signature})
+            decimals_result = self.w3.eth.call({"to": token_address, "data": cast(HexStr, decimals_signature)})
             decimals = int(decimals_result.hex(), 16)
 
             # Get token symbol (optional, may fail for some tokens)
             try:
                 symbol_signature = "0x95d89b41"
-                symbol_result = self.w3.eth.call({"to": token_address, "data": symbol_signature})
+                symbol_result = self.w3.eth.call({"to": token_address, "data": cast(HexStr, symbol_signature)})
                 symbol_bytes = bytes.fromhex(symbol_result.hex()[2:])
                 symbol = symbol_bytes.rstrip(b"\x00").decode("utf-8")
             except (UnicodeDecodeError, ValueError):
@@ -91,7 +92,7 @@ class Web3Client:
     def get_nonce(self, address: str) -> int:
         """Get transaction nonce for address"""
         try:
-            nonce = self.w3.eth.get_transaction_count(address)
+            nonce = self.w3.eth.get_transaction_count(cast("Any", address))
             return nonce
         except Exception as e:
             raise ValueError(f"Failed to get nonce: {e}") from e
@@ -99,7 +100,7 @@ class Web3Client:
     def send_raw_transaction(self, signed_transaction: str) -> str:
         """Send raw transaction to blockchain"""
         try:
-            tx_hash = self.w3.eth.send_raw_transaction(signed_transaction)
+            tx_hash = self.w3.eth.send_raw_transaction(cast(HexStr, signed_transaction))
             return tx_hash.hex()
         except Exception as e:
             raise ValueError(f"Failed to send raw transaction: {e}") from e
@@ -107,9 +108,9 @@ class Web3Client:
     def get_transaction_receipt(self, tx_hash: str) -> dict[str, Any] | None:
         """Get transaction receipt"""
         try:
-            receipt = self.w3.eth.get_transaction_receipt(tx_hash)
+            receipt = self.w3.eth.get_transaction_receipt(cast("Any", tx_hash))
             if receipt is None:
-                return None
+                return None  # type: ignore[unreachable]
 
             return {
                 "status": receipt["status"],
@@ -125,7 +126,7 @@ class Web3Client:
     def get_transaction_by_hash(self, tx_hash: str) -> dict[str, Any]:
         """Get transaction by hash"""
         try:
-            tx = self.w3.eth.get_transaction(tx_hash)
+            tx = self.w3.eth.get_transaction(cast("Any", tx_hash))
             return {
                 "from": tx["from"],
                 "to": tx["to"],
@@ -142,7 +143,7 @@ class Web3Client:
     def estimate_gas(self, transaction: dict[str, Any]) -> int:
         """Estimate gas for transaction"""
         try:
-            gas_estimate = self.w3.eth.estimate_gas(transaction)
+            gas_estimate = self.w3.eth.estimate_gas(cast(TxParams, transaction))
             return gas_estimate
         except Exception as e:
             raise ValueError(f"Failed to estimate gas: {e}") from e
@@ -159,7 +160,7 @@ class Web3Client:
         try:
             # This is a simplified version - in production you'd want to use
             # event logs or a blockchain explorer API for this
-            transactions = []
+            transactions: list[dict[str, Any]] = []
             current_block = self.get_block_number()
 
             # Look back at recent blocks for transactions from/to this address
@@ -171,13 +172,16 @@ class Web3Client:
 
                 try:
                     block = self.w3.eth.get_block(block_num, full_transactions=True)
-                    for tx in block["transactions"]:
-                        if tx["from"].lower() == address.lower() or (tx["to"] and tx["to"].lower() == address.lower()):
+                    block_txs: list[dict[str, Any]] = cast("list[dict[str, Any]]", block["transactions"])
+                    for tx in block_txs:
+                        tx_from = str(tx["from"])
+                        tx_to = tx["to"]
+                        if tx_from.lower() == address.lower() or (tx_to and str(tx_to).lower() == address.lower()):
                             transactions.append(
                                 {
-                                    "hash": tx["hash"].hex(),
-                                    "from": tx["from"],
-                                    "to": tx["to"].hex() if tx["to"] else None,
+                                    "hash": str(tx["hash"]),
+                                    "from": tx_from,
+                                    "to": str(tx_to) if tx_to else None,
                                     "value": hex(tx["value"]),
                                     "blockNumber": hex(tx["blockNumber"]),
                                     "timestamp": block["timestamp"],

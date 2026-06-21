@@ -5,7 +5,7 @@ Provides multi-source configuration loading with validation
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 from pydantic import Field, field_validator, model_validator
@@ -116,7 +116,7 @@ class HierarchicalConfig:
                 return yaml.safe_load(f) or {}
         elif suffix == ".json":
             with open(config_file) as f:
-                return json.load(f)
+                return cast(dict[str, Any], json.load(f))
         else:
             raise ValueError(f"Unsupported configuration file format: {suffix}")
 
@@ -240,7 +240,6 @@ if HAS_PYDANTIC_SETTINGS:
                 if v_lower in ("development", "dev", "true", "yes", "1", "on"):
                     return True
                 return False
-            return False
 
         @field_validator("log_level")
         @classmethod

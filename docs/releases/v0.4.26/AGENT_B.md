@@ -293,12 +293,12 @@ async with AsyncClient(app=app, base_url="http://testserver") as client:
 3. Document active apps in `docs/architecture/active_apps.md`:
    ```markdown
    # Active AITBC Applications
-   
+
    ## Agent Coordinator
    Path: apps/agent-coordinator
    Purpose: Agent lifecycle management
    Maintainer: @team-ai
-   
+
    ## Coordinator API
    Path: apps/coordinator-api
    Purpose: Main REST API

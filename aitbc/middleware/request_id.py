@@ -3,7 +3,7 @@ Request ID correlation middleware for structured logging
 """
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -33,7 +33,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.header_name = "X-Request-ID"
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         request_id = request.headers.get(self.header_name) or str(uuid.uuid4())
         request.state.request_id = request_id
         request.state.correlation_id = request_id  # Alias for correlation tracking

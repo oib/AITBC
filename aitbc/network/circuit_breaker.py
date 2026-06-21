@@ -3,6 +3,7 @@ Circuit breaker implementation for HTTP client
 """
 
 from datetime import UTC, datetime
+from typing import Any
 
 from ..aitbc_logging import get_logger
 from ..exceptions import CircuitBreakerOpenError
@@ -48,7 +49,7 @@ class CircuitBreaker:
         """Record a success and reset failure count."""
         self.failure_count = 0
 
-    def get_state(self) -> dict[str, any]:
+    def get_state(self) -> dict[str, Any]:
         """Get current circuit breaker state."""
         return {
             "is_open": self.is_open,
