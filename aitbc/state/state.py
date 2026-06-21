@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from aitbc.aitbc_logging import get_logger
 
@@ -148,7 +148,7 @@ class StatePersistence:
             if not os.path.exists(self.storage_path):
                 return None
             with open(self.storage_path) as f:
-                return json.load(f)
+                return cast(dict[str, Any], json.load(f))
         except Exception as e:
             raise StatePersistenceError(f"Failed to load state: {e}") from e
 

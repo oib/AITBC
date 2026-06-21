@@ -27,6 +27,7 @@ def debounce(delay: float = 0.5):
             if timer[0]:
                 timer[0].cancel()
             timer[0] = asyncio.create_task(call())
+            assert timer[0] is not None
             return await timer[0]
 
         return wrapped
@@ -39,7 +40,7 @@ def throttle(calls_per_second: float = 1.0):
 
     def decorator(func: Callable) -> Callable:
         min_interval = 1.0 / calls_per_second
-        last_called = [0]
+        last_called: list[float] = [0.0]
 
         async def wrapped(*args, **kwargs):
             now = asyncio.get_event_loop().time()

@@ -12,7 +12,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, overload
 
 from .aitbc_logging import get_logger
 
@@ -63,6 +63,10 @@ class PerformanceProfiler:
         if self._enabled:
             self._stats[function_name].append(execution_time)
 
+    @overload
+    def get_stats(self, function_name: str) -> ProfilingResult: ...
+    @overload
+    def get_stats(self, function_name: None = None) -> dict[str, ProfilingResult]: ...
     def get_stats(self, function_name: str | None = None) -> ProfilingResult | dict[str, ProfilingResult]:
         """
         Get profiling statistics for a function or all functions
@@ -102,11 +106,10 @@ class PerformanceProfiler:
         Args:
             function_name: Specific function name, or None for all functions
         """
-        stats = self.get_stats(function_name)
         if function_name:
-            self._print_single_stat(stats)
+            self._print_single_stat(self.get_stats(function_name))
         else:
-            for name, stat in stats.items():
+            for name, stat in self.get_stats().items():
                 logger.info("--- %s ---", name)
                 self._print_single_stat(stat)
 

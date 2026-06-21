@@ -5,7 +5,7 @@ Provides toggle between mock and real data sources for development/testing
 
 import os
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 try:
     import httpx
@@ -175,7 +175,7 @@ if HAS_HTTPX:
             if rpc_url is None:
                 rpc_url = "http://localhost:8025"
 
-            params = {}
+            params: dict[str, Any] = {}
             if address:
                 params["address"] = address
             if amount_min:
@@ -195,7 +195,7 @@ if HAS_HTTPX:
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"{rpc_url}/rpc/search/transactions", params=params)
                 if response.status_code == 200:
-                    return response.json()
+                    return cast(list[dict[str, Any]], response.json())
                 elif response.status_code == 404:
                     return []
                 else:
@@ -216,7 +216,7 @@ if HAS_HTTPX:
             if rpc_url is None:
                 rpc_url = "http://localhost:8025"
 
-            params = {}
+            params: dict[str, Any] = {}
             if validator:
                 params["validator"] = validator
             if since:
@@ -232,7 +232,7 @@ if HAS_HTTPX:
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"{rpc_url}/rpc/search/blocks", params=params)
                 if response.status_code == 200:
-                    return response.json()
+                    return cast(list[dict[str, Any]], response.json())
                 elif response.status_code == 404:
                     return []
                 else:
@@ -248,7 +248,7 @@ if HAS_HTTPX:
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"{rpc_url}/rpc/analytics/overview", params=params)
                 if response.status_code == 200:
-                    return response.json()
+                    return cast(dict[str, Any], response.json())
                 elif response.status_code == 404:
                     raise Exception("Analytics endpoint not available")
                 else:

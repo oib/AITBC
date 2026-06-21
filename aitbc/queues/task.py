@@ -82,6 +82,7 @@ class TaskQueue:
         if kwargs is None:
             kwargs = {}
         job = Job(priority=priority.value, func=func, args=args, kwargs=kwargs, max_retries=max_retries)
+        assert job.job_id is not None  # set by __post_init__
         async with self.lock:
             heapq.heappush(self.queue, job)
             self.jobs[job.job_id] = job
