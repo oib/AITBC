@@ -28,10 +28,21 @@ class AITBCHTTPClient:
         except httpx.HTTPError as e:
             raise NetworkError(f"HTTP error: {e}") from e
 
-    def post(self, path: str, json_data: dict[str, Any] | None = None) -> dict[str, Any]:
-        """POST request to blockchain RPC"""
+    def post(
+        self,
+        path: str,
+        json: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """POST request to blockchain RPC.
+
+        Accepts the request body via either ``json`` (preferred, matches the
+        httpx/aitbc.network convention used across the CLI commands) or the
+        legacy ``json_data`` alias.
+        """
+        payload = json if json is not None else json_data
         try:
-            response = self.client.post(f"{self.base_url}{path}", json=json_data)
+            response = self.client.post(f"{self.base_url}{path}", json=payload)
             response.raise_for_status()
             return response.json()
         except httpx.HTTPError as e:
