@@ -6,14 +6,13 @@ Handles IPFS/Filecoin integration for persistent agent memory storage
 import asyncio
 import gzip
 import hashlib
-import pickle
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
-from .secure_pickle import safe_loads
+from .secure_pickle import safe_dumps, safe_loads
 
 logger = get_logger(__name__)
 
@@ -107,7 +106,7 @@ class IPFSStorageService:
         start_time = datetime.now(UTC)  # type: ignore[unreachable]
         tags = tags or []
         try:
-            serialized_data = pickle.dumps(memory_data)
+            serialized_data = safe_dumps(memory_data)
             original_size = len(serialized_data)
             if compress and original_size > self.compression_threshold:
                 compressed_data = gzip.compress(serialized_data)
@@ -267,7 +266,7 @@ class MemoryCompressionService:
     @staticmethod
     def compress_memory(data: Any) -> tuple[bytes, float]:
         """Compress memory data and return compressed data with ratio"""
-        serialized = pickle.dumps(data)
+        serialized = safe_dumps(data)
         compressed = gzip.compress(serialized)
         ratio = len(compressed) / len(serialized)
         return (compressed, ratio)
@@ -282,8 +281,8 @@ class MemoryCompressionService:
     def calculate_similarity(data1: Any, data2: Any) -> float:
         """Calculate similarity between two memory items"""
         try:
-            hash1 = hashlib.sha256(pickle.dumps(data1)).hexdigest()
-            hash2 = hashlib.sha256(pickle.dumps(data2)).hexdigest()
+            hash1 = hashlib.sha256(safe_dumps(data1)).hexdigest()
+            hash2 = hashlib.sha256(safe_dumps(data2)).hexdigest()
             return 1.0 if hash1 == hash2 else 0.0
         except Exception:
             return 0.0
