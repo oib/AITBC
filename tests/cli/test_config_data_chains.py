@@ -52,7 +52,6 @@ class TestChainRegistry:
         registry = ChainRegistry()
 
         assert len(registry.chains) > 0
-        assert "ait-devnet" in registry.chains
         assert "ait-hub.aitbc.bubuit.net" in registry.chains
 
     def test_get_chain_exists(self):
@@ -60,11 +59,11 @@ class TestChainRegistry:
         from config_data.chains import ChainRegistry
 
         registry = ChainRegistry()
-        chain = registry.get_chain("ait-devnet")
+        chain = registry.get_chain("ait-hub.aitbc.bubuit.net")
 
         assert chain is not None
-        assert chain.chain_id == "ait-devnet"
-        assert chain.is_testnet is True
+        assert chain.chain_id == "ait-hub.aitbc.bubuit.net"
+        assert chain.is_testnet is False
 
     def test_get_chain_not_exists(self):
         """Test getting non-existent chain"""
@@ -93,7 +92,6 @@ class TestChainRegistry:
         chain_ids = registry.get_chain_ids()
 
         assert isinstance(chain_ids, list)
-        assert "ait-devnet" in chain_ids
         assert "ait-hub.aitbc.bubuit.net" in chain_ids
 
     def test_get_testnet_chains(self):
@@ -103,10 +101,8 @@ class TestChainRegistry:
         registry = ChainRegistry()
         testnet_chains = registry.get_testnet_chains()
 
-        assert len(testnet_chains) > 0
-        assert "ait-devnet" in testnet_chains
-        for chain in testnet_chains.values():
-            assert chain.is_testnet is True
+        # Default chain (ait-hub) is not a testnet, so this should be empty
+        assert len(testnet_chains) == 0
 
     def test_get_mainnet_chains(self):
         """Test getting mainnet chains"""
@@ -115,8 +111,9 @@ class TestChainRegistry:
         registry = ChainRegistry()
         mainnet_chains = registry.get_mainnet_chains()
 
-        # Default chains are all testnets, so this should be empty
-        assert len(mainnet_chains) == 0
+        # ait-hub is a mainnet chain
+        assert len(mainnet_chains) > 0
+        assert "ait-hub.aitbc.bubuit.net" in mainnet_chains
 
     def test_register_chain(self):
         """Test registering a new chain"""
@@ -135,10 +132,10 @@ class TestChainRegistry:
         from config_data.chains import ChainRegistry
 
         registry = ChainRegistry()
-        result = registry.unregister_chain("ait-devnet")
+        result = registry.unregister_chain("ait-hub.aitbc.bubuit.net")
 
         assert result is True
-        assert "ait-devnet" not in registry.chains
+        assert "ait-hub.aitbc.bubuit.net" not in registry.chains
 
     def test_unregister_chain_not_exists(self):
         """Test unregistering non-existent chain"""
