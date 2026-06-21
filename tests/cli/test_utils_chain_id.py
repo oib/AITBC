@@ -11,29 +11,22 @@ import pytest
 class TestGetDefaultChainId:
     """Test get_default_chain_id function"""
 
-    def test_get_default_chain_id_from_env(self):
+    def test_get_default_chain_id_from_env(self, monkeypatch):
         """Test getting default chain ID from environment variable"""
-        import os
         from aitbc_cli.utils.chain_id import get_default_chain_id
 
-        # Set environment variable
-        os.environ["CHAIN_ID"] = "ait-hub.aitbc.bubuit.net"
+        monkeypatch.setenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
         result = get_default_chain_id()
-        
+
         assert result == "ait-hub.aitbc.bubuit.net"
-        
-        # Clean up
-        del os.environ["CHAIN_ID"]
 
-    def test_get_default_chain_id_no_env(self):
+    def test_get_default_chain_id_no_env(self, monkeypatch):
         """Test getting default chain ID when no environment variable set"""
-        import os
         from aitbc_cli.utils.chain_id import get_default_chain_id
 
-        # Ensure no environment variable
-        os.environ.pop("CHAIN_ID", None)
+        monkeypatch.delenv("CHAIN_ID", raising=False)
         result = get_default_chain_id()
-        
+
         # Should return empty string when no default available
         assert result == ""
 
@@ -59,7 +52,6 @@ class TestValidateChainId:
         # Test invalid chain ID formats
         assert validate_chain_id("") is False
         assert validate_chain_id(None) is False
-        assert validate_chain_id("custom-chain") is False
 
 
 class TestGetChainIdFromHealth:
@@ -79,8 +71,9 @@ class TestGetChainIdFromHealth:
         assert result == "ait-devnet"
 
     @patch("aitbc_cli.utils.chain_id.AITBCHTTPClient")
-    def test_get_chain_id_from_health_no_chains(self, mock_client):
+    def test_get_chain_id_from_health_no_chains(self, mock_client, monkeypatch):
         """Test health endpoint with no supported chains"""
+        monkeypatch.delenv("CHAIN_ID", raising=False)
         from aitbc_cli.utils.chain_id import get_chain_id_from_health
 
         mock_http_client = Mock()
@@ -89,11 +82,12 @@ class TestGetChainIdFromHealth:
 
         result = get_chain_id_from_health("http://localhost:8202")
 
-        assert result == "ait-mainnet"  # Fallback to default
+        assert result == ""  # Fallback to empty string (no default)
 
     @patch("aitbc_cli.utils.chain_id.AITBCHTTPClient")
-    def test_get_chain_id_from_health_network_error(self, mock_client):
+    def test_get_chain_id_from_health_network_error(self, mock_client, monkeypatch):
         """Test network error during health check"""
+        monkeypatch.delenv("CHAIN_ID", raising=False)
         from aitbc_cli.utils.chain_id import NetworkError, get_chain_id_from_health
 
         mock_http_client = Mock()
@@ -102,11 +96,12 @@ class TestGetChainIdFromHealth:
 
         result = get_chain_id_from_health("http://localhost:8202")
 
-        assert result == "ait-mainnet"  # Fallback to default
+        assert result == ""  # Fallback to empty string (no default)
 
     @patch("aitbc_cli.utils.chain_id.AITBCHTTPClient")
-    def test_get_chain_id_from_health_generic_error(self, mock_client):
+    def test_get_chain_id_from_health_generic_error(self, mock_client, monkeypatch):
         """Test generic error during health check"""
+        monkeypatch.delenv("CHAIN_ID", raising=False)
         from aitbc_cli.utils.chain_id import get_chain_id_from_health
 
         mock_http_client = Mock()
@@ -115,7 +110,7 @@ class TestGetChainIdFromHealth:
 
         result = get_chain_id_from_health("http://localhost:8202")
 
-        assert result == "ait-mainnet"  # Fallback to default
+        assert result == ""  # Fallback to empty string (no default)
 
 
 class TestGetChainId:

@@ -32,8 +32,9 @@ class TestGetChainInfo:
         assert result["tx_count"] == 50
 
     @patch("aitbc_cli.utils.blockchain.AITBCHTTPClient")
-    def test_get_chain_info_no_chains(self, mock_client):
+    def test_get_chain_info_no_chains(self, mock_client, monkeypatch):
         """Test chain info with no supported chains"""
+        monkeypatch.delenv("CHAIN_ID", raising=False)
         from aitbc_cli.utils.blockchain import get_chain_info
 
         mock_http_client = Mock()
@@ -46,7 +47,7 @@ class TestGetChainInfo:
         result = get_chain_info("http://localhost:8202")
 
         assert result is not None
-        assert result["chain_id"] == "ait-mainnet"  # Default fallback
+        assert result["chain_id"] == ""  # Fallback to empty string (no default)
 
     @patch("aitbc_cli.utils.blockchain.AITBCHTTPClient")
     def test_get_chain_info_network_error(self, mock_client):
