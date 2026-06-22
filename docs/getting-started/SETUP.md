@@ -451,7 +451,7 @@ After the initial `setup.sh` run, use `update.sh` to safely apply new code
 changes from `git pull`. It is idempotent and safe to run after every pull.
 
 ```bash
-# Full update: pull, sync venv, relink systemd, restart all services, health check
+# Full update: backup, pull, sync venv, relink systemd, restart all services, health check
 sudo /opt/aitbc/scripts/deployment/update.sh
 
 # Skip the git pull (you already pulled manually)
@@ -459,19 +459,25 @@ sudo /opt/aitbc/scripts/deployment/update.sh --no-pull
 
 # Sync venv and systemd but do not restart services
 sudo /opt/aitbc/scripts/deployment/update.sh --no-restart
+
+# Skip the pre-update backup (e.g. for quick dev iterations)
+sudo /opt/aitbc/scripts/deployment/update.sh --skip-backup
 ```
 
 `update.sh` performs the following steps:
 
-1. **git pull** (with stash safety for local changes; skipped with `--no-pull`)
-2. **Sync Python venv** — reinstalls `requirements.txt`, CLI deps, and the
+1. **Pre-update backup** — triggers `aitbc-backup.service` (oneshot) and waits
+   for it to complete, so you always have a restore point before applying
+   changes (skipped with `--skip-backup`)
+2. **git pull** (with stash safety for local changes; skipped with `--no-pull`)
+3. **Sync Python venv** — reinstalls `requirements.txt`, CLI deps, and the
    `aitbc` CLI itself via `install-profiles.sh` (falls back to `pip install -r`)
-3. **Relink systemd unit files** — runs `link-systemd.sh` (role-aware) so new
+4. **Relink systemd unit files** — runs `link-systemd.sh` (role-aware) so new
    or changed `.service` / `.timer` files are picked up
-4. **`systemctl daemon-reload`** + ensure all role-appropriate services are enabled
-5. **Restart all running aitbc services** (skipped with `--no-restart`)
-6. **Health check** via `scripts/monitoring/health_check.sh`
-7. **Summary** with reminders for manual follow-ups (DB migrations, config diff)
+5. **`systemctl daemon-reload`** + ensure all role-appropriate services are enabled
+6. **Restart all running aitbc services** (skipped with `--no-restart`)
+7. **Health check** via `scripts/monitoring/health_check.sh`
+8. **Summary** with reminders for manual follow-ups (DB migrations, config diff)
 
 ### Manual follow-ups
 

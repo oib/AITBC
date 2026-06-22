@@ -7,18 +7,20 @@
 #
 # This is the update counterpart to setup.sh. It is idempotent and safe to
 # run after every pull. It performs:
-#   1. git pull (with stash safety for local changes)
-#   2. Sync Python venv (reinstall requirements + CLI)
-#   3. Relink systemd unit files (role-aware, via link-systemd.sh)
-#   4. daemon-reload + enable services for this role
-#   5. Restart all aitbc services
-#   6. Run health check
-#   7. Print summary + DB migration reminder
+#   1. Trigger pre-update backup (aitbc-backup.service)
+#   2. git pull (with stash safety for local changes)
+#   3. Sync Python venv (reinstall requirements + CLI)
+#   4. Relink systemd unit files (role-aware, via link-systemd.sh)
+#   5. daemon-reload + enable services for this role
+#   6. Restart all aitbc services
+#   7. Run health check
+#   8. Print summary + DB migration reminder
 #
 # Usage:
 #   sudo /opt/aitbc/scripts/deployment/update.sh
-#   sudo /opt/aitbc/scripts/deployment/update.sh --no-pull   # skip git pull
+#   sudo /opt/aitbc/scripts/deployment/update.sh --no-pull    # skip git pull
 #   sudo /opt/aitbc/scripts/deployment/update.sh --no-restart # skip service restart
+#   sudo /opt/aitbc/scripts/deployment/update.sh --skip-backup # skip pre-update backup
 #
 # Prerequisites:
 #   - Node already set up via setup.sh
@@ -38,6 +40,7 @@ INSTALL_PROFILES_SCRIPT="$AITBC_ROOT/scripts/deployment/install-profiles.sh"
 # Flags
 DO_PULL=true
 DO_RESTART=true
+DO_BACKUP=true
 
 # Colors
 RED='\033[0;31m'
@@ -60,6 +63,7 @@ parse_args() {
         case "$1" in
             --no-pull)    DO_PULL=false; shift ;;
             --no-restart) DO_RESTART=false; shift ;;
+            --skip-backup) DO_BACKUP=false; shift ;;
             -h|--help)
                 sed -n '3,25p' "$0"
                 exit 0
@@ -138,6 +142,43 @@ get_profile() {
         profile_parts="${profile_parts}-customer"
     fi
     echo "$profile_parts"
+}
+
+# ----------------------------------------------------------------------------
+# Step 0: Pre-update backup (trigger aitbc-backup.service)
+# ----------------------------------------------------------------------------
+run_pre_update_backup() {
+    log "Step 0: Triggering pre-update backup..."
+    if ! systemctl list-unit-files 2>/dev/null | grep -q '^aitbc-backup\.service'; then
+        warning "aitbc-backup.service not installed — skipping pre-update backup"
+        return 0
+    fi
+
+    log "Starting aitbc-backup.service (oneshot)..."
+    if systemctl start aitbc-backup.service 2>/dev/null; then
+        # Wait for the oneshot to finish (it exits when backup is done)
+        log "Waiting for backup to complete..."
+        local waited=0
+        while systemctl is-active --quiet aitbc-backup.service 2>/dev/null; do
+            sleep 2
+            waited=$((waited + 2))
+            if [ "$waited" -ge 300 ]; then
+                warning "Backup still running after ${waited}s — proceeding with update"
+                return 0
+            fi
+        done
+
+        if systemctl is-success --quiet aitbc-backup.service 2>/dev/null \
+           || systemctl show -p Result --value aitbc-backup.service 2>/dev/null | grep -q '^success$'; then
+            success "Pre-update backup completed"
+        else
+            warning "aitbc-backup.service did not report success — check journalctl -u aitbc-backup.service"
+            warning "Proceeding with update anyway (use --skip-backup to bypass next time)"
+        fi
+    else
+        warning "Failed to start aitbc-backup.service — proceeding without pre-update backup"
+        warning "Check: journalctl -u aitbc-backup.service -n 20"
+    fi
 }
 
 # ----------------------------------------------------------------------------
@@ -397,6 +438,12 @@ main() {
 
     check_root
     check_repo
+
+    if [ "$DO_BACKUP" = "true" ]; then
+        run_pre_update_backup
+    else
+        log "Skipping pre-update backup (--skip-backup)"
+    fi
 
     if [ "$DO_PULL" = "true" ]; then
         do_git_pull || exit 1
