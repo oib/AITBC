@@ -1,3 +1,2 @@
 #!/bin/bash
-# AITBC CLI — canonical entry point
-exec /opt/aitbc/venv/bin/aitbc "$@"
+/opt/aitbc/venv/bin/python -m aitbc_cli.core.main "$@"
