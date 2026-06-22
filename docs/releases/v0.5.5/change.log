@@ -1,8 +1,8 @@
 # v0.5.5 Release Plan
 
-**Theme**: Agent Coordinator WebSocket fix + service logging standardization — fix the PING/PONG path across two Nginx layers, standardize the agent-coordinator on port 8107, and bring structured logging to every service.
+**Theme**: Agent Coordinator WebSocket fix + service logging standardization + deployment tooling — fix the PING/PONG path across two Nginx layers, standardize the agent-coordinator on port 8107, bring structured logging to every service, add safe update/deployment scripts, and split nginx configs by node role.
 
-**Goal**: Make follower→hub PING/PONG work end-to-end through the public WebSocket URL, fix the agent-coordinator port mismatch (9001 vs 8107), and ensure all services produce proper `[INFO] [module]` formatted logs in the journal.
+**Goal**: Make follower→hub PING/PONG work end-to-end through the public WebSocket URL, fix the agent-coordinator port mismatch (9001 vs 8107), ensure all services produce proper `[INFO] [module]` formatted logs in the journal, provide `update.sh` for safely updating existing nodes, and give each node role its own nginx config.
 
 ---
 
@@ -247,9 +247,135 @@ The "first request" check queries the hermes `coin_requests` DB for any prior ap
 - `apps/blockchain-explorer/main.py` — add `value, fee, nonce` to 5 block query SQL statements and response dicts
 - `website/block.html` — add Amount, Fee, Nonce rows to transaction display
 
----
+### 16. `aitbc hermes request-coins` CLI Command
 
-## Verification
+**Problem:** No CLI command existed for followers to request AIT tokens from the hub. Users had to manually craft WebSocket frames.
+
+**Fix:** Added `aitbc hermes request-coins` CLI command that connects to the Agent Coordinator's WebSocket stream, sends a `REQUEST_COINS` message, and handles both responses:
+- **First-time node**: displays `COINS_TRANSFERRED` with amount, wallet address, and transaction hash
+- **Subsequent requests**: displays `pending_approval` with the `request_id` for manual approval via `aitbc coin-requests approve`
+
+Also added `AITBC_DEFAULT_WALLET` environment variable support for default wallet selection (prioritizes CLI arg → env var → `config.yaml` → first found wallet → "default").
+
+**Files changed:**
+- `cli/aitbc_cli/commands/hermes.py` — new `request-coins` subcommand
+- `cli/aitbc_cli/commands/wallet/__init__.py` — `AITBC_DEFAULT_WALLET` env var support
+- `cli/aitbc_cli/core/main.py` — register `request-coins` command
+- `tests/cli/test_commands_hermes.py` — tests for request-coins
+
+### 17. Coin Request Approval Flow Fixes
+
+**Problem:** The coin-requests approval flow had two bugs: (1) notification content was passed as a raw string instead of an object, causing encryption to fail; (2) status values were inconsistent (`approved` vs `APPROVED`, `pending` vs `PENDING`).
+
+**Fix:**
+- Wrapped notification content in an object before encryption
+- Standardized all status values to uppercase (`APPROVED`, `PENDING`)
+- Added `request_id` to the pending response so users know what to approve
+
+**Files changed:**
+- `apps/hermes/src/hermes_service/handlers/request_coins_handler.py` — wrap content, uppercase status
+- `cli/aitbc_cli/commands/hermes.py` — display `request_id` in pending output
+
+### 18. Lease Heartbeat Frequency Fix
+
+**Problem:** The subscription client's `_heartbeat_loop()` had an `else` branch that sent a heartbeat every 60 seconds even when the lease was healthy. Since `extend_lease()` resets the expiry to `now + 3600s` on every call, the lease got extended every minute — producing a log line on the hub every minute and unnecessary network traffic.
+
+**Fix:** Removed the `else` branch. Heartbeats now only fire when the lease is within `lease_renewal_threshold` (300s) of expiry. With defaults (1h lease, 300s threshold), heartbeats fire roughly once every ~55 minutes instead of once per minute.
+
+**Files changed:**
+- `apps/blockchain-node/src/aitbc_chain/subscription_client.py` — remove unnecessary `else` heartbeat branch
+
+### 19. Lease Tracker: Client IP Tracking
+
+**Problem:** The lease tracker logged expiry timestamps as raw Unix timestamps and didn't track client IPs, making it hard to debug subscription issues from the journal.
+
+**Fix:** Added human-readable expiry timestamps (`_fmt_expiry()`) to all lease log lines and `client_ip` tracking through `register_subscriber()`, `extend_lease()`, and `SubscriberInfo`.
+
+**Files changed:**
+- `apps/blockchain-node/src/aitbc_chain/lease_tracker.py` — add `_fmt_expiry()`, `client_ip` field
+
+### 20. `update.sh` — Safe Update Script for Existing Nodes
+
+**Problem:** After `git pull`, operators had to manually sync venvs, relink systemd units, restart services, and run health checks. The existing `weekly_maintenance.sh` was incomplete (only restarted 2 services, didn't handle systemd relinking or multiple venvs).
+
+**Fix:** Created `scripts/deployment/update.sh` — the update counterpart to `setup.sh`. Idempotent and safe to run after every pull. Performs:
+1. Pre-update backup (triggers `aitbc-backup.service`, waits for completion)
+2. `git pull` from `https://github.com/oib/AITBC.git` (with stash safety for local changes)
+3. Sync Python venv (reinstalls requirements + CLI via `install-profiles.sh`)
+4. Relink systemd unit files (role-aware, via `link-systemd.sh`)
+5. `systemctl daemon-reload` + ensure role-appropriate services are enabled
+6. Restart all running aitbc services
+7. Health check
+8. Summary with DB migration reminder
+
+Flags: `--no-pull`, `--no-restart`, `--skip-backup`, `--remote <url>`
+
+**Files changed:**
+- `scripts/deployment/update.sh` — new script (427 lines)
+- `.gitignore` — allowlist `scripts/deployment/update.sh`
+- `docs/getting-started/UPDATE.md` — new comprehensive guide (360 lines)
+- `docs/getting-started/SETUP.md` — add "Updating an Existing Node" section pointing to UPDATE.md
+
+### 21. `setup.sh` — Forward to `update.sh` on Already-Installed Nodes
+
+**Problem:** Running `setup.sh` on a node that was already installed would re-initialize databases, credentials, and node identity — potentially destroying data.
+
+**Fix:** `setup.sh` now detects existing installs (`/etc/aitbc/node.env` + `/opt/aitbc/venv` both present) and forwards to `update.sh` instead of re-running the full first-time install. Added `--force` flag to bypass the forward for repair scenarios.
+
+**Files changed:**
+- `scripts/deployment/setup.sh` — add install detection + `--force` flag + forward logic
+- `docs/getting-started/SETUP.md` — document `--force` and forwarding behavior
+
+### 22. Nginx Examples: Role-Specific Configs
+
+**Problem:** The single monolithic `nginx-aitbc.conf.example` mixed hub and shop services, requiring operators to manually comment out sections per role. The host reverse proxy had the same problem. A redundant `nginx-follower.conf` existed (follower is a blockchain mode, not a market role).
+
+**Fix:** Split into 6 role-specific files — 3 container configs + 3 host proxy configs, with clean 1:1 pairing:
+
+| Role | Container config | Host proxy config |
+|---|---|---|
+| Hub | `nginx-hub.conf.example` | `nginx-hub-proxy.conf.example` |
+| Shop | `nginx-shop.conf.example` | `nginx-shop-proxy.conf.example` |
+| Customer | `nginx-customer.conf.example` | `nginx-customer-proxy.conf.example` |
+
+Each config only includes the locations its role needs — no commenting out required. Added architecture notes explaining that nginx is for external traffic only (internal service-to-service communication uses localhost directly, e.g. `gpu_worker.py` → `localhost:8203`).
+
+`setup.sh` and `update.sh` now print role-specific nginx config hints at the end of a successful run, pointing the sysadmin to the right container config + host proxy config pair.
+
+**Files changed:**
+- `examples/nginx/nginx-hub.conf.example` — new (split from monolithic config)
+- `examples/nginx/nginx-shop.conf.example` — new
+- `examples/nginx/nginx-customer.conf.example` — new (includes `/explorer-api/`)
+- `examples/nginx/nginx-hub-proxy.conf.example` — new (host SSL termination)
+- `examples/nginx/nginx-shop-proxy.conf.example` — new
+- `examples/nginx/nginx-customer-proxy.conf.example` — new
+- `examples/nginx/nginx-aitbc-host-reverse-proxy.conf.example` — **deleted** (replaced by 3 role-specific proxies)
+- `examples/nginx/nginx-aitbc.conf.example` — **deleted** (replaced by 3 role-specific configs, renamed to `nginx-hub.conf.example`)
+- `examples/nginx/nginx-follower.conf.example` — **deleted** (redundant — follower is a blockchain mode, not a market role)
+- `examples/nginx/README.md` — new, with role-to-config mapping, setup instructions, port reference
+- `scripts/deployment/setup.sh` — add nginx config hints to completion output
+- `scripts/deployment/update.sh` — add nginx config reminder to summary
+
+### 23. Block Explorer: Remove Latest Blocks Section
+
+**Problem:** The explorer main page had a "Latest Blocks" section with live auto-refresh and an export button, which was redundant with the block detail pages and added unnecessary load.
+
+**Fix:** Removed the Latest Blocks section and export functionality from the main page. Reduced live feed refresh rate from 10s to 60s.
+
+**Files changed:**
+- `apps/blockchain-explorer/main.py` — remove latest blocks endpoint and export
+- `website/index.html` (or equivalent) — remove Latest Blocks section
+
+### 24. CLI Invocation Fix
+
+**Problem:** The CLI used a console script entry point that could fail in certain venv configurations.
+
+**Fix:** Switched to `python -m` invocation for reliability.
+
+**Files changed:**
+- `scripts/aitbc-cli` — use `python -m aitbc_cli` instead of console script
+
+---
 
 ### PING/PONG End-to-End
 
@@ -323,7 +449,7 @@ All 19 active services running with proper structured logging:
 | aitbc-monitoring | ✅ active |
 | aitbc-wallet | ✅ active |
 
-## Files Changed (44)
+## Files Changed
 
 | File | Change |
 |------|--------|
@@ -335,8 +461,10 @@ All 19 active services running with proper structured logging:
 | `apps/agent-management/.../plugin_service/main.py` | Add `configure_logging()` |
 | `apps/blockchain-event-bridge/.../main.py` | Add `configure_logging()` |
 | `apps/blockchain-explorer/aitbc-blockchain-explorer.service` | Add `PYTHONPATH` |
-| `apps/blockchain-explorer/main.py` | Add `configure_logging()`, add amount/fee/nonce to 5 block queries |
+| `apps/blockchain-explorer/main.py` | Add `configure_logging()`, add amount/fee/nonce to 5 block queries, remove latest blocks section |
 | `apps/blockchain-node/src/aitbc_chain/gossip/relay.py` | Add `configure_logging()` |
+| `apps/blockchain-node/src/aitbc_chain/lease_tracker.py` | Add `_fmt_expiry()`, `client_ip` tracking |
+| `apps/blockchain-node/src/aitbc_chain/subscription_client.py` | Fix heartbeat frequency (remove unnecessary `else` branch) |
 | `apps/blockchain-node/src/aitbc_chain/sync_cli.py` | Add `configure_logging()` |
 | `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py` | Fix `get_chain_id("")` → `get_chain_id(None)` |
 | `apps/bridge-monitor/aitbc-bridge-monitor.service` | Direct execution, add `PYTHONPATH` |
@@ -351,24 +479,40 @@ All 19 active services running with proper structured logging:
 | `apps/hermes/src/hermes_service/handlers/__init__.py` | Remove `PingHandler` import |
 | `apps/hermes/src/hermes_service/handlers/base_handler.py` | Async `send_response()` with `httpx.AsyncClient` |
 | `apps/hermes/src/hermes_service/handlers/ping_handler.py` | **Deleted** (dead code) |
-| `apps/hermes/src/hermes_service/handlers/request_coins_handler.py` | `await send_response()` |
+| `apps/hermes/src/hermes_service/handlers/request_coins_handler.py` | `await send_response()`, wrap notification content, uppercase status |
 | `apps/hermes/src/hermes_service/services/transaction_service.py` | Fix default fee 1000 → 10 |
 | `apps/whisper/main.py` | Add `configure_logging()` |
-| `cli/aitbc_cli/commands/hermes.py` | New `ping` subcommand (WebSocket-based) |
-| `cli/aitbc_cli/core/main.py` | Catch `UsageError`, print friendly message |
+| `cli/aitbc_cli/commands/hermes.py` | New `ping` + `request-coins` subcommands (WebSocket-based) |
+| `cli/aitbc_cli/commands/wallet/__init__.py` | `AITBC_DEFAULT_WALLET` env var support |
+| `cli/aitbc_cli/core/main.py` | Catch `UsageError`, register `request-coins` |
 | `cli/aitbc_cli/utils/http_client.py` | Enable `follow_redirects=True` |
 | `cli/requirements-cli.txt` | Add `websockets>=14.1.0` |
+| `docs/getting-started/SETUP.md` | Add "Updating an Existing Node" + "Re-running setup" sections |
+| `docs/getting-started/UPDATE.md` | **New** — comprehensive update guide (360 lines) |
+| `docs/getting-started/free-ait.md` | Update with `request_id`, `AITBC_DEFAULT_WALLET`, accurate examples |
 | `docs/getting-started/node/hermes-messaging.md` | Full rewrite (WebSocket ping/pong) |
 | `docs/hermes/HERMES_LISTENER_SOLUTION.md` | Full rewrite (WebSocket solution) |
 | `docs/hermes/guides/agent-messaging.md` | Full rewrite (remove merge conflicts, wrong ports, dead endpoints) |
 | `docs/releases/v0.4.23/WRAPPER_SCRIPT_TEMPLATING.md` | **Deleted** |
-| `examples/nginx/nginx-aitbc.conf` | Add `agent_coordinator` upstream + `/agent/` WebSocket location |
+| `examples/nginx/README.md` | **New** — role-to-config mapping, setup instructions, port reference |
+| `examples/nginx/nginx-aitbc.conf.example` | **Deleted** (replaced by role-specific configs) |
+| `examples/nginx/nginx-aitbc-host-reverse-proxy.conf.example` | **Deleted** (replaced by 3 role-specific proxies) |
+| `examples/nginx/nginx-follower.conf.example` | **Deleted** (redundant) |
+| `examples/nginx/nginx-hub.conf.example` | **New** — hub container config |
+| `examples/nginx/nginx-hub-proxy.conf.example` | **New** — hub host proxy (SSL) |
+| `examples/nginx/nginx-shop.conf.example` | **New** — shop container config |
+| `examples/nginx/nginx-shop-proxy.conf.example` | **New** — shop host proxy (SSL) |
+| `examples/nginx/nginx-customer.conf.example` | **New** — customer container config |
+| `examples/nginx/nginx-customer-proxy.conf.example` | **New** — customer host proxy (SSL) |
+| `scripts/aitbc-cli` | Use `python -m` invocation |
+| `scripts/deployment/setup.sh` | Forward to `update.sh` on installed nodes, add `--force`, add nginx hints |
+| `scripts/deployment/update.sh` | **New** — safe update script (backup, pull, sync, relink, restart, health check) |
 | `scripts/generate_wrappers.py` | **Deleted** |
 | `scripts/monitoring/aitbc-monitoring.service` | Direct execution, add env vars |
 | `scripts/monitoring/.../monitoring_service/main.py` | Add `configure_logging()` |
 | `scripts/services/marketplace-wrapper.py` | **Deleted** |
 | `scripts/systemd/aitbc-marketplace.service` | Direct execution, fix DB path |
 | `scripts/utils/aitbc-plugin.service` | Direct execution, add env vars |
-| `tests/cli/test_commands_hermes.py` | 6 tests for WebSocket ping command |
+| `tests/cli/test_commands_hermes.py` | Tests for WebSocket ping + request-coins commands |
 | `tests/handlers/test_network.py` | **Deleted** (broken import) |
 | `website/block.html` | Add Amount, Fee, Nonce to transaction display |
