@@ -8,20 +8,25 @@ import click
 import requests
 
 
-def _load_env_file(path: str):
+def _load_env_file(path: str, override: bool = False):
     if os.path.exists(path):
         with open(path) as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
                     key, value = line.split("=", 1)
-                    os.environ.setdefault(key.strip(), value.strip())
+                    if override:
+                        os.environ[key.strip()] = value.strip()
+                    else:
+                        os.environ.setdefault(key.strip(), value.strip())
 
 
 # Load environment variables BEFORE importing storage
+# blockchain.env has public URLs (for followers); node.env has localhost (for hub CLI)
+# node.env must override blockchain.env
 _load_env_file("/etc/aitbc/blockchain.env")
 _load_env_file("/etc/aitbc/blockchain-secrets.env")
-_load_env_file("/etc/aitbc/node.env")
+_load_env_file("/etc/aitbc/node.env", override=True)
 
 from hermes_service.services import TransactionService  # noqa: E402
 from hermes_service.storage import CoinRequest, CoinRequestStatus, get_db_session, init_db  # noqa: E402
