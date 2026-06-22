@@ -946,15 +946,21 @@ setup_venvs() {
         log "Using install-profiles.sh for dependency installation..."
 
         # Try to detect profile from environment if available
+        # Combines BLOCKCHAIN_MODE and MARKET_ROLE as independent axes
         if [ -f "/etc/aitbc/blockchain.env" ]; then
             source /etc/aitbc/blockchain.env
-            if [ "$HARDWARE_PROFILE" = "gpu" ] && [ "$MARKET_ROLE" = "shop" ]; then
-                PROFILE="provider-gpu"
-            elif [ "$BLOCKCHAIN_MODE" = "hub" ]; then
-                PROFILE="hub"
-            elif [ "$MARKET_ROLE" = "customer" ]; then
-                PROFILE="customer-no-gpu"
+            local profile_parts=""
+            [ "$BLOCKCHAIN_MODE" = "hub" ] && profile_parts="hub" || profile_parts="follower"
+            if [ "$MARKET_ROLE" = "shop" ] && [ "$HARDWARE_PROFILE" = "gpu" ]; then
+                profile_parts="${profile_parts}-shop-gpu"
+            elif [ "$MARKET_ROLE" = "shop" ]; then
+                profile_parts="${profile_parts}-shop"
+            elif [ "$HARDWARE_PROFILE" = "gpu" ]; then
+                profile_parts="${profile_parts}-gpu"
+            else
+                profile_parts="${profile_parts}-customer"
             fi
+            PROFILE="$profile_parts"
         fi
 
         log "Installing profile: $PROFILE"

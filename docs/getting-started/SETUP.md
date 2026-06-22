@@ -1,6 +1,6 @@
 # AITBC Setup Guide
 
-**Last Updated:** 2026-06-20
+**Last Updated:** 2026-06-22
 
 Quick reference guide for AITBC setup and onboarding.
 
@@ -30,12 +30,18 @@ AITBC provides pre-configured dependency profiles for different deployment scena
 
 ### Available Profiles
 
+Profiles are composed from the two independent axes (`BLOCKCHAIN_MODE` + `MARKET_ROLE` + `HARDWARE_PROFILE`):
+
 | Profile | Description | Use Case |
 |---------|-------------|----------|
-| **server-no-gpu** | Core blockchain services without GPU dependencies | Standard blockchain node, no GPU hardware |
-| **hub** | Full blockchain hub with all services | Central hub node with development tools |
-| **customer-no-gpu** | Lightweight client for customers | Customer nodes consuming GPU resources |
-| **provider-gpu** | GPU service provider with AI/ML capabilities | GPU shop nodes providing compute resources |
+| **follower-customer** | Core blockchain services, no GPU | Standard follower node consuming resources |
+| **follower-customer-gpu** | Core blockchain services with GPU drivers | Follower with GPU but not selling |
+| **follower-shop** | Follower + GPU provider services | Follower that also sells GPU compute |
+| **follower-shop-gpu** | Follower + GPU provider + AI/ML deps | Follower with GPU selling compute |
+| **hub-customer** | Full blockchain hub without GPU deps | Central hub node, no GPU selling |
+| **hub-customer-gpu** | Full blockchain hub with GPU drivers | Central hub with GPU but not selling |
+| **hub-shop** | Full hub + GPU provider services | Hub that also sells GPU compute |
+| **hub-shop-gpu** | Full hub + GPU provider + AI/ML deps | Hub with GPU selling compute |
 
 ### Manual Profile Installation
 
@@ -44,10 +50,8 @@ AITBC provides pre-configured dependency profiles for different deployment scena
 source /opt/aitbc/venv/bin/activate
 
 # Install specific profile
-./scripts/deployment/install-profiles.sh server-no-gpu
-./scripts/deployment/install-profiles.sh hub
-./scripts/deployment/install-profiles.sh customer-no-gpu
-./scripts/deployment/install-profiles.sh provider-gpu
+./scripts/deployment/install-profiles.sh follower-customer
+./scripts/deployment/install-profiles.sh hub-shop-gpu
 
 # List all available profiles
 ./scripts/deployment/install-profiles.sh
@@ -55,42 +59,45 @@ source /opt/aitbc/venv/bin/activate
 
 ### Automatic Profile Detection
 
-The setup.sh script automatically selects the appropriate profile based on your `/etc/aitbc/blockchain.env` configuration:
+The setup.sh script automatically selects the appropriate profile based on your `/etc/aitbc/blockchain.env` configuration. The profile name is composed as `{blockchain_mode}-{market_role}[-gpu]`:
 
-- `HARDWARE_PROFILE=gpu` + `MARKET_ROLE=shop` → **provider-gpu**
-- `BLOCKCHAIN_MODE=hub` → **hub**
-- `MARKET_ROLE=customer` → **customer-no-gpu**
-- Default → **server-no-gpu**
+- `BLOCKCHAIN_MODE=hub` + `MARKET_ROLE=shop` + `HARDWARE_PROFILE=gpu` → **hub-shop-gpu**
+- `BLOCKCHAIN_MODE=hub` + `MARKET_ROLE=customer` → **hub-customer**
+- `BLOCKCHAIN_MODE=follower` + `MARKET_ROLE=shop` + `HARDWARE_PROFILE=gpu` → **follower-shop-gpu**
+- `BLOCKCHAIN_MODE=follower` + `MARKET_ROLE=customer` → **follower-customer**
+- Default → **follower-customer**
 
 ### Profile Dependencies
 
 Each profile installs different dependency sets:
 
-- **server-no-gpu**: requirements.txt + security.txt
-- **hub**: requirements.txt + security.txt + dev.txt
-- **customer-no-gpu**: requirements-minimal.txt + CLI requirements
-- **provider-gpu**: requirements.txt + ai-ml.txt + security.txt
+- **follower-customer**: requirements-minimal.txt + CLI requirements
+- **hub-customer**: requirements.txt + security.txt + dev.txt
+- **follower-shop-gpu**: requirements.txt + ai-ml.txt + security.txt
+- **hub-shop-gpu**: requirements.txt + ai-ml.txt + security.txt + dev.txt
 
 ## Node Profiles
 
-During setup, you will be prompted to configure node profiles that determine which services run:
+During setup, you will be prompted to configure two independent axes that determine which services run:
 
-### Blockchain Mode
+### Axis 1: Blockchain Mode (`BLOCKCHAIN_MODE`)
 - **follower** (default) - Receives blocks from hub, runs periodic sync
 - **hub** - Produces and broadcasts blocks, runs lease tracker for subscription system
 
-### Market Role
+### Axis 2: Market Role (`MARKET_ROLE`)
 - **customer** (default) - Consumes GPU resources
-- **shop** - Provides GPU resources (requires GPU hardware)
+- **shop** - Provides GPU resources to the marketplace
 
-### Hardware Profile
+### Hardware Profile (`HARDWARE_PROFILE`)
 - **nogpu** (default) - No GPU available
 - **gpu** - GPU available for compute
+
+These two axes are **independent** — a hub can also be a shop, and a follower can be a customer or a shop. The service selection combines both axes (see [Role-Based Service Selection](#role-based-service-selection) below).
 
 These profiles are set in `/etc/aitbc/blockchain.env` (read by blockchain node):
 
 ```bash
-# Node Profiles (set during setup.sh)
+# Node Profiles (set during setup.sh) — two independent axes
 BLOCKCHAIN_MODE=follower  # follower or hub
 MARKET_ROLE=customer       # customer or shop
 HARDWARE_PROFILE=nogpu    # gpu or nogpu
@@ -100,18 +107,23 @@ HARDWARE_PROFILE=nogpu    # gpu or nogpu
 
 ## Role-Based Service Selection
 
-`setup.sh` automatically determines which services to enable and start based on the node's role. The role is derived from `BLOCKCHAIN_MODE`, `MARKET_ROLE`, and `HARDWARE_PROFILE` in `blockchain.env` / `node.env`.
+`setup.sh` automatically determines which services to enable and start based on the node's configuration. The service list is built by combining two independent axes:
 
-### Node Roles
+- **Axis 1** (`BLOCKCHAIN_MODE`): hub services or follower services
+- **Axis 2** (`MARKET_ROLE`): shop services (if `shop`) or nothing extra (if `customer`)
 
-| Role | Config | Description |
-|------|--------|-------------|
-| **hub** | `BLOCKCHAIN_MODE=hub` | Produces and broadcasts blocks; runs full service stack |
-| **follower** | `BLOCKCHAIN_MODE=follower` | Syncs blocks from hub; lightweight |
-| **shop** | `MARKET_ROLE=shop` + `HARDWARE_PROFILE=gpu` | Provides GPU compute resources |
-| **customer** | `MARKET_ROLE=customer` | Consumes GPU resources; minimal local services |
+Both axes are evaluated independently and their service lists are merged. This means a `hub+shop` node gets both hub services AND shop services, not just one or the other.
 
-### Base Services (All Roles)
+### Service Combinations
+
+| BLOCKCHAIN_MODE | MARKET_ROLE | Services | Count |
+|----------------|-------------|----------|-------|
+| hub | customer | base + hub | 20 |
+| hub | shop | base + hub + shop | 22 |
+| follower | customer | base + follower | 9 |
+| follower | shop | base + follower + shop | 12 |
+
+### Base Services (All Nodes)
 
 Every node gets these services enabled and started:
 
@@ -122,10 +134,11 @@ Every node gets these services enabled and started:
 | `aitbc-wallet` | 8108 | Wallet daemon |
 | `aitbc-recovery` | — | Boot recovery (relinks systemd + loads secrets) |
 | `aitbc-monitoring` | — | System monitoring |
+| `aitbc-backup` | — | Daily backup service |
 
-### Hub-Only Services
+### Hub Services (BLOCKCHAIN_MODE=hub)
 
-In addition to base services, hub nodes (`BLOCKCHAIN_MODE=hub`) get:
+In addition to base services, hub nodes get:
 
 | Service | Port | Description |
 |---------|------|-------------|
@@ -139,31 +152,34 @@ In addition to base services, hub nodes (`BLOCKCHAIN_MODE=hub`) get:
 | `aitbc-blockchain-event-bridge` | 8205 | Blockchain event → service trigger bridge |
 | `aitbc-hermes` | 8103 | Hermes messaging (coin requests) |
 | `aitbc-agent-management` | 8204 | Agent registry API (public, followers connect) |
-| `aitbc-agent-coordinator` | — | Agent coordination backend |
+| `aitbc-agent-coordinator` | 8107 | Agent coordination backend (WebSocket PING/PONG, REQUEST_COINS) |
 | `aitbc-agent-daemon` | — | Autonomous agent listener (ping/pong) |
 | `aitbc-blockchain-explorer` | 8100 | Blockchain explorer API |
 
-### Follower-Only Services
+### Follower Services (BLOCKCHAIN_MODE=follower)
 
-In addition to base services, follower nodes (`BLOCKCHAIN_MODE=follower`) get:
+In addition to base services, follower nodes get:
 
 | Service | Port | Description |
 |---------|------|-------------|
 | `aitbc-blockchain-sync` | — | Syncs blocks from hub via lease-based subscription |
 | `aitbc-blockchain-explorer` | 8100 | Blockchain explorer API |
 
-### Shop-Only Services
+### Shop Services (MARKET_ROLE=shop)
 
-In addition to base + follower services, shop nodes (`MARKET_ROLE=shop` + `HARDWARE_PROFILE=gpu`) get:
+In addition to the blockchain mode services, shop nodes get:
 
 | Service | Port | Description |
 |---------|------|-------------|
 | `aitbc-gpu` | 8101 | GPU service API (advertises hardware to coordinator) |
 | `aitbc-miner` | — | GPU compute provider client (registers with coordinator, sends heartbeats) |
+| `aitbc-coordinator-api` | 8203 | Coordinator API (for local job coordination) |
 
-### Customer Nodes
+> **Note:** Shop services are added regardless of `BLOCKCHAIN_MODE`. A `hub+shop` node gets hub services PLUS shop services. A `follower+shop` node gets follower services PLUS shop services.
 
-Customer nodes (`MARKET_ROLE=customer`) get **base services only**. They interact with the hub via CLI and API calls — no additional local services are needed.
+### Customer Nodes (MARKET_ROLE=customer)
+
+Customer nodes get **no additional services** beyond their blockchain mode services. They interact with the hub and shops via CLI and API calls.
 
 ### Services Not Auto-Enabled
 

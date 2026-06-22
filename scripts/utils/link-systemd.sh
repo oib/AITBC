@@ -60,21 +60,18 @@ get_node_role() {
         hardware_profile="${hardware_profile:-$HARDWARE_PROFILE}"
     fi
 
-    if [ "$blockchain_mode" = "hub" ]; then
-        echo "hub"
-    elif [ "$market_role" = "shop" ] && [ "$hardware_profile" = "gpu" ]; then
-        echo "shop"
-    elif [ "$market_role" = "customer" ]; then
-        echo "customer"
-    else
-        echo "follower"
-    fi
+    # Output both axes so get_allowed_services can combine them
+    echo "${blockchain_mode:-follower}:${market_role:-customer}:${hardware_profile:-nogpu}"
 }
 
 # Get allowed service basenames (without .service/.timer suffix) for a role.
 # Also includes infrastructure services that should always be linked.
+# Combines BLOCKCHAIN_MODE and MARKET_ROLE as independent axes:
+#   BLOCKCHAIN_MODE: hub | follower
+#   MARKET_ROLE:     customer | shop
+#   HARDWARE:        gpu | nogpu
 get_allowed_services() {
-    local role="${1:-all}"
+    local role_spec="${1:-all}"
 
     # Infrastructure services — always linked regardless of role
     local infra_services=(
@@ -92,7 +89,7 @@ get_allowed_services() {
         aitbc-backup
     )
 
-    # Hub-specific services
+    # Hub-specific services (blockchain producer)
     local hub_services=(
         aitbc-blockchain-p2p
         aitbc-coordinator-api
@@ -109,44 +106,57 @@ get_allowed_services() {
         aitbc-blockchain-explorer
     )
 
-    # Follower-specific services (in addition to base)
+    # Follower-specific services (blockchain sync, in addition to base)
     local follower_services=(
         aitbc-blockchain-sync
         aitbc-blockchain-explorer
     )
 
-    # Shop-specific services (GPU provider, in addition to base)
+    # Shop-specific services (GPU provider, regardless of blockchain mode)
     local shop_services=(
         aitbc-gpu
         aitbc-miner
         aitbc-coordinator-api
     )
 
-    case "$role" in
-        hub)
-            for s in "${infra_services[@]}" "${base_services[@]}" "${hub_services[@]}"; do echo "$s"; done
-            ;;
-        follower)
-            for s in "${infra_services[@]}" "${base_services[@]}" "${follower_services[@]}"; do echo "$s"; done
-            ;;
-        shop)
-            for s in "${infra_services[@]}" "${base_services[@]}" "${shop_services[@]}" "${follower_services[@]}"; do echo "$s"; done
-            ;;
-        customer)
-            for s in "${infra_services[@]}" "${base_services[@]}"; do echo "$s"; done
-            ;;
-        *)
-            # Unknown role or initial setup — link everything
-            echo "all"
-            ;;
-    esac
+    if [ "$role_spec" = "all" ]; then
+        echo "all"
+        return
+    fi
+
+    # Parse role_spec: blockchain_mode:market_role:hardware_profile
+    local blockchain_mode="${role_spec%%:*}"
+    local rest="${role_spec#*:}"
+    local market_role="${rest%%:*}"
+    local hardware_profile="${rest##*:}"
+
+    # Start with infra + base
+    local services=()
+    for s in "${infra_services[@]}" "${base_services[@]}"; do
+        services+=("$s")
+    done
+
+    # Axis 1: BLOCKCHAIN_MODE
+    if [ "$blockchain_mode" = "hub" ]; then
+        for s in "${hub_services[@]}"; do services+=("$s"); done
+    else
+        for s in "${follower_services[@]}"; do services+=("$s"); done
+    fi
+
+    # Axis 2: MARKET_ROLE (independent of blockchain mode)
+    if [ "$market_role" = "shop" ]; then
+        for s in "${shop_services[@]}"; do services+=("$s"); done
+    fi
+
+    # Print unique services
+    printf '%s\n' "${services[@]}" | sort -u
 }
 
-# Determine node role
+# Determine node role (blockchain_mode:market_role:hardware_profile)
 NODE_ROLE=$(get_node_role)
 echo "🎯 Node role: $NODE_ROLE"
 
-# Get allowed services list
+# Get allowed services list (combines both axes)
 ALLOWED_SERVICES=$(get_allowed_services "$NODE_ROLE")
 
 # Check if we should filter (role-aware) or link everything
