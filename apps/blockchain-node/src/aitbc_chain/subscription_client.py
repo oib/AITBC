@@ -208,8 +208,6 @@ class SubscriptionClient:
                             extra={"node_id": self._node_id, "hub_url": self._hub_url},
                         )
                         self._set_sync_mode("pull")
-                else:
-                    await self._heartbeat()
             except Exception as e:
                 logger.error(
                     "Heartbeat loop error: %s",
