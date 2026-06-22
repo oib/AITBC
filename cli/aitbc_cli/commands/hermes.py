@@ -49,21 +49,41 @@ async def _consume_connection_frame(ws, timeout: int, ws_endpoint: str) -> bool:
 def _resolve_wallet_address(wallet_name: str | None) -> str | None:
     """Resolve wallet address from local wallet files.
 
-    If wallet_name is given, looks up ~/.aitbc/wallets/<name>.json.
-    Otherwise, uses the first wallet found.
+    Priority: explicit wallet_name arg > AITBC_DEFAULT_WALLET env var >
+    active_wallet in ~/.aitbc/config.yaml > first wallet found.
     """
     if not WALLET_DIR.exists():
         error(f"No wallet directory found at {WALLET_DIR}")
         error("Create a wallet first: aitbc wallet create")
         return None
 
+    # Resolve wallet name if not explicitly given
+    if not wallet_name:
+        # 1. Check AITBC_DEFAULT_WALLET env var
+        wallet_name = os.environ.get("AITBC_DEFAULT_WALLET")
+        # 2. Check config.yaml for active_wallet
+        if not wallet_name:
+            config_file = Path.home() / ".aitbc" / "config.yaml"
+            if config_file.exists():
+                try:
+                    import yaml
+
+                    with open(config_file) as f:
+                        config = yaml.safe_load(f)
+                        wallet_name = config.get("active_wallet") if isinstance(config, dict) else None
+                except Exception:
+                    pass
+
     if wallet_name:
         wallet_file = WALLET_DIR / f"{wallet_name}.json"
         if not wallet_file.exists():
             error(f"Wallet '{wallet_name}' not found at {wallet_file}")
-            error(f"Available wallets: {', '.join(f.stem for f in WALLET_DIR.glob('*.json'))}")
+            available = [f.stem for f in WALLET_DIR.glob("*.json")]
+            error(f"Available wallets: {', '.join(available)}")
+            error("Set AITBC_DEFAULT_WALLET env var or use --wallet to specify one")
             return None
     else:
+        # 3. Fall back to first wallet found
         wallet_files = sorted(WALLET_DIR.glob("*.json"))
         if not wallet_files:
             error(f"No wallets found in {WALLET_DIR}")
