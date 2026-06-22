@@ -38,18 +38,22 @@ header {
 .header-nav a:link,
 .header-nav a:visited,
 .header-nav a:active {
-    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
     text-decoration: none;
-    font-size: 0.875rem;
+    font-size: 0.85rem;
+    font-weight: 600;
     font-family: inherit;
-    line-height: 1.6;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    transition: color 0.2s;
-    display: inline-block;
+    padding: 1rem;
+    border-radius: 6px;
+    transition: background 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 .header-nav a:hover {
-    color: var(--primary);
+    background: var(--code);
 }
 h1 {
     font-size: 1.8rem;
@@ -713,6 +717,18 @@ button:active {
 }
 .btn-secondary:hover {
     background: var(--code);
+}
+a.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s;
 }
 
 /* Marketplace page styles */

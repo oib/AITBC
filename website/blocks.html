@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Latest Blocks - AITBC Blockchain Explorer</title>
+    <meta name="description" content="Browse the latest blocks on the AITBC blockchain">
+    <meta name="robots" content="index, follow">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="/style.css">
+
+    <!-- External libraries -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="config.js"></script>
+    <script src="explorer.js"></script>
+    <script src="blocks.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-nav">
+                <a href="/">Home</a>
+                <a href="/explorer.html">Explorer</a>
+                <a href="/exchange.html">Exchange</a>
+                <a href="/marketplace.html">Marketplace</a>
+            </div>
+            <h1>Latest Blocks</h1>
+            <p class="subtitle">Browse the most recent blocks on the AITBC blockchain</p>
+        </header>
+
+        <!-- Latest Blocks -->
+        <div class="card">
+            <div class="blocks-header">
+                <h2>Latest Blocks</h2>
+                <div class="flex-row">
+                    <label class="toggle-switch" title="Skip heartbeat blocks (empty)">
+                        <input type="checkbox" id="skip-empty-blocks">
+                        <span class="toggle-slider"></span>
+                        <span class="toggle-label">Skip Empty</span>
+                    </label>
+                    <button id="export-blockchain-btn" class="btn-secondary">
+                        <i data-lucide="download" class="icon-sm"></i>
+                        Export Blockchain
+                    </button>
+                </div>
+            </div>
+            <div id="blocks-container">
+                <p class="loading-blocks">Loading blocks...</p>
+            </div>
+            <div id="load-more-container" style="text-align:center; margin-top:1rem; display:none;">
+                <button id="load-more-btn" class="btn-secondary">Load 10 More</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -70,7 +70,9 @@
         <div class="card">
             <div class="blocks-header">
                 <h2>Live Feed</h2>
-                <span class="live-indicator">● LIVE</span>
+                <div class="flex-row">
+                    <a href="/blocks.html" class="btn-secondary">Latest Blocks →</a>
+                </div>
             </div>
             <div id="live-feed-container">
                 <div class="live-feed-list" id="live-feed-list"></div>
@@ -111,30 +113,6 @@
             </div>
             <div id="results-container">
                 <!-- Results will be dynamically inserted here -->
-            </div>
-        </div>
-
-        <!-- Latest Blocks -->
-        <div class="card">
-            <div class="blocks-header">
-                <h2>Latest Blocks</h2>
-                <div class="flex-row">
-                    <label class="toggle-switch" title="Skip heartbeat blocks (empty)">
-                        <input type="checkbox" id="skip-empty-blocks">
-                        <span class="toggle-slider"></span>
-                        <span class="toggle-label">Skip Empty</span>
-                    </label>
-                    <button id="export-blockchain-btn" class="btn-secondary">
-                        <i data-lucide="download" class="icon-sm"></i>
-                        Export Blockchain
-                    </button>
-                </div>
-            </div>
-            <div id="blocks-container">
-                <p class="loading-blocks">Loading blocks...</p>
-            </div>
-            <div id="load-more-container" style="text-align:center; margin-top:1rem; display:none;">
-                <button id="load-more-btn" class="btn-secondary">Load 10 More</button>
             </div>
         </div>
     </div>
