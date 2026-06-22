@@ -444,6 +444,10 @@ print_summary() {
     echo "    - DB migrations (alembic) if schema changed:"
     echo "        cd $AITBC_ROOT/apps/blockchain-node && alembic upgrade head"
     echo "    - Review changed config templates in examples/ vs /etc/aitbc/"
+    echo "    - If nginx configs changed, update both container + host proxy:"
+    echo "        Container: /opt/aitbc/examples/nginx/nginx-*.conf.example"
+    echo "        Host proxy: /opt/aitbc/examples/nginx/nginx-*-proxy.conf.example"
+    echo "        See: /opt/aitbc/examples/nginx/README.md"
     echo "    - Check logs: journalctl -u aitbc-blockchain-node -n 50 --no-pager"
     echo ""
 }
