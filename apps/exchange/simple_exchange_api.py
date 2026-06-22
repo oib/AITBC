@@ -11,9 +11,10 @@ import urllib.parse
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from aitbc.aitbc_logging import get_logger
+from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.constants import DATA_DIR
 
+configure_logging(level="INFO", service_name="exchange", to_file=True)
 logger = get_logger(__name__)
 
 
@@ -1180,7 +1181,7 @@ def run_server(port=8106):
     # Removed mock trades - now using only real blockchain data
 
     server = HTTPServer(("localhost", port), ExchangeAPIHandler)
-    logger.info("AITBC Exchange API Server started", port=port, url=f"http://localhost:{port}")
+    logger.info("AITBC Exchange API Server started on port %s (http://localhost:%s)", port, port)
 
     try:
         server.serve_forever()

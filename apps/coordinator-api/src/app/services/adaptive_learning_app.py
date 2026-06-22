@@ -8,6 +8,11 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
+from aitbc.aitbc_logging import configure_logging, get_logger
+
+configure_logging(level="INFO", service_name="adaptive-learning", to_file=True)
+logger = get_logger(__name__)
+
 from ..contexts.advanced_ai.routers.adaptive_learning_health import router as health_router
 from ..contexts.ai_analytics.services.ai_analytics.adaptive_learning import (
     AdaptiveLearningService,

@@ -13,6 +13,9 @@ from aitbc_chain.database import session_scope
 from aitbc_chain.logger import get_logger
 from aitbc_chain.sync import ChainSync
 
+from aitbc.aitbc_logging import configure_logging
+
+configure_logging(level="INFO", service_name="blockchain-sync", to_file=True)
 logger = get_logger(__name__)
 
 
