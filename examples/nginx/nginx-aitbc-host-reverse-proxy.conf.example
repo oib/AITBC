@@ -1,11 +1,17 @@
 # AITBC Host Reverse Proxy Configuration
-# This configuration runs on the HOST machine and forwards requests to the AITBC container
-# Copy to nginx-aitbc-proxy.conf and replace CONTAINER_IP with your actual container IP
-# Enable SSL with: certbot --nginx -d YOUR_DOMAIN
+# This configuration runs on the HOST machine and forwards requests to the
+# AITBC container. Copy to nginx-aitbc-proxy.conf and replace CONTAINER_IP
+# with your actual container IP. Enable SSL with: certbot --nginx -d YOUR_DOMAIN
 #
 # Architecture:
-# Host (this config) → Container (nginx-aitbc.conf) → Services
-# SSL termination happens here on the host
+#   Host (this config, SSL termination) → Container (nginx-<role>.conf) → Services
+#
+# This file includes all role-specific location blocks. Comment out or remove
+# the sections that don't apply to your node's role:
+#   - HUB sections: agent registry, API gateway, agent coordinator WS, blockchain RPC
+#   - SHOP sections: ollama, whisper, ffmpeg, peertube-pruner
+#   - FOLLOWER/CUSTOMER: explorer only (or nothing for customer)
+#
 # Container IP should be the Incus/LXD container IP address
 
 upstream aitbc_container {
@@ -16,6 +22,11 @@ upstream aitbc_container {
 server {
     server_name YOUR_DOMAIN;
     client_max_body_size 500M;  # For audio uploads to Whisper service
+
+    # ════════════════════════════════════════════════════════════════════════
+    # HUB-ONLY LOCATIONS
+    # Enable these on BLOCKCHAIN_MODE=hub nodes
+    # ════════════════════════════════════════════════════════════════════════
 
     # ── Agent Coordinator WebSocket ───────────────────────────
     # Real-time agent messaging (PING/PONG) and presence tracking
@@ -37,7 +48,72 @@ server {
         proxy_send_timeout 3600s;
     }
 
-    # Ollama API (WebSocket support for streaming inference)
+    # ── API Gateway ────────────────────────────────────────────
+    location /api/ {
+        proxy_pass http://aitbc_container/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
+    }
+
+    # ── Blockchain RPC (HTTP + WebSocket) ──────────────────────
+    # Followers subscribe to blocks via WebSocket and send heartbeats via HTTP
+    location /rpc/ {
+        proxy_pass http://aitbc_container/rpc/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support for block/transaction push
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_buffering off;
+    }
+
+    # ── Coordinator API (agent coordination) ───────────────────
+    location /c/ {
+        proxy_pass http://aitbc_container/c/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+    }
+
+    # ── Agent Registry (v1 API, openapi.json) ──────────────────
+    location /v1/ {
+        proxy_pass http://aitbc_container/v1/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /openapi.json {
+        proxy_pass http://aitbc_container/openapi.json;
+        proxy_set_header Host $host;
+    }
+
+    # ════════════════════════════════════════════════════════════════════════
+    # SHOP-ONLY LOCATIONS
+    # Enable these on MARKET_ROLE=shop nodes (GPU provider)
+    # ════════════════════════════════════════════════════════════════════════
+
+    # ── Ollama API (WebSocket support for streaming inference) ──
     location /ollama/ {
         proxy_pass http://aitbc_container/ollama/;
         proxy_set_header Host $host;
@@ -61,52 +137,7 @@ server {
         proxy_request_buffering off;
     }
 
-    # API Gateway and all other services
-    location /api/ {
-        proxy_pass http://aitbc_container/api/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 600s;
-        proxy_read_timeout 600s;
-    }
-
-    # Blockchain RPC (HTTP + WebSocket)
-    location /rpc/ {
-        proxy_pass http://aitbc_container/rpc/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket support for block/transaction push
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
-        proxy_buffering off;
-    }
-
-    # Coordinator API (agent coordination)
-    location /c/ {
-        proxy_pass http://aitbc_container/c/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_buffering off;
-    }
-
-    # Whisper transcription service
+    # ── Whisper transcription service ──────────────────────────
     location /whisper/ {
         proxy_pass http://aitbc_container/whisper/;
         proxy_set_header Host $host;
@@ -116,22 +147,45 @@ server {
         proxy_buffering off;
     }
 
-    # Plugin registry
-    location /plugin/ {
-        proxy_pass http://aitbc_container/plugin/;
+    # ── FFmpeg video transcoding service ───────────────────────
+    location /ffmpeg/ {
+        proxy_pass http://aitbc_container/ffmpeg/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Health check
+    # ── PeerTube Pruner service ────────────────────────────────
+    location /peertube-pruner/ {
+        proxy_pass http://aitbc_container/peertube-pruner/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ════════════════════════════════════════════════════════════════════════
+    # ALL ROLES — Explorer + Health
+    # ════════════════════════════════════════════════════════════════════════
+
+    # ── Blockchain Explorer API ────────────────────────────────
+    location /explorer-api/ {
+        proxy_pass http://aitbc_container/explorer-api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ── Health check ────────────────────────────────────────────
     location /health {
         proxy_pass http://aitbc_container/health;
         proxy_set_header Host $host;
     }
 
-    # All other requests (default fallback to container)
+    # ── Website (hub only, serves from /opt/aitbc/website) ─────
+    # Comment this out on non-hub nodes
     location / {
         proxy_pass http://aitbc_container/;
         proxy_set_header Host $host;

@@ -1,5 +1,10 @@
-# AITBC Nginx Configuration (Container)
+# AITBC Nginx Configuration — HUB Node
 # Routes public services through nginx to backend services
+#
+# Use this on: BLOCKCHAIN_MODE=hub nodes (the chain producer)
+# Exposes: Agent registry, API gateway, blockchain RPC (WS+HTTP),
+#          agent coordinator WS, coordinator API, wallet exchange,
+#          blockchain explorer, website
 #
 # Production: /etc/nginx/sites-available/aitbc
 # Architecture: Host (nginx-host-reverse-proxy) → Container (this config) → Services
@@ -178,59 +183,6 @@ server {
 
     location /explorer-api/ {
         proxy_pass http://blockchain_explorer/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        add_header Access-Control-Allow-Origin * always;
-        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
-        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
-    }
-
-    # ── Marketplace Service Ports (GPU Services) ─────────────────────
-
-    # Ollama service (AI inference)
-    location /ollama/ {
-        proxy_pass http://127.0.0.1:11434/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        add_header Access-Control-Allow-Origin * always;
-        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
-        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
-    }
-
-    # Whisper service (speech recognition)
-    location /whisper/ {
-        proxy_pass http://127.0.0.1:8080/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        add_header Access-Control-Allow-Origin * always;
-        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
-        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
-    }
-
-    # FFmpeg service (video transcoding)
-    location /ffmpeg/ {
-        proxy_pass http://127.0.0.1:9000/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        add_header Access-Control-Allow-Origin * always;
-        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
-        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
-    }
-
-    # PeerTube Pruner service
-    location /peertube-pruner/ {
-        proxy_pass http://127.0.0.1:9500/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
