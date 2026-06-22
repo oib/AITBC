@@ -8,9 +8,16 @@
 #
 # This file includes all role-specific location blocks. Comment out or remove
 # the sections that don't apply to your node's role:
-#   - HUB sections: agent registry, API gateway, agent coordinator WS, blockchain RPC
+#   - HUB sections: agent registry, API gateway, agent coordinator WS,
+#                   blockchain RPC, coordinator API
 #   - SHOP sections: ollama, whisper, ffmpeg, peertube-pruner
+#   - ALL ROLES: explorer, health
 #   - FOLLOWER/CUSTOMER: explorer only (or nothing for customer)
+#
+# IMPORTANT: nginx is for EXTERNAL traffic only. Internal service-to-service
+# communication (gpu_worker → coordinator-api, explorer → blockchain-rpc)
+# happens on localhost directly and never goes through nginx. Do NOT add
+# /c/ or /rpc/ to a shop node's public config — they are used internally.
 #
 # Container IP should be the Incus/LXD container IP address
 

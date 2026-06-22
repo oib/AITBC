@@ -24,6 +24,24 @@ The **host reverse proxy** terminates SSL and forwards to the container's
 nginx on port 80. The **container nginx** routes to individual backend
 services on localhost ports.
 
+### Important: nginx is for external traffic only
+
+Nginx exposes services to the **public internet**. Internal service-to-service
+communication within a node happens on `localhost` directly and never goes
+through nginx. For example:
+
+- `gpu_worker.py` connects to `http://localhost:8203` (coordinator-api) to
+  poll for jobs — this does NOT need to be exposed via nginx
+- `blockchain-explorer` queries `http://localhost:8202` (blockchain-rpc)
+  locally — no nginx needed
+- `subscription_client.py` connects to the **hub's** public `/rpc/subscribe`
+  (outbound from follower) — the follower's own RPC does not need to be public
+
+This is why `/c/` (coordinator-api) and `/rpc/` (blockchain-rpc) are NOT in
+the shop or follower configs, even though those services run locally. They
+are only exposed publicly on the **hub** (where external followers and
+clients need to reach them).
+
 ## Choosing the right config
 
 Check your node's role:
@@ -92,16 +110,21 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## Port reference
 
-| Service | Port | Config |
-|---|---|---|
-| Agent Registry | 8204 | Hub |
-| API Gateway | 8201 | Hub |
-| Blockchain RPC | 8202 | Hub |
-| Coordinator API | 8203 | Hub |
-| Agent Coordinator | 8107 | Hub |
-| Wallet Service | 8108 | Hub |
-| Blockchain Explorer | 8100 | All roles |
-| Ollama | 11434 | Shop |
-| Whisper | 8080 | Shop |
-| FFmpeg | 9000 | Shop |
-| PeerTube Pruner | 9500 | Shop |
+| Service | Port | Exposed via nginx | Notes |
+|---|---|---|---|
+| Agent Registry | 8204 | Hub only | Machine-readable API |
+| API Gateway | 8201 | Hub only | Aggregated API |
+| Blockchain RPC | 8202 | Hub only | Followers connect here for /rpc/subscribe |
+| Coordinator API | 8203 | Hub only | Shop uses it internally via localhost only |
+| Agent Coordinator | 8107 | Hub only | WebSocket agent messaging |
+| Wallet Service | 8108 | Hub only | Exchange API |
+| Blockchain Explorer | 8100 | All roles | Read-only chain viewer |
+| Ollama | 11434 | Shop only | AI inference |
+| Whisper | 8080 | Shop only | Speech recognition |
+| FFmpeg | 9000 | Shop only | Video transcoding |
+| PeerTube Pruner | 9500 | Shop only | PeerTube maintenance |
+
+> **Note:** Services like Coordinator API (8203) and Blockchain RPC (8202)
+> run on all roles but are only exposed via nginx on the hub. On shop and
+> follower nodes, they are used internally via `localhost` and do not need
+> public exposure.
