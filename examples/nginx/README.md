@@ -1,27 +1,38 @@
 # AITBC Nginx Examples
 
-Role-specific nginx configurations for AITBC nodes.
+Role-specific nginx configurations for AITBC nodes. Each role has a
+**container config** (routes to backend services) and a **host proxy
+config** (SSL termination + reverse proxy to container).
 
 ## Files
+
+### Container configs (run inside the AITBC container)
 
 | File | Role | What it exposes |
 |---|---|---|
 | `nginx-hub.conf.example` | `BLOCKCHAIN_MODE=hub` | Agent registry, API gateway, blockchain RPC (WS+HTTP), agent coordinator WS, coordinator API, wallet exchange, explorer, website |
 | `nginx-shop.conf.example` | `MARKET_ROLE=shop` | Ollama, Whisper, FFmpeg, PeerTube Pruner, explorer |
 | `nginx-customer.conf.example` | `MARKET_ROLE=customer` | Explorer, health check |
-| `nginx-aitbc-host-reverse-proxy.conf.example` | All roles (host machine) | SSL termination + reverse proxy to container. Includes all role-specific locations — comment out what you don't need |
+
+### Host proxy configs (run on the host machine, SSL termination)
+
+| File | Role | Pairs with |
+|---|---|---|
+| `nginx-hub-proxy.conf.example` | `BLOCKCHAIN_MODE=hub` | `nginx-hub.conf` |
+| `nginx-shop-proxy.conf.example` | `MARKET_ROLE=shop` | `nginx-shop.conf` |
+| `nginx-customer-proxy.conf.example` | `MARKET_ROLE=customer` | `nginx-customer.conf` |
 
 ## Architecture
 
 ```
-Internet → Host nginx (SSL termination, host-reverse-proxy.conf)
-         → Container nginx (role config, e.g. nginx-hub.conf)
+Internet → Host nginx (SSL termination, nginx-<role>-proxy.conf)
+         → Container nginx (role config, nginx-<role>.conf)
             → Backend services (127.0.0.1:8xxx)
 ```
 
-The **host reverse proxy** terminates SSL and forwards to the container's
-nginx on port 80. The **container nginx** routes to individual backend
-services on localhost ports.
+The **host proxy** terminates SSL and forwards to the container's nginx
+on port 80. The **container nginx** routes to individual backend services
+on localhost ports.
 
 ### Important: nginx is for external traffic only
 
@@ -37,7 +48,7 @@ through nginx. For example:
   (outbound from follower) — the follower's own RPC does not need to be public
 
 This is why `/c/` (coordinator-api) and `/rpc/` (blockchain-rpc) are NOT in
-the shop or follower configs, even though those services run locally. They
+the shop or customer configs, even though those services run locally. They
 are only exposed publicly on the **hub** (where external followers and
 clients need to reach them).
 
@@ -49,59 +60,45 @@ Check your node's role:
 grep -E "BLOCKCHAIN_MODE|MARKET_ROLE" /etc/aitbc/node.env
 ```
 
-| `BLOCKCHAIN_MODE` | `MARKET_ROLE` | Config to use |
-|---|---|---|
-| `hub` | customer | `nginx-hub.conf` |
-| `hub` | shop | `nginx-hub.conf` + `nginx-shop.conf` (combine both) |
-| `follower` | customer | `nginx-customer.conf` |
-| `follower` | shop | `nginx-shop.conf` |
+| `BLOCKCHAIN_MODE` | `MARKET_ROLE` | Container config | Host proxy config |
+|---|---|---|---|
+| `hub` | customer | `nginx-hub.conf` | `nginx-hub-proxy.conf` |
+| `hub` | shop | `nginx-hub.conf` + `nginx-shop.conf` | `nginx-hub-proxy.conf` + `nginx-shop-proxy.conf` |
+| `follower` | customer | `nginx-customer.conf` | `nginx-customer-proxy.conf` |
+| `follower` | shop | `nginx-shop.conf` | `nginx-shop-proxy.conf` |
 
 > **Hub + Shop combo:** If your hub also provides GPU services, combine the
 > hub and shop configs into one server block — include both the hub locations
-> and the shop GPU service locations.
+> and the shop GPU service locations in both the container config and the
+> host proxy.
 
 ## Setup
 
-1. Copy the role-specific config to the container:
+1. Install the container config (inside the container):
 
 ```bash
-# On the container:
-sudo cp /opt/aitbc/examples/nginx/nginx-hub.conf.example /etc/nginx/sites-available/aitbc
+sudo cp /opt/aitbc/examples/nginx/nginx-shop.conf.example /etc/nginx/sites-available/aitbc
 sudo ln -sf /etc/nginx/sites-available/aitbc /etc/nginx/sites-enabled/aitbc
-```
-
-2. Replace placeholders:
-
-```bash
-sudo sed -i 's/YOUR_DOMAIN/hub.example.com/g' /etc/nginx/sites-available/aitbc
+sudo sed -i 's/YOUR_DOMAIN/shop.example.com/g' /etc/nginx/sites-available/aitbc
 sudo sed -i 's/CONTAINER_GATEWAY_IP/10.0.0.1/g' /etc/nginx/sites-available/aitbc
 ```
 
-3. Copy the host reverse proxy config to the host machine:
+2. Install the host proxy config (on the host machine):
 
 ```bash
-# On the host:
-sudo cp /opt/aitbc/examples/nginx/nginx-aitbc-host-reverse-proxy.conf.example \
-        /etc/nginx/sites-available/aitbc-proxy
+sudo cp /opt/aitbc/examples/nginx/nginx-shop-proxy.conf.example /etc/nginx/sites-available/aitbc-proxy
 sudo ln -sf /etc/nginx/sites-available/aitbc-proxy /etc/nginx/sites-enabled/aitbc-proxy
-sudo sed -i 's/YOUR_DOMAIN/hub.example.com/g' /etc/nginx/sites-available/aitbc-proxy
-sudo sed -i 's/CONTAINER_IP/10.0.0.2/g' /etc/nginx/sites-available/aitbc-proxy
+sudo sed -i 's/YOUR_DOMAIN/shop.example.com/g' /etc/nginx/sites-available/aitbc-proxy
+sudo sed -i 's/CONTAINER_IP/10.1.223.136/g' /etc/nginx/sites-available/aitbc-proxy
 ```
 
-4. Comment out role-specific locations in the host proxy that don't apply:
+3. Enable SSL:
 
 ```bash
-# On a follower node, comment out the HUB-ONLY and SHOP-ONLY sections:
-sudo nano /etc/nginx/sites-available/aitbc-proxy
+sudo certbot --nginx -d shop.example.com
 ```
 
-5. Enable SSL:
-
-```bash
-sudo certbot --nginx -d hub.example.com
-```
-
-6. Test and reload:
+4. Test and reload:
 
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
@@ -125,5 +122,5 @@ sudo nginx -t && sudo systemctl reload nginx
 
 > **Note:** Services like Coordinator API (8203) and Blockchain RPC (8202)
 > run on all roles but are only exposed via nginx on the hub. On shop and
-> follower nodes, they are used internally via `localhost` and do not need
+> customer nodes, they are used internally via `localhost` and do not need
 > public exposure.

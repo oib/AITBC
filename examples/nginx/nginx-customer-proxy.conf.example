@@ -1,0 +1,71 @@
+# AITBC Host Reverse Proxy — CUSTOMER Node (follower + customer)
+# SSL termination + reverse proxy to container for customer nodes
+#
+# Use this on: MARKET_ROLE=customer nodes (GPU consumer)
+# Pairs with: nginx-customer.conf (inside the container)
+#
+# Exposes: Blockchain explorer, health check
+#
+# NOT exposed (and why):
+#   /api/   — API Gateway is hub-only
+#   /agent/ — Agent Coordinator is hub-only
+#   /rpc/   — Blockchain RPC is for local use only; followers sync
+#             FROM the hub via outbound /rpc/subscribe
+#   /c/     — Coordinator API is hub-only
+#   /ollama/ etc — GPU services are shop-only
+#
+# nginx is for EXTERNAL traffic only. The node's blockchain-rpc and
+# wallet service are used locally, never through nginx.
+#
+# Replace CONTAINER_IP with your container's IP and YOUR_DOMAIN with your domain.
+# Enable SSL: certbot --nginx -d YOUR_DOMAIN
+#
+# Architecture:
+#   Host (this config, SSL termination) → Container (nginx-customer.conf) → Services
+
+upstream aitbc_container {
+    server CONTAINER_IP:80;
+    keepalive 32;
+}
+
+server {
+    server_name YOUR_DOMAIN;
+
+    # ── Blockchain Explorer API ────────────────────────────────
+    location /explorer-api/ {
+        proxy_pass http://aitbc_container/explorer-api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ── Health Check ────────────────────────────────────────────
+    location /health {
+        proxy_pass http://aitbc_container/health;
+        proxy_set_header Host $host;
+    }
+
+    # Deny everything else
+    location / {
+        return 404;
+    }
+
+    # SSL Configuration (after running certbot)
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/YOUR_DOMAIN/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/YOUR_DOMAIN/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+# HTTP to HTTPS redirect (after running certbot)
+server {
+    if ($host = YOUR_DOMAIN) {
+        return 308 https://$host$request_uri;
+    } # managed by Certbot
+
+    listen 80;
+    server_name YOUR_DOMAIN;
+    return 404; # managed by Certbot
+}
