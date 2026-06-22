@@ -6,6 +6,14 @@
 #          agent coordinator WS, coordinator API, wallet exchange,
 #          blockchain explorer, website
 #
+# The hub is the only role that exposes /rpc/ publicly — followers
+# connect to the hub's /rpc/subscribe (WebSocket) and /rpc/heartbeat
+# (HTTP) to receive blocks and extend their leases.
+#
+# The hub also exposes /c/ (coordinator-api) publicly because external
+# miners/clients submit jobs through it. On shop nodes, /c/ is NOT
+# exposed — gpu_worker.py connects to localhost:8203 directly.
+#
 # Production: /etc/nginx/sites-available/aitbc
 # Architecture: Host (nginx-host-reverse-proxy) → Container (this config) → Services
 

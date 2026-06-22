@@ -3,8 +3,21 @@
 #
 # Use this on: MARKET_ROLE=shop nodes (GPU provider)
 # Exposes: Ollama, Whisper, FFmpeg, PeerTube Pruner, blockchain explorer
-# Does NOT expose: agent registry, API gateway, agent coordinator, blockchain RPC
-#                  (those are hub-only services)
+#
+# NOT exposed (and why):
+#   /api/        — API Gateway (port 8201) is hub-only, shop doesn't run it
+#   /agent/      — Agent Coordinator (port 8107) is hub-only
+#   /v1/         — Agent Registry (port 8204) is hub-only
+#   /rpc/        — Blockchain RPC (port 8202) is for local use only;
+#                  external clients query the hub's RPC, not shop nodes
+#   /c/          — Coordinator API (port 8203) is used internally by
+#                  gpu_worker.py via localhost:8203 — it does NOT need
+#                  to be publicly exposed. Jobs are polled locally,
+#                  not dispatched from the hub over the network.
+#
+# nginx is for EXTERNAL traffic only. Internal service-to-service
+# communication (gpu_worker → coordinator-api, explorer → blockchain-rpc)
+# happens on localhost directly and never goes through nginx.
 #
 # Production: /etc/nginx/sites-available/aitbc
 # Architecture: Host (nginx-host-reverse-proxy) → Container (this config) → Services
