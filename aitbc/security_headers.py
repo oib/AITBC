@@ -33,7 +33,7 @@ class CORSConfig:
     allow_methods: list[str]
     allow_headers: list[str]
     allow_credentials: bool = False
-    expose_headers: list[str] = None
+    expose_headers: list[str] | None = None
     max_age: int = 3600
 
 

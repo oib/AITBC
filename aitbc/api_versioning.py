@@ -63,10 +63,10 @@ def api_version(
                         result["_meta"]["sunset_date"] = sunset_date.isoformat()
             return result
 
-        wrapper._api_version = version.value
-        wrapper._deprecated = deprecated
-        wrapper._deprecation_date = deprecation_date
-        wrapper._sunset_date = sunset_date
+        wrapper._api_version = version.value  # type: ignore[attr-defined]
+        wrapper._deprecated = deprecated  # type: ignore[attr-defined]
+        wrapper._deprecation_date = deprecation_date  # type: ignore[attr-defined]
+        wrapper._sunset_date = sunset_date  # type: ignore[attr-defined]
         return wrapper
 
     return decorator

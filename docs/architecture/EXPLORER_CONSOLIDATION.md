@@ -67,7 +67,7 @@ website/
 
 1. **Single Source of Truth**: All human UI in `website/`
 2. **Agent-First Explorer**: blockchain-explorer is now pure API
-3. **Separation of Concerns**: 
+3. **Separation of Concerns**:
    - `website/` = Human-facing content
    - `apps/blockchain-explorer/` = Agent API backend
 4. **Easier Maintenance**: UI changes only affect website

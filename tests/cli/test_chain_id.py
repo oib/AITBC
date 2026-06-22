@@ -18,27 +18,18 @@ from aitbc.exceptions import NetworkError
 class TestGetDefaultChainId:
     """Test get_default_chain_id function"""
 
-    def test_get_default_chain_id_from_env(self):
+    def test_get_default_chain_id_from_env(self, monkeypatch):
         """Test getting default chain ID from environment variable"""
-        import os
-        
-        # Set environment variable
-        os.environ["CHAIN_ID"] = "ait-hub.aitbc.bubuit.net"
+        monkeypatch.setenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
         result = get_default_chain_id()
-        
-        assert result == "ait-hub.aitbc.bubuit.net"
-        
-        # Clean up
-        del os.environ["CHAIN_ID"]
 
-    def test_get_default_chain_id_no_env(self):
+        assert result == "ait-hub.aitbc.bubuit.net"
+
+    def test_get_default_chain_id_no_env(self, monkeypatch):
         """Test getting default chain ID when no environment variable set"""
-        import os
-        
-        # Ensure no environment variable
-        os.environ.pop("CHAIN_ID", None)
+        monkeypatch.delenv("CHAIN_ID", raising=False)
         result = get_default_chain_id()
-        
+
         # Should return empty string when no default available
         assert result == ""
 
@@ -85,8 +76,9 @@ class TestGetChainIdFromHealth:
         assert result == "ait-mainnet"
 
     @patch("aitbc_cli.utils.chain_id.AITBCHTTPClient")
-    def test_get_chain_id_from_health_empty_chains(self, mock_client_class):
+    def test_get_chain_id_from_health_empty_chains(self, mock_client_class, monkeypatch):
         """Test chain ID detection with empty chains list"""
+        monkeypatch.delenv("CHAIN_ID", raising=False)
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
@@ -94,11 +86,12 @@ class TestGetChainIdFromHealth:
 
         result = get_chain_id_from_health("http://localhost:8202")
 
-        assert result == "ait-mainnet"  # Fallback to default
+        assert result == ""  # Fallback to empty string (no default)
 
     @patch("aitbc_cli.utils.chain_id.AITBCHTTPClient")
-    def test_get_chain_id_from_health_no_chains_field(self, mock_client_class):
+    def test_get_chain_id_from_health_no_chains_field(self, mock_client_class, monkeypatch):
         """Test chain ID detection with no chains field"""
+        monkeypatch.delenv("CHAIN_ID", raising=False)
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
@@ -106,25 +99,27 @@ class TestGetChainIdFromHealth:
 
         result = get_chain_id_from_health("http://localhost:8202")
 
-        assert result == "ait-mainnet"  # Fallback to default
+        assert result == ""  # Fallback to empty string (no default)
 
     @patch("aitbc_cli.utils.chain_id.AITBCHTTPClient")
-    def test_get_chain_id_from_health_network_error(self, mock_client_class):
+    def test_get_chain_id_from_health_network_error(self, mock_client_class, monkeypatch):
         """Test chain ID detection with network error"""
+        monkeypatch.delenv("CHAIN_ID", raising=False)
         mock_client_class.side_effect = NetworkError("Connection failed")
 
         result = get_chain_id_from_health("http://localhost:8202")
 
-        assert result == "ait-mainnet"  # Fallback to default
+        assert result == ""  # Fallback to empty string (no default)
 
     @patch("aitbc_cli.utils.chain_id.AITBCHTTPClient")
-    def test_get_chain_id_from_health_generic_error(self, mock_client_class):
+    def test_get_chain_id_from_health_generic_error(self, mock_client_class, monkeypatch):
         """Test chain ID detection with generic error"""
+        monkeypatch.delenv("CHAIN_ID", raising=False)
         mock_client_class.side_effect = Exception("Unexpected error")
 
         result = get_chain_id_from_health("http://localhost:8202")
 
-        assert result == "ait-mainnet"  # Fallback to default
+        assert result == ""  # Fallback to empty string (no default)
 
     @patch("aitbc_cli.utils.chain_id.AITBCHTTPClient")
     def test_get_chain_id_from_health_custom_timeout(self, mock_client_class):

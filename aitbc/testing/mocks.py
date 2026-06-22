@@ -63,7 +63,7 @@ class MockDatabase:
             self.create_table(table_name)
         record["id"] = record.get("id", MockFactory.generate_uuid())
         self.data[table_name].append(record)
-        return record["id"]
+        return str(record["id"])
 
     def select(self, table_name: str, **filters) -> list[dict[str, Any]]:
         """Select records with optional filters"""

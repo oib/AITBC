@@ -8,7 +8,7 @@ from collections.abc import Awaitable, Callable
 from functools import wraps
 from typing import Any
 
-from fastapi import HTTPException, Request, Response
+from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
@@ -54,14 +54,18 @@ def rate_limit(
     def decorator(func: Callable[P, Any]) -> Callable[P, Any]:
         # Temporarily return a no-op decorator
         if asyncio.iscoroutinefunction(func):
+
             @wraps(func)
             async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
                 return await func(*args, **kwargs)
+
             return wrapper
         else:
+
             @wraps(func)
             def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
                 return func(*args, **kwargs)
+
             return wrapper
 
     return decorator
@@ -141,7 +145,7 @@ def get_rate_limit_headers(request: Request, limiter_name: str) -> dict[str, str
     if not limiter:
         return {}
     key = request.client.host if request.client else "unknown"
-    remaining = limiter.get_remaining_requests(key)
+    remaining = limiter.get_remaining(key)
     return {
         "X-RateLimit-Limit": str(limiter.rate),
         "X-RateLimit-Remaining": str(remaining),

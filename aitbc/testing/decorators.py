@@ -49,7 +49,7 @@ def create_test_scenario(name: str, steps: list[Callable]) -> Callable:
     """Create a test scenario with multiple steps"""
 
     def scenario():
-        logger.info("Running test scenario", name=name)
+        logger.info("Running test scenario: %s", name)
         results = []
         for i, step in enumerate(steps):
             try:

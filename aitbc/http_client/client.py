@@ -30,10 +30,10 @@ class RequestIDPropagatingClient(httpx.AsyncClient):
         super().__init__(*args, **kwargs)
         self.header_name = "X-Request-ID"
 
-    async def request(
+    async def request(  # type: ignore[override]
         self,
         method: str,
-        url: str,
+        url: str | httpx.URL,
         *,
         headers: Mapping[str, str] | None = None,
         **kwargs: Any,

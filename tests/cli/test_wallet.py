@@ -75,6 +75,11 @@ class TestWalletCommands:
         with (
             patch("aitbc_cli.commands.wallet.get_wallet_client") as mock_get_client,
             patch("aitbc_cli.commands.wallet.AITBCHTTPClient") as mock_http_class,
+            # Commands live in submodules that import these names into their own
+            # namespace, so patch there too (where they are actually looked up).
+            patch("aitbc_cli.commands.wallet.basic.get_wallet_client", new=mock_get_client),
+            patch("aitbc_cli.commands.wallet.basic.AITBCHTTPClient", new=mock_http_class),
+            patch("aitbc_cli.commands.wallet.staking.AITBCHTTPClient", new=mock_http_class),
         ):
             mock_client = Mock()
             mock_get_client.return_value = mock_client
