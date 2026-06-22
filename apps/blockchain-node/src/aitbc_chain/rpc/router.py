@@ -824,16 +824,20 @@ async def list_miners_route(request: Request) -> dict[str, Any]:
 
 @router.post("/subscribe", summary="Register for block subscription with lease")
 @rate_limit(rate=10, per=60)
-async def subscribe_route(request: dict[str, Any]) -> dict[str, Any]:
+async def subscribe_route(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     """Register a follower node for block subscription with a lease"""
-    return await register_subscription(request)
+    client_ip = request.client.host if request.client else "unknown"
+    body["_client_ip"] = client_ip
+    return await register_subscription(body)
 
 
 @router.post("/heartbeat", summary="Extend subscription lease via heartbeat")
 @rate_limit(rate=60, per=60)
-async def heartbeat_route(request: dict[str, Any]) -> dict[str, Any]:
+async def heartbeat_route(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     """Extend a subscriber's lease via heartbeat"""
-    return await heartbeat(request)
+    client_ip = request.client.host if request.client else "unknown"
+    body["_client_ip"] = client_ip
+    return await heartbeat(body)
 
 
 @router.get("/lease/{node_id}", summary="Get lease status for a subscriber")
