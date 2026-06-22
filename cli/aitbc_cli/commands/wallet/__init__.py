@@ -172,18 +172,20 @@ def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bo
     wallet_dir = Path.home() / ".aitbc" / "wallets"
     wallet_dir.mkdir(parents=True, exist_ok=True)
 
-    # Set active wallet
+    # Set active wallet (priority: CLI arg > env var > config.yaml > 'default')
     if not wallet_name:
-        # Try to get from config or use 'default'
-        config_file = Path.home() / ".aitbc" / "config.yaml"
-        if config_file.exists():
-            with open(config_file) as f:
-                config = yaml.safe_load(f)
-                if config:
-                    wallet_name = config.get("active_wallet", "default")
-                else:
-                    wallet_name = "default"
-        else:
+        # 1. Check AITBC_DEFAULT_WALLET env var
+        wallet_name = os.environ.get("AITBC_DEFAULT_WALLET")
+        # 2. Check config.yaml for active_wallet
+        if not wallet_name:
+            config_file = Path.home() / ".aitbc" / "config.yaml"
+            if config_file.exists():
+                with open(config_file) as f:
+                    config = yaml.safe_load(f)
+                    if config:
+                        wallet_name = config.get("active_wallet")
+        # 3. Fall back to 'default'
+        if not wallet_name:
             wallet_name = "default"
 
     ctx.obj["wallet_name"] = wallet_name
