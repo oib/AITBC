@@ -40,7 +40,7 @@ def send_hermes_notification(recipient: str, content: str):
     try:
         response = requests.post(
             f"{coordinator_url}/api/v1/agent/messages/send",
-            json={"sender": agent_id, "recipient": recipient, "content": content, "message_type": "direct"},
+            json={"sender": agent_id, "recipient": recipient, "content": {"text": content}, "message_type": "direct", "encrypt": False},
             timeout=10,
         )
         if response.status_code == 200:
