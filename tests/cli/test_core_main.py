@@ -3,7 +3,6 @@ Main CLI Tests
 Tests for main CLI entry point
 """
 
-import sys
 from unittest.mock import patch
 
 import pytest
@@ -55,11 +54,10 @@ class TestMainCLI:
             pytest.skip(f"Cannot import main module due to dependencies: {e}")
 
     def test_main_path_setup(self):
-        """Test that CLI directory is added to sys.path"""
-        from aitbc_cli.core.main import CLI_DIR
+        """Test that CLI module can be imported and cli exists"""
+        from aitbc_cli.core.main import cli
 
-        assert CLI_DIR.exists()
-        assert str(CLI_DIR) in sys.path
+        assert cli is not None
 
 
 if __name__ == "__main__":

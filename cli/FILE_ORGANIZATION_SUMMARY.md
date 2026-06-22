@@ -1,128 +1,194 @@
 # CLI File Organization Summary
 
-**Updated**: 2026-03-26
-**Status**: Organized into logical subdirectories
-**Structure**: Clean separation of concerns
+**Updated**: 2026-06-22
+**Status**: Active — modular `aitbc_cli` package layout
+**Runtime version**: 2.1.0
+**Package**: `aitbc-cli` (editable install into `/opt/aitbc/venv`)
 
-## 📁 New Directory Structure
+## Directory Structure
 
 ```
 cli/
-├── __init__.py              # Entry point redirect
-├── requirements.txt         # Dependencies
-├── setup.py                 # Package setup
-├── core/                    # Core CLI functionality
-│   ├── __init__.py          # Package metadata
-│   ├── main.py              # Main CLI entry point
-│   ├── imports.py           # Import utilities
-│   └── plugins.py           # Plugin system
-├── utils/                   # Utilities and services
-│   ├── __init__.py          # Utility functions
-│   ├── dual_mode_wallet_adapter.py
-│   ├── wallet_daemon_client.py
-│   ├── wallet_migration_service.py
-│   ├── kyc_aml_providers.py
-│   ├── crypto_utils.py
-│   ├── secure_audit.py
-│   ├── security.py
-│   └── subprocess.py
-├── docs/                    # Documentation
-│   ├── README.md            # Main CLI documentation
+├── README.md                       # User-facing CLI overview & command reference
+├── CLI_USAGE_GUIDE.md              # Detailed usage guide with workflows
+├── FILE_ORGANIZATION_SUMMARY.md    # This file
+├── __init__.py                     # Package marker
+├── setup.py                        # setuptools setup (entry point: aitbc_cli.core.main:main)
+├── requirements-cli.txt            # CLI-specific dependencies
+├── pytest.ini                      # CLI test config
+├── integrate_miner_cli.sh          # Miner CLI integration helper
+├── advanced_wallet.py              # Advanced wallet helpers (legacy module)
+├── extended_features.py            # Extended feature helpers (legacy module)
+├── keystore_auth.py                # Keystore auth helper (legacy module)
+├── miner_cli.py                    # Miner CLI helper (legacy module)
+├── miner_management.py             # Miner management helper (legacy module)
+│
+├── aitbc_cli/                      # Main CLI package (importable as `aitbc_cli`)
+│   ├── __init__.py                 # Compatibility surface; lazy `cli`/`main` exports
+│   ├── config.py                   # CLI configuration loader
+│   ├── auth/
+│   │   └── __init__.py             # Auth helpers (placeholder package)
+│   ├── core/                       # Core CLI engine
+│   │   ├── __init__.py
+│   │   ├── __version__.py          # __version__ = "0.2.2" (package metadata)
+│   │   ├── main.py                 # Click entry point; registers 50+ command groups
+│   │   ├── imports.py              # Import utilities
+│   │   ├── plugins.py              # Plugin system
+│   │   ├── analytics.py            # Core analytics
+│   │   ├── chain_manager.py        # Chain manager
+│   │   ├── genesis_generator.py    # Genesis generator
+│   │   ├── marketplace.py          # Core marketplace
+│   │   ├── node_client.py          # Node client
+│   │   └── agent_communication.py  # Agent communication core
+│   ├── commands/                   # Command groups (one file per group, plus packages)
+│   │   ├── account.py              agent_comm.py        agent_sdk.py
+│   │   ├── ai.py                   analytics.py         bridge.py
+│   │   ├── chain.py                cluster.py           coin_requests.py
+│   │   ├── compliance.py           config.py            contract.py
+│   │   ├── cross_chain.py          economics.py         edge.py
+│   │   ├── explorer.py             genesis.py           governance.py
+│   │   ├── gpu_marketplace.py      gpu_resources.py     hermes.py
+│   │   ├── hermes_training.py      marketplace_cmd.py   messaging.py
+│   │   ├── mining.py               monitor.py           network.py
+│   │   ├── node.py                 operations.py        performance.py
+│   │   ├── pool_hub.py             reputation.py        resource.py
+│   │   ├── script.py               security.py          simulate.py
+│   │   ├── sync.py                 system.py            system_architect.py
+│   │   ├── transactions.py         workflow.py
+│   │   ├── exchange/               # Exchange package (main, bridge, payments, trading, wallet)
+│   │   ├── market/                 # Market package (escrow, exchange, jobs, offers, ratings)
+│   │   ├── node/                   # Node package (bridge, chain, hub, island, main, monitor)
+│   │   └── wallet/                 # Wallet package (basic, misc, multisig, staking)
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── chain.py                # Chain data model
+│   └── utils/                      # CLI-internal utilities
+│       ├── __init__.py
+│       ├── blockchain.py           chain_id.py
+│       ├── crypto_utils.py         dual_mode_wallet_adapter.py
+│       ├── error_handling.py       http_client.py
+│       ├── island_credentials.py   subprocess.py
+│       ├── wallet.py               wallet_daemon_client.py
+│
+├── aitbc/                          # Compatibility shim package (re-exports)
+│   └── __init__.py
+│
+├── auth/
+│   └── __init__.py                 # Top-level auth (placeholder)
+│
+├── completion/                     # Shell completion scripts
+│   ├── aitbc_completion.sh
+│   └── aitbc_shell_completion.sh
+│
+├── config_data/                    # Static config data
+│   ├── __init__.py
+│   └── chains.py
+│
+├── docs/                           # CLI-internal documentation
+│   ├── README.md                   # CLI technical docs landing page
 │   ├── DISABLED_COMMANDS_CLEANUP.md
 │   └── FILE_ORGANIZATION_SUMMARY.md
-├── variants/                # CLI variants
-│   └── main_minimal.py      # Minimal CLI version
-├── commands/                # CLI commands (unchanged)
-├── config/                  # Configuration (unchanged)
-├── tests/                   # Tests (unchanged)
-└── [other directories...]   # Rest of CLI structure
+│
+├── examples/                       # Example scripts
+│   ├── client.py
+│   ├── client_enhanced.py
+│   ├── miner.py
+│   └── wallet.py
+│
+├── man/                            # Manpage
+│   └── aitbc.1
+│
+├── models/                         # Top-level models (legacy)
+│   ├── __init__.py
+│   └── chain.py
+│
+├── scripts/                        # CLI helper scripts
+│   ├── activate_aitbc_cli.sh
+│   ├── install_local_package.sh
+│   └── setup_man_page.sh
+│
+├── security/                       # Security policies
+│   ├── __init__.py
+│   └── translation_policy.py
+│
+├── setup/                          # Alternate setup location
+│   └── setup.py
+│
+├── templates/                      # Templates
+│   ├── genesis/
+│   └── handler_template.py
+│
+├── tests/                          # CLI-internal smoke tests (6 files)
+│   ├── conftest.py
+│   ├── run_cli_tests.py
+│   ├── test_cli_basic.py
+│   ├── test_cli_comprehensive.py
+│   ├── test_exchange_island.py
+│   ├── test_explorer.py
+│   ├── test_gpu_marketplace.py
+│   └── test_island_credentials.py
+│
+└── utils/                          # Top-level utilities (legacy helpers)
+    ├── __init__.py
+    ├── crypto_utils.py
+    ├── dual_mode_wallet_adapter.py
+    ├── error_handling.py
+    ├── kyc_aml_providers.py
+    ├── secure_audit.py
+    ├── security.py
+    ├── subprocess.py
+    ├── wallet_daemon_client.py
+    └── wallet_migration_service.py
 ```
 
-## 🔄 File Moves & Rewiring
+## Package Layout Notes
 
-### **Core Files (→ core/)**
-- `__init__.py` → `core/__init__.py` (package metadata)
-- `main.py` → `core/main.py` (main entry point)
-- `imports.py` → `core/imports.py` (import utilities)
-- `plugins.py` → `core/plugins.py` (plugin system)
+### `aitbc_cli/` — the importable package
+This is the canonical package installed by `pip install -e .`. The Click entry point is `aitbc_cli.core.main:main`, which registers all 50+ command groups.
 
-### **Documentation (→ docs/)**
-- `README.md` → `docs/README.md`
-- `DISABLED_COMMANDS_CLEANUP.md` → `docs/`
-- `FILE_ORGANIZATION_SUMMARY.md` → `docs/`
+### `aitbc_cli/commands/` — command groups
+Most command groups are single-file modules (e.g. `network.py`, `hermes.py`). Four groups have been refactored into subpackages for modularity:
+- `exchange/` — bridge, payments, trading, wallet
+- `market/` — escrow, exchange, jobs, offers, ratings
+- `node/` — bridge, chain, hub, island, main, monitor
+- `wallet/` — basic, misc, multisig, staking
 
-### **Utilities & Services (→ utils/)**
-- `dual_mode_wallet_adapter.py` → `utils/`
-- `wallet_daemon_client.py` → `utils/`
-- `wallet_migration_service.py` → `utils/`
-- `kyc_aml_providers.py` → `utils/`
+### `aitbc_cli/utils/` vs top-level `utils/`
+`aitbc_cli/utils/` contains the active utilities imported by command modules (`http_client.py`, `chain_id.py`, `wallet.py`, etc.). The top-level `cli/utils/` directory holds older helper modules retained for compatibility.
 
-### **Variants (→ variants/)**
-- `main_minimal.py` → `variants/main_minimal.py`
+### `aitbc/` — compatibility shim
+A small package that re-exports from `aitbc_cli` for legacy import paths.
 
-### **Configuration (kept at root)**
-- `requirements.txt` (dependencies)
-- `setup.py` (package setup)
+### Tests
+- `cli/tests/` — 6 CLI-internal smoke tests
+- `tests/cli/` (project root) — 119 comprehensive command & integration tests
 
-## 🔧 Import Updates
+### Removed
+- `cli/debian/` — Debian packaging tree (removed 2026-06-22; the deployment script installs via `pip install -e .` directly)
+- `cli/scripts/build_deb.sh` — Debian package builder (removed with the tree above)
 
-### **Updated Imports:**
+## Entry Point
+
 ```python
-# Before
-from plugins import plugin, load_plugins
-from imports import ensure_coordinator_api_imports
-from dual_mode_wallet_adapter import DualModeWalletAdapter
-from kyc_aml_providers import submit_kyc_verification
-
-# After
-from core.plugins import plugin, load_plugins
-from core.imports import ensure_coordinator_api_imports
-from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
-from utils.kyc_aml_providers import submit_kyc_verification
+# setup.py
+entry_points={
+    "console_scripts": [
+        "aitbc=aitbc_cli.core.main:main",
+    ],
+}
 ```
 
-### **Entry Point Updates:**
-```python
-# setup.py entry point
-"aitbc=core.main:main"
+The deployment script (`scripts/deployment/setup.sh`) writes a wrapper at `/usr/local/bin/aitbc` that calls `/opt/aitbc/venv/bin/python -m aitbc_cli.core.main "$@"`, making `aitbc` available system-wide.
 
-# Root __init__.py redirect
-from core.main import main
-```
+## Verification
 
-### **Internal Import Fixes:**
-- Fixed utils internal imports (`from utils import error, success`)
-- Updated test imports (`from core.main_minimal import cli`)
-- Updated setup.py README path (`docs/README.md`)
-
-## 📊 Benefits
-
-### **✅ Better Organization**
-- **Logical grouping** by functionality
-- **Clear separation** of concerns
-- **Easier navigation** and maintenance
-
-### **✅ Improved Structure**
-- **Core/**: Essential CLI functionality
-- **Utils/**: Reusable utilities and services
-- **Docs/**: All documentation in one place
-- **Variants/**: Alternative CLI versions
-
-### **✅ No Breaking Changes**
-- All imports properly rewired
-- CLI functionality preserved
-- Entry points updated correctly
-- Tests updated accordingly
-
-## 🎯 Verification
-
-- **✅ CLI works**: `aitbc --help` functional
-- **✅ Imports work**: All modules import correctly
-- **✅ Installation works**: `pip install -e .` successful
-- **✅ Tests updated**: Import paths corrected
-- **✅ Entry points**: Setup.py points to new location
+- `aitbc --version` → `aitbc, version 2.1.0`
+- `aitbc --help` → lists 50+ command groups
+- `pip install -e .` → editable install into `/opt/aitbc/venv`
+- `python -m pytest tests/` → CLI smoke tests
+- `python -m pytest tests/cli/` → comprehensive command & integration tests
 
 ---
 
-*Last updated: 2026-03-26*
-*Status: Successfully organized and rewired*
+*Last updated: 2026-06-22*
+*Status: Active — matches the v2.1.0 CLI runtime*

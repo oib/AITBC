@@ -19,7 +19,7 @@ def retry(
     delay: float = 1.0,
     backoff: float = 2.0,
     exceptions: tuple[type[Exception], ...] = (Exception,),
-    on_failure: Callable[[Exception], Any] = None,
+    on_failure: Callable[[Exception], Any] | None = None,
 ):
     """
     Retry a function with exponential backoff.
@@ -92,7 +92,7 @@ def cache_result(ttl: int = 300):
     Returns:
         Decorated function with caching
     """
-    cache = {}
+    cache: dict[tuple[Any, ...], Any] = {}
 
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)

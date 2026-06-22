@@ -63,7 +63,7 @@
 | `websockets.legacy` deprecated | `websockets` library v15+ internal | Upgrade to use `websockets.server.ServerProtocol` (done in our code) |
 | `starlette.testclient` + `httpx` | `tests/cli/test_cli_integration.py:15` | Migrate to `httpx2` test client |
 
-**Action**: 
+**Action**:
 - `websockets.legacy`: Already mitigated in our code (using `ServerProtocol`)
 - `httpx2` migration: Requires test client rewrite (~1 week)
 
@@ -135,7 +135,7 @@ SAWarning: This declarative base already contains a class with the same class na
 - [ ] **Add CI job isolation** for per-app test runs
 
 ### Sprint 4 (Week 7-8): Polish
-- [ ] **Document active apps** 
+- [ ] **Document active apps**
 - [ ] **Archive inactive apps** to `apps/archive/`
 - [ ] **Update coverage targets** based on reality
 
