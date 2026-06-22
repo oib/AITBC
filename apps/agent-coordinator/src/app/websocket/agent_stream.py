@@ -324,7 +324,7 @@ def _has_received_initial_coins(sender: str) -> bool:
 
         conn = sqlite3.connect(db_path)
         cursor = conn.execute(
-            "SELECT COUNT(*) FROM coin_requests WHERE sender = ? AND status IN ('approved') AND transaction_hash IS NOT NULL",
+            "SELECT COUNT(*) FROM coin_requests WHERE sender = ? AND status IN ('APPROVED') AND transaction_hash IS NOT NULL",
             (sender,),
         )
         count = cursor.fetchone()[0]
@@ -410,7 +410,7 @@ def _record_coin_request(sender: str, amount: int, wallet_address: str, tx_hash:
                 os.getenv("HERMES_AGENT_ID", "hub-coordinator"),
                 amount,
                 wallet_address,
-                "approved",
+                "APPROVED",
                 "automatic",
                 "request_coins_handler",
                 now.isoformat(),
@@ -425,6 +425,44 @@ def _record_coin_request(sender: str, amount: int, wallet_address: str, tx_hash:
         logger.info("Recorded coin request in hermes DB for %s", sender)
     except Exception as e:
         logger.warning("Could not record coin request in DB: %s", e)
+
+
+def _record_pending_coin_request(sender: str, amount: int, wallet_address: str) -> str:
+    """Record a pending coin request in the hermes SQLite database for manual approval.
+
+    Returns the request_id so the handler can include it in the response.
+    """
+    db_path = os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/hermes_coin_requests.db")
+    try:
+        import sqlite3
+        from datetime import datetime, timedelta
+
+        now = datetime.utcnow()
+        request_id = f"req-{sender}-{int(now.timestamp())}"
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "INSERT INTO coin_requests (id, sender, recipient, amount, wallet_address, status, approval_mode, created_at, expires_at, audit_log) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                request_id,
+                sender,
+                os.getenv("HERMES_AGENT_ID", "hub-coordinator"),
+                amount,
+                wallet_address,
+                "PENDING",
+                "manual",
+                now.isoformat(),
+                (now + timedelta(hours=24)).isoformat(),
+                json.dumps({"action": "subsequent_coin_request", "auto_approved": False}),
+            ),
+        )
+        conn.commit()
+        conn.close()
+        logger.info("Recorded pending coin request %s for %s", request_id, sender)
+        return request_id
+    except Exception as e:
+        logger.warning("Could not record pending coin request in DB: %s", e)
+        return f"req-{sender}-unknown"
 
 
 async def request_coins_handler(
@@ -454,12 +492,14 @@ async def request_coins_handler(
         # Check if this sender has already received initial coins
         if _has_received_initial_coins(sender):
             logger.info("Coin request from %s: already received initial coins — requires approval", sender)
+            request_id = _record_pending_coin_request(sender, amount, wallet_address)
             return {
                 "action": "coin_request_received",
+                "request_id": request_id,
                 "amount": amount,
                 "wallet_address": wallet_address,
                 "status": "pending_approval",
-                "message": "Initial coins already granted. Further requests require manual approval.",
+                "message": "Initial coins already granted. Further requests require manual approval. Use 'aitbc coin-requests approve <request_id>' to approve.",
             }
 
         # First-time request: auto-transfer initial coins
