@@ -17,7 +17,7 @@ class AITBCHTTPClient:
     def __init__(self, base_url: str = "http://localhost:8202", timeout: int = 30):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        self.client = httpx.Client(timeout=timeout)
+        self.client = httpx.Client(timeout=timeout, follow_redirects=True)
 
     def get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         """GET request to blockchain RPC"""
