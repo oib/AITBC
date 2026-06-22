@@ -86,29 +86,40 @@ class BridgeMonitor:
             return None
         try:
             import httpx
+            import json
+            from cryptography.hazmat.primitives.asymmetric import ed25519
 
-            sender_response = httpx.get(f"{self.blockchain_rpc_url}/rpc/accounts/{self.genesis_wallet_address}")
+            # Get current nonce
+            sender_response = httpx.get(f"{self.blockchain_rpc_url}/rpc/account/{self.genesis_wallet_address}", timeout=5)
             if sender_response.status_code != 200:
                 logger.error("Failed to get sender account: %s", sender_response.text)
                 return None
-            sender_data = sender_response.json()
-            nonce = sender_data.get("nonce", 0)
-            recipient_response = httpx.get(f"{self.blockchain_rpc_url}/rpc/accounts/{to_address}")
-            if recipient_response.status_code != 200:
-                logger.warning("Recipient address may not exist: %s", to_address)
-            tx_payload = {
+            nonce = int(sender_response.json().get("nonce", 0))
+
+            # Build and sign transaction
+            tx_amount = int(amount)
+            transaction = {
                 "from": self.genesis_wallet_address,
                 "to": to_address,
-                "value": str(int(amount)),
+                "amount": tx_amount,
                 "nonce": nonce,
-                "gas_limit": 21000,
-                "gas_price": "1",
+                "fee": 10,
                 "type": "TRANSFER",
             }
-            submit_response = httpx.post(f"{self.blockchain_rpc_url}/rpc/transactions/marketplace", json=tx_payload)
+            private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(self.genesis_private_key.removeprefix("0x")))
+            message = json.dumps(transaction, sort_keys=True).encode()
+            signature = private_key.sign(message)
+            transaction["signature"] = signature.hex()
+
+            logger.info("Submitting AIT transfer: %s AIT to %s (nonce=%s)", tx_amount, to_address, nonce)
+            submit_response = httpx.post(
+                f"{self.blockchain_rpc_url}/rpc/transaction",
+                json=transaction,
+                timeout=10,
+            )
             if submit_response.status_code == 200:
                 result = submit_response.json()
-                tx_hash: str | None = result.get("tx_hash")
+                tx_hash: str | None = result.get("transaction_hash") or result.get("tx_hash")
                 logger.info("AIT transfer submitted: %s", tx_hash)
                 return tx_hash
             else:

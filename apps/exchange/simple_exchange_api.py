@@ -724,7 +724,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             self.send_error(500, str(e))
 
     def handle_exchange_history(self, parsed):
-        """GET /v1/exchange/history — return current ETH prices for USD and EUR"""
+        """GET /v1/exchange/history — return current ETH and AIT prices for USD and EUR"""
         try:
             import sys
 
@@ -735,10 +735,11 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             eth_usd = oracle.get_price("ETH", "USD")
             eth_eur = oracle.get_price("ETH", "EUR")
             ait_usd = oracle.get_price("AIT", "USD")
+            ait_eur = oracle.get_price("AIT", "EUR")
 
-            # Calculate AIT/EUR from ETH prices
-            ait_eur_price = None
-            if eth_usd and eth_eur and ait_usd:
+            # Fallback: derive AIT/EUR from USD if oracle didn't return it directly
+            ait_eur_price = ait_eur.price if ait_eur else None
+            if ait_eur_price is None and eth_usd and eth_eur and ait_usd:
                 ait_eur_price = (ait_usd.price * eth_eur.price) / eth_usd.price
 
             # Calculate ETH/AIT rate
@@ -762,7 +763,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             self.send_json_response({"success": False, "error": str(e)}, status=500)
 
     def handle_exchange_price_json(self):
-        """GET /exchange/price.json — return simple AIT price in USD"""
+        """GET /exchange/price.json — return AIT price in USD and EUR"""
         try:
             import sys
 
@@ -771,22 +772,18 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
 
             oracle = get_price_oracle()
             ait_usd = oracle.get_price("AIT", "USD")
+            ait_eur = oracle.get_price("AIT", "EUR")
 
             if ait_usd:
-                self.send_json_response({"price": ait_usd.price, "currency": "USD", "timestamp": ait_usd.timestamp})
+                self.send_json_response({
+                    "price_usd": ait_usd.price,
+                    "price_eur": ait_eur.price if ait_eur else None,
+                    "currency": "USD",
+                    "timestamp": ait_usd.timestamp,
+                    "source": ait_usd.source,
+                })
             else:
-                # Fallback to fixed price from config
-                import os
-
-                fixed_price = os.getenv("AIT_USD_FIXED_PRICE", "0.01")
-                self.send_json_response(
-                    {
-                        "price": float(fixed_price),
-                        "currency": "USD",
-                        "timestamp": datetime.now(UTC).isoformat(),
-                        "source": "fixed",
-                    }
-                )
+                self.send_json_response({"error": "Price unavailable"}, status=503)
         except Exception as e:
             self.send_json_response({"error": str(e)}, status=500)
 
