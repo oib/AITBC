@@ -445,6 +445,47 @@ aitbc blockchain status    # Check blockchain status
 aitbc --help               # Show all CLI commands
 ```
 
+## Updating an Existing Node
+
+After the initial `setup.sh` run, use `update.sh` to safely apply new code
+changes from `git pull`. It is idempotent and safe to run after every pull.
+
+```bash
+# Full update: pull, sync venv, relink systemd, restart all services, health check
+sudo /opt/aitbc/scripts/deployment/update.sh
+
+# Skip the git pull (you already pulled manually)
+sudo /opt/aitbc/scripts/deployment/update.sh --no-pull
+
+# Sync venv and systemd but do not restart services
+sudo /opt/aitbc/scripts/deployment/update.sh --no-restart
+```
+
+`update.sh` performs the following steps:
+
+1. **git pull** (with stash safety for local changes; skipped with `--no-pull`)
+2. **Sync Python venv** — reinstalls `requirements.txt`, CLI deps, and the
+   `aitbc` CLI itself via `install-profiles.sh` (falls back to `pip install -r`)
+3. **Relink systemd unit files** — runs `link-systemd.sh` (role-aware) so new
+   or changed `.service` / `.timer` files are picked up
+4. **`systemctl daemon-reload`** + ensure all role-appropriate services are enabled
+5. **Restart all running aitbc services** (skipped with `--no-restart`)
+6. **Health check** via `scripts/monitoring/health_check.sh`
+7. **Summary** with reminders for manual follow-ups (DB migrations, config diff)
+
+### Manual follow-ups
+
+`update.sh` does **not** automatically run database migrations, since they
+require DB credentials and can be destructive. After updating, check whether
+schema migrations are needed:
+
+```bash
+cd /opt/aitbc/apps/blockchain-node && alembic upgrade head
+```
+
+Also diff your live `/etc/aitbc/*.env` against updated templates in
+`examples/` — new env vars may be required for new features.
+
 ## Development Mode
 
 ```bash

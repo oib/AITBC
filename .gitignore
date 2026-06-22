@@ -313,6 +313,7 @@ scripts/deployment/*
 !scripts/deployment/*.example
 !scripts/deployment/deploy.sh
 !scripts/deployment/setup.sh
+!scripts/deployment/update.sh
 !scripts/deployment/validate-env.sh
 !scripts/deployment/create_aitbc_user.sh
 !scripts/deployment/unify_service_users.sh
