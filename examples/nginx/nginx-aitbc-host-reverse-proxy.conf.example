@@ -17,6 +17,26 @@ server {
     server_name YOUR_DOMAIN;
     client_max_body_size 500M;  # For audio uploads to Whisper service
 
+    # ── Agent Coordinator WebSocket ───────────────────────────
+    # Real-time agent messaging (PING/PONG) and presence tracking
+    # Followers connect to: wss://YOUR_DOMAIN/agent/api/v1/agent/messages/stream
+    location /agent/ {
+        proxy_pass http://aitbc_container/agent/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support (required for PING/PONG)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Long-lived WebSocket connections
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
     # Ollama API (WebSocket support for streaming inference)
     location /ollama/ {
         proxy_pass http://aitbc_container/ollama/;
@@ -58,13 +78,21 @@ server {
         proxy_read_timeout 600s;
     }
 
-    # Blockchain RPC (direct access)
+    # Blockchain RPC (HTTP + WebSocket)
     location /rpc/ {
         proxy_pass http://aitbc_container/rpc/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support for block/transaction push
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
         proxy_buffering off;
     }
 
