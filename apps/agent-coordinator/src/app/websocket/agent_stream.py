@@ -5,6 +5,7 @@ Includes automatic handler triggering for PING, REQUEST_COINS, etc.
 """
 
 import json
+import os
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
@@ -304,30 +305,200 @@ async def hello_handler(
     return {"action": "hello_acknowledged", "sender": sender}
 
 
+# ── Coin transfer constants ──────────────────────────────────
+INITIAL_COIN_AMOUNT = 100  # AIT granted automatically on first request per node
+TRANSACTION_FEE = 10  # blockchain transaction fee (matches RPC default)
+
+
+def _has_received_initial_coins(sender: str) -> bool:
+    """Check if a sender has already received initial coins.
+
+    Queries the hermes coin_requests SQLite database for any prior
+    approved/executed request from this sender.
+    """
+    db_path = os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/hermes_coin_requests.db")
+    if not os.path.exists(db_path):
+        return False
+    try:
+        import sqlite3
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM coin_requests WHERE sender = ? AND status IN ('approved') AND transaction_hash IS NOT NULL",
+            (sender,),
+        )
+        count = cursor.fetchone()[0]
+        conn.close()
+        return count > 0
+    except Exception as e:
+        logger.warning("Could not query coin_requests DB: %s", e)
+        return False
+
+
+def _generate_signed_transaction(to_address: str, amount: int) -> dict[str, Any] | None:
+    """Generate a signed blockchain transfer transaction from genesis wallet."""
+    genesis_private_key = os.getenv("GENESIS_PRIVATE_KEY")
+    genesis_address = os.getenv("GENESIS_ADDRESS")
+    if not genesis_private_key or not genesis_address:
+        logger.error("GENESIS_PRIVATE_KEY or GENESIS_ADDRESS not set — cannot sign transaction")
+        return None
+
+    try:
+        from cryptography.hazmat.primitives.asymmetric import ed25519
+
+        rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+        import httpx
+
+        # Get current nonce
+        resp = httpx.get(f"{rpc_url}/rpc/account/{genesis_address}", timeout=5)
+        resp.raise_for_status()
+        nonce = int(resp.json().get("nonce", 0))
+
+        private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(genesis_private_key))
+        transaction = {
+            "from": genesis_address,
+            "to": to_address,
+            "amount": amount,
+            "nonce": nonce,
+            "fee": TRANSACTION_FEE,
+            "type": "TRANSFER",
+        }
+        message = json.dumps(transaction, sort_keys=True).encode()
+        signature = private_key.sign(message)
+        transaction["signature"] = signature.hex()
+        logger.info("Signed transaction: %s AIT to %s (nonce=%s)", amount, to_address, nonce)
+        return transaction
+    except Exception as e:
+        logger.error("Failed to generate signed transaction: %s", e)
+        return None
+
+
+def _submit_transaction(transaction: dict[str, Any]) -> dict[str, Any] | None:
+    """Submit a signed transaction to the blockchain RPC."""
+    try:
+        rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+        import httpx
+
+        resp = httpx.post(f"{rpc_url}/rpc/transaction", json=transaction, timeout=10)
+        resp.raise_for_status()
+        result = resp.json()
+        logger.info("Transaction submitted: %s", result)
+        return result
+    except Exception as e:
+        logger.error("Failed to submit transaction: %s", e)
+        return None
+
+
+def _record_coin_request(sender: str, amount: int, wallet_address: str, tx_hash: str) -> None:
+    """Record the auto-approved coin request in the hermes SQLite database."""
+    db_path = os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/hermes_coin_requests.db")
+    if not os.path.exists(db_path):
+        logger.warning("Hermes DB not found at %s — skipping record", db_path)
+        return
+    try:
+        import sqlite3
+        from datetime import datetime, timedelta
+
+        now = datetime.utcnow()
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "INSERT INTO coin_requests (id, sender, recipient, amount, wallet_address, status, approval_mode, approved_by, approved_at, created_at, expires_at, transaction_hash, audit_log) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                f"auto-{sender}-{int(now.timestamp())}",
+                sender,
+                os.getenv("HERMES_AGENT_ID", "hub-coordinator"),
+                amount,
+                wallet_address,
+                "approved",
+                "automatic",
+                "request_coins_handler",
+                now.isoformat(),
+                now.isoformat(),
+                (now + timedelta(hours=24)).isoformat(),
+                tx_hash,
+                json.dumps({"action": "initial_coin_grant", "auto_approved": True}),
+            ),
+        )
+        conn.commit()
+        conn.close()
+        logger.info("Recorded coin request in hermes DB for %s", sender)
+    except Exception as e:
+        logger.warning("Could not record coin request in DB: %s", e)
+
+
 async def request_coins_handler(
     message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
 ) -> dict[str, Any]:
-    """Handle REQUEST_COINS messages"""
+    """Handle REQUEST_COINS messages.
+
+    First request from a node: auto-transfer 100 AIT without approval.
+    Subsequent requests: return pending_approval for manual review.
+    """
     sender = message.get("sender_id", "unknown")
     content = message.get("content", "")
     logger.info("REQUEST_COINS received from %s: %s", sender, content)
     try:
         if "{" in content:
-            data = json.loads(content)
+            json_part = content[content.index("{"):]
+            data = json.loads(json_part)
             amount = data.get("amount", 0)
             wallet_address = data.get("wallet_address", "")
         else:
-            amount = 100
+            amount = INITIAL_COIN_AMOUNT
             wallet_address = sender
-        logger.info("Coin request: %s AIT to %s", amount, wallet_address)
-        return {
-            "action": "coin_request_received",
-            "amount": amount,
+
+        if not wallet_address or wallet_address == "unknown":
+            return {"action": "coin_request_failed", "error": "No wallet address provided"}
+
+        # Check if this sender has already received initial coins
+        if _has_received_initial_coins(sender):
+            logger.info("Coin request from %s: already received initial coins — requires approval", sender)
+            return {
+                "action": "coin_request_received",
+                "amount": amount,
+                "wallet_address": wallet_address,
+                "status": "pending_approval",
+                "message": "Initial coins already granted. Further requests require manual approval.",
+            }
+
+        # First-time request: auto-transfer initial coins
+        grant_amount = INITIAL_COIN_AMOUNT
+        logger.info("First-time coin request from %s — auto-transferring %s AIT to %s", sender, grant_amount, wallet_address)
+
+        transaction = _generate_signed_transaction(wallet_address, grant_amount)
+        if not transaction:
+            return {"action": "coin_request_failed", "error": "Failed to generate signed transaction"}
+
+        result = _submit_transaction(transaction)
+        if not result or not result.get("success"):
+            return {"action": "coin_request_failed", "error": "Blockchain rejected transaction", "detail": result}
+
+        tx_hash = result.get("transaction_hash", "")
+        _record_coin_request(sender, grant_amount, wallet_address, tx_hash)
+
+        # Send confirmation message back to the agent over WebSocket
+        confirmation = {
+            "type": "COINS_TRANSFERRED",
+            "sender": os.getenv("HERMES_AGENT_ID", "hub-coordinator"),
+            "recipient": sender,
+            "content": f"Transferred {grant_amount} AIT to {wallet_address}",
+            "amount": grant_amount,
             "wallet_address": wallet_address,
-            "status": "pending_approval",
+            "transaction_hash": tx_hash,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+        await connection_manager.send_personal_message(confirmation, sender)
+
+        return {
+            "action": "coins_transferred",
+            "amount": grant_amount,
+            "wallet_address": wallet_address,
+            "transaction_hash": tx_hash,
+            "status": "completed",
         }
     except Exception as e:
-        logger.error("Failed to parse coin request: %s", e)
+        logger.error("Failed to process coin request: %s", e)
         return {"action": "coin_request_failed", "error": str(e)}
 
 

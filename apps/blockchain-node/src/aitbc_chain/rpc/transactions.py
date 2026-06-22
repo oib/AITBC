@@ -87,7 +87,7 @@ async def submit_transaction(request: Request, tx_data: TransactionRequest) -> d
 
     try:
         mempool = get_mempool()
-        chain_id = get_chain_id("")
+        chain_id = get_chain_id(None)
 
         # Convert TransactionRequest to dict for normalization
         # Use validated top-level fields instead of reading from payload

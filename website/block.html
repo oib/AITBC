@@ -123,6 +123,7 @@
                 const txs = data.transactions || [];
                 document.getElementById('tx-count').textContent = `(${txs.length})`;
                 document.getElementById('tx-list').innerHTML = txs.map(tx => {
+                    const amount = tx.amount != null ? tx.amount : (tx.payload ? (JSON.parse(tx.payload).amount || 'N/A') : 'N/A');
                     return `
                     <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" onclick="location.href='/tx.html?hash=${encodeURIComponent(tx.tx_hash)}'">
                         <table class="block-list-table">
@@ -130,6 +131,9 @@
                             <tr><td>Hash</td><td>${tx.tx_hash} ${copyBtn(tx.tx_hash)}</td></tr>
                             <tr><td>From</td><td>${addrLink(tx.sender)}</td></tr>
                             <tr><td>To</td><td>${addrLink(tx.recipient)}</td></tr>
+                            <tr><td>Amount</td><td><strong>${amount}</strong> AIT</td></tr>
+                            <tr><td>Fee</td><td>${tx.fee != null ? tx.fee : 'N/A'}</td></tr>
+                            <tr><td>Nonce</td><td>${tx.nonce != null ? tx.nonce : 'N/A'}</td></tr>
                             <tr><td>Status</td><td>${tx.status || 'N/A'}</td></tr>
                             <tr><td>Time</td><td>${tx.created_at ? new Date(tx.created_at).toLocaleString() : 'N/A'}</td></tr>
                         </table>
