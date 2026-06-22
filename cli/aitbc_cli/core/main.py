@@ -177,6 +177,10 @@ def main(argv=None):
         # Show help message and exit cleanly
         click.echo(str(e))
         return 0
+    except click.exceptions.UsageError as e:
+        # Print friendly usage error (e.g. missing required option) and exit 2
+        e.show()
+        return e.exit_code
 
 
 if __name__ == "__main__":

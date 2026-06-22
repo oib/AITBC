@@ -9,6 +9,7 @@ import subprocess
 import time
 
 import click
+import websockets
 
 from ..config import get_config
 from ..utils import error, output, success
@@ -280,3 +281,91 @@ def peers(ctx):
         error(f"Network error: {e}")
     except Exception as e:
         error(f"Error fetching peers: {e}")
+
+
+@hermes.command()
+@click.option("--agent", default="hub-coordinator", show_default=True, help="Recipient agent ID to ping")
+@click.option(
+    "--sender",
+    default="follower",
+    show_default=True,
+    help="Sender agent ID (your agent ID for the WebSocket connection)",
+)
+@click.option(
+    "--coordinator-url",
+    default=None,
+    help="Agent Coordinator URL. Direct: http://localhost:8107. Via nginx on the hub: https://hub.aitbc.bubuit.net/agent (default: from config agent_coordinator_url)",
+)
+@click.option("--timeout", type=int, default=10, show_default=True, help="Seconds to wait for a PONG reply")
+@click.pass_context
+def ping(ctx, agent: str, sender: str, coordinator_url: str | None, timeout: int):
+    """Ping a remote Hermes agent via WebSocket and wait for its PONG reply.
+
+    Connects to the Agent Coordinator's WebSocket stream
+    (/api/v1/agent/messages/stream?agent_id=<sender>), sends a PING message
+    to the target agent, and waits for the automatic PONG response from the
+    coordinator's built-in ping_handler.
+    """
+    import asyncio as _asyncio
+
+    from websockets.exceptions import WebSocketException
+
+    config = get_config()
+    base_url = (coordinator_url or config.agent_coordinator_url).rstrip("/")
+
+    # Build WebSocket URL
+    ws_url = base_url.replace("http://", "ws://").replace("https://", "wss://")
+    ws_endpoint = f"{ws_url}/api/v1/agent/messages/stream?agent_id={sender}"
+
+    async def _ping() -> None:
+        success(f"Connecting to {ws_endpoint}")
+        try:
+            async with websockets.connect(ws_endpoint, open_timeout=timeout) as ws:
+                # 1. Consume connection_established frame (sent immediately on connect)
+                try:
+                    conn_msg = await _asyncio.wait_for(ws.recv(), timeout=timeout)
+                    conn_data = json.loads(conn_msg)
+                    if conn_data.get("type") != "connection_established":
+                        error(f"Unexpected first message: {conn_data.get('type')}")
+                        return
+                except _asyncio.TimeoutError:
+                    error(f"No connection confirmation from {ws_endpoint} within {timeout}s")
+                    return
+
+                # 2. Send PING frame
+                ping_frame = {
+                    "type": "message",
+                    "payload": {
+                        "content": "PING",
+                        "recipient_id": agent,
+                    },
+                }
+                await ws.send(json.dumps(ping_frame))
+                success(f"PING sent to {agent}")
+
+                # 3. Read frames until we get PONG
+                # Order is: PONG (from ping_handler), then handler_acknowledgment
+                try:
+                    while True:
+                        reply = await _asyncio.wait_for(ws.recv(), timeout=timeout)
+                        reply_data = json.loads(reply)
+                        if reply_data.get("type") == "PONG":
+                            content = reply_data.get("content", "")
+                            pong_sender = reply_data.get("sender", agent)
+                            success(f"PONG received from {pong_sender}")
+                            click.echo(f"  content: {content}")
+                            if reply_data.get("timestamp"):
+                                click.echo(f"  timestamp: {reply_data['timestamp']}")
+                            return
+                except _asyncio.TimeoutError:
+                    error(f"No PONG from {agent} within {timeout}s")
+                    return
+
+        except WebSocketException as e:
+            error(f"WebSocket error: {e}")
+            return
+        except OSError as e:
+            error(f"Connection failed to {ws_endpoint}: {e}")
+            return
+
+    _asyncio.run(_ping())

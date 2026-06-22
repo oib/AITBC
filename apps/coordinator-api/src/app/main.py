@@ -117,6 +117,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logger.info("Async database initialized successfully")
         except Exception as e:
             logger.warning("Async database initialization failed (non-fatal): %s", e)
+
+        # Initialize Redis state manager (used by hermes, exchange, swarm, training, users routers)
+        # Note: routers call get_instance_sync() at import time, which creates the singleton
+        # without calling _init(). We must call _init() here to actually connect to Redis.
+        try:
+            from .services.redis_state import RedisStateManager
+
+            state = RedisStateManager.get_instance_sync()
+            if not state._initialized:
+                await state._init()
+            if state._redis is not None:
+                logger.info("Redis state manager connected successfully")
+            else:
+                logger.info("Redis state manager running in in-memory mode (REDIS_ENABLED=%s)", settings.redis.enabled)
+        except Exception as e:
+            logger.warning("Redis state manager initialization failed (non-fatal, falls back to in-memory): %s", e)
         logger.info("Warming up database connections...")
         try:
             from sqlmodel import select
