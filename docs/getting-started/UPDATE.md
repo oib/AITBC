@@ -49,6 +49,7 @@ That's it for the common case. The script:
 | `--no-pull` | Skip `git pull` (assume you already pulled manually) |
 | `--no-restart` | Sync venv + systemd only; do not restart services |
 | `--skip-backup` | Skip the pre-update backup (for quick dev iterations) |
+| `--remote URL` | Override git remote (default: `https://github.com/oib/AITBC.git`) |
 | `-h`, `--help` | Print help and exit |
 
 ### Combinations
@@ -87,20 +88,23 @@ Skip with `--skip-backup` if you have a recent backup already.
 
 ### Step 1: git pull
 
-Runs `git pull --ff-only origin main` from `/opt/aitbc`.
+Fetches and merges from the public GitHub repo
+(`https://github.com/oib/AITBC.git`, branch `main`).
 
 - **Local changes detected?** The script stashes them with a timestamped
   message, pulls, then pops the stash. If the pop conflicts, the stash is
   preserved (`git stash list`) and you resolve manually.
 - **Non-fast-forward?** The script aborts and tells you to resolve
-  manually with `git pull --rebase origin main`.
+  manually with `git pull --rebase <remote> main`.
 - **No changes?** Prints "Already up to date" and skips venv/systemd
   work if `--no-restart` is also set.
 
-The remote pulled from is whatever `origin` points to. To check:
+To pull from a different remote (e.g. a private mirror), use:
 
 ```bash
-git -C /opt/aitbc remote -v
+sudo /opt/aitbc/scripts/deployment/update.sh --remote http://gitea.example.com/oib/aitbc.git
+# or via env var:
+sudo AITBC_GIT_REMOTE=http://gitea.example.com/oib/aitbc.git /opt/aitbc/scripts/deployment/update.sh
 ```
 
 ### Step 2: Sync Python venv
@@ -282,16 +286,25 @@ the forward and re-run the full install (e.g. to repair a broken node).
 
 ## Troubleshooting
 
-### `git pull failed (non-fast-forward or network issue)`
+### `git fetch failed (network issue or bad remote)`
 
-You have diverged from `origin/main`. Resolve manually:
+The script fetches from `https://github.com/oib/AITBC.git` by default. If
+GitHub is unreachable or you want to use a different remote:
+
+```bash
+sudo /opt/aitbc/scripts/deployment/update.sh --remote http://your-mirror/oib/aitbc.git
+```
+
+### `git merge --ff-only failed (non-fast-forward or local commits diverged)`
+
+You have local commits that diverged from the remote `main`. Resolve manually:
 
 ```bash
 cd /opt/aitbc
-git pull --rebase origin main
-# or, if you have local commits that should be preserved:
-git fetch origin
-git merge origin/main
+git fetch https://github.com/oib/AITBC.git main
+git rebase FETCH_HEAD
+# or, if you want to keep your commits on top:
+git merge FETCH_HEAD
 ```
 
 Then re-run `update.sh --no-pull`.
