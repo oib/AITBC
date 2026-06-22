@@ -1,0 +1,38 @@
+# AITBC Nginx Configuration — CUSTOMER Node
+# Minimal nginx: health check only, no public services
+#
+# Use this on: MARKET_ROLE=customer nodes (GPU consumer)
+# Exposes: Nothing public — customer nodes interact with the hub via CLI
+#
+# Customer nodes run the base blockchain stack (node, RPC, wallet) for local
+# use but don't expose any services to the internet. All marketplace and
+# blockchain operations go through the hub's public API.
+#
+# If you don't need nginx at all on a customer node, you can skip this config
+# entirely. It's provided for nodes that want a basic health endpoint.
+#
+# Production: /etc/nginx/sites-available/aitbc (optional)
+
+server {
+    listen 80;
+    listen [::]:80;
+
+    server_name YOUR_DOMAIN;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+
+    # ── Health Check ────────────────────────────────────────────
+
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+
+    location / {
+        return 404;
+    }
+}
