@@ -117,6 +117,72 @@ wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=<follower
 - **exchange**: `logger.info()` used kwargs (`port=`, `url=`) incompatible with standard logging after `configure_logging()` was added → switched to `%s` formatting
 - **blockchain-explorer**: service file missing `PYTHONPATH=/opt/aitbc` → added
 
+### 8. CLI `aitbc hermes ping` Command (WebSocket)
+
+**Problem:** No CLI command existed to test agent-to-agent PING/PONG. The initial HTTP-based implementation against the coordinator-api's `/v1/hermes/messages/send` endpoint (port 8203) was wrong — that endpoint is mock-only and has no PONG handler. The actual PONG reply comes from the Agent Coordinator's WebSocket `ping_handler` (port 8107).
+
+**Fix:** Implemented `aitbc hermes ping` as a WebSocket client that:
+1. Connects to `/api/v1/agent/messages/stream?agent_id=<sender>`
+2. Consumes the `connection_established` frame
+3. Sends `{"type": "message", "payload": {"content": "PING", "recipient_id": "<agent>"}}`
+4. Reads frames until it receives `{"type": "PONG", ...}` from the built-in `ping_handler`
+
+Also fixed `UsageError` traceback in `cli/core/main.py` when required options are missing, and enabled `follow_redirects=True` in `AITBCHTTPClient` for HTTP→HTTPS nginx redirects.
+
+**Files changed:**
+- `cli/aitbc_cli/commands/hermes.py` — new `ping` subcommand (WebSocket-based)
+- `cli/aitbc_cli/core/main.py` — catch `UsageError`, print friendly message
+- `cli/aitbc_cli/utils/http_client.py` — enable `follow_redirects=True`
+- `cli/requirements-cli.txt` — add `websockets>=14.1.0`
+- `tests/cli/test_commands_hermes.py` — 6 tests (PONG received, timeout, connection failure)
+
+### 9. Coordinator-API Hermes Router Scoping Bug
+
+**Problem:** In `/opt/aitbc/apps/coordinator-api/src/app/routers/hermes.py`, route handlers were defined outside an `if/else` block but referenced variables (`_state`, `_AGENT_NS`, `_MSG_NS`) only defined inside the `else` (debug/mock) branch. In production mode, these routes would crash with `NameError: name '_state' is not defined`.
+
+**Fix:** Moved all route handlers inside the `else` block so they are only registered when `settings.debug` or `settings.enable_mock_hermes` is true. Also wired up `RedisStateManager._init()` in the coordinator-api lifespan so Redis backing actually connects on startup.
+
+**Files changed:**
+- `apps/coordinator-api/src/app/routers/hermes.py` — move routes inside debug/mock branch
+- `apps/coordinator-api/src/app/main.py` — call `RedisStateManager._init()` in lifespan
+
+### 10. Nginx Config: Agent Coordinator WebSocket Proxy
+
+**Problem:** The repo's example nginx config had no location for the Agent Coordinator (port 8107). The `/api/` location proxies to the API Gateway (port 8201) which only handles HTTP, not WebSocket.
+
+**Fix:** Added `upstream agent_coordinator` and `/agent/` location with WebSocket upgrade headers (`proxy_http_version 1.1`, `Upgrade`, `Connection`, `proxy_read_timeout 86400s`).
+
+**Files changed:**
+- `examples/nginx/nginx-aitbc.conf` — add `agent_coordinator` upstream + `/agent/` location
+
+### 11. Dead Ping/Pong Code Cleanup
+
+**Problem:** Multiple dead/legacy ping/pong implementations confused the codebase:
+- `hermes_rest_polling_daemon.py` — no systemd service file, never deployed
+- `hermes/handlers/ping_handler.py` — only triggered via the deleted REST daemon
+- `tests/handlers/test_network.py` — imports from non-existent `handlers.network` module
+- `base_handler.py` `send_response()` — used sync `requests.post` inside async handlers (blocking)
+- `agent-messaging.md` — had merge conflict markers, wrong ports (8203/8105), wrong CLI commands (`aitbc-cli agent message`), ~15 references to dead `/v1/hermes/messages/send` endpoint
+
+**Fix:**
+- Deleted 3 dead files (`hermes_rest_polling_daemon.py`, `ping_handler.py`, `test_network.py`)
+- Fixed `base_handler.py`: replaced sync `requests.post` with async `httpx.AsyncClient`
+- Updated `request_coins_handler.py` to `await` the now-async `send_response()`
+- Marked `agent_daemon.py` as legacy in its docstring (blockchain-based ping/pong superseded by WebSocket)
+- Rewrote 3 docs (`agent-messaging.md`, `HERMES_LISTENER_SOLUTION.md`, `hermes-messaging.md`) to document the WebSocket-based `aitbc hermes ping` command
+
+**Files changed:**
+- `apps/agent-coordinator/scripts/hermes_rest_polling_daemon.py` — **deleted**
+- `apps/hermes/src/hermes_service/handlers/ping_handler.py` — **deleted**
+- `tests/handlers/test_network.py` — **deleted**
+- `apps/hermes/src/hermes_service/handlers/__init__.py` — remove `PingHandler` import
+- `apps/hermes/src/hermes_service/handlers/base_handler.py` — async `send_response()`
+- `apps/hermes/src/hermes_service/handlers/request_coins_handler.py` — `await send_response()`
+- `apps/agent-coordinator/scripts/agent_daemon.py` — add legacy notice in docstring
+- `docs/hermes/guides/agent-messaging.md` — full rewrite
+- `docs/hermes/HERMES_LISTENER_SOLUTION.md` — full rewrite
+- `docs/getting-started/node/hermes-messaging.md` — full rewrite
+
 ---
 
 ## Verification
@@ -124,12 +190,12 @@ wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=<follower
 ### PING/PONG End-to-End
 
 ```
-$ aitbc hermes ping --coordinator-url http://localhost/agent
-Connecting to ws://localhost/agent/api/v1/agent/messages/stream?agent_id=follower
+$ aitbc hermes ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
 PING sent to hub-coordinator
 PONG received from hub-coordinator
   content: PONG from hub-coordinator
-  timestamp: 2026-06-22T09:24:31.292512+00:00
+  timestamp: 2026-06-22T09:49:00.167435+00:00
 ```
 
 ### Journal Logging
@@ -166,12 +232,14 @@ All 19 active services running with proper structured logging:
 | aitbc-monitoring | ✅ active |
 | aitbc-wallet | ✅ active |
 
-## Files Changed (24)
+## Files Changed (38)
 
 | File | Change |
 |------|--------|
 | `apps/agent-coordinator/aitbc-agent-coordinator.service` | Add EnvironmentFile, switch to wrapper |
-| `apps/agent-coordinator/src/app/main.py` | Add `configure_logging()` |
+| `apps/agent-coordinator/scripts/agent_daemon.py` | Add legacy notice in docstring |
+| `apps/agent-coordinator/scripts/hermes_rest_polling_daemon.py` | **Deleted** (dead code) |
+| `apps/agent-coordinator/src/app/main.py` | Add `configure_logging()`, wire up `RedisStateManager._init()` |
 | `apps/agent-management/.../plugin_service/main.py` | Add `configure_logging()` |
 | `apps/blockchain-event-bridge/.../main.py` | Add `configure_logging()` |
 | `apps/blockchain-explorer/aitbc-blockchain-explorer.service` | Add `PYTHONPATH` |
@@ -183,14 +251,29 @@ All 19 active services running with proper structured logging:
 | `apps/coordinator-api/.../adaptive_learning_app.py` | Add `configure_logging()` |
 | `apps/coordinator-api/.../modality_optimization_app.py` | Add `configure_logging()` |
 | `apps/coordinator-api/.../multimodal_app.py` | Add `configure_logging()` |
+| `apps/coordinator-api/src/app/routers/hermes.py` | Move routes inside debug/mock branch (fix `_state` NameError) |
 | `apps/edge/src/aitbc_edge/main.py` | Add `configure_logging()` |
 | `apps/exchange/simple_exchange_api.py` | Add `configure_logging()`, fix logger kwargs |
 | `apps/ffmpeg/main.py` | Add `configure_logging()` |
+| `apps/hermes/src/hermes_service/handlers/__init__.py` | Remove `PingHandler` import |
+| `apps/hermes/src/hermes_service/handlers/base_handler.py` | Async `send_response()` with `httpx.AsyncClient` |
+| `apps/hermes/src/hermes_service/handlers/ping_handler.py` | **Deleted** (dead code) |
+| `apps/hermes/src/hermes_service/handlers/request_coins_handler.py` | `await send_response()` |
 | `apps/whisper/main.py` | Add `configure_logging()` |
+| `cli/aitbc_cli/commands/hermes.py` | New `ping` subcommand (WebSocket-based) |
+| `cli/aitbc_cli/core/main.py` | Catch `UsageError`, print friendly message |
+| `cli/aitbc_cli/utils/http_client.py` | Enable `follow_redirects=True` |
+| `cli/requirements-cli.txt` | Add `websockets>=14.1.0` |
+| `docs/getting-started/node/hermes-messaging.md` | Full rewrite (WebSocket ping/pong) |
+| `docs/hermes/HERMES_LISTENER_SOLUTION.md` | Full rewrite (WebSocket solution) |
+| `docs/hermes/guides/agent-messaging.md` | Full rewrite (remove merge conflicts, wrong ports, dead endpoints) |
 | `docs/releases/v0.4.23/WRAPPER_SCRIPT_TEMPLATING.md` | **Deleted** |
+| `examples/nginx/nginx-aitbc.conf` | Add `agent_coordinator` upstream + `/agent/` WebSocket location |
 | `scripts/generate_wrappers.py` | **Deleted** |
 | `scripts/monitoring/aitbc-monitoring.service` | Direct execution, add env vars |
 | `scripts/monitoring/.../monitoring_service/main.py` | Add `configure_logging()` |
 | `scripts/services/marketplace-wrapper.py` | **Deleted** |
 | `scripts/systemd/aitbc-marketplace.service` | Direct execution, fix DB path |
 | `scripts/utils/aitbc-plugin.service` | Direct execution, add env vars |
+| `tests/cli/test_commands_hermes.py` | 6 tests for WebSocket ping command |
+| `tests/handlers/test_network.py` | **Deleted** (broken import) |
