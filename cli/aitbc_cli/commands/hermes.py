@@ -534,9 +534,14 @@ def request_coins(ctx, wallet: str | None, amount: int, sender: str, coordinator
                                     return
 
                                 if action == "coin_request_received" and result.get("status") == "pending_approval":
+                                    request_id = result.get("request_id", "")
                                     success("Request submitted — pending manual approval")
+                                    if request_id:
+                                        click.echo(f"  request_id: {request_id}")
                                     click.echo(f"  message: {result.get('message', '')}")
                                     click.echo("  The hub operator must approve this request.")
+                                    if request_id:
+                                        click.echo(f"\n  Hub operator: aitbc coin-requests approve {request_id}")
                                     return
 
                                 if action == "coin_request_failed":

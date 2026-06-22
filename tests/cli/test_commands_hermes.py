@@ -216,8 +216,9 @@ class TestHermesCommands:
                             "handler": "request_coins_handler",
                             "result": {
                                 "action": "coin_request_received",
+                                "request_id": "req-follower-1234567890",
                                 "status": "pending_approval",
-                                "message": "Initial coins already granted. Further requests require manual approval.",
+                                "message": "Initial coins already granted. Further requests require manual approval. Use 'aitbc coin-requests approve <request_id>' to approve.",
                             },
                             "success": True,
                         }],
