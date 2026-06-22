@@ -161,12 +161,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let liveFeedItems = [];
     async function updateLiveFeed() {
         try {
-            const [blocksResp, txsResp] = await Promise.all([
-                fetch(`${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=5`),
-                fetch(`${EXPLORER_API_URL}/api/transactions/search?chain_id=${currentChain}&limit=5`),
-            ]);
+            const blocksResp = await fetch(`${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=10`);
             const blocksData = await blocksResp.json();
-            const txsData = await txsResp.json();
 
             const newItems = [];
             (blocksData.blocks || []).forEach(b => {
@@ -177,14 +173,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     time: b.timestamp,
                     url: `/block.html?height=${b.height}`,
                 });
-            });
-            (txsData.transactions || []).forEach(t => {
-                newItems.push({
-                    type: t.type || 'TX',
-                    label: (t.tx_hash || t.hash || '').substring(0, 16) + '...',
-                    hash: t.tx_hash || t.hash,
-                    time: t.created_at,
-                    url: `/tx.html?hash=${encodeURIComponent(t.tx_hash || t.hash || '')}`,
+                // Extract transactions from block
+                (b.transactions || []).forEach(t => {
+                    newItems.push({
+                        type: t.type || 'TX',
+                        label: (t.tx_hash || t.hash || '').substring(0, 16) + '...',
+                        hash: t.tx_hash || t.hash,
+                        time: t.created_at,
+                        url: `/tx.html?hash=${encodeURIComponent(t.tx_hash || t.hash || '')}`,
+                    });
                 });
             });
 
