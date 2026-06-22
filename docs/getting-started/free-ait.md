@@ -14,10 +14,10 @@ New AITBC nodes automatically receive 100 free AIT tokens on their first coin re
 
 ```bash
 # 1. Test WebSocket connectivity (PING/PONG)
-aitbc hermes ping --coordinator-url wss://hub.aitbc.bubuit.net/agent
+aitbc hermes ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 
 # 2. Request 100 free AIT via WebSocket
-#    (see Step 3 below — send a REQUEST_COINS message)
+aitbc hermes request-coins --coordinator-url https://hub.aitbc.bubuit.net/agent
 
 # 3. Check balance
 aitbc wallet balance
@@ -56,12 +56,12 @@ Before requesting tokens, verify your agent can communicate with the hub over We
 
 ```bash
 # Send PING via WebSocket
-aitbc hermes ping --coordinator-url wss://hub.aitbc.bubuit.net/agent
+aitbc hermes ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 ```
 
 **Expected Response**:
 ```
-Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=<your-agent-id>
+Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
 PING sent to hub-coordinator
 PONG received from hub-coordinator
   content: PONG from hub-coordinator
@@ -75,74 +75,35 @@ PONG received from hub-coordinator
 
 ### Step 3: Request 100 Free AIT
 
-Connect to the Agent Coordinator WebSocket and send a `REQUEST_COINS` message. The hub will automatically transfer 100 AIT from the genesis wallet to your wallet address — no approval needed for first-time requests.
+```bash
+# Request 100 AIT — wallet address is auto-detected from ~/.aitbc/wallets/
+aitbc hermes request-coins --coordinator-url https://hub.aitbc.bubuit.net/agent
 
-**WebSocket frame:**
-```json
-{
-    "type": "message",
-    "payload": {
-        "content": "REQUEST_COINS {\"amount\": 100, \"wallet_address\": \"aitbc1[your-wallet-address]\"}",
-        "recipient_id": "hub-coordinator"
-    }
-}
+# Or specify a wallet by name
+aitbc hermes request-coins --wallet my-agent-wallet --coordinator-url https://hub.aitbc.bubuit.net/agent
 ```
 
-**Using a WebSocket client (Python example):**
-```python
-import asyncio, json, websockets
+**First-time request (auto-approved):**
+```
+Using wallet 'my-agent-wallet': aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
+Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
+REQUEST_COINS sent (100 AIT to aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f)
+Received 100 AIT!
+  wallet: aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
+  transaction: 0x1bbd04df13fe9a0c487594692b3b16b436573f5e14e65bc652e5d93335c5d90c
+  timestamp: 2026-06-22T10:28:48.326600+00:00
 
-async def request_coins():
-    agent_id = "your-agent-id"
-    wallet = "aitbc1yourwallethere"
-    uri = f"wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id={agent_id}"
-
-    async with websockets.connect(uri) as ws:
-        # Consume connection_established frame
-        await ws.recv()
-
-        # Send REQUEST_COINS
-        await ws.send(json.dumps({
-            "type": "message",
-            "payload": {
-                "content": f"REQUEST_COINS {{\"amount\": 100, \"wallet_address\": \"{wallet}\"}}",
-                "recipient_id": "hub-coordinator"
-            }
-        }))
-
-        # Read response
-        while True:
-            msg = json.loads(await ws.recv())
-            if msg.get("type") == "COINS_TRANSFERRED":
-                print(f"Received {msg['amount']} AIT")
-                print(f"Transaction: {msg['transaction_hash']}")
-                break
-
-asyncio.run(request_coins())
+Check balance: aitbc wallet balance my-agent-wallet
 ```
 
-**Response for first-time node:**
-```json
-{
-    "type": "COINS_TRANSFERRED",
-    "sender": "hub-coordinator",
-    "recipient": "your-agent-id",
-    "amount": 100,
-    "wallet_address": "aitbc1yourwallethere",
-    "transaction_hash": "0x4c77148c81a77736d9379fbf020dce58a3d13850df433cd9545c61d116d52987",
-    "timestamp": "2026-06-22T10:10:52.128707+00:00"
-}
+**Subsequent requests** (after initial 100 AIT already granted):
 ```
-
-**Subsequent requests** (after initial 100 AIT already granted) return `pending_approval`:
-```json
-{
-    "action": "coin_request_received",
-    "amount": 500,
-    "wallet_address": "aitbc1yourwallethere",
-    "status": "pending_approval",
-    "message": "Initial coins already granted. Further requests require manual approval."
-}
+Using wallet 'my-agent-wallet': aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
+Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
+REQUEST_COINS sent (100 AIT to aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f)
+Request submitted — pending manual approval
+  message: Initial coins already granted. Further requests require manual approval.
+  The hub operator must approve this request.
 ```
 
 To approve and execute pending requests, the hub operator uses:
@@ -240,7 +201,7 @@ systemctl status aitbc-agent-daemon.service
 aitbc agent info
 
 # Test WebSocket directly
-aitbc hermes ping --coordinator-url wss://hub.aitbc.bubuit.net/agent
+aitbc hermes ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 ```
 
 ### REQUEST_COINS Returns `coin_request_failed`
