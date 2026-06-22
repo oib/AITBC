@@ -1,74 +1,36 @@
-# Hermes Agent Listener for AITBC Network - Working Solution
+# Hermes Agent Listener for AITBC Network
 
-## Problem
-The user wanted to implement a Hermes agent listener for the AITBC network that would:
-1. Continuously poll for incoming messages
-2. Parse messages for PING commands
-3. Respond to PING messages with PONG responses
+**Last Updated:** 2026-06-22
 
-## Challenge
-The `aitbc-cli agent message` and `aitbc-cli agent messages` commands were returning simulated responses rather than actually communicating with the backend services, making it impossible to build a functional listener using the CLI alone.
+## Current Solution: WebSocket Ping/Pong
 
-## Solution
-We discovered that while the CLI commands were simulated, the underlying Coordinator API service was fully functional and provided real agent messaging capabilities. The solution uses the existing service infrastructure:
+The Agent Coordinator (port 8107) has a built-in WebSocket handler that automatically responds to PING messages with PONG — no polling daemon required.
 
-1. **Hermes Polling Daemon** (`/opt/aitbc/apps/agent-coordinator/scripts/hermes_polling_daemon.py`)
-   - Polls Coordinator API for messages
-   - Processes messages with configurable handlers
-   - Built-in deduplication to prevent reprocessing
-   - Handles PING/PONG automatically
+### How it works
 
-2. **Agent Daemon Wrapper** (`/opt/aitbc/apps/agent-services/aitbc-agent-daemon-wrapper.py`)
-   - Manages Hermes polling daemons via environment variables
-   - Spawns polling processes for configured agent IDs
-   - Integrates with systemd service
+1. Follower connects via WebSocket to `/api/v1/agent/messages/stream?agent_id=<follower_id>`
+2. Follower sends `{"type": "message", "payload": {"content": "PING", "recipient_id": "hub-coordinator"}}`
+3. Coordinator's `trigger_handlers()` matches "PING" and invokes `ping_handler`
+4. `ping_handler` sends `{"type": "PONG", "content": "PONG from hub-coordinator"}` back over the WebSocket
 
-3. **Systemd Service** (`/opt/aitbc/apps/agent-services/aitbc-agent-daemon.service`)
-   - Runs as a background service
-   - Configured via environment variables
-   - Auto-restart on failure
+### Usage
 
-## Configuration
-The service is configured in `/opt/aitbc/apps/agent-daemon/aitbc-agent-daemon.service`:
-- `ENABLE_HERMES_POLLING=true` - Enable Hermes polling
-- `HERMES_AGENT_IDS=owl-aitbc3` - Agent ID to poll for
-- `HERMES_COORDINATOR_URL=http://localhost:8203` - Hub coordinator endpoint
-
-## Implementation Files
-- `/opt/aitbc/apps/agent-coordinator/scripts/hermes_polling_daemon.py` - Python polling daemon
-- `/opt/aitbc/apps/agent-daemon/aitbc-agent-daemon-wrapper.py` - Service wrapper
-- `/opt/aitbc/apps/agent-daemon/aitbc-agent-daemon.service` - Systemd service unit
-
-## Usage
-To start the listener service:
 ```bash
-systemctl daemon-reload
-systemctl enable aitbc-agent-daemon
-systemctl start aitbc-agent-daemon
+# From a follower node
+aitbc hermes ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 ```
 
-To view logs:
-```bash
-journalctl -u aitbc-agent-daemon -f
-```
+### Implementation files
 
-To send a test PING message:
-```bash
-curl -s -X POST "http://localhost:8107/api/v1/agent/messages/send" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sender": "test-agent",
-    "recipient": "owl-aitbc3",
-    "content": "PING",
-    "message_type": "direct",
-    "timestamp": "'$(date -Iseconds)'"
-  }' | jq .
-```
+- `apps/agent-coordinator/src/app/websocket/agent_stream.py` — `ping_handler` function and `trigger_handlers` dispatcher
+- `cli/aitbc_cli/commands/hermes.py` — `aitbc hermes ping` CLI command
+- `examples/nginx/nginx-aitbc.conf` — nginx `/agent/` location with WebSocket upgrade headers
 
-The daemon will automatically respond with a PONG message.
+## Legacy: Blockchain-based Agent Daemon
 
-## Notes
-- This solution uses the Agent Coordinator microservice (port 8107) rather than the legacy Coordinator API (8203)
-- The daemon is designed to be lightweight and resilient, with error handling and retry logic
-- All message exchanges are persisted and visible via the Agent Coordinator endpoints
-- For multi-node setups, configure `HERMES_COORDINATOR_URL` to point to the hub's Agent Coordinator
+The `agent_daemon.py` script (`aitbc-agent-daemon.service`) uses blockchain transactions for ping/pong. It polls the blockchain DB for transactions containing "ping" and replies with "pong" transactions. This is superseded by the WebSocket approach above.
+
+- `apps/agent-coordinator/scripts/agent_daemon.py` — legacy blockchain-based listener
+- `apps/agent-daemon/aitbc-agent-daemon.service` — systemd service file
+
+The legacy daemon is still deployed but should not be used for new agent messaging. Use the WebSocket `aitbc hermes ping` command instead.
