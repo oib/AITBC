@@ -9,6 +9,7 @@ set -e
 OPEN_ISLAND_HUB=""
 NODE_ID=""
 SKIP_INTERACTIVE=false
+FORCE_SETUP=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -21,12 +22,17 @@ while [[ $# -gt 0 ]]; do
             NODE_ID="$2"
             shift 2
             ;;
+        --force)
+            FORCE_SETUP=true
+            shift
+            ;;
         --help)
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  --open-island HUB_URL  Configure as follower to specified hub (non-interactive)"
             echo "  --node-id NODE_ID      Set node identity (required with --open-island)"
+            echo "  --force                Re-run full setup even if already installed"
             echo "  --help                 Show this help message"
             echo ""
             echo "Example:"
@@ -1173,6 +1179,21 @@ setup_autostart() {
 main() {
     echo "=== AITBC SETUP STARTED ==="
     log "Starting AITBC setup..."
+
+    # If already installed, forward to update.sh unless --force was given.
+    # Signals of an existing install: /etc/aitbc/node.env + /opt/aitbc/venv
+    if [ "$FORCE_SETUP" = "false" ] \
+       && [ -f /etc/aitbc/node.env ] \
+       && [ -d /opt/aitbc/venv ]; then
+        local update_script="/opt/aitbc/scripts/deployment/update.sh"
+        warning "AITBC is already installed on this node (/etc/aitbc/node.env + /opt/aitbc/venv exist)"
+        if [ -x "$update_script" ]; then
+            log "Forwarding to update.sh (use --force to re-run full setup)..."
+            exec "$update_script"
+        else
+            warning "update.sh not found at $update_script — continuing with full setup"
+        fi
+    fi
 
     echo "[STEP 1/12] Checking root privileges..."
     check_root
