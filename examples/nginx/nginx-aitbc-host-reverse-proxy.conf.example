@@ -12,7 +12,7 @@
 #                   blockchain RPC, coordinator API
 #   - SHOP sections: ollama, whisper, ffmpeg, peertube-pruner
 #   - ALL ROLES: explorer, health
-#   - FOLLOWER/CUSTOMER: explorer only (or nothing for customer)
+#   - CUSTOMER (non-hub, non-shop): explorer + health only
 #
 # IMPORTANT: nginx is for EXTERNAL traffic only. Internal service-to-service
 # communication (gpu_worker → coordinator-api, explorer → blockchain-rpc)

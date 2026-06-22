@@ -8,8 +8,7 @@ Role-specific nginx configurations for AITBC nodes.
 |---|---|---|
 | `nginx-hub.conf.example` | `BLOCKCHAIN_MODE=hub` | Agent registry, API gateway, blockchain RPC (WS+HTTP), agent coordinator WS, coordinator API, wallet exchange, explorer, website |
 | `nginx-shop.conf.example` | `MARKET_ROLE=shop` | Ollama, Whisper, FFmpeg, PeerTube Pruner, explorer |
-| `nginx-follower.conf.example` | `BLOCKCHAIN_MODE=follower, MARKET_ROLE=customer` | Explorer only |
-| `nginx-customer.conf.example` | `MARKET_ROLE=customer` (no nginx needed) | Health check only (optional) |
+| `nginx-customer.conf.example` | `MARKET_ROLE=customer` | Explorer, health check |
 | `nginx-aitbc-host-reverse-proxy.conf.example` | All roles (host machine) | SSL termination + reverse proxy to container. Includes all role-specific locations — comment out what you don't need |
 
 ## Architecture
@@ -54,8 +53,8 @@ grep -E "BLOCKCHAIN_MODE|MARKET_ROLE" /etc/aitbc/node.env
 |---|---|---|
 | `hub` | customer | `nginx-hub.conf` |
 | `hub` | shop | `nginx-hub.conf` + `nginx-shop.conf` (combine both) |
-| `follower` | customer | `nginx-follower.conf` |
-| `follower` | shop | `nginx-shop.conf` (includes explorer) |
+| `follower` | customer | `nginx-customer.conf` |
+| `follower` | shop | `nginx-shop.conf` |
 
 > **Hub + Shop combo:** If your hub also provides GPU services, combine the
 > hub and shop configs into one server block — include both the hub locations
