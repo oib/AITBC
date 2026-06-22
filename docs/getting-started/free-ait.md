@@ -103,8 +103,11 @@ Using wallet 'my-agent-wallet': aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
 Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
 REQUEST_COINS sent (100 AIT to aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f)
 Request submitted — pending manual approval
-  message: Initial coins already granted. Further requests require manual approval.
+  request_id: req-follower-1782118362
+  message: Initial coins already granted. Further requests require manual approval. Use 'aitbc coin-requests approve <request_id>' to approve.
   The hub operator must approve this request.
+
+  Hub operator: aitbc coin-requests approve req-follower-1782118362
 ```
 
 To approve and execute pending requests, the hub operator uses:
@@ -138,10 +141,15 @@ https://hub.aitbc.bubuit.net/block.html?height=<block-height>
 ## How It Works
 
 1. Your agent connects to the Agent Coordinator WebSocket at `wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream`
-2. You send a `REQUEST_COINS` message with your wallet address
-3. The hub checks the hermes SQLite database for prior approved requests from your agent ID
-4. **First request**: The hub signs an Ed25519 transaction from the genesis wallet and submits it to the blockchain RPC (`/rpc/transaction`). The transaction is included in the next block and a `COINS_TRANSFERRED` message is sent back over WebSocket.
-5. **Subsequent requests**: The hub returns `pending_approval` — the hub operator must manually approve and execute the request via CLI.
+2. You send a `REQUEST_COINS` message with your wallet address (the CLI does this automatically)
+3. The hub checks the hermes SQLite database for prior `APPROVED` requests from your agent ID
+4. **First request**: The hub signs an Ed25519 transaction from the genesis wallet and submits it to the blockchain RPC (`/rpc/transaction`). The transaction is included in the next block and a `COINS_TRANSFERRED` message is sent back over WebSocket with the transaction hash.
+5. **Subsequent requests**: The hub creates a `PENDING` record in the coin_requests database and returns `pending_approval` with a `request_id`. The hub operator can then approve and execute the request:
+   ```bash
+   aitbc coin-requests list --status pending
+   aitbc coin-requests approve <request_id>
+   aitbc coin-requests execute <request_id>
+   ```
 
 ## Address Formats
 
@@ -159,11 +167,14 @@ ait1db5247d03ca2e40f3995a583b2c097ab703efd4d
 
 ### Finding Your Address
 ```bash
-# Get wallet info
+# Get wallet info (uses AITBC_DEFAULT_WALLET env var or active_wallet from config)
 aitbc wallet info
 
-# Or check configuration
-cat ~/.aitbc/wallets/default.json | jq '.address'
+# List all available wallets
+aitbc wallet list
+
+# Or check a specific wallet file
+cat ~/.aitbc/wallets/my-agent-wallet.json | jq '.address'
 ```
 
 ## Token Allocation
@@ -195,14 +206,14 @@ cat ~/.aitbc/wallets/default.json | jq '.address'
 ### PING/PONG Fails
 
 ```bash
-# Check agent daemon status
-systemctl status aitbc-agent-daemon.service
-
-# Verify agent registration
-aitbc agent info
-
-# Test WebSocket directly
+# Test WebSocket connectivity
 aitbc hermes ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+
+# Check if agent coordinator is running on the hub
+curl https://hub.aitbc.bubuit.net/agent/health
+
+# Check WebSocket status
+curl https://hub.aitbc.bubuit.net/agent/api/v1/agent/ws/status
 ```
 
 ### REQUEST_COINS Returns `coin_request_failed`
@@ -217,7 +228,20 @@ curl -s https://hub.aitbc.bubuit.net/rpc/height
 
 ### REQUEST_COINS Returns `pending_approval`
 
-This means your agent has already received the initial 100 AIT grant. Further requests require manual approval by the hub operator. Contact the hub operator or use the ETH-to-AIT bridge for additional tokens.
+This means your agent has already received the initial 100 AIT grant. The response includes a `request_id` that the hub operator can use to approve the request:
+
+```bash
+# The CLI output shows:
+#   request_id: req-follower-1782118362
+#   Hub operator: aitbc coin-requests approve req-follower-1782118362
+
+# On the hub, the operator runs:
+aitbc coin-requests list --status pending
+aitbc coin-requests approve req-follower-1782118362
+aitbc coin-requests execute req-follower-1782118362
+```
+
+Alternatively, use the [ETH-to-AIT Bridge](../releases/RELEASE_v0.4.14.md#eth-to-ait-bridge) for additional tokens without manual approval.
 
 ### Balance Not Updated After Transfer
 
@@ -246,7 +270,7 @@ If you encounter issues:
 ## Frequently Asked Questions
 
 ### Q: How many times can I request free AIT?
-A: The automatic 100 AIT grant is once per agent ID. Further requests require manual approval by the hub operator.
+A: The automatic 100 AIT grant is once per agent ID. Further requests are recorded as `PENDING` in the hub's database with a `request_id` and require manual approval by the hub operator using `aitbc coin-requests approve <request_id>`.
 
 ### Q: What happens if I use all my free AIT?
 A: You can purchase additional AIT through the exchange, earn tokens by providing compute resources, or request more from the hub (requires manual approval).
