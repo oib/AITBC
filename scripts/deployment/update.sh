@@ -21,10 +21,15 @@
 #   sudo /opt/aitbc/scripts/deployment/update.sh --no-pull    # skip git pull
 #   sudo /opt/aitbc/scripts/deployment/update.sh --no-restart # skip service restart
 #   sudo /opt/aitbc/scripts/deployment/update.sh --skip-backup # skip pre-update backup
+#   sudo /opt/aitbc/scripts/deployment/update.sh --remote URL # override git remote
 #
 # Prerequisites:
 #   - Node already set up via setup.sh
 #   - /etc/aitbc/node.env and/or /etc/aitbc/blockchain.env present
+#
+# Git remote:
+#   Defaults to https://github.com/oib/AITBC.git (public repo).
+#   Override with --remote <url> or AITBC_GIT_REMOTE env var.
 # ============================================================================
 
 set -u  # error on unset vars; do NOT use -e (we want to continue past soft failures)
@@ -36,6 +41,10 @@ BLOCKCHAIN_ENV_FILE="/etc/aitbc/blockchain.env"
 HEALTH_CHECK_SCRIPT="$AITBC_ROOT/scripts/monitoring/health_check.sh"
 LINK_SYSTEMD_SCRIPT="$AITBC_ROOT/scripts/utils/link-systemd.sh"
 INSTALL_PROFILES_SCRIPT="$AITBC_ROOT/scripts/deployment/install-profiles.sh"
+
+# Public Git remote — pull from GitHub by default.
+# Override with --remote flag or AITBC_GIT_REMOTE env var.
+GIT_REMOTE="${AITBC_GIT_REMOTE:-https://github.com/oib/AITBC.git}"
 
 # Flags
 DO_PULL=true
@@ -64,6 +73,7 @@ parse_args() {
             --no-pull)    DO_PULL=false; shift ;;
             --no-restart) DO_RESTART=false; shift ;;
             --skip-backup) DO_BACKUP=false; shift ;;
+            --remote)     GIT_REMOTE="$2"; shift 2 ;;
             -h|--help)
                 sed -n '3,25p' "$0"
                 exit 0
@@ -185,7 +195,7 @@ run_pre_update_backup() {
 # Step 1: git pull (with stash safety)
 # ----------------------------------------------------------------------------
 do_git_pull() {
-    log "Step 1: Pulling latest code from origin/main..."
+    log "Step 1: Pulling latest code from $GIT_REMOTE (main)..."
     cd "$AITBC_ROOT" || { error "Cannot cd to $AITBC_ROOT"; return 1; }
 
     # Check for local changes
@@ -201,9 +211,18 @@ do_git_pull() {
     local prev_head
     prev_head=$(git rev-parse HEAD)
 
-    if ! git pull --ff-only origin main; then
-        error "git pull failed (non-fast-forward or network issue)"
-        error "Resolve manually: cd $AITBC_ROOT && git pull --rebase origin main"
+    log "Step 1: Pulling latest code from $GIT_REMOTE (main)..."
+
+    # Fetch first, then merge — works with URL directly (no remote ref needed)
+    if ! git fetch "$GIT_REMOTE" main 2>/dev/null; then
+        error "git fetch failed (network issue or bad remote: $GIT_REMOTE)"
+        error "Check the URL or override with --remote <url> or AITBC_GIT_REMOTE env var"
+        return 1
+    fi
+
+    if ! git merge --ff-only FETCH_HEAD; then
+        error "git merge --ff-only failed (non-fast-forward or local commits diverged)"
+        error "Resolve manually: cd $AITBC_ROOT && git pull --rebase $GIT_REMOTE main"
         if [ "${stashed:-}" = "true" ]; then
             warning "Your stashed changes are preserved: git stash list"
         fi
@@ -411,6 +430,7 @@ print_summary() {
     echo "=== AITBC UPDATE COMPLETE ==="
     echo "  Node role:  $role"
     echo "  Repo:       $AITBC_ROOT  ($(git -C "$AITBC_ROOT" rev-parse --short HEAD 2>/dev/null))"
+    echo "  Remote:     $GIT_REMOTE"
     echo "  Venv:       $VENV_DIR"
     echo ""
     if [ "${DO_RESTART}" = "true" ]; then
