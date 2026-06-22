@@ -17,6 +17,11 @@ import uvicorn  # noqa: E402
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
+from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+
+configure_logging(level="INFO", service_name="ffmpeg", to_file=True)
+logger = get_logger(__name__)
+
 _device = os.getenv("FFMPEG_GPU_DEVICE", "0")
 _hw_accel = os.getenv("FFMPEG_HW_ACCEL", "cuda")
 

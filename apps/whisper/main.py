@@ -16,6 +16,11 @@ import uvicorn  # noqa: E402
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
+from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+
+configure_logging(level="INFO", service_name="whisper", to_file=True)
+logger = get_logger(__name__)
+
 _model = None
 _model_name = os.getenv("WHISPER_MODEL", "base")
 _device = os.getenv("WHISPER_DEVICE", "cuda")

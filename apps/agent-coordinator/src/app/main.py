@@ -4,6 +4,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.rate_limiting import RateLimitMiddleware
 
 from .config import settings, validated_cors_origins
@@ -12,6 +13,9 @@ from .lifespan import lifespan
 from .middleware import register_middleware
 from .routers import ROUTERS
 from .routers.health import router as health_router
+
+configure_logging(level="INFO", service_name="agent-coordinator", to_file=True)
+logger = get_logger(__name__)
 
 
 def create_app() -> FastAPI:

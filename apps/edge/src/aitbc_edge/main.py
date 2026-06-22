@@ -8,7 +8,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from aitbc.aitbc_logging import get_logger
+from aitbc.aitbc_logging import configure_logging, get_logger
+
+configure_logging(level="INFO", service_name="edge", to_file=True)
 
 from .config import settings
 from .routers import database_router as database

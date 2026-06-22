@@ -15,7 +15,7 @@ EnvironmentFile=/etc/aitbc/node.env
 EnvironmentFile=/etc/aitbc/blockchain-secrets.env
 EnvironmentFile=/etc/aitbc/aitbc-agent-coordinator.env
 # Agent coordinator execution
-ExecStart=/opt/aitbc/venv/bin/python -m app.main
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-coordinator/aitbc-agent-coordinator-wrapper.py
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=10

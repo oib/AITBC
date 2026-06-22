@@ -9,6 +9,11 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
+from aitbc.aitbc_logging import configure_logging, get_logger
+
+configure_logging(level="INFO", service_name="modality-optimization", to_file=True)
+logger = get_logger(__name__)
+
 from app.contexts.multimodal.routers.modality_optimization_health import router as health_router  # type: ignore[import-not-found]
 from app.contexts.multimodal.services.modality_optimization import (  # type: ignore[import-not-found]
     ModalityOptimizationManager,

@@ -6,7 +6,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from prometheus_client import make_asgi_app
 
-from aitbc.aitbc_logging import get_logger
+from aitbc.aitbc_logging import configure_logging, get_logger
+
+configure_logging(level="INFO", service_name="blockchain-event-bridge", to_file=True)
 
 from .bridge import BlockchainEventBridge
 from .config import settings

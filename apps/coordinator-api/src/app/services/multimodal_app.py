@@ -8,6 +8,11 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
+from aitbc.aitbc_logging import configure_logging, get_logger
+
+configure_logging(level="INFO", service_name="multimodal", to_file=True)
+logger = get_logger(__name__)
+
 from ..contexts.multimodal.routers.multimodal_health import router as health_router
 from ..contexts.multimodal.services.multimodal_agent import MultiModalAgentService
 from ..storage import get_session
