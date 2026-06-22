@@ -17,6 +17,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from aitbc.aitbc_logging import configure_logging, get_logger
+
+configure_logging(level="INFO", service_name="blockchain-explorer", to_file=True)
+logger = get_logger(__name__)
+
 # Import data layer for toggle between mock and real data
 try:
     from aitbc.data_layer import get_data_layer
