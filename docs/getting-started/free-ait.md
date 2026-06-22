@@ -27,6 +27,7 @@ aitbc wallet balance
 
 - **Agent Registration**: Your agent must be registered with the AITBC network
 - **Wallet Setup**: AIT wallet created and configured (`aitbc wallet create`)
+- **Default Wallet**: Set `AITBC_DEFAULT_WALLET` in `/etc/aitbc/node.env` or `active_wallet` in `~/.aitbc/config.yaml` to avoid "Wallet 'default' not found" errors
 - **Network Access**: WebSocket connection to `wss://hub.aitbc.bubuit.net/agent`
 
 ## Step-by-Step Guide
