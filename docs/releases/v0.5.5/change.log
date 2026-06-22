@@ -265,15 +265,19 @@ Also added `AITBC_DEFAULT_WALLET` environment variable support for default walle
 
 ### 17. Coin Request Approval Flow Fixes
 
-**Problem:** The coin-requests approval flow had two bugs: (1) notification content was passed as a raw string instead of an object, causing encryption to fail; (2) status values were inconsistent (`approved` vs `APPROVED`, `pending` vs `PENDING`).
+**Problem:** The coin-requests approval flow had three bugs: (1) notification content was passed as a raw string instead of an object, causing encryption to fail; (2) status values were inconsistent (`approved` vs `APPROVED`, `pending` vs `PENDING`); (3) subsequent `REQUEST_COINS` messages returned `pending_approval` but were never stored in the DB — so the hub operator had nothing to approve.
 
 **Fix:**
-- Wrapped notification content in an object before encryption
+- Wrapped notification content in an object (`{"text": "..."}`) and disabled encryption for CLI notifications
 - Standardized all status values to uppercase (`APPROVED`, `PENDING`)
 - Added `request_id` to the pending response so users know what to approve
+- Added `_record_pending_coin_request()` in `agent_stream.py` — subsequent requests are now stored as `PENDING` in the hermes SQLite DB with a generated `request_id`, enabling `aitbc coin-requests approve/execute` flow
+- Fixed CLI env var loading: `node.env` now loaded with `override=True` so `BLOCKCHAIN_RPC_URL=localhost:8202` takes precedence over `blockchain.env`'s public URL when running on the hub
 
 **Files changed:**
+- `apps/agent-coordinator/src/app/websocket/agent_stream.py` — add `_record_pending_coin_request()`, uppercase status, include `request_id` in response
 - `apps/hermes/src/hermes_service/handlers/request_coins_handler.py` — wrap content, uppercase status
+- `cli/aitbc_cli/commands/coin_requests.py` — `node.env` override=True, wrap notification content, `encrypt=False`
 - `cli/aitbc_cli/commands/hermes.py` — display `request_id` in pending output
 
 ### 18. Lease Heartbeat Frequency Fix
@@ -292,7 +296,9 @@ Also added `AITBC_DEFAULT_WALLET` environment variable support for default walle
 **Fix:** Added human-readable expiry timestamps (`_fmt_expiry()`) to all lease log lines and `client_ip` tracking through `register_subscriber()`, `extend_lease()`, and `SubscriberInfo`.
 
 **Files changed:**
-- `apps/blockchain-node/src/aitbc_chain/lease_tracker.py` — add `_fmt_expiry()`, `client_ip` field
+- `apps/blockchain-node/src/aitbc_chain/lease_tracker.py` — add `_fmt_expiry()`, `client_ip` field in `SubscriberInfo`, `register_subscriber()`, `extend_lease()`
+- `apps/blockchain-node/src/aitbc_chain/rpc/router.py` — inject `Request` object to extract `client_ip`, pass to subscription handlers
+- `apps/blockchain-node/src/aitbc_chain/rpc/subscription.py` — pass `client_ip` through to lease tracker, include in `/rpc/subscribers` response
 
 ### 20. `update.sh` — Safe Update Script for Existing Nodes
 
@@ -356,15 +362,28 @@ Each config only includes the locations its role needs — no commenting out req
 - `scripts/deployment/setup.sh` — add nginx config hints to completion output
 - `scripts/deployment/update.sh` — add nginx config reminder to summary
 
-### 23. Block Explorer: Remove Latest Blocks Section
+### 23. Block Explorer: Dedicated Latest Blocks Page + UI Fixes
 
-**Problem:** The explorer main page had a "Latest Blocks" section with live auto-refresh and an export button, which was redundant with the block detail pages and added unnecessary load.
+**Problem:** The explorer main page had a "Latest Blocks" section that duplicated the live feed's block data. The live feed also called `/api/transactions/search` without the required `address` parameter, causing 422 errors every 10 seconds. Button styles were inconsistent — nav links used a different style than `btn-secondary` buttons.
 
-**Fix:** Removed the Latest Blocks section and export functionality from the main page. Reduced live feed refresh rate from 10s to 60s.
+**Fix:**
+- Moved "Latest Blocks" to a dedicated `blocks.html` page with its own `blocks.js` (includes Skip Empty toggle, Load More pagination, Export Blockchain)
+- Added "Latest Blocks" link button in the Live Feed section header
+- Fixed live feed to fetch blocks only (extracts transactions from block data) instead of calling the search endpoint without `address`
+- Reduced live feed refresh rate from 10s to 60s
+- Removed `● LIVE` indicator from Live Feed section
+- Standardized button CSS: `.header-nav a` links now use same styling as `btn-secondary` (background, border, padding, hover)
+- Added `a.btn-secondary` CSS rule for anchor-based buttons
+- Removed self-referencing nav link from marketplace.html (Marketplace page no longer links to itself)
+- Removed block-loading code, export function, and related event listeners from `explorer.js` (moved to `blocks.js`)
 
 **Files changed:**
-- `apps/blockchain-explorer/main.py` — remove latest blocks endpoint and export
-- `website/index.html` (or equivalent) — remove Latest Blocks section
+- `website/blocks.html` — **new** — dedicated Latest Blocks page
+- `website/blocks.js` — **new** — block loading, pagination, export logic
+- `website/explorer.html` — remove Latest Blocks section, add link to blocks.html, remove LIVE indicator
+- `website/explorer.js` — remove `loadLatestBlocks()`, `renderBlockCard()`, `exportBlockchain()`, block event listeners; fix live feed to use blocks API instead of search endpoint
+- `website/marketplace.html` — remove self-referencing Marketplace nav link
+- `website/style.css` — update `.header-nav a` to button styling, add `a.btn-secondary` rule
 
 ### 24. CLI Invocation Fix
 
@@ -374,6 +393,48 @@ Each config only includes the locations its role needs — no commenting out req
 
 **Files changed:**
 - `scripts/aitbc-cli` — use `python -m aitbc_cli` instead of console script
+
+### 25. Two-Axis Node Role System
+
+**Problem:** `link-systemd.sh` collapsed `BLOCKCHAIN_MODE` and `MARKET_ROLE` into a single role string, losing combinations. A `hub+shop` node got only hub services (missing GPU/miner). A `follower+shop` node without GPU got only follower services (missing coordinator-api). The `setup.sh` profile detection had the same issue — it used if/elif that picked one profile instead of composing both axes.
+
+**Fix:** Rewrote `get_node_role()` to output `blockchain_mode:market_role:hardware_profile` and `get_allowed_services()` to combine both axes independently:
+- Axis 1 (`BLOCKCHAIN_MODE`): hub services or follower services
+- Axis 2 (`MARKET_ROLE`): shop services (if `shop`) or nothing extra (if `customer`)
+- Both lists are merged (with deduplication via `sort -u`)
+
+Result — all 8 combinations now produce correct service lists:
+
+| BLOCKCHAIN_MODE | MARKET_ROLE | Services | Count |
+|----------------|-------------|----------|-------|
+| hub | customer | base + hub | 20 |
+| hub | shop | base + hub + shop | 22 |
+| follower | customer | base + follower | 9 |
+| follower | shop | base + follower + shop | 12 |
+
+Also fixed `setup.sh` profile detection to compose profile names from both axes (`{blockchain_mode}-{market_role}[-gpu]`), and updated `examples/node.env.open-island` to remove `provider` from the `MARKET_ROLE` comment (only `customer` and `shop` are valid).
+
+**Files changed:**
+- `scripts/utils/link-systemd.sh` — rewrite `get_node_role()` and `get_allowed_services()` for two-axis composition
+- `scripts/deployment/setup.sh` — rewrite profile detection to compose from both axes
+- `examples/node.env.open-island` — remove `provider` from `MARKET_ROLE` comment
+- `docs/getting-started/SETUP.md` — document two-axis model, update profile table (8 composed profiles), update service selection tables
+
+### 26. `free-ait.md` Full Rewrite
+
+**Problem:** The free AIT documentation referenced dead CLI commands (`aitbc agent message`), dead API endpoints (`/v1/coordinator/v1/hermes/messages`), non-existent commands (`aitbc wallet request-free`), and had duplicated content sections.
+
+**Fix:** Full rewrite to match the actual WebSocket-based flow:
+- `aitbc hermes ping` for connectivity testing
+- WebSocket `REQUEST_COINS` frame format with Python example
+- `COINS_TRANSFERRED` response format with tx hash
+- `pending_approval` behavior for subsequent requests with `request_id`
+- Hub operator CLI commands for manual approval (`aitbc coin-requests approve/execute`)
+- "How It Works" section explaining the auto-transfer logic
+- Block explorer link for verifying transactions
+
+**Files changed:**
+- `docs/getting-started/free-ait.md` — full rewrite (490 → 337 lines)
 
 ---
 
@@ -401,15 +462,37 @@ Sent REQUEST_COINS
 Same node requesting again:
 ```
 ⏳ pending_approval: Initial coins already granted. Further requests require manual approval.
-   amount: 500, wallet: aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
+   request_id: req-follower-1782117540
+   amount: 100, wallet: aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
 ```
 
-On-chain verification (block 32475):
+Hub operator approves and executes the pending request:
+```
+$ aitbc coin-requests approve req-follower-1782117540
+Request req-follower-1782117540 approved successfully.
+Amount: 100 AIT to aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
+Notification sent to follower
+
+$ aitbc coin-requests execute req-follower-1782117540
+Executing request req-follower-1782117540...
+Genesis wallet balance: 999982554 AIT
+Transaction submitted successfully: 0xea0f5a3fb2c20bb29dd81a79ca28e012c2a0af9c3fce547d796513c7b36c33e8
+Notification sent to follower
+```
+
+On-chain verification (block 32475, first auto-transfer):
 ```
 tx_hash: 0x4c77148c81a77736d9379fbf020dce58a3d13850df433cd9545c61d116d52987
 from:    ait1db5247d03ca2e40f3995a583b2c097ab703efd4d (genesis)
 to:      aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
-amount:  100  fee: 1000  type: TRANSFER  status: confirmed
+amount:  100  fee: 10  type: TRANSFER  status: confirmed
+```
+
+### Lease Tracker with Client IP
+
+```
+[INFO] [aitbc_chain.lease_tracker] Registered subscriber aitbc (ip=80.109.18.113) with transport=websocket, expiry=2026-06-22 13:00:57 UTC
+[INFO] [aitbc_chain.lease_tracker] Extended lease for aitbc (ip=80.109.18.113) to 2026-06-22 13:01:03 UTC
 ```
 
 ### Journal Logging
@@ -423,6 +506,8 @@ amount:  100  fee: 1000  type: TRANSFER  status: confirmed
 [INFO] [app.websocket.agent_stream] First-time coin request from test-new-node-001 — auto-transferring 100 AIT
 [INFO] [app.websocket.agent_stream] Signed transaction: 100 AIT to aitbc1c10f... (nonce=30)
 [INFO] [app.websocket.agent_stream] Recorded coin request in hermes DB for test-new-node-001
+[INFO] [app.websocket.agent_stream] Coin request from follower: already received initial coins — requires approval
+[INFO] [app.websocket.agent_stream] Recorded pending coin request req-follower-1782117540 for follower
 ```
 
 ### Service Status
@@ -457,15 +542,17 @@ All 19 active services running with proper structured logging:
 | `apps/agent-coordinator/scripts/agent_daemon.py` | Add legacy notice in docstring |
 | `apps/agent-coordinator/scripts/hermes_rest_polling_daemon.py` | **Deleted** (dead code) |
 | `apps/agent-coordinator/src/app/main.py` | Add `configure_logging()`, wire up `RedisStateManager._init()` |
-| `apps/agent-coordinator/src/app/websocket/agent_stream.py` | Rewrite `request_coins_handler` with auto-transfer, fix fee to 10 |
+| `apps/agent-coordinator/src/app/websocket/agent_stream.py` | Rewrite `request_coins_handler` with auto-transfer, fix fee to 10, add `_record_pending_coin_request()`, uppercase status |
 | `apps/agent-management/.../plugin_service/main.py` | Add `configure_logging()` |
 | `apps/blockchain-event-bridge/.../main.py` | Add `configure_logging()` |
 | `apps/blockchain-explorer/aitbc-blockchain-explorer.service` | Add `PYTHONPATH` |
 | `apps/blockchain-explorer/main.py` | Add `configure_logging()`, add amount/fee/nonce to 5 block queries, remove latest blocks section |
 | `apps/blockchain-node/src/aitbc_chain/gossip/relay.py` | Add `configure_logging()` |
-| `apps/blockchain-node/src/aitbc_chain/lease_tracker.py` | Add `_fmt_expiry()`, `client_ip` tracking |
+| `apps/blockchain-node/src/aitbc_chain/lease_tracker.py` | Add `_fmt_expiry()`, `client_ip` tracking, `SubscriberInfo.client_ip` |
 | `apps/blockchain-node/src/aitbc_chain/subscription_client.py` | Fix heartbeat frequency (remove unnecessary `else` branch) |
 | `apps/blockchain-node/src/aitbc_chain/sync_cli.py` | Add `configure_logging()` |
+| `apps/blockchain-node/src/aitbc_chain/rpc/router.py` | Inject `Request` object for client IP extraction in subscribe/heartbeat |
+| `apps/blockchain-node/src/aitbc_chain/rpc/subscription.py` | Pass `client_ip` to lease tracker, include in subscribers response |
 | `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py` | Fix `get_chain_id("")` → `get_chain_id(None)` |
 | `apps/bridge-monitor/aitbc-bridge-monitor.service` | Direct execution, add `PYTHONPATH` |
 | `apps/bridge-monitor/.../main.py` | Add `configure_logging()` |
@@ -482,14 +569,15 @@ All 19 active services running with proper structured logging:
 | `apps/hermes/src/hermes_service/handlers/request_coins_handler.py` | `await send_response()`, wrap notification content, uppercase status |
 | `apps/hermes/src/hermes_service/services/transaction_service.py` | Fix default fee 1000 → 10 |
 | `apps/whisper/main.py` | Add `configure_logging()` |
+| `cli/aitbc_cli/commands/coin_requests.py` | `node.env` override=True, wrap notification content, `encrypt=False` |
 | `cli/aitbc_cli/commands/hermes.py` | New `ping` + `request-coins` subcommands (WebSocket-based) |
 | `cli/aitbc_cli/commands/wallet/__init__.py` | `AITBC_DEFAULT_WALLET` env var support |
 | `cli/aitbc_cli/core/main.py` | Catch `UsageError`, register `request-coins` |
 | `cli/aitbc_cli/utils/http_client.py` | Enable `follow_redirects=True` |
 | `cli/requirements-cli.txt` | Add `websockets>=14.1.0` |
-| `docs/getting-started/SETUP.md` | Add "Updating an Existing Node" + "Re-running setup" sections |
+| `docs/getting-started/SETUP.md` | Add "Updating an Existing Node" section, document two-axis role model, update profile table (8 composed profiles) |
 | `docs/getting-started/UPDATE.md` | **New** — comprehensive update guide (360 lines) |
-| `docs/getting-started/free-ait.md` | Update with `request_id`, `AITBC_DEFAULT_WALLET`, accurate examples |
+| `docs/getting-started/free-ait.md` | Full rewrite — WebSocket-based flow, `request_id`, accurate examples (490 → 337 lines) |
 | `docs/getting-started/node/hermes-messaging.md` | Full rewrite (WebSocket ping/pong) |
 | `docs/hermes/HERMES_LISTENER_SOLUTION.md` | Full rewrite (WebSocket solution) |
 | `docs/hermes/guides/agent-messaging.md` | Full rewrite (remove merge conflicts, wrong ports, dead endpoints) |
@@ -504,8 +592,9 @@ All 19 active services running with proper structured logging:
 | `examples/nginx/nginx-shop-proxy.conf.example` | **New** — shop host proxy (SSL) |
 | `examples/nginx/nginx-customer.conf.example` | **New** — customer container config |
 | `examples/nginx/nginx-customer-proxy.conf.example` | **New** — customer host proxy (SSL) |
+| `examples/node.env.open-island` | Remove `provider` from `MARKET_ROLE` comment (only `customer` and `shop`) |
 | `scripts/aitbc-cli` | Use `python -m` invocation |
-| `scripts/deployment/setup.sh` | Forward to `update.sh` on installed nodes, add `--force`, add nginx hints |
+| `scripts/deployment/setup.sh` | Forward to `update.sh` on installed nodes, add `--force`, add nginx hints, two-axis profile detection |
 | `scripts/deployment/update.sh` | **New** — safe update script (backup, pull, sync, relink, restart, health check) |
 | `scripts/generate_wrappers.py` | **Deleted** |
 | `scripts/monitoring/aitbc-monitoring.service` | Direct execution, add env vars |
@@ -513,6 +602,13 @@ All 19 active services running with proper structured logging:
 | `scripts/services/marketplace-wrapper.py` | **Deleted** |
 | `scripts/systemd/aitbc-marketplace.service` | Direct execution, fix DB path |
 | `scripts/utils/aitbc-plugin.service` | Direct execution, add env vars |
+| `scripts/utils/link-systemd.sh` | Rewrite `get_node_role()` and `get_allowed_services()` for two-axis composition |
 | `tests/cli/test_commands_hermes.py` | Tests for WebSocket ping + request-coins commands |
 | `tests/handlers/test_network.py` | **Deleted** (broken import) |
 | `website/block.html` | Add Amount, Fee, Nonce to transaction display |
+| `website/blocks.html` | **New** — dedicated Latest Blocks page with Skip Empty toggle, Load More, Export |
+| `website/blocks.js` | **New** — block loading, pagination, export logic for blocks.html |
+| `website/explorer.html` | Remove Latest Blocks section, add link to blocks.html, remove LIVE indicator, standardize nav button CSS |
+| `website/explorer.js` | Remove block-loading code + export, fix live feed 422 (use blocks API instead of search), reduce refresh to 60s |
+| `website/marketplace.html` | Remove self-referencing Marketplace nav link |
+| `website/style.css` | Update `.header-nav a` to button styling, add `a.btn-secondary` rule |
