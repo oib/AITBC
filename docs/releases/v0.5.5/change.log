@@ -183,6 +183,70 @@ Also fixed `UsageError` traceback in `cli/core/main.py` when required options ar
 - `docs/hermes/HERMES_LISTENER_SOLUTION.md` — full rewrite
 - `docs/getting-started/node/hermes-messaging.md` — full rewrite
 
+### 12. REQUEST_COINS Auto-Transfer for First-Time Nodes
+
+**Problem:** The `request_coins_handler` in the Agent Coordinator only returned `pending_approval` — it never actually transferred coins. Followers requesting coins via WebSocket got an acknowledgment but no on-chain transaction. The existing approval flow (manual/automatic/AI) lives in the Hermes service and requires CLI commands (`aitbc coin-requests approve` + `execute`) to complete.
+
+**Fix:** Implemented automatic coin transfer directly in the `request_coins_handler`:
+- **First request from a node**: auto-transfers 100 AIT from the genesis wallet, no approval needed. Signs an Ed25519 transaction, submits it to `/rpc/transaction`, records it in the hermes SQLite DB, and sends a `COINS_TRANSFERRED` message back to the agent over WebSocket.
+- **Subsequent requests**: returns `pending_approval` with a message explaining that initial coins were already granted and further requests require manual approval.
+
+The "first request" check queries the hermes `coin_requests` DB for any prior approved request with a transaction hash from that sender.
+
+**WebSocket frame for requesting coins:**
+```json
+{
+    "type": "message",
+    "payload": {
+        "content": "REQUEST_COINS {\"amount\": 100, \"wallet_address\": \"ait1abc...\"}",
+        "recipient_id": "hub-coordinator"
+    }
+}
+```
+
+**Response for first-time node:**
+```json
+{
+    "type": "COINS_TRANSFERRED",
+    "amount": 100,
+    "wallet_address": "ait1abc...",
+    "transaction_hash": "0x4c77...",
+    "status": "completed"
+}
+```
+
+**Files changed:**
+- `apps/agent-coordinator/src/app/websocket/agent_stream.py` — rewrite `request_coins_handler` with auto-transfer logic, add helper functions (`_has_received_initial_coins`, `_generate_signed_transaction`, `_submit_transaction`, `_record_coin_request`)
+
+### 13. Blockchain RPC: `get_chain_id("")` Bug
+
+**Problem:** `submit_transaction()` in the blockchain RPC called `get_chain_id("")` which returned `""` (empty string) instead of the default chain ID. The `get_chain_id()` function only falls back to `settings.chain_id` when the argument is `None`, not when it's an empty string. This caused every transaction submission to fail with `transaction.chain_id is required`.
+
+**Fix:** Changed `get_chain_id("")` to `get_chain_id(None)`.
+
+**Files changed:**
+- `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py` — `get_chain_id("")` → `get_chain_id(None)`
+
+### 14. Transaction Fee Default: 1000 → 10
+
+**Problem:** `TransactionService.generate_signed_transaction()` had a default fee of `1000`, which is 100x higher than the blockchain's actual default fee of `10`. All existing GPU_MARKETPLACE transactions on chain use fee=10. The auto-transfer handler inherited this bad default.
+
+**Fix:** Changed the default fee from 1000 to 10 in both `TransactionService` and the `TRANSACTION_FEE` constant in `agent_stream.py`.
+
+**Files changed:**
+- `apps/hermes/src/hermes_service/services/transaction_service.py` — `fee=1000` → `fee=10`
+- `apps/agent-coordinator/src/app/websocket/agent_stream.py` — `TRANSACTION_FEE = 1000` → `TRANSACTION_FEE = 10`
+
+### 15. Block Explorer: Show Amount/Fee/Nonce in Transactions
+
+**Problem:** The block explorer's block API (`/api/blocks/{height}`) only returned `tx_hash`, `sender`, `recipient`, `payload`, `type`, `status`, and `created_at` for transactions — no `amount`, `fee`, or `nonce`. The `block.html` page accordingly showed no amount or fee. Users had to click through to individual transaction pages to see the transfer value.
+
+**Fix:** Updated all 5 block query functions in the explorer to also SELECT `value`, `fee`, and `nonce` from the transaction table and include them as `amount`, `fee`, and `nonce` in the API response. Updated `block.html` to display Amount (in AIT), Fee, and Nonce in the transaction list.
+
+**Files changed:**
+- `apps/blockchain-explorer/main.py` — add `value, fee, nonce` to 5 block query SQL statements and response dicts
+- `website/block.html` — add Amount, Fee, Nonce rows to transaction display
+
 ---
 
 ## Verification
@@ -198,6 +262,30 @@ PONG received from hub-coordinator
   timestamp: 2026-06-22T09:49:00.167435+00:00
 ```
 
+### REQUEST_COINS Auto-Transfer
+
+First-time node:
+```
+Connecting as test-new-node-001...
+Sent REQUEST_COINS
+✅ COINS_TRANSFERRED: 100 AIT to aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
+   tx_hash: 0x4c77148c81a77736d9379fbf020dce58a3d13850df433cd9545c61d116d52987
+```
+
+Same node requesting again:
+```
+⏳ pending_approval: Initial coins already granted. Further requests require manual approval.
+   amount: 500, wallet: aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
+```
+
+On-chain verification (block 32475):
+```
+tx_hash: 0x4c77148c81a77736d9379fbf020dce58a3d13850df433cd9545c61d116d52987
+from:    ait1db5247d03ca2e40f3995a583b2c097ab703efd4d (genesis)
+to:      aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f
+amount:  100  fee: 1000  type: TRANSFER  status: confirmed
+```
+
 ### Journal Logging
 
 ```
@@ -206,6 +294,9 @@ PONG received from hub-coordinator
 [INFO] [app.websocket.agent_stream] Agent follower connected via WebSocket
 [INFO] [app.websocket.agent_stream] PING received from follower, triggering PONG
 [INFO] [app.websocket.agent_stream] Agent follower disconnected from WebSocket
+[INFO] [app.websocket.agent_stream] First-time coin request from test-new-node-001 — auto-transferring 100 AIT
+[INFO] [app.websocket.agent_stream] Signed transaction: 100 AIT to aitbc1c10f... (nonce=30)
+[INFO] [app.websocket.agent_stream] Recorded coin request in hermes DB for test-new-node-001
 ```
 
 ### Service Status
@@ -232,7 +323,7 @@ All 19 active services running with proper structured logging:
 | aitbc-monitoring | ✅ active |
 | aitbc-wallet | ✅ active |
 
-## Files Changed (38)
+## Files Changed (44)
 
 | File | Change |
 |------|--------|
@@ -240,12 +331,14 @@ All 19 active services running with proper structured logging:
 | `apps/agent-coordinator/scripts/agent_daemon.py` | Add legacy notice in docstring |
 | `apps/agent-coordinator/scripts/hermes_rest_polling_daemon.py` | **Deleted** (dead code) |
 | `apps/agent-coordinator/src/app/main.py` | Add `configure_logging()`, wire up `RedisStateManager._init()` |
+| `apps/agent-coordinator/src/app/websocket/agent_stream.py` | Rewrite `request_coins_handler` with auto-transfer, fix fee to 10 |
 | `apps/agent-management/.../plugin_service/main.py` | Add `configure_logging()` |
 | `apps/blockchain-event-bridge/.../main.py` | Add `configure_logging()` |
 | `apps/blockchain-explorer/aitbc-blockchain-explorer.service` | Add `PYTHONPATH` |
-| `apps/blockchain-explorer/main.py` | Add `configure_logging()` |
-| `apps/blockchain-node/.../gossip/relay.py` | Add `configure_logging()` |
-| `apps/blockchain-node/.../sync_cli.py` | Add `configure_logging()` |
+| `apps/blockchain-explorer/main.py` | Add `configure_logging()`, add amount/fee/nonce to 5 block queries |
+| `apps/blockchain-node/src/aitbc_chain/gossip/relay.py` | Add `configure_logging()` |
+| `apps/blockchain-node/src/aitbc_chain/sync_cli.py` | Add `configure_logging()` |
+| `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py` | Fix `get_chain_id("")` → `get_chain_id(None)` |
 | `apps/bridge-monitor/aitbc-bridge-monitor.service` | Direct execution, add `PYTHONPATH` |
 | `apps/bridge-monitor/.../main.py` | Add `configure_logging()` |
 | `apps/coordinator-api/.../adaptive_learning_app.py` | Add `configure_logging()` |
@@ -259,6 +352,7 @@ All 19 active services running with proper structured logging:
 | `apps/hermes/src/hermes_service/handlers/base_handler.py` | Async `send_response()` with `httpx.AsyncClient` |
 | `apps/hermes/src/hermes_service/handlers/ping_handler.py` | **Deleted** (dead code) |
 | `apps/hermes/src/hermes_service/handlers/request_coins_handler.py` | `await send_response()` |
+| `apps/hermes/src/hermes_service/services/transaction_service.py` | Fix default fee 1000 → 10 |
 | `apps/whisper/main.py` | Add `configure_logging()` |
 | `cli/aitbc_cli/commands/hermes.py` | New `ping` subcommand (WebSocket-based) |
 | `cli/aitbc_cli/core/main.py` | Catch `UsageError`, print friendly message |
@@ -277,3 +371,4 @@ All 19 active services running with proper structured logging:
 | `scripts/utils/aitbc-plugin.service` | Direct execution, add env vars |
 | `tests/cli/test_commands_hermes.py` | 6 tests for WebSocket ping command |
 | `tests/handlers/test_network.py` | **Deleted** (broken import) |
+| `website/block.html` | Add Amount, Fee, Nonce to transaction display |

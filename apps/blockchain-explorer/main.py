@@ -224,20 +224,23 @@ async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any
                 
                 # Get transactions for this block
                 cursor.execute("""
-                    SELECT tx_hash, sender, recipient, payload, type, status, created_at
-                    FROM "transaction" 
+                    SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
+                    FROM "transaction"
                     WHERE block_height = ?
                     ORDER BY created_at
                 """, (height,))
-                
+
                 transactions = []
                 for row in cursor.fetchall():
-                    tx_hash, sender, recipient, payload, tx_type, status, created_at = row
+                    tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = row
                     transactions.append({
                         "tx_hash": tx_hash,
                         "sender": sender,
                         "recipient": recipient,
                         "payload": payload,
+                        "amount": value,
+                        "fee": fee,
+                        "nonce": nonce,
                         "type": tx_type,
                         "status": status,
                         "created_at": created_at,
@@ -593,7 +596,7 @@ async def api_non_empty_blocks(
 
             # Get transactions for this block
             cursor.execute("""
-                SELECT tx_hash, sender, recipient, payload, type, status, created_at
+                SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
                 FROM "transaction"
                 WHERE block_height = ?
                 ORDER BY created_at
@@ -601,12 +604,15 @@ async def api_non_empty_blocks(
 
             transactions = []
             for tx_row in cursor.fetchall():
-                tx_hash, sender, recipient, payload, tx_type, status, created_at = tx_row
+                tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row
                 transactions.append({
                     "tx_hash": tx_hash,
                     "sender": sender,
                     "recipient": recipient,
                     "payload": payload,
+                    "amount": value,
+                    "fee": fee,
+                    "nonce": nonce,
                     "type": tx_type,
                     "status": status,
                     "created_at": created_at,
@@ -663,20 +669,23 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
                 
                 # Get transactions for this block
                 cursor.execute("""
-                    SELECT tx_hash, sender, recipient, payload, type, status, created_at
-                    FROM "transaction" 
+                    SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
+                    FROM "transaction"
                     WHERE block_height = ?
                     ORDER BY created_at
                 """, (height,))
-                
+
                 transactions = []
                 for row in cursor.fetchall():
-                    tx_hash, sender, recipient, payload, tx_type, status, created_at = row
+                    tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = row
                     transactions.append({
                         "tx_hash": tx_hash,
                         "sender": sender,
                         "recipient": recipient,
                         "payload": payload,
+                        "amount": value,
+                        "fee": fee,
+                        "nonce": nonce,
                         "type": tx_type,
                         "status": status,
                         "created_at": created_at,
@@ -912,20 +921,23 @@ async def api_block(height: int, chain_id: str | None = DEFAULT_CHAIN) -> dict[s
             
             # Get transactions for this block
             cursor.execute("""
-                SELECT tx_hash, sender, recipient, payload, type, status, created_at
-                FROM "transaction" 
+                SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
+                FROM "transaction"
                 WHERE block_height = ?
                 ORDER BY created_at
             """, (height,))
-            
+
             transactions = []
             for row in cursor.fetchall():
-                tx_hash, sender, recipient, payload, tx_type, status, created_at = row
+                tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = row
                 transactions.append({
                     "tx_hash": tx_hash,
                     "sender": sender,
                     "recipient": recipient,
                     "payload": payload,
+                    "amount": value,
+                    "fee": fee,
+                    "nonce": nonce,
                     "type": tx_type,
                     "status": status,
                     "created_at": created_at,
@@ -1256,20 +1268,23 @@ async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN, offs
                 
                 # Get transactions for this block
                 cursor.execute("""
-                    SELECT tx_hash, sender, recipient, payload, type, status, created_at
-                    FROM "transaction" 
+                    SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
+                    FROM "transaction"
                     WHERE block_height = ?
                     ORDER BY created_at
                 """, (height,))
-                
+
                 transactions = []
                 for tx_row in cursor.fetchall():
-                    tx_hash, sender, recipient, payload, tx_type, status, created_at = tx_row
+                    tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row
                     transactions.append({
                         "tx_hash": tx_hash,
                         "sender": sender,
                         "recipient": recipient,
                         "payload": payload,
+                        "amount": value,
+                        "fee": fee,
+                        "nonce": nonce,
                         "type": tx_type,
                         "status": status,
                         "created_at": created_at,
