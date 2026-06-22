@@ -3,11 +3,19 @@
 #
 # Use this on: BLOCKCHAIN_MODE=follower, MARKET_ROLE=customer nodes
 # Exposes: Blockchain explorer (for local users to view chain state)
-# Does NOT expose: agent registry, API gateway, agent coordinator, blockchain RPC,
-#                  GPU services (those are hub or shop services)
 #
-# Followers sync from the hub via /rpc/subscribe (outbound), they don't serve
-# public blockchain RPC. The explorer is the only inbound service.
+# NOT exposed (and why):
+#   /api/        — API Gateway (port 8201) is hub-only
+#   /agent/      — Agent Coordinator (port 8107) is hub-only
+#   /v1/         — Agent Registry (port 8204) is hub-only
+#   /rpc/        — Blockchain RPC (port 8202) is for local use only;
+#                  followers sync FROM the hub via outbound /rpc/subscribe,
+#                  they don't serve public blockchain RPC
+#   /c/          — Coordinator API (port 8203) is hub-only
+#   /ollama/ etc — GPU services are shop-only
+#
+# nginx is for EXTERNAL traffic only. The follower's blockchain-rpc and
+# wallet service are used locally by the node itself and the explorer.
 #
 # Production: /etc/nginx/sites-available/aitbc
 # Architecture: Host (nginx-host-reverse-proxy) → Container (this config) → Services
