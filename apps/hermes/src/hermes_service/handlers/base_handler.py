@@ -24,22 +24,22 @@ class BaseHandler(ABC):
         """Process the message and return a response."""
         pass
 
-    def send_response(self, recipient: str, content: str, message_type: str = "direct") -> dict[str, Any]:
-        """Send a response message via the Coordinator API."""
-        import requests
+    async def send_response(self, recipient: str, content: str, message_type: str = "direct") -> dict[str, Any]:
+        """Send a response message via the Agent Coordinator API (async)."""
+        import httpx
 
         try:
-            response = requests.post(
-                f"{self.coordinator_url}/api/v1/agent/messages/send",
-                json={
-                    "sender": self.agent_id,
-                    "recipient": recipient,
-                    "content": {"text": content},
-                    "message_type": message_type,
-                    "encrypt": False,
-                },
-                timeout=10,
-            )
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(
+                    f"{self.coordinator_url}/api/v1/agent/messages/send",
+                    json={
+                        "sender": self.agent_id,
+                        "recipient": recipient,
+                        "content": {"text": content},
+                        "message_type": message_type,
+                        "encrypt": False,
+                    },
+                )
             if response.status_code == 200:
                 self.logger.info("Response sent successfully to %s", recipient)
                 return {"status": "success", "response": response.json()}

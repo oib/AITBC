@@ -122,7 +122,7 @@ class RequestCoinsHandler(BaseHandler):
             response_content = (
                 f"Coin request received: {amount} AIT to {wallet_address}. Status: {approval_decision['reason']}"
             )
-        response = self.send_response(recipient=sender, content=response_content)
+        response = await self.send_response(recipient=sender, content=response_content)
         if response.get("status") == "success":
             return {
                 "status": "coin_request_processed",
