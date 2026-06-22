@@ -1,0 +1,161 @@
+# v0.5.6 Release Plan
+
+**Theme**: Compute-backed AIT value model + ETH bridge rebuild — replace speculative USD pricing with a real-world compute reference (€0.25/compute hour), rebuild the exchange webpage around the compute value proposition, and fix the ETH→AIT bridge to actually transfer AIT on deposit.
+
+**Goal**: Visitors immediately understand that AIT is backed by useful compute, not speculation. The ETH bridge is a prominent, functional exchange — send ETH, receive AIT automatically. Pricing derives from a €0.25 EUR reference using live ETH oracle rates, not an arbitrary $0.01 fixed value.
+
+---
+
+## Completed Changes
+
+### 1. Exchange Page: Compute Value Model Rebuild
+
+**Problem:** The exchange page was a speculative ETH-AIT price tracker with live USD/EUR price cards, an ETH bridge calculator buried at the bottom, and a "Get Free AIT" card referencing dead CLI commands ("ask for coins"). It gave no explanation of what AIT actually represents or why it has value.
+
+**Fix:** Full rebuild of `exchange.html` around the compute value model:
+
+- **Value hero** — "1 AIT represents AI inference compute contributed by the network"
+- **AIT value card** — large centered display: `1 AIT ≈ 1 Compute Hour ≈ €0.25 ≈ 0.000164 ETH` (ETH equivalent calculated live from oracle)
+- **Buy AIT with ETH** — prominent bridge form (2nd card, not buried at bottom): ETH amount + AIT address → "Calculate AIT" → shows estimated AIT, fee breakdown (0.5% bridge fee), deposit address with copy-to-clipboard, step-by-step instructions
+- **Early Adopter Program** — 100 AIT free, ≈€25 reference value, link to free-ait.md
+- **Philosophy** — electricity cost, hardware depreciation, inference throughput, community contribution
+- **Reference Hardware + Performance** — RTX 4060 Ti 16GB, Ryzen 5950X, 64GB RAM; 60 tokens/sec, 216,000 tokens/hour; operating cost breakdown (€0.08 electricity + €0.14 hardware wear = €0.22/hour)
+- **Multi-GPU Scaling** — RTX 3060 (0.7×) through H100 (10×) multiplier table
+- **Transaction Fees** — 0.01 AIT fixed for wallet transfers, 0.5% for AI compute marketplace, 50/50 burn/treasury split
+- **Why not peg to ETH?** — ETH (volatile), USD (not energy-based), EUR (matches electricity costs)
+- **Long-Term Vision** — "Compute becomes currency"
+
+**Removed:**
+- USD/EUR live price cards with speculative ETH price fetching
+- "Exchange Rate: 1 ETH = X AIT" (AIT no longer pegged to ETH)
+- "Get Free AIT" card with dead "ask for coins" instructions
+- Quick Actions card
+
+**Files changed:**
+- `website/exchange.html` — full rewrite (160 → 232 lines)
+- `website/exchange.js` — rewrite: fetch prices for hero card, simplify bridge deposit calculation
+- `website/style.css` — add 249 lines of exchange page CSS (value cards, bridge form, fee cards, peg cards, early bird banner, price grid, deposit address box)
+
+### 2. EUR-Based AIT Pricing Oracle
+
+**Problem:** AIT was priced at a fixed $0.01 USD (`AIT_USD_FIXED_PRICE=0.01`), an arbitrary value with no connection to the compute value model. The exchange API derived AIT/EUR from this flat USD price, giving €0.0087 — far below the €0.25 reference value the compute model specifies.
+
+**Fix:** Added `AIT_EUR_FIXED_PRICE` support to `PriceOracle`:
+
+- When `AIT_EUR_FIXED_PRICE` is set (preferred mode), the oracle:
+  - Returns the EUR price directly for `AIT/EUR` queries
+  - Derives `AIT/USD` as `ait_eur * eth_usd / eth_eur` (using live CoinGecko prices)
+  - Derives `AIT/ETH` as `ait_eur / eth_eur`
+- Falls back to legacy `AIT_USD_FIXED_PRICE` if `AIT_EUR_FIXED_PRICE` is not set
+- Source metadata tracks derivation chain (`fixed_eur`, `derived`)
+
+**Config change:**
+- `blockchain.env`: replaced `AIT_USD_FIXED_PRICE=0.01` with `AIT_EUR_FIXED_PRICE=0.25`
+- `exchange.env`: removed `AIT_USD_PRICE=1.0`, added comment pointing to `blockchain.env`
+
+**Result with ETH at €1,525:**
+| Pair | Price | Source |
+|------|-------|--------|
+| AIT/EUR | €0.25 | fixed (compute reference) |
+| AIT/USD | $0.286 | derived from ETH/USD + ETH/EUR |
+| AIT/ETH | 0.000164 ETH | derived from ETH/EUR |
+| 1 ETH | ≈ 6,065 AIT | derived |
+
+**Files changed:**
+- `aitbc/oracles/price_oracle.py` — add `AIT_EUR_FIXED_PRICE` mode with USD/ETH derivation
+- `apps/exchange/simple_exchange_api.py` — `handle_exchange_history` fetches AIT/EUR directly from oracle; `handle_exchange_price_json` returns both `price_usd` and `price_eur`
+- `/etc/aitbc/blockchain.env` — `AIT_EUR_FIXED_PRICE=0.25` (replaces `AIT_USD_FIXED_PRICE=0.01`)
+- `/etc/aitbc/exchange.env` — remove stale `AIT_USD_PRICE`
+
+### 3. ETH Bridge: Fix AIT Transfer on Deposit
+
+**Problem:** The bridge monitor's `submit_ait_transfer()` was completely broken — it posted to `/rpc/transactions/marketplace` (wrong endpoint) with `value`, `gas_limit`, `gas_price` fields (Ethereum-style, not AITBC), and no transaction signature. No ETH deposit had ever successfully resulted in an AIT transfer.
+
+**Fix:** Rewrote `submit_ait_transfer()` to match the working pattern from `agent_stream.py`:
+
+- Signs transaction with Ed25519 using `GENESIS_WALLET_PRIVATE_KEY` (strips `0x` prefix if present)
+- Posts to `/rpc/transaction` (correct endpoint for signed transactions)
+- Uses AITBC fields: `amount` (int, not `value` string), `fee: 10`, `nonce` (fetched from `/rpc/account/`), `type: TRANSFER`, `signature`
+- Reads `transaction_hash` from response (was reading non-existent `tx_hash`)
+
+**Test result (simulated deposit):**
+```
+0.001 ETH → 6.07 AIT transferred
+AIT tx hash: 0x8acc6e0860f9c0251069684dbbc8d2338a341e7f06b1d88a775e5c6630dc4b06
+status: completed
+Block 32928: 1 tx (TRANSFER, 6 AIT, confirmed)
+```
+
+**Files changed:**
+- `apps/bridge-monitor/src/bridge_monitor/main.py` — rewrite `submit_ait_transfer()`: Ed25519 signing, correct endpoint, correct fields
+
+### 4. Exchange Page: Hero Card ETH Equivalent Fix
+
+**Problem:** The hero card showed `≈ ... ETH` (never calculated) because `updatePrices()` returned early when the `live-prices` element didn't exist in the rebuilt HTML — the hero ETH update was after the early return.
+
+**Fix:** Moved the hero card ETH update above the `live-prices` section check, so it always runs regardless of whether the live-prices section is present.
+
+**Files changed:**
+- `website/exchange.js` — move `hero-eth-equivalent` update before `live-prices` early return
+
+---
+
+## Verification
+
+### Price API
+
+```
+$ curl /v1/exchange/history | jq .current
+{
+  "eth_usd": 1732.38,
+  "ait_usd": 0.2856,
+  "eth_eur": 1516.21,
+  "ait_eur": 0.25,
+  "eth_ait_rate_usd": 6064.84
+}
+
+$ curl /exchange/price.json | jq .
+{
+  "price_usd": 0.2856,
+  "price_eur": 0.25,
+  "source": "derived"
+}
+```
+
+### Bridge Deposit Estimate
+
+```
+$ curl -X POST /v1/bridge/deposit -d '{"eth_amount": 0.001, "ait_address": "aitbc1test"}'
+{
+  "status": "ready",
+  "estimate": {
+    "eth_amount": 0.001,
+    "fee_eth": 0.000005,
+    "net_eth": 0.000995,
+    "estimated_ait_amount": 6.06,
+    "ait_usd_price": 0.2856
+  }
+}
+```
+
+### Bridge Flow (Simulated)
+
+```
+0.001 ETH → 6.07 AIT
+AIT tx: 0x8acc6e08...  confirmed in block 32928
+Genesis wallet nonce: 34 → 35
+Deposit DB status: completed
+```
+
+---
+
+## Files Changed
+
+| File | Change |
+|------|--------|
+| `aitbc/oracles/price_oracle.py` | Add `AIT_EUR_FIXED_PRICE` mode — derives USD/ETH from live ETH oracle prices |
+| `apps/bridge-monitor/src/bridge_monitor/main.py` | Rewrite `submit_ait_transfer()` — Ed25519 signing, correct RPC endpoint, correct fields |
+| `apps/exchange/simple_exchange_api.py` | Fetch AIT/EUR directly from oracle; return both USD and EUR in price.json |
+| `website/exchange.html` | Full rewrite — compute value model, prominent ETH bridge, philosophy, hardware, fees, vision |
+| `website/exchange.js` | Rewrite — fetch prices for hero card, bridge deposit calculation, fix hero ETH early return bug |
+| `website/style.css` | Add 249 lines — value cards, bridge form, fee cards, peg cards, early bird, price grid, deposit address |
