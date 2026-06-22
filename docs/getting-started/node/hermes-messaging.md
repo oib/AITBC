@@ -1,69 +1,44 @@
 # Hermes Messaging Setup
 
-This guide covers setting up PING/PONG messaging via the Hermes polling daemon.
+This guide covers setting up PING/PONG messaging via the Agent Coordinator WebSocket service.
 
-## Configure Hermes Polling Daemon
+## Prerequisites
 
-Create `/etc/aitbc/node.env`:
-
-```bash
-NODE_ID=<your-node-id>
-ISLAND_ID=<your-island-id>
-CHAIN_ID=ait-hub.aitbc.bubuit.net
-NODE_ROLE=follower
-
-# Hermes Configuration
-HERMES_COORDINATOR_URL=http://localhost:8203
-HERMES_AGENT_ID=<your-agent-id>
-```
-
-## Start Hermes Polling Daemon
-
-```bash
-# Create systemd service
-cat > /etc/systemd/system/aitbc-agent-daemon.service << 'EOF'
-[Unit]
-Description=AITBC Agent Daemon
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/opt/aitbc
-EnvironmentFile=/etc/aitbc/node.env
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-daemon/aitbc-agent-daemon-wrapper.py
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Enable and start
-systemctl daemon-reload
-systemctl enable aitbc-agent-daemon.service
-systemctl start aitbc-agent-daemon.service
-```
+- Agent Coordinator running on the hub (port 8107)
+- Nginx `/agent/` location configured with WebSocket upgrade headers (see `examples/nginx/nginx-aitbc.conf`)
 
 ## Test PING/PONG
 
-The polling daemon automatically handles PING messages and responds with PONG. No manual configuration needed.
+From a follower node, use the CLI to ping the hub:
+
+```bash
+aitbc hermes ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+```
+
+Expected output:
+```
+Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
+PING sent to hub-coordinator
+PONG received from hub-coordinator
+  content: PONG from hub-coordinator
+  timestamp: 2026-06-22T...
+```
+
+No daemon, polling, or registration required — the Agent Coordinator's built-in `ping_handler` responds automatically over WebSocket.
 
 ## Verify Operation
 
 ```bash
-# Check service status
-systemctl status aitbc-agent-daemon
+# Check Agent Coordinator is running on the hub
+curl http://hub.aitbc.bubuit.net/agent/health
 
-# Check logs
-journalctl -u aitbc-agent-daemon -f
-
-# Verify coordinator connectivity
-curl -s http://localhost:8203/health
+# Check WebSocket status
+curl http://hub.aitbc.bubuit.net/agent/api/v1/agent/ws/status
 ```
 
 ## See Also
 
+- [Agent Messaging Guide](../../hermes/guides/agent-messaging.md)
 - [Blockchain Setup](blockchain-setup.md)
 - [Coin Requests](coin-requests.md)
 - [Troubleshooting](../reference/troubleshooting.md)

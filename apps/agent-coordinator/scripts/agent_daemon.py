@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 """
-AITBC Autonomous Agent Listener Daemon
+AITBC Autonomous Agent Listener Daemon (Legacy)
 Listens for blockchain transactions addressed to an agent wallet and autonomously replies.
+
+LEGACY: This daemon uses blockchain transactions for ping/pong communication.
+For real-time agent messaging, use the Agent Coordinator WebSocket service
+(port 8107) instead, which has a built-in ping_handler that responds with
+PONG over WebSocket without blockchain transaction overhead.
+
+See: apps/agent-coordinator/src/app/websocket/agent_stream.py
+     aitbc hermes ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 """
 
 import argparse
@@ -126,7 +134,9 @@ def main():
     parser.add_argument("--poll-interval", type=int, default=DEFAULT_POLL_INTERVAL, help="Poll interval in seconds")
     parser.add_argument("--reply-message", default="pong", help="Message to send as reply")
     parser.add_argument("--trigger-message", default="ping", help="Message that triggers reply")
-    parser.add_argument("--chain-id", default=os.getenv("CHAIN_ID", ""), help="Chain ID for transactions (default: from CHAIN_ID env var)")
+    parser.add_argument(
+        "--chain-id", default=os.getenv("CHAIN_ID", ""), help="Chain ID for transactions (default: from CHAIN_ID env var)"
+    )
 
     args = parser.parse_args()
 
