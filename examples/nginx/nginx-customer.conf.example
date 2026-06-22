@@ -1,28 +1,58 @@
-# AITBC Nginx Configuration — CUSTOMER Node
-# Minimal nginx: health check only, no public services
+# AITBC Nginx Configuration — CUSTOMER Node (follower + customer)
+# Minimal public config: blockchain explorer + health check
 #
 # Use this on: MARKET_ROLE=customer nodes (GPU consumer)
-# Exposes: Nothing public — customer nodes interact with the hub via CLI
+# Exposes: Blockchain explorer, health check
 #
-# Customer nodes run the base blockchain stack (node, RPC, wallet) for local
-# use but don't expose any services to the internet. All marketplace and
-# blockchain operations go through the hub's public API.
+# NOT exposed (and why):
+#   /api/        — API Gateway (port 8201) is hub-only
+#   /agent/      — Agent Coordinator (port 8107) is hub-only
+#   /v1/         — Agent Registry (port 8204) is hub-only
+#   /rpc/        — Blockchain RPC (port 8202) is for local use only;
+#                  followers sync FROM the hub via outbound /rpc/subscribe,
+#                  they don't serve public blockchain RPC
+#   /c/          — Coordinator API (port 8203) is hub-only
+#   /ollama/ etc — GPU services are shop-only
 #
-# If you don't need nginx at all on a customer node, you can skip this config
-# entirely. It's provided for nodes that want a basic health endpoint.
+# nginx is for EXTERNAL traffic only. The node's blockchain-rpc and
+# wallet service are used locally by the node itself and the explorer.
 #
-# Production: /etc/nginx/sites-available/aitbc (optional)
+# Production: /etc/nginx/sites-available/aitbc
+# Architecture: Host (nginx-host-reverse-proxy) → Container (this config) → Services
+
+# ── Upstreams ────────────────────────────────────────────────
+
+upstream blockchain_explorer {
+    server 127.0.0.1:8100;
+}
 
 server {
     listen 80;
     listen [::]:80;
 
+    # Get real client IP from proxy headers
+    set_real_ip_from CONTAINER_GATEWAY_IP;
+    real_ip_header X-Real-IP;
+    real_ip_recursive on;
     server_name YOUR_DOMAIN;
 
     # Security headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "no-referrer-when-downgrade" always;
+
+    # ── Blockchain Explorer API ────────────────────────────────
+
+    location /explorer-api/ {
+        proxy_pass http://blockchain_explorer/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
 
     # ── Health Check ────────────────────────────────────────────
 
