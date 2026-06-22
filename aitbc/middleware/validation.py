@@ -2,7 +2,7 @@
 Request validation middleware for FastAPI
 """
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 
 from fastapi import HTTPException, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -26,7 +26,7 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
         self.max_request_size = max_request_size
         self.max_response_size = max_response_size
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         # Validate request size
         content_length = request.headers.get("content-length")
         if content_length:
@@ -34,17 +34,17 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
                 size = int(content_length)
                 if size > self.max_request_size:
                     logger.warning(
-                        "Request too large",
-                        content_length=size,
-                        max_size=self.max_request_size,
-                        client=request.client.host if request.client else "unknown",
+                        "Request too large: content_length=%s max_size=%s client=%s",
+                        size,
+                        self.max_request_size,
+                        request.client.host if request.client else "unknown",
                     )
                     raise HTTPException(
                         status_code=413,
                         detail=f"Request too large. Maximum size is {self.max_request_size} bytes",
                     )
             except ValueError:
-                logger.warning("Invalid content-length header", content_length=content_length)
+                logger.warning("Invalid content-length header: %s", content_length)
 
         # Process request
         response = await call_next(request)
@@ -54,10 +54,10 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
             response_size = len(response.body)
             if response_size > self.max_response_size:
                 logger.warning(
-                    "Response too large",
-                    response_size=response_size,
-                    max_size=self.max_response_size,
-                    path=request.url.path,
+                    "Response too large: response_size=%s max_size=%s path=%s",
+                    response_size,
+                    self.max_response_size,
+                    request.url.path,
                 )
                 raise HTTPException(
                     status_code=500,

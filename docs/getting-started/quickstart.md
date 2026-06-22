@@ -32,7 +32,7 @@ EOF
 - **NODE_ID**: Your node's unique identifier (e.g., your domain name)
 - **NODE_ROLE**: Set to `follower` for follower nodes
 - **BLOCKCHAIN_MODE**: Set to `follower` to sync with the hub
-- **MARKET_ROLE**: 
+- **MARKET_ROLE**:
   - `customer` - Consume GPU resources
   - `shop` - Provide marketplace services
   - `provider` - Offer GPU compute capacity

@@ -156,9 +156,10 @@ class FeatureFlagManager:
         """
         if feature_name not in self._flags:
             self._flags[feature_name] = FeatureFlag(name=feature_name, enabled=False, description="", whitelisted_users=set())
-        if not self._flags[feature_name].whitelisted_users:
-            self._flags[feature_name].whitelisted_users = set()
-        self._flags[feature_name].whitelisted_users.add(user_id)
+        flag = self._flags[feature_name]
+        if not flag.whitelisted_users:
+            flag.whitelisted_users = set()
+        flag.whitelisted_users.add(user_id)
         logger.info("Added %s to whitelist for %s", user_id, feature_name)
         self.save_flags()
 
@@ -172,9 +173,10 @@ class FeatureFlagManager:
         """
         if feature_name not in self._flags:
             self._flags[feature_name] = FeatureFlag(name=feature_name, enabled=False, description="", blacklisted_users=set())
-        if not self._flags[feature_name].blacklisted_users:
-            self._flags[feature_name].blacklisted_users = set()
-        self._flags[feature_name].blacklisted_users.add(user_id)
+        flag = self._flags[feature_name]
+        if not flag.blacklisted_users:
+            flag.blacklisted_users = set()
+        flag.blacklisted_users.add(user_id)
         logger.info("Added %s to blacklist for %s", user_id, feature_name)
         self.save_flags()
 

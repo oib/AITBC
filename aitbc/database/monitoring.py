@@ -62,7 +62,7 @@ class QueryMonitor:
         self.slow_query_threshold_ms = slow_query_threshold_ms
         self.enable_logging = enable_logging
         self.metrics = DatabaseMetrics()
-        self.query_counts = defaultdict(int)
+        self.query_counts: defaultdict[str, int] = defaultdict(int)
 
     def record_query(
         self, query: str, execution_time_ms: float, success: bool = True, error_message: str | None = None, row_count: int = 0

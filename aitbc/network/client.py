@@ -4,7 +4,7 @@ HTTP client implementations for AITBC applications
 
 import asyncio
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 import requests
 
@@ -132,7 +132,7 @@ class AITBCHTTPClient:
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("GET %s succeeded in %ss", url, elapsed)
-            return result
+            return cast(dict[str, Any], result)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -187,7 +187,7 @@ class AITBCHTTPClient:
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("POST %s succeeded in %ss", url, elapsed)
-            return result
+            return cast(dict[str, Any], result)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -242,7 +242,7 @@ class AITBCHTTPClient:
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("PUT %s succeeded in %ss", url, elapsed)
-            return result
+            return cast(dict[str, Any], result)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -292,7 +292,7 @@ class AITBCHTTPClient:
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("DELETE %s succeeded in %ss", url, elapsed)
-            return result
+            return cast(dict[str, Any], result)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -425,7 +425,7 @@ class AsyncAITBCHTTPClient:
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("GET %s succeeded in %ss", url, elapsed)
-            return result
+            return cast(dict[str, Any], result)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -483,7 +483,7 @@ class AsyncAITBCHTTPClient:
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("POST %s succeeded in %ss", url, elapsed)
-            return result
+            return cast(dict[str, Any], result)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -541,7 +541,7 @@ class AsyncAITBCHTTPClient:
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("PUT %s succeeded in %ss", url, elapsed)
-            return result
+            return cast(dict[str, Any], result)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -594,7 +594,7 @@ class AsyncAITBCHTTPClient:
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("DELETE %s succeeded in %ss", url, elapsed)
-            return result
+            return cast(dict[str, Any], result)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:

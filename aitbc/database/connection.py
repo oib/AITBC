@@ -6,7 +6,7 @@ import sqlite3
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import DatabaseError
@@ -103,12 +103,14 @@ class DatabaseConnection:
         """
         if not self._connection:
             self.connect()
-        cursor = self._connection.cursor()
+        conn = self._connection
+        assert conn is not None  # set by connect()
+        cursor = conn.cursor()
         try:
             yield cursor
-            self._connection.commit()
+            conn.commit()
         except Exception as e:
-            self._connection.rollback()
+            conn.rollback()
             raise DatabaseError(f"Database operation failed: {e}") from e
         finally:
             cursor.close()
@@ -144,7 +146,7 @@ class DatabaseConnection:
                         row_count=cursor.rowcount if hasattr(cursor, "rowcount") else 0,
                     )
 
-                return cursor
+                return cast(sqlite3.Cursor, cursor)
         except sqlite3.Error as e:
             if self.monitor:
                 execution_time_ms = (time.time() - start_time) * 1000

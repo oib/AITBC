@@ -50,7 +50,7 @@ class TestAgentCLI:
     def test_agent_workflow_create_command(self):
         """Test agent workflow create command"""
         runner = CliRunner()
-        result = runner.invoke(agent, ["workflow", "create", "--help"])
+        result = runner.invoke(agent, ["workflow", "create-workflow", "--help"])
         assert result.exit_code == 0
         assert "Create workflow" in result.output
 
@@ -64,14 +64,14 @@ class TestAgentCLI:
     def test_agent_workflow_status_command(self):
         """Test agent workflow status command"""
         runner = CliRunner()
-        result = runner.invoke(agent, ["workflow", "status", "--help"])
+        result = runner.invoke(agent, ["workflow", "workflow-status", "--help"])
         assert result.exit_code == 0
         assert "Get workflow status" in result.output
 
     def test_agent_workflow_list_command(self):
         """Test agent workflow list command"""
         runner = CliRunner()
-        result = runner.invoke(agent, ["workflow", "list", "--help"])
+        result = runner.invoke(agent, ["workflow", "list-workflows", "--help"])
         assert result.exit_code == 0
         assert "List workflows" in result.output
 
