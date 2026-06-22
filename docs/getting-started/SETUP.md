@@ -486,6 +486,20 @@ cd /opt/aitbc/apps/blockchain-node && alembic upgrade head
 Also diff your live `/etc/aitbc/*.env` against updated templates in
 `examples/` — new env vars may be required for new features.
 
+### Re-running setup on an existing node
+
+If you run `setup.sh` on a node that is already installed (detected by the
+presence of `/etc/aitbc/node.env` and `/opt/aitbc/venv`), it automatically
+forwards to `update.sh` instead of re-running the full first-time install.
+This prevents accidental re-initialization of databases, credentials, and
+node identity.
+
+To force a full re-run (e.g. to repair a broken install), use `--force`:
+
+```bash
+sudo /opt/aitbc/scripts/deployment/setup.sh --force
+```
+
 ## Development Mode
 
 ```bash
