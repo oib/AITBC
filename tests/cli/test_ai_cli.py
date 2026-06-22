@@ -50,7 +50,7 @@ class TestAICLI:
     def test_ai_service_status_command(self):
         """Test AI service status command"""
         runner = CliRunner()
-        result = runner.invoke(ai, ["service", "status", "--help"])
+        result = runner.invoke(ai, ["service", "service-status", "--help"])
         assert result.exit_code == 0
         assert "Check AI service status" in result.output
 

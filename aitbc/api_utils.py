@@ -6,7 +6,7 @@ Provides standard response formatters, pagination helpers, error response builde
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from pydantic import BaseModel
 
 
@@ -17,7 +17,7 @@ class APIResponse(BaseModel):
     message: str
     data: Any | None = None
     error: str | None = None
-    timestamp: str = None
+    timestamp: str | None = None
 
     def __init__(self, **data):
         if "timestamp" not in data:
@@ -32,7 +32,7 @@ class PaginatedResponse(BaseModel):
     message: str
     data: list[Any]
     pagination: dict[str, Any]
-    timestamp: str = None
+    timestamp: str | None = None
 
     def __init__(self, **data):
         if "timestamp" not in data:
@@ -243,7 +243,7 @@ def sanitize_response(data: Any, sensitive_fields: list[str] = None) -> Any:
 
 def merge_responses(*responses: APIResponse | dict[str, Any]) -> dict[str, Any]:
     """Merge multiple responses into one"""
-    merged = {"data": {}}
+    merged: dict[str, Any] = {"data": {}}
 
     for response in responses:
         if isinstance(response, APIResponse):
@@ -262,7 +262,7 @@ def merge_responses(*responses: APIResponse | dict[str, Any]) -> dict[str, Any]:
     return merged
 
 
-def get_client_ip(request) -> str:
+def get_client_ip(request: Request) -> str:
     """Get client IP address from request"""
     # Check for forwarded headers first
     forwarded = request.headers.get("X-Forwarded-For")
@@ -276,12 +276,12 @@ def get_client_ip(request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def get_user_agent(request) -> str:
+def get_user_agent(request: Request) -> str:
     """Get user agent from request"""
     return request.headers.get("User-Agent", "unknown")
 
 
-def build_request_metadata(request) -> dict[str, str]:
+def build_request_metadata(request: Request) -> dict[str, str]:
     """Build request metadata"""
     return {
         "client_ip": get_client_ip(request),

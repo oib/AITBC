@@ -87,10 +87,10 @@ class EthereumRPCClient:
                 if w3.is_connected():
                     self._w3 = w3
                     self._connected_url = url
-                    logger.info("Connected to Ethereum RPC", url=url, network=self.config.network)
+                    logger.info("Connected to Ethereum RPC: url=%s network=%s", url, self.config.network)
                     return w3
             except Exception as e:
-                logger.debug("RPC endpoint failed", url=url, error=str(e))
+                logger.debug("RPC endpoint failed: url=%s error=%s", url, str(e))
                 continue
 
         raise ConnectionError(
@@ -102,7 +102,7 @@ class EthereumRPCClient:
     def is_connected(self) -> bool:
         """Check if connected to Ethereum node."""
         try:
-            return self._get_web3().is_connected()
+            return bool(self._get_web3().is_connected())
         except Exception:
             return False
 
@@ -112,7 +112,7 @@ class EthereumRPCClient:
 
     def get_block_number(self) -> int:
         """Get the latest Ethereum block number."""
-        return self._get_web3().eth.block_number
+        return int(self._get_web3().eth.block_number)
 
     def get_balance(self, address: str) -> dict[str, Any]:
         """

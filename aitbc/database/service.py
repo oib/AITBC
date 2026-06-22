@@ -110,7 +110,7 @@ class SQLiteDatabaseService(DatabaseService):
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(query, params)
-            return cursor.rowcount
+            return int(cursor.rowcount)
 
     def execute_transaction(self, queries: list[tuple]) -> bool:
         """
