@@ -3,11 +3,17 @@
 import asyncio
 import time
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 import redis
 
 from .config import settings
+
+
+def _fmt_expiry(expiry: float) -> str:
+    """Format a Unix timestamp as human-readable UTC datetime."""
+    return datetime.fromtimestamp(expiry, UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 from .logger import get_logger
 
 logger = get_logger(__name__)
@@ -23,6 +29,7 @@ class SubscriberInfo:
     transport: str
     expiry: float
     chain_id: str
+    client_ip: str = "unknown"
 
 
 class LeaseTracker:
@@ -68,7 +75,7 @@ class LeaseTracker:
             await asyncio.to_thread(self._redis.close)
         logger.info("Lease tracker stopped")
 
-    async def register_subscriber(self, node_id: str, transport: str, chain_id: str, duration: int | None = None) -> float:
+    async def register_subscriber(self, node_id: str, transport: str, chain_id: str, duration: int | None = None, client_ip: str = "unknown") -> float:
         """Register a subscriber with a lease.
 
         Args:
@@ -76,6 +83,7 @@ class LeaseTracker:
             transport: Transport method (websocket, http, redis)
             chain_id: Chain ID for the subscription
             duration: Lease duration in seconds (defaults to settings.lease_duration)
+            client_ip: IP address of the subscribing node
 
         Returns:
             Expiry timestamp (Unix timestamp)
@@ -88,19 +96,20 @@ class LeaseTracker:
         await asyncio.to_thread(
             self._redis.hset,
             key,
-            mapping={"node_id": node_id, "transport": transport, "chain_id": chain_id, "expiry": str(expiry)},
+            mapping={"node_id": node_id, "transport": transport, "chain_id": chain_id, "expiry": str(expiry), "client_ip": client_ip},
         )
         await asyncio.to_thread(self._redis.expire, key, duration + 60)
         await asyncio.to_thread(self._redis.sadd, LEASE_SET, node_id)
-        logger.info("Registered subscriber %s with transport=%s, expiry=%s", node_id, transport, expiry)
+        logger.info("Registered subscriber %s (ip=%s) with transport=%s, expiry=%s", node_id, client_ip, transport, _fmt_expiry(expiry))
         return expiry
 
-    async def extend_lease(self, node_id: str, duration: int | None = None) -> float:
+    async def extend_lease(self, node_id: str, duration: int | None = None, client_ip: str = "unknown") -> float:
         """Extend a subscriber's lease.
 
         Args:
             node_id: Subscriber node ID
             duration: Additional duration in seconds (defaults to settings.lease_duration)
+            client_ip: IP address of the heartbeat sender
 
         Returns:
             New expiry timestamp
@@ -110,13 +119,13 @@ class LeaseTracker:
         key = f"{LEASE_PREFIX}{node_id}"
         exists = await asyncio.to_thread(self._redis.exists, key)
         if not exists:
-            logger.warning("Cannot extend lease for unknown subscriber %s", node_id)
+            logger.warning("Cannot extend lease for unknown subscriber %s (ip=%s)", node_id, client_ip)
             return 0.0
         duration = duration or settings.lease_duration
         new_expiry = time.time() + duration
-        await asyncio.to_thread(self._redis.hset, key, "expiry", str(new_expiry))
+        await asyncio.to_thread(self._redis.hset, key, mapping={"expiry": str(new_expiry), "client_ip": client_ip})
         await asyncio.to_thread(self._redis.expire, key, duration + 60)
-        logger.info("Extended lease for %s to %s", node_id, new_expiry)
+        logger.info("Extended lease for %s (ip=%s) to %s", node_id, client_ip, _fmt_expiry(new_expiry))
         return new_expiry
 
     async def get_lease_expiry(self, node_id: str) -> float:
@@ -193,6 +202,7 @@ class LeaseTracker:
                     transport=str(data["transport"]),
                     expiry=expiry,
                     chain_id=str(data["chain_id"]),
+                    client_ip=str(data.get("client_ip", "unknown")),
                 )
             )
         return subscribers
