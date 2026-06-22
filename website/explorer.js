@@ -936,8 +936,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Auto-refresh every 30 seconds
     setInterval(refreshData, 30000);
-    // Live feed refreshes more frequently
-    setInterval(updateLiveFeed, 10000);
+    // Live feed refreshes every 60 seconds
+    setInterval(updateLiveFeed, 60000);
 
     // Event listeners
     document.getElementById('clear-search-btn').addEventListener('click', clearSearch);
