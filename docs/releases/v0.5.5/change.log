@@ -1,0 +1,196 @@
+# v0.5.5 Release Plan
+
+**Theme**: Agent Coordinator WebSocket fix + service logging standardization — fix the PING/PONG path across two Nginx layers, standardize the agent-coordinator on port 8107, and bring structured logging to every service.
+
+**Goal**: Make follower→hub PING/PONG work end-to-end through the public WebSocket URL, fix the agent-coordinator port mismatch (9001 vs 8107), and ensure all services produce proper `[INFO] [module]` formatted logs in the journal.
+
+---
+
+## Completed Changes
+
+### 1. Agent Coordinator Port: 9001 → 8107
+
+**Problem:** The agent-coordinator service was running on port 9001 (its code default), but every other component in the system — `node.env`, API Gateway, CLI, hermes polling daemon, agent-daemon, docs — expected port 8107. The service file ran `python -m app.main` directly, bypassing the wrapper script that would have set `AGENT_COORDINATOR_BIND_PORT=8107`. No service-specific env file existed (every other service has one).
+
+**Fix:**
+- Created `/etc/aitbc/aitbc-agent-coordinator.env` with `AGENT_COORDINATOR_BIND_PORT=8107` and `AGENT_COORDINATOR_BIND_HOST=127.0.0.1`
+- Added `EnvironmentFile=/etc/aitbc/aitbc-agent-coordinator.env` to the systemd service file
+- Switched `ExecStart` to use the wrapper script (`aitbc-agent-coordinator-wrapper.py`)
+- Added `configure_logging()` to `main.py` so logs survive the wrapper's `os.execvpe()`
+
+**Files changed:**
+- `/etc/aitbc/aitbc-agent-coordinator.env` (new, not in repo)
+- `apps/agent-coordinator/aitbc-agent-coordinator.service` — added EnvironmentFile, switched to wrapper
+- `apps/agent-coordinator/src/app/main.py` — added `configure_logging()` call
+
+### 2. Container Nginx: WebSocket Proxy for Agent Coordinator
+
+**Problem:** The container Nginx (`/etc/nginx/sites-enabled/aitbc`) had no route to the agent-coordinator's WebSocket endpoints. The `/agent/` location served static files or proxied to the agent-registry (8204). Follower PINGs over WebSocket were impossible.
+
+**Fix:**
+- Added `upstream agent_coordinator { server 127.0.0.1:8107; }`
+- Added two prefix locations with WebSocket upgrade headers:
+  - `/agent/api/v1/agent/messages/stream` → PING/PONG messaging
+  - `/agent/api/v1/agent/presence/stream` → presence tracking
+- Initial regex-based approach returned 403; switched to prefix locations which work correctly
+
+**Public URL:**
+```
+wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=<follower_id>
+```
+
+**Files changed:**
+- `/etc/nginx/sites-enabled/aitbc` (container, not in repo)
+
+### 3. Service Logging Standardization
+
+**Problem:** 12 service entry points never called `configure_logging()`, so their `get_logger(__name__)` calls produced log records with no handlers — output was silently lost. The journal showed only uvicorn's built-in connection logs, not application-level messages like "PING received from follower".
+
+**Fix:** Added `configure_logging(level="INFO", service_name="<name>", to_file=True)` to every missing entry point, following the pattern already used by coordinator-api.
+
+**Files changed:**
+
+| File | Service |
+|------|---------|
+| `apps/agent-coordinator/src/app/main.py` | agent-coordinator |
+| `apps/edge/src/aitbc_edge/main.py` | edge |
+| `apps/exchange/simple_exchange_api.py` | exchange |
+| `apps/blockchain-event-bridge/src/blockchain_event_bridge/main.py` | blockchain-event-bridge |
+| `apps/whisper/main.py` | whisper |
+| `apps/ffmpeg/main.py` | ffmpeg |
+| `apps/blockchain-explorer/main.py` | blockchain-explorer |
+| `apps/coordinator-api/src/app/services/adaptive_learning_app.py` | adaptive-learning |
+| `apps/coordinator-api/src/app/services/multimodal_app.py` | multimodal |
+| `apps/coordinator-api/src/app/services/modality_optimization_app.py` | modality-optimization |
+| `apps/blockchain-node/src/aitbc_chain/gossip/relay.py` | blockchain-p2p (wrapper fix) |
+| `apps/blockchain-node/src/aitbc_chain/sync_cli.py` | blockchain-sync (wrapper fix) |
+| `apps/bridge-monitor/src/bridge_monitor/main.py` | bridge-monitor (wrapper fix) |
+| `scripts/monitoring/examples/monitoring-service/src/monitoring_service/main.py` | monitoring |
+| `apps/agent-management/examples/plugin-service/src/plugin_service/main.py` | plugin |
+
+### 4. Wrapper Script Cleanup
+
+**Problem:** 4 wrapper scripts were pure boilerplate — they only set `PYTHONPATH` and called `configure_logging()`, both of which are now handled by the systemd unit file and `main.py` respectively. Additionally, all wrappers use `os.execvpe()` which replaces the process, causing the wrapper's `configure_logging()` to be lost — making the wrappers doubly useless.
+
+**Fix:** Removed 4 unnecessary wrappers, switched their service files to direct execution, moved env vars into systemd units:
+
+| Service | Old ExecStart | New ExecStart |
+|---------|--------------|---------------|
+| bridge-monitor | `aitbc-bridge-monitor-wrapper.py` | `python -m bridge_monitor.main` |
+| monitoring | `aitbc-monitoring-wrapper.py` | `python -m uvicorn monitoring_service.main:app` |
+| plugin | `aitbc-plugin-wrapper.py` | `python -m uvicorn plugin_service.main:app` |
+| marketplace | `marketplace-wrapper.py` | `python -m marketplace_service.main` |
+
+**Kept 2 wrappers** that have real logic:
+- `aitbc-blockchain-p2p-wrapper.py` — builds dynamic CLI args from env vars
+- `aitbc-blockchain-sync-wrapper.py` — env var fallback chain for sync source URL
+
+**Files changed:**
+- `apps/bridge-monitor/aitbc-bridge-monitor.service` — direct execution, added `PYTHONPATH`
+- `scripts/monitoring/aitbc-monitoring.service` — direct execution, added `PYTHONPATH`, `DATA_DIR`, `LOG_DIR`
+- `scripts/utils/aitbc-plugin.service` — direct execution, added `PYTHONPATH`, `DATA_DIR`, `LOG_DIR`
+- `scripts/systemd/aitbc-marketplace.service` — direct execution
+- `scripts/services/marketplace-wrapper.py` — **deleted** (dead code)
+
+### 5. Deleted Broken `generate_wrappers.py`
+
+**Problem:** The script generated wrappers with a literal string `"REPO_DIR"` in `PYTHONPATH` instead of the variable value, producing non-functional wrappers. Running it silently overwrote hand-written working wrappers with broken ones. It was not called by any install/setup script or CI pipeline.
+
+**Fix:** Deleted the script and its release notes doc.
+
+**Files deleted:**
+- `scripts/generate_wrappers.py`
+- `docs/releases/v0.4.23/WRAPPER_SCRIPT_TEMPLATING.md`
+
+### 6. Marketplace DB Path Fix
+
+**Problem:** The marketplace service file pointed to `/opt/aitbc/data/marketplace_service.db` — a legacy path that was supposed to be migrated to `/var/lib/aitbc/data/` in v0.4.1. The DB already existed in the correct location.
+
+**Fix:** Updated the installed service file to use `/var/lib/aitbc/data/marketplace_service.db`.
+
+**Files changed:**
+- `/etc/systemd/system/aitbc-marketplace.service` (installed, not in repo)
+- `scripts/systemd/aitbc-marketplace.service` (repo copy, already fixed in step 4)
+
+### 7. Bug Fixes Found During Restart
+
+- **exchange**: `logger.info()` used kwargs (`port=`, `url=`) incompatible with standard logging after `configure_logging()` was added → switched to `%s` formatting
+- **blockchain-explorer**: service file missing `PYTHONPATH=/opt/aitbc` → added
+
+---
+
+## Verification
+
+### PING/PONG End-to-End
+
+```
+$ aitbc hermes ping --coordinator-url http://localhost/agent
+Connecting to ws://localhost/agent/api/v1/agent/messages/stream?agent_id=follower
+PING sent to hub-coordinator
+PONG received from hub-coordinator
+  content: PONG from hub-coordinator
+  timestamp: 2026-06-22T09:24:31.292512+00:00
+```
+
+### Journal Logging
+
+```
+[INFO] [aitbc-agent-coordinator-wrapper] Starting agent-coordinator service
+[INFO] [app.lifespan] Starting AITBC Agent Coordinator...
+[INFO] [app.websocket.agent_stream] Agent follower connected via WebSocket
+[INFO] [app.websocket.agent_stream] PING received from follower, triggering PONG
+[INFO] [app.websocket.agent_stream] Agent follower disconnected from WebSocket
+```
+
+### Service Status
+
+All 19 active services running with proper structured logging:
+
+| Service | Status |
+|---------|--------|
+| aitbc-agent-coordinator | ✅ active (port 8107) |
+| aitbc-agent-daemon | ✅ active |
+| aitbc-agent-management | ✅ active |
+| aitbc-api-gateway | ✅ active |
+| aitbc-blockchain-event-bridge | ✅ active |
+| aitbc-blockchain-explorer | ✅ active |
+| aitbc-blockchain-node | ✅ active |
+| aitbc-blockchain-p2p | ✅ active |
+| aitbc-blockchain-rpc | ✅ active |
+| aitbc-bridge-monitor | ✅ active |
+| aitbc-coordinator-api | ✅ active |
+| aitbc-exchange | ✅ active |
+| aitbc-governance | ✅ active |
+| aitbc-hermes | ✅ active |
+| aitbc-marketplace | ✅ active |
+| aitbc-monitoring | ✅ active |
+| aitbc-wallet | ✅ active |
+
+## Files Changed (24)
+
+| File | Change |
+|------|--------|
+| `apps/agent-coordinator/aitbc-agent-coordinator.service` | Add EnvironmentFile, switch to wrapper |
+| `apps/agent-coordinator/src/app/main.py` | Add `configure_logging()` |
+| `apps/agent-management/.../plugin_service/main.py` | Add `configure_logging()` |
+| `apps/blockchain-event-bridge/.../main.py` | Add `configure_logging()` |
+| `apps/blockchain-explorer/aitbc-blockchain-explorer.service` | Add `PYTHONPATH` |
+| `apps/blockchain-explorer/main.py` | Add `configure_logging()` |
+| `apps/blockchain-node/.../gossip/relay.py` | Add `configure_logging()` |
+| `apps/blockchain-node/.../sync_cli.py` | Add `configure_logging()` |
+| `apps/bridge-monitor/aitbc-bridge-monitor.service` | Direct execution, add `PYTHONPATH` |
+| `apps/bridge-monitor/.../main.py` | Add `configure_logging()` |
+| `apps/coordinator-api/.../adaptive_learning_app.py` | Add `configure_logging()` |
+| `apps/coordinator-api/.../modality_optimization_app.py` | Add `configure_logging()` |
+| `apps/coordinator-api/.../multimodal_app.py` | Add `configure_logging()` |
+| `apps/edge/src/aitbc_edge/main.py` | Add `configure_logging()` |
+| `apps/exchange/simple_exchange_api.py` | Add `configure_logging()`, fix logger kwargs |
+| `apps/ffmpeg/main.py` | Add `configure_logging()` |
+| `apps/whisper/main.py` | Add `configure_logging()` |
+| `docs/releases/v0.4.23/WRAPPER_SCRIPT_TEMPLATING.md` | **Deleted** |
+| `scripts/generate_wrappers.py` | **Deleted** |
+| `scripts/monitoring/aitbc-monitoring.service` | Direct execution, add env vars |
+| `scripts/monitoring/.../monitoring_service/main.py` | Add `configure_logging()` |
+| `scripts/services/marketplace-wrapper.py` | **Deleted** |
+| `scripts/systemd/aitbc-marketplace.service` | Direct execution, fix DB path |
+| `scripts/utils/aitbc-plugin.service` | Direct execution, add env vars |

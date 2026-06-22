@@ -7,6 +7,7 @@ Type=simple
 User=aitbc
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+Environment="PYTHONPATH=/opt/aitbc"
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/blockchain-explorer/main.py

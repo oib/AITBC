@@ -14,8 +14,9 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket
 
-from aitbc.aitbc_logging import get_logger
+from aitbc.aitbc_logging import configure_logging, get_logger
 
+configure_logging(level="INFO", service_name="blockchain-p2p", to_file=True)
 logger = get_logger(__name__)
 
 

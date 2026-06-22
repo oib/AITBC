@@ -11,7 +11,10 @@ from typing import Any
 import httpx
 from fastapi import FastAPI
 
-logger = logging.getLogger(__name__)
+from aitbc.aitbc_logging import configure_logging, get_logger
+
+configure_logging(level="INFO", service_name="monitoring", to_file=True)
+logger = get_logger(__name__)
 app = FastAPI(title="AITBC Monitoring Service", description="System health and metrics monitoring service", version="1.0.0")
 
 # Service endpoints configuration
