@@ -176,16 +176,45 @@ class PriceOracle:
 
     def get_price(self, base: str, quote: str = "USD") -> PriceResult | None:
         """Get price, trying Chainlink first then CoinGecko."""
-        # Special case: AIT/USD fixed price from environment
-        if base.upper() == "AIT" and quote.upper() == "USD":
-            fixed_price = os.getenv("AIT_USD_FIXED_PRICE")
-            if fixed_price:
+        # Special case: AIT fixed price from environment
+        # Two modes:
+        #   AIT_EUR_FIXED_PRICE (preferred) — compute-backed €0.25 reference
+        #     Derives AIT/USD and AIT/ETH from live ETH oracle prices
+        #   AIT_USD_FIXED_PRICE (legacy) — flat USD value
+        if base.upper() == "AIT":
+            eur_fixed = os.getenv("AIT_EUR_FIXED_PRICE")
+            usd_fixed = os.getenv("AIT_USD_FIXED_PRICE")
+
+            if eur_fixed:
                 try:
-                    price = float(fixed_price)
+                    ait_eur = float(eur_fixed)
+                    if quote.upper() == "EUR":
+                        return PriceResult(base, quote, ait_eur, "fixed", time.time(), {"source": "fixed_eur"})
+                    # Derive from ETH oracle prices
+                    eth_usd = self._coingecko.get_price("ETH", "USD")
+                    eth_eur = self._coingecko.get_price("ETH", "EUR")
+                    if eth_usd and eth_eur and eth_eur.price > 0:
+                        if quote.upper() == "USD":
+                            derived = ait_eur * eth_usd.price / eth_eur.price
+                            return PriceResult(base, quote, derived, "derived", time.time(),
+                                               {"source": "fixed_eur", "ait_eur": ait_eur,
+                                                "eth_usd": eth_usd.price, "eth_eur": eth_eur.price})
+                        if quote.upper() == "ETH":
+                            derived = ait_eur / eth_eur.price
+                            return PriceResult(base, quote, derived, "derived", time.time(),
+                                               {"source": "fixed_eur", "ait_eur": ait_eur,
+                                                "eth_eur": eth_eur.price})
+                    logger.warning("AIT_EUR_FIXED_PRICE set but cannot derive %s — ETH oracle unavailable", quote)
+                except ValueError:
+                    logger.warning("Invalid AIT_EUR_FIXED_PRICE: %s", eur_fixed)
+
+            if usd_fixed and quote.upper() == "USD":
+                try:
+                    price = float(usd_fixed)
                     logger.debug("Using fixed AIT/USD price: %s", price)
                     return PriceResult(base, quote, price, "fixed", time.time(), {"source": "fixed_price"})
                 except ValueError:
-                    logger.warning("Invalid AIT_USD_FIXED_PRICE: %s", fixed_price)
+                    logger.warning("Invalid AIT_USD_FIXED_PRICE: %s", usd_fixed)
 
         result = self._chainlink.get_price(base, quote)
         if result is not None:

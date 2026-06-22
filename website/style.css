@@ -1302,3 +1302,252 @@ a.btn-secondary {
         height: 200px;
     }
 }
+
+/* ═══ Exchange page — compute value model ═══ */
+
+.value-hero {
+    text-align: center;
+    padding: 2rem;
+}
+.value-tagline {
+    font-size: 1.15rem;
+    color: var(--primary);
+    margin: 0;
+}
+.value-card {
+    text-align: center;
+    padding: 2.5rem 2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+}
+.value-label {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 0 0.5rem 0;
+}
+.value-price {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin: 0.5rem 0;
+}
+.value-note {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 1rem;
+}
+.value-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0;
+}
+.value-list li {
+    padding: 0.25rem 0;
+    color: var(--text-muted);
+}
+.info-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.info-table td {
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.info-table td:first-child {
+    color: var(--text-muted);
+    width: 40%;
+}
+.total-row td {
+    border-bottom: none;
+    border-top: 1px solid var(--border);
+}
+.big-stat {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0.5rem 0;
+}
+.muted-text {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+.fee-card {
+    text-align: center;
+}
+.fee-card .big-stat {
+    color: var(--primary);
+}
+.early-bird {
+    text-align: center;
+    padding: 2rem;
+    background: var(--surface);
+    border: 2px solid var(--primary);
+}
+.giveaway-amount {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin: 0.5rem 0;
+}
+.peg-card {
+    text-align: center;
+}
+.peg-verdict {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0.5rem 0;
+}
+.peg-bad { color: var(--error, #ef4444); }
+.peg-warning { color: var(--warning, #f59e0b); }
+.peg-good { color: var(--success, #22c55e); }
+.vision-card {
+    text-align: center;
+    padding: 2rem;
+}
+.vision-card p {
+    font-size: 1.05rem;
+    margin: 0.5rem 0;
+}
+
+/* Exchange page — live price grid */
+.price-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 1rem;
+}
+.price-cell {
+    text-align: center;
+    padding: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+.price-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+.price-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin: 0.25rem 0;
+}
+.price-unit {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+@media (max-width: 600px) {
+    .price-grid-3 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Exchange hero — ETH equivalent */
+.value-eth {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    margin: 0.5rem 0;
+}
+
+/* Exchange page — bridge form */
+.bridge-card {
+    border: 2px solid var(--primary);
+}
+.bridge-form {
+    margin: 1.5rem 0;
+}
+.form-row {
+    margin-bottom: 1rem;
+}
+.form-row label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text);
+}
+.btn-primary {
+    display: inline-block;
+    padding: 0.7rem 1.5rem;
+    background: var(--primary);
+    color: var(--surface);
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+}
+.btn-primary:hover {
+    opacity: 0.9;
+}
+.estimate-box {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    text-align: center;
+}
+.estimate-ait {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin: 0.5rem 0;
+}
+.estimate-breakdown {
+    margin-top: 1rem;
+    text-align: left;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+.estimate-breakdown p {
+    margin: 0.25rem 0;
+}
+.error-box {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--error-bg, #fee);
+    color: var(--error, #c00);
+    border-radius: 6px;
+}
+.instructions-box {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+.deposit-address {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    word-break: break-all;
+    cursor: pointer;
+    margin: 0.5rem 0;
+}
+.copy-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    margin-left: 1rem;
+}
+.copy-feedback {
+    color: var(--success);
+    font-size: 0.85rem;
+    display: none;
+}
+.bridge-status-row {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
