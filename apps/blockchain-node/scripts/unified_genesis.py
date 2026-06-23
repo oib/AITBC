@@ -131,7 +131,7 @@ def create_genesis_allocations(genesis_address: str, additional_allocations: lis
     allocations = [
         {
             "address": genesis_address,
-            "balance": 1000000000,  # 1 billion AIT for genesis
+            "balance": 3600000000000,  # 1 billion AIT for genesis (3.6 trillion seconds)
             "nonce": 0,
         }
     ]
@@ -293,7 +293,8 @@ def main():
 
     print(f"Total allocations: {len(allocations)}")
     for alloc in allocations[:3]:  # Show first 3
-        print(f"  - {alloc['address']}: {alloc['balance']} AIT")
+        balance_ait = alloc["balance"] / 3600  # Convert seconds to AIT
+        print(f"  - {alloc['address']}: {balance_ait:.0f} AIT ({alloc['balance']} seconds)")
 
     # Save genesis configuration
     print("\n💾 Saving Genesis Configuration...")
