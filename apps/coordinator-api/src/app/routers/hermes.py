@@ -64,8 +64,8 @@ class MarkReadRequest(BaseModel):
     message_id: str = Field(..., min_length=1)
 
 
-# Only enable mock endpoints if debug mode or explicit flag is set
-if not (settings.debug or settings.enable_mock_hermes):
+# Only enable mock endpoints if debug mode is set
+if not settings.debug:
     # Create empty router for production — no hermes mock endpoints
     router = APIRouter(prefix="/hermes", tags=["hermes"])
 else:
