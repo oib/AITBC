@@ -3,6 +3,7 @@ from . import (
     ai,
     alerts,
     auth,
+    coin_requests,
     consensus,
     health,
     messages,
@@ -29,4 +30,5 @@ ROUTERS = [
     monitor.router,
     workflow.router,
     websocket.router,
+    coin_requests.router,
 ]
