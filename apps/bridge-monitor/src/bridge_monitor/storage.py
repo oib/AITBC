@@ -13,6 +13,7 @@ DB_PATH = os.path.join(DATA_DIR, "bridge_deposits.db")
 class BridgeDepositStatus(StrEnum):
     PENDING = "pending"
     PROCESSING = "processing"
+    PENDING_RETRY = "pending_retry"
     COMPLETED = "completed"
     FAILED = "failed"
 
@@ -38,7 +39,26 @@ def init_db() -> None:
             status TEXT NOT NULL DEFAULT 'pending',
             created_at TEXT NOT NULL,
             processed_at TEXT,
-            error_message TEXT
+            error_message TEXT,
+            retry_count INTEGER NOT NULL DEFAULT 0,
+            next_retry_at TEXT
+        )
+    """)
+
+    # Add retry columns to existing tables (migration for upgrades)
+    try:
+        cursor.execute("ALTER TABLE bridge_deposits ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE bridge_deposits ADD COLUMN next_retry_at TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bridge_cursor (
+            key TEXT PRIMARY KEY,
+            value INTEGER NOT NULL
         )
     """)
 
@@ -48,6 +68,10 @@ def init_db() -> None:
 
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_status ON bridge_deposits(status)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_next_retry ON bridge_deposits(next_retry_at)
     """)
 
     conn.commit()
@@ -99,6 +123,8 @@ def update_deposit(
     ait_tx_hash: str | None = None,
     status: BridgeDepositStatus | None = None,
     error_message: str | None = None,
+    retry_count: int | None = None,
+    next_retry_at: str | None = None,
 ) -> bool:
     """Update bridge deposit record."""
     conn = get_db_connection()
@@ -125,8 +151,14 @@ def update_deposit(
     if error_message is not None:
         updates.append("error_message = ?")
         params.append(error_message)
+    if retry_count is not None:
+        updates.append("retry_count = ?")
+        params.append(retry_count)
+    if next_retry_at is not None:
+        updates.append("next_retry_at = ?")
+        params.append(next_retry_at)
 
-    if status is not None:
+    if status is not None and status in (BridgeDepositStatus.COMPLETED, BridgeDepositStatus.FAILED):
         updates.append("processed_at = ?")
         params.append(datetime.now(UTC).isoformat())
 
@@ -190,3 +222,40 @@ def count_deposits(status: BridgeDepositStatus | None = None) -> int:
     conn.close()
 
     return count
+
+
+def get_deposits_for_retry(now_iso: str | None = None) -> list[dict[str, Any]]:
+    """Get deposits in PENDING_RETRY status whose next_retry_at has passed."""
+    if now_iso is None:
+        now_iso = datetime.now(UTC).isoformat()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT * FROM bridge_deposits WHERE status = ? AND (next_retry_at IS NULL OR next_retry_at <= ?) ORDER BY created_at ASC",
+        (BridgeDepositStatus.PENDING_RETRY.value, now_iso),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def get_cursor(key: str = "last_processed_block") -> int | None:
+    """Get the persisted block cursor."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM bridge_cursor WHERE key = ?", (key,))
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else None
+
+
+def set_cursor(key: str, value: int) -> None:
+    """Set the persisted block cursor."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO bridge_cursor (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?",
+        (key, value, value),
+    )
+    conn.commit()
+    conn.close()

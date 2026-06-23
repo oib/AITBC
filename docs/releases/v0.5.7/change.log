@@ -1,0 +1,182 @@
+# v0.5.7 Release Notes
+
+**Theme**: Make v0.5.6 real — bridge usability + compute-value hardening. v0.5.6 fixed the ETH→AIT bridge and rebuilt the exchange page around the compute value model, but only with simulated deposits and no user-facing way to verify a bridge completed. v0.5.7 closes that loop: real wallet integration, deposit status tracking, monitor robustness, oracle fallback, and a dedicated transparency page so the bridge is trustworthy end-to-end.
+
+**Goal**: A user who sends ETH to the bridge can (a) send ETH directly from MetaMask without leaving the page, (b) look up their deposit status, (c) see it appear on a public bridges page once confirmed, and (d) trust that a transient node/oracle outage won't silently lose their deposit. The compute value model is documented in standalone markdown, not embedded in a webpage.
+
+**Status**: ✅ Implemented
+**Predecessor**: v0.5.6 (compute-backed AIT pricing + ETH bridge rebuild)
+
+---
+
+## Changes
+
+### 1. Bridge Form: Real Wallet Integration (MetaMask)
+
+**Problem:** The "Buy AIT with ETH" form on `exchange.html` was a quote generator masquerading as a purchase form. The user entered an ETH amount and AIT address, clicked "Calculate AIT", and got an estimate — but no Ethereum transaction was ever created. The actual "send ETH yourself, with your AIT address in the tx `data` field" burden was dumped on the user in fine print. Getting the hex data encoding wrong meant `parse_ait_recipient()` couldn't decode the recipient and the deposit was lost.
+
+**Fix:** Replaced the fake checkout with a real browser-wallet flow, with an honest manual fallback:
+
+- **Detect `window.ethereum`** on page load. If present, show a "Connect MetaMask" button and connected-account display.
+- **On "Buy" click**, build an EIP-1193 `eth_sendTransaction` request with `to` (bridge address), `value` (wei), `data` (hex-encoded AIT recipient), and `from` (connected account). MetaMask prompts the user to sign — the webpage never sees a private key.
+- **After broadcast**, show the ETH tx hash with a link to the track-deposit panel.
+- **Keep the estimate step** — before sending, still call `/v1/bridge/deposit` to show estimated AIT, fee breakdown, and net ETH as a pre-send confirmation.
+- **Honest manual fallback** for users without a browser wallet: shows "Send manually from your wallet" with a paste-ready hex `data` value (server now returns `transaction_data_hex` in the deposit response).
+
+**Files changed:**
+- `website/exchange.html` — wallet connect button, connected-account display, buy button, restructured manual fallback instructions
+- `website/exchange.js` — `connectWallet()`, `sendBridgeTransaction()`, wallet detection, hex copy handler
+- `website/style.css` — wallet-connect button + connected-account styles
+- `apps/exchange/simple_exchange_api.py` — `handle_bridge_deposit` returns hex-encoded `transaction_data_hex` for manual fallback
+
+---
+
+### 2. Bridge Deposit Status Lookup
+
+**Problem:** After sending ETH to the bridge, there was no way to check whether the AIT arrived. The API exposed `GET /v1/bridge/deposit/{tx_hash}` and `GET /v1/bridge/deposits`, but the webpage never called them. A user's only recourse was to ask an operator to query the DB.
+
+**Fix:** Added a "Track Your Deposit" panel to the exchange page:
+
+- Input for ETH tx hash or AIT address → "Check Status" button
+- Calls `GET /v1/bridge/deposit/{tx_hash}` (by tx hash) or filters `/v1/bridge/deposits?limit=50` by `ait_recipient` (by AIT address)
+- Renders a status card: ETH amount, AIT amount, AIT tx hash (link to explorer `/tx.html?hash=...`), status badge, sender address, timestamps
+- Polls every 10s while status is `pending`/`processing`, stops on `completed`/`failed`
+- Failed deposits show the error message
+
+**Files changed:**
+- `website/exchange.html` — track-deposit panel markup
+- `website/exchange.js` — `trackDeposit()`, `lookupDeposit()`, `renderDeposit()`, `statusBadge()` with polling
+- `website/style.css` — status badge styles (`status-ok`, `status-bad`, `status-pending`)
+
+---
+
+### 3. Bridge Monitor Robustness
+
+**Problem:** Three fragility issues in the bridge monitor:
+
+1. **No retry on AIT transfer failure.** A transient 5-second node outage permanently lost the AIT side of a real ETH deposit (marked `FAILED` immediately).
+2. **No persistent block cursor.** `poll_ethereum()` scanned only `latest_block - 10` every cycle. If the monitor was down longer than 10 blocks, deposits in the skipped window were never seen again.
+3. **Redundant oracle calls.** 4 CoinGecko round-trips per deposit (2 in `calculate_ait_amount()`, 2 more for storing prices).
+
+**Fix:**
+
+- **Retry queue:** New `PENDING_RETRY` deposit status. On `submit_ait_transfer()` failure, deposit is marked `PENDING_RETRY` with `retry_count` and `next_retry_at`. A retry sweep each poll cycle re-attempts with exponential backoff (30s, 2m, 10m, 1h, 4h) up to 5 attempts, then `FAILED`.
+- **Persistent block cursor:** New `bridge_cursor` table stores `last_processed_block`. Each poll starts from `cursor + 1`, not `latest_block - 10`. Cursor advances only after all deposits in a block are processed. Bootstraps from `latest_block - 10` on first run.
+- **Oracle call dedup:** `calculate_ait_amount()` refactored to accept pre-fetched prices. `process_deposit()` fetches `ETH/USD` and `AIT/USD` once and passes them through — 2 calls instead of 4.
+
+**Files changed:**
+- `apps/bridge-monitor/src/bridge_monitor/main.py` — retry logic (`_mark_for_retry()`, `process_retry_queue()`), persistent block cursor in `poll_ethereum()`, oracle dedup in `process_deposit()`
+- `apps/bridge-monitor/src/bridge_monitor/storage.py` — `PENDING_RETRY` status, `retry_count`/`next_retry_at` columns (with ALTER TABLE migration), `bridge_cursor` table, `get_deposits_for_retry()`, `get_cursor()`/`set_cursor()`
+
+---
+
+### 4. Pricing Oracle Last-Known-Good Fallback
+
+**Problem:** If CoinGecko was unreachable (rate limit, outage, network blip), `get_price("ETH", "USD")` returned `None` and the entire AIT price derivation chain collapsed — the bridge couldn't calculate AIT amounts and the exchange page showed no ETH equivalent. There was no cache of the last successful fetch.
+
+**Fix:** Added a last-known-good price cache to `CoinGeckoOracle`:
+
+- On successful CoinGecko fetch, persists `{pair, price, timestamp}` to `/var/lib/aitbc/price_cache.json`
+- On failed fetch, returns cached price if younger than `PRICE_CACHE_MAX_AGE` (default 1 hour, env-configurable), tagged `source: cached`
+- If cache is stale or absent, returns `None` (no fabricated prices)
+- Logs a warning each time a cached price is served
+
+**Files changed:**
+- `aitbc/oracles/price_oracle.py` — on-disk cache read/write (`_read_disk_cache()`, `_write_disk_cache()`, `_get_cached_from_disk()`, `_store_to_disk()`), `PRICE_CACHE_MAX_AGE` env var, `source: cached` metadata
+
+---
+
+### 5. Bridge Deposits Transparency Page
+
+**Problem:** The bridge was functional but opaque. No public signal that bridges were actually happening, which undermines trust in a system that takes real ETH. The `/v1/bridge/deposits` endpoint existed but was only useful to someone who knew to curl it.
+
+**Fix:** Created a dedicated `/bridges.html` page with the full bridge deposit history:
+
+- Calls `GET /v1/bridge/deposits?status=completed&limit=20` on load and every 60s
+- Each deposit renders as a card with `block-list-table` styling (matching the Latest Blocks page): Time, ETH, From (truncated), AIT, AIT Tx (link to explorer), Status badge, Note row
+- Empty state: "No bridges yet — be the first" with link to exchange page
+- Initial funding transaction (0.05 ETH on Sepolia) recorded with note "Initial funding — bridge address activated"
+- Exchange page links to the bridges page via nav bar + link card
+
+**Files changed:**
+- `website/bridges.html` — **new** page with nav, header, deposits container
+- `website/bridges.js` — **new** self-contained JS (`loadRecentBridges()`, `statusBadge()`, 60s refresh)
+- `website/exchange.html` — replaced inline recent-bridges section with link card; added "Bridges" to nav bar
+
+---
+
+### 6. Compute Value Model Documentation + Exchange Page as Tool
+
+**Problem:** The compute value model (~120 lines: philosophy, reference hardware, performance, operating cost, multi-GPU scaling, transaction fees, peg rationale, long-term vision) only existed as inline copy on `exchange.html`. The page was half documentation, half tool — a user coming to bridge ETH had to scroll past 6 documentation cards before reaching the bridge form. No standalone doc existed for node operators, integrators, or linking.
+
+**Fix:** Moved all documentation content into standalone markdown, linked from the exchange page:
+
+- **New doc** `docs/getting-started/ait-value-model.md` covering all sections (what AIT represents, €0.25 reference, reference hardware, performance, operating cost breakdown, multi-GPU scaling table, transaction fees, why-not-peg, long-term vision, cross-links)
+- **Exchange page reworked** — removed 6 inline documentation cards (121 lines), replaced with a single "How AIT Is Valued" card containing GitHub DOC links. Page is now: value hero → live price ticker → bridge form → track deposit → bridges link → early adopter CTA → value-model doc links → API endpoints. Tool first, documentation one click away.
+- **GitHub links** — both doc links point to `https://github.com/oib/AITBC/blob/main/docs/getting-started/...` with `target="_blank" rel="noopener"`
+- **Landing page** — added "AIT Value Model" DOC link to Documentation card
+
+**Files changed:**
+- `docs/getting-started/ait-value-model.md` — **new** doc (all documentation content moved from exchange.html)
+- `website/exchange.html` — removed 6 documentation cards, added "How AIT Is Valued" card with GitHub DOC links
+- `website/index.html` — added AIT Value Model DOC link to Documentation card
+
+---
+
+### 7. Exchange Page JS Cleanup + Live Price Ticker
+
+**Problem:** The v0.5.6 rebuild removed the `live-prices` section from `exchange.html` but `exchange.js` still referenced `document.getElementById('live-prices')` and branched on its presence. The hero card ETH equivalent worked but there was no visible live price ticker — the AIT/EUR and AIT/USD rates the oracle computed were not shown updating.
+
+**Fix:**
+
+- **Removed dead `live-prices` references** from `exchange.js`
+- **Added a compact live price ticker** to the value hero card: `1 AIT = €0.25 | $0.286 | 0.000164 ETH`, fetched from `/exchange/price.json` on load and refreshed every 60s
+- **Updated `/exchange/price.json`** to return `price_eth`, `eth_eur`, and `eth_usd` for accurate client-side price derivation
+
+**Files changed:**
+- `website/exchange.js` — removed dead `live-prices` code, added `updatePriceTicker()` calling `/exchange/price.json`
+- `website/exchange.html` — added ticker row markup in value hero card
+- `website/style.css` — ticker row styling
+- `apps/exchange/simple_exchange_api.py` — `handle_price` returns `price_eth`, `eth_eur`, `eth_usd`
+
+---
+
+## Infrastructure Fixes
+
+- **Exchange API import path:** Added `sys.path.insert(0, "/opt/aitbc/apps/bridge-monitor/src")` to `handle_bridge_deposits` and `handle_bridge_deposit_detail` in `simple_exchange_api.py` — the `bridge_monitor` module was not importable from the exchange service's Python path, causing `/v1/bridge/deposits` to return 500.
+- **Database permissions:** Fixed ownership of `/var/lib/aitbc/bridge_deposits.db` and `/var/lib/aitbc/` to `aitbc:aitbc` so the bridge monitor can write (ALTER TABLE migration, cursor table, retry columns).
+- **Browser cache-busting:** Added `?v=N` query params to `exchange.js` and `style.css` references in `exchange.html` to force browser refresh of updated assets.
+
+---
+
+## Files Changed (Summary)
+
+| File | Change |
+|------|--------|
+| `docs/getting-started/ait-value-model.md` | **New** — compute value model documentation |
+| `website/bridges.html` | **New** — dedicated bridge deposits transparency page |
+| `website/bridges.js` | **New** — self-contained JS for bridges page |
+| `website/exchange.html` | Wallet integration UI, track-deposit panel, price ticker, bridges link/nav, doc link card; removed inline docs |
+| `website/exchange.js` | Wallet integration, deposit tracking, price ticker; removed dead live-prices code and recent-bridges (moved to bridges.js) |
+| `website/style.css` | Status badges, wallet elements, price ticker, track card styles |
+| `website/index.html` | Added AIT Value Model DOC link |
+| `apps/exchange/simple_exchange_api.py` | Hex `transaction_data_hex` in deposit response; `price_eth`/`eth_eur`/`eth_usd` in price endpoint; bridge_monitor import path fix |
+| `apps/bridge-monitor/src/bridge_monitor/main.py` | Retry queue, persistent block cursor, oracle call dedup |
+| `apps/bridge-monitor/src/bridge_monitor/storage.py` | `PENDING_RETRY` status, retry columns, `bridge_cursor` table, cursor/retry queries, ALTER TABLE migration |
+| `aitbc/oracles/price_oracle.py` | On-disk last-known-good price cache, `PRICE_CACHE_MAX_AGE`, `source: cached` |
+
+---
+
+## Out of Scope (deferred to v0.6.0+)
+
+- AIT→ETH withdrawals (still disabled; v0.6.0 cross-chain bridge scope)
+- Real Ethereum mainnet support (v1.0.0 production readiness)
+- Bridge contract on-chain deployment (v0.6.0)
+- Multi-chain / cross-chain asset transfers (v0.6.0)
+- Performance optimization of bridge monitor (v0.7.0)
+
+---
+
+*Last Updated: 2026-06-23*
+*Version: 0.5.7*
+*Status: Implemented*
