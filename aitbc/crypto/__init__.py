@@ -32,6 +32,7 @@ from .tokens import (
     validate_api_key,
     validate_token_format,
 )
+from .transaction_service import TransactionService
 
 __all__ = [
     # Crypto functions
@@ -64,4 +65,6 @@ __all__ = [
     # Hashing functions
     "generate_hmac",
     "verify_hmac",
+    # Transaction service
+    "TransactionService",
 ]
