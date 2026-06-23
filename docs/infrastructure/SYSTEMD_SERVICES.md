@@ -15,7 +15,7 @@ This guide covers SystemD service management for AITBC following the infrastruct
 > **✅ All Core Services Operational**: Recent stability fixes have resolved startup and connectivity issues.
 
 ### 🟢 **Operational Services**
-- **aitbc-coordinator-api.service**: Running on port 8203 with Hermes endpoints
+- **aitbc-coordinator-api.service**: Running on port 8203 with agent endpoints
 - **aitbc-marketplace.service**: Database schema updated and healthy
 - **aitbc-blockchain-node.service**: Blockchain operations normal
 - **aitbc-api-gateway.service**: Routing and proxy functionality working
