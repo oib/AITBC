@@ -124,7 +124,6 @@ get_services_for_role() {
         aitbc-marketplace
         aitbc-bridge-monitor
         aitbc-blockchain-event-bridge
-        aitbc-hermes
         aitbc-agent-management
         aitbc-agent-coordinator
         aitbc-blockchain-explorer
@@ -393,7 +392,7 @@ setup_service_users() {
     # Create specialized service users for security isolation
     service_users=(
         "aitbc-public:Public exposure services (API Gateway, Edge, Whisper)"
-        "aitbc-internal:Internal services (Marketplace, Hermes, Agent Coordinator)"
+        "aitbc-internal:Internal services (Marketplace, Agent, Agent Coordinator)"
         "aitbc-blockchain:Blockchain services (Node, P2P, RPC)"
         "aitbc-gpu:GPU service (needs video group)"
         "aitbc-wallet:Wallet service (keystore access)"

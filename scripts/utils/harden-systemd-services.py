@@ -41,7 +41,6 @@ SERVICES_NEEDING_WRITE_ACCESS = {
     "aitbc-blockchain-sync.service",
     "aitbc-exchange.service",
     "aitbc-gpu.service",
-    "aitbc-hermes.service",
     "aitbc-miner.service",
     "aitbc-trading.service",
     "aitbc-wallet.service",
