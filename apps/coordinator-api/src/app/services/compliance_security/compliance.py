@@ -487,11 +487,11 @@ class AMLKYCCompliance:
         """Calculate transaction risk score"""
         risk_score = 0.0
         amount = transaction_data.get("amount", 0)
-        if amount > 10000:
+        if amount > 36000000:
             risk_score += 0.3
-        elif amount > 5000:
+        elif amount > 18000000:
             risk_score += 0.2
-        elif amount > 1000:
+        elif amount > 3600000:
             risk_score += 0.1
         risk_multipliers = {"low": 0.5, "medium": 1.0, "high": 1.5}
         risk_score *= risk_multipliers.get(customer_risk_level, 1.0)
