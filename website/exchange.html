@@ -9,9 +9,9 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/style.css?v=12">
     <script src="config.js"></script>
-    <script src="exchange.js"></script>
+    <script src="exchange.js?v=12"></script>
 </head>
 <body>
     <div class="container">
@@ -20,6 +20,7 @@
                 <a href="/">Home</a>
                 <a href="/explorer.html">Explorer</a>
                 <a href="/marketplace.html">Marketplace</a>
+                <a href="/bridges.html">Bridges</a>
             </div>
             <h1>AIT Exchange</h1>
             <p class="subtitle">Human AI Compute Backed Currency</p>
@@ -35,6 +36,7 @@
             <p class="value-label">1 AIT &asymp; 1 Compute Hour</p>
             <p class="value-price">&asymp; &euro;0.25</p>
             <p class="value-eth" id="hero-eth-equivalent">&asymp; ... ETH</p>
+            <p class="price-ticker" id="price-ticker">loading...</p>
             <p class="value-note">EUR serves only as a pricing reference.<br>AIT represents compute, not fiat currency.</p>
         </div>
 
@@ -42,6 +44,12 @@
         <div class="card bridge-card">
             <h2>Buy AIT with ETH</h2>
             <p class="muted-text">Send ETH on Sepolia testnet — receive AIT automatically within ~30 seconds.</p>
+
+            <!-- Wallet connection (shown only if window.ethereum is detected) -->
+            <div id="wallet-connect-row" style="display:none;" class="wallet-row">
+                <button id="connect-wallet-btn" class="btn-secondary">Connect MetaMask</button>
+                <span id="connected-account" class="connected-account"></span>
+            </div>
 
             <div class="bridge-form">
                 <div class="form-row">
@@ -67,21 +75,34 @@
                     <p><strong>ETH/USD:</strong> $<span id="eth-usd">-</span></p>
                     <p><strong>AIT/USD:</strong> $<span id="ait-usd">-</span></p>
                 </div>
+                <!-- Buy button (shown when wallet is connected) -->
+                <button id="buy-with-eth-btn" class="btn-primary" style="width:100%;margin-top:1rem;display:none;">Buy AIT with ETH</button>
             </div>
 
             <div id="deposit-error" style="display:none;" class="error-box"></div>
 
-            <!-- Deposit instructions -->
+            <!-- TX hash result (after wallet send) -->
+            <div id="deposit-tx-result" style="display:none;" class="estimate-box">
+                <h3>ETH transaction sent</h3>
+                <p class="muted-text">Tx hash: <span id="eth-tx-hash" class="deposit-address"></span></p>
+                <p class="muted-text">Wait for confirmation, then track your AIT delivery below.</p>
+            </div>
+
+            <!-- Manual fallback instructions (shown when no wallet detected) -->
             <div id="deposit-instructions" style="display:none;" class="instructions-box">
-                <h3>How to deposit</h3>
+                <h3>Send manually from your wallet</h3>
                 <p><strong>1.</strong> Send <span id="instruction-eth-amount">-</span> ETH to:</p>
                 <div id="deposit-address-box" class="deposit-address">
                     <span id="deposit-address">Loading...</span>
                     <span class="copy-hint">click to copy</span>
                 </div>
                 <p id="copy-feedback" class="copy-feedback">Copied!</p>
-                <p><strong>2.</strong> Include your AIT address in the transaction data field:</p>
-                <div class="deposit-address"><span id="instruction-ait-address">-</span></div>
+                <p><strong>2.</strong> Paste this hex value into your wallet's "hex data" / "advanced" field:</p>
+                <div id="tx-data-hex-box" class="deposit-address">
+                    <span id="tx-data-hex">-</span>
+                    <span class="copy-hint">click to copy</span>
+                </div>
+                <p id="copy-feedback-hex" class="copy-feedback">Copied!</p>
                 <p><strong>3.</strong> AIT will be sent automatically to your wallet</p>
                 <p class="muted-text">Minimum deposit: <span id="min-deposit">-</span> ETH &middot; Network: Sepolia testnet</p>
             </div>
@@ -91,124 +112,46 @@
             </div>
         </div>
 
+        <!-- ═══ Track Your Deposit ═══ -->
+        <div class="card track-card">
+            <h2>Track Your Deposit</h2>
+            <p class="muted-text">Enter your ETH transaction hash or AIT address to check bridge status.</p>
+            <div class="bridge-form">
+                <div class="form-row">
+                    <input type="text" id="track-input" placeholder="0x... ETH tx hash  or  ait1... AIT address" class="endpoint">
+                </div>
+                <button id="track-deposit-btn" class="btn-primary" style="width:100%;">Check Status</button>
+            </div>
+            <div id="track-error" style="display:none;" class="error-box"></div>
+            <div id="track-result" style="display:none;" class="estimate-box"></div>
+        </div>
+
+        <!-- ═══ Recent Bridge Deposits (link) ═══ -->
+        <div class="card">
+            <h2>Recent Bridge Deposits</h2>
+            <p class="muted-text">Track ETH &rarr; AIT bridge activity.</p>
+            <a href="/bridges.html" class="btn-secondary" style="margin-top:1rem;">View Bridge Deposits &rarr;</a>
+        </div>
+
         <!-- ═══ Or Get 100 AIT Free ═══ -->
         <div class="card early-bird">
             <h2>Early Adopter Program</h2>
             <p class="giveaway-amount">100 AIT FREE</p>
             <p class="muted-text">Estimated reference value: &asymp; &euro;25</p>
             <p class="muted-text" style="margin:0.5rem 0;">No ETH required — first-time nodes get 100 AIT automatically.</p>
-            <a href="/docs/getting-started/free-ait.md" class="btn-secondary" style="margin-top:1rem;">Claim Free AIT</a>
+            <a href="https://github.com/oib/AITBC/blob/main/docs/getting-started/free-ait.md" class="btn-secondary" style="margin-top:1rem;" target="_blank" rel="noopener">Claim Free AIT</a>
         </div>
 
-        <!-- ═══ Philosophy ═══ -->
+        <!-- ═══ Value Model Documentation ═══ -->
         <div class="card">
-            <h2>Philosophy</h2>
-            <p>Unlike speculative cryptocurrencies, AIT is designed around real-world AI computation.</p>
-            <p>The reference value of AIT is derived from:</p>
-            <ul class="value-list">
-                <li>Electricity cost</li>
-                <li>Hardware depreciation</li>
-                <li>Inference throughput</li>
-                <li>Community contribution</li>
-            </ul>
-        </div>
-
-        <!-- ═══ Reference Hardware + Performance ═══ -->
-        <div class="grid">
-            <div class="card">
-                <h2>Reference Hardware</h2>
-                <table class="info-table">
-                    <tr><td>GPU</td><td>RTX 4060 Ti 16GB</td></tr>
-                    <tr><td>CPU</td><td>Ryzen 5950X</td></tr>
-                    <tr><td>RAM</td><td>64 GB</td></tr>
-                </table>
-                <p class="muted-text" style="margin-top:1rem;">Average models:</p>
-                <ul class="value-list">
-                    <li>Llama 3.1 8B</li>
-                    <li>Gemma 3 12B</li>
-                    <li>Qwen 3 8B</li>
-                </ul>
+            <h2>How AIT Is Valued</h2>
+            <p>AIT is backed by AI compute, not speculation. The reference value (€0.25/compute hour) is derived from electricity cost, hardware depreciation, and inference throughput on reference hardware.</p>
+            <div class="grid" style="margin-top:1rem;">
+                <a href="https://github.com/oib/AITBC/blob/main/docs/getting-started/ait-value-model.md" class="endpoint endpoint-link" target="_blank" rel="noopener">
+                    <span class="method">DOC</span> <span class="path">AIT Value Model</span>
+                </a>
             </div>
-            <div class="card">
-                <h2>Performance</h2>
-                <p class="big-stat">&asymp; 60 tokens/sec</p>
-                <p class="big-stat">&asymp; 216,000 tokens/hour</p>
-                <h2 style="margin-top:1.5rem;">Operating Cost</h2>
-                <table class="info-table">
-                    <tr><td>Electricity</td><td>&euro;0.08/hour</td></tr>
-                    <tr><td>Hardware wear</td><td>&euro;0.14/hour</td></tr>
-                    <tr class="total-row"><td><strong>Total</strong></td><td><strong>&euro;0.22/hour</strong></td></tr>
-                </table>
-                <p class="muted-text" style="margin-top:0.5rem;">Reference value: &asymp; &euro;0.25 per compute hour</p>
-            </div>
-        </div>
-
-        <!-- ═══ Multi-GPU Scaling ═══ -->
-        <div class="card">
-            <h2>Multi-GPU Scaling</h2>
-            <table>
-                <thead><tr><th>Hardware</th><th>Multiplier</th></tr></thead>
-                <tbody>
-                    <tr><td>RTX 3060</td><td>0.7&times;</td></tr>
-                    <tr><td>RTX 4060 Ti 16GB</td><td>1.0&times;</td></tr>
-                    <tr><td>RTX 3090</td><td>1.5&times;</td></tr>
-                    <tr><td>RTX 4090</td><td>2.5&times;</td></tr>
-                    <tr><td>H100</td><td>10&times;</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- ═══ Transaction Fees ═══ -->
-        <div class="card">
-            <h2>Transaction Fees</h2>
-            <p>AITBC keeps fees simple and almost invisible.</p>
-            <div class="grid">
-                <div class="card fee-card">
-                    <h3>Wallet Transfers</h3>
-                    <p class="big-stat">0.01 AIT</p>
-                    <p class="muted-text">Fixed fee per transaction<br>&asymp; &euro;0.0025</p>
-                </div>
-                <div class="card fee-card">
-                    <h3>AI Compute Marketplace</h3>
-                    <p class="big-stat">0.5%</p>
-                    <p class="muted-text">Service fee on compute jobs<br>19.9 AIT &rarr; provider, 0.1 AIT &rarr; network</p>
-                </div>
-            </div>
-            <h3 style="margin-top:1.5rem;">Fee Distribution</h3>
-            <table>
-                <thead><tr><th>Allocation</th><th>Share</th><th>Purpose</th></tr></thead>
-                <tbody>
-                    <tr><td>Burn</td><td>50%</td><td>Reduces supply, rewards long-term holders</td></tr>
-                    <tr><td>Treasury</td><td>50%</td><td>Faucet giveaways, hosting, model downloads, development</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- ═══ Why not peg to ETH? ═══ -->
-        <div class="grid">
-            <div class="card peg-card">
-                <h3>ETH</h3>
-                <p class="peg-verdict peg-bad">Volatile</p>
-                <p class="muted-text">Price swings make it unsuitable as a stable compute reference.</p>
-            </div>
-            <div class="card peg-card">
-                <h3>USD</h3>
-                <p class="peg-verdict peg-warning">Stable, but not energy-based</p>
-                <p class="muted-text">Doesn't reflect real electricity or hardware costs.</p>
-            </div>
-            <div class="card peg-card">
-                <h3>EUR Reference</h3>
-                <p class="peg-verdict peg-good">Matches electricity costs in Europe</p>
-                <p class="muted-text">EUR is used only as a pricing reference &mdash; AIT is compute, not fiat.</p>
-            </div>
-        </div>
-
-        <!-- ═══ Long-Term Vision ═══ -->
-        <div class="card vision-card">
-            <h2>Long-Term Vision</h2>
-            <p>Compute becomes currency.</p>
-            <p>The more AI work contributed, the more value is created.</p>
-            <p>AIT aims to connect humans, hardware, and artificial intelligence through a shared compute economy.</p>
+            <p class="endpoint-note">Reference hardware, operating cost, multi-GPU scaling, transaction fees, and long-term vision</p>
         </div>
 
         <!-- ═══ API Endpoints ═══ -->

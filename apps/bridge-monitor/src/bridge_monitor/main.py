@@ -10,7 +10,16 @@ from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.ethereum_rpc import EthereumRPCClient
 from aitbc.oracles.price_oracle import get_price_oracle
 
-from .storage import BridgeDepositStatus, create_deposit, get_deposit, init_db, update_deposit
+from .storage import (
+    BridgeDepositStatus,
+    create_deposit,
+    get_cursor,
+    get_deposit,
+    get_deposits_for_retry,
+    init_db,
+    set_cursor,
+    update_deposit,
+)
 
 configure_logging(level="INFO", service_name="bridge-monitor", to_file=True)
 logger = get_logger(__name__)
@@ -59,16 +68,21 @@ class BridgeMonitor:
             pass
         return None
 
-    def calculate_ait_amount(self, eth_amount: Decimal) -> Decimal | None:
-        """Calculate AIT amount based on ETH amount and oracle prices."""
+    def calculate_ait_amount(self, eth_amount: Decimal, eth_usd=None, ait_usd=None) -> Decimal | None:
+        """Calculate AIT amount based on ETH amount and oracle prices.
+
+        Accepts pre-fetched prices to avoid redundant oracle calls.
+        """
         try:
-            eth_usd_result = self.price_oracle.get_price("ETH", "USD")
-            ait_usd_result = self.price_oracle.get_price("AIT", "USD")
-            if eth_usd_result is None or ait_usd_result is None:
+            if eth_usd is None:
+                eth_usd_result = self.price_oracle.get_price("ETH", "USD")
+                eth_usd = eth_usd_result.price if eth_usd_result else None
+            if ait_usd is None:
+                ait_usd_result = self.price_oracle.get_price("AIT", "USD")
+                ait_usd = ait_usd_result.price if ait_usd_result else None
+            if eth_usd is None or ait_usd is None:
                 logger.error("Cannot get prices for ETH/USD or AIT/USD")
                 return None
-            eth_usd = eth_usd_result.price
-            ait_usd = ait_usd_result.price
             if ait_usd == 0:
                 logger.error("AIT/USD price is zero")
                 return None
@@ -142,7 +156,12 @@ class BridgeMonitor:
             create_deposit(tx_hash, from_address, str(eth_amount), "")
             update_deposit(tx_hash, status=BridgeDepositStatus.FAILED, error_message="Invalid AIT recipient address")
             return
-        ait_amount = self.calculate_ait_amount(eth_amount)
+        # Fetch oracle prices once for both calculation and storage
+        eth_usd_result = self.price_oracle.get_price("ETH", "USD")
+        ait_usd_result = self.price_oracle.get_price("AIT", "USD")
+        eth_usd = eth_usd_result.price if eth_usd_result else None
+        ait_usd = ait_usd_result.price if ait_usd_result else None
+        ait_amount = self.calculate_ait_amount(eth_amount, eth_usd=eth_usd, ait_usd=ait_usd)
         if not ait_amount:
             logger.error("Could not calculate AIT amount")
             create_deposit(tx_hash, from_address, str(eth_amount), ait_recipient)
@@ -152,10 +171,6 @@ class BridgeMonitor:
         if not deposit_id:
             logger.info("Deposit %s already exists in database", tx_hash)
             return
-        eth_usd_result = self.price_oracle.get_price("ETH", "USD")
-        ait_usd_result = self.price_oracle.get_price("AIT", "USD")
-        eth_usd = eth_usd_result.price if eth_usd_result else None
-        ait_usd = ait_usd_result.price if ait_usd_result else None
         update_deposit(
             tx_hash,
             ait_amount=str(ait_amount),
@@ -168,7 +183,49 @@ class BridgeMonitor:
             update_deposit(tx_hash, ait_tx_hash=ait_tx_hash, status=BridgeDepositStatus.COMPLETED)
             logger.info("Successfully bridged %s ETH to %s AIT for %s", eth_amount, ait_amount, ait_recipient)
         else:
-            update_deposit(tx_hash, status=BridgeDepositStatus.FAILED, error_message="Failed to submit AIT transfer")
+            self._mark_for_retry(tx_hash, "Failed to submit AIT transfer")
+
+    def _mark_for_retry(self, tx_hash: str, error_message: str) -> None:
+        """Mark a deposit for retry instead of immediate failure."""
+        from datetime import UTC, datetime, timedelta
+
+        deposit = get_deposit(tx_hash)
+        retry_count = (deposit.get("retry_count", 0) if deposit else 0) + 1
+        max_retries = 5
+        if retry_count >= max_retries:
+            logger.error("Deposit %s exhausted %s retries, marking FAILED", tx_hash, max_retries)
+            update_deposit(tx_hash, status=BridgeDepositStatus.FAILED, error_message=error_message, retry_count=retry_count, next_retry_at=None)
+            return
+        # Exponential backoff: 30s, 2m, 10m, 1h, 4h
+        backoff_seconds = [30, 120, 600, 3600, 14400]
+        delay = backoff_seconds[min(retry_count - 1, len(backoff_seconds) - 1)]
+        next_retry = (datetime.now(UTC) + timedelta(seconds=delay)).isoformat()
+        logger.warning("Deposit %s marked PENDING_RETRY (attempt %s/%s, next in %ss): %s", tx_hash, retry_count, max_retries, delay, error_message)
+        update_deposit(tx_hash, status=BridgeDepositStatus.PENDING_RETRY, error_message=error_message, retry_count=retry_count, next_retry_at=next_retry)
+
+    def process_retry_queue(self) -> None:
+        """Re-attempt deposits in PENDING_RETRY status whose next_retry_at has passed."""
+        deposits = get_deposits_for_retry()
+        if not deposits:
+            return
+        logger.info("Retry queue: %s deposit(s) to re-attempt", len(deposits))
+        for d in deposits:
+            tx_hash = d["eth_tx_hash"]
+            ait_recipient = d["ait_recipient"]
+            ait_amount_str = d.get("ait_amount")
+            if not ait_amount_str:
+                logger.error("Retry for %s: no ait_amount stored, marking FAILED", tx_hash)
+                update_deposit(tx_hash, status=BridgeDepositStatus.FAILED, error_message="Retry failed: no AIT amount")
+                continue
+            ait_amount = Decimal(ait_amount_str)
+            logger.info("Retrying deposit %s: %s AIT to %s", tx_hash, ait_amount, ait_recipient)
+            update_deposit(tx_hash, status=BridgeDepositStatus.PROCESSING)
+            ait_tx_hash = self.submit_ait_transfer(ait_recipient, ait_amount)
+            if ait_tx_hash:
+                update_deposit(tx_hash, ait_tx_hash=ait_tx_hash, status=BridgeDepositStatus.COMPLETED, retry_count=d.get("retry_count", 0))
+                logger.info("Retry succeeded for deposit %s", tx_hash)
+            else:
+                self._mark_for_retry(tx_hash, "Retry: failed to submit AIT transfer")
 
     def poll_ethereum(self) -> None:
         """Poll Ethereum for new transactions to bridge address."""
@@ -176,10 +233,22 @@ class BridgeMonitor:
             w3 = self.eth_rpc._get_web3()
             latest_block = w3.eth.block_number
             logger.debug("Latest block: %s", latest_block)
-            start_block = max(0, latest_block - 10)
+
+            # Use persistent cursor; bootstrap from latest_block - 10 on first run
+            cursor = get_cursor("last_processed_block")
+            if cursor is not None:
+                start_block = cursor + 1
+            else:
+                start_block = max(0, latest_block - 10)
+
+            if start_block > latest_block:
+                logger.debug("No new blocks since cursor (%s)", start_block - 1)
+                return
+
             for block_num in range(start_block, latest_block + 1):
                 block = w3.eth.get_block(block_num, full_transactions=True)
                 if not block or not block.get("transactions"):
+                    set_cursor("last_processed_block", block_num)
                     continue
                 for tx in block["transactions"]:
                     to_address = tx.get("to", "")
@@ -194,6 +263,8 @@ class BridgeMonitor:
                         tx_data = tx.get("input", "0x")
                         logger.info("Found deposit: %s from %s, amount: %s ETH", tx_hash, from_address, eth_amount)
                         self.process_deposit(tx_hash, from_address, eth_amount, tx_data)
+                # Advance cursor only after processing all deposits in this block
+                set_cursor("last_processed_block", block_num)
         except Exception as e:
             logger.error("Error polling Ethereum: %s", e)
 
@@ -203,6 +274,7 @@ class BridgeMonitor:
         while True:
             try:
                 self.poll_ethereum()
+                self.process_retry_queue()
             except Exception as e:
                 logger.error("Error in polling loop: %s", e)
             time.sleep(self.poll_interval)

@@ -1452,10 +1452,49 @@ a.btn-secondary {
     color: var(--text-muted);
     margin: 0.5rem 0;
 }
+.price-ticker {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin: 0.5rem 0;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Deposit status badges */
+.status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-variant: tabular-nums;
+}
+.status-ok {
+    background: #2d5a2d;
+    color: #b0e0b0;
+}
+.status-bad {
+    background: #5a2d2d;
+    color: #e0b0b0;
+}
+.status-pending {
+    background: #5a4d2d;
+    color: #e0d8b0;
+}
 
 /* Exchange page — bridge form */
 .bridge-card {
     border: 2px solid var(--primary);
+}
+.wallet-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.connected-account {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
 }
 .bridge-form {
     margin: 1.5rem 0;
