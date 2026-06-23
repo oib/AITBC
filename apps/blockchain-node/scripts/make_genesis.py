@@ -18,7 +18,7 @@ from typing import Any
 CHAIN_PARAMS = {
     "mint_per_unit": 0,  # No new minting after genesis
     "coordinator_ratio": 0.05,
-    "base_fee": 10,
+    "base_fee": 36,
     "fee_per_byte": 1,
 }
 

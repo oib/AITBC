@@ -273,7 +273,7 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
                 "from": provider_address,
                 "to": "0x0000000000000000000000000000000000000000",
                 "amount": 0,
-                "fee": 10,
+                "fee": 36,
                 "nonce": 0,
                 "type": "GPU_REGISTER",
                 "value": 0,
