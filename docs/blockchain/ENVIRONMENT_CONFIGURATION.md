@@ -435,7 +435,6 @@ EnvironmentFile=/etc/aitbc/node.env
 ### Agent Services
 - **aitbc-hermes.service:** Loads `blockchain.env`, `node.env`
 - **aitbc-agent-coordinator.service:** Loads `node.env`
-- **aitbc-agent-daemon.service:** Loads `node.env`
 
 ### Wallet Service
 - **aitbc-wallet.service:** Loads `blockchain.env`, `blockchain-secrets.env`, `node.env`

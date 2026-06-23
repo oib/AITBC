@@ -729,12 +729,6 @@ class NemotronAgent:
    # Fixed: Removed GPU auction functionality, migrated to hardware+software bundles
    # Fixed: Added missing ipfshttpclient dependency
 
-   # If AgentDaemon has connection errors:
-   systemctl status aitbc-agent-daemon.service
-   # Fixed: Updated polling URL from port 8107 to 8203
-   # Fixed: Corrected endpoint path to /v1/hermes/messages/
-   # Solution: systemctl restart aitbc-agent-daemon.service
-
    # If Marketplace Service has database errors:
    systemctl status aitbc-marketplace.service
    # Fixed: Added missing avg_rating and rating_count columns

@@ -54,8 +54,7 @@ This document describes the service isolation configuration implemented for AITB
 
 ### Services Still Running as Root
 
-**Remaining Root Services (3):**
-- aitbc-agent-daemon.service - Agent daemon (complex operations)
+**Remaining Root Services (2):**
 - aitbc-agent-management.service - Agent management
 - aitbc-miner.service - Miner service
 
@@ -242,8 +241,7 @@ All isolated services are responding correctly:
 
 ### Services Still Running as Root
 
-**Remaining Root Services (15):**
-- `aitbc-agent-daemon.service` - Agent daemon
+**Remaining Root Services (14):**
 - `aitbc-agent-management.service` - Agent management
 - `aitbc-ai.service` - AI service (0.0.0.0:8005)
 - `aitbc-blockchain-event-bridge.service` - Event Bridge (0.0.0.0:8205)
@@ -276,7 +274,6 @@ All isolated services are responding correctly:
 - `aitbc-trading.service` - Trading service (127.0.0.1:8104)
 
 **Keep as Root (Special Requirements):**
-- `aitbc-agent-daemon.service` - Complex agent operations
 - `aitbc-agent-management.service` - Agent management
 - `aitbc-ffmpeg.service` - FFmpeg operations
 - `aitbc-miner.service` - Mining operations
