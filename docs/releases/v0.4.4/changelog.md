@@ -115,7 +115,7 @@ For detailed information on each topic, see the topic-specific documents:
    cat > /etc/aitbc/node.env << EOF
    GENESIS_PRIVATE_KEY=0x...
    GENESIS_ADDRESS=0x...
-   HERMES_DB_PATH=/var/lib/aitbc/hermes_coin_requests.db
+   HERMES_DB_PATH=/var/lib/aitbc/data/hermes_coin_requests.db
    EOF
    ```
 

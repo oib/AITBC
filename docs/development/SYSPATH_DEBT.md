@@ -28,12 +28,11 @@ The CLI has multiple entrypoints and command modules that manipulate sys.path to
 - `cli/aitbc_cli/commands/exchange.py` - Exchange commands, inserts apps/exchange (now dynamic)
 - `cli/aitbc_cli/commands/agent_sdk.py` - Agent SDK commands, inserts agent-sdk src
 
-### Wrapper Scripts (14 files)
+### Wrapper Scripts (13 files)
 All systemd service wrappers in their respective app directories use sys.path.insert to import aitbc constants before setting PYTHONPATH for the child process:
 
 - `aitbc-agent-management-wrapper.py`
 - `aitbc-agent-coordinator-wrapper.py`
-- `aitbc-agent-daemon-wrapper.py`
 - `aitbc-blockchain-node-wrapper.py`
 - `aitbc-blockchain-p2p-wrapper.py`
 - `aitbc-blockchain-event-bridge-wrapper.py`
@@ -88,7 +87,6 @@ App-specific scripts and modules use sys.path for local imports:
 - `apps/coordinator-api/src/app/services/tenant_management.py` - Tenant management
 - `apps/exchange/exchange_api.py` - Exchange API
 - `apps/marketplace/scripts/marketplace.py` - Marketplace script
-- `apps/agent-coordinator/scripts/agent_daemon.py` - Agent daemon
 - Various other app-specific files
 
 ### Dev/Docs (~20 files)

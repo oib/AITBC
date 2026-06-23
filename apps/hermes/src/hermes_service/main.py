@@ -22,7 +22,7 @@ from .storage import CoinRequest, CoinRequestStatus, get_db_session, init_db  # 
 configure_logging(level="INFO")
 logger = get_logger(__name__)
 
-COORDINATOR_URL = os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8011")
+COORDINATOR_URL = os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8107")
 HERMES_AGENT_ID = os.getenv("HERMES_AGENT_ID", "hermes-agent")
 
 # Module-level handler registry
@@ -113,7 +113,11 @@ async def _check_blockchain_rpc() -> bool:
 @app.get("/health")
 async def health() -> dict[str, Any]:
     """Health check endpoint with dependency verification."""
-    checks = {"database": _check_db(), "coordinator": await _check_coordinator(), "blockchain_rpc": await _check_blockchain_rpc()}
+    checks = {
+        "database": _check_db(),
+        "coordinator": await _check_coordinator(),
+        "blockchain_rpc": await _check_blockchain_rpc(),
+    }
     all_healthy = all(checks.values())
     status = "healthy" if all_healthy else "degraded"
     return {"status": status, "service": "hermes-service", "checks": checks}
@@ -245,7 +249,7 @@ async def remote_execute_coin_request(
     if not tx_service.genesis_private_key:
         raise HTTPException(status_code=503, detail="GENESIS_PRIVATE_KEY not configured on this node")
     balance = tx_service.get_balance(tx_service.genesis_address)
-    total_required = req.amount + 1000
+    total_required = req.amount + 10
     if balance < total_required:
         raise HTTPException(status_code=400, detail=f"Insufficient genesis balance: {balance} < {total_required}")
     signed_tx = tx_service.generate_signed_transaction(to_address=req.wallet_address, amount=req.amount)
