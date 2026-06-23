@@ -12,6 +12,7 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import os
 import time
 from dataclasses import dataclass, field
@@ -118,7 +119,61 @@ class CoinGeckoOracle:
     """Reads prices from CoinGecko public REST API (no key required)."""
 
     _cache: dict[str, PriceResult] = {}
-    _cache_ttl: int = 60  # seconds
+    _cache_ttl: int = 60  # seconds (in-memory)
+    _disk_cache_path: str = os.path.join(
+        os.getenv("DATA_DIR", "/var/lib/aitbc"), "price_cache.json"
+    )
+    _disk_cache_max_age: int = int(os.getenv("PRICE_CACHE_MAX_AGE", "3600"))  # 1 hour default
+
+    def _read_disk_cache(self) -> dict[str, Any]:
+        """Read the on-disk last-known-good price cache."""
+        try:
+            with open(self._disk_cache_path) as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            return {}
+
+    def _write_disk_cache(self, cache: dict[str, Any]) -> None:
+        """Write the on-disk last-known-good price cache."""
+        try:
+            os.makedirs(os.path.dirname(self._disk_cache_path), exist_ok=True)
+            with open(self._disk_cache_path, "w") as f:
+                json.dump(cache, f)
+        except OSError as e:
+            logger.warning("Failed to write price cache to %s: %s", self._disk_cache_path, e)
+
+    def _get_cached_from_disk(self, cache_key: str) -> PriceResult | None:
+        """Return a cached price from disk if it exists and is within max age."""
+        cache = self._read_disk_cache()
+        entry = cache.get(cache_key)
+        if not entry:
+            return None
+        cached_ts = entry.get("timestamp", 0)
+        age = time.time() - cached_ts
+        if age > self._disk_cache_max_age:
+            logger.debug("Disk cache for %s is stale (%.0fs > %ss)", cache_key, age, self._disk_cache_max_age)
+            return None
+        logger.warning("Serving cached price for %s (age %.0fs, source: cached)", cache_key, age)
+        return PriceResult(
+            base=entry.get("base", ""),
+            quote=entry.get("quote", ""),
+            price=float(entry.get("price", 0)),
+            source="cached",
+            timestamp=cached_ts,
+            raw={"cached_at": entry.get("cached_at", "")},
+        )
+
+    def _store_to_disk(self, cache_key: str, result: PriceResult) -> None:
+        """Persist a successful price result to the on-disk cache."""
+        cache = self._read_disk_cache()
+        cache[cache_key] = {
+            "base": result.base,
+            "quote": result.quote,
+            "price": result.price,
+            "timestamp": result.timestamp,
+            "cached_at": time.time(),
+        }
+        self._write_disk_cache(cache)
 
     def get_price(self, base: str, quote: str = "USD") -> PriceResult | None:
         cache_key = f"{base}/{quote}"
@@ -133,7 +188,6 @@ class CoinGeckoOracle:
 
         vs_currency = quote.lower()
         try:
-            import json
             import urllib.request
 
             url = f"{_COINGECKO_BASE}/simple/price?ids={coin_id}&vs_currencies={vs_currency}&include_last_updated_at=true"
@@ -158,9 +212,14 @@ class CoinGeckoOracle:
                 raw=entry,
             )
             self._cache[cache_key] = result
+            self._store_to_disk(cache_key, result)
             return result
         except Exception as e:
             logger.warning("CoinGecko price fetch failed for %s: %s", cache_key, e)
+            # Fall back to on-disk last-known-good cache
+            disk_cached = self._get_cached_from_disk(cache_key)
+            if disk_cached:
+                return disk_cached
             return None
 
 
