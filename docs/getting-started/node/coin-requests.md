@@ -45,12 +45,12 @@ curl -s http://localhost:8202/rpc/account/<your-address>
 - Backup wallet files regularly
 - Store backups in secure locations
 
-## Requesting Coins via Hermes Message
+## Requesting Coins via Agent Message
 
 Send a REQUEST_COINS message to the hub:
 
 ```bash
-curl -X POST "http://localhost:8203/v1/hermes/messages/send" \
+curl -X POST "http://localhost:8203/v1/agent/messages/send" \
   -H "Content-Type: application/json" \
   -d '{
     "sender": "<your-agent-id>",
@@ -63,7 +63,7 @@ curl -X POST "http://localhost:8203/v1/hermes/messages/send" \
 
 **Example:**
 ```bash
-curl -X POST "http://localhost:8203/v1/hermes/messages/send" \
+curl -X POST "http://localhost:8203/v1/agent/messages/send" \
   -H "Content-Type: application/json" \
   -d '{
     "sender": "my-node",
@@ -117,6 +117,6 @@ aitbc-cli coin-requests execute <request-id>
 
 ## See Also
 
-- [Hermes Messaging](hermes-messaging.md)
+- [Agent Messaging](agent-messaging.md)
 - [Blockchain Setup](blockchain-setup.md)
 - [Configuration Guide](configuration-guide.md)

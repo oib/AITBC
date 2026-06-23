@@ -14,7 +14,7 @@ Before unification, services use multiple different users:
 | User | Services | Purpose |
 |------|----------|---------|
 | `root` | miner, agent-daemon, blockchain-sync, agent-management, blockchain-explorer | High-privilege services (needs GPU access, system resources) |
-| `aitbc-internal` | coordinator-api, agent-coordinator, governance, marketplace, exchange, bridge-monitor, hermes, multimodal, modality-optimization, learning, trading | Internal services |
+| `aitbc-internal` | coordinator-api, agent-coordinator, governance, marketplace, exchange, bridge-monitor, agent, multimodal, modality-optimization, learning, trading | Internal services |
 | `aitbc-blockchain` | blockchain-node, blockchain-p2p, blockchain-rpc | Blockchain-specific services |
 | `aitbc-gpu` | gpu | GPU service |
 | `aitbc-wallet` | wallet | Wallet service |

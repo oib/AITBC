@@ -140,7 +140,7 @@ class TestIntegrationScenarios:
             "ai",
             "mining",
             "agent",
-            "hermes",
+            "agent-msg",
             "workflow",
             "resource",
             "simulate",

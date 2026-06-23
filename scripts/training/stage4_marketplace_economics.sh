@@ -3,7 +3,7 @@
 # Source training library
 source "$(dirname "$0")/training_lib.sh"
 
-# hermes AITBC Training - Stage 4: Marketplace & Economic Intelligence
+# agent AITBC Training - Stage 4: Marketplace & Economic Intelligence
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -24,7 +24,7 @@ set -e
 TRAINING_STAGE="Stage 4: Marketplace & Economic Intelligence"
 SCRIPT_NAME="stage4_marketplace_economics"
 CURRENT_LOG=$(init_logging "$SCRIPT_NAME")
-WALLET_NAME="hermes-trainee"
+WALLET_NAME="agent-trainee"
 WALLET_PASSWORD="trainee123"
 
 # Logging function
@@ -301,7 +301,7 @@ validation_quiz() {
 # Main training function
 main() {
     echo -e "${BLUE}========================================${NC}"
-    echo -e "${BLUE}hermes AITBC Training - $TRAINING_STAGE${NC}"
+    echo -e "${BLUE}agent AITBC Training - $TRAINING_STAGE${NC}"
     echo -e "${BLUE}========================================${NC}"
     echo
 

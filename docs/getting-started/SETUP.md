@@ -150,7 +150,7 @@ In addition to base services, hub nodes get:
 | `aitbc-marketplace` | — | Marketplace service |
 | `aitbc-bridge-monitor` | — | ETH↔AIT bridge monitor |
 | `aitbc-blockchain-event-bridge` | 8205 | Blockchain event → service trigger bridge |
-| `aitbc-hermes` | 8103 | Hermes messaging (coin requests) |
+| `aitbc-agent` | 8107 | Agent messaging (coin requests) |
 | `aitbc-agent-management` | 8204 | Agent registry API (public, followers connect) |
 | `aitbc-agent-coordinator` | 8107 | Agent coordination backend (WebSocket PING/PONG, REQUEST_COINS) |
 | `aitbc-blockchain-explorer` | 8100 | Blockchain explorer API |
@@ -211,7 +211,7 @@ All nodes get a daily backup service enabled automatically by `setup.sh`.
 | Component | Format | Description |
 |-----------|--------|-------------|
 | PostgreSQL | `.sql.gz` | Governance database dump |
-| SQLite DBs | `.gz` | Blockchain chain DB, coordinator, marketplace, hermes, wallet, GPU |
+| SQLite DBs | `.gz` | Blockchain chain DB, coordinator, marketplace, agent, wallet, GPU |
 | Keystore | `tar.gz` | All keys in `/var/lib/aitbc/keystore/` |
 | Service configs | `tar.gz` | All files in `/etc/aitbc/` (env files, credentials, secrets) |
 | Prometheus config | `tar.gz` | `/etc/prometheus/` if present |
@@ -346,7 +346,7 @@ journalctl -u aitbc-blockchain-node -f | grep "Sync mode"
 
 ### Node Onboarding
 - [Blockchain Setup](node/blockchain-setup.md) - Configure blockchain node
-- [Hermes Messaging](node/hermes-messaging.md) - PING/PONG messaging
+- [Agent Messaging](node/agent-messaging.md) - PING/PONG messaging
 - [Coin Requests](node/coin-requests.md) - Request free coins from hub
 - [Configuration Guide](node/configuration-guide.md) - Configuration files
 

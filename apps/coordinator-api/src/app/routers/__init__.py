@@ -74,8 +74,8 @@ except ImportError:
     trading = None  # type: ignore[assignment]
     logger.warning("Trading router not available")
 
-# Hermes messaging router (feature-flagged, separate from deleted context routers)
-from .hermes import router as hermes  # noqa: E402
+# Agent messaging router (feature-flagged, separate from deleted context routers)
+from .agent import router as agent  # noqa: E402
 
 # Security router moved to contexts/security
 try:
@@ -163,7 +163,7 @@ __all__ = [
     "reputation",
     "rewards",
     "trading",
-    "hermes",
+    "agent",
     "agent_security_router",
     "analytics",
     "certification",

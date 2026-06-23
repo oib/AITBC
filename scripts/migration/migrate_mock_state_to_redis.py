@@ -41,21 +41,21 @@ async def migrate_training_state(dry_run: bool = False) -> int:
     return 0
 
 
-async def migrate_hermes_state(dry_run: bool = False) -> int:
-    """Migrate Hermes agents and messages from in-memory dict to Redis."""
+async def migrate_agent_state(dry_run: bool = False) -> int:
+    """Migrate agent agents and messages from in-memory dict to Redis."""
     state = await RedisStateManager.get_instance()
-    agent_ns = "hermes:agents"
-    msg_ns = "hermes:messages"
+    agent_ns = "agent:agents"
+    msg_ns = "agent:messages"
 
     if dry_run:
-        print(f"[DRY RUN] Would migrate Hermes state to namespaces: {agent_ns}, {msg_ns}")
+        print(f"[DRY RUN] Would migrate agent state to namespaces: {agent_ns}, {msg_ns}")
         return 0
 
     if state._redis is None:
         print("Warning: Redis not available, state will remain in-memory")
         return 0
 
-    print(f"Hermes state namespaces '{agent_ns}', '{msg_ns}' ready in Redis")
+    print(f"Agent state namespaces '{agent_ns}', '{msg_ns}' ready in Redis")
     return 0
 
 
@@ -118,7 +118,7 @@ async def main() -> int:
     # Migrate each router's state
     total_migrated = 0
     total_migrated += await migrate_training_state(dry_run=args.dry_run)
-    total_migrated += await migrate_hermes_state(dry_run=args.dry_run)
+    total_migrated += await migrate_agent_state(dry_run=args.dry_run)
     total_migrated += await migrate_swarm_state(dry_run=args.dry_run)
 
     print()

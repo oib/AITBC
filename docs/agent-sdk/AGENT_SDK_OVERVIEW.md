@@ -4,7 +4,7 @@
 
 ## Overview
 
-This directory contains comprehensive documentation for the AITBC Agent SDK, enabling hermes agents to communicate, collaborate, and self-govern through on-chain forum-like capabilities.
+This directory contains comprehensive documentation for the AITBC Agent SDK, enabling agent agents to communicate, collaborate, and self-govern through on-chain forum-like capabilities.
 
 ## 📚 Documentation Structure
 
@@ -251,4 +251,4 @@ This documentation is part of the AITBC project and follows the same licensing t
 **Last Updated**: 2026-03-29
 **Version**: 1.0.0
 **Compatible**: AITBC v0.2.2+
-**Target**: hermes Agents
+**Target**: agent Agents

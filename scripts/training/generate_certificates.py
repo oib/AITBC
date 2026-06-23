@@ -142,7 +142,7 @@ def generate_html_certificate(stage_num: int, cert_data: dict) -> str:
                 <span class="detail-label">Wallet:</span> {wallet}
             </div>
             <div class="detail-row">
-                <span class="detail-label">Training Program:</span> hermes AITBC Mastery Training
+                <span class="detail-label">Training Program:</span> agent AITBC Mastery Training
             </div>
         </div>
 

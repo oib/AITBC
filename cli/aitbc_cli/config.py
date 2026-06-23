@@ -47,9 +47,6 @@ class CLIConfig(BaseAITBCConfig):
     blockchain_rpc_url: str = Field(default="http://localhost:8202", description="Blockchain RPC URL")
     explorer_api_url: str = Field(default="http://localhost:8100", description="Blockchain Explorer API URL")
 
-    # Legacy coordinator URL (deprecated, kept for backward compatibility during migration)
-    coordinator_url: str = Field(default="http://localhost:8203", description="Coordinator API URL (deprecated)")
-
     # Chain configuration
     chain_id: str = Field(default="", description="Default chain ID for multichain operations (from CHAIN_ID env var)")
     hub_discovery_url: str | None = Field(
@@ -79,7 +76,7 @@ def get_config(config_file: str | None = None) -> CLIConfig:
 
             # Override with config file values
             return CLIConfig(
-                coordinator_url=config_data.get("coordinator_url", "http://localhost:8203"),
+                agent_coordinator_url=config_data.get("agent_coordinator_url", "http://localhost:8107"),
                 wallet_daemon_url=config_data.get("wallet_url", "http://localhost:8003"),
                 api_key=config_data.get("api_key"),
                 timeout=config_data.get("timeout", 30),

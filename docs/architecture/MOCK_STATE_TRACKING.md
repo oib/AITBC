@@ -7,8 +7,8 @@
 | File | Variable | Type | Gated by debug? | Migration target |
 |------|----------|------|-------------------|------------------|
 | `routers/training.py` | `_mock_jobs` | `dict[str, dict]` | ✅ `settings.debug \| \| settings.enable_mock_training` | Redis job queue |
-| `routers/hermes.py` | `_mock_agents` | `dict[str, dict]` | ✅ `settings.debug \| \| settings.enable_mock_hermes` | Redis agent registry |
-| `routers/hermes.py` | `_mock_messages` | `dict[str, list]` | ✅ `settings.debug \| \| settings.enable_mock_hermes` | Redis message stream |
+| `routers/agent.py` | `_mock_agents` | `dict[str, dict]` | ✅ `settings.debug \| \| settings.enable_mock_agent` | Redis agent registry |
+| `routers/agent.py` | `_mock_messages` | `dict[str, list]` | ✅ `settings.debug \| \| settings.enable_mock_agent` | Redis message stream |
 | `contexts/agent_coordination/routers/swarm.py` | `_mock_nodes` | `dict[str, dict]` | ✅ `settings.debug` | Redis node registry |
 | `contexts/agent_coordination/routers/swarm.py` | `_mock_tasks` | `dict[str, dict]` | ✅ `settings.debug` | Redis task queue |
 
@@ -16,7 +16,7 @@
 
 All mock routes are **disabled in production**:
 - `training.py`: `settings.debug \| \| settings.enable_mock_training`
-- `hermes.py`: `settings.debug \| \| settings.enable_mock_hermes`
+- `agent.py`: `settings.debug \| \| settings.enable_mock_agent`
 - `swarm.py` (router): `settings.debug \| \| settings.enable_mock_swarm`
 - `swarm.py` (context): `settings.debug`
 

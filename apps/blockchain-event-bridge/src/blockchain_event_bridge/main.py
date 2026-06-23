@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title=settings.app_name,
-    description="Bridge between AITBC blockchain events and hermes agent triggers",
+    description="Bridge between AITBC blockchain events and agent triggers",
     version="0.1.0",
     lifespan=lifespan,
 )

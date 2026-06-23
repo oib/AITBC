@@ -76,11 +76,11 @@
 - Badge management
 - Partnership management
 
-#### 8. Hermes Context
-**Routers:** hermes_enhanced.py, hermes_enhanced_simple.py, hermes_enhanced_app.py, hermes_enhanced_health.py
-**Services:** hermes_enhanced.py, hermes_enhanced_simple.py
+#### 8. Agent Context
+**Routers:** agent_enhanced.py, agent_enhanced_simple.py, agent_enhanced_app.py, agent_enhanced_health.py
+**Services:** agent_enhanced.py, agent_enhanced_simple.py
 **Responsibilities:**
-- Hermes agent orchestration
+- Agent agent orchestration
 - Agent coordination
 - Edge computing integration
 
@@ -268,7 +268,7 @@ Create the remaining 25 bounded contexts with proper directory structure:
 - contexts/trading/
 - contexts/analytics/
 - contexts/certification/
-- contexts/hermes/
+- contexts/agent/
 - contexts/multimodal/
 - contexts/advanced_rl/
 - contexts/ai_analytics/
@@ -318,7 +318,7 @@ Move routers, services, and domain models to appropriate contexts:
 3. Reputation
 4. Rewards
 5. Trading
-6. Hermes
+6. Agent
 7. Security
 
 **Medium Priority (Supporting Services):**

@@ -1,4 +1,4 @@
-"""Coordinator API action handler for triggering hermes agent actions."""
+"""Coordinator API action handler for triggering agent actions."""
 
 from typing import Any
 

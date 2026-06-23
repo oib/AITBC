@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# hermes AITBC Training - Stage 1: Foundation
+# agent AITBC Training - Stage 1: Foundation
 # Basic System Orientation and CLI Commands
 # Optimized version using training library
 
@@ -301,7 +301,7 @@ validation_quiz() {
 
 # Main training function
 main() {
-    print_header "hermes AITBC Training - $TRAINING_STAGE"
+    print_header "agent AITBC Training - $TRAINING_STAGE"
     log_info "Starting $TRAINING_STAGE"
 
     # Check prerequisites with full validation (continues despite warnings)

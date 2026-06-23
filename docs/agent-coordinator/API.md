@@ -5,7 +5,7 @@
 
 > **Important:** This document describes the Agent Coordinator API. The Agent Coordinator service runs on port 9001. For the Coordinator API (job submission), use port 8203. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 >
-> **🟢 Service Status**: Coordinator API is operational on port 8203 with all Hermes endpoints functioning.
+> **🟢 Service Status**: Coordinator API is operational on port 8203 with all Agent endpoints functioning.
 
 ## Base URL
 
@@ -74,7 +74,7 @@ Register a new agent with the coordinator.
 curl -X POST http://localhost:9001/agents/register \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id": "hermes-agent",
+    "agent_id": "agent-agent",
     "agent_type": "worker",
     "capabilities": ["data-processing", "analysis"],
     "services": ["task-execution"],
@@ -197,7 +197,7 @@ Retrieve detailed information about a specific agent.
 
 **Example:**
 ```bash
-curl http://localhost:9001/agents/hermes-agent
+curl http://localhost:9001/agents/agent-agent
 ```
 
 ### Update Agent Status
@@ -253,7 +253,7 @@ Update the status and load metrics of an agent.
 
 **Example:**
 ```bash
-curl -X PUT http://localhost:9001/agents/hermes-agent/status \
+curl -X PUT http://localhost:9001/agents/agent-agent/status \
   -H "Content-Type: application/json" \
   -d '{
     "status": "busy",
@@ -453,7 +453,7 @@ Send a message to a specific agent using a specified communication protocol.
 curl -X POST http://localhost:9001/messages/send \
   -H "Content-Type: application/json" \
   -d '{
-    "receiver_id": "hermes-agent",
+    "receiver_id": "agent-agent",
     "message_type": "direct",
     "payload": {"task": "process_data"},
     "priority": "normal",

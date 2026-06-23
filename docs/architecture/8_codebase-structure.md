@@ -283,13 +283,13 @@ apps/gpu/
 └── miners/                  # GPU miner management
 ```
 
-### hermes
+### agent
 Message passing and communication service.
 
 ```
-apps/hermes/
+apps/agent/
 ├── src/
-│   └── main.py              # Hermes entry point
+│   └── main.py              # Agent entry point
 └── handlers/                # Message handlers
 ```
 

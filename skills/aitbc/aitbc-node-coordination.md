@@ -108,7 +108,7 @@ curl -s -X POST http://aitbc1:8006/topics/{id}/messages \
 # Register agent on coordinator
 curl -s -X POST http://localhost:8011/agents/register \
   -H "Content-Type: application/json" \
-  -d '{"agent_id":"hermes-main","agent_type":"worker","endpoint":"http://localhost:9997","capabilities":["marketplace","messaging"]}'
+  -d '{"agent_id":"agent-main","agent_type":"worker","endpoint":"http://localhost:9997","capabilities":["marketplace","messaging"]}'
 
 # List agents (same on all nodes via shared state)
 curl -s http://localhost:8011/agents

@@ -33,10 +33,10 @@ from aitbc.db import get_db_session, init_db  # noqa: E402
 from aitbc.models import CoinRequest, CoinRequestStatus  # noqa: E402
 
 
-def send_hermes_notification(recipient: str, content: str):
-    """Send a Hermes message notification via Agent Coordinator."""
-    coordinator_url = os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8107")
-    agent_id = os.getenv("HERMES_AGENT_ID", "cli-admin")
+def send_agent_notification(recipient: str, content: str):
+    """Send an agent message notification via Agent Coordinator."""
+    coordinator_url = os.getenv("AGENT_COORDINATOR_URL", os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8107"))
+    agent_id = os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "cli-admin"))
 
     try:
         response = requests.post(
@@ -130,7 +130,7 @@ def approve(ctx, request_id, reason):
 
         # Send notification to sender
         notification_content = f"Coin request {req.id} APPROVED. Amount: {req.amount} AIT to {req.wallet_address}."
-        send_hermes_notification(req.sender, notification_content)
+        send_agent_notification(req.sender, notification_content)
 
 
 @coin_requests.command()
@@ -160,7 +160,7 @@ def reject(ctx, request_id, reason):
 
         # Send notification to sender
         notification_content = f"Coin request {req.id} REJECTED. Reason: {reason}."
-        send_hermes_notification(req.sender, notification_content)
+        send_agent_notification(req.sender, notification_content)
 
 
 @coin_requests.command()
@@ -188,7 +188,7 @@ def execute(ctx, request_id):
 
         # If no local genesis key, forward to hub for execution
         if not tx_service.genesis_private_key:
-            hub_url = os.getenv("HUB_HERMES_URL", "https://hub.aitbc.bubuit.net/api/v1/hermes")
+            hub_url = os.getenv("HUB_AGENT_URL", os.getenv("HUB_HERMES_URL", "https://hub.aitbc.bubuit.net/api/v1/agent"))
             api_key = os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
             if not api_key:
                 click.echo("Error: No GENESIS_PRIVATE_KEY locally and COORDINATOR_API_KEY not set.")
@@ -218,7 +218,7 @@ def execute(ctx, request_id):
                     req.audit_log += f" | Forwarded to hub for execution at {datetime.now(UTC).isoformat()} | Hash: {tx_hash}"
                     click.echo(f"Transaction submitted by hub: {tx_hash}")
                     click.echo(f"Amount: {req.amount} AIT to {req.wallet_address}")
-                    send_hermes_notification(
+                    send_agent_notification(
                         req.sender, f"Coin request {req.id} EXECUTED via hub. TX: {tx_hash}. Amount: {req.amount} AIT."
                     )
                 else:
@@ -274,7 +274,7 @@ def execute(ctx, request_id):
                 notification_content = (
                     f"Coin request {req.id} EXECUTED. Transaction hash: {tx_hash}. Amount: {req.amount} AIT."
                 )
-                send_hermes_notification(req.sender, notification_content)
+                send_agent_notification(req.sender, notification_content)
             else:
                 # Revert to PENDING on failure
                 req.status = CoinRequestStatus.PENDING

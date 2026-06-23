@@ -6,7 +6,7 @@ This directory contains stub and placeholder services that are not yet fully imp
 
 The following services have <10 files and are considered stubs or placeholders:
 
-- **hermes-service** (4 files) - Hermes agent communication service
+- **agent-service** (4 files) - Agent communication service
 - **monitor** (7 files) - Monitoring stub
 - **monitoring-service** (4 files) - Monitoring service stub
 - **plugin-service** (4 files) - Plugin service stub

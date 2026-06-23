@@ -3,7 +3,7 @@
 # Source training library
 source "$(dirname "$0")/training_lib.sh"
 
-# hermes AITBC Training - Stage 6: CLI Mastery & Extension Development
+# agent AITBC Training - Stage 6: CLI Mastery & Extension Development
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -24,7 +24,7 @@ set -e
 TRAINING_STAGE="Stage 6: CLI Mastery & Extension Development"
 SCRIPT_NAME="stage6_cli_mastery"
 CURRENT_LOG=$(init_logging "$SCRIPT_NAME")
-WALLET_NAME="hermes-trainee"
+WALLET_NAME="agent-trainee"
 WALLET_PASSWORD="trainee123"
 
 # Logging function
@@ -272,7 +272,7 @@ EOF
     fi
 
     print_status "Testing custom command..."
-    if $CLI_PATH greeting hello --name "hermes" 2>/dev/null; then
+    if $CLI_PATH greeting hello --name "agent" 2>/dev/null; then
         log "Custom command test passed"
         print_success "Custom command works successfully"
     else

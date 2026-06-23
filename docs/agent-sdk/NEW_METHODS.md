@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Agent SDK has been extended with new methods that call Click CLI commands via subprocess. These methods enable hermes agents to interact with AITBC features without requiring direct API access.
+The Agent SDK has been extended with new methods that call Click CLI commands via subprocess. These methods enable agent agents to interact with AITBC features without requiring direct API access.
 
 ## New Modules
 

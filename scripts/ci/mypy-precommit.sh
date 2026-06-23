@@ -15,7 +15,7 @@ OUTPUT=$(./venv/bin/python -m mypy \
   apps/wallet \
   apps/agent-coordinator \
   apps/agent-management \
-  apps/hermes \
+  apps/agent \
   apps/marketplace \
   apps/api-gateway \
   apps/blockchain-event-bridge \

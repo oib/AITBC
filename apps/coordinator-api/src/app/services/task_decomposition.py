@@ -1,5 +1,5 @@
 """
-Task Decomposition Service for hermes Autonomous Economics
+Task Decomposition Service for agent Autonomous Economics
 Implements intelligent task splitting and sub-task management
 """
 

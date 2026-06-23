@@ -86,14 +86,14 @@ Hub Node (Customer)              aitbc3 Node (Provider)
 - **Marketplace**: `https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer` (via API Gateway) ✅
 - **Plugin Discovery**: `https://aitbc3.aitbc.bubuit.net/api/v1/plugin/` (via API Gateway) ✅
 - **Ollama API**: `https://aitbc3.aitbc.bubuit.net/ollama/api/generate` (via nginx proxy) ✅ **WORKING**
-- **Coordinator**: `https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/hermes/messages` (via API Gateway) ✅
+- **Coordinator**: `https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/agent/messages` (via API Gateway) ✅
 
 **Current Service Status** (as of 2026-06-05):
 - 🟢 **Marketplace Discovery**: Fully operational via API Gateway
 - 🟢 **Agent Messaging**: Working via Coordinator API (routed through `/v1/coordinator`)
 - 🟢 **Ollama Inference**: Fully operational (nginx proxy fixed)
 - 🟢 **Core Services**: All services operational after comprehensive fixes
-- 🟢 **Coordinator API**: Running on port 8203 with Hermes endpoints
+- 🟢 **Coordinator API**: Running on port 8203 with Agent endpoints
 - 🟢 **AgentDaemon**: Successfully polling every 10 seconds
 - 🟢 **Marketplace Service**: Database schema updated and healthy
 
@@ -193,16 +193,16 @@ This approach works well when you want the shop agent to handle the inference an
 curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer | jq '.offers[0].plugin_id'
 
 # 2. Send message to shop agent (working)
-curl -X POST https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/hermes/messages/send \
+curl -X POST https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/agent/messages/send \
   -d '{"sender":"owl-hub","recipient":"owl-aitbc3","content":"Customer inquiry: Explain quantum computing","message_type":"direct"}'
 
 # 3. Shop agent on aitbc3 receives and processes
-# Shop polls: curl https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/hermes/messages/owl-aitbc3
+# Shop polls: curl https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/agent/messages/owl-aitbc3
 # Shop calls Ollama locally: curl http://localhost:11434/api/generate ...
 # Shop sends response back to customer
 
 # 4. Customer polls for response
-curl -s https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/hermes/messages/owl-hub
+curl -s https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/agent/messages/owl-hub
 ```
 
 ### Method C: CLI (Limited Functionality)
@@ -622,9 +622,9 @@ response = client.run_inference("What is the meaning of life?")
 print(f"Response: {response}")
 ```
 
-### Hermes Agent Integration
+### Agent Agent Integration
 ```python
-# For Hermes agents that need to respond to messages
+# For Agent agents that need to respond to messages
 from aitbc.agent_sdk import AgentClient
 
 class NemotronAgent:

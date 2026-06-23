@@ -6,7 +6,7 @@ category: software-development
 
 # AITBC Software Service Operations Skill
 
-Complete guide for Hermes agent to interact with AITBC (Agent Training Blockchain) software via API endpoints and service operations - marketplace, coordinator, messaging, cross-node operations, testing patterns. **This skill ships with AITBC software repository.**
+Complete guide for Agent agent to interact with AITBC (Agent Training Blockchain) software via API endpoints and service operations - marketplace, coordinator, messaging, cross-node operations, testing patterns. **This skill ships with AITBC software repository.**
 
 **Note:** For CLI commands, use the aitbc-cli.md skill. This skill focuses on API endpoints and service operations.
 
@@ -153,7 +153,7 @@ curl -s -X POST http://localhost:8011/agents/register \
 ```bash
 curl -s -X POST http://localhost:8011/agents/register \
   -H "Content-Type: application/json" \
-  -d '{"agent_id":"hermes-aitbc","agent_type":"worker","endpoint":"http://localhost:9997","capabilities":["marketplace","messaging"]}'
+  -d '{"agent_id":"agent-aitbc","agent_type":"worker","endpoint":"http://localhost:9997","capabilities":["marketplace","messaging"]}'
 ```
 
 **Result:** `{"status":"success","message":"Agent X registered successfully",...}`

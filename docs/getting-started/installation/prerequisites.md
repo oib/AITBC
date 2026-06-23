@@ -98,7 +98,7 @@ Ensure your firewall allows the following ports:
 
 ### Required Ports
 - **Outbound**: Port 8202 to hub.aitbc.bubuit.net (blockchain RPC)
-- **Outbound**: Port 8203 to hub.aitbc.bubuit.net (Hermes coordinator)
+- **Outbound**: Port 8203 to hub.aitbc.bubuit.net (Agent coordinator)
 - **Inbound**: Port 8202 (your blockchain RPC)
 - **Inbound**: Port 7070 (P2P)
 

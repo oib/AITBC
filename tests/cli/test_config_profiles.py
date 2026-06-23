@@ -24,7 +24,7 @@ def runner():
 def mock_config():
     """Mock configuration"""
     config = Mock()
-    config.coordinator_url = "http://127.0.0.1:18000"
+    config.agent_coordinator_url = "http://127.0.0.1:18000"
     config.api_key = None
     config.timeout = 30
     config.config_file = "/home/oib/.aitbc/config.yaml"
@@ -63,7 +63,7 @@ class TestConfigProfilesIntegration:
             # Verify file content
             with open(profile_file) as f:
                 profile_data = yaml.safe_load(f)
-            assert profile_data["coordinator_url"] == "http://127.0.0.1:18000"
+            assert profile_data["agent_coordinator_url"] == "http://127.0.0.1:18000"
             assert profile_data["timeout"] == 30
             assert "api_key" not in profile_data  # API key should not be saved
 
@@ -75,7 +75,7 @@ class TestConfigProfilesIntegration:
 
         # Create existing profile
         profile_file = profiles_dir / f"{profile_name}.yaml"
-        profile_file.write_text(yaml.dump({"coordinator_url": "http://old:8000", "timeout": 10}))
+        profile_file.write_text(yaml.dump({"agent_coordinator_url": "http://old:8000", "timeout": 10}))
 
         with patch("pathlib.Path.home") as mock_home:
             mock_home.return_value = profiles_dir.parent.parent.parent
@@ -87,7 +87,7 @@ class TestConfigProfilesIntegration:
             # Verify file was overwritten
             with open(profile_file) as f:
                 profile_data = yaml.safe_load(f)
-            assert profile_data["coordinator_url"] == "http://127.0.0.1:18000"
+            assert profile_data["agent_coordinator_url"] == "http://127.0.0.1:18000"
             assert profile_data["timeout"] == 30
 
     def test_profiles_list_empty(self, runner, mock_config, profiles_dir):
@@ -109,10 +109,10 @@ class TestConfigProfilesIntegration:
         """Test listing multiple profiles"""
         # Create test profiles
         profile1 = profiles_dir / "profile1.yaml"
-        profile1.write_text(yaml.dump({"coordinator_url": "http://test1:8000", "timeout": 30}))
+        profile1.write_text(yaml.dump({"agent_coordinator_url": "http://test1:8000", "timeout": 30}))
 
         profile2 = profiles_dir / "profile2.yaml"
-        profile2.write_text(yaml.dump({"coordinator_url": "http://test2:8000", "timeout": 60}))
+        profile2.write_text(yaml.dump({"agent_coordinator_url": "http://test2:8000", "timeout": 60}))
 
         with patch("pathlib.Path.home") as mock_home:
             mock_home.return_value = profiles_dir.parent.parent.parent
@@ -131,7 +131,7 @@ class TestConfigProfilesIntegration:
 
         # Create profile
         profile_file = profiles_dir / f"{profile_name}.yaml"
-        profile_file.write_text(yaml.dump({"coordinator_url": "http://loaded:8000", "timeout": 45}))
+        profile_file.write_text(yaml.dump({"agent_coordinator_url": "http://loaded:8000", "timeout": 45}))
 
         with patch("pathlib.Path.home") as mock_home:
             mock_home.return_value = profiles_dir.parent.parent.parent
@@ -150,7 +150,7 @@ class TestConfigProfilesIntegration:
 
                 with open(config_file) as f:
                     config_data = yaml.safe_load(f)
-                assert config_data["coordinator_url"] == "http://loaded:8000"
+                assert config_data["agent_coordinator_url"] == "http://loaded:8000"
                 assert config_data["timeout"] == 45
 
     def test_profiles_load_nonexistent(self, runner, mock_config, profiles_dir):
@@ -169,7 +169,7 @@ class TestConfigProfilesIntegration:
 
         # Create profile
         profile_file = profiles_dir / f"{profile_name}.yaml"
-        profile_file.write_text(yaml.dump({"coordinator_url": "http://test:8000", "timeout": 30}))
+        profile_file.write_text(yaml.dump({"agent_coordinator_url": "http://test:8000", "timeout": 30}))
 
         assert profile_file.exists()
 
@@ -190,7 +190,7 @@ class TestConfigProfilesIntegration:
 
         # Create profile
         profile_file = profiles_dir / f"{profile_name}.yaml"
-        profile_file.write_text(yaml.dump({"coordinator_url": "http://test:8000", "timeout": 30}))
+        profile_file.write_text(yaml.dump({"agent_coordinator_url": "http://test:8000", "timeout": 30}))
 
         with patch("pathlib.Path.home") as mock_home:
             mock_home.return_value = profiles_dir.parent.parent.parent
@@ -255,7 +255,7 @@ class TestConfigProfilesIntegration:
         mock_get_config.return_value = mock_config
         """Test saving profiles with different config values"""
         # Modify config for different profile
-        mock_config.coordinator_url = "http://different:9000"
+        mock_config.agent_coordinator_url = "http://different:9000"
         mock_config.timeout = 90
 
         with patch("pathlib.Path.home") as mock_home:
@@ -270,7 +270,7 @@ class TestConfigProfilesIntegration:
             profile_file = profiles_dir / "different_profile.yaml"
             with open(profile_file) as f:
                 profile_data = yaml.safe_load(f)
-            assert profile_data["coordinator_url"] == "http://different:9000"
+            assert profile_data["agent_coordinator_url"] == "http://different:9000"
             assert profile_data["timeout"] == 90
 
     def test_profiles_directory_creation(self, runner, mock_config, tmp_path):

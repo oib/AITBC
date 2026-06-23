@@ -54,7 +54,7 @@ def check(service):
         else:
             click.echo(f"❌ Service file missing: {service_file}")
     else:
-        services = ["marketplace", "mining-blockchain", "hermes-ai", "blockchain-node"]
+        services = ["marketplace", "mining-blockchain", "agent-coordinator", "blockchain-node"]
         for svc in services:
             service_file = f"/etc/systemd/system/aitbc-{svc}.service"
             if os.path.exists(service_file):

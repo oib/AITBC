@@ -55,7 +55,7 @@ check_service "GPU Service" "http://localhost:8010/health"
 check_service "Learning Service" "http://localhost:8203/health"
 check_service "Agent Coordinator" "http://localhost:8012/health"
 check_service "Agent Registry" "http://localhost:8013/health"
-check_service "Hermes Service" "http://localhost:8014/health"
+check_service "Agent Service" "http://localhost:8014/health"
 check_service "AI Service" "http://localhost:8015/health"
 
 # Other Services (8020-8029)

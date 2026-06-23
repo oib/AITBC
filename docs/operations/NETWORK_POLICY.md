@@ -60,7 +60,7 @@ does not expose internal services:
 - `apps/coordinator-api/src/app/services/advanced_ai_service.py` (8015)
 - `apps/coordinator-api/src/app/services/enterprise_integration/api_gateway.py` (8010)
 - `apps/coordinator-api/src/app/routers/marketplace_enhanced_app.py` (8002)
-- `apps/coordinator-api/src/app/contexts/hermes/routers/hermes_enhanced_app.py` (8014)
+- `apps/coordinator-api/src/app/contexts/agent/routers/agent_enhanced_app.py` (8014)
 
 ---
 
@@ -76,7 +76,7 @@ topology. Operators should set `*_BIND_HOST=127.0.0.1` in the service env file
 |---------|------|---------|---------|-------------|
 | `aitbc-edge` | 8111 | `EDGE_BIND_HOST` (settings.api_host) | `0.0.0.0` | Review — likely internal |
 | `aitbc-gpu` | 8101 | `GPU_BIND_HOST` | `0.0.0.0` | Review — likely internal |
-| `aitbc-hermes` | 8103 | `HERMES_BIND_HOST` | `0.0.0.0` | Review — likely internal |
+| `aitbc-agent` | 8107 | `AGENT_BIND_HOST` | `0.0.0.0` | Review — likely internal |
 | `aitbc-marketplace` | 8102 | `MARKETPLACE_BIND_HOST` | `0.0.0.0` | Review — public website proxies to it |
 | `aitbc-trading` | 8104 | `TRADING_BIND_HOST` | `0.0.0.0` | Review — likely internal |
 | `aitbc-wallet` | 8108 | `WALLET_BIND_HOST` | `0.0.0.0` | Review — likely internal |

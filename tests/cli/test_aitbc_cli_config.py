@@ -37,7 +37,7 @@ class TestGetConfig:
             with tempfile.TemporaryDirectory() as tmpdir:
                 config_file = Path(tmpdir) / "config.yaml"
                 config_data = {
-                    "coordinator_url": "http://custom:8203",
+                    "agent_coordinator_url": "http://custom:8107",
                     "wallet_url": "http://custom:8003",
                     "api_key": "test_key",
                     "timeout": 60,
@@ -48,7 +48,7 @@ class TestGetConfig:
 
                 config = get_config(str(config_file))
 
-                assert config.coordinator_url == "http://custom:8203"
+                assert config.agent_coordinator_url == "http://custom:8107"
                 assert config.wallet_daemon_url == "http://custom:8003"
                 assert config.api_key == "test_key"
                 assert config.timeout == 60

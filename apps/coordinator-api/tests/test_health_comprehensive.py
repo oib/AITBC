@@ -105,8 +105,8 @@ class TestEnhancedServicesHealth:
                 "port": 8006,
                 "url": "http://localhost:8006",
             },
-            "hermes_enhanced": {
-                "name": "hermes Enhanced Service",
+            "agent_enhanced": {
+                "name": "agent Enhanced Service",
                 "port": 8007,
                 "url": "http://localhost:8007",
             },

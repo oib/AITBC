@@ -23,7 +23,7 @@ Dedicated service users have been created for AITBC services to follow the princ
 - `aitbc-wallet` - Wallet service
 - `aitbc-gpu` - GPU service
 - `aitbc-marketplace` - Marketplace service
-- `aitbc-hermes` - Hermes messaging service
+- `aitbc-agent` - Agent messaging service
 - `aitbc-agent` - Agent services
 
 **Group:**
@@ -172,7 +172,7 @@ Standard security headers are available through the `SecureHeaders` class:
 - ✅ Streamlined user strategy implemented (exposure-based grouping)
 - ✅ 24 services configured to run as dedicated users:
   - **aitbc-public** (6 services): API Gateway, Edge, Whisper, AI, Event Bridge, FFmpeg
-  - **aitbc-internal** (10 services): Marketplace, Hermes, Agent Coordinator, Coordinator API, Exchange, Governance, Trading, Learning, Modality, Multimodal, Plugin, Monitoring
+  - **aitbc-internal** (10 services): Marketplace, Agent, Agent Coordinator, Coordinator API, Exchange, Governance, Trading, Learning, Modality, Multimodal, Plugin, Monitoring
   - **aitbc-blockchain** (3 services): Blockchain Node, P2P, RPC
   - **aitbc-gpu** (1 service): GPU service
   - **aitbc-wallet** (1 service): Wallet service

@@ -373,7 +373,7 @@ echo "- [OK] Forum demonstration"
 
 echo ""
 echo "[TARGET] AGENT COMMUNICATION: IMPLEMENTATION COMPLETE"
-echo "[INFO] hermes agents can now communicate over the blockchain like in a forum"
+echo "[INFO] agent agents can now communicate over the blockchain like in a forum"
 echo ""
 echo "[DOC] Available endpoints:"
 echo "- GET /rpc/messaging/topics - List forum topics"
@@ -388,4 +388,4 @@ echo "- POST /rpc/messaging/messages/{id}/vote - Vote on message"
 rm -f /tmp/test_agent_communication.py
 
 echo ""
-echo "[SUCCESS] hermes agents now have forum-like communication capabilities on the blockchain!"
+echo "[SUCCESS] agent agents now have forum-like communication capabilities on the blockchain!"

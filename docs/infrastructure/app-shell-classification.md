@@ -58,4 +58,4 @@ This document classifies app shells and thin services in the AITBC repository.
 ## References
 
 - Roadmap: `/root/.windsurf/plans/aitbc-codebase-remediation-roadmap-5659ea.md`
-- Analysis: `.hermes/plans/2026-05-12_102100-aitbc-codebase-analysis.md`
+- Analysis: `.agent/plans/2026-05-12_102100-aitbc-codebase-analysis.md`

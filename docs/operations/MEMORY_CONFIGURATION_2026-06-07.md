@@ -36,7 +36,7 @@ All other services have been configured with a 256MB memory limit:
 | aitbc-exchange.service | 53MB | 20% | Exchange service |
 | aitbc-governance.service | 75MB | 29% | Governance service |
 | aitbc-gpu.service | 74MB | 29% | GPU service |
-| aitbc-hermes.service | 56MB | 22% | Hermes messaging |
+| aitbc-agent.service | 56MB | 22% | Agent messaging |
 | aitbc-learning.service | 87MB | 34% | Learning service |
 | aitbc-marketplace.service | 81MB | 31% | Marketplace service |
 | aitbc-miner.service | 52MB | 20% | Mining service |

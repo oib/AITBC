@@ -3,7 +3,7 @@
 # Source training library
 source "$(dirname "$0")/training_lib.sh"
 
-# hermes AITBC Training - Stage 7: Cross-Node Agent Training & Multi-Agent Orchestration
+# agent AITBC Training - Stage 7: Cross-Node Agent Training & Multi-Agent Orchestration
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -24,7 +24,7 @@ set -e
 TRAINING_STAGE="Stage 7: Cross-Node Agent Training & Multi-Agent Orchestration"
 SCRIPT_NAME="stage7_cross_node_training"
 CURRENT_LOG=$(init_logging "$SCRIPT_NAME")
-WALLET_NAME="hermes-trainee"
+WALLET_NAME="agent-trainee"
 WALLET_PASSWORD="trainee123"
 LOCAL_NODE="aitbc"
 REMOTE_NODE="aitbc1"

@@ -41,4 +41,4 @@ cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
 ## See Also
 
 - [Blockchain Setup](blockchain-setup.md)
-- [Hermes Messaging](hermes-messaging.md)
+- [Agent Messaging](agent-messaging.md)

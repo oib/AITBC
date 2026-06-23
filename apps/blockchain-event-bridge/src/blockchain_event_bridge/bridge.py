@@ -1,4 +1,4 @@
-"""Core bridge logic for blockchain event to hermes agent trigger mapping."""
+"""Core bridge logic for blockchain event to agent trigger mapping."""
 
 import asyncio
 from typing import Any
@@ -25,7 +25,7 @@ logger = get_logger(__name__)
 
 
 class BlockchainEventBridge:
-    """Main bridge service connecting blockchain events to hermes agent actions."""
+    """Main bridge service connecting blockchain events to agent actions."""
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings

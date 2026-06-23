@@ -134,7 +134,7 @@ main() {
     echo "Log file: $LOG_DIR/setup.log"
     echo ""
     echo "Next steps:"
-    echo "1. Run Stage 1 training: ./aitbc-cli hermes-training train agent --agent-id <agent-id> --stage stage1_foundation"
+    echo "1. Run Stage 1 training: ./aitbc-cli agent-training train agent --agent-id <agent-id> --stage stage1_foundation"
     echo "2. Verify wallet funding before transaction operations"
     echo "3. Check messaging authentication before messaging operations"
 }

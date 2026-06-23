@@ -38,7 +38,7 @@ declare -A SERVICES=(
     ["aitbc-modality-optimization"]="8004:Modality Optimization Service"
     ["aitbc-adaptive-learning"]="8005:Adaptive Learning Service"
     ["aitbc-marketplace-enhanced"]="8006:Enhanced Marketplace Service"
-    ["aitbc-hermes-enhanced"]="8007:hermes Enhanced Service"
+    ["aitbc-agent-enhanced"]="8007:agent Enhanced Service"
 )
 
 print_header "=== AITBC Enhanced Services Status ==="
