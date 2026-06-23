@@ -152,7 +152,7 @@ async def faucet_request(request: Request, faucet_data: dict[str, Any]) -> dict[
     """
     chain_id = get_chain_id(faucet_data.get("chain_id"))
     address = faucet_data.get("address")
-    amount = faucet_data.get("amount", 1000000)
+    amount = faucet_data.get("amount", 3600000000)
     if not address:
         raise HTTPException(status_code=400, detail="address is required")
     address = address.lower().strip()
@@ -160,8 +160,8 @@ async def faucet_request(request: Request, faucet_data: dict[str, Any]) -> dict[
         address = "0x" + address
     if not all(c in "0123456789abcdef" for c in address[2:]):
         raise HTTPException(status_code=400, detail="address must be a valid hex string")
-    if amount > 10000000:
-        amount = 10000000
+    if amount > 36000000000:
+        amount = 36000000000
     with session_scope() as session:
         account = session.get(Account, (chain_id, address))
         if not account:
