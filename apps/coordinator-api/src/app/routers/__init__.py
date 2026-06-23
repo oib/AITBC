@@ -43,7 +43,6 @@ from .miner import router as miner  # noqa: E402
 from .oracle import router as oracle  # noqa: E402
 from .portfolio import router as portfolio_router  # noqa: E402
 from .services import router as services  # noqa: E402
-from .training import router as training  # noqa: E402
 from .users import router as users  # noqa: E402
 from .web_vitals import router as web_vitals  # noqa: E402
 
@@ -75,22 +74,7 @@ except ImportError:
     trading = None  # type: ignore[assignment]
     logger.warning("Trading router not available")
 
-# Hermes routers moved to contexts/hermes
-try:
-    from ..contexts.hermes.routers.hermes_enhanced import router as hermes_enhanced
-except ImportError:
-    hermes_enhanced = None  # type: ignore[assignment]
-    logger.warning("Hermes enhanced router not available")
-try:
-    from ..contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced_simple
-except ImportError:
-    hermes_enhanced_simple = None  # type: ignore[assignment]
-    logger.warning("Hermes enhanced simple router not available")
-try:
-    from ..contexts.hermes.routers.hermes_enhanced_health import router as hermes_enhanced_health
-except ImportError:
-    hermes_enhanced_health = None  # type: ignore[assignment]
-    logger.warning("Hermes enhanced health router not available")
+# Hermes messaging router (feature-flagged, separate from deleted context routers)
 from .hermes import router as hermes  # noqa: E402
 
 # Security router moved to contexts/security
@@ -180,9 +164,6 @@ __all__ = [
     "rewards",
     "trading",
     "hermes",
-    "hermes_enhanced",
-    "hermes_enhanced_simple",
-    "hermes_enhanced_health",
     "agent_security_router",
     "analytics",
     "certification",
@@ -208,7 +189,6 @@ __all__ = [
     "monitoring_dashboard",
     "registry",
     "islands_proxy",
-    "training",
     "inference",
     "fhe",
     "oracle",
