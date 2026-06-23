@@ -7,6 +7,7 @@ import tempfile
 from unittest.mock import Mock, patch
 
 import pytest
+from aitbc.utils import format_ait
 from aitbc_cli.commands.wallet import wallet
 from click.testing import CliRunner
 
@@ -204,10 +205,11 @@ class TestWalletCommands:
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
-        assert data["new_balance"] == 125.5  # 100 + 25.5
+        # Balance is now displayed as AIT (seconds / 3600)
+        assert data["new_balance"] == format_ait(125.5)  # 100 + 25.5
         assert data["job_id"] == "job_456"
 
-        # Verify wallet file updated
+        # Verify wallet file updated (raw seconds value stored)
         with open(temp_wallet) as f:
             wallet_data = json.load(f)
         assert wallet_data["balance"] == 125.5
@@ -223,7 +225,7 @@ class TestWalletCommands:
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
-        assert data["new_balance"] == 70.0  # 100 - 30
+        assert data["new_balance"] == format_ait(70.0)  # 100 - 30
         assert data["description"] == "GPU rental"
 
     def test_spend_insufficient_balance(self, runner, temp_wallet, mock_config):
@@ -247,7 +249,7 @@ class TestWalletCommands:
         data = extract_json_from_output(result.output)
         assert "transactions" in data
         assert len(data["transactions"]) == 1
-        assert data["transactions"][0]["value"] == 50.0
+        assert data["transactions"][0]["value"] == format_ait(50.0)
 
     def test_address_command(self, runner, temp_wallet, mock_config):
         """Test address command"""
@@ -265,9 +267,9 @@ class TestWalletCommands:
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
-        assert data["current_balance"] == 100.0
-        assert data["total_earned"] == 50.0
-        assert data["total_spent"] == 0.0
+        assert data["current_balance"] == format_ait(100.0)
+        assert data["total_earned"] == format_ait(50.0)
+        assert data["total_spent"] == format_ait(0.0)
         assert data["jobs_completed"] == 1
         assert data["transaction_count"] == 1
 
