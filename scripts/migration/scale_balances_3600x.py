@@ -53,7 +53,7 @@ def scale_balances(db_path: Path) -> bool:
         print(f"  ✅ Updated {accounts_updated} account balances")
 
         # Scale transaction values and fees
-        cursor.execute("UPDATE transaction SET value = value * 3600, fee = fee * 3600")
+        cursor.execute('UPDATE "transaction" SET value = value * 3600, fee = fee * 3600')
         txs_updated = cursor.rowcount
         print(f"  ✅ Updated {txs_updated} transactions (value and fee)")
 
@@ -211,7 +211,7 @@ def verify_migration(db_path: Path, chain_id: str) -> bool:
             print(f"    {address}: {balance} seconds ({ait_balance:.2f} AIT)")
 
         # Check transaction fees
-        cursor.execute("SELECT tx_hash, fee FROM transaction WHERE chain_id=? LIMIT 3", (chain_id,))
+        cursor.execute('SELECT tx_hash, fee FROM "transaction" WHERE chain_id=? LIMIT 3', (chain_id,))
         txs = cursor.fetchall()
         print("  Sample transaction fees:")
         for tx_hash, fee in txs:
