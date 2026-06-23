@@ -39,7 +39,6 @@ class CLIConfig(BaseAITBCConfig):
     marketplace_service_url: str = Field(default="http://localhost:8102", description="Marketplace Service URL")
     trading_service_url: str = Field(default="http://localhost:8104", description="Trading Service URL")
     governance_service_url: str = Field(default="http://localhost:8105", description="Governance Service URL")
-    hermes_service_url: str = Field(default="http://localhost:8103", description="Hermes Service URL")
     agent_coordinator_url: str = Field(default="http://localhost:8107", description="Agent Coordinator URL")
     edge_api_host: str = Field(default="localhost", description="Edge API host")
     edge_api_port: int = Field(default=8103, description="Edge API port")

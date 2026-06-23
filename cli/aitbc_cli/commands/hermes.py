@@ -1,5 +1,5 @@
 """
-Hermes training commands for AITBC CLI
+Agent messaging commands for AITBC CLI
 """
 
 import asyncio as _asyncio
@@ -105,7 +105,7 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
 
 @click.group()
 def hermes():
-    """Hermes training operations commands"""
+    """Agent messaging commands (ping, send, receive, peers, request-coins)"""
     pass
 
 
@@ -115,17 +115,17 @@ def hermes():
 @click.option("--priority", default="normal", help="Message priority")
 @click.pass_context
 def send(ctx, message: str, to_agent: str | None, priority: str):
-    """Send a message via hermes service"""
+    """Send a message via the Agent Coordinator"""
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.hermes_service_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
         message_data = {"message": message, "priority": priority}
         if to_agent:
             message_data["to_agent"] = to_agent
 
-        result = http_client.post("/hermes/send", json=message_data)
-        success("Message sent via hermes")
+        result = http_client.post("/api/v1/agent/messages/send", json=message_data)
+        success("Message sent via Agent Coordinator")
         output(result, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
         error(f"Network error: {e}")
@@ -137,12 +137,12 @@ def send(ctx, message: str, to_agent: str | None, priority: str):
 @click.option("--limit", type=int, default=20, help="Number of messages to return")
 @click.pass_context
 def receive(ctx, limit: int):
-    """Receive messages from hermes service"""
+    """Receive messages from the Agent Coordinator"""
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.hermes_service_url, timeout=10)
-        messages_data = http_client.get("/hermes/messages", params={"limit": limit})
+        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
+        messages_data = http_client.get("/api/v1/agent/messages", params={"limit": limit})
         success("Messages:")
         output(messages_data, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
@@ -154,13 +154,13 @@ def receive(ctx, limit: int):
 @hermes.command()
 @click.pass_context
 def peers(ctx):
-    """List hermes service peers"""
+    """List Agent Coordinator peers"""
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.hermes_service_url, timeout=10)
-        peers_data = http_client.get("/hermes/peers")
-        success("Hermes Peers:")
+        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
+        peers_data = http_client.get("/api/v1/agent/messages/discover")
+        success("Agent Coordinator Peers:")
         output(peers_data, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
         error(f"Network error: {e}")
