@@ -30,13 +30,6 @@ This document lists all active AITBC applications as of v0.5.0.
 
 ## AI/ML Services
 
-### Hermes
-**Path**: `apps/hermes`
-**Status**: active
-**Purpose**: AI model orchestration and decision making
-**Maintainer**: @aitbc-internal
-**Recent Activity**: Active development (last commit: 2025-06-18)
-
 ### GPU Service
 **Path**: `apps/gpu`
 **Status**: active
@@ -208,8 +201,8 @@ This document lists all active AITBC applications as of v0.5.0.
 
 ## Summary
 
-- **Total Applications**: 26
-- **Active**: 23
+- **Total Applications**: 25
+- **Active**: 22
 - **Under Development**: 2
 - **Shared Libraries**: 2
 - **Experimental**: 1
