@@ -1,0 +1,267 @@
+# v0.5.8 Release Plan
+
+**Theme**: Transaction fee consistency + stale port/config cleanup + remove legacy messaging duplicates + fix broken systemd services — finish the fee-standardization work started in v0.5.5 (which fixed `transaction_service.py` and `agent_stream.py` but missed 3 other locations still using `1000`), fix the stale `HERMES_COORDINATOR_URL` default port, remove the legacy blockchain-polling `agent_daemon.py` and orphaned `hermes_polling_daemon.py` (both duplicates of the WebSocket `ping_handler`), and fix three systemd service issues found during a full service-file audit (missing env file, missing PYTHONPATH, duplicate marketplace service overwriting production).
+
+**Goal**: Ensure every code path that computes a coin-request balance check or signs a transfer transaction uses the canonical blockchain fee of `10` (not `1000`), so valid transactions are no longer rejected with spurious "insufficient balance" errors. Fix the Hermes service's default coordinator URL so it points at the Agent Coordinator (8107) instead of a defunct port (8011). Remove both legacy/orphaned messaging daemons (`agent_daemon.py` no-op with `--address ""`, `hermes_polling_daemon.py` never deployed) and all references. Fix the agent-coordinator env file not being created by setup.sh (service won't start on fresh install). Fix ffmpeg service missing PYTHONPATH (ModuleNotFoundError on start). Remove the legacy duplicate marketplace service file that runs as root and overwrites the hardened production version during `link-systemd.sh`.
+
+**Context**: This release addresses residual issues surfaced by a codebase analysis of the Hermes / Agent Coordinator / agent-daemon messaging path, followed by an exhaustive fee search across all services and a full systemd service-file audit. v0.5.5 already resolved the router scoping bug, the `transaction_service.py` and `agent_stream.py` fee defaults, and marked `agent_daemon.py` as legacy in its docstring. v0.5.8 finishes that cleanup: removing both legacy daemons, fixing the remaining fee mismatches, the stale default port, and three service-file bugs that prevent services from starting correctly on fresh installs.
+
+**Status**: All 8 changes implemented. Tasks #1 + #4b (fee fixes) done by Agent A. Tasks #2, #3, #4a, #5, #6, #7, #8 done by Agent B. All verification greps pass, `systemd-analyze verify` clean on all touched service files. The `1000→10` fee fix is temporary — v0.5.10 implements a hard fork changing the unit system to compute-seconds (1 AIT = 3600), at which point the fee changes from `10` to `36`. See `docs/releases/v0.5.10/change.log`.
+
+---
+
+## Completed Changes
+
+### 1. Transaction Fee: 1000 → 10 in 3 Remaining Locations
+
+**Problem:** v0.5.5 §14 changed the fee default from `1000` to `10` in `TransactionService.generate_signed_transaction()` and the `TRANSACTION_FEE` constant in `agent_stream.py`. However, three other locations still hardcode `1000`:
+
+1. **CLI `coin-requests execute`** — `total_required = req.amount + 1000` (balance check) and `fee=1000` (signed tx). The balance check rejects valid requests that have enough funds for the real fee of 10. The signed transaction then submits with a 100x inflated fee.
+2. **Hermes `/coin-requests/{id}/execute` API** — `total_required = req.amount + 1000` (balance check only; the signed tx call relies on the already-fixed `TransactionService` default of 10, so the fee itself is correct here, but the balance gate is still wrong).
+3. **Wallet service `WalletTransactionRequest` model** — `fee: int = 1000` default. Any wallet API caller that omits `fee` gets a 100x inflated fee.
+
+The canonical fee is `10`, confirmed by: blockchain RPC default (`transactions.py:27`), RPC utils fallback (`utils.py:75`), Agent Coordinator constant (`agent_stream.py:310`, comment reads "matches RPC default"), Hermes `TransactionService` default (`transaction_service.py:62`), and wallet CLI default (`basic.py:532`).
+
+**Fix:** Change `1000` → `10` in all three locations.
+
+**Note:** This is a temporary fix. v0.5.10 implements a hard fork that changes the unit system from raw AIT to compute-seconds (1 AIT = 3600 seconds). The canonical fee changes from `10` to `36` (0.01 AIT = 36 seconds) in v0.5.10. The `1000→10` fix in v0.5.8 is still correct — it eliminates the 100x mismatch causing transaction rejections now, and v0.5.10 then changes `10→36` as part of the unit system overhaul. See `docs/releases/v0.5.10/change.log`.
+
+**Files changed:**
+- `cli/aitbc_cli/commands/coin_requests.py` — line 230: `total_required = req.amount + 1000` → `req.amount + 10`; line 240: `fee=1000` → `fee=10`
+- `apps/hermes/src/hermes_service/main.py` — line 248: `total_required = req.amount + 1000` → `req.amount + 10`
+- `apps/wallet/src/app/models/__init__.py` — line 142: `fee: int = 1000` → `fee: int = 10`
+
+**Tests:**
+- `tests/cli/test_commands_coin_requests.py` — update/extend to assert the balance check uses `amount + 10` and the signed tx is generated with `fee=10`
+- Add a Hermes API test for `/coin-requests/{id}/execute` balance check boundary (balance exactly `amount + 10` should pass; `amount + 9` should fail)
+
+---
+
+### 2. Hermes Default Coordinator URL: 8011 → 8107
+
+**Problem:** `apps/hermes/src/hermes_service/main.py:25` defaults `HERMES_COORDINATOR_URL` to `http://localhost:8011`. Port 8011 is a defunct/legacy port. The Agent Coordinator actually runs on `8107` (standardized in v0.5.5 §1). The `RequestCoinsHandler.send_response()` posts to `{COORDINATOR_URL}/api/v1/agent/messages/send`, so if the env var is unset, coin-request responses silently fail to deliver — the Hermes handler appears to work but no response message reaches the requesting agent.
+
+In production this is currently masked because `/etc/aitbc/node.env` sets `HERMES_COORDINATOR_URL` correctly, but the code default is wrong and any deployment that forgets the env var will have a broken response path.
+
+**Fix:** Change the default from `http://localhost:8011` to `http://localhost:8107`.
+
+**Files changed:**
+- `apps/hermes/src/hermes_service/main.py` — line 25: `os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8011")` → `"http://localhost:8107"`
+
+**Tests:**
+- Add a unit test verifying the default coordinator URL is `http://localhost:8107` when `HERMES_COORDINATOR_URL` is unset
+
+---
+
+### 3. Remove Legacy agent_daemon.py and Its Service
+
+**Problem:** `agent_daemon.py` is a duplicate implementation of ping/pong that uses blockchain transactions instead of WebSocket frames. v0.5.5 §11 already marked it LEGACY in its docstring, recommending the Agent Coordinator's WebSocket `ping_handler` (port 8107) instead. Two issues make the running service worse than merely redundant:
+
+1. **Duplicate implementation:** `agent_daemon.py` polls SQLite for transactions with `recipient == my_address` and `"ping"` in the payload, then submits a signed "pong" transaction via RPC. The WebSocket `ping_handler` does the same thing in-memory, instantly, with zero on-chain cost. The legacy path burns real fees and adds block-time latency for no benefit.
+
+2. **Deployed as a no-op:** The service's `ExecStart` passes `--address ""` (empty string). The poll query `WHERE recipient == ""` matches zero transactions (real addresses are `ait1...`), so every 10s poll returns an empty list, the trigger guard at line 217 is unreachable, and no pong is ever sent. The service runs forever doing nothing — decrypting a wallet and querying an empty result set on every cycle. `Restart=on-failure` never triggers because the daemon never errors; it just loops.
+
+The service file also sets 5 environment variables (`HERMES_COORDINATOR_URL`, `HERMES_SERVICE_URL`, `ENABLE_HERMES_POLLING`, `HERMES_AGENT_IDS`, `AGENT_DAEMON_CHAINS`) that the script never reads — zero `HERMES` references in `agent_daemon.py`.
+
+**Fix:** Remove the legacy script, its systemd service file, its app directory, and all references in setup/deploy/docs scripts. Also delete the orphaned `hermes_polling_daemon.py` — a third duplicate found during investigation. The WebSocket `ping_handler` in `agent_stream.py` is the single, canonical implementation.
+
+**Files deleted:**
+- `apps/agent-coordinator/scripts/agent_daemon.py` — the legacy blockchain-polling script
+- `apps/agent-coordinator/scripts/hermes_polling_daemon.py` — orphaned WebSocket client daemon (see below)
+- `apps/agent-daemon/aitbc-agent-daemon.service` — systemd unit
+- `apps/agent-daemon/README.md` — app README
+- `apps/agent-daemon/` — the now-empty directory
+
+**`hermes_polling_daemon.py` — third duplicate (orphaned):**
+Investigation found a *third* messaging implementation at `apps/agent-coordinator/scripts/hermes_polling_daemon.py`. It's a WebSocket client that connects to the Agent Coordinator and logs messages — but it's completely orphaned: no systemd service file, not referenced in `setup.sh` or `deploy.sh`, never imported by any code. It's also incomplete: the `--log-level` argument is parsed but never used (line 36 calls `get_logger()` without passing it), and `send_message()` (lines 38-44) is a stub that just logs "Message prepared" and returns. It appears to be a WebSocket replacement for the `hermes_rest_polling_daemon.py` that v0.5.5 §11 deleted, but was never integrated. The built-in `ping_handler` in `agent_stream.py` makes it unnecessary.
+
+**Files updated (remove agent-daemon references):**
+- `scripts/deployment/setup.sh` — remove service installation/copying
+- `scripts/deployment/deploy.sh` — remove service from deploy list
+- `scripts/utils/link-systemd.sh` — remove from service link list
+- `scripts/utils/harden-systemd-services.py` — remove from hardening list
+- `docs/architecture/active_apps.md` — remove agent-daemon entry
+- `docs/infrastructure/SYSTEMD_SERVICES.md` — remove service entry
+- `docs/infrastructure/README.md` — remove reference
+- `docs/deployment/SERVICE_USERS.md` — remove user reference
+- `docs/getting-started/SETUP.md` — remove from setup steps
+- `docs/getting-started/reference/troubleshooting.md` — remove troubleshooting entry
+- `docs/blockchain/ENVIRONMENT_CONFIGURATION.md` — remove env var references
+- `docs/hermes/HERMES_LISTENER_SOLUTION.md` — remove legacy daemon section (already rewritten in v0.5.5, verify no stale refs remain)
+- `docs/marketplace/agent-nemotron-cloud-inference.md` — remove reference
+- `docs/apps/agents/agent-services.md` — remove from service list
+- `docs/architecture/8_codebase-structure.md` — remove from structure
+- `docs/development/SYSPATH_DEBT.md` — remove reference
+- `docs/operations/SERVICE_USER_STRATEGY_2026-06-07.md` — remove reference
+- `docs/operations/SERVICE_ISOLATION_2026-06-07.md` — remove reference
+- `docs/operations/MEMORY_CONFIGURATION_2026-06-07.md` — remove reference
+- `docs/security/SECURITY_FIXES_SUMMARY.md` — remove reference
+- `skills/aitbc-service-recovery/SKILL.md` — remove from recovery procedures
+- `skills/aitbc-deployment/SKILL.md` — remove from deploy steps
+- `skills/aitbc-software-setup/SKILL.md` — remove from setup steps
+- `scripts/training/hermes_cross_node_comm.sh` — remove reference
+- `docs/infrastructure/migration/microservices-migration-status.md` — remove `hermes_polling_daemon.py` reference (found during implementation, not in original plan)
+
+**Files NOT touched (verified safe):**
+- `apps/blockchain-event-bridge/src/blockchain_event_bridge/action_handlers/agent_daemon.py` — separate `AgentDaemonHandler` class for contract events (staking, performance, bounty). Stub that logs "Would call coordinator API..." and never invokes the legacy daemon. Different code, different purpose.
+- `apps/agent-management/src/app/services/agent_integration.py` — **verified SAFE**: line 430 has a string reference to `agent-daemon/aitbc-agent-daemon-wrapper.py` in a systemd template, not an import of the legacy script. No code dependency.
+- `apps/coordinator-api/src/app/services/agent_coordination/integration.py` — **verified SAFE**: identical string reference at line 430, same systemd template. No code dependency.
+- `tests/verification/test_agent_integration_service.py` — **verified SAFE**: line 36 has the same wrapper path in a test fixture string. No code dependency.
+
+**Side note (not in scope):** All 3 files above reference `agent-daemon/aitbc-agent-daemon-wrapper.py` — a wrapper script that does **not exist** in the codebase. This means the agent deployment feature (`_deploy_agent_systemd()`) generates broken systemd units. This is a pre-existing bug unrelated to the legacy daemon removal, and is not addressed in v0.5.8.
+
+**Operational step (on deployed nodes, not in repo):**
+```bash
+systemctl stop aitbc-agent-daemon
+systemctl disable aitbc-agent-daemon
+rm /etc/systemd/system/aitbc-agent-daemon.service
+systemctl daemon-reload
+```
+
+**Tests:**
+- Verify no test imports `agent_daemon` from `apps/agent-coordinator/scripts/`
+- Run `pytest tests/ -k agent_daemon` — if any tests reference the deleted script, update or remove them
+
+---
+
+### 4. Fix Stale Docs: HERMES_DB_PATH + fee=1000 curl example
+
+**Problem:** Two documentation issues found during investigation:
+
+**4a. Stale HERMES_DB_PATH in v0.4.4 docs:**
+Three v0.4.4 release docs document `HERMES_DB_PATH=/var/lib/aitbc/hermes_coin_requests.db` (missing the `/data/` subdirectory). The actual code default in both `apps/hermes/.../storage/database.py:15` and `apps/agent-coordinator/.../agent_stream.py` (3 functions) is `/var/lib/aitbc/data/hermes_coin_requests.db`. The setup script creates `/var/lib/aitbc/data/`. An operator following the v0.4.4 docs would set the env var to the wrong path and the DB would be created in a different location than expected.
+
+**4b. Wrong fee in blockchain README curl example:**
+`docs/blockchain/README.md:40` shows a curl example with `"fee":1000` — 100x the canonical fee of 10. Users copying this example will submit transactions with an inflated fee. (The `--payment 1000` references in `docs/meta/documentation-guide.md:381` and `docs/cli/CLI_DOCUMENTATION.md:135` are AI service payments, not transaction fees — those are correct and not changed.)
+
+**Fix:**
+- 4a: Correct the documented path to `/var/lib/aitbc/data/hermes_coin_requests.db` in the 3 affected files
+- 4b: Change `"fee":1000` → `"fee":10` in the curl example
+
+**Files changed:**
+- `docs/releases/v0.4.4/ENVIRONMENT_CONFIG.md` — line 33: fix HERMES_DB_PATH
+- `docs/releases/v0.4.4/HERMES_MESSAGING.md` — line 29: fix HERMES_DB_PATH
+- `docs/releases/v0.4.4/changelog.md` — line 118: fix HERMES_DB_PATH
+- `docs/blockchain/README.md` — line 40: fix `"fee":1000` → `"fee":10`
+
+---
+
+### 5. Agent Coordinator: Missing env file not created by setup.sh
+
+**Problem:** `apps/agent-coordinator/aitbc-agent-coordinator.service` references `EnvironmentFile=/etc/aitbc/aitbc-agent-coordinator.env` (line 16, no `-` prefix). v0.5.5 §1 says this file was created with `AGENT_COORDINATOR_BIND_PORT=8107` and `AGENT_COORDINATOR_BIND_HOST=127.0.0.1`. However, `scripts/deployment/setup.sh` does **not** create this file — confirmed by grep. On a fresh install, systemd will fail to start the service (missing EnvironmentFile without `-` prefix is a hard error), or on some systemd versions it warns and continues but the coordinator falls back to its code default port 9001 — the exact bug v0.5.5 §1 was supposed to fix.
+
+**Fix:** Add creation of `/etc/aitbc/aitbc-agent-coordinator.env` to `scripts/deployment/setup.sh`, alongside the other env file generation steps. Contents:
+```
+AGENT_COORDINATOR_BIND_PORT=8107
+AGENT_COORDINATOR_BIND_HOST=127.0.0.1
+```
+
+**Files changed:**
+- `scripts/deployment/setup.sh` — add env file creation in the env/config step
+
+**Tests:**
+- Run `setup.sh` on a clean environment and verify `/etc/aitbc/aitbc-agent-coordinator.env` exists with correct contents
+- Verify `systemctl start aitbc-agent-coordinator` succeeds and the service binds to 8107
+
+---
+
+### 6. FFmpeg Service: Missing PYTHONPATH
+
+**Problem:** `apps/ffmpeg/aitbc-ffmpeg.service` has no `PYTHONPATH` set, but `apps/ffmpeg/main.py` line 24 imports `from aitbc.aitbc_logging import configure_logging, get_logger`. Without `PYTHONPATH=/opt/aitbc`, the service will fail immediately with `ModuleNotFoundError: No module named 'aitbc'`.
+
+Every other service that imports from the `aitbc` package sets `PYTHONPATH=/opt/aitbc` (or includes it in a composite path). This one was missed.
+
+**Fix:** Add `Environment=PYTHONPATH=/opt/aitbc` to the service file.
+
+**Files changed:**
+- `apps/ffmpeg/aitbc-ffmpeg.service` — add `Environment=PYTHONPATH=/opt/aitbc`
+
+**Tests:**
+- `systemd-analyze verify apps/ffmpeg/aitbc-ffmpeg.service`
+- Manual: `sudo -u aitbc PYTHONPATH=/opt/aitbc python -c "from aitbc.aitbc_logging import configure_logging"` should succeed
+
+---
+
+### 7. Remove Legacy `scripts/systemd/` Directory
+
+**Problem:** `scripts/systemd/` is a legacy folder. All app service files should live in their respective app directory under `apps/`. The directory contains 2 files, both problematic:
+
+**7a. Duplicate marketplace service (overwrites production):**
+
+Two `aitbc-marketplace.service` files exist with different configurations:
+
+| | `apps/marketplace/aitbc-marketplace.service` | `scripts/systemd/aitbc-marketplace.service` |
+|---|---|---|
+| User | `aitbc` | `root` |
+| Port | `8104` (explicit) | none (code default) |
+| Security hardening | Full (ProtectSystem, etc.) | Minimal |
+| PYTHONPATH | `/opt/aitbc:...marketplace/src:...aitbc-core/src` | `/opt/aitbc:...marketplace/src` |
+
+`scripts/utils/link-systemd.sh` scans `apps/*/aitbc-*.service` first (line 194), then `scripts/*/aitbc-*.service` second (line 243). Both use `ln -sf`, so the **second scan overwrites the first**. This means `scripts/systemd/aitbc-marketplace.service` (User=root, no port, minimal security) **silently replaces** `apps/marketplace/aitbc-marketplace.service` (User=aitbc, port 8104, hardened) on every `link-systemd.sh` run.
+
+The `scripts/systemd/` version is legacy — v0.5.5 §4 already switched the marketplace service to direct execution and the `apps/` version reflects those changes. The `scripts/systemd/` version was not updated and is dead.
+
+**7b. Recovery service (orphan, needs relocating):**
+
+`scripts/systemd/aitbc-recovery.service` is an infrastructure oneshot service that runs `link-systemd.sh` + `load-keystore-secrets.sh` on boot. It has no `apps/` counterpart (it's a system utility, not an app). It's actively used — listed in `infra_services` in `link-systemd.sh` (lines 79, 87). It needs to move to `scripts/utils/` where the scripts it invokes already live.
+
+**Fix:**
+- Delete `scripts/systemd/aitbc-marketplace.service` (the `apps/marketplace/` version is authoritative)
+- Move `scripts/systemd/aitbc-recovery.service` → `scripts/utils/aitbc-recovery.service`
+- Delete the now-empty `scripts/systemd/` directory
+- No change needed to `link-systemd.sh` — it already scans `scripts/utils/aitbc-*.service` (line 243), so the moved recovery service will be picked up automatically
+
+**Files deleted:**
+- `scripts/systemd/aitbc-marketplace.service` — legacy duplicate, runs as root, overwrites production version
+- `scripts/systemd/` — the now-empty legacy directory
+
+**Files moved:**
+- `scripts/systemd/aitbc-recovery.service` → `scripts/utils/aitbc-recovery.service`
+
+**Note:** Other infrastructure services in `scripts/maintenance/` (backup), `scripts/monitoring/` (monitoring), and `scripts/utils/` (load-secrets, plugin) are correctly placed — they're system utilities with no app counterpart, in semantically appropriate subdirectories. Only `scripts/systemd/` is the legacy folder.
+
+**Tests:**
+- Run `link-systemd.sh` and verify:
+  - `aitbc-marketplace` symlink points to `apps/marketplace/aitbc-marketplace.service` (not overwritten)
+  - `aitbc-recovery` symlink points to `scripts/utils/aitbc-recovery.service`
+- Verify `systemctl cat aitbc-marketplace` shows `User=aitbc` and `MARKETPLACE_BIND_PORT=8104`
+- Verify `scripts/systemd/` directory no longer exists
+
+---
+
+### 8. Exchange Service: Redundant PYTHONPATH Entry
+
+**Problem:** `apps/exchange/aitbc-exchange.service` line 13 sets `PYTHONPATH=/opt/aitbc:/opt/aitbc/aitbc`. The `/opt/aitbc/aitbc` entry is redundant — `PYTHONPATH=/opt/aitbc` already makes `import aitbc` work. The extra path doesn't break anything but is sloppy and suggests a copy-paste error.
+
+**Fix:** Remove the redundant path: `PYTHONPATH=/opt/aitbc`.
+
+**Files changed:**
+- `apps/exchange/aitbc-exchange.service` — line 13: remove `:/opt/aitbc/aitbc`
+
+---
+
+## Open Questions (Resolved)
+
+1. **Commented-out coordinator-api hermes context routers** — **RESOLVED: deferred to v0.5.9 §7.** Investigation found the 4 router files (`hermes_decision.py`, `hermes_enhanced_simple.py`, `hermes_health.py`, `hermes_resource.py`) are fully implemented but in the wrong service (coordinator-api has nothing to do with agent messaging), reachable only through dead code (`core/routers.py` is never called), and have no tests. v0.5.9 merges the Hermes service into the Agent Coordinator and deletes these routers — if decision/health/resource functionality is needed, it should be built as Agent Coordinator handlers, not resurrected from coordinator-api. See `docs/releases/v0.5.9/change.log` §7.
+
+2. **Add `HERMES_DB_PATH` to example node.env files?** — **Not addressed.** `examples/node.env.open-island` doesn't set it, so deployments based on that example rely on the code default. Low severity; left as-is.
+
+3. **Fee unit system (1000x documentation error)** — **RESOLVED: deferred to v0.5.10.** The v0.5.8 `1000→10` fix eliminates the immediate mismatch causing transaction rejections. v0.5.10 implements the proper unit system (1 AIT = 3600 compute-seconds, fee = 36 = 0.01 AIT), which is the real fix for the v0.5.6 docs saying "0.01 AIT per transaction". See `docs/releases/v0.5.10/change.log`.
+
+---
+
+## Verification Results
+
+All verification steps run after implementation:
+
+1. **Fee consistency grep:** ✅ No `1000` fee-related matches in the 3 target files. All show `fee=10` / `fee: int = 10` / `amount + 10`.
+2. **CLI tests:** ✅ `pytest tests/cli/test_commands_coin_requests.py` — 3 tests pass (skipped: stubs that skip due to "complex Hermes service and DB dependencies"; the v0.5.9 §1 shared-package move addresses this fragility).
+3. **Hermes tests:** ⏭️ No Hermes test directory exists (`apps/hermes/tests/` not present). The balance-boundary test was not added — the Hermes service is deleted in v0.5.9 §6, making it moot.
+4. **Default URL check:** ✅ `COORDINATOR_URL` defaults to `http://localhost:8107` (verified via grep at `main.py:25`).
+5. **Agent-daemon removal grep:** ✅ Only 2 matches remain — `apps/agent-management/.../agent_integration.py` and `apps/coordinator-api/.../integration.py`, both explicitly verified SAFE (string references to the non-existent `aitbc-agent-daemon-wrapper.py` in systemd templates, not imports of the deleted script). The event-bridge `AgentDaemonHandler` is excluded as unrelated.
+6. **Docs grep:** ✅ All 3 `HERMES_DB_PATH` references in `docs/releases/v0.4.4/` show `/var/lib/aitbc/data/hermes_coin_requests.db`. Blockchain README shows `"fee":10` (no `1000` match).
+7. **Setup script:** ✅ `setup.sh` no longer lists `aitbc-agent-daemon` in the service array. Creates `/etc/aitbc/aitbc-agent-coordinator.env` with `AGENT_COORDINATOR_BIND_PORT=8107` and `AGENT_COORDINATOR_BIND_HOST=127.0.0.1`.
+8. **FFmpeg PYTHONPATH:** ✅ `Environment=PYTHONPATH=/opt/aitbc` present.
+9. **Marketplace service:** ✅ Only `apps/marketplace/aitbc-marketplace.service` exists. `scripts/systemd/` directory deleted. `scripts/utils/aitbc-recovery.service` exists.
+10. **Exchange PYTHONPATH:** ✅ Shows `Environment="PYTHONPATH=/opt/aitbc"` — no redundant `:/opt/aitbc/aitbc`.
+11. **Service file lint:** ✅ `systemd-analyze verify` passes clean (exit 0, no warnings) on all 5 service files: ffmpeg, exchange, marketplace, agent-coordinator, recovery.

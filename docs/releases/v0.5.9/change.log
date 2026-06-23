@@ -1,0 +1,547 @@
+# v0.5.9 Release Plan
+
+**Theme**: Merge Hermes service (8103) into Agent Coordinator (8107) and rename "hermes" → "agent" across the entire codebase — consolidate all Hermes agent functionality into the Agent Coordinator, delete the Hermes service, and rename every CLI command, env var, code identifier, doc, and skill from "hermes" to "agent" so the codebase reflects the single-service architecture.
+
+**Goal**: Move the 3 real pieces of Hermes service functionality (`/coin-requests/execute` endpoint, `TransactionService`, approval strategies + background expiration) into the Agent Coordinator. Rename `aitbc hermes *` → `aitbc agent *`, `HERMES_*` env vars → `AGENT_*`, `hermes_service.*` imports → `agent_coordinator.*`, `docs/hermes/` → `docs/agent/`, and all 3,500+ "hermes" references across the codebase. Delete the 7 mock endpoints, the Hermes service, and the 4 dead context routers in coordinator-api. Hard stop — no deprecation period. This is a **breaking change** release.
+
+**Context**: v0.5.5 began consolidating agent messaging into the Agent Coordinator by removing `PingHandler` from Hermes, adding WebSocket `ping_handler`, and implementing auto-transfer for first-time nodes. v0.5.8 finishes the cleanup (fee fixes, dead code removal, service fixes). v0.5.9 completes the consolidation: absorb remaining Hermes functionality into the Agent Coordinator, rename everything from "hermes" to "agent", delete the Hermes service entirely, and delete the dead coordinator-api context routers.
+
+The Hermes service has been reduced to a thin REST wrapper: 7 of its 11 endpoints are mock stubs returning hardcoded responses, and the only real endpoints (`/message`, `/health`, `/coin-requests/execute`) overlap with or can be absorbed by the Agent Coordinator, which already accesses the same SQLite DB and implements the same coin-request logic. Once the service is gone, the "Hermes" name is just leftover branding — everything is "agent" functionality in the Agent Coordinator.
+
+---
+
+## Current State (Pre-merge)
+
+### Hermes service (8103) — what's actually real
+
+| Endpoint | Method | Status | Action |
+|---|---|---|---|
+| `/health` | GET | Real | Port to Agent Coordinator |
+| `/message` | POST | Real (HandlerRegistry → RequestCoinsHandler) | Replace — Agent Coordinator already handles REQUEST_COINS via WebSocket |
+| `/coin-requests/execute` | POST | Real (hub-only, API key auth) | Port to Agent Coordinator as REST endpoint |
+| `/routing/skill` | POST | Mock stub | Delete |
+| `/offloading/intelligent` | POST | Mock stub | Delete |
+| `/collaboration/coordinate` | POST | Mock stub | Delete |
+| `/execution/hybrid-optimize` | POST | Mock stub | Delete |
+| `/edge/deploy` | POST | Mock stub | Delete |
+| `/edge/coordinate` | POST | Mock stub | Delete |
+| `/ecosystem/develop` | POST | Mock stub | Delete |
+
+### Hermes service components to migrate
+
+| Component | File | What it does | Migration target |
+|---|---|---|---|
+| `TransactionService` | `services/transaction_service.py` | Ed25519 signing, balance/nonce queries, signed tx generation | Move into Agent Coordinator (or shared `aitbc` package) |
+| `RequestCoinsHandler` | `handlers/request_coins_handler.py` | Parses REQUEST_COINS, runs approval strategy, stores in DB, sends response | Already redundant — Agent Coordinator's `request_coins_handler` does this |
+| Approval strategies | `handlers/strategies/` | Manual, Automatic (threshold-based), AI (Ollama) | Move into Agent Coordinator |
+| `HandlerRegistry` | `handlers/handler_registry.py` | Dynamic handler loading | Not needed — Agent Coordinator uses explicit handler registration |
+| `BaseHandler` | `handlers/base_handler.py` | Abstract base with `send_response()` via Agent Coordinator API | Not needed — handlers in Agent Coordinator call `connection_manager` directly |
+| `coin_requests` DB schema | `storage/schema.py` | SQLite table with PENDING/APPROVED/REJECTED/EXPIRED states | Already shared via `HERMES_DB_PATH` — becomes Agent Coordinator's own |
+| `expire_old_requests()` | `main.py:58-77` | Background task, hourly, marks 30-day-old requests as EXPIRED | Port to Agent Coordinator lifespan |
+
+### CLI commands — current service routing
+
+| Command | Currently hits | After merge |
+|---|---|---|
+| `hermes ping` | 8107 (WebSocket) | No change |
+| `hermes request-coins` | 8107 (WebSocket) | No change |
+| `hermes send` | 8103 (`/hermes/send`) | 8107 (or remove if redundant with WebSocket) |
+| `hermes receive` | 8103 (`/hermes/messages`) | 8107 (or remove if redundant with WebSocket) |
+| `hermes peers` | 8103 (`/hermes/peers`) | 8107 (or remove) |
+| `hermes status` | 8203 (`/v1/hermes/status`) | **Remove** (§9 — endpoint doesn't exist in production) |
+| `hermes stop` | 8203 (`/v1/hermes/agents/{id}/stop`) | **Remove** (§9 — endpoint doesn't exist anywhere) |
+| `hermes train` | Subprocess (no backend) | **Remove** (§9 — stub, no ML backend) |
+| `hermes-training *` | Hardcoded stubs | **Remove** (§9 — 100% hardcoded, no backend) |
+| `coin-requests list` | Direct SQLite DB | No change (same DB) |
+| `coin-requests approve` | Direct SQLite + 8107 notification | No change |
+| `coin-requests reject` | Direct SQLite + 8107 notification | No change |
+| `coin-requests execute` | 8202 RPC (local) or 8103 `/coin-requests/execute` (hub) | 8107 `/coin-requests/execute` (hub) |
+
+### Env vars to consolidate
+
+| Variable | Current | After merge |
+|---|---|---|
+| `HERMES_SERVICE_URL` (default 8103) | CLI `hermes send/receive/peers` | Default → 8107, or remove |
+| `HERMES_COORDINATOR_URL` (default 8107) | Hermes service → Agent Coordinator | Remove (no more cross-service call) |
+| `HERMES_PORT` (8103) | Hermes service bind | Remove |
+| `HERMES_BIND_HOST` (127.0.0.1) | Hermes service bind | Remove |
+| `HERMES_DB_PATH` | Shared by both services | Stays — now Agent Coordinator's DB |
+| `HERMES_AGENT_ID` | Hermes service identity | Stays — used by Agent Coordinator handlers |
+| `HUB_HERMES_URL` | CLI coin-requests execute (hub) | Update to point at Agent Coordinator |
+
+---
+
+## Planned Changes
+
+### 1. Move TransactionService + shared models into `aitbc` package
+
+**Problem:** `TransactionService` (Ed25519 signing, balance/nonce queries, signed transaction generation) lives in the Hermes service at `apps/hermes/src/hermes_service/services/transaction_service.py`. The Agent Coordinator already duplicates some of this logic inline in `agent_stream.py` (`_generate_signed_transaction`, `_submit_transaction`). The CLI `coin-requests execute` command imports `TransactionService` and `CoinRequest`/`get_db_session` directly from `hermes_service.*` — a fragile cross-app internal import. Having two implementations of transaction signing is error-prone (the v0.5.8 fee mismatch was partly caused by this split).
+
+**Fix:** Move `TransactionService`, `CoinRequest` model, `CoinRequestStatus` enum, and `get_db_session`/`init_db` into the shared `aitbc` package so both the Agent Coordinator and CLI import from there — no cross-app internal imports.
+
+**Shared package structure:**
+```
+aitbc/
+├── crypto/
+│   ├── __init__.py
+│   └── transaction_service.py    # TransactionService (moved from hermes_service.services)
+├── models/
+│   ├── __init__.py
+│   └── coin_request.py           # CoinRequest, CoinRequestStatus (moved from hermes_service.storage)
+└── db/
+    ├── __init__.py
+    └── hermes_db.py               # get_db_session, init_db (moved from hermes_service.storage)
+```
+
+**Files changed:**
+- `aitbc/crypto/transaction_service.py` — **new** (moved from `hermes_service.services.transaction_service`)
+- `aitbc/models/coin_request.py` — **new** (moved from `hermes_service.storage.schema`)
+- `aitbc/db/hermes_db.py` — **new** (moved from `hermes_service.storage.database`)
+- `apps/agent-coordinator/src/app/websocket/agent_stream.py` — replace inline `_generate_signed_transaction` with `from aitbc.crypto import TransactionService`; replace DB imports with `from aitbc.models import CoinRequest, CoinRequestStatus` and `from aitbc.db import get_db_session`
+- `cli/aitbc_cli/commands/coin_requests.py` — change imports from `hermes_service.*` → `aitbc.*`
+- `apps/hermes/src/hermes_service/services/transaction_service.py` — keep for now (Hermes service deleted in §6)
+
+**Env vars:** `BLOCKCHAIN_RPC_URL`, `CHAIN_ID`, `GENESIS_PRIVATE_KEY`, `GENESIS_ADDRESS` — already available to Agent Coordinator via `/etc/aitbc/blockchain.env` and `blockchain-secrets.env`
+
+---
+
+### 2. Port `/coin-requests/execute` endpoint to Agent Coordinator
+
+**Problem:** The `/coin-requests/execute` endpoint (hub-only, requires `COORDINATOR_API_KEY`) lives in the Hermes service at `main.py:232-269`. It's called by the CLI `coin-requests execute` command when forwarding to a hub (via `HUB_HERMES_URL`). This is the only real Hermes endpoint that has no equivalent in the Agent Coordinator.
+
+**Fix:** Add a new REST endpoint to the Agent Coordinator:
+
+```
+POST /api/v1/agent/coin-requests/execute
+```
+
+with the same logic: API key auth, balance check (`amount + 10` per v0.5.8 fee fix), `TransactionService.generate_signed_transaction()`, submit to blockchain RPC, update DB record with transaction hash.
+
+**Files changed:**
+- `apps/agent-coordinator/src/app/routers/coin_requests.py` — **new** router with the execute endpoint
+- `apps/agent-coordinator/src/app/main.py` — include the new router
+
+**Tests:**
+- Add tests for the new endpoint (API key auth, balance check, successful execution, insufficient balance)
+
+---
+
+### 3. Move approval strategies + background expiration into Agent Coordinator
+
+**Problem:** The approval strategies (Manual, Automatic, AI) and the `expire_old_requests()` background task live in the Hermes service. The Agent Coordinator's `request_coins_handler` already handles first-time auto-transfer and records pending requests in the same DB, but it doesn't have the approval strategy logic or the expiration task.
+
+**Fix:**
+- Move the 3 approval strategies into `apps/agent-coordinator/src/app/services/approval/`
+- Move `expire_old_requests()` into the Agent Coordinator's lifespan startup
+- The `request_coins_handler` in `agent_stream.py` already records pending requests — wire it to use the approval strategies for non-first-time requests (currently it just returns `pending_approval`)
+
+**Files changed:**
+- `apps/agent-coordinator/src/app/services/approval/__init__.py` — **new**
+- `apps/agent-coordinator/src/app/services/approval/manual.py` — **new** (moved from Hermes)
+- `apps/agent-coordinator/src/app/services/approval/automatic.py` — **new** (moved from Hermes)
+- `apps/agent-coordinator/src/app/services/approval/ai.py` — **new** (moved from Hermes)
+- `apps/agent-coordinator/src/app/main.py` — add `expire_old_requests()` to lifespan
+- `apps/agent-coordinator/src/app/websocket/agent_stream.py` — wire `request_coins_handler` to approval strategies
+
+**Env vars:** `COIN_APPROVAL_MODE`, `COIN_AUTOMATIC_APPROVAL_AMOUNT`, `OLLAMA_URL`, `OLLAMA_MODEL`, `ENABLE_AI_APPROVAL` — already available via env files
+
+---
+
+### 4. Update CLI to point at Agent Coordinator (8107)
+
+**Problem:** Several CLI commands still default to the Hermes service (8103) or the deprecated coordinator (8203). After the merge, all agent/Hermes commands should hit the Agent Coordinator (8107).
+
+**Fix:**
+
+**4a. `hermes send/receive/peers` (currently 8103):**
+These commands hit `/hermes/send`, `/hermes/messages`, `/hermes/peers` on the Hermes service. The Agent Coordinator already has equivalent endpoints — use them directly (no aliases):
+- `send` → `POST /api/v1/agent/messages/send`
+- `receive` → `GET /api/v1/agent/messages/{agent_id}`
+- `peers` → `GET /api/v1/agent/messages/discover`
+
+Update the CLI to use `config.agent_coordinator_url` and these existing endpoint paths. No alias endpoints are added to the Agent Coordinator — this is a breaking change release, external callers should adapt to the canonical API.
+
+**4b. `hermes status/stop/train` (currently 8203/subprocess):**
+Removed entirely in §9 — investigation confirmed all training commands are dead code (endpoints don't exist in production, no ML backend).
+
+**4c. `coin-requests execute` hub URL:**
+Change `HUB_HERMES_URL` → `HUB_AGENT_URL` default from `https://hub.aitbc.bubuit.net/api/v1/hermes` to `https://hub.aitbc.bubuit.net/agent` (the Agent Coordinator's public path via nginx).
+
+**4d. Config defaults:**
+- `hermes_service_url` → removed (use `agent_coordinator_url` for all agent commands)
+- `coordinator_url` (deprecated 8203) → removed (only used by status/stop, which are deleted in §9)
+
+**Files changed:**
+- `cli/aitbc_cli/config.py` — remove `hermes_service_url`, update/remove `coordinator_url`
+- `cli/aitbc_cli/commands/hermes.py` → `agent.py` — use `agent_coordinator_url` for send/receive/peers with existing endpoint paths
+- `cli/aitbc_cli/commands/coin_requests.py` — `HUB_HERMES_URL` → `HUB_AGENT_URL`
+
+**Tests:**
+- Update `tests/cli/test_commands_agent.py` (renamed) to expect 8107 for all commands
+- Update `tests/cli/test_commands_agent_training.py` (renamed) to expect 8107
+
+---
+
+### 5. Update nginx and API Gateway
+
+**Problem:** The API Gateway (`apps/api-gateway/src/api_gateway/main.py:65`) proxies `/v1/hermes/*` to the Hermes service (8103). Nginx configs may have routes to 8103.
+
+**Fix:**
+- API Gateway: change the Hermes upstream from 8103 to 8107, or remove the Hermes proxy entirely if the Agent Coordinator's `/api/v1/agent/*` paths are already proxied
+- Nginx: update any `/hermes/` location blocks to proxy to the Agent Coordinator (8107) instead of 8103. The Agent Coordinator is already proxied under `/agent/` (per v0.5.5 §10).
+
+**Files changed:**
+- `apps/api-gateway/src/api_gateway/main.py` — update Hermes upstream URL
+- `examples/nginx/` — update any Hermes-related location blocks
+- `docs/` — update architecture docs showing the service topology
+
+---
+
+### 6. Stop and disable Hermes service (hard cut — breaking change)
+
+**Problem:** After the merge, the Hermes service (8103) has no unique functionality. Keeping it running wastes resources and confuses the architecture.
+
+**Fix:** Hard stop — no deprecation period. The Hermes service is stopped, disabled, and its code deleted in this release. This is a **breaking change**: any client, script, or config that hardcodes port 8103 must be updated to 8107 as part of the v0.5.9 upgrade. The release notes must prominently flag this.
+
+- Stop and disable the systemd service on deployed nodes
+- Remove the service file from the repo
+- Remove the Hermes app directory (code is now in Agent Coordinator)
+- Remove Hermes-related env vars from example configs and node.env
+
+**Files deleted:**
+- `apps/hermes/aitbc-hermes.service` — systemd unit
+- `apps/hermes/` — the entire app directory (code absorbed into Agent Coordinator)
+
+**Files updated (remove Hermes service references):**
+- `scripts/deployment/setup.sh` — remove Hermes service installation
+- `scripts/deployment/deploy.sh` — remove from deploy list
+- `scripts/utils/link-systemd.sh` — remove from service link list
+- `scripts/utils/harden-systemd-services.py` — remove from hardening list
+- `examples/node.env.open-island` — remove `HERMES_PORT`, `HERMES_BIND_HOST`
+- `examples/blockchain.env.open-island` — remove Hermes-specific vars
+- `docs/architecture/active_apps.md` — remove Hermes entry
+- `docs/infrastructure/SYSTEMD_SERVICES.md` — remove service entry
+- `docs/hermes/` — update all docs to reference Agent Coordinator (8107)
+- `docs/getting-started/` — update setup guides
+- `skills/` — update deployment/setup skills
+
+**Operational step (on deployed nodes):**
+```bash
+systemctl stop aitbc-hermes
+systemctl disable aitbc-hermes
+rm /etc/systemd/system/aitbc-hermes.service
+systemctl daemon-reload
+```
+
+**Note:** The Hermes service code (`apps/hermes/`) is deleted, not just stopped. All real functionality has been moved to the Agent Coordinator. The SQLite DB at `HERMES_DB_PATH` is preserved — it's now owned by the Agent Coordinator.
+
+---
+
+### 7. Delete the 4 commented-out hermes context routers from coordinator-api
+
+**Problem:** v0.5.8 Open Question #1 identified 4 fully-implemented but disabled routers in `apps/coordinator-api/src/app/contexts/hermes/routers/` (decision, health, resource, enhanced). They're in the wrong service (coordinator-api has nothing to do with agent messaging), reachable only through a dead code path (`core/routers.py`), and have no tests. The investigation concluded they should be built in the Agent Coordinator if needed, not resurrected from coordinator-api.
+
+**Fix:** Delete the commented-out lines in `main.py`, the `contexts/hermes/` directory, the dead `core/routers.py` + `core/app.py`, and supporting schemas/models. If decision/health/resource functionality is needed in the future, it should be built as WebSocket handlers or REST routers in the Agent Coordinator — the correct home for agent functionality after this merge.
+
+**Files deleted:**
+- `apps/coordinator-api/src/app/contexts/hermes/` — entire directory (routers, services, domain, storage)
+- `apps/coordinator-api/src/app/core/routers.py` — dead code (never called)
+- `apps/coordinator-api/src/app/core/app.py` — dead code (never used)
+- `apps/coordinator-api/src/app/schemas/hermes_decision.py` — only used by deleted routers
+- `apps/coordinator-api/src/app/schemas/hermes_health.py` — only used by deleted routers
+- `apps/coordinator-api/src/app/schemas/hermes_resource.py` — only used by deleted routers
+- `apps/coordinator-api/src/app/schemas/hermes_enhanced.py` — only used by deleted routers
+- `apps/coordinator-api/src/app/models/hermes.py` — only used by deleted services
+
+**Files updated:**
+- `apps/coordinator-api/src/app/main.py` — remove commented-out lines 39-43
+- `apps/coordinator-api/src/app/routers/__init__.py` — remove hermes router imports with try/except
+- `apps/coordinator-api/tests/test_routers_hermes.py` — remove tests for deleted endpoints (keep tests for the feature-flagged `routers/hermes.py` messaging router, which is separate)
+
+**Note:** This resolves v0.5.8 Open Question #1. The 4 routers are deleted, not restored, because:
+1. They're in the wrong service (coordinator-api, not Agent Coordinator)
+2. They're unreachable (dead `core/` code path)
+3. They have no tests
+4. After this merge, the Agent Coordinator is the canonical home for agent functionality
+5. If needed, they should be rebuilt as Agent Coordinator handlers, not resurrected from a wrong-location implementation
+
+---
+
+### 8. Rename "hermes" → "agent" across the entire codebase
+
+**Problem:** Once the Hermes service is deleted and all functionality lives in the Agent Coordinator, the "Hermes" name is leftover branding with no meaning. The codebase should reflect the single-service architecture: everything is "agent" functionality in the Agent Coordinator. An exhaustive search found **3,500+ references** to "hermes" across CLI commands, env vars, code identifiers, database tables, docs, skills, scripts, tests, and examples.
+
+**Fix:** Rename everything. This is a mechanical, codebase-wide rename — no logic changes, just identifiers, paths, and strings.
+
+**8a. CLI commands:**
+
+| Current | After |
+|---|---|
+| `aitbc hermes ping` | `aitbc agent ping` |
+| `aitbc hermes request-coins` | `aitbc agent request-coins` |
+| `aitbc hermes send` | `aitbc agent send` |
+| `aitbc hermes receive` | `aitbc agent receive` |
+| `aitbc hermes peers` | `aitbc agent peers` |
+| `aitbc hermes status` | `aitbc agent status` |
+| `aitbc hermes stop` | `aitbc agent stop` |
+| `aitbc hermes train` | `aitbc agent train` |
+| `aitbc hermes-training *` | `aitbc agent-training *` |
+
+**Files renamed:**
+- `cli/aitbc_cli/commands/hermes.py` → `agent.py`
+- `cli/aitbc_cli/commands/hermes_training.py` → `agent_training.py`
+- `cli/tests/test_commands_hermes.py` → `test_commands_agent.py`
+- `cli/tests/test_commands_hermes_training.py` → `test_commands_agent_training.py`
+
+**Files updated:**
+- `cli/aitbc_cli/core/main.py` — imports and command registration
+- `cli/aitbc_cli/config.py` — `hermes_service_url` → use `agent_coordinator_url`
+- `cli/aitbc_cli/commands/coin_requests.py` — `send_hermes_notification` → `send_agent_notification`, imports from `hermes_service.*` → `agent_coordinator.*`
+- `cli/README.md`, `cli/CLI_USAGE_GUIDE.md`, `cli/FILE_ORGANIZATION_SUMMARY.md`, `cli/docs/DISABLED_COMMANDS_CLEANUP.md` — command references
+- All CLI test files — patch paths, assertions, command names
+
+**8b. Environment variables:**
+
+| Current | After | Notes |
+|---|---|---|
+| `HERMES_PORT` | — | Delete (service gone) |
+| `HERMES_BIND_HOST` | — | Delete (service gone) |
+| `HERMES_SERVICE_URL` | — | Delete (use `AGENT_COORDINATOR_URL`) |
+| `HERMES_COORDINATOR_URL` | — | Delete (no cross-service call) |
+| `HERMES_DB_PATH` | `AGENT_DB_PATH` | Rename, keep old as fallback for one release |
+| `HERMES_AGENT_ID` | `AGENT_ID` | Rename, keep old as fallback for one release |
+| `HUB_HERMES_URL` | `HUB_AGENT_URL` | Rename, update default to `/agent` path |
+
+**Files updated:**
+- `examples/node.env.open-island` — rename vars, remove deleted ones
+- `examples/blockchain.env.open-island` — `HUB_HERMES_URL` → `HUB_AGENT_URL`
+- `examples/.env.scenario.example` — rename `HERMES_DB_PATH`, delete `HERMES_PORT`
+- `apps/agent-coordinator/src/app/websocket/agent_stream.py` — `HERMES_DB_PATH` → `AGENT_DB_PATH` (with fallback), `HERMES_AGENT_ID` → `AGENT_ID` (with fallback)
+- `cli/aitbc_cli/commands/coin_requests.py` — env var names
+
+**8c. Code identifiers (Agent Coordinator):**
+
+| Current | After |
+|---|---|
+| `os.getenv("HERMES_DB_PATH", ...)` | `os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", ...))` |
+| `os.getenv("HERMES_AGENT_ID", ...)` | `os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", ...))` |
+| Comments/docstrings mentioning "hermes" | "agent" |
+
+**Files updated:**
+- `apps/agent-coordinator/src/app/websocket/agent_stream.py` — env vars (with fallback), comments, docstrings, log messages
+
+**8d. Coordinator-API routers and schemas:**
+
+The `routers/hermes.py` (the feature-flagged messaging router, separate from the deleted context routers) and `services/hermes_service.py` are active code in coordinator-api. Rename them:
+
+**Files renamed:**
+- `apps/coordinator-api/src/app/routers/hermes.py` → `agent.py`
+- `apps/coordinator-api/src/app/services/hermes_service.py` → `agent_service.py`
+
+**Files updated:**
+- `apps/coordinator-api/src/app/routers/__init__.py` — imports, router list
+- `apps/coordinator-api/src/app/main.py` — router inclusion, prefixes `/hermes` → `/agent`
+- `apps/coordinator-api/src/app/services/redis_state.py` — Redis namespaces `hermes:agents` → `agent:agents`, `hermes:messages` → `agent:messages`
+- `apps/coordinator-api/src/app/services/agent_coordination/performance.py` — default `agent_type` `"hermes"` → `"agent"`
+- `apps/coordinator-api/src/app/domain/agent_performance.py` — default `agent_type` `"hermes"` → `"agent"`
+- `apps/coordinator-api/src/app/services/task_decomposition.py`, `orchestrator.py`, `community_service.py` — docstrings
+- `apps/coordinator-api/src/app/domain/governance.py`, `community.py` — docstrings
+- `apps/coordinator-api/src/app/services/agent_coordination/integration.py` — systemd template string (references `agent-daemon/` wrapper, already noted in v0.5.8)
+
+**API endpoint changes:**
+- `/v1/hermes/*` → `/v1/agent/*` (coordinator-api router prefix)
+- `/hermes/send` → `/agent/send`, `/hermes/messages` → `/agent/messages`, `/hermes/peers` → `/agent/peers`
+
+**8e. Database:**
+
+| Current | After |
+|---|---|
+| `hermes_coin_requests.db` | `agent_coin_requests.db` (via `AGENT_DB_PATH` default) |
+| `create_hermes_tables.py` | `create_agent_tables.py` |
+| Table names in coordinator-api (`hermes_decisions`, `hermes_votes`, etc.) | Deleted with §7 (context routers deleted) |
+
+**Files renamed:**
+- `scripts/migration/create_hermes_tables.py` → `create_agent_tables.py`
+
+**Note:** The `coin_requests` table name stays as-is (it's not "hermes"-prefixed). The DB filename changes via the `AGENT_DB_PATH` default. Existing DBs are migrated by symlinking or copying the old file to the new path during upgrade.
+
+**8f. Documentation:**
+
+**Directories renamed:**
+- `docs/hermes/` → `docs/agent/`
+
+**Files updated (all docs outside `docs/releases/`):**
+- `docs/architecture/active_apps.md` — remove Hermes entry, update references
+- `docs/infrastructure/SYSTEMD_SERVICES.md` — remove Hermes service
+- `docs/getting-started/` — update setup guides
+- `docs/blockchain/README.md` — any hermes references
+- `docs/cli/CLI_DOCUMENTATION.md` — command examples
+- `docs/meta/documentation-guide.md` — command examples
+- All files in `docs/agent/` (renamed from `docs/hermes/`) — content updates
+
+**8g. Skills:**
+
+**Directories renamed:**
+- `skills/hermes/` → `skills/agent/`
+- `skills/hermes-autonomy-testing/` → `skills/agent-autonomy-testing/`
+
+**Files updated:**
+- `skills/aitbc-software-setup/SKILL.md` — remove Hermes service reference
+- `skills/aitbc-deployment/SKILL.md` — remove Hermes service reference
+- `skills/aitbc-node-management/SKILL.md` — command group `hermes:` → `agent:`
+- `skills/aitbc-service-recovery/SKILL.md` — remove Hermes service, update ports
+- `skills/aitbc/aitbc-cli.md` — command examples
+- `skills/aitbc/aitbc.md`, `aitbc-ai-operations.md`, `aitbc-node-coordination.md`, `aitbc-wallet-management.md` — agent IDs, command examples
+- All files in `skills/agent/` (renamed from `skills/hermes/`) — content updates
+
+**8h. Scripts and deployment:**
+
+**Files updated:**
+- `scripts/deployment/setup.sh` — remove `aitbc-hermes` from service list
+- `scripts/utils/link-systemd.sh` — remove `aitbc-hermes` from service list
+- `scripts/generate_openapi.py` — remove Hermes service generation
+- `scripts/migration/migrate_mock_state_to_redis.py` — `migrate_hermes_state()` → `migrate_agent_state()`, Redis namespaces
+- `scripts/workflow/*.sh` — update hermes references to agent
+- `scripts/workflow-hermes/` → evaluate: rename to `scripts/workflow-agent/` or delete if obsolete
+
+**8i. Tests:**
+
+**Files renamed:**
+- `tests/cli/test_commands_hermes.py` → `test_commands_agent.py`
+- `tests/cli/test_commands_hermes_training.py` → `test_commands_agent_training.py`
+
+**Files updated:**
+- `tests/cli/test_commands_coin_requests.py` — skip messages
+- `tests/cli/test_core_main.py` — patch paths
+- `tests/cli/test_cli_integration.py` — config field names
+- `tests/cli/cli-test-commands.sh` — command names
+- `tests/cli/cli-test-summary.md` — test names
+- `tests/integration/test_cross_service.py` — test method names
+- `tests/security/test_cors_configuration.py` — path references
+- `apps/coordinator-api/tests/test_health_comprehensive.py` — health check names
+- `apps/coordinator-api/tests/test_routers_hermes.py` → `test_routers_agent.py` — rename + update
+
+**8j. Other services:**
+
+**Files updated:**
+- `apps/api-gateway/src/api_gateway/main.py` — remove `hermes` upstream (8103), route through Agent Coordinator
+- `apps/blockchain-event-bridge/src/blockchain_event_bridge/main.py` — "hermes agent triggers" → "agent triggers"
+
+**Backward compatibility for env vars:**
+- `AGENT_DB_PATH` falls back to `HERMES_DB_PATH` if not set
+- `AGENT_ID` falls back to `HERMES_AGENT_ID` if not set
+- This allows deployed nodes to upgrade without immediately renaming their env files
+- The fallback is removed in a future release
+
+**Verification:**
+- `rg -i "hermes" /opt/aitbc/ --glob '!docs/releases/**'` — should return zero matches (after all renames)
+- All CLI commands work with `agent` name: `aitbc agent ping`, `aitbc agent request-coins`, etc.
+- All tests pass with renamed identifiers
+- Env var fallbacks work: setting `HERMES_DB_PATH` still works as fallback for `AGENT_DB_PATH`
+
+---
+
+### 9. Remove dead training commands and mock training infrastructure
+
+**Problem:** Investigation confirmed all training functionality is dead code — no ML backend exists anywhere in the codebase. The commands are stubs that call non-existent endpoints or return hardcoded responses.
+
+**What's dead:**
+
+| Command/Component | Status | Evidence |
+|---|---|---|
+| `aitbc hermes status` | Calls non-existent endpoint | `/v1/hermes/status` not in production (mock-only, `enable_mock_hermes=False`) |
+| `aitbc hermes stop` | Calls non-existent endpoint | `POST /v1/hermes/agents/{id}/stop` doesn't exist anywhere |
+| `aitbc hermes train` | Stub — runs CLI via subprocess | No ML training, just logs to `/var/log/aitbc/agent-training/` |
+| `aitbc hermes-training train` | Hardcoded stub | Returns `{"status": "training_started"}` |
+| `aitbc hermes-training status` | Hardcoded stub | Returns `{"status": "in_progress", "progress": 45, "loss": 0.234}` |
+| `coordinator-api/routers/training.py` | Mock-only router | Disabled in production (`enable_mock_training=False`) |
+| `coordinator-api/services/training_service.py` | In-memory state only | No ML framework, no training backend |
+| `coordinator-api/routers/hermes.py` mock endpoints | Mock-only | `POST /agents/{id}/status` returns `{"success": True}` |
+
+**Fix:** Delete all training commands and mock training infrastructure.
+
+**Files deleted:**
+- `cli/aitbc_cli/commands/hermes_training.py` — 100% hardcoded stubs
+- `apps/coordinator-api/src/app/routers/training.py` — mock-only router
+- `apps/coordinator-api/src/app/services/training_service.py` — in-memory state, no ML
+- `cli/tests/test_commands_hermes_training.py` — tests for deleted stubs
+
+**Files updated (remove training commands):**
+- `cli/aitbc_cli/commands/hermes.py` → `agent.py` — remove `status`, `stop`, and `train` commands; keep `ping`, `request-coins`, `send`, `receive`, `peers`, `agent` (message)
+- `cli/aitbc_cli/core/main.py` — remove `hermes_training` import and registration
+- `cli/aitbc_cli/config.py` — remove `coordinator_url` (deprecated 8203, only used by status/stop)
+- `apps/coordinator-api/src/app/main.py` — remove training router include
+- `apps/coordinator-api/src/app/config.py` — remove `enable_mock_training` and `enable_mock_hermes` fields
+- `apps/coordinator-api/src/app/routers/__init__.py` — remove training router import
+- `cli/README.md`, `cli/CLI_USAGE_GUIDE.md` — remove training command references
+- `cli/docs/DISABLED_COMMANDS_CLEANUP.md` — remove training references
+- `skills/aitbc/aitbc-cli.md` — remove "Agent Training Operations" section
+- `skills/hermes-autonomy-testing/` → `skills/agent-autonomy-testing/` — remove training endpoint references
+
+**Note:** The `hermes train` command (lines 123-235 of `hermes.py`) is the largest stub — it parses a JSON training-data file, executes operations via `subprocess.run(["hermes", "agent", ...])`, and logs results. It doesn't connect to any ML backend. Removing it is safe — no production workflow depends on it.
+
+**Tests:**
+- `aitbc agent train --help` should fail (command removed)
+- `aitbc agent status --help` should fail (command removed)
+- `aitbc agent stop --help` should fail (command removed)
+- `aitbc agent-training --help` should fail (module deleted)
+- Remaining `agent` commands (`ping`, `request-coins`, `send`, `receive`, `peers`) still work
+
+---
+
+## Open Questions
+
+1. **~~`hermes status/stop` commands~~** — **RESOLVED: remove all training commands.** Investigation confirmed all training functionality is dead code:
+   - `hermes status` calls `/v1/hermes/status` — endpoint doesn't exist in production (mock-only, disabled by `enable_mock_hermes=False`)
+   - `hermes stop` calls `POST /v1/hermes/agents/{id}/stop` — endpoint doesn't exist **anywhere** in the codebase
+   - `hermes train` runs CLI commands via subprocess — doesn't actually train anything, just logs to `/var/log/aitbc/agent-training/`
+   - `hermes_training train` returns hardcoded `{"status": "training_started"}`
+   - `hermes_training status` returns hardcoded `{"status": "in_progress", "progress": 45, "loss": 0.234}`
+   - No ML backend exists — no TensorFlow, PyTorch, no `apps/training/` directory, `training_service.py` is in-memory state management only
+
+   All training commands, the mock training router, the mock training service, and the `hermes_training` CLI module are deleted in §9.
+
+2. **~~`hermes send/receive/peers` commands~~** — **RESOLVED: use existing Agent Coordinator endpoints.** No alias endpoints. The CLI is being rewritten anyway (§4 + §8a), so pointing it at the canonical endpoints (`/api/v1/agent/messages/send`, `/api/v1/agent/messages/{agent_id}`, `/api/v1/agent/messages/discover`) is trivial. Adding aliases would just delay cleanup and create two ways to do the same thing. This is already a breaking change release — external callers should adapt to the canonical API.
+
+3. **~~Shared `TransactionService` package~~** — **RESOLVED: move to shared `aitbc` package.** `TransactionService`, `CoinRequest` model, and `get_db_session` will move into the shared `aitbc` package (e.g., `aitbc.crypto.TransactionService`, `aitbc.models.CoinRequest`, `aitbc.db.get_db_session`). Both the Agent Coordinator and CLI import from there — no cross-app internal imports. This fixes the existing fragility where the CLI imports from `hermes_service.storage` (an app's internal module). The shared package structure is defined as part of §1.
+
+4. **~~Deprecation period vs hard cut~~** — **RESOLVED: hard stop in v0.5.9.** No deprecation period. The Hermes service is stopped, disabled, and deleted in §6. Deployed nodes that have hardcoded 8103 references must be updated as part of the v0.5.9 upgrade. The v0.5.9 release notes should prominently flag this as a breaking change.
+
+---
+
+## Verification Steps
+
+After implementation:
+
+1. **Endpoint parity check:** Verify the Agent Coordinator exposes all functionality that was in the Hermes service:
+   - `POST /api/v1/agent/coin-requests/execute` (new)
+   - `GET /health` (existing or new)
+   - WebSocket handlers: PING, REQUEST_COINS, HELLO (existing)
+   - Approval strategies: manual, automatic, AI (new)
+   - Background expiration task (new)
+
+2. **TransactionService test:** `python -c "from app.services.transaction_service import TransactionService; ts = TransactionService(); print(ts.genesis_address)"` from the Agent Coordinator directory
+
+3. **CLI integration test:** Run each CLI command and verify it hits 8107, not 8103 or 8203:
+   - `aitbc agent ping --coordinator-url http://localhost:8107`
+   - `aitbc agent request-coins --coordinator-url http://localhost:8107`
+   - `aitbc coin-requests list`
+   - `aitbc coin-requests execute <id>` (local + hub)
+
+4. **Hermes service removal grep:** `rg -l "8103|HERMES_SERVICE_URL|HERMES_PORT|hermes_service" apps/ cli/ scripts/ docs/ --glob '!docs/releases/**'` — should return no matches (except historical release notes)
+
+5. **Context routers deletion grep:** `rg -l "contexts/hermes|hermes_decision|hermes_enhanced|hermes_health|hermes_resource" apps/coordinator-api/` — should return no matches
+
+6. **Full rename grep:** `rg -i "hermes" /opt/aitbc/ --glob '!docs/releases/**'` — should return zero matches. This is the ultimate verification that the rename is complete.
+
+7. **Env var fallback test:** Set `HERMES_DB_PATH` (old name) and verify the Agent Coordinator still finds the DB via fallback. Then set `AGENT_DB_PATH` (new name) and verify it takes precedence.
+
+8. **CLI command test:** `aitbc agent ping --help` and `aitbc agent request-coins --help` — verify the `agent` command group exists and `hermes` does not: `aitbc hermes --help` should fail.
+
+9. **Service file lint:** `systemd-analyze verify apps/agent-coordinator/aitbc-agent-coordinator.service`
+
+10. **Run all tests:** `pytest tests/ apps/agent-coordinator/tests/ -v`
+
+11. **Nginx config check:** Verify no nginx config references port 8103
+
+12. **API Gateway check:** Verify `api_gateway/main.py` no longer proxies to 8103 and has no `hermes` upstream

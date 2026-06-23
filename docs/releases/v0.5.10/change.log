@@ -1,0 +1,343 @@
+# v0.5.10 Release Plan
+
+**Theme**: Hard fork — change the blockchain unit system from raw AIT to compute-seconds (1 AIT = 3600 seconds), enabling minute and second-level billing for compute resources. All existing on-chain balances, amounts, and fees are multiplied by 3600. The canonical transaction fee changes from 10 (10 raw AIT) to 36 (0.01 AIT = 36 seconds of compute). This is a **breaking change** requiring all nodes to migrate simultaneously.
+
+**Goal**: Make 1 AIT = 1 hour of compute = 3600 seconds. This allows billing compute time in minutes and seconds natively — `billable_units = compute_seconds`, no conversion needed. The transaction fee becomes 36 units (0.01 AIT ≈ €0.0025), matching the v0.5.6 documentation. All existing on-chain data is migrated by multiplying by 3600.
+
+**Context**: v0.5.6 established the compute value model: 1 AIT = 1 compute hour ≈ €0.25. The docs said the transaction fee was 0.01 AIT, but the code used `fee=10` with no sub-unit system — meaning 10 AIT, 1000x too high. v0.5.8 fixed the `1000→10` mismatch but didn't address the unit system. v0.5.9 merged the Hermes service into the Agent Coordinator and renamed everything. v0.5.10 implements the proper unit system: 1 AIT = 3600 seconds, fee=36 (0.01 AIT), all on-chain data × 3600.
+
+The blockchain transaction layer is integers-only (`fee: int`, `amount: int`, validation rejects floats). This is correct — seconds are integers, and 1 AIT = 3600 seconds means all compute billing is natural integer math. No floats, no sub-unit conversion at the transaction layer. The display layer converts seconds → AIT for user-facing output.
+
+---
+
+## Unit System Definition
+
+| Concept | Value | Notes |
+|---|---|---|
+| 1 AIT | 3600 units (seconds) | 1 hour of compute |
+| 1 minute of compute | 60 units | |
+| 1 second of compute | 1 unit | Smallest billable unit |
+| Transaction fee | 36 units (0.01 AIT) | ≈ €0.0025 at €0.25/AIT |
+| Auto-transfer (free grant) | 360000 units (100 AIT) | 100 hours of compute |
+| Faucet default | 3600000000 units (1M AIT) | |
+
+---
+
+## Planned Changes
+
+### 1. Blockchain core — fee default and unit documentation
+
+**Problem:** The RPC default fee is `10` (raw AIT, 10 AIT — 1000x too high per v0.5.6 docs). The transaction model has no unit documentation.
+
+**Fix:**
+- Change RPC default fee from `10` to `36` (0.01 AIT = 36 seconds)
+- Add unit documentation to all amount/fee/balance fields: `# in compute-seconds (1 AIT = 3600)`
+
+**Files changed:**
+- `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py` — line 27: `fee: int = 10` → `fee: int = 36`
+- `apps/blockchain-node/src/aitbc_chain/rpc/utils.py` — line 75: fallback `10` → `36`
+- `apps/blockchain-node/src/aitbc_chain/base_models.py` — add comments to `Transaction.value`, `Transaction.fee`, `Account.balance`, `Receipt.minted_amount`, `Escrow.amount`, `CrossChainTransfer.amount`, `Stake.amount`: `# in compute-seconds (1 AIT = 3600)`
+
+---
+
+### 2. All transaction creators — fee and amount updates
+
+**Problem:** Every service that creates transactions has hardcoded fee=10 (or fee=1000) and amount values in raw AIT. These need to switch to seconds.
+
+**Fix:**
+
+| Service | File | Current | New | Notes |
+|---|---|---|---|---|
+| Agent Coordinator | `agent_stream.py:309-310` | `INITIAL_COIN_AMOUNT=100`, `TRANSACTION_FEE=10` | `360000`, `36` | 100 AIT = 360000 seconds |
+| Hermes TransactionService | `transaction_service.py:62` | `fee=10` | `fee=36` | (If still present after v0.5.9 merge) |
+| Bridge Monitor | `bridge_monitor/main.py:120` | `"fee": 10` | `"fee": 36` | |
+| Wallet model | `wallet/models/__init__.py:142` | `fee=1000` | `fee=36` | (v0.5.8 changes to 10, v0.5.10 changes to 36) |
+| CLI wallet send | `cli/wallet/basic.py:532` | `default=10` | `default=36` | |
+| CLI coin-requests | `cli/coin_requests.py:240` | `fee=1000` | `fee=36` | (v0.5.8 changes to 10, v0.5.10 changes to 36) |
+
+**Files changed:**
+- `apps/agent-coordinator/src/app/websocket/agent_stream.py` — `INITIAL_COIN_AMOUNT = 360000`, `TRANSACTION_FEE = 36`
+- `apps/bridge-monitor/src/bridge_monitor/main.py` — `"fee": 36`
+- `apps/wallet/src/app/models/__init__.py` — `fee: int = 36`
+- `cli/aitbc_cli/commands/wallet/basic.py` — `default=36`
+- `cli/aitbc_cli/commands/coin_requests.py` — `fee=36`
+
+---
+
+### 3. Faucet — amount scaling
+
+**Problem:** The faucet default amount is `1000000` (raw AIT). Post-fork this becomes 1000000 seconds ≈ 277 AIT, which is wrong. It should be 1000000 AIT = 3,600,000,000 seconds.
+
+**Fix:**
+
+| Location | Current | New |
+|---|---|---|
+| `blockchain-node/rpc/accounts.py:155` | `1000000` | `3600000000` |
+| `blockchain-node/rpc/accounts.py:163-164` | max `10000000` | `36000000000` |
+| `cli/wallet/misc.py:70` | `default=1000000` | `default=3600000000` |
+| `wallet/api_rest.py:352` | `"amount": 1000000` | `"amount": 3600000000` |
+
+**Files changed:**
+- `apps/blockchain-node/src/aitbc_chain/rpc/accounts.py` — faucet default and max
+- `cli/aitbc_cli/commands/wallet/misc.py` — `--amount` default
+- `apps/wallet/src/app/api_rest.py` — faucet request amount
+
+---
+
+### 4. Escrow — replace milli-AIT with seconds
+
+**Problem:** The escrow code uses a milli-AIT conversion (`amount_milli = int(amount * 1000)`) and a 1% fee (`amount_int // 100`). This needs to use seconds instead.
+
+**Fix:**
+- Change `amount_milli = int(amount * 1000)` → `amount_seconds = int(amount * 3600)`
+- Change fee calculation: `"fee": max(36, amount_seconds // 100)` (minimum 36 = 0.01 AIT, otherwise 1% of amount)
+
+**Files changed:**
+- `apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py` — lines 53-54, 71
+
+---
+
+### 5. Validation constraints — scale by 3600
+
+**Problem:** Hardcoded validation thresholds (staking min/max, bounty limits, compliance thresholds, bridge limits) are in raw AIT. Post-fork they need to be in seconds.
+
+**Fix:**
+
+| Constraint | File | Current | New | Meaning |
+|---|---|---|---|---|
+| Min stake | `staking/routers/staking.py:53` | 100 | 360000 | 100 AIT min |
+| Max stake | `staking/routers/staking.py:55` | 100000 | 360000000 | 100,000 AIT max |
+| Min stake (bounty) | `domain/bounty.py:248` | 100.0 | 360000.0 | 100 AIT min |
+| Max stake (bounty) | `domain/bounty.py:249` | 100000.0 | 360000000.0 | 100,000 AIT max |
+| Compliance high | `compliance.py:490` | 10000 | 36000000 | 10,000 AIT threshold |
+| Compliance low | `compliance.py:494` | 1000 | 3600000 | 1,000 AIT threshold |
+| Bridge limit | `domain/cross_chain_bridge.py:101` | 1000000.0 | 3600000000.0 | 1M AIT limit |
+| Bridge max | `domain/cross_chain_bridge.py:104` | 1000000.0 | 3600000000.0 | 1M AIT max |
+
+**Files changed:**
+- `apps/coordinator-api/src/app/contexts/staking/routers/staking.py`
+- `apps/coordinator-api/src/app/domain/bounty.py`
+- `apps/coordinator-api/src/app/services/compliance_security/compliance.py`
+- `apps/coordinator-api/src/app/domain/cross_chain_bridge.py`
+
+---
+
+### 6. Display layer — convert seconds to AIT for user output
+
+**Problem:** The CLI and other display layers currently show raw integers. Post-fork, `balance: 360000` should display as `100.00 AIT` (360000 / 3600 = 100).
+
+**Fix:** Add a conversion utility and apply it to all user-facing displays:
+
+```python
+# aitbc/utils/units.py
+SECONDS_PER_AIT = 3600
+
+def seconds_to_ait(seconds: int) -> float:
+    """Convert compute-seconds to AIT."""
+    return seconds / SECONDS_PER_AIT
+
+def ait_to_seconds(ait: float) -> int:
+    """Convert AIT to compute-seconds (for transaction creation)."""
+    return int(ait * SECONDS_PER_AIT)
+
+def format_ait(seconds: int) -> str:
+    """Format compute-seconds as a human-readable AIT string."""
+    ait = seconds_to_ait(seconds)
+    if ait == int(ait):
+        return f"{int(ait)} AIT"
+    return f"{ait:.4f} AIT"
+```
+
+**Apply to:**
+- CLI wallet balance display: `balance: 360000` → `Balance: 100 AIT`
+- CLI transaction history: show amounts in AIT, not raw seconds
+- CLI coin-requests list: show amounts in AIT
+- Blockchain explorer: display balances in AIT
+- Wallet API responses: include both raw seconds and formatted AIT
+
+**Files changed:**
+- `aitbc/utils/units.py` — **new** (shared conversion utility)
+- `cli/aitbc_cli/commands/wallet/basic.py` — use `format_ait()` for balance display
+- `cli/aitbc_cli/commands/coin_requests.py` — use `format_ait()` for amount display
+- `apps/blockchain-explorer/` — display balances as AIT
+- `apps/wallet/src/app/api_rest.py` — include formatted AIT in responses
+
+**CLI input conversion:**
+When a user types `aitbc wallet send --amount 100`, the CLI converts: `100 AIT × 3600 = 360000 seconds` and sends `amount=360000` to the blockchain. The `--amount` option accepts AIT (float), converts to seconds (int) internally.
+
+- `cli/aitbc_cli/commands/wallet/basic.py` — `--amount` option: accept float AIT, convert with `ait_to_seconds()`
+- `cli/aitbc_cli/commands/wallet/basic.py` — `--fee` option: accept float AIT, convert with `ait_to_seconds()`
+
+---
+
+### 7. Genesis block — scale allocations by 3600
+
+**Problem:** The genesis block has allocations in raw AIT (e.g., genesis address has `1000000000` = 1 billion AIT). Post-fork, this should be `1000000000 * 3600 = 3,600,000,000,000` seconds.
+
+**Fix:**
+- Update `unified_genesis.py` to generate allocations in seconds
+- Genesis allocation: `balance: 1000000000` → `balance: 3600000000000` (1 billion AIT = 3.6 trillion seconds)
+- Existing genesis.json files on deployed nodes are migrated by the migration script (§9)
+
+**Files changed:**
+- `apps/blockchain-node/scripts/unified_genesis.py` — `create_genesis_allocations()`: multiply balance by 3600
+
+---
+
+### 8. On-chain data migration — multiply all values by 3600
+
+**Problem:** All existing on-chain data (account balances, transaction values/fees, escrow amounts, stakes, cross-chain transfers, receipts) is in raw AIT. Post-fork, all values must be multiplied by 3600.
+
+**Fix:** Offline migration script — stop all nodes, run script, restart.
+
+**Tables and columns to migrate:**
+```sql
+UPDATE account SET balance = balance * 3600;
+UPDATE transaction SET value = value * 3600, fee = fee * 3600;
+UPDATE receipt SET minted_amount = minted_amount * 3600 WHERE minted_amount IS NOT NULL;
+UPDATE escrow SET amount = amount * 3600;
+UPDATE cross_chain_transfer SET amount = amount * 3600;
+UPDATE stake SET amount = amount * 3600;
+```
+
+**Additional migration steps:**
+- Clear mempool: `DELETE FROM mempool;` (pending transactions have old-fee values)
+- Scale genesis.json allocations by 3600
+- Recalculate state root (Merkle Patricia Trie from scaled balances)
+- Update genesis block's `state_root` field in both genesis.json and the `block` table
+- Flush Redis cache: `redis-cli FLUSHDB` (cached balances are stale)
+
+**Migration script:**
+- `scripts/migration/scale_balances_3600x.py` — **new**
+
+**Script does:**
+1. Backup chain.db and genesis.json
+2. Multiply all balances/amounts/fees by 3600
+3. Clear mempool
+4. Scale genesis.json allocations
+5. Recalculate state root
+6. Update genesis block state_root in database
+7. Print verification summary
+
+**Operational steps (on each deployed node):**
+```bash
+# 1. Stop all services
+systemctl stop aitbc-blockchain-node aitbc-agent-coordinator aitbc-wallet aitbc-bridge-monitor
+
+# 2. Backup
+cp /var/lib/aitbc/data/{chain_id}/chain.db /var/lib/aitbc/data/{chain_id}/chain.db.pre-fork
+cp /var/lib/aitbc/data/{chain_id}/genesis.json /var/lib/aitbc/data/{chain_id}/genesis.json.pre-fork
+
+# 3. Run migration
+python3 /opt/aitbc/scripts/migration/scale_balances_3600x.py
+
+# 4. Flush Redis cache
+redis-cli FLUSHDB
+
+# 5. Restart with new code (v0.5.10)
+systemctl start aitbc-blockchain-node aitbc-agent-coordinator aitbc-wallet aitbc-bridge-monitor
+
+# 6. Verify
+curl http://localhost:8202/rpc/state/snapshot | jq '.state_root'
+curl http://localhost:8202/rpc/account/{genesis_address} | jq '.balance'
+```
+
+**Critical:** All nodes must migrate simultaneously. A node that hasn't migrated will reject transactions from migrated nodes (fee=36 vs fee=10) and vice versa.
+
+---
+
+### 9. Documentation — update fee/amount references
+
+**Problem:** Documentation shows conflicting fee values (0.01 AIT in v0.5.6 docs, 10 in code, 1000 in other places). Post-fork, the canonical fee is 36 units = 0.01 AIT, and the v0.5.6 docs become correct.
+
+**Fix:**
+
+| File | Line | Current | New |
+|---|---|---|---|
+| `docs/blockchain/README.md` | 40 | `"fee":1000` | `"fee":36` |
+| `docs/getting-started/ait-value-model.md` | 81 | `0.01 AIT (fixed)` | Correct — now matches code (36 = 0.01 AIT) |
+| `docs/getting-started/free-ait.md` | various | `100 AIT` | Correct — user-facing, 100 AIT = 360000 seconds internally |
+
+**Files changed:**
+- `docs/blockchain/README.md` — curl example fee
+- `docs/getting-started/ait-value-model.md` — add note that 0.01 AIT = 36 compute-seconds internally
+- `docs/architecture/` — add unit system documentation (1 AIT = 3600 seconds)
+- Create `docs/getting-started/unit-system.md` — explain the seconds-based unit system, how CLI converts, how to read raw balances
+
+---
+
+### 10. Website — no changes needed (display values are in AIT)
+
+**Problem:** The website shows "100 AIT FREE", "1 AIT ≈ €0.25", "0.5% bridge fee". These are user-facing AIT values.
+
+**Fix:** No changes. The website displays AIT, not raw seconds. The backend converts seconds → AIT before sending to the frontend. The "100 AIT FREE" grant is still 100 AIT (just 360000 seconds internally).
+
+**Files NOT changed:**
+- `website/exchange.html` — displays AIT, correct
+- `website/exchange.js` — `REF_EUR = 0.25` is AIT/EUR, correct
+
+---
+
+## Migration Strategy
+
+### Pre-fork (week -1)
+1. Deploy v0.5.10 code to all nodes (but don't run migration yet)
+2. Test migration script on a testnet copy
+3. Announce hard fork block height / time to all node operators
+4. Prepare rollback procedure (restore from backup)
+
+### Fork execution (coordinated)
+1. All nodes stop services simultaneously
+2. All nodes run `scale_balances_3600x.py`
+3. All nodes flush Redis cache
+4. All nodes restart with v0.5.10 code
+5. Verify state root matches across nodes
+
+### Post-fork (week +1)
+1. Monitor for transaction validation errors
+2. Verify all new transactions use fee=36
+3. Verify CLI displays balances correctly (seconds → AIT)
+4. Test faucet, auto-transfer, escrow, bridge
+5. Verify staking constraints work with new values
+
+---
+
+## Verification Steps
+
+After implementation and migration:
+
+1. **Fee check:** `rg -n "fee.*=.*10\b" apps/ cli/ --include='*.py' --glob '!**/tests/**'` — should return no matches (all fees are 36)
+
+2. **Amount check:** `rg -n "INITIAL_COIN_AMOUNT.*=.*100\b" apps/ --include='*.py'` — should return no matches (all amounts are 360000)
+
+3. **Unit utility test:** `python -c "from aitbc.utils.units import format_ait; assert format_ait(360000) == '100 AIT'; assert format_ait(36) == '0.01 AIT'"`
+
+4. **Balance display test:** `aitbc wallet balance --address {genesis}` — should show "277777.78 AIT" (1B AIT = 3.6T seconds / 3600), not "3600000000000"
+
+5. **Transaction test:** Send a transaction with `--amount 1 --fee 0.01` and verify the blockchain receives `amount=3600, fee=36`
+
+6. **Migration verification:**
+   ```sql
+   SELECT COUNT(*) FROM account WHERE balance > 0 AND balance < 3600;
+   -- Should return 0 (no sub-AIT balances exist from pre-fork data)
+   ```
+
+7. **State root verification:** `curl http://localhost:8202/rpc/state/snapshot | jq '.state_root'` — should match across all nodes
+
+8. **Mempool check:** `SELECT COUNT(*) FROM mempool;` — should be 0 (cleared during migration)
+
+9. **Genesis verification:** `cat /var/lib/aitbc/data/{chain_id}/genesis.json | jq '.allocations[0].balance'` — should show 3600000000000 (1B AIT × 3600)
+
+10. **Run all tests:** `pytest tests/ -v` — all tests updated for new fee/amount values
+
+---
+
+## Open Questions
+
+1. **Genesis hash changes** — scaling allocations and recalculating state root changes the genesis block hash. Does this break block validation (each block references parent hash)? Need to verify whether the genesis block hash is recomputed or if the existing hash in the `block` table needs updating. Investigation found that genesis hash is stored in the `block` table and referenced by block 1's `parent_hash`. The migration script must update both the genesis block's hash and all subsequent blocks' parent hashes, OR the genesis block hash is computed from block content (not state root) and doesn't change. **Needs verification.**
+
+2. **Chain ID / fork marker** — should the chain ID change to signal the fork (e.g., `ait-mainnet` → `ait-mainnet-v2`)? Or should a fork block be inserted at the current height? Changing chain ID would require all clients to update their config. A fork marker in block metadata is less disruptive. **Needs decision.**
+
+3. **Historical transaction display** — pre-fork transactions have `fee=10` (10 raw AIT). Post-fork, the display layer converts `fee=10` → `10/3600 = 0.0028 AIT`, which is wrong (it was actually 10 AIT). Should historical transactions be displayed with a "pre-fork" flag that doesn't convert? Or should the migration multiply historical tx fees by 3600 too (making fee=10 → fee=36000, which displays as 10 AIT)? **The migration script (§8) already multiplies all transaction fees by 3600, so historical txs become fee=36000, displaying as 10 AIT. This is correct.**
+
+4. **Auto-approval threshold** — `COIN_AUTOMATIC_APPROVAL_AMOUNT` in the Agent Coordinator (currently 1000) needs to scale. If it's in raw AIT, it becomes 3600000. If it's already in seconds, it stays. **Needs verification of current unit.**
