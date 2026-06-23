@@ -40,7 +40,6 @@ ROUTE_SECURITY_MATRIX = {
     # Mixed auth routes (any valid token)
     "/contexts/agent_coordination/*": AuthLevel.ANY,
     "/contexts/agent_identity/*": AuthLevel.ANY,
-    "/contexts/hermes/*": AuthLevel.ANY,
     "/contexts/infrastructure/*": AuthLevel.ANY,
     "/contexts/monitoring/*": AuthLevel.ANY,
     # Analytics (admin or client)

@@ -31,7 +31,7 @@ aitbc-cli [COMMAND] --help
 The main entry point automatically delegates commands based on type:
 
 **Production Commands (Parser/Handler):**
-- wallet, blockchain, account, messaging, network, market, ai, analytics, script, mining, system, economics, cluster, performance, security, compliance, simulate, agent, hermes-training, workflow, resource, genesis, pool-hub, bridge, contract
+- wallet, blockchain, account, messaging, network, market, ai, analytics, script, mining, system, economics, cluster, performance, security, compliance, simulate, agent, hermes, workflow, resource, genesis, pool-hub, bridge, contract
 
 **Click Commands (Agent Operations):**
 - agent, ipfs, oracle, swarm, arbitrage, validator, plugin, database, island, edge, ai, monitor, governance, staking, compliance
