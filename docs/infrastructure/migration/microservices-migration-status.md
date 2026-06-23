@@ -101,7 +101,6 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 ### Phase 22: Agent Messaging Migration (Completed)
 - Created `/api/v1/agent/messages/` endpoints in Agent Coordinator (8107)
 - Migrated messaging from Coordinator API (8203) to Agent Coordinator (8107)
-- Updated hermes_polling_daemon.py to use new endpoint paths
 - Updated systemd service and environment files to use port 8107
 - Successfully tested end-to-end PING/PONG flow via Agent Coordinator
 - Updated documentation to reflect new messaging architecture

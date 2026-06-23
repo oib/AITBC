@@ -125,13 +125,6 @@ This document lists all active AITBC applications as of v0.5.0.
 **Service File**: `aitbc-agent-management.service`
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
-### Agent Daemon
-**Path**: `apps/agent-daemon`
-**Status**: active
-**Purpose**: Background agent daemon
-**Maintainer**: @root
-**Recent Activity**: Active development (last commit: 2025-06-18)
-
 ### Miner
 **Path**: `apps/miner`
 **Status**: active
@@ -215,8 +208,8 @@ This document lists all active AITBC applications as of v0.5.0.
 
 ## Summary
 
-- **Total Applications**: 27
-- **Active**: 24
+- **Total Applications**: 26
+- **Active**: 23
 - **Under Development**: 2
 - **Shared Libraries**: 2
 - **Experimental**: 1

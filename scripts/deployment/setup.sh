@@ -127,7 +127,6 @@ get_services_for_role() {
         aitbc-hermes
         aitbc-agent-management
         aitbc-agent-coordinator
-        aitbc-agent-daemon
         aitbc-blockchain-explorer
     )
 
@@ -877,6 +876,20 @@ REDIS_URL=redis://localhost:6379/0
 EOF
     fi
     log "Wrote JWT_SECRET and API_KEY_HASH_SECRET to $COORD_ENV"
+
+    # Create agent-coordinator env file (service references EnvironmentFile without '-' prefix,
+    # so a missing file is a hard error on fresh installs). Binds to 127.0.0.1:8107 (v0.5.5 §1).
+    local AGENT_COORD_ENV="/etc/aitbc/aitbc-agent-coordinator.env"
+    if [ ! -f "$AGENT_COORD_ENV" ]; then
+        cat > "$AGENT_COORD_ENV" << EOF
+# AITBC Agent Coordinator service-specific configuration
+AGENT_COORDINATOR_BIND_PORT=8107
+AGENT_COORDINATOR_BIND_HOST=127.0.0.1
+EOF
+        log "Created $AGENT_COORD_ENV"
+    else
+        log "Preserving existing $AGENT_COORD_ENV"
+    fi
 
     # Generate runtime secrets file for systemd services
     log "Generating runtime secrets file..."

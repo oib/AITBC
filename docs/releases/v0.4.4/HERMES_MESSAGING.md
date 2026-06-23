@@ -26,7 +26,7 @@ AITBC v0.4.4 updates the Hermes messaging service with port changes, endpoint up
 
 ```bash
 # node.env
-HERMES_DB_PATH=/var/lib/aitbc/hermes_coin_requests.db
+HERMES_DB_PATH=/var/lib/aitbc/data/hermes_coin_requests.db
 ```
 
 #### Loading Order

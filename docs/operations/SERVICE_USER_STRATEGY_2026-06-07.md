@@ -80,7 +80,6 @@ This document describes the recommended service user strategy for AITBC services
 - `aitbc-modality-optimization.service` - Modality (127.0.0.1:8021)
 
 **Agent Services:**
-- `aitbc-agent-daemon.service` - Agent daemon
 - `aitbc-agent-management.service` - Agent management
 - Other agent services
 

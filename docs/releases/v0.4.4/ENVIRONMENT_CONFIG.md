@@ -30,7 +30,7 @@ Node-specific settings for local configuration.
 # Node-specific settings
 GENESIS_PRIVATE_KEY=0x...
 GENESIS_ADDRESS=0x...
-HERMES_DB_PATH=/var/lib/aitbc/hermes_coin_requests.db
+HERMES_DB_PATH=/var/lib/aitbc/data/hermes_coin_requests.db
 ```
 
 ## Environment Loading Order

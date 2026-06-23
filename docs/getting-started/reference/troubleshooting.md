@@ -29,12 +29,6 @@ systemctl start aitbc-blockchain-node.service
 ## Hermes Messages Not Received
 
 ```bash
-# Check agent daemon status
-systemctl status aitbc-agent-daemon
-
-# Check logs
-journalctl -u aitbc-agent-daemon -f
-
 # Verify coordinator connectivity
 curl -s http://localhost:8203/health
 ```

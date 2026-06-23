@@ -49,7 +49,6 @@ SERVICES_NEEDING_WRITE_ACCESS = {
     "aitbc-learning.service",
     "aitbc-modality-optimization.service",
     "aitbc-multimodal.service",
-    "aitbc-agent-daemon.service",
     "aitbc-agent-management.service",
     "aitbc-ffmpeg.service",
     "aitbc-whisper.service",
