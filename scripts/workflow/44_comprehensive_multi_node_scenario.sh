@@ -334,25 +334,25 @@ phase4_blockchain_sync_event_bridge() {
     log_success "Phase 4: Blockchain sync with event bridge completed"
 }
 
-# Phase 5: Agent Coordination via Hermes
+# Phase 5: Agent Coordination via Agent
 phase5_agent_coordination() {
-    log_info "=== PHASE 5: AGENT COORDINATION VIA HERMES ==="
+    log_info "=== PHASE 5: AGENT COORDINATION VIA AGENT ==="
 
-    # Check if Hermes is available
-    if command -v hermes >/dev/null 2>&1; then
-        log_success "Hermes CLI found"
+    # Check if Agent is available
+    if command -v agent >/dev/null 2>&1; then
+        log_success "Agent CLI found"
 
         # Create a test session
         local session_id="scenario_$(date +%s)"
-        log_info "Creating Hermes session: $session_id"
+        log_info "Creating Agent session: $session_id"
 
         # Send coordination message
         log_info "Sending coordination message to agent network"
-        hermes agent --agent main --session-id "$session_id" --message "Multi-node scenario coordination: All nodes operational" --thinking low 2>/dev/null || log_warning "Hermes agent command failed"
+        agent agent --agent main --session-id "$session_id" --message "Multi-node scenario coordination: All nodes operational" --thinking low 2>/dev/null || log_warning "Agent agent command failed"
 
         log_success "Phase 5: Agent coordination completed"
     else
-        log_warning "Hermes CLI not found, skipping agent coordination"
+        log_warning "Agent CLI not found, skipping agent coordination"
     fi
 }
 

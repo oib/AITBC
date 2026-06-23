@@ -385,7 +385,7 @@ SECRET_KEY=8598095866d24aa8bcdf5c11fe9cb0ea6ece8c5868af6ee95732fe41dfe8de5c
 ### Services That Load This File
 
 - `aitbc-wallet.service` - For wallet daemon authentication
-- `aitbc-hermes.service` - For Hermes service authentication
+- `aitbc-agent.service` - For Agent service authentication
 - `aitbc-blockchain-rpc.service` - For authenticated RPC endpoints (if needed)
 
 ### Security Notes
@@ -433,7 +433,7 @@ EnvironmentFile=/etc/aitbc/node.env
 - **aitbc-blockchain-rpc.service:** Loads `blockchain.env`, `blockchain-secrets.env`, `node.env`
 
 ### Agent Services
-- **aitbc-hermes.service:** Loads `blockchain.env`, `node.env`
+- **aitbc-agent.service:** Loads `blockchain.env`, `node.env`
 - **aitbc-agent-coordinator.service:** Loads `node.env`
 
 ### Wallet Service

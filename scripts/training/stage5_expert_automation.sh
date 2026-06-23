@@ -3,7 +3,7 @@
 # Source training library
 source "$(dirname "$0")/training_lib.sh"
 
-# hermes AITBC Training - Stage 5: Expert Operations & Automation
+# agent AITBC Training - Stage 5: Expert Operations & Automation
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -24,7 +24,7 @@ set -e
 TRAINING_STAGE="Stage 5: Expert Operations & Automation"
 SCRIPT_NAME="stage5_expert_automation"
 CURRENT_LOG=$(init_logging "$SCRIPT_NAME")
-WALLET_NAME="hermes-trainee"
+WALLET_NAME="agent-trainee"
 WALLET_PASSWORD="trainee123"
 
 # Logging function
@@ -298,10 +298,10 @@ advanced_scripting() {
     print_status "Advanced Automation Scripting"
 
     print_status "Creating custom automation script..."
-    cat > /tmp/hermes_automation.py <<EOF
+    cat > /tmp/agent_automation.py <<EOF
 #!/usr/bin/env python3
 """
-hermes Advanced Automation Script
+agent Advanced Automation Script
 Demonstrates complex workflow automation for AITBC operations
 """
 
@@ -330,7 +330,7 @@ def automated_job_submission():
     logger.info("Starting automated job submission...")
 
     # Submit inference job with required parameters
-    success, output, error = run_command(f"{CLI_PATH} ai submit hermes-trainee inference 'Automated analysis' 10 --password 'trainee123'")
+    success, output, error = run_command(f"{CLI_PATH} ai submit agent-trainee inference 'Automated analysis' 10 --password 'trainee123'")
 
     if success:
         logger.info(f"Job submitted successfully: {output}")
@@ -360,7 +360,7 @@ def automated_marketplace_monitoring():
 
 def main():
     """Main automation loop"""
-    logger.info("Starting hermes automation...")
+    logger.info("Starting agent automation...")
 
     while True:
         try:
@@ -382,14 +382,14 @@ if __name__ == "__main__":
 EOF
 
     print_status "Running custom automation script..."
-    python3 /tmp/hermes_automation.py &
+    python3 /tmp/agent_automation.py &
     AUTOMATION_PID=$!
     sleep 10
     kill $AUTOMATION_PID 2>/dev/null || true
     log "Custom automation script executed"
 
     print_status "Testing script execution..."
-    $CLI_PATH script --run --file /tmp/hermes_automation.py 2>/dev/null || print_warning "Script execution command not available"
+    $CLI_PATH script --run --file /tmp/agent_automation.py 2>/dev/null || print_warning "Script execution command not available"
     log "Script execution test completed"
 
     print_success "Advanced automation scripting completed"
@@ -534,7 +534,7 @@ final_certification_exam() {
     print_status "Certification Results: $TESTS_PASSED/$TOTAL_TESTS tests passed ($SUCCESS_RATE%)"
 
     if [ $SUCCESS_RATE -ge 95 ]; then
-        print_success "🎉 CERTIFICATION PASSED! hermes AITBC Master Status Achieved!"
+        print_success "🎉 CERTIFICATION PASSED! agent AITBC Master Status Achieved!"
         log "CERTIFICATION: PASSED with $SUCCESS_RATE% success rate"
     elif [ $SUCCESS_RATE -ge 80 ]; then
         print_warning "CERTIFICATION CONDITIONAL: $SUCCESS_RATE% - Additional practice recommended"
@@ -569,7 +569,7 @@ validation_quiz() {
 # Main training function
 main() {
     echo -e "${BLUE}========================================${NC}"
-    echo -e "${BLUE}hermes AITBC Training - $TRAINING_STAGE${NC}"
+    echo -e "${BLUE}agent AITBC Training - $TRAINING_STAGE${NC}"
     echo -e "${BLUE}========================================${NC}"
     echo
 
@@ -612,7 +612,7 @@ main() {
     echo "2. Practice advanced operations regularly"
     echo "3. Implement custom automation solutions"
     echo "4. Monitor and optimize system performance"
-    echo "5. Train other hermes agents"
+    echo "5. Train other agent agents"
     echo
     echo -e "${YELLOW}Training Logs:${NC}"
     echo "- Stage 1: /var/log/aitbc/training_stage1.log"
@@ -621,10 +621,10 @@ main() {
     echo "- Stage 4: /var/log/aitbc/training_stage4.log"
     echo "- Stage 5: /var/log/aitbc/training_stage5.log"
     echo
-    echo -e "${GREEN}🎉 CONGRATULATIONS! hermes AITBC MASTERY ACHIEVED! 🎉${NC}"
+    echo -e "${GREEN}🎉 CONGRATULATIONS! agent AITBC MASTERY ACHIEVED! 🎉${NC}"
 
     log "$TRAINING_STAGE completed successfully"
-    log "hermes AITBC Mastery Training Program completed"
+    log "agent AITBC Mastery Training Program completed"
 }
 
 # Run the training

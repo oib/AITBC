@@ -9,7 +9,7 @@
 - Revenue calculation verification
 
 ### **Agent Testing**
-- Hermes agent functionality and coordination
+- Agent agent functionality and coordination
 - Economic modeling agent testing
 - Marketplace strategy agent testing
 - Investment strategy agent testing

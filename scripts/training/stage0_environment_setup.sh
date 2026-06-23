@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# hermes AITBC Training - Stage 0: Environment Setup
+# agent AITBC Training - Stage 0: Environment Setup
 # System prerequisites and environment configuration
 # Uses Python-based training setup to execute JSON-defined operations
 

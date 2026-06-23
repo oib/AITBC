@@ -26,7 +26,7 @@ def show(ctx):
     config = ctx.obj["config"]
 
     config_dict = {
-        "coordinator_url": config.coordinator_url,
+        "agent_coordinator_url": config.agent_coordinator_url,
         "api_key": "***REDACTED***" if config.api_key else None,
         "timeout": getattr(config, "timeout", 30),
         "config_file": getattr(config, "config_file", None),
@@ -69,8 +69,8 @@ def set(ctx, key: str, value: str, global_config: bool):
         config_data["api_key"] = value
         if ctx.obj["output"] == "table":
             success("API key set (use --global to set permanently)")
-    elif key == "coordinator_url":
-        config_data["coordinator_url"] = value
+    elif key == "agent_coordinator_url":
+        config_data["agent_coordinator_url"] = value
         if ctx.obj["output"] == "table":
             success(f"Coordinator URL set to: {value}")
     elif key == "timeout":
@@ -121,7 +121,7 @@ def edit(ctx, global_config: bool):
     # Create if doesn't exist
     if not config_file.exists():
         config = ctx.obj["config"]
-        config_data = {"coordinator_url": config.coordinator_url, "timeout": getattr(config, "timeout", 30)}
+        config_data = {"agent_coordinator_url": config.agent_coordinator_url, "timeout": getattr(config, "timeout", 30)}
         with open(config_file, "w") as f:
             yaml.dump(config_data, f, default_flow_style=False)
 
@@ -246,9 +246,9 @@ def validate(ctx):
     warnings = []
 
     # Validate coordinator URL
-    if not config.coordinator_url:
+    if not config.agent_coordinator_url:
         errors.append("Coordinator URL is not set")
-    elif not config.coordinator_url.startswith(("http://", "https://")):
+    elif not config.agent_coordinator_url.startswith(("http://", "https://")):
         errors.append("Coordinator URL must start with http:// or https://")
 
     # Validate API key
@@ -323,7 +323,7 @@ def save(ctx, name: str):
     profile_file = profiles_dir / f"{name}.yaml"
 
     # Save profile (without API key)
-    profile_data = {"coordinator_url": config.coordinator_url, "timeout": getattr(config, "timeout", 30)}
+    profile_data = {"agent_coordinator_url": config.agent_coordinator_url, "timeout": getattr(config, "timeout", 30)}
 
     with open(profile_file, "w") as f:
         yaml.dump(profile_data, f, default_flow_style=False)
@@ -349,7 +349,7 @@ def list():
         profiles.append(
             {
                 "name": profile_file.stem,
-                "coordinator_url": profile_data.get("coordinator_url"),
+                "agent_coordinator_url": profile_data.get("agent_coordinator_url"),
                 "timeout": profile_data.get("timeout", 30),
             }
         )

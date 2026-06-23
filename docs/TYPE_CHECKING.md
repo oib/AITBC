@@ -60,7 +60,7 @@ find apps/APP_NAME/src -name "*.py" -path "*/src/*" | xargs ./venv/bin/python -m
 ### Check all applications
 ```bash
 cd /opt/aitbc
-for app in pool-hub wallet edge hermes agent-management agent-coordinator coordinator-api blockchain-node; do
+for app in pool-hub wallet edge agent agent-management agent-coordinator coordinator-api blockchain-node; do
   echo "=== $app ==="
   find apps/$app/src -name "*.py" -path "*/src/*" 2>/dev/null | xargs ./venv/bin/python -m mypy --show-error-codes 2>&1 | grep "error:" | wc -l
 done

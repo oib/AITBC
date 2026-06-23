@@ -12,7 +12,7 @@ This service provides governance and DAO operations for the AITBC network.
 ## Related Documentation
 - [Governance Voting Scenario](../../scenarios/17_governance_voting.md)
 - [Compliance](../compliance/README.md)
-- [Hermes Blockchain Integration - Governance](../../hermes/blockchain/governance.md) - Hermes agent on-chain governance operations
+- [Agent Blockchain Integration - Governance](../../agent/blockchain/governance.md) - Agent agent on-chain governance operations
 
 ---
 

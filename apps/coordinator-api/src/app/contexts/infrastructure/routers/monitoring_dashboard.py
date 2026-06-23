@@ -52,8 +52,8 @@ SERVICES = {
         "description": "NFT 2.0, royalties, analytics",
         "icon": "🏪",
     },
-    "hermes_enhanced": {
-        "name": "hermes Enhanced Service",
+    "agent_enhanced": {
+        "name": "agent Enhanced Service",
         "port": 8007,
         "url": "http://localhost:8007",
         "description": "Agent orchestration, edge computing",

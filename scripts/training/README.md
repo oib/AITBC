@@ -1,6 +1,6 @@
-# hermes AITBC Training Scripts
+# agent AITBC Training Scripts
 
-Complete training script suite for hermes agents to master AITBC software operations from beginner to expert level.
+Complete training script suite for agent agents to master AITBC software operations from beginner to expert level.
 
 ## 📁 Training Scripts Overview
 
@@ -43,7 +43,7 @@ Complete training script suite for hermes agents to master AITBC software operat
 - **Dependencies**: `training_lib.sh`, Stage 4 completion
 - **Features**: Advanced automation, multi-node coordination, security audits, certification exam
 
-#### **Stage 6: hermes Master Agent Development** (`stage6_agent_development.sh`)
+#### **Stage 6: agent Master Agent Development** (`stage6_agent_development.sh`)
 - **Duration**: 40-80 minutes (automated)
 - **Focus**: Agent identity, multi-agent coordination, advanced operations, security, performance
 - **Dependencies**: `training_lib.sh`, Stage 5 completion
@@ -157,7 +157,7 @@ cli_cmd_node "$FOLLOWER_NODE" "blockchain --info"
 ### Environment Setup
 ```bash
 # Training wallet (automatically created if not exists)
-export WALLET_NAME="hermes-trainee"
+export WALLET_NAME="agent-trainee"
 export WALLET_PASSWORD="trainee123"
 
 # Log directories (created automatically)
@@ -359,8 +359,8 @@ grep "measure_time\|Performance benchmark" /var/log/aitbc/training_*.log
 
 **Training Scripts Version**: 1.1
 **Last Updated**: 2026-04-02
-**Target Audience**: hermes Agents
+**Target Audience**: agent Agents
 **Difficulty**: Beginner to Expert (5 Stages)
 **Estimated Duration**: 2-4 hours (automated)
-**Certification**: hermes AITBC Master
+**Certification**: agent AITBC Master
 **Library**: `training_lib.sh` - Common utilities and functions

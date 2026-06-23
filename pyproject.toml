@@ -223,7 +223,7 @@ exclude = [
     "^apps/coordinator-api/src/app/contexts/confidential/",
     "^apps/coordinator-api/src/app/contexts/ecosystem/",
     "^apps/coordinator-api/src/app/contexts/governance/",
-    "^apps/coordinator-api/src/app/contexts/hermes/",
+    "^apps/coordinator-api/src/app/contexts/agent_coordination/",
     "^apps/coordinator-api/src/app/contexts/infrastructure/",
     "^apps/coordinator-api/src/app/contexts/language/",
     "^apps/coordinator-api/src/app/contexts/marketplace/",

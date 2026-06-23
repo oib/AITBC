@@ -38,7 +38,7 @@ systemctl start aitbc-coordinator-api.service
 ### 4. Start Agent Messaging
 
 ```bash
-systemctl start aitbc-hermes.service
+systemctl start aitbc-agent.service
 ```
 
 ## Common Failures
@@ -46,20 +46,20 @@ systemctl start aitbc-hermes.service
 | Symptom | Fix |
 |---------|-----|
 | Wallet service: exit code, missing COORDINATOR_API_KEY | Add `echo "key" > /etc/aitbc/credentials/coordinator_api_key && chmod 600` |
-| Sync service exits immediately | Add Hermes vars to `/etc/aitbc/node.env` (see below) OR set `AGENT_DAEMON_CHAINS` |
+| Sync service exits immediately | Add Agent vars to `/etc/aitbc/node.env` (see below) OR set `AGENT_DAEMON_CHAINS` |
 | P2P immediate FIN from hub | `p2p_peers` must use port **7070** (not 8001 — that's Exchange API) |
 | Sync baseline stuck at wrong height | Force-sync: `curl -X POST http://localhost:8006/rpc/force-sync -H 'Content-Type: application/json' -d '{"peer_url":"http://hub.aitbc.bubuit.net:8006"}'` |
 | Services fail with "resources" | `systemctl reset-failed` then restart |
 | Sync service wrong chain | Wrapper reads `SYNC_CHAIN_ID` not `CHAIN_ID` — check aitbc-blockchain-sync-wrapper.py |
 
-## Hermes Polling Config (in /etc/aitbc/node.env)
+## Agent Polling Config (in /etc/aitbc/node.env)
 
 ```
-ENABLE_HERMES_POLLING=true
-HERMES_AGENT_IDS=owl-aitbc3
-HERMES_COORDINATOR_URL=http://hub.aitbc.bubuit.net:8011
-HERMES_SERVICE_URL=http://localhost:8014
-HERMES_AGENT_ID=owl-aitbc3
+ENABLE_AGENT_POLLING=true
+AGENT_AGENT_IDS=owl-aitbc3
+AGENT_COORDINATOR_URL=http://hub.aitbc.bubuit.net:8011
+AGENT_SERVICE_URL=http://localhost:8014
+AGENT_AGENT_ID=owl-aitbc3
 ```
 
 ## Port Reference
@@ -70,8 +70,8 @@ HERMES_AGENT_ID=owl-aitbc3
 | 8001 | aitbc3 P2P listener |
 | 7070 | Hub P2P (use in p2p_peers) |
 | 8010 | Exchange API |
-| 8011 | Coordinator API (Hermes messaging) |
-| 8014 | Hermes Service |
+| 8011 | Coordinator API (Agent messaging) |
+| 8014 | Agent Service |
 | 8015 | Wallet Daemon |
 
 ## Credentials

@@ -26,7 +26,7 @@ This section documents the AITBC infrastructure components, runtime architecture
 
 - **Service Consolidation**: Standardized agent services
   - Shared libraries moved to `/opt/aitbc/aitbc/` (agent_bridge, agent_compliance, agent_protocols, agent_registry, agent_trading)
-  - Services moved to `/opt/aitbc/apps/` (hermes, agent-daemon)
+  - Services moved to `/opt/aitbc/apps/` (agent, agent-daemon)
   - Consistent hyphenated naming (`agent-*`)
   - Removed duplicate services
   - Updated systemd service paths

@@ -60,7 +60,7 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 |---------|------|----------------|---------|-------|
 | **GPU Service** | 8101 | `http://localhost:8101/health` | 127.0.0.1 | GPU marketplace + miner operations |
 | **Marketplace Service** | 8102 | `http://localhost:8102/health` | 127.0.0.1 | Marketplace transactions |
-| **Hermes Service** | 8103 | `http://localhost:8103/health` | 127.0.0.1 | Agent messaging and orchestration |
+| **Agent Service** | 8107 | `http://localhost:8107/health` | 127.0.0.1 | Agent messaging and orchestration |
 | **Trading Service** | 8104 | `http://localhost:8104/health` | 127.0.0.1 | Trading + explorer operations |
 | **Governance Service** | 8105 | `http://localhost:8105/health` | 127.0.0.1 | Governance transactions |
 
@@ -86,7 +86,7 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 - **Blockchain P2P**: `apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py` (uses env var `p2p_bind_port` from blockchain.env)
 - **Blockchain RPC**: `apps/blockchain-node/aitbc-blockchain-node-wrapper.py` (uses combined_main with settings.rpc_bind_port)
 - **Blockchain Event Bridge**: `apps/blockchain-event-bridge/aitbc-blockchain-event-bridge-wrapper.py` (line 31: `--port 8205`)
-- **Hermes Service**: `apps/hermes/aitbc-hermes-wrapper.py` (line 33: `--port 8103`)
+- **Agent Service**: `apps/agent/aitbc-agent-wrapper.py` (line 33: `--port 8107`)
 - **Trading Service**: `apps/trading/aitbc-trading-wrapper.py` (line 32: `--port 8104`)
 - **Governance Service**: `apps/governance/src/governance_service/main.py` (line 286: `port=8105`)
 - **Exchange API**: `apps/exchange/aitbc-exchange-api.service` (line 14: `--port 8106`)
@@ -99,7 +99,7 @@ These services bind to localhost only (127.0.0.1) and should not be exposed exte
 ### Application Main Files
 - **GPU Service**: `apps/gpu-service/src/gpu_service/main.py` (line 458: `port=8101`)
 - **Marketplace Service**: `apps/marketplace-service/src/marketplace_service/main.py` (line 559: `port=8102`)
-- **Hermes Service**: `apps/hermes/aitbc-hermes-wrapper.py` (line 33: `--port 8103`)
+- **Agent Service**: `apps/agent/aitbc-agent-wrapper.py` (line 33: `--port 8107`)
 - **Trading Service**: `apps/trading/aitbc-trading-wrapper.py` (line 32: `--port 8104`)
 - **Governance Service**: `apps/governance/src/governance_service/main.py` (line 286: `port=8105`)
 - **Wallet**: `apps/wallet/src/app/main.py` (line 42: `port=8108`)
@@ -154,7 +154,7 @@ curl -s http://localhost:8203/health  # Coordinator API (failover)
 # Check service health (internal services)
 curl -s http://localhost:8101/health  # GPU Service
 curl -s http://localhost:8102/health  # Marketplace Service
-curl -s http://localhost:8103/health  # Hermes Service
+curl -s http://localhost:8107/health  # Agent Service
 curl -s http://localhost:8104/health  # Trading Service
 curl -s http://localhost:8105/health  # Governance Service
 curl -s http://localhost:8106/health  # Exchange API
@@ -208,4 +208,4 @@ When adding or modifying services:
 - **Wallet Daemon**: 8015 → 8108 (migrated to 8100+ range)
 - **Trading Service**: 8103 → 8104 (corrected based on codemap validation)
 - **Governance Service**: 8104 → 8105 (corrected based on codemap validation)
-- **Hermes Service**: 8105 → 8103 (corrected based on codemap validation)
+- **Agent Service**: 8105 → 8107 (corrected based on codemap validation)

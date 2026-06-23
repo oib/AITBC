@@ -120,7 +120,7 @@ All systemd service files moved from `systemd/` to `apps/<service>/` on 2026-05-
 | Marketplace | `apps/marketplace-service/aitbc-marketplace.service` | 8102 |
 | Agent Coordinator | `apps/agent-coordinator/aitbc-agent-coordinator.service` | -- |
 | Agent Registry | `apps/agent-management/aitbc-agent-registry.service` | -- |
-| Hermes | `apps/hermes/aitbc-hermes.service` | -- |
+| Agent | `apps/agent/aitbc-agent.service` | -- |
 | Blockchain Event Bridge | `apps/blockchain-event-bridge/aitbc-blockchain-event-bridge.service` | -- |
 | Plugin | `scripts/utils/aitbc-plugin.service` | -- |
 | Monitoring | `scripts/monitoring/aitbc-monitoring.service` | -- |

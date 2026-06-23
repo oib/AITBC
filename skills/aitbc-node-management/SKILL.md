@@ -6,7 +6,7 @@ author: OWL
 license: MIT
 platforms: [linux]
 metadata:
-  hermes:
+  agent:
     tags: [blockchain, aitbc, deployment, node-management, devops]
     related_skills: [systematic-debugging]
 ---
@@ -23,7 +23,7 @@ Key changes:
 - `scripts/setup.sh` → `scripts/deployment/setup.sh`
 - `infra/` → `scripts/deployment/`
 - `requirements-modules/` → central `requirements.txt` / `requirements-optional/`
-- `docs/scenarios/`, `docs/agent-training/`, `docs/hermes/`, `docs/planning/` → DELETED
+- `docs/scenarios/`, `docs/agent-training/`, `docs/agent/`, `docs/planning/` → DELETED
 
 **Old `systemd/` references below are OUTDATED. Use `apps/<service>/` paths.**
 
@@ -265,7 +265,7 @@ signature = signed.signature  # 64 bytes, NOT the full SignedMessage
 The CLI entry point (`aitbc_cli.py`) loads `core/main.py` via `importlib.util.spec_from_file_location`. This means **any import error in ANY command file cascades to ALL commands** -- the entire CLI fails at startup.
 
 **Current command availability (as of 2026-05-27):**
-- **Working (18 groups, 170+ subcommands):** wallet, genesis, transactions, blockchain, exchange, ai, market, gpu, mining, system, hermes, operations, resource, simulate, edge, workflow, config, crosschain, monitor
+- **Working (18 groups, 170+ subcommands):** wallet, genesis, transactions, blockchain, exchange, ai, market, gpu, mining, system, agent, operations, resource, simulate, edge, workflow, config, crosschain, monitor
 - **Disabled (code exists, commented out in main.py):** `analytics`, `deployment`, `node`, `agent_comm` -- require `aitbc_cli.core` module implementation.
 - **Re-enabled (2026-05-27):** `cross_chain` and `monitor` -- no core dependencies. Both are fully working as of commit ab0480df.
 

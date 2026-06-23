@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# hermes AITBC Training - Stage 8: Advanced Agent Specialization
+# agent AITBC Training - Stage 8: Advanced Agent Specialization
 # Bounty Systems, Portfolio Management, Knowledge Graph Marketing
 # Uses Python-based training setup to execute JSON-defined operations
 

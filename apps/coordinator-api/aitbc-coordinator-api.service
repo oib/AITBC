@@ -2,7 +2,7 @@
 Description=AITBC Coordinator API
 After=network.target aitbc-blockchain-node.service
 Wants=aitbc-blockchain-node.service
-# Requires Redis for state management (training, hermes, swarm routers) - add redis.service dependency when Redis is deployed
+# Requires Redis for state management (training, agent, swarm routers) - add redis.service dependency when Redis is deployed
 
 [Service]
 Type=simple

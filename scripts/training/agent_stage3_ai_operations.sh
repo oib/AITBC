@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Hermes AITBC Agent Training - Stage 3: AI Operations
-# Agent-Centric Training for Hermes Agents on AITBC Operations
+# Agent AITBC Agent Training - Stage 3: AI Operations
+# Agent-Centric Training for Agent Agents on AITBC Operations
 
 set -e
 
@@ -48,8 +48,8 @@ agent_ai_training() {
     log_agent "INFO" "Starting agent AI operations training for $AGENT_ID"
     log_agent "INFO" "Training data: $TRAINING_DATA"
 
-    # Use Hermes CLI to train the agent
-    if $CLI_PATH hermes-training train agent \
+    # Use Agent CLI to train the agent
+    if $CLI_PATH agent-training train agent \
         --agent-id "$AGENT_ID" \
         --stage "$STAGE" \
         --training-data "$TRAINING_DATA" \
@@ -65,8 +65,8 @@ agent_ai_training() {
 agent_validation() {
     log_agent "INFO" "Starting agent validation for stage $STAGE"
 
-    # Use Hermes CLI to validate the agent
-    if $CLI_PATH hermes-training train validate \
+    # Use Agent CLI to validate the agent
+    if $CLI_PATH agent-training train validate \
         --agent-id "$AGENT_ID" \
         --stage "$STAGE"; then
         log_agent "SUCCESS" "Agent validation passed"
@@ -80,8 +80,8 @@ agent_validation() {
 agent_certification() {
     log_agent "INFO" "Starting agent certification"
 
-    # Use Hermes CLI to certify the agent
-    if $CLI_PATH hermes-training train certify \
+    # Use Agent CLI to certify the agent
+    if $CLI_PATH agent-training train certify \
         --agent-id "$AGENT_ID"; then
         log_agent "SUCCESS" "Agent certification completed"
     else

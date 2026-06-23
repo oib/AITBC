@@ -1,4 +1,4 @@
-"""Action handler modules for hermes agent triggers."""
+"""Action handler modules for agent triggers."""
 
 from .agent_daemon import AgentDaemonHandler
 from .coordinator_api import CoordinatorAPIHandler

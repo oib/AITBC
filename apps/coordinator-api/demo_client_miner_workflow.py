@@ -80,18 +80,18 @@ def process_multimodal_data(request_data):
         return None
 
 
-def route_to_hermes_agents(processing_results):
-    """Route processing to hermes agents for optimization"""
-    print("\n🤖 hermes AGENT ROUTING")
+def route_to_agent_agents(processing_results):
+    """Route processing to agent agents for optimization"""
+    print("\n🤖 agent AGENT ROUTING")
     print("=" * 50)
 
-    # Test hermes integration
+    # Test agent integration
     try:
-        response = requests.post(f"{BASE_URL}/test-hermes", json=processing_results, timeout=10)
+        response = requests.post(f"{BASE_URL}/test-agent", json=processing_results, timeout=10)
 
         if response.status_code == 200:
             result = response.json()
-            print("✅ hermes Integration: SUCCESS")
+            print("✅ agent Integration: SUCCESS")
             print(f"   Service: {result['service']}")
             print(f"   Status: {result['status']}")
             print("   Agent Capabilities:")
@@ -114,11 +114,11 @@ def route_to_hermes_agents(processing_results):
 
             return agent_routing
         else:
-            print("❌ hermes Integration: FAILED")
+            print("❌ agent Integration: FAILED")
             return None
 
     except Exception as e:
-        print(f"❌ hermes Integration: ERROR - {e}")
+        print(f"❌ agent Integration: ERROR - {e}")
         return None
 
 
@@ -245,7 +245,7 @@ def run_complete_workflow():
     print("🚀 AITBC Enhanced Services - Client-to-Miner Workflow Demo")
     print("=" * 60)
     print("Demonstrating complete AI agent processing pipeline")
-    print("with multi-modal processing, hermes integration, and marketplace")
+    print("with multi-modal processing, agent integration, and marketplace")
     print("=" * 60)
 
     # Step 1: Client Request
@@ -257,8 +257,8 @@ def run_complete_workflow():
         print("\n❌ Workflow failed at multi-modal processing")
         return False
 
-    # Step 3: hermes Agent Routing
-    agent_routing = route_to_hermes_agents(processing_results)
+    # Step 3: agent Agent Routing
+    agent_routing = route_to_agent_agents(processing_results)
     if not agent_routing:
         print("\n❌ Workflow failed at agent routing")
         return False
@@ -282,7 +282,7 @@ def run_complete_workflow():
     print("🎯 Workflow Summary:")
     print("   1. ✅ Client Request Received")
     print("   2. ✅ Multi-Modal Data Processed (Text, Image, Audio)")
-    print("   3. ✅ hermes Agent Routing Applied")
+    print("   3. ✅ agent Agent Routing Applied")
     print("   4. ✅ Marketplace Transaction Processed")
     print("   5. ✅ Miner Job Completed")
     print("   6. ✅ Result Returned to Client")
@@ -296,7 +296,7 @@ def run_complete_workflow():
 
     print("\n🔗 Enhanced Services Demonstrated:")
     print("   ✅ Multi-Modal Processing: Text, Image, Audio analysis")
-    print("   ✅ hermes Integration: Agent routing and optimization")
+    print("   ✅ agent Integration: Agent routing and optimization")
     print("   ✅ Marketplace Enhancement: Royalties, licensing, verification")
     print("   ✅ GPU Acceleration: High-performance processing")
     print("   ✅ Client-to-Miner: Complete workflow pipeline")

@@ -49,12 +49,12 @@ AITBC runs from small VPS up, depending on your goal:
 |----------|-----|-----|---------|---------|-----|
 | **Hub Node (run island)** | 2 cores | 2 GB | 50 GB SSD | 50 Mbps | Not required |
 | **Follower Node** | 2 cores | 2 GB | 50 GB SSD | 50 Mbps | Not required |
-| **With Hermes + Ollama (cloud AI)** | 4 cores | 4 GB | 100 GB SSD | 100 Mbps | Not required |
+| **With Agent + Ollama (cloud AI)** | 4 cores | 4 GB | 100 GB SSD | 100 Mbps | Not required |
 | **Earning Coins (mining)** | 8+ cores | 16+ GB | 500 GB SSD | 1 Gbps | GPU with 16GB+ VRAM (minimum) |
 | **Production Hub** | 8+ cores | 16+ GB | 1 TB SSD | 1 Gbps | Optional |
 
 **Notes:**
-- For Hermes and Ollama, consider using cloud AI models to reduce local hardware requirements
+- For Agent and Ollama, consider using cloud AI models to reduce local hardware requirements
 - For earning coins, GPU with 16GB+ VRAM is minimum to load AI models
 - Hub nodes can run on minimal hardware for basic island operation
 
@@ -196,6 +196,6 @@ curl -s http://localhost:8202/rpc/blocks/0
 
 ## See Also
 
-- [Hermes Messaging](hermes-messaging.md)
+- [Agent Messaging](agent-messaging.md)
 - [Configuration Guide](configuration-guide.md)
 - [Troubleshooting](../reference/troubleshooting.md)

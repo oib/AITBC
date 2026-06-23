@@ -80,9 +80,9 @@ echo "============================================"
 curl -s http://localhost:8106/health | jq . 2>/dev/null || echo "Exchange service not available"
 
 echo ""
-echo "📋 Step 12: Test Hermes service (port 8103)"
+echo "📋 Step 12: Test Agent Coordinator service (port 8107)"
 echo "=========================================="
-curl -s http://localhost:8103/health | jq . 2>/dev/null || echo "Hermes service not available"
+curl -s http://localhost:8107/health | jq . 2>/dev/null || echo "Agent Coordinator service not available"
 
 echo ""
 echo "📋 Step 13: Network connectivity check"

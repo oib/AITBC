@@ -4938,14 +4938,14 @@
         }
       }
     },
-    "/v1/hermes/enhanced/routing/skill": {
+    "/v1/agent/enhanced/routing/skill": {
       "post": {
         "tags": [
-          "hermes Enhanced"
+          "agent Enhanced"
         ],
         "summary": "Route Agent Skill",
         "description": "Route agent skill to appropriate agent",
-        "operationId": "route_agent_skill_v1_hermes_enhanced_routing_skill_post",
+        "operationId": "route_agent_skill_v1_agent_enhanced_routing_skill_post",
         "parameters": [
           {
             "name": "args",
@@ -4998,7 +4998,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Route Agent Skill V1 Hermes Enhanced Routing Skill Post"
+                  "title": "Response Route Agent Skill V1 Agent Enhanced Routing Skill Post"
                 }
               }
             }
@@ -5016,14 +5016,14 @@
         }
       }
     },
-    "/v1/hermes/enhanced/offloading/intelligent": {
+    "/v1/agent/enhanced/offloading/intelligent": {
       "post": {
         "tags": [
-          "hermes Enhanced"
+          "agent Enhanced"
         ],
         "summary": "Intelligent Job Offloading",
         "description": "Intelligent job offloading strategies",
-        "operationId": "intelligent_job_offloading_v1_hermes_enhanced_offloading_intelligent_post",
+        "operationId": "intelligent_job_offloading_v1_agent_enhanced_offloading_intelligent_post",
         "parameters": [
           {
             "name": "args",
@@ -5076,7 +5076,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Intelligent Job Offloading V1 Hermes Enhanced Offloading Intelligent Post"
+                  "title": "Response Intelligent Job Offloading V1 Agent Enhanced Offloading Intelligent Post"
                 }
               }
             }
@@ -5094,14 +5094,14 @@
         }
       }
     },
-    "/v1/hermes/enhanced/collaboration/coordinate": {
+    "/v1/agent/enhanced/collaboration/coordinate": {
       "post": {
         "tags": [
-          "hermes Enhanced"
+          "agent Enhanced"
         ],
         "summary": "Coordinate Agent Collaboration",
         "description": "Agent collaboration and coordination",
-        "operationId": "coordinate_agent_collaboration_v1_hermes_enhanced_collaboration_coordinate_post",
+        "operationId": "coordinate_agent_collaboration_v1_agent_enhanced_collaboration_coordinate_post",
         "parameters": [
           {
             "name": "args",
@@ -5154,7 +5154,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Coordinate Agent Collaboration V1 Hermes Enhanced Collaboration Coordinate Post"
+                  "title": "Response Coordinate Agent Collaboration V1 Agent Enhanced Collaboration Coordinate Post"
                 }
               }
             }
@@ -5172,14 +5172,14 @@
         }
       }
     },
-    "/v1/hermes/enhanced/execution/hybrid-optimize": {
+    "/v1/agent/enhanced/execution/hybrid-optimize": {
       "post": {
         "tags": [
-          "hermes Enhanced"
+          "agent Enhanced"
         ],
         "summary": "Optimize Hybrid Execution",
         "description": "Hybrid execution optimization",
-        "operationId": "optimize_hybrid_execution_v1_hermes_enhanced_execution_hybrid_optimize_post",
+        "operationId": "optimize_hybrid_execution_v1_agent_enhanced_execution_hybrid_optimize_post",
         "parameters": [
           {
             "name": "args",
@@ -5232,7 +5232,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Optimize Hybrid Execution V1 Hermes Enhanced Execution Hybrid Optimize Post"
+                  "title": "Response Optimize Hybrid Execution V1 Agent Enhanced Execution Hybrid Optimize Post"
                 }
               }
             }
@@ -5250,14 +5250,14 @@
         }
       }
     },
-    "/v1/hermes/enhanced/edge/deploy": {
+    "/v1/agent/enhanced/edge/deploy": {
       "post": {
         "tags": [
-          "hermes Enhanced"
+          "agent Enhanced"
         ],
         "summary": "Deploy To Edge",
         "description": "Deploy agent to edge computing infrastructure",
-        "operationId": "deploy_to_edge_v1_hermes_enhanced_edge_deploy_post",
+        "operationId": "deploy_to_edge_v1_agent_enhanced_edge_deploy_post",
         "parameters": [
           {
             "name": "args",
@@ -5310,7 +5310,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Deploy To Edge V1 Hermes Enhanced Edge Deploy Post"
+                  "title": "Response Deploy To Edge V1 Agent Enhanced Edge Deploy Post"
                 }
               }
             }
@@ -5328,14 +5328,14 @@
         }
       }
     },
-    "/v1/hermes/enhanced/edge/coordinate": {
+    "/v1/agent/enhanced/edge/coordinate": {
       "post": {
         "tags": [
-          "hermes Enhanced"
+          "agent Enhanced"
         ],
         "summary": "Coordinate Edge To Cloud",
         "description": "Coordinate edge-to-cloud agent operations",
-        "operationId": "coordinate_edge_to_cloud_v1_hermes_enhanced_edge_coordinate_post",
+        "operationId": "coordinate_edge_to_cloud_v1_agent_enhanced_edge_coordinate_post",
         "parameters": [
           {
             "name": "args",
@@ -5388,7 +5388,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Coordinate Edge To Cloud V1 Hermes Enhanced Edge Coordinate Post"
+                  "title": "Response Coordinate Edge To Cloud V1 Agent Enhanced Edge Coordinate Post"
                 }
               }
             }
@@ -5406,14 +5406,14 @@
         }
       }
     },
-    "/v1/hermes/enhanced/ecosystem/develop": {
+    "/v1/agent/enhanced/ecosystem/develop": {
       "post": {
         "tags": [
-          "hermes Enhanced"
+          "agent Enhanced"
         ],
-        "summary": "Develop Hermes Ecosystem",
-        "description": "Build hermes ecosystem components",
-        "operationId": "develop_hermes_ecosystem_v1_hermes_enhanced_ecosystem_develop_post",
+        "summary": "Develop Agent Ecosystem",
+        "description": "Build agent ecosystem components",
+        "operationId": "develop_agent_ecosystem_v1_agent_enhanced_ecosystem_develop_post",
         "parameters": [
           {
             "name": "args",
@@ -5466,7 +5466,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Develop Hermes Ecosystem V1 Hermes Enhanced Ecosystem Develop Post"
+                  "title": "Response Develop Agent Ecosystem V1 Agent Enhanced Ecosystem Develop Post"
                 }
               }
             }

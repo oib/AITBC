@@ -67,8 +67,8 @@ test_command "Mining status" "$CLI_PATH mining status"
 # gpu
 # test_command "GPU list" "$CLI_PATH gpu list" # Skipped - requires island credentials prerequisite
 
-# hermes
-test_command "Hermes status" "$CLI_PATH hermes status"
+# agent-msg (formerly hermes)
+test_command "Agent-msg ping" "$CLI_PATH agent-msg ping --help"
 
 # blockchain
 test_command "Blockchain status" "$CLI_PATH blockchain status"

@@ -41,7 +41,7 @@ class PerformanceProfileRequest(BaseModel):
     """Request model for performance profile creation"""
 
     agent_id: str
-    agent_type: str = Field(default="hermes")
+    agent_type: str = Field(default="agent")
     initial_metrics: dict[str, float] = Field(default_factory=dict)
 
 

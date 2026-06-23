@@ -17,7 +17,7 @@ These services are internal and must only bind to localhost for security:
 |---------|------|---------|-------------------|
 | coordinator-api | 8203 | Main REST API | Internal platform API, should be behind gateway |
 | blockchain-rpc | 8202 | Blockchain RPC | Internal blockchain access, should be behind gateway |
-| hermes | 8103 | AI orchestration | Internal AI decision making, should be behind gateway |
+| agent | 8107 | AI orchestration | Internal AI decision making, should be behind gateway |
 | ai-engine multimodal | 8020 | Multimodal AI processing | Internal AI processing, should be behind gateway |
 | ai-engine modality-optimization | 8021 | Modality optimization | Internal AI optimization, should be behind gateway |
 | ai-engine learning | 8012 | Adaptive learning | Internal AI learning, should be behind gateway |
@@ -68,7 +68,7 @@ This directive prevents any network access from the service, even if the applica
 **Status**: Deferred due to systemd compatibility issues
 - IPDeny=any requires systemd version 242+ (not available in current environment)
 - Attempted to add IPDeny=any caused service failures
-- Services affected: coordinator-api, blockchain-rpc, hermes, multimodal, modality-optimization, learning
+- Services affected: coordinator-api, blockchain-rpc, agent, multimodal, modality-optimization, learning
 - Resolution: Upgrade systemd or use alternative network isolation methods
 
 **Alternative approaches**:
@@ -150,7 +150,7 @@ sudo ufw allow 8005/tcp
 # Block all other AITBC ports from external
 sudo ufw deny 8203/tcp  # coordinator-api
 sudo ufw deny 8202/tcp  # blockchain-rpc
-sudo ufw deny 8103/tcp  # hermes
+sudo ufw deny 8107/tcp  # agent
 # ... block other internal ports
 ```
 

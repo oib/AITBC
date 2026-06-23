@@ -32,11 +32,11 @@ aitbc-cli agent sdk register --agent-id <ID> [OPTIONS]
 **Examples:**
 ```bash
 # Basic registration
-aitbc-cli agent sdk register --agent-id hermes-agent --type worker
+aitbc-cli agent sdk register --agent-id agent-agent --type worker
 
 # Full registration with all parameters
 aitbc-cli agent sdk register \
-  --agent-id hermes-agent \
+  --agent-id agent-agent \
   --type worker \
   --capabilities "data-processing,analysis,debugging" \
   --services "task-execution,coordination" \
@@ -46,12 +46,12 @@ aitbc-cli agent sdk register \
 
 **Output:**
 ```
-Registering agent hermes-agent with coordinator at http://localhost:9001...
+Registering agent agent-agent with coordinator at http://localhost:9001...
 Agent registered successfully
 Registration:
   Status: success
-  Message: Agent hermes-agent registered successfully
-  Agent Id: hermes-agent
+  Message: Agent agent-agent registered successfully
+  Agent Id: agent-agent
   Registered At: 2026-05-07T16:26:55.464178+00:00
 ```
 
@@ -111,12 +111,12 @@ aitbc-cli agent sdk status --agent-id <ID> [OPTIONS]
 
 **Examples:**
 ```bash
-aitbc-cli agent sdk status --agent-id hermes-agent
+aitbc-cli agent sdk status --agent-id agent-agent
 ```
 
 **Output:**
 ```
-Getting agent info for hermes-agent from coordinator at http://localhost:9001...
+Getting agent info for agent-agent from coordinator at http://localhost:9001...
 Agent info retrieved
 Agent:
   Status: success
@@ -144,23 +144,23 @@ aitbc-cli agent sdk update-status --agent-id <ID> --status <STATUS> [OPTIONS]
 **Examples:**
 ```bash
 # Mark agent as busy
-aitbc-cli agent sdk update-status --agent-id hermes-agent --status busy
+aitbc-cli agent sdk update-status --agent-id agent-agent --status busy
 
 # Update status with load metrics
 aitbc-cli agent sdk update-status \
-  --agent-id hermes-agent \
+  --agent-id agent-agent \
   --status busy \
   --load-metrics '{"active_connections":5,"pending_tasks":2}'
 ```
 
 **Output:**
 ```
-Updating agent hermes-agent status to busy...
+Updating agent agent-agent status to busy...
 Agent status updated successfully
 Status Update:
   Status: success
-  Message: Agent hermes-agent status updated
-  Agent Id: hermes-agent
+  Message: Agent agent-agent status updated
+  Agent Id: agent-agent
   New Status: busy
   Updated At: 2026-05-07T16:40:03.536877+00:00
 ```
@@ -192,7 +192,7 @@ aitbc-cli ai submit --wallet <WALLET> --type <TYPE> --prompt <PROMPT> [OPTIONS]
 **Examples:**
 ```bash
 aitbc-cli ai submit \
-  --wallet hermes-trainee \
+  --wallet agent-trainee \
   --type llama2 \
   --prompt "Explain quantum computing"
 ```
@@ -277,7 +277,7 @@ All CLI commands support different output formats:
 
 ```bash
 aitbc-cli --output json agent sdk list
-aitbc-cli --output yaml agent sdk status --agent-id hermes-agent
+aitbc-cli --output yaml agent sdk status --agent-id agent-agent
 aitbc-cli --output table ai distribution-stats
 ```
 
@@ -320,7 +320,7 @@ aitbc-cli agent sdk list --status active
 ```bash
 # Submit task
 aitbc-cli ai submit \
-  --wallet hermes-trainee \
+  --wallet agent-trainee \
   --type llama2 \
   --prompt "test prompt"
 
@@ -417,7 +417,7 @@ Configuration file format:
   "coordinator_url": "http://localhost:9001",
   "rpc_url": "http://localhost:8202",
   "chain_id": "ait-mainnet",
-  "default_wallet": "hermes-trainee"
+  "default_wallet": "agent-trainee"
 }
 ```
 
@@ -468,7 +468,7 @@ done
 # Submit multiple tasks
 for i in {1..10}; do
   aitbc-cli ai submit \
-    --wallet hermes-trainee \
+    --wallet agent-trainee \
     --type llama2 \
     --prompt "Test task $i" &
 done

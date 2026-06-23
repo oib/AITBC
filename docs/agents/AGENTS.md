@@ -36,7 +36,7 @@ All 12 MyPy strict options are now enforced:
 | pool-hub | ✅ Yes | Clean ✅ |
 | wallet | ✅ Yes | Clean ✅ |
 | edge | ✅ Yes | Clean ✅ |
-| hermes | ✅ Yes | Clean ✅ |
+| agent | ✅ Yes | Clean ✅ |
 | agent-management | ✅ Yes | Clean ✅ |
 | agent-coordinator | ✅ Yes | Clean ✅ |
 | coordinator-api | ⚠️ Minor issues | Near Clean |
@@ -67,7 +67,7 @@ Check all applications:
 cd /opt/aitbc && find apps/APP_NAME/src -name "*.py" -path "*/src/*" | xargs ./venv/bin/python -m mypy --show-error-codes
 
 # Check all apps
-for app in pool-hub wallet edge hermes agent-management agent-coordinator coordinator-api; do
+for app in pool-hub wallet edge agent agent-management agent-coordinator coordinator-api; do
   echo "=== $app ==="
   find apps/$app/src -name "*.py" -path "*/src/*" | xargs ./venv/bin/python -m mypy --show-error-codes 2>/dev/null | grep -c "error:"
 done
@@ -107,7 +107,7 @@ done
 │   ├── pool-hub/
 │   ├── wallet/
 │   ├── edge/
-│   ├── hermes/
+│   ├── agent/
 │   ├── agent-management/
 │   ├── agent-coordinator/
 │   ├── coordinator-api/
@@ -165,7 +165,7 @@ To achieve full strict mode, the following changes were made across the codebase
    - pool-hub: Fixed list/dict type arguments in routers and models
    - wallet: Fixed dict type arguments in bridge, keystore, and API services
    - edge: Fixed list/dict type arguments in schemas and services
-   - hermes: Fixed list type arguments in AI approval strategy
+   - agent: Fixed list type arguments in AI approval strategy
    - agent-coordinator: Fixed Callable/deque type arguments in protocols and routing
    - blockchain-node: Comprehensive type fixes across 25+ files
    - blockchain-event-bridge: Fixed Task and list type arguments
@@ -218,7 +218,7 @@ The project uses pre-commit hooks to enforce code quality automatically on every
 ### Enabled Hooks
 - **pre-commit-hooks**: Basic file checks (trailing whitespace, YAML, JSON, merge conflicts, etc.)
 - **Ruff**: Linting with auto-fix and formatting
-- **MyPy**: Type checking on the 12 clean apps (coordinator-api, blockchain-node, pool-hub, edge, wallet, agent-coordinator, agent-management, hermes, marketplace, api-gateway, blockchain-event-bridge, blockchain-explorer)
+- **MyPy**: Type checking on the 12 clean apps (coordinator-api, blockchain-node, pool-hub, edge, wallet, agent-coordinator, agent-management, agent, marketplace, api-gateway, blockchain-event-bridge, blockchain-explorer)
 - **Bandit**: Security scanning (runs on pre-push only)
 
 ### Installation
@@ -251,7 +251,7 @@ Services use standardized environment variables for bind configuration:
 | Trading | `TRADING_BIND_HOST` | `TRADING_BIND_PORT` | `0.0.0.0` | 8104 |
 | Governance | `GOVERNANCE_BIND_HOST` | `GOVERNANCE_BIND_PORT` | `0.0.0.0` | 8105 |
 | Wallet | `WALLET_BIND_HOST` | `WALLET_BIND_PORT` | `0.0.0.0` | 8108 |
-| Hermes | `HERMES_BIND_HOST` | `HERMES_BIND_PORT` | `0.0.0.0` | 8103 |
+| Agent | `AGENT_BIND_HOST` | `AGENT_BIND_PORT` | `0.0.0.0` | 8107 |
 | Agent Coordinator | `AGENT_COORDINATOR_BIND_HOST` | `AGENT_COORDINATOR_BIND_PORT` | `0.0.0.0` | 9001 |
 | FFmpeg | `FFMPEG_BIND_HOST` | `FFMPEG_BIND_PORT` | `0.0.0.0` | 8230 |
 | Whisper | `WHISPER_BIND_HOST` | `WHISPER_BIND_PORT` | `0.0.0.0` | 8110 |
@@ -272,7 +272,7 @@ export GPU_BIND_PORT=8101
 ### Backward Compatibility
 
 Old environment variable names are still supported with fallback chains:
-- Hermes: `BIND_HOST`, `HERMES_PORT` → `HERMES_BIND_HOST`, `HERMES_BIND_PORT`
+- Agent: `BIND_HOST`, `AGENT_PORT` → `AGENT_BIND_HOST`, `AGENT_BIND_PORT`
 - Agent Coordinator: `HOST`, `PORT` → `AGENT_COORDINATOR_BIND_HOST`, `AGENT_COORDINATOR_BIND_PORT`
 - FFmpeg: `FFMPEG_PORT` → `FFMPEG_BIND_PORT`
 - Whisper: `WHISPER_PORT` → `WHISPER_BIND_PORT`
@@ -321,7 +321,7 @@ grep -r "reload\s*=\s*True" /opt/aitbc/apps --include="*.py"
 ### MyPy Type Checking
 - **Status**: ✅ 0 errors on 12 clean apps
 - **Strict mode**: ✅ 12/12 strict options enabled
-- **Applications clean**: coordinator-api, blockchain-node, pool-hub, edge, wallet, agent-coordinator, agent-management, hermes, marketplace, api-gateway, blockchain-event-bridge, blockchain-explorer
+- **Applications clean**: coordinator-api, blockchain-node, pool-hub, edge, wallet, agent-coordinator, agent-management, agent, marketplace, api-gateway, blockchain-event-bridge, blockchain-explorer
 
 ---
 

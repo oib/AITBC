@@ -32,7 +32,7 @@ from aitbc_cli.commands.governance import governance
 # Import island-specific commands
 from aitbc_cli.commands.gpu_marketplace import gpu
 from aitbc_cli.commands.gpu_resources import gpu as gpu_onchain
-from aitbc_cli.commands.hermes import hermes
+from aitbc_cli.commands.agent import agent as agent_msg
 from aitbc_cli.commands.market import market
 from aitbc_cli.commands.marketplace_cmd import marketplace
 from aitbc_cli.commands.messaging import messaging
@@ -144,7 +144,7 @@ cli.add_command(genesis)
 # Add new modular commands
 cli.add_command(transactions)
 cli.add_command(mining)
-cli.add_command(hermes)
+cli.add_command(agent_msg, name="agent-msg")
 cli.add_command(workflow)
 cli.add_command(resource)
 cli.add_command(operations)

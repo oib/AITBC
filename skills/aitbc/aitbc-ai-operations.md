@@ -216,7 +216,7 @@ Use direct Python invocation for:
 ```bash
 # Standard operations (use wrapper)
 /opt/aitbc/aitbc-cli ai-ops submit --wallet genesis --type inference --prompt "test"
-/opt/aitbc/aitbc-cli resource allocate --agent-id hermes-main --gpu 1
+/opt/aitbc/aitbc-cli resource allocate --agent-id agent-main --gpu 1
 
 # GPU operations (use direct Python)
 python3 cli/unified_cli.py ollama gpu-test --wallet genesis --model llama2

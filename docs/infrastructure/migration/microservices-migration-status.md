@@ -10,7 +10,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 
 **Current Port Architecture:**
 - **Public Services (8200-8203)**: API Gateway (8201), Blockchain P2P (8200), Blockchain RPC (8202), Coordinator API failover (8203)
-- **Internal Services (8101-8108)**: GPU (8101), Marketplace (8102), Hermes (8103), Trading (8104), Governance (8105), Exchange (8106), Agent Coordinator (8107), Wallet (8108)
+- **Internal Services (8101-8108)**: GPU (8101), Marketplace (8102), Agent (8107), Trading (8104), Governance (8105), Exchange (8106), Agent Coordinator (8107), Wallet (8108)
 
 ## Completed Phases
 
@@ -56,7 +56,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
   - AI job operations (submit, tasks)
   - Explorer operations (transactions, receipts, blocks)
   - Plugin operations (register, marketplace, analytics)
-  - hermes operations (deploy, scale, optimize, edge, routing)
+  - agent operations (deploy, scale, optimize, edge, routing)
   - Multimodal operations (agents, process, benchmark)
   - Optimization operations (agents, tune, predict)
   - Monitoring operations (dashboard, status, jobs, miners)
@@ -135,12 +135,12 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - Verified CLI configuration: All service URLs configured correctly
 - Core microservices migration validated and operational
 
-### Phase 26: hermes Service Migration (Completed)
-- Created hermes Service (port 8105) for agent orchestration and edge computing
-- Implemented hermes endpoints: skill routing, job offloading, agent collaboration, hybrid execution, edge deployment, edge coordination, ecosystem development
-- Configured systemd service for hermes Service
-- Updated API Gateway to include hermes Service routing (/hermes prefix)
-- Added hermes_service_url to CLI configuration
+### Phase 26: agent Service Migration (Completed)
+- Created agent Service (port 8105) for agent orchestration and edge computing
+- Implemented agent endpoints: skill routing, job offloading, agent collaboration, hybrid execution, edge deployment, edge coordination, ecosystem development
+- Configured systemd service for agent Service
+- Updated API Gateway to include agent Service routing (/agent prefix)
+- Added agent_service_url to CLI configuration
 
 ### Phase 27: Plugin Service Migration (Completed)
 - Created Plugin Service (port 8109) for plugin registration, marketplace, and analytics
@@ -196,7 +196,7 @@ These services are accessible directly without nginx proxy (typically P2P protoc
 #### Internal Services (Localhost Only) - Contiguous Range 8101-8108
 - **GPU Service** (port 8101) - GPU marketplace + miner operations
 - **Marketplace Service** (port 8102) - Marketplace transactions + advanced features
-- **Hermes Service** (port 8103) - Agent messaging and orchestration
+- **Agent Service** (port 8107) - Agent messaging and orchestration
 - **Trading Service** (port 8104) - Trading + explorer operations + exchange features
 - **Governance Service** (port 8105) - Governance transactions + advanced features
 - **Exchange API** (port 8106) - Bitcoin exchange (migrated from 8001)
@@ -266,12 +266,12 @@ These services are accessible directly without nginx proxy (typically P2P protoc
    - Database: PostgreSQL (aitbc_governance)
    - Models: GovernanceProfile, Proposal, Vote, DaoTreasury, TransparencyReport
 
-5. **Hermes Service** (port 8103)
+5. **Agent Service** (port 8107)
    - Endpoints:
      - `/health` - Health check
      - Agent messaging endpoints
      - Agent registration endpoints
-   - Database: PostgreSQL (aitbc_hermes)
+   - Database: PostgreSQL (aitbc_agent)
    - Models: Agent, Message, Decision, HealthCheck
 
 6. **Exchange API** (port 8106)
@@ -299,7 +299,7 @@ These services are accessible directly without nginx proxy (typically P2P protoc
    - Service registry:
      - `/gpu` → GPU service (8101)
      - `/marketplace` → Marketplace service (8102)
-     - `/hermes` → Hermes service (8103)
+     - `/agent` → Agent service (8107)
      - `/trading` → Trading service (8104)
      - `/governance` → Governance service (8105)
      - `/exchange` → Exchange API (8106)
@@ -312,7 +312,7 @@ These services are accessible directly without nginx proxy (typically P2P protoc
    - Kept running as failover until all features are tested on microservices
    - Most functionality has been migrated to dedicated microservices
    - Service is still active and running
-   - Some documentation and services may still be calling Coordinator API (port 8203) for hermes endpoints instead of Agent Coordinator (8107)
+   - Some documentation and services may still be calling Coordinator API (port 8203) for agent endpoints instead of Agent Coordinator (8107)
    - This causes 500 errors due to missing modules (app.storage.config_pg)
    - Will be disabled after comprehensive microservices testing is complete
 
@@ -324,7 +324,7 @@ The CLI configuration has been updated to use microservice URLs:
 # /opt/aitbc/cli/aitbc_cli/config.py
 gpu_service_url: str = "http://localhost:8101"
 marketplace_service_url: str = "http://localhost:8102"
-hermes_service_url: str = "http://localhost:8103"
+agent_service_url: str = "http://localhost:8107"
 trading_service_url: str = "http://localhost:8104"
 governance_service_url: str = "http://localhost:8105"
 exchange_service_url: str = "http://localhost:8106"
@@ -360,7 +360,7 @@ coordinator_url: str = "http://localhost:8203"  # Legacy failover
 **Phase 1 Migration - COMPLETE (2026-06-02):**
 - GPU Service (8101): Miner operations ✅
 - Marketplace Service (8102): Core + advanced marketplace features ✅
-- Hermes Service (8103): All features ✅
+- Agent Service (8107): All features ✅
 - Trading Service (8104): Core trading + exchange features ✅
 - Governance Service (8105): Core governance + advanced features ✅
 
@@ -393,7 +393,7 @@ coordinator_url: str = "http://localhost:8203"  # Legacy failover
 **Services Status:**
 - GPU Service (8101): Fully operational with marketplace + miner operations
 - Marketplace Service (8102): Fully operational with marketplace + advanced features
-- Hermes Service (8103): Fully operational with agent messaging and orchestration
+- Agent Service (8107): Fully operational with agent messaging and orchestration
 - Trading Service (8104): Fully operational with trading + explorer + exchange operations
 - Governance Service (8105): Fully operational with governance + advanced features
 - Exchange API (8106): Operational (migrated from 8001)
@@ -411,7 +411,7 @@ coordinator_url: str = "http://localhost:8203"  # Legacy failover
 - Job commands: Updated to use AI Service
 - Monitor commands: Updated to use AI Service for job metrics, Monitoring Service for system metrics
 - Admin job commands: Updated to use AI Service
-- hermes commands: Updated to use hermes Service
+- agent commands: Updated to use agent Service
 - Plugin commands: Updated to use Plugin Service
 
 **Migration Completion: Phase 1 Complete**
@@ -477,7 +477,7 @@ ufw allow 8203/tcp
 # Internal microservices - block external access (contiguous range 8101-8108)
 ufw deny 8101/tcp  # GPU Service
 ufw deny 8102/tcp  # Marketplace Service
-ufw deny 8103/tcp  # Hermes Service
+ufw deny 8107/tcp  # Agent Service
 ufw deny 8104/tcp  # Trading Service
 ufw deny 8105/tcp  # Governance Service
 ufw deny 8106/tcp  # Exchange API
@@ -507,7 +507,7 @@ All microservices are managed by systemd:
 
 - `aitbc-gpu.service` - GPU Service (port 8101)
 - `aitbc-marketplace.service` - Marketplace Service (port 8102)
-- `aitbc-hermes.service` - Hermes Service (port 8103)
+- `aitbc-agent.service` - Agent Service (port 8107)
 - `aitbc-trading.service` - Trading Service (port 8104)
 - `aitbc-governance.service` - Governance Service (port 8105)
 - `aitbc-exchange-api.service` - Exchange API (port 8106)
@@ -548,7 +548,7 @@ The Phase 1 microservice migration is complete. All core functionality has been 
 
 - GPU Service (8101) - Miner operations
 - Marketplace Service (8102) - Core + advanced marketplace features
-- Hermes Service (8103) - Agent messaging and orchestration
+- Agent Service (8107) - Agent messaging and orchestration
 - Trading Service (8104) - Trading + explorer + exchange features
 - Governance Service (8105) - Governance + advanced features
 

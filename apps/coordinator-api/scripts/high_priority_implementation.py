@@ -1,6 +1,6 @@
 """
 High Priority Implementation - Phase 6.5 & 6.6
-On-Chain Model Marketplace Enhancement and hermes Integration Enhancement
+On-Chain Model Marketplace Enhancement and agent Integration Enhancement
 """
 
 import asyncio
@@ -308,7 +308,7 @@ class HighPriorityImplementation:
         }
 
     async def _implement_opencaw_ecosystem_development(self) -> dict[str, Any]:
-        """Implement hermes ecosystem development"""
+        """Implement agent ecosystem development"""
         return {
             "developer_tools": {
                 "development_tools": "comprehensive",
@@ -337,7 +337,7 @@ class HighPriorityImplementation:
         }
 
     async def _implement_opencaw_partnership_programs(self) -> dict[str, Any]:
-        """Implement hermes partnership programs"""
+        """Implement agent partnership programs"""
         return {
             "technology_integration": {
                 "joint_development": "active",
@@ -705,7 +705,7 @@ async def main():
     print("=" * 60)
     print(f"✅ Implementation Status: {result['implementation_status']}")
     print("✅ Phase 6.5: Marketplace Enhancement Complete")
-    print("✅ Phase 6.6: hermes Enhancement Complete")
+    print("✅ Phase 6.6: agent Enhancement Complete")
     print(f"✅ High Priority Features: {len(result['features_implemented'])} implemented")
     print("✅ Ready for: Production deployment and user adoption")
     return result

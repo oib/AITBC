@@ -126,7 +126,7 @@ The scripts test these health endpoints:
 [SUCCESS] Learning Service (port 8011): RUNNING
 [SUCCESS] Agent Coordinator (port 8012): RUNNING
 [SUCCESS] Agent Registry (port 8013): RUNNING
-[SUCCESS] hermes Service (port 8014): RUNNING
+[SUCCESS] agent Service (port 8014): RUNNING
 [SUCCESS] AI Service (port 8015): RUNNING
 [SUCCESS] Multimodal Service (port 8020): RUNNING
 [SUCCESS] Modality Optimization (port 8021): RUNNING

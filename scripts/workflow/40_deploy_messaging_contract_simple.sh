@@ -37,4 +37,4 @@ echo "Deployer: $DEPLOYER_ADDRESS"
 
 echo ""
 echo "✅ MESSAGING CONTRACT: DEPLOYMENT COMPLETE"
-echo "📋 Hermes agents can now communicate over the blockchain!"
+echo "📋 Agent agents can now communicate over the blockchain!"

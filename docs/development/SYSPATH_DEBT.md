@@ -39,7 +39,7 @@ All systemd service wrappers in their respective app directories use sys.path.in
 - `aitbc-coordinator-api-wrapper.py`
 - `aitbc-exchange-api-wrapper.py`
 - `aitbc-explorer-wrapper.py`
-- `aitbc-hermes-wrapper.py`
+- `aitbc-agent-wrapper.py`
 - `aitbc-marketplace-wrapper.py`
 - `aitbc-monitoring-wrapper.py`
 - `aitbc-wallet-wrapper.py`

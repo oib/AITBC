@@ -233,7 +233,7 @@ curl -X POST "http://localhost:8203/v1/agent-identity/identities" \
 - **SDK Documentation**: `/src/app/agent_identity/sdk/README.md`
 - **API Documentation**: Available via FastAPI at `/docs`
 - **Implementation Summary**: `/AGENT_IDENTITY_SDK_IMPLEMENTATION_SUMMARY.md`
-- **Hermes Blockchain Integration - Identity**: `/docs/hermes/blockchain/identity.md` - Hermes agent on-chain identity operations on AITBC blockchain
+- **Agent Blockchain Integration - Identity**: `/docs/agent/blockchain/identity.md` - Agent agent on-chain identity operations on AITBC blockchain
 
 ### **Troubleshooting**
 - Check application logs for errors
