@@ -31,6 +31,7 @@ _load_env_file("/etc/aitbc/node.env", override=True)
 from aitbc.crypto import TransactionService  # noqa: E402
 from aitbc.db import get_db_session, init_db  # noqa: E402
 from aitbc.models import CoinRequest, CoinRequestStatus  # noqa: E402
+from aitbc.utils import format_ait  # noqa: E402
 
 
 def send_agent_notification(recipient: str, content: str):
@@ -90,12 +91,12 @@ def list(ctx, status, sender):
             click.echo("No coin requests found.")
             return
 
-        click.echo(f"{'ID':<20} {'Sender':<20} {'Amount':<10} {'Status':<12} {'Created':<20}")
-        click.echo("-" * 82)
+        click.echo(f"{'ID':<20} {'Sender':<20} {'Amount':<15} {'Status':<12} {'Created':<20}")
+        click.echo("-" * 87)
 
         for req in requests:
             click.echo(
-                f"{req.id:<20} {req.sender:<20} {req.amount:<10} "
+                f"{req.id:<20} {req.sender:<20} {format_ait(req.amount):<15} "
                 f"{req.status.value:<12} {req.created_at.strftime('%Y-%m-%d %H:%M:%S'):<20}"
             )
 
@@ -126,10 +127,10 @@ def approve(ctx, request_id, reason):
             req.audit_log += f" | Reason: {reason}"
 
         click.echo(f"Request {request_id} approved successfully.")
-        click.echo(f"Amount: {req.amount} AIT to {req.wallet_address}")
+        click.echo(f"Amount: {format_ait(req.amount)} to {req.wallet_address}")
 
         # Send notification to sender
-        notification_content = f"Coin request {req.id} APPROVED. Amount: {req.amount} AIT to {req.wallet_address}."
+        notification_content = f"Coin request {req.id} APPROVED. Amount: {format_ait(req.amount)} to {req.wallet_address}."
         send_agent_notification(req.sender, notification_content)
 
 
@@ -217,9 +218,9 @@ def execute(ctx, request_id):
                     req.transaction_hash = tx_hash
                     req.audit_log += f" | Forwarded to hub for execution at {datetime.now(UTC).isoformat()} | Hash: {tx_hash}"
                     click.echo(f"Transaction submitted by hub: {tx_hash}")
-                    click.echo(f"Amount: {req.amount} AIT to {req.wallet_address}")
+                    click.echo(f"Amount: {format_ait(req.amount)} to {req.wallet_address}")
                     send_agent_notification(
-                        req.sender, f"Coin request {req.id} EXECUTED via hub. TX: {tx_hash}. Amount: {req.amount} AIT."
+                        req.sender, f"Coin request {req.id} EXECUTED via hub. TX: {tx_hash}. Amount: {format_ait(req.amount)}."
                     )
                 else:
                     click.echo(f"Hub execution failed: {resp.status_code} {resp.text}")
@@ -234,17 +235,19 @@ def execute(ctx, request_id):
 
         # Check balance before submission
         balance = tx_service.get_balance(tx_service.genesis_address)
-        total_required = req.amount + 10  # amount + fee
+        total_required = req.amount + 36  # amount + fee
         if balance < total_required:
-            click.echo(f"Error: Insufficient balance. Required: {total_required}, Available: {balance}")
+            click.echo(
+                f"Error: Insufficient balance. Required: {format_ait(total_required)}, Available: {format_ait(balance)}"
+            )
             return
 
         click.echo(f"Executing request {request_id}...")
-        click.echo(f"Amount: {req.amount} AIT to {req.wallet_address}")
-        click.echo(f"Genesis wallet balance: {balance} AIT")
+        click.echo(f"Amount: {format_ait(req.amount)} to {req.wallet_address}")
+        click.echo(f"Genesis wallet balance: {format_ait(balance)}")
 
         # Generate signed transaction
-        signed_tx = tx_service.generate_signed_transaction(to_address=req.wallet_address, amount=req.amount, fee=10)
+        signed_tx = tx_service.generate_signed_transaction(to_address=req.wallet_address, amount=req.amount, fee=36)
 
         if not signed_tx:
             click.echo("Error: Failed to generate signed transaction")
@@ -268,11 +271,11 @@ def execute(ctx, request_id):
                 req.audit_log += f" | Transaction executed at {datetime.now(UTC).isoformat()} | Hash: {tx_hash}"
 
                 click.echo(f"Transaction submitted successfully: {tx_hash}")
-                click.echo(f"Amount: {req.amount} AIT to {req.wallet_address}")
+                click.echo(f"Amount: {format_ait(req.amount)} to {req.wallet_address}")
 
                 # Send notification to sender
                 notification_content = (
-                    f"Coin request {req.id} EXECUTED. Transaction hash: {tx_hash}. Amount: {req.amount} AIT."
+                    f"Coin request {req.id} EXECUTED. Transaction hash: {tx_hash}. Amount: {format_ait(req.amount)}."
                 )
                 send_agent_notification(req.sender, notification_content)
             else:
@@ -303,7 +306,7 @@ def show(ctx, request_id):
         click.echo(f"Request ID: {req.id}")
         click.echo(f"Sender: {req.sender}")
         click.echo(f"Recipient: {req.recipient}")
-        click.echo(f"Amount: {req.amount} AIT")
+        click.echo(f"Amount: {format_ait(req.amount)}")
         click.echo(f"Wallet Address: {req.wallet_address}")
         click.echo(f"Status: {req.status.value}")
         click.echo(f"Approval Mode: {req.approval_mode}")

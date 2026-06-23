@@ -10,6 +10,7 @@ import click
 from ...config import get_config
 from ...utils import error, output, success
 from ...utils.http_client import AITBCHTTPClient
+from aitbc.utils import ait_to_seconds, format_ait
 from . import _get_wallet_password, _load_wallet, _save_wallet, get_wallet_client, wallet
 
 
@@ -315,7 +316,7 @@ def info(ctx):
     }
 
     if "balance" in wallet_data:
-        wallet_info["balance"] = wallet_data["balance"]
+        wallet_info["balance"] = format_ait(wallet_data["balance"])
 
     output(wallet_info, ctx.obj.get("output_format", "table"))
 
@@ -333,6 +334,9 @@ def balance(ctx, name: str | None):
     try:
         client = get_wallet_client()
         balance_data = client.get(f"/v1/wallets/{wallet_name}/balance")
+        # Format balance as AIT if it's a raw seconds value
+        if "balance" in balance_data and isinstance(balance_data["balance"], int):
+            balance_data["balance"] = format_ait(balance_data["balance"])
         output(balance_data, ctx.obj.get("output_format", "table"), title=f"Wallet: {wallet_name}")
     except Exception as e:
         error(f"Error getting wallet balance: {e}")
@@ -388,8 +392,8 @@ def transactions(ctx, name: str | None, limit: int):
                     "tx_hash": tx.get("tx_hash", "")[:16] + "...",
                     "sender": tx.get("sender", "")[:20] + "...",
                     "recipient": tx.get("recipient", "")[:20] + "...",
-                    "value": tx.get("value"),
-                    "fee": tx.get("fee"),
+                    "value": format_ait(tx.get("value", 0)) if tx.get("value") else 0,
+                    "fee": format_ait(tx.get("fee", 0)) if tx.get("fee") else 0,
                     "status": tx.get("status"),
                     "timestamp": tx.get("created_at", "")[:19],
                 }
@@ -443,9 +447,9 @@ def earn(ctx, amount: float, job_id: str, desc: str | None):
     output(
         {
             "wallet": wallet_name,
-            "amount": amount,
+            "amount": format_ait(amount),
             "job_id": job_id,
-            "new_balance": wallet_data["balance"],
+            "new_balance": format_ait(wallet_data["balance"]),
         },
         ctx.obj.get("output_format", "table"),
     )
@@ -493,9 +497,9 @@ def spend(ctx, amount: float, description: str):
     output(
         {
             "wallet": wallet_name,
-            "amount": amount,
+            "amount": format_ait(amount),
             "description": description,
-            "new_balance": wallet_data["balance"],
+            "new_balance": format_ait(wallet_data["balance"]),
         },
         ctx.obj.get("output_format", "table"),
     )
@@ -529,7 +533,7 @@ def address(ctx, name: str | None):
 @wallet.command()
 @click.argument("to_address")
 @click.argument("amount", type=float)
-@click.option("--fee", type=float, default=10, help="Transaction fee")
+@click.option("--fee", type=float, default=0.01, help="Transaction fee in AIT")
 @click.option("--password", help="Wallet password for signing")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.pass_context
@@ -588,13 +592,17 @@ def send(ctx, to_address: str, amount: float, fee: float, password: str | None, 
         return
 
     # Create transaction with modern payload format
+    # Convert AIT to seconds for blockchain
+    amount_seconds = ait_to_seconds(amount)
+    fee_seconds = ait_to_seconds(fee)
+
     transaction = {
         "type": "TRANSFER",
         "chain_id": chain_id,
         "from": sender_address,
         "nonce": actual_nonce,
-        "fee": int(fee),
-        "payload": {"recipient": to_address, "amount": int(amount)},
+        "fee": fee_seconds,
+        "payload": {"recipient": to_address, "amount": amount_seconds},
     }
 
     # Sign transaction
@@ -615,8 +623,8 @@ def send(ctx, to_address: str, amount: float, fee: float, password: str | None, 
                 "transaction_hash": tx_hash,
                 "from": sender_address,
                 "to": to_address,
-                "amount": amount,
-                "fee": fee,
+                "amount": f"{amount} AIT",
+                "fee": f"{fee} AIT",
                 "chain_id": chain_id,
             },
             ctx.obj.get("output_format", "table"),
@@ -686,9 +694,9 @@ def stats(ctx):
         {
             "wallet": wallet_name,
             "address": wallet_data["address"],
-            "current_balance": wallet_data.get("balance", 0),
-            "total_earned": total_earned,
-            "total_spent": total_spent,
+            "current_balance": format_ait(wallet_data.get("balance", 0)),
+            "total_earned": format_ait(total_earned),
+            "total_spent": format_ait(total_spent),
             "jobs_completed": jobs_completed,
             "transaction_count": len(transactions),
             "wallet_created": wallet_data.get("created_at"),
