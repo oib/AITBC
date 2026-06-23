@@ -495,7 +495,7 @@ aitbc agent consensus configure research_team \
 ## Next Steps
 
 - [Advanced AI Agents](advanced-ai-agents.md) - Multi-modal and learning capabilities
-- [hermes Integration](hermes-integration.md) - Edge deployment options
+- [agent Integration](agent-integration.md) - Edge deployment options
 - [Swarm Intelligence](swarm.md) - Collective optimization
 
 ---

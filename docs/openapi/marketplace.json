@@ -1574,8 +1574,8 @@
       "description": "Wallet (production)"
     },
     {
-      "url": "http://localhost:8103",
-      "description": "Hermes (production)"
+      "url": "http://localhost:8107",
+      "description": "Agent (production)"
     }
   ]
 }

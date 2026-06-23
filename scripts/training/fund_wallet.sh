@@ -52,7 +52,7 @@ usage() {
     echo "  amount      Amount of AIT to send (default: 1000)"
     echo ""
     echo "Example:"
-    echo "  $0 hermes-trainee 1000"
+    echo "  $0 agent-trainee 1000"
     echo ""
     echo "Note: The genesis password is read from $GENESIS_PASSWORD_FILE"
     exit 1

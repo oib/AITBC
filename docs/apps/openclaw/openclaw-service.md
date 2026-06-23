@@ -1,30 +1,30 @@
-# hermes Service
+# agent Service
 
 > **Important:** This document uses port 9001 for the Agent Coordinator service. For the Coordinator API (job submission), use port 8203. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
 
 **Level**: Advanced<br>
-**Prerequisites**: Familiarity with hermes agent framework<br>
+**Prerequisites**: Familiarity with agent agent framework<br>
 **Estimated Time**: 15 minutes<br>
 **Last Updated**: 2026-05-03<br>
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
-**🏠 [Documentation Home](../../README.md)** → **📦 Apps** → **🧩 hermes** → *You are here*
+**🏠 [Documentation Home](../../README.md)** → **📦 Apps** → **🧩 agent** → *You are here*
 
-**breadcrumb**: Home → Apps → hermes → hermes Service
+**breadcrumb**: Home → Apps → agent → agent Service
 
 ---
 
 ## 🎯 **See Also:**
 - **📖 [About Documentation](../../about/README.md)** - Template standard and audit checklist
 - **🧭 [Master Index](../../MASTER_INDEX.md)** - Full documentation catalog
-- **🧩 [hermes Documentation](../hermes/README.md)** - hermes framework overview
+- **🧩 [agent Documentation](../agent/README.md)** - agent framework overview
 
 ---
 
 ## Overview
 
-The hermes Service provides the backend infrastructure for autonomous AI agents in the AITBC ecosystem. It enables agents to communicate, coordinate, and execute tasks across the blockchain network.
+The agent Service provides the backend infrastructure for autonomous AI agents in the AITBC ecosystem. It enables agents to communicate, coordinate, and execute tasks across the blockchain network.
 
 ## Features
 
@@ -37,7 +37,7 @@ The hermes Service provides the backend infrastructure for autonomous AI agents 
 
 ## Architecture
 
-The hermes Service consists of:
+The agent Service consists of:
 
 - **Agent Registry**: Tracks registered agents and their capabilities
 - **Communication Layer**: Handles inter-agent messaging
@@ -50,7 +50,7 @@ The hermes Service consists of:
 
 ```bash
 cd /opt/aitbc
-poetry install --with hermes-service
+poetry install --with agent-service
 ```
 
 ## Configuration
@@ -59,7 +59,7 @@ Configuration is managed through environment variables:
 
 ```bash
 # Agent Registry
-hermes_REGISTRY_URL=http://localhost:9001
+agent_REGISTRY_URL=http://localhost:9001
 
 # Blockchain RPC
 BLOCKCHAIN_RPC_URL=http://localhost:8202
@@ -75,14 +75,14 @@ WALLET_KEYSTORE_PATH=/var/lib/aitbc/keystores
 
 ### Development
 ```bash
-cd apps/hermes-service
-python -m hermes_service.main
+cd apps/agent-service
+python -m agent_service.main
 ```
 
 ### Production (systemd)
 ```bash
-systemctl start hermes-service
-systemctl enable hermes-service
+systemctl start agent-service
+systemctl enable agent-service
 ```
 
 ## Endpoints
@@ -180,7 +180,7 @@ curl http://localhost:9001/agents/{agent_id}/tasks
 
 ## Related Documentation
 
-- [hermes Agent SDK](../../agent-sdk/AGENT_SDK_OVERVIEW.md)
+- [agent Agent SDK](../../agent-sdk/AGENT_SDK_OVERVIEW.md)
 - [Agent Scenarios](../../scenarios/README.md)
 - [Agent Coordinator](../agent-coordinator/agent-coordinator.md)
 
@@ -189,4 +189,4 @@ curl http://localhost:9001/agents/{agent_id}/tasks
 *Last updated: 2026-05-03*<br>
 *Version: 1.0*<br>
 *Status: Active service*<br>
-*Tags: hermes, agents, autonomous, ai*
+*Tags: agent, agents, autonomous, ai*

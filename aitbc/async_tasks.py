@@ -1,7 +1,7 @@
 """
 Async task lifecycle management
 Provides task registry for tracking, logging, and cancelling background tasks.
-Used by coordinator-api, blockchain-node, hermes, and other services.
+Used by coordinator-api, blockchain-node, agent, and other services.
 """
 
 import asyncio

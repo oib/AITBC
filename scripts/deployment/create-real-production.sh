@@ -20,7 +20,7 @@ PYTHON_CMD="$VENV_DIR/bin/python"
 
 echo -e "${BLUE}🚀 AITBC REAL PRODUCTION SYSTEM${NC}"
 echo "=========================="
-echo "Implementing real blockchain mining, multi-chain, hermes AI, real marketplace"
+echo "Implementing real blockchain mining, multi-chain, agent AI, real marketplace"
 echo ""
 
 # Step 1: Real Blockchain Mining Implementation
@@ -355,14 +355,14 @@ EOF
 chmod +x /opt/aitbc/production/services/mining_blockchain.py
 echo "✅ Real mining blockchain created"
 
-# Step 2: hermes AI Integration
-echo -e "${CYAN}🤖 Step 2: hermes AI Integration${NC}"
+# Step 2: agent AI Integration
+echo -e "${CYAN}🤖 Step 2: agent AI Integration${NC}"
 echo "=================================="
 
-cat > /opt/aitbc/production/services/hermes_ai.py << 'EOF'
+cat > /opt/aitbc/production/services/agent_ai.py << 'EOF'
 #!/usr/bin/env python3
 """
-hermes AI Service Integration
+agent AI Service Integration
 Real AI agent system with marketplace integration
 """
 
@@ -381,21 +381,21 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
     handlers=[
-        logging.FileHandler('/opt/aitbc/production/logs/hermes/hermes.log'),
+        logging.FileHandler('/opt/aitbc/production/logs/agent/agent.log'),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
 
-class hermesAIService:
-    """Real hermes AI service"""
+class agentAIService:
+    """Real agent AI service"""
 
     def __init__(self):
         self.node_id = os.getenv('NODE_ID', 'aitbc')
-        self.data_dir = Path(f'/opt/aitbc/production/data/hermes/{self.node_id}')
+        self.data_dir = Path(f'/opt/aitbc/production/data/agent/{self.node_id}')
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
-        # Initialize hermes agents
+        # Initialize agent agents
         self.agents = {}
         self.tasks = {}
         self.results = {}
@@ -403,30 +403,30 @@ class hermesAIService:
         self._initialize_agents()
         self._load_data()
 
-        logger.info(f"hermes AI service initialized for node: {self.node_id}")
+        logger.info(f"agent AI service initialized for node: {self.node_id}")
 
     def _initialize_agents(self):
-        """Initialize hermes AI agents"""
+        """Initialize agent AI agents"""
         agents_config = [
             {
-                'id': 'hermes-text-gen',
-                'name': 'hermes Text Generator',
+                'id': 'agent-text-gen',
+                'name': 'agent Text Generator',
                 'capabilities': ['text_generation', 'creative_writing', 'content_creation'],
                 'model': 'llama2-7b',
                 'price_per_task': 5.0,
                 'status': 'active'
             },
             {
-                'id': 'hermes-research',
-                'name': 'hermes Research Agent',
+                'id': 'agent-research',
+                'name': 'agent Research Agent',
                 'capabilities': ['research', 'analysis', 'data_processing'],
                 'model': 'llama2-13b',
                 'price_per_task': 10.0,
                 'status': 'active'
             },
             {
-                'id': 'hermes-trading',
-                'name': 'hermes Trading Bot',
+                'id': 'agent-trading',
+                'name': 'agent Trading Bot',
                 'capabilities': ['trading', 'market_analysis', 'prediction'],
                 'model': 'custom-trading',
                 'price_per_task': 15.0,
@@ -482,13 +482,13 @@ class hermesAIService:
             with open(self.data_dir / 'results.json', 'w') as f:
                 json.dump(self.results, f, indent=2)
 
-            logger.debug("hermes data saved")
+            logger.debug("agent data saved")
 
         except Exception as e:
             logger.error(f"Failed to save data: {e}")
 
     def execute_task(self, agent_id: str, task_data: dict) -> dict:
-        """Execute a task with hermes agent"""
+        """Execute a task with agent agent"""
         if agent_id not in self.agents:
             raise Exception(f"Agent {agent_id} not found")
 
@@ -510,9 +510,9 @@ class hermesAIService:
 
         self.tasks[task_id] = task
 
-        # Execute task with hermes
+        # Execute task with agent
         try:
-            result = self._execute_hermes_task(agent, task)
+            result = self._execute_agent_task(agent, task)
 
             # Update task and agent
             task['status'] = 'completed'
@@ -552,12 +552,12 @@ class hermesAIService:
                 'error': str(e)
             }
 
-    def _execute_hermes_task(self, agent: dict, task: dict) -> dict:
-        """Execute task with hermes"""
+    def _execute_agent_task(self, agent: dict, task: dict) -> dict:
+        """Execute task with agent"""
         task_type = task['task_type']
         prompt = task['prompt']
 
-        # Simulate hermes execution
+        # Simulate agent execution
         if task_type == 'text_generation':
             return self._generate_text(agent, prompt)
         elif task_type == 'research':
@@ -568,16 +568,16 @@ class hermesAIService:
             raise Exception(f"Unsupported task type: {task_type}")
 
     def _generate_text(self, agent: dict, prompt: str) -> dict:
-        """Generate text with hermes"""
+        """Generate text with agent"""
         # Simulate text generation
         time.sleep(2)  # Simulate processing time
 
         result = f"""
-hermes {agent['name']} Generated Text:
+agent {agent['name']} Generated Text:
 
 {prompt}
 
-This is a high-quality text generation response from hermes AI agent {agent['name']}.
+This is a high-quality text generation response from agent AI agent {agent['name']}.
 The agent uses the {agent['model']} model to generate creative and coherent text based on the provided prompt.
 
 Generated at: {datetime.utcnow().isoformat()}
@@ -593,12 +593,12 @@ Node: {self.node_id}
         }
 
     def _perform_research(self, agent: dict, query: str) -> dict:
-        """Perform research with hermes"""
+        """Perform research with agent"""
         # Simulate research
         time.sleep(3)  # Simulate processing time
 
         result = f"""
-hermes {agent['name']} Research Results:
+agent {agent['name']} Research Results:
 
 Query: {query}
 
@@ -623,12 +623,12 @@ Node: {self.node_id}
         }
 
     def _analyze_trading(self, agent: dict, market_data: str) -> dict:
-        """Analyze trading with hermes"""
+        """Analyze trading with agent"""
         # Simulate trading analysis
         time.sleep(4)  # Simulate processing time
 
         result = f"""
-hermes {agent['name']} Trading Analysis:
+agent {agent['name']} Trading Analysis:
 
 Market Data: {market_data}
 
@@ -665,7 +665,7 @@ Node: {self.node_id}
         }
 
     def get_marketplace_listings(self) -> dict:
-        """Get marketplace listings for hermes agents"""
+        """Get marketplace listings for agent agents"""
         listings = []
 
         for agent in self.agents.values():
@@ -688,19 +688,19 @@ Node: {self.node_id}
         }
 
 if __name__ == '__main__':
-    # Initialize hermes service
-    service = hermesAIService()
+    # Initialize agent service
+    service = agentAIService()
 
     # Execute sample tasks
     sample_tasks = [
         {
-            'agent_id': 'hermes-text-gen',
+            'agent_id': 'agent-text-gen',
             'type': 'text_generation',
             'prompt': 'Explain the benefits of decentralized AI networks',
             'parameters': {'max_length': 500}
         },
         {
-            'agent_id': 'hermes-research',
+            'agent_id': 'agent-research',
             'type': 'research',
             'prompt': 'Analyze the current state of blockchain technology',
             'parameters': {'depth': 'comprehensive'}
@@ -716,20 +716,20 @@ if __name__ == '__main__':
 
     # Print service info
     info = service.get_agents_info()
-    print(f"hermes service info: {json.dumps(info, indent=2)}")
+    print(f"agent service info: {json.dumps(info, indent=2)}")
 EOF
 
-chmod +x /opt/aitbc/production/services/hermes_ai.py
-echo "✅ hermes AI integration created"
+chmod +x /opt/aitbc/production/services/agent_ai.py
+echo "✅ agent AI integration created"
 
-# Step 3: Real Marketplace with hermes & Ollama
+# Step 3: Real Marketplace with agent & Ollama
 echo -e "${CYAN}🏪 Step 3: Real Marketplace with AI${NC}"
 echo "=================================="
 
 cat > /opt/aitbc/production/services/real_marketplace.py << 'EOF'
 #!/usr/bin/env python3
 """
-Real Marketplace with hermes AI and Ollama Tasks
+Real Marketplace with agent AI and Ollama Tasks
 """
 
 import os
@@ -744,9 +744,9 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uvicorn
 
-# Import hermes service
+# Import agent service
 sys.path.insert(0, '/opt/aitbc/production/services')
-from hermes_ai import hermesAIService
+from agent_ai import agentAIService
 
 # Production logging
 logging.basicConfig(
@@ -768,7 +768,7 @@ class RealMarketplace:
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
         # Initialize services
-        self.hermes_service = hermesAIService()
+        self.agent_service = agentAIService()
 
         # Marketplace data
         self.ai_services = {}
@@ -815,19 +815,19 @@ class RealMarketplace:
             logger.error(f"Failed to save marketplace data: {e}")
 
     def _initialize_ai_services(self):
-        """Initialize AI services from hermes"""
-        hermes_agents = self.hermes_service.get_agents_info()
+        """Initialize AI services from agent"""
+        agent_agents = self.agent_service.get_agents_info()
 
-        for agent in hermes_agents['agents']:
+        for agent in agent_agents['agents']:
             service_id = f"ai_{agent['id']}"
             self.ai_services[service_id] = {
                 'id': service_id,
                 'name': agent['name'],
-                'type': 'hermes_ai',
+                'type': 'agent_ai',
                 'capabilities': agent['capabilities'],
                 'model': agent['model'],
                 'price_per_task': agent['price_per_task'],
-                'provider': 'hermes AI',
+                'provider': 'agent AI',
                 'node_id': self.node_id,
                 'rating': agent['rating'],
                 'tasks_completed': agent['tasks_completed'],
@@ -889,10 +889,10 @@ class RealMarketplace:
 
         service = self.ai_services[service_id]
 
-        if service['type'] == 'hermes_ai':
-            # Execute with hermes
+        if service['type'] == 'agent_ai':
+            # Execute with agent
             agent_id = service_id.replace('ai_', '')
-            result = self.hermes_service.execute_task(agent_id, task_data)
+            result = self.agent_service.execute_task(agent_id, task_data)
 
             # Update service stats
             service['tasks_completed'] += 1
@@ -975,7 +975,7 @@ marketplace = RealMarketplace()
 app = FastAPI(
     title="AITBC Real Marketplace",
     version="1.0.0",
-    description="Real marketplace with hermes AI and Ollama tasks"
+    description="Real marketplace with agent AI and Ollama tasks"
 )
 
 @app.get("/health")
@@ -1035,14 +1035,14 @@ echo "   • Multi-chain support (main + GPU chains)"
 echo "   • Real coin generation and rewards"
 echo "   • Cross-chain trading capabilities"
 echo ""
-echo "✅ hermes AI Integration:"
+echo "✅ agent AI Integration:"
 echo "   • Real AI agents (text generation, research, trading)"
 echo "   • Llama2 models (7B, 13B)"
 echo "   • Task execution and results"
 echo "   • Marketplace integration"
 echo ""
 echo "✅ Real Marketplace:"
-echo "   • hermes AI services"
+echo "   • agent AI services"
 echo "   • Ollama inference tasks"
 echo "   • Real commercial activity"
 echo "   • Payment processing"

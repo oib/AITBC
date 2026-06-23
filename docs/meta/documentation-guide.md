@@ -2,22 +2,22 @@
 
 **Last Updated:** 2026-05-28
 
-**Advanced AI Platform with hermes Agent Ecosystem**
+**Advanced AI Platform with agent Agent Ecosystem**
 
 [![Documentation](https://img.shields.io/badge/Documentation-10%2F10-brightgreen.svg)](docs/README.md)
 [![Quality](https://img.shields.io/badge/Quality-Perfect-green.svg)](docs/about/PHASE_3_COMPLETION_10_10_ACHIEVED.md)
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-blue.svg)](docs/README.md#-current-status-production-ready---march-18-2026)
-[![hermes](https://img.shields.io/badge/hermes-Advanced%20AI%20Agents-purple.svg)](docs/hermes/hermes_AGENT_CAPABILITIES_ADVANCED.md)
+[![agent](https://img.shields.io/badge/agent-Advanced%20AI%20Agents-purple.svg)](docs/agent/agent_AGENT_CAPABILITIES_ADVANCED.md)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
 ## 🎯 **What is AITBC?**
 
-AITBC (AI Training Blockchain) is a revolutionary platform that combines **advanced AI capabilities** with **hermes agent ecosystem** on a **blockchain infrastructure**. Our platform enables:
+AITBC (AI Training Blockchain) is a revolutionary platform that combines **advanced AI capabilities** with **agent agent ecosystem** on a **blockchain infrastructure**. Our platform enables:
 
 - **🤖 Advanced AI Operations**: Complex workflow orchestration, multi-model pipelines, resource optimization
-- **🦞 hermes Agents**: Intelligent agents with advanced AI teaching plan mastery (100% complete)
+- **🦞 agent Agents**: Intelligent agents with advanced AI teaching plan mastery (100% complete)
 - **🔒 Privacy Preservation**: Secure, private ML model training and inference
 - **⚡ Edge Computing**: Distributed computation at the network edge
 - **⛓️ Blockchain Security**: Immutable, transparent, and secure transactions
@@ -25,7 +25,7 @@ AITBC (AI Training Blockchain) is a revolutionary platform that combines **advan
 
 ### 🎓 **Advanced AI Teaching Plan - 100% Complete**
 
-Our hermes agents have mastered advanced AI capabilities through a comprehensive 3-phase teaching program:
+Our agent agents have mastered advanced AI capabilities through a comprehensive 3-phase teaching program:
 
 - **📚 Phase 1**: Advanced AI Workflow Orchestration (Complex pipelines, parallel operations)
 - **📚 Phase 2**: Multi-Model AI Pipelines (Ensemble management, multi-modal processing)
@@ -52,14 +52,14 @@ aitbc version
 aitbc ai-submit --wallet genesis --type multimodal --prompt "Multi-modal AI analysis" --payment 1000
 ```
 
-### **🤖 For hermes Agent Users:**
+### **🤖 For agent Agent Users:**
 ```bash
 # Run advanced AI workflow
 cd /opt/aitbc
-./scripts/workflow-hermes/06_advanced_ai_workflow_hermes.sh
+./scripts/workflow-agent/06_advanced_ai_workflow_agent.sh
 
-# Use hermes agents directly
-hermes agent --agent GenesisAgent --session-id "my-session" --message "Execute advanced AI workflow" --thinking high
+# Use agent agents directly
+agent agent --agent GenesisAgent --session-id "my-session" --message "Execute advanced AI workflow" --thinking high
 ```
 
 ### **👨‍💻 For Developers:**
@@ -105,7 +105,7 @@ aitbc miner status
 - **🔄 Exchange Infrastructure**: Complete exchange CLI commands and market integration
 - **⛓️ Multi-Chain Support**: Complete 7-layer architecture with chain isolation
 - **🤖 Advanced AI Operations**: Complex workflow orchestration, multi-model pipelines, resource optimization
-- **🦞 hermes Agent Ecosystem**: Advanced AI agents with 3-phase teaching plan mastery
+- **🦞 agent Agent Ecosystem**: Advanced AI agents with 3-phase teaching plan mastery
 - **🔒 Security**: Multi-sig, time-lock, and compliance features implemented
 - **🚀 Production Setup**: Complete production blockchain setup with encrypted keystores
 - **🧠 AI Memory System**: Development knowledge base and agent documentation
@@ -120,7 +120,7 @@ aitbc miner status
 ### 🎯 **Latest Achievements (March 31, 2026)**
 - **🎉 Perfect Documentation**: 10/10 quality score achieved
 - **🎓 Advanced AI Teaching Plan**: 100% complete (3 phases, 6 sessions)
-- **🤖 hermes Agent Mastery**: Advanced AI workflow orchestration, multi-model pipelines, resource optimization
+- **🤖 agent Agent Mastery**: Advanced AI workflow orchestration, multi-model pipelines, resource optimization
 - **⛓️ Multi-Chain System**: Complete 7-layer architecture operational
 - **📚 Documentation Excellence**: World-class documentation with perfect organization
 - **⚡ Code Quality Implementation**: Full automated quality checks with type safety
@@ -215,7 +215,7 @@ AITBC Ecosystem
 │   ├── Complex AI Workflow Orchestration (Phase 1)
 │   ├── Multi-Model AI Pipelines (Phase 2)
 │   ├── AI Resource Optimization (Phase 3)
-│   ├── hermes Agent Ecosystem
+│   ├── agent Agent Ecosystem
 │   │   ├── Genesis Agent (Advanced AI operations)
 │   │   ├── Follower Agent (Distributed coordination)
 │   │   ├── Coordinator Agent (Multi-agent orchestration)
@@ -248,7 +248,7 @@ AITBC Ecosystem
     ├── Exchange Integration
     ├── Marketplace Platform
     ├── Governance System
-    ├── hermes Agent Coordination
+    ├── agent Agent Coordination
     └── Community Tools
 ```
 
@@ -263,14 +263,14 @@ Our documentation has achieved **perfect 10/10 quality score** and provides comp
 - **📁 [Project Documentation](docs/project/)** - Project overview (18-28 hours)
 - **🤖 [Agent Documentation](docs/agents/)** - Agent development (24-48 hours)
 - **🎓 [Archive](docs/archive/README.md)** - Historical content (24-48 hours)
-- **🤖 [hermes Agent Capabilities](docs/hermes/hermes_AGENT_CAPABILITIES_ADVANCED.md)** - Advanced AI agents (15-25 hours)
+- **🤖 [agent Agent Capabilities](docs/agent/agent_AGENT_CAPABILITIES_ADVANCED.md)** - Advanced AI agents (15-25 hours)
 
 ### **📚 Quick Access:**
 - **🔍 [Master Index](docs/MASTER_INDEX.md)** - Complete content catalog
 - **🏠 [Documentation Home](docs/README.md)** - Main documentation entry
 - **📖 [About Documentation](docs/about/)** - Documentation about docs
 - **🗂️ [Archive](docs/archive/README.md)** - Historical documentation
-- **🦞 [hermes Documentation](docs/hermes/)** - Advanced AI agent ecosystem
+- **🦞 [agent Documentation](docs/agent/)** - Advanced AI agent ecosystem
 
 ### **🔗 External Documentation:**
 - **💻 [CLI Technical Docs](docs/cli/)** - Deep CLI documentation
@@ -354,21 +354,21 @@ source ~/.bashrc
 
 ---
 
-## 🤖 **hermes Agent Usage**
+## 🤖 **agent Agent Usage**
 
 ### **🎓 Advanced AI Agent Ecosystem**
-Our hermes agents have completed the **Advanced AI Teaching Plan** and are now sophisticated AI specialists:
+Our agent agents have completed the **Advanced AI Teaching Plan** and are now sophisticated AI specialists:
 
-#### **🚀 Quick Start with hermes Agents**
+#### **🚀 Quick Start with agent Agents**
 ```bash
 # Run complete advanced AI workflow
 cd /opt/aitbc
-./scripts/workflow-hermes/06_advanced_ai_workflow_hermes.sh
+./scripts/workflow-agent/06_advanced_ai_workflow_agent.sh
 
 # Use individual agents
-hermes agent --agent GenesisAgent --session-id "my-session" --message "Execute complex AI pipeline" --thinking high
-hermes agent --agent FollowerAgent --session-id "coordination" --message "Participate in distributed AI processing" --thinking medium
-hermes agent --agent CoordinatorAgent --session-id "orchestration" --message "Coordinate multi-agent workflow" --thinking high
+agent agent --agent GenesisAgent --session-id "my-session" --message "Execute complex AI pipeline" --thinking high
+agent agent --agent FollowerAgent --session-id "coordination" --message "Participate in distributed AI processing" --thinking medium
+agent agent --agent CoordinatorAgent --session-id "orchestration" --message "Coordinate multi-agent workflow" --thinking high
 ```
 
 #### **🤖 Advanced AI Operations**
@@ -424,7 +424,7 @@ hermes agent --agent CoordinatorAgent --session-id "orchestration" --message "Co
 - **🤖 AI Resource Agent**: Resource allocation, performance tuning, demand forecasting
 - **🤖 Multi-Modal Agent**: Multi-modal processing, cross-modal fusion, ensemble management
 
-**📚 Detailed Documentation**: [hermes Agent Capabilities](docs/hermes/hermes_AGENT_CAPABILITIES_ADVANCED.md)
+**📚 Detailed Documentation**: [agent Agent Capabilities](docs/agent/agent_AGENT_CAPABILITIES_ADVANCED.md)
 
 ---
 
@@ -587,7 +587,7 @@ git push origin feature/amazing-feature
 
 ### **🏆 Major Achievements:**
 - **🎓 Advanced AI Teaching Plan**: 100% complete (3 phases, 6 sessions)
-- **🤖 hermes Agent Mastery**: Advanced AI specialists with real-world capabilities
+- **🤖 agent Agent Mastery**: Advanced AI specialists with real-world capabilities
 - **📚 Perfect Documentation**: 10/10 quality score achieved
 - **🚀 Production Ready**: Fully operational blockchain infrastructure
 - **⚡ Advanced AI Operations**: Complex workflow orchestration, multi-model pipelines, resource optimization
@@ -622,7 +622,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ### **📚 Getting Help:**
 - **📖 [Documentation](docs/README.md)** - Comprehensive guides
-- **🤖 [hermes Agent Documentation](docs/hermes/hermes_AGENT_CAPABILITIES_ADVANCED.md)** - Advanced AI agent capabilities
+- **🤖 [agent Agent Documentation](docs/agent/agent_AGENT_CAPABILITIES_ADVANCED.md)** - Advanced AI agent capabilities
 - **💬 [Discord](https://discord.gg/aitbc)** - Community support
 - **🐛 [Issues](https://github.com/oib/AITBC/issues)** - Report bugs
 - **💡 [Discussions](https://github.com/oib/AITBC/discussions)** - Feature requests

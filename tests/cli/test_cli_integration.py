@@ -79,7 +79,6 @@ def mock_config():
     mock_cfg.exchange_service_url = "http://testserver"
     mock_cfg.governance_service_url = "http://testserver"
     mock_cfg.trading_service_url = "http://testserver"
-    mock_cfg.hermes_service_url = "http://testserver"
     mock_cfg.agent_coordinator_url = "http://testserver"
     mock_cfg.edge_api_host = "localhost"
     mock_cfg.edge_api_port = 8103

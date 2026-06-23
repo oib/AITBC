@@ -64,7 +64,7 @@ This document describes the recommended service user strategy for AITBC services
 **Medium Security Risk - Use aitbc-internal user:**
 - `aitbc-gpu.service` - GPU service (127.0.0.1:8101) - **Keep specialized user**
 - `aitbc-marketplace.service` - Marketplace (127.0.0.1:8102)
-- `aitbc-hermes.service` - Hermes (127.0.0.1:8103)
+- `aitbc-agent.service` - Agent (127.0.0.1:8107)
 - `aitbc-trading.service` - Trading (127.0.0.1:8104)
 - `aitbc-governance.service` - Governance (127.0.0.1:8105)
 - `aitbc-exchange.service` - Exchange (127.0.0.1:8106)
@@ -120,13 +120,13 @@ This document describes the recommended service user strategy for AITBC services
 **Keep Current Configuration:**
 - aitbc-gpu (specialized user)
 - aitbc-marketplace (keep as aitbc-marketplace or migrate to aitbc-internal)
-- aitbc-hermes (keep as aitbc-hermes or migrate to aitbc-internal)
+- aitbc-agent (keep as aitbc-agent or migrate to aitbc-internal)
 - aitbc-agent-coordinator (keep as aitbc-agent or migrate to aitbc-internal)
 - aitbc-wallet (specialized user)
 
 **Migrate to aitbc-internal:**
 - aitbc-marketplace.service → aitbc-internal
-- aitbc-hermes.service → aitbc-internal
+- aitbc-agent.service → aitbc-internal
 - aitbc-agent-coordinator.service → aitbc-internal
 
 ### Phase 3: Configure Public Services
@@ -209,7 +209,7 @@ ps aux | grep api_gateway
 ### Currently Isolated Services (5)
 - aitbc-gpu.service → aitbc-gpu ✅
 - aitbc-marketplace.service → aitbc-marketplace ✅
-- aitbc-hermes.service → aitbc-hermes ✅
+- aitbc-agent.service → aitbc-agent ✅
 - aitbc-agent-coordinator.service → aitbc-agent ✅
 - aitbc-wallet.service → aitbc-wallet ✅
 
@@ -217,7 +217,7 @@ ps aux | grep api_gateway
 
 **Consolidate Internal Services:**
 - aitbc-marketplace → aitbc-internal
-- aitbc-hermes → aitbc-internal
+- aitbc-agent → aitbc-internal
 - aitbc-agent-coordinator → aitbc-internal
 
 **Add Public Services:**

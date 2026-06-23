@@ -15,8 +15,8 @@ sys.path.insert(0, str(REPO_ROOT))
 
 # Import constants
 from aitbc import (  # noqa: E402
+    AGENT_COORDINATOR_PORT,
     COORDINATOR_API_PORT,
-    HERMES_PORT,
     MARKETPLACE_PORT,
     REDIS_PORT,
     WALLET_PORT,
@@ -64,7 +64,7 @@ def generate_openapi(app_module, app_name, output_file):
             {"url": f"http://localhost:{COORDINATOR_API_PORT}", "description": "Coordinator API (production)"},
             {"url": f"http://localhost:{MARKETPLACE_PORT}", "description": "Marketplace (production)"},
             {"url": f"http://localhost:{WALLET_PORT}", "description": "Wallet (production)"},
-            {"url": f"http://localhost:{HERMES_PORT}", "description": "Hermes (production)"},
+            {"url": f"http://localhost:{AGENT_COORDINATOR_PORT}", "description": "Agent Coordinator (production)"},
         ]
 
         # Add common components
@@ -101,14 +101,12 @@ def main():
         ("app.main", "coordinator-api", "coordinator-api.json"),
         ("marketplace_service.main", "marketplace", "marketplace.json"),
         ("app.main", "wallet", "wallet.json"),
-        ("hermes_service.main", "hermes", "hermes.json"),
     ]
 
     # Set paths for each service
     sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
     sys.path.insert(0, "/opt/aitbc/apps/marketplace/src")
     sys.path.insert(0, "/opt/aitbc/apps/wallet/src")
-    sys.path.insert(0, "/opt/aitbc/apps/hermes/src")
 
     # Set required environment variables
     os.environ.setdefault("COORDINATOR_API_KEY", "test-key")

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# hermes AITBC Training - Stage 10: Failure Recovery & Production Operations
+# agent AITBC Training - Stage 10: Failure Recovery & Production Operations
 # Transaction failure debugging, node recovery, production monitoring, backup procedures
 # Uses Python-based training setup to execute JSON-defined operations
 

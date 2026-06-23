@@ -389,7 +389,7 @@ aitbc optimize reset agent_123 --preserve-learning
 ## Next Steps
 
 - [Agent Collaboration](collaborative-agents.md) - Building agent networks
-- [Hermes Integration](hermes-integration.md) - Edge deployment
+- [Agent Integration](agent-integration.md) - Edge deployment
 - [Swarm Intelligence](swarm.md) - Collective optimization
 
 ---

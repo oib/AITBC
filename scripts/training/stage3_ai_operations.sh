@@ -3,7 +3,7 @@
 # Source training library
 source "$(dirname "$0")/training_lib.sh"
 
-# hermes AITBC Training - Stage 3: AI Operations Mastery
+# agent AITBC Training - Stage 3: AI Operations Mastery
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -24,7 +24,7 @@ set -e
 TRAINING_STAGE="Stage 3: AI Operations Mastery"
 SCRIPT_NAME="stage3_ai_operations"
 CURRENT_LOG=$(init_logging "$SCRIPT_NAME")
-WALLET_NAME="hermes-trainee"
+WALLET_NAME="agent-trainee"
 WALLET_PASSWORD="trainee123"
 TEST_PROMPT="Analyze the performance of AITBC blockchain system"
 TEST_PAYMENT=100
@@ -375,7 +375,7 @@ validation_quiz() {
 # Main training function
 main() {
     echo -e "${BLUE}========================================${NC}"
-    echo -e "${BLUE}hermes AITBC Training - $TRAINING_STAGE${NC}"
+    echo -e "${BLUE}agent AITBC Training - $TRAINING_STAGE${NC}"
     echo -e "${BLUE}========================================${NC}"
     echo
 

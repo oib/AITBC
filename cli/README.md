@@ -74,7 +74,7 @@ The CLI exposes 50+ top-level command groups registered in `aitbc_cli/core/main.
 | `agent` | Agent SDK & coordinator | `create`, `register`, `list`, `status`, `capabilities`, `submit`, `jobs`, `workflow`, `config-*` |
 | `agent-comm` | Cross-chain agent communication | `register`, `send`, `receive` |
 | `mining` | Mining operations | `start`, `stop`, `status`, `list` |
-| `hermes` | Agent messaging via Agent Coordinator (8107) | `ping`, `send`, `receive`, `peers`, `request-coins` |
+| `agent-msg` | Agent messaging via Agent Coordinator (8107) | `ping`, `send`, `receive`, `peers`, `request-coins` |
 | `node` | Federated mesh node management | `add`, `list`, `info`, `remove`, `test`, `bridge`, `chain`, `hub`, `island` |
 | `exchange` | Exchange integration & trading | `register`, `create-pair`, `add-liquidity`, `start-trading`, `status`, `monitor` |
 | `exchange-island` | AIT/BTC/ETH trading on islands | (island exchange ops) |
@@ -180,20 +180,20 @@ aitbc network subscribe --hub-url https://hub.aitbc.bubuit.net
 aitbc sync bulk --leader-url http://hub.aitbc.bubuit.net:8202
 ```
 
-### Hermes Ping/Pong (Follower ↔ Hub)
+### Agent Ping/Pong (Follower ↔ Hub)
 
-Followers can ping a remote Hermes agent (e.g. the hub coordinator) and wait for its PONG reply:
+Followers can ping a remote agent (e.g. the hub coordinator) and wait for its PONG reply:
 
 ```bash
 # Ping the hub coordinator agent and wait up to 10s for PONG
-aitbc hermes ping \
+aitbc agent-msg ping \
   --agent hub-coordinator \
   --sender my-follower-agent \
-  --coordinator-url http://hub.aitbc.bubuit.net:8203 \
+  --coordinator-url http://hub.aitbc.bubuit.net:8107 \
   --timeout 10
 ```
 
-This posts a `PING` message to the coordinator's `/v1/hermes/messages/send` endpoint and polls `/v1/hermes/messages/{sender}` for the `PONG` reply.
+This sends a `PING` message to the coordinator's `/api/v1/agent/messages/send` endpoint and polls `/api/v1/agent/messages/{sender}` for the `PONG` reply.
 
 ### AI Compute
 

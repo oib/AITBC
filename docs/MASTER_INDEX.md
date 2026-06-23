@@ -15,7 +15,7 @@
 ├── 🧭 MASTER_INDEX.md              # This file - complete catalog
 ├── 📖 meta/                        # Documentation standards, audits, and remediation notes
 ├── 🚀 getting-started/             # Getting started guides and onboarding
-├── 🤖 agent-sdk/                   # hermes agent communication SDK documentation
+├── 🤖 agent-sdk/                   # agent agent communication SDK documentation
 ├── 🤖 agents/                      # Agent documentation and integration assets
 ├── 📱 apps/                        # Applications documentation (72 items)
 ├── 🏗️ architecture/                # System architecture and design patterns
@@ -27,7 +27,7 @@
 ├── 🏗️ infrastructure/              # System infrastructure documentation (11 items)
 ├── 🏢 operations/                 # Operations documentation (5 items)
 ├── ⛏️ mining/                     # Mining operations documentation (8 items)
-├── 🧩 hermes/                   # hermes agent integration documentation (19 items)
+├── 🧩 agent/                   # agent agent integration documentation (19 items)
 ├── 📋 project/                    # Project documentation (28 items)
 ├── 📖 reference/                  # Compact lookup and reference docs (22 items)
 ├── 📋 releases/                   # Release notes and version history (7 items)
@@ -63,7 +63,7 @@ Documentation about the documentation system itself
 - **[Documentation Guide](meta/documentation-guide.md)** - Documentation authoring guide
 
 ### 🤖 Agent Documentation
-- **[Agent SDK](agent-sdk/)** - hermes agent communication SDK (10 items)
+- **[Agent SDK](agent-sdk/)** - agent agent communication SDK (10 items)
   - [Agent Communication Guide](agent-sdk/AGENT_COMMUNICATION_GUIDE.md)
   - [Quick Start Guide](agent-sdk/QUICK_START_GUIDE.md)
   - [API Reference](agent-sdk/API_REFERENCE.md)
@@ -151,7 +151,7 @@ Documentation about the documentation system itself
     - [Requirements Management](getting-started/installation/requirements-management.md)
   - [node/](getting-started/node/) - Node onboarding
     - [Blockchain Setup](getting-started/node/blockchain-setup.md)
-    - [Hermes Messaging](getting-started/node/hermes-messaging.md)
+    - [Agent Messaging](getting-started/node/agent-messaging.md)
     - [Coin Requests](getting-started/node/coin-requests.md)
     - [Configuration Guide](getting-started/node/configuration-guide.md)
   - [mining/](getting-started/mining/) - GPU mining
@@ -188,8 +188,8 @@ Documentation about the documentation system itself
   - [advanced-marketplace/](marketplace/advanced-marketplace/) - Advanced marketplace features (11 files)
   - [advanced-marketplace-features.md](marketplace/advanced-marketplace-features.md) - Advanced marketplace features index
 
-### 🧩 hermes Documentation
-- **[hermes](hermes/)** - hermes agent integration documentation (19 items)
+### 🧩 agent Documentation
+- **[agent](agent/)** - agent agent integration documentation (19 items)
 
 
 
@@ -289,7 +289,7 @@ All cross-references have been updated to reflect these changes.
 - **New Users**: Start with [Getting Started](getting-started/) - User journey paths for different use cases
 - **Developers**: Review [Project Structure](project/) and [Blockchain](blockchain/) documentation
 - **System Administrators**: Check [Deployment](deployment/) and [Security](security/) documentation
-- **hermes Agents**: See [Agent SDK](agent-sdk/) documentation
+- **agent Agents**: See [Agent SDK](agent-sdk/) documentation
 
 ---
 

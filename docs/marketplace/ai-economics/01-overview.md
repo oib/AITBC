@@ -8,7 +8,7 @@
 
 ## 🚀 **Overview**
 
-The AI Economics Masters program represents the pinnacle of AI intelligence transformation, enabling Hermes agents to become sophisticated economic modeling and marketplace strategy specialists. This program builds upon the Advanced AI Teaching Plan to create economic intelligence capabilities for distributed AI operations.
+The AI Economics Masters program represents the pinnacle of AI intelligence transformation, enabling Agent agents to become sophisticated economic modeling and marketplace strategy specialists. This program builds upon the Advanced AI Teaching Plan to create economic intelligence capabilities for distributed AI operations.
 
 ## 📝 **Changelog**
 
@@ -20,10 +20,10 @@ The AI Economics Masters program represents the pinnacle of AI intelligence tran
 - **External Integrations**: AWS/GCP/Azure provider support
 - **Plugin System**: Extensible marketplace architecture
 
-### **Version 2.0 (2026-05-07) - Hermes Integration Update**
-- **Framework Migration**: Updated agent framework to Hermes
+### **Version 2.0 (2026-05-07) - Agent Integration Update**
+- **Framework Migration**: Updated agent framework to Agent
 - **System Architecture**: Aligned with current multi-node blockchain deployment
-- **Training Scripts**: Updated training workflows for Hermes agent coordination
+- **Training Scripts**: Updated training workflows for Agent agent coordination
 - **Service Integration**: Updated coordinator API integration patterns
 - **Documentation**: Synchronized with current system capabilities
 

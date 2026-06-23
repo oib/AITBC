@@ -16,7 +16,7 @@ Agent-related shared libraries including agent bridge, compliance, protocols, re
 - **agent_trading**: Trading capabilities for agent-based transactions
 
 ### Services (now in /opt/aitbc/apps/)
-- **hermes**: Hermes service for agent orchestration (moved from examples/hermes-service)
+- **agent**: Agent service for agent orchestration (moved from examples/agent-service)
 - **agent-daemon**: Agent daemon service (moved from agent-services parent)
 
 ## Quick Start (End Users)

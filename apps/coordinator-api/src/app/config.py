@@ -130,7 +130,7 @@ class Settings(BaseAITBCConfig):
             "http://localhost:8012",  # Modality Optimization
             "http://localhost:8013",  # Adaptive Learning
             "http://localhost:8014",  # Marketplace Enhanced
-            "http://localhost:8015",  # hermes Enhanced
+            "http://localhost:8015",  # agent Enhanced
             "http://localhost:8016",  # Web UI
         ],
         description="CORS allowed origins",
