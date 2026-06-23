@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
+from aitbc.utils import format_ait
 
 from .deps import get_keystore, get_ledger, get_receipt_service
 from .keystore.persistent_service import PersistentKeystoreService
@@ -191,6 +192,7 @@ def get_wallet_balance(
         "wallet_id": wallet_id,
         "address": address,
         "balance": balance,
+        "balance_ait": format_ait(balance),
         "chain_id": chain_id,
     }
 
@@ -319,7 +321,9 @@ def send_transaction(
         raise
     except Exception as exc:
         logger.error("Unexpected error in transaction submission", extra={"wallet_id": wallet_id, "error": str(exc)})
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error - see server logs") from exc
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error - see server logs"
+        ) from exc
 
 
 @router.post("/wallets/{wallet_id}/faucet", response_model=WalletTransactionResponse, summary="Request faucet funds")
@@ -349,7 +353,7 @@ async def faucet_request(
         from .settings import settings
 
         rpc_url = settings.blockchain_rpc_url
-        response = httpx.post(f"{rpc_url}/rpc/faucet", json={"address": address, "amount": 1000000}, timeout=30.0)
+        response = httpx.post(f"{rpc_url}/rpc/faucet", json={"address": address, "amount": 3600000000}, timeout=30.0)
         response.raise_for_status()
         result = response.json()
 
@@ -375,7 +379,9 @@ async def faucet_request(
         raise
     except Exception as exc:
         logger.error("Faucet request failed", extra={"wallet_id": wallet_id, "error": str(exc)})
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error - see server logs") from exc
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error - see server logs"
+        ) from exc
 
 
 # Multi-Chain Endpoints - Temporarily disabled due to missing chain manager dependencies
