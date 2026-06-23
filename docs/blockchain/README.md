@@ -37,7 +37,7 @@ The MESSAGE transaction type allows users to send short on-chain messages withou
 ```bash
 curl -X POST http://localhost:8202/rpc/transaction \
   -H "Content-Type: application/json" \
-  -d '{"type":"MESSAGE","from":"address","to":"address","amount":0,"fee":10,"nonce":1,"payload":{"message":"Hello blockchain!"},"sig":"signature"}'
+  -d '{"type":"MESSAGE","from":"address","to":"address","amount":0,"fee":36,"nonce":1,"payload":{"message":"Hello blockchain!"},"sig":"signature"}'
 ```
 
 **Characteristics:**

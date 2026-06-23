@@ -46,6 +46,14 @@ Two distinct networking layers:
 #### Observability
 Prometheus metrics + structured logging
 
+#### Unit System
+The blockchain uses compute-seconds as the base unit:
+- **1 AIT = 3600 seconds** (1 hour of compute)
+- All on-chain values (balances, amounts, fees) are stored as integer seconds
+- User-facing interfaces (CLI, APIs, explorer) convert seconds → AIT for display
+- Transaction creation converts AIT → seconds internally
+- This enables precise second-level billing while maintaining user-friendly AIT values
+
 ## API Reference
 
 The blockchain node exposes both REST and WebSocket APIs for interaction.

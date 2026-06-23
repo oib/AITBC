@@ -78,6 +78,16 @@ Review these documents:
 - **Exchange**: Matching engine for token trading
 - **Edge Computing**: GPU resource management for AI workloads
 
+### **Unit System**
+
+The AITBC blockchain uses a compute-seconds based unit system:
+- **1 AIT = 3600 seconds** (1 hour of compute)
+- All on-chain values are stored as integer seconds
+- User interfaces convert seconds → AIT for display
+- This enables precise second-level billing for AI compute
+
+See [4_blockchain-node.md](./4_blockchain-node.md) for implementation details.
+
 ## 🚀 **Development Workflow**
 
 ### **Adding New Architecture Documents**
