@@ -112,7 +112,7 @@ sudo nginx -t && sudo systemctl reload nginx
 | API Gateway | 8201 | Hub only | Aggregated API |
 | Blockchain RPC | 8202 | Hub only | Followers connect here for /rpc/subscribe |
 | Coordinator API | 8203 | Hub only | Shop uses it internally via localhost only |
-| Agent Coordinator | 8107 | Hub only | WebSocket agent messaging |
+| Agent Coordinator | 8107 | Hub only | Agent messaging (WS + HTTP API) |
 | Wallet Service | 8108 | Hub only | Exchange API |
 | Blockchain Explorer | 8100 | All roles | Read-only chain viewer |
 | Ollama | 11434 | Shop only | AI inference |
