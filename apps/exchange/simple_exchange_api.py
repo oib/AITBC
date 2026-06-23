@@ -763,7 +763,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             self.send_json_response({"success": False, "error": str(e)}, status=500)
 
     def handle_exchange_price_json(self):
-        """GET /exchange/price.json — return AIT price in USD and EUR"""
+        """GET /exchange/price.json — return AIT price in USD, EUR, and ETH equivalent"""
         try:
             import sys
 
@@ -773,14 +773,18 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             oracle = get_price_oracle()
             ait_usd = oracle.get_price("AIT", "USD")
             ait_eur = oracle.get_price("AIT", "EUR")
+            ait_eth = oracle.get_price("AIT", "ETH")
+            eth_eur = oracle.get_price("ETH", "EUR")
 
-            if ait_usd:
+            if ait_usd or ait_eur:
                 self.send_json_response({
-                    "price_usd": ait_usd.price,
+                    "price_usd": ait_usd.price if ait_usd else None,
                     "price_eur": ait_eur.price if ait_eur else None,
+                    "price_eth": ait_eth.price if ait_eth else None,
+                    "eth_eur": eth_eur.price if eth_eur else None,
                     "currency": "USD",
-                    "timestamp": ait_usd.timestamp,
-                    "source": ait_usd.source,
+                    "timestamp": (ait_usd or ait_eur).timestamp,
+                    "source": (ait_usd or ait_eur).source,
                 })
             else:
                 self.send_json_response({"error": "Price unavailable"}, status=503)
@@ -899,6 +903,10 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             fee_eth = eth_amount * 0.005
             net_eth = eth_amount - fee_eth
 
+            # Hex-encode the AIT address as UTF-8 for the tx data field
+            # (matches what bridge_monitor.parse_ait_recipient decodes)
+            transaction_data_hex = "0x" + ait_address.encode("utf-8").hex()
+
             self.send_json_response(
                 {
                     "status": "ready",
@@ -908,6 +916,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                         "network": eth_network,
                         "amount_eth": eth_amount,
                         "transaction_data": ait_address,
+                        "transaction_data_hex": transaction_data_hex,
                         "min_deposit": min_eth_deposit,
                     },
                     "estimate": {
@@ -957,8 +966,10 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
     def handle_bridge_deposits(self, parsed):
         """GET /v1/bridge/deposits — list bridge deposits"""
         try:
+            import sys
             from urllib.parse import parse_qs
 
+            sys.path.insert(0, "/opt/aitbc/apps/bridge-monitor/src")
             from bridge_monitor.storage import BridgeDepositStatus, count_deposits, get_deposits
 
             params = parse_qs(parsed.query)
@@ -1001,6 +1012,9 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
     def handle_bridge_deposit_detail(self, tx_hash):
         """GET /v1/bridge/deposit/{tx_hash} — get deposit details"""
         try:
+            import sys
+
+            sys.path.insert(0, "/opt/aitbc/apps/bridge-monitor/src")
             from bridge_monitor.storage import get_deposit
 
             deposit = get_deposit(tx_hash)
