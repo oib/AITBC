@@ -24,7 +24,7 @@ class TransactionRequest(BaseModel):
     sender: str = Field(..., alias="from")
     recipient: str = Field(..., alias="to")
     amount: int
-    fee: int = 10
+    fee: int = 36
     nonce: int = 0
     type: str = "TRANSFER"
     payload: dict[str, Any] = Field(default_factory=dict)
@@ -174,17 +174,17 @@ async def query_transactions(
     """Query transactions with optional filters"""
     chain_id_arg = chain_id if chain_id else ""
     resolved_chain_id = get_chain_id(chain_id_arg)
-    
+
     _logger.info(f"Query transactions - chain_id_arg: {chain_id_arg}, resolved_chain_id: {resolved_chain_id}")
 
     with session_scope() as session:
         query = select(Transaction).where(Transaction.chain_id == resolved_chain_id)
-        
+
         _logger.info(f"Query: {query}")
 
         # Apply filters based on payload fields
         transactions = session.exec(query).all()
-        
+
         _logger.info(f"Found {len(transactions)} transactions for chain {resolved_chain_id}")
 
         results = []
@@ -234,7 +234,7 @@ async def query_transactions(
         # Apply limit
         if limit:
             results = results[:limit]
-        
+
         _logger.info(f"Returning {len(results)} transactions after filtering")
 
         return results

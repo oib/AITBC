@@ -96,8 +96,8 @@ class Transaction(SQLModel, table=True):
 
     # New fields added to schema
     nonce: int = Field(default=0)
-    value: int = Field(default=0)
-    fee: int = Field(default=0)
+    value: int = Field(default=0)  # in compute-seconds (1 AIT = 3600)
+    fee: int = Field(default=0)  # in compute-seconds (1 AIT = 3600)
     type: str = Field(default="TRANSFER", index=True)
     status: str = Field(default="pending")
     timestamp: str | None = Field(default=None)
@@ -142,7 +142,7 @@ class Receipt(SQLModel, table=True):
         default_factory=list,
         sa_column=Column(JSON, nullable=False),
     )
-    minted_amount: int | None = None
+    minted_amount: int | None = None  # in compute-seconds (1 AIT = 3600)
     recorded_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     status: str = Field(default="pending", index=True)  # pending, claimed, invalid
     claimed_at: datetime | None = None
@@ -169,7 +169,7 @@ class Account(SQLModel, table=True):
 
     chain_id: str = Field(primary_key=True)
     address: str = Field(primary_key=True)
-    balance: int = Field(default=0, sa_type=BigInteger)
+    balance: int = Field(default=0, sa_type=BigInteger)  # in compute-seconds (1 AIT = 3600)
     nonce: int = Field(default=0, sa_type=BigInteger)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -180,7 +180,7 @@ class Escrow(SQLModel, table=True):
     job_id: str = Field(primary_key=True)
     buyer: str = Field(foreign_key="account.address")
     provider: str = Field(foreign_key="account.address")
-    amount: int
+    amount: int  # in compute-seconds (1 AIT = 3600)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     released_at: datetime | None = None
     job_tx_hash: str | None = None  # TX hash of software_job completion (proof of work)
@@ -197,7 +197,7 @@ class CrossChainTransfer(SQLModel, table=True):
     target_chain: str = Field(index=True)
     sender: str = Field(index=True)
     recipient: str = Field(index=True)
-    amount: int
+    amount: int  # in compute-seconds (1 AIT = 3600)
     asset: str = Field(default="native")
     status: str = Field(default="pending")  # pending, locked, confirmed, completed, failed, refunded
     source_tx_hash: str | None = None
@@ -215,7 +215,7 @@ class Stake(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
     address: str = Field(index=True)
-    amount: int
+    amount: int  # in compute-seconds (1 AIT = 3600)
     locked_until: datetime
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

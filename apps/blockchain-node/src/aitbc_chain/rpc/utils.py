@@ -72,7 +72,7 @@ def normalize_transaction_data(tx_data: dict[str, Any], chain_id: str) -> dict[s
         raise ValueError("transaction.amount must be an integer") from exc
 
     try:
-        fee = int(tx_data.get("fee", 10))
+        fee = int(tx_data.get("fee", 36))
     except (TypeError, ValueError) as exc:
         raise ValueError("transaction.fee must be an integer") from exc
 
