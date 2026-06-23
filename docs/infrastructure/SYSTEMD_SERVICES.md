@@ -16,28 +16,23 @@ This guide covers SystemD service management for AITBC following the infrastruct
 
 ### 🟢 **Operational Services**
 - **aitbc-coordinator-api.service**: Running on port 8203 with Hermes endpoints
-- **aitbc-agent-daemon.service**: Successfully polling every 10 seconds
 - **aitbc-marketplace.service**: Database schema updated and healthy
 - **aitbc-blockchain-node.service**: Blockchain operations normal
 - **aitbc-api-gateway.service**: Routing and proxy functionality working
 
 ### 🔧 **Recent Fixes Applied (2026-06-05)**
 - **Coordinator API**: Fixed deprecated schema imports and missing dependencies
-- **AgentDaemon**: Resolved polling URL configuration and endpoint connectivity
 - **Marketplace Service**: Added missing database columns and restored service unit file
 - **Dependencies**: Installed missing `ipfshttpclient` and other required packages
 
 ### 📋 **Service Health Verification**
 ```bash
 # Check all critical services
-systemctl status aitbc-coordinator-api.service aitbc-agent-daemon.service aitbc-marketplace.service
+systemctl status aitbc-coordinator-api.service aitbc-marketplace.service
 
 # Verify service connectivity
 curl -s http://localhost:8203/v1/health | jq '.status'
 curl -s http://localhost:8102/health | jq '.status'
-
-# Check AgentDaemon polling
-journalctl -u aitbc-agent-daemon.service -n 5 --no-pager
 ```
 
 ## 🚀 Service Status After Optimization

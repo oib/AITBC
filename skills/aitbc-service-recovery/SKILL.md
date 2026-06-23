@@ -39,7 +39,6 @@ systemctl start aitbc-coordinator-api.service
 
 ```bash
 systemctl start aitbc-hermes.service
-systemctl start aitbc-agent-daemon.service
 ```
 
 ## Common Failures

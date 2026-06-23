@@ -153,7 +153,6 @@ In addition to base services, hub nodes get:
 | `aitbc-hermes` | 8103 | Hermes messaging (coin requests) |
 | `aitbc-agent-management` | 8204 | Agent registry API (public, followers connect) |
 | `aitbc-agent-coordinator` | 8107 | Agent coordination backend (WebSocket PING/PONG, REQUEST_COINS) |
-| `aitbc-agent-daemon` | — | Autonomous agent listener (ping/pong) |
 | `aitbc-blockchain-explorer` | 8100 | Blockchain explorer API |
 
 ### Follower Services (BLOCKCHAIN_MODE=follower)

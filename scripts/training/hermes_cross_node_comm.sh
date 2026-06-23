@@ -80,18 +80,6 @@ check_prerequisites() {
         exit 1
     fi
     log_success "Follower node reachable"
-
-    # Check agent daemon service
-    if ! systemctl is-active --quiet aitbc-agent-daemon.service; then
-        log_warning "Agent daemon service not running, attempting to start..."
-        sudo systemctl start aitbc-agent-daemon.service
-        sleep 2
-        if ! systemctl is-active --quiet aitbc-agent-daemon.service; then
-            log_error "Failed to start agent daemon service"
-            exit 1
-        fi
-    fi
-    log_success "Agent daemon service running"
 }
 
 run_module1_registration() {
@@ -193,7 +181,6 @@ main() {
     echo -e "  Genesis Node: ${GENESIS_IP}:${PORT}"
     echo -e "  Follower Node: ${FOLLOWER_IP}:${PORT}"
     echo -e "  Chain ID: ${CHAIN_ID}"
-    echo -e "  Agent Daemon Service: aitbc-agent-daemon.service"
     echo -e "${CYAN}======================================================${NC}"
 
     check_prerequisites
@@ -213,11 +200,6 @@ main() {
 
     echo -e "\n${GREEN}hermes agent has successfully completed Cross-Node Communication Training!${NC}"
     echo "The agent is now certified to coordinate tasks across ${GENESIS_IP} and ${FOLLOWER_IP} nodes."
-    echo ""
-    echo "Service Management Commands:"
-    echo "  Check status: sudo systemctl status aitbc-agent-daemon.service"
-    echo "  View logs: sudo journalctl -u aitbc-agent-daemon -f"
-    echo "  Restart service: sudo systemctl restart aitbc-agent-daemon.service"
 }
 
 main

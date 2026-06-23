@@ -28,8 +28,9 @@ _load_env_file("/etc/aitbc/blockchain.env")
 _load_env_file("/etc/aitbc/blockchain-secrets.env")
 _load_env_file("/etc/aitbc/node.env", override=True)
 
-from hermes_service.services import TransactionService  # noqa: E402
-from hermes_service.storage import CoinRequest, CoinRequestStatus, get_db_session, init_db  # noqa: E402
+from aitbc.crypto import TransactionService  # noqa: E402
+from aitbc.db import get_db_session, init_db  # noqa: E402
+from aitbc.models import CoinRequest, CoinRequestStatus  # noqa: E402
 
 
 def send_hermes_notification(recipient: str, content: str):
@@ -40,7 +41,13 @@ def send_hermes_notification(recipient: str, content: str):
     try:
         response = requests.post(
             f"{coordinator_url}/api/v1/agent/messages/send",
-            json={"sender": agent_id, "recipient": recipient, "content": {"text": content}, "message_type": "direct", "encrypt": False},
+            json={
+                "sender": agent_id,
+                "recipient": recipient,
+                "content": {"text": content},
+                "message_type": "direct",
+                "encrypt": False,
+            },
             timeout=10,
         )
         if response.status_code == 200:
@@ -227,7 +234,7 @@ def execute(ctx, request_id):
 
         # Check balance before submission
         balance = tx_service.get_balance(tx_service.genesis_address)
-        total_required = req.amount + 1000  # amount + fee
+        total_required = req.amount + 10  # amount + fee
         if balance < total_required:
             click.echo(f"Error: Insufficient balance. Required: {total_required}, Available: {balance}")
             return
@@ -237,7 +244,7 @@ def execute(ctx, request_id):
         click.echo(f"Genesis wallet balance: {balance} AIT")
 
         # Generate signed transaction
-        signed_tx = tx_service.generate_signed_transaction(to_address=req.wallet_address, amount=req.amount, fee=1000)
+        signed_tx = tx_service.generate_signed_transaction(to_address=req.wallet_address, amount=req.amount, fee=10)
 
         if not signed_tx:
             click.echo("Error: Failed to generate signed transaction")

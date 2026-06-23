@@ -102,7 +102,6 @@ get_allowed_services() {
         aitbc-hermes
         aitbc-agent-management
         aitbc-agent-coordinator
-        aitbc-agent-daemon
         aitbc-blockchain-explorer
     )
 

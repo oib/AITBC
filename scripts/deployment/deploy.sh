@@ -295,7 +295,6 @@ start_services() {
         "aitbc-coordinator-api"
         "aitbc-exchange-api"
         "aitbc-wallet"
-        "aitbc-agent-daemon"
         "aitbc-agent-coordinator"
         "aitbc-marketplace"
     )

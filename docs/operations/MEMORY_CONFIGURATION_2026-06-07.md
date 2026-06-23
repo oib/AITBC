@@ -27,7 +27,6 @@ All other services have been configured with a 256MB memory limit:
 | Service | Current Usage | Usage % | Notes |
 |---------|---------------|---------|-------|
 | aitbc-agent-coordinator.service | 77MB | 30% | Agent coordination |
-| aitbc-agent-daemon.service | 73MB | 28% | Agent daemon |
 | aitbc-agent-management.service | 33MB | 12% | Agent management |
 | aitbc-ai.service | 40MB | 15% | AI service |
 | aitbc-api-gateway.service | 64MB | 25% | API gateway |
