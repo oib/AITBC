@@ -49,10 +49,10 @@ class StakeCreateRequest(BaseModel):
     @field_validator("amount")
     @classmethod
     def validate_amount(cls, v: float) -> float:
-        if v < 100.0:
-            raise ValueError("Minimum stake amount is 100 AITBC")
-        if v > 100000.0:
-            raise ValueError("Maximum stake amount is 100,000 AITBC")
+        if v < 360000.0:
+            raise ValueError("Minimum stake amount is 100 AITBC (360000 seconds)")
+        if v > 360000000.0:
+            raise ValueError("Maximum stake amount is 100,000 AITBC (360000000 seconds)")
         return v
 
 

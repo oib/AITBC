@@ -245,8 +245,8 @@ class StakingPool(SQLModel, table=True):
     distribution_frequency: int = Field(default=1)  # days
 
     # Pool configuration
-    min_stake_amount: Decimal = Field(default=Decimal("100.0"))
-    max_stake_amount: Decimal = Field(default=Decimal("100000.0"))
+    min_stake_amount: Decimal = Field(default=Decimal("360000.0"))
+    max_stake_amount: Decimal = Field(default=Decimal("360000000.0"))
     auto_compound_enabled: bool = Field(default=False)
 
     # Performance tracking

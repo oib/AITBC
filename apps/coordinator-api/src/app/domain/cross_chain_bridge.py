@@ -98,10 +98,10 @@ class SupportedToken(SQLModel, table=True):
     token_symbol: str = Field(index=True)
     token_name: str = Field(default="")
     decimals: int = Field(default=18)
-    bridge_limit: Decimal = Field(default=Decimal("1000000.0"))  # Maximum bridge amount
+    bridge_limit: Decimal = Field(default=Decimal("3600000000.0"))  # Maximum bridge amount (1M AIT = 3.6B seconds)
     fee_percentage: Decimal = Field(default=Decimal("0.5"))  # Bridge fee percentage
     min_amount: Decimal = Field(default=Decimal("0.01"))  # Minimum bridge amount
-    max_amount: Decimal = Field(default=Decimal("1000000.0"))  # Maximum bridge amount
+    max_amount: Decimal = Field(default=Decimal("3600000000.0"))  # Maximum bridge amount (1M AIT = 3.6B seconds)
     requires_whitelist: bool = Field(default=False)
     is_active: bool = Field(default=True, index=True)
     is_wrapped: bool = Field(default=False)  # Whether it's a wrapped token
