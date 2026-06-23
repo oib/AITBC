@@ -67,7 +67,7 @@ def rewards(ctx):
 
 @wallet.command()
 @click.argument("address")
-@click.option("--amount", default=1000000, help="Amount to request from faucet (default: 1000000)")
+@click.option("--amount", default=3600000000, help="Amount to request from faucet (default: 3600000000)")
 @click.option("--chain-id", help="Chain ID (defaults to node's chain)")
 @click.pass_context
 def fund(ctx, address: str, amount: int, chain_id: str):
