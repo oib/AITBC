@@ -441,7 +441,7 @@ def message(agent: str, message: str, wallet: str, password: str | None, passwor
             "chain_id": chain_id,
             "from": sender_address,
             "nonce": actual_nonce,
-            "fee": 10,
+            "fee": 36,
             "payload": {"recipient": agent, "amount": 0, "message": message},
         }
 

@@ -659,7 +659,7 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
                 "from": from_address,
                 "to": to_address,
                 "amount": amount_int,
-                "fee": gas_price or 10,
+                "fee": gas_price or 36,
                 "nonce": await self._get_nonce(from_address),
                 "payload": data.get("payload", "") if data else "",
                 "type": data.get("type", "transfer") if data else "transfer",
@@ -713,7 +713,7 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
         data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Estimate transaction fee (AITBC uses fixed fees, not gas)"""
-        return {"gas_limit": 0, "gas_price": 0, "estimated_fee": 10, "currency": "AIT"}
+        return {"gas_limit": 0, "gas_price": 0, "estimated_fee": 36, "currency": "AIT"}
 
     async def validate_address(self, address: str) -> bool:
         """Validate AITBC address format (Bech32 with ait1 prefix)"""

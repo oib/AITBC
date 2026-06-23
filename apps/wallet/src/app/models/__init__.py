@@ -139,7 +139,7 @@ class WalletTransactionRequest(BaseModel):
     password: str
     recipient: str
     amount: int
-    fee: int = 10
+    fee: int = 36
     nonce: int | None = None
     chain_id: str | None = None
     payload: dict[str, Any] | None = None

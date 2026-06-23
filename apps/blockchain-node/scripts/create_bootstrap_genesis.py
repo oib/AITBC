@@ -12,7 +12,7 @@ GENESIS_CONFIG = {
     "params": {
         "mint_per_unit": 1000,
         "coordinator_ratio": 0.05,
-        "base_fee": 10,
+        "base_fee": 36,
         "fee_per_byte": 1,
     },
     "accounts": [

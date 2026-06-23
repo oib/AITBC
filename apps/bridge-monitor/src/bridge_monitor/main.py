@@ -117,10 +117,12 @@ class BridgeMonitor:
                 "to": to_address,
                 "amount": tx_amount,
                 "nonce": nonce,
-                "fee": 10,
+                "fee": 36,
                 "type": "TRANSFER",
             }
-            private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(self.genesis_private_key.removeprefix("0x")))
+            private_key = ed25519.Ed25519PrivateKey.from_private_bytes(
+                bytes.fromhex(self.genesis_private_key.removeprefix("0x"))
+            )
             message = json.dumps(transaction, sort_keys=True).encode()
             signature = private_key.sign(message)
             transaction["signature"] = signature.hex()
@@ -194,14 +196,33 @@ class BridgeMonitor:
         max_retries = 5
         if retry_count >= max_retries:
             logger.error("Deposit %s exhausted %s retries, marking FAILED", tx_hash, max_retries)
-            update_deposit(tx_hash, status=BridgeDepositStatus.FAILED, error_message=error_message, retry_count=retry_count, next_retry_at=None)
+            update_deposit(
+                tx_hash,
+                status=BridgeDepositStatus.FAILED,
+                error_message=error_message,
+                retry_count=retry_count,
+                next_retry_at=None,
+            )
             return
         # Exponential backoff: 30s, 2m, 10m, 1h, 4h
         backoff_seconds = [30, 120, 600, 3600, 14400]
         delay = backoff_seconds[min(retry_count - 1, len(backoff_seconds) - 1)]
         next_retry = (datetime.now(UTC) + timedelta(seconds=delay)).isoformat()
-        logger.warning("Deposit %s marked PENDING_RETRY (attempt %s/%s, next in %ss): %s", tx_hash, retry_count, max_retries, delay, error_message)
-        update_deposit(tx_hash, status=BridgeDepositStatus.PENDING_RETRY, error_message=error_message, retry_count=retry_count, next_retry_at=next_retry)
+        logger.warning(
+            "Deposit %s marked PENDING_RETRY (attempt %s/%s, next in %ss): %s",
+            tx_hash,
+            retry_count,
+            max_retries,
+            delay,
+            error_message,
+        )
+        update_deposit(
+            tx_hash,
+            status=BridgeDepositStatus.PENDING_RETRY,
+            error_message=error_message,
+            retry_count=retry_count,
+            next_retry_at=next_retry,
+        )
 
     def process_retry_queue(self) -> None:
         """Re-attempt deposits in PENDING_RETRY status whose next_retry_at has passed."""
@@ -222,7 +243,9 @@ class BridgeMonitor:
             update_deposit(tx_hash, status=BridgeDepositStatus.PROCESSING)
             ait_tx_hash = self.submit_ait_transfer(ait_recipient, ait_amount)
             if ait_tx_hash:
-                update_deposit(tx_hash, ait_tx_hash=ait_tx_hash, status=BridgeDepositStatus.COMPLETED, retry_count=d.get("retry_count", 0))
+                update_deposit(
+                    tx_hash, ait_tx_hash=ait_tx_hash, status=BridgeDepositStatus.COMPLETED, retry_count=d.get("retry_count", 0)
+                )
                 logger.info("Retry succeeded for deposit %s", tx_hash)
             else:
                 self._mark_for_retry(tx_hash, "Retry: failed to submit AIT transfer")
