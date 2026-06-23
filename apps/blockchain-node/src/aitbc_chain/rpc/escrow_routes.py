@@ -50,8 +50,8 @@ async def _get_account_nonce(address: str, client: httpx.AsyncClient) -> int:
 
 async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id: str, contract_id: str) -> str | None:
     """Submit an ESCROW_RELEASE transaction to the blockchain so payment is on-chain."""
-    amount_milli = int(amount * 1000)
-    amount_int = amount_milli if amount_milli > 0 else int(amount)
+    amount_seconds = int(amount * 3600)
+    amount_int = amount_seconds if amount_seconds > 0 else int(amount)
     if amount_int <= 0:
         return None
     try:
@@ -68,7 +68,7 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
                 "from": sender,
                 "to": recipient,
                 "amount": amount_int,
-                "fee": max(1, amount_int // 100),
+                "fee": max(36, amount_int // 100),
                 "nonce": nonce,
                 "type": "ESCROW_RELEASE",
                 "chain_id": _CHAIN_ID,
