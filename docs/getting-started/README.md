@@ -26,7 +26,7 @@ If you're setting up a follower node on the island:
 1. [Prerequisites](installation/prerequisites.md) - Check system requirements
 2. [Quick Start](installation/quick-start.md) - Install AITBC
 3. [Blockchain Setup](node/blockchain-setup.md) - Configure blockchain node
-4. [Hermes Messaging](node/hermes-messaging.md) - Set up PING/PONG messaging
+4. [Agent Messaging](node/agent-messaging.md) - Set up PING/PONG messaging
 5. [Coin Requests](node/coin-requests.md) - Request free coins from hub
 6. [Configuration Guide](node/configuration-guide.md) - Configure your node
 
@@ -57,7 +57,7 @@ If you want to join the hub.aitbc.bubuit.net open island:
 2. [Quick Start](installation/quick-start.md) - Install AITBC
 3. [Open Island Testing](open-island.md) - Join the open island
 4. [Blockchain Setup](node/blockchain-setup.md) - Configure for hub connectivity
-5. [Hermes Messaging](node/hermes-messaging.md) - Set up agent communication
+5. [Agent Messaging](node/agent-messaging.md) - Set up agent communication
 
 ## Directory Structure
 
@@ -73,7 +73,7 @@ getting-started/
 │   └── requirements-management.md
 ├── node/ (node onboarding)
 │   ├── blockchain-setup.md
-│   ├── hermes-messaging.md
+│   ├── agent-messaging.md
 │   ├── coin-requests.md
 │   └── configuration-guide.md
 ├── mining/ (GPU mining)

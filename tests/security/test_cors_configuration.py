@@ -118,7 +118,7 @@ def test_no_wildcard_cors_in_coordinator_api_apps():
     coordinator_src = repo_root / "apps" / "coordinator-api" / "src"
 
     files_to_check = [
-        coordinator_src / "app" / "contexts" / "hermes" / "routers" / "hermes_enhanced_app.py",
+        coordinator_src / "app" / "contexts" / "agent_coordination" / "routers" / "agent_performance.py",
         coordinator_src / "app" / "services" / "enterprise_integration" / "api_gateway.py",
         coordinator_src / "app" / "services" / "modality_optimization_app.py",
         coordinator_src / "app" / "services" / "multimodal_app.py",

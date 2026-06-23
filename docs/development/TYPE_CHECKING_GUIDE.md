@@ -13,7 +13,7 @@ This project uses a **gradual type checking approach** to improve code quality w
 - ✅ 163 files with per-file ignores across apps (baseline)
 
 **v0.4.19 Progress:**
-- ✅ hermes: 0 MyPy errors (1 file fixed, removed per-file ignore)
+- ✅ agent: 0 MyPy errors (1 file fixed, removed per-file ignore)
 - ✅ edge: 0 MyPy errors (6 files fixed, removed all per-file ignores)
 - ✅ pool-hub: 0 MyPy errors (16 files fixed, removed all per-file ignores)
 - ✅ wallet: 0 MyPy errors (8 files fixed, removed all per-file ignores)
@@ -25,7 +25,7 @@ This project uses a **gradual type checking approach** to improve code quality w
 - coordinator-api: 81 files (0 MyPy errors with current config)
 - blockchain-node: 31 files (excluded from MyPy checks)
 - agent-management: 1 file (services.py - rate_limit decorator issue)
-- hermes: 0 files ✅ MyPy clean
+- agent: 0 files ✅ MyPy clean
 - edge: 0 files ✅ MyPy clean
 - pool-hub: 0 files ✅ MyPy clean
 - wallet: 0 files ✅ MyPy clean
@@ -146,7 +146,7 @@ Mypy may report errors on valid code. Use explicit `# type: ignore` with error c
 1. **Phase 1** (v0.4.17): Complex files suppressed with per-file ignores ✅ Complete
 2. **Phase 2** (v0.4.18 - v0.4.20): Gradually remove per-file ignores and fix type issues ⚠️ In Progress
    - v0.4.18: coordinator-api and agent-coordinator MyPy clean ✅
-   - v0.4.19: hermes, edge, pool-hub, wallet, and agent-management MyPy clean ✅
+   - v0.4.19: agent, edge, pool-hub, wallet, and agent-management MyPy clean ✅
    - v0.4.20: Address coordinator-api per-file ignores (81 files) or blockchain-node
 3. **Phase 3** (v0.5.0): Remove all per-file ignores and enforce strict type checking 📅 Planned
 

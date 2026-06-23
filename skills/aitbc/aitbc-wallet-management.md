@@ -124,7 +124,7 @@ curl -s http://localhost:8015/wallets/{wallet_name}/balance
 ## Wallet Naming Conventions
 - Use alphanumeric characters, hyphens, and underscores only
 - Avoid special characters and spaces
-- Use descriptive names (e.g., "genesis", "hermes-trainee", "trading-wallet")
+- Use descriptive names (e.g., "genesis", "agent-trainee", "trading-wallet")
 - Max length: 64 characters
 
 ## Security Considerations

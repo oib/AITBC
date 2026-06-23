@@ -3,7 +3,7 @@ Redis-backed state manager for mock router state.
 
 Provides persistent, shared state for:
 - Training jobs (Redis hash + sorted set for ordering)
-- Hermes agents and messages (Redis hash + streams)
+- Agent agents and messages (Redis hash + streams)
 - Swarm configurations (Redis hash)
 
  Falls back to in-memory dict when Redis is unavailable.

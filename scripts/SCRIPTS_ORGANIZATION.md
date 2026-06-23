@@ -46,7 +46,7 @@ System maintenance and cleanup
 ### 📁 deployment/
 Deployment and provisioning
 - `build-release.sh` - Release building automation
-- `deploy_hermes_dao.py` - hermes DAO deployment
+- `deploy_agent_dao.py` - agent DAO deployment
 - `provision_node.sh` - Node provisioning
 - `complete-agent-protocols.sh` - Complete agent protocols deployment
 - `deploy.sh` - General deployment script

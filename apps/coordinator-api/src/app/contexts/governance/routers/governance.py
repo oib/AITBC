@@ -1,6 +1,6 @@
 """
 Decentralized Governance API Endpoints
-REST API for hermes DAO voting, proposals, and governance analytics
+REST API for agent DAO voting, proposals, and governance analytics
 """
 
 from __future__ import annotations

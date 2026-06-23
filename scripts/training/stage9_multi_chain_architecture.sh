@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# hermes AITBC Training - Stage 9: Multi-Chain Architecture
+# agent AITBC Training - Stage 9: Multi-Chain Architecture
 # Cross-chain operations, multi-chain deployment, and interoperability
 # Uses Python-based training setup to execute JSON-defined operations
 

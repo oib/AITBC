@@ -112,7 +112,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except Exception as e:
             logger.warning("Async database initialization failed (non-fatal): %s", e)
 
-        # Initialize Redis state manager (used by hermes, exchange, swarm, training, users routers)
+        # Initialize Redis state manager (used by agent, exchange, swarm, training, users routers)
         # Note: routers call get_instance_sync() at import time, which creates the singleton
         # without calling _init(). We must call _init() here to actually connect to Redis.
         try:
@@ -357,12 +357,12 @@ def create_app() -> FastAPI:
     except Exception as e:
         logger.warning("Failed to include Bounty router: %s", e)
     try:
-        from .routers.hermes import router as hermes_router
+        from .routers.agent import router as messaging_router
 
-        app.include_router(hermes_router, prefix="/v1")
-        optional_routers.append("hermes")
+        app.include_router(messaging_router, prefix="/v1")
+        optional_routers.append("agent")
     except Exception as e:
-        logger.warning("Failed to include Hermes router: %s", e)
+        logger.warning("Failed to include Agent router: %s", e)
 
     # Core routers
     app.include_router(swarm, prefix="/v1")

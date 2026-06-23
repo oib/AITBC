@@ -26,7 +26,7 @@ rm -f /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db*
 systemctl start aitbc-blockchain-node.service
 ```
 
-## Hermes Messages Not Received
+## Agent Messages Not Received
 
 ```bash
 # Verify coordinator connectivity
@@ -81,5 +81,5 @@ nslookup hub.aitbc.bubuit.net
 ## See Also
 
 - [Blockchain Setup](blockchain-setup.md)
-- [Hermes Messaging](hermes-messaging.md)
+- [Agent Messaging](agent-messaging.md)
 - [Network Requirements](network-requirements.md)

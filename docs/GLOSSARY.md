@@ -61,7 +61,7 @@
 
 ## H
 
-- **Hermes**: The AI agent training curriculum and learning system for AITBC agents
+- **Agent**: The AI agent training curriculum and learning system for AITBC agents
 - **HTLC**: Hashed Time-Locked Contract - Smart contract mechanism for atomic cross-chain swaps
 - **Health Check**: Status verification for services and system components
 

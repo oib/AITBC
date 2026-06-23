@@ -3,7 +3,7 @@
 # Source training library
 source "$(dirname "$0")/training_lib.sh"
 
-# hermes AITBC Training - Master Training Launcher
+# agent AITBC Training - Master Training Launcher
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -21,11 +21,11 @@ fi
 set -e
 
 # Training configuration
-TRAINING_PROGRAM="hermes AITBC Mastery Training"
+TRAINING_PROGRAM="agent AITBC Mastery Training"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 STAGE_DIR="$BASE_DIR/docs/agent-training"
-WALLET_NAME="hermes-trainee"
+WALLET_NAME="agent-trainee"
 
 # Initialize logging for master launcher
 CURRENT_LOG=$(init_logging "training_master")
@@ -95,7 +95,7 @@ show_overview() {
     echo -e "${BOLD}🎯 Training Objectives:${NC}"
     echo "• Master AITBC CLI operations on both nodes (aitbc & aitbc1)"
     echo "• Progress from beginner to expert level operations"
-    echo "• Achieve hermes AITBC Master certification"
+    echo "• Achieve agent AITBC Master certification"
     echo
 
     echo -e "${BOLD}📋 Training Stages:${NC}"
@@ -123,7 +123,7 @@ show_overview() {
     echo
 
     echo -e "${BOLD}🎓 Certification:${NC}"
-    echo "• hermes AITBC Master upon successful completion"
+    echo "• agent AITBC Master upon successful completion"
     echo "• Requires 95%+ success rate on final exam"
     echo
 
@@ -378,7 +378,7 @@ display_badge() {
 }
 
 # Capture learnings - validates and reports learnings file
-# Skill update is handled by the Hermes agent after script completion
+# Skill update is handled by the Agent agent after script completion
 capture_learnings() {
     local stage_num=$1
     local learnings_file="$STATE_DIR/learnings_stage${stage_num}.json"
@@ -400,7 +400,7 @@ capture_learnings() {
     # Check if skill update is enabled (just for logging)
     if [ "$ENABLE_SKILL_UPDATE" = "true" ]; then
         log_info "Learnings file ready for skill update: $learnings_file"
-        log_info "Skill update will be handled by Hermes agent after script completion"
+        log_info "Skill update will be handled by Agent agent after script completion"
     else
         log_info "Skill update disabled, learnings saved to: $learnings_file"
     fi
@@ -788,7 +788,7 @@ show_menu() {
 run_complete_training() {
     print_header "Complete Training Program"
 
-    print_status "Starting complete hermes AITBC Mastery Training..."
+    print_status "Starting complete agent AITBC Mastery Training..."
     log "Starting complete training program"
 
     local completed_stages=0
@@ -834,7 +834,7 @@ run_individual_stage() {
     echo "3. AI Operations Mastery"
     echo "4. Marketplace & Economics"
     echo "5. Expert Operations & Automation"
-    echo "6. hermes Master Agent Development"
+    echo "6. agent Master Agent Development"
     echo "7. Cross-Node Agent Training & Multi-Agent Orchestration"
     echo
     echo -n "Select stage [1-7]: "
@@ -1023,7 +1023,7 @@ show_training_summary() {
     if [ $completed_stages -eq $TOTAL_STAGES ]; then
         echo -e "${GREEN}🎉 CONGRATULATIONS! TRAINING COMPLETED!${NC}"
         echo
-        echo -e "${BOLD}🎓 hermes AITBC Master Status:${NC}"
+        echo -e "${BOLD}🎓 agent AITBC Master Status:${NC}"
         echo "✅ All 5 training stages completed"
         echo "✅ Expert-level CLI proficiency achieved"
         echo "✅ Multi-node operations mastered"
@@ -1034,7 +1034,7 @@ show_training_summary() {
         echo "1. Review all training logs for detailed performance"
         echo "2. Practice advanced operations regularly"
         echo "3. Implement custom automation solutions"
-        echo "4. Train other hermes agents"
+        echo "4. Train other agent agents"
         echo "5. Monitor and optimize system performance"
     else
         echo -e "${YELLOW}Training In Progress${NC}"
@@ -1062,7 +1062,7 @@ main() {
     mkdir -p "$CERT_DIR"
 
     # Start logging
-    log "hermes AITBC Mastery Training Program started"
+    log "agent AITBC Mastery Training Program started"
 
     # Show overview
     show_overview
@@ -1141,7 +1141,7 @@ case "${1:-}" in
             esac
             ;;
         --help|-h)
-            echo "hermes AITBC Mastery Training Launcher"
+            echo "agent AITBC Mastery Training Launcher"
             echo
             echo "Usage: $0 [OPTION]"
             echo
@@ -1151,7 +1151,7 @@ case "${1:-}" in
             echo "  --stage N     Run specific stage (0-10)"
             echo "  --complete    Run complete training program"
             echo "  --playground  Enter training playground mode"
-            echo "  --with-skill-update  Enable skill update via hermes-tools"
+            echo "  --with-skill-update  Enable skill update via agent-tools"
             echo "  --help, -h    Show this help message"
             echo
             echo "Without arguments, starts interactive menu"

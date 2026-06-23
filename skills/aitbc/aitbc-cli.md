@@ -6,7 +6,7 @@ category: software-development
 
 # AITBC CLI Tool Skill
 
-Complete guide for Hermes agent to use the AITBC CLI tool (`/opt/aitbc/aitbc-cli`) for blockchain operations, wallet management, marketplace, AI jobs, mining, and simulations. **This skill ships with AITBC software repository.**
+Complete guide for Agent agent to use the AITBC CLI tool (`/opt/aitbc/aitbc-cli`) for blockchain operations, wallet management, marketplace, AI jobs, mining, and simulations. **This skill ships with AITBC software repository.**
 
 ## Trigger Conditions
 
@@ -366,16 +366,16 @@ python3 cli/unified_cli.py agent register \
 
 ---
 
-### 8. Hermes Training Operations
+### 8. Agent Training Operations
 
-#### Deploy Hermes Agent
+#### Deploy Agent Agent
 ```bash
-./aitbc-cli hermes deploy --environment [dev|prod]
+./aitbc-cli agent deploy --environment [dev|prod]
 ```
 
-#### Monitor Hermes Agent
+#### Monitor Agent Agent
 ```bash
-./aitbc-cli hermes monitor --agent-id <agent_id> --metrics [all|performance|cost]
+./aitbc-cli agent monitor --agent-id <agent_id> --metrics [all|performance|cost]
 ```
 
 ---

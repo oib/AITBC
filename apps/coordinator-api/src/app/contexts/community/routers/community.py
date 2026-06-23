@@ -1,6 +1,6 @@
 """
 Community and Developer Ecosystem API Endpoints
-REST API for managing hermes developer profiles, SDKs, solutions, and hackathons
+REST API for managing agent developer profiles, SDKs, solutions, and hackathons
 """
 
 from typing import Annotated, Any
@@ -78,7 +78,7 @@ class HackathonCreateRequest(BaseModel):
 async def create_developer_profile(
     request: DeveloperProfileCreate, request_http: Request, session: Annotated[Session, Depends(get_session)]
 ) -> DeveloperProfile:
-    """Register a new developer in the hermes ecosystem"""
+    """Register a new developer in the agent ecosystem"""
     service = DeveloperEcosystemService(session)  # type: ignore[arg-type]
     try:
         profile = await service.create_developer_profile(
@@ -106,7 +106,7 @@ async def get_developer_profile(
 @router.get("/sdk/latest")
 @rate_limit(rate=100, per=60)
 async def get_latest_sdk(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
-    """Get information about the latest hermes SDK releases"""
+    """Get information about the latest agent SDK releases"""
     service = DeveloperEcosystemService(session)  # type: ignore[arg-type]
     return await service.get_sdk_release_info()
 

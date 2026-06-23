@@ -36,7 +36,7 @@ declare -A SERVICES=(
     ["aitbc-modality-optimization"]="Modality Optimization Service"
     ["aitbc-adaptive-learning"]="Adaptive Learning Service"
     ["aitbc-marketplace-enhanced"]="Enhanced Marketplace Service"
-    ["aitbc-hermes-enhanced"]="hermes Enhanced Service"
+    ["aitbc-agent-enhanced"]="agent Enhanced Service"
 )
 
 # Show usage

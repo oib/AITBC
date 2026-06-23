@@ -10,7 +10,7 @@ This document provides network security recommendations for AITBC deployments. T
 AITBC services run on the following ports:
 - **8202** - Blockchain Node RPC
 - **8203** - Coordinator API
-- **8105** - Hermes Service
+- **8105** - Agent Service
 - **7070** - P2P Bind Port
 - **5173** - Marketplace Web UI (development only)
 
@@ -33,7 +33,7 @@ sudo ufw allow 22/tcp
 # Allow AITBC services
 sudo ufw allow 8202/tcp  # Blockchain Node RPC
 sudo ufw allow 8203/tcp  # Coordinator API
-sudo ufw allow 8105/tcp  # Hermes Service
+sudo ufw allow 8105/tcp  # Agent Service
 sudo ufw allow 7070/tcp  # P2P Bind Port
 
 # Enable firewall
@@ -54,7 +54,7 @@ sudo ufw allow from 10.0.0.0/8 to any port 8202
 # Allow Coordinator API from application servers
 sudo ufw allow from 10.0.1.0/24 to any port 8203
 
-# Allow Hermes Service from agent servers
+# Allow Agent Service from agent servers
 sudo ufw allow from 10.0.2.0/24 to any port 8105
 
 # Allow P2P from blockchain network
@@ -91,7 +91,7 @@ AITBC services should be configured with TLS in production:
 - Configure client certificate authentication
 - Disable HTTP in production
 
-**Hermes Service (8105):**
+**Agent Service (8105):**
 - Enable TLS for agent communication
 - Use mutual TLS for agent authentication
 
@@ -182,7 +182,7 @@ Blockchain Network (10.0.0.0/8)
 └── RPC Endpoints
 
 Agent Network (10.0.2.0/24)
-├── Hermes Service
+├── Agent Service
 ├── Agent Workers
 └── GPU Providers
 ```

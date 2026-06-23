@@ -35,7 +35,7 @@ This document describes the service isolation configuration implemented for AITB
 | **aitbc-blockchain-event-bridge.service** | aitbc-public | ✅ Running | 0.0.0.0:8205 | Event bridge |
 | **aitbc-ffmpeg.service** | aitbc-public | ✅ Running | 0.0.0.0:8230 | FFmpeg video processing |
 | **aitbc-marketplace.service** | aitbc-internal | ✅ Running | 127.0.0.1:8102 | Marketplace service |
-| **aitbc-hermes.service** | aitbc-internal | ✅ Running | 127.0.0.1:8103 | Hermes messaging |
+| **aitbc-agent.service** | aitbc-internal | ✅ Running | 127.0.0.1:8107 | Agent messaging |
 | **aitbc-agent-coordinator.service** | aitbc-internal | ✅ Running | 127.0.0.1:8107 | Agent coordinator |
 | **aitbc-coordinator-api.service** | aitbc-internal | ✅ Running | 127.0.0.1:8203 | Coordinator API |
 | **aitbc-exchange.service** | aitbc-internal | ✅ Running | 127.0.0.1:8106 | Exchange service |
@@ -96,7 +96,7 @@ WorkingDirectory=/opt/aitbc/apps/<service>
 
 **Services:**
 - **aitbc-marketplace.service** - Marketplace (127.0.0.1:8102)
-- **aitbc-hermes.service** - Hermes messaging (127.0.0.1:8103)
+- **aitbc-agent.service** - Agent messaging (127.0.0.1:8107)
 - **aitbc-agent-coordinator.service** - Agent coordinator (127.0.0.1:8107)
 
 **Service File Configuration:**
@@ -110,7 +110,7 @@ WorkingDirectory=/opt/aitbc/apps/<service>
 
 **File Permissions:**
 - `/opt/aitbc/apps/marketplace`: `aitbc-internal:aitbc-services 750`
-- `/opt/aitbc/apps/hermes`: `aitbc-internal:aitbc-services 750`
+- `/opt/aitbc/apps/agent`: `aitbc-internal:aitbc-services 750`
 - `/opt/aitbc/apps/agent-coordinator`: `aitbc-internal:aitbc-services 750`
 
 **Status:** ✅ All running as aitbc-internal user
@@ -198,7 +198,7 @@ aitbc-p+  149310  /opt/aitbc/venv/bin/python -m aitbc_edge.main
 aitbc-p+  149746  /opt/aitbc/venv/bin/python main.py (whisper)
 
 # Internal services (aitbc-internal)
-aitbc-i+  147618  /opt/aitbc/venv/bin/python -m uvicorn hermes_service.main:app
+aitbc-i+  147618  /opt/aitbc/venv/bin/python -m uvicorn agent_service.main:app
 aitbc-i+  147619  /opt/aitbc/venv/bin/python -m marketplace_service.main
 aitbc-i+  147621  /opt/aitbc/venv/bin/python -m uvicorn app.main:app (agent-coordinator)
 
@@ -219,7 +219,7 @@ All isolated services are responding correctly:
 - ✅ Edge API (8111): healthy
 - ✅ Whisper (8110): healthy
 - ✅ Marketplace (8102): healthy
-- ✅ Hermes (8103): healthy
+- ✅ Agent (8107): healthy
 - ✅ Agent Coordinator (8107): healthy
 - ✅ Blockchain RPC (8202): OK
 - ✅ GPU Service (8101): healthy
@@ -229,7 +229,7 @@ All isolated services are responding correctly:
 
 **Current User Distribution:**
 - **aitbc-public**: 6 services (API Gateway, Edge, Whisper, AI, Event Bridge, FFmpeg)
-- **aitbc-internal**: 10 services (Marketplace, Hermes, Agent Coordinator, Coordinator API, Exchange, Governance, Trading, Learning, Modality, Multimodal, Plugin, Monitoring)
+- **aitbc-internal**: 10 services (Marketplace, Agent, Agent Coordinator, Coordinator API, Exchange, Governance, Trading, Learning, Modality, Multimodal, Plugin, Monitoring)
 - **aitbc-blockchain**: 3 services (Node, P2P, RPC)
 - **aitbc-gpu**: 1 service (GPU)
 - **aitbc-wallet**: 1 service (Wallet)

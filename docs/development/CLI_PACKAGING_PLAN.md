@@ -44,7 +44,7 @@ cli/
 │   │   ├── mining.py
 │   │   ├── system.py
 │   │   ├── agent.py
-│   │   ├── hermes.py
+│   │   ├── agent.py
 │   │   ├── workflow.py
 │   │   ├── resource.py
 │   │   ├── simulate.py
@@ -93,7 +93,7 @@ cli/
 │       │   ├── mining.py
 │       │   ├── system.py
 │       │   ├── agent.py
-│       │   ├── hermes.py
+│       │   ├── agent.py
 │       │   ├── workflow.py
 │       │   ├── resource.py
 │       │   ├── simulate.py
@@ -176,7 +176,7 @@ pip install -e .
    import click
    from .commands import (
        wallet, blockchain, network, market, ai, mining,
-       system, agent, hermes, workflow, resource, simulate,
+       system, agent, agent, workflow, resource, simulate,
        node, exchange, agent_sdk
    )
 
@@ -195,7 +195,7 @@ pip install -e .
     cli.add_command(mining.mining)
     cli.add_command(system.system)
     cli.add_command(agent.agent)
-    cli.add_command(hermes.hermes)
+    cli.add_command(agent.agent)
     cli.add_command(workflow.workflow)
     cli.add_command(resource.resource)
     cli.add_command(simulate.simulate)

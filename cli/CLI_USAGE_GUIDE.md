@@ -65,7 +65,7 @@ The CLI registers 50+ top-level command groups in `aitbc_cli/core/main.py`. Run 
 - `ai` — AI compute jobs (submit, jobs, status, cancel, results, stats, service)
 - `agent` — agent SDK & coordinator (create, register, list, status, capabilities, submit, jobs, workflow, config-*)
 - `agent-comm` — cross-chain agent communication
-- `hermes` — Agent messaging via Agent Coordinator (ping, send, receive, peers, request-coins)
+- `agent-msg` — Agent messaging via Agent Coordinator (ping, send, receive, peers, request-coins)
 - `workflow` — workflow automation
 - `edge` — edge API (island, GPU, database, serve)
 
@@ -163,19 +163,19 @@ aitbc network heartbeat
 aitbc sync bulk --leader-url http://hub.aitbc.bubuit.net:8202
 ```
 
-### 6. Hermes Ping/Pong (Follower ↔ Hub)
+### 6. Agent Ping/Pong (Follower ↔ Hub)
 
 ```bash
 # Ping the hub coordinator and wait for PONG
-aitbc hermes ping \
+aitbc agent-msg ping \
   --agent hub-coordinator \
   --sender my-follower-agent \
-  --coordinator-url http://hub.aitbc.bubuit.net:8203 \
+  --coordinator-url http://hub.aitbc.bubuit.net:8107 \
   --timeout 10 \
   --interval 0.5
 ```
 
-Posts a `PING` to `/v1/hermes/messages/send` and polls `/v1/hermes/messages/{sender}` for the `PONG` reply.
+Sends a `PING` to `/api/v1/agent/messages/send` and polls `/api/v1/agent/messages/{sender}` for the `PONG` reply.
 
 ### 7. AI Job Submission
 

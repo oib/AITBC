@@ -47,7 +47,7 @@ cli/
 │   │   ├── compliance.py           config.py            contract.py
 │   │   ├── cross_chain.py          economics.py         edge.py
 │   │   ├── explorer.py             genesis.py           governance.py
-│   │   ├── gpu_marketplace.py      gpu_resources.py     hermes.py
+│   │   ├── gpu_marketplace.py      gpu_resources.py     agent.py
 │   │   ├── marketplace_cmd.py   messaging.py
 │   │   ├── mining.py               monitor.py           network.py
 │   │   ├── node.py                 operations.py        performance.py
@@ -147,7 +147,7 @@ cli/
 This is the canonical package installed by `pip install -e .`. The Click entry point is `aitbc_cli.core.main:main`, which registers all 50+ command groups.
 
 ### `aitbc_cli/commands/` — command groups
-Most command groups are single-file modules (e.g. `network.py`, `hermes.py`). Four groups have been refactored into subpackages for modularity:
+Most command groups are single-file modules (e.g. `network.py`, `agent.py`). Four groups have been refactored into subpackages for modularity:
 - `exchange/` — bridge, payments, trading, wallet
 - `market/` — escrow, exchange, jobs, offers, ratings
 - `node/` — bridge, chain, hub, island, main, monitor

@@ -22,7 +22,7 @@
 - **🚀 [Blockchain Documentation](blockchain/) - Deep technical topics
 - **📁 [Project Documentation](project/README.md)** - Project-level guides and completion tracking
 - **🧭 [Master Index](MASTER_INDEX.md)** - Complete catalog of all documentation
-- **🎭 [Agent Scenarios](scenarios/README.md)** - hermes agent scenarios for all AITBC features
+- **🎭 [Agent Scenarios](scenarios/README.md)** - agent agent scenarios for all AITBC features
 
 ## 🎉 **PROJECT STATUS: Core Implementation Complete - May 11, 2026**
 
@@ -52,7 +52,7 @@
 ### 🚀 **Service Status Update (June 5, 2026)**
 
 #### ✅ **All Core Services Operational**
-- **Coordinator API**: 🟢 Running on port 8203 with Hermes endpoints
+- **Coordinator API**: 🟢 Running on port 8203 with Agent endpoints
 - **AgentDaemon**: 🟢 Successfully polling every 10 seconds
 - **Marketplace Service**: 🟢 Database schema updated and healthy
 - **Dependencies**: 🟢 All required packages installed and functional
@@ -168,7 +168,7 @@ For new users, developers getting started, and basic operational tasks.
 - [`reports/github-resolution/`](./reports/github-resolution/) - GitHub PR resolution and updates
 
 ### 🤖 **Agent SDK Documentation**
-For hermes agents wanting to communicate and collaborate on the blockchain.
+For agent agents wanting to communicate and collaborate on the blockchain.
 
 - **[Agent Communication Guide](agent-sdk/AGENT_COMMUNICATION_GUIDE.md)** - Comprehensive guide for agent communication
 - **[Quick Start Guide](agent-sdk/QUICK_START_GUIDE.md)** - Get started in 5 minutes
@@ -276,7 +276,7 @@ Files are organized with descriptive names based on their content and purpose.
 - **👛 CLI Technical**: [CLI](cli/README.md) - CLI installation and usage notes
 - **🤖 Agent Integration Assets**: [agents/](agents/) - Agent API spec and manifest assets
 - **📜 Contracts**: [Contracts](contracts/) - ZK verification and contract docs
-- **🧩 hermes**: [hermes](hermes/) - hermes agent integration and coordination docs
+- **🧩 agent**: [agent](agent/) - agent agent integration and coordination docs
 - **🌐 Website**: [Website](website/) - Rendered documentation site assets
 - **🧪 Testing**: [Testing](testing/README.md) - Test suite documentation and validation procedures
 
@@ -447,7 +447,7 @@ Documentation about the documentation system itself
 | [📋 Sorting Summary](about/DOCUMENTATION_SORTING_SUMMARY.md) | Documentation sorting and organization |
 
 **🤖 [Agent SDK Documentation](agent-sdk/)**
-Complete documentation for hermes agent communication
+Complete documentation for agent agent communication
 
 | File | Purpose |
 |------|---------|
@@ -465,7 +465,7 @@ Canonical agent API spec and manifest bundle
 | [🧾 Agent Manifest](agents/agent-manifest.json) | Canonical agent types, prerequisites, and quick commands |
 
 **🎭 [Agent Scenarios](scenarios/)**
-45 hermes agent scenarios covering all AITBC features
+45 agent agent scenarios covering all AITBC features
 
 | Level | Scenarios | Content |
 |-------|-----------|---------|
@@ -526,7 +526,7 @@ Project tracking and completion documentation (now in archive)
 | [📖 Reference](reference/README.md) | Compact lookup and reference docs | Active |
 | [📋 Releases](releases/README.md) | Release notes and version history | Active |
 | [📊 Reports](reports/README.md) | Status, quality, and completion reports | Active |
-| [🧩 hermes](hermes/README.md) | hermes agent integration documentation | Active |
+| [🧩 agent](agent/README.md) | agent agent integration documentation | Active |
 | [🌐 Website](website/) | Rendered documentation site assets | Active |
 | [🔄 Workflows](workflows/README.md) | Documentation workflow outcomes | Active |
 | [👥 Project](project/README.md) | Project information and coordination | Active |

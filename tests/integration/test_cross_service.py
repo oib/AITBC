@@ -10,8 +10,8 @@ import pytest
 class TestCrossServiceFlows:
     """Test cross-service integration flows."""
 
-    def test_coordinator_to_hermes_flow(self) -> None:
-        """Test coordinator-api to hermes flow."""
+    def test_coordinator_to_agent_flow(self) -> None:
+        """Test coordinator-api to agent coordinator flow."""
 
         # Test that the network client properly propagates correlation IDs
         pass

@@ -19,7 +19,7 @@ After repo restructure, systemd service files and wrapper scripts moved from `sy
 | Blockchain RPC | `apps/blockchain-node/aitbc-blockchain-rpc.service` |
 | Blockchain P2P | `apps/blockchain-node/aitbc-blockchain-p2p.service` |
 | Blockchain Sync | `apps/blockchain-node/aitbc-blockchain-sync.service` |
-| Hermes | `apps/hermes/aitbc-hermes.service` |
+| Agent | `apps/agent/aitbc-agent.service` |
 | Explorer | `apps/blockchain-explorer/aitbc-explorer.service` |
 | Exchange | `apps/exchange/aitbc-exchange-api.service` |
 | Wallet | `apps/wallet/aitbc-wallet.service` |

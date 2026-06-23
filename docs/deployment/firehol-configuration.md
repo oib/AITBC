@@ -62,7 +62,7 @@ router br_to_host inface incusbr0 outface any
 | 8102 | Marketplace Service | 127.0.0.1 | Blocked by service binding |
 | 8103 | Trading Service | 127.0.0.1 | Blocked by service binding |
 | 8104 | Governance Service | 127.0.0.1 | Blocked by service binding |
-| 8105 | Hermes Service | 127.0.0.1 | Blocked by service binding |
+| 8105 | Agent Service | 127.0.0.1 | Blocked by service binding |
 
 **Note**: Internal services are protected by binding to localhost (127.0.0.1), so they are not accessible from external networks even if firewall rules are misconfigured.
 

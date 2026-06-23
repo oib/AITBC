@@ -1,6 +1,6 @@
 """
 Community and Developer Ecosystem Models
-Database models for hermes agent community, third-party solutions, and innovation labs
+Database models for agent agent community, third-party solutions, and innovation labs
 """
 
 import uuid
@@ -44,7 +44,7 @@ class HackathonStatus(StrEnum):
 
 
 class DeveloperProfile(SQLModel, table=True):
-    """Profile for a developer in the hermes community"""
+    """Profile for a developer in the agent community"""
 
     __tablename__ = "developer_profiles"
 

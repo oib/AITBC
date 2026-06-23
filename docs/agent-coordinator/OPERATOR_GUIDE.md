@@ -68,7 +68,7 @@ systemctl enable aitbc-agent-coordinator.service
 redis-cli
 > KEYS agent:*
 > SMEMBERS agents:active
-> HGETALL agent:hermes-agent
+> HGETALL agent:agent-agent
 ```
 
 ## Agent Registration Procedures

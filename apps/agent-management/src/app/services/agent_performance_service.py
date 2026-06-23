@@ -1,6 +1,6 @@
 """
 Advanced Agent Performance Service
-Implements meta-learning, resource optimization, and performance enhancement for hermes agents
+Implements meta-learning, resource optimization, and performance enhancement for agents
 """
 
 import asyncio
@@ -664,7 +664,7 @@ class AgentPerformanceService:
         self.performance_optimizer = PerformanceOptimizer()
 
     async def create_performance_profile(
-        self, agent_id: str, agent_type: str = "hermes", initial_metrics: dict[str, float] | None = None
+        self, agent_id: str, agent_type: str = "agent", initial_metrics: dict[str, float] | None = None
     ) -> AgentPerformanceProfile:
         """Create comprehensive agent performance profile"""
         profile_id = f"perf_{uuid4().hex[:8]}"
@@ -694,7 +694,7 @@ class AgentPerformanceService:
             select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)
         ).first()
         if not profile:
-            profile = await self.create_performance_profile(agent_id, "hermes", new_metrics)
+            profile = await self.create_performance_profile(agent_id, "agent", new_metrics)
         else:
             profile.performance_metrics.update(new_metrics)
             history_entry = {"timestamp": datetime.now(UTC).isoformat(), "metrics": new_metrics, "context": task_context or {}}

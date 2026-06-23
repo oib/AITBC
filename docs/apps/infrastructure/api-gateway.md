@@ -32,7 +32,7 @@ The gateway routes requests to the following services:
 |---------|------|--------|-------------|
 | GPU Service | 8101 | `/gpu/*` | GPU resource management |
 | Marketplace Service | 8102 | `/marketplace/*` | GPU marketplace |
-| Agent Service | 8103 | `/agent/*` | Agent operations |
+| Agent Service | 8107 | `/agent/*` | Agent operations |
 | Trading Service | 8104 | `/trading/*` | Trading operations |
 | Governance Service | 8105 | `/governance/*` | Governance operations |
 | Coordinator API | 8203 | `/coordinator/*` | Coordinator API (default) |

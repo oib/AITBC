@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "blockchain-event-bridge"
 version = "0.1.0"
-description = "Bridge between AITBC blockchain events and hermes agent triggers"
+description = "Bridge between AITBC blockchain events and agent triggers"
 authors = ["AITBC Team"]
 readme = "README.md"
 

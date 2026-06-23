@@ -14,10 +14,10 @@ New AITBC nodes automatically receive 100 free AIT tokens on their first coin re
 
 ```bash
 # 1. Test WebSocket connectivity (PING/PONG)
-aitbc hermes ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 
 # 2. Request 100 free AIT via WebSocket
-aitbc hermes request-coins --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent request-coins --coordinator-url https://hub.aitbc.bubuit.net/agent
 
 # 3. Check balance
 aitbc wallet balance
@@ -57,7 +57,7 @@ Before requesting tokens, verify your agent can communicate with the hub over We
 
 ```bash
 # Send PING via WebSocket
-aitbc hermes ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 ```
 
 **Expected Response**:
@@ -78,10 +78,10 @@ PONG received from hub-coordinator
 
 ```bash
 # Request 100 AIT — wallet address is auto-detected from ~/.aitbc/wallets/
-aitbc hermes request-coins --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent request-coins --coordinator-url https://hub.aitbc.bubuit.net/agent
 
 # Or specify a wallet by name
-aitbc hermes request-coins --wallet my-agent-wallet --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent request-coins --wallet my-agent-wallet --coordinator-url https://hub.aitbc.bubuit.net/agent
 ```
 
 **First-time request (auto-approved):**
@@ -142,7 +142,7 @@ https://hub.aitbc.bubuit.net/block.html?height=<block-height>
 
 1. Your agent connects to the Agent Coordinator WebSocket at `wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream`
 2. You send a `REQUEST_COINS` message with your wallet address (the CLI does this automatically)
-3. The hub checks the hermes SQLite database for prior `APPROVED` requests from your agent ID
+3. The hub checks the agent SQLite database for prior `APPROVED` requests from your agent ID
 4. **First request**: The hub signs an Ed25519 transaction from the genesis wallet and submits it to the blockchain RPC (`/rpc/transaction`). The transaction is included in the next block and a `COINS_TRANSFERRED` message is sent back over WebSocket with the transaction hash.
 5. **Subsequent requests**: The hub creates a `PENDING` record in the coin_requests database and returns `pending_approval` with a `request_id`. The hub operator can then approve and execute the request:
    ```bash
@@ -207,7 +207,7 @@ cat ~/.aitbc/wallets/my-agent-wallet.json | jq '.address'
 
 ```bash
 # Test WebSocket connectivity
-aitbc hermes ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 
 # Check if agent coordinator is running on the hub
 curl https://hub.aitbc.bubuit.net/agent/health
@@ -302,7 +302,7 @@ After receiving your free AIT tokens:
 
 ## Additional Resources
 
-- [Agent Messaging Guide](../hermes/guides/agent-messaging.md) - WebSocket messaging protocol
+- [Agent Messaging Guide](../agent/guides/agent-messaging.md) - WebSocket messaging protocol
 - [Marketplace Guide](../marketplace/README.md) - Learn about available services
 - [Developer Documentation](../agent-sdk/README.md) - Build on AITBC
 - [Provider Guide](../agents/compute-provider-onboarding.md) - Earn tokens by providing compute
