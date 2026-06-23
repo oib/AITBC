@@ -229,14 +229,14 @@ def send(
     tx_hash = _send_transaction_impl(from_wallet, to_address, amount, fee, password, rpc_url=rpc_url)
     if tx_hash:
         success(f"Transaction sent: {tx_hash}")
-        
+
         # Optionally check status via Explorer API
         if use_explorer:
             try:
                 config = get_config()
                 http_client = AITBCHTTPClient(base_url=config.explorer_api_url, timeout=30)
                 result = http_client.get(f"/api/transactions/by-hash/{tx_hash}")
-                success(f"Transaction status (via Explorer):")
+                success("Transaction status (via Explorer):")
                 click.echo(json.dumps(result, indent=2))
             except NetworkError as e:
                 error(f"Explorer API unavailable: {e}")
@@ -420,7 +420,7 @@ def estimate_fee(from_wallet: str, to_address: str, amount: float, rpc_url: str 
             "sender": "",
             "recipient": to_address,
             "value": int(amount),
-            "fee": 10,
+            "fee": 36,
             "nonce": 0,
             "type": "transfer",
             "payload": {},
@@ -429,13 +429,13 @@ def estimate_fee(from_wallet: str, to_address: str, amount: float, rpc_url: str 
         try:
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
             fee_data = http_client.post("/rpc/estimateFee", json=test_tx)
-            estimated_fee = fee_data.get("estimated_fee", 10.0)
+            estimated_fee = fee_data.get("estimated_fee", 36.0)
             success(f"Estimated fee: {estimated_fee} AIT")
         except NetworkError:
-            success("Estimated fee: 10.0 AIT (default)")
+            success("Estimated fee: 36.0 AIT (default)")
     except Exception as e:
         error(f"Error estimating fee: {e}")
-        success("Estimated fee: 10.0 AIT (default)")
+        success("Estimated fee: 36.0 AIT (default)")
 
 
 @transactions.command()

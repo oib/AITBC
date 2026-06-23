@@ -63,7 +63,7 @@ class TransactionService:
             self.logger.error("Error getting balance: %s", e)
         return 0
 
-    def generate_signed_transaction(self, to_address: str, amount: int, fee: int = 10) -> dict[str, Any] | None:
+    def generate_signed_transaction(self, to_address: str, amount: int, fee: int = 36) -> dict[str, Any] | None:
         """
         Generate a signed blockchain transaction.
 

@@ -326,8 +326,8 @@ async def hello_handler(
 
 
 # ── Coin transfer constants ──────────────────────────────────
-INITIAL_COIN_AMOUNT = 100  # AIT granted automatically on first request per node
-TRANSACTION_FEE = 10  # blockchain transaction fee (matches RPC default)
+INITIAL_COIN_AMOUNT = 360000  # AIT granted automatically on first request per node (100 AIT = 360000 seconds)
+TRANSACTION_FEE = 36  # blockchain transaction fee (matches RPC default, 0.01 AIT = 36 seconds)
 
 
 def _has_received_initial_coins(sender: str) -> bool:
