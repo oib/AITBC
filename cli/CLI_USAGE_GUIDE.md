@@ -65,7 +65,7 @@ The CLI registers 50+ top-level command groups in `aitbc_cli/core/main.py`. Run 
 - `ai` — AI compute jobs (submit, jobs, status, cancel, results, stats, service)
 - `agent` — agent SDK & coordinator (create, register, list, status, capabilities, submit, jobs, workflow, config-*)
 - `agent-comm` — cross-chain agent communication
-- `hermes` — Hermes agent messaging (ping, send, receive, peers, request-coins)
+- `hermes` — Agent messaging via Agent Coordinator (ping, send, receive, peers, request-coins)
 - `workflow` — workflow automation
 - `edge` — edge API (island, GPU, database, serve)
 

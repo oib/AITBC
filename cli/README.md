@@ -74,7 +74,7 @@ The CLI exposes 50+ top-level command groups registered in `aitbc_cli/core/main.
 | `agent` | Agent SDK & coordinator | `create`, `register`, `list`, `status`, `capabilities`, `submit`, `jobs`, `workflow`, `config-*` |
 | `agent-comm` | Cross-chain agent communication | `register`, `send`, `receive` |
 | `mining` | Mining operations | `start`, `stop`, `status`, `list` |
-| `hermes` | Hermes agent messaging | `ping`, `send`, `receive`, `peers`, `request-coins` |
+| `hermes` | Agent messaging via Agent Coordinator (8107) | `ping`, `send`, `receive`, `peers`, `request-coins` |
 | `node` | Federated mesh node management | `add`, `list`, `info`, `remove`, `test`, `bridge`, `chain`, `hub`, `island` |
 | `exchange` | Exchange integration & trading | `register`, `create-pair`, `add-liquidity`, `start-trading`, `status`, `monitor` |
 | `exchange-island` | AIT/BTC/ETH trading on islands | (island exchange ops) |
