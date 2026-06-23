@@ -18,6 +18,7 @@ If you're new to AITBC and want to get started quickly:
 2. [Quick Start](installation/quick-start.md) - One-command installation
 3. [CLI Guide](overview/cli-guide.md) - Learn the CLI commands
 4. [Introduction](overview/introduction.md) - Understand what AITBC is
+5. [Unit System](unit-system.md) - Learn about AIT and compute-seconds
 
 ### Node Operator Path
 
@@ -88,6 +89,8 @@ getting-started/
     ├── introduction.md
     ├── cli-guide.md
     └── enhanced-services.md
+├── ait-value-model.md
+└── unit-system.md
 ```
 
 ## Additional Resources
