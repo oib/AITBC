@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import WebSocket, WebSocketDisconnect
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.crypto import TransactionService
 
 logger = get_logger(__name__)
 
@@ -335,44 +336,6 @@ def _has_received_initial_coins(sender: str) -> bool:
         return False
 
 
-def _generate_signed_transaction(to_address: str, amount: int) -> dict[str, Any] | None:
-    """Generate a signed blockchain transfer transaction from genesis wallet."""
-    genesis_private_key = os.getenv("GENESIS_PRIVATE_KEY")
-    genesis_address = os.getenv("GENESIS_ADDRESS")
-    if not genesis_private_key or not genesis_address:
-        logger.error("GENESIS_PRIVATE_KEY or GENESIS_ADDRESS not set — cannot sign transaction")
-        return None
-
-    try:
-        from cryptography.hazmat.primitives.asymmetric import ed25519
-
-        rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
-        import httpx
-
-        # Get current nonce
-        resp = httpx.get(f"{rpc_url}/rpc/account/{genesis_address}", timeout=5)
-        resp.raise_for_status()
-        nonce = int(resp.json().get("nonce", 0))
-
-        private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(genesis_private_key))
-        transaction = {
-            "from": genesis_address,
-            "to": to_address,
-            "amount": amount,
-            "nonce": nonce,
-            "fee": TRANSACTION_FEE,
-            "type": "TRANSFER",
-        }
-        message = json.dumps(transaction, sort_keys=True).encode()
-        signature = private_key.sign(message)
-        transaction["signature"] = signature.hex()
-        logger.info("Signed transaction: %s AIT to %s (nonce=%s)", amount, to_address, nonce)
-        return transaction
-    except Exception as e:
-        logger.error("Failed to generate signed transaction: %s", e)
-        return None
-
-
 def _submit_transaction(transaction: dict[str, Any]) -> dict[str, Any] | None:
     """Submit a signed transaction to the blockchain RPC."""
     try:
@@ -478,7 +441,7 @@ async def request_coins_handler(
     logger.info("REQUEST_COINS received from %s: %s", sender, content)
     try:
         if "{" in content:
-            json_part = content[content.index("{"):]
+            json_part = content[content.index("{") :]
             data = json.loads(json_part)
             amount = data.get("amount", 0)
             wallet_address = data.get("wallet_address", "")
@@ -506,7 +469,7 @@ async def request_coins_handler(
         grant_amount = INITIAL_COIN_AMOUNT
         logger.info("First-time coin request from %s — auto-transferring %s AIT to %s", sender, grant_amount, wallet_address)
 
-        transaction = _generate_signed_transaction(wallet_address, grant_amount)
+        transaction = TransactionService().generate_signed_transaction(wallet_address, grant_amount)
         if not transaction:
             return {"action": "coin_request_failed", "error": "Failed to generate signed transaction"}
 
