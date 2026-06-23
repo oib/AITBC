@@ -36,11 +36,6 @@ from .contexts.agent_identity.routers import agent_identity
 from .contexts.blockchain.routers import blockchain
 from .contexts.cross_chain.routers.cross_chain_integration import router as cross_chain
 
-# Temporarily disabled due to import chain issues
-# from .contexts.hermes.routers.hermes_decision import router as hermes_decision
-# from .contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced
-# from .contexts.hermes.routers.hermes_health import router as hermes_health
-# from .contexts.hermes.routers.hermes_resource import router as hermes_resource
 from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
 from .contexts.ipfs.routers import router as ipfs
 from .contexts.marketplace.routers import marketplace, marketplace_gpu, marketplace_offers
@@ -64,7 +59,6 @@ from .routers import (
     multi_modal_rl,
     services,
     swarm,
-    training,
     users,
     web_vitals,
 )
@@ -374,7 +368,6 @@ def create_app() -> FastAPI:
     app.include_router(swarm, prefix="/v1")
     app.include_router(ipfs, prefix="/v1/ipfs", tags=["ipfs"])
     app.include_router(payments, prefix="/v1")
-    app.include_router(training, prefix="/v1")
     app.include_router(inference, prefix="/v1")
     app.include_router(explorer, prefix="/v1")
     app.include_router(services, prefix="/v1")

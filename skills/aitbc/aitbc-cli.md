@@ -378,26 +378,6 @@ python3 cli/unified_cli.py agent register \
 ./aitbc-cli hermes monitor --agent-id <agent_id> --metrics [all|performance|cost]
 ```
 
-#### Train Agent
-```bash
-./aitbc-cli hermes train \
-  --train-action agent \
-  --agent-id <agent_id> \
-  --stage <stage_name> \
-  --training-data <training_data_file>
-```
-
-**Example:**
-```bash
-./aitbc-cli hermes train \
-  --train-action agent \
-  --agent-id hermes-001 \
-  --stage stage1_foundation \
-  --training-data /opt/aitbc/docs/agent-training/stage1_foundation.json
-```
-
-**Note:** Executes training operations via hermes agent with allowlist enabled
-
 ---
 
 ### 9. Workflow Operations

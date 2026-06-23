@@ -33,7 +33,6 @@ from aitbc_cli.commands.governance import governance
 from aitbc_cli.commands.gpu_marketplace import gpu
 from aitbc_cli.commands.gpu_resources import gpu as gpu_onchain
 from aitbc_cli.commands.hermes import hermes
-from aitbc_cli.commands.hermes_training import hermes_training
 from aitbc_cli.commands.market import market
 from aitbc_cli.commands.marketplace_cmd import marketplace
 from aitbc_cli.commands.messaging import messaging
@@ -164,7 +163,6 @@ cli.add_command(economics)
 cli.add_command(cluster)
 cli.add_command(security)
 cli.add_command(compliance)
-cli.add_command(hermes_training)
 cli.add_command(coin_requests)
 cli.add_command(explorer)
 

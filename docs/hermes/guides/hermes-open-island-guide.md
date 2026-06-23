@@ -23,7 +23,6 @@ hermes init --node-id $(hostname) --island ait-hub.aitbc.bubuit.net-island
 
 # Verify hermes installation
 hermes version
-hermes status
 ```
 
 ### Step 2: Configure hermes for Open Island
@@ -239,9 +238,6 @@ hermes resource status --agent-id $AGENT_ID
 ### hermes Agent Not Starting
 
 ```bash
-# Check hermes status
-hermes status
-
 # Check configuration
 cat ~/.hermes/config.yaml
 

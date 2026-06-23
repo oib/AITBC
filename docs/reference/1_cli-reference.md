@@ -288,18 +288,7 @@ aitbc agent stop <agent_id>
 aitbc agent list
 ```
 
-### 20. hermes-training
-hermes agent training operations.
-
-```bash
-# Start training
-aitbc hermes-training start <config>
-
-# Check training status
-aitbc hermes-training status
-```
-
-### 21. workflow
+### 20. workflow
 Workflow templates and execution.
 
 ```bash

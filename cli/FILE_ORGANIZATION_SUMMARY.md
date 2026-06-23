@@ -48,7 +48,7 @@ cli/
 │   │   ├── cross_chain.py          economics.py         edge.py
 │   │   ├── explorer.py             genesis.py           governance.py
 │   │   ├── gpu_marketplace.py      gpu_resources.py     hermes.py
-│   │   ├── hermes_training.py      marketplace_cmd.py   messaging.py
+│   │   ├── marketplace_cmd.py   messaging.py
 │   │   ├── mining.py               monitor.py           network.py
 │   │   ├── node.py                 operations.py        performance.py
 │   │   ├── pool_hub.py             reputation.py        resource.py
