@@ -18,6 +18,25 @@ from aitbc.crypto import TransactionService
 logger = get_logger(__name__)
 
 
+def _get_approval_strategy():
+    """Get the configured approval strategy (v0.5.9 §3).
+
+    Returns the strategy instance based on COIN_APPROVAL_MODE env var.
+    Moved from hermes_service.handlers.request_coins_handler.
+    """
+    from ..services.approval import AIApprovalStrategy, AutomaticApprovalStrategy, ManualApprovalStrategy
+
+    coordinator_url = os.getenv("AGENT_COORDINATOR_URL", os.getenv("HERMES_COORDINATOR_URL", "http://localhost:8107"))
+    agent_id = os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator"))
+    approval_mode = os.getenv("COIN_APPROVAL_MODE", "manual").lower()
+    if approval_mode == "automatic":
+        return AutomaticApprovalStrategy(coordinator_url, agent_id), approval_mode
+    elif approval_mode == "ai":
+        return AIApprovalStrategy(coordinator_url, agent_id), approval_mode
+    else:
+        return ManualApprovalStrategy(coordinator_url, agent_id), approval_mode
+
+
 class ConnectionManager:
     """Manages WebSocket connections for agents"""
 
@@ -314,10 +333,10 @@ TRANSACTION_FEE = 10  # blockchain transaction fee (matches RPC default)
 def _has_received_initial_coins(sender: str) -> bool:
     """Check if a sender has already received initial coins.
 
-    Queries the hermes coin_requests SQLite database for any prior
+    Queries the agent coin_requests SQLite database for any prior
     approved/executed request from this sender.
     """
-    db_path = os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/hermes_coin_requests.db")
+    db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
     if not os.path.exists(db_path):
         return False
     try:
@@ -353,10 +372,10 @@ def _submit_transaction(transaction: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _record_coin_request(sender: str, amount: int, wallet_address: str, tx_hash: str) -> None:
-    """Record the auto-approved coin request in the hermes SQLite database."""
-    db_path = os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/hermes_coin_requests.db")
+    """Record the auto-approved coin request in the agent SQLite database."""
+    db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
     if not os.path.exists(db_path):
-        logger.warning("Hermes DB not found at %s — skipping record", db_path)
+        logger.warning("Agent DB not found at %s — skipping record", db_path)
         return
     try:
         import sqlite3
@@ -370,7 +389,7 @@ def _record_coin_request(sender: str, amount: int, wallet_address: str, tx_hash:
             (
                 f"auto-{sender}-{int(now.timestamp())}",
                 sender,
-                os.getenv("HERMES_AGENT_ID", "hub-coordinator"),
+                os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
                 amount,
                 wallet_address,
                 "APPROVED",
@@ -385,17 +404,17 @@ def _record_coin_request(sender: str, amount: int, wallet_address: str, tx_hash:
         )
         conn.commit()
         conn.close()
-        logger.info("Recorded coin request in hermes DB for %s", sender)
+        logger.info("Recorded coin request in agent DB for %s", sender)
     except Exception as e:
         logger.warning("Could not record coin request in DB: %s", e)
 
 
 def _record_pending_coin_request(sender: str, amount: int, wallet_address: str) -> str:
-    """Record a pending coin request in the hermes SQLite database for manual approval.
+    """Record a pending coin request in the agent SQLite database for manual approval.
 
     Returns the request_id so the handler can include it in the response.
     """
-    db_path = os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/hermes_coin_requests.db")
+    db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
     try:
         import sqlite3
         from datetime import datetime, timedelta
@@ -409,7 +428,7 @@ def _record_pending_coin_request(sender: str, amount: int, wallet_address: str) 
             (
                 request_id,
                 sender,
-                os.getenv("HERMES_AGENT_ID", "hub-coordinator"),
+                os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
                 amount,
                 wallet_address,
                 "PENDING",
@@ -454,16 +473,62 @@ async def request_coins_handler(
 
         # Check if this sender has already received initial coins
         if _has_received_initial_coins(sender):
-            logger.info("Coin request from %s: already received initial coins — requires approval", sender)
-            request_id = _record_pending_coin_request(sender, amount, wallet_address)
-            return {
-                "action": "coin_request_received",
-                "request_id": request_id,
+            logger.info("Coin request from %s: already received initial coins — running approval strategy", sender)
+            strategy, approval_mode = _get_approval_strategy()
+            approval_request = {
+                "id": f"req-{sender}-{int(datetime.now(UTC).timestamp())}",
+                "sender": sender,
+                "recipient": os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
                 "amount": amount,
                 "wallet_address": wallet_address,
-                "status": "pending_approval",
-                "message": "Initial coins already granted. Further requests require manual approval. Use 'aitbc coin-requests approve <request_id>' to approve.",
+                "created_at": datetime.now(UTC),
             }
+            approval_decision = strategy.approve(approval_request)
+            if approval_decision["approved"]:
+                # Strategy approved — sign and submit the transaction
+                signed_tx = TransactionService().generate_signed_transaction(wallet_address, amount)
+                if not signed_tx:
+                    return {"action": "coin_request_failed", "error": "Failed to generate signed transaction"}
+                result = _submit_transaction(signed_tx)
+                if not result or not result.get("success"):
+                    return {
+                        "action": "coin_request_failed",
+                        "error": "Blockchain rejected transaction",
+                        "detail": result,
+                    }
+                tx_hash = result.get("transaction_hash", "")
+                _record_coin_request(sender, amount, wallet_address, tx_hash)
+                confirmation = {
+                    "type": "COINS_TRANSFERRED",
+                    "sender": os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
+                    "recipient": sender,
+                    "content": f"Coin request approved: {amount} AIT to {wallet_address}. Transaction: {tx_hash}",
+                    "amount": amount,
+                    "wallet_address": wallet_address,
+                    "transaction_hash": tx_hash,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+                await connection_manager.send_personal_message(confirmation, sender)
+                return {
+                    "action": "coins_transferred",
+                    "amount": amount,
+                    "wallet_address": wallet_address,
+                    "transaction_hash": tx_hash,
+                    "status": "completed",
+                    "reason": approval_decision["reason"],
+                }
+            else:
+                # Strategy rejected or pending — record in DB for manual review
+                request_id = _record_pending_coin_request(sender, amount, wallet_address)
+                return {
+                    "action": "coin_request_received",
+                    "request_id": request_id,
+                    "amount": amount,
+                    "wallet_address": wallet_address,
+                    "status": "pending_approval",
+                    "reason": approval_decision["reason"],
+                    "message": f"Coin request requires approval. Reason: {approval_decision['reason']}. Use 'aitbc coin-requests approve <request_id>' to approve.",
+                }
 
         # First-time request: auto-transfer initial coins
         grant_amount = INITIAL_COIN_AMOUNT
@@ -483,7 +548,7 @@ async def request_coins_handler(
         # Send confirmation message back to the agent over WebSocket
         confirmation = {
             "type": "COINS_TRANSFERRED",
-            "sender": os.getenv("HERMES_AGENT_ID", "hub-coordinator"),
+            "sender": os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
             "recipient": sender,
             "content": f"Transferred {grant_amount} AIT to {wallet_address}",
             "amount": grant_amount,
