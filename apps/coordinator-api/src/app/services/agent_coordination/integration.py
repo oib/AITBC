@@ -19,7 +19,7 @@ from sqlmodel import JSON, Column, Field, Session, SQLModel, select
 
 from aitbc.aitbc_logging import get_logger
 
-from ...domain.agent import AgentExecution, AgentStepExecution, VerificationLevel
+from app.contexts.agent_coordination.domain.agent import AgentExecution, AgentStepExecution, VerificationLevel
 from .agent_service import AIAgentOrchestrator
 from .security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel
 

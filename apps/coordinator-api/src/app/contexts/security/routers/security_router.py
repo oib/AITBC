@@ -15,7 +15,7 @@ from aitbc.rate_limiting import rate_limit
 from ....auth import AdminDep  # NEW: JWT auth
 
 # from ....deps import require_admin_key  # OLD: API key auth (deprecated)
-from ....domain.agent import AIAgentWorkflow
+from app.contexts.agent_coordination.domain.agent import AIAgentWorkflow
 from ....services.agent_coordination.security import (
     AgentAuditLog,
     AgentAuditor,

@@ -24,7 +24,7 @@ from aitbc_agent_core.protocols.security import IAuditor, ISecurityManager
 from aitbc_agent_core.protocols.zk_proof import IZKProofService
 
 # Import from coordinator-api's own domain models
-from app.domain.agent import (  # type: ignore[import-not-found]
+from app.contexts.agent_coordination.domain.agent import (
     AgentExecution,
     AgentStepExecution,
 )

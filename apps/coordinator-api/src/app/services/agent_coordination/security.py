@@ -14,7 +14,7 @@ from sqlmodel import JSON, Column, Field, Session, SQLModel, select
 
 from aitbc.aitbc_logging import get_logger
 
-from ...domain.agent import AIAgentWorkflow, VerificationLevel
+from app.contexts.agent_coordination.domain.agent import AIAgentWorkflow, VerificationLevel
 
 logger = get_logger(__name__)
 
