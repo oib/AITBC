@@ -8,7 +8,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def reset_db():
     """Reset database before each test"""
-    import app
+    import app  # type: ignore[import-not-found]
 
     # Delete the database file if it exists
     db_path = Path("agent_registry.db")
