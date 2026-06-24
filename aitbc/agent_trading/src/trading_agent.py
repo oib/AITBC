@@ -7,7 +7,7 @@ Automated trading agent for AITBC marketplace
 import asyncio
 from typing import Any
 
-from apps.agent_services.agent_bridge.src.integration_layer import AgentServiceBridge  # type: ignore[import-not-found]
+from aitbc.agent_bridge.src.integration_layer import AgentServiceBridge
 
 from aitbc import get_logger
 
@@ -56,7 +56,7 @@ class TradingAgent:
         success = await self.bridge.stop_agent(self.agent_id)
         if success:
             logger.info("Trading agent %s stopped successfully", self.agent_id)
-        return success
+        return bool(success)
 
     async def run_trading_loop(self):
         """Main trading loop"""
@@ -131,7 +131,8 @@ class TradingAgent:
 
     async def get_status(self) -> dict[str, Any]:
         """Get agent status"""
-        return await self.bridge.get_agent_status(self.agent_id)
+        result = await self.bridge.get_agent_status(self.agent_id)
+        return dict(result) if isinstance(result, dict) else {"status": "unknown"}
 
 
 # Main execution

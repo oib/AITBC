@@ -9,7 +9,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from apps.agent_services.agent_bridge.src.integration_layer import AgentServiceBridge  # type: ignore[import-not-found]
+from aitbc.agent_bridge.src.integration_layer import AgentServiceBridge
 
 from aitbc import get_logger
 
@@ -56,7 +56,7 @@ class ComplianceAgent:
         success = await self.bridge.stop_agent(self.agent_id)
         if success:
             logger.info("Compliance agent %s stopped successfully", self.agent_id)
-        return success
+        return bool(success)
 
     async def run_compliance_loop(self):
         """Main compliance monitoring loop"""
@@ -120,9 +120,10 @@ class ComplianceAgent:
     async def get_status(self) -> dict[str, Any]:
         """Get agent status"""
         status = await self.bridge.get_agent_status(self.agent_id)
-        status["monitored_entities"] = len(self.monitored_entities)
-        status["check_interval"] = self.check_interval
-        return status
+        result = dict(status) if isinstance(status, dict) else {"status": "unknown"}
+        result["monitored_entities"] = len(self.monitored_entities)
+        result["check_interval"] = self.check_interval
+        return result
 
 
 # Main execution
