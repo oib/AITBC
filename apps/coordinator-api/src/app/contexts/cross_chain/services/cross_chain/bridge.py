@@ -18,7 +18,7 @@ from aitbc.aitbc_logging import get_logger
 from ..blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
 from ..crypto.merkle_tree import MerkleTreeService  # type: ignore[import-not-found]
 from ..crypto.zk_proofs import ZKProofService  # type: ignore[import-not-found]
-from ..domain.cross_chain_bridge import (  # type: ignore[import-not-found]
+from app.domain.cross_chain_bridge import (
     BridgeRequest,
     BridgeRequestStatus,
     BridgeTransaction,

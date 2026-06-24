@@ -1,0 +1,316 @@
+# v0.5.12 Release Notes
+
+**Theme:** v0.5.11 shipped with essential hardening, but this audit surfaced runtime and security gaps that remain open. This release addresses them with minimal-risk, verifiable fixes.
+
+---
+
+## Open Tasks (Agent A)
+
+| # | Task | Priority | Status |
+|---|---|---|---|
+| 1 | Fix `asyncio.ensure_future(..., loop=)` crash in `aitbc/events/events.py` (Python 3.12+) | High | ✅ DONE — already fixed in `4838fa5d5` (`loop.create_task()` + `_background_tasks` tracking); verified 2026-06-24 on Python 3.13.5, 99/99 event tests pass, zero `loop=` usage remaining in codebase |
+| 2 | Fix PoA partial rollback: outer `session.rollback()` in `_propose_block()` wipes valid tx state | High | ✅ DONE — already fixed in `e0cc77063` (`session.rollback()+continue` → `nested.rollback()+return False`); regression test `test_propose_block_unexpected_exception_aborts_proposal` passes |
+| 3 | Re-enable `aitbc/rate_limiting.py` decorator via env-gated switch (`AITBC_ENABLE_RATE_LIMITING`) | High | ✅ DONE — fixed in `71cec61bf` + `c08e85b03`; decorator enabled by default, enforces via `RateLimiter`, returns 429 on exceed; `AITBC_ENABLE_RATE_LIMITING=false` to disable for tests/CI |
+| 4 | Replace placeholder CVE identifier in `apps/coordinator-api/src/app/services/secure_pickle.py` | Medium | ✅ DONE — fixed in `fbfaffbec`; placeholder `CVE-2020-XXXX` replaced with clean docstring |
+| 5 | Wedge: Replace hardcoded `source_node_id="edge-api"` with `EDGE_NODE_ID` env var | Medium | ✅ DONE — fixed in `10bd26d07` |
+| 6 | Wedge: Raise `click.ClickException` in `cli/aitbc_cli/commands/resource.py` when `--mock` is not set | Medium | ✅ DONE — fixed in `10bd26d07` |
+| 7 | Exchange security hardening — command injection, SQL injection, body-size guard, X-Api-Key | High | ✅ DONE — body-size guard (`handlers/base.py:74`, 413 on >2MB), X-Api-Key enforcement (`handlers/base.py:28`), `BLOCKCHAIN_RPC_BASE_URL` env-gated (`handlers/base.py:11`); no `subprocess` calls in handlers |
+| 8 | Trim stale logging-policy comments from `aitbc/middleware/performance.py` and `aitbc/middleware/request_id.py` | Low | ✅ DONE — fixed in `2b61db7b8` |
+| 9 | Replace hardcoded `/opt/aitbc` paths in `aitbc/constants.py` with `AITBC_HOME` env var | Low | ✅ DONE — fixed in `ecbd0f8b5`; `DATA_DIR`/`CONFIG_DIR`/`LOG_DIR` env-gated via `AITBC_HOME` |
+| 10 | Clean up 5 E501 line-too-long violations in `apps/agent-coordinator/src/app` | Low | ✅ DONE — fixed 2026-06-24; CSP header split into parenthesized concatenation (`auth/middleware.py:234`), alert body split into multi-line f-string (`monitoring/alerting.py:261`), 2 SQL INSERT strings split across lines (`agent_stream.py:387,426`), approval message split into parenthesized f-string (`agent_stream.py:530`); all splits verified byte-identical to originals; `ruff check --select E501` clean |
+
+---
+
+## Detailed Changes
+
+### 1. Fix `asyncio.ensure_future(..., loop=)` in `aitbc/events/events.py` — ✅ RESOLVED
+
+**Problem:** `asyncio.ensure_future(self.publish(event), loop=loop)` at line 98 raises `TypeError` on Python 3.12+ because the `loop=` parameter was removed.
+
+**Resolution:** Already fixed in commit `4838fa5d5` (ruff-format auto-fixes session). The offending call was replaced with `loop.create_task(self.publish(event))` plus a `_background_tasks` set to prevent GC of fire-and-forget tasks. Regression tests added in `1f92ef98a` and `11bc7ba67`.
+
+**Verified 2026-06-24:**
+- Python 3.13.5 — no `loop=` parameter usage anywhere in `aitbc/`, `apps/`, `cli/`
+- 99/99 event tests pass (`tests/test_events.py` + `tests/core/test_events_module.py`)
+- Codebase sweep: zero matches for `loop=loop` or any removed-in-3.12 `loop=` parameter pattern
+
+---
+
+### 2. Fix PoA partial rollback in `apps/blockchain-node/src/aitbc_chain/consensus/poa.py` — ✅ RESOLVED
+
+**Problem:** The outer `except Exception` block in `_propose_block()` called `session.rollback()` then `continue`, undoing all previously committed savepoints from earlier txs in the same batch, then proceeding to commit a block with partial state — desyncing the node from consensus.
+
+**Resolution:** Already fixed in commit `e0cc77063`. The outer exception handler now does `nested.rollback()` (savepoint only) + `return False` (abort entire proposal). Per-tx savepoints (`nested.rollback()` at lines 288, 297) remain for expected validation failures. Regression test `test_propose_block_unexpected_exception_aborts_proposal` added — injects 2 valid txs + 1 tx triggering `RuntimeError`, verifies `_propose_block()` returns `False` and no `Block` row is committed.
+
+**Verified 2026-06-24:**
+- Regression test + `test_propose_block_partial_failure` both pass
+- 19/21 consensus tests pass (2 pre-existing failures in `test_start_stop_proposer`/`test_start_already_running` are unrelated — missing genesis.json in test env)
+
+---
+
+### 3. Re-enable rate limiter decorator
+
+**Problem:** `aitbc/rate_limiting.py`'s `@rate_limit` decorator short-circuits to a no-op. Every `@rate_limit(...)` annotation in `apps/agent-coordinator/src/app/routers/*.py` is inactive.
+
+**Fix:**
+- Add `RATE_LIMITING_ENABLED` env gate in `aitbc/rate_limiting.py`.
+- Wire the decorator through `aitbc.security.RateLimiter` with `429` on excess.
+
+**Verification:**
+- `grep -rn "@rate_limit" apps/agent-coordinator/src/app/routers/` — count active decorators before/after.
+- Integration test: 101 requests in 60s → `429` with default env; all pass with `AITBC_ENABLE_RATE_LIMITING=false`.
+
+---
+
+### 4. Replace placeholder CVE in `secure_pickle.py`
+
+**Problem:** Docstring cites `CVE-2020-XXXX` — a placeholder that security scanners cannot match.
+
+**Fix:** Either replace with the actual CVE number (e.g., `CVE-2019-20916` / `CVE-2020-28476`) or replace with a clean docstring: `"JSON-only serializer; unsafe pickle deserialization removed."`
+
+**Verification:**
+- `grep -n "CVE" apps/coordinator-api/src/app/services/secure_pickle.py`
+
+---
+
+### 5. Environment-gated edge node identity
+
+**Problem:** `apps/edge/src/aitbc_edge/services/island_service.py` hardcodes `source_node_id="edge-api"` in `BridgeRequest`.
+
+**Fix:** Read `EDGE_NODE_ID` from env (fallback to hostname). Log warning on default.
+
+**Verification:**
+- Two edge deployments with different `EDGE_NODE_ID` values → `BridgeRequest.source_node_id` matches env.
+- `grep -rn "source_node_id" apps/edge/`
+
+---
+
+### 6. Replace CLI placeholder output in `resource.py`
+
+**Problem:** `cli/aitbc_cli/commands/resource.py:optimize()` prints a fake 85.2% score when `--mock` is not set, without warning.
+
+**Fix:** Raise `click.ClickException` when `--mock` is not set. Optionally return explicit `"status": "mock"` JSON when `--mock` is used.
+
+**Verification:**
+- `aitbc resource optimize --target=cpu` → non-zero exit.
+- `aitbc resource optimize --target=cpu --mock` → JSON with `"status": "mock"`.
+
+---
+
+### 7. Exchange security hardening (`apps/exchange/simple_exchange/handlers.py`)
+
+**Priority order:**
+
+1. Command injection in `handle_export` — replace `subprocess.run(f"...{filename}...")` with list args.
+2. SQL injection in marketplace LIKE search — parameterize the `%pattern%`.
+3. Body-size guard in `_read_json_body` — reject >2MB bodies with `413`.
+4. `X-Api-Key` enforcement on `handle_wallet_balance`, `handle_wallet_connect`, `handle_place_order` via shared helper.
+5. Configurable `BLOCKCHAIN_RPC_BASE_URL` env var instead of hardcoded `localhost:9080`.
+
+---
+
+### 8. Trim stale logging-policy comments
+
+**Problem:** Inline comments in `aitbc/middleware/performance.py` and `aitbc/middleware/request_id.py` explain DEBUG/WARNING level choices. This guidance belongs in `docs/logging-policy.md`.
+
+**Fix:** Remove the top-of-file policy comment blocks from both files. Preserve `logger.debug(...)` / `logger.warning(...)` calls unchanged.
+
+---
+
+### 9. Environment-gated `REPO_DIR`
+
+**Problem:** `aitbc/constants.py` hardcodes `REPO_DIR = Path("/opt/aitbc")`.
+
+**Fix:** Replace with `REPO_DIR = Path(os.getenv("AITBC_HOME", "/opt/aitbc"))`. Derive `DATA_DIR`, `LOG_DIR` from it. Add startup validation that fails if the path is missing or non-writable.
+
+---
+
+### 10. Agent-coordinator E501 cleanup
+
+**Problem:** 5 `line-too-long` violations in:
+- `apps/agent-coordinator/src/app/auth/middleware.py:234` (CSP header)
+- `apps/agent-coordinator/src/app/monitoring/alerting.py:261` (alert format string)
+- `apps/agent-coordinator/src/app/websocket/agent_stream.py:387, 426, 530` (multiline SQL/JSON payloads)
+
+**Fix:** Break string literals with parentheses or textwrap. No behavior change.
+
+---
+
+## Completed Work (Agent B) — v0.5.12 B1–B7
+
+**Moved from `AGENTS.md` on 2026-06-24.** All B1–B7 tasks complete (verified 2026-06-24).
+
+### Task Table
+
+| # | Task | Priority | Status | Evidence |
+|---|------|----------|--------|----------|
+| B1 | Database index additions (35 single-col + 11 composite) + Alembic migration | High | ✅ DONE | Committed `5d807d7ec`; 35 composite `Index()` calls + migration present |
+| B2 | Consolidate duplicated `DatabaseConfig` across services | High | ✅ DONE | Canonical `DatabaseConfig`/`effective_url` lives once in `packages/aitbc-shared/aitbc_shared/core/config.py`; agent-management, coordinator-api, edge all subclass with `db_filename` overrides only |
+| B3 | Remove duplicate CLI `dual_mode_wallet_adapter.py` | Medium | ✅ DONE | `cli/utils/` copy deleted; all importers use `aitbc_cli.utils.dual_mode_wallet_adapter` |
+| B4 | Decompose `apps/blockchain-explorer/main.py` (1,442 lines) | Medium | ✅ DONE | `main.py` now 54 lines (app factory + `include_router` + uvicorn); `routers/{analytics,blocks,chains,export,search,transactions}.py` (1,123 lines) + `validation.py` with `TX_HASH_PATTERN`/`CHAIN_ID_PATTERN`; app boots, 24 routes |
+| B5 | Decompose `apps/exchange/simple_exchange_api.py` (1,209 lines) | Medium | ✅ DONE | `simple_exchange_api.py` now 21-line deprecation shim; `simple_exchange/{db.py,server.py,handlers/{base,bridge,exchange,marketplace,wallet}.py}` (1,291 lines) |
+| B6 | Audit duplicate `database.py` files | Low | ✅ DONE (no action) | `apps/exchange/api/` removed in v0.5.11 restructure (`e29d45e76`); remaining `apps/exchange/database.py` is live SQLAlchemy layer for legacy `exchange_api.py`, distinct from `simple_exchange/db.py` — not duplicates |
+| B7 | Verify all systemd symlinks present | Low | ✅ DONE | 12/12 symlinks resolve to non-empty target files (331B–2,048B); zero dangling |
+
+### Detailed Instructions (historical reference)
+
+#### B1: Commit index work
+- Stage the 10 modified domain files + the new migration `add_query_performance_indexes.py`.
+- Commit message: `perf(db): add query performance indexes to coordinator-api domain models`.
+- Do NOT touch `tests/integration/` (Agent A's test-split work is uncommitted there).
+
+#### B2: DatabaseConfig consolidation
+- **Problem**: `DatabaseConfig` with `effective_url` is copy-pasted in `apps/shared-core/src/app/core/config.py` (canonical), `apps/agent-management/src/app/core/config.py`, `apps/coordinator-api/src/app/config.py`, `apps/edge/src/aitbc_edge/config.py`. Each drifts (different default DB filenames, different postgres URLs).
+- **Fix**: In each non-canonical config, `from aitbc_shared.core.config import DatabaseConfig, ServiceSettings` (or the shared-core path) and subclass with service-specific overrides only. Keep per-service default DB filename via a subclass override of `effective_url` or a `db_filename` field.
+- **Verify**: `mypy` + `ruff` clean on the 3 modified files; each service still imports its settings correctly.
+
+#### B3: CLI duplicate wallet adapter
+- **Problem**: `cli/utils/dual_mode_wallet_adapter.py` (626 lines) and `cli/aitbc_cli/utils/dual_mode_wallet_adapter.py` (626 lines) differ only in import paths (`from utils import ...` vs `from aitbc_cli.utils import ...`). The `cli/utils/` copy is the stale pre-package layout.
+- **Fix**: Delete `cli/utils/dual_mode_wallet_adapter.py`. Grep for importers of `cli.utils.dual_mode_wallet_adapter` and repoint to `aitbc_cli.utils.dual_mode_wallet_adapter`.
+- **Verify**: `ruff check cli/` clean; `grep -r "cli.utils.dual_mode" ` returns nothing.
+
+#### B4: blockchain-explorer decomposition
+- `main.py` (1,442 lines) defines the FastAPI app + all routes inline.
+- Split into `routers/blocks.py`, `routers/transactions.py`, `routers/chains.py`, `routers/stats.py` (group by existing route prefixes). `main.py` becomes app factory + `include_router` calls + uvicorn entrypoint.
+- Keep the SSRF validation patterns (`TX_HASH_PATTERN`, `CHAIN_ID_PATTERN`) in a shared `validation.py`.
+- **Verify**: app still starts; route count unchanged.
+
+#### B5: exchange simple_exchange_api decomposition
+- `simple_exchange_api.py` (1,209 lines) uses stdlib `http.server` (not FastAPI) with inline SQLite.
+- Extract: `db.py` (schema + connection), `handlers.py` (request handlers by path), keep `simple_exchange_api.py` as the `HTTPServer` wiring.
+- This is stdlib HTTP — no router framework, so group handlers into functions keyed by path prefix.
+- **Verify**: server boots; existing exchange tests pass.
+
+#### B6: exchange database.py audit
+- `apps/exchange/database.py` (SQLAlchemy `Base` + engine) and `apps/exchange/api/database.py` (sqlite3 + logging) serve different layers. **Decision pending**: likely rename `api/database.py` → `api/db_init.py` to avoid name collision, OR leave as-is with a clarifying docstring. Investigate importers before deciding.
+
+#### B7: systemd symlink audit
+- All 12 `aitbc*.service` symlinks verified present (recovery ✅ from v0.5.11). Confirm each symlink target file exists and is non-empty. Report any dangling symlinks.
+
+### Execution Order (historical)
+
+1. **B1** — committed `5d807d7ec`.
+2. **B2, B3, B7** — done (independent, no shared files).
+3. **B4, B5** — done (large refactors, verified).
+4. **B6** — done (audit, no action required).
+
+### Coordination with Agent A
+
+- Agent A owns `aitbc/` (types, queues, db connection types). Agent B's B2 touches `apps/*/config.py` only — no `aitbc/` config files. No conflict.
+- If B2 requires a shared `DatabaseConfig` to move into `aitbc/`, that becomes Agent A's file — escalate and sequence (A first).
+- B4/B5 are pure `apps/` refactors — no Agent A overlap.
+
+---
+
+## Phase 4 Open Tasks (Agent B) — coordinator-api bounded context
+
+**Moved from `AGENTS.md` on 2026-06-24.** P1 (PyJWT standardization) is complete; P2–P5 are open.
+
+### Grounding facts (verified 2026-06-24, re-verify if stale)
+
+- `apps/coordinator-api/src/app/` — 485 .py files, 35 bounded contexts under `contexts/` (each with `domain/`, `routers/`, `services/`, `storage/` subpackages). Only `contexts/agent_identity/` is fully populated; most others have a `domain/` stub.
+- `apps/coordinator-api/src/app/domain/` — 25 flat domain model files (6,859 lines) still the live import target. 36 cross-context imports reach into it from 8 contexts (`agent_coordination`, `agent_identity`, `ai_analytics`, `certification`, `cross_chain`, `marketplace`, `rewards`, `trading`), many with `# type: ignore[import-not-found]`.
+- `apps/agent-coordinator/` — separate microservice, 61 .py files, flat layout (`routers/`, `services/`, `auth/`, `ai/`, `consensus/`, `websocket/`, etc.). No README. 12 of 15 routers use `@rate_limit`.
+- **Rate limiter is NOT a no-op** — `aitbc/rate_limiting.py` is enabled by default (`AITBC_ENABLE_RATE_LIMITING=true`), enforces via `RateLimiter`, returns 429 on exceed. Fixed in commits `71cec61bf` + `c08e85b03`. Do not "re-enable" it.
+- **JWT libraries**: both services now use `PyJWT` 2.13.0 only (P1 done). `python-jose` removed from deps. `coordinator-api/auth/jwt_auth.py` (119 lines, HTTPException convention) and `agent-coordinator/auth/jwt_handler.py` (224 lines, dict-return convention + PasswordManager + APIKeyManager) are different implementations at different maturity levels — not a simple file merge candidate.
+
+### P1: PyJWT standardization — ✅ DONE
+
+Migrated `coordinator-api/src/app/auth/jwt_auth.py` from `python-jose` to `PyJWT` (`import jwt` + `jwt.PyJWTError`), removed `python-jose` from `pyproject.toml` security deps. Ruff/mypy clean; functional tests pass (create/verify/invalid/role-check). Security improvement: PyJWT rejects empty HMAC keys (`InvalidKeyError`) whereas python-jose silently allowed them. 2 pre-existing test failures unchanged (verified on clean HEAD).
+
+### P2: Cross-context import audit (investigation, no mass migration)
+
+**Priority**: High
+**Files**: `apps/coordinator-api/src/app/contexts/*/`, `apps/coordinator-api/src/app/domain/`
+**Output**: `docs/releases/v0.5.13/context_import_audit.md`
+**Status**: ⬜ TODO
+
+**Problem**: 36 imports across 8 contexts reach into the flat `app/domain/` instead of their own `contexts/<bc>/domain/`. Many carry `# type: ignore[import-not-found]` — a smell that the import path is wrong.
+
+**Contexts with cross-context imports into `app/domain/`**:
+- `agent_coordination` — imports `app.domain.agent` (AgentExecution)
+- `agent_identity` — imports `..domain.agent_identity` (intra-context, fine)
+- `ai_analytics` — imports `app.domain.analytics`
+- `certification` — imports `app.domain.certification` + `app.domain.reputation` (cross-context)
+- `cross_chain` — imports `app.domain.multi_chain_transaction` + `..domain.cross_chain_bridge` (mixed)
+- `marketplace` — imports `..domain.global_marketplace` (intra-context, fine)
+- `rewards` — imports `app.domain.*`
+- `trading` — imports `app.domain.*`
+
+**Task**: Produce a mapping table (file → which `app/domain/*.py` it imports → whether the importing context *should* own that model or whether it's a cross-context dependency). Categorize each as:
+- (a) **intra-context** — the model belongs to the importing context, just fix the import path to `..domain.X`
+- (b) **shared kernel** — the model is genuinely shared (e.g. `reputation` used by `certification`), candidate for `app/domain/` remaining as a shared kernel OR moving to `aitbc_shared`
+- (c) **boundary violation** — the context is reaching into another context's domain, should use an event/service interface instead
+
+**Do not perform the migrations in this task** — just produce the table and commit it to `docs/releases/v0.5.13/context_import_audit.md`.
+
+**Verify**: the audit doc exists and every one of the 36 imports is categorized.
+
+---
+
+### P3: Context READMEs + explicit public surface
+
+**Priority**: Medium
+**Files**: `apps/coordinator-api/src/app/contexts/*/README.md`, `*/__init__.py`
+**Status**: ⬜ TODO
+
+**Task**:
+- Add `README.md` to each of the 35 `contexts/*/` dirs: one-line responsibility, list of owning routes (grep `@router` in that context's `routers/`), list of domain models. Skip contexts that are empty stubs (note them as stubs).
+- Add `__all__` to each non-empty `routers/__init__.py`, `services/__init__.py`, `storage/__init__.py` listing the public exports.
+
+**Verify**: `find apps/coordinator-api/src/app/contexts -name README.md | wc -l` matches non-stub context count; spot-check 3 READMEs for accuracy.
+
+---
+
+### P4: Service-boundary decision (agent-coordinator)
+
+**Priority**: Medium
+**Files**: `docs/releases/v0.5.13/agent_coordinator_boundary.md`, `apps/agent-coordinator/README.md` (new)
+**Status**: ⬜ TODO
+
+**Question**: `agent-coordinator` (61 files, Core Service: No) is a separate microservice but `coordinator-api` (485 files, Core Service: Yes) is the "primary integration hub". Should agent-coordinator fold in as a bounded context, or stay separate?
+
+**Investigate**:
+- Which `coordinator-api` endpoints call `agent-coordinator` (grep for the agent-coordinator port/host in coordinator-api)
+- Which external clients call agent-coordinator directly
+- What the deployment coupling is (do they share a DB? a systemd dependency chain?)
+
+**Output**: a decision doc at `docs/releases/v0.5.13/agent_coordinator_boundary.md` with the recommendation + rationale. Add `apps/agent-coordinator/README.md` with the status-table pattern from `apps/coordinator-api/README.md` regardless of the decision.
+
+**Verify**: decision doc exists with a clear recommendation; README exists.
+
+---
+
+### P5: agent-coordinator restructure (GATED on P4)
+
+**Priority**: Low
+**Files**: `apps/agent-coordinator/src/app/`
+**Status**: ⬜ TODO (gated on P4)
+
+**Gating**: Only execute if P4 decides "fold in". If P4 decides "keep separate", skip the restructure — the README from P4 is sufficient.
+
+**Task (if "fold in")**: Restructure flat `routers/services/auth/` into `contexts/agent_coordination/{domain,routers,services,storage}`, keep `auth/` top-level (shared across agent contexts). Migrate `routers/{agents,swarm,tasks,messages,workflow,...}.py` into the context package.
+
+**Verify**: service boots; router count unchanged; `ruff` + `mypy` clean.
+
+---
+
+### Execution Order (Open Tasks)
+
+1. **P2** first (investigation produces the map that P3 + future migrations depend on).
+2. **P3 + P4** in parallel (independent — P3 is coordinator-api contexts, P4 is agent-coordinator decision).
+3. **P5** last, gated on P4's decision.
+
+### Coordination with Agent A
+
+- P1–P5 touch `apps/` only — no `aitbc/` files. No conflict.
+- If P2's shared-kernel categorization leads to moving a domain model into `aitbc_shared` or `aitbc/`, that becomes Agent A's file — escalate and sequence (A first).
+
+### Corrections from the Initial (Rejected) Phase 4 Draft
+
+The first Phase 4 draft contained factual errors that this plan corrects:
+- ~~"rate_limit decorator is a no-op"~~ — it is enabled and enforced by default (`aitbc/rate_limiting.py:24`).
+- ~~"move auth/dependencies.py and security_matrix.py into coordinator-api"~~ — they already live there; the real duplication was the JWT *library* (PyJWT vs python-jose), not those files.
+- ~~"health endpoint rate=50, will be throttled"~~ — it's `rate=1000, per=60` (`routers/health.py:15`).
+- ~~"agent_stream.py has 5 E501 errors"~~ — ruff reports clean.
+- File counts corrected: agent-coordinator 61 (not 48), coordinator-api 485 (not 508).
