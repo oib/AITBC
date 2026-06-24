@@ -237,6 +237,7 @@ class PoAProposer:
             self._logger.info("[PROPOSE] drained %s txs from mempool, chain=%s", len(pending_txs), self._config.chain_id)
             processed_txs = []
             for tx in pending_txs:
+                nested = None
                 try:
                     tx_data = tx.content
                     sender = tx_data.get("from")
@@ -267,6 +268,7 @@ class PoAProposer:
                             total_cost,
                         )
                         continue
+                    nested = session.begin_nested()
                     recipient_account = session.get(Account, (self._config.chain_id, recipient))
                     if not recipient_account:
                         self._logger.info("[PROPOSE] Creating recipient account for %s", recipient)
@@ -283,6 +285,7 @@ class PoAProposer:
                         session, self._config.chain_id, tx_data_for_transition, tx.tx_hash
                     )
                     if not success:
+                        nested.rollback()
                         self._logger.warning("[PROPOSE] Failed to apply transaction %s: %s", tx.tx_hash, error_msg)
                         continue
                     existing_tx = session.exec(
@@ -291,6 +294,7 @@ class PoAProposer:
                         )
                     ).first()
                     if existing_tx:
+                        nested.rollback()
                         self._logger.warning(
                             "[PROPOSE] Skipping tx %s: already exists in database at block %s",
                             tx.tx_hash,
@@ -318,12 +322,14 @@ class PoAProposer:
                         type=tx_type,
                     )
                     session.add(transaction)
+                    nested.commit()
                     processed_txs.append(tx)
                     self._logger.info("[PROPOSE] Successfully processed tx %s: updated balances", tx.tx_hash)
                 except Exception as e:
+                    if nested is not None:
+                        nested.rollback()
                     self._logger.warning("Failed to process transaction %s: %s", tx.tx_hash, e)
-                    session.rollback()
-                    continue
+                    return False
             if pending_txs and (not processed_txs) and getattr(settings, "propose_only_if_mempool_not_empty", True):
                 self._logger.warning(
                     "[PROPOSE] Skipping block proposal: all drained transactions were invalid (count=%s, chain=%s)",
