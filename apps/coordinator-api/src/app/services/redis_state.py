@@ -11,6 +11,7 @@ Provides persistent, shared state for:
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -27,6 +28,28 @@ class RedisStateManager:
         self._memory: dict[str, Any] = {}
         self._initialized = False
         self._cache_prefix = "aitbc:coordinator:cache"
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+    def _is_stale_loop(self) -> bool:
+        """Check if the Redis client is bound to a closed/different event loop."""
+        if self._redis is None or self._loop is None:
+            return False
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return True
+        return current_loop is not self._loop
+
+    async def _reconnect(self) -> None:
+        """Close stale Redis client and re-initialize on the current event loop."""
+        if self._redis is not None:
+            try:
+                await self._redis.aclose()
+            except Exception:
+                pass
+            self._redis = None
+        self._initialized = False
+        await self._init()
 
     async def _invalidate_cache(self, namespace: str) -> None:
         """Invalidate cached entries for a namespace on state mutation."""
@@ -49,10 +72,15 @@ class RedisStateManager:
 
     @classmethod
     async def get_instance(cls) -> RedisStateManager:
-        """Get or create the singleton instance (async-safe)."""
+        """Get or create the singleton instance (async-safe).
+
+        Detects stale event loop bindings from hot-reload and reconnects.
+        """
         if cls._instance is None:
             cls._instance = cls()
             await cls._instance._init()
+        elif cls._instance._is_stale_loop():
+            await cls._instance._reconnect()
         return cls._instance
 
     @classmethod
@@ -81,8 +109,10 @@ class RedisStateManager:
                     decode_responses=True,
                 )
                 await self._redis.ping()
+                self._loop = asyncio.get_running_loop()
             except Exception:
                 self._redis = None
+                self._loop = None
 
         self._initialized = True
 
