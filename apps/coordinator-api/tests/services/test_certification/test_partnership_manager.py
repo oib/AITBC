@@ -24,7 +24,7 @@ class TestPartnershipManager:
     @patch("app.services.certification.partnership_manager.Session")
     async def test_check_technical_capability(self, mock_session):
         """Test technical capability check"""
-        from app.domain.reputation import AgentReputation
+        from app.contexts.reputation.domain.reputation import AgentReputation
         from app.services.certification.partnership_manager import PartnershipManager
 
         manager = PartnershipManager()
@@ -60,7 +60,7 @@ class TestPartnershipManager:
     @patch("app.services.certification.partnership_manager.Session")
     async def test_check_service_quality(self, mock_session):
         """Test service quality check"""
-        from app.domain.reputation import AgentReputation
+        from app.contexts.reputation.domain.reputation import AgentReputation
         from app.services.certification.partnership_manager import PartnershipManager
 
         manager = PartnershipManager()

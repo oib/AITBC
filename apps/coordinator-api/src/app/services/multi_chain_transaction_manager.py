@@ -17,13 +17,13 @@ from aitbc.aitbc_logging import get_logger
 
 from ..agent_identity.wallet_adapter_enhanced import EnhancedWalletAdapter, SecurityLevel, WalletAdapterFactory
 from ..contexts.cross_chain.services.cross_chain.bridge_enhanced import CrossChainBridgeService
-from ..domain.multi_chain_transaction import (
+from ..contexts.cross_chain.domain.multi_chain_transaction import (
     MultiChainTransaction,
     RoutingStrategy,
     TransactionPriority,
     TransactionStatus,
 )
-from ..domain.multi_chain_transaction import TransactionType as MultiChainTransactionType
+from ..contexts.cross_chain.domain.multi_chain_transaction import TransactionType as MultiChainTransactionType
 from ..reputation.engine import CrossChainReputationEngine
 
 logger = get_logger(__name__)

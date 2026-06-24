@@ -6,7 +6,7 @@
 
 **Context**: v0.5.12 completed duplication elimination and large-file decomposition (B1–B7). v0.5.13 kicks off Phase 4 — formalizing the bounded-context architecture in coordinator-api. The initial Phase 4 draft contained factual errors (rate limiter no-op claim, wrong file counts, wrong auth file locations) that were corrected before execution.
 
-**Status**: Fully implemented. All 5 Phase 4 tasks (P1–P5) complete, plus 2 cleanup items (E501, secrets.baseline), plus P2-followup orphan audit and T1 Tier 1 migrations.
+**Status**: Fully implemented. All 5 Phase 4 tasks (P1–P5) complete, plus 2 cleanup items (E501, secrets.baseline), plus P2-followup orphan audit, T1 Tier 1 migrations (6 models), and T2 Tier 2 shared-kernel migrations (2 models).
 
 ---
 
@@ -21,6 +21,7 @@
 | P4 | Decide agent-coordinator service boundary (fold in vs keep separate) + add README | Medium | ✅ DONE |
 | P5 | Restructure agent-coordinator into bounded context (GATED on P4) | Low | ⏭️ SKIPPED (P4 decided "keep separate") |
 | T1 | Tier 1 intra-context domain model migrations (certification, rewards, amm, trading, cross_chain_bridge, analytics) | High | ✅ DONE (all 6 models migrated) |
+| T2 | Tier 2 shared-kernel model migrations (reputation, multi_chain_transaction) | High | ✅ DONE (both models migrated to owning contexts) |
 | C1 | Clean up 5 E501 line-too-long violations in `apps/agent-coordinator/src/app` | Low | ✅ DONE |
 | C2 | Fix malformed `.secrets.baseline` (duplicate `generated_at` line) | Low | ✅ DONE |
 
@@ -91,6 +92,23 @@
 **Corrections applied**: Updated `context_import_audit.md` §"Remaining models" — fixed the "14" count to 17, removed the 5 false orphans, and split the rest into migrate (11) / dead code (1).
 
 **Files**: `docs/releases/v0.5.13/orphan_models_audit.md`, `docs/releases/v0.5.13/context_import_audit.md`
+
+---
+
+### P2-followup-2: Revive `pricing_models.py` (dynamic-pricing persistence) — ✅ DONE
+
+**Problem**: The orphan audit's one "dead code" model, `pricing_models.py`, was actually an **unfinished persistence layer**: the live `DynamicPricingEngine` kept pricing history + provider strategies in memory only (lost on restart), with empty `_load_pricing_history`/`_load_provider_strategies` stubs. `pricing_models.py` was the never-wired schema for exactly that. Decision: **wire it in** rather than delete.
+
+**Fix**:
+- Cleaned up all 8 mangled `__table_args__` blocks in `pricing_models.py` → proper composite `Index(...)` definitions (botched-edit artifacts removed; added `Index` import).
+- Decoupled enums: `PricingHistory.strategy_used` and `ProviderPricingStrategy.strategy_type` changed `PricingStrategyType` → `str` (the engine's runtime `PricingStrategy` enum is a different overlapping set from the DB enum).
+- Top-level model import in the engine module → `init_db()`/`create_all()` now creates all 8 pricing tables.
+- `_store_price_point` persists a `PricingHistory` row; `set_provider_strategy` upserts a `ProviderPricingStrategy` row (deactivating prior active rows). Both via `asyncio.to_thread`, best-effort (DB failure logs a warning, never breaks pricing).
+- Implemented `_load_pricing_history` + `_load_provider_strategies`, called from `initialize()`.
+
+**Verification**: ruff + mypy clean; router still imports; end-to-end temp-SQLite test confirms persist → fresh-engine reload of history/strategy/constraints, and that re-setting a strategy deactivates the prior row.
+
+**Files**: `apps/coordinator-api/src/app/domain/pricing_models.py`, `apps/coordinator-api/src/app/contexts/trading/services/trading_marketplace/dynamic_pricing.py`, `docs/releases/v0.5.13/orphan_models_audit.md`
 
 ---
 
@@ -220,6 +238,39 @@ Folding in would require migrating 61 files + 103 endpoints, merging two DBs, re
 **Files** (6 moved, 15 importers fixed):
 - Moved: `app/domain/{certification,rewards,amm,trading,cross_chain_bridge,analytics}.py` → `app/contexts/{certification,rewards,trading,trading,cross_chain,analytics}/domain/`
 - Fixed: `contexts/certification/services/certification/{badge_system,certification_system,service,partnership_manager}.py`, `contexts/certification/routers/certification.py`, `contexts/rewards/routers/rewards.py`, `contexts/rewards/services/reward_service.py`, `contexts/trading/services/trading_marketplace/{amm,trading}.py`, `contexts/trading/routers/trading.py`, `contexts/cross_chain/services/cross_chain/{bridge,bridge_enhanced}.py`, `contexts/analytics/routers/analytics.py`, `contexts/ai_analytics/services/ai_analytics/analytics.py`, `tests/services/test_certification/{test_badge_system,test_certification_system,test_partnership_manager}.py`
+
+---
+
+### T2: Tier 2 shared-kernel model migrations — ✅ DONE
+
+**Problem**: The P2 audit identified 2 shared-kernel models used by multiple contexts — `reputation` (by certification + rewards + reputation context + top-level app/reputation) and `multi_chain_transaction` (by cross_chain + marketplace + top-level app/services). These required ownership decisions before migration.
+
+**Fix**: Migrated both models to their owning contexts using Approach A (move full model, cross-context imports for non-owning consumers):
+
+| Model | Moved to | Importers fixed | Ownership decision |
+|-------|----------|----------------|-------------------|
+| `reputation.py` (268 lines, 8 classes) | `contexts/reputation/domain/` | 15 (2 intra-context, 5 cross-context certification/rewards, 2 top-level app/reputation, 6 tests) | `reputation` context owns it — already had services + router, just empty domain/ stub. Certification and rewards import `AgentReputation` cross-context (1 class each). |
+| `multi_chain_transaction.py` (101 lines, 5 classes) | `contexts/cross_chain/domain/` | 5 (1 intra-context cross_chain router, 2 cross-context marketplace, 1 top-level app/services with alias, 1 top-level) | `cross_chain` context owns it — model is about cross-chain transactions. Marketplace imports `TransactionPriority` cross-context (enum only). |
+
+**Approach A vs B**: Chose Approach A (move full model) over Approach B (extract enums to shared types) for `multi_chain_transaction.py`. Approach B would split the file and create a shared types module, but marketplace still needs a cross-context import either way — the enum extraction doesn't eliminate the boundary violation, just makes it lighter. Consistent with the Tier 1 pattern.
+
+**Cross-context import paths** (new boundary violations, tracked for Tier 3 refactor):
+- `certification/services/certification/*.py` → `....reputation.domain.reputation` (4 dots, imports `AgentReputation`)
+- `rewards/services/reward_service.py` → `...reputation.domain.reputation` (3 dots, imports `AgentReputation`)
+- `rewards/routers/rewards.py` → `...reputation.domain.reputation` (3 dots, inline, imports `AgentReputation`)
+- `marketplace/services/global_marketplace_integration.py` → `...cross_chain.domain.multi_chain_transaction` (3 dots, imports `TransactionPriority`)
+- `marketplace/routers/global_marketplace_integration.py` → `...cross_chain.domain.multi_chain_transaction` (3 dots, imports `TransactionPriority`)
+
+**Verification**:
+- `grep 'from app.domain.(reputation|multi_chain_transaction)' apps/coordinator-api/` → 0 matches (zero stale references)
+- `grep 'from \.{3,}domain.(reputation|multi_chain_transaction)' apps/coordinator-api/src/` → 0 matches (zero 3+ dot relative imports to old location)
+- `ruff check` on all modified directories → All checks passed
+- `mypy --show-error-codes` → zero `import-not-found` errors for both migrated models
+- Runtime import test: all 7 import paths verified (reputation context, cross_chain context, top-level app/reputation/engine, top-level app/services/multi_chain_transaction_manager, certification cross-context, rewards cross-context, marketplace cross-context)
+
+**Files** (2 moved, 20 importers fixed):
+- Moved: `app/domain/{reputation,multi_chain_transaction}.py` → `app/contexts/{reputation,cross_chain}/domain/`
+- Fixed: `contexts/reputation/{services/reputation_service,routers/reputation}.py`, `contexts/certification/services/certification/{badge_system,certification_system,partnership_manager}.py`, `contexts/rewards/{services/reward_service,routers/rewards}.py`, `contexts/marketplace/{services/global_marketplace_integration,routers/global_marketplace_integration}.py`, `contexts/cross_chain/routers/cross_chain_integration.py`, `app/reputation/{engine,aggregator}.py`, `app/services/multi_chain_transaction_manager.py`, `tests/services/test_certification/{test_badge_system,test_certification_system,test_partnership_manager}.py`
 
 ---
 
