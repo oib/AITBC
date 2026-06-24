@@ -36,3 +36,6 @@ class Job(SQLModel, table=True):
 
     # Relationships
     # payment: Mapped[Optional["JobPayment"]] = relationship(back_populates="jobs")
+
+
+__all__ = ["Job"]

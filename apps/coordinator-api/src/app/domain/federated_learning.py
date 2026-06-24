@@ -129,3 +129,13 @@ class LocalModelUpdate(SQLModel, table=True):
 
     # Relationships
     # DISABLED:     round: TrainingRound = Relationship(back_populates="updates")
+
+
+__all__ = [
+    "FederatedLearningSession",
+    "LocalModelUpdate",
+    "ParticipantStatus",
+    "TrainingParticipant",
+    "TrainingRound",
+    "TrainingStatus",
+]

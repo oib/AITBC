@@ -441,3 +441,19 @@ class UserPreference(SQLModel, table=True):
     # Additional preferences
     custom_settings: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     ui_preferences: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
+
+__all__ = [
+    "AlertRule",
+    "AnalyticsAlert",
+    "AnalyticsPeriod",
+    "AnalyticsReport",
+    "DashboardConfig",
+    "DataCollectionJob",
+    "InsightType",
+    "MarketInsight",
+    "MarketMetric",
+    "MetricType",
+    "ReportType",
+    "UserPreference",
+]
