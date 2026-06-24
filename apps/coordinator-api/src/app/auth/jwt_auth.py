@@ -5,8 +5,8 @@ JWT-based authentication module for Coordinator API
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import jwt
 from fastapi import HTTPException, status
-from jose import JWTError, jwt
 
 from ..config import settings
 
@@ -50,7 +50,7 @@ class JWTAuth:
         try:
             payload = jwt.decode(token, self.secret, algorithms=[self.algorithm])
             return payload
-        except JWTError as e:
+        except jwt.PyJWTError as e:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token",

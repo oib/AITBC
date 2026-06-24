@@ -126,7 +126,6 @@ ai-ml = [
     "transformers>=4.0.0",
 ]
 security = [
-    "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
     "sentry-sdk>=2.0.0",
 ]
