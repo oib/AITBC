@@ -92,7 +92,7 @@ class AccessController:
         if additional_claims:
             claims.update(additional_claims)
 
-        token = jwt.encode(claims, self.secret_key, algorithm=self.algorithm)
+        token = jwt.encode(claims, self.secret_key, algorithm=self.algorithm)  # type: ignore[arg-type]
         return token
 
     def verify_token(self, token: str) -> dict[str, Any]:
@@ -112,7 +112,7 @@ class AccessController:
             raise AccessControlError("JWT not available")
 
         try:
-            claims = jwt.decode(token, self.secret_key, algorithms=[self.algorithm], options={"verify_exp": True})
+            claims = jwt.decode(token, self.secret_key, algorithms=[self.algorithm], options={"verify_exp": True})  # type: ignore[arg-type]
             return claims
         except jwt.ExpiredSignatureError:
             raise AuthenticationError("Token has expired") from None

@@ -24,8 +24,8 @@ class MessageProtocol:
     """Message protocol handler for agent communication"""
 
     def __init__(self):
-        self.messages = []
-        self.message_handlers = {}
+        self.messages: list[dict[str, Any]] = []
+        self.message_handlers: dict[str, Any] = {}
 
     def create_message(
         self,
@@ -82,7 +82,7 @@ class AgentMessageClient:
     def __init__(self, agent_id: str, protocol: MessageProtocol):
         self.agent_id = agent_id
         self.protocol = protocol
-        self.received_messages = []
+        self.received_messages: list[dict[str, Any]] = []
 
     def send_message(self, receiver_id: str, message_type: MessageTypes, content: dict[str, Any]) -> dict[str, Any]:
         """Send a message to another agent"""

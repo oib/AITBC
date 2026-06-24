@@ -5,6 +5,7 @@ Handles agent discovery, search, and filtering
 
 import logging
 from decimal import Decimal
+from typing import Any
 
 from .registration import AgentInfo, AgentStatus, CapabilityType
 
@@ -31,7 +32,9 @@ class AgentDiscovery:
         self.capability_index = capability_index
         self.type_index = type_index
 
-    def find_agents_by_capability(self, capability_type: CapabilityType, filters: dict = None) -> list[AgentInfo]:
+    def find_agents_by_capability(
+        self, capability_type: CapabilityType, filters: dict[str, Any] | None = None
+    ) -> list[AgentInfo]:
         """Find agents by capability type"""
         agent_ids = self.capability_index.get(capability_type, set())
 
@@ -46,7 +49,7 @@ class AgentDiscovery:
         agents.sort(key=lambda x: x.reputation_score, reverse=True)
         return agents
 
-    def find_agents_by_type(self, agent_type, filters: dict = None) -> list[AgentInfo]:
+    def find_agents_by_type(self, agent_type, filters: dict[str, Any] | None = None) -> list[AgentInfo]:
         """Find agents by type"""
         agent_ids = self.type_index.get(agent_type, set())
 
@@ -85,7 +88,7 @@ class AgentDiscovery:
         results.sort(key=lambda x: x.reputation_score, reverse=True)
         return results[:limit]
 
-    def _matches_filters(self, agent: AgentInfo, filters: dict) -> bool:
+    def _matches_filters(self, agent: AgentInfo, filters: dict[str, Any] | None) -> bool:
         """Check if agent matches filters"""
         if not filters:
             return True

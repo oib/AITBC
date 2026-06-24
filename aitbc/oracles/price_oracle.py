@@ -16,7 +16,7 @@ import json
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from aitbc import get_logger
 
@@ -120,16 +120,14 @@ class CoinGeckoOracle:
 
     _cache: dict[str, PriceResult] = {}
     _cache_ttl: int = 60  # seconds (in-memory)
-    _disk_cache_path: str = os.path.join(
-        os.getenv("DATA_DIR", "/var/lib/aitbc"), "price_cache.json"
-    )
+    _disk_cache_path: str = os.path.join(os.getenv("DATA_DIR", "/var/lib/aitbc"), "price_cache.json")
     _disk_cache_max_age: int = int(os.getenv("PRICE_CACHE_MAX_AGE", "3600"))  # 1 hour default
 
     def _read_disk_cache(self) -> dict[str, Any]:
         """Read the on-disk last-known-good price cache."""
         try:
             with open(self._disk_cache_path) as f:
-                return json.load(f)
+                return cast(dict[str, Any], json.load(f))
         except (FileNotFoundError, json.JSONDecodeError, OSError):
             return {}
 
@@ -255,14 +253,29 @@ class PriceOracle:
                     if eth_usd and eth_eur and eth_eur.price > 0:
                         if quote.upper() == "USD":
                             derived = ait_eur * eth_usd.price / eth_eur.price
-                            return PriceResult(base, quote, derived, "derived", time.time(),
-                                               {"source": "fixed_eur", "ait_eur": ait_eur,
-                                                "eth_usd": eth_usd.price, "eth_eur": eth_eur.price})
+                            return PriceResult(
+                                base,
+                                quote,
+                                derived,
+                                "derived",
+                                time.time(),
+                                {
+                                    "source": "fixed_eur",
+                                    "ait_eur": ait_eur,
+                                    "eth_usd": eth_usd.price,
+                                    "eth_eur": eth_eur.price,
+                                },
+                            )
                         if quote.upper() == "ETH":
                             derived = ait_eur / eth_eur.price
-                            return PriceResult(base, quote, derived, "derived", time.time(),
-                                               {"source": "fixed_eur", "ait_eur": ait_eur,
-                                                "eth_eur": eth_eur.price})
+                            return PriceResult(
+                                base,
+                                quote,
+                                derived,
+                                "derived",
+                                time.time(),
+                                {"source": "fixed_eur", "ait_eur": ait_eur, "eth_eur": eth_eur.price},
+                            )
                     logger.warning("AIT_EUR_FIXED_PRICE set but cannot derive %s — ETH oracle unavailable", quote)
                 except ValueError:
                     logger.warning("Invalid AIT_EUR_FIXED_PRICE: %s", eur_fixed)

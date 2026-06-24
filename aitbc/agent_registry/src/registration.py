@@ -9,6 +9,7 @@ import time
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +110,7 @@ class AgentRegistry:
         public_key: str,
         endpoint_url: str,
         capabilities: list[dict],
-        metadata: dict = None,
+        metadata: dict[str, Any] | None = None,
     ) -> tuple[bool, str, str | None]:
         """Register a new AI agent"""
         try:

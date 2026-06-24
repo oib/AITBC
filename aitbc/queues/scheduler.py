@@ -30,7 +30,7 @@ class JobScheduler:
         interval: float | None = None,
         job_id: str | None = None,
         args: tuple = (),
-        kwargs: dict = None,
+        kwargs: dict[str, Any] | None = None,
     ) -> str:
         """Schedule a job"""
         if job_id is None:

@@ -3,7 +3,7 @@ AITBC Configuration Module
 Hierarchical configuration with validation
 """
 
-from typing import Any, TypeAlias
+from typing import Any
 from collections.abc import Callable
 
 from .hierarchical_config import (
@@ -14,10 +14,10 @@ from .hierarchical_config import (
 try:
     from .hierarchical_config import ValidatedAITBCConfig, load_config
 
-    BaseAITBCConfig: TypeAlias = ValidatedAITBCConfig
+    BaseAITBCConfig: type = ValidatedAITBCConfig
 except ImportError:
     ValidatedAITBCConfig: type | None = None  # type: ignore[no-redef]
-    BaseAITBCConfig: TypeAlias = HierarchicalConfig  # type: ignore[no-redef,misc]
+    BaseAITBCConfig: type = HierarchicalConfig  # type: ignore[no-redef]
     load_config: Callable[..., Any] | None = None  # type: ignore[no-redef]
 
 # Import legacy config classes from sibling config.py module
@@ -33,9 +33,9 @@ try:
         _spec.loader.exec_module(_legacy_config)
         AITBCConfig = _legacy_config.AITBCConfig
         if BaseAITBCConfig is HierarchicalConfig:
-            BaseAITBCConfig = _legacy_config.BaseAITBCConfig  # type: ignore[misc]
+            BaseAITBCConfig = _legacy_config.BaseAITBCConfig
 except Exception:
-    AITBCConfig = None  # type: ignore[misc,assignment]
+    AITBCConfig = None
 
 __all__ = [
     "HierarchicalConfig",

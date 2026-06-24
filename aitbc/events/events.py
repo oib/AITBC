@@ -32,7 +32,7 @@ class Event:
 
     event_type: str
     data: dict[str, Any]
-    timestamp: datetime = None
+    timestamp: datetime | None = None
     priority: EventPriority = EventPriority.MEDIUM
     source: str | None = None
 

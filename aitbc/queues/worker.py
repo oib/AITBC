@@ -24,7 +24,9 @@ class BackgroundTaskManager:
         self.tasks: dict[str, asyncio.Task] = {}
         self.task_info: dict[str, dict[str, Any]] = {}
 
-    async def run_task(self, func: Callable, task_id: str | None = None, args: tuple = (), kwargs: dict = None) -> str:
+    async def run_task(
+        self, func: Callable, task_id: str | None = None, args: tuple = (), kwargs: dict[str, Any] | None = None
+    ) -> str:
         """Run a background task"""
         if task_id is None:
             task_id = str(uuid.uuid4())
