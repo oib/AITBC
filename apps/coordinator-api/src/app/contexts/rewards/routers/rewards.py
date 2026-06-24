@@ -210,7 +210,7 @@ async def get_tier_progress(
         profile = session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).first()
         if not profile:
             raise HTTPException(status_code=404, detail="Reward profile not found")
-        from ..domain.reputation import AgentReputation  # type: ignore[import-not-found]
+        from app.domain.reputation import AgentReputation
 
         reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
         trust_score = reputation.trust_score if reputation else 500.0
@@ -355,7 +355,7 @@ async def get_reward_leaderboard(
 async def get_reward_tiers(request: Request, session: Annotated[Session, Depends(get_session)]) -> list[dict[str, Any]]:
     """Get reward tier configurations"""
     try:
-        from ..domain.rewards import RewardTierConfig  # type: ignore[import-not-found]
+        from app.domain.rewards import RewardTierConfig
 
         tier_configs = session.execute(select(RewardTierConfig).where(RewardTierConfig.is_active)).all()
         tiers = []
@@ -390,7 +390,7 @@ async def get_agent_milestones(
 ) -> list[MilestoneResponse]:
     """Get milestones for an agent"""
     try:
-        from ..domain.rewards import RewardMilestone
+        from app.domain.rewards import RewardMilestone
 
         query = select(RewardMilestone).where(RewardMilestone.agent_id == agent_id)
         if not include_completed:
@@ -429,7 +429,7 @@ async def get_reward_distributions(
 ) -> list[dict[str, Any]]:
     """Get reward distribution history for an agent"""
     try:
-        from ..domain.rewards import RewardDistribution
+        from app.domain.rewards import RewardDistribution
 
         query = select(RewardDistribution).where(RewardDistribution.agent_id == agent_id)
         if status:
