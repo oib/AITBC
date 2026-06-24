@@ -182,7 +182,7 @@ class RewardDistribution(SQLModel, table=True):
     transaction_status: str = Field(default="pending")
 
     # Status tracking
-    status: RewardStatus = Field(default=RewardStatus.PENDING)
+    status: RewardStatus = Field(default=RewardStatus.PENDING, index=True)
     processed_at: datetime | None = None
     confirmed_at: datetime | None = None
 
@@ -193,7 +193,7 @@ class RewardDistribution(SQLModel, table=True):
     error_message: str | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     scheduled_at: datetime | None = None
 
@@ -267,7 +267,7 @@ class RewardMilestone(SQLModel, table=True):
     claimed_at: datetime | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
 
