@@ -30,9 +30,7 @@ def get_engine() -> Engine:
     """Get or create the database engine with connection pooling."""
     global _engine
     if _engine is None:
-        db_override = getattr(settings, "database_url", None)
-        db_config = settings.database
-        effective_url = db_override or db_config.effective_url
+        effective_url = settings.database.effective_url
         if "sqlite" in effective_url:
             _engine = create_engine(
                 effective_url,
