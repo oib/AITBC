@@ -1,5 +1,15 @@
 """
-Rate limiter implementation for HTTP client
+Rate limiter for outbound HTTP client calls.
+
+This is the single-client rate limiter used by aitbc/network/client.py
+to throttle outbound HTTP requests. Uses a sliding-window algorithm
+with check()/record_request() -> raises RateLimitError semantics.
+
+The inbound HTTP endpoint rate limiter in aitbc/security/rate_limiter.py
+is a separate class with a different API (is_allowed(key) -> bool) for
+per-IP rate limiting of incoming requests via the @rate_limit decorator.
+Both implement the same sliding-window algorithm but serve different
+purposes and are intentionally kept separate.
 """
 
 from datetime import UTC, datetime
