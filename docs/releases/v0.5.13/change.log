@@ -1,0 +1,175 @@
+# v0.5.13 Change Log
+
+**Theme**: Phase 4 — coordinator-api bounded context formalization, JWT library standardization, and codebase cleanup.
+
+**Goal**: Standardize both services on a single JWT library (PyJWT), audit and document cross-context boundary violations in coordinator-api, add context documentation, decide the agent-coordinator service boundary, and clean up lint/infra issues discovered during the audit.
+
+**Context**: v0.5.12 completed duplication elimination and large-file decomposition (B1–B7). v0.5.13 kicks off Phase 4 — formalizing the bounded-context architecture in coordinator-api. The initial Phase 4 draft contained factual errors (rate limiter no-op claim, wrong file counts, wrong auth file locations) that were corrected before execution.
+
+**Status**: Fully implemented. All 5 Phase 4 tasks (P1–P5) complete, plus 2 cleanup items (E501, secrets.baseline).
+
+---
+
+## Implementation Status
+
+| # | Task | Priority | Status |
+|---|------|----------|--------|
+| P1 | Standardize on PyJWT — migrate `jwt_auth.py` from `python-jose` to `PyJWT`, drop `python-jose` dep | High | ✅ DONE |
+| P2 | Audit + document cross-context imports into `app/domain/` from 10 contexts | High | ✅ DONE |
+| P3 | Add `README.md` to each `contexts/*/` + `__all__` to `__init__.py` files | Medium | ✅ DONE |
+| P4 | Decide agent-coordinator service boundary (fold in vs keep separate) + add README | Medium | ✅ DONE |
+| P5 | Restructure agent-coordinator into bounded context (GATED on P4) | Low | ⏭️ SKIPPED (P4 decided "keep separate") |
+| C1 | Clean up 5 E501 line-too-long violations in `apps/agent-coordinator/src/app` | Low | ✅ DONE |
+| C2 | Fix malformed `.secrets.baseline` (duplicate `generated_at` line) | Low | ✅ DONE |
+
+---
+
+## Detailed Changes
+
+### P1: PyJWT standardization — ✅ DONE
+
+**Problem**: Two JWT libraries installed — `PyJWT` 2.13.0 (used by `agent-coordinator/jwt_handler.py` + `coordinator-api/services/enterprise_integration/api_gateway.py`) and `python-jose` 3.5.0 (used by `coordinator-api/auth/jwt_auth.py` only). `python-jose` is largely unmaintained.
+
+**Fix**: Migrated `apps/coordinator-api/src/app/auth/jwt_auth.py` from `python-jose` to `PyJWT`:
+- `from jose import JWTError, jwt` → `import jwt`
+- `except JWTError` → `except jwt.PyJWTError`
+- `jwt.encode`/`jwt.decode` API identical between both libraries — no other changes needed
+- Removed `python-jose[cryptography]>=3.3.0` from `pyproject.toml` security deps
+
+**Security improvement**: PyJWT correctly rejects empty HMAC keys (`InvalidKeyError: HMAC key must not be empty`), whereas `python-jose` silently allowed encoding with an empty secret. The dev config's `jwt_secret: str = ""` default now surfaces this.
+
+**Verification**:
+- `grep -rn "from jose" apps/` → empty (zero jose imports remain)
+- `ruff check jwt_auth.py` → All checks passed
+- `mypy jwt_auth.py` → clean
+- Functional test: create token → verify → invalid reject (401) → role mismatch (403) → ALL PASSED
+- Auth tests: 3 passed, 2 failed — **both failures pre-existing** (verified on clean HEAD: identical results)
+- `agent-coordinator/jwt_handler.py` unchanged (already used PyJWT)
+
+**Files**: `apps/coordinator-api/src/app/auth/jwt_auth.py`, `pyproject.toml`
+
+---
+
+### P2: Cross-context import audit — ✅ DONE
+
+**Problem**: 38 imports across 10 contexts reach into the flat `app/domain/` instead of their own `contexts/<bc>/domain/`. Many carry `# type: ignore[import-not-found]`.
+
+**Fix**: Produced <ref_file file="/opt/aitbc/docs/releases/v0.5.13/context_import_audit.md" /> (267 lines) cataloguing all 38 cross-references with categorization:
+
+| Category | Count | Description |
+|----------|-------|-------------|
+| (a) Intra-context | 20 | Model belongs to importing context — migrate file + fix import path |
+| (b) Shared kernel | 9 | Model genuinely shared by 2+ contexts — keep as shared kernel or extract |
+| (c) Boundary violation | 9 | Context reaches into another context's domain — needs service interface |
+
+**Key findings**:
+- 3 models already migrated with correct `..domain.*` relative imports: `global_marketplace` (10 refs), `gpu_marketplace` (5 refs), `agent_identity` (1 ref) — all in `marketplace` and `agent_identity` contexts
+- 2 shared-kernel candidates: `reputation` (certification + rewards), `multi_chain_transaction` (cross_chain + marketplace)
+- 2 boundary-violation clusters: `agent` (agent_coordination reaches in), `agent_performance` (advanced_rl + multimodal reach in, no owning context)
+- 5 Tier-1 quick-win migrations identified: `certification`, `rewards`, `amm`+`trading`, `cross_chain_bridge`, `analytics`
+- 14 `app/domain/` models have zero context imports — may be dead code or used only by top-level `app/` code
+
+**Files**: `docs/releases/v0.5.13/context_import_audit.md`
+
+---
+
+### P3: Context READMEs + explicit public surface — ✅ DONE
+
+**Problem**: 34 bounded contexts under `apps/coordinator-api/src/app/contexts/` had no documentation. Public surface (`__all__`) not declared in most `__init__.py` files.
+
+**Fix**: Created 34 `README.md` files (one per context directory). Each README contains:
+- One-line description of the bounded context's responsibility
+- Domain Models list (`.py` files in `domain/`, or "None (stub)")
+- Routes list (METHOD path per `@router` decorator, or "None (stub)")
+- Services list (`.py` files in `services/`, or "None (stub)")
+
+`__all__` additions: 0 needed — all non-empty `routers/__init__.py`, `services/__init__.py`, `storage/__init__.py` files already had `__all__` defined.
+
+**Verification**:
+- `find apps/coordinator-api/src/app/contexts -maxdepth 2 -name README.md | wc -l` → 34
+- `ruff check apps/coordinator-api/src/app/contexts/` → All checks passed
+- Spot-checks: marketplace (3 domain models, 8+ routes), agent_identity (1 domain model, 10+ routes), advanced_ai (stub) — all accurate
+
+**Files**: `apps/coordinator-api/src/app/contexts/*/README.md` (34 new files)
+
+---
+
+### P4: Service-boundary decision (agent-coordinator) — ✅ DONE
+
+**Question**: Should `agent-coordinator` (61 .py files, port 9001, Core Service: No) remain a separate microservice, or fold into `coordinator-api` (485 .py files, port 8203, Core Service: Yes)?
+
+**Decision**: **Keep agent-coordinator as a separate microservice.**
+
+**Rationale** (documented in <ref_file file="/opt/aitbc/docs/releases/v0.5.13/agent_coordinator_boundary.md" />):
+
+| Coupling dimension | Finding |
+|--------------------|---------|
+| coordinator-api → agent-coordinator API calls | **Zero** — all 7 files referencing port 9001 use it only in CORS `allow_origins`, not as HTTP client targets |
+| agent-coordinator → coordinator-api API calls | **Zero** — only reference is `COORDINATOR_API_KEY` env var name, not a URL |
+| Shared database | **No** — agent-coord uses own SQLite (`agent_coin_requests.db`, stdlib sqlite3), coordinator-api uses SQLAlchemy (`coordinator.db`) |
+| Shared Redis | Same instance, **different logical DBs** (db 1 vs db 0) |
+| systemd dependency | Independent units, different dependency chains (agent-coord depends on Redis, coordinator-api does not) |
+| External clients | CLI calls agent-coordinator directly at `localhost:9001` for agent discovery/registration |
+
+Folding in would require migrating 61 files + 103 endpoints, merging two DBs, repointing CLI, merging two auth systems — high blast radius for zero coupling reduction.
+
+**Additional findings**:
+- `apps/agent-coordinator/README.md` already existed — file count corrected (48→61)
+- Deployment gap: `aitbc-agent-coordinator.service` file exists but is NOT symlinked into `/etc/systemd/system/` (unlike the 12 other aitbc services verified in B7)
+
+**Files**: `docs/releases/v0.5.13/agent_coordinator_boundary.md`, `apps/agent-coordinator/README.md`
+
+---
+
+### P5: agent-coordinator restructure — ⏭️ SKIPPED
+
+**Gating**: Only execute if P4 decides "fold in". P4 decided "keep separate" — restructure not needed.
+
+---
+
+### C1: E501 line-too-long cleanup — ✅ DONE
+
+**Problem**: 5 `E501 line-too-long` violations in `apps/agent-coordinator/src/app/` (originally Agent A item 10, but files are in Agent B's domain).
+
+**Fix**: Broke long string literals with parentheses — no behavior change:
+- `auth/middleware.py:234` — CSP header split into parenthesized concatenation
+- `monitoring/alerting.py:261` — alert email body split into multi-line f-string
+- `websocket/agent_stream.py:387,426` — 2 SQL INSERT strings split across lines
+- `websocket/agent_stream.py:530` — approval message split into parenthesized f-string
+
+**Verification**:
+- `ruff check --select E501 apps/agent-coordinator/src/app/` → All checks passed (0 errors, down from 5)
+- String split equivalence verified programmatically — all splits produce byte-identical output to originals
+
+**Files**: `apps/agent-coordinator/src/app/auth/middleware.py`, `apps/agent-coordinator/src/app/monitoring/alerting.py`, `apps/agent-coordinator/src/app/websocket/agent_stream.py`
+
+---
+
+### C2: Fix malformed `.secrets.baseline` — ✅ DONE
+
+**Problem**: `.secrets.baseline` (secrets scanning baseline for `detect-secrets` v1.5.0) had a duplicate `"generated_at"` line (line 2658) with no comma separator, making it unparseable JSON. Introduced in commit `bb9e17e4b`.
+
+**Fix**: Removed the duplicate line, leaving a single valid `"generated_at"` entry.
+
+**Verification**: `json.load()` succeeds — parses to 192 files with 306 findings.
+
+**Files**: `.secrets.baseline`
+
+---
+
+## Grounding Facts (verified 2026-06-24)
+
+- `apps/coordinator-api/src/app/` — 485 .py files, 34 bounded contexts under `contexts/` (each with `domain/`, `routers/`, `services/`, `storage/` subpackages). Only `contexts/agent_identity/` and `contexts/marketplace/` are fully populated; most others have empty `domain/` stubs.
+- `apps/coordinator-api/src/app/domain/` — 25 flat domain model files (6,859 lines) still the live import target. 38 cross-context imports reach into it from 10 contexts.
+- `apps/agent-coordinator/` — separate microservice, 61 .py files, flat layout. 103 endpoints across 15 routers. 12 of 15 routers use `@rate_limit`.
+- **Rate limiter is NOT a no-op** — `aitbc/rate_limiting.py` is enabled by default (`AITBC_ENABLE_RATE_LIMITING=true`), enforces via `RateLimiter`, returns 429 on exceed. Fixed in commits `71cec61bf` + `c08e85b03`.
+- **JWT libraries**: both services now use `PyJWT` 2.13.0 only. `python-jose` removed from deps.
+
+## Corrections from the Initial (Rejected) Phase 4 Draft
+
+The first Phase 4 draft contained factual errors that this plan corrects:
+- ~~"rate_limit decorator is a no-op"~~ — it is enabled and enforced by default (`aitbc/rate_limiting.py:24`).
+- ~~"move auth/dependencies.py and security_matrix.py into coordinator-api"~~ — they already live there; the real duplication was the JWT *library* (PyJWT vs python-jose), not those files.
+- ~~"health endpoint rate=50, will be throttled"~~ — it's `rate=1000, per=60` (`routers/health.py:15`).
+- ~~"agent_stream.py has 5 E501 errors"~~ — ruff now reports clean (fixed in C1).
+- File counts corrected: agent-coordinator 61 (not 48), coordinator-api 485 (not 508), contexts 34 (not 35).

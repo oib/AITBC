@@ -26,7 +26,7 @@ no
 
 ## Source
 
-`src/` directory with 48 Python file(s)
+`src/` directory with 61 Python file(s)
 
 ---
 *Last updated: 2026-06-17*
