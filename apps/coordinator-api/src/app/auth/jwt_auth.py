@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
 
-from ..config_pg import settings
+from ..config import settings
 
 
 class JWTAuth:
