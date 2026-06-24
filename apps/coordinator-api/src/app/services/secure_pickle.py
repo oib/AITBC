@@ -1,6 +1,10 @@
 """
-Secure JSON serialization utilities for safe deserialization.
-Replaces pickle with JSON to eliminate RCE vulnerability (CVE-2020-XXXX).
+Secure JSON-only serializer; unsafe pickle deserialization removed.
+
+All functions use json.loads/json.dumps with no object_hook or custom
+decoder — only primitive types (dict, list, str, int, float, bool, None)
+are produced on deserialization. Size validation prevents memory
+exhaustion from oversized payloads.
 """
 
 import hashlib
