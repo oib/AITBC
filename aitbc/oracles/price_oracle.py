@@ -16,9 +16,10 @@ import json
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from aitbc import get_logger
+from aitbc.constants import DATA_DIR
 
 logger = get_logger(__name__)
 
@@ -118,9 +119,9 @@ class ChainlinkOracle:
 class CoinGeckoOracle:
     """Reads prices from CoinGecko public REST API (no key required)."""
 
-    _cache: dict[str, PriceResult] = {}
+    _cache: ClassVar[dict[str, PriceResult]] = {}
     _cache_ttl: int = 60  # seconds (in-memory)
-    _disk_cache_path: str = os.path.join(os.getenv("DATA_DIR", "/var/lib/aitbc"), "price_cache.json")
+    _disk_cache_path: str = os.path.join(str(DATA_DIR), "price_cache.json")
     _disk_cache_max_age: int = int(os.getenv("PRICE_CACHE_MAX_AGE", "3600"))  # 1 hour default
 
     def _read_disk_cache(self) -> dict[str, Any]:
