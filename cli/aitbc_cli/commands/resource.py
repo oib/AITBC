@@ -121,9 +121,16 @@ def optimize(target: str, agent_id: str | None, mock: bool):
     if agent_id:
         click.echo(f"Agent: {agent_id}")
     # TODO: Implement actual optimization logic
-    click.echo("Optimization score: 85.2%")
-    click.echo("Improvement: 12.5%")
-    click.echo("Status: Optimized")
+    click.echo(
+        json.dumps(
+            {
+                "status": "mock",
+                "optimization_score": None,
+                "improvement": None,
+                "note": "Real optimization logic not yet implemented",
+            }
+        )
+    )
     return 0
 
 
