@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 
-from ...domain.agent_performance import FusionModel  # type: ignore[import-not-found]
+from app.domain.agent_performance import FusionModel
 from .neural_modules import AdaptiveModalityWeighting, CrossModalAttention, MultiModalTransformer
 
 logger = get_logger(__name__)
