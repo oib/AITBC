@@ -92,7 +92,7 @@ class TradeRequest(SQLModel, table=True):
     service_level_required: str = Field(default="standard")  # basic, standard, premium
 
     # Status and metadata
-    status: TradeStatus = Field(default=TradeStatus.OPEN)
+    status: TradeStatus = Field(default=TradeStatus.OPEN, index=True)
     priority: int = Field(default=5, ge=1, le=10)  # 1 = highest priority
 
     # Matching and negotiation
@@ -101,7 +101,7 @@ class TradeRequest(SQLModel, table=True):
     best_match_score: float = Field(default=0.0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
     last_activity: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -141,7 +141,7 @@ class TradeMatch(SQLModel, table=True):
     proposed_terms: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Status and interaction
-    status: TradeStatus = Field(default=TradeStatus.MATCHING)
+    status: TradeStatus = Field(default=TradeStatus.MATCHING, index=True)
     buyer_response: str | None = None  # interested, not_interested, negotiating
     seller_response: str | None = None  # accepted, rejected, countered
 
@@ -176,7 +176,7 @@ class TradeNegotiation(SQLModel, table=True):
     seller_agent_id: str = Field(index=True)
 
     # Negotiation details
-    status: NegotiationStatus = Field(default=NegotiationStatus.PENDING)
+    status: NegotiationStatus = Field(default=NegotiationStatus.PENDING, index=True)
     negotiation_round: int = Field(default=1)
     max_rounds: int = Field(default=5)
 
@@ -202,7 +202,7 @@ class TradeNegotiation(SQLModel, table=True):
     auto_accept_threshold: float = Field(default=85.0, ge=0, le=100)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     started_at: datetime | None = None
     completed_at: datetime | None = None

@@ -84,7 +84,7 @@ class AgentSolution(SQLModel, table=True):
     price_amount: float = Field(default=0.0)
     currency: str = Field(default="AITBC")
 
-    status: SolutionStatus = Field(default=SolutionStatus.DRAFT)
+    status: SolutionStatus = Field(default=SolutionStatus.DRAFT, index=True)
     downloads: int = Field(default=0)
     average_rating: float = Field(default=0.0)
     review_count: int = Field(default=0)
@@ -139,7 +139,7 @@ class CommunityPost(SQLModel, table=True):
 
     parent_post_id: str | None = Field(default=None, foreign_key="community_posts.post_id")
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
