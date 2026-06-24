@@ -15,7 +15,7 @@ from sqlmodel import select
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ....domain.certification import (
+from ..domain.certification import (
     AchievementBadge,
     AgentBadge,
     AgentCertification,
