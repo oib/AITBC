@@ -13,6 +13,16 @@ import numpy as np
 
 from aitbc.aitbc_logging import get_logger
 
+# Importing the pricing persistence models at module load registers their tables
+# with SQLModel.metadata so init_db()/create_all() creates them at startup.
+from .....domain.pricing_models import (  # noqa: E402
+    PricingHistory,
+    ProviderPricingStrategy,
+)
+from .....domain.pricing_models import (  # noqa: E402
+    ResourceType as PricingResourceType,
+)
+
 logger = get_logger(__name__)
 
 
@@ -235,7 +245,7 @@ class DynamicPricingEngine:
             reasoning = await self._generate_pricing_reasoning(factors, strategy, market_conditions, price_trend)
             confidence = await self._calculate_confidence_score(factors, market_conditions)
             next_update = datetime.now(UTC) + timedelta(seconds=self.update_interval)
-            await self._store_price_point(resource_id, final_price, factors, strategy)
+            await self._store_price_point(resource_id, resource_type, final_price, factors, strategy)
             result = PricingResult(
                 resource_id=resource_id,
                 resource_type=resource_type,
@@ -299,11 +309,57 @@ class DynamicPricingEngine:
             self.provider_strategies[provider_id] = strategy
             if constraints:
                 self.price_constraints[provider_id] = constraints
+            await self._persist_provider_strategy(provider_id, strategy, constraints)
             logger.info("Set strategy %s for provider %s", strategy.value, provider_id)
             return True
         except Exception as e:
             logger.error("Failed to set strategy for provider %s: %s", provider_id, e)
             return False
+
+    async def _persist_provider_strategy(
+        self, provider_id: str, strategy: PricingStrategy, constraints: PriceConstraints | None
+    ) -> None:
+        """Persist a provider strategy, deactivating any prior active row (best-effort)."""
+
+        def _write() -> None:
+            from sqlmodel import select
+
+            from .....storage.db import session_scope
+
+            with session_scope() as session:
+                existing = (
+                    session.execute(
+                        select(ProviderPricingStrategy).where(
+                            ProviderPricingStrategy.provider_id == provider_id,
+                            ProviderPricingStrategy.is_active == True,  # noqa: E712
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                for row in existing:
+                    row.is_active = False
+                    session.add(row)
+                session.add(
+                    ProviderPricingStrategy(
+                        provider_id=provider_id,
+                        strategy_type=strategy.value,
+                        strategy_name=strategy.value,
+                        parameters=self.strategy_configs.get(strategy, {}),
+                        min_price=constraints.min_price if constraints else None,
+                        max_price=constraints.max_price if constraints else None,
+                        max_change_percent=constraints.max_change_percent if constraints else 0.5,
+                        min_change_interval=constraints.min_change_interval if constraints else 300,
+                        strategy_lock_period=constraints.strategy_lock_period if constraints else 3600,
+                        is_active=True,
+                    )
+                )
+                session.commit()
+
+        try:
+            await asyncio.to_thread(_write)
+        except Exception as e:
+            logger.warning("Failed to persist strategy for provider %s: %s", provider_id, e)
 
     async def _calculate_pricing_factors(
         self,
@@ -547,9 +603,14 @@ class DynamicPricingEngine:
         return max(0.3, min(0.95, confidence))
 
     async def _store_price_point(
-        self, resource_id: str, price: float, factors: PricingFactors, strategy: PricingStrategy
+        self,
+        resource_id: str,
+        resource_type: ResourceType,
+        price: float,
+        factors: PricingFactors,
+        strategy: PricingStrategy,
     ) -> None:
-        """Store price point in history"""
+        """Store price point in history (in-memory cache + durable persistence)."""
         if resource_id not in self.pricing_history:
             self.pricing_history[resource_id] = []
         price_point = PricePoint(
@@ -563,6 +624,45 @@ class DynamicPricingEngine:
         self.pricing_history[resource_id].append(price_point)
         if len(self.pricing_history[resource_id]) > 1000:
             self.pricing_history[resource_id] = self.pricing_history[resource_id][-1000:]
+        await self._persist_price_point(resource_id, resource_type, price, factors, strategy)
+
+    async def _persist_price_point(
+        self,
+        resource_id: str,
+        resource_type: ResourceType,
+        price: float,
+        factors: PricingFactors,
+        strategy: PricingStrategy,
+    ) -> None:
+        """Persist a price point to the pricing_history table (best-effort)."""
+
+        def _write() -> None:
+            from .....storage.db import session_scope
+
+            with session_scope() as session:
+                session.add(
+                    PricingHistory(
+                        resource_id=resource_id,
+                        resource_type=PricingResourceType(resource_type.value),
+                        price=price,
+                        base_price=factors.base_price,
+                        demand_level=factors.demand_level,
+                        supply_level=factors.supply_level,
+                        market_volatility=factors.market_volatility,
+                        utilization_rate=factors.utilization_rate,
+                        strategy_used=strategy.value,
+                        strategy_parameters=self.strategy_configs.get(strategy, {}),
+                        pricing_factors=asdict(factors),
+                        confidence_score=factors.confidence_score,
+                    )
+                )
+                session.commit()
+
+        try:
+            await asyncio.to_thread(_write)
+        except Exception as e:
+            # Persistence is best-effort: never let a DB issue break price calculation.
+            logger.warning("Failed to persist price point for %s: %s", resource_id, e)
 
     async def _get_market_conditions(self, resource_type: ResourceType, region: str) -> MarketConditions:
         """Get current market conditions"""
@@ -586,12 +686,86 @@ class DynamicPricingEngine:
         return conditions
 
     async def _load_pricing_history(self) -> None:
-        """Load historical pricing data"""
-        pass
+        """Load recent historical pricing data from the pricing_history table."""
+
+        def _read() -> dict[str, list[PricePoint]]:
+            from sqlmodel import select
+
+            from .....storage.db import session_scope
+
+            history: dict[str, list[PricePoint]] = {}
+            with session_scope() as session:
+                rows = (
+                    session.execute(
+                        select(PricingHistory).order_by(PricingHistory.timestamp.asc()).limit(10000)  # type: ignore[attr-defined]
+                    )
+                    .scalars()
+                    .all()
+                )
+            for row in rows:
+                points = history.setdefault(row.resource_id, [])
+                points.append(
+                    PricePoint(
+                        timestamp=row.timestamp,
+                        price=row.price,
+                        demand_level=row.demand_level,
+                        supply_level=row.supply_level,
+                        confidence=row.confidence_score,
+                        strategy_used=row.strategy_used,
+                    )
+                )
+            for resource_id, points in history.items():
+                if len(points) > 1000:
+                    history[resource_id] = points[-1000:]
+            return history
+
+        try:
+            self.pricing_history = await asyncio.to_thread(_read)
+            logger.info("Loaded pricing history for %d resources", len(self.pricing_history))
+        except Exception as e:
+            logger.warning("Failed to load pricing history (starting empty): %s", e)
+            self.pricing_history = {}
 
     async def _load_provider_strategies(self) -> None:
-        """Load provider strategies from storage"""
-        pass
+        """Load active provider strategies and constraints from storage."""
+
+        def _read() -> tuple[dict[str, PricingStrategy], dict[str, PriceConstraints]]:
+            from sqlmodel import select
+
+            from .....storage.db import session_scope
+
+            strategies: dict[str, PricingStrategy] = {}
+            constraints: dict[str, PriceConstraints] = {}
+            with session_scope() as session:
+                rows = (
+                    session.execute(
+                        select(ProviderPricingStrategy).where(
+                            ProviderPricingStrategy.is_active == True  # noqa: E712
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+            for row in rows:
+                try:
+                    strategies[row.provider_id] = PricingStrategy(row.strategy_type)
+                except ValueError:
+                    logger.warning("Skipping unknown stored strategy %r for provider %s", row.strategy_type, row.provider_id)
+                    continue
+                constraints[row.provider_id] = PriceConstraints(
+                    min_price=row.min_price,
+                    max_price=row.max_price,
+                    max_change_percent=row.max_change_percent,
+                    min_change_interval=row.min_change_interval,
+                    strategy_lock_period=row.strategy_lock_period,
+                )
+            return strategies, constraints
+
+        try:
+            self.provider_strategies, self.price_constraints = await asyncio.to_thread(_read)
+            logger.info("Loaded strategies for %d providers", len(self.provider_strategies))
+        except Exception as e:
+            logger.warning("Failed to load provider strategies (starting empty): %s", e)
 
     async def _update_market_conditions(self) -> None:
         """Background task to update market conditions"""
