@@ -57,7 +57,7 @@ class TestBadgeSystem:
     @patch("app.services.certification.badge_system.Session")
     async def test_create_badge(self, mock_session):
         """Test badge creation"""
-        from app.domain.certification import AchievementBadge, BadgeType
+        from app.contexts.certification.domain.certification import AchievementBadge, BadgeType
         from app.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
@@ -101,7 +101,7 @@ class TestBadgeSystem:
     @patch("app.services.certification.badge_system.Session")
     async def test_verify_badge_eligibility(self, mock_session):
         """Test badge eligibility verification"""
-        from app.domain.certification import AchievementBadge, BadgeType
+        from app.contexts.certification.domain.certification import AchievementBadge, BadgeType
         from app.domain.reputation import AgentReputation
         from app.services.certification.badge_system import BadgeSystem
 
@@ -158,7 +158,7 @@ class TestBadgeSystem:
     @patch("app.services.certification.badge_system.Session")
     async def test_award_badge(self, mock_session):
         """Test badge awarding"""
-        from app.domain.certification import AchievementBadge, AgentBadge, BadgeType
+        from app.contexts.certification.domain.certification import AchievementBadge, AgentBadge, BadgeType
         from app.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()

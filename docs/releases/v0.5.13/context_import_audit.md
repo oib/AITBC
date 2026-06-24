@@ -227,11 +227,13 @@
 ## Migration Priority
 
 ### Tier 1 — Quick wins (intra-context, just move the file + fix imports)
-1. **`certification.py`** → `contexts/certification/domain/` (4 imports to fix)
-2. **`rewards.py`** → `contexts/rewards/domain/` (3 imports to fix)
-3. **`amm.py`** + **`trading.py`** → `contexts/trading/domain/` (2 imports to fix)
-4. **`cross_chain_bridge.py`** → `contexts/cross_chain/domain/` (1 import, path already correct)
-5. **`analytics.py`** → `contexts/ai_analytics/domain/` or `contexts/analytics/domain/` (1 import, needs ownership decision)
+1. **`certification.py`** → `contexts/certification/domain/` — ✅ DONE (8 importers fixed: 4 service files + 1 router + 3 test files)
+2. **`rewards.py`** → `contexts/rewards/domain/` — ✅ DONE (5 importers fixed: 3 inline in router + 1 top-level router import + 1 service file)
+3. **`amm.py`** + **`trading.py`** → `contexts/trading/domain/` — ✅ DONE (3 importers fixed: 1 amm service + 1 trading service + 1 trading router; also fixed duplicated `type: ignore` comment on trading.py)
+4. **`cross_chain_bridge.py`** → `contexts/cross_chain/domain/` — ✅ DONE (2 importers fixed: bridge.py + bridge_enhanced.py; audit's "path already correct" claim was wrong — both used `from app.domain.cross_chain_bridge`, not `..domain.*`)
+5. **`analytics.py`** → `contexts/ai_analytics/domain/` or `contexts/analytics/domain/` (1 import, needs ownership decision) — ⏭️ PENDING
+
+**Note**: The original audit undercounted importers because it only grepped `contexts/` for `from app.domain.*` (absolute) and `..domain.*` (1-2 dot relative). It missed: (a) test file imports in `tests/`, (b) router-level 4-dot relative imports (`....domain.*`), and (c) additional service files (`reward_service.py`, `bridge_enhanced.py`). The actual importer counts were higher than estimated for all 4 migrated models.
 
 ### Tier 2 — Shared kernel decisions (require design)
 6. **`reputation.py`** — shared by `certification` + `rewards`. Keep as shared kernel or move to `contexts/reputation/domain/` with cross-context service interface.
@@ -248,13 +250,17 @@
 
 ---
 
-## Remaining `app/domain/` models (not imported by any context)
+## Remaining `app/domain/` models (not imported via the patterns grepped above)
 
-These 14 models in `app/domain/` have zero context imports — they may be used only by top-level `app/` code (routers, services, adapters) or are dead code:
+The list below originally read "14 models" but contained 17 names — and 5 of those were **false orphans** (they *are* imported, via patterns this audit's grep missed: 4-dot relative `....domain.X` and name-imports `from ..domain import X` through `app/domain/__init__.py`). These were audited in full in <ref_file file="/opt/aitbc/docs/releases/v0.5.13/orphan_models_audit.md" />.
 
-`agent_portfolio.py`, `atomic_swap.py`, `bounty.py`, `community.py`, `cross_chain_reputation.py`, `dao_governance.py`, `decentralized_memory.py`, `developer_platform.py`, `federated_learning.py`, `governance.py`, `job.py`, `job_receipt.py`, `miner.py`, `pricing_models.py`, `pricing_strategies.py`, `user.py`, `wallet.py`
+**Corrected classification** (17 models, see orphan audit for per-model importer lists):
 
-**Recommendation**: Audit these separately — grep for `from app.domain.<model>` across all of `apps/coordinator-api/src/app/` (not just `contexts/`). If only used by top-level code, they're candidates for migration to their respective contexts. If unused, they're dead code.
+- **Not orphans (have importers this grep missed)** — 5: `governance.py` (3 importers in `contexts/governance/`, 4-dot relative), `job.py`, `job_receipt.py`, `miner.py`, `user.py` (re-exported by `domain/__init__.py`, imported by name in top-level `app/`).
+- **Genuine orphans of `contexts/` but imported by top-level `app/` code — MIGRATE** — 11: `agent_portfolio.py`, `atomic_swap.py`, `bounty.py`, `community.py`, `cross_chain_reputation.py`, `dao_governance.py`, `decentralized_memory.py`, `developer_platform.py`, `federated_learning.py`, `pricing_strategies.py`, `wallet.py`.
+- **Dead code (zero importers anywhere) — DELETE** — 1: `pricing_models.py`.
+
+**Recommendation**: See <ref_file file="/opt/aitbc/docs/releases/v0.5.13/orphan_models_audit.md" /> for migration destinations and the dead-code deletion plan for `pricing_models.py`.
 
 ---
 

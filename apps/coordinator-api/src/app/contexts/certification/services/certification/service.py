@@ -5,7 +5,7 @@ Combines certification, partnership, and badge systems
 
 from typing import Any
 
-from app.domain.certification import (  # type: ignore[import-not-found]
+from ...domain.certification import (
     AchievementBadge,
     AgentBadge,
     AgentCertification,

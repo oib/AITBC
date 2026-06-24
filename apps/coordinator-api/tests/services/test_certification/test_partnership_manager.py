@@ -95,7 +95,7 @@ class TestPartnershipManager:
     @patch("app.services.certification.partnership_manager.Session")
     async def test_create_partnership_program(self, mock_session):
         """Test partnership program creation"""
-        from app.domain.certification import PartnershipProgram
+        from app.contexts.certification.domain.certification import PartnershipProgram
         from app.services.certification.partnership_manager import PartnershipManager
 
         manager = PartnershipManager()
@@ -140,7 +140,7 @@ class TestPartnershipManager:
     @patch("app.services.certification.partnership_manager.Session")
     async def test_apply_for_partnership(self, mock_session):
         """Test partnership application"""
-        from app.domain.certification import AgentPartnership, PartnershipProgram
+        from app.contexts.certification.domain.certification import AgentPartnership, PartnershipProgram
         from app.services.certification.partnership_manager import PartnershipManager
 
         manager = PartnershipManager()

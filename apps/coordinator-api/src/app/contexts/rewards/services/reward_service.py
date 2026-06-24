@@ -12,7 +12,7 @@ from sqlmodel import Session, and_, select
 from aitbc.aitbc_logging import get_logger
 
 from ....domain.reputation import AgentReputation
-from ....domain.rewards import (
+from ..domain.rewards import (
     AgentRewardProfile,
     RewardCalculation,
     RewardDistribution,

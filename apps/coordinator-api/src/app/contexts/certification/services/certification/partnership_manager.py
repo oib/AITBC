@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from app.domain.certification import (  # type: ignore[import-not-found]
+from ...domain.certification import (
     AgentPartnership,
     PartnershipProgram,
     PartnershipType,
