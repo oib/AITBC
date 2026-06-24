@@ -117,7 +117,7 @@ class AgentExecution(SQLModel, table=True):
     client_id: str = Field(index=True)
 
     # Execution state
-    status: AgentStatus = Field(default=AgentStatus.PENDING)
+    status: AgentStatus = Field(default=AgentStatus.PENDING, index=True)
     current_step: int = Field(default=0)
     step_states: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
 
@@ -156,7 +156,7 @@ class AgentStepExecution(SQLModel, table=True):
     step_id: str = Field(index=True)
 
     # Execution state
-    status: AgentStatus = Field(default=AgentStatus.PENDING)
+    status: AgentStatus = Field(default=AgentStatus.PENDING, index=True)
 
     # Step-specific data
     input_data: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))

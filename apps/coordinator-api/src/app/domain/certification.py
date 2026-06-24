@@ -85,7 +85,7 @@ class AgentCertification(SQLModel, table=True):
     verification_hash: str = Field(max_length=64)  # Blockchain verification hash
 
     # Status and metadata
-    status: CertificationStatus = Field(default=CertificationStatus.ACTIVE)
+    status: CertificationStatus = Field(default=CertificationStatus.ACTIVE, index=True)
     renewal_count: int = Field(default=0)
     last_renewed_at: datetime | None = None
 
@@ -176,7 +176,7 @@ class VerificationRecord(SQLModel, table=True):
     processing_time: float | None = None  # seconds
 
     # Results and outcomes
-    status: str = Field(default="pending")  # pending, in_progress, passed, failed, cancelled
+    status: str = Field(default="pending", index=True)  # pending, in_progress, passed, failed, cancelled
     result_score: float | None = None
     result_details: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     failure_reasons: list[str] = Field(default_factory=list, sa_column=Column(JSON))
@@ -237,12 +237,12 @@ class PartnershipProgram(SQLModel, table=True):
     performance_metrics: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Status and management
-    status: str = Field(default="active")  # active, inactive, suspended, terminated
+    status: str = Field(default="active", index=True)  # active, inactive, suspended, terminated
     max_participants: int | None = None
     current_participants: int = Field(default=0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     launched_at: datetime | None = None
     expires_at: datetime | None = None
@@ -284,7 +284,7 @@ class AgentPartnership(SQLModel, table=True):
     pending_payments: float = Field(default=0.0)
 
     # Status and lifecycle
-    status: str = Field(default="active")  # active, inactive, suspended, terminated
+    status: str = Field(default="active", index=True)  # active, inactive, suspended, terminated
     tier_progress: float = Field(default=0.0, ge=0, le=100.0)
     next_tier_eligible: bool = Field(default=False)
 

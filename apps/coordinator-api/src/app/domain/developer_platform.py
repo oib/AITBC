@@ -114,7 +114,7 @@ class BountyTask(SQLModel, table=True):
     assigned_developer_id: str | None = Field(foreign_key="developer_profile.id", default=None)
 
     deadline: datetime | None = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Relationships
