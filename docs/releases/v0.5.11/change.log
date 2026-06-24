@@ -393,9 +393,77 @@ Deleted the dead `apps/exchange/api/` package (`__init__.py`, `database.py`, `ha
 - Removed `test_database_url` field and its env var override
 - The test conftest creates its own engine directly (`create_engine("sqlite:///:memory:")`) and never read `settings.effective_database_url`
 
+### DatabaseConfig Consolidation — Phase 2 (uncommitted)
+
+Additional changes completing the B2 config consolidation:
+
+**agent-management**: Added `database: DatabaseConfig = DatabaseConfig()` override on `ServiceSettings` subclass so the agent-management `db_filename = "agent_management.db"` is actually instantiated (previously the inherited base `DatabaseConfig()` was used, ignoring the subclass override).
+
+**coordinator-api `storage/db.py`**: Removed dead `getattr(settings, "database_url", None)` fallback (always returned `None` since `Settings` has no `database_url` attribute) — now uses `settings.database.effective_url` directly.
+
+**edge `storage.py`**: Replaced `os.getenv("DATABASE_URL", "sqlite+aiosqlite:///var/lib/aitbc/data/edge.db")` with `settings.database.effective_url` via `_get_async_db_url()` helper that converts `sqlite://` → `sqlite+aiosqlite://` and `postgresql://` → `postgresql+asyncpg://` for async engine compatibility.
+
+**Verification**: ruff clean, mypy clean (no new errors), runtime smoke tests confirm correct DB URLs for all 3 services (agent_management.db, coordinator.db, aitbc_edge.db).
+
+### Exchange Handler Package Decomposition (uncommitted)
+
+**Problem**: `apps/exchange/simple_exchange/handlers.py` was 1,040 lines with `ExchangeAPIHandler`, `WalletAPIHandler`, and shared helpers all in one file.
+
+**Fix**: Split into a `handlers/` package with mixin-based composition:
+- `handlers/base.py` (35 lines) — `BaseHandler`: shared `send_json_response`, `do_OPTIONS`, `_read_json_body`
+- `handlers/marketplace.py` (221 lines) — `MarketplaceMixin`: offers/orders CRUD, book, delete
+- `handlers/exchange.py` (422 lines) — `ExchangeMixin`: trades, orderbook, place_order, treasury, health, metrics, price, wallet_balance/connect
+- `handlers/bridge.py` (278 lines) — `BridgeMixin`: deposit, status, price, withdraw, deposits list, estimate
+- `handlers/wallet.py` (32 lines) — `WalletAPIHandler`: balance, connect
+- `handlers/__init__.py` (96 lines) — `ExchangeAPIHandler(BaseHandler, MarketplaceMixin, ExchangeMixin, BridgeMixin)` with route dispatch
+
+Also moved `db.py` and `server.py` into the `simple_exchange/` package and replaced `simple_exchange_api.py` with a deprecated shim.
+
+**Verification**: ruff clean, server boots, all routes (`/health`, `/api/orders/orderbook`, `/api/wallet/balance`, `/v1/marketplace/offers`, `/v1/bridge/status`, `/exchange/price.json`) return correct response shapes.
+
 ### Systemd Symlink Audit
 
 Verified all 12 `aitbc*.service` symlinks in `/etc/systemd/system/` resolve to non-empty service files. Zero dangling symlinks. (The `aitbc-recovery` symlink was fixed in the original v0.5.11 release.)
+
+### Exchange Security Hardening (uncommitted)
+
+**Body-size guard** (`handlers/base.py`): Upgraded `_read_json_body` with robust Content-Length validation — 411 if header missing, 400 on invalid/negative values, 413 if exceeding 2MB (`MAX_BODY_BYTES`), 400 on `JSONDecodeError`. All `rfile.read` calls now go through this single guarded path.
+
+**X-Api-Key enforcement** (`handlers/base.py` + `exchange.py` + `bridge.py`): Added `_require_api_key()` helper reading `EXCHANGE_API_KEY` env var. Auth disabled when unset (backward compatible). When set, missing/wrong key → 401. Guarded 7 sensitive routes: `handle_place_order`, `handle_treasury_balance`, `handle_wallet_balance`, `handle_wallet_connect`, `handle_bridge_deposit`, `handle_bridge_withdraw`, `handle_bridge_estimate`. Public routes (health, metrics, orderbook, marketplace offers, bridge status) remain unauthenticated.
+
+**Configurable RPC URL** (`handlers/base.py` + `exchange.py`): Replaced per-call `_rpc_base_url()` method with module-level `RPC_BASE_URL` constant reading `BLOCKCHAIN_RPC_BASE_URL` env var (defaults to `http://localhost:9080`). Startup validation: `RuntimeError` if URL doesn't start with `http://` or `https://`. All `urlopen` calls now pass `timeout=RPC_TIMEOUT` (10s) to prevent indefinite hangs on dead RPC endpoints.
+
+**Info leakage fix** (`handlers/exchange.py`): Replaced `send_error(500, str(e))` with `send_error(500, "Internal server error")` in `handle_treasury_balance` and `handle_metrics`.
+
+**Verification**: ruff clean, server boots, 413 on oversized body, 401 on missing/invalid API key (when `EXCHANGE_API_KEY` set), 200 on valid key, auth disabled when unset, `RuntimeError` on misconfigured `BLOCKCHAIN_RPC_BASE_URL`.
+
+### PoA Partial Rollback Fix (uncommitted)
+
+**Problem**: In `apps/blockchain-node/src/aitbc_chain/consensus/poa.py:_propose_block()`, the exception handler called `session.rollback()` — rolling back the **entire session** and discarding all previously committed savepoints from successful transactions in the same block. A single invalid tx in a mixed batch caused loss of valid tx state. Additionally, `begin_nested()` was created *after* recipient account creation, so that mutation was outside the savepoint.
+
+**Fix** (Option A — savepoints):
+- Moved `begin_nested()` earlier (before recipient account creation) so the savepoint protects all mutations within a single tx
+- Changed exception handler to use `nested.rollback()` when savepoint exists, only falling back to `session.rollback()` for exceptions before savepoint creation
+- Added `nested = None` guard at the top of each iteration to track savepoint state
+
+**Verification**: ruff clean, mypy 0 errors, 26/26 consensus tests pass.
+
+### Redis Singleton Hot-Reload Safety (uncommitted)
+
+**Problem**: After uvicorn hot-reload, the module-level `RedisStateManager` singleton persisted with a Redis client bound to the old (closed) event loop. The first request after reload hit `RuntimeError: Event loop is closed` or obscure `ConnectionError`. The `_init()` guard `if self._initialized: return` prevented reconnection.
+
+**Fix** — `apps/coordinator-api/src/app/services/redis_state.py`:
+- Added `_loop` attribute to store the event loop reference when `_init()` creates the Redis client
+- Added `_is_stale_loop()` method: compares current running loop against stored one
+- Added `_reconnect()` method: closes stale client via `aclose()`, resets `_initialized`, calls `_init()` on current loop
+- Updated `get_instance()` to check `_is_stale_loop()` and auto-reconnect
+- Updated `_init()` to store `self._loop = asyncio.get_running_loop()` after successful ping
+
+**Fix** — `apps/coordinator-api/src/app/main.py`: Lifespan startup now checks `state._is_stale_loop()` first — if stale, calls `_reconnect()` instead of skipping `_init()`.
+
+**Fix** — `apps/coordinator-api/src/app/services/marketplace_cache_optimizer.py`: Same pattern applied to `MarketplaceDataOptimizer` — `_loop` tracking, `_is_stale_loop()`, `_reconnect_if_stale()` called at the top of `get_cached_data`, `set_cached_data`, and `invalidate_namespace`.
+
+**Verification**: ruff clean, mypy 0 new errors, 4/5 Redis integration tests pass (same pre-existing `test_cache_invalidation_on_mutation` failure before and after).
 
 ### Post-Release File Impact Summary
 
@@ -421,9 +489,27 @@ Verified all 12 `aitbc*.service` symlinks in `/etc/systemd/system/` resolve to n
 | `apps/blockchain-explorer/models.py` | New — Pydantic request models |
 | `apps/blockchain-explorer/chain_client.py` | New — RPC/DB helpers + config |
 | `apps/blockchain-explorer/routers/*.py` (6 files) | New — route handlers by domain |
-| `apps/exchange/simple_exchange_api.py` | **1,209 → 38 lines** (decomposed into 3 files) |
-| `apps/exchange/db.py` | New — DB schema + connection (renamed from `api/database.py`) |
-| `apps/exchange/handlers.py` | New — handler classes with shared `BaseHandler` |
+| `apps/exchange/simple_exchange_api.py` | **1,209 → 21 lines** (deprecated shim delegating to `simple_exchange.server`) |
+| `apps/exchange/simple_exchange/__init__.py` | New — package marker |
+| `apps/exchange/simple_exchange/db.py` | New — DB schema + connection (moved from flat `db.py`) |
+| `apps/exchange/simple_exchange/server.py` | New — `run_server()` + argparse entrypoint |
+| `apps/exchange/simple_exchange/handlers/__init__.py` | New — `ExchangeAPIHandler` mixin composition + route dispatch |
+| `apps/exchange/simple_exchange/handlers/base.py` | New — shared `BaseHandler` with JSON/CORS helpers |
+| `apps/exchange/simple_exchange/handlers/marketplace.py` | New — `MarketplaceMixin` |
+| `apps/exchange/simple_exchange/handlers/exchange.py` | New — `ExchangeMixin` (trades, metrics, treasury, health, wallet) |
+| `apps/exchange/simple_exchange/handlers/bridge.py` | New — `BridgeMixin` (deposit, status, price, estimate) |
+| `apps/exchange/simple_exchange/handlers/wallet.py` | New — `WalletAPIHandler` |
+| `apps/exchange/db.py` | **Deleted** (moved to `simple_exchange/db.py`) |
+| `apps/exchange/handlers.py` | **Deleted** (moved to `simple_exchange/handlers/` package) |
 | `apps/exchange/api/` (4 files) | **Deleted** (422 lines, dead code) |
+| `apps/agent-management/src/app/core/config.py` | **Added `database` field override** to instantiate service-specific `DatabaseConfig` |
+| `apps/edge/src/aitbc_edge/storage.py` | **Replaced `os.getenv` with `settings.database.effective_url`** + async driver conversion |
 | `cli/utils/dual_mode_wallet_adapter.py` | **Deleted** (626 lines, stale duplicate) |
 | `cli/aitbc_cli/commands/explorer.py` | Fixed missing trailing newline |
+| `apps/exchange/simple_exchange/handlers/base.py` | **Security hardening**: 2MB body guard, `_require_api_key()`, `RPC_BASE_URL` constant + startup validation, `RPC_TIMEOUT` |
+| `apps/exchange/simple_exchange/handlers/exchange.py` | **Security hardening**: API key guards on 4 routes, `RPC_BASE_URL` + `RPC_TIMEOUT` on all urlopen calls, generic 500 error messages |
+| `apps/exchange/simple_exchange/handlers/bridge.py` | **Security hardening**: API key guards on 3 bridge routes |
+| `apps/blockchain-node/src/aitbc_chain/consensus/poa.py` | **Partial rollback fix**: moved `begin_nested()` before recipient creation, `nested.rollback()` in exception handler |
+| `apps/coordinator-api/src/app/services/redis_state.py` | **Hot-reload safety**: `_loop` tracking, `_is_stale_loop()`, `_reconnect()` |
+| `apps/coordinator-api/src/app/main.py` | **Hot-reload safety**: lifespan checks stale Redis loop and reconnects |
+| `apps/coordinator-api/src/app/services/marketplace_cache_optimizer.py` | **Hot-reload safety**: `_loop` tracking, `_reconnect_if_stale()` on all cache operations |
