@@ -191,6 +191,31 @@ class TestEventBus:
 
         handler.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_publish_sync_inside_event_loop(self):
+        """Test publish_sync works when called from inside a running event loop.
+
+        This is the Python 3.12 regression test — asyncio.ensure_future(loop=)
+        was removed in 3.12 and would raise TypeError. The fix uses
+        loop.create_task() instead.
+        """
+        bus = EventBus()
+        handler_called = [False]
+
+        def handler(event):
+            handler_called[0] = True
+
+        bus.subscribe("test_event", handler)
+
+        event = Event(event_type="test_event", data={"key": "value"})
+        bus.publish_sync(event)
+
+        # Allow the fire-and-forget task to complete
+        await asyncio.sleep(0.05)
+
+        assert handler_called[0] is True
+        assert event in bus.event_history
+
     def test_get_event_history(self):
         """Test get_event_history"""
         bus = EventBus()

@@ -282,8 +282,11 @@ class TestStageRunner:
             "balance": ExpectedCondition(type="value", value=100),
             "wallet": ExpectedCondition(type="regex", value=r"wallet-\d+"),
         }
+        command_results = [
+            {"success": True, "output": "balance: 100\nwallet: wallet-42", "exit_code": 0},
+        ]
 
-        results = stage_runner.validate_conditions(expected)
+        results = stage_runner.validate_conditions(expected, command_results)
 
         assert "balance" in results
         assert "wallet" in results
@@ -345,7 +348,7 @@ class TestCreateExampleStageJson:
                 data = json.load(f2)
 
             assert data["stage"] == 1
-            assert data["title"] == "Foundation – Wallets & Accounts"
+            assert data["title"] == "Foundation - Wallets & Accounts"
             assert "prerequisites" in data
             assert len(data["commands"]) == 3
             assert "expected" in data

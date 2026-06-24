@@ -98,7 +98,10 @@ class TestStageRunner:
             "ok": ExpectedCondition(type="value", value=True),
             "match": ExpectedCondition(type="regex", value="test"),
         }
-        result = runner.validate_conditions(conditions)
+        command_results = [
+            {"success": True, "output": "ok: true\ntest output here", "exit_code": 0},
+        ]
+        result = runner.validate_conditions(conditions, command_results)
         assert result["ok"]["passed"] is True
         assert result["match"]["passed"] is True
 
