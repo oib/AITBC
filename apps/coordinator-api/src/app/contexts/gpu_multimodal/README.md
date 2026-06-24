@@ -1,16 +1,16 @@
-# Gpu Multimodal Context
+# gpu_multimodal
 
-**Description:** GPU-accelerated multimodal processing
+GPU-accelerated multimodal processing and health monitoring.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-No cross-context domain imports.
+- GET /health
+- GET /health/deep
+
+## Services
+
+- None (stub)

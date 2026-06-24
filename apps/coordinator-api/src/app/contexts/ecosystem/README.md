@@ -1,16 +1,30 @@
-# Ecosystem Context
+# ecosystem
 
-**Description:** Ecosystem metrics and integration
+Ecosystem dashboard — aggregate metrics and health across the platform.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-No cross-context domain imports.
+- GET /ecosystem/developer-earnings
+- GET /ecosystem/agent-utilization
+- GET /ecosystem/treasury-allocation
+- GET /ecosystem/staking-metrics
+- GET /ecosystem/bounty-analytics
+- GET /ecosystem/overview
+- GET /ecosystem/metrics
+- GET /ecosystem/health-score
+- GET /ecosystem/growth-indicators
+- GET /ecosystem/top-performers
+- GET /ecosystem/predictions
+- GET /ecosystem/alerts
+- GET /ecosystem/comparison
+- GET /ecosystem/export
+- GET /ecosystem/real-time
+- GET /ecosystem/kpi-dashboard
+
+## Services
+
+- None (stub)

@@ -1,20 +1,29 @@
-# Bounty Context
+# bounty
 
-**Description:** Bounty system for developer incentives and task completion
+Bounty system for incentivized tasks and contributions.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-| Domain Module | Imported Symbols |
-|---|---|
-| `app/domain/bounty.py` | `BountyStatus`, `BountyTier`, `SubmissionStatus` |
+- POST /bounties
+- GET /bounties
+- GET /bounties/{bounty_id}
+- POST /bounties/{bounty_id}/submit
+- GET /bounties/{bounty_id}/submissions
+- POST /bounties/{bounty_id}/verify
+- POST /bounties/{bounty_id}/dispute
+- GET /bounties/my/created
+- GET /bounties/my/submissions
+- GET /bounties/leaderboard
+- GET /bounties/stats
+- POST /bounties/{bounty_id}/expire
+- GET /bounties/categories
+- GET /bounties/tags
+- GET /bounties/search
 
-> **Note:** These imports cross the context boundary into the shared `app/domain/` layer. See [P2 audit](../../docs/releases/v0.5.12/p2_cross_context_import_audit.md) for details.
+## Services
+
+- None (stub)

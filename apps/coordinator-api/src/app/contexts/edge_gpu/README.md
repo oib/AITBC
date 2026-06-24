@@ -1,18 +1,20 @@
-# Edge Gpu Context
+# edge_gpu
 
-**Description:** Edge GPU compute service
+Edge GPU compute — provisioning, monitoring, and scheduling.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `routers` | `routers/` |
-| `services` | `services/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-| Domain Module | Imported Symbols |
-|---|---|
-| `app/domain/gpu_marketplace.py` | `ConsumerGPUProfile`, `EdgeGPUMetrics`, `GPUArchitecture` |
+- GET /profiles
+- GET /metrics/{gpu_id}
+- GET /metrics
+- POST /metrics
+- POST /discover
+- POST /optimize
 
-> **Note:** These imports cross the context boundary into the shared `app/domain/` layer. See [P2 audit](../../docs/releases/v0.5.12/p2_cross_context_import_audit.md) for details.
+## Services
+
+- edge_gpu_service.py

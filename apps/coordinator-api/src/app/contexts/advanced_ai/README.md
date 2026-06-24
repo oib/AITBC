@@ -1,16 +1,16 @@
-# Advanced Ai Context
+# advanced_ai
 
-**Description:** Advanced AI capabilities and reasoning
+Advanced AI capabilities (adaptive learning, health monitoring).
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-No cross-context domain imports.
+- GET /health
+- GET /health/deep
+
+## Services
+
+- None (stub)

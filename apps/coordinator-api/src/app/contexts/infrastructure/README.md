@@ -1,16 +1,22 @@
-# Infrastructure Context
+# infrastructure
 
-**Description:** Infrastructure management and monitoring
+Infrastructure monitoring — dashboards, metrics, and system health.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-No cross-context domain imports.
+- GET /dashboard
+- GET /status
+- GET /miners
+- GET /dashboard/history
+- GET /jobs
+- GET /dashboard
+- GET /dashboard/summary
+- GET /dashboard/metrics
+
+## Services
+
+- None (stub)

@@ -1,13 +1,20 @@
-# Knowledge Context
+# knowledge
 
-**Description:** Knowledge graph and information management
+Knowledge base — graph queries, retrieval, and knowledge management.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `routers` | `routers/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-No cross-context domain imports.
+- POST /graphs
+- GET /graphs
+- GET /graphs/{graph_id}
+- POST /graphs/{graph_id}/nodes
+- GET /graphs/{graph_id}/query
+- POST /graphs/{graph_id}/join
+
+## Services
+
+- None (stub)

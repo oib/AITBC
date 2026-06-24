@@ -1,16 +1,19 @@
-# Payments Context
+# payments
 
-**Description:** Payment processing and settlement
+Payments — processing, settlement, and payment schema storage.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- payment.py
 
-## Domain Dependencies
+## Routes
 
-No cross-context domain imports.
+- GET /payments/{payment_id}
+- GET /jobs/{job_id}/payment
+- POST /payments/{payment_id}/release
+- POST /payments/{payment_id}/refund
+- GET /payments/{payment_id}/receipt
+
+## Services
+
+- payments.py
