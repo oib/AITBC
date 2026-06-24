@@ -173,7 +173,6 @@ class Settings(BaseAITBCConfig):
 
     # Test Configuration
     test_mode: bool = Field(default=False, description="Test mode")
-    test_database_url: str | None = None
 
     # Feature Flags
     debug: bool = Field(default=False, description="Debug mode for development features")
@@ -200,21 +199,12 @@ class Settings(BaseAITBCConfig):
             raise ValueError("Mock endpoints cannot be enabled in production")
         return v
 
-    @property
-    def effective_database_url(self) -> str:
-        """Get the effective database URL with test mode support."""
-        if self.test_mode and self.test_database_url:
-            return str(self.test_database_url)
-        return str(self.database.effective_url)
-
 
 settings = Settings()
 
 # Enable test mode if environment variable is set
 if os.getenv("TEST_MODE") == "true":
     settings.test_mode = True
-    if os.getenv("TEST_DATABASE_URL"):
-        settings.test_database_url = os.getenv("TEST_DATABASE_URL")
 
 # Note: Secret validation moved to application startup (create_app() or main entry point)
 # to allow importing config without production .env files during testing
