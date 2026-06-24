@@ -258,7 +258,18 @@ class NotificationManager:
             msg["From"] = self.email_config["from_email"]
             msg["To"] = "admin@aitbc.local"
             msg["Subject"] = f"[{alert.severity.value.upper()}] {alert.name}"
-            body = f"\nAlert: {alert.name}\nSeverity: {alert.severity.value}\nStatus: {alert.status.value}\nDescription: {alert.description}\nCreated: {alert.created_at}\nSource: {alert.source}\n\n{message}\n\nLabels: {json.dumps(alert.labels, indent=2)}\nAnnotations: {json.dumps(alert.annotations, indent=2)}\n            "
+            body = (
+                f"\nAlert: {alert.name}\n"
+                f"Severity: {alert.severity.value}\n"
+                f"Status: {alert.status.value}\n"
+                f"Description: {alert.description}\n"
+                f"Created: {alert.created_at}\n"
+                f"Source: {alert.source}\n\n"
+                f"{message}\n\n"
+                f"Labels: {json.dumps(alert.labels, indent=2)}\n"
+                f"Annotations: {json.dumps(alert.annotations, indent=2)}\n"
+                "            "
+            )
             msg.attach(MIMEText(body, "plain"))
             server = smtplib.SMTP(self.email_config["smtp_server"], self.email_config["smtp_port"])
             server.starttls()
