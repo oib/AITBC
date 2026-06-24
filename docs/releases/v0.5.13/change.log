@@ -6,7 +6,7 @@
 
 **Context**: v0.5.12 completed duplication elimination and large-file decomposition (B1–B7). v0.5.13 kicks off Phase 4 — formalizing the bounded-context architecture in coordinator-api. The initial Phase 4 draft contained factual errors (rate limiter no-op claim, wrong file counts, wrong auth file locations) that were corrected before execution.
 
-**Status**: Fully implemented. All 5 Phase 4 tasks (P1–P5) complete, plus 2 cleanup items (E501, secrets.baseline), plus P2-followup orphan audit, P2-followup-2 pricing_models revival, T1 Tier 1 migrations (6 models), T2 Tier 2 shared-kernel migrations (2 models), and T3 Tier 3 boundary-violation migrations (2 models + 1 documented).
+**Status**: Fully implemented. All 5 Phase 4 tasks (P1–P5) complete, plus 2 cleanup items (E501, secrets.baseline), plus P2-followup orphan audit, P2-followup-2 pricing_models revival, T1 Tier 1 migrations (6 models), T2 Tier 2 shared-kernel migrations (2 models), T2-r model rename (MultiChainTransaction → ChainTransaction), and T3 Tier 3 boundary-violation migrations (2 models + 1 documented).
 
 ---
 
@@ -22,6 +22,7 @@
 | P5 | Restructure agent-coordinator into bounded context (GATED on P4) | Low | ⏭️ SKIPPED (P4 decided "keep separate") |
 | T1 | Tier 1 intra-context domain model migrations (certification, rewards, amm, trading, cross_chain_bridge, analytics) | High | ✅ DONE (all 6 models migrated) |
 | T2 | Tier 2 shared-kernel model migrations (reputation, multi_chain_transaction) | High | ✅ DONE (both models migrated to owning contexts) |
+| T2-r | Rename MultiChainTransaction → ChainTransaction (misnomer: transaction is single-chain, not multi-chain) | Medium | ✅ DONE (class + table + file + alias + manager renamed) |
 | T3 | Tier 3 boundary-violation migrations (agent, agent_performance) + document analytics cross-context | Medium | ✅ DONE (2 models migrated, 1 documented) |
 | C1 | Clean up 5 E501 line-too-long violations in `apps/agent-coordinator/src/app` | Low | ✅ DONE |
 | C2 | Fix malformed `.secrets.baseline` (duplicate `generated_at` line) | Low | ✅ DONE |
@@ -330,6 +331,36 @@ These are explicit, traceable cross-context imports. A future refactor could int
 - Updated: `app/domain/__init__.py` (re-export from new location)
 
 ---
+
+### T2-r: Rename MultiChainTransaction → ChainTransaction — ✅ DONE
+
+**Problem**: The model `MultiChainTransaction` was misnamed. A transaction is inherently single-chain — it's submitted to one chain, confirmed on one chain, and has one hash. The `chain_id: int` field (a single chain) confirms this. The "multi-chain" qualifier described the *manager's* capability (routing transactions to different chains), not the transaction itself. The name was architecturally misleading.
+
+**Fix**: Renamed the model to reflect what it actually is — a transaction on a single chain:
+
+| Old | New | Scope |
+|-----|-----|-------|
+| `MultiChainTransaction` (class) | `ChainTransaction` | Model + all 19 references in manager |
+| `multi_chain_transaction` (table) | `chain_transaction` | `__tablename__` |
+| `multi_chain_transaction.py` (file) | `chain_transaction.py` | `git mv` |
+| `MultiChainTransactionType` (alias) | `ChainTransactionType` | 14 references in manager |
+| `MultiChainTransactionManager` (class) | `ChainTransactionManager` | Manager + 9 references in 2 importers |
+
+**Rationale for also renaming the manager**: `ChainTransactionManager` is cleaner — it manages `ChainTransaction` records. The "multi-chain" aspect (handling transactions on different chains) is an implementation detail, not a naming concern. The manager file `multi_chain_transaction_manager.py` was left as-is to minimize churn.
+
+**Import path updates**: 5 importers updated from `...domain.multi_chain_transaction` → `...domain.chain_transaction`
+
+**Verification**:
+- `grep 'MultiChainTransaction\|multi_chain_transaction' apps/coordinator-api/` → 0 matches (zero stale references, excluding the manager file name)
+- `ruff check` → All checks passed
+- `mypy` → zero errors related to the rename
+- Runtime import test: `ChainTransaction.__tablename__` = `chain_transaction`, `ChainTransactionManager` imports OK, cross_chain router OK, marketplace service OK
+
+**Files**: `contexts/cross_chain/domain/chain_transaction.py` (renamed), `services/multi_chain_transaction_manager.py`, `contexts/cross_chain/routers/cross_chain_integration.py`, `contexts/marketplace/{services/global_marketplace_integration,routers/global_marketplace_integration}.py`
+
+---
+
+## Grounding Facts (verified 2026-06-24)
 
 - `apps/coordinator-api/src/app/` — 485 .py files, 34 bounded contexts under `contexts/` (each with `domain/`, `routers/`, `services/`, `storage/` subpackages). Only `contexts/agent_identity/` and `contexts/marketplace/` are fully populated; most others have empty `domain/` stubs.
 - `apps/coordinator-api/src/app/domain/` — 25 flat domain model files (6,859 lines) still the live import target. 38 cross-context imports reach into it from 10 contexts.
