@@ -15,9 +15,10 @@ from typing import Any
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
 
-# Database path - use DATA_DIR environment variable or fallback to /var/lib/aitbc
-DATA_DIR = os.environ.get("DATA_DIR", "/var/lib/aitbc")
-DB_PATH = os.path.join(DATA_DIR, "agent_registry.db")
+from aitbc.constants import DATA_DIR
+
+# Database path — uses centralized DATA_DIR from aitbc.constants
+DB_PATH = os.path.join(str(DATA_DIR), "agent_registry.db")
 
 
 @asynccontextmanager
