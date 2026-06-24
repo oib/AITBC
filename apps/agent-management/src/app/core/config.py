@@ -20,6 +20,9 @@ class ServiceSettings(BaseServiceSettings):
     app_port: int = 8204
     api_prefix: str = "/v1"
 
+    # Database — override with agent-management-specific filename
+    database: DatabaseConfig = DatabaseConfig()
+
     # API Keys (comma-separated in env)
     admin_api_keys: list[str] = Field(default_factory=list)
     client_api_keys: list[str] = Field(default_factory=list)
