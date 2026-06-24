@@ -18,6 +18,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.rate_limiting import rate_limit
 
 from ..services.bounty_service import BountyService
 
@@ -84,6 +85,7 @@ def _create_sample_bounties() -> None:
 
 
 @router.post("/create", summary="Create a new bounty")
+@rate_limit(rate=20, per=60)
 async def create_bounty(request: Request, req: CreateBountyRequest) -> dict[str, Any]:
     """Create a new bounty task"""
     return {
@@ -98,12 +100,14 @@ async def create_bounty(request: Request, req: CreateBountyRequest) -> dict[str,
 
 
 @router.get("/list", summary="List available bounties")
+@rate_limit(rate=100, per=60)
 async def list_bounties(request: Request, status: str | None = None, tag: str | None = None) -> dict[str, Any]:
     """List all bounties with optional filtering"""
     return {"bounties": [], "count": 0, "filters": {"status": status, "tag": tag}}
 
 
 @router.get("/{bounty_id}", summary="Get bounty details")
+@rate_limit(rate=100, per=60)
 async def get_bounty(request: Request, bounty_id: str) -> dict[str, Any]:
     """Get detailed information about a specific bounty"""
     if bounty_id == "not-found":
@@ -119,18 +123,21 @@ async def get_bounty(request: Request, bounty_id: str) -> dict[str, Any]:
 
 
 @router.post("/claim", summary="Claim a bounty")
+@rate_limit(rate=20, per=60)
 async def claim_bounty(request: Request, req: ClaimBountyRequest) -> dict[str, Any]:
     """Claim an open bounty for work"""
     return {"success": True, "bounty_id": req.bounty_id, "hunter": req.hunter, "status": "claimed"}
 
 
 @router.post("/submit", summary="Submit solution")
+@rate_limit(rate=30, per=60)
 async def submit_solution(request: Request, req: SubmitSolutionRequest) -> dict[str, Any]:
     """Submit a solution for a claimed bounty"""
     return {"success": True, "bounty_id": req.bounty_id, "submission_id": "sub-001", "status": "pending"}
 
 
 @router.post("/verify", summary="Verify solution")
+@rate_limit(rate=20, per=60)
 async def verify_solution(request: Request, req: VerifySolutionRequest) -> dict[str, Any]:
     """Verify and approve/reject a submitted solution"""
     return {
@@ -142,6 +149,7 @@ async def verify_solution(request: Request, req: VerifySolutionRequest) -> dict[
 
 
 @router.get("/stats", summary="Get bounty statistics")
+@rate_limit(rate=50, per=60)
 async def get_stats(request: Request) -> dict[str, Any]:
     """Get platform-wide bounty statistics"""
     return {
