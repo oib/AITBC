@@ -21,7 +21,7 @@ from .....agent_identity.wallet_adapter_enhanced import (
     SecurityLevel,
     WalletAdapterFactory,
 )
-from .....domain.cross_chain_bridge import BridgeRequest, BridgeRequestStatus
+from ...domain.cross_chain_bridge import BridgeRequest, BridgeRequestStatus
 from .....reputation.engine import CrossChainReputationEngine
 
 logger = get_logger(__name__)

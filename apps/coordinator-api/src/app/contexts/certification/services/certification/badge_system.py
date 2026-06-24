@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from app.domain.certification import AchievementBadge, AgentBadge, BadgeType  # type: ignore[import-not-found]
+from ...domain.certification import AchievementBadge, AgentBadge, BadgeType
 from app.domain.reputation import AgentReputation  # type: ignore[import-not-found]
 from sqlmodel import Session, and_, select
 

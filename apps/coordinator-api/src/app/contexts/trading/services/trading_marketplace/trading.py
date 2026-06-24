@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
-from app.domain.trading import (  # type: ignore[import-not-found]  # type: ignore[import-not-found]
+from ...domain.trading import (
     NegotiationStatus,
     SettlementType,
     TradeAgreement,

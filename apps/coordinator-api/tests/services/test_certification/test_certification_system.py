@@ -24,7 +24,7 @@ class TestCertificationSystem:
 
     def test_generate_verification_hash(self):
         """Test verification hash generation"""
-        from app.domain.certification import CertificationLevel
+        from app.contexts.certification.domain.certification import CertificationLevel
         from app.services.certification.certification_system import CertificationSystem
 
         system = CertificationSystem()
@@ -39,7 +39,7 @@ class TestCertificationSystem:
 
     def test_get_special_capabilities(self):
         """Test getting special capabilities for certification level"""
-        from app.domain.certification import CertificationLevel
+        from app.contexts.certification.domain.certification import CertificationLevel
         from app.services.certification.certification_system import CertificationSystem
 
         system = CertificationSystem()
@@ -123,7 +123,7 @@ class TestCertificationSystem:
     @patch("app.services.certification.certification_system.Session")
     async def test_certify_agent(self, mock_session):
         """Test agent certification"""
-        from app.domain.certification import AgentCertification, CertificationLevel
+        from app.contexts.certification.domain.certification import AgentCertification, CertificationLevel
         from app.services.certification.certification_system import CertificationSystem
 
         system = CertificationSystem()

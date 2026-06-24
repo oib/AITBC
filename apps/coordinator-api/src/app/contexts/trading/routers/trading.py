@@ -16,7 +16,7 @@ from sqlmodel import select
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ....domain.trading import TradeMatch, TradeNegotiation, TradeRequest, TradeType
+from ..domain.trading import TradeMatch, TradeNegotiation, TradeRequest, TradeType
 from ....storage import get_session
 from ..services.trading_marketplace.trading import P2PTradingProtocol
 

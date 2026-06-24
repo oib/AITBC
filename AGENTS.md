@@ -82,8 +82,12 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python
 |---|------|----------|--------|
 | P1 | Standardize on PyJWT — migrate `jwt_auth.py` from `python-jose` to `PyJWT`, drop `python-jose` dep | High | ✅ DONE |
 | P2 | Audit + document cross-context imports into `app/domain/` | High | ✅ DONE |
+| P2-followup | Orphan-models audit — classify 17 `app/domain/` models with zero context imports | Medium | ✅ DONE |
 | P3 | Add `README.md` to each `contexts/*/` + `__all__` to `__init__.py` files | Medium | ✅ DONE |
 | P4 | Decide agent-coordinator service boundary (fold in vs keep separate) + add README | Medium | ✅ DONE |
 | P5 | Restructure agent-coordinator into bounded context (GATED on P4) | Low | ⏭️ SKIPPED (P4 decided "keep separate") |
+| T1 | Tier 1 intra-context domain model migrations (certification, rewards, amm, trading, cross_chain_bridge) | High | ✅ DONE (4 of 5; analytics deferred — needs ownership decision) |
 
 **All Phase 4 tasks complete.** P5 skipped — P4 decision doc (`docs/releases/v0.5.13/agent_coordinator_boundary.md`) recommends keeping agent-coordinator as a separate service (zero runtime coupling between the two services).
+
+**T1 follow-up**: 4 of 5 Tier 1 intra-context domain models migrated from flat `app/domain/` to their owning `contexts/<bc>/domain/`. See <ref_file file="/opt/aitbc/docs/releases/v0.5.13/change.log" /> §"T1" for details. Remaining: `analytics.py` (needs ownership decision between `analytics` and `ai_analytics` contexts), plus Tier 2/3 items from `context_import_audit.md`.
