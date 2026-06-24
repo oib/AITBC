@@ -15,7 +15,7 @@ from sqlmodel import select
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ....domain.rewards import AgentRewardProfile, RewardTier, RewardType
+from ..domain.rewards import AgentRewardProfile, RewardTier, RewardType
 from ....storage import get_session
 from ..services.reward_service import RewardEngine
 
@@ -355,7 +355,7 @@ async def get_reward_leaderboard(
 async def get_reward_tiers(request: Request, session: Annotated[Session, Depends(get_session)]) -> list[dict[str, Any]]:
     """Get reward tier configurations"""
     try:
-        from app.domain.rewards import RewardTierConfig
+        from ..domain.rewards import RewardTierConfig
 
         tier_configs = session.execute(select(RewardTierConfig).where(RewardTierConfig.is_active)).all()
         tiers = []
@@ -390,7 +390,7 @@ async def get_agent_milestones(
 ) -> list[MilestoneResponse]:
     """Get milestones for an agent"""
     try:
-        from app.domain.rewards import RewardMilestone
+        from ..domain.rewards import RewardMilestone
 
         query = select(RewardMilestone).where(RewardMilestone.agent_id == agent_id)
         if not include_completed:
@@ -429,7 +429,7 @@ async def get_reward_distributions(
 ) -> list[dict[str, Any]]:
     """Get reward distribution history for an agent"""
     try:
-        from app.domain.rewards import RewardDistribution
+        from ..domain.rewards import RewardDistribution
 
         query = select(RewardDistribution).where(RewardDistribution.agent_id == agent_id)
         if status:
