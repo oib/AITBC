@@ -6,7 +6,7 @@
 
 **Context**: v0.5.12 completed duplication elimination and large-file decomposition (B1–B7). v0.5.13 kicks off Phase 4 — formalizing the bounded-context architecture in coordinator-api. The initial Phase 4 draft contained factual errors (rate limiter no-op claim, wrong file counts, wrong auth file locations) that were corrected before execution.
 
-**Status**: Fully implemented. All 5 Phase 4 tasks (P1–P5) complete, plus 2 cleanup items (E501, secrets.baseline), plus P2-followup orphan audit, T1 Tier 1 migrations (6 models), and T2 Tier 2 shared-kernel migrations (2 models).
+**Status**: Fully implemented. All 5 Phase 4 tasks (P1–P5) complete, plus 2 cleanup items (E501, secrets.baseline), plus P2-followup orphan audit, P2-followup-2 pricing_models revival, T1 Tier 1 migrations (6 models), T2 Tier 2 shared-kernel migrations (2 models), and T3 Tier 3 boundary-violation migrations (2 models + 1 documented).
 
 ---
 
@@ -22,6 +22,7 @@
 | P5 | Restructure agent-coordinator into bounded context (GATED on P4) | Low | ⏭️ SKIPPED (P4 decided "keep separate") |
 | T1 | Tier 1 intra-context domain model migrations (certification, rewards, amm, trading, cross_chain_bridge, analytics) | High | ✅ DONE (all 6 models migrated) |
 | T2 | Tier 2 shared-kernel model migrations (reputation, multi_chain_transaction) | High | ✅ DONE (both models migrated to owning contexts) |
+| T3 | Tier 3 boundary-violation migrations (agent, agent_performance) + document analytics cross-context | Medium | ✅ DONE (2 models migrated, 1 documented) |
 | C1 | Clean up 5 E501 line-too-long violations in `apps/agent-coordinator/src/app` | Low | ✅ DONE |
 | C2 | Fix malformed `.secrets.baseline` (duplicate `generated_at` line) | Low | ✅ DONE |
 
@@ -274,7 +275,61 @@ Folding in would require migrating 61 files + 103 endpoints, merging two DBs, re
 
 ---
 
-## Grounding Facts (verified 2026-06-24)
+### T3: Tier 3 boundary-violation migrations — ✅ DONE
+
+**Problem**: The P2 audit identified 3 boundary violations where contexts reached into unowned domain models:
+1. `agent.py` — imported by `agent_coordination` (5 files) + `security` (1 file) + `adapters` (1 file). Question: does `agent_coordination` or `agent_identity` own it?
+2. `agent_performance.py` — imported by `agent_coordination` (3 files) + `advanced_rl` (2 files) + `multimodal` (1 file) + tests (2 inline). No owning context existed.
+3. `analytics` cross-context import from `ai_analytics` — discovered during the orphan audit (4-dot relative import missed by original grep).
+
+**Ownership decisions**:
+
+| Model | Decision | Rationale |
+|-------|----------|-----------|
+| `agent.py` (313 lines, 7 classes) | → `contexts/agent_coordination/domain/` | 5 of 7 importing files are in `agent_coordination`. Model defines agent workflow execution — the core concern of agent_coordination. `agent_identity` already has its own separate `agent_identity.py`. |
+| `agent_performance.py` (500 lines, 13 classes) | → `contexts/agent_coordination/domain/` | 3 of 7 importing files are in `agent_coordination` (including the `agent_performance` router). Model is about agent performance profiles, meta-learning, resource allocation. |
+| `analytics` (already in `contexts/analytics/domain/`) | Document, no move | `ai_analytics` is a legitimate consumer of `analytics`'s domain model. The 4-dot relative import (`....analytics.domain.analytics`) is explicit and traceable. In strict DDD this would need an ACL, but for this codebase the explicit cross-context import is accepted. |
+
+**Fix**:
+
+1. **Moved** `app/domain/agent.py` → `contexts/agent_coordination/domain/agent.py` (via `git mv`)
+2. **Moved** `app/domain/agent_performance.py` → `contexts/agent_coordination/domain/agent_performance.py` (via `git mv`)
+3. **Updated** `app/domain/__init__.py` — re-exports agent models from new location (preserves SQLModel table registration at `init_db()` time + backward compat for any name imports)
+4. **Fixed 9 `agent.py` importers**:
+   - 4 intra-context (`contexts/agent_coordination/routers/`): `....domain.agent` → `..domain.agent` (2-dot relative)
+   - 3 top-level services (`services/agent_coordination/`): `...domain.agent` → absolute `app.contexts.agent_coordination.domain.agent`
+   - 1 cross-context (`contexts/security/routers/`): `....domain.agent` → absolute `app.contexts.agent_coordination.domain.agent`
+   - 1 adapter (`adapters/`): `app.domain.agent` → `app.contexts.agent_coordination.domain.agent` (also removed `type: ignore[import-not-found]`)
+   - 2 inline imports in `agent_router.py`: `app.domain.agent` → `app.contexts.agent_coordination.domain.agent` (also removed `type: ignore`)
+5. **Fixed 8 `agent_performance.py` importers**:
+   - 2 intra-context (`contexts/agent_coordination/routers/`): `....domain.agent_performance` → `..domain.agent_performance`
+   - 1 top-level service (`services/agent_coordination/performance.py`): `...domain.agent_performance` → absolute
+   - 2 cross-context (`contexts/advanced_rl/`): `app.domain.agent_performance` → absolute `app.contexts.agent_coordination.domain.agent_performance`
+   - 1 cross-context (`contexts/multimodal/`): `app.domain.agent_performance` → absolute
+   - 2 test inline imports: `app.domain.agent_performance` → absolute
+
+**Remaining cross-context dependencies** (documented, not refactored to service interfaces):
+- `contexts/security/routers/security_router.py` → `app.contexts.agent_coordination.domain.agent` (imports `AIAgentWorkflow`)
+- `contexts/advanced_rl/services/advanced_rl/{engine,marketplace_optimizer}.py` → `app.contexts.agent_coordination.domain.agent_performance` (imports `ReinforcementLearningConfig`)
+- `contexts/multimodal/services/multi_modal_fusion/fusion_engine.py` → `app.contexts.agent_coordination.domain.agent_performance` (imports `FusionModel`)
+- `contexts/ai_analytics/services/ai_analytics/analytics.py` → `contexts/analytics/domain/analytics` (imports 7 analytics model classes)
+
+These are explicit, traceable cross-context imports. A future refactor could introduce service interfaces or DTOs to eliminate them, but that's outside the current scope.
+
+**Verification**:
+- `grep 'from app.domain.agent\b\|from \.{3,}domain.agent\b' apps/coordinator-api/` → 0 matches (zero stale references)
+- `grep 'from app.domain.agent_performance\b\|from \.{3,}domain.agent_performance\b' apps/coordinator-api/` → 0 matches
+- `ruff check` on all modified files → All checks passed
+- `mypy` on migrated model files + `__init__.py` → Success: no issues found (pre-existing errors in router/service files unchanged)
+- Runtime import test: all 15+ import paths verified (agent_coordination routers, services, security router, adapters, advanced_rl, multimodal, domain `__init__.py` re-exports)
+- `AgentExecution` and `AIAgentWorkflow` identity check: re-exported classes from `domain/__init__.py` are the same objects as those imported from the new location
+
+**Files** (2 moved, 17 importers fixed, 1 `__init__.py` updated):
+- Moved: `app/domain/{agent,agent_performance}.py` → `app/contexts/agent_coordination/domain/`
+- Fixed: `contexts/agent_coordination/routers/{agent_router,agent_integration_router,agent_performance,agent_creativity}.py`, `services/agent_coordination/{agent_service,integration,security,performance}.py`, `contexts/security/routers/security_router.py`, `contexts/advanced_rl/services/advanced_rl/{engine,marketplace_optimizer}.py`, `contexts/multimodal/services/multi_modal_fusion/fusion_engine.py`, `adapters/agent_core_adapters.py`, `tests/services/test_multi_modal_fusion/test_fusion_engine.py`
+- Updated: `app/domain/__init__.py` (re-export from new location)
+
+---
 
 - `apps/coordinator-api/src/app/` — 485 .py files, 34 bounded contexts under `contexts/` (each with `domain/`, `routers/`, `services/`, `storage/` subpackages). Only `contexts/agent_identity/` and `contexts/marketplace/` are fully populated; most others have empty `domain/` stubs.
 - `apps/coordinator-api/src/app/domain/` — 25 flat domain model files (6,859 lines) still the live import target. 38 cross-context imports reach into it from 10 contexts.

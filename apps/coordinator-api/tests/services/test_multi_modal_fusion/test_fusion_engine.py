@@ -164,7 +164,7 @@ class TestMultiModalFusionEngine:
     @patch("app.services.multi_modal_fusion.fusion_engine.Session")
     async def test_create_fusion_model(self, mock_session):
         """Test fusion model creation"""
-        from app.domain.agent_performance import FusionModel
+        from app.contexts.agent_coordination.domain.agent_performance import FusionModel
         from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
 
         engine = MultiModalFusionEngine()
@@ -204,7 +204,7 @@ class TestMultiModalFusionEngine:
     @patch("app.services.multi_modal_fusion.fusion_engine.Session")
     async def test_simulate_fusion_training(self, mock_session):
         """Test fusion training simulation"""
-        from app.domain.agent_performance import FusionModel
+        from app.contexts.agent_coordination.domain.agent_performance import FusionModel
         from app.services.multi_modal_fusion.fusion_engine import MultiModalFusionEngine
 
         engine = MultiModalFusionEngine()
