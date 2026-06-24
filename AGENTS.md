@@ -51,14 +51,16 @@ cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 
 ---
 
-## Current Plan — v0.5.12 (Agent B)
+## Current Plan — v0.5.12 (Agent B) — ✅ COMPLETE
 
 **Release theme**: Duplication elimination & large-file decomposition in `apps/` and `cli/`.
+
+**All B1–B7 tasks complete** (verified 2026-06-24). Next candidate work: Phase 4 (coordinator-api bounded context) — not started.
 
 **Status of prior phases**:
 - Phase 1 (quick wins): ✅ DONE (committed in `38a0c70cc`)
 - Phase 2 (test split): ✅ DONE — `tests/integration/test_agent_coordinator.py` (3,177 lines) split into 9 domain files; original deleted.
-- Phase 3 (dedup + indexes): **IN PROGRESS** — database indexes ✅ DONE (this session, uncommitted); config/db duplication + large-file decomposition remain.
+- Phase 3 (dedup + indexes): ✅ DONE — B1–B7 all complete (see task table). Verified 2026-06-24: indexes committed (`5d807d7ec`), `DatabaseConfig` consolidated across all services, CLI dup deleted, blockchain-explorer + simple_exchange decomposed, systemd symlinks valid.
 - Phase 4 (coordinator-api bounded context): not started.
 
 **Agent B working directory**: `/opt/aitbc/` (cross-cutting: `apps/`, `cli/`).
@@ -72,13 +74,13 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Commit the database index additions (35 single-col + 11 composite) + Alembic migration from this session | High | `apps/coordinator-api/src/app/domain/*.py`, `apps/coordinator-api/src/app/contexts/agent_identity/domain/agent_identity.py`, `apps/coordinator-api/alembic/versions/add_query_performance_indexes.py` | ⏳ PENDING (work done, needs commit) |
-| B2 | Consolidate duplicated `DatabaseConfig` — agent-management/coordinator-api/edge should subclass `shared-core`'s `ServiceSettings`/`DatabaseConfig` instead of redefining | High | `apps/agent-management/src/app/core/config.py`, `apps/coordinator-api/src/app/config.py`, `apps/edge/src/aitbc_edge/config.py` | ⏳ PENDING |
-| B3 | Remove duplicate CLI `dual_mode_wallet_adapter.py` — `cli/utils/` copy is stale; keep `cli/aitbc_cli/utils/` version, delete the other | Medium | `cli/utils/dual_mode_wallet_adapter.py` | ⏳ PENDING |
-| B4 | Decompose `apps/blockchain-explorer/main.py` (1,442 lines) — split routes into a `routers/` package, keep `main.py` as app factory | Medium | `apps/blockchain-explorer/main.py`, new `apps/blockchain-explorer/routers/*.py` | ⏳ PENDING |
-| B5 | Decompose `apps/exchange/simple_exchange_api.py` (1,209 lines, stdlib `http.server`) — extract handlers + db layer | Medium | `apps/exchange/simple_exchange_api.py` | ⏳ PENDING |
-| B6 | Audit duplicate `database.py` files — `apps/exchange/database.py` vs `apps/exchange/api/database.py` (genuinely different, likely keep both but rename for clarity); `apps/edge/src/aitbc_edge/routers/database.py` vs `schemas/database.py` (router vs schemas — not dup, no action) | Low | `apps/exchange/database.py`, `apps/exchange/api/database.py` | ⏳ PENDING |
-| B7 | Verify all systemd symlinks present (recovery ✅, backup, monitoring, etc.) and that service files exist at symlink targets | Low | `/etc/systemd/system/aitbc*.service` | ⏳ PENDING |
+| B1 | Commit the database index additions (35 single-col + 11 composite) + Alembic migration from this session | High | `apps/coordinator-api/src/app/domain/*.py`, `apps/coordinator-api/src/app/contexts/agent_identity/domain/agent_identity.py`, `apps/coordinator-api/alembic/versions/add_query_performance_indexes.py` | ✅ DONE — committed `5d807d7ec` (35 composite `Index()` calls + migration present) |
+| B2 | Consolidate duplicated `DatabaseConfig` — agent-management/coordinator-api/edge should subclass `shared-core`'s `ServiceSettings`/`DatabaseConfig` instead of redefining | High | `apps/agent-management/src/app/core/config.py`, `apps/coordinator-api/src/app/config.py`, `apps/edge/src/aitbc_edge/config.py` | ✅ DONE — canonical `DatabaseConfig`/`effective_url` lives once in `packages/aitbc-shared/aitbc_shared/core/config.py`; all 3 services subclass with `db_filename` overrides only |
+| B3 | Remove duplicate CLI `dual_mode_wallet_adapter.py` — `cli/utils/` copy is stale; keep `cli/aitbc_cli/utils/` version, delete the other | Medium | `cli/utils/dual_mode_wallet_adapter.py` | ✅ DONE — `cli/utils/` copy deleted; all importers use `aitbc_cli.utils.dual_mode_wallet_adapter` |
+| B4 | Decompose `apps/blockchain-explorer/main.py` (1,442 lines) — split routes into a `routers/` package, keep `main.py` as app factory | Medium | `apps/blockchain-explorer/main.py`, new `apps/blockchain-explorer/routers/*.py` | ✅ DONE — `main.py` now 54 lines (app factory + `include_router` + uvicorn); `routers/{analytics,blocks,chains,export,search,transactions}.py` (1,123 lines) + `validation.py` with `TX_HASH_PATTERN`/`CHAIN_ID_PATTERN`; app boots, 24 routes |
+| B5 | Decompose `apps/exchange/simple_exchange_api.py` (1,209 lines, stdlib `http.server`) — extract handlers + db layer | Medium | `apps/exchange/simple_exchange_api.py` | ✅ DONE — `simple_exchange_api.py` now a 21-line deprecation shim; `simple_exchange/{db.py,server.py,handlers/{base,bridge,exchange,marketplace,wallet}.py}` (1,291 lines) |
+| B6 | Audit duplicate `database.py` files — `apps/exchange/database.py` vs `apps/exchange/api/database.py` (genuinely different, likely keep both but rename for clarity); `apps/edge/src/aitbc_edge/routers/database.py` vs `schemas/database.py` (router vs schemas — not dup, no action) | Low | `apps/exchange/database.py`, `apps/exchange/api/database.py` | ✅ DONE (no action) — `apps/exchange/api/` removed in v0.5.11 restructure (`e29d45e76`); remaining `apps/exchange/database.py` is the live SQLAlchemy layer for legacy `exchange_api.py` (line 24 importer), distinct from `simple_exchange/db.py`; not duplicates |
+| B7 | Verify all systemd symlinks present (recovery ✅, backup, monitoring, etc.) and that service files exist at symlink targets | Low | `/etc/systemd/system/aitbc*.service` | ✅ DONE — 12/12 symlinks resolve to non-empty target files (331B–2,048B); zero dangling |
 
 ### Detailed Instructions
 
@@ -117,10 +119,11 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python
 
 ### Execution Order
 
-1. **B1** first (commit pending index work — clears the working tree).
-2. **B2, B3, B7** in parallel (independent, no shared files).
-3. **B4, B5** sequential (each is a large refactor; verify one before starting the next).
-4. **B6** last (investigation/decision task).
+All steps complete. Historical order for reference:
+1. **B1** — committed `5d807d7ec`.
+2. **B2, B3, B7** — done (independent, no shared files).
+3. **B4, B5** — done (large refactors, verified).
+4. **B6** — done (audit, no action required).
 
 ### Coordination with Agent A
 
