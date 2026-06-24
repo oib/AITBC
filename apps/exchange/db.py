@@ -1,22 +1,18 @@
-"""
-Database setup and initialization for exchange API.
-"""
+"""Database setup for the AITBC Trade Exchange (stdlib http.server backend)."""
 
 import os
 import random
 import sqlite3
 from datetime import UTC, datetime, timedelta
 
-from aitbc.aitbc_logging import get_logger
 from aitbc.constants import DATA_DIR
-
-logger = get_logger(__name__)
 
 
 def get_db_path():
     """Get database path and ensure directory exists"""
     db_path = os.getenv("EXCHANGE_DATABASE_URL", f"sqlite:///{DATA_DIR}/data/exchange/exchange.db").replace("sqlite://///", "")
 
+    # Create directory if it doesn't exist
     db_dir = os.path.dirname(db_path)
     if db_dir and not os.path.exists(db_dir):
         os.makedirs(db_dir, exist_ok=True)
@@ -30,6 +26,7 @@ def init_db():
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
+    # Create tables
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,6 +78,7 @@ def init_db():
         )
     """)
 
+    # Add columns if they don't exist (for existing databases)
     try:
         cursor.execute("ALTER TABLE orders ADD COLUMN user_address TEXT")
     except Exception:
@@ -93,7 +91,6 @@ def init_db():
 
     conn.commit()
     conn.close()
-    logger.info("Database initialized successfully")
 
 
 def create_mock_trades():
@@ -102,11 +99,13 @@ def create_mock_trades():
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
+    # Check if we have trades
     cursor.execute("SELECT COUNT(*) FROM trades")
     if cursor.fetchone()[0] > 0:
         conn.close()
         return
 
+    # Create mock trades
     now = datetime.now(UTC)
     for _i in range(20):
         amount = random.uniform(10, 500)
@@ -124,4 +123,3 @@ def create_mock_trades():
 
     conn.commit()
     conn.close()
-    logger.info("Mock trades created")
