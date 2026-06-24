@@ -31,7 +31,7 @@ def chain_head(chain_id: str | None):
         client = get_explorer_client()
         params = {"chain_id": chain_id} if chain_id else {}
         result = client.get("/api/chain/head", params=params)
-        
+
         if result:
             success("Chain Head")
             click.echo(json.dumps(result, indent=2))
@@ -54,10 +54,10 @@ def latest_blocks(limit: int, offset: int, chain_id: str | None):
         params = {"limit": limit, "offset": offset}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         result = client.get("/api/blocks/latest", params=params)
         blocks = result.get("blocks", [])
-        
+
         success(f"Latest {len(blocks)} blocks")
         click.echo(json.dumps(blocks, indent=2))
     except NetworkError as e:
@@ -77,10 +77,10 @@ def non_empty_blocks(limit: int, offset: int, chain_id: str | None):
         params = {"limit": limit, "offset": offset}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         result = client.get("/api/blocks/non-empty", params=params)
         blocks = result.get("blocks", [])
-        
+
         success(f"Non-empty blocks: {len(blocks)}")
         click.echo(json.dumps(blocks, indent=2))
     except NetworkError as e:
@@ -98,7 +98,7 @@ def block(height: int, chain_id: str | None):
         client = get_explorer_client()
         params = {"chain_id": chain_id} if chain_id else {}
         result = client.get(f"/api/blocks/{height}", params=params)
-        
+
         if result:
             success(f"Block at height {height}")
             click.echo(json.dumps(result, indent=2))
@@ -119,7 +119,7 @@ def block_by_hash(block_hash: str, chain_id: str | None):
         client = get_explorer_client()
         params = {"chain_id": chain_id} if chain_id else {}
         result = client.get(f"/api/blocks/by-hash/{block_hash}", params=params)
-        
+
         if result:
             success(f"Block with hash {block_hash}")
             click.echo(json.dumps(result, indent=2))
@@ -140,7 +140,7 @@ def transaction(tx_hash: str, chain_id: str | None):
         client = get_explorer_client()
         params = {"chain_id": chain_id} if chain_id else {}
         result = client.get(f"/api/transactions/by-hash/{tx_hash}", params=params)
-        
+
         if result:
             success(f"Transaction {tx_hash}")
             click.echo(json.dumps(result, indent=2))
@@ -161,7 +161,7 @@ def transaction_by_hash(tx_hash: str, chain_id: str | None):
         client = get_explorer_client()
         params = {"chain_id": chain_id} if chain_id else {}
         result = client.get(f"/api/transactions/by-hash/{tx_hash}", params=params)
-        
+
         if result:
             success(f"Transaction details for {tx_hash}")
             click.echo(json.dumps(result, indent=2))
@@ -184,10 +184,10 @@ def search_transactions(address: str, limit: int, chain_id: str | None):
         params = {"address": address, "limit": limit}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         result = client.get("/api/transactions/search", params=params)
         transactions = result.get("transactions", [])
-        
+
         success(f"Found {len(transactions)} transactions for {address}")
         click.echo(json.dumps(transactions, indent=2))
     except NetworkError as e:
@@ -207,10 +207,10 @@ def blocks_by_address(address: str, limit: int, chain_id: str | None):
         params = {"address": address, "limit": limit}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         result = client.get(f"/api/blocks/by-address/{address}", params=params)
         blocks = result.get("blocks", [])
-        
+
         success(f"Found {len(blocks)} blocks for {address}")
         click.echo(json.dumps(blocks, indent=2))
     except NetworkError as e:
@@ -229,9 +229,9 @@ def activity_timeline(period: str, chain_id: str | None):
         params = {"period": period}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         result = client.get("/api/analytics/activity", params=params)
-        
+
         if result:
             success(f"Activity timeline for {period}")
             click.echo(json.dumps(result, indent=2))
@@ -251,7 +251,7 @@ def network_stats(chain_id: str | None):
         client = get_explorer_client()
         params = {"chain_id": chain_id} if chain_id else {}
         result = client.get("/api/analytics/network-stats", params=params)
-        
+
         if result:
             success("Network Statistics")
             click.echo(json.dumps(result, indent=2))
@@ -272,7 +272,7 @@ def provider_reputation(provider_id: str, chain_id: str | None):
         client = get_explorer_client()
         params = {"chain_id": chain_id} if chain_id else {}
         result = client.get(f"/api/analytics/provider-reputation/{provider_id}", params=params)
-        
+
         if result:
             success(f"Reputation for provider {provider_id}")
             click.echo(json.dumps(result, indent=2))
@@ -294,10 +294,10 @@ def top_addresses(limit: int, chain_id: str | None):
         params = {"limit": limit}
         if chain_id:
             params["chain_id"] = chain_id
-        
+
         result = client.get("/api/analytics/top-addresses", params=params)
         addresses = result.get("addresses", [])
-        
+
         success(f"Top {len(addresses)} addresses")
         click.echo(json.dumps(addresses, indent=2))
     except NetworkError as e:
@@ -312,7 +312,7 @@ def chains():
     try:
         client = get_explorer_client()
         result = client.get("/api/chains")
-        
+
         if result:
             success("Supported Chains")
             click.echo(json.dumps(result, indent=2))
