@@ -166,3 +166,16 @@ class Hackathon(SQLModel, table=True):
     event_start: datetime
     event_end: datetime
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+__all__ = [
+    "AgentSolution",
+    "CommunityPost",
+    "DeveloperProfile",
+    "DeveloperTier",
+    "Hackathon",
+    "HackathonStatus",
+    "InnovationLab",
+    "LabStatus",
+    "SolutionStatus",
+]

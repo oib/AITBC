@@ -26,3 +26,6 @@ class Miner(SQLModel, table=True):
     total_job_duration_ms: int = Field(default=0)
     average_job_duration_ms: float = Field(default=0.0)
     last_receipt_id: str | None = Field(default=None, index=True)
+
+
+__all__ = ["Miner"]

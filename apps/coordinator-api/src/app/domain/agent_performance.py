@@ -482,3 +482,19 @@ class CreativeCapability(SQLModel, table=True):
     # Additional data
     creative_profile_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     portfolio_samples: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+
+
+__all__ = [
+    "AgentCapability",
+    "AgentPerformanceProfile",
+    "CreativeCapability",
+    "FusionModel",
+    "LearningStrategy",
+    "MetaLearningModel",
+    "OptimizationTarget",
+    "PerformanceMetric",
+    "PerformanceOptimization",
+    "ReinforcementLearningConfig",
+    "ResourceAllocation",
+    "ResourceType",
+]

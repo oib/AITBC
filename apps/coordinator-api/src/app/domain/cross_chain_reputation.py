@@ -255,3 +255,20 @@ class ReputationVerificationResponse(SQLModel):
     verification_details: dict[str, Any]
     consistency_analysis: dict[str, Any]
     verified_at: datetime
+
+
+__all__ = [
+    "CrossChainAggregationRequest",
+    "CrossChainAnalyticsResponse",
+    "CrossChainLeaderboardResponse",
+    "CrossChainReputationAggregation",
+    "CrossChainReputationConfig",
+    "CrossChainReputationEvent",
+    "CrossChainReputationRequest",
+    "CrossChainReputationResponse",
+    "CrossChainReputationUpdateRequest",
+    "CrossChainVerificationRequest",
+    "ReputationAnomalyResponse",
+    "ReputationMetrics",
+    "ReputationVerificationResponse",
+]

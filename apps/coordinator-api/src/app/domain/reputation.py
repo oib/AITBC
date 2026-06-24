@@ -254,3 +254,15 @@ class ReputationLevelThreshold(SQLModel, table=True):
     # Additional configuration
     level_requirements: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     level_benefits: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
+
+__all__ = [
+    "AgentEconomicProfile",
+    "AgentReputation",
+    "CommunityFeedback",
+    "ReputationEvent",
+    "ReputationLevel",
+    "ReputationLevelThreshold",
+    "TrustScoreCalculation",
+    "TrustScoreCategory",
+]

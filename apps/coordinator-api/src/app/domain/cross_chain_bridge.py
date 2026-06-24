@@ -367,3 +367,24 @@ class ValidatorReward(SQLModel, table=True):
     claimed_at: datetime | None = Field(default=None)
     claim_transaction_hash: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+
+
+__all__ = [
+    "BridgeAlert",
+    "BridgeConfiguration",
+    "BridgeDispute",
+    "BridgeRequest",
+    "BridgeRequestStatus",
+    "BridgeSnapshot",
+    "BridgeStatistics",
+    "BridgeTransaction",
+    "ChainConfig",
+    "ChainType",
+    "LiquidityPool",
+    "MerkleProof",
+    "SupportedToken",
+    "TransactionType",
+    "Validator",
+    "ValidatorReward",
+    "ValidatorStatus",
+]

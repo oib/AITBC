@@ -320,3 +320,17 @@ class RewardAnalytics(SQLModel, table=True):
 
     # Additional analytics data
     analytics_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
+
+__all__ = [
+    "AgentRewardProfile",
+    "RewardAnalytics",
+    "RewardCalculation",
+    "RewardDistribution",
+    "RewardEvent",
+    "RewardMilestone",
+    "RewardStatus",
+    "RewardTier",
+    "RewardTierConfig",
+    "RewardType",
+]

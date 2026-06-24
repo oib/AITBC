@@ -139,3 +139,15 @@ class TransparencyReport(SQLModel, table=True):
     metrics: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+__all__ = [
+    "DaoTreasury",
+    "GovernanceProfile",
+    "GovernanceRole",
+    "Proposal",
+    "ProposalStatus",
+    "TransparencyReport",
+    "Vote",
+    "VoteType",
+]
