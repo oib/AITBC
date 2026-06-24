@@ -194,7 +194,13 @@ class StageRunner:
             Dictionary with stage execution results
         """
         log.info("=== Starting Stage %s: %s ===", stage.stage, stage.title)
-        results = {"stage": stage.stage, "title": stage.title, "commands": [], "conditions": {}, "success": True}
+        results: dict[str, Any] = {
+            "stage": stage.stage,
+            "title": stage.title,
+            "commands": [],
+            "conditions": {},
+            "success": True,
+        }
         if stage.prerequisites:
             log.info("Checking prerequisites: %s", stage.prerequisites)
         for command in stage.commands:

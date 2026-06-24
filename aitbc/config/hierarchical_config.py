@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pydantic import Field, field_validator, model_validator
 
 try:
