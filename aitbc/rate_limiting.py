@@ -4,6 +4,7 @@ Provides decorators and middleware for API rate limiting
 """
 
 import asyncio
+import os
 from collections.abc import Awaitable, Callable
 from functools import wraps
 from typing import Any
@@ -17,6 +18,10 @@ from .security import RateLimiter
 
 logger = get_logger(__name__)
 _rate_limiters: dict[str, RateLimiter] = {}
+
+# Env gate: rate limiting is enabled by default. Set AITBC_ENABLE_RATE_LIMITING=false
+# to disable for local development or CI (e.g. when flooding endpoints in tests).
+_RATE_LIMITING_ENABLED = os.getenv("AITBC_ENABLE_RATE_LIMITING", "true").lower() in ("true", "1", "yes", "on")
 
 
 def get_rate_limiter(name: str, rate: int = 100, per: int = 60) -> RateLimiter:
@@ -36,6 +41,26 @@ def get_rate_limiter(name: str, rate: int = 100, per: int = 60) -> RateLimiter:
     return _rate_limiters[name]
 
 
+def _extract_request(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Request | None:
+    """Find the FastAPI Request object in the handler's positional or keyword args."""
+    for arg in args:
+        if isinstance(arg, Request):
+            return arg
+    for arg in kwargs.values():
+        if isinstance(arg, Request):
+            return arg
+    return None
+
+
+def _get_rate_limit_key(request: Request | None, key_func: Callable[[Request], str] | None) -> str:
+    """Extract the rate limit key from the request."""
+    if request is None:
+        return "unknown"
+    if key_func:
+        return key_func(request)
+    return request.client.host if request.client else "unknown"
+
+
 def rate_limit(
     rate: int = 100,
     per: int = 60,
@@ -43,20 +68,36 @@ def rate_limit(
     error_message: str = "Rate limit exceeded",
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
-    Decorator for rate limiting FastAPI endpoints
+    Decorator for rate limiting FastAPI endpoints.
 
-    TEMPORARILY DISABLED FOR DEBUGGING - Always allows requests
+    Uses a token-bucket algorithm via the RateLimiter class. Rate limiting is
+    enabled by default; set AITBC_ENABLE_RATE_LIMITING=false to disable (e.g.
+    for local development or CI).
     """
     from typing import ParamSpec
 
     P = ParamSpec("P")
+    limiter_name = f"rl_{rate}_{per}_{id(key_func)}"
+    _limiter = get_rate_limiter(limiter_name, rate=rate, per=per)
 
     def decorator(func: Callable[P, Any]) -> Callable[P, Any]:
-        # Temporarily return a no-op decorator
         if asyncio.iscoroutinefunction(func):
 
             @wraps(func)
             async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
+                if not _RATE_LIMITING_ENABLED:
+                    return await func(*args, **kwargs)
+
+                request = _extract_request(args, kwargs)
+                key = _get_rate_limit_key(request, key_func)
+                if not _limiter.is_allowed(key):
+                    logger.warning("Rate limit exceeded for %s on %s", key, request.url.path if request else "?", stacklevel=2)
+                    return Response(
+                        content=f'{{"detail": "{error_message}"}}',
+                        status_code=429,
+                        media_type="application/json",
+                        headers={"Retry-After": str(per)},
+                    )
                 return await func(*args, **kwargs)
 
             return wrapper
@@ -64,6 +105,19 @@ def rate_limit(
 
             @wraps(func)
             def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
+                if not _RATE_LIMITING_ENABLED:
+                    return func(*args, **kwargs)
+
+                request = _extract_request(args, kwargs)
+                key = _get_rate_limit_key(request, key_func)
+                if not _limiter.is_allowed(key):
+                    logger.warning("Rate limit exceeded for %s on %s", key, request.url.path if request else "?", stacklevel=2)
+                    return Response(
+                        content=f'{{"detail": "{error_message}"}}',
+                        status_code=429,
+                        media_type="application/json",
+                        headers={"Retry-After": str(per)},
+                    )
                 return func(*args, **kwargs)
 
             return wrapper
@@ -114,10 +168,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         Returns:
             Response
         """
-        if self.key_func:
-            key = self.key_func(request)
-        else:
-            key = request.client.host if request.client else "unknown"
+        key = self.key_func(request) if self.key_func else request.client.host if request.client else "unknown"
         if not self._limiter.is_allowed(key):
             logger.warning("Rate limit exceeded for %s on %s", key, request.url.path, stacklevel=2)
             return Response(
