@@ -115,11 +115,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Initialize Redis state manager (used by agent, exchange, swarm, training, users routers)
         # Note: routers call get_instance_sync() at import time, which creates the singleton
         # without calling _init(). We must call _init() here to actually connect to Redis.
+        # On hot-reload, the singleton persists but the Redis client may be bound to a
+        # closed event loop — detect and reconnect.
         try:
             from .services.redis_state import RedisStateManager
 
             state = RedisStateManager.get_instance_sync()
-            if not state._initialized:
+            if state._is_stale_loop():
+                logger.info("Redis state manager: stale event loop detected, reconnecting...")
+                await state._reconnect()
+            elif not state._initialized:
                 await state._init()
             if state._redis is not None:
                 logger.info("Redis state manager connected successfully")
