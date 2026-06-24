@@ -69,7 +69,9 @@ app.include_router(metrics, prefix=f"{settings.api_prefix}/metrics", tags=["metr
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Global exception handler"""
     logger.error("Unhandled exception: %s", exc)
-    return JSONResponse(status_code=500, content={"error": "Internal server error", "detail": "Internal error - see server logs"})
+    return JSONResponse(
+        status_code=500, content={"error": "Internal server error", "detail": "Internal error - see server logs"}
+    )
 
 
 if __name__ == "__main__":
@@ -77,8 +79,8 @@ if __name__ == "__main__":
 
     uvicorn.run(
         "aitbc_edge.main:app",
-        host=settings.api_host,
-        port=settings.api_port,
+        host=settings.app_host,
+        port=settings.app_port,
         reload=os.getenv("UVICORN_RELOAD", "false").lower() in ("true", "1", "yes"),
         log_level=settings.log_level.lower(),
     )
