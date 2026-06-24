@@ -11,34 +11,26 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from aitbc.config import BaseAITBCConfig
-from aitbc.constants import DATA_DIR, LOG_DIR
+from aitbc.constants import LOG_DIR
+from aitbc_shared import DatabaseConfig as BaseDatabaseConfig
 
 
-class DatabaseConfig(BaseSettings):
-    """Database configuration with adapter selection."""
+def _get_env() -> str:
+    """Get the current environment, checking ENVIRONMENT then APP_ENV."""
+    return os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development"))
 
-    adapter: str = "sqlite"  # sqlite, postgresql
-    url: str | None = None
-    pool_size: int = 10
-    max_overflow: int = 20
-    pool_pre_ping: bool = True
+
+def _is_production() -> bool:
+    """Check if running in a production environment."""
+    return _get_env() in ("production", "prod")
+
+
+class DatabaseConfig(BaseDatabaseConfig):
+    """Database configuration for coordinator-api with extended pool settings."""
+
+    db_filename: str = "coordinator.db"
     pool_recycle: int = 3600  # Recycle connections after 1 hour
     pool_timeout: int = 30  # Connection timeout in seconds
-
-    @property
-    def effective_url(self) -> str:
-        """Get the effective database URL."""
-        if self.url:
-            return self.url
-
-        # Default SQLite path - consistent with blockchain-node pattern
-        if self.adapter == "sqlite":
-            return f"sqlite:///{DATA_DIR}/data/coordinator.db"
-
-        # Default PostgreSQL connection string
-        return f"{self.adapter}://localhost:5432/coordinator"
-
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
 
 
 class RedisConfig(BaseSettings):
@@ -101,10 +93,7 @@ class Settings(BaseAITBCConfig):
     @classmethod
     def validate_api_keys(cls, v: list[str]) -> list[str]:
         # Allow empty API keys in development/test environments
-        import os
-
-        env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development"))
-        if env not in ("production", "prod") and not v:
+        if not _is_production() and not v:
             return v
         if not v:
             raise ValueError("API keys cannot be empty in production")
@@ -139,10 +128,7 @@ class Settings(BaseAITBCConfig):
     @field_validator("allow_origins")
     @classmethod
     def validate_cors_origins(cls, v: list[str]) -> list[str]:
-        import os
-
-        env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development"))
-        if env in ("production", "prod"):
+        if _is_production():
             localhost_origins = [origin for origin in v if "localhost" in origin or "127.0.0.1" in origin]
             if localhost_origins:
                 raise ValueError(f"CORS cannot allow localhost origins in production: {localhost_origins}")
@@ -179,11 +165,8 @@ class Settings(BaseAITBCConfig):
     @field_validator("blockchain_rpc_url")
     @classmethod
     def validate_blockchain_rpc_url(cls, v: str) -> str:
-        import os
-
-        env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development"))
         if "localhost" in v or "127.0.0.1" in v:
-            if env in ("production", "prod"):
+            if _is_production():
                 raise ValueError("BLOCKCHAIN_RPC_URL cannot be localhost in production")
         return v
 
@@ -212,10 +195,7 @@ class Settings(BaseAITBCConfig):
     @field_validator("enable_mock_swarm")
     @classmethod
     def validate_mock_flags(cls, v: bool) -> bool:
-        import os
-
-        env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development"))
-        if v and env in ("production", "prod"):
+        if v and _is_production():
             raise ValueError("Mock endpoints cannot be enabled in production")
         return v
 
@@ -224,10 +204,7 @@ class Settings(BaseAITBCConfig):
         # Use test database if in test mode and test_database_url is set
         if self.test_mode and self.test_database_url:
             return self.test_database_url
-        if self.database.url:
-            return self.database.url
-        # Default SQLite path - consistent with blockchain-node pattern
-        return f"sqlite:///{DATA_DIR}/data/coordinator.db"
+        return self.database.effective_url
 
 
 settings = Settings()
