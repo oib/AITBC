@@ -384,7 +384,8 @@ def _record_coin_request(sender: str, amount: int, wallet_address: str, tx_hash:
         now = datetime.utcnow()
         conn = sqlite3.connect(db_path)
         conn.execute(
-            "INSERT INTO coin_requests (id, sender, recipient, amount, wallet_address, status, approval_mode, approved_by, approved_at, created_at, expires_at, transaction_hash, audit_log) "
+            "INSERT INTO coin_requests (id, sender, recipient, amount, wallet_address, status, "
+            "approval_mode, approved_by, approved_at, created_at, expires_at, transaction_hash, audit_log) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 f"auto-{sender}-{int(now.timestamp())}",
@@ -423,7 +424,8 @@ def _record_pending_coin_request(sender: str, amount: int, wallet_address: str) 
         request_id = f"req-{sender}-{int(now.timestamp())}"
         conn = sqlite3.connect(db_path)
         conn.execute(
-            "INSERT INTO coin_requests (id, sender, recipient, amount, wallet_address, status, approval_mode, created_at, expires_at, audit_log) "
+            "INSERT INTO coin_requests (id, sender, recipient, amount, wallet_address, status, "
+            "approval_mode, created_at, expires_at, audit_log) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 request_id,
@@ -527,7 +529,10 @@ async def request_coins_handler(
                     "wallet_address": wallet_address,
                     "status": "pending_approval",
                     "reason": approval_decision["reason"],
-                    "message": f"Coin request requires approval. Reason: {approval_decision['reason']}. Use 'aitbc coin-requests approve <request_id>' to approve.",
+                    "message": (
+                        f"Coin request requires approval. Reason: {approval_decision['reason']}. "
+                        "Use 'aitbc coin-requests approve <request_id>' to approve."
+                    ),
                 }
 
         # First-time request: auto-transfer initial coins
