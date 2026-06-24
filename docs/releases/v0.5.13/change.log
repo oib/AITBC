@@ -20,7 +20,7 @@
 | P3 | Add `README.md` to each `contexts/*/` + `__all__` to `__init__.py` files | Medium | ✅ DONE |
 | P4 | Decide agent-coordinator service boundary (fold in vs keep separate) + add README | Medium | ✅ DONE |
 | P5 | Restructure agent-coordinator into bounded context (GATED on P4) | Low | ⏭️ SKIPPED (P4 decided "keep separate") |
-| T1 | Tier 1 intra-context domain model migrations (certification, rewards, amm, trading, cross_chain_bridge) | High | ✅ DONE (4 of 5; analytics deferred) |
+| T1 | Tier 1 intra-context domain model migrations (certification, rewards, amm, trading, cross_chain_bridge, analytics) | High | ✅ DONE (all 6 models migrated) |
 | C1 | Clean up 5 E501 line-too-long violations in `apps/agent-coordinator/src/app` | Low | ✅ DONE |
 | C2 | Fix malformed `.secrets.baseline` (duplicate `generated_at` line) | Low | ✅ DONE |
 
@@ -182,7 +182,7 @@ Folding in would require migrating 61 files + 103 endpoints, merging two DBs, re
 
 **Problem**: The P2 audit (`context_import_audit.md`) identified 5 Tier 1 quick-win migrations — intra-context domain models still living in the flat `app/domain/` package that should be moved to their owning `contexts/<bc>/domain/` with import paths repointed.
 
-**Fix**: Migrated 4 of 5 Tier 1 models (item 5 — `analytics.py` — needs an ownership decision between `analytics` and `ai_analytics` contexts, deferred):
+**Fix**: Migrated all 5 Tier 1 models:
 
 | Model | Moved to | Importers fixed |
 |-------|----------|----------------|
@@ -191,12 +191,16 @@ Folding in would require migrating 61 files + 103 endpoints, merging two DBs, re
 | `amm.py` | `contexts/trading/domain/` | 1 (amm service) |
 | `trading.py` | `contexts/trading/domain/` | 2 (trading service + trading router; also fixed duplicated `type: ignore` comment) |
 | `cross_chain_bridge.py` | `contexts/cross_chain/domain/` | 2 (bridge.py + bridge_enhanced.py) |
+| `analytics.py` | `contexts/analytics/domain/` | 2 (1 intra-context router + 1 cross-context service import from `ai_analytics`) |
 
 **Import path patterns used**:
 - Service files in `contexts/<bc>/services/<sub>/` → `from ...domain.<model>` (3 dots)
 - Service files in `contexts/<bc>/services/` → `from ..domain.<model>` (2 dots)
 - Router files in `contexts/<bc>/routers/` → `from ..domain.<model>` (2 dots)
 - Test files (outside package) → `from app.contexts.<bc>.domain.<model>` (absolute)
+- Cross-context service import (`ai_analytics` → `analytics`) → `from ....analytics.domain.analytics` (4 dots, up to `app.contexts` then into sibling context)
+
+**`analytics.py` ownership decision**: The model is shared by 2 contexts — `analytics` (API layer, 22 routes) and `ai_analytics` (computation layer, 5 services). The audit categorized it as Tier 1 "needs ownership decision" but it's actually a shared-kernel situation. Decision: `analytics` owns the model (canonical API-facing context, generic analytics classes). `ai_analytics` imports cross-context via `....analytics.domain.analytics` — this is a known boundary violation (Tier 3) that can be refactored to a service interface later.
 
 **Audit corrections discovered during migration**:
 - The original audit undercounted importers — it only grepped `contexts/` for absolute `from app.domain.*` and 1-2 dot relative imports, missing: (a) test file imports, (b) router-level 4-dot relative imports (`....domain.*`), (c) additional service files (`reward_service.py`, `bridge_enhanced.py`).
@@ -206,15 +210,16 @@ Folding in would require migrating 61 files + 103 endpoints, merging two DBs, re
 **Untouched imports**: `from app.domain.reputation` imports in certification and rewards files were left as-is — `reputation` is a Tier 2 shared-kernel model, not part of this migration.
 
 **Verification**:
-- `grep -rn 'from app.domain.(certification|rewards|amm|trading|cross_chain_bridge)' apps/coordinator-api/` → 0 matches (zero stale references)
+- `grep -rn 'from app.domain.(certification|rewards|amm|trading|cross_chain_bridge|analytics)' apps/coordinator-api/` → 0 matches (zero stale references)
 - `grep -rn 'from \.{4,}domain.(certification|rewards|amm|trading|cross_chain_bridge)' apps/coordinator-api/src/` → 0 matches (zero 4+ dot relative imports to old location)
 - `ruff check` on all modified context directories → All checks passed
-- `mypy --show-error-codes` → zero `import-not-found` errors for the 5 migrated models (1 pre-existing error for `app.domain.reputation`, not migrated)
+- `mypy --show-error-codes` → zero `import-not-found` errors for the 6 migrated models (1 pre-existing error for `app.domain.reputation`, not migrated)
+- Runtime import test: both `app.contexts.analytics.domain.analytics` and `app.contexts.ai_analytics.services.ai_analytics.analytics` import successfully
 - Certification tests: 16 failed — **all pre-existing** (verified on clean HEAD: identical failures, caused by tests referencing old `app.services.certification.*` path, not by this migration)
 
-**Files** (5 moved, 13 importers fixed):
-- Moved: `app/domain/{certification,rewards,amm,trading,cross_chain_bridge}.py` → `app/contexts/{certification,rewards,trading,trading,cross_chain}/domain/`
-- Fixed: `contexts/certification/services/certification/{badge_system,certification_system,service,partnership_manager}.py`, `contexts/certification/routers/certification.py`, `contexts/rewards/routers/rewards.py`, `contexts/rewards/services/reward_service.py`, `contexts/trading/services/trading_marketplace/{amm,trading}.py`, `contexts/trading/routers/trading.py`, `contexts/cross_chain/services/cross_chain/{bridge,bridge_enhanced}.py`, `tests/services/test_certification/{test_badge_system,test_certification_system,test_partnership_manager}.py`
+**Files** (6 moved, 15 importers fixed):
+- Moved: `app/domain/{certification,rewards,amm,trading,cross_chain_bridge,analytics}.py` → `app/contexts/{certification,rewards,trading,trading,cross_chain,analytics}/domain/`
+- Fixed: `contexts/certification/services/certification/{badge_system,certification_system,service,partnership_manager}.py`, `contexts/certification/routers/certification.py`, `contexts/rewards/routers/rewards.py`, `contexts/rewards/services/reward_service.py`, `contexts/trading/services/trading_marketplace/{amm,trading}.py`, `contexts/trading/routers/trading.py`, `contexts/cross_chain/services/cross_chain/{bridge,bridge_enhanced}.py`, `contexts/analytics/routers/analytics.py`, `contexts/ai_analytics/services/ai_analytics/analytics.py`, `tests/services/test_certification/{test_badge_system,test_certification_system,test_partnership_manager}.py`
 
 ---
 
