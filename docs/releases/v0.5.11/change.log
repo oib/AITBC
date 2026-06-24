@@ -8,6 +8,8 @@
 
 **Status**: Fully implemented. All 17 planned items are complete.
 
+**Post-release work (v0.5.12 Agent B)**: 8 additional commits extending v0.5.11 with database performance indexes, config consolidation, dead code removal, and large-file decomposition. See "Post-Release Changes" section below.
+
 ---
 
 ## Implementation Status
@@ -282,3 +284,146 @@ These were identified during the deeper audit but left unchanged because they re
 | `aitbc/log_utils/__init__.py` | Added `JournalFormatter` and `configure_uvicorn_logging` exports |
 | `aitbc/constants.py` | **Made `REPO_DIR` env-sourced** via `AITBC_REPO_DIR` env var |
 | `/etc/systemd/system/aitbc-recovery.service` | Created symlink to `scripts/utils/aitbc-recovery.service` |
+
+---
+
+## Post-Release Changes (v0.5.12 Agent B)
+
+The following changes were made after the v0.5.11 release, extending it with database performance indexes, configuration consolidation, dead code removal, and large-file decomposition. All changes are in Agent B's domain (`apps/`, `cli/`, `packages/aitbc-shared/`, systemd).
+
+### Commits
+
+| Commit | Description |
+|--------|-------------|
+| `5d807d7ec` | `perf(db): add query performance indexes to coordinator-api domain models` |
+| `00ab4ab25` | `refactor(cli): remove stale duplicate dual_mode_wallet_adapter.py` |
+| `60c2522c2` | `refactor(explorer): decompose blockchain-explorer main.py into routers package` |
+| `2f629910f` | `refactor(exchange): decompose simple_exchange_api.py and remove dead api/ package` |
+| `7ce7484e6` | `refactor(config): consolidate DatabaseConfig via db_filename extension hook` |
+| `96de61900` | `refactor(config): repoint jwt_auth to unified config, delete dead config_pg + db_pg` |
+| `0ab95b4a3` | `refactor(config): remove dead effective_database_url and test_database_url` |
+
+### Database Performance Indexes (`5d807d7ec`)
+
+**Problem**: 35 hot columns (status, created_at, recorded_at, moderation_status, submission_time, creation_time) across 10 coordinator-api domain model files were frequently filtered/ordered in SQL queries but lacked indexes. Additionally, 11 composite indexes on the agent_identity tables (cross_chain_mappings, identity_verifications, agent_wallets) were commented out and never enabled.
+
+**Fix**: Added `index=True` to all 35 single-column indexes, chosen by cross-referencing actual SQL query patterns (`.where()`/`.order_by()`) in the storage/router/service layers. Enabled all 11 composite indexes. Added a new `expires_at` index for the identity verification expiry sweep query.
+
+**Alembic migration**: `apps/coordinator-api/alembic/versions/add_query_performance_indexes.py` — uses `if_not_exists=True` for idempotency, since `SQLModel.metadata.create_all` only adds indexes to fresh DBs.
+
+**Verification**: All 46 expected indexes confirmed present via `SQLModel.metadata.create_all` on in-memory SQLite (174 total indexes in schema).
+
+**Files changed** (10 domain + 1 migration):
+- `apps/coordinator-api/src/app/domain/agent.py` — `AgentExecution.status`, `AgentStepExecution.status`
+- `apps/coordinator-api/src/app/domain/bounty.py` — `Bounty.status`/`creation_time`, `BountySubmission.status`/`submission_time`, `AgentStake.status`
+- `apps/coordinator-api/src/app/domain/trading.py` — `TradeRequest`/`TradeMatch`/`TradeNegotiation` status + created_at
+- `apps/coordinator-api/src/app/domain/analytics.py` — `MarketMetric.recorded_at`, status+created_at on `MarketInsight`/`AnalyticsAlert`/`AnalyticsReport`/`DashboardConfig`/`DataCollectionJob`/`AlertRule`
+- `apps/coordinator-api/src/app/domain/certification.py` — status on `AgentCertification`/`VerificationRecord`/`PartnershipProgram`/`AgentPartnership` + `PartnershipProgram.created_at`
+- `apps/coordinator-api/src/app/domain/rewards.py` — `RewardDistribution`/`RewardMilestone` status + created_at
+- `apps/coordinator-api/src/app/domain/reputation.py` — `CommunityFeedback.moderation_status`/`created_at`
+- `apps/coordinator-api/src/app/domain/community.py` — `AgentSolution.status`, `CommunityPost.created_at`
+- `apps/coordinator-api/src/app/domain/developer_platform.py` — `BountyTask.created_at`
+- `apps/coordinator-api/src/app/contexts/agent_identity/domain/agent_identity.py` — `AgentIdentity.status`, enabled 11 composite indexes, new `expires_at` index
+- `apps/coordinator-api/alembic/versions/add_query_performance_indexes.py` — new migration
+
+### CLI Duplicate Removal (`00ab4ab25`)
+
+**Problem**: `cli/utils/dual_mode_wallet_adapter.py` (626 lines) was a stale pre-package-layout copy of `cli/aitbc_cli/utils/dual_mode_wallet_adapter.py`. All importers used the `aitbc_cli.utils` version; nobody imported the `cli.utils` version.
+
+**Fix**: Deleted the stale copy. Also fixed a missing trailing newline in `cli/aitbc_cli/commands/explorer.py` flagged by ruff.
+
+### Blockchain Explorer Decomposition (`60c2522c2`)
+
+**Problem**: `apps/blockchain-explorer/main.py` was 1,442 lines with all 19 API routes defined inline.
+
+**Fix**: Split into 11 files:
+- `validation.py` (29 lines) — SSRF validation patterns (`TX_HASH_PATTERN`, `CHAIN_ID_PATTERN`)
+- `models.py` (29 lines) — Pydantic request models (`TransactionSearch`, `BlockSearch`, `AnalyticsRequest`)
+- `chain_client.py` (338 lines) — RPC/DB helpers, config constants, `normalize_block()`, `get_chain_head()`, `get_transaction()`, `get_block()`, `get_latest_blocks()`
+- `routers/chains.py` (32 lines) — 2 routes
+- `routers/blocks.py` (352 lines) — 5 routes
+- `routers/transactions.py` (176 lines) — 3 routes
+- `routers/analytics.py` (317 lines) — 5 routes
+- `routers/search.py` (126 lines) — 2 routes
+- `routers/export.py` (120 lines) — 2 routes
+- `main.py` (54 lines) — app factory with `include_router` calls, `/health` route, uvicorn entrypoint
+
+All 19 API routes preserved with identical paths, signatures, and response formats. Uses absolute imports since the hyphenated directory name prevents standard package imports.
+
+### Exchange Decomposition + Dead Code Removal (`2f629910f`)
+
+**Problem**: `apps/exchange/simple_exchange_api.py` was 1,209 lines (stdlib `http.server`) with all handlers inline. Additionally, `apps/exchange/api/` (4 files, 422 lines) was a dead previous decomposition attempt — zero importers anywhere in the codebase.
+
+**Fix**: Split `simple_exchange_api.py` into 3 files:
+- `db.py` (125 lines) — `get_db_path()`, `init_db()`, `create_mock_trades()`
+- `handlers.py` (1,040 lines) — `BaseHandler` (shared `send_json_response`/`do_OPTIONS`/`_read_json_body`), `ExchangeAPIHandler`, `WalletAPIHandler`
+- `simple_exchange_api.py` (38 lines) — `run_server()` + argparse entrypoint
+
+Deleted the dead `apps/exchange/api/` package (`__init__.py`, `database.py`, `handlers.py`, `server.py`). The `api/database.py` content survived as `apps/exchange/db.py` (renamed by git). Tests use `exchange_api.py` (FastAPI version), unaffected.
+
+### DatabaseConfig Consolidation (`7ce7484e6`)
+
+**Problem**: `DatabaseConfig` with `effective_url` was copy-pasted in 4 locations: `packages/aitbc-shared/aitbc_shared/core/config.py` (canonical), `apps/agent-management/src/app/core/config.py`, `apps/coordinator-api/src/app/config.py`, `apps/edge/src/aitbc_edge/config.py`. Each service reimplemented the adapter URL formatter with per-service DB filenames, causing drift.
+
+**Fix**: Added a `db_filename: str = "service.db"` class attribute to the shared `DatabaseConfig`. The shared `effective_url` now uses it for both SQLite (`f"sqlite:///{DATA_DIR}/data/{db_filename}"`) and PostgreSQL (`f"{adapter}://localhost:5432/{db_filename.removesuffix('.db')}"`). Services set only `db_filename` instead of reimplementing `effective_url`.
+
+**Per-service changes**:
+- **agent-management**: `db_filename = "agent_management.db"`; dropped 12-line `effective_url` override, redundant `model_config`, `DATA_DIR` import
+- **coordinator-api**: `db_filename = "coordinator.db"`; dropped 12-line `effective_url` override; extracted 4 repeated `os.getenv("ENVIRONMENT", ...)` calls into `_is_production()` helper; simplified `get_effective_database_url()` to delegate to `database.effective_url`
+- **edge**: Replaced hardcoded `postgresql+asyncpg://...:password@localhost:5432/aitbc_edge` with shared adapter pattern (`db_filename="aitbc_edge.db"`, SQLite by default, postgres via env var); replaced placeholder JWT secret `"your-secret-key-change-in-production"` with empty string (must be set via env); fixed `main.py` to use `app_host`/`app_port` from shared `ServiceSettings` instead of non-existent `api_host`/`api_port`
+- **shared-core**: Converted to thin re-export shim from `aitbc_shared`
+
+### JWT Auth Repoint + Dead Config Removal (`96de61900`)
+
+**Problem**: `apps/coordinator-api/src/app/auth/jwt_auth.py` imported settings from `config_pg.py` (a legacy PostgreSQL-only config), not the unified `config.py`. `config_pg.py` and `storage/db_pg.py` (343 lines combined) were dead code with only each other as importers.
+
+**Fix**:
+- Repointed `jwt_auth.py` import from `..config_pg` to `..config` — JWT fields (`jwt_secret`, `jwt_algorithm`, `jwt_expiration_hours`) are inherited from `BaseAITBCConfig`
+- Added `jwt_secret: str = ""` override in unified `Settings` (base defaults to `None` which would break `jwt.encode()`)
+- Fixed `database_async.py` `init_async_db()` to use `settings.effective_database_url` (respects test mode) instead of `settings.database.effective_url` (bypassed test mode)
+- Deleted `config_pg.py` (98 lines) and `db_pg.py` (245 lines) — zero remaining importers
+
+### Final Config Cleanup (`0ab95b4a3`)
+
+**Problem**: `Settings.effective_database_url` property and `test_database_url` field in `config.py` were dead code after the previous repoint — all call sites now use `settings.database.effective_url` directly.
+
+**Fix**:
+- Replaced `settings.effective_database_url` with `str(settings.database.effective_url)` in `database_async.py` (lines 44 and 90)
+- Removed `effective_database_url` property from `config.py`
+- Removed `test_database_url` field and its env var override
+- The test conftest creates its own engine directly (`create_engine("sqlite:///:memory:")`) and never read `settings.effective_database_url`
+
+### Systemd Symlink Audit
+
+Verified all 12 `aitbc*.service` symlinks in `/etc/systemd/system/` resolve to non-empty service files. Zero dangling symlinks. (The `aitbc-recovery` symlink was fixed in the original v0.5.11 release.)
+
+### Post-Release File Impact Summary
+
+| File | Change |
+|------|--------|
+| `packages/aitbc-shared/aitbc_shared/core/config.py` | **Added `db_filename` extension hook** to shared `DatabaseConfig` |
+| `packages/aitbc-shared/aitbc_shared/core/__init__.py` | New — exports `DatabaseConfig`, `ServiceSettings` |
+| `packages/aitbc-shared/aitbc_shared/__init__.py` | Added config exports |
+| `apps/shared-core/src/app/core/config.py` | **Converted to re-export shim** from `aitbc_shared` |
+| `apps/agent-management/src/app/core/config.py` | **Dropped `effective_url` override**, set `db_filename` |
+| `apps/coordinator-api/src/app/config.py` | **Dropped `effective_url` override**, set `db_filename`, added `_is_production()` helper, added `jwt_secret` override, removed `effective_database_url`/`test_database_url` |
+| `apps/coordinator-api/src/app/auth/jwt_auth.py` | **Repointed import** from `config_pg` to unified `config` |
+| `apps/coordinator-api/src/app/database_async.py` | Use `str(settings.database.effective_url)` |
+| `apps/coordinator-api/src/app/config_pg.py` | **Deleted** (98 lines, dead code) |
+| `apps/coordinator-api/src/app/storage/db_pg.py` | **Deleted** (245 lines, dead code) |
+| `apps/coordinator-api/src/app/domain/*.py` (10 files) | **Added 35 single-column indexes** |
+| `apps/coordinator-api/src/app/contexts/agent_identity/domain/agent_identity.py` | **Enabled 11 composite indexes**, added `expires_at` index |
+| `apps/coordinator-api/alembic/versions/add_query_performance_indexes.py` | **New migration** for index application |
+| `apps/edge/src/aitbc_edge/config.py` | **Subclassed shared config**, SQLite fallback, empty JWT secret |
+| `apps/edge/src/aitbc_edge/main.py` | Fixed `app_host`/`app_port` from shared `ServiceSettings` |
+| `apps/blockchain-explorer/main.py` | **1,442 → 54 lines** (decomposed into 11 files) |
+| `apps/blockchain-explorer/validation.py` | New — SSRF validation patterns |
+| `apps/blockchain-explorer/models.py` | New — Pydantic request models |
+| `apps/blockchain-explorer/chain_client.py` | New — RPC/DB helpers + config |
+| `apps/blockchain-explorer/routers/*.py` (6 files) | New — route handlers by domain |
+| `apps/exchange/simple_exchange_api.py` | **1,209 → 38 lines** (decomposed into 3 files) |
+| `apps/exchange/db.py` | New — DB schema + connection (renamed from `api/database.py`) |
+| `apps/exchange/handlers.py` | New — handler classes with shared `BaseHandler` |
+| `apps/exchange/api/` (4 files) | **Deleted** (422 lines, dead code) |
+| `cli/utils/dual_mode_wallet_adapter.py` | **Deleted** (626 lines, stale duplicate) |
+| `cli/aitbc_cli/commands/explorer.py` | Fixed missing trailing newline |
