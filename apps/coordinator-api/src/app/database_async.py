@@ -41,7 +41,7 @@ def init_async_db() -> None:
     """Initialize async database engine and session factory."""
     global _async_engine, _async_session_factory
     try:
-        sync_url = str(settings.database.effective_url)
+        sync_url = str(settings.effective_database_url)
         async_url = _build_async_url(sync_url)
         logger.info("Initializing async database connection: %s://...", async_url.split("://")[0])
         _async_engine = create_async_engine(
@@ -87,11 +87,12 @@ def get_sync_engine() -> Any:
     from .config import settings
     from sqlmodel import create_engine
 
-    if settings.get_effective_database_url().startswith("sqlite"):
+    db_url = settings.effective_database_url
+    if db_url.startswith("sqlite"):
         from sqlalchemy import StaticPool
 
         return create_engine(
-            settings.get_effective_database_url(),
+            db_url,
             connect_args={"check_same_thread": False, "timeout": 30},
             poolclass=StaticPool,
             echo=settings.db_echo,
@@ -99,7 +100,7 @@ def get_sync_engine() -> Any:
         )
     else:
         return create_engine(
-            settings.get_effective_database_url(),
+            db_url,
             pool_size=settings.database.pool_size,
             max_overflow=settings.database.max_overflow,
             pool_pre_ping=settings.db_pool_pre_ping,
