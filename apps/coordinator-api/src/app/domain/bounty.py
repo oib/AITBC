@@ -63,7 +63,7 @@ class Bounty(SQLModel, table=True):
     reward_amount: Decimal = Field(index=True)
     creator_id: str = Field(index=True)
     tier: BountyTier = Field(default=BountyTier.BRONZE)
-    status: BountyStatus = Field(default=BountyStatus.CREATED)
+    status: BountyStatus = Field(default=BountyStatus.CREATED, index=True)
 
     # Performance requirements
     performance_criteria: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
@@ -72,7 +72,7 @@ class Bounty(SQLModel, table=True):
 
     # Timing
     deadline: datetime = Field(index=True)
-    creation_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    creation_time: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
 
     # Limits
     max_submissions: int = Field(default=100)
@@ -121,7 +121,7 @@ class BountySubmission(SQLModel, table=True):
     performance_hash: str = Field(index=True)
 
     # Status and verification
-    status: SubmissionStatus = Field(default=SubmissionStatus.PENDING)
+    status: SubmissionStatus = Field(default=SubmissionStatus.PENDING, index=True)
     verification_time: datetime | None = Field(default=None)
     verifier_address: str | None = Field(default=None)
 
@@ -131,7 +131,7 @@ class BountySubmission(SQLModel, table=True):
     dispute_resolved: bool = Field(default=False)
 
     # Timing
-    submission_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    submission_time: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
 
     # Metadata
     submission_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
@@ -158,7 +158,7 @@ class AgentStake(SQLModel, table=True):
     end_time: datetime
 
     # Status and rewards
-    status: StakeStatus = Field(default=StakeStatus.ACTIVE)
+    status: StakeStatus = Field(default=StakeStatus.ACTIVE, index=True)
     accumulated_rewards: Decimal = Field(default=Decimal("0.0"))
     last_reward_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
 

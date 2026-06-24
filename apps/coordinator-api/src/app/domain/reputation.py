@@ -213,11 +213,11 @@ class CommunityFeedback(SQLModel, table=True):
     verification_weight: float = Field(default=1.0, ge=0.1, le=10.0)
 
     # Moderation
-    moderation_status: str = Field(default="approved")  # approved, pending, rejected
+    moderation_status: str = Field(default="approved", index=True)  # approved, pending, rejected
     moderator_notes: str = Field(default="", max_length=500)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     helpful_votes: int = Field(default=0)
 

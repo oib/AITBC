@@ -87,7 +87,7 @@ class MarketMetric(SQLModel, table=True):
     metric_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
-    recorded_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    recorded_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     period_start: datetime
     period_end: datetime
 
@@ -127,14 +127,14 @@ class MarketInsight(SQLModel, table=True):
     suggested_actions: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Status and tracking
-    status: str = Field(default="active")  # active, resolved, expired
+    status: str = Field(default="active", index=True)  # active, resolved, expired
     acknowledged_by: str | None = None
     acknowledged_at: datetime | None = None
     resolved_by: str | None = None
     resolved_at: datetime | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
 
@@ -179,7 +179,7 @@ class AnalyticsReport(SQLModel, table=True):
     data_points_analyzed: int = Field(default=0)
 
     # Status and delivery
-    status: str = Field(default="generated")  # generating, generated, failed, delivered
+    status: str = Field(default="generated", index=True)  # generating, generated, failed, delivered
     delivery_method: str = Field(default="api")  # api, email, dashboard
     recipients: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
@@ -225,7 +225,7 @@ class DashboardConfig(SQLModel, table=True):
     is_public: bool = Field(default=False)
 
     # Status and versioning
-    status: str = Field(default="active")  # active, inactive, archived
+    status: str = Field(default="active", index=True)  # active, inactive, archived
     version: int = Field(default=1)
     last_modified_by: str | None = None
 
@@ -264,7 +264,7 @@ class DataCollectionJob(SQLModel, table=True):
     next_run: datetime | None = None
 
     # Execution details
-    status: str = Field(default="pending")  # pending, running, completed, failed, cancelled
+    status: str = Field(default="pending", index=True)  # pending, running, completed, failed, cancelled
     progress: float = Field(default=0.0, ge=0, le=100.0)
     started_at: datetime | None = None
     completed_at: datetime | None = None
@@ -325,7 +325,7 @@ class AlertRule(SQLModel, table=True):
     message_template: str = Field(default="", max_length=1000)
 
     # Status and scheduling
-    status: str = Field(default="active")  # active, inactive, disabled
+    status: str = Field(default="active", index=True)  # active, inactive, disabled
     created_by: str = Field(index=True)
     last_triggered: datetime | None = None
     trigger_count: int = Field(default=0)
@@ -371,7 +371,7 @@ class AnalyticsAlert(SQLModel, table=True):
     time_period: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Status and resolution
-    status: str = Field(default="active")  # active, acknowledged, resolved, false_positive
+    status: str = Field(default="active", index=True)  # active, acknowledged, resolved, false_positive
     acknowledged_by: str | None = None
     acknowledged_at: datetime | None = None
     resolved_by: str | None = None
@@ -383,7 +383,7 @@ class AnalyticsAlert(SQLModel, table=True):
     delivery_status: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
 
