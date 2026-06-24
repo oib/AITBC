@@ -61,10 +61,10 @@ class RoutingStrategy(StrEnum):
     PRIORITY = "priority"
 
 
-class MultiChainTransaction(SQLModel, table=True):
-    """Multi-chain transaction record"""
+class ChainTransaction(SQLModel, table=True):
+    """Chain transaction record — a transaction on a single chain"""
 
-    __tablename__ = "multi_chain_transaction"
+    __tablename__ = "chain_transaction"
 
     id: str = Field(default=None, primary_key=True)  # Transaction ID
     user_id: str = Field(index=True)
@@ -98,4 +98,4 @@ class MultiChainTransaction(SQLModel, table=True):
     cancellation_reason: str | None = Field(default=None)
 
 
-__all__ = ["MultiChainTransaction", "RoutingStrategy", "TransactionPriority", "TransactionStatus", "TransactionType"]
+__all__ = ["ChainTransaction", "RoutingStrategy", "TransactionPriority", "TransactionStatus", "TransactionType"]

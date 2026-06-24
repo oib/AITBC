@@ -88,9 +88,15 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python
 | P5 | Restructure agent-coordinator into bounded context (GATED on P4) | Low | ⏭️ SKIPPED (P4 decided "keep separate") |
 | T1 | Tier 1 intra-context domain model migrations (certification, rewards, amm, trading, cross_chain_bridge, analytics) | High | ✅ DONE (all 6 models migrated) |
 | T2 | Tier 2 shared-kernel model migrations (reputation, multi_chain_transaction) | High | ✅ DONE (both models migrated to owning contexts) |
+| T2-r | Rename MultiChainTransaction → ChainTransaction (misnomer: transaction is single-chain) | Medium | ✅ DONE (class + table + file + alias + manager renamed) |
+| T3 | Tier 3 boundary-violation migrations (agent, agent_performance) + document analytics cross-context | Medium | ✅ DONE (2 models migrated, 1 documented) |
 
 **All Phase 4 tasks complete.** P5 skipped — P4 decision doc (`docs/releases/v0.5.13/agent_coordinator_boundary.md`) recommends keeping agent-coordinator as a separate service (zero runtime coupling between the two services).
 
 **T1 follow-up**: All 6 Tier 1 intra-context domain models migrated from flat `app/domain/` to their owning `contexts/<bc>/domain/`. See <ref_file file="/opt/aitbc/docs/releases/v0.5.13/change.log" /> §"T1" for details. `analytics.py` ownership decided: `analytics` context owns it, `ai_analytics` imports cross-context (known boundary violation).
 
-**T2 follow-up**: Both Tier 2 shared-kernel models migrated — `reputation.py` → `contexts/reputation/domain/` (15 importers fixed), `multi_chain_transaction.py` → `contexts/cross_chain/domain/` (5 importers fixed). See <ref_file file="/opt/aitbc/docs/releases/v0.5.13/change.log" /> §"T2". Remaining: Tier 3 boundary violations (`agent`, `agent_performance`) from `context_import_audit.md`.
+**T2 follow-up**: Both Tier 2 shared-kernel models migrated — `reputation.py` → `contexts/reputation/domain/` (15 importers fixed), `multi_chain_transaction.py` → `contexts/cross_chain/domain/` (5 importers fixed). See <ref_file file="/opt/aitbc/docs/releases/v0.5.13/change.log" /> §"T2".
+
+**T2-r follow-up**: Renamed `MultiChainTransaction` → `ChainTransaction` — the model was misnamed (a transaction is single-chain; "multi-chain" described the manager's capability, not the transaction). Class, table, file, alias, and manager class all renamed. See <ref_file file="/opt/aitbc/docs/releases/v0.5.13/change.log" /> §"T2-r".
+
+**T3 follow-up**: Both Tier 3 boundary-violation models migrated — `agent.py` and `agent_performance.py` → `contexts/agent_coordination/domain/` (17 importers fixed). See <ref_file file="/opt/aitbc/docs/releases/v0.5.13/change.log" /> §"T3". All Tier 1–3 migrations complete.

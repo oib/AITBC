@@ -17,19 +17,19 @@ from aitbc.aitbc_logging import get_logger
 
 from ..agent_identity.wallet_adapter_enhanced import EnhancedWalletAdapter, SecurityLevel, WalletAdapterFactory
 from ..contexts.cross_chain.services.cross_chain.bridge_enhanced import CrossChainBridgeService
-from ..contexts.cross_chain.domain.multi_chain_transaction import (
-    MultiChainTransaction,
+from ..contexts.cross_chain.domain.chain_transaction import (
+    ChainTransaction,
     RoutingStrategy,
     TransactionPriority,
     TransactionStatus,
 )
-from ..contexts.cross_chain.domain.multi_chain_transaction import TransactionType as MultiChainTransactionType
+from ..contexts.cross_chain.domain.chain_transaction import TransactionType as ChainTransactionType
 from ..reputation.engine import CrossChainReputationEngine
 
 logger = get_logger(__name__)
 
 
-class MultiChainTransactionManager:
+class ChainTransactionManager:
     """Advanced multi-chain transaction management system"""
 
     def __init__(self, session: Session):
@@ -83,7 +83,7 @@ class MultiChainTransactionManager:
         self,
         user_id: str,
         chain_id: int,
-        transaction_type: MultiChainTransactionType,
+        transaction_type: ChainTransactionType,
         from_address: str,
         to_address: str,
         amount: Decimal | float | str,
@@ -109,7 +109,7 @@ class MultiChainTransactionManager:
             if reputation_summary.get("trust_score", 0) < min_reputation:
                 raise ValueError(f"Insufficient reputation for transaction type {transaction_type}")
             transaction_id = f"tx_{uuid4().hex[:8]}"
-            transaction = MultiChainTransaction(
+            transaction = ChainTransaction(
                 id=transaction_id,
                 user_id=user_id,
                 chain_id=chain_id,
@@ -150,9 +150,7 @@ class MultiChainTransactionManager:
         """Get detailed transaction status"""
         try:
             transaction = (
-                self.session.execute(select(MultiChainTransaction).where(MultiChainTransaction.id == transaction_id))
-                .scalars()
-                .first()
+                self.session.execute(select(ChainTransaction).where(ChainTransaction.id == transaction_id)).scalars().first()
             )
             if not transaction:
                 raise ValueError(f"Transaction {transaction_id} not found")
@@ -195,9 +193,7 @@ class MultiChainTransactionManager:
         """Cancel a transaction"""
         try:
             transaction = (
-                self.session.execute(select(MultiChainTransaction).where(MultiChainTransaction.id == transaction_id))
-                .scalars()
-                .first()
+                self.session.execute(select(ChainTransaction).where(ChainTransaction.id == transaction_id)).scalars().first()
             )
             if not transaction:
                 raise ValueError(f"Transaction {transaction_id} not found")
@@ -226,7 +222,7 @@ class MultiChainTransactionManager:
         self,
         user_id: str | None = None,
         chain_id: int | None = None,
-        transaction_type: MultiChainTransactionType | None = None,
+        transaction_type: ChainTransactionType | None = None,
         status: TransactionStatus | None = None,
         priority: TransactionPriority | None = None,
         limit: int = 100,
@@ -236,22 +232,22 @@ class MultiChainTransactionManager:
     ) -> list[dict[str, Any]]:
         """Get transaction history with filtering"""
         try:
-            stmt = select(MultiChainTransaction)
+            stmt = select(ChainTransaction)
             if user_id:
-                stmt = stmt.where(MultiChainTransaction.user_id == user_id)
+                stmt = stmt.where(ChainTransaction.user_id == user_id)
             if chain_id:
-                stmt = stmt.where(MultiChainTransaction.chain_id == chain_id)
+                stmt = stmt.where(ChainTransaction.chain_id == chain_id)
             if transaction_type:
-                stmt = stmt.where(MultiChainTransaction.transaction_type == transaction_type)
+                stmt = stmt.where(ChainTransaction.transaction_type == transaction_type)
             if status:
-                stmt = stmt.where(MultiChainTransaction.status == status)
+                stmt = stmt.where(ChainTransaction.status == status)
             if priority:
-                stmt = stmt.where(MultiChainTransaction.priority == priority)
+                stmt = stmt.where(ChainTransaction.priority == priority)
             if from_date:
-                stmt = stmt.where(MultiChainTransaction.created_at >= from_date)
+                stmt = stmt.where(ChainTransaction.created_at >= from_date)
             if to_date:
-                stmt = stmt.where(MultiChainTransaction.created_at <= to_date)
-            stmt = stmt.order_by(desc(MultiChainTransaction.created_at))  # type: ignore[arg-type]
+                stmt = stmt.where(ChainTransaction.created_at <= to_date)
+            stmt = stmt.order_by(desc(ChainTransaction.created_at))  # type: ignore[arg-type]
             stmt = stmt.offset(offset).limit(limit)
             transactions = self.session.execute(stmt).scalars().all()
             response_transactions = []
@@ -287,9 +283,9 @@ class MultiChainTransactionManager:
         """Get transaction statistics"""
         try:
             cutoff_time = datetime.now(UTC) - timedelta(hours=time_period_hours)
-            stmt = select(MultiChainTransaction).where(MultiChainTransaction.created_at >= cutoff_time)
+            stmt = select(ChainTransaction).where(ChainTransaction.created_at >= cutoff_time)
             if chain_id:
-                stmt = stmt.where(MultiChainTransaction.chain_id == chain_id)
+                stmt = stmt.where(ChainTransaction.chain_id == chain_id)
             transactions = self.session.execute(stmt).scalars().all()
             total_transactions = len(transactions)
             successful_transactions = len([tx for tx in transactions if tx.status == TransactionStatus.COMPLETED])
@@ -331,7 +327,7 @@ class MultiChainTransactionManager:
 
     async def optimize_transaction_routing(
         self,
-        transaction_type: MultiChainTransactionType,
+        transaction_type: ChainTransactionType,
         amount: float,
         from_chain: int,
         to_chain: int | None = None,
@@ -372,7 +368,7 @@ class MultiChainTransactionManager:
             logger.error("Error optimizing transaction routing: %s", e)
             raise
 
-    async def _calculate_transaction_progress(self, transaction: MultiChainTransaction) -> float:
+    async def _calculate_transaction_progress(self, transaction: ChainTransaction) -> float:
         """Calculate transaction progress percentage"""
         status_progress = {
             TransactionStatus.QUEUED: 0.0,
@@ -391,7 +387,7 @@ class MultiChainTransactionManager:
         """Update transaction status from blockchain"""
         pass
 
-    async def _estimate_processing_time(self, transaction: MultiChainTransaction) -> float:
+    async def _estimate_processing_time(self, transaction: ChainTransaction) -> float:
         """Estimate transaction processing time in seconds"""
         priority_time = {
             TransactionPriority.CRITICAL: 30.0,
@@ -403,7 +399,7 @@ class MultiChainTransactionManager:
         return priority_time.get(transaction.priority, 300.0)
 
     def _get_min_reputation_for_transaction(
-        self, transaction_type: MultiChainTransactionType, priority: TransactionPriority
+        self, transaction_type: ChainTransactionType, priority: TransactionPriority
     ) -> float:
         """Get minimum reputation score for transaction type and priority"""
         base_reputation = 50.0
@@ -419,7 +415,7 @@ class MultiChainTransactionManager:
     async def _calculate_routing_score(
         self,
         chain_id: int,
-        transaction_type: MultiChainTransactionType,
+        transaction_type: ChainTransactionType,
         amount: float,
         urgency: TransactionPriority,
         chain_metrics: dict[str, Any],
@@ -433,8 +429,8 @@ class MultiChainTransactionManager:
         try:
             current_time = datetime.now(UTC)
             stuck_threshold = timedelta(minutes=30)
-            stmt = select(MultiChainTransaction).where(
-                MultiChainTransaction.status.in_([TransactionStatus.PROCESSING, TransactionStatus.SUBMITTED])
+            stmt = select(ChainTransaction).where(
+                ChainTransaction.status.in_([TransactionStatus.PROCESSING, TransactionStatus.SUBMITTED])
             )  # type: ignore[attr-defined]
             transactions = self.session.execute(stmt).scalars().all()
             for tx in transactions:
@@ -518,17 +514,17 @@ class MultiChainTransactionManager:
             return 0.0
 
     def _get_min_reputation_for_transaction_v2(
-        self, transaction_type: MultiChainTransactionType, priority: TransactionPriority
+        self, transaction_type: ChainTransactionType, priority: TransactionPriority
     ) -> float:
         """Get minimum reputation required for transaction"""
         base_requirements = {
-            MultiChainTransactionType.TRANSFER: 100,
-            MultiChainTransactionType.SWAP: 200,
-            MultiChainTransactionType.BRIDGE: 300,
-            MultiChainTransactionType.DEPOSIT: 100,
-            MultiChainTransactionType.WITHDRAWAL: 150,
-            MultiChainTransactionType.CONTRACT_CALL: 250,
-            MultiChainTransactionType.APPROVAL: 100,
+            ChainTransactionType.TRANSFER: 100,
+            ChainTransactionType.SWAP: 200,
+            ChainTransactionType.BRIDGE: 300,
+            ChainTransactionType.DEPOSIT: 100,
+            ChainTransactionType.WITHDRAWAL: 150,
+            ChainTransactionType.CONTRACT_CALL: 250,
+            ChainTransactionType.APPROVAL: 100,
         }
         priority_multipliers = {
             TransactionPriority.LOW: 1.0,
@@ -544,7 +540,7 @@ class MultiChainTransactionManager:
     async def _calculate_routing_score_v2(
         self,
         chain_id: int,
-        transaction_type: MultiChainTransactionType,
+        transaction_type: ChainTransactionType,
         amount: float,
         urgency: TransactionPriority,
         chain_metrics: dict[str, Any],
