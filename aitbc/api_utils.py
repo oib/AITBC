@@ -150,9 +150,9 @@ class RateLimitHeaders:
 
 
 def build_cors_headers(
-    allowed_origins: list[str] = None,
-    allowed_methods: list[str] = None,
-    allowed_headers: list[str] = None,
+    allowed_origins: list[str] | None = None,
+    allowed_methods: list[str] | None = None,
+    allowed_headers: list[str] | None = None,
     max_age: int = 3600,
 ) -> dict[str, str]:
     """Build CORS headers"""
@@ -223,7 +223,7 @@ def exclude_fields(data: dict[str, Any], fields: list[str]) -> dict[str, Any]:
     return {k: v for k, v in data.items() if k not in fields}
 
 
-def sanitize_response(data: Any, sensitive_fields: list[str] = None) -> Any:
+def sanitize_response(data: Any, sensitive_fields: list[str] | None = None) -> Any:
     """Sanitize response by masking sensitive fields"""
     if sensitive_fields is None:
         sensitive_fields = ["password", "token", "api_key", "secret", "private_key"]

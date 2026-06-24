@@ -121,8 +121,7 @@ class RPCBlockchainService(BlockchainService):
                 endpoint = f"/rpc/blocks/{block_identifier}"
             else:
                 endpoint = f"/rpc/block/{block_identifier}"
-            response = self.client.get(endpoint)
-            data = response.json()
+            data = self.client.get(endpoint)
             return Block(
                 height=data.get("height", 0),
                 hash=data.get("hash", ""),
@@ -148,8 +147,7 @@ class RPCBlockchainService(BlockchainService):
             NetworkError: If RPC call fails
         """
         try:
-            response = self.client.get("/rpc/head")
-            data = response.json()
+            data = self.client.get("/rpc/head")
             return Block(
                 height=data.get("height", 0),
                 hash=data.get("hash", ""),
@@ -179,8 +177,7 @@ class RPCBlockchainService(BlockchainService):
             NetworkError: If RPC call fails
         """
         try:
-            response = self.client.get(f"/rpc/transaction/{tx_hash}")
-            data = response.json()
+            data = self.client.get(f"/rpc/transaction/{tx_hash}")
             return Transaction(
                 hash=data.get("hash", ""),
                 from_address=data.get("from", ""),
@@ -213,8 +210,7 @@ class RPCBlockchainService(BlockchainService):
             NetworkError: If RPC call fails
         """
         try:
-            response = self.client.get(f"/rpc/account/{address}")
-            data = response.json()
+            data = self.client.get(f"/rpc/account/{address}")
             return Account(address=address, balance=int(data.get("balance", 0)), nonce=data.get("nonce", 0))
         except Exception as e:
             logger.error("Failed to get account balance for %s: %s", address, e)
@@ -235,13 +231,12 @@ class RPCBlockchainService(BlockchainService):
             NetworkError: If RPC call fails
         """
         try:
-            response = self.client.post("/rpc/sendTx", json=tx_data)
-            data = response.json()
+            data = self.client.post("/rpc/sendTx", json=tx_data)
             tx_hash = data.get("hash") or data.get("tx_hash")
             if not tx_hash:
                 raise ValueError("Transaction hash not found in response")
             logger.info("Transaction sent successfully: %s", tx_hash)
-            return tx_hash
+            return str(tx_hash)
         except Exception as e:
             logger.error("Failed to send transaction: %s", e)
             raise
@@ -257,8 +252,7 @@ class RPCBlockchainService(BlockchainService):
             NetworkError: If RPC call fails
         """
         try:
-            response = self.client.get("/rpc/status")
-            return response.json()
+            return self.client.get("/rpc/status")
         except Exception as e:
             logger.error("Failed to get node status: %s", e)
             raise

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 try:
     from opentelemetry import trace
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor  # type: ignore[import-not-found]
     from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
     from opentelemetry.sdk.resources import SERVICE_NAME, Resource
     from opentelemetry.sdk.trace import TracerProvider
@@ -24,8 +24,8 @@ try:
     OPENTELEMETRY_AVAILABLE = True
 except ImportError:
     OPENTELEMETRY_AVAILABLE = False
-_tracer: object | None = None
-_tracer_provider: object | None = None
+_tracer: Any = None
+_tracer_provider: Any = None
 
 
 def setup_tracing(
@@ -74,7 +74,7 @@ def setup_tracing(
     logger.info("Tracing enabled for %s with %s exporter", service_name, exporter)
 
 
-def get_tracer() -> object | None:
+def get_tracer() -> Any:
     """
     Get the global tracer instance
 

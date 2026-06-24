@@ -14,8 +14,8 @@ from .aitbc_logging import get_logger
 logger = get_logger(__name__)
 try:
     from opentelemetry import trace
-    from opentelemetry.exporter.jaeger.thrift import JaegerExporter
-    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+    from opentelemetry.exporter.jaeger.thrift import JaegerExporter  # type: ignore[import-not-found]
+    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor  # type: ignore[import-not-found]
     from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
@@ -56,8 +56,8 @@ class TracingManager:
         self.jaeger_host = jaeger_host
         self.jaeger_port = jaeger_port
         self.enabled = enabled and OPENTELEMETRY_AVAILABLE
-        self._tracer = None
-        self._provider = None
+        self._tracer: Any = None
+        self._provider: Any = None
         if self.enabled:
             self._initialize_tracing()
 
@@ -87,7 +87,7 @@ class TracingManager:
             logger.error("Failed to initialize OpenTelemetry: %s", e)
             self.enabled = False
 
-    def get_tracer(self):
+    def get_tracer(self) -> Any:
         """
         Get OpenTelemetry tracer
 
@@ -96,7 +96,7 @@ class TracingManager:
         """
         return self._tracer if self.enabled else None
 
-    def start_span(self, name: str, attributes: dict[str, Any] | None = None):
+    def start_span(self, name: str, attributes: dict[str, Any] | None = None) -> Any:
         """
         Start a new span
 
@@ -112,7 +112,7 @@ class TracingManager:
         span = self._tracer.start_span(name, attributes=attributes or {})
         return span
 
-    def end_span(self, span) -> None:
+    def end_span(self, span: Any) -> None:
         """
         End a span
 

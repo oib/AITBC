@@ -24,7 +24,7 @@ class AITBCServiceIntegration:
             "marketplace": "http://localhost:8002",
             "agent_registry": "http://localhost:8013",
         }
-        self.session = None
+        self.session: aiohttp.ClientSession | None = None
 
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
@@ -37,52 +37,58 @@ class AITBCServiceIntegration:
     async def get_blockchain_info(self) -> dict[str, Any]:
         """Get blockchain information"""
         try:
+            assert self.session is not None
             async with self.session.get(f"{self.service_endpoints['blockchain_rpc']}/health") as response:
-                return await response.json()
+                return dict(await response.json())
         except Exception as e:
             return {"error": str(e), "status": "unavailable"}
 
     async def get_exchange_status(self) -> dict[str, Any]:
         """Get exchange service status"""
         try:
+            assert self.session is not None
             async with self.session.get(f"{self.service_endpoints['exchange_service']}/api/health") as response:
-                return await response.json()
+                return dict(await response.json())
         except Exception as e:
             return {"error": str(e), "status": "unavailable"}
 
     async def get_coordinator_status(self) -> dict[str, Any]:
         """Get coordinator API status"""
         try:
+            assert self.session is not None
             async with self.session.get(f"{self.service_endpoints['coordinator_api']}/health") as response:
-                return await response.json()
+                return dict(await response.json())
         except Exception as e:
             return {"error": str(e), "status": "unavailable"}
 
     async def submit_transaction(self, transaction_data: dict[str, Any]) -> dict[str, Any]:
         """Submit transaction to blockchain"""
         try:
+            assert self.session is not None
             async with self.session.post(
                 f"{self.service_endpoints['blockchain_rpc']}/rpc/submit", json=transaction_data
             ) as response:
-                return await response.json()
+                return dict(await response.json())
         except Exception as e:
             return {"error": str(e), "status": "failed"}
 
     async def get_market_data(self, symbol: str = "AITBC/BTC") -> dict[str, Any]:
         """Get market data from exchange"""
         try:
+            assert self.session is not None
             async with self.session.get(f"{self.service_endpoints['exchange_service']}/api/market/{symbol}") as response:
-                return await response.json()
+                return dict(await response.json())
         except Exception as e:
             return {"error": str(e), "status": "failed"}
 
     async def register_agent_with_coordinator(self, agent_data: dict[str, Any]) -> dict[str, Any]:
         """Register agent with coordinator"""
         try:
+            assert self.session is not None
             async with self.session.post(
                 f"{self.service_endpoints['agent_registry']}/api/agents/register", json=agent_data
             ) as response:
-                return await response.json()
+                return dict(await response.json())
         except Exception as e:
             return {"error": str(e), "status": "failed"}
 

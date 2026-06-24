@@ -74,7 +74,7 @@ class TaskQueue:
         self,
         func: Callable,
         args: tuple = (),
-        kwargs: dict = None,
+        kwargs: dict[str, Any] | None = None,
         priority: JobPriority = JobPriority.MEDIUM,
         max_retries: int = 3,
     ) -> str:

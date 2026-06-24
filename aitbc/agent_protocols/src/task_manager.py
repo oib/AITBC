@@ -49,9 +49,9 @@ class Task:
         self.status = TaskStatus.PENDING
         self.created_at = datetime.now(UTC)
         self.updated_at = datetime.now(UTC)
-        self.completed_at = None
-        self.result = None
-        self.error = None
+        self.completed_at: datetime | None = None
+        self.result: dict[str, Any] | None = None
+        self.error: str | None = None
 
 
 class TaskManager:

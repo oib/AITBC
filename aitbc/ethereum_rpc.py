@@ -68,10 +68,10 @@ class EthereumRPCClient:
 
     def __init__(self, config: EthereumConfig | None = None):
         self.config = config or EthereumConfig()
-        self._w3 = None
+        self._w3: Any = None
         self._connected_url: str | None = None
 
-    def _get_web3(self):
+    def _get_web3(self) -> Any:
         """Lazy-initialize Web3 connection, trying each RPC URL in order."""
         if self._w3 is not None:
             return self._w3
