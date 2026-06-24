@@ -178,6 +178,49 @@ class TestEventBus:
         # Should not raise
         bus.publish_sync(event)
 
+    def test_publish_sync_inside_running_loop(self):
+        """Regression test: publish_sync() must work inside a running event loop.
+
+        Previously used asyncio.ensure_future(coro, loop=loop) which raises
+        TypeError on Python 3.12+ (loop= parameter removed). Now uses
+        loop.create_task() which is the supported API.
+        """
+        bus = events.EventBus()
+        received = []
+
+        def handler(event):
+            received.append(event)
+
+        bus.subscribe("test_event", handler)
+        event = events.Event(event_type="test_event", data={"key": "value"})
+
+        async def run():
+            bus.publish_sync(event)
+            await asyncio.sleep(0)  # let background task flush
+
+        asyncio.run(run())
+        assert len(received) == 1
+        assert received[0] == event
+
+    def test_publish_sync_async_handler_inside_running_loop(self):
+        """Regression test: publish_sync() with async handler inside a running loop."""
+        bus = events.EventBus()
+        received = []
+
+        async def handler(event):
+            received.append(event)
+
+        bus.subscribe("test_event", handler)
+        event = events.Event(event_type="test_event", data={"key": "value"})
+
+        async def run():
+            bus.publish_sync(event)
+            await asyncio.sleep(0.01)  # let background task + coroutine flush
+
+        asyncio.run(run())
+        assert len(received) == 1
+        assert received[0] == event
+
     def test_get_event_history(self):
         bus = events.EventBus()
         event1 = events.Event(event_type="test_event", data={"key": "value1"})
