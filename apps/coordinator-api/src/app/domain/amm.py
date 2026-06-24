@@ -337,3 +337,22 @@ class ArbitrageOpportunity(SQLModel, table=True):
     actual_profit: float | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     expires_at: datetime = Field(default_factory=lambda: datetime.now(UTC) + timedelta(minutes=5))
+
+
+__all__ = [
+    "ArbitrageOpportunity",
+    "FeeClaim",
+    "FeeStructure",
+    "IncentiveProgram",
+    "LiquidityPool",
+    "LiquidityPosition",
+    "LiquidityPositionStatus",
+    "LiquidityReward",
+    "PoolAlert",
+    "PoolConfiguration",
+    "PoolMetrics",
+    "PoolSnapshot",
+    "PoolStatus",
+    "SwapStatus",
+    "SwapTransaction",
+]
