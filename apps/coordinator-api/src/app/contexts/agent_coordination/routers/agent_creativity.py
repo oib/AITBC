@@ -12,7 +12,7 @@ from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
 
-from ....domain.agent_performance import CreativeCapability
+from ..domain.agent_performance import CreativeCapability
 from ....storage import get_session
 from ..services.creative_capabilities_service import (
     CreativityEnhancementEngine,

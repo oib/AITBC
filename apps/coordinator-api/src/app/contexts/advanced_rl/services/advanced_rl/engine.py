@@ -16,7 +16,7 @@ from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 
-from app.domain.agent_performance import ReinforcementLearningConfig
+from app.contexts.agent_coordination.domain.agent_performance import ReinforcementLearningConfig
 from .agents import PPOAgent, RainbowDQNAgent, SACAgent
 
 logger = get_logger(__name__)

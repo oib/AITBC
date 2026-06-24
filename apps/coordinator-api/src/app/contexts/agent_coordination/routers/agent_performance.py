@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ....domain.agent_performance import (
+from ..domain.agent_performance import (
     LearningStrategy,
     OptimizationTarget,
     PerformanceMetric,

@@ -12,7 +12,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ....auth import AdminDep
-from ....domain.agent import AgentExecution, AIAgentWorkflow, VerificationLevel
+from ..domain.agent import AgentExecution, AIAgentWorkflow, VerificationLevel
 from ....services.agent_coordination.integration import (
     AgentDeploymentConfig,
     AgentDeploymentInstance,

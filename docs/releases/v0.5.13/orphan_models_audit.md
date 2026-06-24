@@ -39,25 +39,42 @@
 | 11 | `job` | 8+ | **MIGRATE** ⚠️ | **NOT an orphan** — audit gap. Re-exported by `domain/__init__.py`; imported by name (`from ..domain import Job`) in `main.py`, `core/lifespan.py`, `utils/cache_management.py`, `services/receipts.py`, `services/jobs.py`, `services/explorer.py`, `routers/admin.py` (×4). |
 | 12 | `job_receipt` | 3 | **MIGRATE** ⚠️ | **NOT an orphan** — audit gap. Re-exported by `domain/__init__.py`; imported by name in `services/receipts.py`, `services/jobs.py`, `services/explorer.py`. |
 | 13 | `miner` | 4+ | **MIGRATE** ⚠️ | **NOT an orphan** — audit gap. Re-exported by `domain/__init__.py`; imported by name in `services/miners.py`, `services/jobs.py`, `services/python_13_optimized.py`, `routers/admin.py` (×2). |
-| 14 | `pricing_models` | **0** | **DEAD CODE** | Zero importers. All `pricing_models` grep hits are local variable/feature names (`routers/registry.py`, `scripts/enterprise_scaling.py`), not imports. Independent from `pricing_strategies.py` (no cross-import). Safe to delete. |
+| 14 | `pricing_models` | 1 (revived) | **~~DEAD CODE~~ → REVIVED** | Was zero importers (unfinished persistence layer for the in-memory `DynamicPricingEngine`). **Wired in** rather than deleted — see "pricing_models Revival" below. |
 | 15 | `pricing_strategies` | 1 | **MIGRATE** | `routers/dynamic_pricing.py` (`..domain.pricing_strategies`). |
 | 16 | `user` | 1+ | **MIGRATE** ⚠️ | **NOT an orphan** — audit gap. Re-exported by `domain/__init__.py`; imported by name (`from ..domain import User, Wallet`) in `routers/users.py`. |
 | 17 | `wallet` | 2 | **MIGRATE** | `schemas/wallet.py` (`..domain.wallet`), `routers/users.py` (via `from ..domain import Wallet`). |
 
-**Totals**: 16 MIGRATE, 1 DEAD CODE.
+**Totals**: 16 MIGRATE, 1 was-dead-code now REVIVED (`pricing_models`, wired into the dynamic-pricing engine).
 
 ---
 
-## Dead Code Detail
+## pricing_models Revival (was: dead code)
 
-### `pricing_models.py` — DELETE
+Originally flagged as deletable dead code, `pricing_models.py` turned out to be an **unfinished persistence layer** for the dynamic-pricing feature, not abandoned code. Decision (2026-06-24): **revive and wire it in** rather than delete.
 
-- **File**: `apps/coordinator-api/src/app/domain/pricing_models.py`
-- **Importers**: 0 (verified across entire repo)
-- **Content**: SQLModel definitions for pricing history/strategies/market metrics (`PricingStrategyType` enum, plus likely `PricingHistory`, `MarketMetrics` tables).
-- **Relationship to `pricing_strategies.py`**: None. `pricing_strategies.py` is an independent dataclass-based module (`PricingStrategy` enum, `StrategyLibrary`). They do not import each other and define overlapping-but-separate `PricingStrategy`/`PricingStrategyType` enums.
-- **Confusion source**: The 9 grep hits for `pricing_models` are all local variable names or feature-flag strings in `routers/registry.py` and `scripts/enterprise_scaling.py` — not imports of the domain module.
-- **Recommendation**: Safe to delete. If any of its SQLModel tables exist in a production DB, coordinate a migration to drop them first.
+### Why it looked dead
+
+- **Importers**: 0 (verified across entire repo). The 9 grep hits for `pricing_models` are local variable names / feature-flag strings in `routers/registry.py` and `scripts/enterprise_scaling.py`, not imports.
+- **Content**: 9 SQLModel tables (`PricingHistory`, `ProviderPricingStrategy`, `MarketMetrics`, `PriceForecast`, `PricingOptimization`, `PricingAlert`, `PricingRule`, `PricingAuditLog`) + 2 views + enums.
+- **Code smell**: every `__table_args__` composite-index block was commented out with mangled formatting (a botched automated edit).
+
+### Why it's actually a feature gap
+
+The live `DynamicPricingEngine` (`contexts/trading/services/trading_marketplace/dynamic_pricing.py`) kept all state in memory (`pricing_history`/`provider_strategies` dicts, capped at 1000 entries, lost on restart). Its two persistence hooks — `_load_pricing_history()` and `_load_provider_strategies()` — were empty `pass` stubs. `pricing_models.py` is exactly the schema those stubs were meant to use.
+
+### What was done
+
+1. **Cleaned up** all 8 mangled `__table_args__` blocks → proper composite `Index(...)` definitions (added `Index` import).
+2. **Decoupled enums**: changed `PricingHistory.strategy_used` and `ProviderPricingStrategy.strategy_type` from `PricingStrategyType` to `str`, because the engine's runtime `PricingStrategy` enum (`time_based`, `multi_factor`, `predictive`, …) is a different, overlapping set from the DB `PricingStrategyType`.
+3. **Registration**: top-level import of the models in the engine module → `init_db()`/`create_all()` now creates all 8 tables.
+4. **Persistence**: `_store_price_point` now also writes a `PricingHistory` row; `set_provider_strategy` upserts a `ProviderPricingStrategy` row (deactivating prior active rows). Both run via `asyncio.to_thread` (no event-loop blocking) and are best-effort (a DB failure logs a warning, never breaks price calculation).
+5. **Reload**: implemented `_load_pricing_history` (last 1000 points/resource) and `_load_provider_strategies` (active rows → strategy + constraints), called from `initialize()`.
+
+### Verification
+
+- `ruff` + `mypy` clean on both files.
+- End-to-end test (temp SQLite): set strategy + 3 price calculations → 3 `PricingHistory` rows + 1 active `ProviderPricingStrategy` persisted; a fresh engine instance reloaded all of it (history points, strategy, constraints). Strategy re-set correctly deactivates the prior row (1 active of 2).
+- Remaining 7 pricing tables (forecasts, optimizations, alerts, rules, audit log) are created by `create_all` but not yet wired into the engine — available for future use.
 
 ---
 
@@ -103,7 +120,8 @@ The original audit (P2) used `grep -rn "from app\.domain\.\|from \.\.domain\."` 
 
 - [x] All 17 listed models grepped across `apps/coordinator-api/` (src + tests) and full repo
 - [x] Five import patterns checked (absolute, 2/3/4-dot relative, name-import via `__init__.py`)
-- [x] `pricing_models` confirmed zero importers (all grep hits are local variables)
+- [x] `pricing_models` confirmed zero importers → **revived** (wired into DynamicPricingEngine, see "pricing_models Revival" section)
 - [x] `agent_portfolio` cross-app import in `apps/agent-management/` confirmed broken (file absent, `type: ignore[import-not-found]`)
 - [x] `governance`, `dao_governance` context imports confirmed via 4-dot relative pattern
 - [x] `job`, `job_receipt`, `miner`, `user` confirmed re-exported by `domain/__init__.py` and imported by name
+- [x] **Tier 3 update (2026-06-24)**: `agent.py` and `agent_performance.py` migrated to `contexts/agent_coordination/domain/` — see v0.5.13 change.log §T3
