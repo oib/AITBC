@@ -5,9 +5,12 @@ from typing import Any
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
 
+from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ....config import settings
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/swarm", tags=["Swarm"])
 
@@ -90,6 +93,10 @@ if settings.debug:
     # This in-memory state is temporary and is lost on service restart.
     # Mock routes are gated behind settings.debug — never enabled in production.
     # See docs/releases/v0.5.0/change.log for DB/Redis migration plan.
+    logger.warning(
+        "Swarm mock registry activated (DEBUG=true). In-memory state is "
+        "non-persistent and unauthenticated. Do NOT use in production."
+    )
     _mock_nodes: dict[str, dict[str, Any]] = {}
     _mock_tasks: dict[str, dict[str, Any]] = {}
     _task_counter = 0

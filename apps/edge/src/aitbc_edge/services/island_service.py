@@ -1,10 +1,21 @@
 """Island service for Edge API Service"""
 
+import os
 from typing import Any
+
+from aitbc.aitbc_logging import get_logger
 
 from ..clients.blockchain_rpc import BlockchainRPCClient
 from ..schemas.island import BridgeRequest, IslandMembership, IslandStatus
 from ..storage import get_session
+
+logger = get_logger(__name__)
+
+# Node identity for bridge request attribution.
+# Defaults to HOSTNAME (set by container runtime) or "edge-api" as fallback.
+NODE_ID = os.getenv("EDGE_NODE_ID", os.getenv("HOSTNAME", "edge-api"))
+if NODE_ID == "edge-api":
+    logger.warning("EDGE_NODE_ID not set; using default identity 'edge-api'")
 
 
 class IslandService:
@@ -78,7 +89,7 @@ class IslandService:
                 bridge_req = BridgeRequest(
                     request_id=result.get("request_id"),
                     target_island_id=target_island_id,
-                    source_node_id="edge-api",  # TODO: Get actual node ID
+                    source_node_id=NODE_ID,
                     status=result.get("status", "pending"),
                 )
                 session.add(bridge_req)
