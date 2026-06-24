@@ -2,6 +2,7 @@
 Read replica management for PostgreSQL databases.
 """
 
+import random
 import time
 from typing import Any
 
@@ -35,8 +36,8 @@ class ReadReplicaManager:
         self.replica_urls = replica_urls or []
         self.read_weight = max(0, min(100, read_weight))
         self.enable_auto_failover = enable_auto_failover
-        self.primary_engine = None
-        self.replica_engines = []
+        self.primary_engine: Any = None
+        self.replica_engines: list[Any] = []
         self.current_replica_index = 0
         self.monitor = QueryMonitor()
         self._initialize_engines()
@@ -72,7 +73,7 @@ class ReadReplicaManager:
         if not self.replica_engines:
             logger.warning("No read replicas available, all traffic will go to primary")
 
-    def _setup_monitoring(self, engine, name: str) -> None:
+    def _setup_monitoring(self, engine: Any, name: str) -> None:
         """Setup query monitoring for engine"""
 
         @event.listens_for(engine, "before_cursor_execute")
@@ -90,14 +91,14 @@ class ReadReplicaManager:
                     row_count=cursor.rowcount if hasattr(cursor, "rowcount") else 0,
                 )
 
-    def get_read_engine(self):
+    def get_read_engine(self) -> Any:
         """
         Get a read engine (replica or primary)
 
         Returns:
             SQLAlchemy engine for read operations
         """
-        if not self.replica_engines or (self.read_weight < 100 and hash(time.time()) % 100 >= self.read_weight):
+        if not self.replica_engines or (self.read_weight < 100 and random.randint(0, 99) >= self.read_weight):
             return self.primary_engine
         if self.replica_engines:
             engine = self.replica_engines[self.current_replica_index]
@@ -105,7 +106,7 @@ class ReadReplicaManager:
             return engine
         return self.primary_engine
 
-    def get_write_engine(self):
+    def get_write_engine(self) -> Any:
         """
         Get write engine (always primary)
 
@@ -114,7 +115,7 @@ class ReadReplicaManager:
         """
         return self.primary_engine
 
-    def get_session(self, read_only: bool = True):
+    def get_session(self, read_only: bool = True) -> Any:
         """
         Get database session
 
