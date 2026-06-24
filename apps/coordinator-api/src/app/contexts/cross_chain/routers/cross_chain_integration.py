@@ -19,10 +19,10 @@ from app.contexts.cross_chain.services.cross_chain.bridge_enhanced import (  # t
     BridgeSecurityLevel,
     CrossChainBridgeService,
 )
-from ..domain.multi_chain_transaction import TransactionType
+from ..domain.chain_transaction import TransactionType
 from app.reputation.engine import CrossChainReputationEngine  # type: ignore[import-not-found]
 from app.services.multi_chain_transaction_manager import (  # type: ignore[import-not-found]
-    MultiChainTransactionManager,
+    ChainTransactionManager,
     RoutingStrategy,
     TransactionPriority,
 )
@@ -331,7 +331,7 @@ async def submit_transaction(
 ) -> dict[str, Any]:
     """Submit a multi-chain transaction"""
     try:
-        tx_manager = MultiChainTransactionManager(session)
+        tx_manager = ChainTransactionManager(session)
         chain_configs = {chain_id: {"rpc_url": "http://aitbc:8006"}}
         await tx_manager.initialize(chain_configs)
         result = await tx_manager.submit_transaction(
@@ -373,7 +373,7 @@ async def get_transaction_history(
 ) -> list[dict[str, Any]]:
     """Get transaction history with filtering"""
     try:
-        tx_manager = MultiChainTransactionManager(session)
+        tx_manager = ChainTransactionManager(session)
         chain_configs = {1000: {"rpc_url": "http://aitbc:8006"}, 1001: {"rpc_url": "http://aitbc1:8006"}}
         await tx_manager.initialize(chain_configs)
         history = await tx_manager.get_transaction_history(
@@ -455,7 +455,7 @@ async def get_transaction_statistics(
 ) -> dict[str, Any]:
     """Get transaction statistics"""
     try:
-        tx_manager = MultiChainTransactionManager(session)
+        tx_manager = ChainTransactionManager(session)
         chain_configs = {1000: {"rpc_url": "http://aitbc:8006"}, 1001: {"rpc_url": "http://aitbc1:8006"}}
         await tx_manager.initialize(chain_configs)
         stats = await tx_manager.get_transaction_statistics(time_period_hours, chain_id)
@@ -477,7 +477,7 @@ async def optimize_transaction_routing(
 ) -> dict[str, Any]:
     """Optimize transaction routing for best performance"""
     try:
-        tx_manager = MultiChainTransactionManager(session)
+        tx_manager = ChainTransactionManager(session)
         chain_configs = {1000: {"rpc_url": "http://aitbc:8006"}, 1001: {"rpc_url": "http://aitbc1:8006"}}
         await tx_manager.initialize(chain_configs)
         optimization = await tx_manager.optimize_transaction_routing(
@@ -527,7 +527,7 @@ async def get_cross_chain_health(request: Request, session: Annotated[Session, D
     try:
         supported_chains = WalletAdapterFactory.get_supported_chains()
         bridge_service = CrossChainBridgeService(session)
-        tx_manager = MultiChainTransactionManager(session)
+        tx_manager = ChainTransactionManager(session)
         chain_configs = {chain_id: {"rpc_url": "http://aitbc:8006"} for chain_id in [1000, 1001]}
         await bridge_service.initialize_bridge(chain_configs)
         await tx_manager.initialize(chain_configs)
