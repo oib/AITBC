@@ -10,7 +10,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, Index
 from sqlmodel import Field, SQLModel, Text
 
 
@@ -53,15 +53,13 @@ class PricingHistory(SQLModel, table=True):
     """Historical pricing data for analysis and machine learning"""
 
     __tablename__ = "pricing_history"
-    __table_args__ = {
-        "extend_existing": True,
-        # # # "indexes": [
-        #    #        # Index(        Index("idx_pricing_history_resource_timestamp", "resource_id", "timestamp"),)
-        #    #        # Index(        Index("idx_pricing_history_type_region", "resource_type", "region"),)
-        #    #        # Index(        Index("idx_pricing_history_timestamp", "timestamp"),)
-        #    #        # Index(        Index("idx_pricing_history_provider", "provider_id"),)
-        ###        ],
-    }
+    __table_args__ = (
+        Index("idx_pricing_history_resource_timestamp", "resource_id", "timestamp"),
+        Index("idx_pricing_history_type_region", "resource_type", "region"),
+        Index("idx_pricing_history_timestamp", "timestamp"),
+        Index("idx_pricing_history_provider", "provider_id"),
+        {"extend_existing": True},
+    )
 
     id: str = Field(default_factory=lambda: f"ph_{uuid4().hex[:12]}", primary_key=True)
     resource_id: str = Field(index=True)
@@ -82,7 +80,9 @@ class PricingHistory(SQLModel, table=True):
     utilization_rate: float
 
     # Strategy and factors
-    strategy_used: PricingStrategyType = Field(index=True)
+    # Stored as a plain string: the runtime DynamicPricingEngine.PricingStrategy enum
+    # is a different (overlapping) set from PricingStrategyType, so we decouple here.
+    strategy_used: str = Field(index=True)
     strategy_parameters: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     pricing_factors: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
@@ -109,19 +109,19 @@ class ProviderPricingStrategy(SQLModel, table=True):
     """Provider pricing strategies and configurations"""
 
     __tablename__ = "provider_pricing_strategies"
-    __table_args__ = {
-        "extend_existing": True,
-        # # # "indexes": [
-        #    #        # Index(        Index("idx_provider_strategies_provider", "provider_id"),)
-        #    #        # Index(        Index("idx_provider_strategies_type", "strategy_type"),)
-        #    #        # Index(        Index("idx_provider_strategies_active", "is_active"),)
-        #    #        # Index(        Index("idx_provider_strategies_resource", "resource_type", "provider_id"),)
-        ###        ],
-    }
+    __table_args__ = (
+        Index("idx_provider_strategies_provider", "provider_id"),
+        Index("idx_provider_strategies_type", "strategy_type"),
+        Index("idx_provider_strategies_active", "is_active"),
+        Index("idx_provider_strategies_resource", "resource_type", "provider_id"),
+        {"extend_existing": True},
+    )
 
     id: str = Field(default_factory=lambda: f"pps_{uuid4().hex[:12]}", primary_key=True)
     provider_id: str = Field(index=True)
-    strategy_type: PricingStrategyType = Field(index=True)
+    # Stored as a plain string to match the runtime engine's PricingStrategy enum
+    # (a different, overlapping set from PricingStrategyType).
+    strategy_type: str = Field(index=True)
     resource_type: ResourceType | None = Field(default=None, index=True)
 
     # Strategy configuration
@@ -172,16 +172,14 @@ class MarketMetrics(SQLModel, table=True):
     """Real-time and historical market metrics"""
 
     __tablename__ = "market_metrics"
-    __table_args__ = {
-        "extend_existing": True,
-        # # # "indexes": [
-        #    #        # Index(        Index("idx_market_metrics_region_type", "region", "resource_type"),)
-        #    #        # Index(        Index("idx_market_metrics_timestamp", "timestamp"),)
-        #    #        # Index(        Index("idx_market_metrics_demand", "demand_level"),)
-        #    #        # Index(        Index("idx_market_metrics_supply", "supply_level"),)
-        #    #        # Index(        Index("idx_market_metrics_composite", "region", "resource_type", "timestamp"),)
-        ###        ],
-    }
+    __table_args__ = (
+        Index("idx_market_metrics_region_type", "region", "resource_type"),
+        Index("idx_market_metrics_timestamp", "timestamp"),
+        Index("idx_market_metrics_demand", "demand_level"),
+        Index("idx_market_metrics_supply", "supply_level"),
+        Index("idx_market_metrics_composite", "region", "resource_type", "timestamp"),
+        {"extend_existing": True},
+    )
 
     id: str = Field(default_factory=lambda: f"mm_{uuid4().hex[:12]}", primary_key=True)
     region: str = Field(index=True)
@@ -237,15 +235,13 @@ class PriceForecast(SQLModel, table=True):
     """Price forecasting data and accuracy tracking"""
 
     __tablename__ = "price_forecasts"
-    __table_args__ = {
-        "extend_existing": True,
-        # # # "indexes": [
-        #    #        # Index(        Index("idx_price_forecasts_resource", "resource_id"),)
-        #    #        # Index(        Index("idx_price_forecasts_target", "target_timestamp"),)
-        #    #        # Index(        Index("idx_price_forecasts_created", "created_at"),)
-        #    #        # Index(        Index("idx_price_forecasts_horizon", "forecast_horizon_hours"),)
-        ###        ],
-    }
+    __table_args__ = (
+        Index("idx_price_forecasts_resource", "resource_id"),
+        Index("idx_price_forecasts_target", "target_timestamp"),
+        Index("idx_price_forecasts_created", "created_at"),
+        Index("idx_price_forecasts_horizon", "forecast_horizon_hours"),
+        {"extend_existing": True},
+    )
 
     id: str = Field(default_factory=lambda: f"pf_{uuid4().hex[:12]}", primary_key=True)
     resource_id: str = Field(index=True)
@@ -292,15 +288,13 @@ class PricingOptimization(SQLModel, table=True):
     """Pricing optimization experiments and results"""
 
     __tablename__ = "pricing_optimizations"
-    __table_args__ = {
-        "extend_existing": True,
-        # # # "indexes": [
-        #    #        # Index(        Index("idx_pricing_opt_provider", "provider_id"),)
-        #    #        # Index(        Index("idx_pricing_opt_experiment", "experiment_id"),)
-        #    #        # Index(        Index("idx_pricing_opt_status", "status"),)
-        #    #        # Index(        Index("idx_pricing_opt_created", "created_at"),)
-        ###        ],
-    }
+    __table_args__ = (
+        Index("idx_pricing_opt_provider", "provider_id"),
+        Index("idx_pricing_opt_experiment", "experiment_id"),
+        Index("idx_pricing_opt_status", "status"),
+        Index("idx_pricing_opt_created", "created_at"),
+        {"extend_existing": True},
+    )
 
     id: str = Field(default_factory=lambda: f"po_{uuid4().hex[:12]}", primary_key=True)
     experiment_id: str = Field(index=True)
@@ -358,16 +352,14 @@ class PricingAlert(SQLModel, table=True):
     """Pricing alerts and notifications"""
 
     __tablename__ = "pricing_alerts"
-    __table_args__ = {
-        "extend_existing": True,
-        # # # "indexes": [
-        #    #        # Index(        Index("idx_pricing_alerts_provider", "provider_id"),)
-        #    #        # Index(        Index("idx_pricing_alerts_type", "alert_type"),)
-        #    #        # Index(        Index("idx_pricing_alerts_status", "status"),)
-        #    #        # Index(        Index("idx_pricing_alerts_severity", "severity"),)
-        #    #        # Index(        Index("idx_pricing_alerts_created", "created_at"),)
-        ###        ],
-    }
+    __table_args__ = (
+        Index("idx_pricing_alerts_provider", "provider_id"),
+        Index("idx_pricing_alerts_type", "alert_type"),
+        Index("idx_pricing_alerts_status", "status"),
+        Index("idx_pricing_alerts_severity", "severity"),
+        Index("idx_pricing_alerts_created", "created_at"),
+        {"extend_existing": True},
+    )
 
     id: str = Field(default_factory=lambda: f"pa_{uuid4().hex[:12]}", primary_key=True)
     provider_id: str | None = Field(default=None, index=True)
@@ -422,15 +414,13 @@ class PricingRule(SQLModel, table=True):
     """Custom pricing rules and conditions"""
 
     __tablename__ = "pricing_rules"
-    __table_args__ = {
-        "extend_existing": True,
-        # # # "indexes": [
-        #    #        # Index(        Index("idx_pricing_rules_provider", "provider_id"),)
-        #    #        # Index(        Index("idx_pricing_rules_strategy", "strategy_id"),)
-        #    #        # Index(        Index("idx_pricing_rules_active", "is_active"),)
-        #    #        # Index(        Index("idx_pricing_rules_priority", "priority"),)
-        ###        ],
-    }
+    __table_args__ = (
+        Index("idx_pricing_rules_provider", "provider_id"),
+        Index("idx_pricing_rules_strategy", "strategy_id"),
+        Index("idx_pricing_rules_active", "is_active"),
+        Index("idx_pricing_rules_priority", "priority"),
+        {"extend_existing": True},
+    )
 
     id: str = Field(default_factory=lambda: f"pr_{uuid4().hex[:12]}", primary_key=True)
     provider_id: str | None = Field(default=None, index=True)
@@ -485,16 +475,14 @@ class PricingAuditLog(SQLModel, table=True):
     """Audit log for pricing changes and decisions"""
 
     __tablename__ = "pricing_audit_log"
-    __table_args__ = {
-        "extend_existing": True,
-        # # # "indexes": [
-        #    #        # Index(        Index("idx_pricing_audit_provider", "provider_id"),)
-        #    #        # Index(        Index("idx_pricing_audit_resource", "resource_id"),)
-        #    #        # Index(        Index("idx_pricing_audit_action", "action_type"),)
-        #    #        # Index(        Index("idx_pricing_audit_timestamp", "timestamp"),)
-        #    #        # Index(        Index("idx_pricing_audit_user", "user_id"),)
-        ###        ],
-    }
+    __table_args__ = (
+        Index("idx_pricing_audit_provider", "provider_id"),
+        Index("idx_pricing_audit_resource", "resource_id"),
+        Index("idx_pricing_audit_action", "action_type"),
+        Index("idx_pricing_audit_timestamp", "timestamp"),
+        Index("idx_pricing_audit_user", "user_id"),
+        {"extend_existing": True},
+    )
 
     id: str = Field(default_factory=lambda: f"pal_{uuid4().hex[:12]}", primary_key=True)
     provider_id: str | None = Field(default=None, index=True)
