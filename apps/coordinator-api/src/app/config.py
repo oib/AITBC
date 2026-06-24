@@ -105,6 +105,7 @@ class Settings(BaseAITBCConfig):
         return v
 
     # Security - using inherited secret_key and jwt_secret from BaseAITBCConfig
+    jwt_secret: str = ""  # Override None default from base; must be set via env in production
     hmac_secret: str | None = None
 
     # CORS - override inherited allow_origins with coordinator-api specific defaults
@@ -199,12 +200,12 @@ class Settings(BaseAITBCConfig):
             raise ValueError("Mock endpoints cannot be enabled in production")
         return v
 
-    def get_effective_database_url(self) -> str:
+    @property
+    def effective_database_url(self) -> str:
         """Get the effective database URL with test mode support."""
-        # Use test database if in test mode and test_database_url is set
         if self.test_mode and self.test_database_url:
-            return self.test_database_url
-        return self.database.effective_url
+            return str(self.test_database_url)
+        return str(self.database.effective_url)
 
 
 settings = Settings()
