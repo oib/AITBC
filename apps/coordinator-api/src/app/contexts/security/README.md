@@ -1,20 +1,37 @@
-# Security Context
+# security
 
-**Description:** Security auditing, vulnerability scanning, and threat detection
+Security — access control, encryption, key management, KYC/AML, quotas, and trading surveillance.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-| Domain Module | Imported Symbols |
-|---|---|
-| `app/domain/agent.py` | `AIAgentWorkflow` |
+- POST /policies
+- GET /scan
+- GET /policies
+- GET /policies/{policy_id}
+- PUT /policies/{policy_id}
+- DELETE /policies/{policy_id}
+- POST /validate-workflow/{workflow_id}
+- GET /audit-logs
+- GET /audit-logs/{audit_id}
+- GET /trust-scores
+- GET /trust-scores/{entity_type}/{entity_id}
+- POST /trust-scores/{entity_type}/{entity_id}/update
+- POST /sandbox/{execution_id}/create
+- GET /sandbox/{execution_id}/monitor
+- POST /sandbox/{execution_id}/cleanup
+- POST /executions/{execution_id}/security-monitor
+- GET /security-dashboard
+- GET /security-stats
 
-> **Note:** These imports cross the context boundary into the shared `app/domain/` layer. See [P2 audit](../../docs/releases/v0.5.12/p2_cross_context_import_audit.md) for details.
+## Services
+
+- access_control.py
+- encryption.py
+- key_management.py
+- kyc_aml_providers.py
+- quota_enforcement.py
+- trading_surveillance.py

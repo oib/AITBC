@@ -1,13 +1,15 @@
-# Language Context
+# language
 
-**Description:** Natural language processing and language models
+Multi-language support and localization services.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `services` | `services/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-No cross-context domain imports.
+- None (stub)
+
+## Services
+
+- None (stub)

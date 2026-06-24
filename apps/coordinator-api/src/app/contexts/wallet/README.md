@@ -1,17 +1,18 @@
-# Wallet Context
+# wallet
 
-**Description:** Multi-chain wallet management
+Wallet — multi-chain custody, signing, and secure key services.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `services` | `services/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-| Domain Module | Imported Symbols |
-|---|---|
-| `app/domain/wallet.py` | `AgentWallet`, `TokenBalance`, `TransactionStatus`, `WalletTransaction` |
+- None (stub)
 
-> **Note:** These imports cross the context boundary into the shared `app/domain/` layer. See [P2 audit](../../docs/releases/v0.5.12/p2_cross_context_import_audit.md) for details.
+## Services
+
+- bitcoin_wallet.py
+- secure_wallet_service.py
+- wallet_crypto.py
+- wallet_service.py

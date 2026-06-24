@@ -1,20 +1,38 @@
-# Analytics Context
+# analytics
 
-**Description:** General analytics and reporting
+Analytics — advanced analytics and performance monitoring.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-| Domain Module | Imported Symbols |
-|---|---|
-| `app/domain/analytics.py` | `AnalyticsReport`, `MarketInsight` |
+- POST /data-collection
+- GET /insights
+- GET /metrics
+- GET /overview
+- POST /dashboards
+- GET /dashboards/{dashboard_id}
+- POST /reports
+- GET /reports/{report_id}
+- POST /insights/generate
+- GET /insights/{insight_id}
+- GET /market/trends
+- GET /market/segments
+- GET /competitors/analysis
+- GET /forecasts/{metric_name}
+- GET /alerts/active
+- POST /alerts/acknowledge/{alert_id}
+- GET /performance/benchmarks
+- GET /custom/queries
+- POST /custom/queries
+- POST /custom/queries/{query_id}/execute
+- GET /export/data
+- GET /realtime/metrics
+- GET /health
 
-> **Note:** These imports cross the context boundary into the shared `app/domain/` layer. See [P2 audit](../../docs/releases/v0.5.12/p2_cross_context_import_audit.md) for details.
+## Services
+
+- advanced_analytics.py
+- performance_monitoring.py

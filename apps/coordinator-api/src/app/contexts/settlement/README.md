@@ -1,16 +1,18 @@
-# Settlement Context
+# settlement
 
-**Description:** Settlement and payment finalization
+Settlement — transaction finalization and reconciliation.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-No cross-context domain imports.
+- POST /cross-chain
+- GET /cross-chain/{settlement_id}
+- GET /cross-chain
+- DELETE /cross-chain/{settlement_id}
+
+## Services
+
+- None (stub)

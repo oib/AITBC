@@ -1,20 +1,33 @@
-# Staking Context
+# staking
 
-**Description:** Staking pools and performance-based staking
+Staking — delegation, rewards, and staking service operations.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-| Domain Module | Imported Symbols |
-|---|---|
-| `app/domain/bounty.py` | `AgentStake`, `PerformanceTier`, `StakeStatus`, `StakingPool` |
+- POST /stake
+- GET /stake/{stake_id}
+- GET /stakes
+- POST /stake/{stake_id}/add
+- POST /stake/{stake_id}/unbond
+- POST /stake/{stake_id}/complete
+- GET /stake/{stake_id}/rewards
+- GET /agents/{agent_wallet}/metrics
+- GET /agents/{agent_wallet}/staking-pool
+- GET /agents/{agent_wallet}/apy
+- POST /agents/{agent_wallet}/performance
+- POST /agents/{agent_wallet}/distribute-earnings
+- GET /agents/supported
+- GET /staking/stats
+- GET /staking/leaderboard
+- GET /staking/my-positions
+- GET /staking/my-rewards
+- POST /staking/claim-rewards
+- GET /staking/risk-assessment/{agent_wallet}
 
-> **Note:** These imports cross the context boundary into the shared `app/domain/` layer. See [P2 audit](../../docs/releases/v0.5.12/p2_cross_context_import_audit.md) for details.
+## Services
+
+- staking_service.py

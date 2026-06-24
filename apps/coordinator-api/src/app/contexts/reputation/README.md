@@ -1,20 +1,30 @@
-# Reputation Context
+# reputation
 
-**Description:** Agent reputation, trust scores, and economic profiles
+Reputation system — scoring, history, and reputation services.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-| Domain Module | Imported Symbols |
-|---|---|
-| `app/domain/reputation.py` | `AgentReputation`, `ReputationEvent` |
+- GET /profile/{agent_id}
+- POST /profile/{agent_id}
+- POST /feedback/{agent_id}
+- POST /job-completion
+- GET /trust-score/{agent_id}
+- GET /leaderboard
+- GET /metrics
+- GET /feedback/{agent_id}
+- GET /events/{agent_id}
+- PUT /profile/{agent_id}/specialization
+- PUT /profile/{agent_id}/region
+- GET /{agent_id}/cross-chain
+- POST /{agent_id}/cross-chain/sync
+- GET /cross-chain/leaderboard
+- POST /cross-chain/events
+- GET /cross-chain/analytics
 
-> **Note:** These imports cross the context boundary into the shared `app/domain/` layer. See [P2 audit](../../docs/releases/v0.5.12/p2_cross_context_import_audit.md) for details.
+## Services
+
+- reputation_service.py

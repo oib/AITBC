@@ -1,21 +1,35 @@
-# Cross Chain Context
+# cross_chain
 
-**Description:** Cross-chain bridge and multi-chain transaction support
+Cross-chain integration — bridging assets and state across blockchains.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-| Domain Module | Imported Symbols |
-|---|---|
-| `app/domain/cross_chain_bridge.py` | `BridgeRequest`, `BridgeTransaction` |
-| `app/domain/multi_chain_transaction.py` | `TransactionType` |
+- POST /wallets/create
+- GET /wallets/{wallet_address}/balance
+- POST /wallets/{wallet_address}/transactions
+- GET /wallets/{wallet_address}/transactions
+- POST /wallets/{wallet_address}/sign
+- POST /wallets/verify-signature
+- POST /bridge/create-request
+- GET /bridge/request/{bridge_request_id}
+- POST /bridge/request/{bridge_request_id}/cancel
+- GET /bridge/statistics
+- GET /bridge/liquidity-pools
+- POST /transactions/submit
+- GET /transactions/history
+- GET /transactions/statistics
+- POST /transactions/optimize-routing
+- GET /chains/supported
+- GET /chains/{chain_id}/info
+- GET /health
+- GET /config
+- GET /bridge/whitelist
+- POST /bridge/whitelist/add
 
-> **Note:** These imports cross the context boundary into the shared `app/domain/` layer. See [P2 audit](../../docs/releases/v0.5.12/p2_cross_context_import_audit.md) for details.
+## Services
+
+- None (stub)

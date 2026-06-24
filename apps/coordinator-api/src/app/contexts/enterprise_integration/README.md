@@ -1,16 +1,20 @@
-# Enterprise Integration Context
+# enterprise_integration
 
-**Description:** Enterprise system integration adapters
+Enterprise integration — partner onboarding and B2B connectors.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-No cross-context domain imports.
+- POST /partners/register
+- GET /partners/{partner_id}
+- POST /partners/webhooks
+- GET /partners/webhooks
+- DELETE /partners/webhooks/{webhook_id}
+- GET /partners/analytics/usage
+
+## Services
+
+- None (stub)

@@ -1,13 +1,22 @@
-# Ipfs Context
+# ipfs
 
-**Description:** IPFS storage and content addressing
+IPFS storage — pinning, retrieval, and content addressing.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `routers` | `routers/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-No cross-context domain imports.
+- POST /upload
+- POST /retrieve
+- POST /batch-upload
+- POST /create-deal
+- GET /list/{agent_id}
+- DELETE /delete
+- GET /stats
+- GET /health
+
+## Services
+
+- None (stub)
