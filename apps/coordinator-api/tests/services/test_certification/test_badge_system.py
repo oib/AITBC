@@ -25,7 +25,7 @@ class TestBadgeSystem:
 
     def test_get_metric_value(self):
         """Test getting metric value from reputation"""
-        from app.domain.reputation import AgentReputation
+        from app.contexts.reputation.domain.reputation import AgentReputation
         from app.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
@@ -102,7 +102,7 @@ class TestBadgeSystem:
     async def test_verify_badge_eligibility(self, mock_session):
         """Test badge eligibility verification"""
         from app.contexts.certification.domain.certification import AchievementBadge, BadgeType
-        from app.domain.reputation import AgentReputation
+        from app.contexts.reputation.domain.reputation import AgentReputation
         from app.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
