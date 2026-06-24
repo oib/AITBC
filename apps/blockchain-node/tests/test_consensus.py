@@ -5,13 +5,14 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from aitbc_chain.config import ProposerConfig
 from aitbc_chain.consensus.poa import CircuitBreaker, PoAProposer
 from aitbc_chain.mempool import InMemoryMempool
-from aitbc_chain.models import Block
+from aitbc_chain.models import Account, Block, Transaction
 from sqlmodel import Session, create_engine, select
 from sqlmodel.pool import StaticPool
 
@@ -355,3 +356,168 @@ class TestPoAProposer:
 
         # Test only special characters
         assert _sanitize_metric_suffix("@#$") == "unknown"
+
+    @pytest.mark.asyncio
+    async def test_propose_block_partial_failure(self, proposer: PoAProposer, test_db: Session) -> None:
+        """Test that valid txs survive when an invalid tx is in the same batch.
+
+        Injects 3 valid + 1 invalid tx (insufficient balance) and verifies
+        that the 3 valid txs' state changes are preserved via savepoints,
+        while only the invalid tx is dropped.
+        """
+        from aitbc_chain.state.state_transition import get_state_transition
+
+        # Reset the global state transition singleton to avoid cross-test contamination
+        st = get_state_transition()
+        st._processed_tx_hashes.clear()
+        st._processed_nonces.clear()
+
+        # Set up sender account with enough balance for 3 txs but not the 4th
+        sender = "alice"
+        recipient = "bob"
+        chain_id = proposer._config.chain_id
+
+        sender_account = Account(chain_id=chain_id, address=sender, balance=400, nonce=0)
+        recipient_account = Account(chain_id=chain_id, address=recipient, balance=0, nonce=0)
+        test_db.add(sender_account)
+        test_db.add(recipient_account)
+        test_db.commit()
+
+        # Create 3 valid txs (100 each) + 1 invalid tx (100, but only 100 left after 3 txs = 0 balance, 4th needs 100+fee)
+        def make_tx(tx_hash: str, amount: int) -> Mock:
+            mock_tx = Mock()
+            mock_tx.tx_hash = tx_hash
+            mock_tx.content = {"from": sender, "to": recipient, "amount": amount, "fee": 0, "type": "TRANSFER"}
+            return mock_tx
+
+        valid_txs = [make_tx("0x" + "a" * 62 + str(i), 100) for i in range(3)]
+        invalid_tx = make_tx("0x" + "b" * 63, 100)
+        invalid_tx.content["chain_id"] = "wrong-chain"  # Fail inside apply_transaction via chain isolation check
+        all_txs = valid_txs + [invalid_tx]
+
+        mock_mempool = Mock(spec=InMemoryMempool)
+        mock_mempool.drain.return_value = all_txs
+
+        with patch("aitbc_chain.mempool.get_mempool", return_value=mock_mempool):
+            with patch("aitbc_chain.consensus.poa.gossip_broker", new=AsyncMock()):
+                result = await proposer._propose_block()
+
+                assert result is True
+
+                # Verify block was proposed with 3 txs (the valid ones)
+                block = test_db.exec(select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc())).first()
+                assert block is not None
+                assert block.tx_count == 3
+
+                # Verify 3 valid transactions were committed
+                txs = test_db.exec(
+                    select(Transaction).where(Transaction.chain_id == chain_id).order_by(Transaction.nonce)
+                ).all()
+                assert len(txs) == 3
+                for tx in txs:
+                    assert tx.status == "confirmed"
+
+                # Verify sender balance was reduced by 300 (3 * 100)
+                updated_sender = test_db.get(Account, (chain_id, sender))
+                assert updated_sender is not None
+                assert updated_sender.balance == 100  # 400 - 300 = 100
+
+                # Verify recipient balance was increased by 300
+                updated_recipient = test_db.get(Account, (chain_id, recipient))
+                assert updated_recipient is not None
+                assert updated_recipient.balance == 300
+
+                # Verify sender nonce advanced by 3
+                assert updated_sender.nonce == 3
+
+    @pytest.mark.asyncio
+    async def test_propose_block_unexpected_exception_aborts_proposal(self, proposer_config: ProposerConfig) -> None:
+        """Test that an unexpected exception aborts the entire proposal.
+
+        Injects 2 valid txs followed by a tx that triggers a RuntimeError
+        (unexpected, not a validation failure). The fix changed the outer
+        except block from session.rollback()+continue to return False,
+        so the entire proposal should be aborted and no block committed.
+
+        The key assertion is that no Block row is committed — the
+        session.commit() at the end of _propose_block() is never reached
+        when return False short-circuits the proposal.
+        """
+        import tempfile
+
+        from sqlalchemy.pool import NullPool
+
+        from aitbc_chain.state.state_transition import get_state_transition
+
+        # Reset the global state transition singleton
+        st = get_state_transition()
+        st._processed_tx_hashes.clear()
+        st._processed_nonces.clear()
+
+        # Use a file-based database with NullPool so each session gets
+        # its own connection — matching production behavior.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.db"
+            engine = create_engine(
+                f"sqlite:///{db_path}",
+                connect_args={"check_same_thread": False},
+                poolclass=NullPool,
+            )
+            Block.metadata.create_all(engine)
+
+            def session_factory():
+                return Session(engine)
+
+            proposer = PoAProposer(config=proposer_config, session_factory=session_factory)
+
+            # Set up sender account using a separate session
+            sender = "alice"
+            recipient = "bob"
+            chain_id = proposer._config.chain_id
+
+            with Session(engine) as setup_session:
+                sender_account = Account(chain_id=chain_id, address=sender, balance=1000, nonce=0)
+                recipient_account = Account(chain_id=chain_id, address=recipient, balance=0, nonce=0)
+                setup_session.add(sender_account)
+                setup_session.add(recipient_account)
+                setup_session.commit()
+
+            def make_tx(tx_hash: str, amount: int) -> Mock:
+                mock_tx = Mock()
+                mock_tx.tx_hash = tx_hash
+                mock_tx.content = {"from": sender, "to": recipient, "amount": amount, "fee": 0, "type": "TRANSFER"}
+                return mock_tx
+
+            # 2 valid txs + 1 tx that will cause an unexpected RuntimeError
+            valid_txs = [make_tx("0x" + "a" * 62 + str(i), 100) for i in range(2)]
+            bad_tx = make_tx("0x" + "c" * 63, 100)
+            all_txs = valid_txs + [bad_tx]
+
+            mock_mempool = Mock(spec=InMemoryMempool)
+            mock_mempool.drain.return_value = all_txs
+
+            # Patch state_transition to raise RuntimeError on the 3rd tx
+            original_apply = st.apply_transaction
+            call_count = {"n": 0}
+
+            def apply_with_injected_failure(session, cid, tx_data, tx_hash):
+                call_count["n"] += 1
+                if call_count["n"] == 3:
+                    raise RuntimeError("Injected unexpected failure")
+                return original_apply(session, cid, tx_data, tx_hash)
+
+            with patch("aitbc_chain.mempool.get_mempool", return_value=mock_mempool):
+                with patch("aitbc_chain.consensus.poa.gossip_broker", new=AsyncMock()):
+                    with patch.object(st, "apply_transaction", side_effect=apply_with_injected_failure):
+                        result = await proposer._propose_block()
+
+                        # Proposal should be aborted
+                        assert result is False
+
+            # Verify with a fresh session that no block was committed.
+            # The session.commit() at the end of _propose_block() commits
+            # the Block row — if return False short-circuits, that commit
+            # never happens and no block exists in the database.
+            with Session(engine) as verify_session:
+                blocks = verify_session.exec(select(Block).where(Block.chain_id == chain_id)).all()
+                assert len(blocks) == 0
