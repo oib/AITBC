@@ -1,16 +1,23 @@
-# Blockchain Context
+# blockchain
 
-**Description:** Blockchain interaction and contract management
+Blockchain interaction — queries, transactions, and schema storage.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-No cross-context domain imports.
+- GET /status
+- GET /sync-status
+- GET /blocks/{height}
+- GET /blocks/hash/{block_hash}
+- GET /transactions/{tx_hash}
+- GET /accounts/{address}
+- GET /validators
+- GET /supply
+- GET /state/dump
+
+## Services
+
+- blockchain.py

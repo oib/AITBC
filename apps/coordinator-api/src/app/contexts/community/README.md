@@ -1,20 +1,28 @@
-# Community Context
+# community
 
-**Description:** Community features — posts, hackathons, innovation labs
+Community features — forums, proposals, and engagement.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-| Domain Module | Imported Symbols |
-|---|---|
-| `app/domain/community.py` | `AgentSolution`, `CommunityPost`, `DeveloperProfile`, `Hackathon`, `InnovationLab` |
+- POST /developers
+- GET /developers/{developer_id}
+- GET /sdk/latest
+- POST /solutions/publish
+- GET /solutions
+- POST /solutions/{solution_id}/purchase
+- POST /labs/propose
+- POST /labs/{lab_id}/join
+- POST /labs/{lab_id}/fund
+- POST /platform/posts
+- GET /platform/feed
+- POST /platform/posts/{post_id}/upvote
+- POST /hackathons/create
+- POST /hackathons/{hackathon_id}/register
 
-> **Note:** These imports cross the context boundary into the shared `app/domain/` layer. See [P2 audit](../../docs/releases/v0.5.12/p2_cross_context_import_audit.md) for details.
+## Services
+
+- None (stub)

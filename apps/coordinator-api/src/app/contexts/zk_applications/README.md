@@ -1,16 +1,28 @@
-# Zk Applications Context
+# zk_applications
 
-**Description:** Zero-knowledge proof applications
+Zero-knowledge applications — ZK proofs for ML and verifiable computation.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-No cross-context domain imports.
+- POST /prove/training
+- POST /verify/training
+- POST /prove/modular
+- POST /verify/inference
+- POST /fhe/inference
+- GET /circuits
+- POST /zk/identity/commit
+- POST /zk/membership/verify
+- POST /zk/marketplace/private-bid
+- POST /zk/computation/verify
+- POST /zk/receipt/attest
+- GET /zk/anonymity/sets
+- POST /zk/stealth/address
+- GET /zk/status
+
+## Services
+
+- None (stub)

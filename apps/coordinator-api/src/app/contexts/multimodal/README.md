@@ -1,21 +1,25 @@
-# Multimodal Context
+# multimodal
 
-**Description:** Multi-modal fusion engine combining text, image, audio
+Multimodal AI — fusion, modality optimization, and RL across modalities.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-| Domain Module | Imported Symbols |
-|---|---|
-| `app/domain/agent.py` | `AgentExecution`, `AgentStatus` |
-| `app/domain/agent_performance.py` | `FusionModel` |
+- GET /health
+- GET /health/deep
+- POST /jobs
+- GET /jobs/{job_id}
+- GET /jobs/{job_id}/result
+- POST /jobs/{job_id}/cancel
+- GET /jobs
+- GET /health
+- GET /health
+- GET /health/deep
 
-> **Note:** These imports cross the context boundary into the shared `app/domain/` layer. See [P2 audit](../../docs/releases/v0.5.12/p2_cross_context_import_audit.md) for details.
+## Services
+
+- modality_optimization.py
+- multimodal_agent.py

@@ -1,16 +1,22 @@
-# Confidential Context
+# confidential
 
-**Description:** Confidential computing and privacy-preserving operations
+Confidential computing and privacy-preserving operations.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-No cross-context domain imports.
+- POST /transactions
+- GET /transactions/{transaction_id}
+- POST /transactions/{transaction_id}/access
+- POST /transactions/{transaction_id}/audit
+- POST /keys/register
+- POST /keys/rotate
+- GET /access/logs
+- GET /status
+
+## Services
+
+- None (stub)

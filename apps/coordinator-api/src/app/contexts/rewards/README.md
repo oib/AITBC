@@ -1,21 +1,26 @@
-# Rewards Context
+# rewards
 
-**Description:** Reward system — tiers, milestones, distributions
+Rewards — distribution, claiming, and reward program management.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-| Domain Module | Imported Symbols |
-|---|---|
-| `app/domain/rewards.py` | `AgentRewardProfile`, `RewardTier`, `RewardType` |
-| `app/domain/reputation.py` | `AgentReputation` |
+- GET /profile
+- GET /profile/{agent_id}
+- POST /profile/{agent_id}
+- POST /calculate-and-distribute
+- GET /tier-progress/{agent_id}
+- POST /batch-process
+- GET /analytics
+- GET /leaderboard
+- GET /tiers
+- GET /milestones/{agent_id}
+- GET /distributions/{agent_id}
+- POST /simulate-reward
 
-> **Note:** These imports cross the context boundary into the shared `app/domain/` layer. See [P2 audit](../../docs/releases/v0.5.12/p2_cross_context_import_audit.md) for details.
+## Services
+
+- reward_service.py

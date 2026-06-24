@@ -1,20 +1,42 @@
-# Agent Identity Context
+# agent_identity
 
-**Description:** Agent identity verification and attestation
+Agent identity registry — creation, cross-chain mapping, wallet management, and reputation sync.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- agent_identity.py
 
-## Domain Dependencies
+## Routes
 
-| Domain Module | Imported Symbols |
-|---|---|
-| `app/domain/agent_identity.py` | `AgentIdentity` |
+- POST /identities
+- GET /identities/{agent_id}
+- PUT /identities/{agent_id}
+- POST /identities/{agent_id}/deactivate
+- POST /identities/{agent_id}/cross-chain/register
+- GET /identities/{agent_id}/cross-chain/mapping
+- PUT /identities/{agent_id}/cross-chain/{chain_id}
+- POST /identities/{agent_id}/cross-chain/{chain_id}/verify
+- POST /identities/{agent_id}/migrate
+- POST /identities/{agent_id}/wallets
+- GET /identities/{agent_id}/wallets/{chain_id}/balance
+- POST /identities/{agent_id}/wallets/{chain_id}/transactions
+- GET /identities/{agent_id}/wallets/{chain_id}/transactions
+- GET /identities/{agent_id}/wallets
+- POST /identities/{agent_id}/wallets/{chain_id}/export
+- DELETE /identities/{agent_id}/wallets/{chain_id}
+- POST /identities/{agent_id}/wallets/{chain_id}/sign
+- GET /identities/search
+- POST /identities/{agent_id}/sync-reputation
+- GET /registry/health
+- GET /registry/statistics
+- GET /chains/supported
+- POST /identities/{agent_id}/export
+- POST /identities/import
+- POST /registry/cleanup-expired
+- POST /identities/batch-verify
+- GET /identities/{agent_id}/resolve/{chain_id}
+- GET /address/{chain_address}/resolve/{chain_id}
 
-> **Note:** These imports cross the context boundary into the shared `app/domain/` layer. See [P2 audit](../../docs/releases/v0.5.12/p2_cross_context_import_audit.md) for details.
+## Services
+
+- None (stub)

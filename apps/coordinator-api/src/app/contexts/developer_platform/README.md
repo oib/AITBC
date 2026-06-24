@@ -1,20 +1,41 @@
-# Developer Platform Context
+# developer_platform
 
-**Description:** Developer platform — profiles, certifications, regional hubs
+Developer platform — SDK access, API keys, and partner integrations.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `domain` | `domain/` |
-| `routers` | `routers/` |
-| `services` | `services/` |
-| `storage` | `storage/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-| Domain Module | Imported Symbols |
-|---|---|
-| `app/domain/developer_platform.py` | `DeveloperProfile`, `CertificationLevel` |
+- POST /register
+- GET /profile/{wallet_address}
+- PUT /profile/{wallet_address}
+- GET /leaderboard
+- GET /stats/{wallet_address}
+- POST /bounties
+- GET /bounties
+- GET /bounties/{bounty_id}
+- POST /bounties/{bounty_id}/submit
+- GET /bounties/my-submissions
+- POST /bounties/{bounty_id}/review
+- GET /bounties/stats
+- POST /certifications
+- GET /certifications/{wallet_address}
+- GET /certifications/verify/{certification_id}
+- GET /certifications/types
+- POST /hubs
+- GET /hubs
+- GET /hubs/{hub_id}/developers
+- POST /stake
+- GET /staking/{address}
+- POST /unstake
+- GET /rewards/{address}
+- POST /claim-rewards
+- GET /staking-stats
+- GET /analytics/overview
+- GET /health
 
-> **Note:** These imports cross the context boundary into the shared `app/domain/` layer. See [P2 audit](../../docs/releases/v0.5.12/p2_cross_context_import_audit.md) for details.
+## Services
+
+- None (stub)
