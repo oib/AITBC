@@ -11,7 +11,7 @@ from sqlmodel import Session, select, update
 
 from aitbc.aitbc_logging import get_logger
 
-from ...domain.agent import (
+from app.contexts.agent_coordination.domain.agent import (
     AgentExecution,
     AgentExecutionRequest,
     AgentExecutionResponse,

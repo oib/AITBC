@@ -1,6 +1,10 @@
 """Domain models for the coordinator API."""
 
-from .agent import (
+# agent.py and agent_performance.py have been migrated to
+# contexts/agent_coordination/domain/. Re-exported here so that
+# SQLModel.metadata table registration still happens when app.domain
+# is imported (e.g. during init_db), and any legacy name imports keep working.
+from ..contexts.agent_coordination.domain.agent import (
     AgentExecution,
     AgentMarketplace,
     AgentStatus,

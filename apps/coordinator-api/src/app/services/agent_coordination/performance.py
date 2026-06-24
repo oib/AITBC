@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 
-from ...domain.agent_performance import (
+from app.contexts.agent_coordination.domain.agent_performance import (
     AgentPerformanceProfile,
     LearningStrategy,
     MetaLearningModel,

@@ -13,7 +13,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ....auth import AdminDep
-from ....domain.agent import (
+from ..domain.agent import (
     AgentExecutionRequest,
     AgentExecutionResponse,
     AgentExecutionStatus,
@@ -226,7 +226,7 @@ async def list_executions(
 ) -> list[AgentExecutionStatus]:  # type: ignore[arg-type]
     """List agent executions with filtering"""
     try:
-        from app.domain.agent import AgentExecution  # type: ignore[import-not-found]
+        from app.contexts.agent_coordination.domain.agent import AgentExecution
 
         query = select(AgentExecution)
         if workflow_id:
@@ -290,7 +290,7 @@ async def list_workflow_executions(
             raise HTTPException(status_code=404, detail="Workflow not found")
         if workflow.owner_id != user["sub"] and (not workflow.is_public):
             raise HTTPException(status_code=403, detail="Access denied")
-        from app.domain.agent import AgentExecution  # type: ignore[import-not-found]
+        from app.contexts.agent_coordination.domain.agent import AgentExecution
 
         query = select(AgentExecution).where(AgentExecution.workflow_id == workflow_id)
         executions = session.execute(query.offset(offset).limit(limit)).all()
