@@ -5,14 +5,15 @@ Provides debounce and throttle decorators for rate limiting
 
 import asyncio
 from collections.abc import Callable
+from typing import Any
 
 
 def debounce(delay: float = 0.5):
     """Decorator to debounce function calls"""
 
     def decorator(func: Callable) -> Callable:
-        last_called = [0]
-        timer = [None]
+        last_called: list[float] = [0.0]
+        timer: list[asyncio.Task[Any] | None] = [None]
 
         async def wrapped(*args, **kwargs):
             async def call():
@@ -26,9 +27,13 @@ def debounce(delay: float = 0.5):
             last_called[0] = asyncio.get_event_loop().time()
             if timer[0]:
                 timer[0].cancel()
-            timer[0] = asyncio.create_task(call())
-            assert timer[0] is not None
-            return await timer[0]
+            task = asyncio.create_task(call())
+            timer[0] = task
+            try:
+                return await task
+            except asyncio.CancelledError:
+                # This call was superseded by a newer one; debounce it out.
+                return None
 
         return wrapped
 
