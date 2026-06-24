@@ -9,8 +9,22 @@ from sqlmodel import SQLModel
 
 from aitbc.aitbc_logging import get_logger
 
+from .config import settings
+
 logger = get_logger(__name__)
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///var/lib/aitbc/data/edge.db")
+
+
+def _get_async_db_url() -> str:
+    """Get the async-compatible database URL from settings."""
+    url: str = settings.database.effective_url
+    if url.startswith("sqlite://"):
+        return url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
+
+
+DATABASE_URL = _get_async_db_url()
 if DATABASE_URL.startswith("sqlite"):
     db_path = DATABASE_URL.replace("sqlite+aiosqlite:///", "").split("?")[0]
     db_dir = os.path.dirname(db_path)
