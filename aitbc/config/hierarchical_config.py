@@ -132,8 +132,8 @@ class HierarchicalConfig:
         """
         config = {}
         with open(env_file) as f:
-            for line in f:
-                line = line.strip()
+            for raw_line in f:
+                line = raw_line.strip()
                 if line and (not line.startswith("#")) and ("=" in line):
                     key, value = line.split("=", 1)
                     value = value.strip().strip("\"'")
@@ -237,9 +237,7 @@ if HAS_PYDANTIC_SETTINGS:
                 v_lower = v.lower()
                 if v_lower in ("release", "production", "prod", "false", "no", "0", "off"):
                     return False
-                if v_lower in ("development", "dev", "true", "yes", "1", "on"):
-                    return True
-                return False
+                return v_lower in ("development", "dev", "true", "yes", "1", "on")
 
         @field_validator("log_level")
         @classmethod

@@ -10,6 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+import contextlib
 
 logger = get_logger(__name__)
 
@@ -67,10 +68,8 @@ class JobScheduler:
         self.running = False
         if self.task:
             self.task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.task
-            except asyncio.CancelledError:
-                pass
 
     async def _run_scheduler(self) -> None:
         """Run the scheduler loop"""

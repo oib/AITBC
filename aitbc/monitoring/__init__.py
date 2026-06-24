@@ -10,7 +10,7 @@ from aitbc.monitoring.monitoring import (
 )
 
 __all__ = [
+    "HealthChecker",
     "MetricsCollector",
     "PerformanceTimer",
-    "HealthChecker",
 ]

@@ -117,7 +117,7 @@ class AccessController:
         except jwt.ExpiredSignatureError:
             raise AuthenticationError("Token has expired") from None
         except jwt.InvalidTokenError as e:
-            raise AuthenticationError(f"Invalid token: {str(e)}") from e
+            raise AuthenticationError(f"Invalid token: {e!s}") from e
 
     def check_permission(self, user_roles: list[str], required_permission: str) -> bool:
         """
@@ -170,7 +170,7 @@ class AccessController:
 
                     return func(*args, **kwargs)
                 except AuthenticationError as e:
-                    raise AuthorizationError(f"Authentication failed: {str(e)}") from e
+                    raise AuthorizationError(f"Authentication failed: {e!s}") from e
 
             return wrapper
 
@@ -209,7 +209,7 @@ class AccessController:
 
                     return func(*args, **kwargs)
                 except AuthenticationError as e:
-                    raise AuthorizationError(f"Authentication failed: {str(e)}") from e
+                    raise AuthorizationError(f"Authentication failed: {e!s}") from e
 
             return wrapper
 
