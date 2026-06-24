@@ -10,7 +10,7 @@ from sqlmodel import Session, and_, func, select
 
 from aitbc.aitbc_logging import get_logger
 
-from ....domain.reputation import (
+from ..domain.reputation import (
     AgentReputation,
     CommunityFeedback,
     ReputationEvent,

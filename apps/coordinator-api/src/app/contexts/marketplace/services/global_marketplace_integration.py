@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
-from app.domain.multi_chain_transaction import TransactionPriority  # type: ignore[import-not-found]
+from ...cross_chain.domain.multi_chain_transaction import TransactionPriority
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger

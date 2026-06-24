@@ -11,7 +11,7 @@ from ...domain.certification import (
     PartnershipProgram,
     PartnershipType,
 )
-from app.domain.reputation import AgentReputation  # type: ignore[import-not-found]
+from ....reputation.domain.reputation import AgentReputation
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger

@@ -53,7 +53,7 @@ class TestCertificationSystem:
     @patch("app.services.certification.certification_system.Session")
     async def test_verify_identity(self, mock_session):
         """Test identity verification"""
-        from app.domain.reputation import AgentReputation
+        from app.contexts.reputation.domain.reputation import AgentReputation
         from app.services.certification.certification_system import CertificationSystem
 
         system = CertificationSystem()
@@ -88,7 +88,7 @@ class TestCertificationSystem:
     @patch("app.services.certification.certification_system.Session")
     async def test_verify_performance(self, mock_session):
         """Test performance verification"""
-        from app.domain.reputation import AgentReputation
+        from app.contexts.reputation.domain.reputation import AgentReputation
         from app.services.certification.certification_system import CertificationSystem
 
         system = CertificationSystem()

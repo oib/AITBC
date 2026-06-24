@@ -19,7 +19,7 @@ from app.contexts.cross_chain.services.cross_chain.bridge_enhanced import (  # t
     BridgeSecurityLevel,
     CrossChainBridgeService,
 )
-from app.domain.multi_chain_transaction import TransactionType  # type: ignore[import-not-found]
+from ..domain.multi_chain_transaction import TransactionType
 from app.reputation.engine import CrossChainReputationEngine  # type: ignore[import-not-found]
 from app.services.multi_chain_transaction_manager import (  # type: ignore[import-not-found]
     MultiChainTransactionManager,

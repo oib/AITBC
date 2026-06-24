@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 
 from ..domain.cross_chain_reputation import CrossChainReputationAggregation, CrossChainReputationConfig
-from ..domain.reputation import AgentReputation, ReputationEvent
+from ..contexts.reputation.domain.reputation import AgentReputation, ReputationEvent
 
 logger = get_logger(__name__)
 
