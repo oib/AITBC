@@ -126,8 +126,9 @@ class ReadReplicaManager:
             SQLAlchemy session
         """
         engine = self.get_read_engine() if read_only else self.get_write_engine()
-        Session = sessionmaker(bind=engine)
-        return Session()
+        if not hasattr(engine, "_cached_sessionmaker"):
+            engine._cached_sessionmaker = sessionmaker(bind=engine)
+        return engine._cached_sessionmaker()
 
     def get_metrics(self) -> dict[str, Any]:
         """Get database performance metrics"""
