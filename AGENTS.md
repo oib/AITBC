@@ -100,3 +100,23 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python
 **T2-r follow-up**: Renamed `MultiChainTransaction` → `ChainTransaction` — the model was misnamed (a transaction is single-chain; "multi-chain" described the manager's capability, not the transaction). Class, table, file, alias, and manager class all renamed. See <ref_file file="/opt/aitbc/docs/releases/v0.5.13/change.log" /> §"T2-r".
 
 **T3 follow-up**: Both Tier 3 boundary-violation models migrated — `agent.py` and `agent_performance.py` → `contexts/agent_coordination/domain/` (17 importers fixed). See <ref_file file="/opt/aitbc/docs/releases/v0.5.13/change.log" /> §"T3". All Tier 1–3 migrations complete.
+
+---
+
+## Current Plan — v0.5.14 (Agent B): Cross-Context Dependency Elimination
+
+**Release theme**: Eliminate the 4 remaining cross-context domain-model imports in coordinator-api.
+
+**Full task details, grounding facts, and suggested fixes are in** <ref_file file="/opt/aitbc/docs/releases/v0.5.14/change.log" />.
+
+### Task Summary
+
+| # | Task | Priority | Status |
+|---|------|----------|--------|
+| X1 | `security` → `agent_coordination.domain.agent` — extract `AIAgentWorkflow` DTO or service interface | Medium | ⬜ TODO |
+| X2 | `advanced_rl` → `agent_coordination.domain.agent_performance` — extract `ReinforcementLearningConfig` | Medium | ⬜ TODO |
+| X3 | `multimodal` → `agent_coordination.domain.agent_performance` — extract `FusionModel` | Medium | ⬜ TODO |
+| X4 | `ai_analytics` → `analytics.domain.analytics` — merge contexts or introduce service interface | Medium | ⬜ TODO |
+| X5 | Verify zero cross-context domain-model imports remain + update audit docs | High | ⬜ TODO |
+
+**Agent B working directory**: `/opt/aitbc/` (cross-cutting: `apps/`, `cli/`).
