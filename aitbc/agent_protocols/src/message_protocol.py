@@ -83,6 +83,7 @@ class AgentMessageClient:
         self.agent_id = agent_id
         self.protocol = protocol
         self.received_messages: list[dict[str, Any]] = []
+        self._received_message_ids: set[str] = set()
 
     def send_message(self, receiver_id: str, message_type: MessageTypes, content: dict[str, Any]) -> dict[str, Any]:
         """Send a message to another agent"""
@@ -96,12 +97,14 @@ class AgentMessageClient:
         """Receive all pending messages for this agent"""
         messages = []
         for message in self.protocol.messages:
+            msg_id = message["message_id"]
             if (
                 message["receiver_id"] == self.agent_id
                 and message["status"] == "sent"
-                and message not in self.received_messages
+                and msg_id not in self._received_message_ids
             ):
-                self.protocol.receive_message(message["message_id"])
+                self.protocol.receive_message(msg_id)
+                self._received_message_ids.add(msg_id)
                 self.received_messages.append(message)
                 messages.append(message)
         return messages
