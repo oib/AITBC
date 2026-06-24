@@ -11,6 +11,7 @@ from enum import Enum
 from typing import Any
 
 from .aitbc_logging import get_logger
+import contextlib
 
 logger = get_logger(__name__)
 
@@ -340,10 +341,8 @@ class AlertManager:
         self._running = False
         if self._task:
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
         logger.info("Alert manager stopped")
 
     async def _run_checks(self) -> None:

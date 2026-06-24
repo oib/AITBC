@@ -12,11 +12,11 @@ from .messaging import MessagingSetup
 from .services import ServiceDeployment
 
 __all__ = [
-    "TrainingEnvironment",
     "BlockchainSetup",
-    "MessagingSetup",
-    "ServiceDeployment",
-    "TrainingSetupError",
     "FundingError",
     "MessagingError",
+    "MessagingSetup",
+    "ServiceDeployment",
+    "TrainingEnvironment",
+    "TrainingSetupError",
 ]

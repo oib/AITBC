@@ -11,6 +11,6 @@ from aitbc.blockchain.blockchain_service import (
 
 __all__ = [
     "BlockchainService",
-    "RPCBlockchainService",
     "BlockchainServiceFactory",
+    "RPCBlockchainService",
 ]

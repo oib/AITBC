@@ -15,15 +15,15 @@ from .task import Job, JobPriority, JobStatus, TaskQueue
 from .worker import BackgroundTaskManager, WorkerPool
 
 __all__ = [
-    # Task management
-    "Job",
-    "JobStatus",
-    "JobPriority",
-    "TaskQueue",
-    # Scheduler
-    "JobScheduler",
     # Worker management
     "BackgroundTaskManager",
+    # Task management
+    "Job",
+    "JobPriority",
+    # Scheduler
+    "JobScheduler",
+    "JobStatus",
+    "TaskQueue",
     "WorkerPool",
     # Decorators
     "debounce",

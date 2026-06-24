@@ -105,9 +105,7 @@ class FeatureFlagManager:
         if flag.whitelisted_users and user_id in flag.whitelisted_users:
             return True
         if flag.rollout_percentage < 100.0 and user_hash is not None:
-            if user_hash % 100 < flag.rollout_percentage:
-                return True
-            return False
+            return user_hash % 100 < flag.rollout_percentage
         return True
 
     def enable_feature(self, feature_name: str, rollout_percentage: float = 100.0) -> None:
@@ -131,7 +129,7 @@ class FeatureFlagManager:
             self._flags[feature_name].rollout_percentage = rollout_percentage
             if not self._flags[feature_name].enabled_since:
                 self._flags[feature_name].enabled_since = datetime.now(UTC)
-        logger.info("Enabled feature flag %s with %s% rollout", feature_name, rollout_percentage)
+        logger.info("Enabled feature flag %s with %s%% rollout", feature_name, rollout_percentage)
         self.save_flags()
 
     def disable_feature(self, feature_name: str) -> None:

@@ -107,7 +107,7 @@ class StageRunner:
             except Exception as e:
                 log.error("Sleep command failed: %s", e)
                 return {"success": False, "error": str(e)}
-        cmd_list = [self.aitbc_cli] + command.cmd.split() + command.args
+        cmd_list = [self.aitbc_cli, *command.cmd.split(), *command.args]
         try:
             result = subprocess.run(cmd_list, capture_output=True, text=True, timeout=30)
             output = result.stdout + result.stderr
@@ -120,15 +120,14 @@ class StageRunner:
                     "output": output,
                     "error": f"Unexpected exit code: {result.returncode}",
                 }
-            if command.expected_re:
-                if not re.search(command.expected_re, output):
-                    log.error("Output does not match expected pattern: %s", command.expected_re)
-                    return {
-                        "success": False,
-                        "exit_code": result.returncode,
-                        "output": output,
-                        "error": f"Output does not match pattern: {command.expected_re}",
-                    }
+            if command.expected_re and not re.search(command.expected_re, output):
+                log.error("Output does not match expected pattern: %s", command.expected_re)
+                return {
+                    "success": False,
+                    "exit_code": result.returncode,
+                    "output": output,
+                    "error": f"Output does not match pattern: {command.expected_re}",
+                }
             tx_hash = self._extract_tx_hash(output)
             log.info("✓ Command succeeded")
             return {"success": True, "exit_code": result.returncode, "output": output, "tx_hash": tx_hash}
@@ -163,24 +162,90 @@ class StageRunner:
                 return tx_hash
         return None
 
-    def validate_conditions(self, expected: dict[str, ExpectedCondition]) -> dict[str, Any]:
+    def _extract_value(self, key: str, combined_output: str, command_results: list[dict[str, Any]]) -> Any:
+        """
+        Extract a value from command results for condition validation.
+
+        Looks for the key in command result fields first, then tries parsing
+        key=value patterns from combined output.
+
+        Args:
+            key: The condition key to look up
+            combined_output: Combined stdout/stderr from all successful commands
+            command_results: List of command execution results
+
+        Returns:
+            The extracted value, or None if not found
+        """
+        for result in command_results:
+            if not result.get("success"):
+                continue
+            if key in result:
+                return result[key]
+        match = re.search(rf"{re.escape(key)}\s*[:=]\s*(\S+)", combined_output)
+        if match:
+            return match.group(1).strip().strip("\"'")
+        return None
+
+    @staticmethod
+    def _coerce_value(value: Any) -> Any:
+        """Coerce a value for comparison — try int, float, bool, then fall back to string."""
+        if value is None or not isinstance(value, str):
+            return value
+        lowered = value.strip().lower()
+        if lowered == "true":
+            return True
+        if lowered == "false":
+            return False
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            pass
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            pass
+        return value
+
+    def validate_conditions(
+        self, expected: dict[str, ExpectedCondition], command_results: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """
         Validate expected conditions after command execution.
 
         Args:
             expected: Dictionary of expected conditions
+            command_results: List of command execution results from run_stage
 
         Returns:
             Dictionary with validation results
         """
+        combined_output = "\n".join(r.get("output", "") for r in command_results if r.get("success"))
         results = {}
         for key, condition in expected.items():
             log.info("Validating condition: %s", key)
             if condition.type == "value":
-                results[key] = {"expected": condition.value, "actual": "validation_pending", "passed": True}
+                actual = self._extract_value(key, combined_output, command_results)
+                actual_coerced = self._coerce_value(actual)
+                expected_coerced = self._coerce_value(condition.value)
+                passed = actual_coerced == expected_coerced
+                results[key] = {"expected": condition.value, "actual": actual, "passed": passed}
+                if not passed:
+                    log.error("✗ Condition %s failed: expected %s, got %s", key, condition.value, actual)
+                else:
+                    log.info("✓ Condition %s validated", key)
             elif condition.type == "regex":
-                results[key] = {"pattern": condition.value, "passed": True}
-            log.info("✓ Condition %s validated", key)
+                pattern = str(condition.value)
+                match = re.search(pattern, combined_output)
+                passed = match is not None
+                results[key] = {"pattern": pattern, "matched": bool(passed), "passed": passed}
+                if not passed:
+                    log.error("✗ Condition %s failed: pattern %s not found in output", key, pattern)
+                else:
+                    log.info("✓ Condition %s validated", key)
+            else:
+                log.warning("Unknown condition type: %s for %s", condition.type, key)
+                results[key] = {"passed": False, "error": f"Unknown condition type: {condition.type}"}
         return results
 
     def run_stage(self, stage: StageDefinition) -> dict[str, Any]:
@@ -211,7 +276,7 @@ class StageRunner:
                 log.error("Stage failed at command: %s", command.cmd)
                 break
         if results["success"]:
-            results["conditions"] = self.validate_conditions(stage.expected)
+            results["conditions"] = self.validate_conditions(stage.expected, results["commands"])
         log.info("=== Stage %s completed: %s ===", stage.stage, "SUCCESS" if results["success"] else "FAILED")
         return results
 
@@ -238,7 +303,7 @@ def create_example_stage_json(output_path: str):
     """
     example_stage = {
         "stage": 1,
-        "title": "Foundation – Wallets & Accounts",
+        "title": "Foundation - Wallets & Accounts",
         "prerequisites": ["AITBC node running", "Genesis wallet funded"],
         "commands": [
             {"cmd": "wallet create", "args": ["training-w1", "--password", "abc123"], "exit_code": 0},

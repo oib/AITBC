@@ -269,10 +269,7 @@ def get_end_of_month(dt: datetime | None = None) -> datetime:
     """Get end of month for given datetime"""
     if dt is None:
         dt = get_utc_now()
-    if dt.month == 12:
-        next_month = dt.replace(year=dt.year + 1, month=1, day=1)
-    else:
-        next_month = dt.replace(month=dt.month + 1, day=1)
+    next_month = dt.replace(year=dt.year + 1, month=1, day=1) if dt.month == 12 else dt.replace(month=dt.month + 1, day=1)
     return next_month - timedelta(seconds=1)
 
 

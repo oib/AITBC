@@ -92,7 +92,7 @@ class PerformanceProfiler:
                 min_time=min(times),
             )
         else:
-            return {name: self.get_stats(name) for name in self._stats.keys()}
+            return {name: self.get_stats(name) for name in self._stats}
 
     def clear_stats(self) -> None:
         """Clear all profiling statistics"""

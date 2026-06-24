@@ -54,22 +54,22 @@ def get_blockchain_cache(redis_url: str | None = None) -> BlockchainCache:
 
 
 __all__ = [
-    "CacheEntry",
     "BlockchainCache",
+    "CacheEntry",
+    "CacheInvalidator",
     "CacheMetrics",
     "LRUCache",
+    "RedisCache",
     "TTLCache",
+    "_generate_cache_key",  # Internal utility, tests depend on it
     "cached",
-    "cached_lru",
     "cached_blockchain",
+    "cached_lru",
     "clear_global_caches",
+    "generate_cache_key",
+    "get_blockchain_cache",
+    "get_cache",
+    "get_cache_metrics",
     "get_global_lru_cache",
     "get_global_ttl_cache",
-    "CacheInvalidator",
-    "get_blockchain_cache",
-    "get_cache_metrics",
-    "RedisCache",
-    "get_cache",
-    "generate_cache_key",
-    "_generate_cache_key",  # Internal utility, tests depend on it
 ]
