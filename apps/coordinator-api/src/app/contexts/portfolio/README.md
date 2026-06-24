@@ -1,13 +1,17 @@
-# Portfolio Context
+# portfolio
 
-**Description:** Agent portfolio management and rebalancing
+Portfolio tracking and asset management.
 
-## Structure
+## Domain Models
 
-| Component | Path |
-|---|---|
-| `routers` | `routers/` |
+- None (stub)
 
-## Domain Dependencies
+## Routes
 
-No cross-context domain imports.
+- GET /unified
+- GET /health
+- GET /summary
+
+## Services
+
+- None (stub)
