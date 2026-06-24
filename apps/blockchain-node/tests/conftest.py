@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import os
+
 import pytest
+
+# Disable rate limiting in tests to avoid 429s from tight loops
+os.environ.setdefault("AITBC_ENABLE_RATE_LIMITING", "false")
 from aitbc_chain.models import Block, Receipt, Transaction  # noqa: F401 - ensure models imported for metadata
 from sqlmodel import Session, SQLModel, create_engine
 

@@ -86,6 +86,7 @@ def rate_limit(
             @wraps(func)
             async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
                 if not _RATE_LIMITING_ENABLED:
+                    logger.debug("Rate limiting bypassed for %s", func.__name__)
                     return await func(*args, **kwargs)
 
                 request = _extract_request(args, kwargs)
@@ -106,6 +107,7 @@ def rate_limit(
             @wraps(func)
             def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
                 if not _RATE_LIMITING_ENABLED:
+                    logger.debug("Rate limiting bypassed for %s", func.__name__)
                     return func(*args, **kwargs)
 
                 request = _extract_request(args, kwargs)
