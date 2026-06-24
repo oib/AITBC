@@ -10,10 +10,10 @@ from .request_id import RequestIDMiddleware
 from .validation import RequestValidationMiddleware
 
 __all__ = [
-    "RequestIDMiddleware",
     "CorrelationIDMiddleware",
+    "ErrorHandlerMiddleware",
     "PerformanceLoggingMiddleware",
     "PrometheusMetricsMiddleware",
+    "RequestIDMiddleware",
     "RequestValidationMiddleware",
-    "ErrorHandlerMiddleware",
 ]

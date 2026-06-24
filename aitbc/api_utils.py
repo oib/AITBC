@@ -252,12 +252,11 @@ def merge_responses(*responses: APIResponse | dict[str, Any]) -> dict[str, Any]:
                     merged["data"].update(response.data)
                 else:
                     merged["data"] = response.data
-        elif isinstance(response, dict):
-            if "data" in response:
-                if isinstance(response["data"], dict):
-                    merged["data"].update(response["data"])
-                else:
-                    merged["data"] = response["data"]
+        elif isinstance(response, dict) and "data" in response:
+            if isinstance(response["data"], dict):
+                merged["data"].update(response["data"])
+            else:
+                merged["data"] = response["data"]
 
     return merged
 

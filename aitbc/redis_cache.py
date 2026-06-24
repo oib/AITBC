@@ -43,6 +43,7 @@ __all__ = [
     "LRUCache",
     "RedisCache",
     "TTLCache",
+    "cache_key",
     "cached",
     "cached_blockchain",
     "cached_lru",
@@ -53,5 +54,4 @@ __all__ = [
     "get_cache_metrics",
     "get_global_lru_cache",
     "get_global_ttl_cache",
-    "cache_key",
 ]
