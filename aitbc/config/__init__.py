@@ -38,10 +38,10 @@ except Exception:
     AITBCConfig = None
 
 __all__ = [
+    "AITBCConfig",
+    "BaseAITBCConfig",
     "HierarchicalConfig",
     "ValidatedAITBCConfig",
-    "BaseAITBCConfig",
-    "AITBCConfig",
-    "load_config",
     "create_config_template",
+    "load_config",
 ]

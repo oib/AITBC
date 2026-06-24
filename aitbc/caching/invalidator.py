@@ -56,9 +56,8 @@ class CacheInvalidator:
         chain_id = event_data.get("chain_id")
         block_number = event_data.get("block_number")
         invalidated = 0
-        if chain_id and block_number:
-            if self.blockchain_cache.invalidate_block(block_number, chain_id):
-                invalidated += 1
+        if chain_id and block_number and self.blockchain_cache.invalidate_block(block_number, chain_id):
+            invalidated += 1
         if chain_id:
             invalidated += self.blockchain_cache.invalidate_chain_state(chain_id)
         if chain_id:
@@ -73,15 +72,12 @@ class CacheInvalidator:
         to_address = event_data.get("to_address")
         contract_address = event_data.get("contract_address")
         invalidated = 0
-        if chain_id and from_address:
-            if self.blockchain_cache.invalidate_account(from_address, chain_id):
-                invalidated += 1
-        if chain_id and to_address:
-            if self.blockchain_cache.invalidate_account(to_address, chain_id):
-                invalidated += 1
-        if chain_id and contract_address:
-            if self.blockchain_cache.invalidate_contract_state(contract_address, chain_id):
-                invalidated += 1
+        if chain_id and from_address and self.blockchain_cache.invalidate_account(from_address, chain_id):
+            invalidated += 1
+        if chain_id and to_address and self.blockchain_cache.invalidate_account(to_address, chain_id):
+            invalidated += 1
+        if chain_id and contract_address and self.blockchain_cache.invalidate_contract_state(contract_address, chain_id):
+            invalidated += 1
         logger.info("Invalidated %s cache entries for new transaction on chain %s", invalidated, chain_id)
         return invalidated
 
@@ -95,9 +91,8 @@ class CacheInvalidator:
             if slot:
                 if self.blockchain_cache.invalidate_contract_state(contract_address, chain_id, slot):
                     invalidated += 1
-            else:
-                if self.blockchain_cache.invalidate_contract_state(contract_address, chain_id):
-                    invalidated += 1
+            elif self.blockchain_cache.invalidate_contract_state(contract_address, chain_id):
+                invalidated += 1
             logger.info("Invalidated %s contract cache entries for %s", invalidated, contract_address)
             return invalidated
         return 0
@@ -106,10 +101,9 @@ class CacheInvalidator:
         """Invalidate cache entries when account balance changes"""
         chain_id = event_data.get("chain_id")
         address = event_data.get("address")
-        if chain_id and address:
-            if self.blockchain_cache.invalidate_account(address, chain_id):
-                logger.info("Invalidated account cache for %s on chain %s", address, chain_id)
-                return 1
+        if chain_id and address and self.blockchain_cache.invalidate_account(address, chain_id):
+            logger.info("Invalidated account cache for %s on chain %s", address, chain_id)
+            return 1
         return 0
 
     def _invalidate_all_account_balances(self, chain_id: int) -> int:

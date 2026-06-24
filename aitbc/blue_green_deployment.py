@@ -288,7 +288,7 @@ class CanaryDeployer:
         Returns:
             DeploymentResult with deployment status
         """
-        logger.info("Starting canary deployment with %s% initial traffic", self.canary_percentage)
+        logger.info("Starting canary deployment with %s%% initial traffic", self.canary_percentage)
         return DeploymentResult(
             status=DeploymentStatus.COMPLETED,
             version=self.config.green_version,

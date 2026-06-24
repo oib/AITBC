@@ -18,20 +18,20 @@ from .registration import (
 )
 
 __all__ = [
-    # Core registration
-    "AgentRegistry",
-    "AgentInfo",
     "AgentCapability",
-    "AgentType",
-    "AgentStatus",
-    "CapabilityType",
-    "create_agent_registry",
-    "get_agent_registry",
     # Discovery
     "AgentDiscovery",
     # Health
     "AgentHealthTracker",
+    "AgentInfo",
+    # Core registration
+    "AgentRegistry",
+    "AgentStatus",
+    "AgentType",
+    "CapabilityType",
+    "MetadataManager",
     # Metadata
     "MetadataValidator",
-    "MetadataManager",
+    "create_agent_registry",
+    "get_agent_registry",
 ]

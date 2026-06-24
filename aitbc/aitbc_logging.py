@@ -169,10 +169,7 @@ def get_logger(name: str) -> logging.Logger:
         elif argv:
             # python /path/to/bridge_monitor/main.py  ->  bridge_monitor
             stem = Path(argv[0]).stem
-            if stem == "main":
-                name = Path(argv[0]).parent.name
-            else:
-                name = stem
+            name = Path(argv[0]).parent.name if stem == "main" else stem
         else:
             name = "app"
     return logging.getLogger(name)

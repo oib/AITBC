@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+import contextlib
 
 logger = get_logger(__name__)
 
@@ -69,10 +70,8 @@ class BackgroundTaskManager:
         """Cancel a background task"""
         if task_id in self.tasks:
             self.tasks[task_id].cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.tasks[task_id]
-            except asyncio.CancelledError:
-                pass
             self.task_info[task_id]["status"] = "cancelled"
             self.task_info[task_id]["completed_at"] = datetime.now(UTC)
             del self.tasks[task_id]

@@ -41,9 +41,8 @@ class AgentDiscovery:
         agents = []
         for agent_id in agent_ids:
             agent = self.agents.get(agent_id)
-            if agent and agent.status == AgentStatus.ACTIVE:
-                if self._matches_filters(agent, filters):
-                    agents.append(agent)
+            if agent and agent.status == AgentStatus.ACTIVE and self._matches_filters(agent, filters):
+                agents.append(agent)
 
         # Sort by reputation (highest first)
         agents.sort(key=lambda x: x.reputation_score, reverse=True)
@@ -56,9 +55,8 @@ class AgentDiscovery:
         agents = []
         for agent_id in agent_ids:
             agent = self.agents.get(agent_id)
-            if agent and agent.status == AgentStatus.ACTIVE:
-                if self._matches_filters(agent, filters):
-                    agents.append(agent)
+            if agent and agent.status == AgentStatus.ACTIVE and self._matches_filters(agent, filters):
+                agents.append(agent)
 
         # Sort by reputation (highest first)
         agents.sort(key=lambda x: x.reputation_score, reverse=True)
@@ -94,9 +92,8 @@ class AgentDiscovery:
             return True
 
         # Reputation filter
-        if "min_reputation" in filters:
-            if agent.reputation_score < filters["min_reputation"]:
-                return False
+        if "min_reputation" in filters and agent.reputation_score < filters["min_reputation"]:
+            return False
 
         # Cost filter
         if "max_cost_per_use" in filters:

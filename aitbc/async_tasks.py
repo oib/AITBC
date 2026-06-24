@@ -75,7 +75,7 @@ class TaskRegistry:
             await asyncio.wait_for(task, timeout=timeout)
         except asyncio.CancelledError:
             pass
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Task %s did not cancel within %s seconds", name, timeout)
 
     async def cancel_all(self, timeout: float = 5.0) -> None:

@@ -23,8 +23,8 @@ warnings.warn(
 )
 
 __all__ = [
-    "SecurityValidator",
+    "RateLimiter",
     "SecurityAuditLog",
     "SecurityAuditor",
-    "RateLimiter",
+    "SecurityValidator",
 ]

@@ -260,7 +260,7 @@ class StateValidator:
         for to_states in transitions.values():
             incoming.update(to_states)
         orphans = []
-        for state in transitions.keys():
+        for state in transitions:
             if state not in incoming:
                 orphans.append(state)
         return orphans

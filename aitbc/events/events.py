@@ -49,6 +49,7 @@ class EventBus:
         self.subscribers: dict[str, list[Callable]] = {}
         self.event_history: list[Event] = []
         self.max_history = 1000
+        self._background_tasks: set[asyncio.Task[None]] = set()
 
     def subscribe(self, event_type: str, handler: Callable) -> None:
         """Subscribe to an event type"""
@@ -93,7 +94,14 @@ class EventBus:
         except RuntimeError:
             loop = None
         if loop is not None:
-            asyncio.ensure_future(self.publish(event), loop=loop)
+            task = loop.create_task(self.publish(event))
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
+            task.add_done_callback(
+                lambda t: logger.error("Background event publish failed: %s", t.exception())
+                if not t.cancelled() and t.exception()
+                else None
+            )
         else:
             asyncio.run(self.publish(event))
 

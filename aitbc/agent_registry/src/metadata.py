@@ -4,6 +4,7 @@ Handles metadata validation, storage, and management
 """
 
 import logging
+from typing import ClassVar
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ class MetadataValidator:
     """Validator for agent metadata"""
 
     # Valid metadata keys and their types
-    VALID_METADATA_KEYS = {
+    VALID_METADATA_KEYS: ClassVar[dict[str, type]] = {
         "location": str,
         "region": str,
         "country": str,
@@ -65,21 +66,17 @@ class MetadataValidator:
                 return False, f"Invalid type for {key}: expected {expected_type.__name__}, got {type(value).__name__}"
 
         # Validate specific fields
-        if "uptime_percentage" in metadata:
-            if not 0 <= metadata["uptime_percentage"] <= 100:
-                return False, "uptime_percentage must be between 0 and 100"
+        if "uptime_percentage" in metadata and not 0 <= metadata["uptime_percentage"] <= 100:
+            return False, "uptime_percentage must be between 0 and 100"
 
-        if "latency_ms" in metadata:
-            if metadata["latency_ms"] < 0:
-                return False, "latency_ms must be non-negative"
+        if "latency_ms" in metadata and metadata["latency_ms"] < 0:
+            return False, "latency_ms must be non-negative"
 
-        if "gpu_count" in metadata:
-            if metadata["gpu_count"] < 0:
-                return False, "gpu_count must be non-negative"
+        if "gpu_count" in metadata and metadata["gpu_count"] < 0:
+            return False, "gpu_count must be non-negative"
 
-        if "memory_gb" in metadata:
-            if metadata["memory_gb"] < 0:
-                return False, "memory_gb must be non-negative"
+        if "memory_gb" in metadata and metadata["memory_gb"] < 0:
+            return False, "memory_gb must be non-negative"
 
         return True, "Metadata is valid"
 

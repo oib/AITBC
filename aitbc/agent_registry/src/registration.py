@@ -167,7 +167,7 @@ class AgentRegistry:
             return True, "Registration successful", agent_id
 
         except Exception as e:
-            return False, f"Registration failed: {str(e)}", None
+            return False, f"Registration failed: {e!s}", None
 
     def _validate_registration_inputs(
         self, agent_type: AgentType, name: str, owner_address: str, public_key: str, endpoint_url: str
@@ -186,10 +186,7 @@ class AgentRegistry:
             return False
 
         # Validate name
-        if len(name) < 3 or len(name) > 100:
-            return False
-
-        return True
+        return not (len(name) < 3 or len(name) > 100)
 
     def _generate_agent_id(self, owner_address: str, name: str) -> str:
         """Generate unique agent ID"""

@@ -40,6 +40,7 @@ class ReadReplicaManager:
         self.replica_engines: list[Any] = []
         self.current_replica_index = 0
         self.monitor = QueryMonitor()
+        self._sessionmakers: dict[int, Any] = {}
         self._initialize_engines()
 
     def _initialize_engines(self) -> None:
@@ -126,9 +127,10 @@ class ReadReplicaManager:
             SQLAlchemy session
         """
         engine = self.get_read_engine() if read_only else self.get_write_engine()
-        if not hasattr(engine, "_cached_sessionmaker"):
-            engine._cached_sessionmaker = sessionmaker(bind=engine)
-        return engine._cached_sessionmaker()
+        engine_id = id(engine)
+        if engine_id not in self._sessionmakers:
+            self._sessionmakers[engine_id] = sessionmaker(bind=engine)
+        return self._sessionmakers[engine_id]()
 
     def get_metrics(self) -> dict[str, Any]:
         """Get database performance metrics"""
@@ -145,4 +147,5 @@ class ReadReplicaManager:
             self.primary_engine.dispose()
         for engine in self.replica_engines:
             engine.dispose()
+        self._sessionmakers.clear()
         logger.info("All database connections closed")
