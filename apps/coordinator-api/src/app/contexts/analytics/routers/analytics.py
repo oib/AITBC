@@ -16,7 +16,7 @@ from sqlmodel import select
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ....domain.analytics import (
+from ..domain.analytics import (
     AnalyticsPeriod,
     AnalyticsReport,
     DashboardConfig,
