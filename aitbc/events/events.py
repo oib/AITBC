@@ -82,8 +82,20 @@ class EventBus:
                 logger.error("Error in event handler: %s", e)
 
     def publish_sync(self, event: Event) -> None:
-        """Publish an event synchronously"""
-        asyncio.run(self.publish(event))
+        """Publish an event synchronously.
+
+        If called from within a running event loop, the event is published
+        by scheduling the coroutine on the existing loop (fire-and-forget).
+        Otherwise, a new event loop is created via ``asyncio.run()``.
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop is not None:
+            asyncio.ensure_future(self.publish(event), loop=loop)
+        else:
+            asyncio.run(self.publish(event))
 
     def get_event_history(self, event_type: str | None = None, limit: int = 100) -> list[Event]:
         """Get event history"""

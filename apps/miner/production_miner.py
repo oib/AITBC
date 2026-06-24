@@ -14,8 +14,10 @@ from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 
 COORDINATOR_URL = os.environ.get("COORDINATOR_URL", "http://127.0.0.1:8011")
-MINER_ID = os.environ.get("MINER_API_KEY", "miner_test")
-AUTH_TOKEN = os.environ.get("MINER_API_KEY", "miner_test")
+MINER_ID = os.environ.get("MINER_API_KEY", "")
+AUTH_TOKEN = os.environ.get("MINER_API_KEY", "")
+if not MINER_ID or not AUTH_TOKEN:
+    raise RuntimeError("MINER_API_KEY environment variable must be set — refusing to start with empty credentials")
 HEARTBEAT_INTERVAL = 15
 MAX_RETRIES = 10
 RETRY_DELAY = 30
