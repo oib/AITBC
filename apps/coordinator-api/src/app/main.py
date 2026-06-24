@@ -310,7 +310,6 @@ def create_app() -> FastAPI:
     app.include_router(marketplace_offers, prefix="/v1")
     app.include_router(monitor, prefix="/v1")
     app.include_router(miner, prefix="/v1")
-    app.include_router(agent_router, prefix="/v1")
     app.include_router(islands_proxy, prefix="/v1")
     app.include_router(cross_chain, prefix="/v1")
 
