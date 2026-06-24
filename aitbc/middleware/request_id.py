@@ -13,8 +13,6 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
-# High-frequency paths that are logged at DEBUG to avoid log spam.
-# These are health checks, metrics scraping, and polling endpoints.
 _QUIET_PATHS = frozenset(
     {
         "/health",
@@ -53,10 +51,6 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         response.headers[self.header_name] = request_id
 
-        # Log completion at appropriate level:
-        # - DEBUG for quiet paths and successful 2xx/3xx
-        # - INFO for 4xx client errors
-        # - WARNING for 5xx server errors
         status = response.status_code
         if is_quiet and status < 400:
             logger.debug("Request completed - ID: %s, Status: %s", request_id, status)
