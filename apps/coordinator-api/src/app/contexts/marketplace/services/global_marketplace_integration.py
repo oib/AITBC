@@ -8,14 +8,14 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
-from ...cross_chain.domain.multi_chain_transaction import TransactionPriority
+from ...cross_chain.domain.chain_transaction import TransactionPriority
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 
 from ....agent_identity.wallet_adapter_enhanced import WalletAdapterFactory
 from ....reputation.engine import CrossChainReputationEngine
-from ....services.multi_chain_transaction_manager import MultiChainTransactionManager
+from ....services.multi_chain_transaction_manager import ChainTransactionManager
 from ...cross_chain.services.cross_chain.bridge_enhanced import (
     BridgeProtocol,
     BridgeSecurityLevel,
@@ -55,7 +55,7 @@ class GlobalMarketplaceIntegrationService:
         self.marketplace_service = GlobalMarketplaceService(session)
         self.region_manager = RegionManager(session)
         self.bridge_service: CrossChainBridgeService | None = None
-        self.tx_manager: MultiChainTransactionManager | None = None
+        self.tx_manager: ChainTransactionManager | None = None
         self.reputation_engine = CrossChainReputationEngine(session)
         self.integration_config = {
             "auto_cross_chain_listing": True,
@@ -80,7 +80,7 @@ class GlobalMarketplaceIntegrationService:
         try:
             self.bridge_service = CrossChainBridgeService(self.session)
             await self.bridge_service.initialize_bridge(chain_configs)
-            self.tx_manager = MultiChainTransactionManager(self.session)
+            self.tx_manager = ChainTransactionManager(self.session)
             await self.tx_manager.initialize(chain_configs)
             logger.info("Global marketplace integration services initialized")
         except Exception as e:
