@@ -55,13 +55,13 @@ cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 
 **Release theme**: Duplication elimination & large-file decomposition in `apps/` and `cli/`.
 
-**All B1–B7 tasks complete** (verified 2026-06-24). Next candidate work: Phase 4 (coordinator-api bounded context) — not started.
+**All B1–B7 tasks complete** (verified 2026-06-24). Full task table, detailed instructions, execution order, and coordination notes moved to <ref_file file="/opt/aitbc/docs/releases/v0.5.12/change.log" /> (see "Completed Work (Agent B)" section).
 
 **Status of prior phases**:
 - Phase 1 (quick wins): ✅ DONE (committed in `38a0c70cc`)
 - Phase 2 (test split): ✅ DONE — `tests/integration/test_agent_coordinator.py` (3,177 lines) split into 9 domain files; original deleted.
-- Phase 3 (dedup + indexes): ✅ DONE — B1–B7 all complete (see task table). Verified 2026-06-24: indexes committed (`5d807d7ec`), `DatabaseConfig` consolidated across all services, CLI dup deleted, blockchain-explorer + simple_exchange decomposed, systemd symlinks valid.
-- Phase 4 (coordinator-api bounded context): not started.
+- Phase 3 (dedup + indexes): ✅ DONE — B1–B7 all complete. Verified 2026-06-24.
+- Phase 4 (coordinator-api bounded context): P1 ✅ DONE, P2 ✅ DONE, P3 ✅ DONE, P4 ✅ DONE, P5 ⏭️ SKIPPED. **Phase 4 complete.**
 
 **Agent B working directory**: `/opt/aitbc/` (cross-cutting: `apps/`, `cli/`).
 
@@ -70,63 +70,20 @@ cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python -m mypy --show-error-codes apps/coordinator-api/src apps/blockchain-node/src
 ```
 
-### Tasks
+---
 
-| # | Task | Priority | Files | Status |
-|---|------|----------|-------|--------|
-| B1 | Commit the database index additions (35 single-col + 11 composite) + Alembic migration from this session | High | `apps/coordinator-api/src/app/domain/*.py`, `apps/coordinator-api/src/app/contexts/agent_identity/domain/agent_identity.py`, `apps/coordinator-api/alembic/versions/add_query_performance_indexes.py` | ✅ DONE — committed `5d807d7ec` (35 composite `Index()` calls + migration present) |
-| B2 | Consolidate duplicated `DatabaseConfig` — agent-management/coordinator-api/edge should subclass `shared-core`'s `ServiceSettings`/`DatabaseConfig` instead of redefining | High | `apps/agent-management/src/app/core/config.py`, `apps/coordinator-api/src/app/config.py`, `apps/edge/src/aitbc_edge/config.py` | ✅ DONE — canonical `DatabaseConfig`/`effective_url` lives once in `packages/aitbc-shared/aitbc_shared/core/config.py`; all 3 services subclass with `db_filename` overrides only |
-| B3 | Remove duplicate CLI `dual_mode_wallet_adapter.py` — `cli/utils/` copy is stale; keep `cli/aitbc_cli/utils/` version, delete the other | Medium | `cli/utils/dual_mode_wallet_adapter.py` | ✅ DONE — `cli/utils/` copy deleted; all importers use `aitbc_cli.utils.dual_mode_wallet_adapter` |
-| B4 | Decompose `apps/blockchain-explorer/main.py` (1,442 lines) — split routes into a `routers/` package, keep `main.py` as app factory | Medium | `apps/blockchain-explorer/main.py`, new `apps/blockchain-explorer/routers/*.py` | ✅ DONE — `main.py` now 54 lines (app factory + `include_router` + uvicorn); `routers/{analytics,blocks,chains,export,search,transactions}.py` (1,123 lines) + `validation.py` with `TX_HASH_PATTERN`/`CHAIN_ID_PATTERN`; app boots, 24 routes |
-| B5 | Decompose `apps/exchange/simple_exchange_api.py` (1,209 lines, stdlib `http.server`) — extract handlers + db layer | Medium | `apps/exchange/simple_exchange_api.py` | ✅ DONE — `simple_exchange_api.py` now a 21-line deprecation shim; `simple_exchange/{db.py,server.py,handlers/{base,bridge,exchange,marketplace,wallet}.py}` (1,291 lines) |
-| B6 | Audit duplicate `database.py` files — `apps/exchange/database.py` vs `apps/exchange/api/database.py` (genuinely different, likely keep both but rename for clarity); `apps/edge/src/aitbc_edge/routers/database.py` vs `schemas/database.py` (router vs schemas — not dup, no action) | Low | `apps/exchange/database.py`, `apps/exchange/api/database.py` | ✅ DONE (no action) — `apps/exchange/api/` removed in v0.5.11 restructure (`e29d45e76`); remaining `apps/exchange/database.py` is the live SQLAlchemy layer for legacy `exchange_api.py` (line 24 importer), distinct from `simple_exchange/db.py`; not duplicates |
-| B7 | Verify all systemd symlinks present (recovery ✅, backup, monitoring, etc.) and that service files exist at symlink targets | Low | `/etc/systemd/system/aitbc*.service` | ✅ DONE — 12/12 symlinks resolve to non-empty target files (331B–2,048B); zero dangling |
+## Open Tasks — v0.5.13 (Agent B): Phase 4 — coordinator-api bounded context — ✅ COMPLETE
 
-### Detailed Instructions
+**Full task details, grounding facts, and corrections from the rejected draft are in** <ref_file file="/opt/aitbc/docs/releases/v0.5.12/change.log" /> (see "Phase 4 Open Tasks" section).
 
-#### B1: Commit index work
-- Stage the 10 modified domain files + the new migration `add_query_performance_indexes.py`.
-- Commit message: `perf(db): add query performance indexes to coordinator-api domain models`.
-- Do NOT touch `tests/integration/` (Agent A's test-split work is uncommitted there).
+### Task Summary
 
-#### B2: DatabaseConfig consolidation
-- **Problem**: `DatabaseConfig` with `effective_url` is copy-pasted in `apps/shared-core/src/app/core/config.py` (canonical), `apps/agent-management/src/app/core/config.py`, `apps/coordinator-api/src/app/config.py`, `apps/edge/src/aitbc_edge/config.py`. Each drifts (different default DB filenames, different postgres URLs).
-- **Fix**: In each non-canonical config, `from aitbc_shared.core.config import DatabaseConfig, ServiceSettings` (or the shared-core path) and subclass with service-specific overrides only. Keep per-service default DB filename via a subclass override of `effective_url` or a `db_filename` field.
-- **Verify**: `mypy` + `ruff` clean on the 3 modified files; each service still imports its settings correctly.
+| # | Task | Priority | Status |
+|---|------|----------|--------|
+| P1 | Standardize on PyJWT — migrate `jwt_auth.py` from `python-jose` to `PyJWT`, drop `python-jose` dep | High | ✅ DONE |
+| P2 | Audit + document cross-context imports into `app/domain/` | High | ✅ DONE |
+| P3 | Add `README.md` to each `contexts/*/` + `__all__` to `__init__.py` files | Medium | ✅ DONE |
+| P4 | Decide agent-coordinator service boundary (fold in vs keep separate) + add README | Medium | ✅ DONE |
+| P5 | Restructure agent-coordinator into bounded context (GATED on P4) | Low | ⏭️ SKIPPED (P4 decided "keep separate") |
 
-#### B3: CLI duplicate wallet adapter
-- **Problem**: `cli/utils/dual_mode_wallet_adapter.py` (626 lines) and `cli/aitbc_cli/utils/dual_mode_wallet_adapter.py` (626 lines) differ only in import paths (`from utils import ...` vs `from aitbc_cli.utils import ...`). The `cli/utils/` copy is the stale pre-package layout.
-- **Fix**: Delete `cli/utils/dual_mode_wallet_adapter.py`. Grep for importers of `cli.utils.dual_mode_wallet_adapter` and repoint to `aitbc_cli.utils.dual_mode_wallet_adapter`.
-- **Verify**: `ruff check cli/` clean; `grep -r "cli.utils.dual_mode" ` returns nothing.
-
-#### B4: blockchain-explorer decomposition
-- `main.py` (1,442 lines) defines the FastAPI app + all routes inline.
-- Split into `routers/blocks.py`, `routers/transactions.py`, `routers/chains.py`, `routers/stats.py` (group by existing route prefixes). `main.py` becomes app factory + `include_router` calls + uvicorn entrypoint.
-- Keep the SSRF validation patterns (`TX_HASH_PATTERN`, `CHAIN_ID_PATTERN`) in a shared `validation.py`.
-- **Verify**: app still starts; route count unchanged.
-
-#### B5: exchange simple_exchange_api decomposition
-- `simple_exchange_api.py` (1,209 lines) uses stdlib `http.server` (not FastAPI) with inline SQLite.
-- Extract: `db.py` (schema + connection), `handlers.py` (request handlers by path), keep `simple_exchange_api.py` as the `HTTPServer` wiring.
-- This is stdlib HTTP — no router framework, so group handlers into functions keyed by path prefix.
-- **Verify**: server boots; existing exchange tests pass.
-
-#### B6: exchange database.py audit
-- `apps/exchange/database.py` (SQLAlchemy `Base` + engine) and `apps/exchange/api/database.py` (sqlite3 + logging) serve different layers. **Decision pending**: likely rename `api/database.py` → `api/db_init.py` to avoid name collision, OR leave as-is with a clarifying docstring. Investigate importers before deciding.
-
-#### B7: systemd symlink audit
-- All 12 `aitbc*.service` symlinks verified present (recovery ✅ from v0.5.11). Confirm each symlink target file exists and is non-empty. Report any dangling symlinks.
-
-### Execution Order
-
-All steps complete. Historical order for reference:
-1. **B1** — committed `5d807d7ec`.
-2. **B2, B3, B7** — done (independent, no shared files).
-3. **B4, B5** — done (large refactors, verified).
-4. **B6** — done (audit, no action required).
-
-### Coordination with Agent A
-
-- Agent A owns `aitbc/` (types, queues, db connection types). Agent B's B2 touches `apps/*/config.py` only — no `aitbc/` config files. No conflict.
-- If B2 requires a shared `DatabaseConfig` to move into `aitbc/`, that becomes Agent A's file — escalate and sequence (A first).
-- B4/B5 are pure `apps/` refactors — no Agent A overlap.
+**All Phase 4 tasks complete.** P5 skipped — P4 decision doc (`docs/releases/v0.5.13/agent_coordinator_boundary.md`) recommends keeping agent-coordinator as a separate service (zero runtime coupling between the two services).
