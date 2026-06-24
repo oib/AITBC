@@ -12,6 +12,7 @@ os.environ["ENABLE_MOCK_TRAINING"] = "true"  # Enable mock training endpoints
 project_root = Path(__file__).resolve().parent.parent.parent
 os.environ["AUDIT_LOG_DIR"] = str(project_root / "logs" / "audit")
 os.environ["TEST_DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["AITBC_ENABLE_RATE_LIMITING"] = "false"  # Disable rate limiting in tests
 
 
 @pytest.fixture(scope="function")
