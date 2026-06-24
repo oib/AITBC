@@ -24,7 +24,7 @@ class CircuitBreaker:
         self.timeout = timeout
         self.failure_count = 0
         self.is_open = False
-        self.open_time = None
+        self.open_time: datetime | None = None
         self.logger = get_logger(__name__)
 
     def check(self) -> None:

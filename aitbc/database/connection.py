@@ -33,7 +33,7 @@ class DatabaseConnection:
         """
         self.db_path = db_path
         self.timeout = timeout
-        self._connection = None
+        self._connection: sqlite3.Connection | None = None
         self.enable_monitoring = enable_monitoring
         self.monitor = QueryMonitor() if enable_monitoring else None
 
@@ -48,9 +48,10 @@ class DatabaseConnection:
             DatabaseError: If connection fails
         """
         try:
-            self._connection = sqlite3.connect(self.db_path, timeout=self.timeout)
-            self._connection.row_factory = sqlite3.Row
-            return self._connection
+            conn = sqlite3.connect(self.db_path, timeout=self.timeout)
+            conn.row_factory = sqlite3.Row
+            self._connection = conn
+            return conn
         except sqlite3.Error as e:
             raise DatabaseError(f"Failed to connect to database: {e}") from e
 
