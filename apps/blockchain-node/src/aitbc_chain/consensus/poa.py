@@ -311,7 +311,7 @@ class PoAProposer:
                         payload=original_payload,
                         value=value,
                         fee=fee,
-                        nonce=sender_account.nonce - 1,
+                        nonce=tx_data_for_transition["nonce"],
                         timestamp=timestamp,
                         block_height=next_height,
                         status="confirmed",
@@ -322,6 +322,7 @@ class PoAProposer:
                     self._logger.info("[PROPOSE] Successfully processed tx %s: updated balances", tx.tx_hash)
                 except Exception as e:
                     self._logger.warning("Failed to process transaction %s: %s", tx.tx_hash, e)
+                    session.rollback()
                     continue
             if pending_txs and (not processed_txs) and getattr(settings, "propose_only_if_mempool_not_empty", True):
                 self._logger.warning(
