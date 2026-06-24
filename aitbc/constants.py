@@ -3,6 +3,7 @@ AITBC Common Constants
 Centralized constants for AITBC system paths and configuration
 """
 
+import os
 from pathlib import Path
 
 from ._version import __version__
@@ -11,7 +12,7 @@ from ._version import __version__
 DATA_DIR = Path("/var/lib/aitbc")
 CONFIG_DIR = Path("/etc/aitbc")
 LOG_DIR = Path("/var/log/aitbc")
-REPO_DIR = Path("/opt/aitbc")
+REPO_DIR = Path(os.environ.get("AITBC_REPO_DIR", "/opt/aitbc"))
 
 # Common subdirectories
 KEYSTORE_DIR = DATA_DIR / "keystore"
