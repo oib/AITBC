@@ -252,7 +252,7 @@ Migrated `coordinator-api/src/app/auth/jwt_auth.py` from `python-jose` to `PyJWT
 
 **Priority**: Medium
 **Files**: `apps/coordinator-api/src/app/contexts/*/README.md`, `*/__init__.py`
-**Status**: ✅ DONE — committed `0b238f533`. Added `__all__` to all 27 `app/domain/*.py` modules (declares public API surface). Created README.md for all 34 contexts documenting description, subpackage structure, and cross-context domain dependencies with links to P2 audit report.
+**Status**: ✅ DONE — 34 README.md files created (one per context directory under `contexts/`). Each has: one-line description, domain models list, routes (METHOD path), services list. `__all__` additions: 0 needed — all non-empty `__init__.py` files already had `__all__` defined. Ruff clean. Spot-checks of marketplace, agent_identity, advanced_ai confirmed accurate.
 
 **Task**:
 - Add `README.md` to each of the 35 `contexts/*/` dirs: one-line responsibility, list of owning routes (grep `@router` in that context's `routers/`), list of domain models. Skip contexts that are empty stubs (note them as stubs).
@@ -265,8 +265,8 @@ Migrated `coordinator-api/src/app/auth/jwt_auth.py` from `python-jose` to `PyJWT
 ### P4: Service-boundary decision (agent-coordinator)
 
 **Priority**: Medium
-**Files**: `docs/releases/v0.5.12/p4_agent_coordinator_boundary_decision.md`
-**Status**: ✅ DONE — committed `ee5777704`. Decision: **keep agent-coordinator as a separate flat-structured microservice**. Rationale: low internal coupling (subpackages don't import from each other), no domain models, no cross-service imports, manageable 10K lines. Restructuring into bounded contexts would add complexity without reducing coupling.
+**Files**: `docs/releases/v0.5.13/agent_coordinator_boundary.md`, `apps/agent-coordinator/README.md`
+**Status**: ✅ DONE — Decision: **keep agent-coordinator as a separate microservice**. Rationale: zero API coupling between services (all 9001 refs in coordinator-api are CORS origins, not API calls), no shared database (agent-coord uses own SQLite for coin_requests, coordinator-api uses SQLAlchemy coordinator.db), different Redis logical DBs (db 1 vs db 0), independent systemd units, CLI calls agent-coordinator directly at port 9001. Folding in would increase blast radius without reducing coupling. README file count corrected (48→61). Noted missing systemd symlink as deployment gap.
 
 **Question**: `agent-coordinator` (61 files, Core Service: No) is a separate microservice but `coordinator-api` (485 files, Core Service: Yes) is the "primary integration hub". Should agent-coordinator fold in as a bounded context, or stay separate?
 
@@ -285,7 +285,7 @@ Migrated `coordinator-api/src/app/auth/jwt_auth.py` from `python-jose` to `PyJWT
 
 **Priority**: Low
 **Files**: `apps/agent-coordinator/src/app/`
-**Status**: ✅ CANCELLED — P4 decided "keep separate", so the restructure is not needed. The flat layered architecture (routers → services → storage) is correct for agent-coordinator's scope and coupling profile.
+**Status**: ⏭️ SKIPPED — P4 decided "keep separate", so the restructure is not needed.
 
 **Gating**: Only execute if P4 decides "fold in". If P4 decides "keep separate", skip the restructure — the README from P4 is sufficient.
 
