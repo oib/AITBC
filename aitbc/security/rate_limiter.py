@@ -1,5 +1,16 @@
 """
-Rate limiter for API rate limiting
+Rate limiter for inbound HTTP API rate limiting.
+
+This is the per-key (per-IP) rate limiter used by the @rate_limit
+decorator (aitbc/rate_limiting.py) and RateLimitMiddleware to protect
+HTTP endpoints from abuse. Uses a sliding-window algorithm with
+is_allowed(key) -> bool semantics.
+
+The outbound HTTP client rate limiter in aitbc/network/rate_limiter.py
+is a separate class with a different API (check()/record_request() ->
+raises RateLimitError) for controlling outbound request rates. Both
+implement the same sliding-window algorithm but serve different
+purposes and are intentionally kept separate.
 """
 
 import time
