@@ -279,3 +279,22 @@ class MarketCondition(SQLModel, table=True):
     resistance_level: float = Field(default=0.0)  # Resistance level
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     expires_at: datetime = Field(default_factory=lambda: datetime.now(UTC) + timedelta(hours=24))
+
+
+__all__ = [
+    "AgentPortfolio",
+    "MarketCondition",
+    "PerformanceMetrics",
+    "PortfolioAlert",
+    "PortfolioAsset",
+    "PortfolioSnapshot",
+    "PortfolioStrategy",
+    "PortfolioTrade",
+    "RebalanceHistory",
+    "RiskLevel",
+    "RiskMetrics",
+    "StrategySignal",
+    "StrategyType",
+    "TradeStatus",
+    "TradingRule",
+]

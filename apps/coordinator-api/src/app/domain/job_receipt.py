@@ -17,3 +17,6 @@ class JobReceipt(SQLModel, table=True):
     receipt_id: str = Field(index=True)
     payload: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+
+
+__all__ = ["JobReceipt"]

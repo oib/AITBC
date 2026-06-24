@@ -385,3 +385,20 @@ class EcosystemMetrics(SQLModel, table=True):
 
 # Update relationships
 # DISABLED: AgentStake.agent_metrics = Relationship(back_populates="stakes")
+
+
+__all__ = [
+    "AgentMetrics",
+    "AgentStake",
+    "Bounty",
+    "BountyIntegration",
+    "BountyStats",
+    "BountyStatus",
+    "BountySubmission",
+    "BountyTier",
+    "EcosystemMetrics",
+    "PerformanceTier",
+    "StakeStatus",
+    "StakingPool",
+    "SubmissionStatus",
+]

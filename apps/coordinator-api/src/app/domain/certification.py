@@ -455,3 +455,20 @@ class CertificationAudit(SQLModel, table=True):
     # Additional data
     audit_cert_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     notes: str = Field(default="", max_length=2000)
+
+
+__all__ = [
+    "AchievementBadge",
+    "AgentBadge",
+    "AgentCertification",
+    "AgentPartnership",
+    "BadgeType",
+    "CertificationAudit",
+    "CertificationLevel",
+    "CertificationRequirement",
+    "CertificationStatus",
+    "PartnershipProgram",
+    "PartnershipType",
+    "VerificationRecord",
+    "VerificationType",
+]

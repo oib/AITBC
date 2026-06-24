@@ -145,3 +145,14 @@ class BountySubmission(SQLModel, table=True):
     # Relationships
     # DISABLED:     bounty: BountyTask = Relationship(back_populates="submissions")
     # DISABLED:     developer: DeveloperProfile = Relationship(back_populates="bounty_submissions")
+
+
+__all__ = [
+    "BountyStatus",
+    "BountySubmission",
+    "BountyTask",
+    "CertificationLevel",
+    "DeveloperCertification",
+    "DeveloperProfile",
+    "RegionalHub",
+]

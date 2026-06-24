@@ -80,3 +80,6 @@ class UserSession(SQLModel, table=True):
     expires_at: datetime
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_used: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+__all__ = ["Transaction", "User", "UserSession", "Wallet"]

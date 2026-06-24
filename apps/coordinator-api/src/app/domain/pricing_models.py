@@ -577,3 +577,20 @@ class MarketHeatmapView(SQLModel):
     market_sentiment: float
     competitor_count: int
     timestamp: datetime
+
+
+__all__ = [
+    "MarketHeatmapView",
+    "MarketMetrics",
+    "PriceForecast",
+    "PriceTrend",
+    "PricingAlert",
+    "PricingAuditLog",
+    "PricingHistory",
+    "PricingOptimization",
+    "PricingRule",
+    "PricingStrategyType",
+    "PricingSummaryView",
+    "ProviderPricingStrategy",
+    "ResourceType",
+]

@@ -294,3 +294,20 @@ class AgentExecutionStatus(SQLModel):
     total_execution_time: float | None
     total_cost: float
     verification_proof: dict[str, Any] | None
+
+
+__all__ = [
+    "AIAgentWorkflow",
+    "AgentExecution",
+    "AgentExecutionRequest",
+    "AgentExecutionResponse",
+    "AgentExecutionStatus",
+    "AgentMarketplace",
+    "AgentStatus",
+    "AgentStep",
+    "AgentStepExecution",
+    "AgentWorkflowCreate",
+    "AgentWorkflowUpdate",
+    "StepType",
+    "VerificationLevel",
+]

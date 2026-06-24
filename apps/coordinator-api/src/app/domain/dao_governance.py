@@ -121,3 +121,6 @@ class TreasuryAllocation(SQLModel, table=True):
 
     tx_hash: str | None = Field(default=None)
     executed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+__all__ = ["DAOMember", "DAOProposal", "ProposalState", "ProposalType", "TreasuryAllocation", "Vote"]
