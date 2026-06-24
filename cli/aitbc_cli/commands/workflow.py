@@ -47,9 +47,13 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
         if api_key:
             headers["X-API-Key"] = api_key
 
-        execution_payload = {"workflow_name": workflow_name, "config": workflow_config, "dry_run": False}
+        execution_payload = {"workflow_id": workflow_name, "inputs": workflow_config}
 
-        response = httpx.post(f"{coordinator_url}/v1/workflows/execute", json=execution_payload, headers=headers)
+        response = httpx.post(
+            f"{coordinator_url}/v1/agents/workflows/{workflow_name}/execute",
+            json=execution_payload,
+            headers=headers,
+        )
 
         if response.status_code != 200:
             error(f"Failed to start workflow: {response.text}")
@@ -63,7 +67,7 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
             click.echo(f"Using config: {config}")
 
         click.echo(f"Execution ID: {execution_id}")
-        click.echo("Status: Running")
+        click.echo(f"Status: {result.get('status', 'Running')}")
 
     except FileNotFoundError:
         error(f"Config file not found: {config}")
@@ -106,19 +110,23 @@ def status(workflow_name: str):
         if api_key:
             headers["X-API-Key"] = api_key
 
-        response = httpx.get(f"{coordinator_url}/v1/workflows/{workflow_name}/status", headers=headers)
+        response = httpx.get(
+            f"{coordinator_url}/v1/agents/executions/{workflow_name}/status",
+            headers=headers,
+        )
 
         if response.status_code != 200:
-            error(f"Failed to get workflow status: {response.text}")
+            error(f"Failed to get execution status: {response.text}")
             return
 
         result = response.json()
 
-        success(f"Get status for workflow {workflow_name}")
+        success(f"Get status for execution {workflow_name}")
         click.echo(f"Status: {result.get('status', 'Unknown')}")
-        click.echo(f"Last execution: {result.get('last_execution', 'Never')}")
-        if result.get("execution_id"):
-            click.echo(f"Execution ID: {result['execution_id']}")
+        click.echo(f"Workflow ID: {result.get('workflow_id', 'Unknown')}")
+        click.echo(f"Current step: {result.get('current_step', 0)}/{result.get('total_steps', 0)}")
+        if result.get("error_message"):
+            click.echo(f"Error: {result['error_message']}")
 
     except Exception as e:
         error(f"Error getting workflow status: {e}")
@@ -139,14 +147,18 @@ def stop(workflow_name: str):
         if api_key:
             headers["X-API-Key"] = api_key
 
-        response = httpx.post(f"{coordinator_url}/v1/workflows/{workflow_name}/stop", headers=headers)
+        response = httpx.post(
+            f"{coordinator_url}/v1/agents/workflows/{workflow_name}/cancel",
+            headers=headers,
+            params={"execution_id": workflow_name},
+        )
 
         if response.status_code != 200:
-            error(f"Failed to stop workflow: {response.text}")
+            error(f"Failed to cancel workflow: {response.text}")
             return
 
-        success(f"Stop workflow {workflow_name}")
-        click.echo("Status: Stopped")
+        success(f"Cancel workflow {workflow_name}")
+        click.echo("Status: Cancelled")
 
     except Exception as e:
         error(f"Error stopping workflow: {e}")
