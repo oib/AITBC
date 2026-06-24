@@ -3,6 +3,7 @@ Marketplace Caching & Optimization Service
 Implements advanced caching, indexing, and data optimization for the AITBC marketplace.
 """
 
+import asyncio
 import hashlib
 import json
 import time
@@ -70,7 +71,25 @@ class MarketplaceDataOptimizer:
         self.redis_client: redis.Redis | None = None
         self.l1_cache = LFU_LRU_Cache(capacity=1000)
         self.is_connected = False
+        self._loop: asyncio.AbstractEventLoop | None = None
         self.ttls = {"order_book": 5, "provider_status": 15, "market_stats": 60, "historical_data": 3600}
+
+    def _is_stale_loop(self) -> bool:
+        """Check if the Redis client is bound to a closed/different event loop."""
+        if self.redis_client is None or self._loop is None:
+            return False
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return True
+        return current_loop is not self._loop
+
+    async def _reconnect_if_stale(self) -> None:
+        """Reconnect to Redis if the event loop has changed (hot-reload)."""
+        if self._is_stale_loop():
+            logger.info("Marketplace cache: stale event loop detected, reconnecting...")
+            await self.disconnect()
+            await self.connect()
 
     async def connect(self) -> None:
         """Establish connection to Redis L2 cache"""
@@ -79,10 +98,12 @@ class MarketplaceDataOptimizer:
             if self.redis_client:
                 await self.redis_client.ping()
             self.is_connected = True
+            self._loop = asyncio.get_running_loop()
             logger.info("Connected to Redis L2 cache")
         except Exception as e:
             logger.error("Failed to connect to Redis: %s. Falling back to L1 cache only.", e)
             self.is_connected = False
+            self._loop = None
 
     async def disconnect(self) -> None:
         """Close Redis connection"""
@@ -98,6 +119,7 @@ class MarketplaceDataOptimizer:
 
     async def get_cached_data(self, namespace: str, params: dict[str, Any]) -> Any | None:
         """Retrieve data from the multi-tier cache"""
+        await self._reconnect_if_stale()
         key = self._generate_cache_key(namespace, params)
         l1_result = self.l1_cache.get(key)
         if l1_result is not None:
@@ -119,6 +141,7 @@ class MarketplaceDataOptimizer:
 
     async def set_cached_data(self, namespace: str, params: dict[str, Any], data: Any, custom_ttl: int | None = None) -> None:
         """Store data in the multi-tier cache"""
+        await self._reconnect_if_stale()
         key = self._generate_cache_key(namespace, params)
         ttl = custom_ttl or self.ttls.get(namespace, 60)
         self.l1_cache.put(key, {"data": data, "expires_at": time.time() + ttl})
@@ -130,6 +153,7 @@ class MarketplaceDataOptimizer:
 
     async def invalidate_namespace(self, namespace: str) -> None:
         """Invalidate all cached items for a specific namespace"""
+        await self._reconnect_if_stale()
         if self.is_connected and self.redis_client:
             try:
                 cursor = 0
