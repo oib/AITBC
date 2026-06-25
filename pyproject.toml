@@ -53,6 +53,8 @@ numpy = ">=2.2.0"
 # Machine Learning & AI
 torch = ">=2.11.0"
 torchvision = ">=0.26.0"
+# GPU acceleration (coordinator-api gpu_optimizer.py — requires /dev/nvidia-uvm in containers)
+pycuda = ">=2024.1"
 # CLI Tools
 click = ">=8.3.2"
 rich = ">=14.3.3"
