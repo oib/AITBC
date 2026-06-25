@@ -271,7 +271,7 @@ def submit_job(wallet_name: str, job_type: str, prompt: str, payment: float, mod
 def status(job_id: str | None, format: str):
     """Get AI job status"""
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:9001", timeout=30)
+        http_client = AITBCHTTPClient(base_url="http://localhost:8107", timeout=30)
         if job_id:
             result = http_client.get(f"/v1/jobs/{job_id}")
             success(f"Job status for {job_id}")
@@ -303,7 +303,7 @@ def cancel(job_id: str | None):
         return
 
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:9001", timeout=30)
+        http_client = AITBCHTTPClient(base_url="http://localhost:8107", timeout=30)
         _ = http_client.post(f"/v1/jobs/{job_id}/cancel")
         success(f"AI job {job_id} cancelled")
     except NetworkError as e:
@@ -327,7 +327,7 @@ def register(agent_id: str, status: str):
     try:
         agent_config = {"agent_id": agent_id, "status": status}
 
-        http_client = AITBCHTTPClient(base_url="http://localhost:9001", timeout=30)
+        http_client = AITBCHTTPClient(base_url="http://localhost:8107", timeout=30)
         _ = http_client.post("/v1/agents/register", json=agent_config)
         success(f"Agent {agent_id} registered with status {status}")
     except NetworkError as e:
@@ -374,7 +374,7 @@ def list(status: str | None, format: str):
 def deregister(agent_id: str):
     """Deregister an agent"""
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:9001", timeout=30)
+        http_client = AITBCHTTPClient(base_url="http://localhost:8107", timeout=30)
         _ = http_client.post(f"/v1/agents/{agent_id}/deregister")
         success(f"Agent {agent_id} deregistered")
     except NetworkError as e:
