@@ -1,0 +1,432 @@
+# AITBC v0.6.4 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Multi-Chain Per Island — Parallel Block Streams, MultiChainManager Activation, Island-Level Chain Registry
+
+## 🎯 Overview
+
+AITBC v0.6.4 enables an island to host multiple parallel block streams (chains), each producing blocks independently with its own genesis, block height, state, and mempool — but sharing the same island identity, P2P network, and validator set. This release wires up the existing dead-code `MultiChainManager`, makes `IslandMembership` hold multiple chain_ids, and activates multi-chain block production within a single island.
+
+**Why this is a dedicated release**: The codebase already has significant multi-chain infrastructure that is **dead code** — never imported, never called:
+
+| Component | Lines | Status |
+|-----------|-------|--------|
+| `MultiChainManager` | 275 | 0 imports — dead code |
+| `MultiValidatorPoA` | 281 | 0 imports outside consensus/ — dead code |
+| `PBFT` | 189 | 0 imports — dead code |
+| `rotation.py` | 140 | 0 imports — dead code |
+| `slashing.py` | 146 | 0 imports — dead code |
+
+Meanwhile, partial multi-chain support exists in the active code path:
+- `supported_chains` config allows multiple chain_ids
+- `_start_proposers()` starts one `PoAProposer` per chain
+- `session_scope(chain_id)` gives each chain its own database
+- Mempool is per-chain
+- Gossip topics are per-chain (`blocks.{chain_id}`)
+
+But the island layer assumes **one chain per island** (`IslandMembership.chain_id` is a single string), and `MultiChainManager` is never wired into `main.py`. This release closes that gap.
+
+**Scope decision**: Multi-chain per island only. Does NOT activate `MultiValidatorPoA`/`PBFT` — each chain continues using single-validator `PoAProposer`. Multi-validator consensus is a separate future release.
+
+**Prerequisites**: Requires [v0.6.1](../v0.6.1/change.log) (Parallel Processing — multiple proposers run as parallel tasks) and [v0.6.3](../v0.6.3/change.log) (Multi-Island Node Support — island-to-chain registry infrastructure).
+
+## 🎯 Release Highlights
+
+### Multi-Chain Block Production
+- 🚧 Wire `MultiChainManager` into `main.py` (currently dead code)
+- 🚧 Multiple `PoAProposer` instances running in parallel, one per chain
+- 🚧 Each chain has independent block height, genesis, state, and mempool
+- 🚧 Shared island identity across all chains on the island
+- 🚧 Per-chain block production enable/disable via `block_production_chains`
+
+### Island-Level Chain Registry
+- 🚧 `IslandMembership.chain_id` changed from single string to list of chain_ids
+- 🚧 Config: `ISLAND_CHAINS` mapping (island_id → list of chain_ids)
+- 🚧 Auto-register chains on island join
+- 🚧 Island health monitoring per chain
+
+### MultiChainManager Activation
+- 🚧 Activate `MultiChainManager` in node startup
+- 🚧 Per-chain lifecycle management (start/stop individual chains)
+- 🚧 Per-chain health monitoring
+- 🚧 Per-chain port allocation (RPC and P2P ports)
+
+### Genesis Per Chain
+- 🚧 `make_genesis.py` supports generating multiple genesis files per island
+- 🚧 Per-chain genesis with shared island parameters
+- 🚧 Island-level genesis coordination (shared validator set, shared economic params)
+
+## 📋 Detailed Features
+
+### Multi-Chain Block Production
+
+#### Current State
+```python
+# main.py — _start_proposers() already supports multiple chains:
+for chain_id in chains:
+    if chain_id not in production_chains:
+        continue
+    proposer = PoAProposer(
+        config=self._proposer_config(chain_id),
+        session_factory=lambda chain_id=chain_id: session_scope(chain_id)
+    )
+    self._proposers[chain_id] = proposer
+    self._task_registry.create_task(proposer.start, name=f"proposer_{chain_id}")
+```
+
+This **already works** for multiple chains — but it's not coordinated with the island layer or `MultiChainManager`.
+
+#### Fix
+- Wire `MultiChainManager` into `BlockchainNode.start()` to coordinate chain lifecycle
+- Each chain gets its own `PoAProposer` (already works)
+- Each chain gets its own database via `session_scope(chain_id)` (already works)
+- Each chain gets its own mempool namespace (already works)
+- Each chain gets its own gossip topic `blocks.{chain_id}` (already works)
+
+#### What's New
+- `MultiChainManager` tracks all chains, their status, and their ports
+- Chains can be started/stopped dynamically without restarting the node
+- Chain health monitoring reports per-chain status
+
+### Island-Level Chain Registry
+
+#### Current Problem
+```python
+# IslandMembership — ONE chain per island:
+@dataclass
+class IslandMembership:
+    island_id: str
+    island_name: str
+    chain_id: str        # ← single string, not a list
+    status: IslandStatus
+    ...
+```
+
+#### Fix
+```python
+# IslandMembership — MULTIPLE chains per island:
+@dataclass
+class IslandMembership:
+    island_id: str
+    island_name: str
+    chain_ids: list[str]    # ← list of chain_ids
+    status: IslandStatus
+    ...
+```
+
+#### Configuration
+```bash
+# /etc/aitbc/blockchain.env
+
+# Island identity
+island_id=ait-hub-island-uuid
+island_name=ait-hub
+
+# Chains hosted on this island
+ISLAND_CHAINS="ait-hub-main,ait-hub-payments,ait-hub-gpu"
+
+# Which chains to produce blocks for (subset of ISLAND_CHAINS)
+block_production_chains=ait-hub-main,ait-hub-payments
+
+# Chain-specific configuration (optional, per-chain overrides)
+CHAIN_CONFIG_ait-hub-payments="block_time_seconds:2,max_txs_per_block:500"
+CHAIN_CONFIG_ait-hub-gpu="block_time_seconds:5,max_txs_per_block:100"
+```
+
+#### Island Join with Multiple Chains
+```python
+def join_island(self, island_id: str, island_name: str, chain_ids: list[str], is_hub: bool = False) -> bool:
+    """Join an island with multiple chains."""
+    self.islands[island_id] = IslandMembership(
+        island_id=island_id,
+        island_name=island_name,
+        chain_ids=chain_ids,  # list of chain_ids
+        status=IslandStatus.ACTIVE,
+        joined_at=time.time(),
+        is_hub=is_hub,
+    )
+    for cid in chain_ids:
+        self.island_peers.setdefault(cid, set())
+    logger.info("Joined island %s with chains: %s", island_id, chain_ids)
+    return True
+```
+
+### MultiChainManager Activation
+
+#### Current State (Dead Code)
+```python
+# multi_chain_manager.py — exists but never imported in main.py
+class MultiChainManager:
+    def __init__(self, default_chain_id, base_db_path, ...):
+        ...
+    async def start_chain(self, chain_id, chain_type=ChainType.MICRO):
+        ...
+    async def stop_chain(self, chain_id):
+        ...
+```
+
+#### Fix: Wire into main.py
+```python
+# main.py — BlockchainNode.start()
+from .network.multi_chain_manager import create_multi_chain_manager
+
+class BlockchainNode:
+    async def start(self):
+        ...
+        # Create multi-chain manager
+        self._multi_chain_manager = create_multi_chain_manager(
+            default_chain_id=self._supported_chains()[0],
+            base_db_path=settings.get_db_path(),
+        )
+
+        # Start all configured chains
+        for chain_id in self._supported_chains():
+            init_db(chain_id)
+            if settings.blockchain_mode == "hub":
+                if chain_id in production_chains:
+                    self._multi_chain_manager.chains[chain_id].status = ChainStatus.RUNNING
+
+        # Start proposers for production chains
+        if settings.blockchain_mode == "hub":
+            self._start_proposers()
+
+        # Start multi-chain manager health monitoring
+        self._task_registry.create_task(self._multi_chain_manager.start, name="multi_chain_manager")
+        ...
+```
+
+#### Dynamic Chain Management
+```bash
+# CLI: start a new chain on the island dynamically
+aitbc chain start --chain-id ait-hub-ai --block-time 3 --max-txs 200
+
+# CLI: stop a chain
+aitbc chain stop --chain-id ait-hub-ai
+
+# CLI: list chains on this island
+aitbc chain list --island
+```
+
+### Genesis Per Chain
+
+#### Current State
+```bash
+# make_genesis.py — one genesis per invocation
+python scripts/make_genesis.py --chain-id ait-hub --output data/ait-hub/genesis.json
+```
+
+#### Fix: Multi-Genesis Generation
+```bash
+# Generate genesis for all chains on an island
+python scripts/make_genesis.py \
+  --island-id ait-hub-island-uuid \
+  --chains ait-hub-main,ait-hub-payments,ait-hub-gpu \
+  --output-dir data/ \
+  --allocations allocations.json \
+  --authorities addr1 addr2 addr3
+
+# Generates:
+# data/ait-hub-main/genesis.json
+# data/ait-hub-payments/genesis.json
+# data/ait-hub-gpu/genesis.json
+```
+
+#### Shared Island Parameters
+All chains on an island share:
+- Validator set (authorities)
+- Economic parameters (fees, mint_per_unit)
+- Island identity (island_id in genesis metadata)
+
+Each chain has its own:
+- Genesis hash (unique per chain)
+- Allocations (different initial balances per chain)
+- Block time (configurable per chain)
+
+### Verified Code Targets (from suggestions.md investigation)
+
+#### Dead Code Activation — MultiChainManager
+**Current state**: `apps/blockchain-node/src/aitbc_chain/network/multi_chain_manager.py` line 56 — defined but never imported in `main.py`. Confirmed dead code.
+**Action**: Activate `MultiChainManager` in `main.py` with startup sequencing (one chain at a time with configurable retry/backoff).
+
+#### Dead Code — MultiValidatorPoA and PBFT
+**Current state**:
+- `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` line 33 — defined, used only in tests/scripts, NOT in production code
+- `apps/blockchain-node/src/aitbc_chain/consensus/pbft.py` line 48 — defined, used only in test scripts, NOT in production code
+**Action**: Do NOT activate `MultiValidatorPoA` or `PBFT` in this release. Leave them in clearly commented THRESHOLD state so they don't accidentally run. They require separate security review before activation.
+
+#### join_island() Caller Inventory
+**Current signature** (island_manager.py line 94): `join_island(self, island_id: str, island_name: str, chain_id: str, is_hub: bool = False) -> bool`
+**All callers** (must be updated atomically when signature changes to `chain_ids: list[str]`):
+1. `apps/blockchain-node/src/aitbc_chain/rpc/islands.py` lines 75-76
+2. `apps/edge/src/aitbc_edge/services/island_service.py` lines 27-32
+3. `apps/edge/src/aitbc_edge/clients/blockchain_rpc.py` lines 21-22
+4. `apps/edge/src/aitbc_edge/routers/islands.py` lines 41-50
+5. `cli/aitbc_cli/commands/node/island.py` line 39
+6. `packages/py/aitbc-agent-sdk/src/aitbc_agent/edge_api_client.py` lines 197-198
+7. `apps/coordinator-api/src/app/contexts/infrastructure/routers/islands_proxy.py` line 50 (proxy, forwards body)
+8. `apps/blockchain-node/src/aitbc_chain/rpc/router.py` lines 614-618 (route handler)
+**Action**: Update all 8 call sites in one atomic refactor. Grep for `join_island` first to catch any new callers.
+
+## 🔧 Breaking Changes
+
+- `IslandMembership.chain_id` → `IslandMembership.chain_ids` (list instead of string)
+- `join_island()` signature changes: `chain_id: str` → `chain_ids: list[str]`
+- `MultiChainManager` is now activated (was dead code) — may affect startup sequence
+- New config: `ISLAND_CHAINS` (optional, defaults to single chain_id for backward compat)
+- `make_genesis.py` gains `--island-id` and `--chains` flags (backward compatible — `--chain-id` still works)
+
+## 📊 Migration Guide
+
+### v0.6.3 → v0.6.4
+
+1. **Configure multiple chains per island** (optional — single chain still works)
+   ```bash
+   # /etc/aitbc/blockchain.env
+   ISLAND_CHAINS="ait-hub-main,ait-hub-payments,ait-hub-gpu"
+   block_production_chains=ait-hub-main,ait-hub-payments
+   ```
+
+2. **Generate genesis for each chain**
+   ```bash
+   python scripts/make_genesis.py \
+     --island-id ait-hub-island-uuid \
+     --chains ait-hub-main,ait-hub-payments,ait-hub-gpu \
+     --output-dir /var/lib/aitbc/data/ \
+     --allocations allocations.json \
+     --authorities addr1 addr2 addr3
+   ```
+
+3. **Restart services**
+   ```bash
+   systemctl restart aitbc-blockchain-node
+   ```
+
+4. **Verify multi-chain status**
+   ```bash
+   aitbc chain list --island
+   aitbc chain status --all
+   ```
+
+## 🖥️ CLI Commands
+
+### New Commands
+- `aitbc chain start` — Start a chain (currently only exists as `aitbc node chain start`)
+  - Add `start` subcommand to `cli/aitbc_cli/commands/chain.py` as alias/wrapper for `node chain start`
+- `aitbc chain stop` — Stop a chain (currently only exists as `aitbc node chain stop`)
+  - Add `stop` subcommand to `cli/aitbc_cli/commands/chain.py` as alias/wrapper for `node chain stop`
+- `aitbc chain list --island <island_id>` — List chains filtered by island
+  - Currently `chain list` exists but lacks `--island` flag
+  - Implementation: Add `--island` option to existing `chain list` command
+
+## 🧪 Testing
+
+### Multi-Chain Block Production Testing
+- Two chains producing blocks simultaneously on one island
+- Each chain has independent block height and state
+- Blocks from chain A don't appear in chain B's database
+- State roots are independent per chain
+- Block hashes include chain_id (already verified — prevents cross-chain contamination)
+
+### MultiChainManager Testing
+- Start/stop individual chains dynamically
+- Chain health monitoring reports correct per-chain status
+- Port allocation doesn't conflict between chains
+- Stopping one chain doesn't affect other chains
+
+### Island Registry Testing
+- `IslandMembership.chain_ids` holds multiple chain_ids
+- `join_island()` with multiple chains
+- Island health monitoring per chain
+- Leave island cleans up all chain memberships
+
+### Genesis Testing
+- Multi-genesis generation creates correct files per chain
+- Each genesis has unique hash
+- Shared island parameters in genesis metadata
+- Per-chain allocations work correctly
+
+### Backward Compatibility Testing
+- Single-chain config (no `ISLAND_CHAINS`) still works
+- `--chain-id` flag in `make_genesis.py` still works
+- Existing nodes with single chain_id start without changes
+
+### Test Coverage Goals
+- Multi-chain block production: >95%
+- MultiChainManager: >90%
+- Island registry: >85%
+- Genesis generation: >90%
+- Backward compatibility: 100%
+
+## 📚 Documentation
+
+- [Multi-Chain Island Setup Guide](../getting-started/multi-chain-island.md)
+- [MultiChainManager Architecture](../architecture/multi-chain-manager.md)
+- [Per-Chain Configuration Reference](../getting-started/chain-config.md)
+- [Multi-Genesis Generation Guide](../getting-started/multi-genesis.md)
+- [Chain Lifecycle Management CLI](../cli/chain-management.md)
+
+## 🚀 Dependencies
+
+### New Dependencies
+- None (activates existing dead-code infrastructure)
+
+### Updated Dependencies
+- Blockchain node v0.6.4+
+- CLI v0.6.4+ (for `aitbc chain start/stop/list` commands)
+
+## 🔐 Security Considerations
+
+- Each chain's block hash includes `chain_id` — prevents cross-chain block replay (already verified)
+- Chains share the same validator set — a compromised validator can produce blocks on all chains
+- Per-chain block production can be disabled (`block_production_chains`) — follower chains don't produce
+- Dynamic chain start/stop must be admin-gated (not user-modifiable)
+- Genesis files must be generated securely (shared validator keys)
+
+## 📈 Performance Targets
+
+- Multi-chain overhead: <10% per additional chain (vs. single-chain baseline)
+- Block production independence: no cross-chain blocking
+- MultiChainManager memory: <5MB per additional chain
+- Chain health check interval: 60s (configurable)
+- Dynamic chain start time: <5 seconds
+
+## 🎯 Success Criteria
+
+- ✅ Island hosts 2+ chains producing blocks simultaneously
+- ✅ Each chain has independent block height, state, and mempool
+- ✅ MultiChainManager activated and managing chain lifecycle
+- ✅ `IslandMembership` holds multiple chain_ids
+- ✅ Dynamic chain start/stop works without node restart
+- ✅ Per-chain genesis generation works
+- ✅ Backward compatible: single-chain config still works
+- ✅ All existing tests pass
+
+## 🚀 Next Steps
+
+### v0.6.5 — Agent Coordination Service
+- Agent registration, task queues, swarm coordination, workflow execution, blockchain payment integration (builds on v0.6.4 multi-chain foundation — agents coordinate across chains)
+
+### v0.6.6 — Compute Marketplace
+- GPU offers, edge serving, marketplace matching, blockchain-backed service registration (builds on v0.6.5 agent coordination for task assignment)
+
+### v0.6.7 — Pool Hub & Mining
+- Miner registry, job assignment, scoring engine, reward distribution (builds on v0.6.6 marketplace for compute provider management)
+
+### v0.7.0 — Bridge Basics
+- Cross-chain bridge (requires v0.6.4 for multi-chain islands — bridging between chains that may be on the same island or different islands)
+
+### v0.8.0 — Inter-Chain Trading Basics
+- Inter-chain trading (requires v0.6.4 for multi-chain islands — trading between chains on the same island and across islands)
+
+### Future: Multi-Validator Consensus
+- Activate `MultiValidatorPoA` / `PBFT` (currently dead code)
+- Multi-validator consensus per chain
+- Validator rotation and slashing
+- Shared validator set across chains on an island
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 0.6.4*
+*Status: Planned*

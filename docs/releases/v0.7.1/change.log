@@ -1,0 +1,270 @@
+# AITBC v0.7.1 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Bridge Security Layer — Multi-Sig, Cross-Chain Signature Verification, Time-Locks, Auditing
+
+## 🎯 Overview
+
+AITBC v0.7.1 adds the security-critical layer to the cross-chain bridge: multi-signature validation, cross-chain signature verification, time-locked transaction processing, and bridge event auditing. This is the security foundation that makes the bridge safe to use for value transfers — without it, the bridge is vulnerable to single-key compromise and replay attacks.
+
+**Why this is a dedicated release**: Multi-sig bridge validation and cross-chain signature verification are the security-critical core of the bridge. If implemented wrong, the bridge is drainable (this is how Wormhole $325M, Ronin $625M, and Poly Network $611M were hacked). This work requires:
+- Threshold signature schemes with validator set management across chains
+- Light client verification (verifying a proof was signed by the correct validator set at the correct block height)
+- Handling validator set changes during in-flight transfers
+- External security audit before merge
+
+Bundling this with basic bridge RPC endpoints (as in the original v0.7.0 plan) would result in the security work being rushed or blocking the entire release.
+
+**Prerequisites**: Requires [v0.7.0](../v0.7.0/change.log) (Bridge Basics — lock/unlock, RPC, simple transfers) and [v0.5.16](../v0.5.16/change.log) (Multi-Chain Preparation — minimum viable bridge proof verification with proposer signatures, which v0.7.1 upgrades to full multi-sig + light client).
+
+## 🎯 Release Highlights
+
+### Multi-Signature Bridge Validation
+- 🚧 Threshold signature schemes for bridge operations
+- 🚧 Validator set management across chains
+- 🚧 Signature aggregation
+- 🚧 Handling validator set changes during in-flight transfers
+- 🚧 Configurable threshold (M-of-N)
+
+### Cross-Chain Signature Verification
+- 🚧 Verify proofs were signed by the correct source-chain validator set
+- 🚧 Block-height-anchored signature verification
+- 🚧 Light client verification of source chain state
+- 🚧 Replay attack prevention
+- 🚧 Cross-chain proof validation framework
+
+### Time-Locked Transaction Processing
+- 🚧 Time-locked bridge transfers for large value
+- 🚧 Configurable time-lock periods
+- 🚧 Timeout-based refund mechanisms
+- 🚧 Time-lock challenge period
+- 🚧 Emergency override (multi-sig gated)
+
+### Bridge Event Auditing
+- 🚧 Comprehensive audit trail for all bridge operations
+- 🚧 Bridge event logging and indexing
+- 🚧 Anomaly detection on bridge events
+- 🚧 Audit trail export and verification
+
+## 📋 Detailed Features
+
+### Multi-Signature Validation
+
+#### Threshold Configuration
+```bash
+# /etc/aitbc/bridge.env
+BRIDGE_MULTISIG_ENABLED=true
+BRIDGE_MULTISIG_THRESHOLD=3
+BRIDGE_MULTISIG_VALIDATORS=5
+BRIDGE_MULTISIG_TIMEOUT=3600
+```
+
+#### Validator Set Management
+- Register validator public keys per chain
+- Track validator set epochs
+- Handle validator set rotation during in-flight transfers
+- Slash validators that sign invalid bridge state
+
+#### Signature Aggregation
+- Aggregate multiple validator signatures into compact proof
+- Verify aggregated signature against threshold
+- Reject transfers below threshold
+- Log signature participation for auditing
+
+### Cross-Chain Signature Verification
+
+#### Light Client Verification
+- Maintain light client state for each connected chain
+- Verify proof was signed by validator set at claimed block height
+- Detect validator set changes and update light client state
+- Reject proofs from stale validator sets
+
+#### Replay Attack Prevention
+- Track processed proof hashes (already in v0.7.0 `_processed_proofs`)
+- Add chain-specific nonces to prevent cross-chain replay
+- Time-window validation for proof freshness
+
+### Time-Locked Transaction Processing
+
+#### Time-Lock Lifecycle
+1. **Initiate**: Lock funds with time-lock period (e.g., 24h for large transfers)
+2. **Challenge**: During challenge period, validators can flag suspicious transfers
+3. **Release**: After challenge period with no flags, release funds
+4. **Refund**: If flagged and confirmed invalid, refund to sender
+5. **Emergency override**: Multi-sig gated emergency pause/refund
+
+#### Configuration
+```bash
+# Time-lock thresholds based on transfer value
+BRIDGE_TIMELOCK_THRESHOLD_SMALL=1000      # No time-lock below 1000 AIT
+BRIDGE_TIMELOCK_THRESHOLD_MEDIUM=10000    # 1h time-lock for 1K-10K AIT
+BRIDGE_TIMELOCK_THRESHOLD_LARGE=100000    # 24h time-lock for 10K-100K AIT
+BRIDGE_TIMELOCK_THRESHOLD_HUGE=1000000    # 72h time-lock for 100K+ AIT
+```
+
+### Bridge Event Auditing
+
+#### Audit Trail
+- Every bridge operation logged with: timestamp, transfer_id, signatures, validator participation, proof hash, state transitions
+- Audit log is append-only and cryptographically chained
+- Exportable for external audit verification
+
+#### Anomaly Detection
+- Monitor for: unusual transfer volumes, validator non-participation, proof verification failures, time-lock challenges
+- Alert on: threshold signing failures, validator set changes, emergency pause triggers
+
+### Verified Code Targets (from suggestions.md investigation)
+
+#### Threat Model — Missing
+**Finding**: No `threat_model.md` exists anywhere in the codebase. No dedicated bridge security documentation folder exists.
+**Required**: Create `docs/architecture/bridge-threat-model.md` before coding starts. Must cover:
+- Attack surfaces (bridge RPC, proof verification, multi-sig, validator set)
+- Attack vectors (forged proofs, signature replay, validator key compromise)
+- Mitigations (signature verification, finality thresholds, validator set tracking)
+- Residual risk after mitigations
+
+#### Security Audit — Not Sequenced
+**Finding**: External security audit is required before merge but not sequenced. No auditor named, no threat model versioning.
+**Required**:
+1. Freeze bridge RPC API and proof schema first — audit the freeze, not a moving target
+2. Define exact scope for the auditor (which components, which attack vectors)
+3. Sequence: code freeze → threat model → audit → fix findings → merge
+
+## 🔧 Breaking Changes
+
+- Bridge operations now require multi-sig configuration (single-sig deprecated)
+- Bridge RPC responses include signature and validator participation fields
+- Time-locks add latency to large transfers (configurable)
+
+## 📊 Migration Guide
+
+### v0.7.0 → v0.7.1
+
+1. **Configure multi-sig validators**
+   ```bash
+   # Register validator keys for each chain
+   aitbc bridge register-validator --chain-id ait-hub --pubkey 0x...
+   aitbc bridge register-validator --chain-id ait-island1 --pubkey 0x...
+   ```
+
+2. **Set threshold**
+   ```bash
+   # /etc/aitbc/bridge.env
+   BRIDGE_MULTISIG_ENABLED=true
+   BRIDGE_MULTISIG_THRESHOLD=3
+   BRIDGE_MULTISIG_VALIDATORS=5
+   ```
+
+3. **Configure time-locks**
+   ```bash
+   BRIDGE_TIMELOCK_ENABLED=true
+   BRIDGE_TIMELOCK_THRESHOLD_MEDIUM=10000
+   ```
+
+4. **Restart services**
+   ```bash
+   systemctl restart aitbc-blockchain-node
+   ```
+
+5. **Verify security configuration**
+   ```bash
+   aitbc bridge security-status
+   ```
+
+## 🖥️ CLI Commands
+
+### New Commands
+- `aitbc bridge security-status` — Show bridge security status (multi-sig config, signature verification status)
+  - Currently missing: `bridge` group only has `start`, `status`, `stop`
+  - Implementation: Add `security-status` subcommand to `cli/aitbc_cli/commands/bridge.py`
+- `aitbc bridge register-validator` — Register a validator for bridge operations
+  - Currently missing: `bridge` group lacks this subcommand
+  - Implementation: Add `register-validator` subcommand to `cli/aitbc_cli/commands/bridge.py`
+
+## 🧪 Testing
+
+### Multi-Sig Testing
+- Threshold signature generation and verification
+- Validator set rotation during in-flight transfers
+- Below-threshold rejection
+- Validator non-participation handling
+- Signature aggregation correctness
+
+### Cross-Chain Verification Testing
+- Valid proof verification
+- Invalid proof rejection
+- Stale validator set detection
+- Replay attack prevention
+- Block height anchoring
+
+### Time-Lock Testing
+- Time-lock enforcement for large transfers
+- Challenge period flagging
+- Timeout-based refund
+- Emergency override (multi-sig gated)
+- Time-lock bypass attempts
+
+### Audit Testing
+- Audit trail completeness
+- Audit trail integrity (cryptographic chaining)
+- Anomaly detection triggers
+- Audit log export
+
+### Test Coverage Goals
+- Multi-sig validation: >95%
+- Cross-chain signature verification: >95%
+- Time-lock processing: >90%
+- Bridge auditing: >90%
+
+## 📚 Documentation
+
+- [Bridge Security Architecture](../security/bridge-security.md)
+- [Multi-Sig Configuration Guide](../getting-started/bridge-multisig.md)
+- [Time-Lock Configuration](../getting-started/bridge-timelocks.md)
+- [Bridge Audit Guide](../security/bridge-audit.md)
+
+## 🚀 Dependencies
+
+### New Dependencies
+- Threshold signature libraries (BLS, Schnorr)
+- Light client verification libraries
+
+### Updated Dependencies
+- Blockchain node v0.7.1+
+- Bridge service v0.7.1+
+
+## 🔐 Security Considerations
+
+- **External security audit required before merge**
+- Multi-sig threshold must be set conservatively (recommend 3-of-5 minimum)
+- Time-lock periods must account for chain reorg depth
+- Validator key management must use HSM or secure enclaves
+- Audit trail must be tamper-evident and exportable
+- Emergency pause must require multi-sig (no single-key override)
+
+## 🎯 Success Criteria
+
+- ✅ Multi-sig validation operational with configurable threshold
+- ✅ Cross-chain signature verification prevents invalid transfers
+- ✅ Time-locks enforced for large transfers
+- ✅ Comprehensive audit trail for all bridge operations
+- ✅ External security audit passed
+- ✅ No bridge vulnerabilities found in penetration testing
+
+## 🚀 Next Steps
+
+### v0.7.2 — Bridge Oracle & Verification
+- Bridge oracle integration
+- Advanced cross-chain proof verification
+- Cross-chain identity mapping
+- Light client synchronization
+
+### v0.8.0 — Inter-Chain Trading Basics
+- Island registry, chain discovery, trade requests, matching (requires v0.7.1 for secure escrow)
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 0.7.1*
+*Status: Planned*

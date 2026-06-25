@@ -12,6 +12,7 @@ from aitbc.rate_limiting import rate_limit
 from ..config import settings
 from ..logger import get_logger
 from ..mempool import get_mempool as get_mempool_instance
+from .auth import get_authenticated_address
 from .accounts import (
     create_account,
     faucet_request,
@@ -55,8 +56,20 @@ try:
         submit_evidence,
         verify_evidence,
     )
-except ImportError:
-    _logger.warning("Disputes module not available")
+except ImportError as e:
+    _logger.warning("Disputes module not available: %s — endpoints will return 503", e)
+    file_dispute = None
+    submit_evidence = None
+    verify_evidence = None
+    submit_arbitration_vote = None
+    authorize_arbitrator = None
+    get_active_disputes = None
+    get_authorized_arbitrators = None
+    get_arbitrator_disputes = None
+    get_user_disputes = None
+    get_dispute = None
+    get_dispute_evidence = None
+    get_arbitration_votes = None
 try:
     from ..models.dispute import (
         AuthorizeArbitratorRequest,
@@ -73,8 +86,21 @@ try:
         VerifyEvidenceRequest,
         VerifyEvidenceResponse,
     )
-except ImportError:
-    _logger.warning("Dispute models not available")
+except ImportError as e:
+    _logger.warning("Dispute models not available: %s — endpoints will return 503", e)
+    AuthorizeArbitratorRequest = None
+    AuthorizeArbitratorResponse = None
+    FileDisputeRequest = None
+    FileDisputeResponse = None
+    GetArbitrationVotesResponse = None
+    GetDisputeResponse = None
+    GetEvidenceResponse = None
+    SubmitArbitrationVoteRequest = None
+    SubmitArbitrationVoteResponse = None
+    SubmitEvidenceRequest = None
+    SubmitEvidenceResponse = None
+    VerifyEvidenceRequest = None
+    VerifyEvidenceResponse = None
 try:
     from .contracts import (
         call_contract,
@@ -92,24 +118,22 @@ try:
         verify_contract,
         vote_message,
     )
-except ImportError:
-    _logger.warning("Contracts module not available")
-    from .contracts_stub import (
-        call_contract,
-        create_forum_topic,
-        deploy_contract,
-        deploy_messaging_contract,
-        get_agent_reputation,
-        get_forum_topics,
-        get_messaging_contract_state,
-        get_topic_messages,
-        list_contracts,
-        moderate_message,
-        post_message,
-        search_messages,
-        verify_contract,
-        vote_message,
-    )
+except ImportError as e:
+    _logger.warning("Contracts module not available: %s — endpoints will return 503", e)
+    call_contract = None
+    create_forum_topic = None
+    deploy_contract = None
+    deploy_messaging_contract = None
+    get_agent_reputation = None
+    get_forum_topics = None
+    get_messaging_contract_state = None
+    get_topic_messages = None
+    list_contracts = None
+    moderate_message = None
+    post_message = None
+    search_messages = None
+    verify_contract = None
+    vote_message = None
 
 try:
     from .islands import (
@@ -125,8 +149,8 @@ try:
         list_islands,
         request_bridge,
     )
-except ImportError:
-    _logger.warning("Islands module not available")
+except ImportError as e:
+    _logger.warning("Islands module not available: %s — endpoints will return 503", e)
     join_island = None
     leave_island = None
     list_islands = None
@@ -140,8 +164,8 @@ except ImportError:
     BridgeRequestResponse = None
 try:
     from .bridge import bridge_confirm, bridge_lock, get_bridge_transfer, list_pending_transfers
-except ImportError:
-    _logger.warning("Bridge module not available")
+except ImportError as e:
+    _logger.warning("Bridge module not available: %s — endpoints will return 503", e)
     bridge_lock = None
     bridge_confirm = None
     get_bridge_transfer = None
@@ -158,8 +182,8 @@ try:
         unstake_tokens,
         verify_agent_identity,
     )
-except ImportError:
-    _logger.warning("Staking module not available")
+except ImportError as e:
+    _logger.warning("Staking module not available: %s — endpoints will return 503", e)
     stake_tokens = None
     unstake_tokens = None
     get_staking_info = None
@@ -173,8 +197,8 @@ security = HTTPBearer(auto_error=False)
 router = APIRouter()
 try:
     from .gpu_resources import *  # noqa: F403
-except ImportError:
-    _logger.warning("GPU resources module not available")
+except ImportError as e:
+    _logger.warning("GPU resources module not available: %s — endpoints will return 503", e)
 _last_import_time = 0
 _import_lock = asyncio.Lock()
 
@@ -395,6 +419,8 @@ async def file_dispute_route(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
 ) -> FileDisputeResponse:
     """File a new dispute for a marketplace transaction"""
+    if file_dispute is None:
+        raise HTTPException(status_code=503, detail="Disputes module not available")
     return await file_dispute(request, http_request, credentials)
 
 
@@ -405,6 +431,8 @@ async def submit_evidence_route(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
 ) -> SubmitEvidenceResponse:
     """Submit evidence for a dispute"""
+    if submit_evidence is None:
+        raise HTTPException(status_code=503, detail="Disputes module not available")
     return await submit_evidence(request, http_request, credentials)
 
 
@@ -415,6 +443,8 @@ async def verify_evidence_route(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
 ) -> VerifyEvidenceResponse:
     """Verify evidence submitted in a dispute"""
+    if verify_evidence is None:
+        raise HTTPException(status_code=503, detail="Disputes module not available")
     return await verify_evidence(request, http_request, credentials)
 
 
@@ -425,6 +455,8 @@ async def submit_arbitration_vote_route(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
 ) -> SubmitArbitrationVoteResponse:
     """Submit an arbitration vote for a dispute"""
+    if submit_arbitration_vote is None:
+        raise HTTPException(status_code=503, detail="Disputes module not available")
     return await submit_arbitration_vote(request, http_request, credentials)
 
 
@@ -435,42 +467,56 @@ async def authorize_arbitrator_route(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
 ) -> AuthorizeArbitratorResponse:
     """Authorize a new arbitrator"""
+    if authorize_arbitrator is None:
+        raise HTTPException(status_code=503, detail="Disputes module not available")
     return await authorize_arbitrator(request, http_request, credentials)
 
 
 @router.get("/disputes/active", summary="Get all active disputes")
 async def get_active_disputes_route() -> dict[str, Any]:
     """Get all active disputes"""
+    if get_active_disputes is None:
+        raise HTTPException(status_code=503, detail="Disputes module not available")
     return await get_active_disputes()
 
 
 @router.get("/disputes/arbitrators", summary="Get all authorized arbitrators")
 async def get_authorized_arbitrators_route() -> dict[str, Any]:
     """Get all authorized arbitrators"""
+    if get_authorized_arbitrators is None:
+        raise HTTPException(status_code=503, detail="Disputes module not available")
     return await get_authorized_arbitrators()
 
 
 @router.get("/disputes/arbitrators/{arbitrator_address}", summary="Get disputes for an arbitrator")
 async def get_arbitrator_disputes_route(arbitrator_address: str) -> dict[str, Any]:
     """Get all disputes assigned to an arbitrator"""
+    if get_arbitrator_disputes is None:
+        raise HTTPException(status_code=503, detail="Disputes module not available")
     return await get_arbitrator_disputes(arbitrator_address)
 
 
 @router.get("/disputes/user/{user_address}", summary="Get disputes for a user")
 async def get_user_disputes_route(user_address: str) -> dict[str, Any]:
     """Get all disputes for a specific user"""
+    if get_user_disputes is None:
+        raise HTTPException(status_code=503, detail="Disputes module not available")
     return await get_user_disputes(user_address)
 
 
 @router.get("/disputes/{dispute_id}", summary="Get dispute details")
 async def get_dispute_route(dispute_id: int) -> GetDisputeResponse:
     """Get details of a specific dispute"""
+    if get_dispute is None:
+        raise HTTPException(status_code=503, detail="Disputes module not available")
     return await get_dispute(dispute_id)
 
 
 @router.get("/disputes/{dispute_id}/evidence", summary="Get evidence for a dispute")
 async def get_dispute_evidence_route(dispute_id: int) -> list[GetEvidenceResponse]:
     """Get all evidence submitted for a dispute"""
+    if get_dispute_evidence is None:
+        raise HTTPException(status_code=503, detail="Disputes module not available")
     return await get_dispute_evidence(dispute_id)
 
 
@@ -484,6 +530,8 @@ async def get_arbitration_votes_route(dispute_id: int) -> list[GetArbitrationVot
 @rate_limit(rate=50, per=60)
 async def deploy_messaging_contract_route(request: Request, deploy_data: dict) -> dict[str, Any]:
     """Deploy the agent messaging contract to the blockchain"""
+    if deploy_messaging_contract is None:
+        raise HTTPException(status_code=503, detail="Contracts module not available")
     return await deploy_messaging_contract(request, deploy_data)
 
 
@@ -491,6 +539,8 @@ async def deploy_messaging_contract_route(request: Request, deploy_data: dict) -
 @rate_limit(rate=200, per=60)
 async def list_contracts_route(request: Request) -> dict[str, Any]:
     """List all deployed contracts"""
+    if list_contracts is None:
+        raise HTTPException(status_code=503, detail="Contracts module not available")
     return await list_contracts(request)
 
 
@@ -498,6 +548,8 @@ async def list_contracts_route(request: Request) -> dict[str, Any]:
 @rate_limit(rate=50, per=60)
 async def deploy_contract_route(request: Request, deploy_data: dict) -> dict[str, Any]:
     """Deploy a new smart contract to the blockchain"""
+    if deploy_contract is None:
+        raise HTTPException(status_code=503, detail="Contracts module not available")
     return await deploy_contract(request, deploy_data)
 
 
@@ -505,6 +557,8 @@ async def deploy_contract_route(request: Request, deploy_data: dict) -> dict[str
 @rate_limit(rate=50, per=60)
 async def call_contract_route(request: Request, call_data: dict) -> dict[str, Any]:
     """Call a method on a deployed contract"""
+    if call_contract is None:
+        raise HTTPException(status_code=503, detail="Contracts module not available")
     return await call_contract(request, call_data)
 
 
@@ -512,6 +566,8 @@ async def call_contract_route(request: Request, call_data: dict) -> dict[str, An
 @rate_limit(rate=50, per=60)
 async def verify_contract_route(request: Request, verify_data: dict) -> dict[str, Any]:
     """Verify a ZK proof against a contract"""
+    if verify_contract is None:
+        raise HTTPException(status_code=503, detail="Contracts module not available")
     return await verify_contract(request, verify_data)
 
 
@@ -519,6 +575,8 @@ async def verify_contract_route(request: Request, verify_data: dict) -> dict[str
 @rate_limit(rate=200, per=60)
 async def get_messaging_contract_state_route(request: Request) -> dict[str, Any]:
     """Get the current state of the messaging contract"""
+    if get_messaging_contract_state is None:
+        raise HTTPException(status_code=503, detail="Contracts module not available")
     return await get_messaging_contract_state(request)
 
 
@@ -528,6 +586,8 @@ async def get_forum_topics_route(
     request: Request, limit: int = 50, offset: int = 0, sort_by: str = "last_activity"
 ) -> dict[str, Any]:
     """Get list of forum topics"""
+    if get_forum_topics is None:
+        raise HTTPException(status_code=503, detail="Contracts module not available")
     return await get_forum_topics(request, limit, offset, sort_by)
 
 
@@ -535,6 +595,8 @@ async def get_forum_topics_route(
 @rate_limit(rate=50, per=60)
 async def create_forum_topic_route(request: Request, topic_data: dict) -> dict[str, Any]:
     """Create a new forum topic"""
+    if create_forum_topic is None:
+        raise HTTPException(status_code=503, detail="Contracts module not available")
     return await create_forum_topic(request, topic_data)
 
 
@@ -544,6 +606,8 @@ async def get_topic_messages_route(
     request: Request, topic_id: str, limit: int = 50, offset: int = 0, sort_by: str = "timestamp"
 ) -> dict[str, Any]:
     """Get messages from a forum topic"""
+    if get_topic_messages is None:
+        raise HTTPException(status_code=503, detail="Contracts module not available")
     return await get_topic_messages(request, topic_id, limit, offset, sort_by)
 
 
@@ -551,6 +615,8 @@ async def get_topic_messages_route(
 @rate_limit(rate=50, per=60)
 async def post_message_route(request: Request, message_data: dict) -> dict[str, Any]:
     """Post a message to a forum topic"""
+    if post_message is None:
+        raise HTTPException(status_code=503, detail="Contracts module not available")
     return await post_message(request, message_data)
 
 
@@ -558,6 +624,8 @@ async def post_message_route(request: Request, message_data: dict) -> dict[str, 
 @rate_limit(rate=50, per=60)
 async def vote_message_route(request: Request, message_id: str, vote_data: dict) -> dict[str, Any]:
     """Vote on a message (upvote/downvote)"""
+    if vote_message is None:
+        raise HTTPException(status_code=503, detail="Contracts module not available")
     return await vote_message(request, message_id, vote_data)
 
 
@@ -565,6 +633,8 @@ async def vote_message_route(request: Request, message_id: str, vote_data: dict)
 @rate_limit(rate=200, per=60)
 async def search_messages_route(request: Request, query: str, limit: int = 50) -> dict[str, Any]:
     """Search messages by content"""
+    if search_messages is None:
+        raise HTTPException(status_code=503, detail="Contracts module not available")
     return await search_messages(request, query, limit)
 
 
@@ -572,6 +642,8 @@ async def search_messages_route(request: Request, query: str, limit: int = 50) -
 @rate_limit(rate=200, per=60)
 async def get_agent_reputation_route(request: Request, agent_id: str) -> dict[str, Any]:
     """Get agent reputation information"""
+    if get_agent_reputation is None:
+        raise HTTPException(status_code=503, detail="Contracts module not available")
     return await get_agent_reputation(request, agent_id)
 
 
@@ -579,6 +651,8 @@ async def get_agent_reputation_route(request: Request, agent_id: str) -> dict[st
 @rate_limit(rate=50, per=60)
 async def moderate_message_route(request: Request, message_id: str, moderation_data: dict) -> dict[str, Any]:
     """Moderate a message (moderator only)"""
+    if moderate_message is None:
+        raise HTTPException(status_code=503, detail="Contracts module not available")
     return await moderate_message(request, message_id, moderation_data)
 
 
@@ -614,7 +688,7 @@ async def get_logs_route(request: Request, logs_request: GetLogsRequest, chain_i
 async def join_island_route(request: JoinIslandRequest) -> JoinIslandResponse:
     """Join an island for edge compute operations"""
     if join_island is None:
-        raise HTTPException(status_code=501, detail="Islands module not available")
+        raise HTTPException(status_code=503, detail="Islands module not available")
     return await join_island(request)
 
 
@@ -622,7 +696,7 @@ async def join_island_route(request: JoinIslandRequest) -> JoinIslandResponse:
 async def leave_island_route(request: LeaveIslandRequest) -> LeaveIslandResponse:
     """Leave an island"""
     if leave_island is None:
-        raise HTTPException(status_code=501, detail="Islands module not available")
+        raise HTTPException(status_code=503, detail="Islands module not available")
     return await leave_island(request)
 
 
@@ -631,7 +705,7 @@ async def leave_island_route(request: LeaveIslandRequest) -> LeaveIslandResponse
 async def list_islands_route() -> dict[str, Any]:
     """List all islands that the node is a member of"""
     if list_islands is None:
-        raise HTTPException(status_code=501, detail="Islands module not available")
+        raise HTTPException(status_code=503, detail="Islands module not available")
     return await list_islands()
 
 
@@ -640,7 +714,7 @@ async def list_islands_route() -> dict[str, Any]:
 async def get_island_route(island_id: str) -> dict[str, Any]:
     """Get details about a specific island"""
     if get_island is None:
-        raise HTTPException(status_code=501, detail="Islands module not available")
+        raise HTTPException(status_code=503, detail="Islands module not available")
     return await get_island(island_id)
 
 
@@ -648,7 +722,7 @@ async def get_island_route(island_id: str) -> dict[str, Any]:
 async def request_bridge_route(request: BridgeRequestRequest) -> BridgeRequestResponse:
     """Request a bridge to another island for cross-island communication"""
     if request_bridge is None:
-        raise HTTPException(status_code=501, detail="Islands module not available")
+        raise HTTPException(status_code=503, detail="Islands module not available")
     return await request_bridge(request)
 
 
@@ -657,7 +731,7 @@ async def request_bridge_route(request: BridgeRequestRequest) -> BridgeRequestRe
 async def bridge_lock_route(request: Request, lock_data: dict) -> dict[str, Any]:
     """Initiate a cross-chain bridge transfer by locking funds"""
     if bridge_lock is None:
-        raise HTTPException(status_code=501, detail="Bridge module not available")
+        raise HTTPException(status_code=503, detail="Bridge module not available")
     return await bridge_lock(request, lock_data)
 
 
@@ -666,7 +740,7 @@ async def bridge_lock_route(request: Request, lock_data: dict) -> dict[str, Any]
 async def bridge_confirm_route(request: Request, confirm_data: dict) -> dict[str, Any]:
     """Confirm a cross-chain bridge transfer and release funds"""
     if bridge_confirm is None:
-        raise HTTPException(status_code=501, detail="Bridge module not available")
+        raise HTTPException(status_code=503, detail="Bridge module not available")
     return await bridge_confirm(request, confirm_data)
 
 
@@ -675,7 +749,7 @@ async def bridge_confirm_route(request: Request, confirm_data: dict) -> dict[str
 async def get_bridge_transfer_route(request: Request, transfer_id: str) -> dict[str, Any]:
     """Get the status of a cross-chain transfer"""
     if get_bridge_transfer is None:
-        raise HTTPException(status_code=501, detail="Bridge module not available")
+        raise HTTPException(status_code=503, detail="Bridge module not available")
     return await get_bridge_transfer(request, transfer_id)
 
 
@@ -684,7 +758,7 @@ async def get_bridge_transfer_route(request: Request, transfer_id: str) -> dict[
 async def list_pending_transfers_route(request: Request, chain_id: str | None = None) -> list[dict[str, Any]]:
     """List all pending cross-chain transfers"""
     if list_pending_transfers is None:
-        raise HTTPException(status_code=501, detail="Bridge module not available")
+        raise HTTPException(status_code=503, detail="Bridge module not available")
     return await list_pending_transfers(request, chain_id)
 
 
@@ -693,7 +767,7 @@ async def list_pending_transfers_route(request: Request, chain_id: str | None = 
 async def stake_tokens_route(request: Request, stake_data: dict) -> dict[str, Any]:
     """Stake tokens for consensus participation"""
     if stake_tokens is None:
-        raise HTTPException(status_code=501, detail="Staking module not available")
+        raise HTTPException(status_code=503, detail="Staking module not available")
     return await stake_tokens(request, stake_data)
 
 
@@ -702,7 +776,7 @@ async def stake_tokens_route(request: Request, stake_data: dict) -> dict[str, An
 async def unstake_tokens_route(request: Request, unstake_data: dict) -> dict[str, Any]:
     """Unstake tokens after lock period expires"""
     if unstake_tokens is None:
-        raise HTTPException(status_code=501, detail="Staking module not available")
+        raise HTTPException(status_code=503, detail="Staking module not available")
     return await unstake_tokens(request, unstake_data)
 
 
@@ -711,7 +785,7 @@ async def unstake_tokens_route(request: Request, unstake_data: dict) -> dict[str
 async def get_staking_info_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get staking information for an address"""
     if get_staking_info is None:
-        raise HTTPException(status_code=501, detail="Staking module not available")
+        raise HTTPException(status_code=503, detail="Staking module not available")
     return await get_staking_info(request, address, chain_id)
 
 
@@ -720,7 +794,7 @@ async def get_staking_info_route(request: Request, address: str, chain_id: str |
 async def register_agent_identity_route(request: Request, identity_data: dict) -> dict[str, Any]:
     """Register an agent identity on the blockchain"""
     if register_agent_identity is None:
-        raise HTTPException(status_code=501, detail="Identity module not available")
+        raise HTTPException(status_code=503, detail="Identity module not available")
     return await register_agent_identity(request, identity_data)
 
 
@@ -729,7 +803,7 @@ async def register_agent_identity_route(request: Request, identity_data: dict) -
 async def get_agent_identity_route(request: Request, agent_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get agent identity from blockchain"""
     if get_agent_identity is None:
-        raise HTTPException(status_code=501, detail="Identity module not available")
+        raise HTTPException(status_code=503, detail="Identity module not available")
     return await get_agent_identity(request, agent_id, chain_id)
 
 
@@ -738,7 +812,7 @@ async def get_agent_identity_route(request: Request, agent_id: str, chain_id: st
 async def verify_agent_identity_route(request: Request, verification_data: dict) -> dict[str, Any]:
     """Verify an agent identity on the blockchain"""
     if verify_agent_identity is None:
-        raise HTTPException(status_code=501, detail="Identity module not available")
+        raise HTTPException(status_code=503, detail="Identity module not available")
     return await verify_agent_identity(request, verification_data)
 
 
@@ -747,7 +821,7 @@ async def verify_agent_identity_route(request: Request, verification_data: dict)
 async def create_governance_proposal_route(request: Request, proposal_data: dict) -> dict[str, Any]:
     """Create a governance proposal on the blockchain"""
     if create_governance_proposal is None:
-        raise HTTPException(status_code=501, detail="Governance module not available")
+        raise HTTPException(status_code=503, detail="Governance module not available")
     return await create_governance_proposal(request, proposal_data)
 
 
@@ -756,7 +830,7 @@ async def create_governance_proposal_route(request: Request, proposal_data: dict
 async def cast_governance_vote_route(request: Request, vote_data: dict) -> dict[str, Any]:
     """Cast a vote on a governance proposal"""
     if cast_governance_vote is None:
-        raise HTTPException(status_code=501, detail="Governance module not available")
+        raise HTTPException(status_code=503, detail="Governance module not available")
     return await cast_governance_vote(request, vote_data)
 
 
@@ -765,14 +839,20 @@ async def cast_governance_vote_route(request: Request, vote_data: dict) -> dict[
 async def get_governance_proposal_route(request: Request, proposal_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get a governance proposal from the blockchain"""
     if get_governance_proposal is None:
-        raise HTTPException(status_code=501, detail="Governance module not available")
+        raise HTTPException(status_code=503, detail="Governance module not available")
     return await get_governance_proposal(request, proposal_id, chain_id)
 
 
 @router.post("/mining/start", summary="Start mining")
 @rate_limit(rate=10, per=60)
-async def start_mining_route(request: Request, mining_data: dict) -> dict[str, Any]:
-    """Start mining with specified wallet"""
+async def start_mining_route(
+    request: Request,
+    mining_data: dict,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
+) -> dict[str, Any]:
+    """Start mining with specified wallet (requires admin authentication)"""
+    # Bug 9: Add admin authentication to mining endpoints
+    admin_address = get_authenticated_address(request, credentials)
     miner_address = mining_data.get("miner_address")
     threads = mining_data.get("threads", 1)
     if not miner_address:
@@ -784,14 +864,20 @@ async def start_mining_route(request: Request, mining_data: dict) -> dict[str, A
         "threads": threads,
         "enabled": True,
         "started_at": datetime.now(UTC).isoformat(),
+        "authorized_by": admin_address,
     }
     return {"status": "started", "miner_address": miner_address, "threads": threads, "message": "Mining started successfully"}
 
 
 @router.post("/mining/stop", summary="Stop mining")
 @rate_limit(rate=10, per=60)
-async def stop_mining_route(request: Request) -> dict[str, Any]:
-    """Stop all mining operations"""
+async def stop_mining_route(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
+) -> dict[str, Any]:
+    """Stop all mining operations (requires admin authentication)"""
+    # Bug 9: Add admin authentication to mining endpoints
+    get_authenticated_address(request, credentials)
     if hasattr(start_mining_route, "miners"):
         for miner in start_mining_route.miners.values():
             miner["enabled"] = False
@@ -801,8 +887,13 @@ async def stop_mining_route(request: Request) -> dict[str, Any]:
 
 @router.get("/mining/status", summary="Get mining status")
 @rate_limit(rate=100, per=60)
-async def get_mining_status_route(request: Request) -> dict[str, Any]:
-    """Get current mining status"""
+async def get_mining_status_route(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
+) -> dict[str, Any]:
+    """Get current mining status (requires admin authentication)"""
+    # Bug 9: Add admin authentication to mining endpoints
+    get_authenticated_address(request, credentials)
     if not hasattr(start_mining_route, "miners"):
         return {"status": "idle", "miners": [], "active_count": 0}
     active_miners = [m for m in start_mining_route.miners.values() if m.get("enabled", False)]
