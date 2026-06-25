@@ -254,7 +254,7 @@ async def get_zk_status() -> dict[str, Any]:
     """Get the status of ZK features in AITBC"""
 
     # Check if ZK service is enabled
-    from ..services.zk_proofs import ZKProofService  # type: ignore[import-not-found]
+    from ..services.zk_proofs import ZKProofService
 
     zk_service = ZKProofService()
 

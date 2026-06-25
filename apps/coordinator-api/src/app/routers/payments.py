@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from aitbc.rate_limiting import rate_limit
 
-from ..services.payments_service import get_payments_service
+from ..contexts.payments.services.payments_service import get_payments_service
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 

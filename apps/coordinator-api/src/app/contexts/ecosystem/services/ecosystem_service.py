@@ -11,9 +11,9 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 
-from ..contexts.bounty.domain.bounty import Bounty, BountyStatus, BountySubmission
-from ..contexts.ecosystem.domain.ecosystem import EcosystemMetrics
-from ..contexts.staking.domain.staking import AgentMetrics, AgentStake
+from ...bounty.domain.bounty import Bounty, BountyStatus, BountySubmission
+from ..domain.ecosystem import EcosystemMetrics
+from ...staking.domain.staking import AgentMetrics, AgentStake
 
 logger = get_logger(__name__)
 

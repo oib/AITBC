@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 
-from ..contexts.community.domain.community import (
+from ..domain.community import (
     AgentSolution,
     CommunityPost,
     DeveloperProfile,

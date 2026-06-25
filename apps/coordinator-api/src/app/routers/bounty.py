@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ..services.bounty_service import BountyService
+from ..contexts.bounty.services.bounty_service import BountyService
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/bounty", tags=["bounty"])

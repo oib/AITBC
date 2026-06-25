@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
 
-from ..services.zk_proofs_enhanced import get_enhanced_zk_service
+from ..contexts.zk_applications.services.zk_proofs import zk_proof_service
 
 router = APIRouter(prefix="/zk", tags=["zk-proofs"])
 
@@ -70,7 +70,7 @@ async def generate_proof(request: Request, req: GenerateProofRequest) -> ProofRe
     - Without revealing computation details
     """
     try:
-        zk_service = get_enhanced_zk_service()
+        zk_service = zk_proof_service
 
         result = await zk_service.generate_proof(
             job_id=req.job_id,
@@ -110,7 +110,7 @@ async def verify_proof(request: Request, req: VerifyProofRequest) -> Verificatio
     - Timestamp freshness
     """
     try:
-        zk_service = get_enhanced_zk_service()
+        zk_service = zk_proof_service
 
         result = await zk_service.verify_proof(req.proof)
 
@@ -131,7 +131,7 @@ async def verify_proof(request: Request, req: VerifyProofRequest) -> Verificatio
 async def get_circuit_info(request: Request) -> dict[str, Any]:
     """Get information about the ZK circuit and setup parameters"""
     try:
-        zk_service = get_enhanced_zk_service()
+        zk_service = zk_proof_service
         return zk_service.get_circuit_info()
     except Exception as e:
         raise HTTPException(
@@ -143,7 +143,7 @@ async def get_circuit_info(request: Request) -> dict[str, Any]:
 async def health_check(request: Request) -> dict[str, Any]:
     """Check if ZK proof service is operational"""
     try:
-        zk_service = get_enhanced_zk_service()
+        zk_service = zk_proof_service
         info = zk_service.get_circuit_info()
         return {
             "status": "healthy",

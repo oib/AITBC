@@ -14,7 +14,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
-from ..services.oracle_service import get_oracle_service
+from ..contexts.blockchain.services.oracle_service import get_oracle_service
 
 router = APIRouter(prefix="/oracle", tags=["oracle"])
 

@@ -159,7 +159,7 @@ class TestServiceLogic:
     def test_job_service_import(self):
         """Test JobService can be imported"""
         try:
-            from app.services.jobs import JobService
+            from app.contexts.infrastructure.services.jobs import JobService
 
             assert JobService is not None
         except ImportError as e:
@@ -168,7 +168,7 @@ class TestServiceLogic:
     def test_miner_service_import(self):
         """Test MinerService can be imported"""
         try:
-            from app.services.miners import MinerService
+            from app.contexts.infrastructure.services.miners import MinerService
 
             assert MinerService is not None
         except ImportError as e:

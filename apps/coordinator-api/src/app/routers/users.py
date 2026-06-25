@@ -10,7 +10,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from app.services.redis_state import RedisStateManager
+from app.contexts.infrastructure.services.redis_state import RedisStateManager
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
 

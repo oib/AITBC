@@ -1,425 +1,320 @@
 """
-Decentralized Governance Service
-Implements the agent DAO, voting mechanisms, and proposal lifecycle
-Enhanced with multi-jurisdictional support and regional governance
+Governance Service - On-chain proposal and voting system
+
+Provides:
+- Proposal creation
+- Voting with stake-weighted power
+- Proposal execution
+- Governance parameters
 """
 
-import uuid
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from enum import Enum
 from typing import Any
 
-from sqlmodel import Session, select
-
 from aitbc.aitbc_logging import get_logger
-
-from ..domain.governance import (
-    DaoTreasury,
-    GovernanceProfile,
-    GovernanceRole,
-    Proposal,
-    ProposalStatus,
-    TransparencyReport,
-    Vote,
-    VoteType,
-)
 
 logger = get_logger(__name__)
 
 
+class ProposalStatus(Enum):
+    """Status of a governance proposal"""
+
+    pending = "pending"
+    active = "active"
+    passed = "passed"
+    rejected = "rejected"
+    executed = "executed"
+    canceled = "canceled"
+
+
+class ProposalType(Enum):
+    """Types of governance proposals"""
+
+    parameter_change = "parameter_change"
+    upgrade = "upgrade"
+    treasury = "treasury"
+    council = "council"
+
+
+@dataclass
+class Proposal:
+    """Governance proposal"""
+
+    id: str
+    title: str
+    description: str
+    proposer: str
+    proposal_type: ProposalType
+    status: ProposalStatus
+    votes_for: int
+    votes_against: int
+    votes_abstain: int
+    quorum: int
+    threshold: float
+    created_at: datetime
+    voting_start: datetime
+    voting_end: datetime
+    executed_at: datetime | None
+    call_data: dict[str, Any] | None
+    execution_hash: str | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "proposer": self.proposer,
+            "type": self.proposal_type.value,
+            "status": self.status.value,
+            "votes": {
+                "for": self.votes_for,
+                "against": self.votes_against,
+                "abstain": self.votes_abstain,
+                "total": self.votes_for + self.votes_against + self.votes_abstain,
+            },
+            "threshold": {"quorum": self.quorum, "approval": self.threshold},
+            "timeline": {
+                "created": self.created_at.isoformat(),
+                "voting_start": self.voting_start.isoformat(),
+                "voting_end": self.voting_end.isoformat(),
+                "executed": self.executed_at.isoformat() if self.executed_at else None,
+            },
+            "execution": self.call_data,
+        }
+
+
+@dataclass
+class Vote:
+    """Individual vote record"""
+
+    proposal_id: str
+    voter: str
+    choice: str
+    power: int
+    timestamp: datetime
+
+
 class GovernanceService:
-    """Core service for managing DAO operations and voting"""
+    """
+    On-chain governance system.
 
-    def __init__(self, session: Session):
-        self.session = session
+    Implements:
+    - Proposal lifecycle
+    - Stake-weighted voting
+    - Quorum and threshold checks
+    - Proposal execution
+    """
 
-    async def get_or_create_profile(self, user_id: str, initial_voting_power: float = 0.0) -> GovernanceProfile:
-        """Get an existing governance profile or create a new one"""
-        profile = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.user_id == user_id)).first()
-        if not profile:
-            profile = GovernanceProfile(user_id=user_id, voting_power=initial_voting_power)  # type: ignore[assignment]
-            self.session.add(profile)
-            self.session.commit()
-            self.session.refresh(profile)
-        return profile  # type: ignore[return-value]
+    MIN_PROPOSAL_STAKE = 10000
+    VOTING_PERIOD_DAYS = 7
+    QUORUM_PERCENTAGE = 20
+    APPROVAL_THRESHOLD = 50
 
-    async def delegate_votes(self, delegator_id: str, delegatee_id: str) -> GovernanceProfile:
-        """Delegate voting power from one profile to another"""
-        delegator = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.profile_id == delegator_id)).first()
-        delegatee = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.profile_id == delegatee_id)).first()
-        if not delegator or not delegatee:
-            raise ValueError("Delegator or Delegatee not found")
-        if delegator.delegate_to:
-            old_delegatee = self.session.execute(
-                select(GovernanceProfile).where(GovernanceProfile.profile_id == delegator.delegate_to)
-            ).first()
-            if old_delegatee:
-                old_delegatee.delegated_power -= delegator.voting_power
-        delegator.delegate_to = delegatee_id
-        delegatee.delegated_power += delegator.voting_power
-        self.session.commit()
-        self.session.refresh(delegator)
-        self.session.refresh(delegatee)
-        logger.info("Votes delegated from %s to %s", delegator_id, delegatee_id)
-        return delegator  # type: ignore[return-value]
+    def __init__(self, session_factory: Any) -> None:
+        self._session_factory = session_factory
+        self._proposals: dict[str, Proposal] = {}
+        self._votes: dict[str, list[Vote]] = {}
+        self._proposal_counter = 0
 
-    async def create_proposal(self, proposer_id: str, data: dict[str, Any]) -> Proposal:
-        """Create a new governance proposal"""
-        proposer = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.profile_id == proposer_id)).first()
-        if not proposer:
-            raise ValueError("Proposer not found")
-        total_power = proposer.voting_power + proposer.delegated_power
-        if total_power < 100.0:
-            raise ValueError("Insufficient voting power to submit a proposal")
+    def create_proposal(
+        self, title: str, description: str, proposer: str, proposal_type: str, call_data: dict[str, Any] | None = None
+    ) -> Proposal:
+        """
+        Create a new governance proposal.
+
+        Args:
+            title: Proposal title
+            description: Detailed description
+            proposer: Address of proposer
+            proposal_type: Type of proposal
+            call_data: Execution data if proposal passes
+
+        Returns:
+            Created proposal
+        """
+        self._proposal_counter += 1
+        proposal_id = f"PROP-{self._proposal_counter:04d}"
+        try:
+            p_type = ProposalType(proposal_type)
+        except ValueError:
+            p_type = ProposalType.parameter_change
         now = datetime.now(UTC)
-        voting_starts = data.get("voting_starts", now + timedelta(days=1))
-        if isinstance(voting_starts, str):
-            voting_starts = datetime.fromisoformat(voting_starts.replace("Z", "+00:00"))
-        voting_ends = data.get("voting_ends", voting_starts + timedelta(days=7))
-        if isinstance(voting_ends, str):
-            voting_ends = datetime.fromisoformat(voting_ends.replace("Z", "+00:00"))
+        voting_start = now
+        voting_end = now + timedelta(days=self.VOTING_PERIOD_DAYS)
+        execution_hash = None
+        if call_data:
+            execution_hash = hashlib.sha256(json.dumps(call_data, sort_keys=True).encode()).hexdigest()[:32]
         proposal = Proposal(
-            proposer_id=proposer_id,
-            title=data.get("title"),
-            description=data.get("description"),
-            category=data.get("category", "general"),
-            execution_payload=data.get("execution_payload", {}),
-            quorum_required=data.get("quorum_required", 1000.0),
-            voting_starts=voting_starts,
-            voting_ends=voting_ends,
+            id=proposal_id,
+            title=title,
+            description=description,
+            proposer=proposer,
+            proposal_type=p_type,
+            status=ProposalStatus.active,
+            votes_for=0,
+            votes_against=0,
+            votes_abstain=0,
+            quorum=self.MIN_PROPOSAL_STAKE * 10,
+            threshold=self.APPROVAL_THRESHOLD,
+            created_at=now,
+            voting_start=voting_start,
+            voting_end=voting_end,
+            executed_at=None,
+            call_data=call_data,
+            execution_hash=execution_hash,
         )
-        if voting_starts <= now:
-            proposal.status = ProposalStatus.ACTIVE
-        proposer.proposals_created += 1
-        self.session.add(proposal)
-        self.session.add(proposer)
-        self.session.commit()
-        self.session.refresh(proposal)
+        self._proposals[proposal_id] = proposal
+        self._votes[proposal_id] = []
+        logger.info("Proposal created: %s by %s", proposal_id, proposer)
         return proposal
 
-    async def cast_vote(self, proposal_id: str, voter_id: str, vote_type: VoteType, reason: str | None = None) -> Vote:
-        """Cast a vote on an active proposal"""
-        proposal = self.session.execute(select(Proposal).where(Proposal.proposal_id == proposal_id)).first()
-        voter = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.profile_id == voter_id)).first()
-        if not proposal or not voter:
-            raise ValueError("Proposal or Voter not found")
-        now = datetime.now(UTC)
-        if proposal.status != ProposalStatus.ACTIVE or now < proposal.voting_starts or now > proposal.voting_ends:
-            raise ValueError("Proposal is not currently active for voting")
-        existing_vote = self.session.execute(
-            select(Vote).where(Vote.proposal_id == proposal_id).where(Vote.voter_id == voter_id)
-        ).first()
-        if existing_vote:
-            raise ValueError("Voter has already cast a vote on this proposal")
-        power_to_use = voter.voting_power + voter.delegated_power
-        if power_to_use <= 0:
-            raise ValueError("Voter has no voting power")
-        vote = Vote(
-            proposal_id=proposal_id, voter_id=voter_id, vote_type=vote_type, voting_power_used=power_to_use, reason=reason
-        )
-        if vote_type == VoteType.FOR:
-            proposal.votes_for += power_to_use
-        elif vote_type == VoteType.AGAINST:
-            proposal.votes_against += power_to_use
-        else:
-            proposal.votes_abstain += power_to_use
-        voter.total_votes_cast += 1
-        voter.last_voted_at = now
-        self.session.add(vote)
-        self.session.add(proposal)
-        self.session.add(voter)
-        self.session.commit()
-        self.session.refresh(vote)
-        return vote
+    def cast_vote(self, proposal_id: str, voter: str, choice: str, voting_power: int) -> bool:
+        """
+        Cast a vote on a proposal.
 
-    async def process_proposal_lifecycle(self, proposal_id: str) -> Proposal:
-        """Update proposal status based on time and votes"""
-        proposal = self.session.execute(select(Proposal).where(Proposal.proposal_id == proposal_id)).first()
+        Args:
+            proposal_id: Proposal to vote on
+            voter: Voter address
+            choice: "for", "against", or "abstain"
+            voting_power: Stake-weighted voting power
+
+        Returns:
+            True if vote recorded successfully
+        """
+        proposal = self._proposals.get(proposal_id)
         if not proposal:
-            raise ValueError("Proposal not found")
+            raise ValueError(f"Proposal {proposal_id} not found")
+        if proposal.status != ProposalStatus.active:
+            raise ValueError(f"Proposal is not active: {proposal.status.value}")
         now = datetime.now(UTC)
-        if proposal.status == ProposalStatus.DRAFT and now >= proposal.voting_starts:
-            proposal.status = ProposalStatus.ACTIVE
-        elif proposal.status == ProposalStatus.ACTIVE and now > proposal.voting_ends:
-            total_votes = proposal.votes_for + proposal.votes_against + proposal.votes_abstain
-            if total_votes < proposal.quorum_required:
-                proposal.status = ProposalStatus.DEFEATED
-            else:
-                votes_cast = proposal.votes_for + proposal.votes_against
-                if votes_cast == 0:
-                    proposal.status = ProposalStatus.DEFEATED
-                else:
-                    ratio = proposal.votes_for / votes_cast
-                    if ratio >= proposal.passing_threshold:
-                        proposal.status = ProposalStatus.SUCCEEDED
-                        proposer = self.session.execute(
-                            select(GovernanceProfile).where(GovernanceProfile.profile_id == proposal.proposer_id)
-                        ).first()
-                        if proposer:
-                            proposer.proposals_passed += 1
-                            self.session.add(proposer)
-                    else:
-                        proposal.status = ProposalStatus.DEFEATED
-        self.session.add(proposal)
-        self.session.commit()
-        self.session.refresh(proposal)
-        return proposal  # type: ignore[return-value]
+        if now > proposal.voting_end:
+            raise ValueError("Voting period has ended")
+        for vote in self._votes[proposal_id]:
+            if vote.voter == voter:
+                raise ValueError("Already voted on this proposal")
+        vote = Vote(proposal_id=proposal_id, voter=voter, choice=choice, power=voting_power, timestamp=now)
+        self._votes[proposal_id].append(vote)
+        if choice == "for":
+            proposal.votes_for += voting_power
+        elif choice == "against":
+            proposal.votes_against += voting_power
+        elif choice == "abstain":
+            proposal.votes_abstain += voting_power
+        logger.info("Vote cast on %s: %s voted %s (%s power)", proposal_id, voter, choice, voting_power)
+        self._check_proposal_resolution(proposal)
+        return True
 
-    async def execute_proposal(self, proposal_id: str, executor_id: str) -> Proposal:
-        """Execute a successful proposal's payload"""
-        proposal = self.session.execute(select(Proposal).where(Proposal.proposal_id == proposal_id)).first()
-        executor = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.profile_id == executor_id)).first()
-        if not proposal or not executor:
-            raise ValueError("Proposal or Executor not found")
-        if proposal.status != ProposalStatus.SUCCEEDED:
-            raise ValueError("Only SUCCEEDED proposals can be executed")
-        if executor.role not in [GovernanceRole.ADMIN, GovernanceRole.COUNCIL]:
-            raise ValueError("Only Council or Admin members can trigger execution")
-        logger.info("Executing proposal %s payload: %s", proposal_id, proposal.execution_payload)
-        if proposal.category == "funding" and "amount" in proposal.execution_payload:
-            treasury = self.session.execute(select(DaoTreasury).where(DaoTreasury.treasury_id == "main_treasury")).first()
-            if treasury:
-                amount = float(proposal.execution_payload["amount"])
-                if treasury.total_balance - treasury.allocated_funds >= amount:
-                    treasury.allocated_funds += amount
-                    self.session.add(treasury)
-                else:
-                    raise ValueError("Insufficient funds in DAO Treasury for execution")
-        proposal.status = ProposalStatus.EXECUTED
+    def _check_proposal_resolution(self, proposal: Proposal) -> None:
+        """Check if proposal meets resolution criteria"""
+        total_votes = proposal.votes_for + proposal.votes_against + proposal.votes_abstain
+        if total_votes < proposal.quorum:
+            return
+        if datetime.now(UTC) < proposal.voting_end:
+            return
+        total_for_against = proposal.votes_for + proposal.votes_against
+        if total_for_against == 0:
+            approval_pct = 0.0
+        else:
+            approval_pct = proposal.votes_for / total_for_against * 100
+        if approval_pct >= proposal.threshold:
+            proposal.status = ProposalStatus.passed
+            logger.info("Proposal %s PASSED (%s% approval)", proposal.id, approval_pct)
+        else:
+            proposal.status = ProposalStatus.rejected
+            logger.info("Proposal %s REJECTED (%s% approval)", proposal.id, approval_pct)
+
+    def execute_proposal(self, proposal_id: str, executor: str) -> bool:
+        """
+        Execute a passed proposal.
+
+        Args:
+            proposal_id: Proposal to execute
+            executor: Address executing the proposal
+
+        Returns:
+            True if execution successful
+        """
+        proposal = self._proposals.get(proposal_id)
+        if not proposal:
+            raise ValueError(f"Proposal {proposal_id} not found")
+        if proposal.status != ProposalStatus.passed:
+            raise ValueError(f"Cannot execute proposal with status: {proposal.status.value}")
+        execution_deadline = proposal.voting_end + timedelta(hours=48)
+        if datetime.now(UTC) > execution_deadline:
+            proposal.status = ProposalStatus.canceled
+            raise ValueError("Execution window has expired")
+        if proposal.call_data:
+            logger.info("Executing proposal %s: %s", proposal_id, proposal.call_data)
+            pass
+        proposal.status = ProposalStatus.executed
         proposal.executed_at = datetime.now(UTC)
-        self.session.add(proposal)
-        self.session.commit()
-        self.session.refresh(proposal)
-        return proposal  # type: ignore[return-value]
+        logger.info("Proposal executed: %s by %s", proposal_id, executor)
+        return True
 
-    async def generate_transparency_report(self, period: str) -> TransparencyReport:
-        """Generate automated governance analytics report"""
-        proposals = self.session.execute(select(Proposal)).all()
-        profiles = self.session.execute(select(GovernanceProfile)).all()
-        treasury = self.session.execute(select(DaoTreasury).where(DaoTreasury.treasury_id == "main_treasury")).first()
-        total_proposals = len(proposals)
-        passed_proposals = len([p for p in proposals if p.status in [ProposalStatus.SUCCEEDED, ProposalStatus.EXECUTED]])
-        active_voters = len([p for p in profiles if p.total_votes_cast > 0])
-        total_power = sum(p.voting_power for p in profiles)
-        treasury_inflow = treasury.total_balance if treasury else 0.0
-        treasury_outflow = treasury.allocated_funds if treasury else 0.0
-        report = TransparencyReport(
-            period=period,
-            total_proposals=total_proposals,
-            passed_proposals=passed_proposals,
-            active_voters=active_voters,
-            total_voting_power_participated=total_power,
-            treasury_inflow=treasury_inflow,
-            treasury_outflow=treasury_outflow,
-            metrics={
-                "voter_participation_rate": active_voters / len(profiles) if profiles else 0,
-                "proposal_success_rate": passed_proposals / total_proposals if total_proposals else 0,
-            },
-        )
-        self.session.add(report)
-        self.session.commit()
-        self.session.refresh(report)
-        return report
+    def get_proposal(self, proposal_id: str) -> Proposal | None:
+        """Get proposal by ID"""
+        return self._proposals.get(proposal_id)
 
-    async def create_staking_pool(
-        self, pool_name: str, developer_address: str, base_apy: float, reputation_multiplier: float
-    ) -> dict[str, Any]:
-        """Create a staking pool for an agent developer"""
-        pool_id = f"pool_{uuid.uuid4().hex[:8]}"
-        pool = {
-            "pool_id": pool_id,
-            "pool_name": pool_name,
-            "developer_address": developer_address,
-            "base_apy": base_apy,
-            "reputation_multiplier": reputation_multiplier,
-            "total_staked": 0.0,
-            "stakers_count": 0,
-            "created_at": datetime.now(UTC).isoformat(),
-        }
-        return pool
+    def list_proposals(self, status: str | None = None, proposer: str | None = None) -> list[Proposal]:
+        """List proposals with optional filters"""
+        result = list(self._proposals.values())
+        if status:
+            result = [p for p in result if p.status.value == status]
+        if proposer:
+            result = [p for p in result if p.proposer == proposer]
+        result.sort(key=lambda p: p.created_at, reverse=True)
+        return result
 
-    async def get_developer_staking_pools(self, developer_address: str | None = None) -> list[dict[str, Any]]:
-        """Get staking pools for a specific developer or all pools"""
-        pools = []
-        if developer_address:
-            pools.append(
-                {
-                    "pool_id": "pool_abc123",
-                    "pool_name": f"Pool for {developer_address}",
-                    "developer_address": developer_address,
-                    "base_apy": 7.5,
-                    "reputation_multiplier": 1.0,
-                    "total_staked": 1000000.0,
-                    "stakers_count": 500,
-                }
-            )
-        return pools
+    def get_votes(self, proposal_id: str) -> list[Vote]:
+        """Get all votes for a proposal"""
+        return self._votes.get(proposal_id, [])
 
-    async def calculate_staking_rewards(
-        self, pool_id: str, staker_address: str, amount: float, duration_days: int
-    ) -> dict[str, Any]:
-        """Calculate staking rewards for a specific position"""
-        base_apy = 7.5
-        daily_rate = base_apy / 365
-        rewards = amount * daily_rate * duration_days
+    def get_voting_power(self, address: str) -> int:
+        """Get stake-weighted voting power for an address"""
+        try:
+            import httpx
+
+            blockchain_rpc_url = "http://localhost:8202"
+            response = httpx.get(f"{blockchain_rpc_url}/rpc/accounts/{address}")
+            if response.status_code == 200:
+                account_data = response.json()
+                balance = int(account_data.get("balance", 0))
+                return balance
+            else:
+                logger.warning("Failed to get account balance for %s", address)
+                return 0
+        except Exception as e:
+            logger.warning("Error querying voting power for %s: %s", address, e)
+            return 0
+
+    def get_governance_params(self) -> dict[str, Any]:
+        """Get current governance parameters"""
         return {
-            "pool_id": pool_id,
-            "staker_address": staker_address,
-            "amount_staked": amount,
-            "duration_days": duration_days,
-            "estimated_rewards": rewards,
-            "apy": base_apy,
+            "min_proposal_stake": self.MIN_PROPOSAL_STAKE,
+            "voting_period_days": self.VOTING_PERIOD_DAYS,
+            "quorum_percentage": self.QUORUM_PERCENTAGE,
+            "approval_threshold": self.APPROVAL_THRESHOLD,
+            "total_proposals": len(self._proposals),
+            "active_proposals": len([p for p in self._proposals.values() if p.status == ProposalStatus.active]),
         }
 
-    async def distribute_staking_rewards(self, pool_id: str) -> dict[str, Any]:
-        """Distribute rewards to all stakers in a pool"""
-        return {
-            "pool_id": pool_id,
-            "total_distributed": 75000.0,
-            "stakers_rewarded": 500,
-            "timestamp": datetime.now(UTC).isoformat(),
-        }
 
-    async def create_regional_council(
-        self, region: str, council_name: str, jurisdiction: str, council_members: list[str], budget_allocation: float
-    ) -> dict[str, Any]:
-        """Create a regional governance council"""
-        council_id = f"council_{uuid.uuid4().hex[:8]}"
-        council = {
-            "council_id": council_id,
-            "region": region,
-            "council_name": council_name,
-            "jurisdiction": jurisdiction,
-            "council_members": council_members,
-            "budget_allocation": budget_allocation,
-            "budget_spent": 0.0,
-            "created_at": datetime.now(UTC).isoformat(),
-        }
-        return council
+_governance_service: GovernanceService | None = None
 
-    async def get_regional_councils(self, region: str | None = None) -> list[dict[str, Any]]:
-        """Get regional governance councils"""
-        councils = []
-        if region is None or region == "global":
-            councils.append(
-                {
-                    "council_id": "council_global",
-                    "region": "global",
-                    "council_name": "Global Council",
-                    "jurisdiction": "international",
-                    "council_members": ["delegate_1", "delegate_2"],
-                    "budget_allocation": 1000000.0,
-                    "budget_spent": 250000.0,
-                }
-            )
-        return councils
 
-    async def create_regional_proposal(
-        self, council_id: str, title: str, description: str, proposal_type: str, amount_requested: float, proposer_address: str
-    ) -> dict[str, Any]:
-        """Create a proposal for a specific regional council"""
-        proposal_id = f"reg_prop_{uuid.uuid4().hex[:8]}"
-        proposal = {
-            "proposal_id": proposal_id,
-            "council_id": council_id,
-            "title": title,
-            "description": description,
-            "proposal_type": proposal_type,
-            "amount_requested": amount_requested,
-            "proposer_address": proposer_address,
-            "status": "pending",
-            "created_at": datetime.now(UTC).isoformat(),
-        }
-        return proposal
+def init_governance_service(session_factory: Any) -> GovernanceService:
+    """Initialize global governance service"""
+    global _governance_service
+    _governance_service = GovernanceService(session_factory)
+    return _governance_service
 
-    async def vote_on_regional_proposal(
-        self, proposal_id: str, voter_address: str, vote_type: VoteType, voting_power: float
-    ) -> dict[str, Any]:
-        """Vote on a regional proposal"""
-        return {
-            "proposal_id": proposal_id,
-            "voter_address": voter_address,
-            "vote_type": vote_type.value,
-            "voting_power": voting_power,
-            "timestamp": datetime.now(UTC).isoformat(),
-        }
 
-    async def get_treasury_balance(self, region: str | None = None) -> dict[str, Any]:
-        """Get treasury balance for global or specific region"""
-        return {
-            "region": region or "global",
-            "total_balance": 10000000.0,
-            "allocated_funds": 2500000.0,
-            "available_funds": 7500000.0,
-            "currency": "AIT",
-        }
-
-    async def allocate_treasury_funds(
-        self, council_id: str, amount: float, purpose: str, recipient_address: str, approver_address: str
-    ) -> dict[str, Any]:
-        """Allocate treasury funds to a regional council or project"""
-        allocation_id = f"alloc_{uuid.uuid4().hex[:8]}"
-        return {
-            "allocation_id": allocation_id,
-            "council_id": council_id,
-            "amount": amount,
-            "purpose": purpose,
-            "recipient_address": recipient_address,
-            "approver_address": approver_address,
-            "status": "approved",
-            "timestamp": datetime.now(UTC).isoformat(),
-        }
-
-    async def get_treasury_transactions(
-        self, limit: int = 100, offset: int = 0, region: str | None = None
-    ) -> list[dict[str, Any]]:
-        """Get treasury transaction history"""
-        return [
-            {
-                "transaction_id": f"tx_{i}",
-                "type": "allocation",
-                "amount": 10000.0,
-                "recipient": f"council_{i}",
-                "timestamp": datetime.now(UTC).isoformat(),
-            }
-            for i in range(min(limit, 10))
-        ]
-
-    async def get_governance_analytics(self, time_period_days: int) -> dict[str, Any]:
-        """Get comprehensive governance analytics"""
-        proposals = self.session.execute(select(Proposal)).all()
-        profiles = self.session.execute(select(GovernanceProfile)).all()
-        total_proposals = len(proposals)
-        active_proposals = len([p for p in proposals if p.status == ProposalStatus.ACTIVE])
-        passed_proposals = len([p for p in proposals if p.status in [ProposalStatus.SUCCEEDED, ProposalStatus.EXECUTED]])
-        total_votes_cast = sum(p.total_votes_cast for p in profiles)
-        total_voting_power = sum(p.voting_power for p in profiles)
-        return {
-            "time_period_days": time_period_days,
-            "proposals": {
-                "total": total_proposals,
-                "still_active": active_proposals,
-                "passed": passed_proposals,
-                "defeated": total_proposals - passed_proposals,
-            },
-            "voting": {
-                "total_votes_cast": total_votes_cast,
-                "total_voting_power": total_voting_power,
-                "average_voter_participation": 75.0,
-            },
-            "regional_councils": {"total_councils": 3, "active_councils": 3},
-            "treasury": {"total_allocations": 2500000.0, "utilization_rate": 25.0},
-            "staking": {"active_pools": 5, "total_staked": 1000000.0, "average_apy": 7.5},
-        }
-
-    async def get_regional_governance_health(self, region: str) -> dict[str, Any]:
-        """Get health metrics for a specific region's governance"""
-        return {
-            "region": region,
-            "overall_health": "healthy",
-            "councils_active": 1,
-            "proposals_pending": 2,
-            "proposals_passed": 10,
-            "voting_participation": 85.0,
-            "treasury_balance": 1000000.0,
-            "last_updated": datetime.now(UTC).isoformat(),
-        }
+def get_governance_service() -> GovernanceService | None:
+    """Get global governance service"""
+    return _governance_service
