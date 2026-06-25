@@ -11,7 +11,7 @@ This validates both Redis persistence and reconnection logic.
 
 import pytest
 
-from app.services.redis_state import RedisStateManager
+from app.contexts.infrastructure.services.redis_state import RedisStateManager
 
 
 @pytest.mark.integration
