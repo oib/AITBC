@@ -111,12 +111,6 @@ my-agent-wallet: aitbc1a3f5e7b9c2d4e6f8a1b3c5d7e9f2a4b6c8d0e2
 test-wallet: aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6
 ```
 
-Use `--output json` for machine-readable output:
-
-```bash
-aitbc wallet list --output json
-```
-
 ### Step 4: Switch the Active Wallet
 
 The active wallet is stored in `~/.aitbc/config.yaml` and used by default by other CLI commands (transactions, messaging, etc.).

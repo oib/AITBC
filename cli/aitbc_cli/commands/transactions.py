@@ -398,7 +398,14 @@ def pending(rpc_url: str | None):
         transactions = data.get("transactions", [])
         success(f"Pending transactions: {len(transactions)}")
         for tx in transactions:
-            click.echo(f"  - {tx.get('hash', 'unknown')}: {tx.get('amount', 0)} AIT")
+            tx_hash = tx.get("hash") or tx.get("tx_hash") or tx.get("id")
+            tx_type = tx.get("type", "TRANSFER")
+            amount = tx.get("amount", tx.get("value", 0))
+            sender = tx.get("from", "?")
+            if tx_hash:
+                click.echo(f"  - {tx_hash}: {amount} AIT ({tx_type})")
+            else:
+                click.echo(f"  - {tx_type} {amount} AIT from {sender[:16]}...")
     except NetworkError as e:
         error(f"Error getting pending transactions: {e}")
     except Exception as e:
