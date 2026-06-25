@@ -2,13 +2,82 @@
 Utility functions for blockchain RPC endpoints.
 """
 
+import json
 from typing import Any
 
 from fastapi import HTTPException
 
 from ..config import settings
+from ..logger import get_logger
+
+_logger = get_logger(__name__)
 
 _poa_proposers: dict[str, Any] = {}
+
+
+def verify_transaction_signature(tx_data: dict[str, Any], signature: str, sender: str) -> bool:
+    """Verify that a transaction was signed by the claimed sender.
+
+    Uses Ethereum-style signature recovery (secp256k1) to recover the
+    signer's address from the signature and compare it to the sender field.
+
+    The signed message is the keccak256 hash of the canonical JSON encoding
+    of the transaction fields (excluding the signature field itself).
+    """
+    if not signature or not sender:
+        return False
+
+    # Build the message that was signed: canonical JSON of tx fields without signature
+    tx_without_sig = {k: v for k, v in tx_data.items() if k != "signature"}
+    message = json.dumps(tx_without_sig, sort_keys=True, separators=(",", ":")).encode()
+
+    try:
+        from eth_keys import keys
+        from eth_utils import keccak
+
+        msg_hash = keccak(message)
+        sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
+        if len(sig_bytes) != 65:
+            _logger.warning("Invalid signature length: %d bytes", len(sig_bytes))
+            return False
+
+        sig = keys.Signature(sig_bytes)
+        pub_key = sig.recover_public_key_from_msg_hash(msg_hash)
+        recovered_address = pub_key.to_checksum_address()
+        return recovered_address.lower() == sender.lower()
+    except Exception as e:
+        _logger.warning("Signature verification failed: %s", e)
+        return False
+
+
+def verify_request_signature(sender: str, signature: str, message_data: dict[str, Any]) -> bool:
+    """Verify a generic request signature (for bridge, staking, etc.).
+
+    The signed message is the keccak256 hash of the canonical JSON encoding
+    of the provided message_data dict.
+    """
+    if not signature or not sender:
+        return False
+
+    message = json.dumps(message_data, sort_keys=True, separators=(",", ":")).encode()
+
+    try:
+        from eth_keys import keys
+        from eth_utils import keccak
+
+        msg_hash = keccak(message)
+        sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
+        if len(sig_bytes) != 65:
+            _logger.warning("Invalid signature length: %d bytes", len(sig_bytes))
+            return False
+
+        sig = keys.Signature(sig_bytes)
+        pub_key = sig.recover_public_key_from_msg_hash(msg_hash)
+        recovered_address = pub_key.to_checksum_address()
+        return recovered_address.lower() == sender.lower()
+    except Exception as e:
+        _logger.warning("Request signature verification failed: %s", e)
+        return False
 
 
 def set_poa_proposer(proposer: Any, chain_id: str | None = None) -> None:

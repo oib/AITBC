@@ -1,0 +1,422 @@
+# AITBC v0.6.3 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Multi-Island Node Support — Per-Chain Sync Sources, Multi-Hub Subscription, Island-to-Chain Registry
+
+## 🎯 Overview
+
+AITBC v0.6.3 fixes the fundamental functional gap that prevents a node from following multiple hubs on different islands simultaneously. Today, the sync layer assumes a single hub (`default_peer_rpc_url`) for all chains, the subscription client handles only one chain from one hub, and the island manager has no runtime awareness of multi-island membership. This release makes the sync, subscription, and gossip layers multi-chain/multi-island aware, enabling a follower node to sync chains from different hubs on different islands in parallel.
+
+**Why this is a dedicated release**: This is not a performance optimization (v0.6.0-v0.6.2) and not a feature addition (v0.7.0-v0.7.2, v0.8.0+). It is a **functional fix to the sync and network layer** that is a hard prerequisite for:
+- **v0.7.0 (Bridge Basics)** — bridging requires nodes to be aware of multiple chains/islands
+- **v0.8.0 (Inter-Chain Trading)** — trading across islands requires nodes to follow chains on multiple islands
+
+Without this release, a follower node configured with `supported_chains=ait-hub,ait-island1` will silently fail to sync `ait-island1` because it tries to sync both chains from the same hub URL, and the sync RPC calls don't send `chain_id` to the remote hub.
+
+**Prerequisites**: Requires [v0.6.0](../v0.6.0/change.log) (Performance: network I/O, compression), [v0.6.2](../v0.6.2/change.log) (Sync & Gossip Optimization — the optimized sync layer is the base for multi-chain sync), and [v0.5.16](../v0.5.16/change.log) (Multi-Chain Preparation — fixes the chain_id bugs in transaction submission and sync RPC that v0.6.3 builds on).
+
+## 🎯 Release Highlights
+
+### Per-Chain Sync Source Mapping
+- 🚧 Config mapping of `chain_id → hub_url` (replaces single `default_peer_rpc_url`)
+- 🚧 `CHAIN_SYNC_SOURCES` environment variable for multi-hub configuration
+- 🚧 Backward-compatible: single-hub config still works (falls back to `default_peer_rpc_url`)
+
+### Chain-ID-Aware Sync RPC
+- 🚧 `fetch_blocks_range` sends `chain_id` as query parameter to remote hub
+- 🚧 `bulk_import_from` sends `chain_id` to `/rpc/head` and `/rpc/blocks-range`
+- 🚧 `sync_state_from` sends `chain_id` to `/rpc/state/snapshot`
+- 🚧 Remote hub returns blocks for the requested chain, not its own default chain
+
+### Multi-Hub Subscription Client
+- 🚧 One `SubscriptionClient` per (chain_id, hub_url) pair
+- 🚧 Independent WebSocket push subscriptions per chain
+- 🚧 Per-chain lease management and heartbeat
+- 🚧 Failover: if push subscription fails for one chain, that chain falls back to pull sync independently
+
+### Island-to-Chain Registry
+- 🚧 Config binding: `island_id → chain_id → hub_url`
+- 🚧 Auto-join islands from `bridge_islands` config on startup
+- 🚧 Island manager background tasks enabled (bridge monitoring, health checks)
+- 🚧 Island health monitoring per connected island
+
+### Per-Chain Gossip Backend Support
+- 🚧 Per-chain gossip backend configuration (optional)
+- 🚧 Shared gossip backend mode (all islands on one backend) with chain-isolated topics
+- 🚧 Multi-backend mode (each island on its own gossip backend)
+
+### Chain-ID-Aware Transaction Submission
+- 🚧 `TransactionRequest` model gains `chain_id` field (currently dropped by Pydantic)
+- 🚧 `/rpc/transaction` endpoint uses tx `chain_id` instead of hub's default
+- 🚧 Follower transactions routed to correct chain's mempool namespace
+- 🚧 Backward compatible: if `chain_id` not provided, falls back to hub's default
+
+## 📋 Detailed Features
+
+### Per-Chain Sync Source Mapping
+
+#### Configuration
+```bash
+# /etc/aitbc/blockchain.env
+
+# OLD (single hub for all chains — still works for backward compat):
+# default_peer_rpc_url=http://hub-a:8006
+
+# NEW (per-chain hub mapping):
+CHAIN_SYNC_SOURCES="ait-hub:http://hub-a:8006,ait-island1:http://hub-b:8006,ait-island2:http://hub-c:8006"
+
+# Fallback: chains not in CHAIN_SYNC_SOURCES use default_peer_rpc_url
+default_peer_rpc_url=http://hub-a:8006
+```
+
+#### Resolution Logic
+```python
+def get_sync_source(chain_id: str) -> str | None:
+    """Resolve sync source URL for a given chain_id."""
+    # 1. Check CHAIN_SYNC_SOURCES mapping
+    sources = parse_sync_sources(settings.chain_sync_sources)
+    if chain_id in sources:
+        return sources[chain_id]
+    # 2. Fall back to default_peer_rpc_url
+    return settings.default_peer_rpc_url
+```
+
+### Chain-ID-Aware Sync RPC
+
+#### Current Problem (Blocker 3)
+```python
+# CURRENT (broken for multi-chain):
+resp = await self._client.get(f"{source_url}/rpc/head")
+# ↑ no chain_id — hub returns its own default chain's head
+resp = await self._client.get(f"{source_url}/rpc/blocks-range", params={"start": start, "end": end})
+# ↑ no chain_id — hub returns its own default chain's blocks
+```
+
+#### Fix
+```python
+# FIXED:
+resp = await self._client.get(f"{source_url}/rpc/head", params={"chain_id": self._chain_id})
+resp = await self._client.get(
+    f"{source_url}/rpc/blocks-range",
+    params={"start": start, "end": end, "chain_id": self._chain_id}
+)
+```
+
+The hub's RPC endpoints already accept `chain_id` as an optional parameter via `get_chain_id()` — they just default to `settings.chain_id` when not provided. The fix is on the **client side**: send `chain_id` in every sync request.
+
+### Multi-Hub Subscription Client
+
+#### Current Problem (Blocker 2)
+```python
+# CURRENT (single hub, single chain):
+hub_url = settings.default_peer_rpc_url
+chain_id = self._supported_chains()[0]  # only FIRST chain
+subscription_client = SubscriptionClient(hub_url, node_id, chain_id)
+```
+
+#### Fix
+```python
+# FIXED (one SubscriptionClient per chain/hub pair):
+subscription_clients = {}
+for chain_id in self._supported_chains():
+    hub_url = get_sync_source(chain_id)
+    if hub_url and settings.subscription_enabled:
+        client = SubscriptionClient(hub_url, node_id, chain_id)
+        subscription_clients[chain_id] = client
+        self._task_registry.create_task(client.start, name=f"subscription_{chain_id}")
+```
+
+#### Per-Chain Failover
+- If WebSocket push fails for chain A, chain A falls back to periodic pull from its hub
+- Chain B's push subscription is unaffected
+- Each client has independent lease management and heartbeat
+
+### Island-to-Chain Registry
+
+#### Configuration
+```bash
+# /etc/aitbc/blockchain.env
+
+# Island configuration
+island_id=ait-hub-island-uuid
+island_name=ait-hub
+island_chain_id=ait-hub
+is_hub=false
+
+# Bridge to other islands (auto-join on startup)
+bridge_islands=ait-island1-uuid,ait-island2-uuid
+
+# Island-to-chain-to-hub mapping
+ISLAND_REGISTRY="ait-hub-island-uuid:ait-hub:http://hub-a:8006,ait-island1-uuid:ait-island1:http://hub-b:8006"
+```
+
+#### Auto-Join Islands on Startup
+```python
+async def _setup_island_membership(self) -> None:
+    """Auto-join islands from bridge_islands config."""
+    if not _island_manager_available:
+        return
+
+    # Join default island (already done in create_island_manager)
+    # Join additional islands from bridge_islands config
+    bridge_islands = [i.strip() for i in settings.bridge_islands.split(",") if i.strip()]
+    for island_id in bridge_islands:
+        registry = parse_island_registry(settings.island_registry)
+        if island_id in registry:
+            entry = registry[island_id]
+            island_manager.join_island(
+                island_id=island_id,
+                island_name=entry.get("name", island_id),
+                chain_id=entry["chain_id"],
+                is_hub=False,
+            )
+            logger.info("Auto-joined island %s (chain: %s)", island_id, entry["chain_id"])
+
+    # Start background tasks (currently disabled)
+    await island_manager.start()
+```
+
+#### Island Manager Background Tasks
+- **Bridge request monitor**: monitors pending bridge requests to other islands
+- **Island health check**: periodically checks health of connected islands
+- These tasks are currently disabled in `main.py` — this release enables them
+
+### Per-Chain Gossip Backend Support
+
+#### Configuration
+```bash
+# Option 1: Shared gossip backend (all islands on one backend)
+# All chains use the same gossip backend, topics are chain-isolated
+gossip_backend=redis
+gossip_broadcast_url=redis://localhost:6379
+# Topics: blocks.ait-hub, blocks.ait-island1, transactions (global)
+
+# Option 2: Per-chain gossip backends (each island has its own)
+GOSSIP_BACKENDS="ait-hub:redis://localhost:6379,ait-island1:redis://island1-redis:6379"
+```
+
+#### Transactions Topic Isolation
+- Current: `transactions` topic is global (all chains mixed)
+- Fix: Change to `transactions.{chain_id}` per-chain topics
+- Backward compatible: subscribe to both `transactions` and `transactions.{chain_id}` during transition
+
+### Chain-ID-Aware Transaction Submission
+
+#### Current Problem (Blocker 6)
+The `/rpc/transaction` endpoint accepts a `TransactionRequest` Pydantic model that has **no `chain_id` field**. When a follower submits a transaction via HTTP RPC, the `chain_id` is silently dropped by Pydantic, and the hub uses its own default `chain_id`:
+
+```python
+# CURRENT (broken for multi-chain):
+class TransactionRequest(BaseModel):
+    sender: str = Field(..., alias="from")
+    recipient: str = Field(..., alias="to")
+    amount: int
+    # ... NO chain_id field!
+
+async def submit_transaction(request, tx_data: TransactionRequest):
+    chain_id = get_chain_id(None)  # ← ALWAYS hub's default chain!
+    tx_data_dict = normalize_transaction_data(tx_data_dict, chain_id)
+    tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)  # ← wrong mempool namespace
+```
+
+If a follower sends a transaction for `ait-island1` to a hub that defaults to `ait-hub`:
+1. Pydantic drops `chain_id` (not a model field)
+2. `get_chain_id(None)` returns `ait-hub` (hub's default)
+3. Transaction is added to `ait-hub` mempool namespace
+4. `ait-hub` proposer picks it up, tries to include in `ait-hub` block
+5. State transition rejects: `"Sender account not found"` (sender has no account on `ait-hub`)
+6. Transaction silently dropped
+
+**Note**: The gossip path (`transactions` topic) and the marketplace endpoint (`/rpc/transactions/marketplace`) both correctly extract `chain_id` from the transaction data. Only `/rpc/transaction` is broken.
+
+#### Fix
+```python
+# FIXED:
+class TransactionRequest(BaseModel):
+    chain_id: str | None = None    # ← ADD THIS
+    sender: str = Field(..., alias="from")
+    recipient: str = Field(..., alias="to")
+    amount: int
+    # ...
+
+async def submit_transaction(request, tx_data: TransactionRequest):
+    chain_id = get_chain_id(tx_data.chain_id)  # ← use tx's chain_id, not None
+    tx_data_dict = normalize_transaction_data(tx_data_dict, chain_id)
+    tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)  # ← correct mempool namespace
+```
+
+The hub's RPC endpoints already accept `chain_id` as an optional parameter via `get_chain_id()` — they just default to `settings.chain_id` when not provided. The fix is on the **client side**: add `chain_id` to the `TransactionRequest` model and pass it through.
+
+### Verified Code Targets (from suggestions.md investigation)
+
+#### SubscriptionClient — Single-Hub/Single-Chain
+**Current state**: `apps/blockchain-node/src/aitbc_chain/subscription_client.py` lines 23-26 — accepts only one `hub_url` and one `chain_id`.
+**Required**: One client per (chain_id, hub_url) pair with independent WebSocket connection management and lease handling.
+
+#### Island Manager Background Tasks — Disabled
+**Current state**: `apps/blockchain-node/src/aitbc_chain/main.py` lines 283-288 — island manager is created but `start()` is never called. Line 286 logs "background tasks disabled".
+**Required**: Enumerate and document each background task (name, failure recovery, restart behavior) before enabling. Add configurable retry/backoff.
+
+#### Gossip Topic — Not Chain-Specific
+**Current state**: `apps/blockchain-node/src/aitbc_chain/main.py` line 146 — subscribes to `transactions` (not chain-specific). Line 174 — blocks use `blocks.{chain_id}` (chain-specific).
+**Required**: Migrate to `transactions.{chain_id}` with a 30-day dual-subscribe period (subscribe to both topics, log warnings for v1 peers, then drop v1 support).
+
+#### CHAIN_SYNC_SOURCES — Not Implemented
+**Current state**: No parsing code exists. `CHAIN_SYNC_SOURCES` appears only in documentation. Config file `apps/blockchain-node/src/aitbc_chain/config.py` has no such field.
+**Required**: Add `CHAIN_SYNC_SOURCES` env var parsing to config.py with error handling for malformed values. Define fallback logic when a source is unreachable.
+
+## 🔧 Breaking Changes
+
+- `fetch_blocks_range` and `bulk_import_from` now send `chain_id` as a query parameter (hubs must handle this — they already do via `get_chain_id()`)
+- `SubscriptionClient` is now instantiated per-chain instead of once (multiple WebSocket connections)
+- `transactions` gossip topic changes to `transactions.{chain_id}` (with backward-compatible fallback)
+- Island manager background tasks are now enabled by default (were disabled)
+- `TransactionRequest` model gains `chain_id` field (backward compatible — defaults to hub's chain_id if not provided)
+- New config: `CHAIN_SYNC_SOURCES`, `ISLAND_REGISTRY`, `GOSSIP_BACKENDS` (all optional, backward-compatible defaults)
+
+## 📊 Migration Guide
+
+### v0.6.2 → v0.6.3
+
+1. **Update configuration** (optional — single-hub config still works)
+   ```bash
+   # /etc/aitbc/blockchain.env
+
+   # If following multiple hubs, add per-chain sync sources:
+   CHAIN_SYNC_SOURCES="ait-hub:http://hub-a:8006,ait-island1:http://hub-b:8006"
+
+   # If bridging to other islands:
+   bridge_islands=ait-island1-uuid,ait-island2-uuid
+   ISLAND_REGISTRY="ait-island1-uuid:ait-island1:http://hub-b:8006,ait-island2-uuid:ait-island2:http://hub-c:8006"
+   ```
+
+2. **Restart services**
+   ```bash
+   systemctl restart aitbc-blockchain-node
+   ```
+
+3. **Verify multi-island connectivity**
+   ```bash
+   aitbc chain sync-status --all-chains
+   aitbc island list
+   aitbc island health --all
+   ```
+
+## 🖥️ CLI Commands
+
+### New Commands
+- `aitbc chain sync-status` — Show chain synchronization status per chain
+  - Currently missing: `chain` group lacks `sync-status` subcommand
+  - Implementation: Add `sync-status` subcommand to `cli/aitbc_cli/commands/chain.py`
+- `aitbc node island health` — Show health status of an island
+  - Currently missing: `node island` group lacks `health` subcommand
+  - Implementation: Add `health` subcommand to island command group in `cli/aitbc_cli/commands/node/__init__.py`
+- `aitbc node island list` — Alias for existing `list_islands` (standardize naming)
+  - Currently exists as `list_islands`, add `list` as alias
+
+## 🧪 Testing
+
+### Multi-Chain Sync Testing
+- Sync chain A from hub A and chain B from hub B simultaneously
+- Verify correct blocks are synced per chain (no cross-contamination)
+- Verify chain_id is sent in all sync RPC calls
+- Verify backward compat: single-hub config still works
+
+### Multi-Hub Subscription Testing
+- WebSocket push from hub A for chain A and hub B for chain B
+- Push failover: hub A disconnects, chain A falls back to pull, chain B unaffected
+- Lease management per chain
+- Heartbeat per chain
+
+### Island Membership Testing
+- Auto-join islands from `bridge_islands` config on startup
+- Island manager background tasks running (bridge monitor, health check)
+- Leave island and verify cleanup
+- Island health monitoring reports correct status
+
+### Gossip Isolation Testing
+- Transactions on chain A don't appear in chain B's mempool (with per-chain topics)
+- Backward compat: old `transactions` topic still works during transition
+- Multi-backend mode: each chain uses its own gossip backend
+
+### Transaction Submission Testing
+- Follower submits tx via HTTP RPC with `chain_id=ait-island1` to hub defaulting to `ait-hub`
+- Transaction routed to `ait-island1` mempool namespace, not `ait-hub`
+- Transaction included in `ait-island1` block by `ait-island1` proposer
+- Backward compat: tx without `chain_id` uses hub's default chain
+- Gossip path still works (unchanged — already correct)
+- Marketplace endpoint still works (unchanged — already correct)
+
+### Test Coverage Goals
+- Per-chain sync: >95%
+- Multi-hub subscription: >90%
+- Island membership: >85%
+- Gossip isolation: >90%
+- Transaction submission: >95%
+
+## 📚 Documentation
+
+- [Multi-Island Node Configuration Guide](../getting-started/multi-island-setup.md)
+- [Per-Chain Sync Sources Reference](../getting-started/sync-sources.md)
+- [Island Registry Configuration](../getting-started/island-registry.md)
+- [Multi-Hub Subscription Architecture](../architecture/multi-hub-subscription.md)
+- [Gossip Backend Configuration](../getting-started/gossip-backends.md)
+
+## 🚀 Dependencies
+
+### New Dependencies
+- None (uses existing sync, subscription, and gossip infrastructure)
+
+### Updated Dependencies
+- Blockchain node v0.6.3+
+- CLI v0.6.3+ (for `aitbc island list`, `aitbc island health` commands)
+
+## 🔐 Security Considerations
+
+- Per-chain sync sources must be authenticated (each hub may have different auth)
+- Island membership must be verified (don't auto-join untrusted islands)
+- Gossip backend isolation must prevent cross-chain message injection
+- Island health checks must not leak sensitive chain state to untrusted islands
+- Bridge island config must be admin-controlled (not user-modifiable)
+
+## 📈 Performance Targets
+
+- Multi-chain sync overhead: <5% per additional chain (vs. single-chain baseline)
+- Subscription client memory: <10MB per additional chain
+- Island health check interval: 30s (configurable)
+- Sync RPC chain_id parameter overhead: negligible (query parameter)
+
+## 🎯 Success Criteria
+
+- ✅ Follower node syncs chain A from hub A and chain B from hub B simultaneously
+- ✅ Sync RPC calls send chain_id to remote hub (correct blocks returned per chain)
+- ✅ Multiple SubscriptionClient instances (one per chain/hub pair) working
+- ✅ Push failover per chain (one chain's push failure doesn't affect others)
+- ✅ Island manager auto-joins islands from config and runs background tasks
+- ✅ Island-to-chain-to-hub registry functional
+- ✅ Per-chain gossip topic isolation working
+- ✅ Follower transaction via HTTP RPC routed to correct chain's mempool (not hub's default)
+- ✅ Backward compatible: single-hub config still works without changes
+- ✅ All existing tests pass
+
+## 🚀 Next Steps
+
+### v0.6.4 — Multi-Chain Per Island
+- Parallel block streams within a single island
+- MultiChainManager activation (currently dead code)
+- Island-level chain registry (multiple chain_ids per island)
+- Per-chain genesis generation
+- **Required before v0.7.0 and v0.8.0** — islands must be able to host multiple chains before bridging and trading can fully work
+
+### v0.7.0 — Bridge Basics
+- Cross-chain bridge infrastructure (requires v0.6.3 for multi-island awareness, v0.6.4 for multi-chain islands)
+
+### v0.8.0 — Inter-Chain Trading Basics
+- Island registry, chain discovery, trade requests (requires v0.6.3 for multi-island following, v0.6.4 for multi-chain islands)
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 0.6.3*
+*Status: Planned*

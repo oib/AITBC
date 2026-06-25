@@ -55,6 +55,7 @@ class SubmitArbitrationVoteResponse(BaseModel):
 class AuthorizeArbitratorRequest(BaseModel):
     arbitrator_address: str
     authorized: bool
+    owner_signature: str | None = None
 
 
 class AuthorizeArbitratorResponse(BaseModel):

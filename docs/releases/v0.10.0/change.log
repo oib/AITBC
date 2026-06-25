@@ -1,0 +1,209 @@
+# AITBC v0.10.0 Release Notes
+
+**Date**: TBD
+**Status**: 📋 Deferred / Under Review
+**Scope**: Questionable & Over-Engineered Features — Parked for Re-Evaluation
+
+## 🎯 Overview
+
+This release is a **parking lot** for features that were originally planned in earlier releases but, upon review, either:
+1. **Don't match AITBC's domain** (a compute/AI services marketplace, not a financial trading platform)
+2. **Solve problems that don't exist** in AITBC's architecture
+3. **Are over-engineered** for AITBC's actual scale (10-50 nodes, thousands of accounts, 10-100 transfers/day)
+
+These features have been **removed from their original releases** and moved here for re-evaluation. They may be:
+- Re-scoped to fit AITBC's actual needs
+- Replaced with simpler alternatives
+- Dropped entirely
+
+**No work should be done on these features until they are individually re-evaluated and either approved, re-scoped, or dropped.**
+
+## 📋 Deferred Features
+
+### 1. Futures / Options / Margin Trading (from v0.8.0)
+
+**Original location**: v0.8.0 — Inter-Chain Trading Basics
+**Why deferred**: AITBC is a marketplace for GPU rental, AI inference, training tasks, and data services. The actual `TradeType` enum is `AI_POWER`, `COMPUTE_RESOURCES`, `DATA_SERVICES`, `MODEL_SERVICES`, `INFERENCE_TASKS`, `TRAINING_TASKS`. Nobody trades futures contracts on GPU rental. There is zero code for futures, options, margin, expiry, strike prices, or leverage in the codebase. This was copy-pasted from a generic DEX template.
+
+**Original features**:
+- Trade type filtering (spot, futures, options)
+- Futures matching
+- Options matching
+- Margin requirements for futures/options
+- Matching latency: <100ms (spot), <500ms (futures)
+
+**Re-evaluation**: Spot trading only. Trade types should be the actual enum values. No futures, options, or margin.
+
+---
+
+### 2. Cross-Chain Identity Mapping (from v0.7.2)
+
+**Original location**: v0.7.2 — Bridge Oracle & Verification
+**Why deferred**: AITBC uses ed25519 keys everywhere. The same private key produces the same address on every chain. This feature solves a problem that only exists when chains use different signature schemes (e.g., Bitcoin secp256k1 vs. Ethereum with different address formats). AITBC chains all use the same crypto — no mapping registry needed.
+
+**Original features**:
+- Identity mapping between chains (address A on chain 1 = address B on chain 2)
+- Identity proof generation and verification
+- Identity registry with cross-chain synchronization
+- Identity revocation and recovery
+
+**Re-evaluation**: Just verify that the same address exists on both chains. No mapping registry needed.
+
+---
+
+### 3. Network Topology Visualization (from v0.8.0)
+
+**Original location**: v0.8.0 — Inter-Chain Trading Basics
+**Why deferred**: This is a UI/dashboard feature, not trading infrastructure. AITBC has maybe 3-10 islands — a topology visualization for a network that small adds no value. Belongs in a monitoring/observability release if needed at all.
+
+**Original features**:
+- Network topology visualization
+
+**Re-evaluation**: Drop from trading release. If needed, add to a future monitoring/observability release.
+
+---
+
+### 4. Bridge Load Balancing (from v0.7.0)
+
+**Original location**: v0.7.0 — Bridge Basics
+**Why deferred**: Load balancing is for high-traffic services handling thousands of requests per second. A cross-chain bridge between 3-10 islands handles maybe 10-100 transfers per day. No load balancing needed.
+
+**Original features**:
+- Bridge load balancing
+
+**Re-evaluation**: Drop entirely.
+
+---
+
+### 5. Bridge Connection Pooling (from v0.7.0)
+
+**Original location**: v0.7.0 — Bridge Basics
+**Why deferred**: Connection pooling for RPC calls between 2-3 hubs. HTTP keep-alive already handles this at the OS level. The overhead of opening a connection is negligible at 10-100 transfers/day.
+
+**Original features**:
+- Bridge connection pooling
+
+**Re-evaluation**: Drop entirely. HTTP keep-alive suffices.
+
+---
+
+### 6. Bridge Forensics Tooling (from v0.7.1)
+
+**Original location**: v0.7.1 — Bridge Security Layer
+**Why deferred**: "Bridge forensics" implies post-incident investigation tooling comparable to Chainalysis for Bitcoin. For a bridge with transparent on-chain audit trails, standard log analysis tools (grep, jq, ELK) are sufficient. Buzzword-driven planning.
+
+**Original features**:
+- Audit trail export and verification
+- Bridge forensics tooling
+
+**Re-evaluation**: Keep audit trail (already in v0.7.1). Drop "forensics tooling" — standard log analysis suffices.
+
+---
+
+### 7. Oracle Slashing (from v0.7.2)
+
+**Original location**: v0.7.2 — Bridge Oracle & Verification
+**Why deferred**: Building an oracle slashing system is a Chainlink-scale undertaking — staking, slashing conditions, dispute resolution, validator economics. For a compute marketplace with 3-10 islands, light client verification (already planned in v0.7.2) is sufficient and far simpler.
+
+**Original features**:
+- Oracle slashing for incorrect data feeds
+- Fallback mechanisms for oracle failures
+- Oracle manipulation attack prevention
+
+**Re-evaluation**: Drop oracle slashing. Keep light client verification (already in v0.7.2). Light clients verify state cryptographically without oracles.
+
+---
+
+### 8. Compact Block Propagation (from v0.6.2)
+
+**Original location**: v0.6.2 — Sync & Gossip Optimization
+**Why deferred**: Compact blocks (BIP 152) save bandwidth when blocks have thousands of transactions. AITBC blocks have 1-10 transactions (compute marketplace, not DeFi). The request-response overhead of "send hashes, peer requests missing txs" is worse than just sending the full block when the block is small. This optimization pays off at >100 txs/block.
+
+**Original features**:
+- Compact block propagation (send header + transaction hashes, peers request missing txs)
+
+**Re-evaluation**: Drop or defer until block sizes justify it (>100 txs/block).
+
+---
+
+### 9. Adaptive Gossip Fanout (from v0.6.2)
+
+**Original location**: v0.6.2 — Sync & Gossip Optimization
+**Why deferred**: Adaptive fanout is designed for networks with thousands of nodes. AITBC has maybe 10-50 nodes. A fixed fanout of 5-10 is optimal and trivially simple. Adaptive fanout adds complexity for no benefit at this scale.
+
+**Original features**:
+- Adaptive gossip fanout based on network topology
+
+**Re-evaluation**: Drop. Use fixed fanout of 5-10.
+
+---
+
+### 10. Sparse Merkle Trees (from v0.6.1)
+
+**Original location**: v0.6.1 — Parallel Processing Architecture
+**Why deferred**: Sparse Merkle trees are useful for state spaces with millions of accounts (Ethereum has ~250M accounts). AITBC has maybe thousands of accounts. The current state root computation (hash all accounts) is fast enough. Sparse Merkle trees add significant implementation complexity for negligible benefit at this scale.
+
+**Original features**:
+- Cached incremental Merkle tree updates
+- Faster state root calculation with sparse Merkle trees
+- State diff computation (only recompute changed subtrees)
+- State root caching for unchanged state
+- Parallel Merkle tree computation
+
+**Re-evaluation**: Drop sparse Merkle trees. Keep simple state root computation. Revisit if account count exceeds 100K.
+
+---
+
+### 11. Formal Verification (from v0.9.0)
+
+**Original location**: v0.9.0 — Atomic Cross-Chain Settlement
+**Why deferred**: Formal verification (Coq, TLA+, Lean) is extremely expensive — months of work by specialists. Justified for systems where bugs cost billions or lives (aircraft, Ethereum consensus layer). For a compute marketplace bridge, extensive chaos testing + external security audit is sufficient. The chaos testing already planned in v0.9.0 is the right approach.
+
+**Original features**:
+- Formal verification: atomicity properties proven
+
+**Re-evaluation**: Drop formal verification. Keep chaos testing + external security audit (already in v0.9.0).
+
+---
+
+### Verified Code Targets (from suggestions.md investigation)
+
+#### Futures/Options/Margin — Confirmed Copy-Pasted from DEX Template
+**Finding**: Confirmed. The v0.10.0 changelog (lines 26-35) explicitly states: "Nobody trades futures contracts on GPU rental", "There is zero code for futures, options, margin, expiry, strike prices, or leverage in the codebase", "This was copy-pasted from a generic DEX template". The actual `TradeType` enum is `AI_POWER`, `COMPUTE_RESOURCES`, `DATA_SERVICES`, `MODEL_SERVICES`, `INFERENCE_TASKS`, `TRAINING_TASKS`.
+**Decision**: **DROP** futures, options, and margin trading. They do not match AITBC's compute marketplace domain.
+
+#### Feature Re-Evaluation Required
+**Required**: Formally close each of the 11 deferred features with a one-sentence decision: DROP, RE-SCOPE, or RE-SCHEDULE. Keep conclusions in this change.log. If all features are dropped or re-scoped, consider removing v0.10.0 from the roadmap entirely and folding any re-scoped features into their natural releases.
+
+---
+
+## 📊 Summary
+
+| # | Feature | Original Release | Problem | Recommendation |
+|---|---------|-----------------|---------|----------------|
+| 1 | Futures/Options/Margin | v0.8.0 | Wrong domain | Drop — spot only |
+| 2 | Cross-Chain Identity Mapping | v0.7.2 | Solves non-existent problem | Drop — same key = same address |
+| 3 | Network Topology Visualization | v0.8.0 | Wrong release / not needed | Drop or move to monitoring |
+| 4 | Bridge Load Balancing | v0.7.0 | Over-engineered | Drop |
+| 5 | Bridge Connection Pooling | v0.7.0 | Over-engineered | Drop |
+| 6 | Bridge Forensics Tooling | v0.7.1 | Buzzword | Drop — standard logs suffice |
+| 7 | Oracle Slashing | v0.7.2 | Chainlink-scale | Drop — light clients suffice |
+| 8 | Compact Block Propagation | v0.6.2 | Over-engineered | Drop or defer |
+| 9 | Adaptive Gossip Fanout | v0.6.2 | Over-engineered | Drop — fixed fanout |
+| 10 | Sparse Merkle Trees | v0.6.1 | Over-engineered | Drop — simple state root |
+| 11 | Formal Verification | v0.9.0 | Overkill | Drop — chaos testing suffices |
+
+## 🚀 Next Steps
+
+Each feature in this release should be individually reviewed and either:
+1. **Dropped** — removed from the roadmap entirely
+2. **Re-scoped** — simplified to fit AITBC's actual scale and domain
+3. **Re-scheduled** — moved to a future release when AITBC's scale justifies it
+
+No implementation work should be done on any feature in this release until that decision is made.
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 0.10.0*
+*Status: Deferred / Under Review*

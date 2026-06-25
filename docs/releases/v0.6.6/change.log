@@ -1,0 +1,231 @@
+# AITBC v0.6.6 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Compute Marketplace — GPU Offers, Edge Serving, Marketplace Matching, Blockchain-Backed Service Registration
+
+## 🎯 Overview
+
+AITBC v0.6.6 matures the compute marketplace layer: the marketplace service (2K lines), GPU service (1.2K lines), and edge service (1.4K lines) are wired together and connected to the blockchain for service registration, offer discovery, and payment. This is the **actual product** — AITBC is a compute marketplace where providers offer GPU/compute resources and consumers pay for them using AIT coins.
+
+**Why this is a dedicated release**: The marketplace, GPU, and edge services exist but are disconnected. The marketplace queries the blockchain database directly for GPU offers (bypassing proper APIs), the GPU service submits transactions to `/rpc/transaction` without `chain_id` (the v0.5.16 bug), and the edge service has blockchain RPC client code but no payment flow. This release connects them properly.
+
+**Prerequisites**: Requires [v0.6.5](../v0.6.5/change.log) (Agent Coordination — task assignment uses agent coordination), [v0.6.3](../v0.6.3/change.log) (Multi-Island — offers span chains), [v0.6.4](../v0.6.4/change.log) (Multi-Chain Per Island — multiple service chains), and [v0.5.16](../v0.5.16/change.log) (chain_id-aware transactions).
+
+## 🎯 Release Highlights
+
+### GPU Marketplace
+- 🚧 GPU offer registration on blockchain (GPU_REGISTER transaction type)
+- 🚧 Offer discovery by GPU model, memory, count, region, price
+- 🚧 Offer availability tracking (available → reserved → in-use → available)
+- 🚧 Offer pricing in AIT coins (compute-seconds)
+
+### Edge Node Serving
+- 🚧 Edge node registration with blockchain
+- 🚧 Edge node capability advertising (GPU models, compute capacity)
+- 🚧 Edge node health monitoring
+- 🚧 Edge node serving requests (inference, training, data processing)
+
+### Marketplace Matching
+- 🚧 Match compute requests to GPU offers (price, capability, region)
+- 🚧 Matching service integration with agent-coordinator task queues
+- 🚧 Match confirmation and reservation
+- 🚧 Match failure and retry
+
+### Blockchain-Backed Service Registration
+- 🚧 Service offers registered as blockchain transactions (immutable, verifiable)
+- 🚧 Offer lookup via blockchain RPC (not direct database access)
+- 🚧 Offer lifecycle on blockchain (register → update → delist)
+- 🚧 Payment for services via blockchain transactions (chain_id-aware)
+
+## 📋 Detailed Features
+
+### GPU Marketplace
+
+#### Current State
+The GPU service has:
+- `gpu_service/domain/gpu_marketplace.py` — GPU offer domain model
+- `gpu_service/services/edge_gpu_service.py` — edge GPU service
+- `gpu_service/data/consumer_gpu_profiles.py` — consumer GPU profiles
+- `POST /rpc/transaction` call in `main.py` (line 307) — submits GPU registration to blockchain (but without chain_id)
+
+The marketplace service has:
+- `marketplace_service/services/marketplace_service.py` — lists offers with GPU model/region filters
+- `marketplace_service/services/matching_service.py` — matching service
+- `marketplace_service/domain/global_marketplace.py` — global marketplace with payment_status field
+
+#### What's Broken
+- Marketplace queries blockchain database **directly** (bypassing RPC):
+  ```python
+  # marketplace_service.py line 205-206
+  # Direct database query to blockchain
+  blockchain_offers = []
+  ```
+- GPU service submits transactions without `chain_id` (v0.5.16 bug)
+- No offer reservation mechanism
+- No offer availability tracking
+
+#### Fix
+- Replace direct database queries with blockchain RPC calls
+- Send `chain_id` in GPU registration transactions
+- Add offer reservation (lock offer when matched, release on completion/timeout)
+- Add offer availability status tracking
+
+### Edge Node Serving
+
+#### Current State
+The edge service has:
+- `aitbc_edge/clients/blockchain_rpc.py` — blockchain RPC client (join island, leave, get info, request bridge)
+- `aitbc_edge/clients/gpu_service.py` — GPU service client
+- `aitbc_edge/routers/gpu.py` — GPU router
+- `aitbc_edge/routers/serve.py` — serving router
+- `aitbc_edge/routers/islands.py` — island router
+
+#### What's Missing
+- No payment flow for served requests
+- No edge node capability advertising to marketplace
+- No edge node health reporting to coordinator
+
+#### Fix
+- Add payment flow: consumer pays via blockchain before edge serves request
+- Edge nodes advertise capabilities to marketplace (GPU models, capacity)
+- Edge nodes report health to agent-coordinator (heartbeat)
+
+### Marketplace Matching
+
+#### Current State
+`matching_service.py` exists but is basic — matches offers to requests by simple filters.
+
+#### Fix
+- Implement price-time priority matching (highest paying request gets best offer)
+- Integrate with agent-coordinator task queues (matched offer → task assignment)
+- Add match confirmation (both parties agree)
+- Add match failure handling (offer no longer available → re-match)
+
+### Verified Code Targets (from suggestions.md investigation)
+
+#### GPU Service Missing chain_id in Transaction Submission
+**Current state**: `apps/gpu/src/gpu_service/main.py` lines 272-291 — submits blockchain transactions WITHOUT `chain_id`:
+```python
+blockchain_tx = {
+    "from": provider_address,
+    "to": "0x0000000000000000000000000000000000000000",
+    "amount": 0,
+    "fee": 36,
+    "nonce": 0,
+    "type": "GPU_REGISTER",
+    "value": 0,
+    "payload": { ... },  # No chain_id field
+    "signature": transaction_data.get("signature", "") or "",
+}
+```
+**Required**: Add `chain_id` to the transaction dict. This is the same class of bug as v0.5.16 Bug 1 and Bug 16 — all cross-service transaction submissions must include `chain_id`.
+**Prerequisite**: v0.5.16 must be shipped first (TransactionRequest must accept `chain_id` before GPU service can send it).
+
+#### Marketplace Direct SQLite Queries (confirmed in v0.5.16)
+**Note**: The marketplace direct SQLite query bug (`apps/marketplace/src/marketplace_service/services/marketplace_service.py` lines 209-226) is already tracked in v0.5.16 (Bugs 17-18). v0.6.6 should verify the fix is in place and build marketplace features on top of the RPC-based access pattern.
+
+## 🔧 Breaking Changes
+
+- Marketplace no longer queries blockchain database directly — uses RPC instead
+- GPU registration transactions must include `chain_id` (requires v0.5.16)
+- Edge nodes must register with marketplace before serving
+- Service offers must be registered on blockchain (not just in local DB)
+
+## 📊 Migration Guide
+
+### v0.6.5 → v0.6.6
+
+1. **Update services**
+   ```bash
+   cd /opt/aitbc
+   git pull
+   ./venv/bin/pip install -e apps/marketplace apps/gpu apps/edge
+   ```
+
+2. **Configure marketplace**
+   ```bash
+   # /etc/aitbc/marketplace.env
+   BLOCKCHAIN_RPC_URL=http://localhost:8006
+   AGENT_COORDINATOR_URL=http://localhost:8010
+   DEFAULT_CHAIN_ID=ait-hub
+   ```
+
+3. **Restart services**
+   ```bash
+   systemctl restart aitbc-marketplace aitbc-gpu aitbc-edge
+   ```
+
+## 🧪 Testing
+
+- GPU offer registered on blockchain → discoverable via marketplace RPC
+- Offer match → reservation created → task assigned to agent
+- Edge node serves request after payment confirmed on blockchain
+- Offer delisted when GPU becomes unavailable
+- Multi-chain: offer on chain A discovered by consumer on chain B
+- Payment flow: consumer pays → edge serves → provider paid
+
+### Test Coverage Goals
+- GPU marketplace: >90%
+- Edge serving: >85%
+- Marketplace matching: >90%
+- Blockchain registration: >90%
+- Payment flow: >90%
+
+## 📚 Documentation
+
+- [Compute Marketplace Guide](../getting-started/compute-marketplace.md)
+- [GPU Offer Registration](../getting-started/gpu-offer-registration.md)
+- [Edge Node Setup](../getting-started/edge-node-setup.md)
+- [Marketplace Matching API](../api/marketplace-matching.md)
+- [Service Payment Flow](../getting-started/service-payments.md)
+
+## 🚀 Dependencies
+
+### New Dependencies
+- None
+
+### Updated Dependencies
+- Marketplace v0.6.6+
+- GPU service v0.6.6+
+- Edge service v0.6.6+
+- Blockchain node v0.5.16+ (chain_id-aware transactions)
+- Agent coordinator v0.6.5+ (task assignment)
+
+## 🔐 Security Considerations
+
+- Service offers are immutable on blockchain (can't be secretly modified)
+- Payment required before service delivery (edge node verifies on blockchain)
+- Edge node authentication required
+- Offer reservation prevents double-booking
+
+## 📈 Performance Targets
+
+- Offer registration: <1s (blockchain transaction)
+- Offer discovery: <100ms (RPC query)
+- Match: <200ms
+- Edge node serving start: <500ms (after payment confirmation)
+- Payment confirmation: <2s (block inclusion)
+
+## 🎯 Success Criteria
+
+- ✅ GPU offers registered on blockchain and discoverable via marketplace
+- ✅ Marketplace uses RPC, not direct database access
+- ✅ Edge nodes serve requests after blockchain payment confirmation
+- ✅ Match integrates with agent-coordinator task queues
+- ✅ Multi-chain offers work (offer on chain A, consumer on chain B)
+- ✅ All existing tests pass
+
+## 🚀 Next Steps
+
+### v0.6.7 — Pool Hub & Mining
+- Miner registry, job scoring, reward distribution (builds on marketplace for compute provider management)
+
+### v0.7.0 — Bridge Basics
+- Cross-chain bridge (builds on marketplace for cross-chain service payments)
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 0.6.6*
+*Status: Planned*

@@ -13,7 +13,7 @@ from aitbc.rate_limiting import rate_limit
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Transaction
-from .utils import get_chain_id, normalize_transaction_data
+from .utils import get_chain_id, normalize_transaction_data, verify_transaction_signature
 
 _logger = get_logger(__name__)
 
@@ -21,6 +21,7 @@ _logger = get_logger(__name__)
 class TransactionRequest(BaseModel):
     """Transaction request model"""
 
+    chain_id: str | None = None
     sender: str = Field(..., alias="from")
     recipient: str = Field(..., alias="to")
     amount: int
@@ -87,7 +88,7 @@ async def submit_transaction(request: Request, tx_data: TransactionRequest) -> d
 
     try:
         mempool = get_mempool()
-        chain_id = get_chain_id(None)
+        chain_id = get_chain_id(tx_data.chain_id)
 
         # Convert TransactionRequest to dict for normalization
         # Use validated top-level fields instead of reading from payload
@@ -101,6 +102,10 @@ async def submit_transaction(request: Request, tx_data: TransactionRequest) -> d
             "type": tx_data.type,
             "signature": tx_data.sig,
         }
+
+        # Verify transaction signature (Bug 4: signature was never verified)
+        if not verify_transaction_signature(tx_data_dict, tx_data.sig, tx_data.sender):
+            raise HTTPException(status_code=403, detail="Invalid transaction signature")
 
         tx_data_dict = normalize_transaction_data(tx_data_dict, chain_id)
         _validate_transaction_admission(tx_data_dict, mempool)

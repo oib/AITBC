@@ -1,12 +1,19 @@
-"""Stub contracts module for when contract_service is not available."""
+"""Stub contracts module for when contract_service is not available.
+
+This stub never returns fake data.  Every function raises an explicit
+``HTTPException`` with status 503 so that callers receive a clear error
+instead of a misleading success response.  In normal operation the real
+``contracts`` module is imported by ``router.py``; this module only exists
+as a safety net for direct imports and always fails loudly.
+"""
 
 from typing import Any
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 
 
 async def _stub(request: Request, *args: Any, **kwargs: Any) -> dict[str, Any]:
-    return {"error": "Contract service not available", "status": "unavailable"}
+    raise HTTPException(status_code=503, detail="Contract service not available")
 
 
 deploy_messaging_contract = _stub

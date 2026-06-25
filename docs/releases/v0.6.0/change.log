@@ -2,187 +2,198 @@
 
 **Date**: TBD
 **Status**: 🚧 Planned
-**Scope**: Cross-Chain Bridge & Interoperability
+**Scope**: Database & Network Optimization — Query Indexing, Connection Pooling, Caching, Network Compression
 
 ## 🎯 Overview
 
-AITBC v0.6.0 is a major milestone release focused on cross-chain bridge integrations and blockchain interoperability. This release enables the AITBC platform to bridge assets and data between different blockchain chains, opening up new possibilities for multi-chain operations, cross-chain asset transfers, and decentralized liquidity.
+AITBC v0.6.0 is a performance-focused release targeting database, caching, and network I/O optimizations that don't require fundamental architectural changes. These improvements provide immediate throughput gains with low regression risk.
+
+**Scope clarification**: This release focuses **only on DB/network/caching layer** improvements. Block processing and transaction handling performance targets (block import rate, tx validation latency, mempool throughput) require parallel processing and have been moved to [v0.6.1](../v0.6.1/change.log). The current codebase processes transactions sequentially (poa.py lines 239-327) and recomputes state roots from scratch (merkle_patricia_trie.py lines 402-419) — these bottlenecks cannot be solved by caching alone.
+
+**Split rationale**: The original plan bundled DB/caching work with parallel block/transaction validation. These are fundamentally different: DB/caching is additive (indexes, pools, cache layers), parallel processing is architectural (dependency analysis, conflict resolution, deterministic scheduling). Splitting them lets the easier optimizations ship first, providing a faster base for v0.6.1's parallelism work.
+
+**Prerequisites**: Requires [v0.5.16](../v0.5.16/change.log) (Security Hardening — signature verification and chain_id fixes must be in place before performance work) and [v0.5.17](../v0.5.17/change.log) (Test Infrastructure — multi-node harness needed for performance benchmarking).
+
+**Dependency note**: v0.6.0 should be completed before v0.6.1 (Parallel Processing — parallel validation builds on the optimized DB/caching layer) and v0.7.0 (Bridge Basics — bridge targets need both v0.6.0 DB optimization AND v0.6.1 parallel processing).
 
 ## 🎯 Release Highlights
 
-### Cross-Chain Bridge
-- 🚧 Bridge contracts for asset transfers between chains
-- 🚧 Bridge RPC endpoints for cross-chain operations
-- 🚧 Cross-chain transaction validation and verification
-- 🚧 Bridge security mechanisms (multi-sig, time-locks)
-- 🚧 Bridge monitoring and alerting
+### Database Optimization
+- 🚧 Query optimization and indexing
+- 🚧 Connection pooling improvements
+- 🚧 Database caching strategies
+- 🚧 Reduced database I/O
+- 🚧 Optimized transaction storage
 
-### Interoperability Features
-- 🚧 Multi-chain wallet support
-- 🚧 Cross-chain transaction history tracking
-- 🚧 Chain-specific configuration management
-- 🚧 Cross-chain identity mapping
-- 🚧 Interoperable transaction standards
+### Network Performance (I/O layer)
+- 🚧 Reduced network latency
+- 🚧 Improved connection management
+- 🚧 Bandwidth optimization
+- 🚧 Network compression
 
-### Bridge Security
-- 🚧 Multi-signature bridge validation
-- 🚧 Time-locked transaction processing
-- 🚧 Bridge oracle integration
-- 🚧 Cross-chain signature verification
-- 🚧 Bridge event auditing
+### Block Processing (Caching layer)
+- 🚧 Block header caching
+- 🚧 Reduced database I/O during block import (caching, not parallelization)
 
-### Performance & Scalability
-- 🚧 Optimized cross-chain transaction processing
-- 🚧 Batch bridge operations
-- 🚧 Bridge connection pooling
-- 🚧 Cross-chain sync optimization
-- 🚧 Bridge load balancing
-
-### Developer Experience
-- 🚧 Bridge SDK and APIs
-- 🚧 Cross-chain development tools
-- 🚧 Bridge testing framework
-- 🚧 Cross-chain documentation
-- 🚧 Bridge debugging tools
+### Transaction Handling (Efficiency)
+- 🚧 Optimized transaction pool storage (DB-level, not processing)
+- 🚧 Transaction batching for database writes
+- 🚧 Priority queue storage optimization
 
 ## 📋 Detailed Features
 
-### Bridge Contracts
-- Asset locking/unlocking mechanisms
-- Cross-chain transaction verification
-- Bridge fee management
-- Emergency pause mechanisms
-- Bridge upgrade capabilities
+### Database
+- **Query Optimization**: Optimized database queries with better indexing
+- **Connection Pooling**: Improved database connection management
+- **Caching Layer**: Multi-level caching for frequently accessed data
+- **Batch Operations**: Batch database write operations
+- **Storage Optimization**: Optimized data storage formats
 
-### RPC Endpoints
-- `POST /rpc/bridge/lock` - Lock assets for bridging
-- `POST /rpc/bridge/unlock` - Unlock bridged assets
-- `POST /rpc/bridge/transfer` - Initiate cross-chain transfer
-- `GET /rpc/bridge/status/{tx_id}` - Get bridge transaction status
-- `GET /rpc/bridge/balance/{chain_id}` - Get bridge balance
+### Network (I/O)
+- **Connection Pooling**: Optimized P2P connection management
+- **Latency Reduction**: Reduced network latency through I/O optimization
+- **Compression**: Data compression for network transfers
+- **Load Balancing**: Network load balancing for better distribution
 
-### Configuration
-- Bridge-specific environment variables
-- Chain connection parameters
-- Bridge security settings
-- Cross-chain network configuration
-- Bridge timeout and retry settings
+### Block Processing (Caching)
+- **Header Caching**: Cache frequently accessed block headers
+- **Batch DB Writes**: Batch database writes during block import (I/O optimization, not parallel processing)
+
+### Transaction Handling (Storage)
+- **Mempool Storage**: Optimize mempool database storage and queries
+- **Transaction Batching**: Batch transaction database writes
+- **Priority Queue Storage**: Optimize priority queue database operations
 
 ## 🔧 Breaking Changes
 
-- New bridge configuration format in `/etc/aitbc/bridge.env`
-- Updated RPC endpoint structure for bridge operations
-- Changes to wallet schema for multi-chain support
-- Migration required for existing cross-chain setups
+- Updated database schema for performance optimization (additive indexes)
+- Changes to RPC response formats for performance metrics
+- Migration required for existing deployments
 
 ## 📊 Migration Guide
 
-### v0.5.x → v0.6.0
+### v0.6.x → v0.6.0
 
-1. **Backup existing configuration**
+1. **Backup existing data**
    ```bash
-   cp /etc/aitbc/blockchain.env /etc/aitbc/blockchain.env.backup
+   cp -r /var/lib/aitbc/data /var/lib/aitbc/data.backup
    ```
 
-2. **Create bridge configuration**
+2. **Update configuration**
    ```bash
-   cp /opt/aitbc/examples/bridge.env /etc/aitbc/bridge.env
+   # Add performance tuning parameters to blockchain.env
+   DB_CONNECTION_POOL_SIZE=20
+   DB_CACHE_ENABLED=true
+   NETWORK_COMPRESSION_ENABLED=true
    ```
 
-3. **Configure bridge parameters**
-   - Set supported chains
-   - Configure bridge endpoints
-   - Set bridge security parameters
+3. **Run database migration**
+   ```bash
+   aitbc db migrate
+   ```
 
 4. **Restart services**
    ```bash
    systemctl restart aitbc-blockchain-node
-   systemctl restart aitbc-bridge-service
    ```
 
-5. **Verify bridge status**
+5. **Verify performance**
    ```bash
-   aitbc bridge status
+   aitbc metrics performance
    ```
 
 ## 🧪 Testing
 
-### Bridge Testing
-- Cross-chain asset transfer tests
-- Bridge security validation tests
-- Bridge performance benchmarks
-- Bridge failure scenario tests
-- Cross-chain integration tests
+### Performance Testing
+- Database query benchmarks
+- Cache hit rate tests
+- Network compression ratio tests
+- Batch operation throughput tests
+- Mempool efficiency tests
 
 ### Test Coverage Goals
-- Bridge contracts: >90%
-- Bridge RPC endpoints: >85%
-- Cross-chain operations: >80%
-- Bridge security: >95%
+- Database operations: >85%
+- Network operations: >80%
+- Block processing (caching): >90%
+- Transaction handling: >85%
 
 ## 📚 Documentation
 
-- [Bridge Architecture Guide](../architecture/bridge-architecture.md)
-- [Cross-Chain Operations Guide](../getting-started/cross-chain-guide.md)
-- [Bridge Security Best Practices](../security/bridge-security.md)
-- [Bridge API Reference](../api/bridge-api.md)
-- [Bridge Troubleshooting](../troubleshooting/bridge-issues.md)
+- [Performance Tuning Guide](../getting-started/performance-tuning.md)
+- [Benchmarking Guide](../testing/benchmarking.md)
+- [Performance API Reference](../api/performance-api.md)
+- [Optimization Best Practices](../getting-started/optimization-guide.md)
 
 ## 🚀 Dependencies
 
 ### New Dependencies
-- Cross-chain bridge libraries
-- Multi-signature wallet libraries
-- Bridge oracle clients
-- Cross-chain validation tools
+- Database optimization libraries
+- Caching libraries (Redis, memcached)
 
 ### Updated Dependencies
 - Blockchain node v0.6.0+
 - CLI v0.6.0+
 - Coordinator API v0.6.0+
 
-## 🔐 Security Considerations
-
-- Bridge contracts audited by external security firms
-- Multi-sig validation for all bridge operations
-- Time-locks for large value transfers
-- Continuous bridge monitoring
-- Emergency pause mechanisms
-
 ## 📈 Performance Targets
 
-- Cross-chain transaction time: <5 minutes
-- Bridge throughput: >100 TPS
-- Bridge confirmation time: <2 minutes
-- Bridge success rate: >99.5%
-- Bridge latency: <500ms
+### Database
+- Query latency: <5ms for 95th percentile
+- Database throughput: >10,000 queries/second
+- Connection pool efficiency: >95%
+- Cache hit rate: >80%
+
+### Network
+- P2P connection latency: <50ms
+- Network bandwidth efficiency: >90%
+- Compression ratio: >50%
+
+### Block Processing (Caching)
+- Block header cache hit rate: >90%
+- Block import DB write overhead: <50% of import time (via batching)
+
+### Transaction Handling (Storage)
+- Mempool query latency: <5ms
+- Transaction batch write throughput: >5,000 writes/second
+
+**Note**: Block import rate, block processing latency, transaction validation latency, and transaction confirmation time targets require parallel processing and are in [v0.6.1](../v0.6.1/change.log). The current sequential processing in `poa.py` (lines 239-327) and full state root recomputation in `merkle_patricia_trie.py` (lines 402-419) are architectural bottlenecks that caching alone cannot solve.
+
+## 🔐 Security Considerations
+
+- Performance optimizations maintain security guarantees
+- No compromise on validation integrity
+- Rate limiting for performance endpoints
+- Monitoring for performance anomalies
 
 ## 🎯 Success Criteria
 
-- ✅ Cross-chain asset transfers functional
-- ✅ Bridge security audited and approved
-- ✅ Bridge performance targets met
-- ✅ Comprehensive documentation complete
-- ✅ Migration guide tested and validated
-- ✅ Bridge monitoring operational
+- ✅ Database performance targets met (query latency, throughput, pool efficiency, cache hit rate)
+- ✅ Network performance targets met (latency, bandwidth, compression)
+- ✅ Block header caching operational (>90% hit rate)
+- ✅ Mempool storage optimized (query latency, batch writes)
+- ✅ Comprehensive performance documentation
+- ✅ Performance monitoring operational
+- ✅ No security regressions
 
 ## 🚀 Next Steps
 
-### v0.6.1 Planning
-- Additional chain integrations
-- Advanced bridge features (atomic swaps, DEX integration)
-- Bridge liquidity protocols
-- Cross-chain governance
+### v0.6.1 — Parallel Processing Architecture
+- Parallel block validation
+- Parallel transaction validation
+- State root calculation optimization
+- Deterministic scheduling and conflict resolution
 
-### v0.7.0 Planning
-- Performance optimization for blockchain operations
-- Block processing and transaction handling improvements
-- Synchronization performance enhancements
-- Database and network optimization
-- Scalability improvements
+### v0.6.2 — Sync & Gossip Optimization
+- Optimized gossip protocol
+- Parallel sync operations
+- Delta-based synchronization
+- Block propagation enhancements
+
+### v0.7.0 — Bridge Basics
+- Cross-chain bridge infrastructure (lock/unlock, RPC, monitoring)
 
 ---
 
-*Last Updated: 2026-06-02*
+*Last Updated: 2026-06-25*
 *Version: 0.6.0*
 *Status: Planned*

@@ -1,0 +1,303 @@
+# AITBC v0.5.17 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Test Infrastructure — Multi-Chain Fixtures, Multi-Node Harness, Stub Test Conversion, Bridge Test Suite
+
+## 🎯 Overview
+
+AITBC v0.5.17 builds the test infrastructure that all subsequent releases depend on. The investigation found that **no planned release has adequate test coverage** — 95+ CLI test files are stubs that skip with "complex dependencies", there are zero multi-chain test fixtures, zero multi-node test harness, and zero bridge functional tests. This release builds the foundational test infrastructure before any feature releases ship.
+
+**Why this is a dedicated release**: Test infrastructure cannot be built piecemeal inside feature releases. The multi-chain fixtures are needed by v0.6.3 (Multi-Island), v0.6.4 (Multi-Chain), v0.7.0 (Bridge), and v0.8.0 (Trading). The multi-node harness is needed by v0.6.1 (Parallel), v0.6.2 (Sync), and v0.9.0 (Chaos). Building these once, here, unblocks all subsequent releases.
+
+**Prerequisites**: Requires [v0.5.16](../v0.5.16/change.log) (the security and chain_id fixes must be in place before we can test them).
+
+## 🎯 Release Highlights
+
+### Multi-Chain Test Fixtures
+- 🚧 Fixture to spin up 2+ chains (ait-hub, ait-island1) with separate databases
+- 🚧 Fixture for per-chain sync source mapping (chain_id → hub_url)
+- 🚧 Fixture for island-to-chain registry
+- 🚧 Fixture for multi-chain mempool (per-chain namespaces)
+
+### Multi-Node Test Harness
+- 🚧 Harness to spin up 3+ nodes (hub + followers) with different chain configs
+- 🚧 Network partition simulation (disconnect nodes, reconnect)
+- 🚧 Block propagation verification across nodes
+- 🚧 Byzantine node simulation (node sends invalid blocks)
+
+### v0.5.16 Regression Tests
+- 🚧 Tests for chain_id-aware transaction submission (Bug 1)
+- 🚧 Tests for chain_id-aware sync RPC (Bug 2)
+- 🚧 Tests for bridge proof verification with signatures (Bug 3)
+- 🚧 Tests for transaction signature verification (Bug 4)
+- 🚧 Tests for bridge/staking signature verification (Bugs 7, 8)
+- 🚧 Tests for mining endpoint authentication (Bug 9)
+- 🚧 Tests for stub removal — endpoints return 503 not fake data (Bug 11)
+
+### Stub Test Conversion
+- 🚧 Convert 95+ skipped CLI tests to functional tests
+- 🚧 Replace `pytest.skip("complex dependencies")` with proper mock fixtures
+- 🚧 Add test fixtures for blockchain RPC, wallet, cryptography dependencies
+
+### Bridge Test Suite
+- 🚧 Tests for `/bridge/lock` endpoint (with valid/invalid signatures)
+- 🚧 Tests for `/bridge/confirm` endpoint (with valid/invalid proofs)
+- 🚧 Tests for cross-chain transfer lifecycle (lock → confirm → release)
+- 🚧 Tests for bridge proof forgery attempts (rejected)
+- 🚧 Tests for bridge timeout/refund (preliminary — full testing in v0.9.0)
+
+## 📋 Detailed Features
+
+### Multi-Chain Test Fixtures
+
+#### Current State
+No multi-chain test fixtures exist. All tests assume single-chain operation.
+
+#### What's Needed
+A `tests/fixtures/multi_chain.py` module that provides:
+
+```python
+@pytest.fixture
+async def multi_chain_setup():
+    """Spin up 2 chains with separate databases and sync sources."""
+    # Chain A: ait-hub (hub node)
+    hub = await start_test_node(
+        chain_id="ait-hub",
+        is_hub=True,
+        port=8006,
+        db_path=":memory:",
+    )
+    # Chain B: ait-island1 (follower node)
+    follower = await start_test_node(
+        chain_id="ait-island1",
+        is_hub=False,
+        port=8007,
+        db_path=":memory:",
+        sync_sources={"ait-hub": "http://localhost:8006"},
+    )
+    yield {"hub": hub, "follower": follower}
+    await hub.stop()
+    await follower.stop()
+```
+
+#### Fixtures to Build
+1. `multi_chain_setup` — 2+ chains with separate DBs
+2. `multi_island_setup` — 2+ islands with chain-to-island mapping
+3. `sync_source_map` — per-chain sync source configuration
+4. `multi_chain_mempool` — mempool with per-chain namespaces
+5. `island_registry` — island-to-chain-to-hub registry
+
+### Multi-Node Test Harness
+
+#### Current State
+No multi-node test harness exists. Tests run against single nodes.
+
+#### What's Needed
+A `tests/harness/multi_node.py` module that provides:
+
+```python
+class MultiNodeHarness:
+    """Spin up multiple nodes for integration testing."""
+
+    async def start_network(self, num_nodes: int = 3, num_chains: int = 2):
+        """Start a network of nodes with multiple chains."""
+        ...
+
+    async def partition(self, node_ids: list[str]):
+        """Simulate network partition — disconnect specified nodes."""
+        ...
+
+    async def heal(self):
+        """Reconnect all partitioned nodes."""
+        ...
+
+    async def add_byzantine_node(self, chain_id: str):
+        """Add a node that sends invalid blocks."""
+        ...
+```
+
+#### Harness Features
+1. Start N nodes with M chains
+2. Network partition simulation (disconnect/reconnect)
+3. Block propagation verification
+4. Byzantine node simulation (invalid blocks, invalid signatures)
+5. Chain reorg simulation (fork then resolve)
+6. Sync lag measurement
+
+### v0.5.16 Regression Tests
+
+#### Tests for Bug 1 (chain_id-aware transactions)
+```python
+async def test_tx_with_chain_id_routed_correctly(multi_chain_setup):
+    """Submit tx with chain_id=ait-island1 → goes to ait-island1 mempool."""
+    hub = multi_chain_setup["hub"]
+    tx = make_signed_transaction(chain_id="ait-island1", sender="0xAlice", ...)
+    resp = await hub.client.post("/rpc/transaction", json=tx)
+    assert resp.status_code == 200
+    # Verify tx is in ait-island1 mempool, not ait-hub
+    assert hub.mempool.get_pending("ait-island1") contains tx_hash
+    assert hub.mempool.get_pending("ait-hub") is empty
+
+async def test_tx_without_chain_id_defaults_to_hub(multi_chain_setup):
+    """Submit tx without chain_id → goes to hub's default chain (backward compat)."""
+    ...
+```
+
+#### Tests for Bug 4 (signature verification)
+```python
+async def test_tx_with_invalid_signature_rejected(multi_chain_setup):
+    """Submit tx with invalid signature → 403."""
+    tx = make_transaction(sender="0xAlice", signature="0xinvalid")
+    resp = await hub.client.post("/rpc/transaction", json=tx)
+    assert resp.status_code == 403
+
+async def test_tx_without_signature_rejected(multi_chain_setup):
+    """Submit tx without signature → 422."""
+    tx = make_transaction(sender="0xAlice")  # no signature
+    resp = await hub.client.post("/rpc/transaction", json=tx)
+    assert resp.status_code == 422
+```
+
+#### Tests for Bug 3 (bridge proof verification)
+```python
+async def test_bridge_proof_without_signature_rejected(multi_chain_setup):
+    """Bridge proof without proposer signature → rejected."""
+    proof = make_proof(source_chain="ait-hub", amount=100, ...)
+    # No proposer_signature field
+    assert bridge._validate_proof(proof, record) is False
+
+async def test_bridge_proof_with_valid_signature_accepted(multi_chain_setup):
+    """Bridge proof with valid proposer signature → accepted."""
+    proof = make_proof_with_signature(...)
+    assert bridge._validate_proof(proof, record) is True
+```
+
+### Stub Test Conversion
+
+#### Current State
+95+ CLI test files skip with patterns like:
+```python
+pytest.skip("Click context mocking requires complex setup")
+pytest.skip("Cross chain commands have complex requests and config dependencies")
+pytest.skip("Transactions commands have complex wallet and cryptography dependencies")
+pytest.skip("Path resolution and subprocess mocking requires complex setup")
+```
+
+#### Fix
+Create proper mock fixtures for the "complex dependencies":
+1. `mock_blockchain_rpc` — mock HTTP client for blockchain RPC calls
+2. `mock_wallet` — mock wallet for signing transactions
+3. `mock_click_context` — proper Click CLI context fixture
+4. `mock_config` — mock configuration with test values
+5. `mock_subprocess` — mock subprocess for CLI commands that shell out
+
+Then remove `pytest.skip()` calls and implement real test logic.
+
+### Bridge Test Suite
+
+#### Tests to Build
+1. `test_bridge_lock_valid` — lock with valid signature → success
+2. `test_bridge_lock_invalid_signature` — lock with invalid signature → 403
+3. `test_bridge_confirm_valid_proof` — confirm with valid proof → release funds
+4. `test_bridge_confirm_forged_proof` — confirm with forged proof → rejected
+5. `test_bridge_confirm_wrong_chain_id` — proof with wrong chain_id → rejected
+6. `test_bridge_lifecycle` — full lock → confirm → release cycle
+7. `test_bridge_timeout_refund` — lock expires without confirm → refund (preliminary)
+
+## 🔧 Breaking Changes
+
+- None (test-only release, no production code changes)
+
+## 📊 Migration Guide
+
+### v0.5.16 → v0.5.17
+
+1. **Update test dependencies**
+   ```bash
+   cd /opt/aitbc
+   git pull
+   ./venv/bin/pip install -e ".[test]"
+   ```
+
+2. **Run new tests**
+   ```bash
+   ./venv/bin/python -m pytest tests/unit -q
+   ./venv/bin/python -m pytest tests/integration -q
+   ./venv/bin/python -m pytest tests/multi_chain -q  # new
+   ./venv/bin/python -m pytest tests/bridge -q       # new
+   ```
+
+## 🧪 Testing
+
+### Test Infrastructure Tests (Meta)
+- Multi-chain fixture spins up 2 chains correctly
+- Multi-node harness starts 3 nodes and they connect
+- Network partition simulation works
+- Byzantine node simulation produces invalid blocks
+
+### Coverage Goals After This Release
+- v0.5.16 regression tests: >95% coverage of the 14 bug fixes
+- Converted stub tests: >80% of 95+ skipped tests now run
+- Bridge tests: >90% coverage of lock/confirm/proof lifecycle
+- Multi-chain tests: >85% coverage of chain_id routing
+
+## 📚 Documentation
+
+- [Test Infrastructure Guide](../testing/test-infrastructure.md)
+- [Multi-Chain Test Fixtures](../testing/multi-chain-fixtures.md)
+- [Multi-Node Test Harness](../testing/multi-node-harness.md)
+- [Bridge Testing Guide](../testing/bridge-tests.md)
+
+## 🚀 Dependencies
+
+### New Dependencies
+- `pytest-asyncio` (for async test fixtures — may already be installed)
+- `aiohttp` test client (for multi-node HTTP testing)
+- `pytest-xdist` (for parallel test execution)
+
+### Updated Dependencies
+- Blockchain node v0.5.16+ (the fixes being tested)
+
+## 🔐 Security Considerations
+
+- Test fixtures must not use real keys or real blockchain state
+- Test databases must be in-memory or isolated (no cross-test contamination)
+- Byzantine node simulation must not leak into production networks
+
+## 📈 Performance Targets
+
+- Multi-chain fixture startup: <5 seconds (in-memory DBs)
+- Multi-node harness startup (3 nodes): <10 seconds
+- Full test suite runtime: <60 seconds (with parallel execution)
+- Bridge test suite: <10 seconds
+
+## 🎯 Success Criteria
+
+- ✅ Multi-chain fixture can spin up 2+ chains with separate DBs
+- ✅ Multi-node harness can start 3+ nodes and verify block propagation
+- ✅ Network partition simulation works (disconnect → heal → sync)
+- ✅ All 14 v0.5.16 bug fixes have regression tests
+- ✅ 80%+ of previously skipped CLI tests now run
+- ✅ Bridge test suite covers lock/confirm/proof lifecycle
+- ✅ Full test suite runs in <60 seconds
+
+## 🚀 Next Steps
+
+### v0.6.0 — Performance Optimization
+- DB, caching, network I/O optimization (uses multi-node harness for benchmarks)
+
+### v0.6.3 — Multi-Island Node Support
+- Multi-island sync (uses multi-chain fixtures from v0.5.17)
+
+### v0.7.0 — Bridge Basics
+- Cross-chain bridge (uses bridge test suite from v0.5.17)
+
+### v0.9.0 — Atomic Cross-Chain Settlement
+- Chaos testing (uses multi-node harness + partition simulation from v0.5.17)
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 0.5.17*
+*Status: Planned — Test Infrastructure*

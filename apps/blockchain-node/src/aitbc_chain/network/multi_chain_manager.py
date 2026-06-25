@@ -10,7 +10,15 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from sqlmodel import select
+
 from aitbc.aitbc_logging import get_logger
+
+from ..base_models import Block
+from ..config import ProposerConfig, settings
+from ..consensus.poa import PoAProposer
+from ..database import init_db, session_scope, shutdown_db
+from ..gossip import gossip_broker
 
 logger = get_logger(__name__)
 
@@ -47,10 +55,7 @@ class ChainInstance:
     stopped_at: float | None = None
     error_message: str | None = None
     # Dynamic attributes added at runtime
-    _rpc_server: Any = field(default=None, init=False, repr=False)
-    _p2p_service: Any = field(default=None, init=False, repr=False)
     _consensus: Any = field(default=None, init=False, repr=False)
-    _chain_db: Any = field(default=None, init=False, repr=False)
 
 
 class MultiChainManager:
@@ -90,6 +95,17 @@ class MultiChainManager:
         self.next_p2p_port += 1
         return (rpc_port, p2p_port)
 
+    def _proposer_config(self, chain_id: str) -> ProposerConfig:
+        """Build a ProposerConfig for a chain instance"""
+        return ProposerConfig(
+            chain_id=chain_id,
+            proposer_id=settings.proposer_id,
+            interval_seconds=settings.block_time_seconds,
+            max_block_size_bytes=settings.max_block_size_bytes,
+            max_txs_per_block=settings.max_txs_per_block,
+            default_peer_rpc_url=settings.default_peer_rpc_url,
+        )
+
     async def start_chain(self, chain_id: str, chain_type: ChainType = ChainType.MICRO) -> bool:
         """
         Start a new chain instance
@@ -107,8 +123,7 @@ class MultiChainManager:
         if chain_id == self.default_chain_id:
             logger.warning("Cannot start default chain (already running)")
             return False
-        rpc_port = self.base_rpc_port
-        p2p_port = self.base_p2p_port
+        rpc_port, p2p_port = self._allocate_ports()
         db_path = self.base_db_path.parent / chain_id / "chain.db"
         chain = ChainInstance(
             chain_id=chain_id,
@@ -121,31 +136,22 @@ class MultiChainManager:
         self.chains[chain_id] = chain
         try:
             db_path.parent.mkdir(parents=True, exist_ok=True)
-            from aitbc_chain.database import BlockchainDB  # type: ignore[attr-defined]
 
-            chain_db = BlockchainDB(str(db_path))
-            chain_db.initialize()
-            from aitbc_chain.rpc import RPCServer  # type: ignore[attr-defined]
+            # Initialize the chain database using the actual database layer
+            init_db(chain_id)
 
-            rpc_server = RPCServer(rpc_port, chain_db)
-            await rpc_server.start()
-            from aitbc_chain.p2p import P2PService  # type: ignore[import-not-found]
+            # Start the PoA proposer for block production on this chain
+            proposer_config = self._proposer_config(chain_id)
+            consensus = PoAProposer(
+                config=proposer_config,
+                session_factory=lambda cid=chain_id: session_scope(cid),
+            )
+            await consensus.start()
 
-            p2p_service = P2PService(p2p_port, chain_id)
-            await p2p_service.start()
-            from aitbc_chain.consensus import EthereumConsensus  # type: ignore[attr-defined]
-
-            consensus = EthereumConsensus(chain_db)
-            await consensus.initialize()
-            chain._rpc_server = rpc_server
-            chain._p2p_service = p2p_service
             chain._consensus = consensus
-            chain._chain_db = chain_db
             chain.status = ChainStatus.RUNNING
             chain.started_at = time.time()
-            logger.info(
-                "Started Ethereum chain %s (type: %s, rpc: %s, p2p: %s)", chain_id, chain_type.value, rpc_port, p2p_port
-            )
+            logger.info("Started chain %s (type: %s, rpc: %s, p2p: %s)", chain_id, chain_type.value, rpc_port, p2p_port)
             return True
         except Exception as e:
             chain.status = ChainStatus.ERROR
@@ -167,17 +173,13 @@ class MultiChainManager:
             return False
         chain.status = ChainStatus.STOPPING
         try:
-            if hasattr(chain, "_rpc_server"):
-                await chain._rpc_server.stop()
-            if hasattr(chain, "_p2p_service"):
-                await chain._p2p_service.stop()
-            if hasattr(chain, "_consensus"):
+            if chain._consensus is not None:
                 await chain._consensus.stop()
-            if hasattr(chain, "_chain_db"):
-                chain._chain_db.close()
+                chain._consensus = None
+            shutdown_db(chain_id)
             chain.status = ChainStatus.STOPPED
             chain.stopped_at = time.time()
-            logger.info("Stopped Ethereum chain %s", chain_id)
+            logger.info("Stopped chain %s", chain_id)
             return True
         except Exception as e:
             chain.status = ChainStatus.ERROR
@@ -197,9 +199,18 @@ class MultiChainManager:
         """Get all chain instances"""
         return list(self.chains.values())
 
+    def _get_latest_block_height(self, chain_id: str) -> int:
+        """Get the latest block height for a chain from the database"""
+        with session_scope(chain_id) as session:
+            block = session.exec(
+                select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)
+            ).first()
+            return block.height if block else 0
+
     def sync_chain(self, chain_id: str) -> bool:
         """
-        Sync a specific chain (Ethereum implementation)
+        Sync a specific chain to the highest block height among running chains.
+        Uses gossip to broadcast sync status.
         """
         if chain_id not in self.chains:
             logger.warning("Chain %s does not exist", chain_id)
@@ -209,19 +220,24 @@ class MultiChainManager:
             logger.warning("Chain %s is not running", chain_id)
             return False
         try:
-            chain_states = {}
+            chain_states: dict[str, int] = {}
             for cid, ch in self.chains.items():
-                if ch.status == ChainStatus.RUNNING and hasattr(ch, "_chain_db"):
-                    chain_states[cid] = ch._chain_db.get_latest_block_number()
+                if ch.status == ChainStatus.RUNNING:
+                    chain_states[cid] = self._get_latest_block_height(cid)
             if chain_states:
                 max_block_chain = max(chain_states, key=lambda k: chain_states[k])
                 target_block = chain_states[max_block_chain]
                 if chain_id != max_block_chain:
-                    if hasattr(chain, "_chain_db"):
-                        chain._chain_db.sync_to_block(target_block)
-                        logger.info("Synced chain %s to block %s", chain_id, target_block)
-            if hasattr(chain, "_p2p_service"):
-                chain._p2p_service.broadcast_sync_status(chain_id, chain_states.get(chain_id, 0))
+                    logger.info(
+                        "Chain %s at block %s, target %s (from %s) — full sync deferred to v0.6.4",
+                        chain_id,
+                        chain_states.get(chain_id, 0),
+                        target_block,
+                        max_block_chain,
+                    )
+            # Broadcast sync status via gossip
+            local_height = chain_states.get(chain_id, 0)
+            asyncio.ensure_future(gossip_broker.publish(f"chain.{chain_id}.sync", {"height": local_height}))
             logger.info("Sync completed for chain %s", chain_id)
             return True
         except Exception as e:
