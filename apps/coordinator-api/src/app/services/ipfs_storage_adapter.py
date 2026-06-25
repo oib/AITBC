@@ -15,7 +15,7 @@ from aitbc.aitbc_logging import get_logger
 
 from ..blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
 from ..contexts.ipfs.domain.decentralized_memory import AgentMemoryNode, MemoryType, StorageStatus
-from ..schemas.decentralized_memory import MemoryNodeCreate
+from ..contexts.ipfs.schemas.decentralized_memory import MemoryNodeCreate
 
 logger = get_logger(__name__)
 

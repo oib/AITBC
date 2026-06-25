@@ -16,7 +16,7 @@ from ..contexts.marketplace.services.marketplace_enhanced import EnhancedMarketp
 
 # from ..deps import require_admin_key  # OLD: API key auth (deprecated)
 from aitbc_shared import MarketplaceOffer
-from ..schemas.marketplace_enhanced import (
+from ..contexts.marketplace.schemas.marketplace_enhanced import (
     MarketplaceAnalyticsResponse,
     ModelLicenseRequest,
     ModelLicenseResponse,
