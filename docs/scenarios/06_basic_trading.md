@@ -63,7 +63,7 @@ An AI agent holds BTC or ETH and wants to acquire AIT to pay for compute jobs, o
 
 ## Step-by-Step Workflow
 
-> **Command group note**: The island trading commands live in the `exchange_island` command group (source: `cli/aitbc_cli/commands/exchange_island.py`, registered in `cli/aitbc_cli/core/main.py`). The separate `exchange` group is the AMM exchange service and does not contain `buy`/`sell`. Use `aitbc exchange_island <subcommand>`.
+> **Command group note**: The island trading commands live in the `exchange-island` command group (source: `cli/aitbc_cli/commands/exchange_island.py`, registered in `cli/aitbc_cli/core/main.py`). The separate `exchange` group is the AMM exchange service and does not contain `buy`/`sell`. Use `aitbc exchange-island <subcommand>`.
 
 ### Step 1: View current exchange rates
 
@@ -71,7 +71,7 @@ Before placing an order, check the best bid/ask and mid price for both supported
 
 ```bash
 # Rates are computed from open exchange orders on your island
-aitbc exchange_island rates
+aitbc exchange-island rates
 ```
 
 **Expected output:**
@@ -89,7 +89,7 @@ Drill into one pair to see the asks (sell orders, sorted ascending by `min_price
 
 ```bash
 # --limit controls the order book depth (default 20)
-aitbc exchange_island orderbook AIT/BTC --limit 10
+aitbc exchange-island orderbook AIT/BTC --limit 10
 ```
 
 **Expected output:**
@@ -117,7 +117,7 @@ Buy AIT using BTC. The `quote_currency` argument must be `BTC` or `ETH`. Use `--
 
 ```bash
 # Buy 100 AIT with BTC, willing to pay at most 0.00001260 BTC per AIT
-aitbc exchange_island buy 100 BTC --max-price 0.00001260
+aitbc exchange-island buy 100 BTC --max-price 0.00001260
 ```
 
 **Expected output:**
@@ -143,7 +143,7 @@ Sell AIT for ETH with a minimum acceptable price.
 
 ```bash
 # Sell 50 AIT for ETH, require at least 0.00023400 ETH per AIT
-aitbc exchange_island sell 50 ETH --min-price 0.00023400
+aitbc exchange-island sell 50 ETH --min-price 0.00023400
 ```
 
 **Expected output:**
@@ -169,10 +169,10 @@ Filter the on-chain exchange transactions by status, pair, or user.
 
 ```bash
 # All open orders on your island
-aitbc exchange_island orders --status open
+aitbc exchange-island orders --status open
 
 # Only your AIT/ETH orders
-aitbc exchange_island orders --pair AIT/ETH --user a1b2c3d4e5f67890...
+aitbc exchange-island orders --pair AIT/ETH --user a1b2c3d4e5f67890...
 ```
 
 **Expected output:**
@@ -188,7 +188,7 @@ exchange_sell_20260...  AIT/ETH   SELL   50.0000 AIT   0.00023400     open      
 Cancel an open order by its order ID. The cancel is submitted as an exchange transaction with `action: cancel` and `status: cancelled`.
 
 ```bash
-aitbc exchange_island cancel exchange_buy_20260625143012_a1b2c3d4
+aitbc exchange-island cancel exchange_buy_20260625143012_a1b2c3d4
 ```
 
 **Expected output:**
@@ -213,14 +213,14 @@ def run(cmd: list[str]) -> str:
     return subprocess.run(["aitbc", *cmd], capture_output=True, text=True, check=True).stdout
 
 # 1. Inspect the order book (JSON output for parsing)
-book = run(["exchange_island", "orderbook", "AIT/BTC", "--limit", "5"])
+book = run(["exchange-island", "orderbook", "AIT/BTC", "--limit", "5"])
 print(book)
 
 # 2. Place a limit buy: 100 AIT with BTC at max 0.00001260
-run(["exchange_island", "buy", "100", "BTC", "--max-price", "0.00001260"])
+run(["exchange-island", "buy", "100", "BTC", "--max-price", "0.00001260"])
 
 # 3. Confirm the order is open
-orders = run(["exchange_island", "orders", "--status", "open"])
+orders = run(["exchange-island", "orders", "--status", "open"])
 print(orders)
 ```
 
@@ -234,11 +234,11 @@ def run(cmd: list[str]) -> str:
     return subprocess.run(["aitbc", *cmd], capture_output=True, text=True, check=True).stdout
 
 # List open sell orders, then cancel each by Order ID
-listing = run(["exchange_island", "orders", "--status", "open"])
+listing = run(["exchange-island", "orders", "--status", "open"])
 for line in listing.splitlines():
     if "SELL" in line:
         order_id = line.split()[0]
-        run(["exchange_island", "cancel", order_id])
+        run(["exchange-island", "cancel", order_id])
         print(f"Cancelled {order_id}")
 ```
 
@@ -261,14 +261,14 @@ Verify your orders are recorded on-chain by re-listing them and confirming the o
 
 ```bash
 # Your open orders should include the ones you just placed
-aitbc exchange_island orders --status open
+aitbc exchange-island orders --status open
 
 # The order book should show your bid/ask
-aitbc exchange_island orderbook AIT/BTC
-aitbc exchange_island orderbook AIT/ETH
+aitbc exchange-island orderbook AIT/BTC
+aitbc exchange-island orderbook AIT/ETH
 
 # Rates should reflect the updated book
-aitbc exchange_island rates
+aitbc exchange-island rates
 ```
 
 ---
@@ -276,7 +276,7 @@ aitbc exchange_island rates
 ## Related Resources
 
 - Source: `cli/aitbc_cli/commands/exchange_island.py` (buy, sell, orderbook, rates, orders, cancel)
-- Registration: `cli/aitbc_cli/core/main.py` (`cli.add_command(exchange_island)`)
+- Registration: `cli/aitbc_cli/core/main.py` (`cli.add_command(exchange-island)`)
 - [Next Scenario: AI Job Submission](./07_ai_job_submission.md)
 
 ---
