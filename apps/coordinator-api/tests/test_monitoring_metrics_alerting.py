@@ -12,6 +12,19 @@ from app.utils.alerting import AlertDispatcher
 from app.utils.metrics import MetricsCollector, build_live_metrics_payload
 
 
+def _record_api_request(collector: MetricsCollector, error: bool = False, response_time_ms: float = 0.0) -> None:
+    """Replicate the hypothetical ``record_api_request`` helper using the real API.
+
+    ``MetricsCollector`` exposes separate increment/record methods rather than a
+    single ``record_api_request``.  Response times are stored in seconds (the
+    payload builder converts back to milliseconds).
+    """
+    collector.increment_api_requests()
+    if error:
+        collector.increment_api_errors()
+    collector.record_api_response_time(response_time_ms / 1000.0)
+
+
 class TestMetricsCollector:
     """Test MetricsCollector behavior and alert threshold evaluation."""
 
@@ -29,22 +42,22 @@ class TestMetricsCollector:
     def test_metrics_collector_records_api_metrics(self):
         """Verify API request, error, and response time tracking."""
         collector = MetricsCollector()
-        collector.record_api_request(error=False, response_time_ms=100.0)
-        collector.record_api_request(error=True, response_time_ms=200.0)
-        collector.record_api_request(error=False, response_time_ms=50.0)
+        _record_api_request(collector, error=False, response_time_ms=100.0)
+        _record_api_request(collector, error=True, response_time_ms=200.0)
+        _record_api_request(collector, error=False, response_time_ms=50.0)
 
         metrics = collector.get_metrics()
         assert metrics["api_requests"] == 3
         assert metrics["api_errors"] == 1
         assert len(metrics["api_response_times"]) == 3
-        assert sum(metrics["api_response_times"]) == 0.35
+        assert sum(metrics["api_response_times"]) == pytest.approx(0.35)
 
     def test_metrics_collector_calculates_error_rate(self):
         """Verify error rate percentage calculation."""
         collector = MetricsCollector()
         for _ in range(10):
-            collector.record_api_request(error=False, response_time_ms=100.0)
-        collector.record_api_request(error=True, response_time_ms=100.0)
+            _record_api_request(collector, error=False, response_time_ms=100.0)
+        _record_api_request(collector, error=True, response_time_ms=100.0)
 
         metrics = collector.get_metrics()
         assert metrics["error_rate_percent"] == pytest.approx(9.09, rel=0.01)
@@ -52,11 +65,11 @@ class TestMetricsCollector:
     def test_metrics_collector_calculates_avg_response_time(self):
         """Verify average response time calculation."""
         collector = MetricsCollector()
-        collector.record_api_request(error=False, response_time_ms=100.0)
-        collector.record_api_request(error=False, response_time_ms=200.0)
+        _record_api_request(collector, error=False, response_time_ms=100.0)
+        _record_api_request(collector, error=False, response_time_ms=200.0)
 
         metrics = collector.get_metrics()
-        assert metrics["avg_response_time_ms"] == 150.0
+        assert metrics["avg_response_time_ms"] == pytest.approx(150.0)
 
     def test_metrics_collector_cache_hit_rate(self):
         """Verify cache hit rate calculation."""
@@ -70,13 +83,13 @@ class TestMetricsCollector:
         """Verify alert threshold evaluation for error rate and response time."""
         collector = MetricsCollector()
 
-        collector.record_api_request(error=False, response_time_ms=100.0)
+        _record_api_request(collector, error=False, response_time_ms=100.0)
         alerts = collector.get_alert_states()
         assert alerts["error_rate"]["triggered"] is False
         assert alerts["avg_response_time"]["triggered"] is False
 
         for _ in range(20):
-            collector.record_api_request(error=True, response_time_ms=100.0)
+            _record_api_request(collector, error=True, response_time_ms=100.0)
 
         alerts = collector.get_alert_states()
         assert alerts["error_rate"]["triggered"] is True
@@ -85,8 +98,8 @@ class TestMetricsCollector:
     def test_metrics_collector_reset(self):
         """Verify metrics can be reset to initial state."""
         collector = MetricsCollector()
-        collector.record_api_request(error=False, response_time_ms=100.0)
-        collector.record_database_query(error=False)
+        _record_api_request(collector, error=False, response_time_ms=100.0)
+        collector.increment_database_queries()
         collector.update_cache_stats({"hits": 5, "misses": 5})
 
         collector.reset_metrics()
