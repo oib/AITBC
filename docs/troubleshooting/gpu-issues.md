@@ -86,6 +86,61 @@ torch.cuda.empty_cache()
 systemctl restart aitbc-miner
 ```
 
+## cuInit Fails in Incus/LXC Container (Error 999)
+
+**Symptoms:**
+- `nvidia-smi` works inside the container
+- `nvcc --version` works
+- PyCUDA / CUDA runtime fails with `cuInit failed: unknown error` (error 999)
+- Coordinator-api logs: `PyCUDA not available or no CUDA-capable device detected`
+
+**Diagnosis:**
+```bash
+# nvidia-smi works (uses NVML, only needs /dev/nvidia0)
+nvidia-smi
+
+# But CUDA runtime fails (needs /dev/nvidia-uvm)
+/opt/aitbc/venv/bin/python -c "import ctypes; cuda = ctypes.CDLL('libcuda.so.1'); print(f'cuInit: {cuda.cuInit(0)}')"
+
+# Check for missing UVM device
+ls -la /dev/nvidia-uvm*
+# If missing, that's the problem
+```
+
+**Root cause:**
+CUDA runtime requires the NVIDIA Unified Virtual Memory (UVM) device at `/dev/nvidia-uvm`.
+`nvidia-smi` only needs NVML (`/dev/nvidia0`), so it works even when UVM is missing.
+Incus/LXC containers need the UVM device explicitly passed through from the host.
+
+**Solution (run on the HOST, not inside the container):**
+```bash
+# Find the container name
+incus list
+
+# Add the nvidia-uvm device to the container
+incus config device add <container-name> nvidia-uvm unix-char \
+    path=/dev/nvidia-uvm \
+    major=236 minor=0 mode=666
+
+incus config device add <container-name> nvidia-uvm-tools unix-char \
+    path=/dev/nvidia-uvm-tools \
+    major=236 minor=1 mode=666
+
+# Restart the container (or restart the service that uses CUDA)
+incus restart <container-name>
+```
+
+**Verify inside the container after restart:**
+```bash
+ls -la /dev/nvidia-uvm*
+/opt/aitbc/venv/bin/python -c "
+import pycuda.driver as cuda
+cuda.init()
+import pycuda.autoinit
+print(f'GPU: {cuda.Device(0).name()}')
+"
+```
+
 ## See Also
 
 - [Performance Issues](performance-issues.md) - Performance optimization
