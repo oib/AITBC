@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 
-from ....reputation.engine import CrossChainReputationEngine
+from ...reputation.services.reputation_engine import CrossChainReputationEngine
 from ..domain.global_marketplace import (
     GlobalMarketplaceAnalytics,
     GlobalMarketplaceAnalyticsRequest,

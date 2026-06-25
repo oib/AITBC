@@ -22,7 +22,7 @@ from .....agent_identity.wallet_adapter_enhanced import (
     WalletAdapterFactory,
 )
 from ...domain.cross_chain_bridge import BridgeRequest, BridgeRequestStatus
-from .....reputation.engine import CrossChainReputationEngine
+from ....reputation.services.reputation_engine import CrossChainReputationEngine
 
 logger = get_logger(__name__)
 
