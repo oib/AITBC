@@ -44,7 +44,6 @@ ROUTE_SECURITY_MATRIX = {
     "/contexts/monitoring/*": AuthLevel.ANY,
     # Analytics (admin or client)
     "/contexts/analytics/*": AuthLevel.ADMIN_OR_CLIENT,
-    "/contexts/ai_analytics/*": AuthLevel.ADMIN_OR_CLIENT,
     # Security (admin only)
     "/contexts/security/*": AuthLevel.ADMIN,
     # Governance (admin or client)

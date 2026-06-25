@@ -601,6 +601,21 @@ class AgentSecurityManager:
         )
         return policy
 
+    async def validate_workflow_security_by_id(self, workflow_id: str, user_id: str) -> dict[str, Any]:
+        """Look up a workflow by ID, verify ownership, and validate its security.
+
+        Raises ValueError if the workflow is not found, PermissionError if the
+        caller does not own the workflow. This encapsulates the AIAgentWorkflow
+        lookup so callers (e.g. the security router) do not need to import the
+        agent_coordination domain model directly.
+        """
+        workflow = self.session.get(AIAgentWorkflow, workflow_id)
+        if not workflow:
+            raise ValueError(f"Workflow {workflow_id} not found")
+        if workflow.owner_id != user_id:
+            raise PermissionError("Access denied")
+        return await self.validate_workflow_security(workflow, user_id)
+
     async def validate_workflow_security(self, workflow: AIAgentWorkflow, user_id: str) -> dict[str, Any]:
         """Validate workflow against security policies"""
         validation_result: dict[str, Any] = {

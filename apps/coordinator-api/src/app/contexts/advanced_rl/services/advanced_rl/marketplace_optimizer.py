@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 
-from app.contexts.agent_coordination.domain.agent_performance import ReinforcementLearningConfig
+from app.contexts.advanced_rl.domain import ReinforcementLearningConfig
 from .engine import AdvancedReinforcementLearningEngine
 
 logger = get_logger(__name__)

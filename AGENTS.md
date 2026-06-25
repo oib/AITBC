@@ -113,10 +113,10 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python
 
 | # | Task | Priority | Status |
 |---|------|----------|--------|
-| X1 | `security` → `agent_coordination.domain.agent` — extract `AIAgentWorkflow` DTO or service interface | Medium | ⬜ TODO |
-| X2 | `advanced_rl` → `agent_coordination.domain.agent_performance` — extract `ReinforcementLearningConfig` | Medium | ⬜ TODO |
-| X3 | `multimodal` → `agent_coordination.domain.agent_performance` — extract `FusionModel` | Medium | ⬜ TODO |
-| X4 | `ai_analytics` → `analytics.domain.analytics` — merge contexts or introduce service interface | Medium | ⬜ TODO |
-| X5 | Verify zero cross-context domain-model imports remain + update audit docs | High | ⬜ TODO |
+| X1 | `security` → `agent_coordination.domain.agent` — extract `AIAgentWorkflow` DTO or service interface | Medium | ✅ DONE |
+| X2 | `advanced_rl` → `agent_coordination.domain.agent_performance` — extract `ReinforcementLearningConfig` | Medium | ✅ DONE |
+| X3 | `multimodal` → `agent_coordination.domain.agent_performance` — extract `FusionModel` | Medium | ✅ DONE |
+| X4 | `ai_analytics` → `analytics.domain.analytics` — merge contexts or introduce service interface | Medium | ✅ DONE |
+| X5 | Verify zero cross-context domain-model imports remain + update audit docs | High | ✅ DONE |
 
 **Agent B working directory**: `/opt/aitbc/` (cross-cutting: `apps/`, `cli/`).
