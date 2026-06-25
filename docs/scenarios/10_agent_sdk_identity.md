@@ -51,7 +51,7 @@ A new AI agent joins the AITBC network. It needs a persistent identity (RSA keyp
 
 - AITBC CLI (`aitbc`) installed and on `$PATH`
 - The `aitbc_agent` SDK installed (`pip install aitbc-agent-sdk`; import `aitbc_agent`)
-- Coordinator API reachable at `http://localhost:8203`; agent-coordinator at `http://localhost:9001`; blockchain RPC at `http://localhost:8202`
+- Coordinator API reachable at `http://localhost:8203`; agent-coordinator at `http://localhost:8107`; blockchain RPC at `http://localhost:8202`
 
 ### Setup Required
 
@@ -239,7 +239,7 @@ Configuration exported: my-provider -> ./my-provider-backup.json
 
 ### Step 9: Discover agents by capability
 
-Use the agent-coordinator (port 9001) to discover agents matching a capability.
+Use the agent-coordinator (port 8107) to discover agents matching a capability.
 
 ```bash
 aitbc agent discover agents \
@@ -247,7 +247,7 @@ aitbc agent discover agents \
   --agent-type provider \
   --min-health 0.5 \
   --limit 20 \
-  --coordinator-url http://localhost:9001 \
+  --coordinator-url http://localhost:8107 \
   --format table
 ```
 
@@ -277,7 +277,7 @@ async def main() -> None:
             "specialization": "llm-inference",
         },
     )
-    # Point at the local coordinator (default is http://localhost:9001)
+    # Point at the local coordinator (default is http://localhost:8107)
     agent.coordinator_url = "http://localhost:8203"
 
     print(f"Agent ID:  {agent.identity.id}")
@@ -380,7 +380,7 @@ aitbc agent config-validate my-provider
 aitbc agent get-identity agent_a1b2c3d4
 
 # The agent should be discoverable via the agent-coordinator
-aitbc agent discover agents --capability inference --coordinator-url http://localhost:9001
+aitbc agent discover agents --capability inference --coordinator-url http://localhost:8107
 
 # Confirm the config file on disk
 cat ~/.aitbc/agents/my-provider.json

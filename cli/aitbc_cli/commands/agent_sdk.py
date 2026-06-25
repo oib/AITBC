@@ -802,7 +802,7 @@ try:
     @click.option("--agent-type", help="Filter by agent type")
     @click.option("--min-health", type=float, default=0.0, help="Minimum health score")
     @click.option("--limit", type=int, default=50, help="Maximum results")
-    @click.option("--coordinator-url", default="http://localhost:9001", help="Agent coordinator URL")
+    @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def agents(ctx, capability, agent_type, min_health, limit, coordinator_url, format):
@@ -836,7 +836,7 @@ try:
     @click.option("--agent-id", required=True, help="Agent ID")
     @click.option("--limit", type=int, default=100, help="Maximum messages")
     @click.option("--unread-only", is_flag=True, help="Only unread messages")
-    @click.option("--coordinator-url", default="http://localhost:9001", help="Agent coordinator URL")
+    @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def inbox(ctx, agent_id, limit, unread_only, coordinator_url, format):
@@ -861,7 +861,7 @@ try:
     @click.option("--agent-id", required=True, help="Agent ID")
     @click.option("--topic", required=True, help="Topic to subscribe to")
     @click.option("--filter", help="Filter criteria (JSON string)")
-    @click.option("--coordinator-url", default="http://localhost:9001", help="Agent coordinator URL")
+    @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def subscribe(ctx, agent_id, topic, filter, coordinator_url, format):
@@ -895,7 +895,7 @@ try:
     @click.option("--name", required=True, help="Workflow name")
     @click.option("--description", help="Workflow description")
     @click.option("--steps-file", required=True, type=click.Path(exists=True), help="JSON file with workflow steps")
-    @click.option("--coordinator-url", default="http://localhost:9001", help="Agent coordinator URL")
+    @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def create_workflow(ctx, name, description, steps_file, coordinator_url, format):
@@ -929,7 +929,7 @@ try:
     @workflow.command()
     @click.option("--workflow-id", required=True, help="Workflow ID")
     @click.option("--input-file", type=click.Path(exists=True), help="JSON file with input parameters")
-    @click.option("--coordinator-url", default="http://localhost:9001", help="Agent coordinator URL")
+    @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def execute(ctx, workflow_id, input_file, coordinator_url, format):
@@ -964,7 +964,7 @@ try:
 
     @workflow.command()
     @click.option("--workflow-id", required=True, help="Workflow ID")
-    @click.option("--coordinator-url", default="http://localhost:9001", help="Agent coordinator URL")
+    @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def workflow_status(ctx, workflow_id, coordinator_url, format):
@@ -985,7 +985,7 @@ try:
             raise click.Abort() from e
 
     @workflow.command()
-    @click.option("--coordinator-url", default="http://localhost:9001", help="Agent coordinator URL")
+    @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def list_workflows(ctx, coordinator_url, format):

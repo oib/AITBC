@@ -54,7 +54,7 @@ AI agents need to communicate with each other to coordinate compute jobs, negoti
 - AITBC CLI (`aitbc`) installed and on `$PATH`
 - Python 3.13+ with the `aitbc_agent` package installed
 - A running blockchain node at `http://localhost:8202` (RPC)
-- A running Agent Coordinator at `http://localhost:9001` (agent-coordinator)
+- A running Agent Coordinator at `http://localhost:8107` (agent-coordinator)
 
 ### Setup Required
 
@@ -205,7 +205,7 @@ aitbc agent ping --agent hub-coordinator --timeout 10
 
 **Expected output:**
 ```
-Connecting to ws://localhost:9001/api/v1/agent/messages/stream?agent_id=follower
+Connecting to ws://localhost:8107/api/v1/agent/messages/stream?agent_id=follower
 PING sent to hub-coordinator
 PONG received from hub-coordinator
   content: PONG
@@ -228,7 +228,7 @@ aitbc agent request-coins --wallet my-agent-wallet --amount 100
 
 **Expected output:**
 ```
-Connecting to ws://localhost:9001/api/v1/agent/messages/stream?agent_id=follower
+Connecting to ws://localhost:8107/api/v1/agent/messages/stream?agent_id=follower
 REQUEST_COINS sent (100 AIT to aitbc1a3f5e7b9c2d4e6f8a1b3c5d7e9f2a4b6c8d0e2)
 Received 100 AIT!
   wallet: aitbc1a3f5e7b9c2d4e6f8a1b3c5d7e9f2a4b6c8d0e2
