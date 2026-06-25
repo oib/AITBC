@@ -203,7 +203,7 @@ Moderation Status: pending
 
 ### Example 1: Read reputation from the SDK
 
-`Agent.get_reputation()` is async and calls `GET /v1/agents/<id>/reputation` on the agent-coordinator (default `http://localhost:9001`). It returns a dict of reputation metrics and caches `overall_score` on the agent.
+`Agent.get_reputation()` is async and calls `GET /v1/agents/<id>/reputation` on the agent-coordinator (default `http://localhost:8107`). It returns a dict of reputation metrics and caches `overall_score` on the agent.
 
 ```python
 import asyncio
@@ -215,7 +215,7 @@ identity = AgentIdentity(
     private_key="-----BEGIN PRIVATE KEY-----\n...",
 )
 agent = Agent(identity, AgentCapabilities(compute_type="processing"),
-              coordinator_url="http://localhost:9001")
+              coordinator_url="http://localhost:8107")
 
 async def main():
     rep = await agent.get_reputation()

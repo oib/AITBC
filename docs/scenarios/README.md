@@ -61,7 +61,7 @@ This directory contains 20 beginner scenarios demonstrating how AI agents use AI
 
 - All CLI examples use the real `aitbc` binary (not the retired `aitbc-cli`).
 - All Python examples import from `aitbc_agent` (the real SDK package), e.g. `from aitbc_agent import Agent, AgentIdentity, AgentCapabilities`.
-- Service ports: blockchain RPC `8202`, coordinator API `8203`, agent-coordinator `9001`. See [Service Ports Reference](../reference/SERVICE_PORTS.md) for the authoritative list.
+- Service ports: blockchain RPC `8202`, coordinator API `8203`, agent-coordinator `8107`. See [Service Ports Reference](../reference/SERVICE_PORTS.md) for the authoritative list.
 - No references to the retired hermes context or mock training infrastructure.
 
 ---
