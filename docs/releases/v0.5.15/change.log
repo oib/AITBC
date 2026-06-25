@@ -20,6 +20,7 @@
 | P2 | Merge flat `reputation/` directory into `contexts/reputation/services/` | Medium | ✅ DONE |
 | P3 | Migrate flat `schemas/` files to owning contexts | Medium | ✅ DONE |
 | P4 | Migrate flat `services/` files to owning contexts (54 files: 27 dead, 26 active, 1 subdirectory) | High | ✅ DONE |
+| P5 | Migrate flat `routers/` files to owning contexts (29 files: 13 dead, 16 active) | High | ✅ DONE |
 
 ---
 
@@ -201,8 +202,47 @@ The flat `app/services/` directory now contains only:
 
 All 54 flat service files have been migrated or deleted. Zero references to flat `services.<module>` paths remain in production code.
 
+## Phase 5: Migrate flat `routers/` files to owning contexts
+
+**Context**: The flat `app/routers/` directory contained 29 router files — the last major source of architectural debt after Phase 4.
+
+### P5-1: Dead code deletion (13 files)
+
+Deleted 13 dead router files that were never registered in the app:
+
+- **Never registered** (9 files): `cache_management.py`, `client_jwt_example.py`, `dynamic_pricing.py`, `marketplace_enhanced_app.py`, `marketplace_enhanced_health.py`, `marketplace_enhanced.py`, `marketplace_enhanced_simple.py`, `marketplace_performance.py`, `registry.py`
+- **Superseded by context routers** (4 files): `payments.py`, `portfolio.py`, `swarm.py`, `ipfs.py` — context versions already existed and were imported by main.py
+- Updated CORS test to remove reference to deleted `marketplace_enhanced_app.py`
+- **2,000 lines of dead code removed**
+
+### P5-2: Active router migration (17 files)
+
+Moved 17 active router files to their owning bounded contexts:
+
+| Router file | Target context | Renamed? |
+|-------------|----------------|----------|
+| `admin.py`, `client.py`, `exchange.py`, `explorer.py`, `inference.py`, `islands_proxy.py`, `miner.py`, `services.py`, `users.py`, `web_vitals.py` | `infrastructure` | No |
+| `agent.py` | `agent_coordination` | `agent_messaging.py` (avoid conflict) |
+| `bounty.py` | `bounty` | `bounty_flat.py` (avoid conflict with existing) |
+| `disputes.py` | `governance` | No |
+| `governance.py` | `governance` | `governance_flat.py` (avoid conflict with existing) |
+| `fhe.py`, `zk_proofs.py` | `zk_applications` | No |
+| `oracle.py` | `blockchain` | No |
+
+- Updated `routers/__init__.py` to import all routers from context locations
+- Updated `main.py` conditional imports (7 routers) to import from contexts
+- Updated staking router's import of `get_current_user` from users router
+- Fixed internal relative imports in all 17 moved files
+- Fixed pre-existing import bug in `multi_chain_transaction_manager.py` (wrong relative path)
+- Fixed import bug in `receipts.py` (zk_proofs moved to different context)
+- App now creates with 379 routes (was 360 — staking router now loads successfully)
+
+### Result
+
+The flat `app/routers/` directory now contains only `__init__.py` (re-export shim that imports all routers from their context locations). All 29 flat router files have been migrated or deleted.
+
 ---
 
 ## Remaining Work (future phases)
 
-- **Phase 5**: Migrate ~25 flat `routers/` files to owning contexts
+- None — all phases (P1–P5) complete. The flat `services/`, `schemas/`, `routers/`, and `reputation/` directories have all been migrated to bounded contexts.
