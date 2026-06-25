@@ -1,10 +1,10 @@
-# v0.5.15 — Flat-to-Context Migration + Test Suite Repair + Infrastructure Fixes (P1–P10)
+# v0.5.15 — Flat-to-Context Migration + Test Suite Repair + Training Infrastructure Rebuild (P1–P15)
 
-**Theme**: Pay down the flat-directory architectural debt (services/, routers/, schemas/) identified in the post-v0.5.14 audit, repair the entire coordinator-api test suite, and fix systemd/GPU infrastructure issues discovered during deployment.
+**Theme**: Pay down the flat-directory architectural debt (services/, routers/, schemas/) identified in the post-v0.5.14 audit, repair the entire coordinator-api test suite, fix systemd/GPU infrastructure issues discovered during deployment, then rebuild the agent training infrastructure (delete dead scripts, author new scenario curriculum, fix CLI bugs discovered during validation).
 
-**Goal**: Migrate all flat services, routers, and schemas into their bounded contexts; eliminate cross-context domain-model imports; fix all pre-existing broken test imports; resolve all remaining pre-existing test failures (148 → 0); fix systemd linking error handling and recovery service restart loop; add GPU support (pycuda, profile mapping, auto-detection); fix p2p_network.py syntax bug.
+**Goal**: Migrate all flat services, routers, and schemas into their bounded contexts; eliminate cross-context domain-model imports; fix all pre-existing broken test imports; resolve all remaining pre-existing test failures (148 → 0); fix systemd linking error handling and recovery service restart loop; add GPU support (pycuda, profile mapping, auto-detection); fix p2p_network.py syntax bug; remove 29 dead training scripts; author 20 new beginner agent training scenarios grounded in the real API surface; fix CLI bugs found during scenario validation; migrate agent-coordinator port 9001 → 8107.
 
-**Context**: The v0.5.14 post-migration audit identified 5 categories of architectural debt: (1) domain shim usage, (2) flat directories, (3) flat reputation/, (4) missing `__init__.py`, (5) cross-context service imports. This release addresses all 5 categories plus a comprehensive test-suite repair pass.
+**Context**: The v0.5.14 post-migration audit identified 5 categories of architectural debt: (1) domain shim usage, (2) flat directories, (3) flat reputation/, (4) missing `__init__.py`, (5) cross-context service imports. This release addresses all 5 categories, performs a comprehensive test-suite repair pass, fixes deployment infrastructure issues, and then rebuilds the agent training infrastructure — the old `docs/scenarios/` was deleted in the 2026-05-29 rebrand (commit 107efdaf2) and the `scripts/training/` shell curriculum was orphaned dead code referencing the deleted mock `agent-training` CLI (removed in v0.5.9, commit b45673ca1).
 
 ---
 
@@ -26,6 +26,11 @@
 | P8 | Fix systemd linking error handling + recovery service ReadWritePaths | High | ✅ DONE |
 | P9 | GPU support: pycuda dependency, profile name mapping, auto-detection | High | ✅ DONE |
 | P10 | Fix p2p_network.py syntax bug + clean up P6 test oversights | Medium | ✅ DONE |
+| P11 | Remove 29 dead training scripts + 2 stale docs referencing deleted infrastructure | High | ✅ DONE |
+| P12 | Author 20 new beginner agent training scenarios grounded in real API surface | High | ✅ DONE |
+| P13 | Fix CLI bugs discovered during scenario validation (render() crash, pending tx display) | High | ✅ DONE |
+| P14 | Fix blockchain-communication-test.sh + migrate agent-coordinator port 9001 → 8107 | High | ✅ DONE |
+| P15 | Slim AGENTS.md: remove completed release plans, keep stable conventions | Low | ✅ DONE |
 
 ---
 
@@ -468,6 +473,174 @@ Third-party `openzeppelin`/`forge-std` contracts directory excluded from ruff li
 
 ---
 
+## P11: Remove dead training infrastructure + stale docs
+
+**Context**: The `scripts/training/` directory contained 29 shell scripts and Python utilities that were orphaned dead code. They referenced the deleted mock `agent-training` CLI (removed in v0.5.9, commit b45673ca1), read deleted `docs/agent-training/stage*.json` files, used the non-existent `aitbc-cli` binary, and invoked outdated command names (ai-ops, market-list) that don't match the real `aitbc` CLI command groups. Two stale documentation files still referenced this deleted infrastructure as operational.
+
+### P11-1: Delete 29 dead training scripts (-9,236 lines)
+
+Removed from `scripts/training/`:
+- `agent_stage*.sh` (9 files) — invoked the deleted mock `agent-training` CLI and read deleted `stage*.json` files
+- `stage*.sh` (12 files) — used the non-existent `aitbc-cli` binary and outdated command names
+- `master_training_launcher.sh` + `training_lib.sh` — orchestrator + shared lib for the dead curriculum
+- `configure_messaging.sh`, `fund_accounts.sh`, `fund_wallet.sh`, `setup_faucet.sh`, `setup_training_env.sh` (5 files) — explicitly DEPRECATED in their own headers, point to the live `python -m aitbc.training_setup.cli` replacement
+- `agent_coordination_demo.sh` + `agent_cross_node_comm.sh` — hermes-framed demos tied to the retired hermes context
+- `generate_certificates.py`, `generate_prerequisite_checks.py`, `validate_stage_dependencies.py` — Python utilities that read/write the deleted `stage*.json` files
+- `README.md` — described the dead curriculum as operational
+
+**Kept** the 2 live files:
+- `agent_communication_training.py` — real async Python training using `coordinator_url` (no references to deleted mock CLI/JSONs)
+- `scenario_47_sdk_test.py` — real cross-chain atomic swap test using the `aitbc_agent.contract_integration` SDK
+
+### P11-2: Remove unused `training_stage_data` fixture
+
+`tests/conftest.py` defined a `training_stage_data` fixture that was not used by any test. It referenced the deleted `setup_training_env.sh` script. Removed.
+
+### P11-3: Delete 2 stale docs referencing deleted infrastructure
+
+- `docs/agent/AGENT_AITBC_MASTERY_PLAN_IMPLEMENTATION_STATUS.md` — historical status report for the deleted hermes AITBC Mastery Plan. Claimed deleted scripts (master_training_launcher.sh, stage*.sh, training_lib.sh) were operational, referenced non-existent `/opt/aitbc/aitbc-cli` binary, and referenced deleted log files. Removed link from `docs/agent/README.md`.
+- `.devin/workflows/blockchain-communication-test.md` — workflow doc that used non-existent `./aitbc-cli` binary, referenced deleted `scripts/training/stage2_intermediate.sh`, referenced "hermes AITBC Mastery Plan", and pointed to wrong script path (`scripts/` vs `scripts/deployment/`). Fixed `.devin/skills/blockchain-troubleshoot-recovery.md` to use correct script path (`scripts/deployment/blockchain-communication-test.sh`), correct CLI binary (`aitbc` not `aitbc-cli`), and removed the deleted workflow link.
+
+### P11 Result
+
+- 29 dead scripts deleted (-9,236 lines), 2 live scripts retained
+- 2 stale docs deleted, 2 referencing files fixed (`docs/agent/README.md`, `.devin/skills/blockchain-troubleshoot-recovery.md`)
+- Zero references to the deleted mock `agent-training` CLI or `aitbc-cli` binary remain in docs
+
+---
+
+## P12: Author 20 new beginner agent training scenarios
+
+**Context**: The old `docs/scenarios/` directory (56 files) was deleted in the 2026-05-29 "AI Trusted Blockchain Computing" rebrand (commit 107efdaf2). Those scenarios were tied to the retired hermes context and the mock `agent-training` CLI. This phase authors a new beginner track grounded in the **real** current API surface — the `aitbc` CLI command groups and the `aitbc_agent` SDK package (`packages/py/aitbc-agent-sdk/`).
+
+### P12-1: Create 20 scenario markdown files (+6,930 lines)
+
+20 scenarios (15-30 min each), covering the full agent workflow:
+
+| # | Scenario | Topic |
+|---|----------|-------|
+| 01 | Wallet Basics | Create wallet, check balance, list wallets |
+| 02 | Transactions | Send transactions, view history, pending txs |
+| 03 | Genesis & Chain | Chain info, status, block exploration |
+| 04 | Messaging Basics | Send/receive agent messages, simulated mode |
+| 05 | Islands | List, join, exchange islands |
+| 06 | Basic Trading | `exchange-island` command group, orders |
+| 07 | AI Jobs | Submit, track, receipt retrieval |
+| 08 | Marketplace | List/create offers, GPU compute offers |
+| 09 | GPU Operations | `gpu-onchain` commands, registration |
+| 10 | Agent SDK Identity | `aitbc_agent.Agent` class, identity setup |
+| 11 | IPFS | Pin, retrieve, content addressing |
+| 12 | Reputation | Query scores, badges, history |
+| 13 | Mining | Start/stop mining, rewards |
+| 14 | Staking | Stake on `wallet` group, delegate |
+| 15 | Monitoring | Metrics, health checks, alerts |
+| 16 | Agent Registration | Register agent, capabilities, status |
+| 17 | Governance | `operations governance` commands, proposals |
+| 18 | Analytics | Query analytics, export reports |
+| 19 | Security | Audit, permissions, key management |
+| 20 | Cross-Chain | Bridge, atomic swaps, cross-chain state |
+
+Every CLI command and option was verified against the actual click registrations in `cli/aitbc_cli/commands/`. Every SDK example was verified against the actual `aitbc_agent` package exports.
+
+**Key corrections from old scenarios**:
+- Trading is `aitbc exchange-island` (hyphen), not `aitbc exchange` or `aitbc exchange_island`
+- Staking is on the `aitbc wallet` group directly, not a `staking` subgroup
+- GPU on-chain commands are `aitbc gpu-onchain`, not `aitbc gpu`
+- Governance commands are `aitbc operations governance`, not `aitbc governance`
+
+### P12-2: Create README.md + _TEMPLATE.md
+
+- `README.md` — curriculum index with scenario table, conventions, and learning path
+- `_TEMPLATE.md` — structural template for future scenario authors
+
+### P12-3: Fix exchange command name (exchange_island → exchange-island)
+
+Scenario 06 (Basic Trading) initially used `aitbc exchange_island` (underscore) but the actual CLI command is `aitbc exchange-island` (hyphen). Click registers the group with a hyphen, and `aitbc exchange_island` fails with "No such command 'exchange_island'". Fixed all 20 occurrences in `06_basic_trading.md` (command invocations, code examples, subprocess calls, and the command group note) plus the README table entry. File path references to the source file `exchange_island.py` (underscore) were preserved — the file name uses underscore but the CLI command uses hyphen.
+
+### P12 Result
+
+- 22 new files in `docs/scenarios/` (20 scenarios + README + template)
+- All CLI commands verified against real click registrations
+- All SDK examples verified against real `aitbc_agent` package exports
+
+---
+
+## P13: Fix CLI bugs discovered during scenario validation
+
+**Context**: While validating the 20 new scenarios against the real CLI, three bugs were discovered. These bugs would have caused the scenario examples to fail for users.
+
+### P13-1: Fix `render()` crash in `cli/utils/__init__.py`
+
+`render()` called `console.logger.info()` on a rich `Console` object, which has no `.logger` attribute. This crashed any command using the fallback `from utils import output` path — notably `aitbc node island list-islands`.
+
+**Fix**: Changed all `console.logger.info()` calls to `console.print()`.
+
+### P13-2: Improve pending transaction display in `transactions.py`
+
+`aitbc transactions pending` used `tx.get('hash', 'unknown')` but the `/rpc/pending` API returns no `hash`/`id` field, so every pending transaction showed "unknown: 0 AIT". Now shows transaction type and sender address when no hash is available (e.g. "GPU_REGISTER 0 AIT from 0xc10f0e4fb1d162...").
+
+### P13-3: Fix scenario doc inaccuracies
+
+- `01_wallet_basics.md`: removed `aitbc wallet list --output json` example (wallet list has no `--output` option)
+- `04_messaging_basics.md`: documented that `aitbc messaging list` falls back to simulated mode when the blockchain RPC is not reachable
+
+### P13 Result
+
+- `aitbc node island list-islands` no longer crashes
+- `aitbc transactions pending` shows meaningful transaction info
+- Scenario examples match real CLI behavior
+
+---
+
+## P14: Fix deployment script + migrate agent-coordinator port
+
+### P14-1: Update `blockchain-communication-test.sh` to use real CLI
+
+The deployment test script used the non-existent `aitbc-cli` binary and command signatures that don't match the real `aitbc` CLI command groups.
+
+**Fixes**:
+- `CLI_PATH`: `${REPO_ROOT}/aitbc-cli` → `aitbc` (the real binary)
+- P2P test: `network ping --node --host --port` → `network test --peer`
+- Peer list: `network peers --verbose` → `network peers` (no `--verbose`)
+- Block height: `blockchain height --output json` → `chain status` (extract height from text output; no `blockchain height` command exists)
+- Wallet create: `wallet create --name X --password --yes --no-confirm` → `wallet create X` (name is positional, no password/yes/no-confirm)
+- Wallet balance: `wallet balance --name X --output json` → `wallet balance X` (name is positional, no `--output json`)
+- Transaction send: `wallet send --from --to --amount --password --yes` → `transactions send --from --to --amount` (separate command group)
+- Agent list: `agent list --output json` → `agent-comm list --format json` (agent has no list subcommand; agent-comm does)
+- Agent message: `agent message --to ID --content "msg"` → `agent send "msg" --to-agent ID` (agent send takes message as positional arg)
+
+### P14-2: Migrate agent-coordinator port 9001 → 8107
+
+The agent-coordinator service migrated from port 9001 to 8107 (per `docs/reference/SERVICE_PORTS.md` v2.1, 2026-06-07), but the old port was still hardcoded as the default in multiple locations. This caused CLI commands, SDK calls, and scenario docs to target the wrong port.
+
+**Files updated**:
+- `aitbc/constants.py` — `AGENT_COORDINATOR_PORT` 9001 → 8107
+- `apps/agent-coordinator/src/app/config.py` — default port, CORS origins, and `DEFAULT_PORTS` dict
+- `apps/coordinator-api/src/app/routers/marketplace_enhanced_app.py` — CORS origins
+- `cli/aitbc_cli/commands/agent_sdk.py` — 7 `--coordinator-url` defaults
+- `cli/aitbc_cli/commands/operations.py` — 4 `AITBCHTTPClient` base_url defaults
+- `packages/py/aitbc-agent-sdk/src/aitbc_agent/agent.py` — `Agent` class default `coordinator_url`
+- `docs/scenarios/*.md` (10 files) + `README.md` — all port references
+
+**Verified**: ruff check passes, mypy passes, 25 SDK tests pass.
+
+### P14 Result
+
+- Deployment test script runs against the real `aitbc` CLI with correct command signatures
+- All agent-coordinator port references consistently use 8107
+
+---
+
+## P15: Slim AGENTS.md — remove completed release plans
+
+**Context**: `AGENTS.md` had grown to 153 lines, containing full task tables and follow-up notes for all four completed releases (v0.5.12–v0.5.15). This was stale noise — the release plans are complete and the details live in the respective changelogs.
+
+**Fix**: Removed the full task tables and follow-up notes (104 lines), replaced with a compact "Completed Releases" section linking to the respective changelogs. The stable conventions (Project Layout, Verification Commands, Conventions, Agent Roles) are unchanged.
+
+**Result**: AGENTS.md slimmed from 153 → 61 lines. Stable conventions preserved, completed plans archived via changelog links.
+
+---
+
 ## Remaining Work (future phases)
 
-- None — all phases (P1–P10) complete. The flat `services/`, `schemas/`, `routers/`, and `reputation/` directories have all been migrated to bounded contexts. All broken test imports fixed. All pre-existing test failures resolved. Systemd linking error handling fixed. GPU support (pycuda, profile mapping, auto-detection) implemented. p2p_network.py syntax bug fixed.
+- None — all phases (P1–P15) complete. The flat `services/`, `schemas/`, `routers/`, and `reputation/` directories have all been migrated to bounded contexts. All broken test imports fixed. All pre-existing test failures resolved. Systemd linking error handling fixed. GPU support (pycuda, profile mapping, auto-detection) implemented. p2p_network.py syntax bug fixed. Dead training infrastructure removed. 20 new beginner agent training scenarios authored. CLI bugs fixed. Deployment script + agent-coordinator port migration completed. AGENTS.md slimmed.
