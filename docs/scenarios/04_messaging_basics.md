@@ -104,7 +104,7 @@ Retrieve all messages from the blockchain:
 aitbc messaging list
 ```
 
-**Expected output:**
+**Expected output (when RPC is available):**
 ```
 Messages
 [
@@ -117,6 +117,8 @@ Messages
   }
 ]
 ```
+
+> **Note:** If the blockchain RPC endpoint is not reachable, `aitbc messaging list` falls back to simulated mode and returns `{"status": "simulated", "messages": [], "message": "RPC endpoint not available - showing simulated list"}`. Ensure the blockchain node is running on port 8202 (or set `--rpc-url`) for real message retrieval.
 
 ### Step 3: Create a Forum Topic
 
