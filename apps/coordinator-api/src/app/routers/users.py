@@ -16,7 +16,7 @@ from sqlmodel import Session, select
 
 from aitbc.rate_limiting import rate_limit
 
-from ..domain import User, Wallet
+from ..contexts.infrastructure.domain import User, Wallet
 from ..schemas import UserBalance, UserCreate, UserLogin, UserProfile
 from ..storage import get_session
 

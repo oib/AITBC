@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 
 from ..contexts.payments.services.payments import PaymentService
-from ..domain import Job, JobReceipt, Miner
+from ..contexts.infrastructure.domain import Job, JobReceipt, Miner
 from ..schemas import AssignedJob, Constraints, JobCreate, JobResult, JobView
 
 logger = get_logger(__name__)

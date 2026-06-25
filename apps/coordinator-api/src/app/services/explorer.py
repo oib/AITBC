@@ -12,7 +12,7 @@ from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 
 from ..config import settings
-from ..domain import Job, JobReceipt
+from ..contexts.infrastructure.domain import Job, JobReceipt
 from ..schemas import (
     AddressListResponse,
     AddressSummary,
@@ -247,22 +247,25 @@ class ExplorerService:
             chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
             if not chain_db_path.exists():
                 chain_db_path = Path("/var/lib/aitbc/data/chain.db")
-            
+
             if chain_db_path.exists():
                 conn = sqlite3.connect(str(chain_db_path))
                 cursor = conn.cursor()
-                
+
                 # Search for block by hash (with or without 0x prefix)
                 clean_hash = block_hash.lower().replace("0x", "")
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT height, hash, proposer, timestamp, tx_count, state_root
-                    FROM block 
+                    FROM block
                     WHERE lower(replace(hash, '0x', '')) = ?
-                """, (clean_hash,))
-                
+                """,
+                    (clean_hash,),
+                )
+
                 result = cursor.fetchone()
                 conn.close()
-                
+
                 if result:
                     height, hash, proposer, timestamp, tx_count, state_root = result
                     return {
@@ -273,7 +276,7 @@ class ExplorerService:
                         "txCount": tx_count,
                         "stateRoot": state_root,
                     }
-            
+
             return {"error": "Block not found", "hash": block_hash}
         except Exception as e:
             logger.warning("Failed to fetch block by hash from database", block_hash=block_hash, error=str(e))  # type: ignore[call-arg]
@@ -286,22 +289,25 @@ class ExplorerService:
             chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
             if not chain_db_path.exists():
                 chain_db_path = Path("/var/lib/aitbc/data/chain.db")
-            
+
             if chain_db_path.exists():
                 conn = sqlite3.connect(str(chain_db_path))
                 cursor = conn.cursor()
-                
+
                 # Search for transaction by hash (with or without 0x prefix)
                 clean_hash = tx_hash.lower().replace("0x", "")
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
-                    FROM "transaction" 
+                    FROM "transaction"
                     WHERE lower(replace(tx_hash, '0x', '')) = ?
-                """, (clean_hash,))
-                
+                """,
+                    (clean_hash,),
+                )
+
                 result = cursor.fetchone()
                 conn.close()
-                
+
                 if result:
                     tx_hash, sender, recipient, payload, block_height, created_at, tx_type, status = result
                     return {
@@ -314,7 +320,7 @@ class ExplorerService:
                         "type": tx_type,
                         "status": status,
                     }
-            
+
             return {"error": "Transaction not found", "tx_hash": tx_hash}
         except Exception as e:
             logger.warning("Failed to fetch transaction by hash from database", tx_hash=tx_hash, error=str(e))  # type: ignore[call-arg]

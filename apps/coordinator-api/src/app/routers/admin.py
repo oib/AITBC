@@ -50,7 +50,7 @@ async def create_test_miner(
     try:
         from uuid import uuid4
 
-        from ..domain import Miner
+        from ..contexts.infrastructure.domain import Miner
 
         miner_id = "debug-test-miner"
         session_token = uuid4().hex
@@ -123,7 +123,7 @@ async def get_stats(
     JobService(session)
     from sqlmodel import func, select
 
-    from ..domain import Job
+    from ..contexts.infrastructure.domain import Job
 
     total_jobs = session.execute(select(func.count()).select_from(Job)).one()
     active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(["QUEUED", "RUNNING"]))).one()  # type: ignore[attr-defined]
@@ -149,7 +149,7 @@ async def list_jobs(
     # NEW: JWT auth with admin role
     user: AdminDep,
 ) -> dict[str, list[dict]]:
-    from ..domain import Job
+    from ..contexts.infrastructure.domain import Job
 
     jobs = session.execute(select(Job).order_by(desc(Job.requested_at)).limit(100)).all()  # type: ignore[arg-type]
     return {
@@ -177,7 +177,7 @@ async def list_miners(
 ) -> dict[str, list[dict]]:
     from sqlmodel import select
 
-    from ..domain import Miner
+    from ..contexts.infrastructure.domain import Miner
 
     miners = session.execute(select(Miner)).scalars().all()
     miner_list = [
@@ -212,7 +212,7 @@ async def get_system_status(
         JobService(session)
         from sqlmodel import func, select
 
-        from ..domain import Job
+        from ..contexts.infrastructure.domain import Job
 
         total_jobs = session.execute(select(func.count()).select_from(Job)).one()
         active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(["QUEUED", "RUNNING"]))).one()  # type: ignore[attr-defined]
