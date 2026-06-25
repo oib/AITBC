@@ -14,18 +14,18 @@ class TestPartnershipManager:
 
     def test_partnership_manager_initialization(self):
         """Test partnership manager initialization"""
-        from app.services.certification.partnership_manager import PartnershipManager
+        from app.contexts.certification.services.certification.partnership_manager import PartnershipManager
 
         manager = PartnershipManager()
 
         assert manager.partnership_types is not None
         assert len(manager.partnership_types) > 0
 
-    @patch("app.services.certification.partnership_manager.Session")
+    @patch("app.contexts.certification.services.certification.partnership_manager.Session")
     async def test_check_technical_capability(self, mock_session):
         """Test technical capability check"""
         from app.contexts.reputation.domain.reputation import AgentReputation
-        from app.services.certification.partnership_manager import PartnershipManager
+        from app.contexts.certification.services.certification.partnership_manager import PartnershipManager
 
         manager = PartnershipManager()
         mock_session_instance = MagicMock()
@@ -57,11 +57,11 @@ class TestPartnershipManager:
         assert "score" in result
         assert "details" in result
 
-    @patch("app.services.certification.partnership_manager.Session")
+    @patch("app.contexts.certification.services.certification.partnership_manager.Session")
     async def test_check_service_quality(self, mock_session):
         """Test service quality check"""
         from app.contexts.reputation.domain.reputation import AgentReputation
-        from app.services.certification.partnership_manager import PartnershipManager
+        from app.contexts.certification.services.certification.partnership_manager import PartnershipManager
 
         manager = PartnershipManager()
         mock_session_instance = MagicMock()
@@ -92,11 +92,11 @@ class TestPartnershipManager:
         assert "eligible" in result
         assert "score" in result
 
-    @patch("app.services.certification.partnership_manager.Session")
+    @patch("app.contexts.certification.services.certification.partnership_manager.Session")
     async def test_create_partnership_program(self, mock_session):
         """Test partnership program creation"""
         from app.contexts.certification.domain.certification import PartnershipProgram
-        from app.services.certification.partnership_manager import PartnershipManager
+        from app.contexts.certification.services.certification.partnership_manager import PartnershipManager
 
         manager = PartnershipManager()
         mock_session_instance = MagicMock()
@@ -137,11 +137,11 @@ class TestPartnershipManager:
         assert result.program_id is not None
         assert result.program_name == "Test Program"
 
-    @patch("app.services.certification.partnership_manager.Session")
+    @patch("app.contexts.certification.services.certification.partnership_manager.Session")
     async def test_apply_for_partnership(self, mock_session):
         """Test partnership application"""
         from app.contexts.certification.domain.certification import AgentPartnership, PartnershipProgram
-        from app.services.certification.partnership_manager import PartnershipManager
+        from app.contexts.certification.services.certification.partnership_manager import PartnershipManager
 
         manager = PartnershipManager()
         mock_session_instance = MagicMock()

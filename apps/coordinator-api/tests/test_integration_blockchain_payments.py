@@ -32,8 +32,8 @@ class TestBlockchainPaymentsIntegration:
 
         # Import and test
         from app.main import create_app
-        from app.routers.blockchain import router as blockchain_router
-        from app.routers.payments import router as payments_router
+        from app.contexts.blockchain.routers.blockchain import router as blockchain_router
+        from app.contexts.payments.routers.payments import router as payments_router
 
         app = create_app()
         app.include_router(blockchain_router)

@@ -14,7 +14,7 @@ class TestBadgeSystem:
 
     def test_badge_system_initialization(self):
         """Test badge system initialization"""
-        from app.services.certification.badge_system import BadgeSystem
+        from app.contexts.certification.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
 
@@ -26,7 +26,7 @@ class TestBadgeSystem:
     def test_get_metric_value(self):
         """Test getting metric value from reputation"""
         from app.contexts.reputation.domain.reputation import AgentReputation
-        from app.services.certification.badge_system import BadgeSystem
+        from app.contexts.certification.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
 
@@ -54,11 +54,11 @@ class TestBadgeSystem:
         assert jobs_completed == 45.0
         assert trust_score == 750.0
 
-    @patch("app.services.certification.badge_system.Session")
+    @patch("app.contexts.certification.services.certification.badge_system.Session")
     async def test_create_badge(self, mock_session):
         """Test badge creation"""
         from app.contexts.certification.domain.certification import AchievementBadge, BadgeType
-        from app.services.certification.badge_system import BadgeSystem
+        from app.contexts.certification.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
         mock_session_instance = MagicMock()
@@ -98,12 +98,12 @@ class TestBadgeSystem:
         assert result.badge_id is not None
         assert result.badge_name == "Test Badge"
 
-    @patch("app.services.certification.badge_system.Session")
+    @patch("app.contexts.certification.services.certification.badge_system.Session")
     async def test_verify_badge_eligibility(self, mock_session):
         """Test badge eligibility verification"""
         from app.contexts.certification.domain.certification import AchievementBadge, BadgeType
         from app.contexts.reputation.domain.reputation import AgentReputation
-        from app.services.certification.badge_system import BadgeSystem
+        from app.contexts.certification.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
         mock_session_instance = MagicMock()
@@ -155,11 +155,11 @@ class TestBadgeSystem:
         assert "metrics" in result
         assert "evidence" in result
 
-    @patch("app.services.certification.badge_system.Session")
+    @patch("app.contexts.certification.services.certification.badge_system.Session")
     async def test_award_badge(self, mock_session):
         """Test badge awarding"""
         from app.contexts.certification.domain.certification import AchievementBadge, AgentBadge, BadgeType
-        from app.services.certification.badge_system import BadgeSystem
+        from app.contexts.certification.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
         mock_session_instance = MagicMock()

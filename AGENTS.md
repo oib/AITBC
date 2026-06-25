@@ -148,5 +148,6 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python
 | P3 | Migrate flat `schemas/` files to owning contexts (8 files moved, 1 dead file deleted) | Medium | ✅ DONE |
 | P4 | Migrate flat `services/` files to owning contexts (54 files: 27 dead, 26 active, 1 subdirectory) | High | ✅ DONE |
 | P5 | Migrate flat `routers/` files to owning contexts (29 files: 13 dead, 16 active) | High | ✅ DONE |
+| P6 | Fix pre-existing broken test imports (7 modules, 55+ import statements) | Medium | ✅ DONE |
 
-**Phase 1–5 complete.** All flat `services/`, `schemas/`, `routers/`, and `reputation/` directories migrated to bounded contexts.
+**Phase 1–6 complete.** All flat `services/`, `schemas/`, `routers/`, and `reputation/` directories migrated to bounded contexts. All broken test imports fixed.

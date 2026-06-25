@@ -22,7 +22,7 @@ class TestStakingRouter:
 
         # Import and test
         from app.main import create_app
-        from app.routers.staking import router
+        from app.contexts.staking.routers.staking import router
 
         app = create_app()
         app.include_router(router)
@@ -44,7 +44,7 @@ class TestStakingRouter:
 
         # Import and test
         from app.main import create_app
-        from app.routers.staking import router
+        from app.contexts.staking.routers.staking import router
 
         app = create_app()
         app.include_router(router)
