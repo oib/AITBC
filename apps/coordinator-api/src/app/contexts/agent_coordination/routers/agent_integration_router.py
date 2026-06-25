@@ -13,7 +13,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ....auth import AdminDep
 from ..domain.agent import AgentExecution, AIAgentWorkflow, VerificationLevel
-from ....services.agent_coordination.integration import (
+from ..services.integration import (
     AgentDeploymentConfig,
     AgentDeploymentInstance,
     AgentDeploymentManager,
