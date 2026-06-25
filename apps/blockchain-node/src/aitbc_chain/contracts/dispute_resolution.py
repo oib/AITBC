@@ -85,7 +85,14 @@ class DisputeResolutionContract:
         self.arbitrators: dict[str, int] = {}
         self.dispute_counter = 0
         self.evidence_counter = 0
+        self._owner: str | None = None
         self._initialize_arbitrators()
+
+    def set_owner(self, owner_address: str) -> None:
+        """Set the contract owner address (called during deployment)."""
+        self._owner = owner_address.lower().strip()
+        if not self._owner.startswith("0x"):
+            self._owner = "0x" + self._owner
 
     def _initialize_arbitrators(self) -> None:
         """Initialize default arbitrators"""
@@ -195,11 +202,61 @@ class DisputeResolutionContract:
         logger.info("Submitted vote for dispute %s by %s", dispute_id, arbitrator_address)
         return {"success": True, "status": "Submitted", "message": "Vote submitted successfully"}
 
-    def authorize_arbitrator(self, arbitrator_address: str, reputation_score: int, owner_address: str) -> dict[str, Any]:
-        """Authorize a new arbitrator (admin only)"""
+    def authorize_arbitrator(
+        self, arbitrator_address: str, reputation_score: int, owner_address: str, owner_signature: str | None = None
+    ) -> dict[str, Any]:
+        """Authorize a new arbitrator (admin only).
+
+        Bug 5: Previously accepted any owner_address without verification.
+        Now requires that owner_address matches the contract's recorded owner
+        and that owner_signature is a valid signature from the owner.
+        """
+        owner_address = owner_address.lower().strip()
+        if not owner_address.startswith("0x"):
+            owner_address = "0x" + owner_address
+
+        # Verify caller is the contract owner
+        if self._owner is None:
+            return {"success": False, "status": "error", "message": "Contract owner not set"}
+        if owner_address != self._owner:
+            logger.warning("Unauthorized arbitrator authorization attempt by %s (owner: %s)", owner_address, self._owner)
+            return {"success": False, "status": "error", "message": "Not contract owner"}
+
+        # Verify owner signature (Bug 5: require signature proof of ownership)
+        if not owner_signature:
+            return {"success": False, "status": "error", "message": "Owner signature required"}
+        sign_data = {
+            "action": "authorize_arbitrator",
+            "arbitrator_address": arbitrator_address,
+            "reputation_score": reputation_score,
+        }
+        if not self._verify_owner_signature(owner_address, owner_signature, sign_data):
+            return {"success": False, "status": "error", "message": "Invalid owner signature"}
+
         self.arbitrators[arbitrator_address] = reputation_score
         logger.info("Authorized arbitrator %s with reputation %s", arbitrator_address, reputation_score)
         return {"success": True, "status": "Authorized", "message": f"Arbitrator {arbitrator_address} authorized"}
+
+    def _verify_owner_signature(self, owner_address: str, signature: str, sign_data: dict[str, Any]) -> bool:
+        """Verify the owner's signature on authorization data."""
+        import json
+
+        message = json.dumps(sign_data, sort_keys=True, separators=(",", ":")).encode()
+        try:
+            from eth_keys import keys
+            from eth_utils import keccak
+
+            msg_hash = keccak(message)
+            sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
+            if len(sig_bytes) != 65:
+                return False
+            sig = keys.Signature(sig_bytes)
+            pub_key = sig.recover_public_key_from_msg_hash(msg_hash)
+            recovered = pub_key.to_checksum_address()
+            return recovered.lower() == owner_address.lower()
+        except Exception as e:
+            logger.warning("Owner signature verification failed: %s", e)
+            return False
 
     def get_dispute(self, dispute_id: int) -> dict[str, Any]:
         """Get dispute details"""

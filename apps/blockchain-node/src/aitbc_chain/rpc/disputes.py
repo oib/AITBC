@@ -146,7 +146,10 @@ async def authorize_arbitrator(
     try:
         owner_address = get_authenticated_address(http_request, credentials)
         result = dispute_resolution_service.authorize_arbitrator(
-            arbitrator_address=request.arbitrator_address, reputation_score=1, owner_address=owner_address
+            arbitrator_address=request.arbitrator_address,
+            reputation_score=1,
+            owner_address=owner_address,
+            owner_signature=request.owner_signature,
         )
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to authorize arbitrator"))

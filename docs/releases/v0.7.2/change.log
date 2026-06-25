@@ -1,0 +1,245 @@
+# AITBC v0.7.2 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Bridge Verification — In-Process Cryptographic Proof Verification, Block Header Verification, Validator Set Tracking
+
+## 🎯 Overview
+
+AITBC v0.7.2 replaces the current trivially forgeable bridge proof validation with cryptographic verification using the existing Merkle Patricia Trie infrastructure. The bridge needs to verify that a lock actually happened on the source chain before minting on the destination — this requires cryptographically sound proof verification, not just field equality checks.
+
+**Rescope rationale**: The original v0.7.2 plan assumed external oracle infrastructure (`oracle1.aitbc.bubuit.net`, `oracle2.aitbc.bubuit.net`) that **does not exist**. No oracle client code, no light client library, and no deployed oracle network are present in the codebase. Full oracle integration is a 3-6 month effort requiring infrastructure deployment, consensus mechanism design, and security auditing.
+
+This release instead implements **in-process verification** using existing cryptographic primitives:
+- ✅ Merkle Patricia Trie (`apps/blockchain-node/src/aitbc_chain/state/merkle_patricia_trie.py`) — already has `verify_proof(key, value, proof)` and `get_proof(key)`
+- ✅ State root computation (`apps/blockchain-node/src/aitbc_chain/consensus/poa.py` line 34, `_compute_state_root`)
+- ✅ Block model with `state_root` field
+- ✅ PoA proposer signatures (from v0.7.1)
+
+The current `_validate_proof` in `cross_chain/bridge.py` (lines 244-257) only checks field equality — it is **trivially forgeable**. This release replaces it with cryptographic verification.
+
+**External oracle integration is deferred** to a future release (v0.8.x or v0.9.x) when oracle infrastructure is actually deployed. A stub oracle client interface is included in this release to allow future integration without breaking changes.
+
+**Prerequisites**: Requires [v0.7.0](../v0.7.0/change.log) (Bridge Basics) and [v0.7.1](../v0.7.1/change.log) (Bridge Security — multi-sig and signature verification).
+
+## 🎯 Release Highlights
+
+### Cryptographic Proof Verification
+- 🚧 Replace trivial field-equality proof validation with Merkle proof verification
+- 🚧 Verify Merkle proofs against source chain state root
+- 🚧 Verify state root against source chain block header
+- 🚧 Batch proof verification for multiple transfers
+
+### Block Header Verification
+- 🚧 Verify proposer signature on source chain block headers
+- 🚧 Track block finality (N confirmations threshold)
+- 🚧 Reject proofs anchored to non-finalized blocks for large transfers
+- 🚧 Configurable finality threshold per chain
+
+### Validator Set Tracking
+- 🚧 Track current validator set per chain
+- 🚧 Handle validator set epoch transitions
+- 🚧 Grace period for in-flight transfers during validator set changes
+- 🚧 Reject proofs from stale validator sets
+
+### Oracle Client Stub (Future-Ready)
+- 🚧 Oracle client interface (abstract, no external dependencies)
+- 🚧 Configuration for future oracle endpoint registration
+- 🚧 In-process verification as default mode, oracle mode reserved for future
+
+## 📋 Detailed Features
+
+### Cryptographic Proof Verification
+
+#### Enhanced `_validate_proof` Implementation
+The current implementation in `cross_chain/bridge.py` (lines 244-257) only checks field equality. This release replaces it with:
+
+```python
+def _validate_proof(self, proof: dict[str, Any], record: CrossChainTransfer) -> bool:
+    """Validate cross-chain transfer proof with cryptographic verification"""
+    # 1. Check required fields (source_chain, lock_tx_hash, amount, sender, recipient)
+    # 2. Verify block header signature from source chain proposer
+    # 3. Verify Merkle proof against state root (using existing merkle_patricia_trie.verify_proof)
+    # 4. Verify state root matches block header
+    # 5. Check block finality (N confirmations)
+    # 6. Verify validator set is current (not stale)
+```
+
+#### Merkle Proof Verification
+- Use existing `merkle_patricia_trie.verify_proof(key, value, proof)` for account state
+- Verify Merkle proofs of transaction inclusion
+- Verify Merkle proofs of bridge lock events
+- Efficient batch verification of multiple proofs
+- Cache verified proofs to avoid re-verification
+
+### Block Header Verification
+
+#### Proposer Signature Verification
+- Verify block header was signed by the current proposer of the source chain
+- Use signature verification from v0.7.1 (Bridge Security)
+- Reject headers with invalid or unknown proposer signatures
+
+#### Finality Tracking
+- Track block confirmations per chain
+- Configurable finality threshold (default: 6 blocks)
+- Reject proofs anchored to non-finalized blocks for transfers above threshold amount
+- Small transfers can use lower finality threshold for faster confirmation
+
+### Validator Set Tracking
+
+#### Epoch Management
+- Track current validator set per chain
+- Detect validator set epoch transitions
+- Grace period (configurable, default 3600s) for in-flight transfers during transitions
+- Reject proofs signed by stale validator sets after grace period expires
+
+#### Validator Set Cache
+- Cache validator sets per chain per epoch
+- Refresh validator sets on epoch boundaries
+- Fallback to direct chain query if cache miss
+
+### Oracle Client Stub (Future-Ready)
+
+#### Configuration
+```bash
+# /etc/aitbc/bridge.env
+BRIDGE_VERIFICATION_MODE=in_process  # default; "oracle" reserved for future
+BRIDGE_MIN_CONFIRMATIONS=3
+BRIDGE_FINALITY_BLOCKS=6
+BRIDGE_VALIDATOR_SET_GRACE_PERIOD=3600
+BRIDGE_LARGE_TRANSFER_THRESHOLD=10000  # requires full finality above this
+# Future: BRIDGE_ORACLE_ENDPOINTS (when oracle infrastructure is deployed)
+```
+
+#### Abstract Oracle Interface
+- `OracleClient` abstract base class (no external dependencies)
+- `InProcessVerifier` — default implementation using existing crypto
+- `ExternalOracleClient` — stub for future external oracle integration
+- No external oracle libraries required in this release
+
+## 🔧 Breaking Changes
+
+- Bridge proof verification now requires cryptographic proof data (block header, Merkle proof, state root) — field-equality-only proofs are rejected
+- Cross-chain transfers include verification metadata (block height, state root, validator epoch) in RPC responses
+- Bridge configuration changes: `BRIDGE_VERIFICATION_MODE`, `BRIDGE_MIN_CONFIRMATIONS`, `BRIDGE_FINALITY_BLOCKS` (no external oracle endpoints required)
+
+## 📊 Migration Guide
+
+### v0.7.1 → v0.7.2
+
+1. **Create bridge configuration**
+   ```bash
+   # /etc/aitbc/bridge.env
+   BRIDGE_VERIFICATION_MODE=in_process
+   BRIDGE_MIN_CONFIRMATIONS=3
+   BRIDGE_FINALITY_BLOCKS=6
+   BRIDGE_VALIDATOR_SET_GRACE_PERIOD=3600
+   BRIDGE_LARGE_TRANSFER_THRESHOLD=10000
+   ```
+
+2. **Run database migration** (adds validator set tracking tables)
+   ```bash
+   aitbc db migrate
+   ```
+
+3. **Restart services**
+   ```bash
+   systemctl restart aitbc-blockchain-node
+   ```
+
+4. **Verify bridge verification status**
+   ```bash
+   aitbc bridge oracle-status  # reports verification mode, finality config, validator set status
+   ```
+
+## 🖥️ CLI Commands
+
+### New Commands
+- `aitbc bridge oracle-status` — Show bridge verification status (verification mode, finality config, validator set status)
+  - Currently missing: `bridge` group lacks this subcommand
+  - Implementation: Add `oracle-status` subcommand to `cli/aitbc_cli/commands/bridge.py`
+  - Note: Despite the name, this reports in-process verification status (no external oracle required)
+
+## 🧪 Testing
+
+### Cryptographic Proof Verification Testing
+- Valid Merkle proof verification (using existing `merkle_patricia_trie.verify_proof`)
+- Invalid proof rejection (tampered proof, wrong state root, forged fields)
+- Batch proof verification for multiple transfers
+- Proof cache correctness
+
+### Block Header Verification Testing
+- Valid proposer signature acceptance
+- Invalid proposer signature rejection
+- Finality threshold enforcement (small vs large transfers)
+- Non-finalized block rejection for large transfers
+
+### Validator Set Tracking Testing
+- Validator set epoch transition handling
+- Grace period enforcement during transitions
+- Stale validator set rejection after grace period
+- Validator set cache behavior
+
+### Security Testing
+- Forged proof attack scenarios
+- Replay attack prevention (block height tracking)
+- Validator set manipulation attempts
+- Large transfer finality bypass attempts
+
+### Test Coverage Goals
+- Proof verification: >95%
+- Block header verification: >90%
+- Validator set tracking: >90%
+
+## 📚 Documentation
+
+- [Bridge Verification Architecture](../architecture/bridge-verification.md)
+- [Bridge Configuration Guide](../getting-started/bridge-config.md)
+- [Proof Verification Reference](../api/proof-verification.md)
+- [Future Oracle Integration Roadmap](../architecture/oracle-roadmap.md)
+
+## 🚀 Dependencies
+
+### New Dependencies
+- None — uses existing Merkle Patricia Trie and state root infrastructure
+
+### Updated Dependencies
+- Blockchain node v0.7.2+
+- Bridge service v0.7.2+
+
+## 🔐 Security Considerations
+
+- Replaces trivially forgeable field-equality proof validation with cryptographic Merkle proof verification
+- Block header proposer signature verification prevents forged block headers
+- Finality threshold prevents double-spend via reorg attacks
+- Validator set tracking prevents attacks using stale validator keys
+- Grace period prevents disruption during legitimate validator set transitions
+- **External security audit recommended** for the enhanced proof verification layer
+- External oracle integration is deferred — no oracle attack surface introduced in this release
+
+## 🎯 Success Criteria
+
+- ✅ `_validate_proof` uses Merkle proof verification (not field equality)
+- ✅ Block header proposer signatures verified
+- ✅ Finality threshold enforced (configurable per chain)
+- ✅ Validator set tracking operational with epoch transitions
+- ✅ Forged proofs rejected in all attack scenarios
+- ✅ No external infrastructure dependencies required
+- ✅ Oracle client stub included for future integration
+
+## 🚀 Next Steps
+
+### v0.7.3 — Governance
+- On-chain proposals, voting, parameter changes, cross-chain governance (requires v0.7.2 for secure cross-chain proposal propagation)
+
+### v0.8.0 — Inter-Chain Trading Basics
+- Island registry, chain discovery, trade requests, matching (requires v0.7.2 for proof verification)
+
+### v0.9.0 — Atomic Cross-Chain Settlement
+- Atomic cross-chain settlement using oracle-backed verification (requires v0.7.2 for proof verification)
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 0.7.2*
+*Status: Planned*

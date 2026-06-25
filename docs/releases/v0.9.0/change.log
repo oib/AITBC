@@ -1,0 +1,366 @@
+# AITBC v0.9.0 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Atomic Cross-Chain Settlement — Escrow, Atomic Release, Timeout/Refund, Chaos Testing
+
+## 🎯 Overview
+
+AITBC v0.9.0 implements atomic cross-chain settlement for inter-chain trades: lock escrow on the source chain, verify on the destination chain, execute the trade, and atomically release escrow on both chains simultaneously. This is the capstone release that makes inter-chain trading safe and complete.
+
+**Why this is a dedicated release**: Atomic cross-chain settlement is **the hardest problem in crypto bridge design**. The failures of this exact pattern have caused the largest hacks in cryptocurrency history:
+- **Wormhole** ($325M, Feb 2022) — signature verification bypass
+- **Ronin Bridge** ($625M, Mar 2022) — validator key compromise
+- **Poly Network** ($611M, Aug 2021) — cross-chain contract vulnerability
+
+This release requires:
+- HTLCs (Hashed Timelock Contracts) with carefully coordinated timeouts across chains with different block times, OR two-phase commit with rollback across independent Byzantine fault-tolerant systems
+- Chaos testing infrastructure to simulate network partitions, chain reorgs, timeout races, and Byzantine validators on both chains simultaneously
+- External security audit by a firm specializing in bridge security
+
+The current `bridge.py` (290 lines) implements a basic lock-mint/burn-release but has **no atomicity guarantees** — if the destination release fails after the source lock succeeds, funds are stuck. There's no timeout/refund path. This release adds the full atomic settlement layer on top of the bridge security (v0.7.1) and oracle verification (v0.7.2) layers.
+
+**Prerequisites**:
+- [v0.7.0](../v0.7.0/change.log) — Bridge Basics (lock/unlock, RPC)
+- [v0.7.1](../v0.7.1/change.log) — Bridge Security (multi-sig, signature verification, time-locks)
+- [v0.7.2](../v0.7.2/change.log) — Bridge Oracle (proof verification, light client)
+- [v0.8.0](../v0.8.0/change.log) — Inter-Chain Trading Basics (trade requests, matching, agreements)
+- [v0.6.0](../v0.6.0/change.log) — Performance (for settlement latency targets)
+
+## 🎯 Release Highlights
+
+### Cross-Chain Escrow
+- 🚧 Cross-chain escrow locking (lock on source chain, verify on destination)
+- 🚧 Escrow contract creation on source chain
+- 🚧 Escrow verification on destination chain via oracle + light client
+- 🚧 Escrow timeout and refund mechanisms
+- 🚧 Escrow dispute resolution
+
+### Atomic Cross-Chain Release
+- 🚧 Atomic release: release on destination chain triggers source chain release
+- 🚧 Two-phase commit with rollback (prepare → commit, or prepare → abort)
+- 🚧 HTLC-based atomic settlement (hash lock + time lock)
+- 🚧 Cross-chain release event propagation
+- 🚧 Atomicity guarantees (both settle OR both refund — no partial state)
+
+### Cross-Chain Proof Verification
+- 🚧 Proof of escrow lock on source chain
+- 🚧 Proof of trade execution on destination chain
+- 🚧 Cross-chain proof verification via oracle (v0.7.2)
+- 🚧 Proof of release on destination chain
+- 🚧 Proof chaining (lock proof → execution proof → release proof)
+
+### Timeout and Refund Mechanisms
+- 🚧 Configurable timeout per trade (based on trade value and complexity)
+- 🚧 Timeout verification across chains (both chains must agree timeout reached)
+- 🚧 Automatic refund on timeout (escrow returned to buyer on both chains)
+- 🚧 Timeout extension mechanism (mutual agreement between buyer and seller)
+- 🚧 Timeout dispute resolution
+
+### Chaos Testing Infrastructure
+- 🚧 Network partition simulation (chains become unreachable mid-trade)
+- 🚧 Chain reorg simulation (blocks reorganized during escrow lock)
+- 🚧 Timeout race simulation (timeout reached during release)
+- 🚧 Byzantine validator simulation (validators sign invalid state)
+- 🚧 Oracle failure simulation (oracles provide incorrect data)
+
+## 📋 Detailed Features
+
+### Cross-Chain Escrow
+
+#### Escrow Lock Process
+```bash
+aitbc trade lock-escrow --trade-id trade_... --amount 20
+```
+
+**Lock Process:**
+1. Create escrow contract on source chain (multi-sig gated, v0.7.1)
+2. Lock AIT tokens in escrow (time-locked, v0.7.1)
+3. Generate proof of lock (Merkle proof + multi-sig signatures)
+4. Broadcast lock proof to destination chain
+5. Destination chain verifies lock proof via oracle + light client (v0.7.2)
+6. Trade becomes executable
+
+#### Escrow Verification
+- Destination chain verifies: lock proof, multi-sig threshold, time-lock validity, amount correctness
+- Verification uses oracle consensus (v0.7.2) + light client state
+- If verification fails, trade is cancelled and escrow refunded on source chain
+
+#### Escrow Timeout
+```bash
+# /etc/aitbc/trading.env
+ESCROW_TIMEOUT_DEFAULT=3600          # 1 hour default
+ESCROW_TIMEOUT_LARGE=86400           # 24 hours for large trades
+ESCROW_TIMEOUT_EXTENSION_MAX=604800  # Max 7 days extension
+```
+
+### Atomic Cross-Chain Release
+
+#### HTLC-Based Settlement
+```
+Phase 1: Lock (Source Chain)
+  - Buyer locks funds with hash lock H(secret) and time lock T1
+  - Escrow contract: release to seller if secret revealed before T1
+  - Escrow contract: refund to buyer after T1
+
+Phase 2: Verify (Destination Chain)
+  - Seller verifies lock proof on destination chain
+  - Seller locks service execution with hash lock H(secret) and time lock T2 (T2 < T1)
+  - Service execution contract: release to buyer if secret revealed before T2
+
+Phase 3: Reveal (Destination Chain)
+  - Seller reveals secret to claim payment (reveals secret on destination chain)
+  - Buyer learns secret from destination chain
+
+Phase 4: Settle (Source Chain)
+  - Buyer uses secret to claim service execution (before T2)
+  - Seller uses secret to claim payment from escrow (before T1)
+  - Both chains settle atomically
+```
+
+#### Two-Phase Commit (Alternative)
+```
+Phase 1: Prepare
+  - Source chain: prepare escrow release (mark as "release-prepared")
+  - Destination chain: prepare service delivery (mark as "delivery-prepared")
+  - Both chains acknowledge prepare
+
+Phase 2: Commit (or Abort)
+  - If both prepared: commit on both chains (release + deliver)
+  - If either not prepared: abort on both chains (refund + cancel)
+  - Coordinator (multi-sig) decides commit or abort
+```
+
+#### Atomic Release Process
+```bash
+aitbc trade settle --trade-id trade_...
+```
+
+**Settlement Process:**
+1. Release escrow on destination chain
+2. Emit cross-chain release event (with proof)
+3. Source chain listens for release event
+4. Source chain verifies release proof via oracle + light client
+5. Source chain releases escrow atomically
+6. Both chains settle simultaneously
+7. Update cross-chain trade history
+
+### Cross-Chain Proof Verification
+
+#### Proof Chain
+1. **Lock Proof**: Proof that escrow is locked on source chain (Merkle proof + multi-sig)
+2. **Verification Proof**: Proof that destination chain verified the lock
+3. **Execution Proof**: Proof that trade was executed on destination chain
+4. **Release Proof**: Proof that escrow was released on destination chain
+5. **Settlement Proof**: Proof that source chain released escrow after verifying release proof
+
+Each proof is cryptographically linked to the previous, forming a chain that can be independently verified.
+
+### Timeout and Refund Mechanisms
+
+#### Timeout Lifecycle
+1. **Set Timeout**: Escrow created with timeout T (based on trade value)
+2. **Monitor**: Both chains monitor for timeout
+3. **Timeout Reached**: If trade not settled by T, timeout is triggered
+4. **Verify Timeout**: Both chains verify timeout reached (cross-chain timestamp verification)
+5. **Refund**: Escrow refunded to buyer on both chains
+6. **Mark Failed**: Trade marked as failed with timeout reason
+
+#### Timeout Extension
+- Buyer and seller can mutually agree to extend timeout
+- Extension requires multi-sig from both parties
+- Maximum extension cap (e.g., 7 days)
+- Extension logged in audit trail
+
+### Chaos Testing Infrastructure
+
+#### Network Partition Simulation
+- Simulate source and destination chains becoming unreachable mid-trade
+- Verify: trade enters timeout state, refund triggered after timeout
+- Verify: trade resumes correctly after partition heals (if before timeout)
+
+#### Chain Reorg Simulation
+- Simulate block reorganization during escrow lock
+- Verify: lock proof remains valid after reorg (anchored to finalized blocks)
+- Verify: trade cancelled if lock proof becomes invalid
+
+#### Timeout Race Simulation
+- Simulate timeout reached during release phase
+- Verify: atomicity maintained (both chains refund, no partial release)
+- Verify: no funds stuck in escrow
+
+#### Byzantine Validator Simulation
+- Simulate validators signing invalid bridge state
+- Verify: multi-sig threshold rejects invalid state
+- Verify: Byzantine validators slashed
+
+#### Oracle Failure Simulation
+- Simulate oracles providing incorrect lock verification
+- Verify: oracle consensus rejects incorrect data
+- Verify: fallback to light client verification works
+- Verify: trade cancelled if verification cannot be completed
+
+### Verified Code Targets (from suggestions.md investigation)
+
+#### HTLC vs Two-Phase Commit — DECISION: HTLC
+**Finding**: Both approaches presented as alternatives with no decision. HTLC has partial implementation:
+- `apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/bridge_enhanced.py` lines 471-529: `_execute_htlc_swap()`, `_create_htlc_contract()`, `_complete_htlc()`
+- `contracts/contracts/CrossChainAtomicSwap.sol` (145 lines): Full HTLC smart contract with hashlock, timelock, complete, refund
+Two-phase commit has NO implementation.
+**Decision**: **HTLC is the chosen approach.** Two-phase commit is dropped from this release.
+**Rationale**: HTLC has existing implementation, is the industry standard for cross-chain atomic swaps, and has a simpler failure model (timeout-based refund vs distributed abort coordination). Two-phase commit across independent Byzantine fault-tolerant systems is unproven and significantly more complex.
+
+#### Security Audit — Required
+**Finding**: This is the highest-risk release in the roadmap. Atomic cross-chain settlement caused the Wormhole ($325M), Ronin ($625M), and Poly Network ($611M) hacks. No auditor engagement is mentioned.
+**Required**:
+1. At least two independent security audits by firms specializing in bridge/cross-chain security
+2. 6+ months of chaos testing on testnet before mainnet deployment
+3. Prototype HTLC on a throwaway testnet first
+**Fallback**: Consider whether v1.0.0 can ship with non-atomic settlement (manual admin refund) and defer atomic settlement to v1.1.0.
+
+#### Timeout Verification — Underspecified
+**Finding**: Timeout verification across chains with different block times and clock skew is underspecified.
+**Required**: Define timeout calculation per chain pair: source chain block time, destination chain block time, clock skew tolerance, and safety margin.
+
+## 🔧 Breaking Changes
+
+- Inter-chain trades now require escrow locking before execution (no direct execution)
+- Trade settlement is atomic (both chains settle or both refund)
+- New escrow tables in database (CrossChainEscrow, EscrowProof)
+- CLI: `aitbc trade execute` replaced by `aitbc trade lock-escrow` + `aitbc trade settle`
+
+## 📊 Migration Guide
+
+### v0.8.x → v0.9.0
+
+1. **Database Migration**
+   ```bash
+   # Create escrow tables
+   alembic upgrade head
+   ```
+
+2. **Configure escrow settings**
+   ```bash
+   # /etc/aitbc/trading.env
+   ESCROW_ENABLED=true
+   ESCROW_ATOMIC_SETTLEMENT=true
+   ESCROW_TIMEOUT_DEFAULT=3600
+   ESCROW_HTLC_ENABLED=true
+   ```
+
+3. **Restart services**
+   ```bash
+   systemctl restart aitbc-trading
+   systemctl restart aitbc-blockchain-node
+   ```
+
+4. **Verify settlement infrastructure**
+   ```bash
+   aitbc trade settlement-status
+   ```
+
+## 🖥️ CLI Commands
+
+### New Commands (extends `trade` group)
+- `aitbc trade lock-escrow` — Lock funds in escrow for a trade
+- `aitbc trade settle` — Settle a completed trade
+- Implementation: Add subcommands to `cli/aitbc_cli/commands/trade.py`
+
+## 🧪 Testing
+
+### Escrow Testing
+- Cross-chain escrow locking correctness
+- Escrow verification via oracle + light client
+- Escrow timeout and refund
+- Escrow dispute resolution
+- Escrow extension (mutual agreement)
+
+### Atomic Settlement Testing
+- HTLC-based settlement correctness (happy path)
+- Two-phase commit correctness (happy path)
+- Atomicity under normal conditions (both settle)
+- Atomicity under failure conditions (both refund)
+- No partial state under any failure scenario
+
+### Chaos Testing
+- Network partition: trade survives or refunds correctly
+- Chain reorg: lock proof remains valid or trade cancels
+- Timeout race: no funds stuck
+- Byzantine validators: invalid state rejected
+- Oracle failure: fallback to light client works
+
+### Test Coverage Goals
+- Escrow: >95%
+- Atomic settlement: >95%
+- Chaos scenarios: >90%
+
+## 📚 Documentation
+
+- [Atomic Cross-Chain Settlement Architecture](../architecture/atomic-settlement.md)
+- [HTLC Implementation Guide](../getting-started/htlc-guide.md)
+- [Two-Phase Commit Reference](../architecture/two-phase-commit.md)
+- [Chaos Testing Guide](../testing/chaos-testing.md)
+- [Escrow Configuration](../getting-started/escrow-config.md)
+- [Settlement Troubleshooting](../troubleshooting/settlement-issues.md)
+
+## 🚀 Dependencies
+
+### New Dependencies
+- HTLC libraries
+- Chaos testing framework
+
+### Updated Dependencies
+- Trading service v0.9.0+
+- Blockchain node v0.9.0+ (with v0.7.1 security + v0.7.2 oracle)
+- Bridge service v0.7.2+
+
+## 🔐 Security Considerations
+
+- **External security audit required** — by a firm specializing in bridge/cross-chain security
+- HTLC timeouts must account for chain reorg depth and clock skew between chains
+- Two-phase commit coordinator must be multi-sig gated (no single-point-of-failure)
+- Timeout verification must be cross-chain (both chains must agree timeout reached)
+- All proofs must be cryptographically chained and independently verifiable
+- Escrow must be time-locked (v0.7.1) to prevent premature release
+- Oracle verification (v0.7.2) must be fallback for light client verification
+- **Penetration testing required** — simulate attack scenarios from real bridge hacks
+
+## 📈 Performance Targets
+
+- Escrow lock time: <30 seconds (including cross-chain verification)
+- Atomic settlement time: <5 minutes (including both chains)
+- Timeout refund time: <10 minutes (including cross-chain verification)
+- Settlement success rate: >99.5%
+- No funds stuck rate: 100% (atomicity guarantee)
+
+## 🎯 Success Criteria
+
+- ✅ Cross-chain escrow locking operational
+- ✅ Atomic cross-chain release operational (both settle OR both refund)
+- ✅ HTLC-based settlement working
+- ✅ Timeout and refund mechanisms working
+- ✅ Chaos testing: no partial state under any failure scenario
+- ✅ External security audit passed
+- ✅ Penetration testing: no vulnerabilities found
+- ✅ Performance targets met
+- ✅ No funds stuck in any test scenario
+
+## 🚀 Next Steps
+
+### v0.9.1 Planning
+- Advanced settlement features (multi-hop cross-chain settlement)
+- Settlement optimization (batch settlement)
+- Settlement analytics and monitoring
+- Cross-chain settlement dashboards
+
+### v1.0.0 Planning
+- Production-ready AITBC platform
+- Full security audit
+- Performance certification
+- Mainnet launch readiness
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 0.9.0*
+*Status: Planned*

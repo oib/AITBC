@@ -1,0 +1,774 @@
+# AITBC v0.5.16 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned — Critical Security & Multi-Chain Bugfix
+**Scope**: Multi-Chain Preparation + Security Hardening — Chain-ID-Aware RPC, Signature Verification, Authentication, Stub Removal, Multi-Chain Manager Fix
+
+## 🎯 Overview
+
+AITBC v0.5.16 is a critical bugfix release that fixes **14 issues** discovered during a systematic investigation of the codebase: 6 blockers, 8 high-severity issues. These bugs are **broken today** — they don't require any new infrastructure to trigger, and several are critical security vulnerabilities that allow anyone to submit transactions, lock bridge funds, stake tokens, and start/stop mining as any address.
+
+**Why this is not just a bugfix**: The original scope was 3 chain_id bugs. Investigation revealed 11 additional security and correctness issues across the blockchain node. This release is now a **security hardening + multi-chain preparation** release. All fixes are backward-compatible where possible, but signature verification is a breaking change for callers that don't sign transactions.
+
+**Prerequisites**: None. This is a patch on the current codebase (post-v0.5.15).
+
+## 🎯 Release Highlights
+
+### Chain-ID Bugs (3 issues — original scope)
+
+### Bug 1: Transaction Submission Drops chain_id
+- 🚧 `TransactionRequest` model gains optional `chain_id` field
+- 🚧 `/rpc/transaction` endpoint uses tx `chain_id` instead of always defaulting to hub's chain
+- 🚧 Follower transactions routed to correct chain's mempool namespace
+
+### Bug 2: Sync RPC Doesn't Send chain_id to Remote Hub
+- 🚧 `fetch_blocks_range` sends `chain_id` as query parameter
+- 🚧 `bulk_import_from` sends `chain_id` to `/rpc/head` and `/rpc/blocks-range`
+- 🚧 Remote hub returns blocks for the requested chain, not its own default
+
+### Bug 3: Bridge Proof Verification Is Trivially Forgeable
+- 🚧 `_validate_proof` requires cryptographic signature from source chain proposer
+- 🚧 Proof must include block header anchoring (height + hash)
+- 🚧 Reject proofs that don't match source chain's actual block at claimed height
+- 🚧 Add chain_id check to proof validation
+
+### Security Blockers (3 issues — new)
+
+### Bug 4: No Transaction Signature Verification
+- 🚧 `submit_transaction` accepts `signature` field but never verifies it
+- 🚧 Add signature verification: verify tx is signed by the claimed sender
+- 🚧 Reject transactions with invalid or missing signatures
+- 🚧 **Breaking change**: callers must now provide valid signatures
+
+### Bug 5: Admin Arbitrator Endpoint No Owner Verification
+- 🚧 `authorize_arbitrator` accepts any `owner_address` without verification
+- 🚧 Add owner verification: check that caller is the contract owner
+- 🚧 Require signature proof of ownership
+
+### Bug 6: Multi-Chain Manager Imports Non-Existent Classes
+- 🚧 `multi_chain_manager.py` imports `BlockchainDB`, `RPCServer`, `P2PService`, `EthereumConsensus` — none exist
+- 🚧 All imports use `# type: ignore` to suppress errors
+- 🚧 Module will crash at runtime — blocks v0.6.4
+- 🚧 Fix: either implement the missing classes or rewrite the manager to use existing infrastructure
+
+### Security High (8 issues — new)
+
+### Bug 7: Bridge Lock/Confirm No Signature Verification
+- 🚧 `bridge_lock` and `bridge_confirm` accept sender/recipient from request body without signature check
+- 🚧 Add signature verification: verify request is signed by sender
+- 🚧 **Breaking change**: bridge callers must now sign requests
+
+### Bug 8: Staking No Signature Verification
+- 🚧 `stake_tokens` and `unstake_tokens` accept address from request body without signature check
+- 🚧 Add signature verification: verify request is signed by the staker
+- 🚧 **Breaking change**: staking callers must now sign requests
+
+### Bug 9: Mining Endpoints No Authentication
+- 🚧 `/mining/start`, `/mining/stop`, `/mining/status` have no auth checks
+- 🚧 Add admin authentication: require authenticated wallet address
+- 🚧 Restrict to node operator (configurable admin address)
+
+### Bug 10: Silent Import Failures Disable Core Features
+- 🚧 Router has 7 try/except ImportError blocks that silently set functions to None
+- 🚧 Bridge, staking, islands, disputes, contracts, GPU resources all silently disabled on import failure
+- 🚧 Fix: make imports mandatory (fail fast on missing modules) or log explicit warnings at startup
+
+### Bug 11: Contract Stub Returns Fake Data
+- 🚧 `contracts_stub.py` returns fake success responses for all contract operations
+- 🚧 Users get fake deployment/verification results when real contracts module fails to import
+- 🚧 Fix: remove stub or return explicit error (no fake success)
+
+### Bug 12: Bridge Proof Missing chain_id Check
+- 🚧 `_validate_proof` checks source_chain, amount, recipient but not chain_id
+- 🚧 Could accept proofs from wrong chain
+- 🚧 Add chain_id validation to proof fields
+
+### Bug 13: Staking Doesn't Validate chain_id
+- 🚧 `stake_tokens` and `unstake_tokens` use chain_id from request but don't validate it's supported
+- 🚧 Add `validate_chain_id()` call before staking
+
+### Bug 14: X-Wallet-Address Header Security Bypass
+- 🚧 `get_authenticated_address` trusts `X-Wallet-Address` header if `TRUST_X_WALLET_ADDRESS=true`
+- 🚧 Any header value accepted without verification
+- 🚧 Fix: warn in logs when this mode is enabled, document as dev-only, default to false
+
+### Cross-Service chain_id Bugs (4 issues — from suggestions.md investigation)
+
+### Bug 15: Agent Coordinator Hardcoded RPC Port
+- 🚧 `apps/agent-coordinator/src/app/websocket/agent_stream.py` line 361: defaults to `http://localhost:8202`
+- 🚧 Actual blockchain-node runs on port `8006` (per AGENTS.md and `cli/aitbc/__init__.py`)
+- 🚧 Also in `aitbc/crypto/transaction_service.py` line 21: same incorrect default
+- 🚧 Fix: change default to `http://localhost:8006`
+
+### Bug 16: Agent Coordinator Drops chain_id in Transaction Submission
+- 🚧 `apps/agent-coordinator/src/app/websocket/agent_stream.py` line 364: posts to `/rpc/transaction` without `chain_id`
+- 🚧 `TransactionService.generate_signed_transaction()` (lines 87-94) doesn't include `chain_id` in tx dict
+- 🚧 Agent coin requests always route to hub's default chain, not the sender's chain
+- 🚧 Fix: pass `chain_id` from transaction dict into the JSON payload; add `chain_id` to `generate_signed_transaction`
+
+### Bug 17: Marketplace Hardcoded Blockchain DB Path
+- 🚧 `apps/marketplace/src/marketplace_service/services/marketplace_service.py` lines 209-211: hardcoded path `/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db`
+- 🚧 Breaks on any other chain/island, any non-default DB path
+- 🚧 Fix: use blockchain RPC calls instead of direct DB access; if local RPC is too slow, add a read replica or cache
+
+### Bug 18: Marketplace Direct SQLite Queries on Blockchain DB
+- 🚧 `apps/marketplace/src/marketplace_service/services/marketplace_service.py` lines 214-226: `sqlite3.connect` + raw SELECT with LEFT JOIN on `block` table
+- 🚧 Bypasses API contract, breaks if schema changes, couples marketplace to blockchain internals
+- 🚧 Fix: replace with blockchain RPC calls (`/rpc/transactions` with type filter)
+
+## 📋 Detailed Features
+
+### Bug 1: Transaction Submission Drops chain_id
+
+#### Current Problem
+
+The `/rpc/transaction` endpoint accepts a `TransactionRequest` Pydantic model that has **no `chain_id` field**:
+
+<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/transactions.py" lines="21-31" />
+
+```python
+class TransactionRequest(BaseModel):
+    sender: str = Field(..., alias="from")
+    recipient: str = Field(..., alias="to")
+    amount: int
+    fee: int = 36
+    nonce: int = 0
+    type: str = "TRANSFER"
+    payload: dict[str, Any] = Field(default_factory=dict)
+    sig: str = Field(..., alias="signature")
+    # ← NO chain_id field!
+```
+
+When a follower POSTs a transaction with `chain_id` in the JSON body, Pydantic silently drops it. Then `submit_transaction` uses `get_chain_id(None)`, which returns the hub's own default chain.
+
+**Impact**: Follower transactions go to wrong chain's mempool, silently dropped.
+
+#### Fix
+
+Add `chain_id` to `TransactionRequest` and use it in `submit_transaction`:
+
+```python
+class TransactionRequest(BaseModel):
+    chain_id: str | None = None    # ← ADD THIS
+    sender: str = Field(..., alias="from")
+    # ...
+
+async def submit_transaction(request, tx_data: TransactionRequest):
+    chain_id = get_chain_id(tx_data.chain_id)  # ← use tx's chain_id
+```
+
+**Backward compatibility**: If `chain_id` is not provided (None), falls back to hub's default chain.
+
+#### Files Changed
+- `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py`
+
+---
+
+### Bug 2: Sync RPC Doesn't Send chain_id to Remote Hub
+
+#### Current Problem
+
+`fetch_blocks_range` and `bulk_import_from` don't send `chain_id` to the remote hub:
+
+<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/sync.py" lines="277-282" />
+
+```python
+# fetch_blocks_range — no chain_id in params
+resp = await self._client.get(
+    f"{source_url}/rpc/blocks-range",
+    params={"start": start, "end": end}
+)
+
+# bulk_import_from — no chain_id param
+resp = await self._client.get(f"{source_url}/rpc/head")
+```
+
+**Impact**: Follower syncing chain B from hub A (whose default is chain A) gets chain A blocks — cross-chain contamination.
+
+#### Fix
+
+Add `chain_id` to query params:
+
+```python
+# fetch_blocks_range:
+params={"start": start, "end": end, "chain_id": self._chain_id}
+
+# bulk_import_from:
+params={"chain_id": self._chain_id}
+```
+
+**Backward compatibility**: Hub endpoints already accept `chain_id` via `get_chain_id()`. Older hubs ignore unknown query params.
+
+#### Files Changed
+- `apps/blockchain-node/src/aitbc_chain/sync.py`
+
+---
+
+### Bug 3: Bridge Proof Verification Is Trivially Forgeable
+
+#### Current Problem
+
+<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py" lines="244-257" />
+
+```python
+def _validate_proof(self, proof: dict[str, Any], record: CrossChainTransfer) -> bool:
+    # Just checks that fields match — NO cryptographic verification!
+    if proof.get("source_chain") != record.source_chain: return False
+    if proof.get("amount") != record.amount: return False
+    if proof.get("recipient") != record.recipient: return False
+    return True
+```
+
+**Impact**: Anyone who knows the public transfer details can forge a proof and mint coins.
+
+#### Fix (Minimum Viable Security)
+
+1. Require proposer signature on proof
+2. Block header anchoring (height + hash)
+3. chain_id check
+4. Reject unsigned proofs
+
+```python
+def _validate_proof(self, proof, record) -> bool:
+    required = ["source_chain", "lock_tx_hash", "amount", "sender", "recipient",
+                "block_height", "block_hash", "proposer_signature", "chain_id"]
+    # ... verify all fields
+    # Verify chain_id matches
+    if proof.get("chain_id") != record.chain_id: return False
+    # Verify proposer signature
+    if not self._verify_proposer_signature(proof): return False
+    # Verify block anchor
+    if not self._verify_block_anchor(proof): return False
+    return True
+```
+
+**What this does NOT include** (deferred to v0.7.1/v0.7.2): multi-sig, light client, oracle.
+
+#### Files Changed
+- `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py`
+- `apps/blockchain-node/src/aitbc_chain/rpc/bridge.py` — update `bridge_confirm` to require new proof fields
+
+---
+
+### Bug 4: No Transaction Signature Verification
+
+#### Current Problem
+
+<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/transactions.py" lines="84-113" />
+
+`submit_transaction` accepts a `signature` field (`sig: str = Field(..., alias="signature")`) but **never verifies it**. The signature is stored but not checked against the sender's public key.
+
+**Impact**: Anyone can submit transactions claiming to be from any address. They can transfer funds from any account, register GPUs as any provider, etc.
+
+#### Fix
+
+Add signature verification before adding to mempool:
+
+```python
+async def submit_transaction(request, tx_data: TransactionRequest):
+    # Verify signature
+    if not verify_transaction_signature(tx_data):
+        raise HTTPException(403, "Invalid transaction signature")
+    # ... proceed with chain_id-aware processing
+```
+
+**Breaking change**: All callers must now provide valid signatures. The gossip path already requires signatures, so only HTTP RPC callers are affected.
+
+#### Files Changed
+- `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py`
+
+---
+
+### Bug 5: Admin Arbitrator Endpoint No Owner Verification
+
+#### Current Problem
+
+<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/contracts/dispute_resolution.py" lines="198-202" />
+
+```python
+def authorize_arbitrator(self, arbitrator_address, reputation_score, owner_address):
+    # Just adds to dict — no check that owner_address is actually the contract owner!
+    self._arbitrators[arbitrator_address] = reputation_score
+```
+
+**Impact**: Anyone can authorize themselves as an arbitrator.
+
+#### Fix
+
+Verify that `owner_address` matches the contract's recorded owner, and require a signature from the owner:
+
+```python
+def authorize_arbitrator(self, arbitrator_address, reputation_score, owner_address, owner_signature):
+    if owner_address != self._owner:
+        raise PermissionError("Not contract owner")
+    if not verify_signature(owner_address, owner_signature, arbitrator_address):
+        raise PermissionError("Invalid owner signature")
+    self._arbitrators[arbitrator_address] = reputation_score
+```
+
+#### Files Changed
+- `apps/blockchain-node/src/aitbc_chain/contracts/dispute_resolution.py`
+- `apps/blockchain-node/src/aitbc_chain/rpc/disputes.py` — pass signature to contract
+
+---
+
+### Bug 6: Multi-Chain Manager Imports Non-Existent Classes
+
+#### Current Problem
+
+<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/network/multi_chain_manager.py" lines="124-149" />
+
+The module imports:
+- `BlockchainDB` — does not exist in `database.py`
+- `RPCServer` — does not exist in `rpc/__init__.py`
+- `P2PService` — does not exist (no `p2p.py` file)
+- `EthereumConsensus` — does not exist in `consensus/__init__.py`
+
+All imports use `# type: ignore[attr-defined]` or `# type: ignore[import-not-found]` to suppress errors.
+
+**Impact**: Module will crash at runtime if ever imported. Blocks v0.6.4 (Multi-Chain Per Island).
+
+#### Fix
+
+Rewrite `MultiChainManager` to use existing infrastructure:
+- Replace `BlockchainDB` with actual database layer from `database.py`
+- Replace `RPCServer` with actual RPC setup from `rpc/router.py`
+- Remove `P2PService` (no P2P layer exists — use gossip)
+- Replace `EthereumConsensus` with actual `PoAProposer` from `consensus/`
+
+This is a rewrite, not a patch. The existing class structure is preserved but the imports and initialization are fixed to use real classes.
+
+#### Files Changed
+- `apps/blockchain-node/src/aitbc_chain/network/multi_chain_manager.py`
+
+---
+
+### Bug 7: Bridge Lock/Confirm No Signature Verification
+
+#### Current Problem
+
+<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/bridge.py" lines="18-109" />
+
+`bridge_lock` and `bridge_confirm` accept sender/recipient from request body without verifying the request is signed by the sender.
+
+**Impact**: Anyone can lock or bridge funds from any address.
+
+#### Fix
+
+Add signature verification to both endpoints:
+
+```python
+async def bridge_lock(request, lock_data: dict):
+    sender = lock_data.get("sender")
+    signature = lock_data.get("signature")
+    if not verify_signature(sender, signature, lock_data):
+        raise HTTPException(403, "Invalid sender signature")
+    # ... proceed
+```
+
+Also fix `get_chain_id(None)` → `get_chain_id(lock_data.get("chain_id"))`.
+
+#### Files Changed
+- `apps/blockchain-node/src/aitbc_chain/rpc/bridge.py`
+
+---
+
+### Bug 8: Staking No Signature Verification
+
+#### Current Problem
+
+<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/staking.py" lines="22-112" />
+
+`stake_tokens` and `unstake_tokens` accept address from request body without signature check.
+
+**Impact**: Anyone can stake or unstake from any address.
+
+#### Fix
+
+Add signature verification and chain_id validation:
+
+```python
+async def stake_tokens(request, stake_data: dict):
+    staker = stake_data.get("staker")
+    signature = stake_data.get("signature")
+    if not verify_signature(staker, signature, stake_data):
+        raise HTTPException(403, "Invalid staker signature")
+    chain_id = stake_data.get("chain_id")
+    validate_chain_id(chain_id)  # Bug 13 fix
+    # ... proceed
+```
+
+#### Files Changed
+- `apps/blockchain-node/src/aitbc_chain/rpc/staking.py`
+
+---
+
+### Bug 9: Mining Endpoints No Authentication
+
+#### Current Problem
+
+<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/router.py" lines="772-819" />
+
+`/mining/start`, `/mining/stop`, `/mining/status` have no `Depends(security)` or auth checks.
+
+**Impact**: Anyone can start or stop mining on the node.
+
+#### Fix
+
+Add admin authentication:
+
+```python
+@router.post("/mining/start")
+async def start_mining(request: Request, admin_address: str = Depends(get_admin_address)):
+    # Only node operator can start/stop mining
+    ...
+```
+
+#### Files Changed
+- `apps/blockchain-node/src/aitbc_chain/rpc/router.py`
+
+---
+
+### Bug 10: Silent Import Failures Disable Core Features
+
+#### Current Problem
+
+<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/router.py" lines="43-177" />
+
+7 try/except ImportError blocks silently set functions to None:
+- Disputes module (lines 43-59)
+- Dispute models (lines 61-77)
+- Contracts module (lines 78-112) → falls back to stub
+- Islands module (lines 114-140)
+- Bridge module (lines 141-148)
+- Staking module (lines 149-172)
+- GPU resources (lines 174-177)
+
+**Impact**: Core features (bridge, staking, islands) silently disabled without user awareness. Endpoints return errors or fake data.
+
+#### Fix
+
+- Make imports mandatory (remove try/except, fail fast on missing modules)
+- OR: log explicit ERROR at startup (not warning) and disable affected endpoints with clear error messages
+- Remove the contracts_stub.py fallback (Bug 11)
+
+#### Files Changed
+- `apps/blockchain-node/src/aitbc_chain/rpc/router.py`
+
+---
+
+### Bug 11: Contract Stub Returns Fake Data
+
+#### Current Problem
+
+<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/contracts_stub.py" line="16" />
+
+`_stub` function returns fake success responses for all contract operations. Used as fallback when real contracts module fails to import.
+
+**Impact**: Users get fake contract deployment/verification results.
+
+#### Fix
+
+Remove the stub. If the contracts module fails to import, contract endpoints should return HTTP 503 (Service Unavailable) with a clear error message.
+
+#### Files Changed
+- `apps/blockchain-node/src/aitbc_chain/rpc/contracts_stub.py` — delete or replace with error handler
+- `apps/blockchain-node/src/aitbc_chain/rpc/router.py` — remove stub fallback
+
+---
+
+### Bug 12: Bridge Proof Missing chain_id Check
+
+#### Current Problem
+
+`_validate_proof` checks `source_chain`, `amount`, `recipient` but not `chain_id`. Could accept proofs from wrong chain.
+
+#### Fix
+
+Add chain_id to required proof fields and validate:
+
+```python
+if proof.get("chain_id") != record.chain_id:
+    logger.warning("Proof chain_id mismatch")
+    return False
+```
+
+#### Files Changed
+- `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` (part of Bug 3 fix)
+
+---
+
+### Bug 13: Staking Doesn't Validate chain_id
+
+#### Current Problem
+
+`stake_tokens` and `unstake_tokens` use chain_id from request but don't validate it's a supported chain.
+
+#### Fix
+
+Add `validate_chain_id()` call:
+
+```python
+chain_id = stake_data.get("chain_id")
+if not is_supported_chain(chain_id):
+    raise HTTPException(400, f"Unsupported chain_id: {chain_id}")
+```
+
+#### Files Changed
+- `apps/blockchain-node/src/aitbc_chain/rpc/staking.py` (part of Bug 8 fix)
+
+---
+
+### Bug 14: X-Wallet-Address Header Security Bypass
+
+#### Current Problem
+
+<ref_snippet file="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/auth.py" lines="30-42" />
+
+`get_authenticated_address` trusts `X-Wallet-Address` header if `TRUST_X_WALLET_ADDRESS=true`. Any header value accepted without verification.
+
+#### Fix
+
+- Default `TRUST_X_WALLET_ADDRESS` to `false` (currently may default to true)
+- Log WARNING at startup when enabled: "TRUST_X_WALLET_ADDRESS is enabled — this is insecure, use only for development"
+- Document as dev-only
+
+#### Files Changed
+- `apps/blockchain-node/src/aitbc_chain/rpc/auth.py`
+
+### Bug 15: Agent Coordinator Hardcoded RPC Port
+
+#### Current Problem
+
+The agent coordinator defaults to a non-existent port:
+
+<ref_snippet file="/opt/aitbc/apps/agent-coordinator/src/app/websocket/agent_stream.py" lines="361-361" />
+
+The same incorrect default is in `aitbc/crypto/transaction_service.py` line 21. If `BLOCKCHAIN_RPC_URL` env var is not set, the agent coordinator silently fails to connect to the blockchain node.
+
+#### Fix
+
+Change default from `8202` to `8006` in both files:
+- `apps/agent-coordinator/src/app/websocket/agent_stream.py` line 361
+- `aitbc/crypto/transaction_service.py` line 21
+
+#### Files Changed
+- `apps/agent-coordinator/src/app/websocket/agent_stream.py`
+- `aitbc/crypto/transaction_service.py`
+
+### Bug 16: Agent Coordinator Drops chain_id in Transaction Submission
+
+#### Current Problem
+
+The agent coordinator submits transactions without `chain_id`:
+
+<ref_snippet file="/opt/aitbc/apps/agent-coordinator/src/app/websocket/agent_stream.py" lines="364-364" />
+
+The `TransactionService.generate_signed_transaction()` method (lines 87-94) does not include `chain_id` in the transaction dict. Combined with Bug 1 (TransactionRequest drops chain_id), agent coin requests always route to the hub's default chain.
+
+#### Fix
+
+1. Add `chain_id` parameter to `generate_signed_transaction()` in `aitbc/crypto/transaction_service.py`
+2. Include `chain_id` in the transaction dict
+3. In `agent_stream.py`, pass `chain_id` from the agent's context into the transaction generation call
+
+#### Files Changed
+- `aitbc/crypto/transaction_service.py`
+- `apps/agent-coordinator/src/app/websocket/agent_stream.py`
+
+### Bug 17: Marketplace Hardcoded Blockchain DB Path
+
+#### Current Problem
+
+The marketplace service hardcodes a specific hub hostname as the data location:
+
+<ref_snippet file="/opt/aitbc/apps/marketplace/src/marketplace_service/services/marketplace_service.py" lines="209-211" />
+
+This breaks on any chain other than `ait-hub.aitbc.bubuit.net`, any non-default DB path, and couples marketplace availability to blockchain DB internals.
+
+#### Fix
+
+Remove hardcoded path. Use blockchain RPC calls (`/rpc/transactions` with type filter) instead of direct DB access. If local blockchain RPC is too slow for listing, add a read replica or cache layer — but not direct DB access.
+
+#### Files Changed
+- `apps/marketplace/src/marketplace_service/services/marketplace_service.py`
+
+### Bug 18: Marketplace Direct SQLite Queries on Blockchain DB
+
+#### Current Problem
+
+The marketplace queries the blockchain SQLite database directly:
+
+<ref_snippet file="/opt/aitbc/apps/marketplace/src/marketplace_service/services/marketplace_service.py" lines="214-226" />
+
+This bypasses any API contract, breaks if schema changes, and couples marketplace to blockchain internal schema.
+
+#### Fix
+
+Replace `sqlite3.connect` + raw SQL with blockchain RPC calls:
+- Use `/rpc/transactions?type=GPU_MARKETPLACE&limit=500` to fetch marketplace transactions
+- Remove `sqlite3` import from marketplace service
+- If block metadata is needed, use `/rpc/block/{height}` for each transaction
+
+#### Files Changed
+- `apps/marketplace/src/marketplace_service/services/marketplace_service.py`
+
+## 🔧 Breaking Changes
+
+### Signature Verification (Breaking)
+- `/rpc/transaction` now verifies transaction signatures — callers must provide valid signatures
+- `/bridge/lock` and `/bridge/confirm` now verify sender signatures — bridge callers must sign requests
+- `/staking/stake` and `/staking/unstake` now verify staker signatures — staking callers must sign requests
+- `authorize_arbitrator` now requires owner signature — admin callers must sign
+
+### chain_id (Backward Compatible)
+- `TransactionRequest` gains optional `chain_id` field — defaults to hub's chain_id if not provided
+- Sync RPC sends `chain_id` query param — older hubs ignore unknown params
+- Bridge proof requires `chain_id` field — old proofs rejected (intentional, they were insecure)
+
+### Other (Breaking)
+- Contract stub removed — endpoints return 503 instead of fake success
+- Mining endpoints require admin authentication — anonymous access blocked
+- `TRUST_X_WALLET_ADDRESS` defaults to false — header-based auth no longer works by default
+
+## 📊 Migration Guide
+
+### v0.5.15 → v0.5.16
+
+1. **Update blockchain node**
+   ```bash
+   cd /opt/aitbc
+   git pull
+   ./venv/bin/pip install -e apps/blockchain-node
+   ```
+
+2. **Review security config**
+   ```bash
+   # Ensure TRUST_X_WALLET_ADDRESS is not set (defaults to false)
+   # If you were using X-Wallet-Address header auth, switch to signature-based auth
+   ```
+
+3. **Update API callers to sign requests**
+   - Transaction submission: include valid `signature` field
+   - Bridge operations: include `signature` from sender
+   - Staking operations: include `signature` from staker
+   - Admin operations: include `owner_signature`
+
+4. **Restart services**
+   ```bash
+   systemctl restart aitbc-blockchain-node
+   ```
+
+5. **Verify multi-chain transaction submission**
+   ```bash
+   curl -X POST http://hub:8006/rpc/transaction \
+     -H "Content-Type: application/json" \
+     -d '{"from":"0xAlice","to":"0xBob","amount":100,"signature":"0x...","chain_id":"ait-island1"}'
+   ```
+
+## 🧪 Testing
+
+### Chain-ID Tests
+- Submit tx with `chain_id` → routed to correct chain's mempool
+- Sync chain B from hub A → gets chain B blocks, not chain A
+- Bridge proof with wrong chain_id → rejected
+
+### Signature Verification Tests
+- Submit tx with valid signature → accepted
+- Submit tx with invalid signature → rejected (403)
+- Submit tx without signature → rejected (422)
+- Bridge lock with valid signature → accepted
+- Bridge lock with invalid signature → rejected
+- Stake with valid signature → accepted
+- Stake with invalid signature → rejected
+- Mining start without admin auth → rejected (401)
+- Mining start with admin auth → accepted
+
+### Stub Removal Tests
+- Contract endpoint when contracts module fails → 503 error (not fake success)
+- Bridge endpoint when bridge module fails → 503 error (not silent None)
+
+### Multi-Chain Manager Tests
+- Import multi_chain_manager → no crash
+- Initialize MultiChainManager with existing infrastructure → works
+
+### Test Coverage Goals
+- Chain_id handling: >95%
+- Signature verification: >95%
+- Authentication: >90%
+- Stub removal: >90%
+- Multi-chain manager: >85%
+
+## 📚 Documentation
+
+- [Multi-Chain Transaction Submission](../getting-started/multi-chain-tx.md)
+- [Transaction Signature Guide](../getting-started/transaction-signatures.md)
+- [Bridge Proof Format Reference](../api/bridge-proof-format.md)
+- [API Authentication Guide](../getting-started/api-authentication.md)
+- [Migration Guide: v0.5.15 → v0.5.16](../getting-started/migration-v0.5.16.md)
+
+## 🚀 Dependencies
+
+### New Dependencies
+- None
+
+### Updated Dependencies
+- Blockchain node v0.5.16+
+
+## 🔐 Security Considerations
+
+- **This is primarily a security release**: 6 of 18 fixes are security vulnerabilities
+- **Signature verification is the most critical fix**: Without it, anyone can transact as any address
+- **Bridge proof hardening prevents forgeable cross-chain transfers**: Same class of vulnerability as Wormhole ($325M) and Poly Network ($611M)
+- **Mining auth prevents unauthorized resource control**
+- **Stub removal prevents fake success responses**: Users could believe contracts deployed when they didn't
+- **No new attack surface**: All fixes are additive (require more verification, don't expose new endpoints)
+
+## 📈 Performance Targets
+
+- Signature verification: <5ms per transaction (ed25519)
+- chain_id query param overhead: negligible
+- Bridge proof verification: <10ms (signature + block anchor check)
+- No measurable impact on sync throughput
+
+## 🎯 Success Criteria
+
+- ✅ Follower submits tx with `chain_id` → routed to correct chain's mempool
+- ✅ Follower syncs chain B from hub A → gets chain B blocks
+- ✅ Transaction with invalid signature → rejected
+- ✅ Bridge lock with invalid signature → rejected
+- ✅ Stake with invalid signature → rejected
+- ✅ Mining start without admin auth → rejected
+- ✅ Bridge proof without proposer signature → rejected
+- ✅ Bridge proof with wrong chain_id → rejected
+- ✅ Contract endpoint when module missing → 503 (not fake success)
+- ✅ Multi-chain manager imports without crash
+- ✅ TRUST_X_WALLET_ADDRESS defaults to false
+- ✅ Agent coordinator connects to blockchain-node on port 8006 (not 8202)
+- ✅ Agent coordinator includes chain_id in transaction submission
+- ✅ Marketplace uses blockchain RPC (not direct SQLite) for transaction queries
+- ✅ Marketplace has no hardcoded DB paths
+- ✅ Single-chain nodes work unchanged (chain_id defaults to hub's chain)
+
+## 🚀 Next Steps
+
+### v0.5.17 — Test Infrastructure
+- Multi-chain test fixtures, multi-node test harness, convert stub tests to functional tests (builds on v0.5.16 fixes — tests verify the security and chain_id fixes work)
+
+### v0.6.0 — Performance Optimization
+- DB, caching, network I/O optimization (builds on stable, secure multi-chain foundation from v0.5.16 + test infrastructure from v0.5.17)
+
+### v0.6.3 — Multi-Island Node Support
+- Full multi-island support (builds on v0.5.16 chain_id fixes + multi-chain manager fix)
+
+### v0.7.0 — Bridge Basics
+- Cross-chain bridge (builds on v0.5.16 bridge proof hardening)
+
+### v0.7.1 — Bridge Security
+- Full bridge security: multi-sig, light client, time-locks (upgrades v0.5.16 minimum proof verification)
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 0.5.16*
+*Status: Planned — Critical Security & Multi-Chain Bugfix*
