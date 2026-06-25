@@ -32,7 +32,6 @@ from ..contexts.marketplace.routers.marketplace_offers import router as marketpl
 
 # Payments router moved to contexts/payments
 from ..contexts.payments.routers.payments import router as payments  # noqa: E402
-from .cache_management import router as cache_management  # noqa: E402
 from .client import router as client  # noqa: E402
 from .disputes import router as disputes  # noqa: E402
 from .exchange import router as exchange  # noqa: E402
@@ -153,7 +152,6 @@ __all__ = [
     "payments",
     "web_vitals",
     "edge_gpu",
-    "cache_management",
     "agent_identity",
     "blockchain",
     "developer_platform",
@@ -187,7 +185,6 @@ __all__ = [
     "settlement",
     "monitor",
     "monitoring_dashboard",
-    "registry",
     "islands_proxy",
     "inference",
     "fhe",

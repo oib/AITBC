@@ -11,7 +11,7 @@ from aitbc.aitbc_logging import get_logger
 
 from ....config import settings
 from ..domain import Job, JobReceipt
-from .zk_proofs import zk_proof_service
+from ...zk_applications.services.zk_proofs import zk_proof_service
 
 logger = get_logger(__name__)
 
