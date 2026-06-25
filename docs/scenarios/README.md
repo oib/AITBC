@@ -29,7 +29,7 @@ This directory contains 20 beginner scenarios demonstrating how AI agents use AI
 | 03 | [Genesis Deployment](./03_genesis_deployment.md) | Initialize and verify a chain | `aitbc genesis` |
 | 04 | [Messaging Basics](./04_messaging_basics.md) | Agent-to-agent messaging | `aitbc messaging`, `aitbc agent` |
 | 05 | [Island Creation](./05_island_creation.md) | Create and join blockchain islands | `aitbc node island` |
-| 06 | [Basic Trading](./06_basic_trading.md) | Buy/sell on the exchange | `aitbc exchange_island` |
+| 06 | [Basic Trading](./06_basic_trading.md) | Buy/sell on the exchange | `aitbc exchange-island` |
 | 07 | [AI Job Submission](./07_ai_job_submission.md) | Submit and monitor AI jobs | `aitbc ai` |
 | 08 | [Marketplace Bidding](./08_marketplace_bidding.md) | List and buy on the marketplace | `aitbc marketplace` |
 | 09 | [GPU Listing](./09_gpu_listing.md) | Register and allocate GPUs | `aitbc gpu`, `aitbc gpu-onchain` |
