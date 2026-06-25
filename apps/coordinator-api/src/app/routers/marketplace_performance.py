@@ -6,14 +6,14 @@ REST API for managing distributed processing, GPU optimization, caching, and sca
 import time
 from typing import Any
 
-from app.services.distributed_framework import (  # type: ignore[import-not-found]
+from app.contexts.infrastructure.services.distributed_framework import (
     DistributedProcessingCoordinator,
     DistributedTask,
 )
-from app.services.marketplace_cache_optimizer import MarketplaceDataOptimizer  # type: ignore[import-not-found]
-from app.services.marketplace_gpu_optimizer import MarketplaceGPUOptimizer  # type: ignore[import-not-found]
-from app.services.marketplace_monitor import monitor as marketplace_monitor  # type: ignore[import-not-found]
-from app.services.marketplace_scaler import ResourceScaler  # type: ignore[import-not-found]
+from app.contexts.marketplace.services.marketplace_cache_optimizer import MarketplaceDataOptimizer
+from app.contexts.trading.services.trading_marketplace.gpu_optimizer import MarketplaceGPUOptimizer
+from app.contexts.marketplace.services.marketplace_monitor import monitor as marketplace_monitor
+from app.contexts.marketplace.services.marketplace_scaler import ResourceScaler
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel, Field
 

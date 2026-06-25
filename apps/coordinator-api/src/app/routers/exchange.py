@@ -9,7 +9,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from app.services.redis_state import RedisStateManager
+from app.contexts.infrastructure.services.redis_state import RedisStateManager
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from aitbc.aitbc_logging import get_logger

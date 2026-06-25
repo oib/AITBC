@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ....config import settings
-from ....services.ipfs_storage_service import IPFSStorageService
+from ..services.ipfs_service import IPFSService
 
 router = APIRouter()
 
@@ -52,10 +52,10 @@ class IPFSDeleteRequest(BaseModel):
 
 
 # Singleton IPFS service instance
-_ipfs_service_instance: IPFSStorageService | None = None
+_ipfs_service_instance: IPFSService | None = None
 
 
-def get_ipfs_service() -> IPFSStorageService:
+def get_ipfs_service() -> IPFSService:
     """Get IPFS storage service instance (singleton)"""
     global _ipfs_service_instance
     if _ipfs_service_instance is None:
@@ -65,7 +65,7 @@ def get_ipfs_service() -> IPFSStorageService:
             "compression_threshold": 1024,
             "pin_threshold": 100,
         }
-        _ipfs_service_instance = IPFSStorageService(config)
+        _ipfs_service_instance = IPFSService(config)
     return _ipfs_service_instance
 
 

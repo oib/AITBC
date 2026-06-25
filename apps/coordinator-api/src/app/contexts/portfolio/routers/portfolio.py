@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ....services.portfolio_aggregation_service import PortfolioAggregationService
+from ..services.portfolio_aggregation_service import PortfolioAggregationService
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])

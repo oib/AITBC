@@ -25,7 +25,7 @@ class TestGovernanceService:
         }
 
         # Import and test
-        from app.services.governance_service import get_proposals
+        from app.contexts.governance.services.governance_service import get_proposals
 
         result = get_proposals()
         assert len(result["proposals"]) == 2
@@ -39,7 +39,7 @@ class TestGovernanceService:
         mock_client.post.return_value = {"success": True, "proposal_id": 1, "vote": "yes"}
 
         # Import and test
-        from app.services.governance_service import vote_on_proposal
+        from app.contexts.governance.services.governance_service import vote_on_proposal
 
         result = vote_on_proposal(1, "yes")
         assert result["success"] is True
