@@ -14,7 +14,7 @@ configure_logging(level="INFO", service_name="adaptive-learning", to_file=True)
 logger = get_logger(__name__)
 
 from ..contexts.advanced_ai.routers.adaptive_learning_health import router as health_router
-from ..contexts.ai_analytics.services.ai_analytics.adaptive_learning import (
+from ..contexts.analytics.services.ai_analytics.adaptive_learning import (
     AdaptiveLearningService,
     LearningAlgorithm,
 )
