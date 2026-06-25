@@ -24,7 +24,7 @@ from ..domain.analytics import (
     MarketMetric,
     ReportType,
 )
-from ....services.agent_coordination.marketplace import AgentServiceMarketplace
+from ...agent_coordination.services.agent_marketplace import AgentServiceMarketplace
 from ....storage import get_session
 
 logger = get_logger(__name__)

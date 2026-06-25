@@ -22,7 +22,7 @@ from ..domain.agent import (
     AgentWorkflowUpdate,
     AIAgentWorkflow,
 )
-from ....services.agent_coordination.agent_service import AIAgentOrchestrator
+from ..services.orchestrator_service import AIAgentOrchestrator
 from ....storage import get_session
 
 logger = get_logger(__name__)
@@ -176,7 +176,7 @@ async def execute_workflow(
             max_execution_time=execution_request.max_execution_time or workflow.max_execution_time,
             max_cost_budget=execution_request.max_cost_budget or workflow.max_cost_budget,
         )
-        from app.services.agent_coordination.coordinator_client import CoordinatorClient  # type: ignore[import-not-found]
+        from app.contexts.agent_coordination.services.orchestrator_service import CoordinatorClient
 
         coordinator_client = CoordinatorClient()
         orchestrator = AIAgentOrchestrator(session, coordinator_client)  # type: ignore[arg-type]
@@ -198,8 +198,8 @@ async def get_execution_status(
 ) -> AgentExecutionStatus:  # type: ignore[arg-type]
     """Get execution status"""
     try:
-        from app.services.agent_coordination.agent_service import AIAgentOrchestrator  # type: ignore[import-not-found]
-        from app.services.agent_coordination.coordinator_client import CoordinatorClient
+        from app.contexts.agent_coordination.services.orchestrator_service import AIAgentOrchestrator
+        from app.contexts.agent_coordination.services.orchestrator_service import CoordinatorClient
 
         coordinator_client = CoordinatorClient()
         orchestrator = AIAgentOrchestrator(session, coordinator_client)
@@ -259,10 +259,10 @@ async def cancel_workflow(
             raise HTTPException(status_code=404, detail="Workflow not found")
         if workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
-        from app.services.agent_coordination.coordinator_client import CoordinatorClient  # type: ignore[import-not-found]
+        from app.contexts.agent_coordination.services.orchestrator_service import CoordinatorClient
 
         coordinator_client = CoordinatorClient()
-        from app.services.agent_coordination.agent_service import AIAgentOrchestrator  # type: ignore[import-not-found]
+        from app.contexts.agent_coordination.services.orchestrator_service import AIAgentOrchestrator
 
         orchestrator = AIAgentOrchestrator(session, coordinator_client)
         result = await orchestrator.cancel_execution(execution_id)
