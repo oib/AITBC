@@ -140,18 +140,20 @@ get_profile() {
     local market_role="${rest%%:*}"
     local hardware_profile="${rest##*:}"
 
-    local profile_parts=""
-    [ "$blockchain_mode" = "hub" ] && profile_parts="hub" || profile_parts="follower"
-    if [ "$market_role" = "shop" ] && [ "$hardware_profile" = "gpu" ]; then
-        profile_parts="${profile_parts}-shop-gpu"
-    elif [ "$market_role" = "shop" ]; then
-        profile_parts="${profile_parts}-shop"
-    elif [ "$hardware_profile" = "gpu" ]; then
-        profile_parts="${profile_parts}-gpu"
+    # Map role axes to valid install-profiles.sh profile names:
+    #   provider-gpu    — any node with GPU (gets ai-ml.txt with pycuda, torch, etc.)
+    #   hub             — hub node without GPU (full install with dev deps)
+    #   customer-no-gpu — follower + customer, no GPU (lightweight CLI + wallet)
+    #   server-no-gpu   — follower + shop, no GPU (core blockchain services)
+    if [ "$hardware_profile" = "gpu" ]; then
+        echo "provider-gpu"
+    elif [ "$blockchain_mode" = "hub" ]; then
+        echo "hub"
+    elif [ "$market_role" = "customer" ]; then
+        echo "customer-no-gpu"
     else
-        profile_parts="${profile_parts}-customer"
+        echo "server-no-gpu"
     fi
-    echo "$profile_parts"
 }
 
 # ----------------------------------------------------------------------------
