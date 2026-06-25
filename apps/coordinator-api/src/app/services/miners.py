@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from sqlmodel import Session, select
 
-from ..domain import Miner
+from ..contexts.infrastructure.domain import Miner
 from ..schemas import AssignedJob, MinerHeartbeat, MinerRegister
 from .jobs import JobService
 

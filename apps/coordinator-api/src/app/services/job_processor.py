@@ -20,7 +20,7 @@ from typing import Any
 from aitbc.aitbc_logging import get_logger
 
 from ..core.lifecycle import get_lifecycle_state, get_task_manager
-from ..domain.models import JobState  # type: ignore[import-not-found]
+from ..custom_types import JobState
 from .jobs import JobService
 
 logger = get_logger(__name__)

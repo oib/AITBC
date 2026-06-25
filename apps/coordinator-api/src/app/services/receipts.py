@@ -10,7 +10,7 @@ from sqlmodel import Session
 from aitbc.aitbc_logging import get_logger
 
 from ..config import settings
-from ..domain import Job, JobReceipt
+from ..contexts.infrastructure.domain import Job, JobReceipt
 from .zk_proofs import zk_proof_service
 
 logger = get_logger(__name__)

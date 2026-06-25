@@ -126,3 +126,22 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python
 | L10–L19 | Migrate 10 remaining flat `app/domain/*.py` files to bounded contexts | Medium | ✅ DONE |
 
 **Agent B working directory**: `/opt/aitbc/` (cross-cutting: `apps/`, `cli/`).
+
+---
+
+## Current Plan — v0.5.15 (Agent B): Flat-to-Context Migration (Phase 1)
+
+**Release theme**: Begin paying down flat-directory architectural debt (services/, routers/, schemas/) identified in the post-v0.5.14 audit. Phase 1 addresses low-risk, high-value fixes.
+
+**Full task details in** <ref_file file="/opt/aitbc/docs/releases/v0.5.15/change.log" />.
+
+### Task Summary
+
+| # | Task | Priority | Status |
+|---|------|----------|--------|
+| P1-1 | Fix broken `MarketplaceOffer` import in `routers/marketplace_enhanced.py` | High | ✅ DONE |
+| P1-2 | Add missing `__init__.py` to `contexts/ipfs/` and `contexts/knowledge/` | Medium | ✅ DONE |
+| P1-3 | Verify "duplicate" service subdirs — NOT duplicates, skipped | Low | ✅ DONE (no action) |
+| P1-4 | Eliminate `domain/__init__.py` shim usage — 13 files updated to import directly from `contexts.infrastructure.domain` | Medium | ✅ DONE |
+
+**Phase 1 complete.** Remaining phases (P2: reputation merge, P3: schemas, P4: services, P5: routers) deferred to future releases.
