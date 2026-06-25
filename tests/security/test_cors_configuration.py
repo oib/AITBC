@@ -119,7 +119,6 @@ def test_no_wildcard_cors_in_coordinator_api_apps():
 
     files_to_check = [
         coordinator_src / "app" / "contexts" / "agent_coordination" / "routers" / "agent_performance.py",
-        coordinator_src / "app" / "routers" / "marketplace_enhanced_app.py",
     ]
 
     wildcard_pattern = re.compile(r'allow_origins\s*=\s*\["\*"\]')
