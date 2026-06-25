@@ -240,7 +240,7 @@ async def main():
         },
     )
 
-    # Register with the coordinator (default: http://localhost:9001)
+    # Register with the coordinator (default: http://localhost:8107)
     registered = await agent.register()
     print(f"Agent registered on island: {registered}")
     print(f"Agent ID:  {agent.identity.id}")
@@ -320,7 +320,7 @@ async def main():
     agent = Agent(
         identity=agent.identity,
         capabilities=agent.capabilities,
-        coordinator_url="http://localhost:9001",
+        coordinator_url="http://localhost:8107",
         contract_config=contract_config,
     )
 

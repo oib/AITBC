@@ -60,7 +60,7 @@ class Settings(BaseSettings):
 
     # Server settings (standardized: AGENT_COORDINATOR_BIND_HOST/PORT, fallback to HOST/PORT for backward compatibility)
     host: str = os.getenv("AGENT_COORDINATOR_BIND_HOST", os.getenv("HOST", "0.0.0.0"))
-    port: int = int(os.getenv("AGENT_COORDINATOR_BIND_PORT", os.getenv("PORT", "9001")))
+    port: int = int(os.getenv("AGENT_COORDINATOR_BIND_PORT", os.getenv("PORT", "8107")))
     workers: int = int(os.getenv("WORKERS", "1"))
 
     # Redis settings
@@ -97,11 +97,11 @@ class Settings(BaseSettings):
             "http://localhost:8001",
             "http://localhost:8011",
             "http://localhost:8016",
-            "http://localhost:9001",
+            "http://localhost:8107",
             "http://127.0.0.1:8001",
             "http://127.0.0.1:8011",
             "http://127.0.0.1:8016",
-            "http://127.0.0.1:9001",
+            "http://127.0.0.1:8107",
         ]
     )
 
@@ -187,7 +187,7 @@ class ConfigConstants:
 
     # Default ports
     DEFAULT_PORTS = {
-        "agent_coordinator": 9001,
+        "agent_coordinator": 8107,
         "agent_registry": 9002,
         "task_distributor": 9003,
         "metrics": 9004,
