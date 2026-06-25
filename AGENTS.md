@@ -122,5 +122,6 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python
 | X7 | `edge_gpu` → `marketplace` — move 3 GPU models to `edge_gpu/domain/` | Medium | ✅ DONE |
 | X8 | `marketplace` → `agent_identity` — change service to accept `agent_id: str` | Medium | ✅ DONE |
 | X9 | `certification` + `rewards` → `reputation` — re-export from service layer | Medium | ✅ DONE |
+| L1–L9 | Migrate 7 flat `app/domain/*.py` files to owning bounded contexts (12 imports) | Medium | ✅ DONE |
 
 **Agent B working directory**: `/opt/aitbc/` (cross-cutting: `apps/`, `cli/`).

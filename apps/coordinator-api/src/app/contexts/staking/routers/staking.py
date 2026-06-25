@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ....domain.bounty import PerformanceTier, StakeStatus
+from ..domain.staking import PerformanceTier, StakeStatus
 from ....routers.users import get_current_user as _get_current_user
 from ....storage import get_session
 from ...blockchain.services.blockchain import BlockchainService
