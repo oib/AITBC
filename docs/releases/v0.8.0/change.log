@@ -1,52 +1,45 @@
 # AITBC v0.8.0 Release Notes
 
-**Date**: June 3, 2026
+**Date**: TBD
 **Status**: 📝 Concept Plan
-**Scope**: Inter-Chain Trading Service (AITBC-to-AITBC)
+**Scope**: Inter-Chain Trading Basics — Island Registry, Chain Discovery, Trade Requests, Matching
 
 ## 🎯 Overview
 
-AITBC v0.8.0 introduces inter-chain trading between different AITBC blockchain networks (islands). This release enables trading of software services, GPU resources, and tokens across multiple AITBC chains, allowing agents to discover offers on other islands, execute cross-chain trades, and settle transactions via inter-chain escrow. The trading service provides a unified marketplace across all AITBC chains with atomic cross-chain settlement.
+AITBC v0.8.0 introduces the foundational inter-chain trading service between AITBC blockchain networks (islands): island registry, chain discovery, inter-chain trade requests, trade matching, and basic trade lifecycle management. This release enables agents to discover chains, create trade requests across chains, and match buyers with sellers — but does NOT include atomic cross-chain settlement or cross-chain offer synchronization, which are deferred to dedicated releases.
+
+**Split rationale**: The original v0.8.0 plan bundled atomic cross-chain settlement (the hardest problem in crypto — has caused the largest hacks in history: Wormhole $325M, Ronin $625M, Poly Network $611M) with basic trading infrastructure. Atomic settlement requires HTLCs or two-phase commit across independent Byzantine systems, formal verification, and chaos testing. It has been moved to [v0.9.0](../v0.9.0/change.log). Cross-chain offer synchronization (a distributed search problem) has been moved to [v0.8.1](../v0.8.1/change.log).
+
+**Prerequisites**: Requires [v0.7.0](../v0.7.0/change.log) (Bridge Basics) and [v0.7.1](../v0.7.1/change.log) (Bridge Security) for cross-chain escrow infrastructure. Requires [v0.6.3](../v0.6.3/change.log) (Multi-Island Node Support) for nodes to follow chains on multiple islands. Requires [v0.6.4](../v0.6.4/change.log) (Multi-Chain Per Island) for islands to host multiple chains. Requires [v0.6.6](../v0.6.6/change.log) (Compute Marketplace) — inter-chain trading trades compute resources, which are listed on the marketplace. Soft-blocked by [v0.6.0](../v0.6.0/change.log) (Performance) for trade matching latency targets.
 
 ## 🎯 Release Highlights
 
-### Inter-Chain Trading
-- ✅ Cross-chain offer discovery across AITBC islands
-- ✅ Inter-chain trade requests (AITBC chain A → AITBC chain B)
-- ✅ Atomic cross-chain settlement via inter-chain escrow
-- ✅ Cross-chain trade agreements and matching
-- ✅ Multi-chain trade history and analytics
-
 ### Chain Discovery
-- ✅ Island registry for tracking AITBC chains
-- ✅ Chain health monitoring and status
-- ✅ Cross-chain offer synchronization
-- ✅ Chain-specific pricing and availability
-- ✅ Network topology visualization
+- 🚧 Island registry for tracking AITBC chains
+- 🚧 Chain health monitoring and status
+- 🚧 Chain-specific pricing and availability
 
-### Inter-Chain Escrow
-- ✅ Cross-chain escrow locking (lock on source chain, verify on destination)
-- ✅ Atomic cross-chain release (release on destination chain triggers source chain release)
-- ✅ Cross-chain proof verification
-- ✅ Inter-chain transaction coordination
-- ✅ Timeout and refund mechanisms
+### Inter-Chain Trading (Basics)
+- 🚧 Inter-chain trade requests (AITBC chain A → AITBC chain B)
+- 🚧 Cross-chain trade agreements and matching
+- 🚧 Multi-chain trade history and analytics
+- 🚧 Trade lifecycle management (create, match, agree — settlement deferred)
 
 ### CLI Enhancements
-- ✅ `aitbc trade create --source-chain <chain> --dest-chain <chain>` — create inter-chain trade
-- ✅ `aitbc trade list --all-chains` — list trades across all chains
-- ✅ `aitbc trade chains` — list available AITBC chains
-- ✅ `aitbc trade sync` — sync offers across chains
-- ✅ `aitbc trade settle <trade_id>` — settle cross-chain trade
+- 🚧 `aitbc trade create --source-chain <chain> --dest-chain <chain>` — create inter-chain trade
+- 🚧 `aitbc trade list --all-chains` — list trades across all chains
+- 🚧 `aitbc trade chains` — list available AITBC chains
+- 🚧 `aitbc trade get <trade_id>` — get trade details
+- 🚧 `aitbc trade status --trade-id <id>` — get trade status
 
 ### Database Schema
-- ✅ InterChainTrade table (source_chain, dest_chain, status)
-- ✅ IslandRegistry table (chain_id, endpoint, status)
-- ✅ CrossChainEscrow table (source_contract, dest_contract, status)
-- ✅ TradeHistory table (audit trail across chains)
+- 🚧 InterChainTrade table (source_chain, dest_chain, status)
+- 🚧 IslandRegistry table (chain_id, endpoint, status)
+- 🚧 TradeHistory table (audit trail across chains)
 
 ## 📋 Detailed Features
 
-### Inter-Chain Trade Lifecycle
+### Inter-Chain Trade Lifecycle (Basic)
 
 #### 1. Discover Chains
 ```bash
@@ -75,28 +68,7 @@ aitbc trade chains
 }
 ```
 
-#### 2. Discover Cross-Chain Offers
-```bash
-aitbc trade discover --source-chain ait-hub --dest-chain ait-island1 --service-type whisper
-```
-
-**Response:**
-```json
-{
-  "offers": [
-    {
-      "offer_id": "sw_offer_...",
-      "chain_id": "ait-island1.aitbc.bubuit.net",
-      "service_type": "whisper",
-      "model": "base",
-      "price": 0.02,
-      "price_unit": "per_audio_min"
-    }
-  ]
-}
-```
-
-#### 3. Create Inter-Chain Trade
+#### 2. Create Inter-Chain Trade
 ```bash
 aitbc trade create --source-chain ait-hub --dest-chain ait-island1 --offer-id sw_offer_... --quantity 1000
 ```
@@ -113,44 +85,17 @@ aitbc trade create --source-chain ait-hub --dest-chain ait-island1 --offer-id sw
   "quantity": 1000,
   "price": 0.02,
   "status": "pending",
-  "created_at": "2026-06-03T..."
+  "created_at": "2026-06-25T..."
 }
 ```
 
-#### 4. Lock Cross-Chain Escrow
+#### 3. Match & Agree
 ```bash
-aitbc trade lock-escrow --trade-id trade_... --amount 20
+aitbc trade match --trade-id trade_...
+aitbc trade agree --trade-id trade_...
 ```
 
-**Escrow Process:**
-1. Lock escrow on source chain (ait-hub)
-2. Verify lock on destination chain (ait-island1)
-3. Create cross-chain escrow record
-4. Set timeout for completion
-
-#### 5. Execute Trade
-```bash
-aitbc trade execute --trade-id trade_...
-```
-
-**Execution Process:**
-1. Service executes on destination chain
-2. Result hash generated
-3. Proof posted to destination chain
-4. Cross-chain verification triggered
-5. Source chain verifies proof
-
-#### 6. Settle Trade
-```bash
-aitbc trade settle --trade-id trade_...
-```
-
-**Settlement Process:**
-1. Release escrow on destination chain
-2. Trigger atomic release on source chain
-3. Transfer payment to seller
-4. Mark trade as completed
-5. Update cross-chain trade history
+**Note**: Escrow locking, execution, and settlement are deferred to [v0.9.0](../v0.9.0/change.log) (Atomic Cross-Chain Settlement).
 
 ### Island Registry
 
@@ -165,8 +110,8 @@ aitbc trade register-chain --chain-id ait-island2 --endpoint https://island2.ait
   "chain_id": "ait-island2.aitbc.bubuit.net",
   "endpoint": "https://island2.aitbc.bubuit.net",
   "status": "active",
-  "registered_at": "2026-06-03T...",
-  "last_sync": "2026-06-03T...",
+  "registered_at": "2026-06-25T...",
+  "last_sync": "2026-06-25T...",
   "offers_count": 0
 }
 ```
@@ -178,43 +123,9 @@ aitbc trade health --chain-id ait-island1
 
 **Health Metrics:**
 - Block height sync status
-- Offer synchronization status
 - Transaction throughput
 - Network latency
 - Peer connectivity
-
-### Cross-Chain Escrow
-
-#### Escrow Locking
-```bash
-aitbc escrow lock --chain ait-hub --amount 20 --dest-chain ait-island1 --trade-id trade_...
-```
-
-**Lock Process:**
-1. Create escrow contract on source chain
-2. Lock AIT tokens
-3. Broadcast lock to destination chain
-4. Destination chain verifies lock
-5. Trade becomes executable
-
-#### Atomic Release
-```bash
-aitbc escrow release --chain ait-island1 --contract-id contract_... --trigger-source-release
-```
-
-**Atomic Release Process:**
-1. Release escrow on destination chain
-2. Emit cross-chain release event
-3. Source chain listens for event
-4. Source chain releases escrow atomically
-5. Both chains settle simultaneously
-
-#### Timeout Refund
-If trade not completed within timeout:
-1. Buyer requests refund
-2. Both chains verify timeout
-3. Escrow refunded to buyer on both chains
-4. Trade marked as failed
 
 ### CLI Commands
 
@@ -228,31 +139,13 @@ aitbc trade register-chain --chain-id ait-island2 --endpoint https://island2.ait
 
 # Check chain health
 aitbc trade health --chain-id ait-island1
-
-# Sync offers across chains
-aitbc trade sync --all-chains
 ```
 
-#### Inter-Chain Trading
+#### Inter-Chain Trading (Basic)
 ```bash
-# Discover cross-chain offers
-aitbc trade discover --source-chain ait-hub --dest-chain ait-island1 --service-type whisper
-
 # Create inter-chain trade
 aitbc trade create --source-chain ait-hub --dest-chain ait-island1 --offer-id sw_offer_... --quantity 1000
 
-# Lock cross-chain escrow
-aitbc trade lock-escrow --trade-id trade_... --amount 20
-
-# Execute trade
-aitbc trade execute --trade-id trade_...
-
-# Settle trade
-aitbc trade settle --trade-id trade_...
-```
-
-#### Trade Monitoring
-```bash
 # List trades across chains
 aitbc trade list --all-chains
 
@@ -266,16 +159,29 @@ aitbc trade status --trade-id trade_abc123
 aitbc trade history --source-chain ait-hub --dest-chain ait-island1
 ```
 
+### Verified Code Targets (from suggestions.md investigation)
+
+#### InterChainTrade Schema — Not Defined
+**Finding**: `InterChainTrade` table is mentioned in changelog (line 36: "InterChainTrade table (source_chain, dest_chain, status)") but NO SQLModel definition exists in the codebase. Related models exist in `apps/coordinator-api/src/app/contexts/trading/domain/trading.py` (TradeRequest, TradeMatch, TradeNegotiation, TradeAgreement, TradeSettlement, TradeFeedback) but none named `InterChainTrade`.
+**Required**: Define `InterChainTrade` as a SQLModel with fields: `source_chain`, `dest_chain`, `status`, `source_tx_hash`, `dest_tx_hash`, `amount`, `sender`, `recipient`, `created_at`, `updated_at`. Freeze schema before building matching engine.
+
+#### Dispute Resolution — Not Scoped
+**Finding**: Dispute resolution framework is mentioned but not scoped.
+**Required**: Define dispute resolution scope: who can dispute, what evidence is required, timeout for disputes, admin arbitration path.
+
+#### CLI Breaking Change
+**Finding**: CLI change from `aitbc market run` to `aitbc trade create/match/agree` is a breaking change for users.
+**Required**: Add migration notes for existing scripts. Consider backward-compatible aliases for one release cycle.
+
 ## 🔧 Breaking Changes
 
 - Trade service requires PostgreSQL database
-- Software marketplace now uses Trading service for trade lifecycle
-- Existing direct escrow flows deprecated in favor of trade agreements
-- CLI command changes: `market run` → `market trade create` + `market trade execute`
+- Software marketplace now uses Trading service for trade lifecycle (create/match/agree)
+- CLI command changes: `market run` → `market trade create` + `market trade match`
 
 ## 📊 Migration Guide
 
-### v0.5.1 → v0.5.2
+### v0.6.x → v0.8.0
 
 1. **Database Migration**
    ```bash
@@ -290,12 +196,13 @@ aitbc trade history --source-chain ait-hub --dest-chain ait-island1
 
 3. **Update CLI Usage**
    ```bash
-   # Old way (v0.5.1)
+   # Old way (v0.5.x)
    aitbc market run sw_offer_... "prompt"
 
-   # New way (v0.5.2)
-   aitbc market trade create --offer-id sw_offer_... --type spot --quantity 1000
-   aitbc market trade execute <agreement_id>
+   # New way (v0.8.0)
+   aitbc trade create --source-chain ait-hub --dest-chain ait-island1 --offer-id sw_offer_... --quantity 1000
+   aitbc trade match --trade-id trade_...
+   aitbc trade agree --trade-id trade_...
    ```
 
 4. **Configure Trading Settings**
@@ -303,43 +210,47 @@ aitbc trade history --source-chain ait-hub --dest-chain ait-island1
    # /etc/aitbc/trading.env
    TRADING_ENABLED=true
    MATCHING_ENGINE_ENABLED=true
-   MARGIN_REQUIREMENT=0.1
    EXECUTION_TIMEOUT=300
    ```
+
+## 🖥️ CLI Commands
+
+### New Command Group: `trade`
+The entire `trade` command group does not exist yet. This release creates it:
+- `aitbc trade create` — Create a new cross-chain trade
+- `aitbc trade list` — List active trades
+- `aitbc trade chains` — List chains available for trading
+- `aitbc trade get <trade_id>` — Get trade details
+- `aitbc trade status <trade_id>` — Get trade status
+- Implementation: Create `cli/aitbc_cli/commands/trade.py` and register in `cli/aitbc_cli/core/main.py`
 
 ## 🧪 Testing
 
 ### Trading Service Testing
-- ✅ Trade request creation
-- ✅ Trade request listing and filtering
-- ✅ Trade request cancellation
-- ✅ Trade agreement creation
-- ✅ Trade agreement execution
-- ✅ Trade type filtering (spot, futures, options)
-- ✅ Status tracking through lifecycle
+- 🚧 Trade request creation
+- 🚧 Trade request listing and filtering
+- 🚧 Trade request cancellation
+- 🚧 Trade agreement creation
+- 🚧 Trade type filtering (AI_POWER, COMPUTE_RESOURCES, DATA_SERVICES, MODEL_SERVICES, INFERENCE_TASKS, TRAINING_TASKS)
+- 🚧 Status tracking through lifecycle (create → match → agree)
 
 ### Agent Coordination Testing
-- ✅ Buyer agent workflow
-- ✅ Seller agent workflow
-- ✅ Negotiation API
-- ✅ Confirmation API
-- ✅ Execution API
-- ✅ Verification API
+- 🚧 Buyer agent workflow
+- 🚧 Seller agent workflow
+- 🚧 Negotiation API
+- 🚧 Confirmation API
+- 🚧 Matching API
 
 ### Matching Engine Testing
-- ✅ Spot matching
-- ✅ Futures matching
-- ✅ Options matching
-- ✅ Price-time priority
-- ✅ Margin enforcement
+- 🚧 Spot matching (AI_POWER, COMPUTE_RESOURCES, DATA_SERVICES, MODEL_SERVICES, INFERENCE_TASKS, TRAINING_TASKS)
+- 🚧 Price-time priority
 
 ### Integration Testing
-- ✅ Software marketplace + trading service
-- ✅ Escrow integration with trade agreements
-- ✅ CLI trade commands
-- ✅ End-to-end trade lifecycle
+- 🚧 Software marketplace + trading service
+- 🚧 CLI trade commands
+- 🚧 End-to-end trade lifecycle (create → match → agree)
 
-### Test Coverage
+### Test Coverage Goals
 - Trading service: 95%
 - Agent coordination: 90%
 - Matching engine: 85%
@@ -355,42 +266,33 @@ aitbc trade history --source-chain ait-hub --dest-chain ait-island1
 ## 🚀 Dependencies
 
 ### New Dependencies
-- Trading service v0.5.2+
+- Trading service v0.8.0+
 - PostgreSQL trading database
 
 ### Updated Dependencies
-- CLI v0.5.2+
-- Software marketplace v0.5.2+
-- Escrow service v0.5.2+
+- CLI v0.8.0+
+- Software marketplace v0.8.0+
+- Bridge service v0.7.1+ (for chain connectivity)
 
 ## 🔐 Security Considerations
 
 - Trade agreement digital signatures
 - Agent authentication for trade operations
-- Escrow locking before execution
-- Margin requirements for futures/options
 - Dispute resolution framework
 - Audit trail for all trade operations
+- **Note**: Escrow locking and atomic settlement are deferred to [v0.9.0](../v0.9.0/change.log)
 
-## 📈 Performance Improvements
+## 📈 Performance Targets
 
-- **Structured trading**: Clear lifecycle and status tracking
-- **Agent coordination**: Automated negotiation and execution
-- **Matching engine**: Efficient real-time matching
-- **Trade types**: Flexible trading strategies
-- **Analytics**: Trade history and PnL tracking
-
-### Performance Metrics
 - Trade request creation: <50ms
-- Matching latency: <100ms (spot), <500ms (futures)
-- Agreement execution: <200ms
+- Matching latency: <100ms (spot)
+- Agreement creation: <200ms
 - Trade history query: <100ms
 
 ## 🎯 Success Criteria
 
 - ✅ Trading service operational
-- ✅ Trade request lifecycle functional
-- ✅ Trade agreements working
+- ✅ Trade request lifecycle functional (create → match → agree)
 - ✅ Agent coordination APIs operational
 - ✅ Matching engine functional
 - ✅ CLI trade commands working
@@ -400,22 +302,21 @@ aitbc trade history --source-chain ait-hub --dest-chain ait-island1
 
 ## 🚀 Next Steps
 
-### v0.5.3 Planning
-- Advanced trading features (stop-loss, take-profit)
-- Algorithmic trading support
-- Cross-chain trading
-- Decentralized exchange (DEX) integration
-- Liquidity pools for software services
+### v0.8.1 — Cross-Chain Offer Synchronization
+- Cross-chain offer discovery across AITBC islands
+- Cross-chain offer synchronization
+- Distributed offer search
+- Staleness detection and conflict resolution
 
-### v0.6.0 Planning
-- Unified marketplace (GPU + software)
-- Advanced agent coordination
-- Reputation system integration
-- Multi-agent trading strategies
-- Market making bots
+### v0.9.0 — Atomic Cross-Chain Settlement
+- Cross-chain escrow locking (lock on source, verify on destination)
+- Atomic cross-chain release
+- Cross-chain proof verification
+- Timeout and refund mechanisms
+- Chaos testing and formal verification
 
 ---
 
-*Last Updated: 2026-06-03*
-*Version: 0.5.2*
+*Last Updated: 2026-06-25*
+*Version: 0.8.0*
 *Status: Concept Plan*

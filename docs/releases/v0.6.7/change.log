@@ -1,0 +1,222 @@
+# AITBC v0.6.7 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Pool Hub & Mining — Miner Registry, Job Assignment, Scoring Engine, Reward Distribution
+
+## 🎯 Overview
+
+AITBC v0.6.7 matures the pool-hub service (3.9K lines of existing code) into a production mining pool for compute providers. The pool-hub manages miner registration, job assignment, scoring, and reward distribution. Miners (compute providers) join pools, receive jobs, submit results, and get paid in AIT coins based on their contribution score.
+
+**Why this is a dedicated release**: The pool-hub has 3.9K lines of code with routers for jobs, miners, and pools, plus a scoring engine and miner registry — but no release plan. It's disconnected from the blockchain payment layer and the agent coordination layer. This release wires it properly.
+
+**Prerequisites**: Requires [v0.6.5](../v0.6.5/change.log) (Agent Coordination — miners are agents), [v0.6.6](../v0.6.6/change.log) (Compute Marketplace — jobs come from marketplace matches), and [v0.5.16](../v0.5.16/change.log) (chain_id-aware transactions for reward distribution).
+
+## 🎯 Release Highlights
+
+### Miner Registry
+- 🚧 Miner registration with capability advertising (GPU models, compute capacity)
+- 🚧 Miner pool joining and leaving
+- 🚧 Miner liveness tracking (heartbeat)
+- 🚧 Miner reputation and reliability scoring
+
+### Job Assignment
+- 🚧 Job queue management (priority, capability requirements)
+- 🚧 Job assignment to miners by capability match and score
+- 🚧 Job result submission and verification
+- 🚧 Job timeout and reassignment
+
+### Scoring Engine
+- 🚧 Miner contribution scoring (jobs completed, accuracy, speed)
+- 🚧 Scoring algorithm: reliability + speed + accuracy weighted score
+- 🚧 Score-based job priority (higher score → better jobs)
+- 🚧 Score decay for inactivity
+
+### Reward Distribution
+- 🚧 Block reward distribution to miners based on contribution score
+- 🚧 Reward payment via blockchain transactions (chain_id-aware)
+- 🚧 Reward tracking and history
+- 🚧 Minimum payout threshold
+
+## 📋 Detailed Features
+
+### Miner Registry
+
+#### Current State
+The pool-hub already has:
+- `app/registry/miner_registry.py` — miner registry
+- `app/routers/miners.py` — miner endpoints
+- `app/routers/pools.py` — pool endpoints
+
+#### Fix
+- Add blockchain registration for miners (register as agent via agent-coordinator)
+- Add `chain_id` to miner registration
+- Add miner capability advertising to marketplace
+- Add miner deregistration with cleanup
+
+### Job Assignment
+
+#### Current State
+The pool-hub has:
+- `app/routers/jobs.py` — job assignment, result submission, pending jobs
+- `POST /jobs/assign` — assign job to miner
+- `POST /jobs/result` — submit job result
+- `GET /jobs/pending` — get pending jobs
+
+#### What's Missing
+- No blockchain payment for job completion
+- No job result verification
+- No job timeout handling
+
+#### Fix
+- Lock payment on job assignment (escrow)
+- Release payment on verified job completion
+- Add job timeout with reassignment
+- Integrate with agent-coordinator task queues
+
+### Scoring Engine
+
+#### Current State
+`app/scoring/scoring_engine.py` exists.
+
+#### Fix
+- Implement weighted scoring: reliability (40%) + speed (30%) + accuracy (30%)
+- Track per-miner metrics: jobs completed, jobs failed, average completion time, result accuracy
+- Score-based job priority assignment
+- Score decay for inactive miners (encourage participation)
+
+### Reward Distribution
+
+#### Current State
+Jobs have a `reward: float = 0.0` field but no distribution mechanism.
+
+#### Fix
+- Distribute block rewards to miners proportional to contribution score
+- Pay rewards via blockchain transactions (chain_id-aware, requires v0.5.16)
+- Track reward history per miner
+- Minimum payout threshold (avoid dust transactions)
+- Reward distribution interval (e.g., every N blocks)
+
+### Verified Code Targets (from suggestions.md investigation)
+
+#### Pool-Hub App — Does Not Exist Yet
+**Current state**: No `pool-hub` app exists in `apps/` directory. This release creates it from scratch.
+**Required**: Create `apps/pool-hub/` with:
+- `BlockchainClient` dependency with `chain_id` as first-class parameter
+- Service initialization that connects to blockchain-node RPC (port 8006, not 8202)
+- Reward distribution logic with observable events (logs/metrics)
+
+#### Reward Policy Constants — Not Defined
+**Current state**: No `REWARD_PER_SHARE`, halving interval, or any reward policy constants exist in the codebase. Only referenced in this changelog and suggestions.md.
+**Required**: Define reward policy constants in `aitbc/constants.py` or a dedicated `aitbc/rewards/policy.py`:
+- `REWARD_PER_SHARE` — base reward per share
+- `HALVING_INTERVAL` — blocks between reward halvings
+- `REWARD_EPOCH_LENGTH` — blocks per reward epoch
+- `MAX_REWARD_PER_EPOCH` — cap per epoch per provider
+
+#### Eligibility Checks
+**Required**: Add eligibility checks to prevent duplicate reward payouts within the same reward epoch. Surface reward distribution as observable events (logs/metrics) from the first implementation.
+
+## 🔧 Breaking Changes
+
+- Miner registration now requires `chain_id` (optional but recommended)
+- Job assignment now requires `payment` field (reward amount)
+- Reward distribution via blockchain transactions (not just database updates)
+
+## 📊 Migration Guide
+
+### v0.6.6 → v0.6.7
+
+1. **Update pool-hub**
+   ```bash
+   cd /opt/aitbc
+   git pull
+   ./venv/bin/pip install -e apps/pool-hub
+   ```
+
+2. **Configure pool-hub**
+   ```bash
+   # /etc/aitbc/pool-hub.env
+   BLOCKCHAIN_RPC_URL=http://localhost:8006
+   AGENT_COORDINATOR_URL=http://localhost:8010
+   MARKETPLACE_URL=http://localhost:8008
+   DEFAULT_CHAIN_ID=ait-hub
+   REWARD_DISTRIBUTION_INTERVAL=100  # blocks
+   MINIMUM_PAYOUT=3600  # 1 AIT (in compute-seconds)
+   ```
+
+3. **Restart services**
+   ```bash
+   systemctl restart aitbc-pool-hub
+   ```
+
+## 🧪 Testing
+
+- Miner registers → joins pool → receives jobs
+- Job completed → result verified → reward paid via blockchain
+- Job timeout → reassigned to another miner
+- Scoring: miner with higher score gets better jobs
+- Reward distribution: proportional to contribution
+- Multi-chain: miner on chain A receives jobs from pool on chain B
+
+### Test Coverage Goals
+- Miner registry: >90%
+- Job assignment: >90%
+- Scoring engine: >85%
+- Reward distribution: >90%
+
+## 📚 Documentation
+
+- [Pool Hub Guide](../getting-started/pool-hub.md)
+- [Miner Registration](../getting-started/miner-registration.md)
+- [Scoring Algorithm](../architecture/scoring-algorithm.md)
+- [Reward Distribution](../getting-started/reward-distribution.md)
+
+## 🚀 Dependencies
+
+### New Dependencies
+- None
+
+### Updated Dependencies
+- Pool hub v0.6.7+
+- Blockchain node v0.5.16+ (chain_id-aware transactions)
+- Agent coordinator v0.6.5+ (miners are agents)
+- Marketplace v0.6.6+ (jobs from marketplace matches)
+
+## 🔐 Security Considerations
+
+- Miner authentication required
+- Job result verification prevents false completion claims
+- Reward distribution is transparent (blockchain transactions)
+- Score manipulation detection (unusual score changes flagged)
+
+## 📈 Performance Targets
+
+- Miner registration: <100ms
+- Job assignment: <200ms
+- Scoring update: <50ms
+- Reward distribution: <1s per miner (blockchain transaction)
+- Job queue throughput: >100 jobs/second
+
+## 🎯 Success Criteria
+
+- ✅ Miners register, join pools, and receive jobs
+- ✅ Job completion verified and rewarded via blockchain
+- ✅ Scoring engine produces fair contribution scores
+- ✅ Reward distribution proportional to contribution
+- ✅ Multi-chain: miners on different chains participate in same pool
+- ✅ All existing tests pass
+
+## 🚀 Next Steps
+
+### v0.7.0 — Bridge Basics
+- Cross-chain bridge (builds on product layer for cross-chain service payments)
+
+### v0.7.3 — Governance
+- On-chain governance for parameter changes (reward rates, scoring weights, pool rules)
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 0.6.7*
+*Status: Planned*

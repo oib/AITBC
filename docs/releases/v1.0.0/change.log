@@ -2,75 +2,99 @@
 
 ## Overview
 
-v1.0.0 is the **production readiness milestone**. It is not a feature release — it is the point at which the codebase, infrastructure, and operational practices are hardened enough to handle real user funds on mainnet Ethereum.
+v1.0.0 is the **production readiness milestone**. It is not a feature release — it is the point at which the codebase, infrastructure, and operational practices are hardened enough to handle real user funds on the AITBC mainnet. All planned releases (v0.5.16 through v0.9.0) must be complete before v1.0.0.
 
-**Target Date**: Q1 2025
+**Target Date**: TBD (after v0.9.0 completion)
 **Theme**: "Trustworthy Infrastructure"
-**Success Criteria**: A security auditor can review the codebase and find no P0/P1 issues.
+**Success Criteria**: A security auditor can review the codebase and find no P0/P1 issues. All releases v0.5.16–v0.9.0 are shipped and tested.
 
 ---
 
-## P0: Real Ethereum Mainnet (MUST HAVE)
+## Prerequisites
+
+v1.0.0 requires **all** of the following releases to be complete:
+
+| Release | Scope | Status |
+|---------|-------|--------|
+| [v0.5.16](../v0.5.16/change.log) | Security hardening + multi-chain preparation | 🚧 Planned |
+| [v0.5.17](../v0.5.17/change.log) | Test infrastructure | 🚧 Planned |
+| [v0.6.0](../v0.6.0/change.log) | Performance optimization | 🚧 Planned |
+| [v0.6.1](../v0.6.1/change.log) | Parallel processing | 🚧 Planned |
+| [v0.6.2](../v0.6.2/change.log) | Sync & gossip optimization | 🚧 Planned |
+| [v0.6.3](../v0.6.3/change.log) | Multi-island node support | 🚧 Planned |
+| [v0.6.4](../v0.6.4/change.log) | Multi-chain per island | 🚧 Planned |
+| [v0.6.5](../v0.6.5/change.log) | Agent coordination service | 🚧 Planned |
+| [v0.6.6](../v0.6.6/change.log) | Compute marketplace | 🚧 Planned |
+| [v0.6.7](../v0.6.7/change.log) | Pool hub & mining | 🚧 Planned |
+| [v0.7.0](../v0.7.0/change.log) | Bridge basics | 🚧 Planned |
+| [v0.7.1](../v0.7.1/change.log) | Bridge security | 🚧 Planned |
+| [v0.7.2](../v0.7.2/change.log) | Bridge oracle | 🚧 Planned |
+| [v0.7.3](../v0.7.3/change.log) | Governance | 🚧 Planned |
+| [v0.8.0](../v0.8.0/change.log) | Inter-chain trading | 🚧 Planned |
+| [v0.8.1](../v0.8.1/change.log) | Cross-chain offer sync | 🚧 Planned |
+| [v0.9.0](../v0.9.0/change.log) | Atomic cross-chain settlement | 🚧 Planned |
+
+---
+
+## P0: Mainnet Deployment (MUST HAVE)
 
 ### Problem
-The codebase is architected for a local testnet (`localhost:8202`, `network_id=1337`). Switching to mainnet is not just a config change — it requires:
+AITBC currently runs on testnet/devnet. Mainnet deployment requires:
 
-- Real gas estimation and fee management
-- 12-block confirmation finality
-- Mainnet RPC failover (multiple providers)
-- Smart contract deployment and verification
+- AITBC blockchain mainnet genesis (not Ethereum — AITBC has its own chain)
+- Mainnet island configuration (production islands, hubs, validators)
+- Real AIT coin distribution (genesis allocation, no test tokens)
+- Mainnet bridge configuration (cross-island bridges with real value)
 
 ### Work Required
 
 | Task | Status | Owner |
 |------|--------|-------|
-| Deploy AITBC token contract to mainnet | 🔴 Not started | Blockchain team |
-| Deploy escrow contract to mainnet | 🔴 Not started | Blockchain team |
-| Deploy bounty contract to mainnet | 🔴 Not started | Blockchain team |
-| Deploy staking contract to mainnet | 🔴 Not started | Blockchain team |
-| Add gas estimation to `PaymentService` | 🟡 Partial | Agent A |
-| Add transaction retry with exponential backoff | 🔴 Not started | TBD |
-| Configure mainnet RPC with failover | 🔴 Not started | DevOps |
-| Add `required_confirmations=12` logic | 🔴 Not started | TBD |
-| Update all `blockchain_rpc_url` defaults | 🟡 Partial | Agent B |
-| Remove all testnet-only code paths | 🔴 Not started | TBD |
+| Generate mainnet genesis for ait-hub chain | � Not started | Agent B |
+| Configure production islands and hubs | 🔴 Not started | DevOps |
+| Deploy mainnet bridge service | 🔴 Not started | Agent B |
+| Configure oracle endpoints for mainnet | 🔴 Not started | DevOps |
+| Generate and distribute genesis wallets | 🔴 Not started | Security |
+| Set up block explorer for mainnet | � Not started | DevOps |
+| Configure monitoring for mainnet nodes | 🔴 Not started | DevOps |
 
 ### Acceptance Criteria
-- [ ] All payments use real ETH/ERC-20 on mainnet
-- [ ] No code path references `localhost:8202` in production
-- [ ] Transaction failures are retried, not mocked
-- [ ] Contract addresses are environment-configurable, not hardcoded
+- [ ] Mainnet blockchain node runs and produces blocks
+- [ ] Mainnet islands are connected and bridges work
+- [ ] AIT coins are distributed per genesis allocation
+- [ ] Block explorer shows mainnet blocks and transactions
+- [ ] Monitoring dashboards show mainnet health
 
 ---
 
-## P0: Complete JWT Auth Removal of API Keys (MUST HAVE)
+## P0: Security Audit (MUST HAVE)
 
 ### Problem
-API key auth still exists in `deps.py` as deprecated but functional. For production, API keys must be **completely removed** — not just deprecated.
+The bridge, settlement, and governance layers handle real value. An external security audit is required before mainnet.
 
-### Remaining Work
+### Work Required
 
 | Task | Status | Owner |
 |------|--------|-------|
-| Migrate remaining 6 high-risk routers (admin, cache, marketplace, payments, security) | 🔴 Not started | Agent A |
-| Delete `deps.py` entirely | 🔴 Not started | Agent A |
-| Remove `X-Api-Key` header handling from middleware | 🔴 Not started | TBD |
-| Update all client SDKs to use JWT | 🔴 Not started | TBD |
-| Generate and rotate JWT secrets for production | 🔴 Not started | DevOps |
-| Document JWT token lifecycle (issue, refresh, revoke) | 🔴 Not started | TBD |
+| External audit: bridge security (v0.7.0, v0.7.1) | 🔴 Not started | Security |
+| External audit: atomic settlement (v0.9.0) | 🔴 Not started | Security |
+| External audit: signature verification (v0.5.16) | 🔴 Not started | Security |
+| External audit: governance execution (v0.7.3) | 🔴 Not started | Security |
+| Penetration testing on staging | 🔴 Not started | Security |
+| Fix all audit findings before v1.0.0 | 🔴 Not started | TBD |
 
 ### Acceptance Criteria
-- [ ] No `require_*_key()` functions exist in codebase
-- [ ] No `X-Api-Key` header is accepted anywhere
-- [ ] All tests use JWT tokens
-- [ ] Client documentation shows JWT-only auth
+- [ ] No P0/P1 findings from external audit
+- [ ] Penetration testing finds no critical vulnerabilities
+- [ ] All bridge proof verification paths audited
+- [ ] All signature verification paths audited
 
 ---
 
 ## P0: Systemd & Infrastructure Hardening (MUST HAVE)
 
 ### Problem
-Systemd units were **deferred** in v0.4.26. Production cannot run without hardened service definitions.
+Systemd units need production hardening. Services must run securely and survive failures.
 
 ### Work Required
 
@@ -95,89 +119,69 @@ Systemd units were **deferred** in v0.4.26. Production cannot run without harden
 ## P1: Secret Management (MUST HAVE)
 
 ### Problem
-Secrets are scattered across env vars, config files, and systemd units. Production needs a unified secret management strategy.
+Validator keys, bridge keys, and oracle keys need secure storage. Production requires HSM or secure enclave for high-value keys.
 
 ### Work Required
 
 | Task | Status | Owner |
 |------|--------|-------|
 | Deploy HashiCorp Vault or AWS Secrets Manager | 🔴 Not started | DevOps |
+| Store validator private keys in HSM/secure enclave | 🔴 Not started | Security |
+| Store bridge signing keys in HSM | 🔴 Not started | Security |
 | Create secret rotation policy (90-day max age) | 🔴 Not started | Security |
-| Audit all env vars for secret leakage in logs | 🔴 Not started | Agent B |
-| Add secret masking to logging (`***` for keys) | 🔴 Not started | TBD |
-| Implement `generate_dev_keys.py` for local dev | 🟡 Partial | Agent B |
-| Add `detect-secrets` to CI (block on findings) | 🔴 Not started | TBD |
+| Audit all env vars for secret leakage in logs | � Not started | Agent B |
+| Add secret masking to logging | 🔴 Not started | Agent B |
 
 ### Acceptance Criteria
 - [ ] No plaintext secrets in repo, CI logs, or systemd units
+- [ ] Validator and bridge keys are in HSM
 - [ ] Secret rotation is documented and automated
-- [ ] Local dev generates ephemeral keys automatically
-- [ ] CI blocks any new committed secret
 
 ---
 
 ## P1: Observability & Monitoring (MUST HAVE)
 
 ### Problem
-Observability standardization was **deferred** in v0.4.26. Production requires monitoring, alerting, and tracing.
+Production requires monitoring, alerting, and tracing for all services.
 
 ### Work Required
 
 | Task | Status | Owner |
 |------|--------|-------|
 | Deploy Prometheus + Grafana for metrics | 🔴 Not started | DevOps |
-| Add `/metrics` endpoint to all services | 🔴 Not started | TBD |
+| Add `/metrics` endpoint to all services | 🔴 Not started | Agent B |
 | Standardize logging (JSON format, structured) | 🔴 Not started | Agent B |
-| Add distributed tracing (OpenTelemetry/Jaeger) | 🔴 Not started | TBD |
+| Add distributed tracing (OpenTelemetry) | 🔴 Not started | TBD |
 | Create alerting rules for critical paths | 🔴 Not started | DevOps |
 | Add health check endpoints (`/health`, `/ready`, `/live`) | 🟡 Partial | Agent B |
-| Add request latency histograms | 🔴 Not started | TBD |
 
 ### Acceptance Criteria
 - [ ] All services expose `/metrics` in Prometheus format
-- [ ] Grafana dashboard shows request rates, errors, latency
-- [ ] Alerts fire on: 5xx spikes, auth failures, blockchain sync lag
+- [ ] Grafana dashboard shows block production, sync lag, bridge transfers
+- [ ] Alerts fire on: block production stall, sync lag, bridge failures, auth failures
 - [ ] Logs are queryable (not just flat files)
-
----
-
-## P1: DB/Redis Backing for Mock State (MUST HAVE)
-
-### Problem
-Mock routers use module-global dictionaries. This was **deferred** in v0.4.26. Production state must be persistent.
-
-### Work Required
-
-| Task | Status | Owner |
-|------|--------|-------|
-| Audit all mock routers for in-memory state | 🔴 Not started | Agent A |
-| Replace dict state with Redis-backed models | 🔴 Not started | Agent A |
-| Add Redis connection pooling | 🔴 Not started | TBD |
-| Add cache invalidation on state changes | 🔴 Not started | TBD |
-| Ensure mock routers work with `debug=false` | 🟡 Partial | Agent B |
-
-### Acceptance Criteria
-- [ ] No module-global `dict()` used for persistent state
-- [ ] State survives service restart
-- [ ] Multiple service instances share state correctly
 
 ---
 
 ## P1: Performance & Load Testing (SHOULD HAVE)
 
+### Problem
+Production traffic may exceed testnet capacity. Load testing must verify performance targets.
+
 ### Work Required
 
 | Task | Status | Owner |
 |------|--------|-------|
-| Add load tests for critical paths (job submit, miner heartbeat) | 🔴 Not started | QA |
-| Profile coordinator API under 1000 req/s | 🔴 Not started | QA |
+| Load test blockchain node at target TPS | 🔴 Not started | QA |
+| Load test bridge service at target transfer rate | 🔴 Not started | QA |
+| Load test marketplace matching at target offer rate | 🔴 Not started | QA |
+| Profile agent-coordinator under 1000 concurrent agents | 🔴 Not started | QA |
 | Identify and fix N+1 queries | 🔴 Not started | Agent A |
-| Add database connection pooling limits | 🔴 Not started | TBD |
-| Benchmark blockchain sync performance | 🔴 Not started | Blockchain team |
 
 ### Acceptance Criteria
-- [ ] Coordinator API handles 1000 req/s with <100ms p99 latency
-- [ ] Database CPU stays under 70% at peak load
+- [ ] Blockchain node handles >1000 TPS (per v0.6.0 targets)
+- [ ] Bridge handles >100 transfers/minute
+- [ ] Marketplace matching <200ms at 10K offers
 - [ ] No memory leaks over 24-hour run
 
 ---
@@ -197,61 +201,23 @@ Mock routers use module-global dictionaries. This was **deferred** in v0.4.26. P
 
 ---
 
-## P2: Security Audit (SHOULD HAVE)
-
-### Work Required
-
-| Task | Status | Owner |
-|------|--------|-------|
-| External security audit (smart contracts) | 🔴 Not started | Security |
-| External security audit (API/auth) | 🔴 Not started | Security |
-| Penetration testing on staging | 🔴 Not started | Security |
-| Fix all audit findings before v1.0.0 | 🔴 Not started | TBD |
-
----
-
-## Deferred to Post-v1.0.0
-
-These items are important but not blockers for v1.0.0:
-
-- OAuth2 / social login support
-- Multi-factor authentication
-- Mobile app SDK
-- Advanced analytics dashboard
-- Cross-chain bridges (Polygon, Arbitrum)
-- GPU marketplace expansion
-
----
-
 ## Release Checklist
 
 Before tagging v1.0.0:
 
+- [ ] All releases v0.5.16–v0.9.0 complete and shipped
 - [ ] All P0 items complete
 - [ ] All P1 items complete
-- [ ] Security audit complete with no P0/P1 findings
+- [ ] External security audit complete with no P0/P1 findings
+- [ ] Penetration testing passed
 - [ ] Load tests pass at target capacity
 - [ ] Deployment automation tested on staging
 - [ ] Rollback procedure tested
-- [ ] All secrets rotated
-- [ ] Smart contracts deployed and verified on Etherscan
+- [ ] All secrets rotated and stored in HSM/Vault
+- [ ] Mainnet genesis generated and verified
 - [ ] Monitoring dashboards active
 - [ ] Team trained on incident response
 - [ ] Public announcement prepared
-
----
-
-## Migration from v0.4.26
-
-For operators upgrading from v0.4.26:
-
-1. **Backup**: Snapshot database before migration
-2. **Config**: Replace testnet RPC with mainnet RPC
-3. **Secrets**: Generate new JWT secret, rotate all API keys
-4. **Contracts**: Deploy new smart contracts, update addresses
-5. **Auth**: Update all clients to use JWT
-6. **Monitoring**: Deploy Prometheus/Grafana
-7. **Verify**: Run `scripts/check-production-readiness.py`
 
 ---
 
@@ -259,11 +225,15 @@ For operators upgrading from v0.4.26:
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| Smart contract bug on mainnet | Critical (lost funds) | External audit, testnet rehearsal, insurance |
-| JWT secret compromise | High (unauthorized access) | Short expiry, rotation policy, Vault storage |
-| Mainnet RPC downtime | Medium (service disruption) | Multi-provider failover (Infura + Alchemy + QuickNode) |
-| Load beyond capacity | Medium (degraded service) | Auto-scaling, rate limiting, queue backpressure |
+| Bridge vulnerability on mainnet | Critical (lost funds) | External audit, chaos testing (v0.9.0), HSM keys |
+| Validator key compromise | Critical (forged blocks) | HSM storage, key rotation, multi-sig (v0.7.1) |
+| Settlement atomicity failure | Critical (stuck funds) | HTLC, chaos testing, external audit |
+| Governance attack | High (malicious parameter changes) | Quorum thresholds, timelock, cross-chain verification |
+| Load beyond capacity | Medium (degraded service) | Auto-scaling, rate limiting, load testing |
+| Oracle manipulation | High (invalid bridge proofs) | Multi-oracle consensus, light client fallback (v0.7.2) |
 
 ---
 
-*This is a living document. Update as work progresses.*
+*Last Updated: 2026-06-25*
+*Version: 1.0.0*
+*Status: Planned — Production Readiness (after v0.9.0)*
