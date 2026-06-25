@@ -21,7 +21,6 @@ This directory contains documentation for Agent agents and their integrations wi
 
 ### Economics
 - **[AI_ECONOMICS_MASTERS.md](./AI_ECONOMICS_MASTERS.md)** - AI economics mastery plan
-- **[AGENT_AITBC_MASTERY_PLAN_IMPLEMENTATION_STATUS.md](./AGENT_AITBC_MASTERY_PLAN_IMPLEMENTATION_STATUS.md)** - Implementation status
 
 ### Solutions
 - **[AGENT_LISTENER_SOLUTION.md](./AGENT_LISTENER_SOLUTION.md)** - Agent listener solution documentation
