@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 
-from ....domain import AgentExecution, AgentStatus
+from ...agent_coordination.domain.agent import AgentExecution, AgentStatus
 from ....storage import get_session
 
 logger = get_logger(__name__)

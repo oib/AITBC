@@ -40,7 +40,7 @@ async def lifespan(app: Any) -> AsyncIterator[None]:
         try:
             from sqlmodel import select
 
-            from .domain import Job  # type: ignore[import-not-found]
+            from .contexts.infrastructure.domain import Job
             from .storage import get_session  # type: ignore[import-not-found]
 
             session_gen = get_session()

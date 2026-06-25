@@ -1,0 +1,78 @@
+# v0.5.15 — Flat-to-Context Migration (Phase 1: Quick Fixes)
+
+**Theme**: Begin paying down the flat-directory architectural debt (services/, routers/, schemas/) identified in the post-v0.5.14 audit. Phase 1 addresses low-risk, high-value fixes.
+
+**Goal**: Fix broken imports, add missing package files, and eliminate all remaining `app.domain` shim usage in production code.
+
+**Context**: The v0.5.14 post-migration audit identified 5 categories of architectural debt: (1) domain shim usage, (2) flat directories, (3) flat reputation/, (4) missing `__init__.py`, (5) cross-context service imports. This release addresses category 1, 4, and part of the broken imports from category 2.
+
+---
+
+## Phase 1 Tasks
+
+| # | Task | Priority | Status |
+|---|------|----------|--------|
+| P1-1 | Fix broken import in `routers/marketplace_enhanced.py` (`MarketplaceOffer` from `aitbc_shared`) | High | ✅ DONE |
+| P1-2 | Add missing `__init__.py` to `contexts/ipfs/` and `contexts/knowledge/` | Medium | ✅ DONE |
+| P1-3 | Verify "duplicate" service subdirs — NOT duplicates, skipped (Phase 4 scope) | Low | ✅ DONE (no action needed) |
+| P1-4 | Update all files importing via `domain/__init__.py` shim to import directly from `contexts.infrastructure.domain` | Medium | ✅ DONE |
+
+---
+
+## Completed Work
+
+### P1-1: Fix broken `MarketplaceOffer` import
+
+`routers/marketplace_enhanced.py` line 18 imported `MarketplaceOffer` from `..domain` (the compatibility shim), but `MarketplaceOffer` was never exported by the shim — it lives in `aitbc_shared`. The `# type: ignore[attr-defined]` comment masked this latent bug.
+
+**Fix**: Changed to `from aitbc_shared import MarketplaceOffer` (matching the pattern used by 5 other files).
+
+### P1-2: Add missing `__init__.py` files
+
+`contexts/ipfs/` and `contexts/knowledge/` were missing top-level `__init__.py` files, unlike all other 30 contexts. They worked via namespace packages but were inconsistent.
+
+**Fix**: Added `__init__.py` to both, exporting their routers (`ipfs_router`, `knowledge_router`).
+
+### P1-3: Verify "duplicate" service subdirs
+
+The audit report claimed `services/agent_coordination/`, `services/enterprise_integration/`, and `services/compliance_security/` were duplicates of context services. Investigation found:
+
+- `services/agent_coordination/` — **NOT a duplicate**. Contains 8 actively-imported service files (agent_service.py, communication.py, integration.py, marketplace.py, orchestrator.py, performance.py, portfolio.py, security.py). Imported by 4 files. These are flat services awaiting Phase 4 migration.
+- `services/enterprise_integration/` — **NOT a duplicate**. Contains 4 files (api_gateway.py, integration.py, load_balancer.py, security.py) with no runtime imports (dead code). Referenced by `test_cors_configuration.py` for CORS header checks.
+- `services/compliance_security/` — **NOT a duplicate**. Contains 2 files (audit.py, compliance.py) with no runtime imports (dead code).
+
+**Action**: No removal performed. These belong to Phase 4 (flat service migration) or a separate dead-code cleanup.
+
+### P1-4: Eliminate `domain/__init__.py` shim usage
+
+13 files imported infrastructure models (Job, JobReceipt, Miner, User, Wallet) via the `app.domain` compatibility shim. All updated to import directly from `contexts.infrastructure.domain` (or `contexts.agent_coordination.domain.agent` for agent models).
+
+**Files updated** (production code):
+- `main.py` — `from .domain import Job` → `from .contexts.infrastructure.domain import Job`
+- `core/lifespan.py` — same pattern
+- `utils/cache_management.py` — same pattern
+- `services/miners.py` — `Miner`
+- `services/jobs.py` — `Job, JobReceipt, Miner`
+- `services/receipts.py` — `Job, JobReceipt`
+- `services/python_13_optimized.py` — `Job, Miner`
+- `services/explorer.py` — `Job, JobReceipt`
+- `models/__init__.py` — `Job, JobReceipt, Miner, User, Wallet`
+- `routers/users.py` — `User, Wallet`
+- `routers/admin.py` — `Miner` / `Job` (5 inline imports)
+- `contexts/multimodal/services/multimodal_agent.py` — `AgentExecution, AgentStatus` (was `from ....domain`, now `from ...agent_coordination.domain.agent`)
+- `services/job_processor.py` — `JobState` was imported from `..domain.models` (nonexistent path with `type: ignore`). Fixed to `from ..custom_types import JobState`.
+
+**Files updated** (tests):
+- `tests/services/test_advanced_rl/test_engine.py` — `from app.domain.reinforcement_learning import ReinforcementLearningConfig` → `from app.contexts.advanced_rl.domain import ReinforcementLearningConfig` (2 occurrences, stale from v0.5.14 migration)
+
+**Result**: Zero production code imports from `app.domain` shim. The shim (`domain/__init__.py`) is retained as a safety net but is no longer used by any production code.
+
+---
+
+## Remaining Work (future phases)
+
+- **Phase 2**: Merge flat `reputation/` directory into `contexts/reputation/services/`
+- **Phase 3**: Migrate flat `schemas/` files to owning contexts
+- **Phase 4**: Migrate ~40 flat `services/` files to owning contexts
+- **Phase 5**: Migrate ~25 flat `routers/` files to owning contexts
+- **Note**: One cross-context domain-model import remains: `multimodal` → `agent_coordination.domain.agent` (`AgentExecution`, `AgentStatus`) in `multimodal_agent.py`. This was discovered during P1-4 and is a candidate for a future cross-context elimination task.
