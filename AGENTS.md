@@ -58,4 +58,4 @@ All prior release plans are complete. Details are in the respective changelogs:
 - **v0.5.12** — Duplication elimination & large-file decomposition: <ref_file file="/opt/aitbc/docs/releases/v0.5.12/change.log" />
 - **v0.5.13** — coordinator-api bounded context (P1–P4, T1–T3): <ref_file file="/opt/aitbc/docs/releases/v0.5.13/change.log" />
 - **v0.5.14** — Cross-context dependency elimination (X1–X9, L1–L19): <ref_file file="/opt/aitbc/docs/releases/v0.5.14/change.log" />
-- **v0.5.15** — Flat-to-context migration (P1–P6): <ref_file file="/opt/aitbc/docs/releases/v0.5.15/change.log" />
+- **v0.5.15** — Flat-to-context migration + test suite repair (P1–P7): <ref_file file="/opt/aitbc/docs/releases/v0.5.15/change.log" />
