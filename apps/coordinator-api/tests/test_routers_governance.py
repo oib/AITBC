@@ -27,7 +27,7 @@ class TestGovernanceRouter:
 
         # Import and test
         from app.main import create_app
-        from app.routers.governance import router
+        from app.contexts.governance.routers.governance import router
 
         app = create_app()
         app.include_router(router)
@@ -49,7 +49,7 @@ class TestGovernanceRouter:
 
         # Import and test
         from app.main import create_app
-        from app.routers.governance import router
+        from app.contexts.governance.routers.governance import router
 
         app = create_app()
         app.include_router(router)

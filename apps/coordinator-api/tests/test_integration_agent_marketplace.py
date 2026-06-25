@@ -30,8 +30,8 @@ class TestAgentMarketplaceIntegration:
 
         # Import and test
         from app.main import create_app
-        from app.routers.agent_router import router as agent_router
-        from app.routers.marketplace import router as marketplace_router
+        from app.contexts.agent_coordination.routers.agent_router import router as agent_router
+        from app.contexts.marketplace.routers.marketplace import router as marketplace_router
 
         app = create_app()
         app.include_router(agent_router)

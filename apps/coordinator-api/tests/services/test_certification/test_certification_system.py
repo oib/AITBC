@@ -14,7 +14,7 @@ class TestCertificationSystem:
 
     def test_certification_system_initialization(self):
         """Test certification system initialization"""
-        from app.services.certification.certification_system import CertificationSystem
+        from app.contexts.certification.services.certification.certification_system import CertificationSystem
 
         system = CertificationSystem()
 
@@ -25,7 +25,7 @@ class TestCertificationSystem:
     def test_generate_verification_hash(self):
         """Test verification hash generation"""
         from app.contexts.certification.domain.certification import CertificationLevel
-        from app.services.certification.certification_system import CertificationSystem
+        from app.contexts.certification.services.certification.certification_system import CertificationSystem
 
         system = CertificationSystem()
 
@@ -40,7 +40,7 @@ class TestCertificationSystem:
     def test_get_special_capabilities(self):
         """Test getting special capabilities for certification level"""
         from app.contexts.certification.domain.certification import CertificationLevel
-        from app.services.certification.certification_system import CertificationSystem
+        from app.contexts.certification.services.certification.certification_system import CertificationSystem
 
         system = CertificationSystem()
 
@@ -50,11 +50,11 @@ class TestCertificationSystem:
         assert len(capabilities) > 0
         assert "standard_trading" in capabilities
 
-    @patch("app.services.certification.certification_system.Session")
+    @patch("app.contexts.certification.services.certification.certification_system.Session")
     async def test_verify_identity(self, mock_session):
         """Test identity verification"""
         from app.contexts.reputation.domain.reputation import AgentReputation
-        from app.services.certification.certification_system import CertificationSystem
+        from app.contexts.certification.services.certification.certification_system import CertificationSystem
 
         system = CertificationSystem()
         mock_session_instance = MagicMock()
@@ -85,11 +85,11 @@ class TestCertificationSystem:
         assert result["passed"]
         assert "trust_score" in result["details"]
 
-    @patch("app.services.certification.certification_system.Session")
+    @patch("app.contexts.certification.services.certification.certification_system.Session")
     async def test_verify_performance(self, mock_session):
         """Test performance verification"""
         from app.contexts.reputation.domain.reputation import AgentReputation
-        from app.services.certification.certification_system import CertificationSystem
+        from app.contexts.certification.services.certification.certification_system import CertificationSystem
 
         system = CertificationSystem()
         mock_session_instance = MagicMock()
@@ -120,11 +120,11 @@ class TestCertificationSystem:
         assert result["passed"]
         assert result["score"] > 80.0
 
-    @patch("app.services.certification.certification_system.Session")
+    @patch("app.contexts.certification.services.certification.certification_system.Session")
     async def test_certify_agent(self, mock_session):
         """Test agent certification"""
         from app.contexts.certification.domain.certification import AgentCertification, CertificationLevel
-        from app.services.certification.certification_system import CertificationSystem
+        from app.contexts.certification.services.certification.certification_system import CertificationSystem
 
         system = CertificationSystem()
         mock_session_instance = MagicMock()

@@ -13,7 +13,7 @@ class TestAdvancedReinforcementLearningEngine:
 
     def test_engine_initialization(self):
         """Test engine initialization"""
-        from app.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
+        from app.contexts.advanced_rl.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
 
         engine = AdvancedReinforcementLearningEngine()
 
@@ -24,8 +24,8 @@ class TestAdvancedReinforcementLearningEngine:
 
     def test_load_agent(self):
         """Test loading an agent"""
-        from app.services.advanced_rl.agents.ppo_agent import PPOAgent
-        from app.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
+        from app.contexts.advanced_rl.services.advanced_rl.agents.ppo_agent import PPOAgent
+        from app.contexts.advanced_rl.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
 
         engine = AdvancedReinforcementLearningEngine()
         agent_id = "test_agent"
@@ -39,8 +39,8 @@ class TestAdvancedReinforcementLearningEngine:
     def test_select_action(self):
         """Test action selection"""
         import torch
-        from app.services.advanced_rl.agents.ppo_agent import PPOAgent
-        from app.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
+        from app.contexts.advanced_rl.services.advanced_rl.agents.ppo_agent import PPOAgent
+        from app.contexts.advanced_rl.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
 
         engine = AdvancedReinforcementLearningEngine()
         agent_id = "test_agent"
@@ -53,11 +53,11 @@ class TestAdvancedReinforcementLearningEngine:
         assert action is not None
         assert isinstance(action, int | torch.Tensor)
 
-    @patch("app.services.advanced_rl.engine.Session")
+    @patch("app.contexts.advanced_rl.services.advanced_rl.engine.Session")
     async def test_proximal_policy_optimization(self, mock_session):
         """Test PPO training"""
         from app.contexts.advanced_rl.domain import ReinforcementLearningConfig
-        from app.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
+        from app.contexts.advanced_rl.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
 
         engine = AdvancedReinforcementLearningEngine()
 
@@ -73,11 +73,11 @@ class TestAdvancedReinforcementLearningEngine:
         assert "training_loss" in result
         assert "episode_rewards" in result
 
-    @patch("app.services.advanced_rl.engine.Session")
+    @patch("app.contexts.advanced_rl.services.advanced_rl.engine.Session")
     async def test_soft_actor_critic(self, mock_session):
         """Test SAC training"""
         from app.contexts.advanced_rl.domain import ReinforcementLearningConfig
-        from app.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
+        from app.contexts.advanced_rl.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
 
         engine = AdvancedReinforcementLearningEngine()
 
@@ -95,8 +95,8 @@ class TestAdvancedReinforcementLearningEngine:
     def test_evaluate_agent(self):
         """Test agent evaluation"""
         import torch
-        from app.services.advanced_rl.agents.ppo_agent import PPOAgent
-        from app.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
+        from app.contexts.advanced_rl.services.advanced_rl.agents.ppo_agent import PPOAgent
+        from app.contexts.advanced_rl.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
 
         engine = AdvancedReinforcementLearningEngine()
         agent_id = "test_agent"
