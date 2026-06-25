@@ -11,7 +11,7 @@ from ...domain.certification import (
     PartnershipProgram,
     PartnershipType,
 )
-from ....reputation.domain.reputation import AgentReputation
+from ....reputation.services.reputation_service import AgentReputation
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger

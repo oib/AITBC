@@ -77,7 +77,7 @@ async def create_global_offer(
         )
 
         # Create global offer
-        offer = await marketplace_service.create_global_offer(offer_req, agent_identity)
+        offer = await marketplace_service.create_global_offer(offer_req, agent_identity.id)
 
         return {
             "offer_id": offer.id,
@@ -241,7 +241,7 @@ async def create_global_transaction(
         )
 
         # Create global transaction
-        transaction = await marketplace_service.create_global_transaction(tx_req, buyer_identity)
+        transaction = await marketplace_service.create_global_transaction(tx_req, buyer_identity.id)
 
         return {
             "transaction_id": transaction.id,
