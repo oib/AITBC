@@ -136,7 +136,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         try:
             from sqlmodel import select
 
-            from .domain import Job
+            from .contexts.infrastructure.domain import Job
             from .storage import get_session
 
             session_gen = get_session()
