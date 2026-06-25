@@ -11,7 +11,7 @@ from typing import Any
 from aitbc.aitbc_logging import get_logger
 
 from .config import settings
-from .mempool import compute_tx_hash, get_mempool
+from .mempool import compute_tx_hash
 from .network.hub_manager import HubManager
 from .network.island_manager import IslandManager
 from .network.nat_traversal import NATTraversalService
@@ -171,6 +171,7 @@ class P2PNetworkService:
         while not self._stop_event.is_set():
             try:
                 from .mempool import get_mempool as get_mempool_instance
+
                 mempool = get_mempool_instance()
                 txs_to_broadcast = []
                 if hasattr(mempool, "_transactions"):
@@ -479,7 +480,8 @@ class P2PNetworkService:
                                     logger.info("Received new P2P transaction: %s", tx_hash)
                                     self.seen_txs.add(seen_key)
                                     from .mempool import get_mempool as get_mempool_instance
-                mempool = get_mempool_instance()
+
+                                    mempool = get_mempool_instance()
                                     mempool.add(tx_data, chain_id=chain_id)
                                     forward_msg = {"type": "new_transaction", "tx": tx_data}
                                     writers = list(self.active_connections.values())
