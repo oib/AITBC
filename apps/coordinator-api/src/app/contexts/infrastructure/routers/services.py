@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from aitbc.rate_limiting import rate_limit
 
-from ..auth import ClientDep
-from ..models.services import (
+from ....auth import ClientDep
+from ....models.services import (
     BlenderEngine,
     BlenderRequest,
     FFmpegCodec,
@@ -26,11 +26,11 @@ from ..models.services import (
     WhisperRequest,
     WhisperTask,
 )
-from ..schemas import JobCreate
+from ....schemas import JobCreate
 
 # from ..models.registry import ServiceRegistry, service_registry
-from ..services import JobService
-from ..storage import get_session
+from ....services import JobService
+from ....storage import get_session
 
 
 # Placeholder for service_registry - to be properly imported when module structure is fixed

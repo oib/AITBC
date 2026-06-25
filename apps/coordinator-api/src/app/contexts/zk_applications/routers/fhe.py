@@ -14,7 +14,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
-from ..contexts.zk_applications.services.fhe_enhanced import get_fhe_provider
+from ..services.fhe_enhanced import get_fhe_provider
 
 router = APIRouter(prefix="/fhe", tags=["fhe"])
 
@@ -95,7 +95,7 @@ async def encrypt_data(request: Request, req: EncryptRequest) -> dict[str, Any]:
 async def decrypt_data(request: Request, req: DecryptRequest) -> dict[str, Any]:
     """Decrypt FHE-encrypted data"""
     try:
-        from ..contexts.zk_applications.services.fhe_enhanced import EncryptedVector
+        from ..services.fhe_enhanced import EncryptedVector
 
         provider = get_fhe_provider()
         encrypted = EncryptedVector.deserialize(req.encrypted_data)
@@ -116,7 +116,7 @@ async def homomorphic_add(request: Request, req: HomomorphicOpRequest) -> dict[s
     Either E(a) + E(b) or E(a) + plaintext
     """
     try:
-        from ..contexts.zk_applications.services.fhe_enhanced import EncryptedVector
+        from ..services.fhe_enhanced import EncryptedVector
 
         provider = get_fhe_provider()
         encrypted_a = EncryptedVector.deserialize(req.encrypted_a)
@@ -142,7 +142,7 @@ async def homomorphic_add(request: Request, req: HomomorphicOpRequest) -> dict[s
 async def homomorphic_multiply(request: Request, req: HomomorphicOpRequest) -> dict[str, Any]:
     """Perform homomorphic multiplication by scalar: E(a) * s = E(a*s)"""
     try:
-        from ..contexts.zk_applications.services.fhe_enhanced import EncryptedVector
+        from ..services.fhe_enhanced import EncryptedVector
 
         if req.scalar is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="scalar required")
@@ -162,7 +162,7 @@ async def homomorphic_multiply(request: Request, req: HomomorphicOpRequest) -> d
 async def encrypted_inference(request: Request, req: InferenceRequest) -> dict[str, Any]:
     """Perform ML inference on encrypted data"""
     try:
-        from ..contexts.zk_applications.services.fhe_enhanced import EncryptedVector
+        from ..services.fhe_enhanced import EncryptedVector
 
         provider = get_fhe_provider()
         encrypted_input = EncryptedVector.deserialize(req.encrypted_input)

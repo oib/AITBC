@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
 
-from ..contexts.zk_applications.services.zk_proofs import zk_proof_service
+from ..services.zk_proofs import zk_proof_service
 
 router = APIRouter(prefix="/zk", tags=["zk-proofs"])
 

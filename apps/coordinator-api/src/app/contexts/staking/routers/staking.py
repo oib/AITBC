@@ -14,7 +14,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ..domain.staking import PerformanceTier, StakeStatus
-from ....routers.users import get_current_user as _get_current_user
+from ...infrastructure.routers.users import get_current_user as _get_current_user
 from ....storage import get_session
 from ...blockchain.services.blockchain import BlockchainService
 from ..services.staking_service import StakingService
