@@ -15,8 +15,8 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ..contexts.wallet.services.bitcoin_wallet import get_wallet_balance, get_wallet_info
-from ..schemas import (
+from ...wallet.services.bitcoin_wallet import get_wallet_balance, get_wallet_info
+from ....schemas import (
     ExchangePaymentRequest,
     ExchangePaymentResponse,
     ExchangeRatesResponse,
@@ -25,7 +25,7 @@ from ..schemas import (
     WalletBalanceResponse,
     WalletInfoResponse,
 )
-from ..utils.cache import cached, get_cache_config
+from ....utils.cache import cached, get_cache_config
 
 logger = get_logger(__name__)
 
@@ -127,7 +127,7 @@ async def confirm_payment(request: Request, payment_id: str, tx_hash: str) -> di
 
     # Mint AITBC tokens to user's wallet
     try:
-        from ..contexts.blockchain.services.blockchain import mint_tokens
+        from ...blockchain.services.blockchain import mint_tokens
 
         mint_tokens(payment["user_id"], payment["aitbc_amount"])  # type: ignore[unused-coroutine]
     except Exception as e:

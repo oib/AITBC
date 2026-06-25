@@ -10,14 +10,14 @@ from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 from aitbc.rate_limiting import rate_limit
 
-from ..auth import ClientDep
-from ..config import settings
-from ..contexts.payments.services.payments import PaymentService
-from ..custom_types import JobState
-from ..schemas import JobCreate, JobPaymentCreate, JobResult, JobView
-from ..services import JobService
-from ..storage import get_session
-from ..utils.cache import cached, get_cache_config
+from ....auth import ClientDep
+from ....config import settings
+from ...payments.services.payments import PaymentService
+from ....custom_types import JobState
+from ....schemas import JobCreate, JobPaymentCreate, JobResult, JobView
+from ....services import JobService
+from ....storage import get_session
+from ....utils.cache import cached, get_cache_config
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["client"])
