@@ -146,5 +146,6 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python
 | X10 | Eliminate cross-context import: `multimodal` → `agent_coordination.domain.agent` (dead code removal) | Medium | ✅ DONE |
 | P2 | Merge flat `reputation/` directory into `contexts/reputation/services/` | Medium | ✅ DONE |
 | P3 | Migrate flat `schemas/` files to owning contexts (8 files moved, 1 dead file deleted) | Medium | ✅ DONE |
+| P4 | Migrate flat `services/` files to owning contexts (54 files: 27 dead, 26 active, 1 subdirectory) | High | ✅ DONE |
 
-**Phase 1 + Phase 2 + Phase 3 complete.** Remaining phases (P4: services, P5: routers) deferred to future releases.
+**Phase 1–4 complete.** Remaining phase (P5: routers) deferred to future release.
