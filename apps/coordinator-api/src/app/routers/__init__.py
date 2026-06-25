@@ -6,7 +6,7 @@ logger = get_logger(__name__)
 
 # Skip optional routers with missing dependencies
 try:
-    from .admin import router as admin
+    from ..contexts.infrastructure.routers.admin import router as admin
 except ImportError:
     admin = None  # type: ignore[assignment]
     logger.warning("Admin router not available (missing slowapi)")
@@ -32,18 +32,17 @@ from ..contexts.marketplace.routers.marketplace_offers import router as marketpl
 
 # Payments router moved to contexts/payments
 from ..contexts.payments.routers.payments import router as payments  # noqa: E402
-from .client import router as client  # noqa: E402
-from .disputes import router as disputes  # noqa: E402
-from .exchange import router as exchange  # noqa: E402
-from .explorer import router as explorer  # noqa: E402
-from .fhe import router as fhe  # noqa: E402
-from .inference import router as inference  # noqa: E402
-from .miner import router as miner  # noqa: E402
-from .oracle import router as oracle  # noqa: E402
-from .portfolio import router as portfolio_router  # noqa: E402
-from .services import router as services  # noqa: E402
-from .users import router as users  # noqa: E402
-from .web_vitals import router as web_vitals  # noqa: E402
+from ..contexts.infrastructure.routers.client import router as client  # noqa: E402
+from ..contexts.governance.routers.disputes import router as disputes  # noqa: E402
+from ..contexts.infrastructure.routers.exchange import router as exchange  # noqa: E402
+from ..contexts.infrastructure.routers.explorer import router as explorer  # noqa: E402
+from ..contexts.zk_applications.routers.fhe import router as fhe  # noqa: E402
+from ..contexts.infrastructure.routers.inference import router as inference  # noqa: E402
+from ..contexts.infrastructure.routers.miner import router as miner  # noqa: E402
+from ..contexts.blockchain.routers.oracle import router as oracle  # noqa: E402
+from ..contexts.infrastructure.routers.services import router as services  # noqa: E402
+from ..contexts.infrastructure.routers.users import router as users  # noqa: E402
+from ..contexts.infrastructure.routers.web_vitals import router as web_vitals  # noqa: E402
 
 # Staking router moved to contexts/staking
 try:
@@ -73,8 +72,8 @@ except ImportError:
     trading = None  # type: ignore[assignment]
     logger.warning("Trading router not available")
 
-# Agent messaging router (feature-flagged, separate from deleted context routers)
-from .agent import router as agent  # noqa: E402
+# Agent messaging router (feature-flagged, separate from context routers)
+from ..contexts.agent_coordination.routers.agent_messaging import router as agent  # noqa: E402
 
 # Security router moved to contexts/security
 try:
@@ -135,8 +134,8 @@ from ..contexts.zk_applications.routers.ml_zk_proofs import router as ml_zk_proo
 # ZK applications routers moved to contexts/zk_applications
 from ..contexts.zk_applications.routers.zk_applications import router as zk_applications  # noqa: E402
 
-# Islands proxy router
-from .islands_proxy import router as islands_proxy  # noqa: E402
+# Islands proxy router moved to contexts/infrastructure
+from ..contexts.infrastructure.routers.islands_proxy import router as islands_proxy  # noqa: E402
 
 __all__ = [
     "client",
@@ -190,5 +189,4 @@ __all__ = [
     "fhe",
     "oracle",
     "disputes",
-    "portfolio",
 ]
