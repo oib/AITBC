@@ -64,6 +64,22 @@ success() { echo -e "${GREEN}[$(date +'%H:%M:%S')] ✓${NC} $*"; }
 warning() { echo -e "${YELLOW}[$(date +'%H:%M:%S')] ⚠${NC} $*" >&2; }
 error()   { echo -e "${RED}[$(date +'%H:%M:%S')] ✗${NC} $*" >&2; }
 
+# Detect if an NVIDIA GPU is present and accessible via nvidia-smi.
+# Sets DETECTED_HARDWARE to "gpu" or "nogpu".
+# Sets GPU_NAME and GPU_COUNT if a GPU is detected.
+# Usage: detect_gpu; echo "$DETECTED_HARDWARE $GPU_NAME"
+detect_gpu() {
+    GPU_NAME=""
+    GPU_COUNT=0
+    DETECTED_HARDWARE="nogpu"
+    if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi --query-gpu=name --format=csv,noheader >/dev/null 2>&1; then
+        GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
+        GPU_COUNT=$(nvidia-smi --query-gpu=count --format=csv,noheader,nounits 2>/dev/null | head -1)
+        GPU_COUNT="${GPU_COUNT:-1}"
+        DETECTED_HARDWARE="gpu"
+    fi
+}
+
 # ----------------------------------------------------------------------------
 # Parse arguments
 # ----------------------------------------------------------------------------
@@ -129,7 +145,19 @@ get_node_role() {
         market_role="${market_role:-${MARKET_ROLE:-}}"
         hardware_profile="${hardware_profile:-${HARDWARE_PROFILE:-}}"
     fi
-    echo "${blockchain_mode:-follower}:${market_role:-customer}:${hardware_profile:-nogpu}"
+
+    # Auto-detect GPU via nvidia-smi. If the env file says nogpu but a GPU
+    # is present, override to gpu so the correct profile (provider-gpu) is
+    # used and GPU dependencies (pycuda, torch, etc.) get installed.
+    detect_gpu
+    if [ "$DETECTED_HARDWARE" = "gpu" ] && [ "${hardware_profile:-nogpu}" != "gpu" ]; then
+        warning "GPU detected (${GPU_NAME:-unknown}) but HARDWARE_PROFILE=${hardware_profile:-nogpu} — overriding to gpu"
+        hardware_profile="gpu"
+    elif [ "$DETECTED_HARDWARE" = "gpu" ]; then
+        log "GPU confirmed: ${GPU_NAME:-unknown} (${GPU_COUNT:-1} device(s))"
+    fi
+
+    echo "${blockchain_mode:-follower}:${market_role:-customer}:${hardware_profile:-$DETECTED_HARDWARE}"
 }
 
 # Detect install-profiles.sh profile name from role (mirrors setup.sh)
