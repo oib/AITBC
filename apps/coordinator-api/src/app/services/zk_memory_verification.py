@@ -17,7 +17,7 @@ from sqlmodel import Session
 from aitbc.aitbc_logging import get_logger
 
 from ..blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
-from ..domain.decentralized_memory import AgentMemoryNode
+from ..contexts.ipfs.domain.decentralized_memory import AgentMemoryNode
 
 logger = get_logger(__name__)
 

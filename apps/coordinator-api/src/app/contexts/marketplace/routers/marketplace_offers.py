@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 
 from ....auth import AdminDep
-from ....domain import Miner
+from ....contexts.infrastructure.domain import Miner
 from ....schemas import MarketplaceOfferView
 from ....storage import get_session
 
