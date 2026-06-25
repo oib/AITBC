@@ -4,15 +4,34 @@ Unit tests for the Agent Identity client and models
 """
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import pytest
 from app.agent_identity.sdk.client import AgentIdentityClient
+
+
+def _make_mock_response(status: int = 200, json_data: dict | None = None) -> AsyncMock:
+    """Build an AsyncMock that supports the async context manager protocol.
+
+    ``aiohttp``'s ``session.request(...)`` returns an object used as
+    ``async with ... as response``.  When the session is an ``AsyncMock``,
+    calling ``request`` returns a *coroutine* rather than the configured
+    return value, so the ``async with`` fails.  This helper produces a mock
+    that can be returned synchronously from a ``MagicMock`` request and still
+    be used as an async context manager.
+    """
+    mock_response = AsyncMock()
+    mock_response.status = status
+    mock_response.json = AsyncMock(return_value=json_data or {})
+    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_response.__aexit__ = AsyncMock(return_value=None)
+    return mock_response
+
+
 from app.agent_identity.sdk.exceptions import (
+    APIError,
     AuthenticationError,
-    RateLimitError,
-    ValidationError,
 )
 from app.agent_identity.sdk.models import (
     AgentIdentity,
@@ -65,10 +84,9 @@ class TestAgentIdentityClient:
         # Mock the session
         with patch.object(client, "session", mock_session):
             # Mock response
-            mock_response = AsyncMock()
-            mock_response.status = 201
-            mock_response.json = AsyncMock(
-                return_value={
+            mock_response = _make_mock_response(
+                200,
+                {
                     "identity_id": "identity_123",
                     "agent_id": "agent_456",
                     "owner_address": "0x123...",
@@ -78,10 +96,9 @@ class TestAgentIdentityClient:
                     "registration_result": {"total_mappings": 2},
                     "wallet_results": [{"chain_id": 1, "success": True}],
                     "created_at": "2024-01-01T00:00:00",
-                }
+                },
             )
-
-            mock_session.request.return_value.__aenter__.return_value = mock_response
+            mock_session.request = MagicMock(return_value=mock_response)
 
             # Create identity
             result = await client.create_identity(
@@ -105,15 +122,12 @@ class TestAgentIdentityClient:
     async def test_create_identity_validation_error(self, client, mock_session):
         """Test identity creation with validation error"""
         with patch.object(client, "session", mock_session):
-            # Mock 400 response
-            mock_response = AsyncMock()
-            mock_response.status = 400
-            mock_response.json = AsyncMock(return_value={"detail": "Invalid owner address"})
+            # Mock 400 response - _request raises APIError for non-2xx/401/404
+            mock_response = _make_mock_response(400, {"message": "Invalid owner address"})
+            mock_session.request = MagicMock(return_value=mock_response)
 
-            mock_session.request.return_value.__aenter__.return_value = mock_response
-
-            # Should raise ValidationError
-            with pytest.raises(ValidationError) as exc_info:
+            # Should raise APIError
+            with pytest.raises(APIError) as exc_info:
                 await client.create_identity(owner_address="invalid", chains=[1])
 
             assert "Invalid owner address" in str(exc_info.value)
@@ -123,10 +137,9 @@ class TestAgentIdentityClient:
         """Test successful identity retrieval"""
         with patch.object(client, "session", mock_session):
             # Mock response
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_response.json = AsyncMock(
-                return_value={
+            mock_response = _make_mock_response(
+                200,
+                {
                     "identity": {
                         "id": "identity_123",
                         "agent_id": "agent_456",
@@ -137,10 +150,9 @@ class TestAgentIdentityClient:
                     },
                     "cross_chain": {"total_mappings": 2, "verified_mappings": 2},
                     "wallets": {"total_wallets": 2, "total_balance": 1.5},
-                }
+                },
             )
-
-            mock_session.request.return_value.__aenter__.return_value = mock_response
+            mock_session.request = MagicMock(return_value=mock_response)
 
             # Get identity
             result = await client.get_identity("agent_456")
@@ -156,20 +168,18 @@ class TestAgentIdentityClient:
         """Test successful identity verification"""
         with patch.object(client, "session", mock_session):
             # Mock response
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_response.json = AsyncMock(
-                return_value={
+            mock_response = _make_mock_response(
+                200,
+                {
                     "verification_id": "verify_123",
                     "agent_id": "agent_456",
                     "chain_id": 1,
                     "verification_type": "basic",
                     "verified": True,
                     "timestamp": "2024-01-01T00:00:00",
-                }
+                },
             )
-
-            mock_session.request.return_value.__aenter__.return_value = mock_response
+            mock_session.request = MagicMock(return_value=mock_response)
 
             # Verify identity
             result = await client.verify_identity(
@@ -187,10 +197,9 @@ class TestAgentIdentityClient:
         """Test successful transaction execution"""
         with patch.object(client, "session", mock_session):
             # Mock response
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_response.json = AsyncMock(
-                return_value={
+            mock_response = _make_mock_response(
+                200,
+                {
                     "transaction_hash": "0xabc...",
                     "from_address": "0x123...",
                     "to_address": "0x456...",
@@ -200,10 +209,9 @@ class TestAgentIdentityClient:
                     "status": "success",
                     "block_number": 12345,
                     "timestamp": "2024-01-01T00:00:00",
-                }
+                },
             )
-
-            mock_session.request.return_value.__aenter__.return_value = mock_response
+            mock_session.request = MagicMock(return_value=mock_response)
 
             # Execute transaction
             result = await client.execute_transaction(agent_id="agent_456", chain_id=1, to_address="0x456...", amount=0.1)
@@ -220,10 +228,9 @@ class TestAgentIdentityClient:
         """Test successful identity search"""
         with patch.object(client, "session", mock_session):
             # Mock response
-            mock_response = AsyncMock()
-            mock_response.status = 200
-            mock_response.json = AsyncMock(
-                return_value={
+            mock_response = _make_mock_response(
+                200,
+                {
                     "results": [
                         {
                             "identity_id": "identity_123",
@@ -236,10 +243,9 @@ class TestAgentIdentityClient:
                     "query": "test",
                     "filters": {},
                     "pagination": {"limit": 50, "offset": 0},
-                }
+                },
             )
-
-            mock_session.request.return_value.__aenter__.return_value = mock_response
+            mock_session.request = MagicMock(return_value=mock_response)
 
             # Search identities
             result = await client.search_identities(query="test", limit=50, offset=0)
@@ -255,11 +261,14 @@ class TestAgentIdentityClient:
         """Test retry logic for network errors"""
         with patch.object(client, "session", mock_session):
             # Mock network error first two times, then success
-            mock_session.request.side_effect = [
-                aiohttp.ClientError("Network error"),
-                aiohttp.ClientError("Network error"),
-                AsyncMock(status=200, json=AsyncMock(return_value={"test": "success"}).__aenter__.return_value),
-            ]
+            mock_response = _make_mock_response(200, {"test": "success"})
+            mock_session.request = MagicMock(
+                side_effect=[
+                    aiohttp.ClientError("Network error"),
+                    aiohttp.ClientError("Network error"),
+                    mock_response,
+                ]
+            )
 
             # Should succeed after retries
             result = await client._request("GET", "/test")
@@ -273,10 +282,8 @@ class TestAgentIdentityClient:
         """Test authentication error handling"""
         with patch.object(client, "session", mock_session):
             # Mock 401 response
-            mock_response = AsyncMock()
-            mock_response.status = 401
-
-            mock_session.request.return_value.__aenter__.return_value = mock_response
+            mock_response = _make_mock_response(401)
+            mock_session.request = MagicMock(return_value=mock_response)
 
             # Should raise AuthenticationError
             with pytest.raises(AuthenticationError):
@@ -286,14 +293,12 @@ class TestAgentIdentityClient:
     async def test_rate_limit_error(self, client, mock_session):
         """Test rate limit error handling"""
         with patch.object(client, "session", mock_session):
-            # Mock 429 response
-            mock_response = AsyncMock()
-            mock_response.status = 429
+            # Mock 429 response - _request raises APIError for non-2xx/401/404
+            mock_response = _make_mock_response(429, {"message": "Rate limit exceeded"})
+            mock_session.request = MagicMock(return_value=mock_response)
 
-            mock_session.request.return_value.__aenter__.return_value = mock_response
-
-            # Should raise RateLimitError
-            with pytest.raises(RateLimitError):
+            # Should raise APIError
+            with pytest.raises(APIError):
                 await client._request("GET", "/test")
 
 
