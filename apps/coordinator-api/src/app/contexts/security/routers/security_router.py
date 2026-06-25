@@ -15,7 +15,6 @@ from aitbc.rate_limiting import rate_limit
 from ....auth import AdminDep  # NEW: JWT auth
 
 # from ....deps import require_admin_key  # OLD: API key auth (deprecated)
-from app.contexts.agent_coordination.domain.agent import AIAgentWorkflow
 from ....services.agent_coordination.security import (
     AgentAuditLog,
     AgentAuditor,
@@ -188,14 +187,13 @@ async def validate_workflow_security(
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Validate workflow security requirements"""
     try:
-        workflow = session.get(AIAgentWorkflow, workflow_id)
-        if not workflow:
-            raise HTTPException(status_code=404, detail="Workflow not found")
-        if workflow.owner_id != user["sub"]:
-            raise HTTPException(status_code=403, detail="Access denied")
         security_manager = AgentSecurityManager(session)  # type: ignore[arg-type]
-        validation_result = await security_manager.validate_workflow_security(workflow, user["sub"])
+        validation_result = await security_manager.validate_workflow_security_by_id(workflow_id, user["sub"])
         return validation_result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:

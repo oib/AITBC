@@ -6,7 +6,14 @@
 
 **Context**: v0.5.13 completed the bounded-context migration (Tiers 1–3): 10 domain models moved from flat `app/domain/` to their owning `contexts/<bc>/domain/` directories. The T3 commit documented 4 remaining cross-context dependencies that were explicitly out of scope for v0.5.13. This release addresses them.
 
-**Status**: Not started.
+**Status**: Complete — all 5 tasks done (X1–X5). 4 targeted cross-context dependencies eliminated; 9 additional pre-existing cross-context imports documented for future work.
+
+---
+
+## Decisions (resolved 2026-06-25, long-term pros/cons basis)
+
+- **X2/X3 → (A) Move model to consuming context's `domain/`.** Verified `agent_coordination` references `ReinforcementLearningConfig` and `FusionModel` only inside `agent_performance.py` (the definition file) — no other agent_coordination service/router uses them, so moving them creates **no reversed dependency**. SQLModel table names are unchanged → no DB migration. Long-term: ownership aligns with the sole consumer; the only con is a *hypothetical* future cost (if `agent_coordination` ever needs these models). Rejected (B) shared-kernel: persistent dumping-ground anti-pattern. Rejected (C): doesn't meet the release goal.
+- **X4 → (A) Merge `ai_analytics` into `analytics` as a sub-package.** `ai_analytics` has no domain models and no routes — it is a service layer over `analytics` models, not a separate bounded context. Long-term: (A)'s only con is *hypothetical/deferrable* (re-extraction if `ai_analytics` ever grows its own domain — YAGNI). Rejected (B) service interface: its 7-class façade must track every model change *forever* — a certain, ongoing maintenance cost — while providing only illusory decoupling (ai_analytics still depends on the data shapes). Rejected (C): doesn't meet the release goal.
 
 ---
 
@@ -14,11 +21,11 @@
 
 | # | Task | Priority | Status |
 |---|------|----------|--------|
-| X1 | `security` → `agent_coordination.domain.agent` — extract `AIAgentWorkflow` DTO or service interface | Medium | ⬜ TODO |
-| X2 | `advanced_rl` → `agent_coordination.domain.agent_performance` — extract `ReinforcementLearningConfig` to shared kernel or DTO | Medium | ⬜ TODO |
-| X3 | `multimodal` → `agent_coordination.domain.agent_performance` — extract `FusionModel` to shared kernel or DTO | Medium | ⬜ TODO |
-| X4 | `ai_analytics` → `analytics.domain.analytics` — introduce analytics service interface or shared kernel | Medium | ⬜ TODO |
-| X5 | Verify zero cross-context domain-model imports remain + update audit docs | High | ⬜ TODO |
+| X1 | `security` → `agent_coordination.domain.agent` — extract `WorkflowSecurityView` DTO / service-interface method | Medium | ✅ DONE |
+| X2 | Move `ReinforcementLearningConfig` to `contexts/advanced_rl/domain/` (decision A) | Medium | ✅ DONE |
+| X3 | Move `FusionModel` to `contexts/multimodal/domain/` (decision A) | Medium | ✅ DONE |
+| X4 | Merge `ai_analytics` into `analytics` as a sub-package (decision A) | Medium | ✅ DONE |
+| X5 | Verify zero cross-context domain-model imports remain + update audit docs | High | ✅ DONE |
 
 ---
 
@@ -106,3 +113,69 @@ grep -rn "from app\.contexts\.\w*\.domain\." contexts/ | grep -v "__pycache__" |
 - All tasks are in Agent B's domain (`apps/coordinator-api/`).
 - No files in `aitbc/` are affected.
 - No conflict with Agent A.
+
+---
+
+## X5 Verification Results (2026-06-25)
+
+### Targeted dependencies — all 4 eliminated ✅
+
+| # | Dependency | Status | How |
+|---|-----------|--------|-----|
+| X1 | `security` → `agent_coordination.domain.agent` (`AIAgentWorkflow`) | ✅ Eliminated | Added `validate_workflow_security_by_id` method to `AgentSecurityManager` (encapsulates workflow lookup + ownership check). Router no longer imports `AIAgentWorkflow`. |
+| X2 | `advanced_rl` → `agent_coordination.domain.agent_performance` (`ReinforcementLearningConfig`) | ✅ Eliminated | Moved model to `contexts/advanced_rl/domain/rl_config.py`. Table name `rl_configurations` unchanged — no DB migration. 2 consumer files updated. |
+| X3 | `multimodal` → `agent_coordination.domain.agent_performance` (`FusionModel`) | ✅ Eliminated | Moved model to `contexts/multimodal/domain/fusion_model.py`. Table name `fusion_models` unchanged — no DB migration. 1 consumer file updated. |
+| X4 | `ai_analytics` → `analytics.domain.analytics` (7 classes, 101 refs) | ✅ Eliminated | Merged `ai_analytics` context into `analytics` as `services/ai_analytics/` sub-package. 101 refs became intra-context. 3 external references + security matrix updated. `ai_analytics/` context directory removed. |
+
+### Newly discovered pre-existing cross-context imports (NOT in v0.5.14 scope)
+
+The X5 verification sweep discovered additional cross-context domain-model imports that were **not** part of the 4 documented dependencies. These pre-date v0.5.14 and are candidates for a future release:
+
+| Importer context → Target context | Files | Model(s) |
+|-----------------------------------|-------|----------|
+| `certification` → `reputation` | 3 (badge_system, certification_system, partnership_manager) | `AgentReputation` |
+| `marketplace` → `cross_chain` | 2 (global_marketplace_integration router + service) | `TransactionPriority` |
+| `marketplace` → `agent_identity` | 1 (global_marketplace.py) | `AgentIdentity` |
+| `rewards` → `reputation` | 2 (rewards router, reward_service) | `AgentReputation` |
+| `edge_gpu` → `marketplace` | 1 (edge_gpu_service.py) | `ConsumerGPUProfile`, `EdgeGPUMetrics`, `GPUArchitecture` |
+
+**Total: 9 cross-context domain-model imports across 5 importer contexts.**
+
+These were likely formalized during v0.5.13's T2/T2-r migrations (when `reputation` and `chain_transaction` models moved to their owning contexts) but were not documented as remaining dependencies in the T3 audit. They are out of scope for v0.5.14.
+
+### Legacy flat-domain imports (app.domain.* — separate concern)
+
+12 occurrences across 8 files import from the old flat `app/domain/` directory rather than from bounded contexts. These are a separate migration concern (models not yet moved to `contexts/<bc>/domain/`):
+
+- `bounty/routers/bounty.py` → `app.domain.bounty`
+- `community/routers/community.py` → `app.domain.community`
+- `developer_platform/routers/developer_platform.py` → `app.domain.developer_platform`
+- `governance` (4 files) → `app.domain.governance`, `app.domain.dao_governance`
+- `staking` (2 files) → `app.domain.bounty`
+- `trading/services/trading_marketplace/dynamic_pricing.py` → `app.domain.pricing_models`
+- `wallet` (2 files) → `app.domain.wallet`
+
+### Verification commands run
+
+```bash
+# Import resolution check — all modified modules load correctly
+cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -c "
+from app.contexts.advanced_rl.domain import ReinforcementLearningConfig
+from app.contexts.multimodal.domain import FusionModel
+from app.contexts.analytics.services.ai_analytics.analytics import AnalyticsEngine
+from app.contexts.analytics.services.ai_analytics.adaptive_learning import AdaptiveLearningService
+from app.services.agent_coordination.security import AgentSecurityManager
+from app.contexts.security.routers.security_router import router
+from app.contexts.advanced_ai.routers.adaptive_learning_health import router
+from app.services.adaptive_learning_app import app
+"
+# → All imports OK. Table names unchanged (rl_configurations, fusion_models).
+
+# Ruff — all modified files pass
+cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m ruff check \
+  src/app/contexts/analytics/ src/app/contexts/advanced_rl/ src/app/contexts/multimodal/ \
+  src/app/contexts/security/routers/security_router.py src/app/services/agent_coordination/security.py \
+  src/app/services/adaptive_learning_app.py src/app/contexts/advanced_ai/routers/adaptive_learning_health.py \
+  src/app/auth/security_matrix.py
+# → All checks passed!
+```
