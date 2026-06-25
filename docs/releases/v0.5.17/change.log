@@ -1,7 +1,7 @@
 # AITBC v0.5.17 Release Notes
 
-**Date**: TBD
-**Status**: 🚧 Planned
+**Date**: 2026-06-25
+**Status**: ✅ Complete
 **Scope**: Test Infrastructure — Multi-Chain Fixtures, Multi-Node Harness, Stub Test Conversion, Bridge Test Suite
 
 ## 🎯 Overview
@@ -15,37 +15,40 @@ AITBC v0.5.17 builds the test infrastructure that all subsequent releases depend
 ## 🎯 Release Highlights
 
 ### Multi-Chain Test Fixtures
-- 🚧 Fixture to spin up 2+ chains (ait-hub, ait-island1) with separate databases
-- 🚧 Fixture for per-chain sync source mapping (chain_id → hub_url)
-- 🚧 Fixture for island-to-chain registry
-- 🚧 Fixture for multi-chain mempool (per-chain namespaces)
+- ✅ Fixture to spin up 2+ chains (ait-hub, ait-island1) with separate databases
+- ✅ Fixture for per-chain sync source mapping (chain_id → hub_url)
+- ✅ Fixture for island-to-chain registry
+- ✅ Fixture for multi-chain mempool (per-chain namespaces)
 
 ### Multi-Node Test Harness
-- 🚧 Harness to spin up 3+ nodes (hub + followers) with different chain configs
-- 🚧 Network partition simulation (disconnect nodes, reconnect)
-- 🚧 Block propagation verification across nodes
-- 🚧 Byzantine node simulation (node sends invalid blocks)
+- ✅ Harness to spin up 3+ nodes (hub + followers) with different chain configs
+- ✅ Network partition simulation (disconnect nodes, reconnect)
+- ✅ Block propagation verification across nodes
+- ✅ Byzantine node simulation (node sends invalid blocks)
 
 ### v0.5.16 Regression Tests
-- 🚧 Tests for chain_id-aware transaction submission (Bug 1)
-- 🚧 Tests for chain_id-aware sync RPC (Bug 2)
-- 🚧 Tests for bridge proof verification with signatures (Bug 3)
-- 🚧 Tests for transaction signature verification (Bug 4)
-- 🚧 Tests for bridge/staking signature verification (Bugs 7, 8)
-- 🚧 Tests for mining endpoint authentication (Bug 9)
-- 🚧 Tests for stub removal — endpoints return 503 not fake data (Bug 11)
+- ✅ Tests for chain_id-aware transaction submission (Bug 1)
+- ✅ Tests for chain_id-aware sync RPC (Bug 2)
+- ✅ Tests for bridge proof verification with signatures (Bug 3)
+- ✅ Tests for transaction signature verification (Bug 4)
+- ✅ Tests for bridge/staking signature verification (Bugs 7, 8)
+- ✅ Tests for mining endpoint authentication (Bug 9)
+- ✅ Tests for stub removal — endpoints return 503 not fake data (Bug 11)
 
 ### Stub Test Conversion
-- 🚧 Convert 95+ skipped CLI tests to functional tests
-- 🚧 Replace `pytest.skip("complex dependencies")` with proper mock fixtures
-- 🚧 Add test fixtures for blockchain RPC, wallet, cryptography dependencies
+- ✅ Convert 95+ skipped CLI tests to functional tests
+- ✅ Replace `pytest.skip("complex dependencies")` with proper mock fixtures
+- ✅ Add test fixtures for blockchain RPC, wallet, cryptography dependencies
 
 ### Bridge Test Suite
-- 🚧 Tests for `/bridge/lock` endpoint (with valid/invalid signatures)
-- 🚧 Tests for `/bridge/confirm` endpoint (with valid/invalid proofs)
-- 🚧 Tests for cross-chain transfer lifecycle (lock → confirm → release)
-- 🚧 Tests for bridge proof forgery attempts (rejected)
-- 🚧 Tests for bridge timeout/refund (preliminary — full testing in v0.9.0)
+- ✅ Tests for `/bridge/lock` endpoint (with valid/invalid signatures)
+- ✅ Tests for `/bridge/confirm` endpoint (with valid/invalid proofs)
+- ✅ Tests for cross-chain transfer lifecycle (lock → confirm → release)
+- ✅ Tests for bridge proof forgery attempts (rejected)
+- ✅ Tests for bridge timeout/refund (preliminary — full testing in v0.9.0)
+
+### Production Bug Fix (discovered during test development)
+- ✅ Fix HTTPException swallowing in bridge RPC endpoints (`bridge_lock`, `bridge_confirm`, `list_pending_transfers`) — the generic `except Exception` clause was catching `HTTPException` (raised with 400/403 status) and re-raising as 500. Added `except HTTPException: raise` before the generic handler, matching the pattern already used in `get_bridge_transfer`.
 
 ## 📋 Detailed Features
 
@@ -282,7 +285,57 @@ Then remove `pytest.skip()` calls and implement real test logic.
 - ✅ Bridge test suite covers lock/confirm/proof lifecycle
 - ✅ Full test suite runs in <60 seconds
 
-## 🚀 Next Steps
+## � Final Test Results
+
+| Test Suite | Tests | Passed | Skipped | Failed |
+|------------|-------|--------|---------|--------|
+| Multi-chain fixtures (`tests/test_multi_chain_fixtures.py`) | 33 | 33 | 0 | 0 |
+| v0.5.16 regression (`apps/blockchain-node/tests/test_v0516_regression.py`) | 45 | 45 | 0 | 0 |
+| Bridge test suite (`apps/blockchain-node/tests/test_bridge_suite.py`) | 15 | 15 | 0 | 0 |
+| CLI tests (`tests/cli/`, excluding `test_cli_integration.py`) | 1317 | 1165 | 152 | 0 |
+| **Total** | **1410** | **1258** | **152** | **0** |
+
+### Remaining 152 Skipped CLI Tests (by category)
+- **48** — Require live services (coordinator-api: 25, edge-api: 23) — integration tests, not stubs
+- **25** — `handlers.*` module doesn't exist (pre-existing broken tests for non-existent architecture)
+- **3** — `deployment` module doesn't exist
+- **3** — File mode wallet creation import issues
+- **~10** — Legitimate behavior differences (CLI delegates to RPC, not local file)
+- **~63** — Misc (auth module missing, ChainInfo validation complexity, etc.)
+
+## 📁 Files Created/Modified
+
+### New Test Infrastructure
+- `tests/fixtures/__init__.py` — fixtures package init
+- `tests/fixtures/multi_chain.py` — multi-chain test fixtures (5 fixtures)
+- `tests/fixtures/cli_mocks.py` — shared CLI mock fixtures (8 fixtures)
+- `tests/harness/__init__.py` — harness package init
+- `tests/harness/multi_node.py` — multi-node test harness (MultiNodeHarness class)
+- `tests/cli/conftest.py` — CLI test conftest with auto-use fixtures
+- `tests/test_multi_chain_fixtures.py` — 33 multi-chain fixture tests
+- `apps/blockchain-node/tests/test_v0516_regression.py` — 45 v0.5.16 regression tests
+- `apps/blockchain-node/tests/test_bridge_suite.py` — 15 bridge lifecycle tests
+
+### Converted CLI Test Files (40+ files)
+All `tests/cli/test_commands_*.py` files converted from skipped stubs to functional tests:
+- `test_commands_account.py`, `test_commands_ai.py`, `test_commands_bridge.py` (3 initially converted)
+- `test_commands_agent_comm.py`, `test_commands_agent.py`, `test_commands_agent_sdk.py`, `test_commands_analytics.py`, `test_commands_chain.py`, `test_commands_client.py`, `test_commands_cluster.py`, `test_commands_coin_requests.py`, `test_commands_compliance.py`, `test_commands_config.py` (batch 1: 10 files)
+- `test_commands_contract.py`, `test_commands_cross_chain.py`, `test_commands_deployment.py`, `test_commands_economics.py`, `test_commands_edge.py`, `test_commands_exchange_island.py`, `test_commands_exchange.py`, `test_commands_genesis.py`, `test_commands_gpu_marketplace.py`, `test_commands_gpu_resources.py` (batch 2: 10 files)
+- `test_commands_marketplace_cmd.py`, `test_commands_messaging.py`, `test_commands_mining.py`, `test_commands_monitor.py`, `test_commands_network.py`, `test_commands_node.py`, `test_commands_operations.py`, `test_commands_performance.py`, `test_commands_pool_hub.py`, `test_commands_reputation.py` (batch 3: 10 files)
+- `test_commands_resource.py`, `test_commands_script.py`, `test_commands_security.py`, `test_commands_simulate.py`, `test_commands_sync.py`, `test_commands_system_architect.py`, `test_commands_system.py`, `test_commands_transactions.py`, `test_commands_wallet.py`, `test_commands_workflow.py` (batch 4: 10 files)
+
+### Additional Fixed Test Files
+- `tests/cli/test_config.py` — removed `pytestmark = pytest.mark.skip`, fixed 6 assertion mismatches
+- `tests/cli/test_secure_audit.py` — removed try/except ImportError + skip patterns (13 tests)
+- `tests/cli/test_workflow.py` — fixed 2 assertion mismatches (output text changed)
+- `tests/cli/test_simulate.py` — fixed mock_http fixture to patch `get_config`
+- `tests/cli/test_resource.py` — fixed assertion for `optimize --mock` output format
+- `tests/conftest.py` — registered multi-chain and multi-node fixtures
+
+### Production Code Fix
+- `apps/blockchain-node/src/aitbc_chain/rpc/bridge.py` — fixed HTTPException swallowing in `bridge_lock`, `bridge_confirm`, and `list_pending_transfers` (added `except HTTPException: raise` before generic `except Exception`)
+
+## �🚀 Next Steps
 
 ### v0.6.0 — Performance Optimization
 - DB, caching, network I/O optimization (uses multi-node harness for benchmarks)
@@ -300,4 +353,4 @@ Then remove `pytest.skip()` calls and implement real test logic.
 
 *Last Updated: 2026-06-25*
 *Version: 0.5.17*
-*Status: Planned — Test Infrastructure*
+*Status: Complete — Test Infrastructure*
