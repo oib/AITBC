@@ -15,7 +15,7 @@ GENESIS_IP="10.1.223.93"
 FOLLOWER_IP="10.1.223.40"
 FOLLOWER2_IP="10.1.223.98"  # gitea-runner/aitbc2
 PORT=8006
-CLI_PATH="${CLI_PATH:-${REPO_ROOT}/aitbc-cli}"
+CLI_PATH="${CLI_PATH:-aitbc}"
 LOG_DIR="/var/log/aitbc"
 LOG_FILE="${LOG_DIR}/blockchain-communication-test.log"
 MONITOR_LOG="${LOG_DIR}/blockchain-monitor.log"
@@ -135,13 +135,13 @@ test_connectivity() {
 
     # Test P2P connectivity
     log_debug "Testing P2P connectivity"
-    if ${CLI_PATH} network ping --node aitbc1 --host ${FOLLOWER_IP} --port ${PORT} --debug > /dev/null 2>&1; then
+    if ${CLI_PATH} network test --peer "${FOLLOWER_IP}:${PORT}" > /dev/null 2>&1; then
         log_success "P2P connectivity to aitbc1 is working"
     else
         log_warning "P2P connectivity to aitbc1 test failed (may not be critical)"
     fi
 
-    if ${CLI_PATH} network ping --node aitbc2 --host ${FOLLOWER2_IP} --port ${PORT} --debug > /dev/null 2>&1; then
+    if ${CLI_PATH} network test --peer "${FOLLOWER2_IP}:${PORT}" > /dev/null 2>&1; then
         log_success "P2P connectivity to aitbc2 is working"
     else
         log_warning "P2P connectivity to aitbc2 test failed (may not be critical)"
@@ -149,7 +149,7 @@ test_connectivity() {
 
     # Check peers
     log_debug "Checking peer list"
-    ${CLI_PATH} network peers --verbose >> "${LOG_FILE}" 2>&1
+    ${CLI_PATH} network peers >> "${LOG_FILE}" 2>&1
 
     return 0
 }
@@ -159,17 +159,17 @@ test_blockchain_status() {
 
     # Get genesis node status
     log_debug "Getting genesis node blockchain info"
-    GENESIS_HEIGHT=$(NODE_URL="http://${GENESIS_IP}:${PORT}" ${CLI_PATH} blockchain height --output json 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
+    GENESIS_HEIGHT=$(NODE_URL="http://${GENESIS_IP}:${PORT}" ${CLI_PATH} chain status 2>/dev/null | grep -oiE 'block height[: ]*[0-9]+' | grep -o '[0-9]*' || echo "0")
     log_info "Genesis node block height: ${GENESIS_HEIGHT}"
 
     # Get follower node (aitbc1) status
     log_debug "Getting follower node (aitbc1) blockchain info"
-    FOLLOWER_HEIGHT=$(NODE_URL="http://${FOLLOWER_IP}:${PORT}" ${CLI_PATH} blockchain height --output json 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
+    FOLLOWER_HEIGHT=$(NODE_URL="http://${FOLLOWER_IP}:${PORT}" ${CLI_PATH} chain status 2>/dev/null | grep -oiE 'block height[: ]*[0-9]+' | grep -o '[0-9]*' || echo "0")
     log_info "Follower node (aitbc1) block height: ${FOLLOWER_HEIGHT}"
 
     # Get follower node (aitbc2/gitea-runner) status
     log_debug "Getting follower node (aitbc2/gitea-runner) blockchain info"
-    FOLLOWER2_HEIGHT=$(NODE_URL="http://${FOLLOWER2_IP}:${PORT}" ${CLI_PATH} blockchain height --output json 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
+    FOLLOWER2_HEIGHT=$(NODE_URL="http://${FOLLOWER2_IP}:${PORT}" ${CLI_PATH} chain status 2>/dev/null | grep -oiE 'block height[: ]*[0-9]+' | grep -o '[0-9]*' || echo "0")
     log_info "Follower node (aitbc2/gitea-runner) block height: ${FOLLOWER2_HEIGHT}"
 
     # Compare heights
@@ -203,21 +203,24 @@ test_transaction() {
 
     # Create test wallets
     log_debug "Creating test wallets"
-    ${CLI_PATH} wallet create --name test-comm-sender --password test123 --yes --no-confirm >> "${LOG_FILE}" 2>&1 || true
-    ${CLI_PATH} wallet create --name test-comm-receiver --password test123 --yes --no-confirm >> "${LOG_FILE}" 2>&1 || true
+    ${CLI_PATH} wallet create test-comm-sender >> "${LOG_FILE}" 2>&1 || true
+    ${CLI_PATH} wallet create test-comm-receiver >> "${LOG_FILE}" 2>&1 || true
 
     # Check if sender has balance
-    SENDER_BALANCE=$(${CLI_PATH} wallet balance --name test-comm-sender --output json 2>/dev/null | grep -o '"balance":[0-9.]*' | grep -o '[0-9.]*' || echo "0")
+    SENDER_BALANCE=$(${CLI_PATH} wallet balance test-comm-sender 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1 || echo "0")
 
     if [ $(echo "${SENDER_BALANCE} < 1" | bc) -eq 1 ]; then
         log_warning "Test sender wallet has insufficient balance, skipping transaction test"
         return 0
     fi
 
+    # Get receiver address
+    RECEIVER_ADDR=$(${CLI_PATH} wallet balance test-comm-receiver 2>/dev/null | grep -oE 'ait1[a-zA-Z0-9]+' | head -1 || echo "")
+
     # Send transaction
     log_debug "Sending test transaction"
     TX_START=$(date +%s)
-    ${CLI_PATH} wallet send --from test-comm-sender --to test-comm-receiver --amount 1 --password test123 --yes --verbose >> "${LOG_FILE}" 2>&1
+    ${CLI_PATH} transactions send --from test-comm-sender --to "${RECEIVER_ADDR}" --amount 1 >> "${LOG_FILE}" 2>&1
     TX_END=$(date +%s)
     TX_TIME=$((TX_END - TX_START))
 
@@ -240,7 +243,7 @@ test_agent_messaging() {
 
     # This test requires existing agents
     log_debug "Checking for existing agents"
-    AGENTS=$(${CLI_PATH} agent list --output json 2>/dev/null || echo "[]")
+    AGENTS=$(${CLI_PATH} agent-comm list --format json 2>/dev/null || echo "[]")
 
     if [ "${AGENTS}" = "[]" ]; then
         log_warning "No agents found, skipping agent messaging test"
@@ -248,7 +251,7 @@ test_agent_messaging() {
     fi
 
     # Get first agent ID
-    AGENT_ID=$(echo "${AGENTS}" | grep -o '"id":"[^"]*"' | head -1 | grep -o ':[^:]*$' | tr -d '"' || echo "")
+    AGENT_ID=$(echo "${AGENTS}" | grep -o '"agent_id":"[^"]*"' | head -1 | grep -o ':[^:]*$' | tr -d '"' || echo "")
 
     if [ -z "${AGENT_ID}" ]; then
         log_warning "Could not get agent ID, skipping agent messaging test"
@@ -258,7 +261,7 @@ test_agent_messaging() {
     # Send test message
     log_debug "Sending test message to agent ${AGENT_ID}"
     MSG_START=$(date +%s)
-    ${CLI_PATH} agent message --to ${AGENT_ID} --content "Blockchain communication test message" --debug >> "${LOG_FILE}" 2>&1
+    ${CLI_PATH} agent send "Blockchain communication test message" --to-agent "${AGENT_ID}" >> "${LOG_FILE}" 2>&1
     MSG_END=$(date +%s)
     MSG_TIME=$((MSG_END - MSG_START))
 
