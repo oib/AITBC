@@ -1,9 +1,11 @@
-"""Domain models for the coordinator API."""
+"""Domain models for the coordinator API.
 
-# agent.py and agent_performance.py have been migrated to
-# contexts/agent_coordination/domain/. Re-exported here so that
-# SQLModel.metadata table registration still happens when app.domain
-# is imported (e.g. during init_db), and any legacy name imports keep working.
+Compatibility shim — all model files have been migrated to bounded contexts.
+Re-exports are kept here so that SQLModel.metadata table registration still
+happens when app.domain is imported (e.g. during init_db), and legacy
+name imports keep working.
+"""
+
 from ..contexts.agent_coordination.domain.agent import (
     AgentExecution,
     AgentMarketplace,
@@ -13,10 +15,7 @@ from ..contexts.agent_coordination.domain.agent import (
     AIAgentWorkflow,
     VerificationLevel,
 )
-from .job import Job
-from .job_receipt import JobReceipt
-from .miner import Miner
-from .user import Transaction, User, UserSession, Wallet
+from ..contexts.infrastructure.domain import Job, JobReceipt, Miner, Transaction, User, UserSession, Wallet
 
 __all__ = [
     "Job",

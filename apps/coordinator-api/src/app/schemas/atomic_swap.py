@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 
-from ..domain.atomic_swap import SwapStatus
+from ..contexts.cross_chain.domain.atomic_swap import SwapStatus
 
 
 class SwapCreateRequest(BaseModel):

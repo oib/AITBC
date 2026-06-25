@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 
-from ..domain.federated_learning import TrainingStatus
+from ..contexts.advanced_ai.domain.federated_learning import TrainingStatus
 
 
 class FederatedSessionCreate(BaseModel):

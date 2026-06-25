@@ -15,6 +15,16 @@ from app.contexts.trading.domain.pricing_models import (
     ProviderPricingStrategy,
     ResourceType,
 )
+from app.contexts.trading.domain.pricing_strategies import (
+    PricingStrategy,
+    PricingStrategyConfig,
+    RiskTolerance,
+    StrategyLibrary,
+    StrategyOptimizer,
+    StrategyParameters,
+    StrategyPriority,
+    StrategyRule,
+)
 
 __all__ = [
     "MarketHeatmapView",
@@ -26,8 +36,16 @@ __all__ = [
     "PricingHistory",
     "PricingOptimization",
     "PricingRule",
+    "PricingStrategy",
+    "PricingStrategyConfig",
     "PricingStrategyType",
     "PricingSummaryView",
     "ProviderPricingStrategy",
     "ResourceType",
+    "RiskTolerance",
+    "StrategyLibrary",
+    "StrategyOptimizer",
+    "StrategyParameters",
+    "StrategyPriority",
+    "StrategyRule",
 ]
