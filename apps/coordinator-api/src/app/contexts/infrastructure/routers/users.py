@@ -16,9 +16,9 @@ from sqlmodel import Session, select
 
 from aitbc.rate_limiting import rate_limit
 
-from ..contexts.infrastructure.domain import User, Wallet
-from ..schemas import UserBalance, UserCreate, UserLogin, UserProfile
-from ..storage import get_session
+from ...infrastructure.domain import User, Wallet
+from ....schemas import UserBalance, UserCreate, UserLogin, UserProfile
+from ....storage import get_session
 
 router = APIRouter(tags=["users"])
 

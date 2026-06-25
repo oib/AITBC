@@ -8,11 +8,11 @@ from sqlalchemy.orm import Session
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ..auth import MinerDep
-from ..schemas import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest
-from ..services import JobService, MinerService
-from ..contexts.infrastructure.services.receipts import ReceiptService
-from ..storage import get_session
+from ....auth import MinerDep
+from ....schemas import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest
+from ....services import JobService, MinerService
+from ...infrastructure.services.receipts import ReceiptService
+from ....storage import get_session
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["miner"])
@@ -92,7 +92,7 @@ async def submit_result(
     session.add(job)
     session.commit()
     if job.payment_id and job.payment_status == "escrowed":
-        from ..contexts.payments.services.payments import PaymentService
+        from ...payments.services.payments import PaymentService
 
         payment_service = PaymentService(session)
         success = await payment_service.release_payment(job.id, job.payment_id, reason="Job completed successfully")
