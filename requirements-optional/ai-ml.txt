@@ -19,3 +19,6 @@ transformers>=4.0.0
 numpy>=1.24.0
 pandas>=2.2.0
 torchvision>=0.15.0
+
+# GPU acceleration (coordinator-api gpu_optimizer.py — requires /dev/nvidia-uvm in containers)
+pycuda>=2024.1
