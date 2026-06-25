@@ -28,7 +28,7 @@ class TestMarketplaceRouter:
 
         # Import and test
         from app.main import create_app
-        from app.routers.marketplace import router
+        from app.contexts.marketplace.routers.marketplace import router
 
         app = create_app()
         app.include_router(router)
@@ -50,7 +50,7 @@ class TestMarketplaceRouter:
 
         # Import and test
         from app.main import create_app
-        from app.routers.marketplace import router
+        from app.contexts.marketplace.routers.marketplace import router
 
         app = create_app()
         app.include_router(router)
