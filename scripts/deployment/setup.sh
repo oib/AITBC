@@ -544,7 +544,11 @@ setup_node_profiles() {
             log "Using default follower configuration for open island"
             BLOCKCHAIN_MODE="follower"
             MARKET_ROLE="customer"
-            HARDWARE_PROFILE="nogpu"
+            detect_gpu
+            HARDWARE_PROFILE="$DETECTED_HARDWARE"
+            if [ "$HARDWARE_PROFILE" = "gpu" ]; then
+                log "GPU detected: ${GPU_NAME:-unknown} — setting HARDWARE_PROFILE=gpu"
+            fi
 
             set_env_blockchain() {
                 local key="$1"
@@ -609,14 +613,25 @@ setup_node_profiles() {
             ;;
     esac
 
-    # Prompt for hardware profile
+    # Prompt for hardware profile (auto-detect via nvidia-smi)
+    detect_gpu
     echo ""
     echo "=== Hardware Profile Selection ==="
-    echo "Select the hardware profile for this node:"
-    echo "  1) nogpu - No GPU available (default)"
-    echo "  2) gpu   - GPU available for compute"
-    read -p "Enter choice [1-2] (default: 1): " hardware_choice
-    hardware_choice=${hardware_choice:-1}
+    if [ "$DETECTED_HARDWARE" = "gpu" ]; then
+        log "GPU detected: ${GPU_NAME:-unknown} (${GPU_COUNT:-1} device(s))"
+        echo "Select the hardware profile for this node:"
+        echo "  1) nogpu - No GPU available"
+        echo "  2) gpu   - GPU available for compute (detected: ${GPU_NAME:-unknown})"
+        read -p "Enter choice [1-2] (default: 2): " hardware_choice
+        hardware_choice=${hardware_choice:-2}
+    else
+        log "No GPU detected via nvidia-smi"
+        echo "Select the hardware profile for this node:"
+        echo "  1) nogpu - No GPU available (default)"
+        echo "  2) gpu   - GPU available for compute"
+        read -p "Enter choice [1-2] (default: 1): " hardware_choice
+        hardware_choice=${hardware_choice:-1}
+    fi
 
     case "$hardware_choice" in
         1)
@@ -626,8 +641,8 @@ setup_node_profiles() {
             HARDWARE_PROFILE="gpu"
             ;;
         *)
-            log "Invalid choice, defaulting to nogpu"
-            HARDWARE_PROFILE="nogpu"
+            log "Invalid choice, defaulting to ${DETECTED_HARDWARE}"
+            HARDWARE_PROFILE="$DETECTED_HARDWARE"
             ;;
     esac
 
