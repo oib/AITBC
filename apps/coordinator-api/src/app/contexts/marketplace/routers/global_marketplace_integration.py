@@ -6,7 +6,7 @@ REST API endpoints for integrated global marketplace with cross-chain capabiliti
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from ...cross_chain.domain.chain_transaction import TransactionPriority
+from app.shared_kernel.enums import TransactionPriority
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 

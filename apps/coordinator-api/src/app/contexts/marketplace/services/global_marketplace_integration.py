@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
-from ...cross_chain.domain.chain_transaction import TransactionPriority
+from app.shared_kernel.enums import TransactionPriority
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger

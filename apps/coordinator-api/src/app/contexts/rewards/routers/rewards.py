@@ -210,7 +210,7 @@ async def get_tier_progress(
         profile = session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).first()
         if not profile:
             raise HTTPException(status_code=404, detail="Reward profile not found")
-        from ...reputation.domain.reputation import AgentReputation
+        from ...reputation.services.reputation_service import AgentReputation
 
         reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
         trust_score = reputation.trust_score if reputation else 500.0
