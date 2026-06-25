@@ -24,7 +24,12 @@ from ..contexts.developer_platform.domain.developer_platform import (
     DeveloperProfile,
     RegionalHub,
 )
-from ..schemas.developer_platform import BountyCreate, BountySubmissionCreate, CertificationGrant, DeveloperCreate
+from ..contexts.developer_platform.schemas.developer_platform import (
+    BountyCreate,
+    BountySubmissionCreate,
+    CertificationGrant,
+    DeveloperCreate,
+)
 
 logger = get_logger(__name__)
 

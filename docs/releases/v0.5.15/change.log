@@ -18,6 +18,7 @@
 | P1-4 | Update all files importing via `domain/__init__.py` shim to import directly from `contexts.infrastructure.domain` | Medium | ✅ DONE |
 | X10 | Eliminate cross-context import: `multimodal` → `agent_coordination.domain.agent` (dead code removal) | Medium | ✅ DONE |
 | P2 | Merge flat `reputation/` directory into `contexts/reputation/services/` | Medium | ✅ DONE |
+| P3 | Migrate flat `schemas/` files to owning contexts | Medium | ✅ DONE |
 
 ---
 
@@ -104,9 +105,34 @@ The audit report claimed `services/agent_coordination/`, `services/enterprise_in
 
 ---
 
+## Phase 3: Migrate flat `schemas/` files to owning contexts
+
+**Context**: The flat `app/schemas/` directory contained 9 context-specific schema files (plus a large central `__init__.py` registry). Each file belonged to a specific bounded context but lived outside it.
+
+**Changes**:
+
+| Schema file | Moved to | Importers updated |
+|-------------|----------|-------------------|
+| `schemas/atomic_swap.py` | `contexts/cross_chain/schemas/` | 1 |
+| `schemas/dao_governance.py` | `contexts/governance/schemas/` | 1 |
+| `schemas/decentralized_memory.py` | `contexts/ipfs/schemas/` | 1 |
+| `schemas/developer_platform.py` | `contexts/developer_platform/schemas/` | 2 |
+| `schemas/federated_learning.py` | `contexts/advanced_ai/schemas/` | 1 |
+| `schemas/marketplace_enhanced.py` | `contexts/marketplace/schemas/` | 1 |
+| `schemas/pricing.py` | `contexts/trading/schemas/` | 1 |
+| `schemas/wallet.py` | `contexts/wallet/schemas/` | 2 |
+| `schemas/payments.py` | **DELETED** (dead code — duplicate of schemas already in `schemas/__init__.py`, zero importers) | 0 |
+
+- Created `schemas/` subdirectory with `__init__.py` in 8 contexts
+- Updated internal domain imports in each moved file (from `..contexts.<ctx>.domain.*` to `..domain.*`)
+- Updated all 10 importers with new paths
+- The central `schemas/__init__.py` registry (622 lines) is retained — it contains inline schema definitions for core platform models (Job, User, Miner, payments, etc.) that span multiple contexts
+
+**Result**: Zero references to flat `schemas/<module>.py` files remain. All context-specific schemas now live under their owning bounded contexts.
+
+---
+
 ## Remaining Work (future phases)
 
-- **Phase 3**: Migrate flat `schemas/` files to owning contexts
 - **Phase 4**: Migrate ~40 flat `services/` files to owning contexts
 - **Phase 5**: Migrate ~25 flat `routers/` files to owning contexts
-- **Note**: One cross-context domain-model import remains: `multimodal` → `agent_coordination.domain.agent` (`AgentExecution`, `AgentStatus`) in `multimodal_agent.py`. This was discovered during P1-4 and is a candidate for a future cross-context elimination task.
