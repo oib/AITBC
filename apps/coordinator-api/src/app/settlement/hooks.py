@@ -9,7 +9,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
-from ..domain.job import Job
+from ..contexts.infrastructure.domain import Job
 from .bridges.base import BridgeStatus, SettlementMessage, SettlementResult
 from .manager import BridgeManager
 

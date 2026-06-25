@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..domain.decentralized_memory import MemoryType, StorageStatus
+from ..contexts.ipfs.domain.decentralized_memory import MemoryType, StorageStatus
 
 
 class MemoryNodeCreate(BaseModel):
