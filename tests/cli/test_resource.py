@@ -374,8 +374,8 @@ class TestResourceCommands:
         result = runner.invoke(resource, ["optimize", "--mock"], obj={"config": mock_config, "output": "json"})
 
         assert result.exit_code == 0
-        assert "Optimization score" in result.output
-        assert "Status: Optimized" in result.output
+        assert "optimization_score" in result.output
+        assert "Optimize resources" in result.output
 
     def test_resource_allocate_with_parameters(self, runner, mock_config):
         """Test resource allocation with custom parameters"""

@@ -4,11 +4,11 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
-pytestmark = pytest.mark.skip("Skipping broken test file")
 import yaml  # noqa: E402
 from aitbc_cli.commands.config import config  # noqa: E402
 from click.testing import CliRunner  # noqa: E402
@@ -22,13 +22,14 @@ def runner():
 
 @pytest.fixture
 def mock_config():
-    """Mock configuration"""
-    config = Mock()
-    config.coordinator_url = "http://127.0.0.1:18000"
-    config.api_key = None
-    config.timeout = 30
-    config.config_file = "/home/oib/.aitbc/config.yaml"
-    return config
+    """Mock configuration using SimpleNamespace (JSON-serializable, no Mock auto-attrs)"""
+    return SimpleNamespace(
+        agent_coordinator_url="http://127.0.0.1:18000",
+        coordinator_url="http://127.0.0.1:18000",
+        api_key=None,
+        timeout=30,
+        config_file="/home/oib/.aitbc/config.yaml",
+    )
 
 
 @pytest.fixture
@@ -54,7 +55,7 @@ class TestConfigCommands:
 
         assert result.exit_code == 0
         data = json.loads(result.output)
-        assert data["coordinator_url"] == "http://127.0.0.1:18000"
+        assert data["agent_coordinator_url"] == "http://127.0.0.1:18000"
         assert data["api_key"] is None  # mock_config has api_key=None
         assert data["timeout"] == 30
 
@@ -62,7 +63,7 @@ class TestConfigCommands:
         """Test setting coordinator URL"""
         with runner.isolated_filesystem():
             result = runner.invoke(
-                config, ["set", "coordinator_url", "http://new:8000"], obj={"config": mock_config, "output": "table"}
+                config, ["set", "agent_coordinator_url", "http://new:8000"], obj={"config": mock_config, "output": "table"}
             )
 
             assert result.exit_code == 0
@@ -73,7 +74,7 @@ class TestConfigCommands:
             assert config_file.exists()
             with open(config_file) as f:
                 saved_config = yaml.safe_load(f)
-            assert saved_config["coordinator_url"] == "http://new:8000"
+            assert saved_config["agent_coordinator_url"] == "http://new:8000"
 
     def test_set_api_key(self, runner, mock_config):
         """Test setting API key"""
@@ -341,7 +342,7 @@ class TestConfigCommands:
 
     def test_validate_missing_url(self, runner, mock_config):
         """Test validating config with missing URL"""
-        mock_config.coordinator_url = None
+        mock_config.agent_coordinator_url = None
 
         result = runner.invoke(config, ["validate"], obj={"config": mock_config, "output": "table"})
 
@@ -350,7 +351,7 @@ class TestConfigCommands:
 
     def test_validate_invalid_url(self, runner, mock_config):
         """Test validating config with invalid URL"""
-        mock_config.coordinator_url = "invalid-url"
+        mock_config.agent_coordinator_url = "invalid-url"
 
         result = runner.invoke(config, ["validate"], obj={"config": mock_config, "output": "table"})
 
@@ -385,8 +386,8 @@ class TestConfigCommands:
 
     def test_profiles_save(self, runner, mock_config, tmp_path):
         """Test saving a configuration profile"""
-        # Patch Path.home to return tmp_path
-        with patch("pathlib.Path.home") as mock_home:
+        # Patch Path.home to return tmp_path and get_config to return mock_config
+        with patch("pathlib.Path.home") as mock_home, patch("aitbc_cli.commands.config.get_config", return_value=mock_config):
             mock_home.return_value = tmp_path
 
             result = runner.invoke(
@@ -401,7 +402,7 @@ class TestConfigCommands:
             assert profile_file.exists()
             with open(profile_file) as f:
                 profile_data = yaml.safe_load(f)
-            assert profile_data["coordinator_url"] == "http://127.0.0.1:18000"
+            assert profile_data["agent_coordinator_url"] == "http://127.0.0.1:18000"
 
     def test_profiles_list(self, runner, mock_config, tmp_path):
         """Test listing configuration profiles"""
