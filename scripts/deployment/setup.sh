@@ -964,21 +964,22 @@ setup_venvs() {
         log "Using install-profiles.sh for dependency installation..."
 
         # Try to detect profile from environment if available
-        # Combines BLOCKCHAIN_MODE and MARKET_ROLE as independent axes
+        # Maps role axes to valid install-profiles.sh profile names:
+        #   provider-gpu    — any node with GPU (gets ai-ml.txt with pycuda, torch, etc.)
+        #   hub             — hub node without GPU (full install with dev deps)
+        #   customer-no-gpu — follower + customer, no GPU (lightweight CLI + wallet)
+        #   server-no-gpu   — follower + shop, no GPU (core blockchain services)
         if [ -f "/etc/aitbc/blockchain.env" ]; then
             source /etc/aitbc/blockchain.env
-            local profile_parts=""
-            [ "$BLOCKCHAIN_MODE" = "hub" ] && profile_parts="hub" || profile_parts="follower"
-            if [ "$MARKET_ROLE" = "shop" ] && [ "$HARDWARE_PROFILE" = "gpu" ]; then
-                profile_parts="${profile_parts}-shop-gpu"
-            elif [ "$MARKET_ROLE" = "shop" ]; then
-                profile_parts="${profile_parts}-shop"
-            elif [ "$HARDWARE_PROFILE" = "gpu" ]; then
-                profile_parts="${profile_parts}-gpu"
+            if [ "$HARDWARE_PROFILE" = "gpu" ]; then
+                PROFILE="provider-gpu"
+            elif [ "$BLOCKCHAIN_MODE" = "hub" ]; then
+                PROFILE="hub"
+            elif [ "$MARKET_ROLE" = "customer" ]; then
+                PROFILE="customer-no-gpu"
             else
-                profile_parts="${profile_parts}-customer"
+                PROFILE="server-no-gpu"
             fi
-            PROFILE="$profile_parts"
         fi
 
         log "Installing profile: $PROFILE"
