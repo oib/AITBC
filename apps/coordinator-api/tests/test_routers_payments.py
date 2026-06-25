@@ -22,7 +22,7 @@ class TestPaymentsRouter:
 
         # Import and test
         from app.main import create_app
-        from app.routers.payments import router
+        from app.contexts.payments.routers.payments import router
 
         app = create_app()
         app.include_router(router)
@@ -49,7 +49,7 @@ class TestPaymentsRouter:
 
         # Import and test
         from app.main import create_app
-        from app.routers.payments import router
+        from app.contexts.payments.routers.payments import router
 
         app = create_app()
         app.include_router(router)

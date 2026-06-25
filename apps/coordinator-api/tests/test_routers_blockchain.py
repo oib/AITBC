@@ -24,7 +24,7 @@ class TestBlockchainRouter:
 
         # Import and test
         from app.main import create_app
-        from app.routers.blockchain import router
+        from app.contexts.blockchain.routers.blockchain import router
 
         app = create_app()
         app.include_router(router)
@@ -51,7 +51,7 @@ class TestBlockchainRouter:
 
         # Import and test
         from app.main import create_app
-        from app.routers.blockchain import router
+        from app.contexts.blockchain.routers.blockchain import router
 
         app = create_app()
         app.include_router(router)
@@ -75,7 +75,7 @@ class TestBlockchainRouter:
 
         # Import and test
         from app.main import create_app
-        from app.routers.blockchain import router
+        from app.contexts.blockchain.routers.blockchain import router
 
         app = create_app()
         app.include_router(router)
@@ -100,7 +100,7 @@ class TestBlockchainRouter:
 
         # Import and test
         from app.main import create_app
-        from app.routers.blockchain import router
+        from app.contexts.blockchain.routers.blockchain import router
 
         app = create_app()
         app.include_router(router)
