@@ -1,14 +1,14 @@
-# v0.5.15 — Flat-to-Context Migration (Phase 1: Quick Fixes)
+# v0.5.15 — Flat-to-Context Migration + Test Suite Repair (P1–P7)
 
-**Theme**: Begin paying down the flat-directory architectural debt (services/, routers/, schemas/) identified in the post-v0.5.14 audit. Phase 1 addresses low-risk, high-value fixes.
+**Theme**: Pay down the flat-directory architectural debt (services/, routers/, schemas/) identified in the post-v0.5.14 audit, then repair the entire coordinator-api test suite.
 
-**Goal**: Fix broken imports, add missing package files, and eliminate all remaining `app.domain` shim usage in production code.
+**Goal**: Migrate all flat services, routers, and schemas into their bounded contexts; eliminate cross-context domain-model imports; fix all pre-existing broken test imports; resolve all remaining pre-existing test failures (148 → 0).
 
-**Context**: The v0.5.14 post-migration audit identified 5 categories of architectural debt: (1) domain shim usage, (2) flat directories, (3) flat reputation/, (4) missing `__init__.py`, (5) cross-context service imports. This release addresses category 1, 4, and part of the broken imports from category 2.
+**Context**: The v0.5.14 post-migration audit identified 5 categories of architectural debt: (1) domain shim usage, (2) flat directories, (3) flat reputation/, (4) missing `__init__.py`, (5) cross-context service imports. This release addresses all 5 categories plus a comprehensive test-suite repair pass.
 
 ---
 
-## Phase 1 Tasks
+## Phase Tasks
 
 | # | Task | Priority | Status |
 |---|------|----------|--------|
