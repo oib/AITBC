@@ -12,7 +12,7 @@ class TestPPOAgent:
 
     def test_ppo_agent_initialization(self):
         """Test PPO agent initialization"""
-        from app.services.advanced_rl.agents.ppo_agent import PPOAgent
+        from app.contexts.advanced_rl.services.advanced_rl.agents.ppo_agent import PPOAgent
 
         agent = PPOAgent(state_dim=128, action_dim=10, hidden_dim=256)
 
@@ -23,7 +23,7 @@ class TestPPOAgent:
 
     def test_ppo_agent_forward(self):
         """Test PPO agent forward pass"""
-        from app.services.advanced_rl.agents.ppo_agent import PPOAgent
+        from app.contexts.advanced_rl.services.advanced_rl.agents.ppo_agent import PPOAgent
 
         agent = PPOAgent(state_dim=128, action_dim=10, hidden_dim=256)
         state = torch.randn(1, 128)
@@ -41,7 +41,7 @@ class TestSACAgent:
 
     def test_sac_agent_initialization(self):
         """Test SAC agent initialization"""
-        from app.services.advanced_rl.agents.sac_agent import SACAgent
+        from app.contexts.advanced_rl.services.advanced_rl.agents.sac_agent import SACAgent
 
         agent = SACAgent(state_dim=128, action_dim=10, hidden_dim=256)
 
@@ -52,7 +52,7 @@ class TestSACAgent:
 
     def test_sac_agent_forward(self):
         """Test SAC agent forward pass"""
-        from app.services.advanced_rl.agents.sac_agent import SACAgent
+        from app.contexts.advanced_rl.services.advanced_rl.agents.sac_agent import SACAgent
 
         agent = SACAgent(state_dim=128, action_dim=10, hidden_dim=256)
         state = torch.randn(1, 128)
@@ -70,7 +70,7 @@ class TestRainbowDQNAgent:
 
     def test_rainbow_dqn_agent_initialization(self):
         """Test Rainbow DQN agent initialization"""
-        from app.services.advanced_rl.agents.rainbow_dqn_agent import RainbowDQNAgent
+        from app.contexts.advanced_rl.services.advanced_rl.agents.rainbow_dqn_agent import RainbowDQNAgent
 
         agent = RainbowDQNAgent(state_dim=128, action_dim=10, hidden_dim=512, num_atoms=51)
 
@@ -81,7 +81,7 @@ class TestRainbowDQNAgent:
 
     def test_rainbow_dqn_agent_forward(self):
         """Test Rainbow DQN agent forward pass"""
-        from app.services.advanced_rl.agents.rainbow_dqn_agent import RainbowDQNAgent
+        from app.contexts.advanced_rl.services.advanced_rl.agents.rainbow_dqn_agent import RainbowDQNAgent
 
         agent = RainbowDQNAgent(state_dim=128, action_dim=10, hidden_dim=512, num_atoms=51)
         state = torch.randn(1, 128)

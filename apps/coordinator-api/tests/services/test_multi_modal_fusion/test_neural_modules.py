@@ -12,7 +12,7 @@ class TestCrossModalAttention:
 
     def test_cross_modal_attention_initialization(self):
         """Test cross-modal attention initialization"""
-        from app.services.multi_modal_fusion.neural_modules import CrossModalAttention
+        from app.contexts.multimodal.services.multi_modal_fusion.neural_modules import CrossModalAttention
 
         attention = CrossModalAttention(embed_dim=512, num_heads=8)
 
@@ -22,7 +22,7 @@ class TestCrossModalAttention:
 
     def test_cross_modal_attention_forward(self):
         """Test cross-modal attention forward pass"""
-        from app.services.multi_modal_fusion.neural_modules import CrossModalAttention
+        from app.contexts.multimodal.services.multi_modal_fusion.neural_modules import CrossModalAttention
 
         attention = CrossModalAttention(embed_dim=512, num_heads=8)
 
@@ -46,7 +46,7 @@ class TestMultiModalTransformer:
 
     def test_multimodal_transformer_initialization(self):
         """Test multi-modal transformer initialization"""
-        from app.services.multi_modal_fusion.neural_modules import MultiModalTransformer
+        from app.contexts.multimodal.services.multi_modal_fusion.neural_modules import MultiModalTransformer
 
         modality_dims = {"text": 768, "image": 2048, "audio": 1024}
         transformer = MultiModalTransformer(modality_dims=modality_dims, embed_dim=512, num_layers=6, num_heads=8)
@@ -57,7 +57,7 @@ class TestMultiModalTransformer:
 
     def test_multimodal_transformer_forward(self):
         """Test multi-modal transformer forward pass"""
-        from app.services.multi_modal_fusion.neural_modules import MultiModalTransformer
+        from app.contexts.multimodal.services.multi_modal_fusion.neural_modules import MultiModalTransformer
 
         modality_dims = {"text": 768, "image": 2048}
         transformer = MultiModalTransformer(modality_dims=modality_dims, embed_dim=512, num_layers=2, num_heads=4)
@@ -78,7 +78,7 @@ class TestAdaptiveModalityWeighting:
 
     def test_adaptive_weighting_initialization(self):
         """Test adaptive weighting initialization"""
-        from app.services.multi_modal_fusion.neural_modules import AdaptiveModalityWeighting
+        from app.contexts.multimodal.services.multi_modal_fusion.neural_modules import AdaptiveModalityWeighting
 
         weighting = AdaptiveModalityWeighting(num_modalities=3, embed_dim=256)
 
@@ -88,7 +88,7 @@ class TestAdaptiveModalityWeighting:
 
     def test_adaptive_weighting_forward(self):
         """Test adaptive weighting forward pass"""
-        from app.services.multi_modal_fusion.neural_modules import AdaptiveModalityWeighting
+        from app.contexts.multimodal.services.multi_modal_fusion.neural_modules import AdaptiveModalityWeighting
 
         weighting = AdaptiveModalityWeighting(num_modalities=3, embed_dim=256)
 
@@ -106,7 +106,7 @@ class TestAdaptiveModalityWeighting:
 
     def test_adaptive_weighting_with_performance_scores(self):
         """Test adaptive weighting with performance scores"""
-        from app.services.multi_modal_fusion.neural_modules import AdaptiveModalityWeighting
+        from app.contexts.multimodal.services.multi_modal_fusion.neural_modules import AdaptiveModalityWeighting
 
         weighting = AdaptiveModalityWeighting(num_modalities=3, embed_dim=256)
 
