@@ -169,11 +169,23 @@ class TrustScoreCalculator:
 
 
 class ReputationService:
-    """Main reputation management service"""
+    """Main reputation management service — public API for the reputation context.
+
+    Cross-context consumers should import ``AgentReputation`` from this module
+    (the service layer) rather than from ``reputation.domain.reputation``.
+    """
 
     def __init__(self, session: Session):
         self.session = session
         self.calculator = TrustScoreCalculator()
+
+    def get_reputation_by_agent(self, agent_id: str) -> AgentReputation | None:
+        """Look up an agent's reputation profile by agent_id.
+
+        This is the canonical read path for cross-context consumers that need
+        reputation data (certification, rewards, etc.).
+        """
+        return self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()  # type: ignore[return-value]
 
     async def create_reputation_profile(self, agent_id: str) -> AgentReputation:
         """Create a new reputation profile for an agent"""

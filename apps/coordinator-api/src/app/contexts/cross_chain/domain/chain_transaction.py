@@ -13,15 +13,7 @@ from typing import Any
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
-
-class TransactionPriority(StrEnum):
-    """Transaction priority levels"""
-
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    URGENT = "urgent"
-    CRITICAL = "critical"
+from app.shared_kernel.enums import TransactionPriority
 
 
 class TransactionType(StrEnum):
