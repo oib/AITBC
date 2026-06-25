@@ -147,5 +147,6 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python
 | P2 | Merge flat `reputation/` directory into `contexts/reputation/services/` | Medium | ✅ DONE |
 | P3 | Migrate flat `schemas/` files to owning contexts (8 files moved, 1 dead file deleted) | Medium | ✅ DONE |
 | P4 | Migrate flat `services/` files to owning contexts (54 files: 27 dead, 26 active, 1 subdirectory) | High | ✅ DONE |
+| P5 | Migrate flat `routers/` files to owning contexts (29 files: 13 dead, 16 active) | High | ✅ DONE |
 
-**Phase 1–4 complete.** Remaining phase (P5: routers) deferred to future release.
+**Phase 1–5 complete.** All flat `services/`, `schemas/`, `routers/`, and `reputation/` directories migrated to bounded contexts.
