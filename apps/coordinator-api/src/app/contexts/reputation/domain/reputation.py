@@ -59,6 +59,7 @@ class AgentReputation(SQLModel, table=True):
     jobs_failed: int = Field(default=0)
     average_response_time: float = Field(default=0.0)  # milliseconds
     uptime_percentage: float = Field(default=0.0, ge=0, le=100.0)
+    community_contributions: int = Field(default=0)  # Number of community contributions
 
     # Geographic and service info
     geographic_region: str = Field(default="", max_length=50)

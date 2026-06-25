@@ -14,7 +14,7 @@ class TestAgentRouter:
         """Test agent registration"""
         agent_data = {"agent_id": "agent-001", "public_key": "abc123def456", "capabilities": ["ai", "gpu", "messaging"]}
 
-        response = client.post("/agent/agents/register", json=agent_data)
+        response = client.post("/v1/agent/agents/register", json=agent_data)
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
@@ -25,11 +25,11 @@ class TestAgentRouter:
         """Test sending direct message"""
         # Register two agents first
         client.post(
-            "/agent/agents/register",
+            "/v1/agent/agents/register",
             json={"agent_id": "sender-001", "public_key": "sender-key", "capabilities": ["messaging"]},
         )
         client.post(
-            "/agent/agents/register",
+            "/v1/agent/agents/register",
             json={"agent_id": "receiver-001", "public_key": "receiver-key", "capabilities": ["messaging"]},
         )
 
@@ -42,7 +42,7 @@ class TestAgentRouter:
             "encrypted": False,
         }
 
-        response = client.post("/agent/messages/send", json=message_data)
+        response = client.post("/v1/agent/messages/send", json=message_data)
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
@@ -54,7 +54,7 @@ class TestAgentRouter:
         """Test sending from unregistered agent fails"""
         message_data = {"sender": "unregistered-agent", "recipient": "receiver-001", "content": "Test message"}
 
-        response = client.post("/agent/messages/send", json=message_data)
+        response = client.post("/v1/agent/messages/send", json=message_data)
         assert response.status_code == 400
 
     def test_broadcast_message(self, client: TestClient):
@@ -62,14 +62,14 @@ class TestAgentRouter:
         # Register agents
         for i in range(3):
             client.post(
-                "/agent/agents/register",
+                "/v1/agent/agents/register",
                 json={"agent_id": f"agent-{i}", "public_key": f"key-{i}", "capabilities": ["messaging"]},
             )
 
         # Broadcast
         broadcast_data = {"sender": "agent-0", "content": "Broadcast message to all agents!", "encrypted": False}
 
-        response = client.post("/agent/messages/broadcast", json=broadcast_data)
+        response = client.post("/v1/agent/messages/broadcast", json=broadcast_data)
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
@@ -79,22 +79,22 @@ class TestAgentRouter:
         """Test getting messages for agent"""
         # Setup
         client.post(
-            "/agent/agents/register",
+            "/v1/agent/agents/register",
             json={"agent_id": "msg-receiver", "public_key": "receiver-key", "capabilities": ["messaging"]},
         )
         client.post(
-            "/agent/agents/register",
+            "/v1/agent/agents/register",
             json={"agent_id": "msg-sender", "public_key": "sender-key", "capabilities": ["messaging"]},
         )
 
         # Send message
         client.post(
-            "/agent/messages/send",
+            "/v1/agent/messages/send",
             json={"sender": "msg-sender", "recipient": "msg-receiver", "content": "Test message content"},
         )
 
         # Get messages
-        response = client.get("/agent/messages/msg-receiver")
+        response = client.get("/v1/agent/messages/msg-receiver")
         assert response.status_code == 200
         data = response.json()
         assert data["agent_id"] == "msg-receiver"
@@ -105,30 +105,30 @@ class TestAgentRouter:
         """Test marking message as read"""
         # Setup
         client.post(
-            "/agent/agents/register",
+            "/v1/agent/agents/register",
             json={"agent_id": "read-test-receiver", "public_key": "key", "capabilities": ["messaging"]},
         )
         client.post(
-            "/agent/agents/register",
+            "/v1/agent/agents/register",
             json={"agent_id": "read-test-sender", "public_key": "key2", "capabilities": ["messaging"]},
         )
 
         # Send message
         send_response = client.post(
-            "/agent/messages/send",
+            "/v1/agent/messages/send",
             json={"sender": "read-test-sender", "recipient": "read-test-receiver", "content": "Message to mark as read"},
         )
         message_id = send_response.json()["message"]["id"]
 
         # Mark as read
         read_data = {"agent_id": "read-test-receiver", "message_id": message_id}
-        response = client.post("/agent/messages/read", json=read_data)
+        response = client.post("/v1/agent/messages/read", json=read_data)
         assert response.status_code == 200
         assert response.json()["status"] == "read"
 
     def test_list_agents(self, client: TestClient):
         """Test listing all agents"""
-        response = client.get("/agent/agents")
+        response = client.get("/v1/agent/agents")
         assert response.status_code == 200
         data = response.json()
         assert "agents" in data
@@ -138,11 +138,11 @@ class TestAgentRouter:
         """Test getting agent profile"""
         # Register agent
         client.post(
-            "/agent/agents/register",
+            "/v1/agent/agents/register",
             json={"agent_id": "profile-agent", "public_key": "profile-key", "capabilities": ["ai", "gpu"]},
         )
 
-        response = client.get("/agent/agents/profile-agent/profile")
+        response = client.get("/v1/agent/agents/profile-agent/profile")
         assert response.status_code == 200
         data = response.json()
         assert data["agent_id"] == "profile-agent"
@@ -152,19 +152,19 @@ class TestAgentRouter:
         """Test that heartbeat updates agent online status"""
         # Register agent
         client.post(
-            "/agent/agents/register",
+            "/v1/agent/agents/register",
             json={"agent_id": "heartbeat-agent", "public_key": "hb-key", "capabilities": ["messaging"]},
         )
 
         # Send heartbeat
-        response = client.post("/agent/agents/heartbeat-agent/heartbeat")
+        response = client.post("/v1/agent/agents/heartbeat-agent/heartbeat")
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
 
     def test_agent_stats(self, client: TestClient):
         """Test agent statistics endpoint"""
-        response = client.get("/agent/stats")
+        response = client.get("/v1/agent/stats")
         assert response.status_code == 200
         data = response.json()
         assert "total_messages" in data
@@ -173,7 +173,7 @@ class TestAgentRouter:
 
     def test_agent_health(self, client: TestClient):
         """Test agent health endpoint"""
-        response = client.get("/agent/health")
+        response = client.get("/v1/agent/health")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
@@ -187,19 +187,21 @@ class TestAgentIntegration:
         """Test conversation between two agents"""
         # Register agents
         client.post(
-            "/agent/agents/register", json={"agent_id": "alice", "public_key": "alice-key", "capabilities": ["messaging"]}
+            "/v1/agent/agents/register", json={"agent_id": "alice", "public_key": "alice-key", "capabilities": ["messaging"]}
         )
-        client.post("/agent/agents/register", json={"agent_id": "bob", "public_key": "bob-key", "capabilities": ["messaging"]})
+        client.post(
+            "/v1/agent/agents/register", json={"agent_id": "bob", "public_key": "bob-key", "capabilities": ["messaging"]}
+        )
 
         # Alice sends message to Bob
         msg1 = client.post(
-            "/agent/messages/send",
+            "/v1/agent/messages/send",
             json={"sender": "alice", "recipient": "bob", "content": "Hi Bob!", "message_type": "direct"},
         ).json()["message"]
 
         # Bob replies
         client.post(
-            "/agent/messages/send",
+            "/v1/agent/messages/send",
             json={
                 "sender": "bob",
                 "recipient": "alice",
@@ -210,8 +212,8 @@ class TestAgentIntegration:
         ).json()["message"]
 
         # Verify both received messages
-        alice_msgs = client.get("/agent/messages/alice").json()
-        bob_msgs = client.get("/agent/messages/bob").json()
+        alice_msgs = client.get("/v1/agent/messages/alice").json()
+        bob_msgs = client.get("/v1/agent/messages/bob").json()
 
         assert any(m["sender"] == "bob" for m in alice_msgs["messages"])
         assert any(m["sender"] == "alice" for m in bob_msgs["messages"])

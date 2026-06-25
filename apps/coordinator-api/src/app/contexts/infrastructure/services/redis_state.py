@@ -124,6 +124,10 @@ class RedisStateManager:
         """Build a Redis key for a namespace hash."""
         return f"aitbc:coordinator:{namespace}"
 
+    def _cache_key(self, namespace: str, key: str) -> str:
+        """Build a Redis key for a cached value under the cache prefix."""
+        return f"{self._cache_prefix}:{namespace}:{key}"
+
     # ------------------------------------------------------------------
     # Hash operations (for training jobs, swarm configs, agents)
     # ------------------------------------------------------------------
@@ -211,24 +215,24 @@ class RedisStateManager:
     async def cache_set(self, namespace: str, key: str, value: Any, ttl: int = 300) -> None:
         """Set a cached value with TTL."""
         if self._redis:
-            await self._redis.setex(self._key(namespace, key), ttl, json.dumps(value))
+            await self._redis.setex(self._cache_key(namespace, key), ttl, json.dumps(value))
         else:
-            self._memory[self._key(namespace, key)] = value
+            self._memory[self._cache_key(namespace, key)] = value
 
     async def cache_get(self, namespace: str, key: str) -> Any | None:
         """Get a cached value."""
         if self._redis:
-            raw = await self._redis.get(self._key(namespace, key))
+            raw = await self._redis.get(self._cache_key(namespace, key))
             return json.loads(raw) if raw else None
         else:
-            return self._memory.get(self._key(namespace, key))
+            return self._memory.get(self._cache_key(namespace, key))
 
     async def cache_delete(self, namespace: str, key: str) -> None:
         """Delete a cached value."""
         if self._redis:
-            await self._redis.delete(self._key(namespace, key))
+            await self._redis.delete(self._cache_key(namespace, key))
         else:
-            self._memory.pop(self._key(namespace, key), None)
+            self._memory.pop(self._cache_key(namespace, key), None)
 
     # ------------------------------------------------------------------
     # Cleanup

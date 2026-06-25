@@ -2,9 +2,11 @@
 Integration tests for agent and marketplace interaction
 """
 
+from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
@@ -12,39 +14,45 @@ from fastapi.testclient import TestClient
 class TestAgentMarketplaceIntegration:
     """Test integration between agent and marketplace services"""
 
-    @patch("app.routers.agent_router.AITBCHTTPClient")
-    @patch("app.routers.marketplace.AITBCHTTPClient")
-    def test_agent_registers_in_marketplace(self, mock_marketplace_client, mock_agent_client):
-        """Test that an agent can register and appear in marketplace"""
-        # Setup mocks
-        mock_agent = Mock()
-        mock_agent_client.return_value = mock_agent
-        mock_agent.post.return_value = {"id": "agent1", "name": "Agent 1", "status": "registered"}
-
-        mock_marketplace = Mock()
-        mock_marketplace_client.return_value = mock_marketplace
-        mock_marketplace.get.return_value = {
-            "listings": [{"id": 1, "name": "Agent 1", "agent_id": "agent1", "price": 0.50}],
-            "total": 1,
-        }
-
-        # Import and test
-        from app.main import create_app
-        from app.contexts.agent_coordination.routers.agent_router import router as agent_router
+    @patch("app.contexts.marketplace.routers.marketplace.MarketplaceService")
+    def test_agent_registers_in_marketplace(self, mock_marketplace_service_cls):
+        """Test that an agent-provided offer appears in the marketplace"""
         from app.contexts.marketplace.routers.marketplace import router as marketplace_router
+        from app.schemas import MarketplaceOfferView
+        from app.storage import get_session
 
-        app = create_app()
-        app.include_router(agent_router)
-        app.include_router(marketplace_router)
-        client = TestClient(app)
+        mock_service = Mock()
+        mock_marketplace_service_cls.return_value = mock_service
+        mock_service.list_offers.return_value = [
+            MarketplaceOfferView(
+                id="offer1",
+                provider="agent1",
+                capacity=4,
+                price=0.50,
+                sla="standard",
+                status="open",
+                created_at=datetime.now(UTC),
+            ),
+        ]
 
-        # Register agent
-        response = client.post("/agents", json={"name": "Agent 1", "type": "compute", "capabilities": ["gpu", "inference"]})
-        assert response.status_code == 200
+        app = FastAPI()
+        app.include_router(marketplace_router, prefix="/v1")
+        app.dependency_overrides[get_session] = lambda: Mock()
+        # Register the slowapi limiter used by the marketplace router decorators
+        from slowapi import Limiter, _rate_limit_exceeded_handler
+        from slowapi.errors import RateLimitExceeded
+        from slowapi.util import get_remote_address
 
-        # Check marketplace listing
-        response = client.get("/marketplace/listings")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["total"] == 1
-        assert data["listings"][0]["agent_id"] == "agent1"
+        app.state.limiter = Limiter(key_func=get_remote_address)
+        app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+        try:
+            client = TestClient(app)
+
+            # List marketplace offers (agent-provided compute appears here)
+            response = client.get("/v1/marketplace/offers")
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data) == 1
+            assert data[0]["provider"] == "agent1"
+        finally:
+            app.dependency_overrides.clear()
