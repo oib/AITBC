@@ -1,0 +1,267 @@
+# AITBC v0.6.2 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Sync & Gossip Optimization — Gossip Protocol Redesign, Parallel Sync, Delta Sync
+
+## 🎯 Overview
+
+AITBC v0.6.2 redesigns the P2P gossip protocol for faster block propagation and adds parallel/delta-based chain synchronization. This release targets the network-layer bottlenecks that limit sync speed and block propagation latency, enabling faster initial sync and more efficient steady-state operation.
+
+**Why this is a dedicated release**: Gossip protocol optimization and sync redesign are **deep distributed systems problems** that touch shared P2P infrastructure. The current gossip system (`gossip/broker.py` 343 lines, `gossip/relay.py` 138 lines, `sync.py` 798 lines) is a working sequential implementation. Redesigning these requires:
+- Coordinating with all peers (protocol versioning)
+- Testing under various network topologies
+- Parallel sync requires tracking what each peer has, requesting missing ranges in parallel, merging results deterministically
+- Delta sync requires efficient state diff computation and application
+- Getting it wrong affects every node on the network
+
+Bundling this with database caching work (as in the original v0.6.0 plan) would risk the easier optimizations being blocked by protocol-level changes.
+
+**Prerequisites**: Requires [v0.6.0](../v0.6.0/change.log) (Performance: network I/O, compression) and [v0.6.1](../v0.6.1/change.log) (Parallel Processing — for parallel sync operations).
+
+## 🎯 Release Highlights
+
+### Optimized Gossip Protocol
+- 🚧 Redesigned gossip protocol for faster block propagation
+- 🚧 Gossip protocol versioning for backward compatibility
+- 🚧 Gossip message prioritization (blocks > transactions > status)
+- 🚧 Gossip compression and batch messaging
+
+### Enhanced Block Propagation
+- 🚧 Block propagation pipelining
+- 🚧 Propagation latency monitoring
+- 🚧 Redundant propagation detection and suppression
+
+### Parallel Sync Operations
+- 🚧 Parallel chain synchronization from multiple peers
+- 🚧 Peer capability tracking (which peer has which blocks)
+- 🚧 Parallel block range requests
+- 🚧 Deterministic merge of parallel sync results
+- 🚧 Sync conflict resolution
+
+### Delta-Based Synchronization
+- 🚧 Delta sync for faster updates (only sync what changed)
+- 🚧 State diff computation and efficient transmission
+- 🚧 Delta application and verification
+- 🚧 Fallback to full sync when delta is too large
+- 🚧 Delta sync for missed blocks (catch-up without full resync)
+
+## 📋 Detailed Features
+
+### Optimized Gossip Protocol
+
+#### Protocol Versioning
+```bash
+# /etc/aitbc/blockchain.env
+GOSSIP_PROTOCOL_VERSION=2
+GOSSIP_BACKWARD_COMPAT=true
+GOSSIP_LEGACY_PEER_TIMEOUT=3600
+```
+
+- New protocol version negotiated on peer connection
+- Backward compatibility with v1 peers (with timeout for deprecation)
+- Version-specific message handling
+
+#### Message Prioritization
+- Priority 1: New blocks (highest)
+- Priority 2: Block headers
+- Priority 3: Transactions
+- Priority 4: Status messages
+- Priority 5: Peer discovery (lowest)
+- Higher-priority messages preempt lower-priority in send queue
+
+#### Gossip Compression
+- Compress gossip messages (build on v0.6.0 network compression)
+- Batch multiple small messages into single gossip frame
+- Deduplicate messages before gossip (avoid redundant propagation)
+
+### Enhanced Block Propagation
+
+#### Propagation Pipelining
+- Pipeline block propagation: don't wait for validation before forwarding header
+- Validate after forwarding (receiver validates independently)
+- Reduces propagation latency from O(validation_time) to O(network_latency)
+
+#### Propagation Monitoring
+- Track block propagation time across the network
+- Detect slow-propagating blocks and investigate
+- Monitor propagation redundancy (how many peers send the same block)
+
+### Parallel Sync Operations
+
+#### Peer Capability Tracking
+```python
+# Track what each peer has
+peer_capabilities = {
+    "peer_1": {"block_range": (0, 12345), "has_state": True},
+    "peer_2": {"block_range": (12000, 12345), "has_state": False},
+    "peer_3": {"block_range": (0, 12340), "has_state": True},
+}
+```
+
+#### Parallel Block Requests
+- Divide missing block range into sub-ranges
+- Request each sub-range from a different peer (in parallel)
+- Merge results in deterministic order (by block height)
+- Re-request from different peer if a peer fails or is slow
+
+#### Sync Conflict Resolution
+- If peers provide different blocks for the same height, use majority consensus
+- Flag peers providing invalid blocks (slashing candidate)
+- Fall back to sequential sync if parallel sync conflicts exceed threshold
+
+### Delta-Based Synchronization
+
+#### Delta Sync Lifecycle
+1. **Detect**: Node detects it's behind (missed N blocks)
+2. **Request Delta**: Request delta from peer (from last synced block to current)
+3. **Receive Delta**: Peer sends state diff + block headers
+4. **Verify Delta**: Verify delta against block headers and state roots
+5. **Apply Delta**: Apply state diff to local state
+6. **Verify**: Verify resulting state root matches expected
+
+#### Delta Computation
+- Compute state diff between two block heights
+- Encode diff efficiently (only changed accounts/contracts)
+- Compress delta for transmission
+- If delta > threshold (e.g., 50% of full state), fall back to full sync
+
+#### Delta Application
+- Apply state diff in deterministic order
+- Verify each state change against block transactions
+- Verify final state root matches expected
+- Rollback if verification fails
+
+## 🔧 Breaking Changes
+
+- Gossip protocol v2 (v1 backward compatible with deprecation timeline)
+- Sync protocol changes (parallel sync requires peer capability reporting)
+- Migration required for existing deployments (protocol negotiation on peer connect)
+
+## 📊 Migration Guide
+
+### v0.6.1 → v0.6.2
+
+1. **Update configuration**
+   ```bash
+   # /etc/aitbc/blockchain.env
+   GOSSIP_PROTOCOL_VERSION=2
+   GOSSIP_BACKWARD_COMPAT=true
+   SYNC_PARALLEL_ENABLED=true
+   SYNC_DELTA_ENABLED=true
+   ```
+
+2. **Restart services**
+   ```bash
+   systemctl restart aitbc-blockchain-node
+   ```
+
+3. **Verify sync performance**
+   ```bash
+   aitbc sync status
+   aitbc metrics sync-performance
+   ```
+
+## 🖥️ CLI Commands
+
+### New Commands
+- `aitbc sync status` — Show synchronization status (current block, peer count, sync progress)
+  - Currently missing: `sync` group only has `sync bulk`
+  - Implementation: Add `status` subcommand to `cli/aitbc_cli/commands/sync.py`
+
+## 🧪 Testing
+
+### Gossip Protocol Testing
+- Protocol version negotiation (v2 ↔ v2, v2 ↔ v1)
+- Message prioritization correctness
+- Gossip compression and batching
+- Propagation latency benchmarks
+
+### Block Propagation Testing
+- Propagation pipelining correctness
+- Propagation latency measurement
+
+### Parallel Sync Testing
+- Parallel block range requests from multiple peers
+- Peer failure during parallel sync
+- Sync conflict resolution (peers providing different blocks)
+- Deterministic merge of parallel sync results
+- Performance: parallel vs. sequential sync
+
+### Delta Sync Testing
+- Delta computation correctness
+- Delta application and verification
+- Fallback to full sync when delta is too large
+- Delta sync after network partition
+- Delta sync correctness with state root verification
+
+### Test Coverage Goals
+- Gossip protocol: >90%
+- Block propagation: >90%
+- Parallel sync: >85%
+- Delta sync: >85%
+
+## 📚 Documentation
+
+- [Gossip Protocol v2 Specification](../architecture/gossip-protocol-v2.md)
+- [Parallel Sync Guide](../getting-started/parallel-sync.md)
+- [Delta Sync Architecture](../architecture/delta-sync.md)
+
+## 🚀 Dependencies
+
+### New Dependencies
+- Network topology analysis libraries
+- State diff computation libraries
+
+### Updated Dependencies
+- Blockchain node v0.6.2+
+
+## 🔐 Security Considerations
+
+- Gossip protocol changes must maintain Byzantine fault tolerance
+- Parallel sync must validate blocks from all peers (don't trust any single peer)
+- Delta sync must verify state root after applying delta (rollback on mismatch)
+- Protocol versioning must not allow downgrade attacks
+- Peers providing invalid blocks should be flagged and potentially banned
+
+## 📈 Performance Targets
+
+### Synchronization
+- Initial sync time: <10 minutes for 100K blocks (with parallel sync)
+- Block propagation: <500ms across network
+- Sync bandwidth: <1MB/second (with compression)
+- Delta sync: <5 seconds for 100 block delta
+
+### Gossip
+- Message propagation: <100ms
+- Gossip overhead: <10% of bandwidth (with compression + dedup)
+
+## 🎯 Success Criteria
+
+- ✅ Gossip protocol v2 operational with backward compatibility
+- ✅ Parallel sync reduces initial sync time by >50%
+- ✅ Delta sync enables fast catch-up for missed blocks
+- ✅ All sync correctness tests pass
+- ✅ No consensus failures in multi-validator testing
+- ✅ Performance targets met
+
+## 🚀 Next Steps
+
+### v0.6.3 — Multi-Island Node Support
+- Per-chain sync source mapping (builds on v0.6.2 optimized sync layer)
+- Multi-hub subscription client (one per chain/hub pair)
+- Island-to-chain registry and auto-join
+- Per-chain gossip backend support
+- **Required before v0.7.0 and v0.8.0** — nodes must be able to follow multiple chains from multiple hubs before bridging and trading can work
+
+### v0.7.0 — Bridge Basics
+- Cross-chain bridge (benefits from faster sync and propagation, requires v0.6.3 for multi-island awareness)
+
+### v0.8.0 — Inter-Chain Trading Basics
+- Inter-chain trading (benefits from optimized P2P for cross-chain communication, requires v0.6.3 for multi-island following)
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 0.6.2*
+*Status: Planned*

@@ -277,7 +277,10 @@ class ChainSync:
     async def fetch_blocks_range(self, start: int, end: int, source_url: str) -> list[dict[str, Any]]:
         """Fetch a range of blocks from a source RPC."""
         try:
-            resp = await self._client.get(f"{source_url}/rpc/blocks-range", params={"start": start, "end": end})
+            resp = await self._client.get(
+                f"{source_url}/rpc/blocks-range",
+                params={"start": start, "end": end, "chain_id": self._chain_id},
+            )
             resp.raise_for_status()
             data = resp.json()
             if isinstance(data, list):
@@ -312,7 +315,7 @@ class ChainSync:
                 local_head.hash if local_head else None,
             )
         try:
-            resp = await self._client.get(f"{source_url}/rpc/head")
+            resp = await self._client.get(f"{source_url}/rpc/head", params={"chain_id": self._chain_id})
             resp.raise_for_status()
             remote_head = resp.json()
             remote_height = remote_head.get("height", -1)

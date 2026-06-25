@@ -18,7 +18,7 @@ class TransactionService:
 
     def __init__(self) -> None:
         self.logger = get_logger(__name__)
-        self.rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+        self.rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")
         self.chain_id = os.getenv("CHAIN_ID", "")
         self.genesis_private_key = os.getenv("GENESIS_PRIVATE_KEY")
         self.genesis_address = os.getenv("GENESIS_ADDRESS")
@@ -63,7 +63,9 @@ class TransactionService:
             self.logger.error("Error getting balance: %s", e)
         return 0
 
-    def generate_signed_transaction(self, to_address: str, amount: int, fee: int = 36) -> dict[str, Any] | None:
+    def generate_signed_transaction(
+        self, to_address: str, amount: int, fee: int = 36, chain_id: str | None = None
+    ) -> dict[str, Any] | None:
         """
         Generate a signed blockchain transaction.
 
@@ -71,6 +73,7 @@ class TransactionService:
             to_address: Recipient wallet address
             amount: Amount to transfer (in smallest unit)
             fee: Transaction fee
+            chain_id: Chain identifier (defaults to self.chain_id from env)
 
         Returns:
             Dictionary with signed transaction or None if error
@@ -82,6 +85,7 @@ class TransactionService:
             self.logger.error("GENESIS_ADDRESS not set - cannot create transactions")
             return None
         try:
+            actual_chain_id = chain_id if chain_id is not None else self.chain_id
             actual_nonce = self.get_nonce(self.genesis_address)
             private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(self.genesis_private_key))
             transaction = {
@@ -91,6 +95,7 @@ class TransactionService:
                 "nonce": actual_nonce,
                 "fee": fee,
                 "type": "TRANSFER",
+                "chain_id": actual_chain_id,
             }
             message = json.dumps(transaction, sort_keys=True).encode()
             signature = private_key.sign(message)

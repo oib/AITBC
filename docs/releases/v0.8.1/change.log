@@ -1,0 +1,272 @@
+# AITBC v0.8.1 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Cross-Chain Offer Synchronization — Distributed Offer Discovery, Synchronization, Conflict Resolution
+
+## 🎯 Overview
+
+AITBC v0.8.1 implements cross-chain offer discovery and synchronization across AITBC islands. This release enables agents to discover offers on other chains and keeps offer state synchronized across the network — a distributed search problem with eventual consistency.
+
+**Why this is a dedicated release**: Cross-chain offer synchronization is a **distributed search problem** across independent chains with eventual consistency. The current `island_manager.py` (264 lines) tracks island membership but has no offer synchronization — it's a registry, not a sync engine. This work requires:
+- Polling or subscribing to offer changes on each island
+- Conflict resolution (same offer on multiple chains)
+- Staleness detection and bandwidth management
+- Distributed search across independent chains
+
+Combined with the atomic settlement work (now in v0.9.0) in the same release, this was too much. It's split out so v0.8.0 can ship the basic trading infrastructure while offer sync gets focused effort.
+
+**Prerequisites**: Requires [v0.8.0](../v0.8.0/change.log) (Inter-Chain Trading Basics — island registry, chain discovery, trade requests).
+
+## 🎯 Release Highlights
+
+### Cross-Chain Offer Discovery
+- 🚧 Discover offers across all AITBC islands
+- 🚧 Distributed search with filtering (service type, price, region)
+- 🚧 Offer ranking and scoring across chains
+- 🚧 Real-time offer discovery (subscribe to new offers)
+- 🚧 Cached offer index for fast queries
+
+### Cross-Chain Offer Synchronization
+- 🚧 Synchronize offer state across chains
+- 🚧 Polling and subscription-based sync
+- 🚧 Conflict resolution (same offer on multiple chains)
+- 🚧 Staleness detection and refresh
+- 🚧 Bandwidth-managed sync (incremental, compressed)
+
+### Offer Consistency
+- 🚧 Eventual consistency model for offers
+- 🚧 Offer versioning and conflict detection
+- 🚧 Stale offer detection and removal
+- 🚧 Offer availability verification (is the offer still valid on source chain?)
+
+## 📋 Detailed Features
+
+### Cross-Chain Offer Discovery
+
+#### Discover Cross-Chain Offers
+```bash
+aitbc trade discover --source-chain ait-hub --dest-chain ait-island1 --service-type whisper
+```
+
+**Response:**
+```json
+{
+  "offers": [
+    {
+      "offer_id": "sw_offer_...",
+      "chain_id": "ait-island1.aitbc.bubuit.net",
+      "service_type": "whisper",
+      "model": "base",
+      "price": 0.02,
+      "price_unit": "per_audio_min",
+      "availability": "available",
+      "last_synced": "2026-06-25T...",
+      "sync_confidence": "high"
+    }
+  ]
+}
+```
+
+#### Distributed Search
+- Query offer index across all connected chains
+- Filter by: service type, price range, region, availability, reputation
+- Rank offers by: price, proximity, reputation, availability
+- Merge results from multiple chains
+- Return ranked, deduplicated results
+
+#### Real-Time Discovery
+- Subscribe to new offer events on each chain
+- Push notifications when new offers match saved queries
+- WebSocket-based real-time offer stream
+- Debounced batch notifications (avoid flooding)
+
+#### Cached Offer Index
+- Maintain local cache of offers from all chains
+- Cache invalidation on offer change events
+- Cache TTL with proactive refresh
+- Index by: service_type, price, chain_id, agent_id
+
+### Cross-Chain Offer Synchronization
+
+#### Sync Mechanism
+```bash
+# Sync offers across all chains
+aitbc trade sync --all-chains
+
+# Sync offers from specific chain
+aitbc trade sync --chain-id ait-island1
+
+# Sync specific service type
+aitbc trade sync --service-type whisper
+```
+
+#### Polling-Based Sync
+- Periodically poll each island for offer changes
+- Poll interval configurable per chain (based on chain activity)
+- Use `If-Modified-Since` headers for efficient polling
+- Exponential backoff on sync failures
+
+#### Subscription-Based Sync
+- Subscribe to offer change events on each island
+- Receive push notifications for offer create/update/delete
+- Fallback to polling if subscription fails
+- Subscription heartbeat and reconnection
+
+#### Incremental Sync
+- Track last sync timestamp per chain
+- Only sync offers changed since last sync
+- Compress sync payloads (build on v0.6.0 network compression)
+- Batch sync updates for efficiency
+
+### Offer Consistency
+
+#### Conflict Resolution
+- Same offer on multiple chains: use source chain as source of truth
+- Offer modified on multiple chains simultaneously: last-write-wins with timestamp
+- Offer deleted on source chain: remove from all chains' caches
+- Conflict log for auditing
+
+#### Staleness Detection
+- Track `last_synced` timestamp for each offer
+- Offers older than staleness threshold (e.g., 5 minutes) are marked stale
+- Stale offers are refreshed on next sync cycle
+- Stale offers are excluded from discovery results (or marked with low confidence)
+
+#### Offer Availability Verification
+- Before creating a trade, verify the offer is still valid on the source chain
+- Real-time availability check (not just cache)
+- If offer is no longer available, notify buyer and remove from cache
+- Rate-limit availability checks to avoid overwhelming source chain
+
+### Verified Code Targets (from suggestions.md investigation)
+
+#### IslandManager — No Offer Sync Capability
+**Finding**: `apps/blockchain-node/src/aitbc_chain/network/island_manager.py` (264 lines) is purely a membership registry. Methods: join_island, leave_island, request_bridge, approve_bridge_request, reject_bridge_request, get_island_peers, add_island_peer, remove_island_peer, get_island_info, get_all_islands, get_active_bridges, get_bridge_requests, is_member_of_island, is_bridged_to_island. None relate to offer synchronization.
+**Required**: Build offer sync layer from scratch. Start with polling-based sync using `If-Modified-Since` headers. Subscription-based sync can be Phase 2.
+
+#### Distributed Search Index — Not Identified
+**Finding**: No distributed search index library is identified for cross-chain offer search.
+**Required**: Decide: simple polling with local cache (v0.8.1), or external search index (elasticsearch/custom) deferred to future release.
+
+#### Staleness Threshold
+**Finding**: 5-minute staleness threshold may be too aggressive for slow-block networks.
+**Required**: Make staleness threshold configurable per chain, with default of 5 minutes for fast chains and 30 minutes for slow chains.
+
+## 🔧 Breaking Changes
+
+- Trade discovery now returns offers from all chains (not just local)
+- Offer responses include `last_synced` and `sync_confidence` fields
+- New offer sync daemon (`aitbc-offer-sync` service)
+
+## 📊 Migration Guide
+
+### v0.8.0 → v0.8.1
+
+1. **Enable offer sync**
+   ```bash
+   # /etc/aitbc/trading.env
+   OFFER_SYNC_ENABLED=true
+   OFFER_SYNC_INTERVAL=60
+   OFFER_SYNC_SUBSCRIPTION=true
+   OFFER_STALENESS_THRESHOLD=300
+   ```
+
+2. **Start offer sync service**
+   ```bash
+   systemctl start aitbc-offer-sync
+   ```
+
+3. **Verify sync status**
+   ```bash
+   aitbc trade sync-status
+   ```
+
+## 🖥️ CLI Commands
+
+### New Commands (extends `trade` group from v0.8.0)
+- `aitbc trade discover` — Discover available trade opportunities across chains
+- `aitbc trade sync` — Synchronize trade state across chains
+- `aitbc trade sync-status` — Show trade synchronization status
+- Implementation: Add subcommands to `cli/aitbc_cli/commands/trade.py`
+
+## 🧪 Testing
+
+### Offer Discovery Testing
+- Cross-chain offer discovery correctness
+- Distributed search with filters
+- Offer ranking across chains
+- Real-time offer notifications
+- Cached offer index consistency
+
+### Offer Sync Testing
+- Polling-based sync correctness
+- Subscription-based sync correctness
+- Incremental sync (only changed offers)
+- Sync failure and recovery
+- Bandwidth usage benchmarks
+
+### Consistency Testing
+- Conflict resolution (same offer on multiple chains)
+- Staleness detection and refresh
+- Offer availability verification
+- Offer deletion propagation
+- Eventual consistency under network partition
+
+### Test Coverage Goals
+- Offer discovery: >90%
+- Offer sync: >85%
+- Consistency: >85%
+
+## 📚 Documentation
+
+- [Cross-Chain Offer Discovery Guide](../getting-started/cross-chain-discovery.md)
+- [Offer Synchronization Architecture](../architecture/offer-sync.md)
+- [Offer Consistency Model](../architecture/offer-consistency.md)
+- [Offer Sync Configuration](../getting-started/offer-sync-config.md)
+
+## 🚀 Dependencies
+
+### New Dependencies
+- WebSocket client libraries (for subscription-based sync)
+- Distributed search index libraries
+
+### Updated Dependencies
+- Trading service v0.8.1+
+- Blockchain node v0.6.2+ (for optimized P2P sync)
+
+## 🔐 Security Considerations
+
+- Offer sync must not allow offer injection from untrusted chains
+- Offer availability verification must be authenticated
+- Sync subscriptions must authenticate to source chain
+- Stale offer detection must not allow offer resurrection attacks
+- Conflict resolution must be auditable
+
+## 📈 Performance Targets
+
+- Offer discovery latency: <200ms (cached), <2s (uncached)
+- Offer sync latency: <60s for incremental sync
+- Offer staleness: <5 minutes (95th percentile)
+- Sync bandwidth: <100KB/minute per chain (incremental)
+
+## 🎯 Success Criteria
+
+- ✅ Cross-chain offer discovery operational across all islands
+- ✅ Offer synchronization maintains consistency with <5 minute staleness
+- ✅ Real-time offer notifications working
+- ✅ Conflict resolution handles concurrent offer modifications
+- ✅ Stale offer detection and refresh working
+- ✅ Performance targets met
+
+## 🚀 Next Steps
+
+### v0.9.0 — Atomic Cross-Chain Settlement
+- Atomic cross-chain settlement using synchronized offer state
+- Escrow locking, atomic release, timeout/refund
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 0.8.1*
+*Status: Planned*

@@ -38,7 +38,14 @@ def get_authenticated_address(request: Request, credentials: HTTPAuthorizationCr
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="X-Wallet-Address header is not trusted without explicit server configuration",
             )
-        _logger.debug("Authenticated via X-Wallet-Address header: %s", wallet_address)
+        # Bug 14: Warn when TRUST_X_WALLET_ADDRESS is enabled — this is a dev-only mode
+        # that accepts any header value without cryptographic verification
+        _logger.warning(
+            "TRUST_X_WALLET_ADDRESS is enabled — accepting X-Wallet-Address header without "
+            "cryptographic verification. This is a development-only mode and should NOT be "
+            "enabled in production. Authenticated as: %s",
+            wallet_address,
+        )
         return wallet_address
     if credentials and credentials.scheme == "Bearer":
         _logger.warning("JWT authentication attempted but not supported")
