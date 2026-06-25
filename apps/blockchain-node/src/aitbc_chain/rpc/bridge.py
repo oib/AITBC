@@ -9,7 +9,7 @@ from fastapi import HTTPException, Request
 from aitbc.rate_limiting import rate_limit
 
 from ..logger import get_logger
-from .utils import get_chain_id
+from .utils import get_chain_id, verify_request_signature
 
 _logger = get_logger(__name__)
 
@@ -40,6 +40,22 @@ async def bridge_lock(request: Request, lock_data: dict[str, Any]) -> dict[str, 
             raise HTTPException(status_code=400, detail="Missing required fields: target_chain, sender, recipient")
         if amount <= 0:
             raise HTTPException(status_code=400, detail="Amount must be positive")
+
+        # Bug 7: Verify sender signature before locking funds
+        signature = lock_data.get("signature")
+        if not signature:
+            raise HTTPException(status_code=403, detail="Signature required for bridge lock")
+        sign_data = {
+            "source_chain": source_chain,
+            "target_chain": target_chain,
+            "sender": sender,
+            "recipient": recipient,
+            "amount": amount,
+            "asset": asset,
+        }
+        if not verify_request_signature(cast(str, sender), signature, sign_data):
+            raise HTTPException(status_code=403, detail="Invalid sender signature")
+
         transfer = bridge.initiate_transfer(
             source_chain=source_chain,
             target_chain=cast(str, target_chain),
@@ -88,6 +104,16 @@ async def bridge_confirm(request: Request, confirm_data: dict[str, Any]) -> dict
         proof = confirm_data.get("proof")
         if not transfer_id or not proof:
             raise HTTPException(status_code=400, detail="Missing required fields: transfer_id, proof")
+
+        # Bug 7: Verify confirmer signature
+        confirmer = confirm_data.get("confirmer") or confirm_data.get("recipient")
+        signature = confirm_data.get("signature")
+        if not confirmer or not signature:
+            raise HTTPException(status_code=403, detail="Confirmer address and signature required")
+        sign_data = {"transfer_id": transfer_id, "confirmer": confirmer}
+        if not verify_request_signature(confirmer, signature, sign_data):
+            raise HTTPException(status_code=403, detail="Invalid confirmer signature")
+
         transfer = bridge.confirm_transfer(transfer_id, proof)
         return {
             "success": True,

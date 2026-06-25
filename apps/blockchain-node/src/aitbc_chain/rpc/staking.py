@@ -13,7 +13,7 @@ from aitbc.rate_limiting import rate_limit
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, AgentIdentity, GovernanceProposal, GovernanceVote, Stake
-from .utils import get_chain_id
+from .utils import get_chain_id, validate_chain_id, verify_request_signature
 
 _logger = get_logger(__name__)
 
@@ -35,6 +35,20 @@ async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str
     if amount <= 0:
         raise HTTPException(status_code=400, detail="amount must be positive")
     address = address.lower().strip()
+    if not address.startswith("0x"):
+        address = "0x" + address
+
+    # Bug 13: Validate chain_id is supported
+    if not validate_chain_id(chain_id):
+        raise HTTPException(status_code=400, detail=f"Unsupported chain_id: {chain_id}")
+
+    # Bug 8: Verify staker signature
+    signature = stake_data.get("signature")
+    if not signature:
+        raise HTTPException(status_code=403, detail="Signature required for staking")
+    sign_data = {"address": address, "amount": amount, "chain_id": chain_id, "action": "stake"}
+    if not verify_request_signature(address, signature, sign_data):
+        raise HTTPException(status_code=403, detail="Invalid staker signature")
     if not address.startswith("0x"):
         address = "0x" + address
     with session_scope() as session:
@@ -78,6 +92,19 @@ async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict
     address = address.lower().strip()
     if not address.startswith("0x"):
         address = "0x" + address
+
+    # Bug 13: Validate chain_id is supported
+    if not validate_chain_id(chain_id):
+        raise HTTPException(status_code=400, detail=f"Unsupported chain_id: {chain_id}")
+
+    # Bug 8: Verify unstaker signature
+    signature = unstake_data.get("signature")
+    if not signature:
+        raise HTTPException(status_code=403, detail="Signature required for unstaking")
+    sign_data = {"address": address, "stake_id": stake_id, "chain_id": chain_id, "action": "unstake"}
+    if not verify_request_signature(address, signature, sign_data):
+        raise HTTPException(status_code=403, detail="Invalid unstaker signature")
+
     with session_scope() as session:
         stake = session.get(Stake, stake_id)
         if not stake:

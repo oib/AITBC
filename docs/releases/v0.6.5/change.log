@@ -1,0 +1,213 @@
+# AITBC v0.6.5 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Agent Coordination Service — Registration, Task Queues, Swarm Coordination, Workflow Execution, Blockchain Payment Integration
+
+## 🎯 Overview
+
+AITBC v0.6.5 matures the agent-coordinator service (10K lines of existing code) into a production-ready coordination layer for AI agents. The service already exposes APIs for agent registration, task submission, swarm coordination, workflow execution, and consensus — but it lacks blockchain payment integration, multi-chain awareness, and production hardening. This release connects the agent coordination layer to the blockchain so agents can pay for compute, get paid for tasks, and coordinate across chains.
+
+**Why this is a dedicated release**: The agent-coordinator is the largest app in AITBC (10K lines) with zero release plan. It has routers for agents, tasks, swarms, workflows, consensus, messages, monitoring, and coin requests — but the blockchain integration is incomplete (coin_requests router calls `/rpc/transaction` but doesn't send `chain_id`). This release wires it properly to the multi-chain blockchain layer (v0.6.3/v0.6.4) and hardens it for production.
+
+**Prerequisites**: Requires [v0.6.3](../v0.6.3/change.log) (Multi-Island Node Support — agents need to coordinate across chains) and [v0.6.4](../v0.6.4/change.log) (Multi-Chain Per Island — agents run on chains hosted by islands). Requires [v0.5.16](../v0.5.16/change.log) (chain_id-aware transaction submission — coin_requests router needs this).
+
+## 🎯 Release Highlights
+
+### Agent Registration & Discovery
+- 🚧 Agent registration with capability advertising (GPU, inference, training, data)
+- 🚧 Agent discovery by capability, region, chain, and reputation
+- 🚧 Agent heartbeat and liveness tracking
+- 🚧 Agent status lifecycle (register → active → idle → deregister)
+
+### Task Queues & Execution
+- 🚧 Priority-based task queues (urgent, normal, batch)
+- 🚧 Task assignment to agents by capability match
+- 🚧 Task status tracking (submitted → assigned → running → completed → failed)
+- 🚧 Task result submission and verification
+- 🚧 Task timeout and retry handling
+
+### Swarm Coordination
+- 🚧 Multi-agent swarm formation for complex tasks
+- 🚧 Swarm task distribution and load balancing
+- 🚧 Swarm consensus for task results
+- 🚧 Swarm lifecycle (join → coordinate → complete → disband)
+
+### Workflow Execution
+- 🚧 Multi-step workflow definition and execution
+- 🚧 Workflow status tracking and cancellation
+- 🚧 Workflow execution history and audit trail
+- 🚧 Workflow templating for common patterns (inference pipeline, training pipeline)
+
+### Blockchain Payment Integration
+- 🚧 Agent task payment via blockchain transactions (chain_id-aware)
+- 🚧 Coin request endpoint fixed to send `chain_id` (currently broken — see v0.5.16)
+- 🚧 Task reward distribution to agent accounts
+- 🚧 Payment escrow for task execution (lock payment on task start, release on completion)
+- 🚧 Payment reconciliation with blockchain state
+
+## 📋 Detailed Features
+
+### Agent Registration & Discovery
+
+#### Current State
+The agent-coordinator already has registration and discovery endpoints:
+- `POST /agents/register` — register agent with capabilities
+- `POST /agents/discover` — discover agents by query
+- `GET /agents/{agent_id}` — get agent info
+- `PUT /agents/{agent_id}/status` — update status
+- `POST /agents/{agent_id}/heartbeat` — heartbeat
+
+#### What's Missing
+- No chain_id awareness — agents can't advertise which chain/island they're on
+- No reputation scoring (planned for pool-hub v0.6.7)
+- No capability matching algorithm (manual matching only)
+- No agent deregistration cleanup
+
+#### Fix
+- Add `chain_id` and `island_id` to agent registration
+- Implement capability-based search (GPU model, inference type, training framework)
+- Add agent deregistration with resource cleanup
+- Add agent TTL — agents that don't heartbeat are marked inactive
+
+### Task Queues & Execution
+
+#### Current State
+Task endpoints exist:
+- `POST /tasks/submit` — submit task to queue
+- `GET /tasks/status` — get task status
+- `GET /tasks/queues` — get queue sizes
+- `POST /tasks/queues/{priority}/clear` — clear queue
+- `GET /tasks/queues/stats` — queue statistics
+
+#### What's Missing
+- No blockchain payment for task execution
+- No task-result verification (agent claims completion, but no proof)
+- No task timeout handling (tasks can run forever)
+- No task retry on failure
+
+#### Fix
+- Lock payment on task submission (escrow)
+- Release payment on verified task completion
+- Add task timeout with automatic refund
+- Add task retry with configurable max retries
+
+### Blockchain Payment Integration
+
+#### Current State (Broken)
+The coin_requests router calls `/rpc/transaction` but doesn't send `chain_id`:
+```python
+# agent-coordinator/src/app/routers/coin_requests.py
+result = http_client.post("/rpc/transaction", json=signed_tx)
+# ← no chain_id, hits the v0.5.16 bug
+```
+
+#### Fix
+- Send `chain_id` in coin request transactions (requires v0.5.16 fix)
+- Implement task payment escrow: lock funds on task start, release on completion
+- Add payment status tracking (pending → locked → released → refunded)
+- Reconcile payment state with blockchain state
+
+## 🔧 Breaking Changes
+
+- Agent registration now includes `chain_id` and `island_id` (optional but recommended)
+- Task submission now requires `payment` field (amount + fee for task execution)
+- Coin request endpoint now sends `chain_id` (requires v0.5.16 blockchain node)
+
+## 📊 Migration Guide
+
+### v0.6.4 → v0.6.5
+
+1. **Update agent-coordinator**
+   ```bash
+   cd /opt/aitbc
+   git pull
+   ./venv/bin/pip install -e apps/agent-coordinator
+   ```
+
+2. **Configure blockchain integration**
+   ```bash
+   # /etc/aitbc/agent-coordinator.env
+   BLOCKCHAIN_RPC_URL=http://localhost:8006
+   DEFAULT_CHAIN_ID=ait-hub
+   ```
+
+3. **Restart services**
+   ```bash
+   systemctl restart aitbc-agent-coordinator
+   ```
+
+## 🧪 Testing
+
+- Agent registration with chain_id → agent discoverable by chain
+- Task submission with payment → funds locked on blockchain
+- Task completion → funds released to agent
+- Task timeout → funds refunded to requester
+- Swarm coordination across 3+ agents
+- Workflow execution with 5+ steps
+- Coin request sends correct chain_id
+
+### Test Coverage Goals
+- Agent registration: >90%
+- Task queues: >90%
+- Swarm coordination: >85%
+- Workflow execution: >85%
+- Blockchain payment: >90%
+
+## 📚 Documentation
+
+- [Agent Coordination Guide](../getting-started/agent-coordination.md)
+- [Task Submission API](../api/task-submission.md)
+- [Swarm Coordination Guide](../getting-started/swarm-coordination.md)
+- [Workflow Execution Guide](../getting-started/workflow-execution.md)
+- [Agent Payment Integration](../getting-started/agent-payments.md)
+
+## 🚀 Dependencies
+
+### New Dependencies
+- None (uses existing agent-coordinator infrastructure)
+
+### Updated Dependencies
+- Agent coordinator v0.6.5+
+- Blockchain node v0.5.16+ (for chain_id-aware transactions)
+
+## 🔐 Security Considerations
+
+- Agent authentication required for task submission
+- Payment escrow prevents agent non-payment and requester non-payment
+- Task result verification prevents false completion claims
+- Agent heartbeat prevents zombie agents consuming resources
+
+## 📈 Performance Targets
+
+- Agent registration: <100ms
+- Task submission: <50ms
+- Task assignment: <200ms
+- Swarm formation: <500ms
+- Workflow step execution: <100ms
+- Payment lock/release: <1s (blockchain transaction)
+
+## 🎯 Success Criteria
+
+- ✅ Agents register with chain_id and are discoverable by chain
+- ✅ Tasks submitted with payment, funds locked on blockchain
+- ✅ Task completion releases payment to agent
+- ✅ Task timeout refunds payment to requester
+- ✅ Swarm coordination works across 3+ agents
+- ✅ Workflow execution completes multi-step pipelines
+- ✅ Coin request sends correct chain_id to blockchain
+- ✅ All existing tests pass
+
+## 🚀 Next Steps
+
+### v0.6.6 — Compute Marketplace
+- GPU marketplace, edge serving, compute offer discovery (builds on agent coordination for task assignment)
+
+### v0.6.7 — Pool Hub & Mining
+- Miner registry, job scoring, reward distribution (builds on agent coordination for miner management)
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 0.6.5*
+*Status: Planned*

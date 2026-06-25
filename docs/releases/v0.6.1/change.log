@@ -1,0 +1,195 @@
+# AITBC v0.6.1 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Parallel Processing Architecture — Parallel Block/Transaction Validation
+
+## 🎯 Overview
+
+AITBC v0.6.1 is a fundamental re-architecture of the block processing pipeline to support parallel validation of blocks and transactions. This release enables the blockchain node to utilize multiple CPU cores for validation, dramatically increasing throughput for high-volume chains.
+
+**Why this is a dedicated release**: Parallel block/transaction validation is not an "optimization" — it is a **fundamental re-architecture** of the block processing pipeline. The current `state_transition.py` (350 lines) and `poa.py` (676 lines) process sequentially. Parallel validation requires:
+- Dependency analysis between transactions (which txs touch the same state?)
+- Deterministic scheduling to ensure all validators produce identical state roots
+- Conflict resolution when parallel transactions touch overlapping state
+- Cached incremental Merkle tree updates for state root optimization
+
+This carries high regression risk and requires extensive testing to ensure deterministic execution across all validators. Bundling this with database caching work (as in the original v0.6.0 plan) would either block the easier optimizations or rush the parallel processing work.
+
+**Prerequisites**: Requires [v0.6.0](../v0.6.0/change.log) (Performance: DB, caching, network I/O — provides the optimized base layer).
+
+## 🎯 Release Highlights
+
+### Parallel Block Validation
+- 🚧 Validate multiple blocks concurrently
+- 🚧 Deterministic scheduling for validator consensus
+- 🚧 Conflict detection and resolution for overlapping state
+- 🚧 Pipeline block processing stages
+- 🚧 Reduced block processing latency via parallelism
+
+### Parallel Transaction Validation
+- 🚧 Validate transactions in parallel within a block
+- 🚧 State dependency analysis (which txs touch the same accounts/contracts?)
+- 🚧 Deterministic execution ordering after parallel validation
+- 🚧 Conflict resolution for overlapping state accesses
+- 🚧 Parallel gas calculation and validation
+
+## 📋 Detailed Features
+
+### Parallel Block Validation
+
+#### Deterministic Scheduling
+- Block validation order is deterministic (by block height)
+- Within a block, transactions are validated in parallel but applied in deterministic order
+- All validators must produce identical state roots regardless of parallel execution order
+- Scheduling uses deterministic seed (block hash) for reproducibility
+
+#### Conflict Detection
+- Analyze transaction read/write sets before parallel execution
+- Group non-conflicting transactions for parallel validation
+- Serialize conflicting transactions (touching same accounts/contracts)
+- Log conflicts for debugging and optimization
+
+#### Pipeline Processing
+- Stage 1: Block header validation (parallel with previous block's state application)
+- Stage 2: Transaction validation (parallel within block)
+- Stage 3: State application (serialized, deterministic order)
+- Stage 4: State root computation
+
+### Parallel Transaction Validation
+
+#### State Dependency Analysis
+```python
+# Pseudocode for dependency analysis
+def analyze_dependencies(transactions: list[Tx]) -> list[TxGroup]:
+    """Group transactions by state dependencies"""
+    groups = []
+    for tx in transactions:
+        read_set = tx.get_read_set()   # accounts/contracts read
+        write_set = tx.get_write_set() # accounts/contracts written
+        # Find group with no overlap, or create new group
+        ...
+    return groups
+```
+
+#### Deterministic Execution
+- Parallel validation produces a list of valid transactions + state changes
+- State changes are applied in deterministic order (by tx index in block)
+- State root computed after all state changes applied
+- Guarantees: all validators produce identical state root
+
+#### Conflict Resolution
+- If two transactions write to the same account, second transaction is re-validated against first's state changes
+- If re-validation fails, transaction is marked invalid
+- Conflicts are rare in practice (most transactions touch different accounts)
+
+## 🔧 Breaking Changes
+
+- Block processing pipeline restructured (may affect custom consensus modules)
+- Parallel validation requires deterministic scheduling config
+
+## 📊 Migration Guide
+
+### v0.6.0 → v0.6.1
+
+1. **Backup existing data**
+   ```bash
+   cp -r /var/lib/aitbc/data /var/lib/aitbc/data.backup
+   ```
+
+2. **Enable parallel processing**
+   ```bash
+   # /etc/aitbc/blockchain.env
+   BLOCK_PROCESSING_PARALLEL=true
+   TRANSACTION_VALIDATION_PARALLEL=true
+   PARALLEL_VALIDATION_WORKERS=4
+   ```
+
+3. **Restart services**
+   ```bash
+   systemctl restart aitbc-blockchain-node
+   ```
+
+## 🧪 Testing
+
+### Parallel Validation Testing
+- **Determinism tests**: All validators produce identical state roots with parallel validation
+- **Conflict resolution tests**: Overlapping state accesses handled correctly
+- **Performance tests**: Throughput improvement vs. sequential validation
+- **Regression tests**: All existing block processing tests pass with parallel validation
+- **Stress tests**: High-volume blocks with many conflicting transactions
+
+### Consensus Testing
+- **Multi-validator tests**: All validators agree on state roots
+- **Network partition tests**: Partitions heal correctly with parallel validation
+- **Byzantine validator tests**: Byzantine validators detected with parallel validation
+
+### Test Coverage Goals
+- Parallel block validation: >95%
+- Parallel transaction validation: >95%
+- Conflict resolution: >90%
+
+## 📚 Documentation
+
+- [Parallel Processing Architecture](../architecture/parallel-processing.md)
+- [State Root Optimization Guide](../getting-started/state-root-optimization.md)
+- [Deterministic Scheduling Reference](../api/deterministic-scheduling.md)
+- [Parallel Validation Troubleshooting](../troubleshooting/parallel-validation-issues.md)
+
+## 🚀 Dependencies
+
+### New Dependencies
+- Parallel processing libraries (multiprocessing, asyncio)
+
+### Updated Dependencies
+- Blockchain node v0.6.1+
+
+## 🔐 Security Considerations
+
+- **Determinism is critical**: All validators MUST produce identical state roots. Non-determinism = consensus failure.
+- Parallel validation must not skip any validation steps
+- State root format change requires careful migration
+- Conflict resolution must not silently drop valid transactions
+- **Extensive testing required**: All existing tests must pass, plus new determinism tests
+
+## 📈 Performance Targets
+
+### Block Processing
+- Block validation time: <100ms (with parallelism)
+- Block import rate: >500 blocks/second (interim) → >1000 blocks/second (full parallelism)
+- Block processing latency: <200ms (interim) → <100ms (full parallelism)
+- State root calculation: <50ms (incremental updates)
+- Block propagation latency: <200ms
+
+### Transaction Handling
+- Transaction validation: <10ms (parallel)
+- Transaction throughput: >10,000 TPS
+- Mempool processing: >5,000 transactions/second
+- Transaction confirmation: <1 second
+
+**Note**: The block import rate (>500 blocks/sec) and block processing latency (<200ms) targets were originally in v0.6.0 but moved here because they require parallel processing, not just DB/caching optimization. The sequential transaction loop in `poa.py` (lines 239-327) and full state root recomputation in `merkle_patricia_trie.py` (lines 402-419) are the bottlenecks that this release addresses.
+
+## 🎯 Success Criteria
+
+- ✅ Parallel block validation operational with deterministic results
+- ✅ Parallel transaction validation with conflict resolution
+- ✅ All validators produce identical state roots
+- ✅ Performance targets met
+- ✅ No consensus failures in multi-validator testing
+- ✅ All existing tests pass
+
+## 🚀 Next Steps
+
+### v0.6.2 — Sync & Gossip Optimization
+- Optimized gossip protocol
+- Parallel sync operations
+- Delta-based synchronization
+
+### v0.7.0 — Bridge Basics
+- Cross-chain bridge infrastructure (benefits from faster block processing)
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 0.6.1*
+*Status: Planned*

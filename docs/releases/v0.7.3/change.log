@@ -1,0 +1,196 @@
+# AITBC v0.7.3 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Governance — On-Chain Proposals, Voting, Parameter Changes, Cross-Chain Governance
+
+## 🎯 Overview
+
+AITBC v0.7.3 matures the governance service (991 lines of existing code) into a production on-chain governance system. Token holders can create proposals, vote on them, and execute approved changes to chain parameters (reward rates, scoring weights, bridge fees, block time, etc.). This release connects governance to the blockchain so proposals and votes are on-chain, and approved proposals automatically execute parameter changes.
+
+**Why this is a dedicated release**: The governance service has domain models and a service layer but no release plan. It needs to be wired to the blockchain for on-chain voting, connected to the bridge for cross-chain governance (proposals that affect multiple chains), and integrated with the pool-hub for parameter changes (reward rates, scoring weights).
+
+**Prerequisites**: Requires [v0.7.0](../v0.7.0/change.log) (Bridge Basics — cross-chain governance proposals need bridge), [v0.7.1](../v0.7.1/change.log) (Bridge Security — governance proposals are high-value, need secure bridge), [v0.6.7](../v0.6.7/change.log) (Pool Hub — governance controls pool parameters), and [v0.5.16](../v0.5.16/change.log) (chain_id-aware transactions for governance votes).
+
+## 🎯 Release Highlights
+
+### On-Chain Proposals
+- 🚧 Proposal creation as blockchain transactions (immutable, verifiable)
+- 🚧 Proposal types: parameter change, fund allocation, validator change, emergency action
+- 🚧 Proposal lifecycle (draft → active → passed → executed OR rejected → cancelled)
+- 🚧 Proposal discussion period before voting
+
+### Voting
+- 🚧 On-chain voting (votes are blockchain transactions)
+- 🚧 Vote weight proportional to AIT token balance (proof-of-stake voting)
+- 🚧 Vote types: yes, no, abstain
+- 🚧 Quorum requirements (minimum participation threshold)
+- 🚧 Approval threshold (majority, supermajority, or custom)
+
+### Parameter Changes
+- 🚧 Automatic execution of approved proposals
+- 🚧 Parameter change types: reward rates, scoring weights, bridge fees, block time, max txs per block
+- 🚧 Parameter change verification (old value → new value, audit trail)
+- 🚧 Timelock execution (delay between approval and execution for safety)
+
+### Cross-Chain Governance
+- 🚧 Proposals that affect multiple chains (e.g., global reward rate change)
+- 🚧 Cross-chain vote aggregation (votes from all chains counted)
+- 🚧 Cross-chain proposal execution (parameter change applied to all affected chains)
+- 🚧 Bridge-based proposal propagation (proposal on chain A → bridge to chain B)
+
+## 📋 Detailed Features
+
+### On-Chain Proposals
+
+#### Current State
+The governance service has:
+- `governance_service/domain/governance.py` — proposal and vote domain models
+- `governance_service/services/governance_service.py` — service layer
+- `governance_service/storage.py` — storage
+- `governance_service/main.py` — FastAPI app
+
+#### What's Missing
+- No blockchain integration (proposals are in local DB, not on-chain)
+- No proposal execution mechanism
+- No parameter change automation
+
+#### Fix
+- Proposals created as blockchain transactions (GOVERNANCE_PROPOSE type)
+- Proposal data stored on-chain (title, description, type, parameters, voting period)
+- Proposal lifecycle tracked on-chain
+
+### Voting
+
+#### Current State
+Domain models likely have vote tracking, but no on-chain voting.
+
+#### Fix
+- Votes submitted as blockchain transactions (GOVERNANCE_VOTE type)
+- Vote weight = voter's AIT token balance at proposal creation block (snapshot)
+- Quorum: configurable (default 30% of total supply)
+- Approval: configurable (default 50%+1 of votes cast)
+
+### Parameter Changes
+
+#### Fix
+- Approved proposals automatically execute after timelock (default 48h)
+- Parameter changes applied to blockchain config, pool-hub config, marketplace config
+- Parameter change audit trail on-chain (old value, new value, proposal ID, execution block)
+- Emergency proposals (shorter timelock, higher quorum) for critical fixes
+
+### Cross-Chain Governance
+
+#### Fix
+- Global proposals propagated to all chains via bridge
+- Votes aggregated across chains (bridge carries vote counts)
+- Execution coordinated across chains (all chains apply change at same block height)
+- Local proposals only affect the chain where they were created
+
+## 🔧 Breaking Changes
+
+- Proposals are now on-chain (not just in local DB)
+- Votes are now on-chain transactions (require gas/fee)
+- Parameter changes automatically execute (were manual before)
+- New transaction types: GOVERNANCE_PROPOSE, GOVERNANCE_VOTE, GOVERNANCE_EXECUTE
+
+## 📊 Migration Guide
+
+### v0.7.2 → v0.7.3
+
+1. **Update governance service**
+   ```bash
+   cd /opt/aitbc
+   git pull
+   ./venv/bin/pip install -e apps/governance
+   ```
+
+2. **Configure governance**
+   ```bash
+   # /etc/aitbc/governance.env
+   BLOCKCHAIN_RPC_URL=http://localhost:8006
+   DEFAULT_CHAIN_ID=ait-hub
+   VOTING_PERIOD=7200  # blocks (~2 days at 2s block time)
+   QUORUM_PERCENT=30
+   APPROVAL_PERCENT=50
+   TIMELOCK_BLOCKS=86400  # 48h at 2s block time
+   ```
+
+3. **Restart services**
+   ```bash
+   systemctl restart aitbc-governance
+   ```
+
+## 🧪 Testing
+
+- Create proposal → on-chain transaction → proposal active
+- Vote on proposal → on-chain transaction → vote counted
+- Proposal reaches quorum + approval → passed → timelock → executed
+- Proposal fails quorum → rejected
+- Parameter change: reward rate 10% → 15% → pool-hub picks up new rate
+- Cross-chain: proposal on chain A → propagated to chain B → votes from both chains
+- Emergency proposal: shorter timelock, higher quorum
+
+### Test Coverage Goals
+- Proposals: >90%
+- Voting: >90%
+- Parameter execution: >85%
+- Cross-chain governance: >80%
+
+## 📚 Documentation
+
+- [Governance Guide](../getting-started/governance.md)
+- [Proposal Creation API](../api/governance-proposals.md)
+- [Voting Mechanism](../getting-started/governance-voting.md)
+- [Parameter Changes Reference](../api/parameter-changes.md)
+- [Cross-Chain Governance](../architecture/cross-chain-governance.md)
+
+## 🚀 Dependencies
+
+### New Dependencies
+- None
+
+### Updated Dependencies
+- Governance service v0.7.3+
+- Blockchain node v0.5.16+ (chain_id-aware transactions)
+- Bridge service v0.7.1+ (cross-chain proposal propagation)
+- Pool hub v0.6.7+ (parameter change target)
+
+## 🔐 Security Considerations
+
+- Vote buying prevention: vote weight snapshot at proposal creation (can't buy votes mid-vote)
+- Sybil resistance: vote weight = token balance (must hold tokens to vote)
+- Proposal execution timelock: allows community to review and react before execution
+- Emergency proposal safeguards: higher quorum + shorter timelock (trade-off)
+- Cross-chain proposal verification: proposals verified on all chains before execution
+
+## 📈 Performance Targets
+
+- Proposal creation: <1s (blockchain transaction)
+- Vote submission: <1s (blockchain transaction)
+- Vote counting: <100ms (read from blockchain)
+- Parameter execution: <1s after timelock expires
+- Cross-chain propagation: <30s (bridge transfer)
+
+## 🎯 Success Criteria
+
+- ✅ Proposals created on-chain and visible to all token holders
+- ✅ Votes recorded on-chain with weight proportional to token balance
+- ✅ Approved proposals automatically execute parameter changes after timelock
+- ✅ Cross-chain proposals propagated and executed on all affected chains
+- ✅ Pool-hub, marketplace, and blockchain parameters controllable via governance
+- ✅ All existing tests pass
+
+## 🚀 Next Steps
+
+### v0.8.0 — Inter-Chain Trading Basics
+- Inter-chain trading (builds on governance for trading parameter control)
+
+### v0.8.1 — Cross-Chain Offer Sync
+- Offer synchronization across chains (builds on cross-chain governance for sync parameters)
+
+---
+
+*Last Updated: 2026-06-25*
+*Version: 0.7.3*
+*Status: Planned*

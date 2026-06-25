@@ -196,55 +196,56 @@ class MarketplaceService:
     async def list_software_services(self, service_type: str | None = None, status: str | None = None) -> list[dict[str, Any]]:
         """List software services with optional filters - aggregates from blockchain and local database"""
         from sqlalchemy import select
-        import sqlite3
-        from pathlib import Path
 
         from ..domain.marketplace import SoftwareService
 
         try:
-            # First, try to get offers from blockchain database directly
+            # First, try to get offers from blockchain via RPC
             blockchain_offers = []
             try:
-                # Direct database query to blockchain
-                chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
-                if not chain_db_path.exists():
-                    chain_db_path = Path("/var/lib/aitbc/data/chain.db")
-                
-                if chain_db_path.exists():
-                    conn = sqlite3.connect(str(chain_db_path))
-                    cursor = conn.cursor()
-                    
-                    # Query GPU_MARKETPLACE transactions with block information
-                    cursor.execute("""
-                        SELECT t.type, t.payload, t.sender, t.recipient, t.created_at, t.timestamp, t.tx_hash, 
-                               t.block_height, b.hash as block_hash, b.timestamp as block_timestamp, b.proposer
-                        FROM "transaction" t
-                        LEFT JOIN block b ON t.block_height = b.height
-                        WHERE t.type = 'GPU_MARKETPLACE'
-                        ORDER BY t.created_at DESC
-                        LIMIT 500
-                    """)
-                    
-                    rows = cursor.fetchall()
-                    conn.close()
-                    
-                    import json
-                    for row in rows:
-                        tx_type, payload_str, sender, recipient, created_at, timestamp, tx_hash, block_height, block_hash, block_timestamp, proposer = row
-                        try:
-                            payload = json.loads(payload_str) if isinstance(payload_str, str) else payload_str
-                            if isinstance(payload, dict) and payload.get("action") == "offer":
-                                # Convert blockchain transaction to software service format
-                                blockchain_offers.append({
-                                    "plugin_id": payload.get("offer_id", f"blockchain-{tx_hash[:8]}"),
+                import httpx
+
+                rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")
+                resp = httpx.get(
+                    f"{rpc_url}/rpc/transactions",
+                    params={"type": "GPU_MARKETPLACE", "limit": 500},
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                rpc_data = resp.json()
+
+                # The RPC response may be a list of transactions or a dict with a "transactions" key
+                txs = rpc_data.get("transactions", rpc_data) if isinstance(rpc_data, dict) else rpc_data
+                if not isinstance(txs, list):
+                    txs = []
+
+                for tx in txs:
+                    try:
+                        payload = tx.get("payload")
+                        if isinstance(payload, str):
+                            payload = json.loads(payload)
+                        if isinstance(payload, dict) and payload.get("action") == "offer":
+                            tx_hash = tx.get("tx_hash", "")
+                            sender = tx.get("sender", "")
+                            created_at = tx.get("created_at") or tx.get("timestamp")
+                            block_height = tx.get("block_height")
+                            block_hash = tx.get("block_hash")
+                            block_timestamp = tx.get("block_timestamp")
+                            block_proposer = tx.get("proposer") or tx.get("block_proposer")
+                            # Convert blockchain transaction to software service format
+                            blockchain_offers.append(
+                                {
+                                    "plugin_id": payload.get(
+                                        "offer_id", f"blockchain-{tx_hash[:8] if tx_hash else 'unknown'}"
+                                    ),
                                     "service_type": "gpu_marketplace",
                                     "model": payload.get("gpu_model", "unknown"),
                                     "price": payload.get("price_per_gpu", 0),
                                     "price_unit": "per_hour",
                                     "offer_id": payload.get("offer_id", "unknown"),
-                                    "endpoint": f"http://hub.aitbc.bubuit.net/rpc",
-                                    "public_endpoint": f"http://hub.aitbc.bubuit.net/rpc",
-                                    "health_url": f"http://hub.aitbc.bubuit.net/rpc/health",
+                                    "endpoint": "http://hub.aitbc.bubuit.net/rpc",
+                                    "public_endpoint": "http://hub.aitbc.bubuit.net/rpc",
+                                    "health_url": "http://hub.aitbc.bubuit.net/rpc/health",
                                     "provider_address": payload.get("provider_node_id", sender),
                                     "node_id": payload.get("provider_node_id", "unknown"),
                                     "gpu_name": payload.get("gpu_model", "N/A"),
@@ -261,17 +262,18 @@ class MarketplaceService:
                                     "block_height": block_height,
                                     "block_hash": block_hash,
                                     "block_timestamp": block_timestamp,
-                                    "block_proposer": proposer,
+                                    "block_proposer": block_proposer,
                                     "tx_hash": tx_hash,
                                     "confirmed": block_height is not None,
-                                })
-                        except Exception as e:
-                            logger.warning("Failed to parse blockchain payload: %s", e)
-                            continue
-                    
-                    logger.info("Retrieved %s offers from blockchain database", len(blockchain_offers))
+                                }
+                            )
+                    except Exception as e:
+                        logger.warning("Failed to parse blockchain payload: %s", e)
+                        continue
+
+                logger.info("Retrieved %s offers from blockchain RPC", len(blockchain_offers))
             except Exception as e:
-                logger.warning("Failed to get offers from blockchain database: %s", e)
+                logger.warning("Failed to get offers from blockchain RPC: %s", e)
 
             # Second, get offers from local database
             query = select(SoftwareService)
@@ -281,7 +283,7 @@ class MarketplaceService:
                 query = query.where(SoftwareService.status == status)  # type: ignore[arg-type]
             result = await self.session.execute(query)
             local_services = result.scalars().all()
-            
+
             local_offers = [
                 {
                     "plugin_id": s.plugin_id,
@@ -315,28 +317,32 @@ class MarketplaceService:
                 }
                 for s in local_services
             ]
-            
+
             # Merge blockchain and local offers, preferring blockchain
             seen_plugin_ids = set()
             merged_offers = []
-            
+
             # Add blockchain offers first
             for offer in blockchain_offers:
                 plugin_id = offer["plugin_id"]
                 if plugin_id not in seen_plugin_ids:
                     merged_offers.append(offer)
                     seen_plugin_ids.add(plugin_id)
-            
+
             # Add local offers that aren't in blockchain
             for offer in local_offers:
                 plugin_id = offer["plugin_id"]
                 if plugin_id not in seen_plugin_ids:
                     merged_offers.append(offer)
                     seen_plugin_ids.add(plugin_id)
-            
-            logger.info("Returning %s total offers (%s from blockchain, %s from local)", 
-                       len(merged_offers), len(blockchain_offers), len(local_offers))
-            
+
+            logger.info(
+                "Returning %s total offers (%s from blockchain, %s from local)",
+                len(merged_offers),
+                len(blockchain_offers),
+                len(local_offers),
+            )
+
             return merged_offers
         except Exception as e:
             logger.error("Error in list_software_services: %s: %s", type(e).__name__, str(e))

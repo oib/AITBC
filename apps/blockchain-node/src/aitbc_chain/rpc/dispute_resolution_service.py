@@ -134,7 +134,9 @@ class DisputeResolutionService:
             logger.error("Error submitting arbitration vote: %s", e)
             return {"success": False, "error": str(e)}
 
-    def authorize_arbitrator(self, arbitrator_address: str, reputation_score: int, owner_address: str) -> dict[str, Any]:
+    def authorize_arbitrator(
+        self, arbitrator_address: str, reputation_score: int, owner_address: str, owner_signature: str | None = None
+    ) -> dict[str, Any]:
         """
         Authorize a new arbitrator (admin only)
 
@@ -142,13 +144,17 @@ class DisputeResolutionService:
             arbitrator_address: Address of the arbitrator
             reputation_score: Initial reputation score
             owner_address: Address of the contract owner
+            owner_signature: Signature from the owner proving authorization
 
         Returns:
             Dictionary with success status
         """
         try:
             return dispute_resolution_contract.authorize_arbitrator(
-                arbitrator_address=arbitrator_address, reputation_score=reputation_score, owner_address=owner_address
+                arbitrator_address=arbitrator_address,
+                reputation_score=reputation_score,
+                owner_address=owner_address,
+                owner_signature=owner_signature,
             )
         except Exception as e:
             logger.error("Error authorizing arbitrator: %s", e)
