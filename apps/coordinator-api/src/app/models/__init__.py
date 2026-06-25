@@ -10,7 +10,7 @@ from ..custom_types import (
 )
 
 # Import domain models
-from ..domain import (
+from ..contexts.infrastructure.domain import (
     Job,
     JobReceipt,
     Miner,

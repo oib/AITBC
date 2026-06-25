@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 
-from ..domain import Job, Miner
+from ..contexts.infrastructure.domain import Job, Miner
 
 logger = get_logger(__name__)
 

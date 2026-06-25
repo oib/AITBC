@@ -146,7 +146,7 @@ class CacheWarmer:
         try:
             from sqlmodel import func, select
 
-            from ..domain import Job
+            from ..contexts.infrastructure.domain import Job
             from ..services import JobService, MinerService
 
             JobService(self.session)

@@ -56,7 +56,7 @@ class TestAdvancedReinforcementLearningEngine:
     @patch("app.services.advanced_rl.engine.Session")
     async def test_proximal_policy_optimization(self, mock_session):
         """Test PPO training"""
-        from app.domain.reinforcement_learning import ReinforcementLearningConfig
+        from app.contexts.advanced_rl.domain import ReinforcementLearningConfig
         from app.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
 
         engine = AdvancedReinforcementLearningEngine()
@@ -76,7 +76,7 @@ class TestAdvancedReinforcementLearningEngine:
     @patch("app.services.advanced_rl.engine.Session")
     async def test_soft_actor_critic(self, mock_session):
         """Test SAC training"""
-        from app.domain.reinforcement_learning import ReinforcementLearningConfig
+        from app.contexts.advanced_rl.domain import ReinforcementLearningConfig
         from app.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
 
         engine = AdvancedReinforcementLearningEngine()
