@@ -7,7 +7,7 @@ from typing import Any
 from uuid import uuid4
 
 from ...domain.certification import AchievementBadge, AgentBadge, BadgeType
-from ....reputation.domain.reputation import AgentReputation
+from ....reputation.services.reputation_service import AgentReputation
 from sqlmodel import Session, and_, select
 
 from aitbc.aitbc_logging import get_logger

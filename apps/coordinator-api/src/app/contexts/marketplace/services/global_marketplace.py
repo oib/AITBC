@@ -13,7 +13,6 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 
 from ....reputation.engine import CrossChainReputationEngine
-from ...agent_identity.domain.agent_identity import AgentIdentity
 from ..domain.global_marketplace import (
     GlobalMarketplaceAnalytics,
     GlobalMarketplaceAnalyticsRequest,
@@ -35,18 +34,16 @@ class GlobalMarketplaceService:
     def __init__(self, session: Session):
         self.session = session
 
-    async def create_global_offer(
-        self, request: "GlobalMarketplaceOfferRequest", agent_identity: AgentIdentity
-    ) -> GlobalMarketplaceOffer:
+    async def create_global_offer(self, request: "GlobalMarketplaceOfferRequest", agent_id: str) -> GlobalMarketplaceOffer:
         """Create a new global marketplace offer"""
         try:
             reputation_engine = CrossChainReputationEngine(self.session)
-            reputation_summary = await reputation_engine.get_agent_reputation_summary(agent_identity.id)
+            reputation_summary = await reputation_engine.get_agent_reputation_summary(agent_id)
             if reputation_summary.get("trust_score", 0) < 500:
                 raise ValueError("Insufficient reputation for global marketplace")
             global_offer = GlobalMarketplaceOffer(
                 original_offer_id=f"offer_{uuid4().hex[:8]}",
-                agent_id=agent_identity.id,
+                agent_id=agent_id,
                 service_type=request.service_type,
                 resource_specification=request.resource_specification,
                 base_price=request.base_price,
@@ -72,7 +69,7 @@ class GlobalMarketplaceService:
             self.session.add(global_offer)
             self.session.commit()
             self.session.refresh(global_offer)
-            logger.info("Created global offer %s for agent %s", global_offer.id, agent_identity.id)
+            logger.info("Created global offer %s for agent %s", global_offer.id, agent_id)
             return global_offer
         except Exception as e:
             logger.error("Error creating global offer: %s", e)
@@ -109,7 +106,7 @@ class GlobalMarketplaceService:
             raise
 
     async def create_global_transaction(
-        self, request: "GlobalMarketplaceTransactionRequest", buyer_identity: AgentIdentity
+        self, request: "GlobalMarketplaceTransactionRequest", buyer_id: str
     ) -> GlobalMarketplaceTransaction:
         """Create a global marketplace transaction"""
         try:
@@ -120,7 +117,7 @@ class GlobalMarketplaceService:
             if offer.available_capacity < request.quantity:
                 raise ValueError("Insufficient capacity")
             reputation_engine = CrossChainReputationEngine(self.session)
-            buyer_reputation = await reputation_engine.get_agent_reputation_summary(buyer_identity.id)
+            buyer_reputation = await reputation_engine.get_agent_reputation_summary(buyer_id)
             if buyer_reputation.get("trust_score", 0) < 300:
                 raise ValueError("Insufficient reputation for transactions")
             unit_price = offer.base_price
@@ -135,7 +132,7 @@ class GlobalMarketplaceService:
             if request.source_chain and request.target_chain and (request.source_chain != request.target_chain):
                 cross_chain_fee = total_amount * 0.005
             transaction = GlobalMarketplaceTransaction(
-                buyer_id=buyer_identity.id,
+                buyer_id=buyer_id,
                 seller_id=offer.agent_id,
                 offer_id=offer.id,
                 service_type=offer.service_type,

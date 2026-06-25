@@ -4,7 +4,7 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
-from app.contexts.marketplace.domain.gpu_marketplace import ConsumerGPUProfile, EdgeGPUMetrics, GPUArchitecture
+from app.contexts.edge_gpu.domain import ConsumerGPUProfile, EdgeGPUMetrics, GPUArchitecture
 from app.data.consumer_gpu_profiles import CONSUMER_GPU_PROFILES
 from app.storage import get_session
 

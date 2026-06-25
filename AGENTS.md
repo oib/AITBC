@@ -118,5 +118,9 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python
 | X3 | `multimodal` → `agent_coordination.domain.agent_performance` — extract `FusionModel` | Medium | ✅ DONE |
 | X4 | `ai_analytics` → `analytics.domain.analytics` — merge contexts or introduce service interface | Medium | ✅ DONE |
 | X5 | Verify zero cross-context domain-model imports remain + update audit docs | High | ✅ DONE |
+| X6 | `marketplace` → `cross_chain` — move `TransactionPriority` to shared kernel | Medium | ✅ DONE |
+| X7 | `edge_gpu` → `marketplace` — move 3 GPU models to `edge_gpu/domain/` | Medium | ✅ DONE |
+| X8 | `marketplace` → `agent_identity` — change service to accept `agent_id: str` | Medium | ✅ DONE |
+| X9 | `certification` + `rewards` → `reputation` — re-export from service layer | Medium | ✅ DONE |
 
 **Agent B working directory**: `/opt/aitbc/` (cross-cutting: `apps/`, `cli/`).
