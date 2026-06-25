@@ -77,22 +77,3 @@ def mock_faucet_response():
         "transaction_id": "tx_test123",
         "timestamp": "2026-05-05T12:00:00",
     }
-
-
-@pytest.fixture
-def training_stage_data():
-    """Sample training stage data for testing"""
-    return {
-        "stage": "stage1_foundation",
-        "agent_type": "general",
-        "training_data": {
-            "prerequisites": {
-                "description": "Test prerequisites",
-                "setup_script": "/opt/aitbc/scripts/training/setup_training_env.sh",
-                "requirements": ["AITBC node running", "Funded accounts"],
-            },
-            "operations": [
-                {"operation": "wallet_create", "parameters": {"name": "test-wallet"}, "expected_result": {"status": "success"}}
-            ],
-        },
-    }
