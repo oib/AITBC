@@ -312,10 +312,10 @@ if [[ -d "$REPO_CONFIG_DIR" ]]; then
             filename=$(basename "$file")
             target="$ACTIVE_TMPFILES_DIR/$filename"
             echo "  📋 Deploying: $filename -> $target"
-            if cp "$file" "$target" 2>/dev/null; then
+            if deploy_err=$(cp "$file" "$target" 2>&1); then
                 echo "    ✅ Successfully deployed: $filename"
             else
-                echo "    ❌ Failed to deploy: $filename"
+                echo "    ❌ Failed to deploy: $filename: $deploy_err"
                 ((error_count++))
             fi
         fi
@@ -352,8 +352,11 @@ echo "🔍 To verify links:"
 echo "  ls -la /etc/systemd/system/aitbc-*"
 echo "  readlink /etc/systemd/system/aitbc-blockchain-node.service"
 
-# Ensure script exits successfully
-if [[ $linked_files -gt 0 ]]; then
+# Exit code reflects both link and tmpfiles deployment errors
+if [[ $error_count -gt 0 ]]; then
+    echo "⚠️  Script completed with $error_count error(s) and $linked_files file(s) linked"
+    exit 1
+elif [[ $linked_files -gt 0 ]]; then
     echo "✅ Script completed successfully with $linked_files files linked"
     exit 0
 else
