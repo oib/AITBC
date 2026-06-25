@@ -1,8 +1,8 @@
-# v0.5.15 — Flat-to-Context Migration + Test Suite Repair (P1–P7)
+# v0.5.15 — Flat-to-Context Migration + Test Suite Repair + Infrastructure Fixes (P1–P10)
 
-**Theme**: Pay down the flat-directory architectural debt (services/, routers/, schemas/) identified in the post-v0.5.14 audit, then repair the entire coordinator-api test suite.
+**Theme**: Pay down the flat-directory architectural debt (services/, routers/, schemas/) identified in the post-v0.5.14 audit, repair the entire coordinator-api test suite, and fix systemd/GPU infrastructure issues discovered during deployment.
 
-**Goal**: Migrate all flat services, routers, and schemas into their bounded contexts; eliminate cross-context domain-model imports; fix all pre-existing broken test imports; resolve all remaining pre-existing test failures (148 → 0).
+**Goal**: Migrate all flat services, routers, and schemas into their bounded contexts; eliminate cross-context domain-model imports; fix all pre-existing broken test imports; resolve all remaining pre-existing test failures (148 → 0); fix systemd linking error handling and recovery service restart loop; add GPU support (pycuda, profile mapping, auto-detection); fix p2p_network.py syntax bug.
 
 **Context**: The v0.5.14 post-migration audit identified 5 categories of architectural debt: (1) domain shim usage, (2) flat directories, (3) flat reputation/, (4) missing `__init__.py`, (5) cross-context service imports. This release addresses all 5 categories plus a comprehensive test-suite repair pass.
 
@@ -23,6 +23,9 @@
 | P5 | Migrate flat `routers/` files to owning contexts (29 files: 13 dead, 16 active) | High | ✅ DONE |
 | P6 | Fix pre-existing broken test imports (7 modules, 55+ import statements) | Medium | ✅ DONE |
 | P7 | Fix all remaining pre-existing test failures (148 failures → 0) | High | ✅ DONE |
+| P8 | Fix systemd linking error handling + recovery service ReadWritePaths | High | ✅ DONE |
+| P9 | GPU support: pycuda dependency, profile name mapping, auto-detection | High | ✅ DONE |
+| P10 | Fix p2p_network.py syntax bug + clean up P6 test oversights | Medium | ✅ DONE |
 
 ---
 
@@ -366,6 +369,105 @@ Tests patched `AITBCHTTPClient` on wrong module paths or tested non-existent end
 
 ---
 
+## P8: Fix systemd linking error handling + recovery service ReadWritePaths
+
+**Context**: The `aitbc-recovery.service` (which runs `link-systemd.sh` on boot) was in a 5-second restart loop because `link-systemd.sh` failed silently with "Read-only file system" errors. Three bugs in the error handling made the failure invisible and undiagnosable.
+
+### P8-1: Make cp errors visible in link-systemd.sh
+
+`cp "$file" "$target" 2>/dev/null` suppressed the actual error message. Changed to capture stderr and display it inline: `❌ Failed to deploy: aitbc-secrets.conf: cp: cannot create regular file ...: Read-only file system`.
+
+### P8-2: Propagate exit code from link-systemd.sh
+
+The script always exited 0 if any files were linked, ignoring `error_count`. Fixed to exit 1 when `error_count > 0` so callers (`update.sh`, `aitbc-recovery.service`) can detect failures.
+
+### P8-3: Show link-systemd.sh output in update.sh
+
+`update.sh` ran the script with `>/dev/null 2>&1`, swallowing all output and replacing real errors with a false "Systemd unit files relinked (role-aware)". Fixed to show script output (indented) and use `PIPESTATUS[0]` to check the real exit code.
+
+### P8-4: Fix stale test path in test_service_recovery.py
+
+`aitbc-recovery.service` moved from `scripts/systemd/` to `scripts/utils/` in v0.5.8 but the test still referenced the old location (9 pre-existing test failures → 0).
+
+### P8-5: Add /etc/systemd/system and /etc/tmpfiles.d to recovery service ReadWritePaths
+
+**Root cause of the restart loop**: `aitbc-recovery.service` has `ProtectSystem=full` (makes `/etc` read-only) but `ReadWritePaths` only listed `/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc` — missing the two directories the service needs to write to. Added `/etc/systemd/system` and `/etc/tmpfiles.d` to `ReadWritePaths`.
+
+Also updated `harden-systemd-services.py` so the correct paths are applied if the hardening script is ever re-run from scratch on this service.
+
+**Result**: Recovery service stable (`active`, `Result=success`, `NRestarts=0`). 17 systemd symlinks correctly created, both tmpfiles configs deployed.
+
+---
+
+## P9: GPU support — pycuda dependency, profile name mapping, auto-detection
+
+**Context**: The coordinator-api's `gpu_optimizer.py` imports pycuda at module load time to access real GPU devices, but pycuda was never installed because it wasn't in any requirements file and the install profile name mapping was broken. The node has an NVIDIA GeForce RTX 4060 Ti but the coordinator-api always ran in simulation mode.
+
+### P9-1: Add pycuda to requirements files
+
+Added `pycuda>=2024.1` to:
+- `pyproject.toml` (main dependency list)
+- `requirements.txt` (non-poetry installs)
+- `requirements-optional/ai-ml.txt` (installed by the `provider-gpu` profile)
+
+### P9-2: Fix profile name mismatch between setup.sh/update.sh and install-profiles.sh
+
+Both `setup.sh` and `update.sh` generated profile names like `follower-shop-gpu` by concatenating role axes, but `install-profiles.sh` only accepts 4 valid profiles: `server-no-gpu`, `hub`, `customer-no-gpu`, `provider-gpu`. None of the 8 generated names ever matched, so `install-profiles.sh` always errored and both scripts fell back to plain `requirements.txt`, skipping GPU-specific dependencies.
+
+Fixed `get_profile()` in `update.sh` and the equivalent logic in `setup.sh` to map the 8 role combinations to the 4 valid profiles:
+
+| Role | Profile | Gets |
+|------|---------|------|
+| any + gpu | `provider-gpu` | requirements.txt + ai-ml.txt + security.txt |
+| hub + nogpu | `hub` | requirements.txt + security.txt + dev.txt |
+| follower + customer + nogpu | `customer-no-gpu` | requirements-minimal.txt + CLI requirements |
+| follower + shop + nogpu | `server-no-gpu` | requirements.txt + security.txt |
+
+### P9-3: Auto-detect GPU via nvidia-smi in setup.sh and update.sh
+
+Neither script tested for GPU presence — `HARDWARE_PROFILE` was set by interactive prompt (setup.sh) or read from env file (update.sh). Added `detect_gpu()` function to `deploy_common.sh` (shared library) and inlined in `update.sh`.
+
+- **setup.sh interactive mode**: auto-detects GPU and defaults the prompt to "gpu" if found, showing the detected GPU name
+- **setup.sh non-interactive mode** (`--open-island`): auto-detects instead of hardcoding `nogpu`
+- **update.sh `get_node_role()`**: auto-detects and overrides `HARDWARE_PROFILE` to `gpu` if the env file says `nogpu` but a GPU is present, with a warning
+
+### P9-4: Document Incus GPU passthrough + fix stale profile names in docs
+
+- Added "Incus/LXC Container GPU Passthrough" section to `docs/mining/5_gpu-setup.md` with the three `incus config device add` commands needed on the host (gpu, nvidia-uvm, nvidia-uvm-tools)
+- Added "cuInit Fails in Incus/LXC Container (Error 999)" section to `docs/troubleshooting/gpu-issues.md`
+- Fixed stale profile names in `docs/getting-started/SETUP.md` (removed 8 invalid names, replaced with correct 4 profiles)
+
+### P9 Result
+
+- pycuda 2026.1 installed in venv
+- PyCUDA sees the RTX 4060 Ti (14823MB free / 16031MB total)
+- Coordinator-api restarted with no `PyCUDA not available` warning — `CUDA_AVAILABLE = True`
+- All 8 role combinations now map to valid install profiles
+- GPU auto-detected on this node: `follower:shop:gpu` → `provider-gpu`
+
+---
+
+## P10: Fix p2p_network.py syntax bug + clean up P6 test oversights
+
+### P10-1: Fix p2p_network.py indentation bug
+
+`p2p_network.py` line 482 had 16→36 spaces indentation error that caused 32 ruff `invalid-syntax` errors and broke P2P transaction forwarding. Removed the now-unused top-level `get_mempool` import (lazy imports are used instead).
+
+### P10-2: Fix FusionModel import path in test_fusion_engine.py
+
+Was pointing to `app.contexts.agent_coordination.domain.agent_performance` (wrong context), corrected to `app.contexts.multimodal.domain`.
+
+### P10-3: Delete 2 phantom test files
+
+- `test_services_governance.py` — tested non-existent module-level functions (`get_proposals`, `vote_on_proposal`)
+- `test_services_agent.py` — tested non-existent functions (`get_agent_status`) and referenced `AITBCHTTPClient` which is not used in that context
+
+### P10-4: Exclude contracts/ from ruff
+
+Third-party `openzeppelin`/`forge-std` contracts directory excluded from ruff linting.
+
+---
+
 ## Remaining Work (future phases)
 
-- None — all phases (P1–P7) complete. The flat `services/`, `schemas/`, `routers/`, and `reputation/` directories have all been migrated to bounded contexts. All broken test imports fixed. All pre-existing test failures resolved.
+- None — all phases (P1–P10) complete. The flat `services/`, `schemas/`, `routers/`, and `reputation/` directories have all been migrated to bounded contexts. All broken test imports fixed. All pre-existing test failures resolved. Systemd linking error handling fixed. GPU support (pycuda, profile mapping, auto-detection) implemented. p2p_network.py syntax bug fixed.
