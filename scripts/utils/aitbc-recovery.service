@@ -25,7 +25,7 @@ SystemCallArchitectures=native
 SystemCallFilter=@system-service
 # Security hardening (v0.5.0)
 ProtectSystem=full
-ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
+ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc /etc/systemd/system /etc/tmpfiles.d
 # Security hardening (v0.5.0)
 RestartSec=5
 # Security hardening (v0.5.0)

@@ -199,12 +199,19 @@ def add_protect_system(content: str, service_name: str) -> tuple[str, list[str]]
         return content, changes
 
     if service_name in SERVICES_NEEDING_WRITE_ACCESS:
+        # aitbc-recovery.service runs link-systemd.sh which writes to
+        # /etc/systemd/system and /etc/tmpfiles.d — needs those in ReadWritePaths
+        # since ProtectSystem=full makes /etc read-only.
+        if service_name == "aitbc-recovery.service":
+            rwp = "/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc /etc/systemd/system /etc/tmpfiles.d"
+        else:
+            rwp = "/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc"
         directives = [
             ("ProtectSystem", "full"),
-            ("ReadWritePaths", "/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc"),
+            ("ReadWritePaths", rwp),
         ]
         changes.append("ProtectSystem=full")
-        changes.append("ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc")
+        changes.append(f"ReadWritePaths={rwp}")
     else:
         directives = [("ProtectSystem", "strict")]
         changes.append("ProtectSystem=strict")
