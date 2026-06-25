@@ -15,7 +15,7 @@ from app.contexts.trading.services.trading_marketplace.bid_strategy import (
 
 from aitbc.aitbc_logging import get_logger
 
-from ..task_decomposition import GPU_Tier, SubTask, SubTaskStatus, TaskDecomposition
+from .task_decomposition import GPU_Tier, SubTask, SubTaskStatus, TaskDecomposition
 
 logger = get_logger(__name__)
 

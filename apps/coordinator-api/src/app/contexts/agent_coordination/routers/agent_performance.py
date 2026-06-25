@@ -17,7 +17,7 @@ from ..domain.agent_performance import (
     OptimizationTarget,
     PerformanceMetric,
 )
-from ....services.agent_coordination.performance import (
+from ..services.performance import (
     AgentPerformanceService,
     MetaLearningEngine,
     PerformanceOptimizer,
