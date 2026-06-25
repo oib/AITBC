@@ -28,10 +28,10 @@ from app.contexts.agent_coordination.domain.agent import (
     AgentExecution,
     AgentStepExecution,
 )
-from app.services.agent_coordination.agent_service import AIAgentOrchestrator  # type: ignore[import-not-found]
+from app.contexts.agent_coordination.services.orchestrator_service import AIAgentOrchestrator
 
 # Import from coordinator-api services
-from app.services.agent_coordination.security import (  # type: ignore[import-not-found]
+from app.contexts.agent_coordination.services.security import (
     AgentAuditor,
     AgentSecurityManager,
 )

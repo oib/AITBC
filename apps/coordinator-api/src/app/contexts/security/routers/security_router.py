@@ -15,7 +15,7 @@ from aitbc.rate_limiting import rate_limit
 from ....auth import AdminDep  # NEW: JWT auth
 
 # from ....deps import require_admin_key  # OLD: API key auth (deprecated)
-from ....services.agent_coordination.security import (
+from ...agent_coordination.services.security import (
     AgentAuditLog,
     AgentAuditor,
     AgentSandboxManager,
@@ -220,7 +220,7 @@ async def list_audit_logs(
 ) -> list[AgentAuditLog]:  # type: ignore[arg-type]
     """List audit logs with filtering"""
     try:
-        from ...services.agent_coordination.security import AgentAuditLog  # type: ignore[import-not-found]
+        from ...agent_coordination.services.security import AgentAuditLog
 
         query = select(AgentAuditLog)
         if event_type:
@@ -284,7 +284,7 @@ async def list_trust_scores(
 ) -> list[AgentTrustScore]:  # type: ignore[arg-type]
     """List trust scores with filtering"""
     try:
-        from ..services.agent_coordination.security import AgentTrustScore  # type: ignore[import-not-found]
+        from ...agent_coordination.services.security import AgentTrustScore
 
         query = select(AgentTrustScore)
         if entity_type:
@@ -315,7 +315,7 @@ async def get_trust_score(
 ) -> AgentTrustScore:  # type: ignore[arg-type]
     """Get trust score for specific entity"""
     try:
-        from ..services.agent_coordination.security import AgentTrustScore
+        from ...agent_coordination.services.security import AgentTrustScore
 
         trust_score = session.execute(
             select(AgentTrustScore).where(
@@ -485,7 +485,7 @@ async def get_security_dashboard(
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Get comprehensive security dashboard data"""
     try:
-        from ..services.agent_coordination.security import AgentAuditLog, AgentSandboxConfig
+        from ...agent_coordination.services.security import AgentAuditLog, AgentSandboxConfig
 
         recent_audits = session.execute(select(AgentAuditLog).order_by(AgentAuditLog.timestamp.desc()).limit(50)).all()
         high_risk_events = session.execute(
@@ -533,7 +533,7 @@ async def get_security_statistics(
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     """Get security statistics and metrics"""
     try:
-        from ..services.agent_coordination.security import AgentTrustScore
+        from ...agent_coordination.services.security import AgentTrustScore
 
         total_audits = session.execute(select(AgentAuditLog)).count()  # type: ignore[attr-defined]
         event_type_counts = {}
