@@ -4,8 +4,8 @@ from fastapi import APIRouter, HTTPException, Request
 
 from aitbc.rate_limiting import rate_limit
 
-from ....services.fhe_service import FHEService
-from ....services.zk_proofs import ZKProofService
+from ..services.fhe_service import FHEService
+from ..services.zk_proofs import ZKProofService
 
 router = APIRouter(prefix="/ml-zk", tags=["ml-zk"])
 

@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.config import settings
-from app.services.redis_state import RedisStateManager
+from app.contexts.infrastructure.services.redis_state import RedisStateManager
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field, field_validator
 

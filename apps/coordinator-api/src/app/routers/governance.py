@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from aitbc.rate_limiting import rate_limit
 
-from ..services.governance_service import get_governance_service
+from ..contexts.governance.services.governance_service import get_governance_service
 
 router = APIRouter(prefix="/governance", tags=["governance"])
 

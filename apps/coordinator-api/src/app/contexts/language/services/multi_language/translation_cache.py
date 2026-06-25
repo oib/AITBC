@@ -14,7 +14,7 @@ from redis.asyncio import Redis
 
 from aitbc.aitbc_logging import get_logger
 
-from ...services.secure_pickle import safe_dumps, safe_loads  # type: ignore[import-not-found]
+from ....language.services.secure_pickle import safe_dumps, safe_loads
 from .translation_engine import TranslationProvider, TranslationResponse
 
 logger = get_logger(__name__)
