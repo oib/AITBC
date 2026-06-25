@@ -16,6 +16,8 @@
 | P1-2 | Add missing `__init__.py` to `contexts/ipfs/` and `contexts/knowledge/` | Medium | ✅ DONE |
 | P1-3 | Verify "duplicate" service subdirs — NOT duplicates, skipped (Phase 4 scope) | Low | ✅ DONE (no action needed) |
 | P1-4 | Update all files importing via `domain/__init__.py` shim to import directly from `contexts.infrastructure.domain` | Medium | ✅ DONE |
+| X10 | Eliminate cross-context import: `multimodal` → `agent_coordination.domain.agent` (dead code removal) | Medium | ✅ DONE |
+| P2 | Merge flat `reputation/` directory into `contexts/reputation/services/` | Medium | ✅ DONE |
 
 ---
 
@@ -69,9 +71,41 @@ The audit report claimed `services/agent_coordination/`, `services/enterprise_in
 
 ---
 
+## X10: Eliminate cross-context domain-model import — `multimodal` → `agent_coordination.domain.agent`
+
+**Discovered during P1-4**: `contexts/multimodal/services/multimodal_agent.py` imported `AgentExecution` and `AgentStatus` from `contexts.agent_coordination.domain.agent` — a cross-context domain-model import that was missed in v0.5.14.
+
+**Investigation**: The `_update_agent_execution` method that used these models was **broken dead code**. It queried `AgentExecution.agent_id`, `execution.results`, and `execution.performance_metrics` — none of which exist as columns on the `AgentExecution` model. The method was wrapped in a try/except that silently swallowed the resulting `AttributeError`/SQLAlchemy error, making it a no-op.
+
+**Fix**: Removed the dead `_update_agent_execution` method, its call site, and the cross-context import. No functionality lost since the method never actually worked.
+
+**Result**: Zero cross-context domain-model imports remain in production code.
+
+---
+
+## Phase 2: Merge flat `reputation/` into `contexts/reputation/services/`
+
+**Context**: The flat `app/reputation/` directory contained two files — `engine.py` (`CrossChainReputationEngine`) and `aggregator.py` (`CrossChainReputationAggregator`) — that were complementary to `contexts/reputation/services/reputation_service.py` but lived outside the bounded context.
+
+**Changes**:
+- Moved `reputation/engine.py` → `contexts/reputation/services/reputation_engine.py`
+- Moved `reputation/aggregator.py` → `contexts/reputation/services/cross_chain_aggregator.py` (dead code — no importers, moved for completeness)
+- Updated internal imports in both files (from `..contexts.reputation.domain.*` to `..domain.*`)
+- Updated 6 importers of `reputation.engine.CrossChainReputationEngine`:
+  - `contexts/marketplace/services/global_marketplace.py`
+  - `contexts/marketplace/services/global_marketplace_integration.py`
+  - `contexts/marketplace/routers/global_marketplace_integration.py`
+  - `services/multi_chain_transaction_manager.py`
+  - `contexts/cross_chain/routers/cross_chain_integration.py` (also removed stale `type: ignore`)
+  - `contexts/cross_chain/services/cross_chain/bridge_enhanced.py`
+- Deleted flat `app/reputation/` directory
+
+**Result**: Zero references to flat `app.reputation` remain. All reputation services now live under `contexts/reputation/services/`.
+
+---
+
 ## Remaining Work (future phases)
 
-- **Phase 2**: Merge flat `reputation/` directory into `contexts/reputation/services/`
 - **Phase 3**: Migrate flat `schemas/` files to owning contexts
 - **Phase 4**: Migrate ~40 flat `services/` files to owning contexts
 - **Phase 5**: Migrate ~25 flat `routers/` files to owning contexts

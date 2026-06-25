@@ -143,5 +143,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ cli/ && ./venv/bin/python
 | P1-2 | Add missing `__init__.py` to `contexts/ipfs/` and `contexts/knowledge/` | Medium | ✅ DONE |
 | P1-3 | Verify "duplicate" service subdirs — NOT duplicates, skipped | Low | ✅ DONE (no action) |
 | P1-4 | Eliminate `domain/__init__.py` shim usage — 13 files updated to import directly from `contexts.infrastructure.domain` | Medium | ✅ DONE |
+| X10 | Eliminate cross-context import: `multimodal` → `agent_coordination.domain.agent` (dead code removal) | Medium | ✅ DONE |
+| P2 | Merge flat `reputation/` directory into `contexts/reputation/services/` | Medium | ✅ DONE |
 
-**Phase 1 complete.** Remaining phases (P2: reputation merge, P3: schemas, P4: services, P5: routers) deferred to future releases.
+**Phase 1 + Phase 2 complete.** Remaining phases (P3: schemas, P4: services, P5: routers) deferred to future releases.

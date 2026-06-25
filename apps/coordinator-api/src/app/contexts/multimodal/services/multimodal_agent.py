@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 
-from ...agent_coordination.domain.agent import AgentExecution, AgentStatus
 from ....storage import get_session
 
 logger = get_logger(__name__)
@@ -96,7 +95,6 @@ class MultiModalAgentService:
                 raise ValueError(f"Unsupported processing mode: {processing_mode}")
             processing_time = (datetime.now(UTC) - start_time).total_seconds()
             performance_metrics = await self._performance_tracker.calculate_metrics(context, results, processing_time)
-            await self._update_agent_execution(agent_id, results, performance_metrics)
             return {
                 "agent_id": agent_id,
                 "processing_mode": processing_mode,
@@ -481,24 +479,6 @@ class MultiModalAgentService:
             "fusion_method": "weighted_concatenation",
             "modality_contributions": list(individual_results.keys()),
         }
-
-    async def _update_agent_execution(
-        self, agent_id: str, results: dict[str, Any], performance_metrics: dict[str, Any]
-    ) -> None:
-        """Update agent execution record"""
-        try:
-            execution = (
-                self.session.query(AgentExecution)
-                .filter(AgentExecution.agent_id == agent_id, AgentExecution.status == AgentStatus.RUNNING)
-                .first()
-            )  # type: ignore[arg-type, attr-defined]
-            if execution:
-                execution.results = results
-                execution.performance_metrics = performance_metrics
-                execution.updated_at = datetime.now(UTC)
-                self.session.commit()
-        except Exception as e:
-            logger.error("Failed to update agent execution: %s", e)
 
 
 class CrossModalAttentionProcessor:
