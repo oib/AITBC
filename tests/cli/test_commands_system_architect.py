@@ -1,9 +1,10 @@
 """
 System Architect Commands Tests
 Tests for system architect CLI commands
-"""
 
-from unittest.mock import patch
+Converted from skipped stubs to functional tests using the shared CLI mock
+fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
+"""
 
 import pytest
 
@@ -13,54 +14,70 @@ class TestSystemArchitectCommands:
 
     def test_system_architect_group_exists(self):
         """Test that system_architect command group exists"""
-        try:
-            from aitbc_cli.commands.system_architect import system_architect
+        from aitbc_cli.commands.system_architect import system_architect
 
-            assert system_architect is not None
-            assert hasattr(system_architect, "name")
-        except ImportError as e:
-            pytest.skip(f"Cannot import system_architect commands: {e}")
+        assert system_architect is not None
+        assert hasattr(system_architect, "name")
 
     def test_system_architect_group_name(self):
         """Test system_architect group name"""
-        try:
-            from aitbc_cli.commands.system_architect import system_architect
+        from aitbc_cli.commands.system_architect import system_architect
 
-            assert system_architect.name == "system-architect"
-        except ImportError as e:
-            pytest.skip(f"Cannot import system_architect commands: {e}")
+        assert system_architect.name == "system-architect"
 
-    @patch("aitbc_cli.commands.system_architect.click")
-    def test_system_architect_audit_command(self, mock_click):
-        """Test system architect audit command"""
-        try:
-            from aitbc_cli.commands.system_architect import audit
-            from click.testing import CliRunner
+    def test_system_architect_group_has_audit_subcommand(self):
+        """The ``audit`` subcommand is registered on the system_architect group."""
+        from aitbc_cli.commands.system_architect import system_architect
 
-            runner = CliRunner()
-            result = runner.invoke(audit)
+        assert "audit" in system_architect.commands
 
-            # Verify command executed
-            assert result.exit_code == 0
-            assert "System Architecture Audit" in result.output
-        except Exception as e:
-            pytest.skip(f"Cannot test system_architect audit: {e}")
+    def test_system_architect_group_has_paths_subcommand(self):
+        """The ``paths`` subcommand is registered on the system_architect group."""
+        from aitbc_cli.commands.system_architect import system_architect
 
-    @patch("aitbc_cli.commands.system_architect.click")
-    def test_system_architect_paths_command(self, mock_click):
-        """Test system architect paths command"""
-        try:
-            from aitbc_cli.commands.system_architect import paths
-            from click.testing import CliRunner
+        assert "paths" in system_architect.commands
 
-            runner = CliRunner()
-            result = runner.invoke(paths)
+    def test_system_architect_group_has_check_subcommand(self):
+        """The ``check`` subcommand is registered on the system_architect group."""
+        from aitbc_cli.commands.system_architect import system_architect
 
-            # Verify command executed
-            assert result.exit_code == 0
-            assert "System Architecture Paths" in result.output
-        except Exception as e:
-            pytest.skip(f"Cannot test system_architect paths: {e}")
+        assert "check" in system_architect.commands
+
+    def test_system_architect_audit_command(self, runner):
+        """``system-architect audit`` outputs the architecture audit report."""
+        from aitbc_cli.commands.system_architect import system_architect
+
+        result = runner.invoke(system_architect, ["audit"])
+
+        assert result.exit_code == 0, result.output
+        assert "System Architecture Audit" in result.output
+
+    def test_system_architect_paths_command(self, runner):
+        """``system-architect paths`` outputs the architecture paths."""
+        from aitbc_cli.commands.system_architect import system_architect
+
+        result = runner.invoke(system_architect, ["paths"])
+
+        assert result.exit_code == 0, result.output
+        assert "System Architecture Paths" in result.output
+
+    def test_system_architect_check_command(self, runner):
+        """``system-architect check`` checks service configuration."""
+        from aitbc_cli.commands.system_architect import system_architect
+
+        result = runner.invoke(system_architect, ["check"])
+
+        assert result.exit_code == 0, result.output
+        assert "Service Check" in result.output
+
+    def test_system_architect_check_with_service(self, runner):
+        """``system-architect check --service`` checks a specific service."""
+        from aitbc_cli.commands.system_architect import system_architect
+
+        result = runner.invoke(system_architect, ["check", "--service", "blockchain-node"])
+
+        assert result.exit_code == 0, result.output
+        assert "blockchain-node" in result.output
 
 
 if __name__ == "__main__":

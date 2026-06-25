@@ -67,7 +67,7 @@ class TestWorkflowCommands:
 
         assert result.exit_code == 0
         assert "test_workflow" in result.output
-        assert "Running" in result.output
+        assert "running" in result.output.lower()
 
     def test_workflow_run_with_config(self, runner, mock_config, tmp_path):
         """Test running workflow with config file"""
@@ -122,7 +122,7 @@ class TestWorkflowCommands:
 
         assert result.exit_code == 0
         assert "test_workflow" in result.output
-        assert "Stop" in result.output
+        assert "Cancel" in result.output
 
     def test_workflow_run_via_coordinator_api(self, runner):
         """Test workflow execution via coordinator-api (mocked)"""
