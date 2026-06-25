@@ -79,6 +79,8 @@ async def bridge_lock(request: Request, lock_data: dict[str, Any]) -> dict[str, 
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except HTTPException:
+        raise
     except Exception as e:
         _logger.error("Bridge lock failed: %s", e)
         raise HTTPException(status_code=500, detail=f"Bridge lock failed: {str(e)}") from e
@@ -130,6 +132,8 @@ async def bridge_confirm(request: Request, confirm_data: dict[str, Any]) -> dict
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except HTTPException:
+        raise
     except Exception as e:
         _logger.error("Bridge confirm failed: %s", e)
         raise HTTPException(status_code=500, detail=f"Bridge confirm failed: {str(e)}") from e
@@ -193,6 +197,8 @@ async def list_pending_transfers(request: Request, chain_id: str | None = None) 
             }
             for t in transfers
         ]
+    except HTTPException:
+        raise
     except Exception as e:
         _logger.error("List pending transfers failed: %s", e)
         raise HTTPException(status_code=500, detail=f"Failed to list transfers: {str(e)}") from e
