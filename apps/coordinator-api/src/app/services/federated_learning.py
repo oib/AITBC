@@ -22,7 +22,7 @@ from ..contexts.advanced_ai.domain.federated_learning import (
     TrainingRound,
     TrainingStatus,
 )
-from ..schemas.federated_learning import FederatedSessionCreate, JoinSessionRequest, SubmitUpdateRequest
+from ..contexts.advanced_ai.schemas.federated_learning import FederatedSessionCreate, JoinSessionRequest, SubmitUpdateRequest
 
 logger = get_logger(__name__)
 

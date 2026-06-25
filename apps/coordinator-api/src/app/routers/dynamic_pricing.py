@@ -19,7 +19,7 @@ from ..contexts.trading.services.trading_marketplace.dynamic_pricing import (
     ResourceType,
 )
 from ..contexts.trading.domain.pricing_strategies import StrategyLibrary
-from ..schemas.pricing import (
+from ..contexts.trading.schemas.pricing import (
     BulkPricingUpdateRequest,
     BulkPricingUpdateResponse,
     DynamicPriceResponse,
