@@ -323,10 +323,12 @@ relink_systemd() {
         return 1
     fi
 
-    if "$LINK_SYSTEMD_SCRIPT" >/dev/null 2>&1; then
+    "$LINK_SYSTEMD_SCRIPT" 2>&1 | sed 's/^/    /'
+    link_exit=${PIPESTATUS[0]}
+    if [[ $link_exit -eq 0 ]]; then
         success "Systemd unit files relinked (role-aware)"
     else
-        warning "link-systemd.sh reported errors — check output above"
+        warning "link-systemd.sh reported errors (exit $link_exit) — check output above"
     fi
 
     log "Running systemctl daemon-reload..."
