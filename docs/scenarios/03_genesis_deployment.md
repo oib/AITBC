@@ -212,7 +212,7 @@ async def main():
         },
     )
 
-    # Register with the coordinator (default: http://localhost:9001)
+    # Register with the coordinator (default: http://localhost:8107)
     success = await agent.register()
     print(f"Registration successful: {success}")
     print(f"Agent ID: {agent.identity.id}")
