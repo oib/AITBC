@@ -196,9 +196,9 @@ def setup_logging(verbosity: int, debug: bool = False) -> str:
 def render(data: Any, format_type: str = "table", title: str = None):
     """Format and output data"""
     if format_type == "json":
-        console.logger.info(json.dumps(data, indent=2, default=str))
+        console.print(json.dumps(data, indent=2, default=str))
     elif format_type == "yaml":
-        console.logger.info(yaml.dump(data, default_flow_style=False, sort_keys=False))
+        console.print(yaml.dump(data, default_flow_style=False, sort_keys=False))
     elif format_type == "table":
         if isinstance(data, dict) and not isinstance(data, list):
             # Simple key-value table
@@ -211,7 +211,7 @@ def render(data: Any, format_type: str = "table", title: str = None):
                     value = json.dumps(value, default=str)
                 table.add_row(str(key), str(value))
 
-            console.logger.info(table)
+            console.print(table)
         elif isinstance(data, list) and data:
             if all(isinstance(item, dict) for item in data):
                 # Table from list of dicts
@@ -225,15 +225,15 @@ def render(data: Any, format_type: str = "table", title: str = None):
                     row = [str(item.get(h, "")) for h in headers]
                     table.add_row(*row)
 
-                console.logger.info(table)
+                console.print(table)
             else:
                 # Simple list
                 for item in data:
-                    console.logger.info("• %s", item)
+                    console.print(f"• {item}")
         else:
-            console.logger.info(data)
+            console.print(data)
     else:
-        console.logger.info(data)
+        console.print(data)
 
 
 # Backward compatibility alias
