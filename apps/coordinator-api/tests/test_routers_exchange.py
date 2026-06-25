@@ -4,8 +4,21 @@ import pytest
 
 
 @pytest.fixture
-def exchange_client(client):
-    """Return the shared TestClient fixture."""
+def exchange_client(client, monkeypatch):
+    """Return the shared TestClient fixture with the payment-monitoring
+    background task stubbed out.
+
+    The real ``monitor_payment`` runs an infinite ``while True`` loop with
+    ``asyncio.sleep(30)``. Under ``TestClient`` the background task shares the
+    request event loop, so it hangs the client and causes test timeouts. We
+    replace it with a no-op so payment creation returns immediately.
+    """
+    from app.contexts.infrastructure.routers import exchange as exchange_router
+
+    async def _noop_monitor(_payment_id: str) -> None:
+        return None
+
+    monkeypatch.setattr(exchange_router, "monitor_payment", _noop_monitor)
     return client
 
 
@@ -28,7 +41,12 @@ def test_create_payment(exchange_client):
 
 
 def test_create_payment_invalid_amount(exchange_client):
-    """Test payment creation with invalid amount."""
+    """Test payment creation with an invalid (negative) amount.
+
+    The ``ExchangePaymentRequest`` schema enforces ``gt=0`` on ``aitbc_amount``,
+    so a negative value is rejected at the validation layer with 422 before the
+    handler's own "Invalid amount" check is reached.
+    """
     response = exchange_client.post(
         "/v1/exchange/create-payment",
         json={
@@ -37,8 +55,23 @@ def test_create_payment_invalid_amount(exchange_client):
             "btc_amount": 0.1,
         },
     )
+    assert response.status_code == 422
+
+
+def test_create_payment_amount_mismatch(exchange_client):
+    """Test payment creation with a BTC amount that does not match the
+    configured exchange rate. This exercises the handler-level 400 path.
+    """
+    response = exchange_client.post(
+        "/v1/exchange/create-payment",
+        json={
+            "user_id": "test-user-123",
+            "aitbc_amount": 10000.0,
+            "btc_amount": 0.5,  # expected 0.1 at 100k AITBC/BTC
+        },
+    )
     assert response.status_code == 400
-    assert "Invalid amount" in response.json()["detail"]
+    assert "Amount mismatch" in response.json()["detail"]
 
 
 def test_get_payment_status(exchange_client):
