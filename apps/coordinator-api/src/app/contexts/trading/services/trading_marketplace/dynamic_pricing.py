@@ -15,11 +15,11 @@ from aitbc.aitbc_logging import get_logger
 
 # Importing the pricing persistence models at module load registers their tables
 # with SQLModel.metadata so init_db()/create_all() creates them at startup.
-from .....domain.pricing_models import (  # noqa: E402
+from ...domain.pricing_models import (  # noqa: E402
     PricingHistory,
     ProviderPricingStrategy,
 )
-from .....domain.pricing_models import (  # noqa: E402
+from ...domain.pricing_models import (  # noqa: E402
     ResourceType as PricingResourceType,
 )
 

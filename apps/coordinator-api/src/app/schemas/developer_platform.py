@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from ..domain.developer_platform import CertificationLevel
+from ..contexts.developer_platform.domain.developer_platform import CertificationLevel
 
 
 class DeveloperCreate(BaseModel):

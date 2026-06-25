@@ -14,7 +14,7 @@ from sqlmodel import Session
 
 from aitbc.aitbc_logging import get_logger
 
-from ....domain.wallet import AgentWallet, TokenBalance, TransactionStatus, WalletTransaction
+from ..domain.wallet import AgentWallet, TokenBalance, TransactionStatus, WalletTransaction
 from ....schemas.wallet import TransactionRequest, WalletCreate
 
 logger = get_logger(__name__)

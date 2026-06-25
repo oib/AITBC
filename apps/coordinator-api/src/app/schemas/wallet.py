@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..domain.wallet import TransactionStatus, WalletType
+from ..contexts.wallet.domain.wallet import TransactionStatus, WalletType
 
 
 class WalletCreate(BaseModel):
