@@ -13,7 +13,7 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 
 from ....agent_identity.manager import AgentIdentityManager
-from ....reputation.engine import CrossChainReputationEngine
+from ...reputation.services.reputation_engine import CrossChainReputationEngine
 from ....storage.db import get_session
 from ...cross_chain.services.cross_chain.bridge_enhanced import BridgeProtocol
 from ..domain.global_marketplace import GlobalMarketplaceOffer

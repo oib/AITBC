@@ -24,7 +24,7 @@ from ..contexts.cross_chain.domain.chain_transaction import (
     TransactionStatus,
 )
 from ..contexts.cross_chain.domain.chain_transaction import TransactionType as ChainTransactionType
-from ..reputation.engine import CrossChainReputationEngine
+from ..contexts.reputation.services.reputation_engine import CrossChainReputationEngine
 
 logger = get_logger(__name__)
 

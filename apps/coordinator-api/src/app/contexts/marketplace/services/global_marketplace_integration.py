@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 
 from ....agent_identity.wallet_adapter_enhanced import WalletAdapterFactory
-from ....reputation.engine import CrossChainReputationEngine
+from ...reputation.services.reputation_engine import CrossChainReputationEngine
 from ....services.multi_chain_transaction_manager import ChainTransactionManager
 from ...cross_chain.services.cross_chain.bridge_enhanced import (
     BridgeProtocol,
