@@ -147,7 +147,7 @@ class TestPartnershipManager:
         mock_session_instance = MagicMock()
 
         # Mock program
-        PartnershipProgram(
+        mock_program = PartnershipProgram(
             program_id="prog_abc123",
             program_name="Test Program",
             program_type="technology",
@@ -173,7 +173,10 @@ class TestPartnershipManager:
         mock_reputation.trust_score = 750.0
         mock_reputation.specialization_tags = ["compute", "storage"]
 
-        mock_session_instance.execute.return_value.first.return_value = mock_reputation
+        # apply_for_partnership calls session.execute(...).first() twice:
+        #   1. program lookup -> mock_program
+        #   2. reputation lookup (via check_technical_capability) -> mock_reputation
+        mock_session_instance.execute.return_value.first.side_effect = [mock_program, mock_reputation]
 
         # Mock partnership
         mock_partnership = AgentPartnership(

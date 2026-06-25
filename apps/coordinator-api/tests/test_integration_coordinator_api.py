@@ -32,9 +32,10 @@ class TestConfigurationValidation:
         from app.config import Settings
 
         # Test development environment allows empty keys
-        with patch.dict("os.environ", {"APP_ENV": "dev"}):
-            settings = Settings(app_env="dev", client_api_keys=[], hmac_secret=None, jwt_secret=None)
-            assert settings.app_env == "dev"
+        with patch.dict("os.environ", {"APP_ENV": "development"}):
+            settings = Settings(environment="development", client_api_keys=[])
+            assert settings.environment == "development"
+            assert settings.client_api_keys == []
 
     def test_production_validation_logic(self):
         """Test production validation logic"""
@@ -51,17 +52,21 @@ class TestConfigurationValidation:
                 )
 
     def test_secret_length_validation(self):
-        """Test secret length validation"""
+        """Test secret validation in production requires secrets to be set"""
         from app.config import Settings
 
-        # Test short secret validation
-        with patch.dict("os.environ", {"APP_ENV": "production"}):
-            with pytest.raises(ValueError, match="must be at least 32 characters"):
+        # In production, secrets (secret_key/jwt_secret) must be set.
+        # With defaults (secret_key=None, jwt_secret=""), production validation raises.
+        with patch.dict("os.environ", {"ENVIRONMENT": "production", "APP_ENV": "production"}):
+            with pytest.raises(ValueError, match="must be set in production"):
                 Settings(
-                    app_env="production",
-                    client_api_keys=["test-key-long-enough"],
-                    hmac_secret="short",
-                    jwt_secret="test-jwt-secret-32-chars-long",
+                    environment="production",
+                    debug=False,
+                    client_api_keys=["test-key-long-enough-1"],
+                    miner_api_keys=["test-key-long-enough-2"],
+                    admin_api_keys=["test-key-long-enough-3"],
+                    allow_origins=["https://api.example.com"],
+                    blockchain_rpc_url="https://rpc.example.com",
                 )
 
 

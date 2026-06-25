@@ -165,7 +165,7 @@ class TestBadgeSystem:
         mock_session_instance = MagicMock()
 
         # Mock badge
-        AchievementBadge(
+        mock_badge = AchievementBadge(
             badge_id="badge_abc123",
             badge_name="Test Badge",
             badge_type=BadgeType.ACHIEVEMENT,
@@ -196,7 +196,32 @@ class TestBadgeSystem:
             supporting_evidence=[],
         )
 
-        mock_session_instance.execute.return_value.first.return_value = None  # No existing badge
+        # Mock reputation with enough jobs completed to satisfy eligibility
+        from app.contexts.reputation.domain.reputation import AgentReputation
+
+        mock_reputation = AgentReputation(
+            agent_id="agent123",
+            trust_score=750.0,
+            reliability_score=85.0,
+            success_rate=90.0,
+            performance_rating=4.5,
+            total_earnings=1000.0,
+            transaction_count=50,
+            jobs_completed=45,  # Above threshold of 10
+            dispute_count=1,
+            average_response_time=2000.0,
+            specialization_tags=["compute", "storage"],
+            certifications=["basic"],
+            geographic_region="us-west",
+            community_contributions=10,
+            created_at=datetime.now(UTC),
+        )
+
+        # award_badge calls session.execute(...).first() three times:
+        #   1. badge lookup -> mock_badge
+        #   2. existing-agent-badge check -> None
+        #   3. reputation lookup (via verify_badge_eligibility) -> mock_reputation
+        mock_session_instance.execute.return_value.first.side_effect = [mock_badge, None, mock_reputation]
         mock_session_instance.add.return_value = None
         mock_session_instance.commit.return_value = None
         mock_session_instance.refresh.return_value = mock_agent_badge

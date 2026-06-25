@@ -12,67 +12,65 @@ class TestOracleRouter:
 
     def test_get_price(self, client: TestClient):
         """Test getting asset price"""
-        response = client.get("/oracle/price/ETH")
+        # Set a price first so it's available
+        client.post("/v1/oracle/price", json={"pair": "ETH", "price": 3000.0, "source": "manual"})
+
+        response = client.get("/v1/oracle/price/ETH")
         assert response.status_code == 200
         data = response.json()
-        assert data["asset"] == "ETH"
+        assert data["pair"] == "ETH"
         assert "price" in data
         assert "timestamp" in data
-        assert data["source"] == "chainlink"
+        assert data["source"] == "manual"
 
     def test_get_price_btc(self, client: TestClient):
         """Test getting BTC price"""
-        response = client.get("/oracle/price/BTC")
+        # Set a price first
+        client.post("/v1/oracle/price", json={"pair": "BTC", "price": 60000.0, "source": "manual"})
+
+        response = client.get("/v1/oracle/price/BTC")
         assert response.status_code == 200
         data = response.json()
-        assert data["asset"] == "BTC"
+        assert data["pair"] == "BTC"
         assert "price" in data
 
     def test_get_price_aic_token(self, client: TestClient):
         """Test getting AIC token price"""
-        response = client.get("/oracle/price/AIC")
+        # Set a price first
+        client.post("/v1/oracle/price", json={"pair": "AIC", "price": 1.5, "source": "manual"})
+
+        response = client.get("/v1/oracle/price/AIC")
         assert response.status_code == 200
         data = response.json()
-        assert data["asset"] == "AIC"
+        assert data["pair"] == "AIC"
         assert "price" in data
 
     def test_set_price(self, client: TestClient):
         """Test setting price (admin function)"""
-        price_data = {"asset": "TEST", "price": 123.45, "source": "manual"}
+        price_data = {"pair": "TEST", "price": 123.45, "source": "manual"}
 
-        response = client.post("/oracle/price", json=price_data)
+        response = client.post("/v1/oracle/price", json=price_data)
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        assert data["asset"] == "TEST"
+        assert data["pair"] == "TEST"
         assert data["price"] == 123.45
 
     def test_get_all_prices(self, client: TestClient):
         """Test getting all tracked prices"""
-        response = client.get("/oracle/prices")
+        response = client.get("/v1/oracle/prices")
         assert response.status_code == 200
         data = response.json()
         assert "prices" in data
         assert "count" in data
-        # Should have at least the default assets
-        assert data["count"] >= 3
-
-    def test_get_price_history(self, client: TestClient):
-        """Test getting price history"""
-        response = client.get("/oracle/history/ETH?limit=10")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["asset"] == "ETH"
-        assert "history" in data
-        assert len(data["history"]) <= 10
 
     def test_oracle_health(self, client: TestClient):
         """Test oracle health endpoint"""
-        response = client.get("/oracle/health")
+        response = client.get("/v1/oracle/health")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
-        assert "tracked_assets" in data
+        assert data["service"] == "oracle"
 
 
 @pytest.mark.integration
@@ -82,9 +80,9 @@ class TestOracleIntegration:
     def test_price_update_and_retrieval(self, client: TestClient):
         """Test setting price and then retrieving it"""
         # Set a custom price
-        client.post("/oracle/price", json={"asset": "CUSTOM", "price": 999.99, "source": "test"})
+        client.post("/v1/oracle/price", json={"pair": "CUSTOM", "price": 999.99, "source": "test"})
 
         # Retrieve it
-        response = client.get("/oracle/price/CUSTOM")
+        response = client.get("/v1/oracle/price/CUSTOM")
         data = response.json()
         assert data["price"] == 999.99

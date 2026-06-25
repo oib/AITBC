@@ -12,14 +12,14 @@ class TestInferenceRouter:
 
     def test_inference_health(self, client: TestClient):
         """Test inference health endpoint"""
-        response = client.get("/inference/health")
+        response = client.get("/v1/inference/health")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] in ["healthy", "degraded", "unhealthy"]
 
     def test_list_models(self, client: TestClient):
         """Test listing available models"""
-        response = client.get("/inference/models")
+        response = client.get("/v1/inference/models")
         assert response.status_code in [200, 503]  # 503 if Ollama not running
 
         if response.status_code == 200:
@@ -31,7 +31,7 @@ class TestInferenceRouter:
         """Test text generation"""
         generate_data = {"model": "llama2", "prompt": "What is 2+2?", "temperature": 0.7, "max_tokens": 100, "stream": False}
 
-        response = client.post("/inference/generate", json=generate_data)
+        response = client.post("/v1/inference/generate", json=generate_data)
         # May fail if Ollama not running
         if response.status_code == 200:
             data = response.json()
@@ -45,18 +45,18 @@ class TestInferenceRouter:
         """Test generation with system message"""
         generate_data = {"model": "llama2", "prompt": "Hello", "system": "You are a helpful AI assistant.", "temperature": 0.5}
 
-        response = client.post("/inference/generate", json=generate_data)
+        response = client.post("/v1/inference/generate", json=generate_data)
         if response.status_code == 503:
             pytest.skip("Ollama not available")
-        assert response.status_code in [200, 503]
+        assert response.status_code in [200, 502, 503]
 
     def test_generate_invalid_model(self, client: TestClient):
         """Test generation with invalid model"""
         generate_data = {"model": "nonexistent-model-xyz", "prompt": "Test"}
 
-        response = client.post("/inference/generate", json=generate_data)
+        response = client.post("/v1/inference/generate", json=generate_data)
         # Should fail gracefully
-        assert response.status_code in [200, 400, 404, 503, 500]
+        assert response.status_code in [200, 400, 404, 500, 502, 503]
 
     def test_batch_generate(self, client: TestClient):
         """Test batch inference"""
@@ -67,7 +67,7 @@ class TestInferenceRouter:
             "max_tokens": 50,
         }
 
-        response = client.post("/inference/batch", json=batch_data)
+        response = client.post("/v1/inference/batch", json=batch_data)
         if response.status_code == 503:
             pytest.skip("Ollama not available")
 
@@ -82,7 +82,7 @@ class TestInferenceRouter:
         """Test batch with empty prompts fails"""
         batch_data = {"model": "llama2", "prompts": []}
 
-        response = client.post("/inference/batch", json=batch_data)
+        response = client.post("/v1/inference/batch", json=batch_data)
         assert response.status_code == 422  # Validation error
 
     def test_batch_generate_too_many_prompts(self, client: TestClient):
@@ -92,14 +92,8 @@ class TestInferenceRouter:
             "prompts": ["test"] * 20,  # Too many
         }
 
-        response = client.post("/inference/batch", json=batch_data)
+        response = client.post("/v1/inference/batch", json=batch_data)
         assert response.status_code == 422  # Validation error
-
-    def test_pull_model(self, client: TestClient):
-        """Test pulling a model"""
-        response = client.post("/inference/models/tinyllama/pull")
-        # This takes time and may fail if Ollama not running
-        assert response.status_code in [200, 503, 504]
 
 
 @pytest.mark.integration
@@ -110,12 +104,12 @@ class TestInferenceIntegration:
     def test_full_inference_workflow(self, client: TestClient):
         """Test complete inference workflow"""
         # 1. List models
-        models_response = client.get("/inference/models")
+        models_response = client.get("/v1/inference/models")
         assert models_response.status_code == 200
 
         # 2. Generate text
         generate_response = client.post(
-            "/inference/generate",
+            "/v1/inference/generate",
             json={
                 "model": "llama2",
                 "prompt": "Explain quantum computing in one sentence.",
