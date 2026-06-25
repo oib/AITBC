@@ -1,6 +1,11 @@
 """
 Bounty System Domain Models
-Database models for AI agent bounty system with ZK-proof verification
+
+Migrated from the flat domain/bounty.py to contexts/bounty/domain/ in v0.5.14.
+Staking models (StakeStatus, PerformanceTier, AgentStake, AgentMetrics,
+StakingPool) were split to contexts/staking/domain/staking.py.
+EcosystemMetrics was split to contexts/ecosystem/domain/ecosystem.py.
+Table names are unchanged — no DB migration required.
 """
 
 import uuid
@@ -34,21 +39,6 @@ class SubmissionStatus(StrEnum):
     VERIFIED = "verified"
     REJECTED = "rejected"
     DISPUTED = "disputed"
-
-
-class StakeStatus(StrEnum):
-    ACTIVE = "active"
-    UNBONDING = "unbonding"
-    COMPLETED = "completed"
-    SLASHED = "slashed"
-
-
-class PerformanceTier(StrEnum):
-    BRONZE = "bronze"
-    SILVER = "silver"
-    GOLD = "gold"
-    PLATINUM = "platinum"
-    DIAMOND = "diamond"
 
 
 class Bounty(SQLModel, table=True):
@@ -141,122 +131,6 @@ class BountySubmission(SQLModel, table=True):
     # DISABLED:     bounty: Bounty = Relationship(back_populates="submissions")
 
 
-class AgentStake(SQLModel, table=True):
-    """Staking position on an AI agent wallet"""
-
-    __tablename__ = "agent_stakes"
-    __table_args__ = {"extend_existing": True}
-
-    stake_id: str = Field(primary_key=True, default_factory=lambda: f"stake_{uuid.uuid4().hex[:8]}")
-    staker_address: str = Field(index=True)
-    agent_wallet: str = Field(index=True)
-
-    # Stake details
-    amount: Decimal = Field(index=True)
-    lock_period: int = Field(default=30)  # days
-    start_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    end_time: datetime
-
-    # Status and rewards
-    status: StakeStatus = Field(default=StakeStatus.ACTIVE, index=True)
-    accumulated_rewards: Decimal = Field(default=Decimal("0.0"))
-    last_reward_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-    # APY and performance
-    current_apy: Decimal = Field(default=Decimal("5.0"))  # percentage
-    agent_tier: PerformanceTier = Field(default=PerformanceTier.BRONZE)
-    performance_multiplier: Decimal = Field(default=Decimal("1.0"))
-
-    # Configuration
-    auto_compound: bool = Field(default=False)
-    unbonding_time: datetime | None = Field(default=None)
-
-    # Penalties and bonuses
-    early_unbond_penalty: Decimal = Field(default=Decimal("0.0"))
-    lock_bonus_multiplier: Decimal = Field(default=Decimal("1.0"))
-
-    # Metadata
-    stake_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-
-class AgentMetrics(SQLModel, table=True):
-    """Performance metrics for AI agents"""
-
-    __tablename__ = "agent_metrics"
-    __table_args__ = {"extend_existing": True}
-
-    agent_wallet: str = Field(primary_key=True, index=True)
-
-    # Staking metrics
-    total_staked: Decimal = Field(default=Decimal("0.0"))
-    staker_count: int = Field(default=0)
-    total_rewards_distributed: Decimal = Field(default=Decimal("0.0"))
-
-    # Performance metrics
-    average_accuracy: Decimal = Field(default=Decimal("0.0"))
-    total_submissions: int = Field(default=0)
-    successful_submissions: int = Field(default=0)
-    success_rate: Decimal = Field(default=Decimal("0.0"))
-
-    # Tier and scoring
-    current_tier: PerformanceTier = Field(default=PerformanceTier.BRONZE)
-    tier_score: Decimal = Field(default=Decimal("60.0"))
-    reputation_score: Decimal = Field(default=Decimal("0.0"))
-
-    # Timing
-    last_update_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    first_submission_time: datetime | None = Field(default=None)
-
-    # Additional metrics
-    average_response_time: Decimal | None = Field(default=None)
-    total_compute_time: Decimal | None = Field(default=None)
-    energy_efficiency_score: Decimal | None = Field(default=None)
-
-    # Historical data
-    weekly_accuracy: list[Decimal] = Field(default_factory=list, sa_column=Column(JSON))
-    monthly_earnings: list[Decimal] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Metadata
-    agent_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-    # Relationships
-    # DISABLED:     stakes: List[AgentStake] = Relationship(back_populates="agent_metrics")
-
-
-class StakingPool(SQLModel, table=True):
-    """Staking pool for an agent"""
-
-    __tablename__ = "staking_pools"
-    __table_args__ = {"extend_existing": True}
-
-    agent_wallet: str = Field(primary_key=True, index=True)
-
-    # Pool metrics
-    total_staked: Decimal = Field(default=Decimal("0.0"))
-    total_rewards: Decimal = Field(default=Decimal("0.0"))
-    pool_apy: Decimal = Field(default=Decimal("5.0"))
-
-    # Staker information
-    staker_count: int = Field(default=0)
-    active_stakers: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Distribution
-    last_distribution_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    distribution_frequency: int = Field(default=1)  # days
-
-    # Pool configuration
-    min_stake_amount: Decimal = Field(default=Decimal("360000.0"))
-    max_stake_amount: Decimal = Field(default=Decimal("360000000.0"))
-    auto_compound_enabled: bool = Field(default=False)
-
-    # Performance tracking
-    pool_performance_score: Decimal = Field(default=Decimal("0.0"))
-    volatility_score: Decimal = Field(default=Decimal("0.0"))
-
-    # Metadata
-    pool_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-
 class BountyIntegration(SQLModel, table=True):
     """Integration between performance verification and bounty completion"""
 
@@ -332,73 +206,12 @@ class BountyStats(SQLModel, table=True):
     stats_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
-class EcosystemMetrics(SQLModel, table=True):
-    """Ecosystem-wide metrics for dashboard"""
-
-    __tablename__ = "ecosystem_metrics"
-    __table_args__ = {"extend_existing": True}
-
-    metrics_id: str = Field(primary_key=True, default_factory=lambda: f"eco_{uuid.uuid4().hex[:8]}")
-
-    # Time period
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
-    period_type: str = Field(default="hourly")  # hourly, daily, weekly
-
-    # Developer metrics
-    active_developers: int = Field(default=0)
-    new_developers: int = Field(default=0)
-    developer_earnings_total: float = Field(default=0.0)
-    developer_earnings_average: float = Field(default=0.0)
-
-    # Agent metrics
-    total_agents: int = Field(default=0)
-    active_agents: int = Field(default=0)
-    agent_utilization_rate: float = Field(default=0.0)
-    average_agent_performance: float = Field(default=0.0)
-
-    # Staking metrics
-    total_staked: float = Field(default=0.0)
-    total_stakers: int = Field(default=0)
-    average_apy: float = Field(default=0.0)
-    staking_rewards_total: float = Field(default=0.0)
-
-    # Bounty metrics
-    active_bounties: int = Field(default=0)
-    bounty_completion_rate: float = Field(default=0.0)
-    average_bounty_reward: float = Field(default=0.0)
-    bounty_volume_total: float = Field(default=0.0)
-
-    # Treasury metrics
-    treasury_balance: float = Field(default=0.0)
-    treasury_inflow: float = Field(default=0.0)
-    treasury_outflow: float = Field(default=0.0)
-    dao_revenue: float = Field(default=0.0)
-
-    # Token metrics
-    token_circulating_supply: float = Field(default=0.0)
-    token_staked_percentage: float = Field(default=0.0)
-    token_burn_rate: float = Field(default=0.0)
-
-    # Metadata
-    metrics_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-
-# Update relationships
-# DISABLED: AgentStake.agent_metrics = Relationship(back_populates="stakes")
-
-
 __all__ = [
-    "AgentMetrics",
-    "AgentStake",
     "Bounty",
     "BountyIntegration",
     "BountyStats",
     "BountyStatus",
     "BountySubmission",
     "BountyTier",
-    "EcosystemMetrics",
-    "PerformanceTier",
-    "StakeStatus",
-    "StakingPool",
     "SubmissionStatus",
 ]

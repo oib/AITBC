@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 
-from ..domain.bounty import Bounty, BountyStats, BountyStatus, BountySubmission, BountyTier, SubmissionStatus
+from ..contexts.bounty.domain.bounty import Bounty, BountyStats, BountyStatus, BountySubmission, BountyTier, SubmissionStatus
 
 logger = get_logger(__name__)
 

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 
-from ....domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
+from ..domain.staking import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
 
 logger = get_logger(__name__)
 

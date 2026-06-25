@@ -11,7 +11,7 @@ from sqlmodel import Session, func, select
 
 from aitbc.rate_limiting import rate_limit
 
-from ....domain.developer_platform import (
+from ..domain.developer_platform import (
     BountyStatus,
     CertificationLevel,
     DeveloperCertification,
