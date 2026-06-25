@@ -13,6 +13,52 @@ apt install nvidia-driver-535
 nvidia-smi
 ```
 
+### Incus/LXC Container GPU Passthrough
+
+If the AITBC node runs inside an Incus/LXC container, the GPU and CUDA
+UVM devices must be passed through from the host. Without this, `nvidia-smi`
+works (it only needs NVML via `/dev/nvidia0`) but CUDA runtime fails with
+`cuInit error 999` because `/dev/nvidia-uvm` is missing.
+
+Run these commands **on the host** (not inside the container):
+
+```bash
+# 1. Pass through the GPU device (PCI passthrough)
+incus config device add <container> gpu gpu
+
+# 2. Pass through the NVIDIA UVM device (required by CUDA runtime)
+#    Find the major number with: grep nvidia-uvm /proc/devices
+incus config device add <container> nvidia-uvm unix-char \
+    path=/dev/nvidia-uvm major=236 minor=0 mode=666
+
+# 3. Pass through the NVIDIA UVM tools device
+incus config device add <container> nvidia-uvm-tools unix-char \
+    path=/dev/nvidia-uvm-tools major=236 minor=1 mode=666
+
+# 4. Restart the container to apply
+incus restart <container>
+```
+
+Verify inside the container after restart:
+
+```bash
+# Device nodes present
+ls -la /dev/nvidia*
+
+# CUDA runtime works
+nvcc --version
+nvidia-smi
+
+# PyCUDA can access the GPU
+/opt/aitbc/venv/bin/python -c "
+import pycuda.driver as cuda; cuda.init(); import pycuda.autoinit
+print(f'GPU: {cuda.Device(0).name()}')
+"
+```
+
+See also: [GPU Issues](../troubleshooting/gpu-issues.md) for troubleshooting
+`cuInit error 999` and other CUDA container problems.
+
 ### CUDA Installation
 
 ```bash
