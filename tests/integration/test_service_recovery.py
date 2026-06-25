@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-RECOVERY_SERVICE = REPO_ROOT / "scripts" / "systemd" / "aitbc-recovery.service"
+RECOVERY_SERVICE = REPO_ROOT / "scripts" / "utils" / "aitbc-recovery.service"
 LOAD_SECRETS = REPO_ROOT / "scripts" / "utils" / "load-keystore-secrets.sh"
 LINK_SYSTEMD = REPO_ROOT / "scripts" / "utils" / "link-systemd.sh"
 DEPLOY_SCRIPT = REPO_ROOT / "scripts" / "deployment" / "deploy.sh"
