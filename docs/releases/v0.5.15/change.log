@@ -19,6 +19,7 @@
 | X10 | Eliminate cross-context import: `multimodal` → `agent_coordination.domain.agent` (dead code removal) | Medium | ✅ DONE |
 | P2 | Merge flat `reputation/` directory into `contexts/reputation/services/` | Medium | ✅ DONE |
 | P3 | Migrate flat `schemas/` files to owning contexts | Medium | ✅ DONE |
+| P4 | Migrate flat `services/` files to owning contexts (54 files: 27 dead, 26 active, 1 subdirectory) | High | ✅ DONE |
 
 ---
 
@@ -132,7 +133,76 @@ The audit report claimed `services/agent_coordination/`, `services/enterprise_in
 
 ---
 
+## Phase 4: Migrate flat `services/` files to owning contexts
+
+**Context**: The flat `app/services/` directory contained 54 Python files + 3 subdirectories — the largest source of architectural debt identified in the post-v0.5.14 audit.
+
+### P4-1: Dead code deletion (27 files + 2 subdirectories)
+
+Deleted 27 flat service files with zero importers and 2 dead subdirectories:
+
+- **Deployment scripts** (4 files): `adaptive_learning_app.py`, `advanced_ai_service.py`, `gpu_multimodal_app.py`, `multimodal_app.py`
+- **Unused services** (19 files): `agent_integration_factory.py`, `atomic_swap_service.py`, `confidential_service.py`, `federated_learning.py`, `global_cdn.py`, `gpu_multimodal.py`, `gpu_worker.py`, `ipfs_storage_adapter.py`, `ipfs_storage_service.py`, `job_processor.py`, `memory_manager.py`, `modality_optimization_app.py`, `multi_modal_websocket_fusion.py`, `python_13_optimized.py`, `regulatory_reporting.py`, `swarm_service.py`, `task_decomposition.py` (later restored — imported by orchestrator.py), `tenant_management.py`, `translation_cache.py`, `usage_tracking.py`, `websocket_stream_manager.py`, `zk_memory_verification.py`, `zk_proofs_enhanced.py`
+- **Dead subdirectories**: `compliance_security/` (2 files), `enterprise_integration/` (4 files)
+- Updated CORS test to remove references to deleted files
+- **12,226 lines of dead code removed**
+
+### P4-2: Active file migration (26 files)
+
+Moved 26 active service files to their owning bounded contexts:
+
+| Service file | Target context |
+|-------------|----------------|
+| `agent_service.py` | `agent_coordination` |
+| `bounty_service.py` | `bounty` |
+| `community_service.py` | `community` |
+| `developer_platform_service.py` | `developer_platform` |
+| `dispute_resolution.py` | `governance` |
+| `governance_service.py` | `governance` |
+| `ecosystem_service.py` | `ecosystem` |
+| `explorer.py`, `jobs.py`, `miners.py`, `receipts.py`, `redis_state.py`, `distributed_framework.py` | `infrastructure` |
+| `fhe_enhanced.py`, `fhe_service.py`, `zk_proofs.py` | `zk_applications` |
+| `ipfs_service.py` | `ipfs` |
+| `market_data_collector.py` | `trading` |
+| `marketplace_cache_optimizer.py`, `marketplace_monitor.py`, `marketplace_scaler.py` | `marketplace` |
+| `multi_chain_transaction_manager.py` | `cross_chain` |
+| `oracle_service.py` | `blockchain` |
+| `payments_service.py` | `payments` |
+| `portfolio_aggregation_service.py`, `portfolio_service.py` | `portfolio` |
+| `secure_pickle.py` | `language` |
+
+- Updated `services/__init__.py` lazy loader to point to new context locations
+- Updated all 45+ importers across routers, context routers, main.py, tests
+- Fixed broken `ipfs` router (was importing deleted `IPFSStorageService`, now uses `IPFSService`)
+- Fixed broken `zk_proofs` router (was importing deleted `zk_proofs_enhanced`, now uses `zk_proof_service` singleton)
+- Created `services/` dirs for `ipfs` and `portfolio` contexts
+- Removed stale `type: ignore` comments on fixed imports
+
+### P4-3: agent_coordination/ subdirectory migration (8 files)
+
+Moved the `services/agent_coordination/` subdirectory to `contexts/agent_coordination/services/`:
+
+| File | Renamed to |
+|------|-----------|
+| `agent_service.py` | `orchestrator_service.py` (avoid conflict with messaging `agent_service.py`) |
+| `marketplace.py` | `agent_marketplace.py` (for clarity) |
+| `communication.py`, `integration.py`, `orchestrator.py`, `performance.py`, `portfolio.py`, `security.py` | unchanged |
+
+- Restored `task_decomposition.py` (was deleted as "dead code" but was actually imported by `orchestrator.py`)
+- Updated `__init__.py` to re-export all services from new locations
+- Updated all 17 importers across security, agent_coordination, analytics routers, and adapters
+- Fixed `integration.py` internal import (`.agent_service` → `.orchestrator_service`)
+
+### Result
+
+The flat `app/services/` directory now contains only:
+- `__init__.py` — lazy loader shim (re-exports 4 core services from context locations)
+- `EXPORTS.md` — documentation
+
+All 54 flat service files have been migrated or deleted. Zero references to flat `services.<module>` paths remain in production code.
+
+---
+
 ## Remaining Work (future phases)
 
-- **Phase 4**: Migrate ~40 flat `services/` files to owning contexts
 - **Phase 5**: Migrate ~25 flat `routers/` files to owning contexts
