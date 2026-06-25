@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 
 from ..domain.dao_governance import DAOMember, DAOProposal, ProposalState, ProposalType, TreasuryAllocation, Vote
-from ....schemas.dao_governance import AllocationCreate, MemberCreate, ProposalCreate, VoteCreate
+from ..schemas.dao_governance import AllocationCreate, MemberCreate, ProposalCreate, VoteCreate
 from ...blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
 
 logger = get_logger(__name__)
