@@ -14,7 +14,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ....auth import AuthDep
-from ....domain.bounty import BountyStatus, BountyTier, SubmissionStatus
+from ..domain.bounty import BountyStatus, BountyTier, SubmissionStatus
 from ....services.bounty_service import BountyService
 from ....storage import get_session
 from ...blockchain.services.blockchain import BlockchainService

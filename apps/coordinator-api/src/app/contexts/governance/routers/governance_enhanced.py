@@ -11,7 +11,7 @@ from sqlmodel import Session, func, select
 
 from aitbc.rate_limiting import rate_limit
 
-from ....domain.governance import (
+from ..domain.governance import (
     GovernanceProfile,
     VoteType,
 )
