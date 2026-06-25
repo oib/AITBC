@@ -55,7 +55,7 @@ An AI inference agent needs to join the AITBC network to advertise its compute c
 
 - A running blockchain node reachable at `http://localhost:8202` (RPC)
 - The coordinator API reachable at `http://localhost:8203`
-- The agent-coordinator service reachable at `http://localhost:9001`
+- The agent-coordinator service reachable at `http://localhost:8107`
 
 ---
 
@@ -67,7 +67,7 @@ Register an agent on the cross-chain network. The `register` subcommand takes fo
 
 ```bash
 # Register an inference agent on the ait-hub chain
-aitbc agent-comm register agent_infer_01 "Inference Agent" ait-hub http://localhost:9001 \
+aitbc agent-comm register agent_infer_01 "Inference Agent" ait-hub http://localhost:8107 \
     --capabilities "inference,gpu_compute,model_serving" \
     --reputation 0.7 \
     --version 1.2.0
@@ -83,7 +83,7 @@ Chain ID      ait-hub
 Status        active
 Capabilities  inference, gpu_compute, model_serving
 Reputation    0.70
-Endpoint      http://localhost:9001
+Endpoint      http://localhost:8107
 Version       1.2.0
 ```
 
@@ -123,7 +123,7 @@ aitbc agent-comm discover ait-hub --capabilities "inference,gpu_compute"
 ```
 Agents on Chain ait-hub
 Agent ID          Name             Status    Reputation   Capabilities                       Endpoint              Version
-agent_infer_01    Inference Agent  active    0.70         inference, gpu_compute, model...   http://localhost:9001 1.2.0
+agent_infer_01    Inference Agent  active    0.70         inference, gpu_compute, model...   http://localhost:8107 1.2.0
 agent_train_02    Training Agent   active    0.65         training, gpu_compute              http://localhost:9002 1.0.0
 ```
 
@@ -149,7 +149,7 @@ Capabilities             inference, gpu_compute, model_serving
 Message Queue Size       0
 Active Collaborations    0
 Last Seen                2026-06-25 10:16:00
-Endpoint                 http://localhost:9001
+Endpoint                 http://localhost:8107
 Version                  1.2.0
 ```
 
@@ -187,7 +187,7 @@ ait-hub    2              2
 
 ### Example 1: Create and Register an Agent
 
-The `Agent.create()` classmethod generates an RSA key pair and returns a fully configured `Agent` instance. Call `await agent.register()` to submit the registration to the agent-coordinator at `http://localhost:9001`.
+The `Agent.create()` classmethod generates an RSA key pair and returns a fully configured `Agent` instance. Call `await agent.register()` to submit the registration to the agent-coordinator at `http://localhost:8107`.
 
 ```python
 import asyncio
@@ -213,7 +213,7 @@ async def main():
     print(f"Agent Name:  {agent.identity.name}")
     print(f"Address:     {agent.identity.address}")
 
-    # Register on the AITBC network (default coordinator: http://localhost:9001)
+    # Register on the AITBC network (default coordinator: http://localhost:8107)
     success = await agent.register()
     if success:
         print(f"Agent {agent.identity.id} registered successfully!")
@@ -226,7 +226,7 @@ asyncio.run(main())
 
 ### Example 2: Register with a Custom Coordinator URL
 
-Pass a custom `coordinator_url` to the `Agent` constructor if the agent-coordinator is not at the default `http://localhost:9001`.
+Pass a custom `coordinator_url` to the `Agent` constructor if the agent-coordinator is not at the default `http://localhost:8107`.
 
 ```python
 import asyncio
@@ -244,7 +244,7 @@ async def main():
     )
 
     # Override the coordinator URL
-    agent.coordinator_url = "http://localhost:9001"
+    agent.coordinator_url = "http://localhost:8107"
     agent.http_client.base_url = agent.coordinator_url
 
     registered = await agent.register()
