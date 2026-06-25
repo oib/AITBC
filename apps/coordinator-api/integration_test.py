@@ -37,7 +37,7 @@ def test_zk_service():
     """Test ZK Proof Service"""
     print("\n🔐 Testing ZK Proof Service...")
     try:
-        from app.services.zk_proofs import ZKProofService
+        from app.contexts.zk_applications.services.zk_proofs import ZKProofService
 
         zk_service = ZKProofService()
         circuits = list(zk_service.available_circuits.keys())
@@ -57,7 +57,7 @@ def test_fhe_service():
     """Test FHE Service"""
     print("\n🔒 Testing FHE Service...")
     try:
-        from app.services.fhe_service import FHEService
+        from app.contexts.zk_applications.services.fhe_service import FHEService
 
         fhe_service = FHEService()
         providers = list(fhe_service.providers.keys())

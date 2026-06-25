@@ -19,7 +19,7 @@ from ..domain.developer_platform import (
     RegionalHub,
 )
 from ..schemas.developer_platform import BountyCreate, BountySubmissionCreate, CertificationGrant, DeveloperCreate
-from ....services.developer_platform_service import DeveloperPlatformService
+from ..services.developer_platform_service import DeveloperPlatformService
 from ....storage.db import get_session
 from ...governance.services.governance_service import GovernanceService
 

@@ -14,8 +14,8 @@ from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 
-from ..contexts.blockchain.services.blockchain import get_balance, mint_tokens
-from ..contexts.developer_platform.domain.developer_platform import (
+from ...blockchain.services.blockchain import get_balance, mint_tokens
+from ..domain.developer_platform import (
     BountyStatus,
     BountySubmission,
     BountyTask,
@@ -24,7 +24,7 @@ from ..contexts.developer_platform.domain.developer_platform import (
     DeveloperProfile,
     RegionalHub,
 )
-from ..contexts.developer_platform.schemas.developer_platform import (
+from ..schemas.developer_platform import (
     BountyCreate,
     BountySubmissionCreate,
     CertificationGrant,

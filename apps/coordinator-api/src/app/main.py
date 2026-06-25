@@ -118,7 +118,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # On hot-reload, the singleton persists but the Redis client may be bound to a
         # closed event loop — detect and reconnect.
         try:
-            from .services.redis_state import RedisStateManager
+            from .contexts.infrastructure.services.redis_state import RedisStateManager
 
             state = RedisStateManager.get_instance_sync()
             if state._is_stale_loop():
@@ -346,7 +346,7 @@ def create_app() -> FastAPI:
 
         app.include_router(disputes_router, prefix="/v1")
         optional_routers.append("disputes")
-        from .services.dispute_resolution import init_dispute_service
+        from .contexts.governance.services.dispute_resolution import init_dispute_service
         from .storage.db import get_session
 
         init_dispute_service(get_session)
@@ -390,7 +390,7 @@ def create_app() -> FastAPI:
 
         app.include_router(governance_router, prefix="/v1")
         optional_routers.append("governance")
-        from .services.governance_service import init_governance_service
+        from .contexts.governance.services.governance_service import init_governance_service
         from .storage.db import get_session
 
         init_governance_service(get_session)
