@@ -279,7 +279,7 @@ ignore_missing_imports = true
 [tool.ruff]
 line-length = 127
 target-version = "py313"
-extend-exclude = ["cli/templates/handler_template.py", "tests/cli/command_test_template.py", "scripts/**/*.sh"]
+extend-exclude = ["cli/templates/handler_template.py", "tests/cli/command_test_template.py", "scripts/**/*.sh", "contracts/"]
 
 [tool.ruff.lint]
 select = [
