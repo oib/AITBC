@@ -64,3 +64,19 @@ require_min_version() {
         error "${label} ${minimum}+ is required, found ${actual}"
     fi
 }
+
+# Detect if an NVIDIA GPU is present and accessible via nvidia-smi.
+# Sets DETECTED_HARDWARE to "gpu" or "nogpu".
+# Sets GPU_NAME and GPU_COUNT if a GPU is detected.
+# Usage: detect_gpu; echo "$DETECTED_HARDWARE $GPU_NAME"
+detect_gpu() {
+    GPU_NAME=""
+    GPU_COUNT=0
+    DETECTED_HARDWARE="nogpu"
+    if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi --query-gpu=name --format=csv,noheader >/dev/null 2>&1; then
+        GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
+        GPU_COUNT=$(nvidia-smi --query-gpu=count --format=csv,noheader,nounits 2>/dev/null | head -1)
+        GPU_COUNT="${GPU_COUNT:-1}"
+        DETECTED_HARDWARE="gpu"
+    fi
+}
