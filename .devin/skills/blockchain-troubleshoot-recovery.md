@@ -224,7 +224,7 @@ ssh aitbc1 'systemctl restart aitbc-*'
 ### 4. Validate Recovery
 ```bash
 # Run full communication test
-./scripts/blockchain-communication-test.sh --full --debug
+./scripts/deployment/blockchain-communication-test.sh --full --debug
 
 # Verify all services are healthy
 curl http://10.1.223.40:8006/health
@@ -257,10 +257,10 @@ NODE_URL=http://<aitbc1-ip>:8006 ./aitbc-cli blockchain height
 - Follower node IP: <aitbc1-ip> (replace with actual IP)
 - Both nodes use port 8006 for blockchain RPC
 - SSH access to aitbc1 configured and working
-- AITBC CLI accessible at /opt/aitbc/aitbc-cli
+- AITBC CLI accessible at /opt/aitbc/aitbc
 - Git repository: http://gitea.bubuit.net:3000/oib/aitbc.git
 - Log directory: /var/log/aitbc/
-- Test script: /opt/aitbc/scripts/blockchain-communication-test.sh
+- Test script: /opt/aitbc/scripts/deployment/blockchain-communication-test.sh
 - Systemd services: aitbc-blockchain-rpc, aitbc-coordinator, aitbc-blockchain-p2p
 
 ## Error Handling
@@ -383,5 +383,4 @@ NODE_URL=http://<aitbc1-ip>:8006 ./aitbc-cli blockchain height
 - [hermes-coordination-orchestrator](/hermes-coordination-orchestrator.md) - For multi-node recovery coordination
 
 ## Related Workflows
-- [Blockchain Communication Test](/workflows/blockchain-communication-test.md) - Testing workflow that triggers this skill
 - [Multi-Node Operations](/workflows/multi-node-blockchain-operations.md) - General node operations
