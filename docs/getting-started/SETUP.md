@@ -30,18 +30,14 @@ AITBC provides pre-configured dependency profiles for different deployment scena
 
 ### Available Profiles
 
-Profiles are composed from the two independent axes (`BLOCKCHAIN_MODE` + `MARKET_ROLE` + `HARDWARE_PROFILE`):
+Profiles are mapped from the three role axes (`BLOCKCHAIN_MODE` + `MARKET_ROLE` + `HARDWARE_PROFILE`) to one of four install profiles:
 
-| Profile | Description | Use Case |
-|---------|-------------|----------|
-| **follower-customer** | Core blockchain services, no GPU | Standard follower node consuming resources |
-| **follower-customer-gpu** | Core blockchain services with GPU drivers | Follower with GPU but not selling |
-| **follower-shop** | Follower + GPU provider services | Follower that also sells GPU compute |
-| **follower-shop-gpu** | Follower + GPU provider + AI/ML deps | Follower with GPU selling compute |
-| **hub-customer** | Full blockchain hub without GPU deps | Central hub node, no GPU selling |
-| **hub-customer-gpu** | Full blockchain hub with GPU drivers | Central hub with GPU but not selling |
-| **hub-shop** | Full hub + GPU provider services | Hub that also sells GPU compute |
-| **hub-shop-gpu** | Full hub + GPU provider + AI/ML deps | Hub with GPU selling compute |
+| Profile | Role Mapping | Description | Use Case |
+|---------|-------------|-------------|----------|
+| **customer-no-gpu** | follower + customer + nogpu | Lightweight client | Standard follower node consuming resources |
+| **server-no-gpu** | follower + shop + nogpu | Core blockchain services | Follower that provides marketplace services, no GPU |
+| **hub** | hub + any + nogpu | Full blockchain hub | Central hub node with all services + dev deps |
+| **provider-gpu** | any + any + gpu | GPU service provider | Any node with GPU (gets AI/ML deps including pycuda) |
 
 ### Manual Profile Installation
 
@@ -50,8 +46,8 @@ Profiles are composed from the two independent axes (`BLOCKCHAIN_MODE` + `MARKET
 source /opt/aitbc/venv/bin/activate
 
 # Install specific profile
-./scripts/deployment/install-profiles.sh follower-customer
-./scripts/deployment/install-profiles.sh hub-shop-gpu
+./scripts/deployment/install-profiles.sh customer-no-gpu
+./scripts/deployment/install-profiles.sh provider-gpu
 
 # List all available profiles
 ./scripts/deployment/install-profiles.sh
@@ -59,22 +55,22 @@ source /opt/aitbc/venv/bin/activate
 
 ### Automatic Profile Detection
 
-The setup.sh script automatically selects the appropriate profile based on your `/etc/aitbc/blockchain.env` configuration. The profile name is composed as `{blockchain_mode}-{market_role}[-gpu]`:
+The setup.sh script automatically selects the appropriate profile based on your `/etc/aitbc/blockchain.env` configuration:
 
-- `BLOCKCHAIN_MODE=hub` + `MARKET_ROLE=shop` + `HARDWARE_PROFILE=gpu` → **hub-shop-gpu**
-- `BLOCKCHAIN_MODE=hub` + `MARKET_ROLE=customer` → **hub-customer**
-- `BLOCKCHAIN_MODE=follower` + `MARKET_ROLE=shop` + `HARDWARE_PROFILE=gpu` → **follower-shop-gpu**
-- `BLOCKCHAIN_MODE=follower` + `MARKET_ROLE=customer` → **follower-customer**
-- Default → **follower-customer**
+- `HARDWARE_PROFILE=gpu` → **provider-gpu** (regardless of other axes)
+- `BLOCKCHAIN_MODE=hub` + `HARDWARE_PROFILE=nogpu` → **hub**
+- `MARKET_ROLE=customer` + `HARDWARE_PROFILE=nogpu` → **customer-no-gpu**
+- `MARKET_ROLE=shop` + `HARDWARE_PROFILE=nogpu` → **server-no-gpu**
+- Default → **customer-no-gpu**
 
 ### Profile Dependencies
 
 Each profile installs different dependency sets:
 
-- **follower-customer**: requirements-minimal.txt + CLI requirements
-- **hub-customer**: requirements.txt + security.txt + dev.txt
-- **follower-shop-gpu**: requirements.txt + ai-ml.txt + security.txt
-- **hub-shop-gpu**: requirements.txt + ai-ml.txt + security.txt + dev.txt
+- **customer-no-gpu**: requirements-minimal.txt + CLI requirements
+- **server-no-gpu**: requirements.txt + security.txt
+- **hub**: requirements.txt + security.txt + dev.txt
+- **provider-gpu**: requirements.txt + ai-ml.txt + security.txt
 
 ## Node Profiles
 
