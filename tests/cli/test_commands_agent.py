@@ -24,11 +24,35 @@ class TestAgentCommands:
         """Test agent group name"""
         assert agent.name == "agent"
 
-    @patch("aitbc_cli.commands.agent.output")
+    @patch("aitbc_cli.commands.agent.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.agent.get_config")
+    @patch("aitbc_cli.commands.agent.success")
     @patch("aitbc_cli.commands.agent.error")
-    def test_agent_train_command(self, mock_error, mock_output):
-        """Test agent train command - skip due to complex subprocess dependencies"""
-        pytest.skip("Agent commands have complex subprocess and config dependencies")
+    def test_agent_send_command(self, mock_error, mock_success, mock_config, mock_http_class):
+        """Test agent send command — sends a message via the Agent Coordinator.
+
+        The original ``train`` subcommand was never implemented; ``send`` is the
+        closest HTTP-based subcommand on the ``agent`` group.
+        """
+        mock_config.return_value.agent_coordinator_url = "http://hub:8107"
+        mock_client = mock_http_class.return_value
+        mock_client.post.return_value = {"status": "sent", "message_id": "msg-001"}
+
+        runner = CliRunner()
+        result = runner.invoke(
+            agent,
+            ["send", "hello world", "--to-agent", "hub-coordinator"],
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_client.post.assert_called_once()
+        # Verify the endpoint and payload
+        call_args = mock_client.post.call_args
+        assert "/api/v1/agent/messages/send" in call_args[0][0]
+        assert call_args[1]["json"]["message"] == "hello world"
+        assert call_args[1]["json"]["to_agent"] == "hub-coordinator"
+        mock_success.assert_any_call("Message sent via Agent Coordinator")
+        mock_error.assert_not_called()
 
     def test_agent_ping_command_exists(self):
         """Test that agent ping subcommand is registered"""

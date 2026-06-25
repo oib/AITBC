@@ -1,9 +1,10 @@
 """
 Compliance Commands Tests
 Tests for compliance CLI commands
-"""
 
-from unittest.mock import Mock, patch
+Converted from skipped stubs to functional tests using the shared CLI mock
+fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
+"""
 
 import pytest
 
@@ -13,43 +14,55 @@ class TestComplianceCommands:
 
     def test_compliance_group_exists(self):
         """Test that compliance command group exists"""
-        try:
-            from aitbc_cli.commands.compliance import compliance
+        from aitbc_cli.commands.compliance import compliance
 
-            assert compliance is not None
-            assert hasattr(compliance, "name")
-        except ImportError as e:
-            pytest.skip(f"Cannot import compliance commands: {e}")
+        assert compliance is not None
+        assert hasattr(compliance, "name")
 
     def test_compliance_group_name(self):
         """Test compliance group name"""
-        try:
-            from aitbc_cli.commands.compliance import compliance
+        from aitbc_cli.commands.compliance import compliance
 
-            assert compliance.name == "compliance"
-        except ImportError as e:
-            pytest.skip(f"Cannot import compliance commands: {e}")
+        assert compliance.name == "compliance"
 
-    @patch("aitbc_cli.commands.compliance.output")
-    @patch("aitbc_cli.commands.compliance.error")
-    def test_compliance_check_command(self, mock_error, mock_output):
-        """Test compliance check command"""
-        try:
-            from aitbc_cli.commands.compliance import check
-            from click.testing import CliRunner
+    def test_compliance_group_has_check_subcommand(self):
+        """The ``check`` subcommand is registered on the compliance group."""
+        from aitbc_cli.commands.compliance import compliance
 
-            runner = CliRunner()
-            ctx = Mock()
-            ctx.obj = {"output_format": "json"}
+        assert "check" in compliance.commands
 
-            # Call the check command with context
-            with runner.make_context("compliance", [], obj=ctx.obj) as ctx:
-                check(ctx, standard="GDPR")
+    def test_compliance_group_has_report_subcommand(self):
+        """The ``report`` subcommand is registered on the compliance group."""
+        from aitbc_cli.commands.compliance import compliance
 
-            # Verify output was called
-            assert mock_output.called
-        except Exception as e:
-            pytest.skip(f"Cannot test compliance check: {e}")
+        assert "report" in compliance.commands
+
+    def test_compliance_check_command(self, runner):
+        """``compliance check`` runs a compliance check and reports results."""
+        from aitbc_cli.commands.compliance import compliance
+
+        result = runner.invoke(compliance, ["check"])
+
+        assert result.exit_code == 0, result.output
+        assert "compliant" in result.output
+
+    def test_compliance_check_with_standard(self, runner):
+        """``compliance check --standard GDPR`` checks against the GDPR standard."""
+        from aitbc_cli.commands.compliance import compliance
+
+        result = runner.invoke(compliance, ["check", "--standard", "GDPR"])
+
+        assert result.exit_code == 0, result.output
+        assert "GDPR" in result.output
+
+    def test_compliance_report_command(self, runner):
+        """``compliance report`` generates a compliance report."""
+        from aitbc_cli.commands.compliance import compliance
+
+        result = runner.invoke(compliance, ["report"])
+
+        assert result.exit_code == 0, result.output
+        assert "generated" in result.output
 
 
 if __name__ == "__main__":
