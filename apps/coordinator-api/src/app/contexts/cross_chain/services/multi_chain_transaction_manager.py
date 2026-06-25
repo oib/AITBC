@@ -15,16 +15,16 @@ from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 
-from ..agent_identity.wallet_adapter_enhanced import EnhancedWalletAdapter, SecurityLevel, WalletAdapterFactory
-from ..contexts.cross_chain.services.cross_chain.bridge_enhanced import CrossChainBridgeService
-from ..contexts.cross_chain.domain.chain_transaction import (
+from ...agent_identity.wallet_adapter_enhanced import EnhancedWalletAdapter, SecurityLevel, WalletAdapterFactory
+from .cross_chain.bridge_enhanced import CrossChainBridgeService
+from ..domain.chain_transaction import (
     ChainTransaction,
     RoutingStrategy,
     TransactionPriority,
     TransactionStatus,
 )
-from ..contexts.cross_chain.domain.chain_transaction import TransactionType as ChainTransactionType
-from ..contexts.reputation.services.reputation_engine import CrossChainReputationEngine
+from ..domain.chain_transaction import TransactionType as ChainTransactionType
+from ...reputation.services.reputation_engine import CrossChainReputationEngine
 
 logger = get_logger(__name__)
 

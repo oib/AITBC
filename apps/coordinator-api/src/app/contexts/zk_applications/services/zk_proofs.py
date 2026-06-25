@@ -12,7 +12,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
-from ..schemas import JobResult, Receipt
+from ....schemas import JobResult, Receipt
 
 logger = get_logger(__name__)
 
@@ -123,6 +123,7 @@ class ZKProofService:
                 logger.warning("Test mode enabled: accepting mock proof without cryptographic verification - THIS IS INSECURE")
                 # Fail closed in production: only allow test_mode in non-production environments
                 from ..config import settings
+
                 if settings.environment == "production":
                     return {"verified": False, "error": "Test mode not allowed in production"}
                 return {"verified": True, "computation_correct": True, "privacy_preserved": True, "test_mode": True}

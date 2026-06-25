@@ -14,7 +14,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ....auth import AuthDep
-from ....services.ecosystem_service import EcosystemService
+from ..services.ecosystem_service import EcosystemService
 from ....storage import get_session
 
 logger = get_logger(__name__)

@@ -13,7 +13,7 @@ from sqlmodel import col, func, select
 
 from aitbc.aitbc_logging import get_logger
 
-from ....services.market_data_collector import MarketDataCollector
+from ...trading.services.market_data_collector import MarketDataCollector
 from ....storage.db import get_session
 from ...trading.services.trading_marketplace.dynamic_pricing import (
     DynamicPricingEngine,
@@ -261,7 +261,7 @@ async def buy_gpu(
         from ....contexts.payments.services.payments import PaymentService
         from ....custom_types import Constraints
         from ....schemas import JobCreate, JobPaymentCreate
-        from ....services.jobs import JobService
+        from ...infrastructure.services.jobs import JobService
 
         job_session = SQLModelSession(bind=session.bind)
         job_service = JobService(job_session)

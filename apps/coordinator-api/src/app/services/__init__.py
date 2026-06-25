@@ -1,22 +1,22 @@
 """
 Service layer for coordinator business logic.
 
-This module uses a lazy import pattern to avoid importing all 101+ services at startup.
+This module uses a lazy import pattern to avoid importing all services at startup.
 Only the 4 core services (JobService, MinerService, MarketplaceService, ExplorerService)
 are exported in __all__ and loaded immediately via __getattr__.
 
-The agent_coordination bounded context package provides:
-- AgentIntegrationService, AgentCommunicationService, AgentPerformanceService
-- AgentSecurityManager, AgentOrchestrator, AgentPortfolioManager, AgentServiceMarketplace
+All flat service files have been migrated to their owning bounded contexts.
+This shim re-exports the 4 core services from their new context locations for
+backward compatibility with code that imports from `app.services`.
 
 To add a new service to the public API:
 1. Add the service name to __all__
 2. Add an entry to _MODULE_BY_EXPORT mapping the service name to its module path
 3. The service will be lazily loaded on first access
 
-For services not in __all__, import them directly from their module:
-    from app.services.blockchain import BlockchainService
-    from app.services.agent_coordination import AgentIntegrationService
+For services not in __all__, import them directly from their context:
+    from app.contexts.infrastructure.services.jobs import JobService
+    from app.contexts.agent_coordination.services.agent_coordination import AgentIntegrationService
 """
 
 from importlib import import_module
@@ -25,10 +25,10 @@ from typing import Any
 __all__ = ["JobService", "MinerService", "MarketplaceService", "ExplorerService"]
 
 _MODULE_BY_EXPORT = {
-    "ExplorerService": ".explorer",
-    "JobService": ".jobs",
-    "MarketplaceService": ".marketplace",
-    "MinerService": ".miners",
+    "ExplorerService": "..contexts.infrastructure.services.explorer",
+    "JobService": "..contexts.infrastructure.services.jobs",
+    "MarketplaceService": "..contexts.marketplace.services.marketplace",
+    "MinerService": "..contexts.infrastructure.services.miners",
 }
 
 

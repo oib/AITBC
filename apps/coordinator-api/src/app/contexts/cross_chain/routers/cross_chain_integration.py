@@ -21,7 +21,7 @@ from app.contexts.cross_chain.services.cross_chain.bridge_enhanced import (  # t
 )
 from ..domain.chain_transaction import TransactionType
 from app.contexts.reputation.services.reputation_engine import CrossChainReputationEngine
-from app.services.multi_chain_transaction_manager import (  # type: ignore[import-not-found]
+from app.contexts.cross_chain.services.multi_chain_transaction_manager import (
     ChainTransactionManager,
     RoutingStrategy,
     TransactionPriority,

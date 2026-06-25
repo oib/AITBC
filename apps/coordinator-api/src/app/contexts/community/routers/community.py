@@ -13,7 +13,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ..domain.community import AgentSolution, CommunityPost, DeveloperProfile, Hackathon, InnovationLab
-from ....services.community_service import (
+from ..services.community_service import (
     CommunityPlatformService,
     DeveloperEcosystemService,
     InnovationLabService,

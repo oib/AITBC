@@ -11,7 +11,7 @@ from aitbc.rate_limiting import rate_limit
 from ..auth import MinerDep
 from ..schemas import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest
 from ..services import JobService, MinerService
-from ..services.receipts import ReceiptService
+from ..contexts.infrastructure.services.receipts import ReceiptService
 from ..storage import get_session
 
 logger = get_logger(__name__)

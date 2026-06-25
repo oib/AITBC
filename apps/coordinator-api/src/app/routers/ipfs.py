@@ -16,7 +16,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
 
-from ..services.ipfs_service import get_ipfs_service
+from ..contexts.ipfs.services.ipfs_service import get_ipfs_service
 
 router = APIRouter(prefix="/ipfs", tags=["ipfs"])
 

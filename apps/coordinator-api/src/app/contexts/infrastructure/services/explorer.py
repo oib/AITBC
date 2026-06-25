@@ -11,9 +11,9 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 
-from ..config import settings
-from ..contexts.infrastructure.domain import Job, JobReceipt
-from ..schemas import (
+from ....config import settings
+from ..domain import Job, JobReceipt
+from ....schemas import (
     AddressListResponse,
     AddressSummary,
     BlockListResponse,

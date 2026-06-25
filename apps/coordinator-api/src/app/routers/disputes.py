@@ -15,7 +15,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from ..services.dispute_resolution import get_dispute_service
+from ..contexts.governance.services.dispute_resolution import get_dispute_service
 
 router = APIRouter(prefix="/disputes", tags=["disputes"])
 

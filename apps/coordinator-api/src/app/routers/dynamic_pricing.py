@@ -30,7 +30,7 @@ from ..contexts.trading.schemas.pricing import (
     PricingStrategyRequest,
     PricingStrategyResponse,
 )
-from ..services.market_data_collector import MarketDataCollector
+from ..contexts.trading.services.market_data_collector import MarketDataCollector
 
 logger = get_logger(__name__)
 

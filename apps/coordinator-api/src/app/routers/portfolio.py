@@ -14,7 +14,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
-from ..services.portfolio_service import get_portfolio_service
+from ..contexts.portfolio.services.portfolio_service import get_portfolio_service
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
