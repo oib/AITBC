@@ -321,28 +321,28 @@ def create_app() -> FastAPI:
     # Optional routers with consolidated logging
     optional_routers = []
     try:
-        from .routers.zk_proofs import router as zk_proofs_router
+        from .contexts.zk_applications.routers.zk_proofs import router as zk_proofs_router
 
         app.include_router(zk_proofs_router, prefix="/v1")
         optional_routers.append("zk_proofs")
     except Exception as e:
         logger.warning("Failed to include ZK proofs router: %s", e)
     try:
-        from .routers.fhe import router as fhe_router
+        from .contexts.zk_applications.routers.fhe import router as fhe_router
 
         app.include_router(fhe_router, prefix="/v1")
         optional_routers.append("fhe")
     except Exception as e:
         logger.warning("Failed to include FHE router: %s", e)
     try:
-        from .routers.oracle import router as oracle_router
+        from .contexts.blockchain.routers.oracle import router as oracle_router
 
         app.include_router(oracle_router, prefix="/v1")
         optional_routers.append("oracle")
     except Exception as e:
         logger.warning("Failed to include Oracle router: %s", e)
     try:
-        from .routers.disputes import router as disputes_router
+        from .contexts.governance.routers.disputes import router as disputes_router
 
         app.include_router(disputes_router, prefix="/v1")
         optional_routers.append("disputes")
@@ -354,14 +354,14 @@ def create_app() -> FastAPI:
         logger.warning("Failed to include disputes router: %s", e)
     app.include_router(portfolio_router, prefix="/v1")
     try:
-        from .routers.bounty import router as bounty_router
+        from .contexts.bounty.routers.bounty_flat import router as bounty_router
 
         app.include_router(bounty_router, prefix="/v1")
         optional_routers.append("bounty")
     except Exception as e:
         logger.warning("Failed to include Bounty router: %s", e)
     try:
-        from .routers.agent import router as messaging_router
+        from .contexts.agent_coordination.routers.agent_messaging import router as messaging_router
 
         app.include_router(messaging_router, prefix="/v1")
         optional_routers.append("agent")
@@ -386,7 +386,7 @@ def create_app() -> FastAPI:
 
     # More optional routers
     try:
-        from .routers.governance import router as governance_router
+        from .contexts.governance.routers.governance_flat import router as governance_router
 
         app.include_router(governance_router, prefix="/v1")
         optional_routers.append("governance")

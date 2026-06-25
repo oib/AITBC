@@ -11,13 +11,13 @@ from sqlmodel import select
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ..auth import AdminDep  # NEW: JWT auth
-from ..config import settings
+from ....auth import AdminDep  # NEW: JWT auth
+from ....config import settings
 
 # from ..deps import require_admin_key  # OLD: API key auth (deprecated)
-from ..services import JobService, MinerService
-from ..storage import get_session
-from ..utils.cache import cached, get_cache_config
+from ....services import JobService, MinerService
+from ....storage import get_session
+from ....utils.cache import cached, get_cache_config
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -50,7 +50,7 @@ async def create_test_miner(
     try:
         from uuid import uuid4
 
-        from ..contexts.infrastructure.domain import Miner
+        from ...infrastructure.domain import Miner
 
         miner_id = "debug-test-miner"
         session_token = uuid4().hex
@@ -123,7 +123,7 @@ async def get_stats(
     JobService(session)
     from sqlmodel import func, select
 
-    from ..contexts.infrastructure.domain import Job
+    from ...infrastructure.domain import Job
 
     total_jobs = session.execute(select(func.count()).select_from(Job)).one()
     active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(["QUEUED", "RUNNING"]))).one()  # type: ignore[attr-defined]
@@ -149,7 +149,7 @@ async def list_jobs(
     # NEW: JWT auth with admin role
     user: AdminDep,
 ) -> dict[str, list[dict]]:
-    from ..contexts.infrastructure.domain import Job
+    from ...infrastructure.domain import Job
 
     jobs = session.execute(select(Job).order_by(desc(Job.requested_at)).limit(100)).all()  # type: ignore[arg-type]
     return {
@@ -177,7 +177,7 @@ async def list_miners(
 ) -> dict[str, list[dict]]:
     from sqlmodel import select
 
-    from ..contexts.infrastructure.domain import Miner
+    from ...infrastructure.domain import Miner
 
     miners = session.execute(select(Miner)).scalars().all()
     miner_list = [
@@ -212,7 +212,7 @@ async def get_system_status(
         JobService(session)
         from sqlmodel import func, select
 
-        from ..contexts.infrastructure.domain import Job
+        from ...infrastructure.domain import Job
 
         total_jobs = session.execute(select(func.count()).select_from(Job)).one()
         active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(["QUEUED", "RUNNING"]))).one()  # type: ignore[attr-defined]
@@ -265,7 +265,7 @@ async def get_system_status(
 # Changes made:
 # 1. Import change:
 #    OLD: from ..deps import require_admin_key
-#    NEW: from ..auth import AdminDep
+#    NEW: from ....auth import AdminDep
 #
 # 2. Dependency changes:
 #    - create_test_miner: admin_key -> user: AdminDep
