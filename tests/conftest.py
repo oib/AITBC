@@ -11,10 +11,22 @@ _COORD_SRC = str(Path(__file__).resolve().parent.parent / "apps" / "coordinator-
 if _COORD_SRC not in sys.path:
     sys.path.insert(0, _COORD_SRC)
 
+# Add blockchain-node src to path for tests that import aitbc_chain
+_BLOCKCHAIN_SRC = str(Path(__file__).resolve().parent.parent / "apps" / "blockchain-node" / "src")
+if _BLOCKCHAIN_SRC not in sys.path:
+    sys.path.insert(0, _BLOCKCHAIN_SRC)
+
+# Add tests dir to path so fixture modules are importable
+_TESTS_DIR = str(Path(__file__).resolve().parent)
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
 import pytest  # noqa: E402
 from click.testing import CliRunner  # noqa: E402
 
 from aitbc.training_setup import TrainingEnvironment, TrainingSetupError  # noqa: E402
+
+# Register multi-chain and multi-node fixtures so they're available to all tests
 
 
 @pytest.fixture(autouse=True)
