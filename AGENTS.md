@@ -74,7 +74,7 @@ All prior release plans are complete. Details are in the respective changelogs:
 - **v0.5.13** — coordinator-api bounded context (P1–P4, T1–T3): <ref_file file="/opt/aitbc/docs/releases/v0.5.13/change.log" />
 - **v0.5.14** — Cross-context dependency elimination (X1–X9, L1–L19): <ref_file file="/opt/aitbc/docs/releases/v0.5.14/change.log" />
 - **v0.5.15** — Flat-to-context migration + test suite repair (P1–P7): <ref_file file="/opt/aitbc/docs/releases/v0.5.15/change.log" />
-- **v0.5.16** — Security Hardening & Multi-Chain Preparation (18 bugs fixed; closure pass in progress for signing-scheme regression A1/B6 + key model migration B9): <ref_file file="/opt/aitbc/docs/releases/v0.5.16/change.log" />
+- **v0.5.16** — Security Hardening & Multi-Chain Preparation (18 bugs fixed + signing-scheme regression fix + key model migration to secp256k1): <ref_file file="/opt/aitbc/docs/releases/v0.5.16/change.log" />
 - **v0.5.17** — Test Infrastructure (multi-chain fixtures, multi-node harness, stub test conversion, bridge test suite): <ref_file file="/opt/aitbc/docs/releases/v0.5.17/change.log" />
 
 ## Planned Releases
@@ -110,7 +110,7 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 ### Release Sequence (monotonic)
 
 ```
-v0.5.16  (security hardening + multi-chain preparation) ✅ core done — closure pass in progress
+v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.5.17  (test infrastructure) ✅ complete
   → v0.6.0 → v0.6.1 → v0.6.2 → v0.6.3 → v0.6.4  (infra: db/network opt, parallel processing, sync, multi-island, multi-chain)
   → v0.6.5 → v0.6.6 → v0.6.7                      (product: agents, marketplace, pool hub)
