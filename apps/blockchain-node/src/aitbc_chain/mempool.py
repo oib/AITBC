@@ -106,7 +106,7 @@ class InMemoryMempool:
         """Drain transactions for block inclusion, prioritized by fee (highest first)."""
         with self._lock:
             chain_transactions = self._get_chain_transactions(chain_id)
-            sorted_txs = sorted(chain_transactions.values(), key=lambda t: (-t.fee, t.received_at))
+            sorted_txs = sorted(chain_transactions.values(), key=lambda t: (-t.fee, t.tx_hash))
             result: list[PendingTransaction] = []
             total_bytes = 0
             for tx in sorted_txs:
@@ -151,8 +151,8 @@ class InMemoryMempool:
             chain_id = settings.chain_id
 
         with self._lock:
-            # Get transactions sorted by fee (highest first) and time
-            sorted_txs = sorted(self._get_chain_transactions(chain_id).values(), key=lambda t: (-t.fee, t.received_at))
+            # Get transactions sorted by fee (highest first) and tx_hash (deterministic tiebreaker)
+            sorted_txs = sorted(self._get_chain_transactions(chain_id).values(), key=lambda t: (-t.fee, t.tx_hash))
 
             # Return only the content, limited by the limit parameter
             return [tx.content for tx in sorted_txs[:limit]]
@@ -338,7 +338,7 @@ class DatabaseMempool:
                 entries = session.exec(
                     select(MempoolEntry)
                     .where(MempoolEntry.chain_id == chain_id)
-                    .order_by(cast(Any, MempoolEntry.fee).desc(), cast(Any, MempoolEntry.received_at).asc())
+                    .order_by(cast(Any, MempoolEntry.fee).desc(), cast(Any, MempoolEntry.tx_hash).asc())
                 ).all()
 
                 result: list[PendingTransaction] = []
@@ -442,7 +442,7 @@ class DatabaseMempool:
                 entries = session.exec(
                     select(MempoolEntry)
                     .where(MempoolEntry.chain_id == chain_id)
-                    .order_by(cast(Any, MempoolEntry.fee).desc(), cast(Any, MempoolEntry.received_at).asc())
+                    .order_by(cast(Any, MempoolEntry.fee).desc(), cast(Any, MempoolEntry.tx_hash).asc())
                     .limit(limit)
                 ).all()
 

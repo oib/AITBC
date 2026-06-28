@@ -20,7 +20,10 @@ from ..lease_tracker import lease_tracker
 from ..logger import get_logger
 from ..metrics import metrics_registry
 from ..models import Account, Block
-from ..state.merkle_patricia_trie import StateManager
+from ..state.state_root_utils import (
+    compute_state_root_full as _compute_state_root,
+    compute_state_root_incremental as _compute_state_root_incremental,
+)
 from ..state.state_transition import get_state_transition
 
 logger = get_logger(__name__)
@@ -31,54 +34,6 @@ _METRIC_KEY_SANITIZE = re.compile("[^a-zA-Z0-9_]")
 def _sanitize_metric_suffix(value: str) -> str:
     sanitized = _METRIC_KEY_SANITIZE.sub("_", value).strip("_")
     return sanitized or "unknown"
-
-
-def _compute_state_root(session: Session, chain_id: str) -> str | None:
-    """Compute state root from current account state (full recompute — fallback)."""
-    try:
-        state_manager = StateManager()
-        accounts = session.exec(select(Account).where(Account.chain_id == chain_id)).all()
-        account_dict = {acc.address: acc for acc in accounts}
-        root = state_manager.compute_state_root(account_dict)
-        return "0x" + root.hex()
-    except Exception as e:
-        logger.warning("Failed to compute state root: %s", e)
-        return None
-
-
-def _compute_state_root_incremental(
-    session: Session,
-    chain_id: str,
-    account_map: dict[str, Account],
-    changed_addresses: set[str],
-) -> str | None:
-    """Compute state root incrementally — build trie from account_map, update only changed accounts.
-
-    This avoids loading ALL accounts from the DB. Instead:
-    1. Build the initial trie from the batch-fetched account_map (from B3b)
-    2. For each changed address, re-read the current balance/nonce from the session
-       (accounts are in the session identity map after SQL UPDATE + flush)
-    3. Call update_account() to incrementally update the trie
-    4. Return get_root()
-    """
-    try:
-        state_manager = StateManager()
-        # Build initial trie from account_map (already batch-fetched)
-        for address, account in sorted(account_map.items()):
-            state_manager.update_account(address, account.balance, account.nonce)
-        # Incrementally update only accounts that changed during the tx loop
-        for address in changed_addresses:
-            acc = session.get(Account, (chain_id, address))
-            if acc is not None:
-                state_manager.update_account(address, acc.balance, acc.nonce)
-            else:
-                # Account may have been deleted — remove from trie by setting to 0
-                state_manager.update_account(address, 0, 0)
-        root = state_manager.get_root()
-        return "0x" + root.hex()
-    except Exception as e:
-        logger.warning("Failed to compute incremental state root: %s", e)
-        return None
 
 
 class CircuitBreaker:
