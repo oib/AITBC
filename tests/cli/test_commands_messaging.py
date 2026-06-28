@@ -55,14 +55,14 @@ class TestMessagingCommands:
 
         result = runner.invoke(
             messaging,
-            ["send", "--recipient", "ait1qtestaddress0000000000000000000000000", "--message", "Hello"],
+            ["send", "--recipient", "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "--message", "Hello"],
         )
 
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()
         args, kwargs = mock_client.post.call_args
         assert "/rpc/messaging/send" in args[0]
-        assert kwargs["json"]["recipient"] == "ait1qtestaddress0000000000000000000000000"
+        assert kwargs["json"]["recipient"] == "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
         assert kwargs["json"]["message"] == "Hello"
 
     @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
@@ -76,7 +76,7 @@ class TestMessagingCommands:
 
         result = runner.invoke(
             messaging,
-            ["send", "--recipient", "ait1qtestaddress0000000000000000000000000", "--message", "Hello"],
+            ["send", "--recipient", "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "--message", "Hello"],
         )
 
         assert result.exit_code == 0, result.output

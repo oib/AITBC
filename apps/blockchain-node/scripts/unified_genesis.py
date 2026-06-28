@@ -5,6 +5,10 @@ Unified Genesis Block and Wallet Generation
 This script combines genesis block creation with genesis wallet generation,
 connected to the wallet service for proper key management and storage.
 
+Uses secp256k1 (Ethereum-style) key generation with 0x-prefixed checksum
+addresses, compatible with the blockchain node's transaction signature
+verifier (Bug 4 fix) and the shared TransactionService signer (A1).
+
 Usage:
     python3 unified_genesis.py --chain-id ait-mainnet --create-wallet
     python3 unified_genesis.py --chain-id ait-mainnet --force
@@ -19,10 +23,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ed25519
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+from eth_account import Account
+from eth_keys import keys
 
 try:
     from aitbc_chain.config import BlockchainConfig  # noqa: F401
@@ -32,13 +38,6 @@ except ImportError:
     print("Warning: Could not import blockchain modules, running in wallet-only mode")
 
 
-def derive_address_from_public_key(pub_key_bytes: bytes) -> str:
-    """Derive AITBC address from public key"""
-    digest = hashlib.sha256(pub_key_bytes).digest()
-    address_hash = digest[:20].hex()
-    return f"aitbc1{address_hash}"
-
-
 def compute_block_hash(height: int, parent_hash: str, timestamp: datetime, chain_id: str = "ait-mainnet") -> str:
     """Compute block hash"""
     hash_input = f"{height}{parent_hash}{timestamp.isoformat()}{chain_id}".encode()
@@ -46,20 +45,13 @@ def compute_block_hash(height: int, parent_hash: str, timestamp: datetime, chain
 
 
 def create_genesis_wallet(password: str = None, chain_id: str = "ait-mainnet") -> dict[str, str]:
-    """Create genesis wallet with secure random private key"""
-    # Generate cryptographically secure random private key
-    private_key_bytes = secrets.token_bytes(32)
-
-    # Generate Ed25519 key pair
-    private_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_key_bytes)
-    public_key = private_key.public_key()
-
-    # Get public key bytes
-    pub_key_bytes = public_key.public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
-
-    # Derive address
-    address = derive_address_from_public_key(pub_key_bytes)
-    ait_address = address.replace("aitbc1", "ait1")
+    """Create genesis wallet with secure random secp256k1 private key"""
+    # Generate secp256k1 keypair via eth-account
+    account = Account.create()
+    private_key_hex = account.key.hex()  # 64 hex chars, no 0x prefix
+    address = account.address  # 0x-prefixed checksum address
+    public_key_hex = keys.PrivateKey(bytes(account.key)).public_key.to_hex()
+    private_key_bytes = bytes.fromhex(private_key_hex)
 
     # Generate password if not provided
     if not password:
@@ -82,8 +74,8 @@ def create_genesis_wallet(password: str = None, chain_id: str = "ait-mainnet") -
 
     # Create wallet data
     wallet_data = {
-        "address": ait_address,
-        "public_key": pub_key_bytes.hex(),
+        "address": address,
+        "public_key": public_key_hex,
         "crypto": {
             "kdf": "pbkdf2",
             "kdfparams": {"salt": salt.hex(), "c": 100000, "dklen": 32, "prf": "hmac-sha256"},
@@ -91,14 +83,15 @@ def create_genesis_wallet(password: str = None, chain_id: str = "ait-mainnet") -
             "cipherparams": {"nonce": nonce.hex()},
             "ciphertext": ciphertext.hex(),
         },
+        "keytype": "secp256k1",
         "version": 1,
     }
 
     return {
         "wallet": wallet_data,
-        "address": ait_address,
-        "public_key": pub_key_bytes.hex(),
-        "private_key": private_key_bytes.hex(),
+        "address": address,
+        "public_key": public_key_hex,
+        "private_key": private_key_hex,
         "password": password,
     }
 
