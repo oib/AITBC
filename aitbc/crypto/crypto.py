@@ -5,7 +5,9 @@ Provides Ethereum-specific cryptographic operations and security functions
 
 import base64
 import hashlib
+import json
 import os
+from typing import Any
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
@@ -76,6 +78,44 @@ def verify_signature(message_hash: str, signature: str, address: str) -> bool:
         ) from None
     except Exception as e:
         raise ValueError(f"Failed to verify signature: {e}") from e
+
+
+def recover_signer(message_data: dict[str, Any], signature: str) -> str | None:
+    """Recover the signer's checksum address from a canonical-JSON signature.
+
+    This is the single canonical implementation that all AITBC services should
+    use for request/proof signature verification. It replaces the duplicated
+    ``verify_transaction_signature`` / ``verify_request_signature`` /
+    ``_verify_proposer_signature`` copies in the blockchain node.
+
+    The signed message is ``keccak256(json.dumps(message_data, sort_keys=True,
+    separators=(",", ":")))`` and the signature is a 65-byte secp256k1
+    ``r‖s‖v`` hex string (optionally ``0x``-prefixed).
+
+    Args:
+        message_data: The dict that was signed (without any ``signature`` key).
+        signature: The 65-byte hex signature.
+
+    Returns:
+        The recovered checksum address (str) on success, or ``None`` on any
+        failure (invalid signature, wrong length, recovery error).
+    """
+    if not signature:
+        return None
+    try:
+        from eth_keys import keys
+        from eth_utils import keccak
+
+        message = json.dumps(message_data, sort_keys=True, separators=(",", ":")).encode()
+        msg_hash = keccak(message)
+        sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
+        if len(sig_bytes) != 65:
+            return None
+        sig = keys.Signature(sig_bytes)
+        pub_key = sig.recover_public_key_from_msg_hash(msg_hash)
+        return pub_key.to_checksum_address()
+    except Exception:
+        return None
 
 
 def encrypt_private_key(private_key: str, password: str) -> str:
