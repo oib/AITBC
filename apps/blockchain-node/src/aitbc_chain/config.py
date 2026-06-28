@@ -63,12 +63,12 @@ class ChainSettings(BaseSettings):
         standard_path = DATA_DIR / "data" / resolved_chain_id / "chain.db"
         if standard_path.exists():
             return standard_path
-        
+
         # Fallback to legacy path: /var/lib/aitbc/data/{chain_id}/chain.db
         legacy_path = Path("/var/lib/aitbc/data") / resolved_chain_id / "chain.db"
         if legacy_path.exists():
             return legacy_path
-            
+
         # If neither exists, return the standard path for creation
         return standard_path
 
@@ -191,6 +191,14 @@ class ChainSettings(BaseSettings):
     island_chain_id: str = ""  # Separate chain_id per island (empty = use default chain_id)
     hub_discovery_url: str = "hub.aitbc.bubuit.net"  # Hub discovery DNS
     bridge_islands: str = ""  # Comma-separated list of islands to bridge (optional)
+
+    # Cross-chain bridge release fence (Bug 3 PARTIAL — v0.5.16).
+    # The bridge release path (confirm_transfer / /bridge/confirm) currently
+    # accepts any valid secp256k1 signature as a proposer proof; full proposer-set
+    # + Merkle proof verification is deferred to v0.7.2. Until that lands, the
+    # release (mint) path is default-OFF to prevent unauthorized minting. Set
+    # BRIDGE_RELEASE_ENABLED=true only on isolated test/dev networks.
+    bridge_release_enabled: bool = False
 
     # Redis Configuration (Hub persistence)
     redis_url: str = "redis://localhost:6379"  # Redis connection URL

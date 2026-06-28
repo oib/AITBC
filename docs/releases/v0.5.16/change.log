@@ -244,9 +244,26 @@ def _validate_proof(self, proof, record) -> bool:
 
 **What this does NOT include** (deferred to v0.7.1/v0.7.2): multi-sig, light client, oracle.
 
+#### Status: PARTIAL (v0.5.16 closure pass)
+
+The cryptographic proof verification added in commit `3d94338c2` requires a
+valid secp256k1 proposer signature over the proof fields plus block-header
+anchoring, **but `_verify_proposer_signature` accepts ANY valid signer** —
+there is no proposer-set membership check yet. Full proposer-set tracking +
+Merkle proof verification is deferred to v0.7.2 (Bridge Verification).
+
+To prevent unauthorized minting in the meantime, the bridge **release path**
+(`/bridge/confirm` → `confirm_transfer`) is fenced behind a default-off
+feature flag:
+
+- `BRIDGE_RELEASE_ENABLED` (env) / `bridge_release_enabled` (settings) —
+  defaults to `false`. The endpoint returns `503` when disabled.
+- Set `BRIDGE_RELEASE_ENABLED=true` **only** on isolated test/dev networks.
+
 #### Files Changed
-- `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py`
-- `apps/blockchain-node/src/aitbc_chain/rpc/bridge.py` — update `bridge_confirm` to require new proof fields
+- `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` — proof verification + PARTIAL classification in docstrings
+- `apps/blockchain-node/src/aitbc_chain/rpc/bridge.py` — `bridge_confirm` fenced behind `bridge_release_enabled` (default false)
+- `apps/blockchain-node/src/aitbc_chain/config.py` — added `bridge_release_enabled: bool = False` to `ChainSettings`
 
 ---
 
