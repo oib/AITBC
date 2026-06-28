@@ -676,6 +676,15 @@ class ChainSync:
                             return compute_state_delta(account_map, tx_data, self._chain_id, txh, existing_tx_hashes)
 
                         for group in groups:
+                            # Update nonces from account_map before processing each group
+                            # (conflicting txs in later groups need updated nonces)
+                            for txh in group:
+                                tx_data = tx_hash_to_data[txh]
+                                sender = tx_data.get("from", "")
+                                sender_account = account_map.get(sender)
+                                if sender_account:
+                                    tx_data["nonce"] = sender_account.nonce
+                                    tx_data["value"] = tx_data.get("amount", 0)
                             group_txs = [tx_hash_to_data[txh] for txh in group]
                             group_results = executor.execute_groups([group_txs], _compute_delta)[0]
                             # Apply successful deltas to account_map in tx-index
