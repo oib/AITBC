@@ -779,6 +779,15 @@ class PoAProposer:
         try:
             all_deltas: list[tuple[int, StateDelta, Any]] = []  # (index, delta, tx)
             for group in groups:
+                # Update nonces from account_map before processing each group
+                # (conflicting txs in later groups need updated nonces from earlier groups)
+                for tx_hash in group:
+                    tx_data = tx_data_map[tx_hash]
+                    sender = tx_data.get("from", "")
+                    sender_account = account_map.get(sender)
+                    if sender_account:
+                        tx_data["nonce"] = sender_account.nonce
+
                 # Build the list of (tx_hash, tx_data) for this group
                 group_items = [(tx_hash, tx_data_map[tx_hash]) for tx_hash in group]
 
