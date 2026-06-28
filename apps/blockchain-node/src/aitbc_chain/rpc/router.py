@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -41,6 +42,22 @@ from .transactions import (
 
 _logger = get_logger(__name__)
 
+
+def _import_failed(module_name: str, error: Exception) -> None:
+    """Log a failed optional import at ERROR level and optionally fail fast.
+
+    Bug 10: Previously these failures were logged at WARNING level and silently
+    degraded the affected endpoints to 503. They are now logged at ERROR so
+    operators notice. Set ``STRICT_IMPORTS=true`` to make the node refuse to
+    start when a core module is missing (recommended for production).
+    """
+    msg = "%s not available: %s — affected endpoints will return 503"
+    if os.getenv("STRICT_IMPORTS", "false").lower() == "true":
+        _logger.error(msg, module_name, error)
+        raise RuntimeError(f"STRICT_IMPORTS is enabled: {module_name} import failed: {error}") from error
+    _logger.error(msg, module_name, error)
+
+
 try:
     from .disputes import (
         authorize_arbitrator,
@@ -57,7 +74,7 @@ try:
         verify_evidence,
     )
 except ImportError as e:
-    _logger.warning("Disputes module not available: %s — endpoints will return 503", e)
+    _import_failed("Disputes module", e)
     file_dispute = None
     submit_evidence = None
     verify_evidence = None
@@ -87,7 +104,7 @@ try:
         VerifyEvidenceResponse,
     )
 except ImportError as e:
-    _logger.warning("Dispute models not available: %s — endpoints will return 503", e)
+    _import_failed("Dispute models", e)
     AuthorizeArbitratorRequest = None
     AuthorizeArbitratorResponse = None
     FileDisputeRequest = None
@@ -119,7 +136,7 @@ try:
         vote_message,
     )
 except ImportError as e:
-    _logger.warning("Contracts module not available: %s — endpoints will return 503", e)
+    _import_failed("Contracts module", e)
     call_contract = None
     create_forum_topic = None
     deploy_contract = None
@@ -150,7 +167,7 @@ try:
         request_bridge,
     )
 except ImportError as e:
-    _logger.warning("Islands module not available: %s — endpoints will return 503", e)
+    _import_failed("Islands module", e)
     join_island = None
     leave_island = None
     list_islands = None
@@ -165,7 +182,7 @@ except ImportError as e:
 try:
     from .bridge import bridge_confirm, bridge_lock, get_bridge_transfer, list_pending_transfers
 except ImportError as e:
-    _logger.warning("Bridge module not available: %s — endpoints will return 503", e)
+    _import_failed("Bridge module", e)
     bridge_lock = None
     bridge_confirm = None
     get_bridge_transfer = None
@@ -183,7 +200,7 @@ try:
         verify_agent_identity,
     )
 except ImportError as e:
-    _logger.warning("Staking module not available: %s — endpoints will return 503", e)
+    _import_failed("Staking module", e)
     stake_tokens = None
     unstake_tokens = None
     get_staking_info = None
@@ -198,7 +215,7 @@ router = APIRouter()
 try:
     from .gpu_resources import *  # noqa: F403
 except ImportError as e:
-    _logger.warning("GPU resources module not available: %s — endpoints will return 503", e)
+    _import_failed("GPU resources module", e)
 _last_import_time = 0
 _import_lock = asyncio.Lock()
 
@@ -906,8 +923,13 @@ async def get_mining_status_route(
 
 @router.get("/mining/miners", summary="List active miners")
 @rate_limit(rate=100, per=60)
-async def list_miners_route(request: Request) -> dict[str, Any]:
-    """List all registered miners"""
+async def list_miners_route(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
+) -> dict[str, Any]:
+    """List all registered miners (requires admin authentication)"""
+    # Bug 9: Add admin authentication to mining endpoints (this endpoint was previously unauthenticated)
+    get_authenticated_address(request, credentials)
     if not hasattr(start_mining_route, "miners"):
         return {"miners": [], "count": 0}
     return {"miners": list(start_mining_route.miners.values()), "count": len(start_mining_route.miners)}

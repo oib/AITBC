@@ -430,6 +430,13 @@ async def stake_tokens(request, stake_data: dict):
 
 **Impact**: Anyone can start or stop mining on the node.
 
+#### Status: ✅ FIXED (v0.5.16 closure pass)
+
+All four mining endpoints (`/mining/start`, `/mining/stop`, `/mining/status`,
+`/mining/miners`) now require admin authentication via `X-Wallet-Address`
+header (with `TRUST_X_WALLET_ADDRESS=true`) or JWT Bearer token. The
+`/mining/miners` endpoint was the last one missing auth — now added.
+
 #### Fix
 
 Add admin authentication:
@@ -468,6 +475,13 @@ async def start_mining(request: Request, admin_address: str = Depends(get_admin_
 - Make imports mandatory (remove try/except, fail fast on missing modules)
 - OR: log explicit ERROR at startup (not warning) and disable affected endpoints with clear error messages
 - Remove the contracts_stub.py fallback (Bug 11)
+
+#### Status: ✅ FIXED (v0.5.16 closure pass)
+
+All 7 `except ImportError` blocks now log at **ERROR** level (was WARNING)
+via a shared `_import_failed()` helper. Added a `STRICT_IMPORTS=true` env var
+that makes the node refuse to start when any core RPC module fails to import
+(recommended for production). Documented in `examples/blockchain.env.example`.
 
 #### Files Changed
 - `apps/blockchain-node/src/aitbc_chain/rpc/router.py`
@@ -550,8 +564,16 @@ if not is_supported_chain(chain_id):
 - Log WARNING at startup when enabled: "TRUST_X_WALLET_ADDRESS is enabled — this is insecure, use only for development"
 - Document as dev-only
 
+#### Status: ✅ FIXED (v0.5.16 closure pass)
+
+`TRUST_X_WALLET_ADDRESS` defaults to `false` (confirmed in `auth.py:35`).
+A WARNING is logged each time the header is accepted. The dev-only nature
+is now documented in `examples/blockchain.env.example` with an explicit
+"NEVER enable in production" note.
+
 #### Files Changed
 - `apps/blockchain-node/src/aitbc_chain/rpc/auth.py`
+- `examples/blockchain.env.example`
 
 ### Bug 15: Agent Coordinator Hardcoded RPC Port
 
@@ -569,9 +591,17 @@ Change default from `8202` to `8006` in both files:
 - `apps/agent-coordinator/src/app/websocket/agent_stream.py` line 361
 - `aitbc/crypto/transaction_service.py` line 21
 
+#### Status: ✅ FIXED (v0.5.16 closure pass — marketplace portion)
+
+The agent-coordinator and `transaction_service.py` defaults were fixed in
+commit `3d94338c2`. The marketplace service
+(`apps/marketplace/src/marketplace_service/main.py`) still defaulted to
+`8202` — now changed to `8006` to match production deployments.
+
 #### Files Changed
 - `apps/agent-coordinator/src/app/websocket/agent_stream.py`
 - `aitbc/crypto/transaction_service.py`
+- `apps/marketplace/src/marketplace_service/main.py`
 
 ### Bug 16: Agent Coordinator Drops chain_id in Transaction Submission
 
@@ -592,6 +622,11 @@ The `TransactionService.generate_signed_transaction()` method (lines 87-94) does
 #### Files Changed
 - `aitbc/crypto/transaction_service.py`
 - `apps/agent-coordinator/src/app/websocket/agent_stream.py`
+
+> **Note (v0.5.16 closure pass):** The GPU service (`apps/gpu/src/gpu_service/main.py`)
+> had the same chain_id-dropping issue — `GPU_REGISTER` transactions were
+> submitted without a `chain_id` field. Now fixed: the tx dict includes
+> `chain_id` sourced from the request body or `CHAIN_ID` env var.`
 
 ### Bug 17: Marketplace Hardcoded Blockchain DB Path
 
