@@ -160,11 +160,11 @@ class TestOperationsCommands:
         """``operations governance voting-power`` queries voting power via the mocked RPC."""
         mock_get_config.return_value = MagicMock(governance_service_url="http://localhost:8105")
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"address": "ait1qtest", "voting_power": 1000}
+        mock_client.get.return_value = {"address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "voting_power": 1000}
 
         from aitbc_cli.commands.operations import operations
 
-        result = runner.invoke(operations, ["governance", "voting-power", "ait1qtestaddress"])
+        result = runner.invoke(operations, ["governance", "voting-power", "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"])
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()

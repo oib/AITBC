@@ -95,7 +95,9 @@ class TestTrainingEnvironment:
             env = TrainingEnvironment(aitbc_dir=tmpdir, log_dir=tmpdir)
             with patch("subprocess.run") as mock_run:
                 mock_run.return_value.returncode = 0
-                mock_run.return_value.stdout = "ait1wallet\nait1wallet2"
+                mock_run.return_value.stdout = (
+                    "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C\n0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1"
+                )
                 result = env.verify_environment()
             assert "wallets" in result
 

@@ -548,7 +548,7 @@ class TestTrainingEnvironment:
     def test_verify_environment(self, mock_run):
         """Test verify_environment."""
         mock_run.side_effect = [
-            Mock(returncode=0, stdout="ait1...ait1..."),  # wallet list
+            Mock(returncode=0, stdout="0x5E2D...0x742d..."),  # wallet list
             Mock(returncode=0, stdout="blockchain info"),  # blockchain info
         ]
 

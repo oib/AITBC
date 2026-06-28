@@ -592,11 +592,11 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
     async def create_wallet(self, owner_address: str, security_config: dict[str, Any]) -> dict[str, Any]:
         """Create a new AITBC wallet with enhanced security"""
         try:
-            private_key = secrets.token_hex(32)
-            import hashlib
+            from eth_account import Account
 
-            key_hash = hashlib.sha256(bytes.fromhex(private_key)).hexdigest()[:32]
-            address = f"ait1{key_hash}"
+            account = Account.create()
+            private_key = account.key.hex()
+            address = account.address
             wallet_data = {
                 "address": address,
                 "private_key": private_key,
@@ -716,14 +716,14 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
         return {"gas_limit": 0, "gas_price": 0, "estimated_fee": 36, "currency": "AIT"}
 
     async def validate_address(self, address: str) -> bool:
-        """Validate AITBC address format (Bech32 with ait1 prefix)"""
+        """Validate AITBC address format (Ethereum-style 0x checksum address)"""
         try:
             if not address or not isinstance(address, str):
                 return False
-            if address.startswith("ait1") and len(address) >= 39:
-                return True
             if address.startswith("0x") and len(address) == 42:
-                return True
+                from eth_utils import is_checksum_address
+
+                return is_checksum_address(address)
             return False
         except Exception:
             return False
@@ -748,10 +748,10 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
 
     async def _derive_address_from_private_key(self, private_key: str) -> str:
         try:
-            import hashlib
+            from eth_account import Account
 
-            key_hash = hashlib.sha256(bytes.fromhex(private_key)).hexdigest()[:32]
-            return f"ait1{key_hash}"
+            account = Account.from_key(private_key)
+            return account.address
         except Exception as e:
             logger.error("Error deriving address: %s", e)
             raise

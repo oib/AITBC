@@ -83,7 +83,7 @@ class TestMiningCommands:
     def test_mining_list_command(self, mock_http_class, runner, mock_blockchain_rpc):
         """``mining list`` lists active miners from the mocked RPC."""
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"miners": [{"address": "ait1qtest", "threads": 2}]}
+        mock_client.get.return_value = {"miners": [{"address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "threads": 2}]}
 
         from aitbc_cli.commands.mining import mining
 
@@ -102,7 +102,7 @@ class TestMiningCommands:
         wallet_dir = tmp_path / "wallets"
         wallet_dir.mkdir()
         wallet_file = wallet_dir / "testwallet.json"
-        wallet_file.write_text(json.dumps({"address": "ait1qtestaddress0000000000000000000000000"}))
+        wallet_file.write_text(json.dumps({"address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"}))
 
         mock_client = mock_http_class.return_value
         mock_client.post.return_value = {"status": "started"}

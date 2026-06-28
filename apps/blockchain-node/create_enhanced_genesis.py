@@ -72,16 +72,16 @@ def create_enhanced_genesis(config_path: str = None):
                 "parent_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
                 "gas_limit": 15000000,
                 "gas_price": 1000000000,
-                "consensus": {"algorithm": "poa", "validators": ["ait1devproposer000000000000000000000000000000"]},
+                "consensus": {"algorithm": "poa", "validators": ["0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"]},
                 "accounts": [
                     {
-                        "address": "aitbc1genesis",
+                        "address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
                         "balance": "10000000",
                         "type": "genesis",
                         "metadata": {"purpose": "Genesis account with initial supply"},
                     },
                     {
-                        "address": "aitbc1faucet",
+                        "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
                         "balance": "1000000",
                         "type": "faucet",
                         "metadata": {"purpose": "Development faucet for testing"},

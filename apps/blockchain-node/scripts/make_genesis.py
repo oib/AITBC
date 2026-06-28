@@ -60,7 +60,7 @@ def load_allocations(path: Path) -> list[dict[str, Any]]:
     """Load address allocations from a JSON file.
     Expected format:
     [
-      {"address": "ait1...", "balance": 1000000000, "nonce": 0}
+      {"address": "0x...", "balance": 1000000000, "nonce": 0}
     ]
     """
     with open(path) as f:
