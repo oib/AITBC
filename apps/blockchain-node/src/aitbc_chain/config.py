@@ -206,6 +206,11 @@ class ChainSettings(BaseSettings):
     # BRIDGE_RELEASE_ENABLED=true only on isolated test/dev networks.
     bridge_release_enabled: bool = False
 
+    # Network compression (v0.6.0). When enabled, gossip/Redis/P2P payloads are
+    # gzip-compressed before transmission and decompressed on receive. Env var:
+    # NETWORK_COMPRESSION_ENABLED (default true).
+    network_compression_enabled: bool = True
+
     # Redis Configuration (Hub persistence)
     redis_url: str = "redis://localhost:6379"  # Redis connection URL
 

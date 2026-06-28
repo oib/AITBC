@@ -4,11 +4,11 @@ Keeps blockchain nodes synchronized by sharing blocks via P2P and Redis gossip
 """
 
 import asyncio
-import json
 import os
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.network import SharedHttpClient
 
 logger = get_logger("chain_sync")
 try:
@@ -76,54 +76,51 @@ class ChainSyncService:
         logger.info("Stopping chain sync service")
         self._stop_event.set()
 
-    async def _get_import_head_height(self, session: Any) -> int:
+    async def _get_import_head_height(self) -> int:
         """Get the current height on the local import target."""
         try:
-            async with session.get(
+            resp = await SharedHttpClient.get(
                 f"http://{self.import_host}:{self.import_port}/rpc/head", params={"chain_id": self.chain_id}
-            ) as resp:
-                if resp.status == 200:
-                    head_data = await resp.json()
-                    return int(head_data.get("height", 0))
-                if resp.status == 404:
-                    return -1
-                logger.warning("Failed to get import head height: RPC returned status %s", resp.status)
+            )
+            if resp.status_code == 200:
+                head_data = resp.json()
+                return int(head_data.get("height", 0))
+            if resp.status_code == 404:
+                return -1
+            logger.warning("Failed to get import head height: RPC returned status %s", resp.status_code)
         except Exception as e:
             logger.warning("Failed to get import head height: %s", e)
         return -1
 
     async def _broadcast_blocks(self) -> None:
         """Broadcast local blocks to other nodes"""
-        import aiohttp
-
         last_broadcast_height = -1
         retry_count = 0
         max_retries = 5
         base_delay = chain_settings.blockchain_monitoring_interval_seconds
         while not self._stop_event.is_set():
             try:
-                async with aiohttp.ClientSession() as session:
-                    if last_broadcast_height < 0:
-                        last_broadcast_height = await self._get_import_head_height(session)
-                        logger.info("Initialized sync baseline at height %s for node %s", last_broadcast_height, self.node_id)
-                    async with session.get(
-                        f"http://{self.source_host}:{self.source_port}/rpc/head", params={"chain_id": self.chain_id}
-                    ) as resp:
-                        if resp.status == 200:
-                            head_data = await resp.json()
-                            current_height = head_data.get("height", 0)
-                            retry_count = 0
-                            if current_height > last_broadcast_height:
-                                for height in range(last_broadcast_height + 1, current_height + 1):
-                                    block_data = await self._get_block_by_height(height, session)
-                                    if block_data:
-                                        await self._broadcast_block(block_data)
-                                last_broadcast_height = current_height
-                                logger.info("Broadcasted blocks up to height %s", current_height)
-                        elif resp.status == 429:
-                            raise Exception("rate_limit")
-                        else:
-                            raise Exception(f"RPC returned status {resp.status}")
+                if last_broadcast_height < 0:
+                    last_broadcast_height = await self._get_import_head_height()
+                    logger.info("Initialized sync baseline at height %s for node %s", last_broadcast_height, self.node_id)
+                resp = await SharedHttpClient.get(
+                    f"http://{self.source_host}:{self.source_port}/rpc/head", params={"chain_id": self.chain_id}
+                )
+                if resp.status_code == 200:
+                    head_data = resp.json()
+                    current_height = head_data.get("height", 0)
+                    retry_count = 0
+                    if current_height > last_broadcast_height:
+                        for height in range(last_broadcast_height + 1, current_height + 1):
+                            block_data = await self._get_block_by_height(height)
+                            if block_data:
+                                await self._broadcast_block(block_data)
+                        last_broadcast_height = current_height
+                        logger.info("Broadcasted blocks up to height %s", current_height)
+                elif resp.status_code == 429:
+                    raise Exception("rate_limit")
+                else:
+                    raise Exception(f"RPC returned status {resp.status_code}")
             except Exception as e:
                 retry_count += 1
                 if str(e) == "rate_limit":
@@ -158,22 +155,24 @@ class ChainSyncService:
                 break
             if message["type"] == "message":
                 try:
-                    block_data = json.loads(message["data"])
+                    from .network.compression import decode_payload
+
+                    block_data = decode_payload(message["data"])
                     await self._import_block(block_data)
                 except Exception as e:
                     logger.error("Error processing received block: %s", e)
 
-    async def _get_block_by_height(self, height: int, session: Any) -> dict[str, Any] | None:
+    async def _get_block_by_height(self, height: int) -> dict[str, Any] | None:
         """Get block data by height from local RPC"""
         try:
-            async with session.get(
+            resp = await SharedHttpClient.get(
                 f"http://{self.source_host}:{self.source_port}/rpc/blocks-range?start={height}&end={height}"
-            ) as resp:
-                if resp.status == 200:
-                    blocks_data = await resp.json()
-                    blocks = blocks_data.get("blocks", [])
-                    block = blocks[0] if blocks else None
-                    return block
+            )
+            if resp.status_code == 200:
+                blocks_data = resp.json()
+                blocks = blocks_data.get("blocks", [])
+                block = blocks[0] if blocks else None
+                return block
         except Exception as e:
             logger.error("Error getting block %s: %s", height, e)
         return None
@@ -183,15 +182,16 @@ class ChainSyncService:
         if not self._redis:
             return
         try:
-            await self._redis.publish("blocks", json.dumps(block_data))
+            from .network.compression import encode_payload
+
+            payload = encode_payload(block_data)
+            await self._redis.publish("blocks", payload)
             logger.info("Broadcasted block %s", block_data.get("height"))
         except Exception as e:
             logger.error("Error broadcasting block: %s", e)
 
     async def _import_block(self, block_data: dict[str, Any]) -> None:
         """Import block from another node"""
-        import aiohttp
-
         try:
             if block_data.get("proposer") == self.node_id:
                 return
@@ -203,25 +203,17 @@ class ChainSyncService:
             base_delay = 1
             for attempt in range(max_retries):
                 try:
-                    async with aiohttp.ClientSession() as session:
-                        async with session.post(
-                            f"http://{target_host}:{target_port}/rpc/importBlock", json=block_data
-                        ) as resp:
-                            if resp.status == 200:
-                                result = await resp.json()
-                                if result.get("accepted") or result.get("success"):
-                                    logger.info(
-                                        "Imported block %s from %s", block_data.get("height"), block_data.get("proposer")
-                                    )
-                                else:
-                                    logger.info("Rejected block %s: %s", block_data.get("height"), result.get("reason"))
-                                return
-                            else:
-                                try:
-                                    body = await resp.text()
-                                except Exception:
-                                    body = "<no body>"
-                                raise Exception(f"HTTP {resp.status}: {body}")
+                    resp = await SharedHttpClient.post(f"http://{target_host}:{target_port}/rpc/importBlock", json=block_data)
+                    if resp.status_code == 200:
+                        result = resp.json()
+                        if result.get("accepted") or result.get("success"):
+                            logger.info("Imported block %s from %s", block_data.get("height"), block_data.get("proposer"))
+                        else:
+                            logger.info("Rejected block %s: %s", block_data.get("height"), result.get("reason"))
+                        return
+                    else:
+                        body = resp.text
+                        raise Exception(f"HTTP {resp.status_code}: {body}")
                 except Exception as e:
                     if attempt < max_retries - 1:
                         delay = base_delay * 2**attempt
