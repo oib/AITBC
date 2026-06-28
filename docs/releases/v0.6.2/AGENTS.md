@@ -90,10 +90,10 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Create `PeerCapabilityTracker` — track block ranges per peer, select best peer for a range | 🔴 P0 | `aitbc/sync/peer_capability.py` (new), `aitbc/sync/__init__.py` (new) | ⬜ |
-| A2 | Create `StateDiff` — compute state diff between two account snapshots, encode/decode for transmission | 🔴 P0 | `aitbc/sync/state_diff.py` (new), `aitbc/sync/__init__.py` | ⬜ |
-| A3 | Create `PriorityMessageQueue` — priority-ordered message queue for gossip (blocks > txs > status) | High | `aitbc/gossip/priority_queue.py` (new), `aitbc/gossip/__init__.py` (new) | ⬜ |
-| A4 | Unit tests for A1-A3 + verify mypy/ruff/pytest clean | High | `tests/unit/test_peer_capability.py`, `tests/unit/test_state_diff.py`, `tests/unit/test_priority_queue.py` | ⬜ |
+| A1 | Create `PeerCapabilityTracker` — track block ranges per peer, select best peer for a range | 🔴 P0 | `aitbc/sync/peer_capability.py` (new), `aitbc/sync/__init__.py` (new) | ✅ |
+| A2 | Create `StateDiff` — compute state diff between two account snapshots, encode/decode for transmission | 🔴 P0 | `aitbc/sync/state_diff.py` (new), `aitbc/sync/__init__.py` | ✅ |
+| A3 | Create `PriorityMessageQueue` — priority-ordered message queue for gossip (blocks > txs > status) | High | `aitbc/gossip/priority_queue.py` (new), `aitbc/gossip/__init__.py` (new) | ✅ |
+| A4 | Unit tests for A1-A3 + verify mypy/ruff/pytest clean | High | `tests/unit/test_peer_capability.py`, `tests/unit/test_state_diff.py`, `tests/unit/test_priority_queue.py` | ✅ |
 
 ### Agent A — Detailed Instructions
 
@@ -394,14 +394,14 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o a
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Add gossip protocol config — `gossip_protocol_version`, `sync_parallel_enabled`, `sync_delta_enabled` | High | `config.py` | ⬜ |
-| B2 | Wire up `PriorityMessageQueue` in `gossip/broker.py` — prioritize block messages over txs | High | `gossip/broker.py` | ⬜ |
-| B3 | Add message batching to `gossip/broker.py` — batch small messages into single frame | Medium | `gossip/broker.py` | ⬜ |
-| B4 | Wire up `PeerCapabilityTracker` in `sync.py` — track peer block ranges, register on peer connect | 🔴 P0 | `sync.py` | ⬜ |
-| B5 | Wire up parallel sync in `sync.py` `bulk_import_from()` — divide range, fetch in parallel, merge | 🔴 P0 | `sync.py` | ⬜ |
-| B6 | Wire up delta sync in `sync.py` — `delta_sync_from()` method using `StateDiff` | High | `sync.py` | ⬜ |
-| B7 | Add `sync status` CLI command — show current block, peer count, sync progress | Medium | `cli/aitbc_cli/commands/sync.py` | ⬜ |
-| B8 | Integration tests — parallel sync, delta sync, gossip priority, CLI | 🔴 P0 | `apps/blockchain-node/tests/test_sync_optimization.py` (new), `apps/blockchain-node/tests/test_gossip_priority.py` (new) | ⬜ |
+| B1 | Add gossip protocol config — `gossip_protocol_version`, `sync_parallel_enabled`, `sync_delta_enabled` | High | `config.py` | ✅ |
+| B2 | Wire up `PriorityMessageQueue` in `gossip/broker.py` — prioritize block messages over txs | High | `gossip/broker.py` | ✅ |
+| B3 | Add message batching to `gossip/broker.py` — batch small messages into single frame | Medium | `gossip/broker.py` | ✅ |
+| B4 | Wire up `PeerCapabilityTracker` in `sync.py` — track peer block ranges, register on peer connect | 🔴 P0 | `sync.py` | ✅ |
+| B5 | Wire up parallel sync in `sync.py` `bulk_import_from()` — divide range, fetch in parallel, merge | 🔴 P0 | `sync.py` | ✅ |
+| B6 | Wire up delta sync in `sync.py` — `delta_sync_from()` method using `StateDiff` | High | `sync.py` | ✅ |
+| B7 | Add `sync status` CLI command — show current block, peer count, sync progress | Medium | `cli/aitbc_cli/commands/sync.py` | ✅ |
+| B8 | Integration tests — parallel sync, delta sync, gossip priority, CLI | 🔴 P0 | `apps/blockchain-node/tests/test_sync_optimization.py` (new), `apps/blockchain-node/tests/test_gossip_priority.py` (new) | ✅ |
 
 ### Agent B — Detailed Instructions
 
