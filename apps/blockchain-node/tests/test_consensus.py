@@ -13,6 +13,7 @@ from aitbc_chain.config import ProposerConfig
 from aitbc_chain.consensus.poa import CircuitBreaker, PoAProposer
 from aitbc_chain.mempool import InMemoryMempool
 from aitbc_chain.models import Account, Block, Transaction
+from sqlalchemy import text
 from sqlmodel import Session, create_engine, select
 from sqlmodel.pool import StaticPool
 
@@ -510,3 +511,45 @@ class TestPoAProposer:
             with Session(engine) as verify_session:
                 blocks = verify_session.exec(select(Block).where(Block.chain_id == chain_id)).all()
                 assert len(blocks) == 0
+
+
+def test_incremental_state_root_matches_full_recompute(test_db: Session) -> None:
+    """Verify that incremental state root computation matches full recompute.
+
+    B5: The incremental path builds the trie from a batch-fetched account_map
+    and only re-reads changed accounts, while the full recompute loads ALL
+    accounts. Both must produce the same root for the same state.
+    """
+    from aitbc_chain.consensus.poa import _compute_state_root, _compute_state_root_incremental
+
+    chain_id = "test-chain"
+    # Seed accounts
+    test_db.add(Account(chain_id=chain_id, address="alice", balance=1000, nonce=0))
+    test_db.add(Account(chain_id=chain_id, address="bob", balance=500, nonce=0))
+    test_db.add(Account(chain_id=chain_id, address="carol", balance=200, nonce=2))
+    test_db.commit()
+
+    # Batch-fetch account_map (mirrors what B3b does in _propose_block)
+    accounts = test_db.exec(select(Account).where(Account.chain_id == chain_id)).all()
+    account_map = {acc.address: acc for acc in accounts}
+
+    # Simulate tx loop: alice sends 100 to bob, fee 10
+    test_db.execute(
+        text("UPDATE account SET balance = balance - 110, nonce = nonce + 1 WHERE chain_id = :cid AND address = :addr"),
+        {"cid": chain_id, "addr": "alice"},
+    )
+    test_db.execute(
+        text("UPDATE account SET balance = balance + 100 WHERE chain_id = :cid AND address = :addr"),
+        {"cid": chain_id, "addr": "bob"},
+    )
+    test_db.flush()
+
+    changed = {"alice", "bob"}
+
+    # Compute roots both ways
+    full_root = _compute_state_root(test_db, chain_id)
+    incremental_root = _compute_state_root_incremental(test_db, chain_id, account_map, changed)
+
+    assert full_root is not None, "full recompute should succeed"
+    assert incremental_root is not None, "incremental compute should succeed"
+    assert full_root == incremental_root, f"State root mismatch: full={full_root}, incremental={incremental_root}"

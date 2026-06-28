@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any, Optional
 
 from pydantic import field_validator
-from sqlalchemy import BigInteger, Column, UniqueConstraint
+from sqlalchemy import BigInteger, Column, Index, UniqueConstraint
 from sqlalchemy.types import JSON
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -34,7 +34,7 @@ class Block(SQLModel, table=True):
     chain_id: str = Field(index=True)
     height: int = Field(index=True)
     hash: str = Field(index=True)
-    parent_hash: str
+    parent_hash: str = Field(index=True)
     proposer: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     tx_count: int = 0
@@ -77,7 +77,11 @@ class Block(SQLModel, table=True):
 
 class Transaction(SQLModel, table=True):
     __tablename__ = "transaction"
-    __table_args__ = (UniqueConstraint("chain_id", "tx_hash", name="uix_transaction_chain_hash"), {"extend_existing": True})
+    __table_args__ = (
+        UniqueConstraint("chain_id", "tx_hash", name="uix_transaction_chain_hash"),
+        Index("idx_tx_chain_height", "chain_id", "block_height"),
+        {"extend_existing": True},
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
@@ -86,8 +90,8 @@ class Transaction(SQLModel, table=True):
         default=None,
         index=True,
     )
-    sender: str
-    recipient: str
+    sender: str = Field(index=True)
+    recipient: str = Field(index=True)
     payload: dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(JSON, nullable=False),
@@ -199,7 +203,7 @@ class CrossChainTransfer(SQLModel, table=True):
     recipient: str = Field(index=True)
     amount: int  # in compute-seconds (1 AIT = 3600)
     asset: str = Field(default="native")
-    status: str = Field(default="pending")  # pending, locked, confirmed, completed, failed, refunded
+    status: str = Field(default="pending", index=True)  # pending, locked, confirmed, completed, failed, refunded
     source_tx_hash: str | None = None
     target_tx_hash: str | None = None
     lock_time: datetime | None = None
@@ -219,7 +223,7 @@ class Stake(SQLModel, table=True):
     locked_until: datetime
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    status: str = Field(default="active")  # active, withdrawn, slashed
+    status: str = Field(default="active", index=True)  # active, withdrawn, slashed
 
 
 class AgentIdentity(SQLModel, table=True):
@@ -262,7 +266,7 @@ class GovernanceProposal(SQLModel, table=True):
     title: str
     description: str
     category: str = Field(default="general")
-    status: str = Field(default="draft")  # draft, active, succeeded, defeated, executed, cancelled
+    status: str = Field(default="draft", index=True)  # draft, active, succeeded, defeated, executed, cancelled
     votes_for: int = Field(default=0)
     votes_against: int = Field(default=0)
     votes_abstain: int = Field(default=0)

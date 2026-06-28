@@ -123,6 +123,19 @@ async def get_blocks_range(
             .where(Block.chain_id == chain_id, Block.height >= start, Block.height <= end)
             .order_by(asc(text("height")))
         ).all()
+        # Batch-fetch all transactions for the entire height range in a single
+        # query (eliminates the N+1 per-block tx lookup).
+        txs_by_height: dict[int, list[Transaction]] = {}
+        if include_tx and blocks:
+            all_txs = session.exec(
+                select(Transaction).where(
+                    Transaction.chain_id == chain_id,
+                    Transaction.block_height >= start,
+                    Transaction.block_height <= end,
+                )
+            ).all()
+            for tx in all_txs:
+                txs_by_height.setdefault(tx.block_height, []).append(tx)
         result_blocks = []
         for b in blocks:
             block_data = {
@@ -135,10 +148,7 @@ async def get_blocks_range(
                 "state_root": b.state_root,
             }
             if include_tx:
-                txs = session.exec(
-                    select(Transaction).where(Transaction.chain_id == chain_id).where(Transaction.block_height == b.height)
-                ).all()
-                block_data["transactions"] = [tx.model_dump() for tx in txs]
+                block_data["transactions"] = [tx.model_dump() for tx in txs_by_height.get(b.height, [])]
             result_blocks.append(block_data)
         return {"success": True, "blocks": result_blocks, "count": len(blocks)}
 
