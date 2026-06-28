@@ -120,6 +120,43 @@ class TestInMemoryMempool:
         pool.add({"sender": "b", "fee": 2, "nonce": 2})
         assert pool.size() == 2
 
+    def test_drain_same_fee_orders_by_tx_hash(self):
+        """Same-fee transactions must be ordered by tx_hash (deterministic across validators)."""
+        pool = InMemoryMempool()
+        txs = [
+            {"sender": "zeta", "fee": 10, "nonce": 1},
+            {"sender": "alpha", "fee": 10, "nonce": 2},
+            {"sender": "mid", "fee": 10, "nonce": 3},
+        ]
+        for tx in txs:
+            pool.add(tx)
+
+        expected_order = sorted(compute_tx_hash(tx) for tx in txs)
+        drained = pool.drain(max_count=100, max_bytes=1_000_000)
+        actual_order = [t.tx_hash for t in drained]
+        assert len(drained) == 3
+        assert actual_order == expected_order
+        # All same fee
+        assert all(t.fee == 10 for t in drained)
+
+    def test_get_pending_same_fee_orders_by_tx_hash(self):
+        """get_pending_transactions must also order same-fee txs by tx_hash."""
+        pool = InMemoryMempool()
+        txs = [
+            {"sender": "zeta", "fee": 5, "nonce": 1},
+            {"sender": "alpha", "fee": 5, "nonce": 2},
+            {"sender": "mid", "fee": 5, "nonce": 3},
+        ]
+        for tx in txs:
+            pool.add(tx)
+
+        pending = pool.get_pending_transactions(limit=100)
+        assert len(pending) == 3
+        # Verify ordering by recomputing hashes of returned content
+        actual_hashes = [compute_tx_hash(tx) for tx in pending]
+        expected_order = sorted(compute_tx_hash(tx) for tx in txs)
+        assert actual_hashes == expected_order
+
 
 class TestDatabaseMempool:
     @pytest.fixture
@@ -175,6 +212,23 @@ class TestDatabaseMempool:
         drained = db_pool.drain(max_count=3, max_bytes=1_000_000)
         assert len(drained) == 3
         assert db_pool.size() == 7
+
+    def test_drain_same_fee_orders_by_tx_hash(self, db_pool):
+        """Same-fee transactions must be ordered by tx_hash (deterministic across validators)."""
+        txs = [
+            {"sender": "zeta", "fee": 10, "nonce": 1},
+            {"sender": "alpha", "fee": 10, "nonce": 2},
+            {"sender": "mid", "fee": 10, "nonce": 3},
+        ]
+        for tx in txs:
+            db_pool.add(tx)
+
+        expected_order = sorted(compute_tx_hash(tx) for tx in txs)
+        drained = db_pool.drain(max_count=100, max_bytes=1_000_000)
+        actual_order = [t.tx_hash for t in drained]
+        assert len(drained) == 3
+        assert actual_order == expected_order
+        assert all(t.fee == 10 for t in drained)
 
     def test_remove(self, db_pool):
         tx_hash = db_pool.add({"sender": "alice", "fee": 1})
