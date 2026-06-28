@@ -92,6 +92,9 @@ async def submit_transaction(request: Request, tx_data: TransactionRequest) -> d
 
         # Convert TransactionRequest to dict for normalization
         # Use validated top-level fields instead of reading from payload
+        # chain_id is included so the signature verifier covers it (v0.5.17 B4:
+        # prevents cross-chain replay — a tx signed for chain A cannot be
+        # replayed on chain B because the signed message differs).
         tx_data_dict = {
             "from": tx_data.sender,
             "to": tx_data.recipient,
@@ -100,6 +103,7 @@ async def submit_transaction(request: Request, tx_data: TransactionRequest) -> d
             "nonce": tx_data.nonce,
             "payload": tx_data.payload,
             "type": tx_data.type,
+            "chain_id": chain_id,
             "signature": tx_data.sig,
         }
 
