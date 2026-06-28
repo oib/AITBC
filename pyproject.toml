@@ -322,6 +322,7 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 minversion = "8.0"
 addopts = "-ra -q --strict-markers --strict-config --reruns 2 --reruns-delay 1"
+timeout = 60
 testpaths = [
     "tests/unit",
     "tests/integration",
@@ -335,6 +336,9 @@ markers = [
     "e2e: marks tests as end-to-end tests",
     "security: marks tests as security tests",
     "contract: marks tests as contract tests",
+    "requires_redis: test needs a reachable Redis instance (auto-skipped if absent)",
+    "requires_postgres: test needs a reachable PostgreSQL instance (auto-skipped if absent)",
+    "requires_genesis: test needs an on-disk genesis file fixture (auto-skipped if absent)",
 ]
 
 [tool.coverage.run]

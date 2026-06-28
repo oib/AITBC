@@ -1,10 +1,11 @@
 import hashlib
 from contextlib import contextmanager
 from datetime import datetime
+from unittest.mock import Mock
 
 import pytest
 from aitbc_chain.models import Account, Block, Transaction
-from aitbc_chain.rpc import router as rpc_router
+from aitbc_chain.rpc import sync as rpc_sync
 from sqlmodel import Session, SQLModel, create_engine, select
 
 
@@ -19,16 +20,23 @@ def isolated_engine(tmp_path, monkeypatch):
     SQLModel.metadata.create_all(engine)
 
     @contextmanager
-    def _session_scope():
+    def _session_scope(*args, **kwargs):
         with Session(engine) as session:
             yield session
 
-    monkeypatch.setattr(rpc_router, "session_scope", _session_scope)
+    # session_scope is imported into rpc.sync from ..database — patch it there.
+    monkeypatch.setattr(rpc_sync, "session_scope", _session_scope)
     return engine
 
 
+@pytest.fixture
+def mock_request():
+    """FastAPI Request mock — export_chain/import_chain accept it but don't use it."""
+    return Mock()
+
+
 @pytest.mark.asyncio
-async def test_export_chain_filters_records_by_chain_id(isolated_engine):
+async def test_export_chain_filters_records_by_chain_id(isolated_engine, mock_request):
     with Session(isolated_engine) as session:
         session.add(
             Block(
@@ -99,7 +107,7 @@ async def test_export_chain_filters_records_by_chain_id(isolated_engine):
         )
         session.commit()
 
-    result = await rpc_router.export_chain(chain_id="chain-a")
+    result = await rpc_sync.export_chain(mock_request, chain_id="chain-a")
 
     assert result["success"] is True
     assert result["export_data"]["chain_id"] == "chain-a"
@@ -112,7 +120,7 @@ async def test_export_chain_filters_records_by_chain_id(isolated_engine):
 
 
 @pytest.mark.asyncio
-async def test_import_chain_dedupes_duplicate_heights_and_preserves_transaction_fields(isolated_engine):
+async def test_import_chain_dedupes_duplicate_heights_and_preserves_transaction_fields(isolated_engine, mock_request):
     with Session(isolated_engine) as session:
         session.add(
             Block(
@@ -206,7 +214,7 @@ async def test_import_chain_dedupes_duplicate_heights_and_preserves_transaction_
         ],
     }
 
-    result = await rpc_router.import_chain(import_payload)
+    result = await rpc_sync.import_chain(mock_request, import_payload)
 
     assert result["success"] is True
     assert result["imported_blocks"] == 2
@@ -229,10 +237,8 @@ async def test_import_chain_dedupes_duplicate_heights_and_preserves_transaction_
     assert chain_a_transactions[0].timestamp == "2026-01-02T00:00:02"
 
 
-async def test_import_chain_clears_hash_conflicts_across_chains(isolated_engine):
+async def test_import_chain_clears_hash_conflicts_across_chains(isolated_engine, mock_request):
     """Test that import-chain clears blocks with conflicting hashes across different chains."""
-    from aitbc_chain.rpc import router as rpc_router
-
     with Session(isolated_engine) as session:
         session.add(
             Block(
@@ -309,7 +315,7 @@ async def test_import_chain_clears_hash_conflicts_across_chains(isolated_engine)
         ],
     }
 
-    result = await rpc_router.import_chain(import_payload)
+    result = await rpc_sync.import_chain(mock_request, import_payload)
 
     assert result["success"] is True
     assert result["imported_blocks"] == 2
