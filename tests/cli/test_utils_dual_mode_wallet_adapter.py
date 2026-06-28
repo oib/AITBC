@@ -132,39 +132,47 @@ class TestDualModeWalletAdapter:
 
     @patch("aitbc_cli.utils.dual_mode_wallet_adapter.error")
     def test_create_wallet_file_mode_simple(self, mock_error):
-        """Test creating simple wallet in file mode - skip due to import issues"""
+        """Test creating simple wallet in file mode"""
         from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
 
         with tempfile.TemporaryDirectory() as tmpdir:
             adapter = DualModeWalletAdapter(use_daemon=False)
             adapter.wallet_dir = Path(tmpdir)
 
-            # Skip this test due to import issues in source file
-            pytest.skip("File mode wallet creation has import issues")
+            result = adapter.create_wallet("test_simple", "password123", "simple")
+            assert result["mode"] == "file"
+            assert "address" in result
+            assert "simple" in result["address"]
 
     @patch("aitbc_cli.utils.dual_mode_wallet_adapter.error")
     def test_create_wallet_file_mode_hd(self, mock_error):
-        """Test creating HD wallet in file mode - skip due to import issues"""
+        """Test creating HD wallet in file mode"""
         from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
 
         with tempfile.TemporaryDirectory() as tmpdir:
             adapter = DualModeWalletAdapter(use_daemon=False)
             adapter.wallet_dir = Path(tmpdir)
 
-            # Skip this test due to import issues in source file
-            pytest.skip("File mode wallet creation has import issues")
+            result = adapter.create_wallet("test_hd", "password123", "hd")
+            assert result["mode"] == "file"
+            assert "address" in result
+            assert "hd" in result["address"]
 
     @patch("aitbc_cli.utils.dual_mode_wallet_adapter.error")
     def test_create_wallet_file_exists(self, mock_error):
-        """Test creating wallet when file already exists - skip due to import issues"""
+        """Test creating wallet when file already exists"""
         from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
 
         with tempfile.TemporaryDirectory() as tmpdir:
             adapter = DualModeWalletAdapter(use_daemon=False)
             adapter.wallet_dir = Path(tmpdir)
 
-            # Skip this test due to import issues in source file
-            pytest.skip("File mode wallet creation has import issues")
+            # Create first wallet
+            adapter.create_wallet("test_exists", "password123", "simple")
+            # Try to create again — should raise
+            with pytest.raises(Exception):
+                adapter.create_wallet("test_exists", "password123", "simple")
+            assert mock_error.call_count >= 1
 
 
 if __name__ == "__main__":
