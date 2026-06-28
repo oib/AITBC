@@ -72,6 +72,9 @@ class P2PNetworkService:
         self.island_manager: IslandManager | None = None
         self.hub_manager: HubManager | None = None
         self._background_tasks: list[asyncio.Task[Any]] = []
+        # v0.6.2: Protocol versioning — track peers operating in legacy mode
+        self._protocol_version: int = settings.gossip_protocol_version
+        self._legacy_peers: set[str] = set()  # peer_ids with protocol_version < 2
 
     async def start(self) -> None:
         """Start P2P network service"""
@@ -257,6 +260,8 @@ class P2PNetworkService:
                 "island_chain_id": self.island_chain_id,
                 "public_address": self.public_endpoint[0] if self.public_endpoint else None,
                 "public_port": self.public_endpoint[1] if self.public_endpoint else None,
+                "protocol_version": self._protocol_version,
+                "block_height": self._get_block_height(),
             }
             await self._send_message(writer, handshake)
             await self._listen_to_stream(reader, writer, endpoint, outbound=True)
@@ -300,6 +305,8 @@ class P2PNetworkService:
             peer_chain_id = message.get("chain_id", "")
             peer_public_address = message.get("public_address")
             peer_public_port = message.get("public_port")
+            peer_protocol_version = message.get("protocol_version", 1)  # default to v1 (legacy)
+            peer_block_height = message.get("block_height", 0)
             if not peer_node_id or peer_node_id == self.node_id:
                 logger.warning("Peer %s provided invalid or self node_id: %s", addr, peer_node_id)
                 writer.close()
@@ -329,6 +336,17 @@ class P2PNetworkService:
             if peer_public_address and peer_public_port:
                 logger.info("Peer %s public endpoint: %s:%s", peer_node_id, peer_public_address, peer_public_port)
             logger.info("Handshake accepted from node %s at %s", peer_node_id, addr)
+            # v0.6.2: Track legacy peers (protocol_version < 2)
+            if peer_protocol_version < self._protocol_version:
+                self._legacy_peers.add(peer_node_id)
+                logger.info(
+                    "Peer %s using legacy protocol v%s (local v%s) — batching/prioritization disabled",
+                    peer_node_id,
+                    peer_protocol_version,
+                    self._protocol_version,
+                )
+            if peer_block_height > 0:
+                logger.debug("Peer %s block_height=%s", peer_node_id, peer_block_height)
             if peer_node_id in self.active_connections:
                 logger.info("Already connected to node %s. Dropping duplicate inbound.", peer_node_id)
                 writer.close()
@@ -364,6 +382,8 @@ class P2PNetworkService:
                 "island_chain_id": self.island_chain_id,
                 "public_address": self.public_endpoint[0] if self.public_endpoint else None,
                 "public_port": self.public_endpoint[1] if self.public_endpoint else None,
+                "protocol_version": self._protocol_version,
+                "block_height": self._get_block_height(),
             }
             await self._send_message(writer, reply_handshake)
             await self._listen_to_stream(reader, writer, (remote_ip, peer_listen_port), outbound=False, peer_id=peer_node_id)
@@ -400,9 +420,18 @@ class P2PNetworkService:
                             peer_island_id = message.get("island_id", "")
                             peer_is_hub = message.get("is_hub", False)
                             peer_chain_id = message.get("chain_id", "")
+                            peer_protocol_version = message.get("protocol_version", 1)
                             if not peer_id or peer_id == self.node_id:
                                 logger.warning("Invalid handshake reply from %s. Closing.", addr)
                                 break
+                            # v0.6.2: Track legacy peers
+                            if peer_protocol_version < self._protocol_version:
+                                self._legacy_peers.add(peer_id)
+                                logger.info(
+                                    "Peer %s using legacy protocol v%s — batching/prioritization disabled",
+                                    peer_id,
+                                    peer_protocol_version,
+                                )
                             if peer_chain_id and self.chain_id and (peer_chain_id != self.chain_id):
                                 logger.warning(
                                     "Peer %s chain_id mismatch: %s != %s. Closing connection.",
