@@ -109,7 +109,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ && \
 | B5 | **chain_id family:** GPU `GPU_REGISTER` tx submitted without `chain_id`. | High | `apps/gpu/src/gpu_service/main.py` | ✅ DONE |
 | B6 | **Regression (verifier side):** ensure `verify_transaction_signature` message construction matches A1; add a sign→submit→verify round-trip test. | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/rpc/utils.py`, `tests/integration/` (new) | ⬜ TODO |
 | B7 | **Bug 14:** confirm `TRUST_X_WALLET_ADDRESS` defaults false (already true) + add dev-only note to config example/docs. | Medium | `examples/blockchain.env.example` | ✅ DONE |
-| B8 | Update `v0.5.16/change.log` status (mark fixed bugs ✅, Bug 3 PARTIAL) + root `AGENTS.md` release tracking (v0.5.16/v0.5.17 → Completed). | Low | `docs/releases/v0.5.16/change.log`, `AGENTS.md` | ⬜ TODO |
+| B8 | Update `v0.5.16/change.log` status (mark fixed bugs ✅, Bug 3 PARTIAL) + root `AGENTS.md` release tracking (v0.5.16/v0.5.17 → Completed). | Low | `docs/releases/v0.5.16/change.log`, `AGENTS.md` | ✅ DONE |
 | B9 | **Key model migration:** Genesis/keystore tooling generates **ed25519** keys with `ait1`+`sha256(pubkey)` addresses, incompatible with the secp256k1/`0x` verifier (Bug 4) and A1 signer. Migrate all genesis/keystore/wallet key generation to secp256k1 with Ethereum-style `0x` addresses. **Breaking** — requires genesis regeneration for existing deployments. | 🔴 P0 | `apps/blockchain-node/scripts/create_genesis_wallet.py`, `unified_genesis.py`, `keystore.py`, `setup_production.py`, `apps/coordinator-api/.../wallet_adapter_enhanced.py`, `cli/aitbc_cli/commands/wallet/basic.py`, `cli/aitbc_cli/utils/crypto_utils.py`, tests, examples, docs | ⬜ TODO |
 
 ### Agent B — Detailed Instructions

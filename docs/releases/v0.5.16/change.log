@@ -1,7 +1,7 @@
 # AITBC v0.5.16 Release Notes
 
-**Date**: TBD
-**Status**: 🚧 Planned — Critical Security & Multi-Chain Bugfix
+**Date**: 2026-06-28
+**Status**: 🚧 In Progress — Closure Pass (B1-B5, B7, B8 done; B6 blocked on A1; B9 in progress)
 **Scope**: Multi-Chain Preparation + Security Hardening — Chain-ID-Aware RPC, Signature Verification, Authentication, Stub Removal, Multi-Chain Manager Fix
 
 ## 🎯 Overview
@@ -159,6 +159,8 @@ async def submit_transaction(request, tx_data: TransactionRequest):
 
 **Backward compatibility**: If `chain_id` is not provided (None), falls back to hub's default chain.
 
+#### Status: ✅ FIXED (commit `3d94338c2`)
+
 #### Files Changed
 - `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py`
 
@@ -198,6 +200,8 @@ params={"chain_id": self._chain_id}
 ```
 
 **Backward compatibility**: Hub endpoints already accept `chain_id` via `get_chain_id()`. Older hubs ignore unknown query params.
+
+#### Status: ✅ FIXED (commit `3d94338c2`)
 
 #### Files Changed
 - `apps/blockchain-node/src/aitbc_chain/sync.py`
@@ -291,6 +295,13 @@ async def submit_transaction(request, tx_data: TransactionRequest):
 
 **Breaking change**: All callers must now provide valid signatures. The gossip path already requires signatures, so only HTTP RPC callers are affected.
 
+> **Note (v0.5.16 closure pass):** The Bug 4 fix introduced a signing-scheme
+> regression — the shared `TransactionService` signs with ed25519 (64-byte
+> sigs) but the verifier expects secp256k1 (65-byte sigs). The A1/B6 closure
+> tasks fix this; see the signing-scheme regression section below.
+
+#### Status: ✅ FIXED (commit `3d94338c2`) — see A1/B6 for the signing-scheme regression fix
+
 #### Files Changed
 - `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py`
 
@@ -322,6 +333,8 @@ def authorize_arbitrator(self, arbitrator_address, reputation_score, owner_addre
         raise PermissionError("Invalid owner signature")
     self._arbitrators[arbitrator_address] = reputation_score
 ```
+
+#### Status: ✅ FIXED (commit `3d94338c2`)
 
 #### Files Changed
 - `apps/blockchain-node/src/aitbc_chain/contracts/dispute_resolution.py`
@@ -355,6 +368,8 @@ Rewrite `MultiChainManager` to use existing infrastructure:
 
 This is a rewrite, not a patch. The existing class structure is preserved but the imports and initialization are fixed to use real classes.
 
+#### Status: ✅ FIXED (commit `3d94338c2`) — now obsolete (dead code → v0.6.4)
+
 #### Files Changed
 - `apps/blockchain-node/src/aitbc_chain/network/multi_chain_manager.py`
 
@@ -385,6 +400,8 @@ async def bridge_lock(request, lock_data: dict):
 
 Also fix `get_chain_id(None)` → `get_chain_id(lock_data.get("chain_id"))`.
 
+#### Status: ✅ FIXED (commit `3d94338c2`)
+
 #### Files Changed
 - `apps/blockchain-node/src/aitbc_chain/rpc/bridge.py`
 
@@ -414,6 +431,8 @@ async def stake_tokens(request, stake_data: dict):
     validate_chain_id(chain_id)  # Bug 13 fix
     # ... proceed
 ```
+
+#### Status: ✅ FIXED (commit `3d94338c2`)
 
 #### Files Changed
 - `apps/blockchain-node/src/aitbc_chain/rpc/staking.py`
@@ -502,6 +521,8 @@ that makes the node refuse to start when any core RPC module fails to import
 
 Remove the stub. If the contracts module fails to import, contract endpoints should return HTTP 503 (Service Unavailable) with a clear error message.
 
+#### Status: ✅ FIXED (commit `3d94338c2`) — `_stub` now raises `HTTPException(503)`
+
 #### Files Changed
 - `apps/blockchain-node/src/aitbc_chain/rpc/contracts_stub.py` — delete or replace with error handler
 - `apps/blockchain-node/src/aitbc_chain/rpc/router.py` — remove stub fallback
@@ -524,6 +545,8 @@ if proof.get("chain_id") != record.chain_id:
     return False
 ```
 
+#### Status: ✅ FIXED (commit `3d94338c2`) — part of Bug 3 PARTIAL fix
+
 #### Files Changed
 - `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` (part of Bug 3 fix)
 
@@ -544,6 +567,8 @@ chain_id = stake_data.get("chain_id")
 if not is_supported_chain(chain_id):
     raise HTTPException(400, f"Unsupported chain_id: {chain_id}")
 ```
+
+#### Status: ✅ FIXED (commit `3d94338c2`)
 
 #### Files Changed
 - `apps/blockchain-node/src/aitbc_chain/rpc/staking.py` (part of Bug 8 fix)
@@ -619,6 +644,8 @@ The `TransactionService.generate_signed_transaction()` method (lines 87-94) does
 2. Include `chain_id` in the transaction dict
 3. In `agent_stream.py`, pass `chain_id` from the agent's context into the transaction generation call
 
+#### Status: ✅ FIXED (commit `3d94338c2`)
+
 #### Files Changed
 - `aitbc/crypto/transaction_service.py`
 - `apps/agent-coordinator/src/app/websocket/agent_stream.py`
@@ -626,7 +653,9 @@ The `TransactionService.generate_signed_transaction()` method (lines 87-94) does
 > **Note (v0.5.16 closure pass):** The GPU service (`apps/gpu/src/gpu_service/main.py`)
 > had the same chain_id-dropping issue — `GPU_REGISTER` transactions were
 > submitted without a `chain_id` field. Now fixed: the tx dict includes
-> `chain_id` sourced from the request body or `CHAIN_ID` env var.`
+> `chain_id` sourced from the request body or `CHAIN_ID` env var.
+
+---
 
 ### Bug 17: Marketplace Hardcoded Blockchain DB Path
 
@@ -641,6 +670,8 @@ This breaks on any chain other than `ait-hub.aitbc.bubuit.net`, any non-default 
 #### Fix
 
 Remove hardcoded path. Use blockchain RPC calls (`/rpc/transactions` with type filter) instead of direct DB access. If local blockchain RPC is too slow for listing, add a read replica or cache layer — but not direct DB access.
+
+#### Status: ✅ FIXED (commit `3d94338c2`)
 
 #### Files Changed
 - `apps/marketplace/src/marketplace_service/services/marketplace_service.py`
@@ -661,6 +692,8 @@ Replace `sqlite3.connect` + raw SQL with blockchain RPC calls:
 - Use `/rpc/transactions?type=GPU_MARKETPLACE&limit=500` to fetch marketplace transactions
 - Remove `sqlite3` import from marketplace service
 - If block metadata is needed, use `/rpc/block/{height}` for each transaction
+
+#### Status: ✅ FIXED (commit `3d94338c2`)
 
 #### Files Changed
 - `apps/marketplace/src/marketplace_service/services/marketplace_service.py`
@@ -821,6 +854,6 @@ Replace `sqlite3.connect` + raw SQL with blockchain RPC calls:
 
 ---
 
-*Last Updated: 2026-06-25*
+*Last Updated: 2026-06-28*
 *Version: 0.5.16*
-*Status: Planned — Critical Security & Multi-Chain Bugfix*
+*Status: In Progress — Closure Pass (B1-B5, B7, B8 done; B6 blocked on A1; B9 in progress)*
