@@ -16,7 +16,7 @@ AITBC v0.6.1 is a fundamental re-architecture of the block processing pipeline t
 
 This carries high regression risk and requires extensive testing to ensure deterministic execution across all validators. Bundling this with database caching work (as in the original v0.6.0 plan) would either block the easier optimizations or rush the parallel processing work.
 
-**Prerequisites**: Requires [v0.6.0](../v0.6.0/change.log) (Performance: DB, caching, network I/O — provides the optimized base layer).
+**Prerequisites**: Requires [v0.6.0](../v0.6.0/change.log) (Performance: DB, caching, network I/O — provides the optimized base layer). v0.6.0 is complete (340 passed, 0 failed). The v0.6.0 benchmark baseline is at `benchmarks/v0.6.0-baseline/`. **Requires v0.6.0 DB indexes + caching to achieve parallel processing targets** — the batch-fetched `account_map` (B3b) and incremental state root (B5) are the foundation for parallel delta computation.
 
 ## 🎯 Release Highlights
 
@@ -36,57 +36,114 @@ This carries high regression risk and requires extensive testing to ensure deter
 
 ## 📋 Detailed Features
 
+### Phase 1: Prototype (before touching consensus code)
+
+**Target files** (new):
+- `aitbc/blockchain/parallel_executor.py` — `ParallelExecutor` class with `ThreadPoolExecutor`
+- `aitbc/blockchain/scheduler.py` — `DeterministicScheduler` + `DependencyGraph`
+
+**Prototype scope**:
+1. **Dependency analysis**: Extract read/write sets from tx fields (`sender`, `recipient`, `type`)
+   - `read_set = {sender, recipient}` (recipient excluded for MESSAGE type)
+   - `write_set = {sender}` (always); add `recipient` if type != MESSAGE; add `receipt_id` if RECEIPT_CLAIM
+2. **Deterministic grouping**: Group non-conflicting txs (no overlapping write sets) for parallel execution
+3. **Conflict detection**: Two txs conflict if their write sets intersect
+4. **Validation gate**: Run prototype with 3+ nodes on same blocks — all must produce identical state roots before touching consensus code
+
+**Key finding from investigation**: `state_transition.apply_transaction` (state_transition.py:127-213) is **impure** — it directly executes SQL UPDATEs on the session. The v0.6.1 plan separates `compute_state_delta` (pure, parallelizable) from `apply_delta` (DB write, serialized).
+
+### Feature Flag Architecture
+
+**Config additions** to `apps/blockchain-node/src/aitbc_chain/config.py` (following existing pattern like `enable_block_production: bool = True`):
+
+```python
+# Parallel processing settings (v0.6.1)
+parallel_tx_validation: bool = False       # Default: sequential (safe)
+parallel_block_validation: bool = False    # Default: sequential (safe)
+parallel_workers: int = 0                  # 0 = auto (min(4, CPU_cores - 1)), fallback to 1
+deterministic_scheduling_seed: str = ""    # Empty = derive from block hash
+conflict_threshold: float = 0.5            # Fall back to sequential if >50% conflicts
+```
+
+**Env vars** (in `/etc/aitbc/blockchain.env`):
+```bash
+BLOCK_PROCESSING_PARALLEL=false            # Master switch (default: off)
+TRANSACTION_VALIDATION_PARALLEL=false      # Tx-level parallelism (default: off)
+PARALLEL_VALIDATION_WORKERS=0              # 0 = auto-calculate: min(4, CPU_cores - 1)
+DETERMINISTIC_SCHEDULING_SEED=             # Empty = blake3(block_hash + str(block_height))
+```
+
+**Rollback procedure**: Set `BLOCK_PROCESSING_PARALLEL=false` + `systemctl restart aitbc-blockchain-node`. No data migration needed — just config change + restart. The sequential path remains the default.
+
 ### Parallel Block Validation
 
 #### Deterministic Scheduling
 - Block validation order is deterministic (by block height)
 - Within a block, transactions are validated in parallel but applied in deterministic order
 - All validators must produce identical state roots regardless of parallel execution order
-- Scheduling uses deterministic seed (block hash) for reproducibility
+- **Scheduling seed**: `blake3(block_hash + str(block_height))` — deterministic across all nodes since block hash is consensus-agreed (block hash already uses `sorted(tx_hashes)` — see `_compute_block_hash` in poa.py:743-752)
+- **Mempool ordering fix required**: Current `mempool.py:109` sorts by `(-fee, received_at)` where `received_at` uses `time.time()` (non-deterministic). Must change to `(-fee, tx_hash)` for deterministic ordering across nodes.
 
 #### Conflict Detection
 - Analyze transaction read/write sets before parallel execution
+- `read_set = {sender, recipient}` (recipient excluded for MESSAGE type)
+- `write_set = {sender}` (always); add `recipient` if type != MESSAGE
+- For RECEIPT_CLAIM: add `receipt_id` (from `payload.receipt_id`) to read_set
 - Group non-conflicting transactions for parallel validation
 - Serialize conflicting transactions (touching same accounts/contracts)
-- Log conflicts for debugging and optimization
+- **Conflict logging**: Log conflict tx hashes + affected accounts + resolution (re-validated vs marked invalid) for debugging
 
 #### Pipeline Processing
 - Stage 1: Block header validation (parallel with previous block's state application)
-- Stage 2: Transaction validation (parallel within block)
-- Stage 3: State application (serialized, deterministic order)
-- Stage 4: State root computation
+- Stage 2: Transaction validation (parallel within block — pure `compute_state_delta`)
+- Stage 3: State application (serialized, deterministic order — `apply_delta` to DB)
+- Stage 4: State root computation (incremental, from v0.6.0 B5)
 
 ### Parallel Transaction Validation
 
 #### State Dependency Analysis
 ```python
-# Pseudocode for dependency analysis
+# Pseudocode for dependency analysis (grounded in actual tx structure)
 def analyze_dependencies(transactions: list[Tx]) -> list[TxGroup]:
-    """Group transactions by state dependencies"""
+    """Group transactions by state dependencies."""
     groups = []
     for tx in transactions:
-        read_set = tx.get_read_set()   # accounts/contracts read
-        write_set = tx.get_write_set() # accounts/contracts written
-        # Find group with no overlap, or create new group
+        tx_type = tx.content.get("type", "TRANSFER").upper()
+        read_set = {tx.content.get("from"), tx.content.get("to")}
+        write_set = {tx.content.get("from")}
+        if tx_type != "MESSAGE":
+            write_set.add(tx.content.get("to"))
+        if tx_type == "RECEIPT_CLAIM":
+            receipt_id = tx.content.get("payload", {}).get("receipt_id")
+            if receipt_id:
+                read_set.add(f"receipt:{receipt_id}")
+        # Find group with no write-set overlap, or create new group
         ...
     return groups
 ```
 
 #### Deterministic Execution
-- Parallel validation produces a list of valid transactions + state changes
-- State changes are applied in deterministic order (by tx index in block)
-- State root computed after all state changes applied
+- Parallel validation produces a list of valid transactions + state deltas
+- State deltas are applied in deterministic order (by tx index in block)
+- State root computed after all state changes applied (incremental, from v0.6.0 B5)
 - Guarantees: all validators produce identical state root
 
 #### Conflict Resolution
 - If two transactions write to the same account, second transaction is re-validated against first's state changes
 - If re-validation fails, transaction is marked invalid
 - Conflicts are rare in practice (most transactions touch different accounts)
+- **Threshold**: If `conflict_rate > conflict_threshold` (default 0.5), fall back to sequential processing for that block
+
+#### Thread Safety
+- `MerklePatriciaTrie` and `StateManager` are **NOT thread-safe** (no locks — verified at merkle_patricia_trie.py:37-450)
+- **Solution**: Each parallel worker uses its own `StateManager` instance to compute deltas. Deltas are merged sequentially in deterministic order.
+- The `compute_state_delta` (pure) / `apply_delta` (DB write) split avoids shared mutable state.
 
 ## 🔧 Breaking Changes
 
 - Block processing pipeline restructured (may affect custom consensus modules)
 - Parallel validation requires deterministic scheduling config
+- **Mempool ordering change**: `received_at` → `tx_hash` for deterministic sorting (mempool.py:109)
 
 ## 📊 Migration Guide
 
@@ -97,20 +154,53 @@ def analyze_dependencies(transactions: list[Tx]) -> list[TxGroup]:
    cp -r /var/lib/aitbc/data /var/lib/aitbc/data.backup
    ```
 
-2. **Enable parallel processing**
+2. **Enable parallel processing** (off by default — safe rollback path)
    ```bash
    # /etc/aitbc/blockchain.env
-   BLOCK_PROCESSING_PARALLEL=true
-   TRANSACTION_VALIDATION_PARALLEL=true
-   PARALLEL_VALIDATION_WORKERS=4
+   BLOCK_PROCESSING_PARALLEL=false            # Start with OFF for testing
+   TRANSACTION_VALIDATION_PARALLEL=false      # Enable after determinism verified
+   PARALLEL_VALIDATION_WORKERS=0              # 0 = auto: min(4, CPU_cores - 1)
+   DETERMINISTIC_SCHEDULING_SEED=             # Empty = blake3(block_hash + height)
    ```
 
-3. **Restart services**
+3. **Test determinism** before enabling in production:
    ```bash
+   # Run 3 nodes on same blocks, verify identical state roots
+   aitbc consensus verify-determinism --nodes 3 --blocks 100
+   ```
+
+4. **Enable parallel processing** after determinism verified:
+   ```bash
+   BLOCK_PROCESSING_PARALLEL=true
+   TRANSACTION_VALIDATION_PARALLEL=true
+   systemctl restart aitbc-blockchain-node
+   ```
+
+5. **Rollback** if consensus diverges:
+   ```bash
+   BLOCK_PROCESSING_PARALLEL=false
    systemctl restart aitbc-blockchain-node
    ```
 
 ## 🧪 Testing
+
+### Consensus Correctness Test Matrix
+
+| Dimension | Values | Description |
+|-----------|--------|-------------|
+| N validators | 1, 3, 5, 7 | Test with varying validator counts |
+| M blocks | 10, 100, 1000 | Test with varying block counts |
+| K conflict scenarios | 0%, 10%, 50%, 80% | Test with varying conflict rates |
+
+**Conflict scenarios**:
+- **Overlapping accounts**: Multiple txs send from same account (nonce ordering)
+- **Contract calls**: Txs that call the same contract (storage slot conflicts)
+- **Receipt claims**: Multiple claims for same receipt (RECEIPT_CLAIM type)
+- **Mixed**: Combination of above
+
+**Determinism oracle**: All N nodes must produce identical state root hash for all M blocks. Any divergence = test failure.
+
+**CI gate**: Run determinism tests as a required check before merge. Test matrix: 3 validators × 100 blocks × 4 conflict scenarios.
 
 ### Parallel Validation Testing
 - **Determinism tests**: All validators produce identical state roots with parallel validation
@@ -118,6 +208,7 @@ def analyze_dependencies(transactions: list[Tx]) -> list[TxGroup]:
 - **Performance tests**: Throughput improvement vs. sequential validation
 - **Regression tests**: All existing block processing tests pass with parallel validation
 - **Stress tests**: High-volume blocks with many conflicting transactions
+- **Threshold tests**: Verify fallback to sequential when conflict_rate > threshold
 
 ### Consensus Testing
 - **Multi-validator tests**: All validators agree on state roots
@@ -129,6 +220,12 @@ def analyze_dependencies(transactions: list[Tx]) -> list[TxGroup]:
 - Parallel transaction validation: >95%
 - Conflict resolution: >90%
 
+### Test Infrastructure (existing patterns)
+- In-memory SQLite with `StaticPool` for thread-safe testing (test_consensus.py:21-30)
+- Mock objects for mempool, gossip broker
+- Async test fixtures using `@pytest.mark.asyncio`
+- Multi-validator setup with validator addresses and stakes (test_multi_validator_poa.py)
+
 ## 📚 Documentation
 
 - [Parallel Processing Architecture](../architecture/parallel-processing.md)
@@ -139,7 +236,8 @@ def analyze_dependencies(transactions: list[Tx]) -> list[TxGroup]:
 ## 🚀 Dependencies
 
 ### New Dependencies
-- Parallel processing libraries (multiprocessing, asyncio)
+- `blake3` (for deterministic scheduling seed derivation)
+- `concurrent.futures` (stdlib — ThreadPoolExecutor)
 
 ### Updated Dependencies
 - Blockchain node v0.6.1+
@@ -151,6 +249,7 @@ def analyze_dependencies(transactions: list[Tx]) -> list[TxGroup]:
 - State root format change requires careful migration
 - Conflict resolution must not silently drop valid transactions
 - **Extensive testing required**: All existing tests must pass, plus new determinism tests
+- **Mempool ordering fix** (received_at → tx_hash) is a consensus-critical change — must be deployed to all nodes simultaneously
 
 ## 📈 Performance Targets
 
@@ -158,7 +257,7 @@ def analyze_dependencies(transactions: list[Tx]) -> list[TxGroup]:
 - Block validation time: <100ms (with parallelism)
 - Block import rate: >500 blocks/second (interim) → >1000 blocks/second (full parallelism)
 - Block processing latency: <200ms (interim) → <100ms (full parallelism)
-- State root calculation: <50ms (incremental updates)
+- State root calculation: <50ms (incremental updates, from v0.6.0 B5)
 - Block propagation latency: <200ms
 
 ### Transaction Handling
@@ -167,16 +266,38 @@ def analyze_dependencies(transactions: list[Tx]) -> list[TxGroup]:
 - Mempool processing: >5,000 transactions/second
 - Transaction confirmation: <1 second
 
-**Note**: The block import rate (>500 blocks/sec) and block processing latency (<200ms) targets were originally in v0.6.0 but moved here because they require parallel processing, not just DB/caching optimization. The sequential transaction loop in `poa.py` (lines 239-327) and full state root recomputation in `merkle_patricia_trie.py` (lines 402-419) are the bottlenecks that this release addresses.
+**Note**: The block import rate (>500 blocks/sec) and block processing latency (<200ms) targets were originally in v0.6.0 but moved here because they require parallel processing, not just DB/caching optimization. The sequential transaction loop in `poa.py` (lines 308-404) and the impure `state_transition.apply_transaction` (SQL UPDATEs at state_transition.py:170-181) are the bottlenecks that this release addresses.
 
 ## 🎯 Success Criteria
 
 - ✅ Parallel block validation operational with deterministic results
 - ✅ Parallel transaction validation with conflict resolution
-- ✅ All validators produce identical state roots
+- ✅ All validators produce identical state roots (verified by test matrix)
 - ✅ Performance targets met
 - ✅ No consensus failures in multi-validator testing
-- ✅ All existing tests pass
+- ✅ All existing tests pass (340 baseline from v0.6.0)
+- ✅ Feature flag rollback path verified (BLOCK_PROCESSING_PARALLEL=false → sequential)
+- ✅ Mempool ordering fix deployed (received_at → tx_hash)
+
+## 🔧 Verified Code Targets (from investigation)
+
+### Agent A (Shared Core `aitbc/`)
+- `aitbc/blockchain/parallel_executor.py` (new) — `ParallelExecutor` with `ThreadPoolExecutor`
+- `aitbc/blockchain/scheduler.py` (new) — `DeterministicScheduler` + `DependencyGraph`
+- `aitbc/blockchain/__init__.py` (new) — exports
+
+### Agent B (Apps & Infrastructure)
+- `apps/blockchain-node/src/aitbc_chain/config.py` — add parallel processing feature flags
+- `apps/blockchain-node/src/aitbc_chain/consensus/poa.py:308-404` — replace sequential tx loop with parallel executor
+- `apps/blockchain-node/src/aitbc_chain/state/state_transition.py:127-213` — split `apply_transaction` into `compute_state_delta` (pure) + `apply_delta` (DB write)
+- `apps/blockchain-node/src/aitbc_chain/mempool.py:109` — fix mempool ordering: `received_at` → `tx_hash`
+- `apps/blockchain-node/src/aitbc_chain/state/merkle_patricia_trie.py` — no changes needed (use per-thread StateManager instances)
+
+### Agent Pairing
+Both agents touch consensus-critical code. **Shared interface**: `DeterministicScheduler` API (owned by Agent A, consumed by Agent B).
+- Agent A builds the scheduler/executor prototype first
+- Agent B integrates it into `poa.py` after determinism is verified
+- Both agents must agree on the `compute_state_delta` / `apply_delta` interface
 
 ## 🚀 Next Steps
 
@@ -190,6 +311,6 @@ def analyze_dependencies(transactions: list[Tx]) -> list[TxGroup]:
 
 ---
 
-*Last Updated: 2026-06-25*
+*Last Updated: 2026-06-28*
 *Version: 0.6.1*
 *Status: Planned*
