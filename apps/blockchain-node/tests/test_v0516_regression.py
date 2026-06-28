@@ -681,6 +681,11 @@ class TestBug9MiningEndpointAuthentication:
         response = client.get("/mining/status")
         assert response.status_code == 401
 
+    def test_mining_miners_requires_authentication(self, client) -> None:
+        """GET /mining/miners without X-Wallet-Address returns 401 (Bug 9 closure — was previously unauthenticated)."""
+        response = client.get("/mining/miners")
+        assert response.status_code == 401
+
     def test_mining_start_succeeds_with_trusted_header(self, client, monkeypatch) -> None:
         """POST /mining/start succeeds when TRUST_X_WALLET_ADDRESS=true and header is set."""
         monkeypatch.setenv("TRUST_X_WALLET_ADDRESS", "true")
