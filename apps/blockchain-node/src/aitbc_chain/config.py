@@ -221,6 +221,42 @@ class ChainSettings(BaseSettings):
     parallel_workers: int = 4  # Thread pool size for parallel tx validation
     conflict_threshold: float = 0.5  # Fall back to sequential if >50% of txs conflict
 
+    # Gossip protocol (v0.6.2). Protocol version advertises the message
+    # format capabilities of this node. v1 = legacy (pre-v0.6.2, no
+    # priority/batching). v2 = optimized (priority queue + batching).
+    # GOSSIP_BACKWARD_COMPAT=true keeps accepting v1 peers (with a
+    # deprecation log) for one release cycle. GOSSIP_LEGACY_PEER_TIMEOUT
+    # is the seconds before disconnecting a v1 peer that never upgrades.
+    # GOSSIP_MESSAGE_BATCH_SIZE is the max messages per batched gossip
+    # frame (1 = no batching). GOSSIP_PRIORITY_ENABLED toggles the
+    # PriorityMessageQueue routing in the broker (default off).
+    gossip_protocol_version: int = 2  # Protocol version (1=legacy, 2=optimized)
+    gossip_backward_compat: bool = True  # Accept v1 peers with deprecation
+    gossip_legacy_peer_timeout: int = 3600  # Seconds before disconnecting v1 peers
+    gossip_message_batch_size: int = 10  # Max messages per batched gossip frame
+    gossip_priority_enabled: bool = False  # Enable message prioritization (default off)
+
+    # Parallel sync (v0.6.2). Feature flag for parallel block fetching
+    # from multiple peers. Default off for safety — enable with
+    # SYNC_PARALLEL_ENABLED=true. SYNC_PARALLEL_MAX_PEERS caps the number
+    # of peers used concurrently for block range requests.
+    # SYNC_PARALLEL_TIMEOUT is the per-peer request timeout in seconds.
+    sync_parallel_enabled: bool = False  # Feature flag — default off for safety
+    sync_parallel_max_peers: int = 4  # Max peers for parallel block fetching
+    sync_parallel_timeout: float = 30.0  # Timeout per peer request (seconds)
+
+    # Delta sync (v0.6.2). Feature flag for delta-based state sync —
+    # only the accounts that changed between two heights are
+    # transferred, instead of the full state snapshot. Default off for
+    # safety — enable with SYNC_DELTA_ENABLED=true.
+    # SYNC_DELTA_THRESHOLD is the fraction of full-state size above
+    # which delta sync falls back to full sync (default 0.5 = 50%).
+    # SYNC_DELTA_MAX_BLOCKS caps the gap size eligible for delta sync
+    # (above this, full sync is used to bound diff computation cost).
+    sync_delta_enabled: bool = False  # Feature flag — default off for safety
+    sync_delta_threshold: float = 0.5  # Fall back to full sync if delta > 50% of state
+    sync_delta_max_blocks: int = 100  # Max blocks for delta sync (use full sync above this)
+
     # Redis Configuration (Hub persistence)
     redis_url: str = "redis://localhost:6379"  # Redis connection URL
 
