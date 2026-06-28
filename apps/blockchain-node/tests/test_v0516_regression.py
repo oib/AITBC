@@ -21,7 +21,7 @@ import json
 from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from aitbc_chain.config import settings
@@ -574,28 +574,32 @@ class TestBug7BridgeLockConfirmSignatureVerification:
 
     def test_bridge_confirm_rejects_without_signature(self, client, initialized_bridge) -> None:
         """POST /bridge/confirm without confirmer signature returns 403."""
-        response = client.post(
-            "/bridge/confirm",
-            json={
-                "transfer_id": "0xtransfer123",
-                "proof": {"source_chain": "ait-source"},
-                "confirmer": "0xrecipient",
-                # signature intentionally omitted
-            },
-        )
+        # B1 fence: enable the release path so we reach the Bug 7 signature check.
+        with patch.object(settings, "bridge_release_enabled", True):
+            response = client.post(
+                "/bridge/confirm",
+                json={
+                    "transfer_id": "0xtransfer123",
+                    "proof": {"source_chain": "ait-source"},
+                    "confirmer": "0xrecipient",
+                    # signature intentionally omitted
+                },
+            )
         assert response.status_code == 403
 
     def test_bridge_confirm_rejects_without_confirmer(self, client, initialized_bridge) -> None:
         """POST /bridge/confirm without confirmer address returns 403."""
-        response = client.post(
-            "/bridge/confirm",
-            json={
-                "transfer_id": "0xtransfer123",
-                "proof": {"source_chain": "ait-source"},
-                "signature": "0xabc",
-                # confirmer intentionally omitted
-            },
-        )
+        # B1 fence: enable the release path so we reach the Bug 7 signature check.
+        with patch.object(settings, "bridge_release_enabled", True):
+            response = client.post(
+                "/bridge/confirm",
+                json={
+                    "transfer_id": "0xtransfer123",
+                    "proof": {"source_chain": "ait-source"},
+                    "signature": "0xabc",
+                    # confirmer intentionally omitted
+                },
+            )
         assert response.status_code == 403
 
 
