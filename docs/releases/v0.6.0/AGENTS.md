@@ -163,14 +163,14 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o a
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Add missing indexes to `base_models.py` + Alembic migration | 🔴 P0 | `base_models.py`, `migrations/versions/xxx_add_performance_indexes.py` | ⬜ |
-| B2 | Wire up connection pooling in `database.py` using `aitbc/database/pooling.py` | 🔴 P0 | `database.py` | ⬜ |
-| B3 | Eliminate N+1 queries — `rpc/blocks.py`, `consensus/poa.py`, `sync.py` | 🔴 P0 | `rpc/blocks.py`, `consensus/poa.py`, `sync.py` | ⬜ |
-| B4 | Batch mempool operations — drain DELETE, remove per-tx commits | High | `mempool.py` | ⬜ |
-| B5 | Incremental state root — use existing `update_account()` instead of full recompute | High | `state/merkle_patricia_trie.py`, `consensus/poa.py`, `sync.py` | ⬜ |
-| B6 | Wire up shared HTTP client pool — replace per-request clients in 6 files | High | `consensus/poa.py`, `chain_sync.py`, `network/hub_discovery.py`, `rpc/escrow_routes.py`, `main.py` | ⬜ |
-| B7 | Wire up compression + block header caching | Medium | `gossip/broker.py`, `chain_sync.py`, `p2p_network.py`, `rpc/blocks.py`, `rpc/accounts.py` | ⬜ |
-| B8 | Performance benchmarks + verify targets | Medium | `apps/blockchain-node/tests/test_performance.py` (new) | ⬜ |
+| B1 | Add missing indexes to `base_models.py` + Alembic migration | 🔴 P0 | `base_models.py`, `migrations/versions/a1b2c3d4e5f6_add_performance_indexes.py` | ✅ |
+| B2 | Wire up connection pooling in `database.py` using `aitbc/database/pooling.py` | 🔴 P0 | `database.py`, `config.py` | ✅ |
+| B3 | Eliminate N+1 queries — `rpc/blocks.py`, `consensus/poa.py`, `sync.py` | 🔴 P0 | `rpc/blocks.py`, `consensus/poa.py`, `sync.py` | ✅ |
+| B4 | Batch mempool operations — drain DELETE, remove per-tx commits | High | `mempool.py` | ✅ |
+| B5 | Incremental state root — use existing `update_account()` instead of full recompute | High | `consensus/poa.py`, `tests/test_consensus.py` | ✅ |
+| B6 | Wire up shared HTTP client pool — replace per-request clients in 5 files | High | `consensus/poa.py`, `chain_sync.py`, `network/hub_discovery.py`, `rpc/escrow_routes.py`, `main.py` | ✅ |
+| B7 | Wire up compression + block header caching | Medium | `gossip/broker.py`, `chain_sync.py`, `p2p_network.py`, `rpc/blocks.py`, `consensus/poa.py`, `block_cache.py`, `network/compression.py` | ✅ |
+| B8 | Performance benchmarks + verify targets | Medium | `apps/blockchain-node/tests/test_performance.py` (new) | ✅ |
 
 ### Agent B — Detailed Instructions
 
