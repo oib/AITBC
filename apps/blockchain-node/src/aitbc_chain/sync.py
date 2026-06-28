@@ -430,20 +430,24 @@ class ChainSync:
         created = 0
         updated = 0
         with self._session_factory() as session:
+            # Batch-fetch all existing accounts for the chain in one query
+            # (eliminates the N+1 per-account session.get() lookup).
+            existing_accounts = session.exec(select(Account).where(Account.chain_id == self._chain_id)).all()
+            account_map: dict[str, Account] = {acc.address: acc for acc in existing_accounts}
             for acct_data in remote_accounts:
                 addr = acct_data["address"]
                 balance = acct_data["balance"]
                 nonce = acct_data["nonce"]
-                existing = session.get(Account, (self._chain_id, addr))
+                existing = account_map.get(addr)
                 if existing is None:
-                    session.add(
-                        Account(
-                            chain_id=self._chain_id,
-                            address=addr,
-                            balance=balance,
-                            nonce=nonce,
-                        )
+                    new_account = Account(
+                        chain_id=self._chain_id,
+                        address=addr,
+                        balance=balance,
+                        nonce=nonce,
                     )
+                    session.add(new_account)
+                    account_map[addr] = new_account
                     created += 1
                 elif existing.balance != balance or existing.nonce != nonce:
                     existing.balance = balance

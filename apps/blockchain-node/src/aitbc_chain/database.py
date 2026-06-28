@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import Engine, event
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
+
+from aitbc.database.pooling import create_pooled_engine
 
 # Import all models to ensure they are registered with SQLModel.metadata
 from .base_models import Account, Block, Escrow, Receipt, Transaction  # noqa: F401
@@ -78,8 +82,14 @@ def get_engine(chain_id: str = "") -> Engine:
                 key_bytes = f.read()
             key_hex = key_bytes.hex()
 
-            # Create engine with SQLCipher
-            engine = create_engine(f"sqlite:///{db_path}", module=sqlite3, echo=False)
+            # Create engine with SQLCipher (StaticPool: single writer for SQLite)
+            engine = create_engine(
+                f"sqlite:///{db_path}",
+                module=sqlite3,
+                echo=False,
+                poolclass=StaticPool,
+                pool_pre_ping=True,
+            )
 
             # Set encryption key via connection event
             @event.listens_for(engine, "connect")
@@ -88,8 +98,13 @@ def get_engine(chain_id: str = "") -> Engine:
                 dbapi_connection.execute("PRAGMA journal_mode=WAL")
                 dbapi_connection.execute("PRAGMA synchronous=NORMAL")
         else:
-            # Use standard SQLite
-            engine = create_engine(f"sqlite:///{db_path}", echo=False)
+            # Use standard SQLite with connection pooling (StaticPool: single writer)
+            engine = create_pooled_engine(
+                f"sqlite:///{db_path}",
+                pool_size=settings.db_connection_pool_size,
+                use_static_pool=True,
+                echo=False,
+            )
 
             @event.listens_for(engine, "connect")
             def set_wal_mode(dbapi_connection: Any, connection_record: Any) -> None:
@@ -103,7 +118,12 @@ def get_engine(chain_id: str = "") -> Engine:
 
 # Standard SQLite with file-based encryption via file permissions
 _db_path = settings.db_path
-_engine = create_engine(f"sqlite:///{settings.db_path}", echo=False)
+_engine = create_pooled_engine(
+    f"sqlite:///{settings.db_path}",
+    pool_size=settings.db_connection_pool_size,
+    use_static_pool=True,
+    echo=False,
+)
 
 
 @event.listens_for(_engine, "connect")
@@ -148,12 +168,28 @@ class DatabaseOperationValidator:
 
 _validator = DatabaseOperationValidator()
 
+# Session factory for the module-level engine (sessionmaker factory pattern).
+_session_factory = sessionmaker(bind=_engine, autoflush=False, autocommit=False)
+
+# Cache of session factories per chain_id (chain-specific engines are created
+# lazily by get_engine; reuse a sessionmaker once the engine exists).
+_session_factories: dict[str, sessionmaker] = {}
+
+
+def _get_session_factory(chain_id: str) -> sessionmaker:
+    """Get (or create and cache) a sessionmaker bound to the chain's engine."""
+    resolved_chain_id = chain_id or _default_chain_id or settings.chain_id or "ait-mainnet"
+    if resolved_chain_id not in _session_factories:
+        engine = get_engine(chain_id)
+        _session_factories[resolved_chain_id] = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    return _session_factories[resolved_chain_id]
+
 
 # Secure session scope with validation
 @contextmanager
 def _secure_session_scope() -> Generator[Session]:
     """Internal secure session scope with validation"""
-    with Session(_engine) as session:
+    with _session_factory() as session:
         yield session
 
 
@@ -165,10 +201,8 @@ def session_scope(chain_id: str = "") -> Generator[Session]:
     Args:
         chain_id: Chain ID to use for database connection. If empty, uses default chain.
     """
-    # Get chain-specific engine
-    engine = get_engine(chain_id)
-
-    with Session(engine) as session:
+    factory = _get_session_factory(chain_id)
+    with factory() as session:
         yield session
 
 
@@ -255,7 +289,8 @@ def shutdown_db(chain_id: str = "") -> None:
             except Exception as e:
                 raise RuntimeError(f"Failed to encrypt database for chain {resolved_chain_id}: {e}") from e
 
-    # Dispose of engine
+    # Dispose of engine and cached session factory
+    _session_factories.pop(resolved_chain_id, None)
     if resolved_chain_id in _engines:
         _engines[resolved_chain_id].dispose()
         del _engines[resolved_chain_id]

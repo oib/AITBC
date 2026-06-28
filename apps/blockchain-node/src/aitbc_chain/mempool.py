@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from threading import Lock, RLock
 from typing import Any, cast
 
-from sqlalchemy import Column, Float, Index, Integer, MetaData, Text, func
+from sqlalchemy import Column, Float, Index, Integer, MetaData, Text, delete, func
 from sqlmodel import Field, Session, SQLModel, create_engine, select, text
 
 from .metrics import metrics_registry
@@ -17,7 +17,10 @@ mempool_metadata = MetaData()
 
 class MempoolEntry(SQLModel, table=True):
     __tablename__ = "mempool"
-    __table_args__: Any = (Index("idx_mempool_fee", "fee", postgresql_ops={"fee": "DESC"}),)
+    __table_args__: Any = (
+        Index("idx_mempool_fee", "fee", postgresql_ops={"fee": "DESC"}),
+        Index("idx_mempool_chain_fee", "chain_id", "fee"),
+    )
 
     chain_id: str = Field(primary_key=True)
     tx_hash: str = Field(primary_key=True)
@@ -195,7 +198,7 @@ class DatabaseMempool:
                 session.exec(text("CREATE INDEX IF NOT EXISTS idx_mempool_fee ON mempool(fee DESC)"))  # type: ignore[call-overload]
                 session.commit()
 
-    def add(self, tx: dict[str, Any], chain_id: str | None = None) -> str:
+    def add(self, tx: dict[str, Any], chain_id: str | None = None, commit: bool = True) -> str:
         from .config import settings
 
         if chain_id is None:
@@ -215,6 +218,8 @@ class DatabaseMempool:
                     select(MempoolEntry).where(MempoolEntry.chain_id == chain_id, MempoolEntry.tx_hash == tx_hash)
                 ).first()
                 if existing:
+                    if commit:
+                        session.commit()
                     return tx_hash
 
                 # Evict if full
@@ -241,10 +246,68 @@ class DatabaseMempool:
                     received_at=time.time(),
                 )
                 session.add(entry)
-                session.commit()
+                if commit:
+                    session.commit()
                 metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
             self._update_gauge(chain_id)
         return tx_hash
+
+    def batch_add(self, transactions: list[dict[str, Any]], chain_id: str | None = None) -> list[str]:
+        """Add multiple transactions in a single session with a single commit."""
+        from .config import settings
+
+        if chain_id is None:
+            chain_id = settings.chain_id
+
+        hashes: list[str] = []
+        with self._lock:
+            with Session(self._engine) as session:
+                for tx in transactions:
+                    fee = tx.get("fee", 0)
+                    if fee < self._min_fee:
+                        raise ValueError(f"Fee {fee} below minimum {self._min_fee}")
+
+                    tx_hash = compute_tx_hash(tx)
+                    content = json.dumps(tx, sort_keys=True, separators=(",", ":"))
+                    size_bytes = len(content.encode())
+
+                    # Check duplicate
+                    existing = session.exec(
+                        select(MempoolEntry).where(MempoolEntry.chain_id == chain_id, MempoolEntry.tx_hash == tx_hash)
+                    ).first()
+                    if existing:
+                        hashes.append(tx_hash)
+                        continue
+
+                    # Evict if full
+                    count = session.exec(
+                        select(func.count()).select_from(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
+                    ).one()
+                    if count >= self._max_size:
+                        to_evict = session.exec(
+                            select(MempoolEntry)
+                            .where(MempoolEntry.chain_id == chain_id)
+                            .order_by(cast(Any, MempoolEntry.fee).asc(), cast(Any, MempoolEntry.received_at).desc())
+                            .limit(1)
+                        ).first()
+                        if to_evict:
+                            session.delete(to_evict)
+                            metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
+
+                    entry = MempoolEntry(
+                        chain_id=chain_id,
+                        tx_hash=tx_hash,
+                        content=content,
+                        fee=fee,
+                        size_bytes=size_bytes,
+                        received_at=time.time(),
+                    )
+                    session.add(entry)
+                    hashes.append(tx_hash)
+                    metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
+                session.commit()
+            self._update_gauge(chain_id)
+        return hashes
 
     def list_transactions(self, chain_id: str | None = None) -> list[PendingTransaction]:
         from .config import settings
@@ -300,21 +363,19 @@ class DatabaseMempool:
                     hashes_to_remove.append(e.tx_hash)
 
                 if hashes_to_remove:
-                    for hash_to_remove in hashes_to_remove:
-                        entry = session.exec(
-                            select(MempoolEntry).where(
-                                MempoolEntry.chain_id == chain_id, MempoolEntry.tx_hash == hash_to_remove
-                            )
-                        ).first()
-                        if entry:
-                            session.delete(entry)
+                    session.exec(
+                        delete(MempoolEntry).where(
+                            MempoolEntry.chain_id == chain_id,
+                            MempoolEntry.tx_hash.in_(hashes_to_remove),
+                        )
+                    )
                     session.commit()
 
                 metrics_registry.increment(f"mempool_tx_drained_total_{chain_id}", float(len(result)))
             self._update_gauge(chain_id)
             return result
 
-    def remove(self, tx_hash: str, chain_id: str | None = None) -> bool:
+    def remove(self, tx_hash: str, chain_id: str | None = None, commit: bool = True) -> bool:
         from .config import settings
 
         if chain_id is None:
@@ -326,13 +387,36 @@ class DatabaseMempool:
                 ).first()
                 if entry:
                     session.delete(entry)
-                    session.commit()
+                    if commit:
+                        session.commit()
                     removed = True
                 else:
                     removed = False
             if removed:
                 self._update_gauge(chain_id)
             return removed
+
+    def batch_remove(self, hashes: list[str], chain_id: str | None = None) -> int:
+        """Remove multiple transactions in a single session with a single commit."""
+        from .config import settings
+
+        if chain_id is None:
+            chain_id = settings.chain_id
+        if not hashes:
+            return 0
+
+        with self._lock:
+            with Session(self._engine) as session:
+                result = session.exec(
+                    delete(MempoolEntry).where(
+                        MempoolEntry.chain_id == chain_id,
+                        MempoolEntry.tx_hash.in_(hashes),
+                    )
+                )
+                session.commit()
+                removed = result.rowcount if result.rowcount is not None else 0
+            self._update_gauge(chain_id)
+        return removed
 
     def size(self, chain_id: str | None = None) -> int:
         from .config import settings
