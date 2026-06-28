@@ -137,8 +137,10 @@ class P2PNetworkService:
             await self._server.wait_closed()
 
     async def _send_message(self, writer: asyncio.StreamWriter, message: dict[str, Any]) -> None:
-        """Serialize and send a newline-delimited JSON message"""
-        payload = json.dumps(message).encode() + b"\n"
+        """Serialize and send a newline-delimited JSON message (compressed when enabled)."""
+        from .network.compression import encode_payload
+
+        payload = (encode_payload(message)).encode() + b"\n"
         writer.write(payload)
         await writer.drain()
 
@@ -278,7 +280,9 @@ class P2PNetworkService:
                 writer.close()
                 return
             try:
-                message = json.loads(raw_data)
+                from .network.compression import decode_payload
+
+                message = decode_payload(raw_data)
             except json.JSONDecodeError as e:
                 logger.warning("Received invalid JSON from %s: %s. Error: %s", addr, repr(raw_data[:100]), e)
                 writer.close()
@@ -386,7 +390,9 @@ class P2PNetworkService:
                 if not data:
                     break
                 try:
-                    message = json.loads(data.decode().strip())
+                    from .network.compression import decode_payload
+
+                    message = decode_payload(data.decode().strip())
                     msg_type = message.get("type")
                     if outbound and peer_id is None:
                         if msg_type == "handshake":
@@ -582,7 +588,9 @@ class P2PNetworkService:
                 writer.close()
                 await writer.wait_closed()
                 return None
-            response = json.loads(data.decode().strip())
+            from .network.compression import decode_payload
+
+            response = decode_payload(data.decode().strip())
             if response.get("type") != "handshake":
                 logger.warning("Unexpected handshake response type: %s", response.get("type"))
                 writer.close()
@@ -600,7 +608,9 @@ class P2PNetworkService:
             try:
                 data = await asyncio.wait_for(reader.readline(), timeout=30.0)
                 if data:
-                    response = json.loads(data.decode().strip())
+                    from .network.compression import decode_payload
+
+                    response = decode_payload(data.decode().strip())
                     if response.get("type") == "join_response":
                         logger.info("Received join_response from hub")
                         writer.close()
