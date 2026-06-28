@@ -132,17 +132,16 @@ class TestMultiValidatorPoA:
     def test_update_validator_reputation(self):
         """Test updating validator reputation"""
         validator = self.validator_addresses[0]
-        initial_reputation = self.consensus.validators[validator].reputation
 
-        # Increase reputation
+        # Increase reputation (clamped to 1.0 since initial is already 1.0)
         result = self.consensus.update_validator_reputation(validator, 0.1)
         assert result is True
-        assert self.consensus.validators[validator].reputation == initial_reputation + 0.1
+        assert self.consensus.validators[validator].reputation == 1.0  # clamped from 1.0 + 0.1
 
-        # Decrease reputation
+        # Decrease reputation (1.0 - 0.2 = 0.8)
         result = self.consensus.update_validator_reputation(validator, -0.2)
         assert result is True
-        assert self.consensus.validators[validator].reputation == initial_reputation - 0.1
+        assert self.consensus.validators[validator].reputation == 0.8  # 1.0 (clamped) - 0.2
 
         # Try to update non-existent validator
         result = self.consensus.update_validator_reputation("0xnonexistent", 0.1)

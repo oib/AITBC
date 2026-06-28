@@ -3,9 +3,13 @@ from __future__ import annotations
 import asyncio
 from contextlib import ExitStack
 
+import pytest
 from aitbc_chain.app import create_app
 from aitbc_chain.gossip import gossip_broker
 from fastapi.testclient import TestClient
+
+# WebSocket tests require a running Postgres instance (the app connects on startup).
+pytestmark = pytest.mark.requires_postgres
 
 
 def _publish(topic: str, message: dict) -> None:

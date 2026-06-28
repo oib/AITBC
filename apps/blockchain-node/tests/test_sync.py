@@ -111,7 +111,7 @@ class TestProposerSignatureValidator:
             }
         )
         assert ok is False
-        assert "Invalid block hash" in reason
+        assert "Invalid hash length" in reason
 
     def test_invalid_hash_length(self):
         v = ProposerSignatureValidator()
@@ -305,7 +305,7 @@ class TestChainSyncBulkImport:
 
         import_calls = []
 
-        def fake_import_block(block_data):
+        def fake_import_block(block_data, skip_state_root_validation=False):
             import_calls.append(block_data["height"])
             return ImportResult(
                 accepted=False,

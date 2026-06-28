@@ -1,0 +1,131 @@
+# AITBC v0.5.18 Release Notes
+
+**Date**: 2026-06-26
+**Status**: 📋 Planned
+**Scope**: Test Suite Repair (Patch) — green the blockchain-node test suite, prevent CI hangs, and add it to the gate
+
+## 🎯 Overview
+
+v0.5.18 is a **small, test-only patch** that repairs the `apps/blockchain-node/tests/` suite. v0.5.17 ("Test Infrastructure") declared the suite healthy, but it only measured 3 of 17 blockchain-node test files. A full run reveals **64 failed + 8 errors (72 total)** across 16 files, and the suite **hangs** without a per-test timeout.
+
+All 72 failures are **pre-existing** — verified identical at commit `3d94338c2` (the bulk v0.5.16 security fix), before the v0.5.16-closure/v0.5.17 work. They were introduced when v0.5.16 changed `TransactionRequest`, `Block.chain_id`, the mempool/gossip APIs, and added secp256k1/0x address validation — without updating the corresponding tests. The root cause they were never noticed: `apps/blockchain-node/tests/` is **not in `pyproject.toml` `testpaths`**, so the default `pytest` run never collects it.
+
+**Why this is a dedicated patch**: [v0.6.0](../v0.6.0/change.log) (Database & Network Optimization) refactors exactly the areas these red tests cover — `mempool.py`, `sync.py`, gossip backends, `rpc/router.py`. v0.6.0 needs a green, gated, non-hanging baseline to detect regressions. This patch establishes it.
+
+**Prerequisites**: [v0.5.17](../v0.5.17/change.log).
+
+**Hard constraint**: **No production `aitbc_chain` source changes.** Every failure is a stale test or a missing infra skip-guard. If a "stale test" turns out to expose a real behavioral regression (candidates: `test_staking`, `test_consensus`, `test_guardian_contract`), STOP and escalate — do not weaken an assertion to force a pass.
+
+## 🎯 Release Highlights
+
+### Test infrastructure (config)
+- ✅ Add a default per-test `timeout` to `[tool.pytest.ini_options]` (prevents CI hangs)
+- ✅ Register `requires_redis`, `requires_postgres`, `requires_genesis` markers (`--strict-markers` is on)
+- ✅ Shared auto-skip fixtures: tests marked `requires_*` skip cleanly when the resource is unreachable
+- ✅ Add `apps/blockchain-node/tests` to `testpaths` (final step — gates the suite going forward)
+
+### Stale-test repairs (Group A — 52 failed + 8 errors)
+- ✅ `test_rpc_router.py` (12) — rebuild tx dicts to the v0.5.16 `TransactionRequest` schema
+- ✅ `test_guardian_contract.py` (14) — valid 0x checksum addresses + response-key/status alignment
+- ✅ `test_mempool.py` (8) — pass a SQLAlchemy URL to `DatabaseMempool`
+- ✅ `network/test_hub_manager.py` (6) — patch the current redis seam
+- ✅ `economics/test_staking.py` (6) — align message/value assertions
+- ✅ `test_force_sync_endpoints.py` (3) — patch the current session seam
+- ✅ `test_gossip_broadcast.py` (2), `test_consensus.py` (2), `test_models.py` (2), `test_sync.py` (2)
+- ✅ `contracts/test_escrow.py` (1), `consensus/test_multi_validator_poa.py` (1), `network/test_island_join.py` (1)
+
+### Environment quarantine (Group B — 12 failed)
+- ✅ `test_gossip_network.py` (7), `test_websocket.py` (4), `security/test_database_security.py` (1) — marked `requires_redis`/`requires_postgres`, auto-skip when unavailable
+
+### Hygiene
+- ✅ CI collect-only guard (`pytest --collect-only`) to catch monkeypatch-target drift
+- ✅ Correct v0.5.17's Final Test Results table (it overstated suite health)
+
+## 📋 Failure Taxonomy
+
+See <ref_file file="/opt/aitbc/docs/releases/v0.5.18/suggestions.md" /> for the full per-file root-cause table and verified pre-existing status. Summary:
+
+| Group | Count | Nature | Action |
+|-------|-------|--------|--------|
+| A — stale tests (API/schema/format drift) | 52 failed + 8 errors | Tests not updated after v0.5.16 schema changes | Test-side fixes, no source change |
+| B — environment-dependent (Redis/Postgres) | 12 failed | Need real infra | Quarantine behind auto-skip markers |
+| **Total** | **64 failed + 8 errors** | All pre-existing (verified at `3d94338c2`) | |
+
+## 🔧 Breaking Changes
+
+- None (test-only + pytest config). No runtime/API changes.
+
+## 🧪 Testing
+
+### Verification commands
+```bash
+cd /opt/aitbc
+
+# Full blockchain-node suite must be green and must not hang
+./venv/bin/python -m pytest apps/blockchain-node/tests/ -q
+
+# No-infra environment: env-dependent tests skip (not fail)
+./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -m "not requires_redis and not requires_postgres"
+
+# Collection guard (zero collection errors)
+./venv/bin/python -m pytest apps/blockchain-node/tests/ --collect-only -q
+
+# Confirm no regressions elsewhere
+./venv/bin/python -m pytest tests/unit tests/cli -q
+```
+
+### Coverage goals after this patch
+- Blockchain-node suite: **0 failed, 0 errors**; env-dependent tests skipped (not failed) when Redis/Postgres absent
+- Suite completes without hanging (default `timeout` enforced)
+- `apps/blockchain-node/tests` collected by the default `pytest` gate
+
+## 🎯 Success Criteria
+
+- ✅ `pytest apps/blockchain-node/tests/` → 0 failed, 0 errors (env tests skip when infra absent)
+- ✅ Suite cannot hang — default `timeout` configured
+- ✅ All new markers registered (`--strict-markers` passes)
+- ✅ `apps/blockchain-node/tests` added to `testpaths`
+- ✅ Zero collection errors (`--collect-only` clean)
+- ✅ No production `aitbc_chain` source changes (diff is tests + `pyproject.toml` + test conftest only)
+- ✅ `tests/unit` and `tests/cli` remain green (no regressions)
+
+## 📁 Files Expected to Change
+
+### Config / infrastructure
+- `pyproject.toml` — `[tool.pytest.ini_options]`: add `timeout`, register markers, add `apps/blockchain-node/tests` to `testpaths`
+- `apps/blockchain-node/tests/conftest.py` — shared `requires_redis`/`requires_postgres`/`requires_genesis` auto-skip fixtures
+
+### Stale-test repairs (Group A)
+- `apps/blockchain-node/tests/test_rpc_router.py`
+- `apps/blockchain-node/tests/test_guardian_contract.py`
+- `apps/blockchain-node/tests/test_mempool.py`
+- `apps/blockchain-node/tests/network/test_hub_manager.py`
+- `apps/blockchain-node/tests/economics/test_staking.py`
+- `apps/blockchain-node/tests/test_force_sync_endpoints.py`
+- `apps/blockchain-node/tests/test_gossip_broadcast.py`
+- `apps/blockchain-node/tests/test_consensus.py`
+- `apps/blockchain-node/tests/test_models.py`
+- `apps/blockchain-node/tests/test_sync.py`
+- `apps/blockchain-node/tests/contracts/test_escrow.py`
+- `apps/blockchain-node/tests/consensus/test_multi_validator_poa.py`
+- `apps/blockchain-node/tests/network/test_island_join.py`
+
+### Environment quarantine (Group B)
+- `apps/blockchain-node/tests/test_gossip_network.py`
+- `apps/blockchain-node/tests/test_websocket.py`
+- `apps/blockchain-node/tests/security/test_database_security.py`
+
+### Docs
+- `docs/releases/v0.5.17/change.log` — correct the Final Test Results table
+- `docs/releases/v0.5.18/change.log`, `suggestions.md`, `AGENTS.md` (this release)
+
+## 🚀 Next Steps
+
+### v0.6.0 — Database & Network Optimization
+- Builds on the now-green, gated blockchain-node suite as its regression baseline.
+
+---
+
+*Last Updated: 2026-06-26*
+*Version: 0.5.18*
+*Status: Planned — Test Suite Repair (Patch)*
