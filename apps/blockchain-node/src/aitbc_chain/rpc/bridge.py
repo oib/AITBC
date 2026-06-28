@@ -8,6 +8,7 @@ from fastapi import HTTPException, Request
 
 from aitbc.rate_limiting import rate_limit
 
+from ..config import settings
 from ..logger import get_logger
 from .utils import get_chain_id, verify_request_signature
 
@@ -95,7 +96,18 @@ async def bridge_confirm(request: Request, confirm_data: dict[str, Any]) -> dict
     1. Validate proof of lock
     2. Release funds on target chain
     3. Mark transfer as complete
+
+    Bug 3 PARTIAL (v0.5.16): the release path is fenced behind
+    ``BRIDGE_RELEASE_ENABLED`` (default false) because proof verification
+    currently accepts any valid secp256k1 signer — full proposer-set + Merkle
+    proof verification lands in v0.7.2. Do not enable on production networks.
     """
+    if not getattr(settings, "bridge_release_enabled", False):
+        raise HTTPException(
+            status_code=503,
+            detail="Bridge release path disabled (BRIDGE_RELEASE_ENABLED=false). "
+            "Proof verification is PARTIAL pending v0.7.2 — enable only on isolated test nets.",
+        )
     try:
         from ..cross_chain.bridge import get_cross_chain_bridge
 
