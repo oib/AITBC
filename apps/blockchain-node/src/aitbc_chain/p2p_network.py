@@ -539,6 +539,8 @@ class P2PNetworkService:
             logger.info("Connection closed to %s", peer_id or addr)
             if peer_id and peer_id in self.active_connections:
                 del self.active_connections[peer_id]
+            # v0.6.2: Clean up legacy peer tracking on disconnect
+            self._legacy_peers.discard(peer_id)
             if endpoint in self.connected_endpoints:
                 self.connected_endpoints.remove(endpoint)
             writer.close()
@@ -660,6 +662,37 @@ class P2PNetworkService:
         except Exception as e:
             logger.error("Failed to send join request: %s", e)
             return None
+
+    def _get_block_height(self) -> int:
+        """Get the current block height for handshake capability exchange.
+
+        Returns 0 if the chain is not yet initialized or an error occurs.
+        """
+        try:
+            from .database import session_scope
+
+            with session_scope(self.chain_id) as session:
+                from .models import BlockHeader
+
+                from sqlalchemy import select
+
+                stmt = select(BlockHeader).order_by(BlockHeader.height.desc()).limit(1)
+                block = session.exec(stmt).first()
+                return block.height if block else 0
+        except Exception:
+            return 0
+
+    def is_legacy_peer(self, peer_id: str) -> bool:
+        """Check if a peer is operating in legacy mode (protocol version < 2)."""
+        return peer_id in self._legacy_peers
+
+    def get_legacy_peers(self) -> set[str]:
+        """Return the set of peer IDs operating in legacy mode."""
+        return set(self._legacy_peers)
+
+    def get_protocol_version(self) -> int:
+        """Return the local protocol version."""
+        return self._protocol_version
 
 
 async def run_p2p_service(host: str, port: int, node_id: str, peers: str) -> None:
