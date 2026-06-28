@@ -51,10 +51,10 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | **Bug:** `BlockchainTextFormatter` alias missing in `aitbc/aitbc_logging.py` — `test_core.py` imports it directly and gets `ImportError`. The alias exists in `aitbc/log_utils/logging.py` (v0.5.11 B9) but not in the canonical module. | 🔴 P0 | `aitbc/aitbc_logging.py` | ⬜ |
-| A2 | **Security:** Add `chain_id` to `_SIGNED_FIELDS` in `TransactionService` — currently `chain_id` is in the POST body but NOT in the signed message, allowing cross-chain replay. | 🔴 P0 | `aitbc/crypto/transaction_service.py` | ⬜ |
-| A3 | Update `tests/unit/test_transaction_service.py` — pin `chain_id` in the canonical message, test cross-chain replay rejection. | High | `tests/unit/test_transaction_service.py` | ⬜ |
-| A4 | Fix `tests/unit/test_core.py` — verify A1 alias resolves the collection error (or update import to `JournalFormatter` if alias is rejected). | Medium | `tests/unit/test_core.py` | ⬜ |
+| A1 | **Bug:** `BlockchainTextFormatter` alias missing in `aitbc/aitbc_logging.py` — `test_core.py` imports it directly and gets `ImportError`. The alias exists in `aitbc/log_utils/logging.py` (v0.5.11 B9) but not in the canonical module. | 🔴 P0 | `aitbc/aitbc_logging.py` | ✅ DONE |
+| A2 | **Security:** Add `chain_id` to `_SIGNED_FIELDS` in `TransactionService` — currently `chain_id` is in the POST body but NOT in the signed message, allowing cross-chain replay. | 🔴 P0 | `aitbc/crypto/transaction_service.py` | ✅ DONE |
+| A3 | Update `tests/unit/test_transaction_service.py` — pin `chain_id` in the canonical message, test cross-chain replay rejection. | High | `tests/unit/test_transaction_service.py` | ✅ DONE |
+| A4 | Fix `tests/unit/test_core.py` — verify A1 alias resolves the collection error (or update import to `JournalFormatter` if alias is rejected). | Medium | `tests/unit/test_core.py` | ✅ DONE |
 
 ### Agent A — Detailed Instructions
 
@@ -104,13 +104,13 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | **Bug:** Multi-chain and multi-node fixtures not registered in conftest — 33 tests error with "fixture not found". | 🔴 P0 | `tests/conftest.py` | ⬜ |
-| B2 | **Bug:** `test_cli_integration.py` imports non-existent `app.deps` module — collection error breaks entire `tests/cli/` suite. | 🔴 P0 | `tests/cli/test_cli_integration.py` | ⬜ |
-| B3 | Delete 15 dead `test_handlers_*.py` files — they test a `handlers/` package removed in v0.5.15. 25+ permanently skipped tests. | Medium | `tests/cli/test_handlers_*.py` (15 files) | ⬜ |
-| B4 | **Security:** Add `chain_id` to `tx_data_dict` in `submit_transaction` — verifier side of the B6 chain_id signing gap. | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py` | ⬜ |
-| B5 | Update `test_signing_round_trip.py` — test that cross-chain replay is rejected after A2+B4. | High | `apps/blockchain-node/tests/test_signing_round_trip.py` | ⬜ |
-| B6 | Triage remaining ~127 skipped CLI tests — categorize, fix, or delete. | Low | `tests/cli/` (various) | ⬜ |
-| B7 | Update `change.log` with accurate test results after all fixes. | Low | `docs/releases/v0.5.17/change.log` | ⬜ |
+| B1 | **Bug:** Multi-chain and multi-node fixtures not registered in conftest — 33 tests error with "fixture not found". | 🔴 P0 | `tests/conftest.py` | ✅ DONE |
+| B2 | **Bug:** `test_cli_integration.py` imports non-existent `app.deps` module — collection error breaks entire `tests/cli/` suite. | 🔴 P0 | `tests/cli/test_cli_integration.py` | ✅ DONE |
+| B3 | Delete 15 dead `test_handlers_*.py` files — they test a `handlers/` package removed in v0.5.15. 25+ permanently skipped tests. | Medium | `tests/cli/test_handlers_*.py` (15 files) | ✅ DONE |
+| B4 | **Security:** Add `chain_id` to `tx_data_dict` in `submit_transaction` — verifier side of the B6 chain_id signing gap. | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py` | ✅ DONE |
+| B5 | Update `test_signing_round_trip.py` — test that cross-chain replay is rejected after A2+B4. | High | `apps/blockchain-node/tests/test_signing_round_trip.py` | ✅ DONE |
+| B6 | Triage remaining ~127 skipped CLI tests — categorize, fix, or delete. | Low | `tests/cli/` (various) | ✅ DONE |
+| B7 | Update `change.log` with accurate test results after all fixes. | Low | `docs/releases/v0.5.17/change.log` | ✅ DONE |
 
 ### Agent B — Detailed Instructions
 
