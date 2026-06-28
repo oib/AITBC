@@ -20,7 +20,7 @@ from aitbc.aitbc_logging import get_logger
 
 # Transaction fields covered by the signature, in the exact shape the node
 # verifier reconstructs. Keep in sync with the node verifier (see module docstring).
-_SIGNED_FIELDS = ("from", "to", "amount", "fee", "nonce", "payload", "type")
+_SIGNED_FIELDS = ("from", "to", "amount", "fee", "nonce", "payload", "type", "chain_id")
 
 
 def _canonical_signing_message(tx: dict[str, Any]) -> bytes:
@@ -138,16 +138,15 @@ class TransactionService:
                 "type": "TRANSFER",
             }
 
+            # chain_id is part of both the POST body (for routing) and the signed
+            # message (to prevent cross-chain replay). It must be set before signing.
+            transaction["chain_id"] = actual_chain_id
+
             # Sign with secp256k1 over the canonical message (matches the node verifier).
             # eth_keys produces a 65-byte r||s||v signature with v in {0, 1}, which is
             # exactly what verify_transaction_signature's keys.Signature(...) expects.
             signature = private_key.sign_msg_hash(keccak(_canonical_signing_message(transaction)))
             transaction["signature"] = signature.to_bytes().hex()
-
-            # chain_id is included in the POST body for routing, but is intentionally NOT
-            # part of the signed message because the current node verifier excludes it.
-            # See v0.5.16 task B6 (extend the signed message to cover chain_id).
-            transaction["chain_id"] = actual_chain_id
 
             self.logger.info("Generated signed transaction for %s to %s", amount, to_address)
             return transaction
