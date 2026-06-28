@@ -109,12 +109,12 @@ class TestSigningRoundTrip:
             f"Tampered tx should be rejected by signature check, got {response.status_code}: {body}"
         )
 
-    def test_canonical_message_excludes_chain_id(self, service: TransactionService) -> None:
-        """The signed message must exclude chain_id (verifier alignment).
+    def test_canonical_message_includes_chain_id(self, service: TransactionService) -> None:
+        """The signed message must include chain_id (v0.5.17 A2/B4 — cross-chain replay fix).
 
         The node verifier reconstructs the message from {from, to, amount, fee,
-        nonce, payload, type} — chain_id is NOT part of the signed payload.
-        This test pins that contract.
+        nonce, payload, type, chain_id} — chain_id IS part of the signed payload
+        so a tx signed for one chain cannot be replayed on another.
         """
         from aitbc.crypto.transaction_service import _canonical_signing_message
 
@@ -122,9 +122,9 @@ class TestSigningRoundTrip:
         assert tx is not None
         signed_msg = _canonical_signing_message(tx)
         decoded = json.loads(signed_msg)
-        assert "chain_id" not in decoded, "chain_id must NOT be in the signed message"
+        assert "chain_id" in decoded, "chain_id MUST be in the signed message (A2/B4)"
         assert "signature" not in decoded, "signature must NOT be in the signed message"
-        assert set(decoded.keys()) == {"from", "to", "amount", "fee", "nonce", "payload", "type"}
+        assert set(decoded.keys()) == {"from", "to", "amount", "fee", "nonce", "payload", "type", "chain_id"}
 
     def test_recover_signer_matches_canonical_implementation(self, service: TransactionService) -> None:
         """A3: aitbc.crypto.recover_signer must recover the same address as the node verifier."""
@@ -134,7 +134,7 @@ class TestSigningRoundTrip:
         assert tx is not None
 
         # The node endpoint constructs the verifier dict from exactly these
-        # fields (transactions.py lines 95-104) — no chain_id, no signature.
+        # fields (transactions.py lines 95-106) — includes chain_id, excludes signature.
         message_data = {
             "from": tx["from"],
             "to": tx["to"],
@@ -143,7 +143,42 @@ class TestSigningRoundTrip:
             "nonce": tx["nonce"],
             "payload": tx["payload"],
             "type": tx["type"],
+            "chain_id": tx["chain_id"],
         }
         recovered = recover_signer(message_data, tx["signature"])
         assert recovered is not None, "recover_signer should succeed for a valid signature"
         assert recovered.lower() == tx["from"].lower(), f"recover_signer returned {recovered}, expected {tx['from']}"
+
+    def test_cross_chain_replay_rejected(self, service: TransactionService) -> None:
+        """B5: A tx signed for chain A must be rejected when chain_id is changed to chain B.
+
+        This is the cross-chain replay attack that A2+B4 prevents: an attacker
+        takes a valid signed tx from ait-hub, changes chain_id to ait-island1,
+        and submits to the island1 node. The signature must NOT validate because
+        the signed message now includes chain_id.
+        """
+        from aitbc_chain.rpc.utils import verify_transaction_signature
+
+        tx = service.generate_signed_transaction(TO_ADDR, 100)
+        assert tx is not None
+        original_chain_id = tx["chain_id"]
+        assert original_chain_id == "ait-testnet"
+
+        # Build the verifier dict with the CORRECT chain_id — should pass
+        correct_dict = {
+            "from": tx["from"],
+            "to": tx["to"],
+            "amount": tx["amount"],
+            "fee": tx["fee"],
+            "nonce": tx["nonce"],
+            "payload": tx["payload"],
+            "type": tx["type"],
+            "chain_id": original_chain_id,
+        }
+        assert verify_transaction_signature(correct_dict, tx["signature"], tx["from"]) is True
+
+        # Now swap chain_id to a different chain — signature must NOT validate
+        replay_dict = {**correct_dict, "chain_id": "ait-island1"}
+        assert verify_transaction_signature(replay_dict, tx["signature"], tx["from"]) is False, (
+            f"Cross-chain replay must be rejected: signature signed for {original_chain_id} must not validate for ait-island1"
+        )
