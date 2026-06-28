@@ -1,7 +1,7 @@
 # AITBC v0.5.18 Release Notes
 
 **Date**: 2026-06-26
-**Status**: 📋 Planned
+**Status**: ✅ Complete
 **Scope**: Test Suite Repair (Patch) — green the blockchain-node test suite, prevent CI hangs, and add it to the gate
 
 ## 🎯 Overview
