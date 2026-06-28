@@ -18,38 +18,38 @@ GENESIS_CONFIG = {
     "accounts": [
         # Exchange Treasury - 10 million AITBC for liquidity
         {
-            "address": "aitbcexchange00000000000000000000000000000000",
+            "address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
             "balance": 10_000_000_000_000,  # 10 million AITBC (in smallest units)
             "nonce": 0,
         },
         # Community Faucet - 1 million AITBC for airdrop
         {
-            "address": "aitbcfaucet0000000000000000000000000000000000",
+            "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
             "balance": 1_000_000_000_000,  # 1 million AITBC
             "nonce": 0,
         },
         # Team/Dev Fund - 2 million AITBC
         {
-            "address": "aitbcteamfund00000000000000000000000000000000",
+            "address": "0xA1B2C3D4E5F60718293A4B5C6D7E8F90A1B2C3D4",
             "balance": 2_000_000_000_000,  # 2 million AITBC
             "nonce": 0,
         },
         # Early Investor Fund - 5 million AITBC
         {
-            "address": "aitbcearlyinvest000000000000000000000000000000",
+            "address": "0xB4C5D6E7F80829304A5B6C7D8E9F0A1B2C3D4E5F",
             "balance": 5_000_000_000_000,  # 5 million AITBC
             "nonce": 0,
         },
         # Ecosystem Fund - 3 million AITBC
         {
-            "address": "aitbecosystem000000000000000000000000000000000",
+            "address": "0xC5D6E7F8082930415A5B6C7D8E9F0A1B2C3D4E5F6",
             "balance": 3_000_000_000_000,  # 3 million AITBC
             "nonce": 0,
         },
     ],
     "authorities": [
         {
-            "address": "aitbcvalidator00000000000000000000000000000000",
+            "address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
             "weight": 1,
         }
     ],

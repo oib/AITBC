@@ -36,7 +36,7 @@ def _make_config(
     hub_discovery_url="hub.aitbc.bubuit.net",
     blockchain_rpc_url="http://localhost:8202",
     wallet_daemon_url="http://localhost:8108",
-    wallet_address="ait1abc",
+    wallet_address="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
     chain_id="ait-hub.aitbc.bubuit.net",
 ):
     cfg = Mock()
@@ -48,7 +48,7 @@ def _make_config(
     cfg.get = Mock(
         side_effect=lambda key, default=None: {
             "blockchain_rpc_url": blockchain_rpc_url,
-            "genesis_wallet_address": "ait1db5247d03ca2e40f3995a583b2c097ab703efd4d",
+            "genesis_wallet_address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
         }.get(key, default)
     )
     return cfg
@@ -211,8 +211,8 @@ class TestGetWalletAddress:
     def test_from_wallet_service_my_agent_wallet(self):
         wallets = {
             "items": [
-                {"wallet_id": "my-agent-wallet", "metadata": {"address": "ait1myagent"}},
-                {"wallet_id": "other", "metadata": {"address": "ait1other"}},
+                {"wallet_id": "my-agent-wallet", "metadata": {"address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"}},
+                {"wallet_id": "other", "metadata": {"address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1"}},
             ]
         }
         mock_client = Mock()
@@ -221,12 +221,12 @@ class TestGetWalletAddress:
             patch.object(market_module, "AITBCHTTPClient", return_value=mock_client),
             patch("os.path.exists", return_value=False),
         ):
-            assert get_wallet_address() == "ait1myagent"
+            assert get_wallet_address() == "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
 
     def test_from_wallet_service_original_address(self):
         wallets = {
             "items": [
-                {"wallet_id": "my-agent-wallet", "metadata": {"original_address": "ait1orig"}},
+                {"wallet_id": "my-agent-wallet", "metadata": {"original_address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"}},
             ]
         }
         mock_client = Mock()
@@ -235,12 +235,12 @@ class TestGetWalletAddress:
             patch.object(market_module, "AITBCHTTPClient", return_value=mock_client),
             patch("os.path.exists", return_value=False),
         ):
-            assert get_wallet_address() == "ait1orig"
+            assert get_wallet_address() == "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
 
     def test_fallback_first_wallet(self):
         wallets = {
             "items": [
-                {"wallet_id": "first", "metadata": {"address": "ait1first"}},
+                {"wallet_id": "first", "metadata": {"address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"}},
             ]
         }
         mock_client = Mock()
@@ -249,7 +249,7 @@ class TestGetWalletAddress:
             patch.object(market_module, "AITBCHTTPClient", return_value=mock_client),
             patch("os.path.exists", return_value=False),
         ):
-            assert get_wallet_address() == "ait1first"
+            assert get_wallet_address() == "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
 
     def test_fallback_local_wallet_file(self):
         mock_client = Mock()
@@ -257,11 +257,11 @@ class TestGetWalletAddress:
         with (
             patch.object(market_module, "AITBCHTTPClient", return_value=mock_client),
             patch("os.path.exists", return_value=True),
-            patch("builtins.open", mock_open_read='{"address": "ait1local"}'),
+            patch("builtins.open", mock_open_read='{"address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"}'),
         ):
             # Use a real file via json load mock
-            with patch("json.load", return_value={"address": "ait1local"}):
-                assert get_wallet_address() == "ait1local"
+            with patch("json.load", return_value={"address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"}):
+                assert get_wallet_address() == "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
 
     def test_no_wallet_aborts(self):
         import click
@@ -295,7 +295,7 @@ class TestGetAccountNonce:
 
                 importlib.reload(market_module)
                 try:
-                    assert get_account_nonce("ait1abc", "ait-hub") == 7
+                    assert get_account_nonce("0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "ait-hub") == 7
                 finally:
                     importlib.reload(market_module)
 
@@ -307,7 +307,7 @@ class TestGetAccountNonce:
         ):
             # Force the inner import to fail
             try:
-                assert get_account_nonce("ait1abc", "ait-hub") == 0
+                assert get_account_nonce("0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "ait-hub") == 0
             except Exception:
                 # If __import__ patching breaks things, the function catches and returns 0
                 pass
@@ -318,7 +318,7 @@ class TestGetNextNonce:
 
     def test_returns_nonce(self):
         with (
-            patch.object(market_module, "get_wallet_address", return_value="ait1abc"),
+            patch.object(market_module, "get_wallet_address", return_value="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"),
             patch.object(market_module, "get_config", return_value=_make_config()),
             patch.object(market_module, "get_account_nonce", return_value=5),
         ):
@@ -412,7 +412,7 @@ class TestMarketListCommand:
                     "model": "llama3",
                     "price": 5,
                     "price_unit": "per_1k_tokens",
-                    "provider_address": "ait1short",
+                    "provider_address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
                     "node_id": "node-1",
                     "gpu_name": "RTX",
                     "gpu_device": "0",
@@ -438,8 +438,8 @@ class TestMarketListCommand:
     def test_list_with_provider_filter(self, runner, mock_config):
         offers = {
             "offers": [
-                {"provider_address": "ait1aaa", "service_type": "ollama", "status": "active"},
-                {"provider_address": "ait1bbb", "service_type": "ollama", "status": "active"},
+                {"provider_address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "service_type": "ollama", "status": "active"},
+                {"provider_address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1", "service_type": "ollama", "status": "active"},
             ]
         }
         mock_client = Mock()
@@ -450,7 +450,7 @@ class TestMarketListCommand:
             patch.object(offers_module, "success") as mock_success,
             patch.object(offers_module, "info"),
         ):
-            result = runner.invoke(market, ["list", "--provider", "ait1bbb"])
+            result = runner.invoke(market, ["list", "--provider", "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1"])
         assert result.exit_code == 0
         # success called with Found 1
         args = mock_success.call_args[0][0]
@@ -518,7 +518,7 @@ class TestMarketCancelCommand:
             patch.object(offers_module, "safe_load_credentials", return_value={"island_id": "i1"}),
             patch.object(offers_module, "get_chain_id", return_value="ait-hub"),
             patch.object(offers_module, "get_island_id", return_value="i1"),
-            patch.object(offers_module, "get_wallet_address", return_value="ait1abc"),
+            patch.object(offers_module, "get_wallet_address", return_value="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"),
             patch.object(offers_module, "get_next_nonce", return_value=1),
             patch.object(offers_module, "AITBCHTTPClient", return_value=mock_client),
             patch.object(offers_module, "output"),
@@ -547,7 +547,7 @@ class TestMarketCancelCommand:
             patch.object(offers_module, "safe_load_credentials", return_value={"island_id": "i1"}),
             patch.object(offers_module, "get_chain_id", return_value="ait-hub"),
             patch.object(offers_module, "get_island_id", return_value="i1"),
-            patch.object(offers_module, "get_wallet_address", return_value="ait1abc"),
+            patch.object(offers_module, "get_wallet_address", return_value="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"),
             patch.object(offers_module, "get_next_nonce", return_value=1),
             patch.object(offers_module, "AITBCHTTPClient", return_value=mock_client),
             patch.object(offers_module, "output"),
@@ -765,7 +765,7 @@ class TestMarketRateCommand:
         )
         with (
             patch.object(ratings_module, "AITBCHTTPClient", return_value=mock_client),
-            patch.object(ratings_module, "get_wallet_address", return_value="ait1rev"),
+            patch.object(ratings_module, "get_wallet_address", return_value="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"),
             patch.object(ratings_module, "output"),
             patch.object(ratings_module, "success") as mock_success,
         ):
@@ -778,7 +778,7 @@ class TestMarketRateCommand:
         mock_client.post = Mock(return_value={"status": "error", "message": "bad"})
         with (
             patch.object(ratings_module, "AITBCHTTPClient", return_value=mock_client),
-            patch.object(ratings_module, "get_wallet_address", return_value="ait1rev"),
+            patch.object(ratings_module, "get_wallet_address", return_value="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"),
             patch.object(ratings_module, "output"),
             patch.object(ratings_module, "error"),
         ):
@@ -792,7 +792,7 @@ class TestMarketRateCommand:
         mock_client.post = Mock(side_effect=NetworkError("down"))
         with (
             patch.object(ratings_module, "AITBCHTTPClient", return_value=mock_client),
-            patch.object(ratings_module, "get_wallet_address", return_value="ait1rev"),
+            patch.object(ratings_module, "get_wallet_address", return_value="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"),
             patch.object(ratings_module, "error"),
         ):
             result = runner.invoke(market, ["rate", "svc-1", "3.0"])
@@ -1036,7 +1036,7 @@ class TestMarketOfferCommand:
         with (
             patch.object(offers_module, "get_chain_id", return_value="ait-hub"),
             patch.object(offers_module, "get_island_id", return_value="i1"),
-            patch.object(offers_module, "get_wallet_address", return_value="ait1abc"),
+            patch.object(offers_module, "get_wallet_address", return_value="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"),
             patch.object(offers_module, "get_next_nonce", return_value=1),
             patch.object(offers_module, "AITBCHTTPClient", return_value=mock_client),
             patch.object(offers_module, "output"),
@@ -1053,7 +1053,7 @@ class TestMarketOfferCommand:
         with (
             patch.object(offers_module, "get_chain_id", return_value="ait-hub"),
             patch.object(offers_module, "get_island_id", return_value="i1"),
-            patch.object(offers_module, "get_wallet_address", return_value="ait1abc"),
+            patch.object(offers_module, "get_wallet_address", return_value="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"),
             patch.object(offers_module, "get_next_nonce", return_value=1),
             patch.object(offers_module, "AITBCHTTPClient", return_value=mock_client),
             patch.object(offers_module, "error"),
@@ -1068,7 +1068,7 @@ class TestMarketOfferCommand:
         with (
             patch.object(offers_module, "get_chain_id", return_value="ait-hub"),
             patch.object(offers_module, "get_island_id", return_value="i1"),
-            patch.object(offers_module, "get_wallet_address", return_value="ait1abc"),
+            patch.object(offers_module, "get_wallet_address", return_value="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"),
             patch.object(offers_module, "get_next_nonce", return_value=1),
             patch.object(offers_module, "AITBCHTTPClient", return_value=mock_client),
             patch.object(offers_module, "error"),
@@ -1083,7 +1083,7 @@ class TestMarketOfferCommand:
         with (
             patch.object(offers_module, "get_chain_id", return_value="ait-hub"),
             patch.object(offers_module, "get_island_id", return_value="i1"),
-            patch.object(offers_module, "get_wallet_address", return_value="ait1abc"),
+            patch.object(offers_module, "get_wallet_address", return_value="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"),
             patch.object(offers_module, "get_next_nonce", return_value=1),
             patch.object(offers_module, "AITBCHTTPClient", return_value=mock_client),
             patch.object(offers_module, "error"),
@@ -1106,7 +1106,7 @@ class TestMarketRunCommand:
         mock_client.get = Mock(return_value=[])
         with (
             patch.object(jobs_module, "get_chain_id", return_value="ait-hub"),
-            patch.object(jobs_module, "get_wallet_address", return_value="ait1abc"),
+            patch.object(jobs_module, "get_wallet_address", return_value="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"),
             patch.object(jobs_module, "AITBCHTTPClient", return_value=mock_client),
             patch.object(jobs_module, "error"),
             patch.object(jobs_module, "info"),
@@ -1125,14 +1125,14 @@ class TestMarketRunCommand:
                         "service_type": "whisper",
                         "model": "base",
                         "price": 1,
-                        "provider_address": "ait1p",
+                        "provider_address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
                     }
                 }
             ]
         )
         with (
             patch.object(jobs_module, "get_chain_id", return_value="ait-hub"),
-            patch.object(jobs_module, "get_wallet_address", return_value="ait1abc"),
+            patch.object(jobs_module, "get_wallet_address", return_value="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"),
             patch.object(jobs_module, "AITBCHTTPClient", return_value=mock_client),
             patch.object(jobs_module, "error"),
             patch.object(jobs_module, "info"),
@@ -1151,7 +1151,7 @@ class TestMarketTranscribeCommand:
         mock_client.get = Mock(return_value=[])
         with (
             patch.object(jobs_module, "get_chain_id", return_value="ait-hub"),
-            patch.object(jobs_module, "get_wallet_address", return_value="ait1abc"),
+            patch.object(jobs_module, "get_wallet_address", return_value="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"),
             patch.object(jobs_module, "AITBCHTTPClient", return_value=mock_client),
             patch.object(jobs_module, "error"),
             patch.object(jobs_module, "info"),
@@ -1168,7 +1168,7 @@ class TestMarketTranscodeCommand:
         mock_client.get = Mock(return_value=[])
         with (
             patch.object(jobs_module, "get_chain_id", return_value="ait-hub"),
-            patch.object(jobs_module, "get_wallet_address", return_value="ait1abc"),
+            patch.object(jobs_module, "get_wallet_address", return_value="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"),
             patch.object(jobs_module, "AITBCHTTPClient", return_value=mock_client),
             patch.object(jobs_module, "error"),
             patch.object(jobs_module, "info"),
@@ -1187,7 +1187,7 @@ class TestMarketProcessCommand:
         mock_client.get = Mock(return_value=[])
         with (
             patch.object(jobs_module, "get_chain_id", return_value="ait-hub"),
-            patch.object(jobs_module, "get_wallet_address", return_value="ait1abc"),
+            patch.object(jobs_module, "get_wallet_address", return_value="0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"),
             patch.object(jobs_module, "AITBCHTTPClient", return_value=mock_client),
             patch.object(jobs_module, "error"),
             patch.object(jobs_module, "info"),

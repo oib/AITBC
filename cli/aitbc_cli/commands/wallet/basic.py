@@ -30,38 +30,23 @@ def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
 
     # Generate new wallet
     if wallet_type == "hd":
-        # Hierarchical Deterministic wallet
-        import secrets
+        # Hierarchical Deterministic wallet (secp256k1 / Ethereum-style)
+        from eth_account import Account
+        from eth_keys import keys
 
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.asymmetric import ec
-        from cryptography.hazmat.primitives.serialization import (
-            Encoding,
-            PublicFormat,
-        )
-
-        # Generate private key
-        private_key_bytes = secrets.token_bytes(32)
-        private_key = f"0x{private_key_bytes.hex()}"
-
-        # Derive public key from private key using ECDSA
-        priv_key = ec.derive_private_key(int.from_bytes(private_key_bytes, "big"), ec.SECP256K1())
-        pub_key = priv_key.public_key()
-        pub_key_bytes = pub_key.public_bytes(encoding=Encoding.X962, format=PublicFormat.UncompressedPoint)
-        public_key = f"0x{pub_key_bytes.hex()}"
-
-        # Generate address from public key (simplified)
-        digest = hashes.Hash(hashes.SHA256())
-        digest.update(pub_key_bytes)
-        address_hash = digest.finalize()
-        address = f"aitbc1{address_hash[:20].hex()}"
+        account = Account.create()
+        private_key = account.key.hex()
+        public_key = keys.PrivateKey(bytes(account.key)).public_key.to_hex()
+        address = account.address
     else:
-        # Simple wallet
-        import secrets
+        # Simple wallet (secp256k1 / Ethereum-style)
+        from eth_account import Account
+        from eth_keys import keys
 
-        private_key = f"0x{secrets.token_hex(32)}"
-        public_key = f"0x{secrets.token_hex(32)}"
-        address = f"aitbc1{secrets.token_hex(20)}"
+        account = Account.create()
+        private_key = account.key.hex()
+        public_key = keys.PrivateKey(bytes(account.key)).public_key.to_hex()
+        address = account.address
 
     wallet_data = {
         "wallet_id": name,
@@ -579,14 +564,17 @@ def send(ctx, to_address: str, amount: float, fee: float, password: str | None, 
 
     # Get private key for signing
     try:
-        from cryptography.hazmat.primitives.asymmetric import ed25519
+        from eth_keys import keys
 
         private_key_hex = wallet_data.get("private_key")
         if not private_key_hex:
             error("Wallet does not contain private key")
             return
 
-        private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
+        # Remove 0x prefix if present for eth_keys
+        if private_key_hex.startswith("0x"):
+            private_key_hex = private_key_hex[2:]
+        private_key = keys.PrivateKey(bytes.fromhex(private_key_hex))
     except Exception as e:
         error(f"Error loading private key: {e}")
         return
@@ -600,17 +588,26 @@ def send(ctx, to_address: str, amount: float, fee: float, password: str | None, 
         "type": "TRANSFER",
         "chain_id": chain_id,
         "from": sender_address,
+        "to": to_address,
+        "amount": amount_seconds,
         "nonce": actual_nonce,
         "fee": fee_seconds,
-        "payload": {"recipient": to_address, "amount": amount_seconds},
+        "payload": {"amount": amount_seconds},
     }
 
-    # Sign transaction
+    # Sign transaction (secp256k1, matching the node verifier — see A1 wire format)
     import json
 
-    message = json.dumps(transaction, sort_keys=True).encode()
-    signature = private_key.sign(message)
-    transaction["signature"] = signature.hex()
+    from eth_utils import keccak
+
+    # The node verifier signs over {from, to, amount, fee, nonce, payload, type}
+    # with sort_keys=True, separators=(",", ":"). chain_id is excluded (B6 gap).
+    signed_fields = {
+        k: transaction[k] for k in ("from", "to", "amount", "fee", "nonce", "payload", "type") if k in transaction
+    }
+    message = json.dumps(signed_fields, sort_keys=True, separators=(",", ":")).encode()
+    signature = private_key.sign_msg_hash(keccak(message))
+    transaction["signature"] = signature.to_bytes().hex()
 
     # Submit to blockchain
     try:

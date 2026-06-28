@@ -56,8 +56,8 @@ def _default_rpc_responses() -> dict[str, dict]:
             "timestamp": "2026-01-01T00:00:00Z",
             "chain_id": "test-chain",
         },
-        "/rpc/account/ait1qtestaddress0000000000000000000000000": {
-            "address": "ait1qtestaddress0000000000000000000000000",
+        "/rpc/account/0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C": {
+            "address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
             "balance": 1000000,
             "nonce": 42,
             "code": "",
@@ -73,14 +73,14 @@ def _default_rpc_responses() -> dict[str, dict]:
                 {"height": 12345, "hash": "0xblock2"},
             ],
         },
-        "/rpc/balance/ait1qtestaddress0000000000000000000000000": {
-            "address": "ait1qtestaddress0000000000000000000000000",
+        "/rpc/balance/0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C": {
+            "address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
             "balance": 1000000,
             "currency": "AIT",
         },
         "/rpc/accounts": {
             "accounts": [
-                {"address": "ait1qtestaddress0000000000000000000000000", "balance": 1000000},
+                {"address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "balance": 1000000},
             ],
         },
         "/rpc/bridge/status": {
