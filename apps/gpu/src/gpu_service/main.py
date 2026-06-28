@@ -277,6 +277,7 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
                 "nonce": 0,
                 "type": "GPU_REGISTER",
                 "value": 0,
+                "chain_id": transaction_data.get("chain_id") or os.getenv("CHAIN_ID", ""),
                 "payload": {
                     "amount": 0,
                     "gpu_model": gpu_specs.get("model", "Unknown"),
