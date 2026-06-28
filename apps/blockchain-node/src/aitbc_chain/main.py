@@ -141,9 +141,27 @@ class BlockchainNode:
     async def _setup_gossip_subscribers(self) -> None:
         logger.info("Setting up gossip subscribers")
         chains = self._supported_chains()
+        # v0.6.2: Subscribe to chain-specific transaction topics for v0.6.3 readiness.
+        # Also subscribe to legacy "transactions" topic for backward compatibility.
+        tx_subs: list[Any] = []
         try:
-            tx_sub = await gossip_broker.subscribe("transactions")
-            logger.info("Successfully subscribed to transactions topic")
+            # Legacy global topic (backward compat with v0.6.1 peers)
+            if settings.gossip_backward_compat:
+                legacy_sub = await gossip_broker.subscribe("transactions")
+                tx_subs.append(legacy_sub)
+                logger.info("Subscribed to legacy transactions topic (backward compat)")
+            # Chain-specific topics (v0.6.3-ready)
+            for chain_id in chains:
+                chain_topic = f"transactions.{chain_id}"
+                try:
+                    chain_sub = await gossip_broker.subscribe(chain_topic)
+                    tx_subs.append(chain_sub)
+                    logger.info("Subscribed to %s topic", chain_topic)
+                except Exception as e:
+                    logger.warning("Failed to subscribe to %s: %s", chain_topic, e)
+            if not tx_subs:
+                logger.error("Failed to subscribe to any transaction topic")
+                return
         except Exception as e:
             logger.error("Failed to subscribe to transactions: %s", e)
             return
@@ -156,14 +174,19 @@ class BlockchainNode:
             mempool = get_mempool_instance()
             while True:
                 try:
-                    tx_data = await tx_sub.queue.get()
-                    if isinstance(tx_data, str):
-                        import json
+                    # Round-robin across all transaction subscriptions
+                    for tx_sub in tx_subs:
+                        try:
+                            tx_data = await asyncio.wait_for(tx_sub.queue.get(), timeout=0.01)
+                        except TimeoutError:
+                            continue
+                        if isinstance(tx_data, str):
+                            import json
 
-                        tx_data = json.loads(tx_data)
-                    chain_id = tx_data.get("chain_id", settings.chain_id)
-                    tx_data = normalize_transaction_data(tx_data, chain_id)
-                    mempool.add(tx_data, chain_id=chain_id)
+                            tx_data = json.loads(tx_data)
+                        chain_id = tx_data.get("chain_id", settings.chain_id)
+                        tx_data = normalize_transaction_data(tx_data, chain_id)
+                        mempool.add(tx_data, chain_id=chain_id)
                 except Exception as exc:
                     logger.error("Error processing transaction from gossip: %s", exc)
 
