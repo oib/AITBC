@@ -403,6 +403,23 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o a
 | B7 | Add `sync status` CLI command — show current block, peer count, sync progress | Medium | `cli/aitbc_cli/commands/sync.py` | ✅ |
 | B8 | Integration tests — parallel sync, delta sync, gossip priority, CLI | 🔴 P0 | `apps/blockchain-node/tests/test_sync_optimization.py` (new), `apps/blockchain-node/tests/test_gossip_priority.py` (new) | ✅ |
 
+### Revised Task List (Extended Scope)
+
+The original 8 tasks were extended to 10 tasks to cover additional scope discovered during implementation:
+
+| # | Task | Priority | Files | Status |
+|---|------|----------|-------|--------|
+| B1 | Gossip batching + **dedup** (Stage 1) — LRU cache, message ID, TTL eviction | High | `gossip/broker.py` | ✅ |
+| B2 | P2P protocol versioning + backward compat (Stage 2) — **verified already implemented** in `p2p_network.py` | High | `p2p_network.py` | ✅ |
+| B3 | Message prioritization + propagation pipelining (Stage 3) | High | `gossip/broker.py` | ✅ |
+| B4 | Peer capability exchange in P2P handshake (Stage 4a) — `block_range` in handshake, callback mechanism | 🔴 P0 | `p2p_network.py`, `config.py` | ✅ |
+| B5 | Parallel sync in `bulk_import_from` (Stage 4b) | 🔴 P0 | `sync.py` | ✅ |
+| B6 | Delta sync — RPC endpoints + state diff application (Stage 5a) — `GET /state/delta` serving endpoint | High | `rpc/accounts.py`, `rpc/router.py` | ✅ |
+| B7 | Delta sync — fallback threshold (Stage 5b) | High | `sync.py` | ✅ |
+| B8 | `sync status` CLI command | Medium | `cli/aitbc_cli/commands/sync.py` | ✅ |
+| B9 | Gossip topic namespacing for v0.6.3 compatibility — **verified already implemented** in `main.py` | Medium | `main.py` | ✅ |
+| B10 | Tests — gossip dedup, peer capability, delta RPC (21 tests) | 🔴 P0 | `apps/blockchain-node/tests/test_v062_sync_gossip.py` (new) | ✅ |
+
 ### Agent B — Detailed Instructions
 
 #### B1: Add gossip + sync config
