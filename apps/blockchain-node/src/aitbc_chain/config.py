@@ -42,6 +42,12 @@ class ChainSettings(BaseSettings):
     db_encryption_enabled: bool = False  # Phase 2: SQLCipher database encryption flag (ait-mainnet only)
     db_encryption_key_path: Path = Path("/etc/aitbc/secrets/db_encryption.key")  # Phase 2: Encryption key file path
 
+    # Connection pooling (v0.6.0). Pool size for PostgreSQL/QueuePool-backed
+    # engines. SQLite uses StaticPool (single writer) so this only applies when
+    # a DATABASE_URL pointing at PostgreSQL is configured. Env var:
+    # DB_CONNECTION_POOL_SIZE (default 20).
+    db_connection_pool_size: int = 20
+
     # Auto-resync configuration for Phase 1.3
     auto_resync_enabled: bool = True  # Enable automatic re-sync on rejection threshold
     auto_resync_after_rejections: int = 3  # Trigger re-sync after N consecutive rejections

@@ -32,7 +32,7 @@ def _sanitize_metric_suffix(value: str) -> str:
 
 
 def _compute_state_root(session: Session, chain_id: str) -> str | None:
-    """Compute state root from current account state."""
+    """Compute state root from current account state (full recompute — fallback)."""
     try:
         state_manager = StateManager()
         accounts = session.exec(select(Account).where(Account.chain_id == chain_id)).all()
@@ -41,6 +41,41 @@ def _compute_state_root(session: Session, chain_id: str) -> str | None:
         return "0x" + root.hex()
     except Exception as e:
         logger.warning("Failed to compute state root: %s", e)
+        return None
+
+
+def _compute_state_root_incremental(
+    session: Session,
+    chain_id: str,
+    account_map: dict[str, Account],
+    changed_addresses: set[str],
+) -> str | None:
+    """Compute state root incrementally — build trie from account_map, update only changed accounts.
+
+    This avoids loading ALL accounts from the DB. Instead:
+    1. Build the initial trie from the batch-fetched account_map (from B3b)
+    2. For each changed address, re-read the current balance/nonce from the session
+       (accounts are in the session identity map after SQL UPDATE + flush)
+    3. Call update_account() to incrementally update the trie
+    4. Return get_root()
+    """
+    try:
+        state_manager = StateManager()
+        # Build initial trie from account_map (already batch-fetched)
+        for address, account in sorted(account_map.items()):
+            state_manager.update_account(address, account.balance, account.nonce)
+        # Incrementally update only accounts that changed during the tx loop
+        for address in changed_addresses:
+            acc = session.get(Account, (chain_id, address))
+            if acc is not None:
+                state_manager.update_account(address, acc.balance, acc.nonce)
+            else:
+                # Account may have been deleted — remove from trie by setting to 0
+                state_manager.update_account(address, 0, 0)
+        root = state_manager.get_root()
+        return "0x" + root.hex()
+    except Exception as e:
+        logger.warning("Failed to compute incremental state root: %s", e)
         return None
 
 
@@ -235,7 +270,39 @@ class PoAProposer:
             max_bytes = self._config.max_block_size_bytes
             pending_txs = mempool.drain(max_txs, max_bytes, self._config.chain_id)
             self._logger.info("[PROPOSE] drained %s txs from mempool, chain=%s", len(pending_txs), self._config.chain_id)
+            # Batch-fetch all unique sender and recipient accounts in one query
+            # (eliminates the per-tx session.get() round-trips).
+            unique_addresses: set[str] = set()
+            for tx in pending_txs:
+                tx_data = tx.content
+                sender = tx_data.get("from")
+                recipient = tx_data.get("to")
+                if sender:
+                    unique_addresses.add(sender)
+                if recipient:
+                    unique_addresses.add(recipient)
+            account_map: dict[str, Account] = {}
+            if unique_addresses:
+                existing_accounts = session.exec(
+                    select(Account).where(
+                        Account.chain_id == self._config.chain_id,
+                        Account.address.in_(unique_addresses),
+                    )
+                ).all()
+                account_map = {acc.address: acc for acc in existing_accounts}
+            # Batch-fetch duplicate tx hashes in one query (eliminates the
+            # per-tx duplicate-check DB round-trip).
+            existing_tx_map: dict[str, int] = {}
+            if pending_txs:
+                existing_tx_rows = session.execute(
+                    select(Transaction.tx_hash, Transaction.block_height).where(
+                        Transaction.chain_id == self._config.chain_id,
+                        Transaction.tx_hash.in_([tx.tx_hash for tx in pending_txs]),
+                    )
+                ).all()
+                existing_tx_map = {row[0]: row[1] for row in existing_tx_rows}
             processed_txs = []
+            changed_addresses: set[str] = set()  # tracks accounts modified during the tx loop
             for tx in pending_txs:
                 nested = None
                 try:
@@ -255,7 +322,7 @@ class PoAProposer:
                     if not sender or not recipient:
                         self._logger.warning("[PROPOSE] Skipping tx %s: missing sender or recipient", tx.tx_hash)
                         continue
-                    sender_account = session.get(Account, (self._config.chain_id, sender))
+                    sender_account = account_map.get(sender)
                     if not sender_account:
                         self._logger.warning("[PROPOSE] Skipping tx %s: sender account not found for %s", tx.tx_hash, sender)
                         continue
@@ -269,12 +336,13 @@ class PoAProposer:
                         )
                         continue
                     nested = session.begin_nested()
-                    recipient_account = session.get(Account, (self._config.chain_id, recipient))
+                    recipient_account = account_map.get(recipient)
                     if not recipient_account:
                         self._logger.info("[PROPOSE] Creating recipient account for %s", recipient)
                         recipient_account = Account(chain_id=self._config.chain_id, address=recipient, balance=0, nonce=0)
                         session.add(recipient_account)
                         session.flush()
+                        account_map[recipient] = recipient_account
                     else:
                         self._logger.info("[PROPOSE] Recipient account exists for %s", recipient)
                     state_transition = get_state_transition()
@@ -288,17 +356,13 @@ class PoAProposer:
                         nested.rollback()
                         self._logger.warning("[PROPOSE] Failed to apply transaction %s: %s", tx.tx_hash, error_msg)
                         continue
-                    existing_tx = session.exec(
-                        select(Transaction).where(
-                            Transaction.chain_id == self._config.chain_id, Transaction.tx_hash == tx.tx_hash
-                        )
-                    ).first()
-                    if existing_tx:
+                    existing_block_height = existing_tx_map.get(tx.tx_hash)
+                    if existing_block_height is not None:
                         nested.rollback()
                         self._logger.warning(
                             "[PROPOSE] Skipping tx %s: already exists in database at block %s",
                             tx.tx_hash,
-                            existing_tx.block_height,
+                            existing_block_height,
                         )
                         continue
                     tx_type = tx.content.get("type", "TRANSFER")
@@ -323,6 +387,12 @@ class PoAProposer:
                     )
                     session.add(transaction)
                     nested.commit()
+                    # Track changed addresses for incremental state root computation
+                    changed_addresses.add(sender)
+                    changed_addresses.add(recipient)
+                    # Track the newly committed tx hash so subsequent iterations
+                    # in this loop detect it as a duplicate without another DB query.
+                    existing_tx_map[tx.tx_hash] = next_height
                     processed_txs.append(tx)
                     self._logger.info("[PROPOSE] Successfully processed tx %s: updated balances", tx.tx_hash)
                 except Exception as e:
@@ -338,7 +408,12 @@ class PoAProposer:
                 )
                 return False
             block_hash = self._compute_block_hash(next_height, parent_hash, timestamp, processed_txs)
-            state_root = _compute_state_root(session, self._config.chain_id)
+            # Compute state root incrementally — only re-read changed accounts
+            # instead of loading ALL accounts from the DB.
+            if changed_addresses:
+                state_root = _compute_state_root_incremental(session, self._config.chain_id, account_map, changed_addresses)
+            else:
+                state_root = _compute_state_root(session, self._config.chain_id)
             block = Block(
                 chain_id=self._config.chain_id,
                 height=next_height,
