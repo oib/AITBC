@@ -76,7 +76,7 @@ class DualModeWalletAdapter:
 
     def _create_wallet_file(self, wallet_name: str, password: str, wallet_type: str) -> dict[str, Any]:
         """Create wallet using file-based storage"""
-        from .commands.wallet import _save_wallet
+        from ..commands.wallet import _save_wallet
 
         wallet_path = self.wallet_dir / f"{wallet_name}.json"
 
@@ -300,7 +300,7 @@ class DualModeWalletAdapter:
 
         import httpx
 
-        from .commands.wallet import _load_wallet, _save_wallet
+        from ..commands.wallet import _load_wallet, _save_wallet
         from .utils import error, success
 
         wallet_path = self.wallet_dir / f"{wallet_name}.json"
