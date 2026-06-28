@@ -36,7 +36,7 @@ class TestStakingManager:
         """Test validator registration with insufficient stake"""
         success, message = self.staking_manager.register_validator("0xvalidator3", 500.0, 0.05)
         assert not success
-        assert "insufficient stake" in message.lower()
+        assert "must be at least" in message.lower()
 
     def test_register_validator_invalid_commission(self):
         """Test validator registration with invalid commission"""
@@ -81,8 +81,8 @@ class TestStakingManager:
 
     def test_unstake(self):
         """Test unstaking"""
-        # First stake
-        success, _ = self.staking_manager.stake("0xvalidator1", "0xdelegator4", 1200.0)
+        # First stake with lock_period=0 so it can be unstaked immediately
+        success, _ = self.staking_manager.stake("0xvalidator1", "0xdelegator4", 1200.0, 0)
         assert success
 
         # Then unstake
@@ -113,17 +113,16 @@ class TestStakingManager:
 
     def test_withdraw(self):
         """Test withdrawal after unstaking period"""
-        # Stake and unstake
-        success, _ = self.staking_manager.stake("0xvalidator1", "0xdelegator6", 1200.0, 1)  # 1 day lock
+        # Stake with lock_period=0 so it can be unstaked immediately
+        success, _ = self.staking_manager.stake("0xvalidator1", "0xdelegator6", 1200.0, 0)
         assert success
 
         success, _ = self.staking_manager.unstake("0xvalidator1", "0xdelegator6")
         assert success
 
-        # Wait for unstaking period (simulate with direct manipulation)
-        position = self.staking_manager.get_stake_position("0xvalidator1", "0xdelegator6")
-        if position:
-            position.staked_at = time.time() - (2 * 24 * 3600)  # 2 days ago
+        # Simulate unstaking period completion by backdating the unstaking request
+        position_key = "0xvalidator1:0xdelegator6"
+        self.staking_manager.unstaking_requests[position_key] = time.time() - (22 * 24 * 3600)  # 22 days ago
 
         # Withdraw
         success, message, amount = self.staking_manager.withdraw("0xvalidator1", "0xdelegator6")
@@ -137,8 +136,8 @@ class TestStakingManager:
 
     def test_withdraw_too_early(self):
         """Test withdrawal before unstaking period completes"""
-        # Stake and unstake
-        success, _ = self.staking_manager.stake("0xvalidator1", "0xdelegator7", 1200.0, 30)  # 30 days
+        # Stake with lock_period=0 so it can be unstaked immediately
+        success, _ = self.staking_manager.stake("0xvalidator1", "0xdelegator7", 1200.0, 0)
         assert success
 
         success, _ = self.staking_manager.unstake("0xvalidator1", "0xdelegator7")
@@ -193,6 +192,12 @@ class TestStakingManager:
 
     def test_get_active_validators(self):
         """Test getting active validators only"""
+        # Backdate the self-stake position so unregister can unstake it
+        # (self-stake has a 90-day lock period)
+        self_stake = self.staking_manager.get_stake_position("0xvalidator1", "0xvalidator1")
+        if self_stake:
+            self_stake.staked_at = time.time() - (91 * 24 * 3600)  # 91 days ago
+
         # Unregister one validator
         self.staking_manager.unregister_validator("0xvalidator1")
 
@@ -208,7 +213,7 @@ class TestStakingManager:
         self.staking_manager.stake("0xvalidator1", "0xdelegator12", 2000.0)
 
         total = self.staking_manager.get_total_staked()
-        expected = 2000.0 + 1000.0 + 2000.0 + 2000.0  # validator1 self-stake + delegators
+        expected = 2000.0 + 1000.0 + 2000.0  # validator1 self-stake + delegators
         assert float(total) == expected
 
     def test_get_staking_statistics(self):

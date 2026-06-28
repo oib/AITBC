@@ -26,7 +26,7 @@ class TestHubManager:
     @pytest.mark.asyncio
     async def test_connect_redis_success(self, hub_manager):
         """Test successful Redis connection"""
-        with patch("aitbc_chain.network.hub_manager.redis.asyncio") as mock_redis:
+        with patch("redis.asyncio") as mock_redis:
             mock_client = AsyncMock()
             mock_client.ping = AsyncMock(return_value=True)
             mock_redis.from_url.return_value = mock_client
@@ -41,7 +41,7 @@ class TestHubManager:
     @pytest.mark.asyncio
     async def test_connect_redis_failure(self, hub_manager):
         """Test Redis connection failure"""
-        with patch("aitbc_chain.network.hub_manager.redis.asyncio") as mock_redis:
+        with patch("redis.asyncio") as mock_redis:
             mock_redis.from_url.side_effect = Exception("Connection failed")
 
             result = await hub_manager._connect_redis()
@@ -64,7 +64,7 @@ class TestHubManager:
             last_seen=1234567890.0,
         )
 
-        with patch("aitbc_chain.network.hub_manager.redis.asyncio") as mock_redis:
+        with patch("redis.asyncio") as mock_redis:
             mock_client = AsyncMock()
             mock_client.setex = AsyncMock(return_value=True)
             mock_redis.from_url.return_value = mock_client
@@ -91,7 +91,7 @@ class TestHubManager:
     @pytest.mark.asyncio
     async def test_remove_hub_registration_success(self, hub_manager):
         """Test successful hub registration removal from Redis"""
-        with patch("aitbc_chain.network.hub_manager.redis.asyncio") as mock_redis:
+        with patch("redis.asyncio") as mock_redis:
             mock_client = AsyncMock()
             mock_client.delete = AsyncMock(return_value=True)
             mock_redis.from_url.return_value = mock_client
@@ -104,7 +104,7 @@ class TestHubManager:
     @pytest.mark.asyncio
     async def test_load_hub_registration_success(self, hub_manager):
         """Test successful hub registration loading from Redis"""
-        with patch("aitbc_chain.network.hub_manager.redis.asyncio") as mock_redis:
+        with patch("redis.asyncio") as mock_redis:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(
                 return_value='{"node_id": "test-node-id", "address": "127.0.0.1", "port": 7070, "island_id": "test-island-id", "island_name": "test-island"}'
@@ -120,7 +120,7 @@ class TestHubManager:
     @pytest.mark.asyncio
     async def test_load_hub_registration_not_found(self, hub_manager):
         """Test hub registration loading when not found in Redis"""
-        with patch("aitbc_chain.network.hub_manager.redis.asyncio") as mock_redis:
+        with patch("redis.asyncio") as mock_redis:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=None)
             mock_redis.from_url.return_value = mock_client
