@@ -14,12 +14,21 @@ import httpx
 from sqlalchemy import text
 from sqlmodel import Session, select
 
+from aitbc.parallel import DependencyGraph, ParallelExecutor
+
 from .base_models import Account, Block
 from .base_models import Transaction as ChainTransaction
 from .config import settings
 from .logger import get_logger
 from .metrics import metrics_registry
 from .state.merkle_patricia_trie import StateManager
+from .state.pure_state_transition import (
+    StateDelta,
+    apply_delta_to_map,
+    apply_deltas_to_db,
+    compute_state_delta,
+    extract_read_write_sets,
+)
 from .state.state_transition import get_state_transition
 
 logger = get_logger(__name__)
@@ -606,41 +615,148 @@ class ChainSync:
         )
         session.add(block)
         if transactions:
-            for tx_data in transactions:
-                sender_addr = tx_data.get("from", "")
-                recipient_addr = tx_data.get("to", "")
-                int(tx_data.get("amount", 0) or 0)
-                int(tx_data.get("fee", 0) or 0)
-                tx_hash = tx_data.get("tx_hash", "")
-                sender_acct = session.get(Account, (self._chain_id, sender_addr))
-                if sender_acct is None:
-                    sender_acct = Account(chain_id=self._chain_id, address=sender_addr, balance=0, nonce=0)
-                    session.add(sender_acct)
-                    session.flush()
-                recipient_acct = session.get(Account, (self._chain_id, recipient_addr))
-                if recipient_acct is None:
-                    recipient_acct = Account(chain_id=self._chain_id, address=recipient_addr, balance=0, nonce=0)
-                    session.add(recipient_acct)
-                    session.flush()
-                state_transition = get_state_transition()
-                success, error_msg = state_transition.apply_transaction(session, self._chain_id, tx_data, tx_hash)
-                if not success:
-                    logger.warning("[SYNC] Failed to apply transaction %s: %s", tx_hash, error_msg)
-                tx_type = tx_data.get("type", "TRANSFER")
-                if tx_type:
-                    tx_type = tx_type.upper()
-                else:
-                    tx_type = "TRANSFER"
-                tx = ChainTransaction(
-                    chain_id=self._chain_id,
-                    tx_hash=tx_hash,
-                    block_height=block_data["height"],
-                    sender=sender_addr,
-                    recipient=recipient_addr,
-                    payload=tx_data,
-                    type=tx_type,
-                )
-                session.add(tx)
+            # Parallel transaction validation path (v0.6.1).
+            # When enabled and the conflict rate is low enough, transactions are
+            # partitioned into conflict-free groups and their state deltas are
+            # computed in parallel using pure functions (no DB access). Deltas are
+            # applied to an in-memory account_map in tx-index order (deterministic)
+            # so the resulting state root matches the sequential path exactly.
+            parallel_applied = False
+            if settings.parallel_tx_validation:
+                # Build dependency graph from read/write sets.
+                graph = DependencyGraph()
+                tx_hash_to_data: dict[str, dict[str, Any]] = {}
+                tx_hash_to_index: dict[str, int] = {}
+                for idx, tx_data in enumerate(transactions):
+                    tx_hash = tx_data.get("tx_hash", "")
+                    tx_hash_to_data[tx_hash] = tx_data
+                    tx_hash_to_index[tx_hash] = idx
+                    read_set, write_set = extract_read_write_sets(tx_data)
+                    graph.add_transaction(tx_hash, read_set, write_set, index=idx)
+                groups = graph.get_conflict_groups()
+                # Fall back to sequential if too many transactions conflict.
+                if groups and graph.conflict_rate() <= settings.conflict_threshold:
+                    # Batch-fetch all sender/recipient accounts into account_map.
+                    unique_addresses: set[str] = set()
+                    for tx_data in transactions:
+                        sender_addr = tx_data.get("from", "")
+                        recipient_addr = tx_data.get("to", "")
+                        if sender_addr:
+                            unique_addresses.add(sender_addr)
+                        if recipient_addr:
+                            unique_addresses.add(recipient_addr)
+                    account_map: dict[str, Account] = {}
+                    if unique_addresses:
+                        existing_accounts = session.exec(
+                            select(Account).where(
+                                Account.chain_id == self._chain_id,
+                                Account.address.in_(unique_addresses),
+                            )
+                        ).all()
+                        account_map = {acc.address: acc for acc in existing_accounts}
+                    # Batch-fetch tx hashes already in the DB (duplicate detection).
+                    existing_tx_hashes: set[str] = set()
+                    all_tx_hashes = [tx_data.get("tx_hash", "") for tx_data in transactions]
+                    if all_tx_hashes:
+                        existing_rows = session.exec(
+                            select(ChainTransaction.tx_hash).where(
+                                ChainTransaction.chain_id == self._chain_id,
+                                ChainTransaction.tx_hash.in_(all_tx_hashes),
+                            )
+                        ).all()
+                        existing_tx_hashes = set(existing_rows)
+                    # Execute groups sequentially; within each group, deltas are
+                    # computed in parallel (group members are conflict-free).
+                    executor = ParallelExecutor(max_workers=settings.parallel_workers)
+                    all_deltas: list[StateDelta] = []
+                    try:
+
+                        def _compute_delta(tx_data: dict[str, Any]) -> StateDelta:
+                            txh = tx_data.get("tx_hash", "")
+                            return compute_state_delta(account_map, tx_data, self._chain_id, txh, existing_tx_hashes)
+
+                        for group in groups:
+                            group_txs = [tx_hash_to_data[txh] for txh in group]
+                            group_results = executor.execute_groups([group_txs], _compute_delta)[0]
+                            # Apply successful deltas to account_map in tx-index
+                            # order within the group (deterministic). Group members
+                            # are conflict-free so application order does not affect
+                            # the final state, but we keep index order for safety.
+                            group_results_sorted = sorted(group_results, key=lambda d: tx_hash_to_index.get(d.tx_hash, 0))
+                            for delta in group_results_sorted:
+                                if delta.success:
+                                    apply_delta_to_map(account_map, delta, self._chain_id)
+                                    existing_tx_hashes.add(delta.tx_hash)
+                            all_deltas.extend(group_results_sorted)
+                    finally:
+                        executor.close()
+                    # Collect successful deltas in tx-index order (deterministic).
+                    successful_deltas = sorted(
+                        [d for d in all_deltas if d.success],
+                        key=lambda d: tx_hash_to_index.get(d.tx_hash, 0),
+                    )
+                    # Batch-write all deltas to the DB.
+                    apply_deltas_to_db(session, successful_deltas, self._chain_id)
+                    # Create Transaction records for all successful txs.
+                    for delta in successful_deltas:
+                        tx_data = tx_hash_to_data.get(delta.tx_hash, {})
+                        tx = ChainTransaction(
+                            chain_id=self._chain_id,
+                            tx_hash=delta.tx_hash,
+                            block_height=block_data["height"],
+                            sender=delta.sender,
+                            recipient=delta.recipient,
+                            payload=tx_data,
+                            type=delta.tx_type,
+                            value=tx_data.get("value", tx_data.get("amount", 0)),
+                            fee=tx_data.get("fee", 0),
+                            nonce=tx_data.get("nonce", 0),
+                            status="confirmed",
+                        )
+                        session.add(tx)
+                    # Log failed transactions.
+                    for delta in all_deltas:
+                        if not delta.success:
+                            logger.warning("[SYNC] Failed to apply transaction %s: %s", delta.tx_hash, delta.error)
+                    parallel_applied = True
+            if not parallel_applied:
+                # Sequential path (fallback when parallel_tx_validation is off
+                # or the conflict rate exceeds the threshold).
+                for tx_data in transactions:
+                    sender_addr = tx_data.get("from", "")
+                    recipient_addr = tx_data.get("to", "")
+                    int(tx_data.get("amount", 0) or 0)
+                    int(tx_data.get("fee", 0) or 0)
+                    tx_hash = tx_data.get("tx_hash", "")
+                    sender_acct = session.get(Account, (self._chain_id, sender_addr))
+                    if sender_acct is None:
+                        sender_acct = Account(chain_id=self._chain_id, address=sender_addr, balance=0, nonce=0)
+                        session.add(sender_acct)
+                        session.flush()
+                    recipient_acct = session.get(Account, (self._chain_id, recipient_addr))
+                    if recipient_acct is None:
+                        recipient_acct = Account(chain_id=self._chain_id, address=recipient_addr, balance=0, nonce=0)
+                        session.add(recipient_acct)
+                        session.flush()
+                    state_transition = get_state_transition()
+                    success, error_msg = state_transition.apply_transaction(session, self._chain_id, tx_data, tx_hash)
+                    if not success:
+                        logger.warning("[SYNC] Failed to apply transaction %s: %s", tx_hash, error_msg)
+                    tx_type = tx_data.get("type", "TRANSFER")
+                    if tx_type:
+                        tx_type = tx_type.upper()
+                    else:
+                        tx_type = "TRANSFER"
+                    tx = ChainTransaction(
+                        chain_id=self._chain_id,
+                        tx_hash=tx_hash,
+                        block_height=block_data["height"],
+                        sender=sender_addr,
+                        recipient=recipient_addr,
+                        payload=tx_data,
+                        type=tx_type,
+                    )
+                    session.add(tx)
         if block_data.get("state_root") and (not skip_state_root_validation):
             session.flush()
             # Use incremental state root computation — track changed addresses
