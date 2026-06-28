@@ -16,7 +16,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.middleware import (  # noqa: E402
     ErrorHandlerMiddleware,
