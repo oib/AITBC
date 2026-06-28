@@ -27,6 +27,18 @@ from click.testing import CliRunner  # noqa: E402
 from aitbc.training_setup import TrainingEnvironment, TrainingSetupError  # noqa: E402
 
 # Register multi-chain and multi-node fixtures so they're available to all tests
+from tests.fixtures.multi_chain import (  # noqa: E402,F401
+    island_registry,
+    mock_settings,
+    multi_chain_mempool,
+    multi_chain_setup,
+    sync_source_map,
+    three_chain_setup,
+)
+from tests.harness.multi_node import (  # noqa: E402,F401
+    multi_node_harness,
+    three_node_network,
+)
 
 
 @pytest.fixture(autouse=True)
