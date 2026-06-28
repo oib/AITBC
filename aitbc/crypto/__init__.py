@@ -10,6 +10,7 @@ from .crypto import (
     generate_ethereum_private_key,
     generate_secure_random_bytes,
     keccak256_hash,
+    recover_signer,
     sha256_hash,
     sign_transaction_hash,
     validate_ethereum_address,
@@ -59,6 +60,7 @@ __all__ = [
     # Password functions
     "hash_password",
     "keccak256_hash",
+    "recover_signer",
     "sha256_hash",
     "sign_transaction_hash",
     "validate_api_key",
