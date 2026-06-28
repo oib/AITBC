@@ -8,6 +8,9 @@ from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import Any
 
+from aitbc.gossip import PriorityMessageQueue, PrioritizedMessage
+
+from ..config import settings
 from ..metrics import metrics_registry
 
 warnings.filterwarnings("ignore", message="coroutine.* was never awaited", category=RuntimeWarning)
@@ -72,6 +75,16 @@ class GossipBackend:
         """Publish message to topic - must be overridden by concrete implementation"""
         raise NotImplementedError("GossipBackend.publish() must be overridden by concrete backend")
 
+    async def publish_batch(self, topic: str, messages: list[Any]) -> None:
+        """Publish a batch of messages to topic.
+
+        Default implementation loops over ``publish()``. Concrete backends
+        (e.g. ``BroadcastGossipBackend``) may override this to send a single
+        batched frame for efficiency.
+        """
+        for message in messages:
+            await self.publish(topic, message)
+
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
         """Subscribe to topic - must be overridden by concrete implementation"""
         raise NotImplementedError("GossipBackend.subscribe() must be overridden by concrete backend")
@@ -92,6 +105,10 @@ class InMemoryGossipBackend(GossipBackend):
             await queue.put(message)
             _set_queue_gauge(topic, queue.qsize())
         _increment_publication("gossip_publications", topic)
+
+    async def publish_batch(self, topic: str, messages: list[Any]) -> None:
+        for message in messages:
+            await self.publish(topic, message)
 
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
         queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=max_queue_size)
@@ -154,6 +171,16 @@ class BroadcastGossipBackend(GossipBackend):
         await self._redis.publish(topic, payload)
         _increment_publication("gossip_broadcast_publications", topic)
 
+    async def publish_batch(self, topic: str, messages: list[Any]) -> None:
+        """Publish a batch of messages as a single compressed Redis frame."""
+        if not self._running:
+            raise RuntimeError("Broadcast backend not started")
+        if not messages:
+            return
+        payload = _encode_batch(messages)
+        await self._redis.publish(topic, payload)
+        _increment_publication("gossip_broadcast_publications", topic)
+
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
         from aitbc.aitbc_logging import get_logger
 
@@ -184,11 +211,11 @@ class BroadcastGossipBackend(GossipBackend):
                         break
                     if message["type"] != "message":
                         continue
-                    data = _decode_message(message["data"])
                     logger.info("[BROKER SUB] Received message from redis for topic %s", topic)
                     try:
-                        await queue.put(data)
-                        _set_queue_gauge(topic, queue.qsize())
+                        for decoded in _decode_batch(message["data"]):
+                            await queue.put(decoded)
+                            _set_queue_gauge(topic, queue.qsize())
                     except asyncio.CancelledError:
                         logger.warning("[BROKER SUB] Subscription cancelled for topic: %s", topic)
                         break
@@ -236,12 +263,62 @@ class GossipBroker:
         self._backend = backend
         self._lock = asyncio.Lock()
         self._started = False
+        self._priority_enabled: bool = settings.gossip_priority_enabled
+        self._priority_queue: PriorityMessageQueue | None = None
+        self._priority_task: asyncio.Task[None] | None = None
+        if self._priority_enabled:
+            self._priority_queue = PriorityMessageQueue()
+            self._start_priority_drain()
+
+    def _priority_for_topic(self, topic: str) -> int:
+        """Determine the priority level for a topic.
+
+        Blocks (and block headers) are highest priority, then transactions,
+        then status messages. Anything else defaults to status priority.
+        """
+        if topic.startswith("blocks"):
+            return PriorityMessageQueue.PRIORITY_BLOCK
+        if topic.startswith("transactions"):
+            return PriorityMessageQueue.PRIORITY_TRANSACTION
+        return PriorityMessageQueue.PRIORITY_STATUS
+
+    def _start_priority_drain(self) -> None:
+        """Start the background task that drains the priority queue."""
+
+        async def _drain() -> None:
+            batch_size = settings.gossip_message_batch_size
+            assert self._priority_queue is not None
+            while True:
+                try:
+                    messages: list[PrioritizedMessage] = self._priority_queue.get_batch(max_count=batch_size)
+                    if not messages:
+                        await asyncio.sleep(0.001)
+                        continue
+                    for msg in messages:
+                        await self._backend.publish(msg.topic, msg.message)
+                except asyncio.CancelledError:
+                    break
+                except Exception:
+                    # Avoid crashing the drain loop on transient backend errors
+                    await asyncio.sleep(0.001)
+
+        self._priority_task = asyncio.create_task(_drain(), name="gossip-priority-drain")
 
     async def publish(self, topic: str, message: Any) -> None:
         if not self._started:
             await self._backend.start()
             self._started = True
+        if self._priority_enabled and self._priority_queue is not None:
+            priority = self._priority_for_topic(topic)
+            self._priority_queue.put(topic, message, priority)
+            return
         await self._backend.publish(topic, message)
+
+    async def publish_batch(self, topic: str, messages: list[Any]) -> None:
+        if not self._started:
+            await self._backend.start()
+            self._started = True
+        await self._backend.publish_batch(topic, messages)
 
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
         if not self._started:
@@ -258,6 +335,11 @@ class GossipBroker:
         await previous.shutdown()
 
     async def shutdown(self) -> None:
+        if self._priority_task is not None:
+            self._priority_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._priority_task
+            self._priority_task = None
         await self._backend.shutdown()
 
 
@@ -338,6 +420,34 @@ def _decode_message(message: Any) -> Any:
     if isinstance(message, str | bytes | bytearray):
         return decode_payload(message)
     return message
+
+
+def _encode_batch(messages: list[Any]) -> str:
+    """Serialize a list of messages as a single compressed batch frame.
+
+    The list is JSON-serialized then compressed with the ``GZ:`` prefix, so
+    receivers can transparently detect and decompress it.
+    """
+    from ..network.compression import encode_payload
+
+    return encode_payload(messages)
+
+
+def _decode_batch(data: Any) -> list[Any]:
+    """Decode a transport payload into a list of messages.
+
+    Handles three cases transparently for backward compatibility:
+
+    * Batched messages (a JSON array after decompression) -> returned as-is.
+    * Single messages (a JSON object after decompression) -> wrapped in a list.
+    * Raw strings/bytes (no ``GZ:`` prefix) -> decoded and wrapped in a list.
+    """
+    from ..network.compression import decode_payload
+
+    decoded = decode_payload(data) if isinstance(data, str | bytes | bytearray) else data
+    if isinstance(decoded, list):
+        return decoded
+    return [decoded]
 
 
 gossip_broker = GossipBroker(InMemoryGossipBackend())

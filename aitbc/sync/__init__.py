@@ -1,5 +1,12 @@
+"""Sync utilities for AITBC.
+
+Provides peer capability tracking, parallel block fetching from multiple
+peers, and block-to-block state diff computation for delta sync.
+"""
+
 from __future__ import annotations
 
+from .parallel_fetcher import NoPeersAvailableError, ParallelBlockFetcher
 from .peer_capability import PeerCapability, PeerCapabilityTracker
 from .state_diff import (
     AccountChange,
@@ -12,6 +19,8 @@ from .state_diff import (
 
 __all__ = [
     "AccountChange",
+    "NoPeersAvailableError",
+    "ParallelBlockFetcher",
     "PeerCapability",
     "PeerCapabilityTracker",
     "StateDiff",
