@@ -5,6 +5,7 @@ Provides caching strategies for expensive operations including blockchain-specif
 
 from aitbc.aitbc_logging import get_logger
 
+from .block_header_cache import BlockHeaderCache
 from .blockchain_cache import BlockchainCache
 from .blockchain_decorator import cached_blockchain
 from .cache_entry import CacheEntry
@@ -54,6 +55,7 @@ def get_blockchain_cache(redis_url: str | None = None) -> BlockchainCache:
 
 
 __all__ = [
+    "BlockHeaderCache",
     "BlockchainCache",
     "CacheEntry",
     "CacheInvalidator",
