@@ -46,7 +46,7 @@ class TestLogging:
         assert '"message": "Test message"' in formatted
 
     def test_blockchain_text_formatter(self) -> None:
-        """Test BlockchainTextFormatter."""
+        """Test BlockchainTextFormatter (alias for JournalFormatter)."""
         formatter = BlockchainTextFormatter()
         import logging
 
@@ -59,12 +59,11 @@ class TestLogging:
             args=(),
             exc_info=None,
         )
-        record.chain_id = "test-chain"
-        record.height = 100
         formatted = formatter.format(record)
-        assert "[INFO] Test message" in formatted
-        assert "chain_id=test-chain" in formatted
-        assert "height=100" in formatted
+        # JournalFormatter format: [LEVEL] [logger_name] message
+        assert "[INFO]" in formatted
+        assert "[test]" in formatted
+        assert "Test message" in formatted
 
 
 class TestMiddleware:
