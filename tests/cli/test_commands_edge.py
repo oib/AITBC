@@ -89,7 +89,7 @@ class TestEdgeCommands:
 
         from aitbc_cli.commands.edge import edge
 
-        result = runner.invoke(edge, ["transfer", "ait1qrecipient0000000000000000000000000", "100.5"])
+        result = runner.invoke(edge, ["transfer", "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "100.5"])
 
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()

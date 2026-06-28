@@ -2,8 +2,9 @@
 """
 Production key management for AITBC blockchain.
 
-Generates ed25519 keypairs and stores them in an encrypted JSON keystore
-(Ethereum-style web3 keystore). Supports multiple wallets (treasury, proposer, etc.)
+Generates secp256k1 keypairs (Ethereum-style) with 0x-prefixed checksum
+addresses and stores them in an encrypted JSON keystore (web3-style).
+Supports multiple wallets (treasury, proposer, etc.)
 
 Usage:
   python keystore.py --name treasury --create --password <secret>
@@ -22,29 +23,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# Address encoding: bech32m (HRP 'ait')
-from bech32 import bech32_encode, convertbits
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import hashes
 
-# Uses Cryptography library for ed25519 and encryption
-from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-
-def generate_address(public_key_bytes: bytes) -> str:
-    """Generate a bech32m address from a public key.
-    1. Take SHA256 of the public key (produces 32 bytes)
-    2. Convert to 5-bit groups (bech32)
-    3. Encode with HRP 'ait'
-    """
-    digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-    digest.update(public_key_bytes)
-    hashed = digest.finalize()
-    # Convert to 5-bit words for bech32
-    data = convertbits(hashed, 8, 5, True)
-    return bech32_encode("ait", data)
+from eth_account import Account
+from eth_keys import keys
 
 
 def encrypt_private_key(private_key_bytes: bytes, password: str, salt: bytes) -> dict[str, Any]:
@@ -73,23 +59,17 @@ def encrypt_private_key(private_key_bytes: bytes, password: str, salt: bytes) ->
             "mac": mac,
         },
         "address": None,  # to be filled
-        "keytype": "ed25519",
+        "keytype": "secp256k1",
         "version": 1,
     }
 
 
 def generate_keypair(name: str, password: str, keystore_dir: Path) -> dict[str, Any]:
-    """Generate a new ed25519 keypair and store in keystore."""
+    """Generate a new secp256k1 keypair and store in keystore."""
     salt = os.urandom(32)
-    private_key = ed25519.Ed25519PrivateKey.generate()
-    public_key = private_key.public_key()
-    private_bytes = private_key.private_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PrivateFormat.Raw,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
-    public_bytes = public_key.public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
-    address = generate_address(public_bytes)
+    account = Account.create()
+    private_bytes = bytes(account.key)
+    address = account.address
 
     keystore = encrypt_private_key(private_bytes, password, salt)
     keystore["address"] = address
@@ -123,15 +103,11 @@ def show_keyinfo(keystore_file: Path, password: str) -> None:
     ciphertext = bytes.fromhex(crypto["ciphertext"])
     aesgcm = AESGCM(key)
     private_bytes = aesgcm.decrypt(nonce, ciphertext, None)
-    private_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_bytes)
-    public_bytes = private_key.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
-    )
-    address = generate_address(public_bytes)
+    account = Account.from_key(private_bytes)
 
     print(f"Keystore: {keystore_file}")
-    print(f"Address: {address}")
-    print(f"Public key (hex): {public_bytes.hex()}")
+    print(f"Address: {account.address}")
+    print(f"Public key (hex): {keys.PrivateKey(bytes(account.key)).public_key.to_hex()}")
 
 
 def main():
