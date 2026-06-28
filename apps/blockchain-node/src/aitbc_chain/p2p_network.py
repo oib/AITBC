@@ -6,6 +6,7 @@ Handles decentralized peer-to-peer mesh communication between blockchain nodes
 import asyncio
 import json
 import os
+from collections.abc import Callable
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -75,6 +76,19 @@ class P2PNetworkService:
         # v0.6.2: Protocol versioning — track peers operating in legacy mode
         self._protocol_version: int = settings.gossip_protocol_version
         self._legacy_peers: set[str] = set()  # peer_ids with protocol_version < 2
+        # v0.6.2: Peer capability exchange — callback invoked when a peer connects
+        # with (peer_id, rpc_url, block_range). Set by the sync layer to register
+        # peers with the PeerCapabilityTracker. Optional; if None, capability
+        # exchange still works but peers are not registered with the tracker.
+        self._peer_capability_callback: Callable[[str, str, tuple[int, int]], None] | None = None
+
+    def set_peer_capability_callback(self, callback: Callable[[str, str, tuple[int, int]], None]) -> None:
+        """Set callback called when a peer's capability is discovered.
+
+        Args:
+            callback: Called with (peer_id, rpc_url, block_range) when a peer connects.
+        """
+        self._peer_capability_callback = callback
 
     async def start(self) -> None:
         """Start P2P network service"""
@@ -262,6 +276,7 @@ class P2PNetworkService:
                 "public_port": self.public_endpoint[1] if self.public_endpoint else None,
                 "protocol_version": self._protocol_version,
                 "block_height": self._get_block_height(),
+                "block_range": [0, self._get_block_height()],  # [min_height, max_height]
             }
             await self._send_message(writer, handshake)
             await self._listen_to_stream(reader, writer, endpoint, outbound=True)
@@ -307,6 +322,7 @@ class P2PNetworkService:
             peer_public_port = message.get("public_port")
             peer_protocol_version = message.get("protocol_version", 1)  # default to v1 (legacy)
             peer_block_height = message.get("block_height", 0)
+            peer_block_range = message.get("block_range", [0, peer_block_height])
             if not peer_node_id or peer_node_id == self.node_id:
                 logger.warning("Peer %s provided invalid or self node_id: %s", addr, peer_node_id)
                 writer.close()
@@ -354,6 +370,13 @@ class P2PNetworkService:
             self.active_connections[peer_node_id] = writer
             remote_ip = addr[0]
             self.connected_endpoints.add((remote_ip, peer_listen_port))
+            # v0.6.2: Register peer capability with the sync layer (if callback set)
+            if self._peer_capability_callback and peer_block_height > 0:
+                peer_address = peer_public_address or remote_ip
+                peer_port = peer_public_port or peer_listen_port
+                rpc_port = peer_port + getattr(settings, "p2p_to_rpc_port_offset", 2)
+                peer_rpc_url = f"http://{peer_address}:{rpc_port}"
+                self._peer_capability_callback(peer_node_id, peer_rpc_url, tuple(peer_block_range))
             if self.island_manager and peer_island_id:
                 self.island_manager.add_island_peer(peer_island_id, peer_node_id)
             if self.hub_manager:
@@ -384,6 +407,7 @@ class P2PNetworkService:
                 "public_port": self.public_endpoint[1] if self.public_endpoint else None,
                 "protocol_version": self._protocol_version,
                 "block_height": self._get_block_height(),
+                "block_range": [0, self._get_block_height()],  # [min_height, max_height]
             }
             await self._send_message(writer, reply_handshake)
             await self._listen_to_stream(reader, writer, (remote_ip, peer_listen_port), outbound=False, peer_id=peer_node_id)
@@ -421,6 +445,8 @@ class P2PNetworkService:
                             peer_is_hub = message.get("is_hub", False)
                             peer_chain_id = message.get("chain_id", "")
                             peer_protocol_version = message.get("protocol_version", 1)
+                            peer_block_height = message.get("block_height", 0)
+                            peer_block_range = message.get("block_range", [0, peer_block_height])
                             if not peer_id or peer_id == self.node_id:
                                 logger.warning("Invalid handshake reply from %s. Closing.", addr)
                                 break
@@ -444,6 +470,16 @@ class P2PNetworkService:
                                 logger.info("Already connected to node %s. Closing duplicate outbound.", peer_id)
                                 break
                             self.active_connections[peer_id] = writer
+                            # v0.6.2: Register peer capability with the sync layer (if callback set)
+                            if self._peer_capability_callback and peer_block_height > 0:
+                                peer_public_address = message.get("public_address")
+                                peer_public_port = message.get("public_port")
+                                peer_listen_port = message.get("listen_port", addr[1])
+                                peer_address = peer_public_address or addr[0]
+                                peer_port = peer_public_port or peer_listen_port
+                                rpc_port = peer_port + getattr(settings, "p2p_to_rpc_port_offset", 2)
+                                peer_rpc_url = f"http://{peer_address}:{rpc_port}"
+                                self._peer_capability_callback(peer_id, peer_rpc_url, tuple(peer_block_range))
                             if self.island_manager and peer_island_id:
                                 self.island_manager.add_island_peer(peer_island_id, peer_id)
                             if self.hub_manager:

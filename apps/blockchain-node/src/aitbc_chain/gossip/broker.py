@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
+import time
 import warnings
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from collections.abc import Callable
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -266,9 +269,51 @@ class GossipBroker:
         self._priority_enabled: bool = settings.gossip_priority_enabled
         self._priority_queue: PriorityMessageQueue | None = None
         self._priority_task: asyncio.Task[None] | None = None
+        self._seen_messages: OrderedDict[str, float] = OrderedDict()
+        self._dedup_max_size: int = 10000
+        self._dedup_ttl: float = 300.0
+        self._dedup_lock: asyncio.Lock = asyncio.Lock()
         if self._priority_enabled:
             self._priority_queue = PriorityMessageQueue()
             self._start_priority_drain()
+
+    def _compute_message_id(self, topic: str, message: Any) -> str:
+        """Compute a deterministic identifier for a (topic, message) pair.
+
+        Messages that are dicts with a ``hash`` or ``id`` field use that field
+        directly; everything else falls back to a hash of its JSON encoding.
+        """
+        if isinstance(message, dict):
+            if "hash" in message:
+                return f"{topic}:{message['hash']}"
+            if "id" in message:
+                return f"{topic}:{message['id']}"
+        payload = json.dumps(message, sort_keys=True, default=str)
+        digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        return f"{topic}:{digest}"
+
+    async def _is_duplicate(self, message_id: str) -> bool:
+        """Return True if ``message_id`` was seen recently, otherwise record it."""
+        now = time.monotonic()
+        async with self._dedup_lock:
+            # Evict expired entries (oldest first since OrderedDict preserves insertion order).
+            ttl = self._dedup_ttl
+            seen = self._seen_messages
+            while seen:
+                oldest_id, oldest_ts = next(iter(seen.items()))
+                if now - oldest_ts <= ttl:
+                    break
+                seen.pop(oldest_id, None)
+            if message_id in seen:
+                return True
+            seen[message_id] = now
+            if len(seen) > self._dedup_max_size:
+                seen.popitem(last=False)
+            return False
+
+    def clear_dedup_cache(self) -> None:
+        """Clear the seen-message cache (used for testing/cleanup)."""
+        self._seen_messages.clear()
 
     def _priority_for_topic(self, topic: str) -> int:
         """Determine the priority level for a topic.
@@ -308,6 +353,10 @@ class GossipBroker:
         if not self._started:
             await self._backend.start()
             self._started = True
+        message_id = self._compute_message_id(topic, message)
+        if await self._is_duplicate(message_id):
+            metrics_registry.increment("gossip_dedup_skipped_total")
+            return
         if self._priority_enabled and self._priority_queue is not None:
             priority = self._priority_for_topic(topic)
             self._priority_queue.put(topic, message, priority)
@@ -318,7 +367,16 @@ class GossipBroker:
         if not self._started:
             await self._backend.start()
             self._started = True
-        await self._backend.publish_batch(topic, messages)
+        unique: list[Any] = []
+        for message in messages:
+            message_id = self._compute_message_id(topic, message)
+            if await self._is_duplicate(message_id):
+                metrics_registry.increment("gossip_dedup_skipped_total")
+                continue
+            unique.append(message)
+        if not unique:
+            return
+        await self._backend.publish_batch(topic, unique)
 
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
         if not self._started:
