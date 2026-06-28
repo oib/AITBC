@@ -1,51 +1,38 @@
 #!/usr/bin/env python3
-"""Create a new genesis wallet with secure random private key"""
+"""Create a new genesis wallet with secure random private key.
 
-import hashlib
+Uses secp256k1 (Ethereum-style) key generation with 0x-prefixed checksum
+addresses, compatible with the blockchain node's transaction signature
+verifier (Bug 4 fix) and the shared TransactionService signer (A1).
+"""
+
 import json
 import os
 import secrets
 from pathlib import Path
 
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ed25519
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-
-def derive_address_from_public_key(pub_key_bytes: bytes) -> str:
-    """Derive AITBC address from public key"""
-    # Hash the public key
-    digest = hashlib.sha256(pub_key_bytes).digest()
-    # Take first 20 bytes and encode as hex
-    address_hash = digest[:20].hex()
-    # Return with aitbc1 prefix
-    return f"aitbc1{address_hash}"
+from eth_account import Account
+from eth_keys import keys
 
 
 def create_genesis_wallet(password: str = None):
-    """Create genesis wallet with secure random private key"""
-    # Generate cryptographically secure random private key (32 bytes)
-    private_key_bytes = secrets.token_bytes(32)
-
-    # Generate Ed25519 key pair from private key
-    private_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_key_bytes)
-    public_key = private_key.public_key()
-
-    # Get public key bytes
-    pub_key_bytes = public_key.public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
-
-    # Derive address
-    address = derive_address_from_public_key(pub_key_bytes)
-
-    # Convert to ait1 prefix format (matching genesis.json format)
-    ait_address = address.replace("aitbc1", "ait1")
+    """Create genesis wallet with secure random secp256k1 private key"""
+    # Generate secp256k1 keypair via eth-account
+    account = Account.create()
+    private_key_hex = account.key.hex()  # 64 hex chars, no 0x prefix
+    address = account.address  # 0x-prefixed checksum address
+    public_key_hex = keys.PrivateKey(bytes(account.key)).public_key.to_hex()
 
     # Generate password if not provided
     if not password:
         password = secrets.token_urlsafe(32)
 
     # Encrypt private key with password
+    private_key_bytes = bytes.fromhex(private_key_hex)
     salt = secrets.token_bytes(16)
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
@@ -62,8 +49,8 @@ def create_genesis_wallet(password: str = None):
 
     # Create wallet data
     wallet_data = {
-        "address": ait_address,
-        "public_key": pub_key_bytes.hex(),
+        "address": address,
+        "public_key": public_key_hex,
         "crypto": {
             "kdf": "pbkdf2",
             "kdfparams": {"salt": salt.hex(), "c": 100000, "dklen": 32, "prf": "hmac-sha256"},
@@ -71,6 +58,7 @@ def create_genesis_wallet(password: str = None):
             "cipherparams": {"nonce": nonce.hex()},
             "ciphertext": ciphertext.hex(),
         },
+        "keytype": "secp256k1",
         "version": 1,
     }
 
@@ -85,15 +73,14 @@ def create_genesis_wallet(password: str = None):
         f.write(password)
     os.chmod(password_path, 0o600)
 
-    print("✅ Created new genesis wallet with secure random private key")
-    print(f"Address: {ait_address}")
-    print(f"Public key: {pub_key_bytes.hex()}")
+    print("✅ Created new genesis wallet with secure random secp256k1 private key")
+    print(f"Address: {address}")
     print(f"Wallet saved to: {keystore_path}")
     print(f"Password saved to: {password_path}")
     print("⚠️  IMPORTANT: The private key and password are saved to the files above.")
     print("⚠️  NEVER share or print the private key or password.")
 
-    return ait_address, pub_key_bytes.hex(), private_key_bytes.hex(), password
+    return address, private_key_hex, password
 
 
 if __name__ == "__main__":

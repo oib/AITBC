@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
-"""Generate a pseudo devnet key pair for blockchain components."""
+"""Generate a devnet key pair for blockchain components.
+
+Uses secp256k1 (Ethereum-style) key generation with 0x-prefixed checksum
+addresses, compatible with the blockchain node's transaction verifier.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
-import secrets
 from pathlib import Path
+
+from eth_account import Account
+from eth_keys import keys
 
 
 def parse_args() -> argparse.Namespace:
@@ -20,13 +26,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def generate_keypair() -> dict:
-    private_key = secrets.token_hex(32)
-    public_key = secrets.token_hex(32)
-    address = "ait1" + secrets.token_hex(20)
+    account = Account.create()
     return {
-        "private_key": private_key,
-        "public_key": public_key,
-        "address": address,
+        "private_key": account.key.hex(),
+        "public_key": keys.PrivateKey(bytes(account.key)).public_key.to_hex(),
+        "address": account.address,
     }
 
 

@@ -13,6 +13,10 @@ def validate_address(address: str) -> bool:
     """
     Validate an AITBC blockchain address.
 
+    AITBC uses Ethereum-style secp256k1 addresses (0x-prefixed, 42 chars,
+    EIP-55 checksum). Legacy ait1/aitbc1-prefixed addresses are accepted
+    for backward compatibility but should be migrated.
+
     Args:
         address: Address string to validate
 
@@ -25,12 +29,26 @@ def validate_address(address: str) -> bool:
     if not address:
         raise ValidationError("Address cannot be empty")
 
-    # AITBC addresses typically start with 'ait' and are alphanumeric (variable length)
-    pattern = r"^ait[a-z0-9]+$"
-    if not re.match(pattern, address):
-        raise ValidationError(f"Invalid address format: {address}")
+    # Ethereum-style 0x address (canonical, secp256k1)
+    if address.startswith("0x") and len(address) == 42:
+        try:
+            from eth_utils import is_checksum_address
 
-    return True
+            if not is_checksum_address(address):
+                raise ValidationError(f"Invalid checksum address: {address}")
+            return True
+        except ImportError:
+            # eth_utils not available — accept 0x + 42 chars as fallback
+            if not re.match(r"^0x[0-9a-fA-F]{40}$", address):
+                raise ValidationError(f"Invalid address format: {address}") from None
+            return True
+
+    # Legacy ait1/aitbc1 prefix (backward compat)
+    pattern = r"^ait(bc)?1[a-z0-9]+$"
+    if re.match(pattern, address):
+        return True
+
+    raise ValidationError(f"Invalid address format: {address}")
 
 
 def validate_hash(hash_str: str) -> bool:

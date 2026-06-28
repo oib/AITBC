@@ -19,7 +19,7 @@ from aitbc.utils.validation import (
 
 class TestValidateAddress:
     def test_valid_address(self):
-        assert validate_address("ait123abc") is True
+        assert validate_address("0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C") is True
 
     def test_empty_address(self):
         with pytest.raises(ValidationError):

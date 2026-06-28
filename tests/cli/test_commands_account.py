@@ -49,32 +49,32 @@ class TestAccountCommands:
     def test_account_get_command(self, mock_http_class, runner, mock_blockchain_rpc):
         """``account get`` returns account data from the mocked RPC."""
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = mock_blockchain_rpc.responses["/rpc/account/ait1qtestaddress0000000000000000000000000"]
+        mock_client.get.return_value = mock_blockchain_rpc.responses["/rpc/account/0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"]
 
         from aitbc_cli.commands.account import account
 
         result = runner.invoke(
             account,
-            ["get", "--address", "ait1qtestaddress0000000000000000000000000"],
+            ["get", "--address", "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"],
         )
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
         # The address should appear in the RPC path that was requested.
         requested_path = mock_client.get.call_args[0][0]
-        assert "ait1qtestaddress0000000000000000000000000" in requested_path
+        assert "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C" in requested_path
 
     @patch("aitbc_cli.commands.account.AITBCHTTPClient")
     def test_account_get_command_with_chain_id(self, mock_http_class, runner, mock_blockchain_rpc):
         """``account get --chain-id`` forwards the chain_id param."""
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = mock_blockchain_rpc.responses["/rpc/account/ait1qtestaddress0000000000000000000000000"]
+        mock_client.get.return_value = mock_blockchain_rpc.responses["/rpc/account/0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"]
 
         from aitbc_cli.commands.account import account
 
         result = runner.invoke(
             account,
-            ["get", "--address", "ait1qtestaddress0000000000000000000000000", "--chain-id", "test-chain"],
+            ["get", "--address", "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "--chain-id", "test-chain"],
         )
 
         assert result.exit_code == 0, result.output
@@ -121,7 +121,7 @@ class TestAccountCommands:
 
         result = runner.invoke(
             account,
-            ["get", "--address", "ait1qtestaddress0000000000000000000000000"],
+            ["get", "--address", "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"],
         )
 
         assert result.exit_code != 0

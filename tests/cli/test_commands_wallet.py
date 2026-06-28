@@ -85,7 +85,7 @@ class TestWalletCommands:
         mock_adapter = mock_adapter_class.return_value
         mock_adapter.is_daemon_available.return_value = True
         mock_adapter.list_wallets.return_value = [
-            {"wallet_name": "test-wallet", "address": "ait1qtestaddress0000000000000000000000000"},
+            {"wallet_name": "test-wallet", "address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"},
         ]
 
         from aitbc_cli.commands.wallet import wallet

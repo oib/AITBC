@@ -51,7 +51,7 @@ class TestHandleAccountGet:
         mock_client.get.return_value = {"balance": 100, "nonce": 5}
 
         args = Mock()
-        args.address = "ait123"
+        args.address = "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
         args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
@@ -72,7 +72,7 @@ class TestHandleAccountGet:
         mock_client.get.return_value = {"balance": 100}
 
         args = Mock()
-        args.address = "ait123"
+        args.address = "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
         args.rpc_url = "http://localhost:8202"
         args.chain_id = "ait-mainnet"
 
@@ -110,7 +110,7 @@ class TestHandleAccountGet:
         mock_client_class.side_effect = NetworkError("Connection failed")
 
         args = Mock()
-        args.address = "ait123"
+        args.address = "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
         args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
@@ -130,7 +130,7 @@ class TestHandleAccountGet:
         mock_client_class.side_effect = Exception("Unexpected error")
 
         args = Mock()
-        args.address = "ait123"
+        args.address = "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
         args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
@@ -151,7 +151,7 @@ class TestHandleAccountGet:
         mock_client.get.return_value = {"balance": 100, "nonce": 5}
 
         args = Mock()
-        args.address = "ait123"
+        args.address = "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
         args.rpc_url = "http://localhost:8202"
         args.chain_id = None
 
@@ -177,7 +177,7 @@ class TestHandleAccountGet:
         mock_client.get.return_value = {"balance": 100}
 
         args = Mock()
-        args.address = "ait123"
+        args.address = "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
         args.rpc_url = None
         args.chain_id = None
 

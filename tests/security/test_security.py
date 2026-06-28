@@ -22,7 +22,7 @@ class TestInputValidation:
 
     def test_validate_address(self) -> None:
         """Test Ethereum address validation."""
-        assert validate_address("ait123abc456") is True
+        assert validate_address("0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C") is True
         with pytest.raises(ValidationError):
             validate_address("0x742d35Cc6634C0532925a3b8D4003f2E8")
         with pytest.raises(ValidationError):
