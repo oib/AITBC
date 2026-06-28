@@ -257,6 +257,13 @@ class ChainSettings(BaseSettings):
     sync_delta_threshold: float = 0.5  # Fall back to full sync if delta > 50% of state
     sync_delta_max_blocks: int = 100  # Max blocks for delta sync (use full sync above this)
 
+    # P2P-to-RPC port offset (v0.6.2). The RPC HTTP port is derived from the
+    # P2P listen port by adding this offset (P2P 8200 -> RPC 8202). Used by
+    # the peer capability exchange to construct a peer's RPC URL from the
+    # address/port advertised in the P2P handshake. Env var:
+    # P2P_TO_RPC_PORT_OFFSET (default 2).
+    p2p_to_rpc_port_offset: int = 2  # RPC port = P2P port + offset (8200 -> 8202)
+
     # Redis Configuration (Hub persistence)
     redis_url: str = "redis://localhost:6379"  # Redis connection URL
 

@@ -14,9 +14,10 @@ from sqlmodel import select
 from aitbc.rate_limiting import rate_limit
 from aitbc.redis_cache import RedisCache
 
+from ..config import settings
 from ..database import session_scope
 from ..logger import get_logger
-from ..models import Account, Transaction
+from ..models import Account, Block, Transaction
 from .utils import get_chain_id
 
 _REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -276,4 +277,93 @@ async def get_state_snapshot(request: Request, chain_id: str | None = None) -> d
                 }
                 for acc in accounts
             ],
+        }
+
+
+async def get_state_delta(request: Request, from_height: int, to_height: int, chain_id: str | None = None) -> dict[str, Any]:
+    """Return state delta (changed accounts) between two block heights.
+
+    Used by followers for delta sync — only changed accounts are transferred
+    instead of the full state snapshot. Falls back gracefully when historical
+    state is not available.
+    """
+    import base64
+
+    chain_id = get_chain_id(chain_id)
+
+    # Validate gap
+    max_blocks = getattr(settings, "sync_delta_max_blocks", 100)
+    if to_height <= from_height:
+        return {"error": "to_height must be greater than from_height"}
+    if to_height - from_height > max_blocks:
+        return {
+            "error": f"Gap too large ({to_height - from_height} > {max_blocks})",
+            "fallback": "full_sync",
+        }
+
+    with session_scope() as session:
+        # Get state roots at from_height and to_height
+        from_block = session.exec(select(Block).where(Block.chain_id == chain_id, Block.height == from_height)).first()
+        to_block = session.exec(select(Block).where(Block.chain_id == chain_id, Block.height == to_height)).first()
+
+        if not to_block:
+            return {"error": f"Block at height {to_height} not found"}
+
+        from_state_root = (from_block.state_root if from_block else "") or ""
+        to_state_root = to_block.state_root or ""
+
+        # Find touched addresses by looking at transactions in the height range
+        touched_addresses: set[str] = set()
+        txs = session.exec(
+            select(Transaction).where(
+                Transaction.chain_id == chain_id,
+                Transaction.block_height > from_height,  # type: ignore[operator]
+                Transaction.block_height <= to_height,  # type: ignore[operator]
+            )
+        ).all()
+        for tx in txs:
+            if tx.sender:
+                touched_addresses.add(tx.sender)
+            if tx.recipient:
+                touched_addresses.add(tx.recipient)
+
+        # If no touched addresses found (no transactions), fall back to returning
+        # all accounts as the diff (caller will check is_too_large)
+        if not touched_addresses:
+            accounts = session.exec(select(Account).where(Account.chain_id == chain_id)).all()
+        else:
+            accounts = session.exec(
+                select(Account).where(
+                    Account.chain_id == chain_id,
+                    Account.address.in_(touched_addresses),  # type: ignore[attr-defined]
+                )
+            ).all()
+
+        # We don't have historical account state, so treat all touched accounts
+        # as new (old_balance=0, old_nonce=0). The caller applies the new values.
+        old_accounts: dict[str, tuple[int, int]] = {}
+        new_accounts: dict[str, tuple[int, int]] = {acc.address: (acc.balance, acc.nonce) for acc in accounts}
+
+        from aitbc.sync import compute_state_diff, encode_state_diff
+
+        diff = compute_state_diff(
+            old_accounts=old_accounts,
+            new_accounts=new_accounts,
+            from_height=from_height,
+            to_height=to_height,
+            from_state_root=from_state_root,
+            to_state_root=to_state_root,
+            chain_id=chain_id,
+        )
+
+        encoded = encode_state_diff(diff)
+        encoded_b64 = base64.b64encode(encoded).decode("ascii")
+
+        return {
+            "diff": encoded_b64,
+            "from_height": from_height,
+            "to_height": to_height,
+            "from_state_root": from_state_root,
+            "to_state_root": to_state_root,
+            "account_count": len(diff.changes),
         }
