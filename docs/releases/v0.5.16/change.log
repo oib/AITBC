@@ -1,7 +1,7 @@
 # AITBC v0.5.16 Release Notes
 
 **Date**: 2026-06-28
-**Status**: 🚧 In Progress — Closure Pass (A1-A4, B1-B8 done; B9 in progress)
+**Status**: ✅ Complete — All closure-pass tasks done (A1-A4, B1-B9)
 **Scope**: Multi-Chain Preparation + Security Hardening — Chain-ID-Aware RPC, Signature Verification, Authentication, Stub Removal, Multi-Chain Manager Fix
 
 ## 🎯 Overview
@@ -856,4 +856,4 @@ Replace `sqlite3.connect` + raw SQL with blockchain RPC calls:
 
 *Last Updated: 2026-06-28*
 *Version: 0.5.16*
-*Status: In Progress — Closure Pass (A1-A4, B1-B8 done; B9 in progress)*
+*Status: Complete — All closure-pass tasks done (A1-A4, B1-B9)*
