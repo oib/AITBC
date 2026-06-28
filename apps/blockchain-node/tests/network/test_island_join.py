@@ -122,9 +122,15 @@ class TestP2PNetworkJoin:
         """Test successful join request to hub"""
 
         with patch("aitbc_chain.p2p_network.asyncio.open_connection") as mock_open:
-            # Mock reader and writer
+            # Mock reader and writer — send_join_request expects a handshake
+            # reply first, then a join_response
             mock_reader = AsyncMock()
-            mock_reader.readline = AsyncMock(return_value=b'{"type": "join_response"}')
+            mock_reader.readline = AsyncMock(
+                side_effect=[
+                    b'{"type": "handshake", "node_id": "hub-node"}',
+                    b'{"type": "join_response", "members": []}',
+                ]
+            )
             mock_writer = AsyncMock()
             mock_writer.close = AsyncMock()
             mock_writer.wait_closed = AsyncMock()

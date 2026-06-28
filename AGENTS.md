@@ -81,6 +81,9 @@ All prior release plans are complete. Details are in the respective changelogs:
 
 The release roadmap is split into two interleaved tracks: **infrastructure** (blockchain, bridge, sync, settlement) and **product** (agent coordination, compute marketplace, pool hub, governance). Product releases are interleaved after the multi-chain foundation is complete. Version numbers are monotonic — each release has a higher version than the one before it.
 
+### Immediate Bugfix (Patch)
+- **v0.5.18** — Test Suite Repair (green the `apps/blockchain-node/tests/` suite: 64 failed + 8 errors, all pre-existing; prevent CI hangs; quarantine Redis/Postgres tests; add the suite to `testpaths`). Establishes the green baseline v0.6.0 needs: <ref_file file="/opt/aitbc/docs/releases/v0.5.18/change.log" />
+
 ### Infrastructure Track (multi-chain foundation)
 - **v0.6.0** — Database & Network Optimization: <ref_file file="/opt/aitbc/docs/releases/v0.6.0/change.log" />
 - **v0.6.1** — Parallel Processing: <ref_file file="/opt/aitbc/docs/releases/v0.6.1/change.log" />
@@ -112,6 +115,7 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 ```
 v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.5.17  (test infrastructure) ✅ complete
+  → v0.5.18  (test suite repair — blockchain-node suite green + gated) 📋 planned
   → v0.6.0 → v0.6.1 → v0.6.2 → v0.6.3 → v0.6.4  (infra: db/network opt, parallel processing, sync, multi-island, multi-chain)
   → v0.6.5 → v0.6.6 → v0.6.7                      (product: agents, marketplace, pool hub)
   → v0.7.0 → v0.7.1 → v0.7.2 → v0.7.3             (infra+product: bridge basics, bridge security, bridge verification, governance)

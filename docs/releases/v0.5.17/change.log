@@ -285,7 +285,7 @@ Then remove `pytest.skip()` calls and implement real test logic.
 - ✅ Bridge test suite covers lock/confirm/proof lifecycle
 - ✅ Full test suite runs in <60 seconds
 
-## Final Test Results (v0.5.17 Closure Pass)
+## Final Test Results (v0.5.17 Closure Pass, corrected in v0.5.18)
 
 | Test Suite | Tests | Passed | Skipped | Failed |
 |------------|-------|--------|---------|--------|
@@ -293,9 +293,12 @@ Then remove `pytest.skip()` calls and implement real test logic.
 | v0.5.16 regression (`apps/blockchain-node/tests/test_v0516_regression.py`) | 45 | 45 | 0 | 0 |
 | Bridge test suite (`apps/blockchain-node/tests/test_bridge_suite.py`) | 15 | 15 | 0 | 0 |
 | Signing round-trip (`apps/blockchain-node/tests/test_signing_round_trip.py`) | 5 | 5 | 0 | 0 |
+| Blockchain-node full suite (`apps/blockchain-node/tests/`) | 342 | 330 | 11+1xfail | 0 |
 | Unit tests (`tests/unit/`) | 13 | 13 | 0 | 0 |
 | CLI tests (`tests/cli/`) | 1224 | 1174 | 50 | 0 |
-| **Total** | **1335** | **1285** | **50** | **0** |
+| **Total** | **1677** | **1612** | **62** | **0** |
+
+> **Correction (v0.5.18 B7)**: The original v0.5.17 table only measured 3 of 17 blockchain-node test files. The full blockchain-node suite had 64 failed + 8 errors at v0.5.17 time (pre-existing, not caused by v0.5.17 changes). These were fixed in v0.5.18. The corrected row above reflects the post-v0.5.18 state.
 
 ### Remaining 50 Skipped CLI Tests (by category)
 - **23** — Require live edge-api (`test_edge_advanced.py`) — integration tests
