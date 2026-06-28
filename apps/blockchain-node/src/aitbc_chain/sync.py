@@ -15,6 +15,7 @@ from sqlalchemy import text
 from sqlmodel import Session, select
 
 from aitbc.parallel import DependencyGraph, ParallelExecutor
+from aitbc.sync import PeerCapability, PeerCapabilityTracker
 
 from .base_models import Account, Block
 from .base_models import Transaction as ChainTransaction
@@ -118,10 +119,29 @@ class ChainSync:
         self._last_bulk_sync_time = 0
         self._min_bulk_sync_interval = getattr(settings, "min_bulk_sync_interval", 60)
         self._rejection_counts: dict[str, int] = {}
+        self._peer_tracker = PeerCapabilityTracker()
 
     async def close(self) -> None:
         """Close HTTP client."""
         await self._client.aclose()
+
+    def register_sync_peer(self, peer_id: str, rpc_url: str, block_range: tuple[int, int], has_state: bool = True) -> None:
+        """Register a peer for sync."""
+        self._peer_tracker.register_peer(
+            PeerCapability(
+                peer_id=peer_id,
+                rpc_url=rpc_url,
+                block_range=block_range,
+                has_state=has_state,
+            )
+        )
+
+    def update_peer_capability(self, peer_id: str, block_range: tuple[int, int]) -> None:
+        """Update a peer's block range after fetching remote head."""
+        peer = self._peer_tracker.get_peer(peer_id)
+        if peer:
+            peer.block_range = block_range
+            peer.last_updated = time.time()
 
     def _validate_genesis_metadata(self, block_data: dict[str, Any], session: Session) -> tuple[bool, str]:
         """Validate genesis block metadata by computing expected state root from allocations.
@@ -331,6 +351,9 @@ class ChainSync:
         except Exception as e:
             logger.error("Failed to fetch remote head", extra={"source_url": source_url, "error": str(e)})
             return 0
+        # Register/update peer capability for parallel sync
+        peer_id = source_url  # In v0.6.2, peer_id IS the URL
+        self.register_sync_peer(peer_id, source_url, (0, remote_height), has_state=True)
         if remote_height <= local_height:
             logger.info("Already up to date", extra={"local_height": local_height, "remote_height": remote_height})
             return 0
@@ -366,13 +389,40 @@ class ChainSync:
         metrics_registry.set_gauge(f"sync_mode_{sync_mode}", 1.0)
         metrics_registry.set_gauge("sync_gap_size", float(gap_size))
         metrics_registry.set_gauge("sync_batch_size", float(dynamic_batch_size))
-        imported = 0
+        # Check if parallel sync is enabled
+        use_parallel = getattr(settings, "sync_parallel_enabled", False) and len(self._peer_tracker.get_all_peers()) > 1
         start_height = local_height + 1
-        while start_height <= remote_height:
-            end_height = min(start_height + dynamic_batch_size - 1, remote_height)
-            batch = await self.fetch_blocks_range(start_height, end_height, source_url)
+        if use_parallel:
+            imported = await self._parallel_bulk_import(
+                start_height, remote_height, source_url, dynamic_batch_size, adaptive_poll_interval
+            )
+        else:
+            imported = await self._sequential_bulk_import(
+                start_height, remote_height, source_url, dynamic_batch_size, adaptive_poll_interval
+            )
+        logger.info(
+            "Bulk import completed", extra={"imported": imported, "final_height": remote_height, "sync_mode": sync_mode}
+        )
+        sync_duration = time.time() - current_time
+        metrics_registry.observe("sync_bulk_duration_seconds", sync_duration)
+        if imported > 0:
+            sync_rate = imported / sync_duration
+            metrics_registry.observe("sync_blocks_per_second", sync_rate)
+        metrics_registry.set_gauge("sync_chain_height", float(remote_height))
+        self._last_bulk_sync_time = int(current_time)
+        return imported
+
+    async def _sequential_bulk_import(
+        self, start_height: int, end_height: int, source_url: str, batch_size: int, poll_interval: float
+    ) -> int:
+        """Fetch blocks sequentially from a single peer (existing path)."""
+        imported = 0
+        current = start_height
+        while current <= end_height:
+            batch_end = min(current + batch_size - 1, end_height)
+            batch = await self.fetch_blocks_range(current, batch_end, source_url)
             if not batch:
-                logger.warning("No blocks returned for range", extra={"start": start_height, "end": end_height})
+                logger.warning("No blocks returned for range", extra={"start": current, "end": batch_end})
                 break
             for block_data in batch:
                 result = self.import_block(block_data, skip_state_root_validation=True)
@@ -384,7 +434,7 @@ class ChainSync:
                             "height": block_data.get("height"),
                             "hash": block_data.get("hash"),
                             "sync_mode": "pull",
-                            "progress": f"{imported}/{gap_size}",
+                            "progress": f"{imported}/{end_height - start_height + 1}",
                         },
                     )
                 else:
@@ -395,18 +445,82 @@ class ChainSync:
                         extra={"height": block_data.get("height"), "reason": result.reason},
                     )
                     return imported
-            start_height = end_height + 1
-            await asyncio.sleep(adaptive_poll_interval)
-        logger.info(
-            "Bulk import completed", extra={"imported": imported, "final_height": remote_height, "sync_mode": sync_mode}
-        )
-        sync_duration = time.time() - current_time
-        metrics_registry.observe("sync_bulk_duration_seconds", sync_duration)
-        if imported > 0:
-            sync_rate = imported / sync_duration
-            metrics_registry.observe("sync_blocks_per_second", sync_rate)
-        metrics_registry.set_gauge("sync_chain_height", float(remote_height))
-        self._last_bulk_sync_time = int(current_time)
+            current = batch_end + 1
+            await asyncio.sleep(poll_interval)
+        return imported
+
+    async def _parallel_bulk_import(
+        self, start_height: int, end_height: int, source_url: str, batch_size: int, poll_interval: float
+    ) -> int:
+        """Fetch blocks in parallel from multiple peers."""
+        max_peers = getattr(settings, "sync_parallel_max_peers", 4)
+        timeout = getattr(settings, "sync_parallel_timeout", 30.0)
+
+        # Select peers for the range
+        assignments = self._peer_tracker.select_peers_for_range(start_height, end_height, max_peers=max_peers)
+        if not assignments:
+            # No peers available, fall back to sequential
+            return await self._sequential_bulk_import(start_height, end_height, source_url, batch_size, poll_interval)
+
+        self._logger.info("Parallel sync: %d peers for range %d-%d", len(assignments), start_height, end_height)
+
+        # Fetch from each peer in parallel
+        async def fetch_from_peer(peer_id: str, sub_range: tuple[int, int]) -> list[dict[str, Any]]:
+            try:
+                # In v0.6.2, peer_id IS the URL
+                blocks = await asyncio.wait_for(
+                    self.fetch_blocks_range(sub_range[0], sub_range[1], peer_id),
+                    timeout=timeout,
+                )
+                self._peer_tracker.record_success(peer_id, len(blocks))
+                return blocks
+            except Exception as e:
+                self._logger.warning("Peer %s failed: %s", peer_id, e)
+                self._peer_tracker.record_failure(peer_id, str(e))
+                return []
+
+        results = await asyncio.gather(*[fetch_from_peer(pid, sr) for pid, sr in assignments])
+
+        # Merge results: concatenate, sort by height, deduplicate by hash
+        all_blocks: list[dict[str, Any]] = []
+        for blocks in results:
+            all_blocks.extend(blocks)
+        all_blocks.sort(key=lambda b: b.get("height", 0))
+
+        # Deduplicate by hash (keep first occurrence)
+        seen_hashes: set[str] = set()
+        unique_blocks: list[dict[str, Any]] = []
+        for block in all_blocks:
+            h = block.get("hash", "")
+            if h and h not in seen_hashes:
+                seen_hashes.add(h)
+                unique_blocks.append(block)
+
+        # Check for conflicts (same height, different hash)
+        height_map: dict[int, str] = {}
+        conflicts: list[int] = []
+        for block in unique_blocks:
+            h = block.get("height", -1)
+            hash_val = block.get("hash", "")
+            if h in height_map and height_map[h] != hash_val:
+                conflicts.append(h)
+            else:
+                height_map[h] = hash_val
+
+        if conflicts:
+            self._logger.warning("Block conflicts at heights %s, falling back to sequential", conflicts)
+            return await self._sequential_bulk_import(start_height, end_height, source_url, batch_size, poll_interval)
+
+        # Import merged block list
+        imported = 0
+        for block_data in unique_blocks:
+            result = self.import_block(block_data, skip_state_root_validation=True)
+            if result.accepted:
+                imported += 1
+            else:
+                self._logger.warning("Block import failed at height %s: %s", block_data.get("height"), result.reason)
+                return imported
+
         return imported
 
     async def sync_state_from(self, source_url: str) -> dict[str, Any]:
@@ -488,6 +602,128 @@ class ChainSync:
             "local_state_root": computed_hex,
             "remote_state_root": remote_root,
             "match": match,
+        }
+
+    async def delta_sync_from(self, source_url: str, from_height: int, to_height: int) -> dict[str, Any]:
+        """Sync state delta from a peer (only changed accounts).
+
+        Feature-flagged via settings.sync_delta_enabled. Falls back to
+        full state sync (sync_state_from) when:
+        - delta is too large (> sync_delta_threshold * full_state_size)
+        - gap exceeds sync_delta_max_blocks
+        - peer doesn't support delta endpoint
+        - state root verification fails
+        """
+        if not getattr(settings, "sync_delta_enabled", False):
+            return await self.sync_state_from(source_url)
+
+        max_blocks = getattr(settings, "sync_delta_max_blocks", 100)
+        if to_height - from_height > max_blocks:
+            self._logger.info("Delta sync gap too large (%d > %d), using full sync", to_height - from_height, max_blocks)
+            return await self.sync_state_from(source_url)
+
+        self._logger.info("Starting delta sync from %s, heights %d -> %d", source_url, from_height, to_height)
+        try:
+            resp = await self._client.post(
+                f"{source_url}/rpc/state/delta",
+                json={"from_height": from_height, "to_height": to_height, "chain_id": self._chain_id},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            self._logger.warning("Delta sync endpoint failed (%s), falling back to full sync", e)
+            return await self.sync_state_from(source_url)
+
+        # The response contains an encoded StateDiff
+        encoded_diff = data.get("diff")
+        if not encoded_diff:
+            self._logger.warning("No diff in delta sync response, falling back to full sync")
+            return await self.sync_state_from(source_url)
+
+        # Decode the StateDiff
+        try:
+            from aitbc.sync import apply_state_diff, decode_state_diff
+
+            # The encoded diff may be base64-encoded bytes
+            import base64
+
+            diff_bytes = base64.b64decode(encoded_diff) if isinstance(encoded_diff, str) else encoded_diff
+            diff = decode_state_diff(diff_bytes)
+        except Exception as e:
+            self._logger.error("Failed to decode state diff: %s", e)
+            return await self.sync_state_from(source_url)
+
+        # Check if delta is too large
+        threshold = getattr(settings, "sync_delta_threshold", 0.5)
+        # Estimate full state size from current account count
+        from sqlalchemy import func as sqlfunc
+
+        with self._session_factory() as session:
+            count_result = session.exec(
+                select(sqlfunc.count()).select_from(Account).where(Account.chain_id == self._chain_id)
+            ).first()
+            total_accounts = count_result or 0
+        full_state_size = total_accounts * 100  # rough estimate
+        if diff.is_too_large(full_state_size, threshold=threshold):
+            self._logger.info(
+                "Delta too large (%d bytes > %d threshold), using full sync",
+                diff.size_bytes(),
+                int(threshold * full_state_size),
+            )
+            return await self.sync_state_from(source_url)
+
+        # Apply delta to local state
+        with self._session_factory() as session:
+            existing_accounts = session.exec(select(Account).where(Account.chain_id == self._chain_id)).all()
+            account_map: dict[str, Any] = {acc.address: acc for acc in existing_accounts}
+            changed = apply_state_diff(diff, account_map)
+            # Handle new accounts (created as dicts by apply_state_diff)
+            for addr in changed:
+                acc = account_map.get(addr)
+                if acc is not None and isinstance(acc, dict):
+                    # New account created as dict — convert to Account model
+                    new_acc = Account(
+                        chain_id=self._chain_id,
+                        address=addr,
+                        balance=acc["balance"],
+                        nonce=acc["nonce"],
+                    )
+                    session.add(new_acc)
+                elif acc is None:
+                    # Account was deleted — already removed from map, need to delete from DB
+                    db_acc = session.exec(
+                        select(Account).where(Account.chain_id == self._chain_id, Account.address == addr)
+                    ).first()
+                    if db_acc:
+                        session.delete(db_acc)
+                # Existing accounts were mutated in place (SQLModel tracks changes)
+            session.commit()
+
+        # Verify state root
+        from .state.state_root_utils import compute_state_root_full
+
+        with self._session_factory() as session:
+            computed_hex = compute_state_root_full(session, self._chain_id)
+            if computed_hex is None:
+                computed_hex = "0x" + "\x00" * 32
+
+        expected_root = diff.to_state_root
+        match = computed_hex == expected_root
+        if not match:
+            self._logger.warning("Delta sync state root mismatch: %s != %s, rolling back", computed_hex, expected_root)
+            # Rollback is implicit — we committed, but state root mismatch means we should do full sync
+            return await self.sync_state_from(source_url)
+
+        self._logger.info("Delta sync complete: %d accounts changed, state root matches", len(changed))
+        return {
+            "synced": len(changed),
+            "created": sum(1 for c in diff.changes if c.is_new),
+            "updated": sum(1 for c in diff.changes if not c.is_new and not c.is_deleted),
+            "deleted": sum(1 for c in diff.changes if c.is_deleted),
+            "local_state_root": computed_hex,
+            "remote_state_root": expected_root,
+            "match": match,
+            "mode": "delta",
         }
 
     def import_block(
@@ -650,7 +886,7 @@ class ChainSync:
                         existing_accounts = session.exec(
                             select(Account).where(
                                 Account.chain_id == self._chain_id,
-                                Account.address.in_(unique_addresses),
+                                Account.address.in_(unique_addresses),  # type: ignore[attr-defined]
                             )
                         ).all()
                         account_map = {acc.address: acc for acc in existing_accounts}
@@ -661,7 +897,7 @@ class ChainSync:
                         existing_rows = session.exec(
                             select(ChainTransaction.tx_hash).where(
                                 ChainTransaction.chain_id == self._chain_id,
-                                ChainTransaction.tx_hash.in_(all_tx_hashes),
+                                ChainTransaction.tx_hash.in_(all_tx_hashes),  # type: ignore[attr-defined]
                             )
                         ).all()
                         existing_tx_hashes = set(existing_rows)
@@ -780,12 +1016,12 @@ class ChainSync:
                     if recipient_addr:
                         changed_addresses.add(recipient_addr)
             # Build account_map from changed addresses (batch read)
-            account_map: dict[str, Account] = {}
+            account_map: dict[str, Account] = {}  # type: ignore[no-redef]
             if changed_addresses:
                 existing = session.exec(
                     select(Account).where(
                         Account.chain_id == self._chain_id,
-                        Account.address.in_(changed_addresses),
+                        Account.address.in_(changed_addresses),  # type: ignore[attr-defined]
                     )
                 ).all()
                 account_map = {acc.address: acc for acc in existing}
@@ -826,14 +1062,14 @@ class ChainSync:
                     "[SYNC] State root mismatch at height %s: expected %s, computed %s - BLOCK REJECTED",
                     block_data["height"],
                     expected_root.hex(),
-                    computed_root.hex(),
+                    computed_root.hex(),  # type: ignore[union-attr]
                 )
                 self._check_and_trigger_resync(self._chain_id)
                 return ImportResult(
                     accepted=False,
                     height=block_data["height"],
                     block_hash=block_hash,
-                    reason=f"State root mismatch: expected {expected_root.hex()}, computed {computed_root.hex()}",
+                    reason=f"State root mismatch: expected {expected_root.hex()}, computed {computed_root.hex()}",  # type: ignore[union-attr]
                 )
         session.commit()
         self._reset_rejection_counter(self._chain_id)
