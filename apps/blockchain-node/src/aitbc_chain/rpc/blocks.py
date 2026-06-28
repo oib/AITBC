@@ -15,6 +15,7 @@ from sqlmodel import delete, select
 
 from aitbc.rate_limiting import rate_limit
 
+from ..block_cache import get_block_header_cache
 from ..database import session_scope
 from ..logger import get_logger
 from ..metrics import metrics_registry
@@ -77,6 +78,27 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
     chain_id = get_chain_id(chain_id)
     metrics_registry.increment("rpc_get_block_total")
     start = time.perf_counter()
+    # Check in-process block header cache (hot path) before hitting the DB.
+    header_cache = get_block_header_cache()
+    cached_header = header_cache.get(height, chain_id)
+    if cached_header is not None:
+        metrics_registry.increment("rpc_get_block_cache_hit_total")
+        # Cache hit — still need to fetch transactions from DB (headers only are cached).
+        with session_scope(chain_id) as session:
+            txs = session.exec(
+                select(Transaction).where(Transaction.chain_id == chain_id).where(Transaction.block_height == height)
+            ).all()
+            tx_list = []
+            for tx in txs:
+                t = dict(tx.payload) if tx.payload else {}
+                t["tx_hash"] = tx.tx_hash
+                tx_list.append(t)
+        metrics_registry.increment("rpc_get_block_success_total")
+        metrics_registry.observe("rpc_get_block_duration_seconds", time.perf_counter() - start)
+        result = dict(cached_header)
+        result["transactions"] = tx_list
+        return result
+    metrics_registry.increment("rpc_get_block_cache_miss_total")
     with session_scope(chain_id) as session:
         block = session.exec(select(Block).where(Block.chain_id == chain_id).where(Block.height == height)).first()
         if block is None:
@@ -92,7 +114,7 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
             t["tx_hash"] = tx.tx_hash
             tx_list.append(t)
     metrics_registry.observe("rpc_get_block_duration_seconds", time.perf_counter() - start)
-    return {
+    block_response = {
         "chain_id": block.chain_id,
         "height": block.height,
         "hash": block.hash,
@@ -103,6 +125,21 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
         "state_root": block.state_root,
         "transactions": tx_list,
     }
+    # Populate the in-process cache with the block header (without transactions).
+    header_cache.set(
+        {
+            "chain_id": block.chain_id,
+            "height": block.height,
+            "hash": block.hash,
+            "parent_hash": block.parent_hash,
+            "proposer": block.proposer,
+            "timestamp": block.timestamp.isoformat(),
+            "tx_count": block.tx_count,
+            "state_root": block.state_root,
+        },
+        chain_id,
+    )
+    return block_response
 
 
 @rate_limit(rate=200, per=60)
@@ -222,6 +259,9 @@ async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str
                 )
                 session.add(block)
                 session.commit()
+                # Invalidate the in-process block header cache for this height
+                # so subsequent reads fetch fresh data from the DB.
+                get_block_header_cache().invalidate(chain_id, height=block_height, hash=block_hash)
                 return {"success": True, "block_height": block.height, "block_hash": block.hash, "chain_id": chain_id}
         except HTTPException:
             raise
