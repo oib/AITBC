@@ -51,9 +51,9 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
 | A1 | **Regression:** `TransactionService` signs with **ed25519** but the node verifies **secp256k1** → all shared-helper callers are now rejected by the Bug 4 check. Switch signing to secp256k1/eth-account. | 🔴 P0 | `aitbc/crypto/transaction_service.py` | ✅ DONE |
-| A2 | Require & validate `chain_id` in `generate_signed_transaction` — log+raise instead of silently sending `chain_id: ""`. | High | `aitbc/crypto/transaction_service.py` | ⬜ TODO |
-| A3 | Expose a canonical `recover_signer(message_data: dict, signature: str) -> str \| None` in `aitbc/crypto/` so apps share one implementation (removes the 3 duplicated copies). | Medium | `aitbc/crypto/crypto.py`, `aitbc/crypto/__init__.py` | ⬜ TODO |
-| A4 | Unit tests for A1–A3 + keep mypy/ruff clean. | High | `tests/unit/test_transaction_service.py` (new) | ⬜ TODO |
+| A2 | Require & validate `chain_id` in `generate_signed_transaction` — log+raise instead of silently sending `chain_id: ""`. | High | `aitbc/crypto/transaction_service.py` | ✅ DONE |
+| A3 | Expose a canonical `recover_signer(message_data: dict, signature: str) -> str \| None` in `aitbc/crypto/` so apps share one implementation (removes the 3 duplicated copies). | Medium | `aitbc/crypto/crypto.py`, `aitbc/crypto/__init__.py` | ✅ DONE |
+| A4 | Unit tests for A1–A3 + keep mypy/ruff clean. | High | `tests/unit/test_transaction_service.py` (new) | ✅ DONE |
 
 ### Agent A — Detailed Instructions
 
@@ -107,7 +107,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/ && \
 | B3 | **Bug 10:** 7 silent `except ImportError` blocks set features to `None`. Log explicit startup warnings; add fail-fast option. | High | `apps/blockchain-node/src/aitbc_chain/rpc/router.py` | ✅ DONE |
 | B4 | **Bug 15 (partial):** marketplace defaults to wrong RPC port `8202`. | High | `apps/marketplace/src/marketplace_service/main.py` | ✅ DONE |
 | B5 | **chain_id family:** GPU `GPU_REGISTER` tx submitted without `chain_id`. | High | `apps/gpu/src/gpu_service/main.py` | ✅ DONE |
-| B6 | **Regression (verifier side):** ensure `verify_transaction_signature` message construction matches A1; add a sign→submit→verify round-trip test. | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/rpc/utils.py`, `tests/integration/` (new) | ⬜ TODO |
+| B6 | **Regression (verifier side):** ensure `verify_transaction_signature` message construction matches A1; add a sign→submit→verify round-trip test. | 🔴 P0 | `apps/blockchain-node/tests/test_signing_round_trip.py` (new) | ✅ DONE |
 | B7 | **Bug 14:** confirm `TRUST_X_WALLET_ADDRESS` defaults false (already true) + add dev-only note to config example/docs. | Medium | `examples/blockchain.env.example` | ✅ DONE |
 | B8 | Update `v0.5.16/change.log` status (mark fixed bugs ✅, Bug 3 PARTIAL) + root `AGENTS.md` release tracking (v0.5.16/v0.5.17 → Completed). | Low | `docs/releases/v0.5.16/change.log`, `AGENTS.md` | ✅ DONE |
 | B9 | **Key model migration:** Genesis/keystore tooling generates **ed25519** keys with `ait1`+`sha256(pubkey)` addresses, incompatible with the secp256k1/`0x` verifier (Bug 4) and A1 signer. Migrate all genesis/keystore/wallet key generation to secp256k1 with Ethereum-style `0x` addresses. **Breaking** — requires genesis regeneration for existing deployments. | 🔴 P0 | `apps/blockchain-node/scripts/create_genesis_wallet.py`, `unified_genesis.py`, `keystore.py`, `setup_production.py`, `apps/coordinator-api/.../wallet_adapter_enhanced.py`, `cli/aitbc_cli/commands/wallet/basic.py`, `cli/aitbc_cli/utils/crypto_utils.py`, tests, examples, docs | ⬜ TODO |
