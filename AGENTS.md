@@ -85,8 +85,8 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.5.18** — Test Suite Repair (green the `apps/blockchain-node/tests/` suite: 64 failed + 8 errors, all pre-existing; prevent CI hangs; quarantine Redis/Postgres tests; add the suite to `testpaths`). Establishes the green baseline v0.6.0 needs: <ref_file file="/opt/aitbc/docs/releases/v0.5.18/change.log" /> ✅ complete
 
 ### Infrastructure Track (multi-chain foundation)
-- **v0.6.0** — Database & Network Optimization (query indexing, connection pooling, N+1 elimination, batch writes, block header caching, network compression): <ref_file file="/opt/aitbc/docs/releases/v0.6.0/change.log" />
-- **v0.6.1** — Parallel Processing: <ref_file file="/opt/aitbc/docs/releases/v0.6.1/change.log" />
+- **v0.6.0** — Database & Network Optimization (query indexing, connection pooling, N+1 elimination, batch writes, block header caching, network compression): <ref_file file="/opt/aitbc/docs/releases/v0.6.0/change.log" /> ✅ complete
+- **v0.6.1** — Parallel Processing (parallel tx validation via dependency analysis, deterministic scheduling, pure state transitions): <ref_file file="/opt/aitbc/docs/releases/v0.6.1/change.log" />
 - **v0.6.2** — Sync & Gossip Optimization: <ref_file file="/opt/aitbc/docs/releases/v0.6.2/change.log" />
 - **v0.6.3** — Multi-Island Node Support: <ref_file file="/opt/aitbc/docs/releases/v0.6.3/change.log" />
 - **v0.6.4** — Multi-Chain Per Island: <ref_file file="/opt/aitbc/docs/releases/v0.6.4/change.log" />
@@ -116,7 +116,7 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.5.17  (test infrastructure) ✅ complete
   → v0.5.18  (test suite repair — blockchain-node suite green + gated) ✅ complete
-  → v0.6.0 → v0.6.1 → v0.6.2 → v0.6.3 → v0.6.4  (infra: db/network opt, parallel processing, sync, multi-island, multi-chain)
+  → v0.6.0 → v0.6.1 → v0.6.2 → v0.6.3 → v0.6.4  (infra: db/network opt ✅, parallel processing, sync, multi-island, multi-chain)
   → v0.6.5 → v0.6.6 → v0.6.7                      (product: agents, marketplace, pool hub)
   → v0.7.0 → v0.7.1 → v0.7.2 → v0.7.3             (infra+product: bridge basics, bridge security, bridge verification, governance)
   → v0.8.0 → v0.8.1 → v0.9.0                       (infra: trading basics, offer sync, atomic settlement)
