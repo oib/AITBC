@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import warnings
 from collections import defaultdict
 from collections.abc import Callable
@@ -324,19 +323,20 @@ def create_backend(backend_type: str, *, broadcast_url: str | None = None) -> Go
 
 
 def _encode_message(message: Any) -> Any:
+    """Serialize a message for transport, compressing when enabled."""
+    from ..network.compression import encode_payload
+
     if isinstance(message, str | bytes | bytearray):
         return message
-    return json.dumps(message, separators=(",", ":"))
+    return encode_payload(message)
 
 
 def _decode_message(message: Any) -> Any:
-    if isinstance(message, bytes | bytearray):
-        message = message.decode("utf-8")
-    if isinstance(message, str):
-        try:
-            return json.loads(message)
-        except json.JSONDecodeError:
-            return message
+    """Decode a transport payload, transparently decompressing if needed."""
+    from ..network.compression import decode_payload
+
+    if isinstance(message, str | bytes | bytearray):
+        return decode_payload(message)
     return message
 
 

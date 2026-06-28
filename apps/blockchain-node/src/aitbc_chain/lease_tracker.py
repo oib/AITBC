@@ -14,6 +14,8 @@ from .config import settings
 def _fmt_expiry(expiry: float) -> str:
     """Format a Unix timestamp as human-readable UTC datetime."""
     return datetime.fromtimestamp(expiry, UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
 from .logger import get_logger
 
 logger = get_logger(__name__)
@@ -75,7 +77,9 @@ class LeaseTracker:
             await asyncio.to_thread(self._redis.close)
         logger.info("Lease tracker stopped")
 
-    async def register_subscriber(self, node_id: str, transport: str, chain_id: str, duration: int | None = None, client_ip: str = "unknown") -> float:
+    async def register_subscriber(
+        self, node_id: str, transport: str, chain_id: str, duration: int | None = None, client_ip: str = "unknown"
+    ) -> float:
         """Register a subscriber with a lease.
 
         Args:
@@ -96,11 +100,19 @@ class LeaseTracker:
         await asyncio.to_thread(
             self._redis.hset,
             key,
-            mapping={"node_id": node_id, "transport": transport, "chain_id": chain_id, "expiry": str(expiry), "client_ip": client_ip},
+            mapping={
+                "node_id": node_id,
+                "transport": transport,
+                "chain_id": chain_id,
+                "expiry": str(expiry),
+                "client_ip": client_ip,
+            },
         )
         await asyncio.to_thread(self._redis.expire, key, duration + 60)
         await asyncio.to_thread(self._redis.sadd, LEASE_SET, node_id)
-        logger.info("Registered subscriber %s (ip=%s) with transport=%s, expiry=%s", node_id, client_ip, transport, _fmt_expiry(expiry))
+        logger.info(
+            "Registered subscriber %s (ip=%s) with transport=%s, expiry=%s", node_id, client_ip, transport, _fmt_expiry(expiry)
+        )
         return expiry
 
     async def extend_lease(self, node_id: str, duration: int | None = None, client_ip: str = "unknown") -> float:
