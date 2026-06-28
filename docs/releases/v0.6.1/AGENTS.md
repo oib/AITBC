@@ -83,10 +83,10 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Create `DependencyGraph` — read/write set analysis, conflict detection, topological grouping | 🔴 P0 | `aitbc/parallel/dependency_graph.py` (new), `aitbc/parallel/__init__.py` (new) | ⬜ |
-| A2 | Create `ParallelExecutor` — thread pool with deterministic result merging + sequential fallback | 🔴 P0 | `aitbc/parallel/executor.py` (new), `aitbc/parallel/__init__.py` | ⬜ |
-| A3 | Unit tests for A1-A2 | High | `tests/unit/test_dependency_graph.py`, `tests/unit/test_parallel_executor.py` | ⬜ |
-| A4 | Verify mypy + ruff + pytest clean | Medium | — | ⬜ |
+| A1 | Create `DependencyGraph` — read/write set analysis, conflict detection, topological grouping | 🔴 P0 | `aitbc/parallel/dependency_graph.py` (new), `aitbc/parallel/__init__.py` (new) | ✅ |
+| A2 | Create `ParallelExecutor` — thread pool with deterministic result merging + sequential fallback | 🔴 P0 | `aitbc/parallel/executor.py` (new), `aitbc/parallel/__init__.py` | ✅ |
+| A3 | Unit tests for A1-A2 | High | `tests/unit/test_dependency_graph.py`, `tests/unit/test_parallel_executor.py` | ✅ |
+| A4 | Verify mypy + ruff + pytest clean | Medium | — | ✅ |
 
 ### Agent A — Detailed Instructions
 
@@ -265,14 +265,14 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o a
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Create `pure_state_transition.py` — pure `compute_state_delta` function (no DB access) | 🔴 P0 | `state/pure_state_transition.py` (new) | ⬜ |
-| B2 | Wire up parallel tx validation in `poa.py` using `DependencyGraph` + `ParallelExecutor` | 🔴 P0 | `consensus/poa.py` | ⬜ |
-| B3 | Wire up parallel tx validation in `sync.py` (verification path) | High | `sync.py` | ⬜ |
-| B4 | Fix mempool ordering determinism — replace `received_at` tie-breaker with `tx_hash` | High | `mempool.py` | ⬜ |
-| B5 | Add parallel processing config to `config.py` | High | `config.py` | ⬜ |
-| B6 | Apply incremental state root to sync path (replace full recompute) | Medium | `sync.py` | ⬜ |
-| B7 | Determinism tests — parallel vs sequential produce identical state roots | 🔴 P0 | `apps/blockchain-node/tests/test_parallel_determinism.py` (new) | ⬜ |
-| B8 | Performance benchmarks — parallel vs sequential throughput | Medium | `apps/blockchain-node/tests/test_parallel_performance.py` (new) | ⬜ |
+| B1 | Create `pure_state_transition.py` — pure `compute_state_delta` function (no DB access) | 🔴 P0 | `state/pure_state_transition.py` (new) | ✅ |
+| B2 | Wire up parallel tx validation in `poa.py` using `DependencyGraph` + `ParallelExecutor` | 🔴 P0 | `consensus/poa.py` | ✅ |
+| B3 | Wire up parallel tx validation in `sync.py` (verification path) | High | `sync.py` | ✅ |
+| B4 | Fix mempool ordering determinism — replace `received_at` tie-breaker with `tx_hash` | High | `mempool.py` | ✅ |
+| B5 | Add parallel processing config to `config.py` | High | `config.py` | ✅ |
+| B6 | Apply incremental state root to sync path (replace full recompute) | Medium | `sync.py` | ✅ |
+| B7 | Determinism tests — parallel vs sequential produce identical state roots | 🔴 P0 | `apps/blockchain-node/tests/test_parallel_determinism.py` (new) | ✅ |
+| B8 | Performance benchmarks — parallel vs sequential throughput | Medium | `apps/blockchain-node/tests/test_parallel_performance.py` (new) | ✅ |
 
 ### Agent B — Detailed Instructions
 
