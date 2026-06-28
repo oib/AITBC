@@ -20,6 +20,7 @@ from .accounts import (
     get_account,
     get_account_alias,
     get_balance_breakdown,
+    get_state_delta,
     get_state_snapshot,
     reconcile_balance,
 )
@@ -399,6 +400,15 @@ async def get_account_alias_route(request: Request, address: str, chain_id: str 
 async def get_state_snapshot_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Return all accounts and the computed state root for follower state sync."""
     return await get_state_snapshot(request, chain_id)
+
+
+@router.get("/state/delta", summary="Get state delta between two heights")
+@rate_limit(rate=10, per=60)
+async def get_state_delta_route(
+    request: Request, from_height: int, to_height: int, chain_id: str | None = None
+) -> dict[str, Any]:
+    """Return state diff for delta sync — only changed accounts."""
+    return await get_state_delta(request, from_height, to_height, chain_id)
 
 
 @router.post("/register-account", summary="Create/register a new account on the blockchain")
