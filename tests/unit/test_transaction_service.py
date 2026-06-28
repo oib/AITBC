@@ -44,10 +44,10 @@ def test_canonical_message_is_pinned_to_node_format() -> None:
         "payload": {"amount": 100},
         "type": "TRANSFER",
         "signature": "ignored",  # excluded from the signed message
-        "chain_id": "ait-hub",  # excluded from the signed message
+        "chain_id": "ait-hub",  # NOW included in the signed message (B6 fix)
     }
     expected = (
-        '{"amount":100,"fee":36,"from":"' + ADDR + '","nonce":0,'
+        '{"amount":100,"chain_id":"ait-hub","fee":36,"from":"' + ADDR + '","nonce":0,'
         '"payload":{"amount":100},"to":"' + TO_ADDR + '","type":"TRANSFER"}'
     )
     assert _canonical_signing_message(tx) == expected.encode()
@@ -77,6 +77,7 @@ def test_signed_transaction_is_accepted_by_real_node_verifier(service) -> None:
         "nonce": req.nonce,
         "payload": req.payload,
         "type": req.type,
+        "chain_id": req.chain_id,
         "signature": req.sig,
     }
     assert verify_transaction_signature(tx_data_dict, req.sig, req.sender) is True
@@ -100,6 +101,7 @@ def test_tampered_amount_is_rejected(service) -> None:
         "nonce": req.nonce,
         "payload": req.payload,
         "type": req.type,
+        "chain_id": req.chain_id,
         "signature": req.sig,
     }
     assert verify_transaction_signature(tx_data_dict, req.sig, req.sender) is False
@@ -115,6 +117,35 @@ def test_fails_closed_on_genesis_address_mismatch(monkeypatch: pytest.MonkeyPatc
     svc = TransactionService()
     monkeypatch.setattr(svc, "get_nonce", lambda _addr: 0)
     assert svc.generate_signed_transaction(TO_ADDR, 100) is None
+
+
+def test_cross_chain_replay_rejected(service) -> None:
+    """A tx signed for chain_id=ait-hub must fail verification when chain_id is swapped."""
+    from aitbc_chain.rpc.transactions import TransactionRequest
+    from aitbc_chain.rpc.utils import verify_transaction_signature
+
+    tx = service.generate_signed_transaction(TO_ADDR, 100)
+    assert tx is not None
+    assert tx["chain_id"] == "ait-hub"
+
+    # Swap chain_id to a different chain (replay attempt)
+    tx["chain_id"] = "ait-island1"
+
+    req = TransactionRequest(**tx)
+    tx_data_dict = {
+        "from": req.sender,
+        "to": req.recipient,
+        "amount": req.amount,
+        "fee": req.fee,
+        "nonce": req.nonce,
+        "payload": req.payload,
+        "type": req.type,
+        "chain_id": req.chain_id,
+        "signature": req.sig,
+    }
+    # Signature was computed over chain_id="ait-hub", so swapping to "ait-island1"
+    # changes the canonical message → recovery must fail.
+    assert verify_transaction_signature(tx_data_dict, req.sig, req.sender) is False
 
 
 def test_returns_none_when_key_unset(monkeypatch: pytest.MonkeyPatch) -> None:
