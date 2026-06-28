@@ -6,9 +6,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-import httpx
-
 from aitbc.async_tasks import TaskRegistry
+from aitbc.network import SharedHttpClient
 
 from .config import settings
 from .consensus import PoAProposer, ProposerConfig
@@ -395,11 +394,10 @@ class BlockchainNode:
                             local_height = local_status.get("head_height", 0)
 
                             # Get remote height via HTTP
-                            async with httpx.AsyncClient(timeout=10.0) as client:
-                                response = await client.get(f"{source_url}/rpc/height")
-                                response.raise_for_status()
-                                remote_data = response.json()
-                                remote_height = remote_data.get("height", 0)
+                            response = await SharedHttpClient.get(f"{source_url}/rpc/height", timeout=10.0)
+                            response.raise_for_status()
+                            remote_data = response.json()
+                            remote_height = remote_data.get("height", 0)
 
                             gap = remote_height - local_height
                             if gap >= 3:  # Force pull if gap is 3 or more blocks

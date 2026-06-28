@@ -12,6 +12,8 @@ from typing import Any
 from sqlalchemy import text
 from sqlmodel import Session, select
 
+from aitbc.network import SharedHttpClient
+
 from ..config import ProposerConfig
 from ..gossip import gossip_broker
 from ..lease_tracker import lease_tracker
@@ -426,6 +428,11 @@ class PoAProposer:
             )
             session.add(block)
             session.commit()
+            # Invalidate the in-process block header cache for the new block
+            # so stale entries are not served by rpc/blocks.py.
+            from ..block_cache import get_block_header_cache
+
+            get_block_header_cache().invalidate(self._config.chain_id, height=next_height, hash=block_hash)
             metrics_registry.increment("blocks_proposed_total")
             metrics_registry.set_gauge("chain_head_height", float(next_height))
             if interval_seconds is not None and interval_seconds >= 0:
@@ -653,8 +660,6 @@ class PoAProposer:
         Returns:
             Dict with genesis block data (allocations, genesis_hash, genesis_state_root) or None if failed
         """
-        import httpx
-
         trusted_peers = []
         if self._config.default_peer_rpc_url:
             peer_url = self._config.default_peer_rpc_url
@@ -666,14 +671,13 @@ class PoAProposer:
         for peer_url in trusted_peers:
             try:
                 self._logger.info("Trying to fetch genesis block from %s", peer_url)
-                async with httpx.AsyncClient(timeout=5.0) as client:
-                    response = await client.get(
-                        f"{peer_url}/rpc/genesis_allocations", params={"chain_id": self._config.chain_id}
-                    )
-                    response.raise_for_status()
-                    data = response.json()
-                    self._logger.info("RPC response from %s: %s", peer_url, data)
-                    return data  # type: ignore[no-any-return]
+                response = await SharedHttpClient.get(
+                    f"{peer_url}/rpc/genesis_allocations", params={"chain_id": self._config.chain_id}, timeout=5.0
+                )
+                response.raise_for_status()
+                data = response.json()
+                self._logger.info("RPC response from %s: %s", peer_url, data)
+                return data  # type: ignore[no-any-return]
             except Exception as e:
                 self._logger.error("Failed to fetch genesis block from %s: %s", peer_url, e)
                 continue
@@ -686,8 +690,6 @@ class PoAProposer:
         Returns:
             Tuple of (allocations list, genesis_state_root string or None)
         """
-        import httpx
-
         trusted_peers = []
         if self._config.default_peer_rpc_url:
             peer_url = self._config.default_peer_rpc_url
@@ -699,22 +701,21 @@ class PoAProposer:
         for peer_url in trusted_peers:
             try:
                 self._logger.info("Trying to fetch allocations from %s", peer_url)
-                async with httpx.AsyncClient(timeout=5.0) as client:
-                    response = await client.get(
-                        f"{peer_url}/rpc/genesis_allocations", params={"chain_id": self._config.chain_id}
-                    )
-                    response.raise_for_status()
-                    data = response.json()
-                    self._logger.info("RPC response from %s: %s", peer_url, data)
-                    allocations = data.get("allocations", [])
-                    genesis_state_root = data.get("genesis_state_root")
-                    if allocations:
-                        self._logger.info("Successfully loaded %s allocations from %s", len(allocations), peer_url)
-                        if genesis_state_root:
-                            self._logger.info("RPC provided genesis state_root: %s", genesis_state_root)
-                        return (allocations, genesis_state_root)
-                    else:
-                        self._logger.warning("RPC returned empty allocations from %s", peer_url)
+                response = await SharedHttpClient.get(
+                    f"{peer_url}/rpc/genesis_allocations", params={"chain_id": self._config.chain_id}, timeout=5.0
+                )
+                response.raise_for_status()
+                data = response.json()
+                self._logger.info("RPC response from %s: %s", peer_url, data)
+                allocations = data.get("allocations", [])
+                genesis_state_root = data.get("genesis_state_root")
+                if allocations:
+                    self._logger.info("Successfully loaded %s allocations from %s", len(allocations), peer_url)
+                    if genesis_state_root:
+                        self._logger.info("RPC provided genesis state_root: %s", genesis_state_root)
+                    return (allocations, genesis_state_root)
+                else:
+                    self._logger.warning("RPC returned empty allocations from %s", peer_url)
             except Exception as e:
                 self._logger.error("Failed to fetch allocations from %s: %s", peer_url, e)
                 continue

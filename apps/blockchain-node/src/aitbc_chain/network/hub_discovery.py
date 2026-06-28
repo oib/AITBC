@@ -8,7 +8,10 @@ import socket
 from dataclasses import dataclass
 from typing import Any
 
+import httpx
+
 from aitbc.aitbc_logging import get_logger
+from aitbc.network import SharedHttpClient
 
 logger = get_logger(__name__)
 
@@ -95,16 +98,13 @@ class HubDiscovery:
         url = discovery_url or self.discovery_url
         registration_url = f"https://{url}/api/register"
         try:
-            import httpx
-
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.post(registration_url, json=hub_info)
-                if response.status_code == 200:
-                    logger.info("Successfully registered hub %s with DNS discovery service", hub_info.get("node_id"))
-                    return True
-                else:
-                    logger.error("DNS registration failed: %s - %s", response.status_code, response.text)
-                    return False
+            response = await SharedHttpClient.post(registration_url, json=hub_info, timeout=10.0)
+            if response.status_code == 200:
+                logger.info("Successfully registered hub %s with DNS discovery service", hub_info.get("node_id"))
+                return True
+            else:
+                logger.error("DNS registration failed: %s - %s", response.status_code, response.text)
+                return False
         except httpx.RequestError as e:
             logger.error("DNS registration request failed: %s", e)
             return False
@@ -126,16 +126,13 @@ class HubDiscovery:
         url = discovery_url or self.discovery_url
         unregistration_url = f"https://{url}/api/unregister"
         try:
-            import httpx
-
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.post(unregistration_url, json={"node_id": node_id})
-                if response.status_code == 200:
-                    logger.info("Successfully unregistered hub %s from DNS discovery service", node_id)
-                    return True
-                else:
-                    logger.error("DNS unregistration failed: %s - %s", response.status_code, response.text)
-                    return False
+            response = await SharedHttpClient.post(unregistration_url, json={"node_id": node_id}, timeout=10.0)
+            if response.status_code == 200:
+                logger.info("Successfully unregistered hub %s from DNS discovery service", node_id)
+                return True
+            else:
+                logger.error("DNS unregistration failed: %s - %s", response.status_code, response.text)
+                return False
         except httpx.RequestError as e:
             logger.error("DNS unregistration request failed: %s", e)
             return False

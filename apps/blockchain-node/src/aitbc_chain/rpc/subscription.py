@@ -37,7 +37,9 @@ async def register_subscription(request: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="node_id is required")
     if transport not in ["websocket", "http", "redis"]:
         raise HTTPException(status_code=400, detail=f"Invalid transport: {transport}")
-    logger.info("Subscription request from node_id=%s (ip=%s), lease_tracker._running=%s", node_id, client_ip, lease_tracker._running)
+    logger.info(
+        "Subscription request from node_id=%s (ip=%s), lease_tracker._running=%s", node_id, client_ip, lease_tracker._running
+    )
     try:
         expiry = await lease_tracker.register_subscriber(
             node_id=node_id, transport=transport, chain_id=chain_id, duration=duration, client_ip=client_ip
@@ -135,7 +137,13 @@ async def get_subscribers(chain_id: str | None = None) -> dict[str, Any]:
         subscribers = await lease_tracker.get_valid_subscribers(chain_id)
         return {
             "subscribers": [
-                {"node_id": s.node_id, "transport": s.transport, "chain_id": s.chain_id, "expiry": s.expiry, "client_ip": s.client_ip}
+                {
+                    "node_id": s.node_id,
+                    "transport": s.transport,
+                    "chain_id": s.chain_id,
+                    "expiry": s.expiry,
+                    "client_ip": s.client_ip,
+                }
                 for s in subscribers
             ],
             "count": len(subscribers),

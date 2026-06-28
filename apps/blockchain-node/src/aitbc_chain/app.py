@@ -98,10 +98,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         except Exception as exc:
             duration = time.perf_counter() - start
             metrics_registry.increment("rpc_unhandled_errors_total")
-            import traceback
             _app_logger.exception(
                 f"Unhandled error in request: {method} {path}",
-                extra={"method": method, "path": path, "error": str(exc), "duration_ms": round(duration * 1000, 2)}
+                extra={"method": method, "path": path, "error": str(exc), "duration_ms": round(duration * 1000, 2)},
             )
             return JSONResponse(status_code=503, content={"detail": f"Internal server error: {str(exc)}"})
 

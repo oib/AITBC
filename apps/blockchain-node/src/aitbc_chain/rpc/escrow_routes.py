@@ -11,8 +11,9 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-import httpx
 from fastapi import APIRouter, HTTPException
+
+from aitbc.network import SharedHttpClient
 
 from ..contracts.escrow import get_escrow_manager
 from ..database import session_scope
@@ -26,10 +27,10 @@ _logger = get_logger(__name__)
 router = APIRouter(tags=["escrow"])
 
 
-async def _resolve_chain_account(address: str, client: httpx.AsyncClient) -> str | None:
+async def _resolve_chain_account(address: str) -> str | None:
     """Return address if it exists on-chain, else None."""
     try:
-        r = await client.get(f"{_HUB_RPC_URL}/accounts/{address}")
+        r = await SharedHttpClient.get(f"{_HUB_RPC_URL}/accounts/{address}")
         if r.status_code == 200:
             return address
     except Exception:  # nosec B110 - intentional silent failure
@@ -37,10 +38,10 @@ async def _resolve_chain_account(address: str, client: httpx.AsyncClient) -> str
     return None
 
 
-async def _get_account_nonce(address: str, client: httpx.AsyncClient) -> int:
+async def _get_account_nonce(address: str) -> int:
     """Fetch current nonce for an account from the chain."""
     try:
-        r = await client.get(f"{_HUB_RPC_URL}/accounts/{address}")
+        r = await SharedHttpClient.get(f"{_HUB_RPC_URL}/accounts/{address}")
         if r.status_code == 200:
             return int(r.json().get("nonce", 0))
     except Exception:
@@ -55,42 +56,41 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
     if amount_int <= 0:
         return None
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            sender = await _resolve_chain_account(buyer, client) or _NODE_WALLET
-            recipient = await _resolve_chain_account(provider, client) or _NODE_WALLET
-            if not sender or not recipient:
-                _logger.warning(
-                    "ESCROW_RELEASE TX skipped: could not resolve sender/recipient (buyer=%s, provider=%s)", buyer, provider
-                )
-                return None
-            nonce = await _get_account_nonce(sender, client)
-            tx = {
-                "from": sender,
-                "to": recipient,
-                "amount": amount_int,
-                "fee": max(36, amount_int // 100),
-                "nonce": nonce,
-                "type": "ESCROW_RELEASE",
-                "chain_id": _CHAIN_ID,
-                "payload": {
-                    "action": "escrow_release",
-                    "job_id": job_id,
-                    "contract_id": contract_id,
-                    "buyer_escrow_addr": buyer,
-                    "provider_escrow_addr": provider,
-                    "released_at": datetime.now(UTC).isoformat(),
-                },
-            }
-            tx_hash = "0x" + hashlib.sha256(f"{sender}{recipient}{amount_int}{nonce}{job_id}".encode()).hexdigest()
-            tx["hash"] = tx_hash
-            resp = await client.post(f"{_HUB_RPC_URL}/transactions/marketplace", json=tx)
-            if resp.status_code in (200, 201):
-                _logger.info(
-                    "ESCROW_RELEASE TX submitted: hash=%s amount=%s from=%s to=%s", tx_hash, amount_int, sender, recipient
-                )
-                return tx_hash
-            else:
-                _logger.warning("ESCROW_RELEASE TX failed %s: %s", resp.status_code, resp.text[:200])
+        sender = await _resolve_chain_account(buyer) or _NODE_WALLET
+        recipient = await _resolve_chain_account(provider) or _NODE_WALLET
+        if not sender or not recipient:
+            _logger.warning(
+                "ESCROW_RELEASE TX skipped: could not resolve sender/recipient (buyer=%s, provider=%s)", buyer, provider
+            )
+            return None
+        nonce = await _get_account_nonce(sender)
+        tx = {
+            "from": sender,
+            "to": recipient,
+            "amount": amount_int,
+            "fee": max(36, amount_int // 100),
+            "nonce": nonce,
+            "type": "ESCROW_RELEASE",
+            "chain_id": _CHAIN_ID,
+            "payload": {
+                "action": "escrow_release",
+                "job_id": job_id,
+                "contract_id": contract_id,
+                "buyer_escrow_addr": buyer,
+                "provider_escrow_addr": provider,
+                "released_at": datetime.now(UTC).isoformat(),
+            },
+        }
+        tx_hash = "0x" + hashlib.sha256(f"{sender}{recipient}{amount_int}{nonce}{job_id}".encode()).hexdigest()
+        tx["hash"] = tx_hash
+        resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/marketplace", json=tx, timeout=5.0)
+        if resp.status_code in (200, 201):
+            _logger.info(
+                "ESCROW_RELEASE TX submitted: hash=%s amount=%s from=%s to=%s", tx_hash, amount_int, sender, recipient
+            )
+            return tx_hash
+        else:
+            _logger.warning("ESCROW_RELEASE TX failed %s: %s", resp.status_code, resp.text[:200])
     except Exception as e:
         _logger.warning("ESCROW_RELEASE TX submission failed (non-fatal): %s", e)
     return None
