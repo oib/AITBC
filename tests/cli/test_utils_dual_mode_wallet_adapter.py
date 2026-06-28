@@ -170,7 +170,7 @@ class TestDualModeWalletAdapter:
             # Create first wallet
             adapter.create_wallet("test_exists", "password123", "simple")
             # Try to create again — should raise
-            with pytest.raises(Exception):
+            with pytest.raises(Exception, match="Wallet exists"):
                 adapter.create_wallet("test_exists", "password123", "simple")
             assert mock_error.call_count >= 1
 
