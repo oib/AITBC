@@ -455,14 +455,13 @@ class ChainSync:
                     updated += 1
             session.commit()
 
-        # Verify state root matches now
-        from .state.merkle_patricia_trie import StateManager
+        # Verify state root matches now — full recompute (all accounts synced)
+        from .state.state_root_utils import compute_state_root_full
 
         with self._session_factory() as session:
-            accounts = session.exec(select(Account).where(Account.chain_id == self._chain_id)).all()
-            account_dict = {acc.address: acc for acc in accounts}
-            computed_root = StateManager().compute_state_root(account_dict)
-            computed_hex = f"0x{computed_root.hex()}"
+            computed_hex = compute_state_root_full(session, self._chain_id)
+            if computed_hex is None:
+                computed_hex = "0x" + "\x00" * 32
 
         match = computed_hex == remote_root
         self._logger.info(
@@ -644,10 +643,36 @@ class ChainSync:
                 session.add(tx)
         if block_data.get("state_root") and (not skip_state_root_validation):
             session.flush()
-            state_manager = StateManager()
-            accounts = session.exec(select(Account).where(Account.chain_id == self._chain_id)).all()
-            account_dict = {acc.address: acc for acc in accounts}
-            computed_root = state_manager.compute_state_root(account_dict)
+            # Use incremental state root computation — track changed addresses
+            # during tx processing, then only re-read those accounts.
+            changed_addresses: set[str] = set()
+            if transactions:
+                for tx_data in transactions:
+                    sender_addr = tx_data.get("from", "")
+                    recipient_addr = tx_data.get("to", "")
+                    if sender_addr:
+                        changed_addresses.add(sender_addr)
+                    if recipient_addr:
+                        changed_addresses.add(recipient_addr)
+            # Build account_map from changed addresses (batch read)
+            account_map: dict[str, Account] = {}
+            if changed_addresses:
+                existing = session.exec(
+                    select(Account).where(
+                        Account.chain_id == self._chain_id,
+                        Account.address.in_(changed_addresses),
+                    )
+                ).all()
+                account_map = {acc.address: acc for acc in existing}
+            from .state.state_root_utils import compute_state_root_incremental
+
+            computed_hex = compute_state_root_incremental(session, self._chain_id, account_map, changed_addresses)
+            if computed_hex is None:
+                # Fallback to full recompute if incremental fails
+                from .state.state_root_utils import compute_state_root_full
+
+                computed_hex = compute_state_root_full(session, self._chain_id)
+            computed_root = bytes.fromhex(computed_hex.replace("0x", "")) if computed_hex else None
             try:
                 expected_root = bytes.fromhex(str(block_data.get("state_root")).replace("0x", ""))
             except ValueError:
