@@ -12,84 +12,148 @@ AITBC v0.6.0 is a performance-focused release targeting database, caching, and n
 
 **Split rationale**: The original plan bundled DB/caching work with parallel block/transaction validation. These are fundamentally different: DB/caching is additive (indexes, pools, cache layers), parallel processing is architectural (dependency analysis, conflict resolution, deterministic scheduling). Splitting them lets the easier optimizations ship first, providing a faster base for v0.6.1's parallelism work.
 
-**Prerequisites**: Requires [v0.5.16](../v0.5.16/change.log) (Security Hardening — signature verification and chain_id fixes must be in place before performance work) and [v0.5.17](../v0.5.17/change.log) (Test Infrastructure — multi-node harness needed for performance benchmarking).
+**Prerequisites**: Requires [v0.5.16](../v0.5.16/change.log) (Security Hardening), [v0.5.17](../v0.5.17/change.log) (Test Infrastructure), and [v0.5.18](../v0.5.18/change.log) (Test Suite Repair — green blockchain-node test suite needed for regression testing).
 
 **Dependency note**: v0.6.0 should be completed before v0.6.1 (Parallel Processing — parallel validation builds on the optimized DB/caching layer) and v0.7.0 (Bridge Basics — bridge targets need both v0.6.0 DB optimization AND v0.6.1 parallel processing).
 
 ## 🎯 Release Highlights
 
 ### Database Optimization
-- 🚧 Query optimization and indexing
-- 🚧 Connection pooling improvements
-- 🚧 Database caching strategies
-- 🚧 Reduced database I/O
-- 🚧 Optimized transaction storage
+- 🚧 Add 8 missing indexes (5 single + 3 composite) via Alembic migration
+- 🚧 Wire up connection pooling (`aitbc/database/pooling.py` already exists, unused)
+- 🚧 Eliminate 3 N+1 query hotspots in block/tx/sync paths
+- 🚧 Batch mempool DB writes (eliminate per-tx commits)
 
 ### Network Performance (I/O layer)
-- 🚧 Reduced network latency
-- 🚧 Improved connection management
-- 🚧 Bandwidth optimization
-- 🚧 Network compression
+- 🚧 Add gzip/zstd compression for gossip and sync payloads
+- 🚧 Shared async HTTP connection pool (replace 6 per-request `httpx.AsyncClient` instances)
 
 ### Block Processing (Caching layer)
-- 🚧 Block header caching
-- 🚧 Reduced database I/O during block import (caching, not parallelization)
+- 🚧 In-process LRU cache for block headers (hot path: sync, consensus)
+- 🚧 Fix `BlockchainCache` type mismatch (`chain_id: int` → `str`)
 
 ### Transaction Handling (Efficiency)
-- 🚧 Optimized transaction pool storage (DB-level, not processing)
-- 🚧 Transaction batching for database writes
-- 🚧 Priority queue storage optimization
+- 🚧 Batch mempool `drain()` DELETE (replace per-tx loop with `DELETE WHERE tx_hash IN (...)`)
+- 🚧 Composite index `(chain_id, fee)` for mempool fee-priority queries
 
 ## 📋 Detailed Features
 
 ### Database
-- **Query Optimization**: Optimized database queries with better indexing
-- **Connection Pooling**: Improved database connection management
-- **Caching Layer**: Multi-level caching for frequently accessed data
-- **Batch Operations**: Batch database write operations
-- **Storage Optimization**: Optimized data storage formats
+
+#### DB_INDEX_DEFINITIONS
+
+New indexes to create via Alembic migration (`apps/blockchain-node/migrations/versions/`):
+
+```python
+# Single-column indexes (filtered in queries, no index exists)
+op.create_index("idx_block_parent_hash", "block", ["parent_hash"], if_not_exists=True)
+op.create_index("idx_tx_sender", "transaction", ["sender"], if_not_exists=True)
+op.create_index("idx_tx_recipient", "transaction", ["recipient"], if_not_exists=True)
+op.create_index("idx_cct_status", "cross_chain_transfer", ["status"], if_not_exists=True)
+op.create_index("idx_stake_status", "stake", ["status"], if_not_exists=True)
+op.create_index("idx_gov_proposal_status", "governance_proposal", ["status"], if_not_exists=True)
+
+# Composite indexes (filtered together, no composite index exists)
+op.create_index("idx_tx_chain_height", "transaction", ["chain_id", "block_height"], if_not_exists=True)
+op.create_index("idx_mempool_chain_fee", "mempool", ["chain_id", "fee"], if_not_exists=True)
+```
+
+**Migration approach**: Alembic with `if_not_exists=True` (pattern from coordinator-api's `add_query_performance_indexes.py`). Blockchain-node Alembic is set up at `apps/blockchain-node/migrations/` with `env.py` using SQLModel metadata.
+
+**Existing indexes (no changes needed)**:
+- `block`: `chain_id`, `height`, `hash`, `timestamp` + unique `(chain_id, height)`, `(chain_id, hash)`
+- `transaction`: `chain_id`, `tx_hash`, `block_height`, `created_at`, `type` + unique `(chain_id, tx_hash)`
+- `receipt`: `chain_id`, `job_id`, `receipt_id`, `block_height`, `recorded_at`, `status`
+- `account`: composite PK `(chain_id, address)` — no additional indexes needed
+- `stake`: `chain_id`, `address`
+- `mempool`: `idx_mempool_fee` on `fee DESC` + composite PK `(chain_id, tx_hash)`
+
+#### Connection Pooling
+- **Current**: `database.py:82,92,106` — `create_engine()` with zero pool config (SQLite defaults)
+- **Fix**: Import and use `create_pooled_engine()` from `aitbc/database/pooling.py` (already implements `pool_size`, `max_overflow`, `pool_recycle`, `pool_pre_ping`)
+- **Config**: `DB_CONNECTION_POOL_SIZE=20` (env var, already in migration guide)
+
+#### N+1 Query Elimination
+1. **`rpc/blocks.py:127-142`** (`get_blocks_range`): Replace per-block tx fetch loop with single query `WHERE chain_id = ? AND block_height BETWEEN ? AND ?`
+2. **`consensus/poa.py:239-327`** (block proposal): Batch-fetch all unique sender/recipient accounts before the tx loop (currently 3 DB calls per tx)
+3. **`sync.py:433-451`** (account sync): Batch-fetch all accounts for chain, merge in memory
 
 ### Network (I/O)
-- **Connection Pooling**: Optimized P2P connection management
-- **Latency Reduction**: Reduced network latency through I/O optimization
-- **Compression**: Data compression for network transfers
-- **Load Balancing**: Network load balancing for better distribution
 
-### Block Processing (Caching)
-- **Header Caching**: Cache frequently accessed block headers
-- **Batch DB Writes**: Batch database writes during block import (I/O optimization, not parallel processing)
+#### Compression
+- **Current**: `gossip/broker.py:154` — JSON-only payloads, no compression
+- **Fix**: Add gzip/zstd compression for gossip and sync payloads (configurable via `NETWORK_COMPRESSION_ENABLED`)
+- **Target**: >50% compression ratio for block/tx data (highly repetitive JSON)
 
-### Transaction Handling (Storage)
-- **Mempool Storage**: Optimize mempool database storage and queries
-- **Transaction Batching**: Batch transaction database writes
-- **Priority Queue Storage**: Optimize priority queue database operations
+#### Shared HTTP Connection Pool
+- **Current**: 6 files create `httpx.AsyncClient` per-request (no connection reuse)
+- **Fix**: Shared async HTTP connection pool in `aitbc/network/` (similar to `aitbc/database/pooling.py` pattern)
+
+### Caching
+
+#### CACHE_KEY_SCHEMA
+
+All cache keys follow the pattern `{chain_id}:{type}:{key}` to ensure per-chain isolation:
+
+| Cache Layer | Key Pattern | TTL | Backend | Invalidation |
+|-------------|-------------|-----|---------|--------------|
+| Block headers | `{chain_id}:header:{height}` | 3600s (long) | In-process LRU | On new block at height |
+| Block by hash | `{chain_id}:block:{hash}` | 3600s (long) | In-process LRU | On fork reorg |
+| Account balance | `{chain_id}:balance:{address}` | 30s (short) | Redis (existing) | On tx confirmation |
+| Mempool snapshot | `{chain_id}:mempool:top` | 5s (very short) | In-process | On add/remove/drain |
+
+**Existing caching** (already wired):
+- `aitbc/caching/redis_cache.py` — `RedisCache` with in-memory fallback
+- `rpc/accounts.py:15-81` — account balance cache (30s TTL, key: `account_balance:{chain_id}:{address}`)
+
+**New caching** (to implement):
+- `BlockHeaderCache` — in-process LRU for hot block headers (sync, consensus paths)
+- Fix `aitbc/caching/blockchain_cache.py` type mismatch: `chain_id: int` → `chain_id: str`
+
+### Mempool Optimization
+
+- **Batch writes**: Replace per-tx `session.commit()` in `add()` (`mempool.py:244`) and `remove()` (`mempool.py:329`) with batch commits
+- **Batch drain**: Replace per-tx DELETE loop in `drain()` (`mempool.py:303-311`) with `DELETE WHERE tx_hash IN (...)`
+- **Composite index**: `(chain_id, fee)` for fee-priority queries (`mempool.py:256,276`)
 
 ## 🔧 Breaking Changes
 
-- Updated database schema for performance optimization (additive indexes)
-- Changes to RPC response formats for performance metrics
-- Migration required for existing deployments
+- New database indexes (additive, no data migration needed — Alembic `if_not_exists=True`)
+- New config options (all have defaults, backward-compatible)
+- Cache layer adds ~5s latency to mempool reads (configurable via `CACHE_ENABLED=false`)
 
 ## 📊 Migration Guide
 
-### v0.6.x → v0.6.0
+### v0.5.x → v0.6.0
 
 1. **Backup existing data**
    ```bash
    cp -r /var/lib/aitbc/data /var/lib/aitbc/data.backup
    ```
 
-2. **Update configuration**
+2. **Update configuration** — add performance tuning parameters to `blockchain.env`:
    ```bash
-   # Add performance tuning parameters to blockchain.env
+   # Database
    DB_CONNECTION_POOL_SIZE=20
-   DB_CACHE_ENABLED=true
+   DB_POOL_PRE_PING=true
+
+   # Caching
+   CACHE_ENABLED=true
+   CACHE_BACKEND=redis          # or "memory" for in-process only
+   REDIS_URL=redis://localhost:6379/0
+   CACHE_TTL_BLOCK_HEADER=3600
+   CACHE_TTL_ACCOUNT_BALANCE=30
+   CACHE_TTL_MEMPOOL=5
+
+   # Network
    NETWORK_COMPRESSION_ENABLED=true
+   NETWORK_COMPRESSION_ALGORITHM=gzip   # or "zstd" if available
    ```
 
-3. **Run database migration**
+3. **Run database migration** (adds indexes with `if_not_exists=True`):
    ```bash
-   aitbc db migrate
+   cd /opt/aitbc/apps/blockchain-node
+   alembic upgrade head
    ```
 
 4. **Restart services**
@@ -97,43 +161,23 @@ AITBC v0.6.0 is a performance-focused release targeting database, caching, and n
    systemctl restart aitbc-blockchain-node
    ```
 
-5. **Verify performance**
+5. **Verify performance** (compare against baseline benchmarks):
    ```bash
    aitbc metrics performance
    ```
 
-## 🧪 Testing
+## 📈 Baseline Benchmarks
 
-### Performance Testing
-- Database query benchmarks
-- Cache hit rate tests
-- Network compression ratio tests
-- Batch operation throughput tests
-- Mempool efficiency tests
+**Before any optimization work**, measure current performance and save to `benchmarks/v0.6.0-baseline/`:
 
-### Test Coverage Goals
-- Database operations: >85%
-- Network operations: >80%
-- Block processing (caching): >90%
-- Transaction handling: >85%
-
-## 📚 Documentation
-
-- [Performance Tuning Guide](../getting-started/performance-tuning.md)
-- [Benchmarking Guide](../testing/benchmarking.md)
-- [Performance API Reference](../api/performance-api.md)
-- [Optimization Best Practices](../getting-started/optimization-guide.md)
-
-## 🚀 Dependencies
-
-### New Dependencies
-- Database optimization libraries
-- Caching libraries (Redis, memcached)
-
-### Updated Dependencies
-- Blockchain node v0.6.0+
-- CLI v0.6.0+
-- Coordinator API v0.6.0+
+| Metric | Measurement Method | Target (post-v0.6.0) |
+|--------|-------------------|---------------------|
+| DB query latency (p95) | `EXPLAIN ANALYZE` on top 10 queries | <5ms |
+| Block header lookup | Time 1000 `session.get(Block, ...)` calls | >90% cache hit rate |
+| Mempool drain latency | Time `drain(max_count=100)` | <50ms (from per-tx loop) |
+| Account balance lookup | Time 1000 balance queries | >80% cache hit rate |
+| Network transfer size | Measure gossip payload sizes | >50% compression |
+| N+1 query count | Count DB calls in `get_blocks_range(10)` | 1 (from 11) |
 
 ## 📈 Performance Targets
 
@@ -158,10 +202,30 @@ AITBC v0.6.0 is a performance-focused release targeting database, caching, and n
 
 **Note**: Block import rate, block processing latency, transaction validation latency, and transaction confirmation time targets require parallel processing and are in [v0.6.1](../v0.6.1/change.log). The current sequential processing in `poa.py` (lines 239-327) and full state root recomputation in `merkle_patricia_trie.py` (lines 402-419) are architectural bottlenecks that caching alone cannot solve.
 
+## 🧪 Testing
+
+### Performance Testing
+- Database query benchmarks (compare against `benchmarks/v0.6.0-baseline/`)
+- Cache hit rate tests (per-chain cache key isolation)
+- Network compression ratio tests
+- Batch operation throughput tests
+- Mempool efficiency tests (batch drain vs per-tx)
+
+### Test Coverage Goals
+- Database operations: >85%
+- Network operations: >80%
+- Block processing (caching): >90%
+- Transaction handling: >85%
+
+### Regression Testing
+- `apps/blockchain-node/tests/` must remain green (330 passed, 11 skipped, 1 xfailed baseline from v0.5.18)
+- `tests/unit/` and `tests/cli/` must remain green (1191 passed, 50 skipped baseline)
+
 ## 🔐 Security Considerations
 
 - Performance optimizations maintain security guarantees
-- No compromise on validation integrity
+- Cache keys include `chain_id` — no cross-chain cache poisoning
+- No compromise on validation integrity (caching is read-only layer)
 - Rate limiting for performance endpoints
 - Monitoring for performance anomalies
 
@@ -171,9 +235,42 @@ AITBC v0.6.0 is a performance-focused release targeting database, caching, and n
 - ✅ Network performance targets met (latency, bandwidth, compression)
 - ✅ Block header caching operational (>90% hit rate)
 - ✅ Mempool storage optimized (query latency, batch writes)
+- ✅ N+1 queries eliminated in 3 hotspots
+- ✅ Baseline benchmarks saved to `benchmarks/v0.6.0-baseline/`
 - ✅ Comprehensive performance documentation
 - ✅ Performance monitoring operational
 - ✅ No security regressions
+- ✅ `apps/blockchain-node/tests/` remains green
+
+## 🔧 Verified Code Targets (from suggestions.md investigation)
+
+### Agent A (Shared Core `aitbc/`)
+- `aitbc/caching/blockchain_cache.py` — fix `chain_id: int` → `str` type mismatch
+- `aitbc/caching/redis_cache.py` — extend with TTL config per cache layer
+- `aitbc/network/` — add shared async HTTP connection pool
+- `aitbc/network/` — add compression utilities (gzip/zstd)
+- `aitbc/database/pooling.py` — already exists, needs blockchain-node integration
+
+### Agent B (Apps & Infrastructure)
+- `apps/blockchain-node/src/aitbc_chain/base_models.py` — add 8 missing indexes
+- `apps/blockchain-node/migrations/versions/` — new Alembic migration for indexes
+- `apps/blockchain-node/src/aitbc_chain/database.py:82,92,106` — wire up `create_pooled_engine()`
+- `apps/blockchain-node/src/aitbc_chain/rpc/blocks.py:127-142` — eliminate N+1 (batch tx fetch)
+- `apps/blockchain-node/src/aitbc_chain/consensus/poa.py:239-327` — batch-fetch accounts before tx loop
+- `apps/blockchain-node/src/aitbc_chain/rpc/sync.py:433-451` — batch account sync
+- `apps/blockchain-node/src/aitbc_chain/mempool.py:244,303-311,329` — batch commits + batch DELETE
+- `apps/blockchain-node/src/aitbc_chain/gossip/broker.py:154` — add compression
+- `apps/blockchain-node/src/aitbc_chain/rpc/accounts.py` — extend existing cache pattern to block headers
+
+## 🚀 Dependencies
+
+### New Dependencies
+- `zstandard` (optional, for zstd compression — gzip is stdlib)
+
+### Updated Dependencies
+- Blockchain node v0.6.0+
+- CLI v0.6.0+
+- Coordinator API v0.6.0+
 
 ## 🚀 Next Steps
 
@@ -194,6 +291,6 @@ AITBC v0.6.0 is a performance-focused release targeting database, caching, and n
 
 ---
 
-*Last Updated: 2026-06-25*
+*Last Updated: 2026-06-28*
 *Version: 0.6.0*
 *Status: Planned*
