@@ -124,8 +124,8 @@ class TestInMemoryMempool:
 class TestDatabaseMempool:
     @pytest.fixture
     def db_pool(self, tmp_path):
-        db_path = str(tmp_path / "mempool.db")
-        return DatabaseMempool(db_path, max_size=100, min_fee=0)
+        db_url = f"sqlite:///{tmp_path / 'mempool.db'}"
+        return DatabaseMempool(db_url, max_size=100, min_fee=0)
 
     def test_add_and_list(self, db_pool):
         tx = {"sender": "alice", "recipient": "bob", "fee": 5}
@@ -144,12 +144,12 @@ class TestDatabaseMempool:
         assert db_pool.size() == 1
 
     def test_min_fee_rejected(self, tmp_path):
-        pool = DatabaseMempool(str(tmp_path / "fee.db"), min_fee=10)
+        pool = DatabaseMempool(f"sqlite:///{tmp_path / 'fee.db'}", min_fee=10)
         with pytest.raises(ValueError, match="below minimum"):
             pool.add({"sender": "alice", "fee": 5})
 
     def test_max_size_eviction(self, tmp_path):
-        pool = DatabaseMempool(str(tmp_path / "evict.db"), max_size=2)
+        pool = DatabaseMempool(f"sqlite:///{tmp_path / 'evict.db'}", max_size=2)
         pool.add({"sender": "a", "fee": 1, "nonce": 1})
         pool.add({"sender": "b", "fee": 5, "nonce": 2})
         pool.add({"sender": "c", "fee": 10, "nonce": 3})
@@ -184,14 +184,14 @@ class TestDatabaseMempool:
         assert db_pool.remove(tx_hash) is False
 
     def test_persistence(self, tmp_path):
-        db_path = str(tmp_path / "persist.db")
-        pool1 = DatabaseMempool(db_path)
+        db_url = f"sqlite:///{tmp_path / 'persist.db'}"
+        pool1 = DatabaseMempool(db_url)
         pool1.add({"sender": "alice", "fee": 1})
         pool1.add({"sender": "bob", "fee": 2})
         assert pool1.size() == 2
 
         # New instance reads same data
-        pool2 = DatabaseMempool(db_path)
+        pool2 = DatabaseMempool(db_url)
         assert pool2.size() == 2
         txs = pool2.list_transactions()
         assert len(txs) == 2

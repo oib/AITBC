@@ -176,13 +176,22 @@ class TestInMemoryGossipBackend:
         # Queue should be full
         assert subscription.queue.full()
 
-        # Third message should be handled (depends on queue behavior)
-        # This test verifies the queue limit is respected
-        await backend.publish("test_topic", "message3")
+        # Third publish should block because queue.put blocks on a full queue.
+        # Use a shielded wait_for so the publish task is not cancelled on timeout.
+        publish_task = asyncio.create_task(backend.publish("test_topic", "message3"))
+        try:
+            await asyncio.wait_for(asyncio.shield(publish_task), timeout=0.1)
+            raise AssertionError("Expected publish to block on full queue")
+        except TimeoutError:
+            pass
 
-        # Should be able to get first two messages
+        # Drain one item to unblock the blocked publish
         assert await subscription.queue.get() == "message1"
+        await asyncio.wait_for(publish_task, timeout=1.0)
+
+        # Should be able to get remaining messages
         assert await subscription.queue.get() == "message2"
+        assert await subscription.queue.get() == "message3"
 
     @pytest.mark.asyncio
     async def test_shutdown(self, backend: InMemoryGossipBackend) -> None:
@@ -257,14 +266,17 @@ class TestTopicSubscription:
 
     @pytest.mark.asyncio
     async def test_subscription_context_manager(self) -> None:
-        """Test subscription as context manager."""
+        """Test subscription cleanup via close()."""
         backend = InMemoryGossipBackend()
+        subscription = await backend.subscribe("context_test")
 
-        async with await backend.subscribe("context_test") as subscription:
+        try:
             assert subscription.topic == "context_test"
             assert subscription.queue is not None
+        finally:
+            subscription.close()
 
-        # After context exit, subscription should be cleaned up
+        # After close, subscription should be cleaned up
         await asyncio.sleep(0.01)
         assert "context_test" not in backend._topics
 
@@ -273,44 +285,44 @@ class TestBroadcastGossipBackend:
     """Test broadcast gossip backend functionality."""
 
     @pytest.fixture
-    def mock_broadcast(self) -> AsyncMock:
-        """Create a mock broadcast instance."""
-        broadcast = AsyncMock()
-        broadcast.connect = AsyncMock()
-        broadcast.publish = AsyncMock()
-        broadcast.subscribe = AsyncMock()
-        return broadcast
+    def mock_redis(self) -> AsyncMock:
+        """Create a mock redis client."""
+        redis = AsyncMock()
+        redis.publish = AsyncMock()
+        redis.aclose = AsyncMock()
+        return redis
 
     @pytest.mark.asyncio
-    async def test_backend_initialization(self, mock_broadcast: AsyncMock) -> None:
-        """Test backend initialization with mock broadcast."""
-        with patch("aitbc_chain.gossip.broker.Broadcast", return_value=mock_broadcast):
+    async def test_backend_initialization(self, mock_redis: AsyncMock) -> None:
+        """Test backend initialization."""
+        with patch("redis.asyncio.Redis.from_url", return_value=mock_redis):
             backend = BroadcastGossipBackend("redis://localhost:6379")
 
-            assert backend._broadcast == mock_broadcast
+            assert backend._url == "redis://localhost:6379"
+            assert backend._redis is None
             assert backend._tasks == set()
             assert backend._lock is not None
             assert backend._running is False
 
     @pytest.mark.asyncio
-    async def test_start_stop(self, mock_broadcast: AsyncMock) -> None:
+    async def test_start_stop(self, mock_redis: AsyncMock) -> None:
         """Test starting and stopping the backend."""
-        with patch("aitbc_chain.gossip.broker.Broadcast", return_value=mock_broadcast):
+        with patch("redis.asyncio.Redis.from_url", return_value=mock_redis):
             backend = BroadcastGossipBackend("redis://localhost:6379")
 
             # Start
             await backend.start()
             assert backend._running is True
-            mock_broadcast.connect.assert_called_once()
+            assert backend._redis is mock_redis
 
             # Stop (shutdown)
             await backend.shutdown()
             assert backend._running is False
 
     @pytest.mark.asyncio
-    async def test_publish_when_not_running(self, mock_broadcast: AsyncMock) -> None:
+    async def test_publish_when_not_running(self, mock_redis: AsyncMock) -> None:
         """Test publishing when backend is not started."""
-        with patch("aitbc_chain.gossip.broker.Broadcast", return_value=mock_broadcast):
+        with patch("redis.asyncio.Redis.from_url", return_value=mock_redis):
             backend = BroadcastGossipBackend("redis://localhost:6379")
 
             # Should raise error when not running
@@ -318,9 +330,9 @@ class TestBroadcastGossipBackend:
                 await backend.publish("test_topic", {"message": "test"})
 
     @pytest.mark.asyncio
-    async def test_publish_when_running(self, mock_broadcast: AsyncMock) -> None:
+    async def test_publish_when_running(self, mock_redis: AsyncMock) -> None:
         """Test publishing when backend is running."""
-        with patch("aitbc_chain.gossip.broker.Broadcast", return_value=mock_broadcast):
+        with patch("redis.asyncio.Redis.from_url", return_value=mock_redis):
             backend = BroadcastGossipBackend("redis://localhost:6379")
 
             # Start backend
@@ -330,16 +342,16 @@ class TestBroadcastGossipBackend:
             message = {"data": "test_message"}
             await backend.publish("test_topic", message)
 
-            # Should call broadcast.publish
-            mock_broadcast.publish.assert_called_once()
+            # Should call redis.publish
+            mock_redis.publish.assert_called_once()
 
             # Clean up
             await backend.shutdown()
 
     @pytest.mark.asyncio
-    async def test_subscribe_when_not_running(self, mock_broadcast: AsyncMock) -> None:
+    async def test_subscribe_when_not_running(self, mock_redis: AsyncMock) -> None:
         """Test subscribing when backend is not started."""
-        with patch("aitbc_chain.gossip.broker.Broadcast", return_value=mock_broadcast):
+        with patch("redis.asyncio.Redis.from_url", return_value=mock_redis):
             backend = BroadcastGossipBackend("redis://localhost:6379")
 
             # Should raise error when not running
@@ -348,13 +360,39 @@ class TestBroadcastGossipBackend:
 
     @pytest.mark.asyncio
     async def test_in_process_broadcast_fallback(self) -> None:
-        """Test fallback to in-process broadcast when Broadcast is missing."""
-        with patch("aitbc_chain.gossip.broker.Broadcast", None):
-            backend = BroadcastGossipBackend("redis://localhost:6379")
+        """Test the in-process broadcast substitute used when redis is unavailable."""
+        from aitbc_chain.gossip.broker import _InProcessBroadcast
 
-            # Should use _InProcessBroadcast
-            assert hasattr(backend._broadcast, "publish")
-            assert hasattr(backend._broadcast, "subscribe")
+        broadcast = _InProcessBroadcast()
+
+        # Should have publish and subscribe methods
+        assert hasattr(broadcast, "publish")
+        assert hasattr(broadcast, "subscribe")
+
+        # Should not be running before connect
+        assert broadcast._running is False
+
+        # Publishing before connect should raise
+        with pytest.raises(RuntimeError, match="Broadcast backend not started"):
+            await broadcast.publish("test_topic", {"message": "test"})
+
+        # After connect, publishing should work
+        await broadcast.connect()
+        assert broadcast._running is True
+
+        # Subscribe and publish round-trip
+        async with broadcast.subscribe("test_topic") as subscriber:
+            message = {"data": "test_message"}
+            await broadcast.publish("test_topic", message)
+
+            received = []
+            async for msg in subscriber:
+                received.append(msg)
+                break
+            assert received == [message]
+
+        await broadcast.disconnect()
+        assert broadcast._running is False
 
 
 class TestGossipMetrics:
@@ -490,8 +528,9 @@ class TestGossipIntegration:
         await backend.publish("dynamic", "msg3")
 
         # Check message distribution
-        # sub1 should only receive msg1
+        # sub1 should receive msg1 and msg2 (both published before close)
         assert await sub1.queue.get() == "msg1"
+        assert await sub1.queue.get() == "msg2"
         assert sub1.queue.empty()
 
         # sub2 should receive all messages

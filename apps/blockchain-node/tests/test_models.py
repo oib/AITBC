@@ -8,6 +8,7 @@ from sqlmodel import Session
 
 def _insert_block(session: Session, height: int = 0) -> Block:
     block = Block(
+        chain_id="test",
         height=height,
         hash=f"0x{'0' * 63}{height}",
         parent_hash="0x" + "0" * 64,
@@ -25,12 +26,14 @@ def test_relationships(session: Session) -> None:
 
     tx = ChainTransaction(
         tx_hash="0x" + "1" * 64,
+        chain_id="test",
         block_height=block.height,
         sender="alice",
         recipient="bob",
         payload={"foo": "bar"},
     )
     receipt = Receipt(
+        chain_id="test",
         job_id="job-1",
         receipt_id="0x" + "2" * 64,
         block_height=block.height,
@@ -52,6 +55,7 @@ def test_relationships(session: Session) -> None:
 
 def test_hash_validation_accepts_hex(session: Session) -> None:
     block = Block(
+        chain_id="test",
         height=10,
         hash="0x" + "a" * 64,
         parent_hash="0x" + "b" * 64,
