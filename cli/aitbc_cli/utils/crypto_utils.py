@@ -115,15 +115,20 @@ def validate_multisig_transaction(tx_data: dict) -> tuple[bool, str]:
         if field not in tx_data:
             return False, f"Missing required field: {field}"
 
-    # Validate address format (AITBC addresses start with 'ait')
+    # Validate address format (0x-prefixed Ethereum-style, or legacy ait1/aitbc1)
     to_address = tx_data["to"]
-    if not to_address.startswith("ait"):
-        return False, "Invalid recipient address format: must start with 'ait'"
-    if len(to_address) < 50 or len(to_address) > 70:
-        return False, "Invalid recipient address format: invalid length"
-    # Check that the rest is hex-like (after 'ait' prefix)
-    if not all(c.lower() in "0123456789abcdef" for c in to_address[3:]):
-        return False, "Invalid recipient address format: invalid characters"
+    if to_address.startswith("0x"):
+        if len(to_address) != 42:
+            return False, "Invalid recipient address format: 0x address must be 42 chars"
+        if not all(c.lower() in "0123456789abcdef" for c in to_address[2:]):
+            return False, "Invalid recipient address format: invalid characters"
+    elif to_address.startswith("ait"):
+        if len(to_address) < 50 or len(to_address) > 70:
+            return False, "Invalid recipient address format: invalid length"
+        if not all(c.lower() in "0123456789abcdef" for c in to_address[3:]):
+            return False, "Invalid recipient address format: invalid characters"
+    else:
+        return False, "Invalid recipient address format: must start with '0x' or 'ait'"
 
     # Validate amount
     try:
@@ -218,13 +223,14 @@ class MultisigSecurityManager:
 
 def bech32_to_hex(bech32_address: str) -> str:
     """
-    Convert AITBC bech32 address to hex address format.
+    Convert AITBC address to hex (0x) address format.
 
-    AITBC uses a simple prefix scheme: "aitbc1" + hex_address
-    This strips the prefix and adds 0x for RPC compatibility.
+    AITBC now uses Ethereum-style 0x checksum addresses natively.
+    Legacy aitbc1/ait1 prefixed addresses are stripped and converted
+    to 0x format for backward compatibility.
 
     Args:
-        bech32_address: AITBC bech32 address (e.g., "aitbc1c10f0e4f...")
+        bech32_address: AITBC address (e.g., "0xc10f0e4f..." or legacy "aitbc1c10f0e4f...")
 
     Returns:
         Hex address (e.g., "0xc10f0e4f...")
@@ -232,43 +238,41 @@ def bech32_to_hex(bech32_address: str) -> str:
     if not bech32_address:
         raise ValueError("Address cannot be empty")
 
-    # Remove aitbc1 prefix
+    # Already in 0x format — return as-is
+    if bech32_address.startswith("0x"):
+        return bech32_address
+
+    # Legacy aitbc1 prefix (backward compat)
     if bech32_address.startswith("aitbc1"):
-        hex_part = bech32_address[6:]  # Remove "aitbc1"
+        hex_part = bech32_address[6:]
     elif bech32_address.startswith("ait1"):
-        hex_part = bech32_address[4:]  # Remove "ait1"
+        hex_part = bech32_address[4:]
     else:
-        # Assume it's already hex or doesn't have the prefix
         hex_part = bech32_address
 
-    # Add 0x prefix if not present
-    if not hex_part.startswith("0x"):
-        hex_part = "0x" + hex_part
-
-    return hex_part
+    return "0x" + hex_part
 
 
 def hex_to_bech32(hex_address: str) -> str:
     """
-    Convert hex address to AITBC bech32 address format.
+    Convert hex address to AITBC address format.
+
+    AITBC now uses 0x-prefixed addresses natively. This function
+    returns the 0x format directly. Legacy aitbc1 prefix is no longer used.
 
     Args:
         hex_address: Hex address (e.g., "0xc10f0e4f..." or "c10f0e4f...")
 
     Returns:
-        AITBC bech32 address (e.g., "aitbc1c10f0e4f...")
+        AITBC address in 0x format (e.g., "0xc10f0e4f...")
     """
     if not hex_address:
         raise ValueError("Address cannot be empty")
 
-    # Remove 0x prefix if present
     if hex_address.startswith("0x"):
-        hex_part = hex_address[2:]
-    else:
-        hex_part = hex_address
+        return hex_address
 
-    # Add aitbc1 prefix
-    return f"aitbc1{hex_part}"
+    return "0x" + hex_address
 
 
 # Global security manager instance

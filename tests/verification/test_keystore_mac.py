@@ -12,10 +12,11 @@ import tempfile
 from pathlib import Path
 
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ed25519
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+from eth_account import Account
 
 
 def compute_mac(key: bytes, ciphertext: bytes) -> str:
@@ -37,13 +38,9 @@ def test_mac_computation():
     kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100_000, backend=default_backend())
     key = kdf.derive(password.encode("utf-8"))
 
-    # Generate test ciphertext
-    private_key = ed25519.Ed25519PrivateKey.generate()
-    private_bytes = private_key.private_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PrivateFormat.Raw,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
+    # Generate test ciphertext (secp256k1 key, 32 bytes)
+    account = Account.create()
+    private_bytes = bytes(account.key)
 
     aesgcm = AESGCM(key)
     nonce = os.urandom(12)
@@ -88,12 +85,8 @@ def test_keystore_with_mac():
         name = "test_wallet"
 
         salt = os.urandom(32)
-        private_key = ed25519.Ed25519PrivateKey.generate()
-        private_bytes = private_key.private_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PrivateFormat.Raw,
-            encryption_algorithm=serialization.NoEncryption(),
-        )
+        account = Account.create()
+        private_bytes = bytes(account.key)
 
         # Derive key
         kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100_000, backend=default_backend())
@@ -118,7 +111,7 @@ def test_keystore_with_mac():
                 "mac": mac,
             },
             "address": "test_address",
-            "keytype": "ed25519",
+            "keytype": "secp256k1",
             "version": 1,
         }
 
@@ -162,13 +155,9 @@ def test_mac_validation():
     kdf_wrong = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100_000, backend=default_backend())
     wrong_key = kdf_wrong.derive(wrong_password.encode("utf-8"))
 
-    # Generate test ciphertext
-    private_key = ed25519.Ed25519PrivateKey.generate()
-    private_bytes = private_key.private_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PrivateFormat.Raw,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
+    # Generate test ciphertext (secp256k1 key, 32 bytes)
+    account = Account.create()
+    private_bytes = bytes(account.key)
 
     aesgcm = AESGCM(correct_key)
     nonce = os.urandom(12)

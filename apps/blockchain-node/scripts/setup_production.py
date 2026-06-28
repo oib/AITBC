@@ -2,8 +2,11 @@
 """
 Production setup generator for AITBC blockchain.
 Creates two wallets:
-  - aitbc1genesis: Treasury wallet holding all initial supply (1B AIT)
-  - aitbc1treasury: Spending wallet (for transactions, can receive from genesis)
+  - genesis: Treasury wallet holding all initial supply (1B AIT)
+  - treasury: Spending wallet (for transactions, can receive from genesis)
+
+Uses secp256k1 (Ethereum-style) key generation with 0x-prefixed checksum
+addresses, compatible with the blockchain node's transaction verifier.
 
 No admin minting; fixed supply at genesis.
 """
@@ -19,27 +22,19 @@ import secrets
 import string
 from pathlib import Path
 
-from bech32 import bech32_encode, convertbits
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ed25519
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+from eth_account import Account
+from eth_keys import keys
 
 
 def random_password(length: int = 32) -> str:
     """Generate a strong random password."""
     alphabet = string.ascii_letters + string.digits + string.punctuation
     return "".join(secrets.choice(alphabet) for _ in range(length))
-
-
-def generate_address(public_key_bytes: bytes) -> str:
-    """Bech32m address with HRP 'ait'."""
-    digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-    digest.update(public_key_bytes)
-    hashed = digest.finalize()
-    data = convertbits(hashed, 8, 5, True)
-    return bech32_encode("ait", data)
 
 
 def encrypt_private_key(private_bytes: bytes, password: str, salt: bytes) -> dict:
@@ -66,23 +61,17 @@ def encrypt_private_key(private_bytes: bytes, password: str, salt: bytes) -> dic
             "mac": mac,
         },
         "address": None,
-        "keytype": "ed25519",
+        "keytype": "secp256k1",
         "version": 1,
     }
 
 
 def generate_wallet(name: str, password: str, keystore_dir: Path) -> dict:
-    """Generate ed25519 keypair and return wallet info."""
-    private_key = ed25519.Ed25519PrivateKey.generate()
-    public_key = private_key.public_key()
-
-    private_bytes = private_key.private_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PrivateFormat.Raw,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
-    public_bytes = public_key.public_bytes(encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
-    address = generate_address(public_bytes)
+    """Generate secp256k1 keypair and return wallet info."""
+    account = Account.create()
+    private_bytes = bytes(account.key)
+    address = account.address
+    public_key_hex = keys.PrivateKey(bytes(account.key)).public_key.to_hex()
 
     salt = os.urandom(32)
     keystore = encrypt_private_key(private_bytes, password, salt)
@@ -93,7 +82,7 @@ def generate_wallet(name: str, password: str, keystore_dir: Path) -> dict:
         json.dump(keystore, f, indent=2)
     os.chmod(keystore_file, 0o600)
 
-    return {"name": name, "address": address, "keystore_file": str(keystore_file), "public_key_hex": public_bytes.hex()}
+    return {"name": name, "address": address, "keystore_file": str(keystore_file), "public_key_hex": public_key_hex}
 
 
 def main():
@@ -130,7 +119,7 @@ def main():
     # Generate two wallets
     wallets = []
     for suffix in ["genesis", "treasury"]:
-        name = f"aitbc1{suffix}"
+        name = suffix
         info = generate_wallet(name, password, keystore_dir)
         # Store both the full name and suffix for lookup
         info["suffix"] = suffix

@@ -56,7 +56,7 @@ class BridgeMonitor:
             if len(data) % 2:
                 data = "0" + data
             decoded = bytes.fromhex(data).decode("utf-8")
-            if decoded.startswith("ait1") or decoded.startswith("aitbc1"):
+            if decoded.startswith("0x"):
                 return decoded
         except (ValueError, UnicodeDecodeError):
             pass

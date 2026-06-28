@@ -59,7 +59,7 @@ async def create_enhanced_wallet(
 ) -> dict[str, Any]:
     """Create an enhanced multi-chain wallet"""
     try:
-        if not owner_address.startswith("ait1"):
+        if not owner_address.startswith("0x"):
             identity = await identity_manager.get_identity_by_address(owner_address)
             if not identity:
                 raise HTTPException(status_code=404, detail="Identity not found for address")

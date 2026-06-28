@@ -208,11 +208,11 @@ class TestGetGenesisAddress:
     @patch("aitbc_cli.utils.island_credentials.load_island_credentials")
     def test_get_genesis_address_success(self, mock_load):
         """Test getting genesis address successfully"""
-        mock_load.return_value = {"credentials": {"genesis_address": "ait123"}}
+        mock_load.return_value = {"credentials": {"genesis_address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"}}
 
         result = get_genesis_address()
 
-        assert result == "ait123"
+        assert result == "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
 
     @patch("aitbc_cli.utils.island_credentials.load_island_credentials")
     def test_get_genesis_address_missing(self, mock_load):

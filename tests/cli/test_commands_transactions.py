@@ -112,7 +112,7 @@ class TestTransactionsCommands:
         mock_client = mock_http_class.return_value
         mock_client.get.return_value = {
             "transactions": [
-                {"hash": "0xtx1", "type": "TRANSFER", "amount": 100, "from": "ait1qsender"},
+                {"hash": "0xtx1", "type": "TRANSFER", "amount": 100, "from": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1"},
             ],
         }
 
@@ -151,7 +151,7 @@ class TestTransactionsCommands:
             [
                 "estimate-fee",
                 "--from", "test-wallet",
-                "--to", "ait1qtestaddress0000000000000000000000000",
+                "--to", "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
                 "--amount", "100",
             ],
         )
@@ -174,7 +174,7 @@ class TestTransactionsCommands:
             [
                 "estimate-fee",
                 "--from", "test-wallet",
-                "--to", "ait1qtestaddress0000000000000000000000000",
+                "--to", "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
                 "--amount", "100",
             ],
         )
