@@ -13,13 +13,22 @@ from sqlalchemy import text
 from sqlmodel import Session, select
 
 from aitbc.network import SharedHttpClient
+from aitbc.parallel import DependencyGraph, ParallelExecutor
 
-from ..config import ProposerConfig
+from ..config import ProposerConfig, settings
 from ..gossip import gossip_broker
 from ..lease_tracker import lease_tracker
 from ..logger import get_logger
 from ..metrics import metrics_registry
 from ..models import Account, Block
+from ..models import Transaction
+from ..state.pure_state_transition import (
+    StateDelta,
+    apply_delta_to_map,
+    apply_deltas_to_db,
+    compute_state_delta,
+    extract_read_write_sets,
+)
 from ..state.state_root_utils import (
     compute_state_root_full as _compute_state_root,
     compute_state_root_incremental as _compute_state_root_incremental,
@@ -260,103 +269,117 @@ class PoAProposer:
                 existing_tx_map = {row[0]: row[1] for row in existing_tx_rows}
             processed_txs = []
             changed_addresses: set[str] = set()  # tracks accounts modified during the tx loop
-            for tx in pending_txs:
-                nested = None
-                try:
-                    tx_data = tx.content
-                    sender = tx_data.get("from")
-                    recipient = tx_data.get("to")
-                    value = tx_data.get("amount", 0)
-                    fee = tx_data.get("fee", 0)
-                    self._logger.info(
-                        "[PROPOSE] Processing tx %s: from=%s, to=%s, amount=%s, fee=%s",
-                        tx.tx_hash,
-                        sender,
-                        recipient,
-                        value,
-                        fee,
-                    )
-                    if not sender or not recipient:
-                        self._logger.warning("[PROPOSE] Skipping tx %s: missing sender or recipient", tx.tx_hash)
-                        continue
-                    sender_account = account_map.get(sender)
-                    if not sender_account:
-                        self._logger.warning("[PROPOSE] Skipping tx %s: sender account not found for %s", tx.tx_hash, sender)
-                        continue
-                    total_cost = value + fee
-                    if sender_account.balance < total_cost:
-                        self._logger.warning(
-                            "[PROPOSE] Skipping tx %s: insufficient balance (has %s, needs %s)",
-                            tx.tx_hash,
-                            sender_account.balance,
-                            total_cost,
-                        )
-                        continue
-                    nested = session.begin_nested()
-                    recipient_account = account_map.get(recipient)
-                    if not recipient_account:
-                        self._logger.info("[PROPOSE] Creating recipient account for %s", recipient)
-                        recipient_account = Account(chain_id=self._config.chain_id, address=recipient, balance=0, nonce=0)
-                        session.add(recipient_account)
-                        session.flush()
-                        account_map[recipient] = recipient_account
-                    else:
-                        self._logger.info("[PROPOSE] Recipient account exists for %s", recipient)
-                    state_transition = get_state_transition()
-                    tx_data_for_transition = tx.content.copy()
-                    tx_data_for_transition["nonce"] = sender_account.nonce
-                    tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
-                    success, error_msg = state_transition.apply_transaction(
-                        session, self._config.chain_id, tx_data_for_transition, tx.tx_hash
-                    )
-                    if not success:
-                        nested.rollback()
-                        self._logger.warning("[PROPOSE] Failed to apply transaction %s: %s", tx.tx_hash, error_msg)
-                        continue
-                    existing_block_height = existing_tx_map.get(tx.tx_hash)
-                    if existing_block_height is not None:
-                        nested.rollback()
-                        self._logger.warning(
-                            "[PROPOSE] Skipping tx %s: already exists in database at block %s",
-                            tx.tx_hash,
-                            existing_block_height,
-                        )
-                        continue
-                    tx_type = tx.content.get("type", "TRANSFER")
-                    if tx_type:
-                        tx_type = tx_type.upper()
-                    else:
-                        tx_type = "TRANSFER"
-                    original_payload = tx.content.get("payload", {})
-                    transaction = Transaction(
-                        chain_id=self._config.chain_id,
-                        tx_hash=tx.tx_hash,
-                        sender=sender,
-                        recipient=recipient,
-                        payload=original_payload,
-                        value=value,
-                        fee=fee,
-                        nonce=tx_data_for_transition["nonce"],
-                        timestamp=timestamp,
-                        block_height=next_height,
-                        status="confirmed",
-                        type=tx_type,
-                    )
-                    session.add(transaction)
-                    nested.commit()
-                    # Track changed addresses for incremental state root computation
-                    changed_addresses.add(sender)
-                    changed_addresses.add(recipient)
-                    # Track the newly committed tx hash so subsequent iterations
-                    # in this loop detect it as a duplicate without another DB query.
-                    existing_tx_map[tx.tx_hash] = next_height
-                    processed_txs.append(tx)
-                    self._logger.info("[PROPOSE] Successfully processed tx %s: updated balances", tx.tx_hash)
-                except Exception as e:
-                    if nested is not None:
-                        nested.rollback()
-                    self._logger.warning("Failed to process transaction %s: %s", tx.tx_hash, e)
+            # Feature flag: parallel tx validation (v0.6.1). Default off for safety.
+            use_parallel = getattr(settings, "parallel_tx_validation", False) and len(pending_txs) > 1
+            if use_parallel:
+                processed_txs, changed_addresses, ok = self._process_txs_parallel(
+                    session, pending_txs, account_map, existing_tx_map, next_height, timestamp
+                )
+                if not ok:
                     return False
+                # If parallel returned nothing (e.g. conflict rate exceeded threshold),
+                # fall back to sequential processing.
+                use_parallel = bool(processed_txs) or not pending_txs
+            if not use_parallel:
+                for tx in pending_txs:
+                    nested = None
+                    try:
+                        tx_data = tx.content
+                        sender = tx_data.get("from")
+                        recipient = tx_data.get("to")
+                        value = tx_data.get("amount", 0)
+                        fee = tx_data.get("fee", 0)
+                        self._logger.info(
+                            "[PROPOSE] Processing tx %s: from=%s, to=%s, amount=%s, fee=%s",
+                            tx.tx_hash,
+                            sender,
+                            recipient,
+                            value,
+                            fee,
+                        )
+                        if not sender or not recipient:
+                            self._logger.warning("[PROPOSE] Skipping tx %s: missing sender or recipient", tx.tx_hash)
+                            continue
+                        sender_account = account_map.get(sender)
+                        if not sender_account:
+                            self._logger.warning(
+                                "[PROPOSE] Skipping tx %s: sender account not found for %s", tx.tx_hash, sender
+                            )
+                            continue
+                        total_cost = value + fee
+                        if sender_account.balance < total_cost:
+                            self._logger.warning(
+                                "[PROPOSE] Skipping tx %s: insufficient balance (has %s, needs %s)",
+                                tx.tx_hash,
+                                sender_account.balance,
+                                total_cost,
+                            )
+                            continue
+                        nested = session.begin_nested()
+                        recipient_account = account_map.get(recipient)
+                        if not recipient_account:
+                            self._logger.info("[PROPOSE] Creating recipient account for %s", recipient)
+                            recipient_account = Account(chain_id=self._config.chain_id, address=recipient, balance=0, nonce=0)
+                            session.add(recipient_account)
+                            session.flush()
+                            account_map[recipient] = recipient_account
+                        else:
+                            self._logger.info("[PROPOSE] Recipient account exists for %s", recipient)
+                        state_transition = get_state_transition()
+                        tx_data_for_transition = tx.content.copy()
+                        tx_data_for_transition["nonce"] = sender_account.nonce
+                        tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
+                        success, error_msg = state_transition.apply_transaction(
+                            session, self._config.chain_id, tx_data_for_transition, tx.tx_hash
+                        )
+                        if not success:
+                            nested.rollback()
+                            self._logger.warning("[PROPOSE] Failed to apply transaction %s: %s", tx.tx_hash, error_msg)
+                            continue
+                        existing_block_height = existing_tx_map.get(tx.tx_hash)
+                        if existing_block_height is not None:
+                            nested.rollback()
+                            self._logger.warning(
+                                "[PROPOSE] Skipping tx %s: already exists in database at block %s",
+                                tx.tx_hash,
+                                existing_block_height,
+                            )
+                            continue
+                        tx_type = tx.content.get("type", "TRANSFER")
+                        if tx_type:
+                            tx_type = tx_type.upper()
+                        else:
+                            tx_type = "TRANSFER"
+                        original_payload = tx.content.get("payload", {})
+                        transaction = Transaction(
+                            chain_id=self._config.chain_id,
+                            tx_hash=tx.tx_hash,
+                            sender=sender,
+                            recipient=recipient,
+                            payload=original_payload,
+                            value=value,
+                            fee=fee,
+                            nonce=tx_data_for_transition["nonce"],
+                            timestamp=timestamp,
+                            block_height=next_height,
+                            status="confirmed",
+                            type=tx_type,
+                        )
+                        session.add(transaction)
+                        nested.commit()
+                        # Track changed addresses for incremental state root computation
+                        changed_addresses.add(sender)
+                        changed_addresses.add(recipient)
+                        # Track the newly committed tx hash so subsequent iterations
+                        # in this loop detect it as a duplicate without another DB query.
+                        existing_tx_map[tx.tx_hash] = next_height
+                        processed_txs.append(tx)
+                        self._logger.info("[PROPOSE] Successfully processed tx %s: updated balances", tx.tx_hash)
+                    except Exception as e:
+                        if nested is not None:
+                            nested.rollback()
+                        self._logger.warning("Failed to process transaction %s: %s", tx.tx_hash, e)
+                        return False
             if pending_txs and (not processed_txs) and getattr(settings, "propose_only_if_mempool_not_empty", True):
                 self._logger.warning(
                     "[PROPOSE] Skipping block proposal: all drained transactions were invalid (count=%s, chain=%s)",
@@ -694,6 +717,147 @@ class PoAProposer:
             created += 1
         session.commit()
         self._logger.info("Created %s accounts from genesis allocations", created)
+
+    def _process_txs_parallel(
+        self,
+        session: Session,
+        pending_txs: list[Any],
+        account_map: dict[str, Account],
+        existing_tx_map: dict[str, int],
+        next_height: int,
+        timestamp: datetime,
+    ) -> tuple[list[Any], set[str], bool]:
+        """Process transactions in parallel using dependency analysis.
+
+        Returns (processed_txs, changed_addresses, success).
+        Falls back to sequential if conflict rate exceeds threshold.
+        """
+        chain_id = self._config.chain_id
+        # Build dependency graph from tx read/write sets
+        graph = DependencyGraph()
+        tx_by_hash: dict[str, Any] = {}
+        for idx, tx in enumerate(pending_txs):
+            read_set, write_set = extract_read_write_sets(tx.content)
+            graph.add_transaction(tx.tx_hash, read_set, write_set, index=idx)
+            tx_by_hash[tx.tx_hash] = tx
+
+        # Check conflict rate — fall back to sequential if too many conflicts
+        conflict_rate = graph.conflict_rate()
+        threshold = getattr(settings, "conflict_threshold", 0.5)
+        if conflict_rate > threshold:
+            self._logger.info(
+                "[PROPOSE-PARALLEL] Conflict rate %.2f exceeds threshold %.2f — falling back to sequential",
+                conflict_rate,
+                threshold,
+            )
+            return [], set(), True  # signal: no parallel processing, caller continues sequential
+
+        groups = graph.get_conflict_groups()
+        self._logger.info(
+            "[PROPOSE-PARALLEL] %d txs → %d groups (conflict_rate=%.2f)",
+            len(pending_txs),
+            len(groups),
+            conflict_rate,
+        )
+
+        # Prepare tx_data for each tx (with nonce set from account_map)
+        tx_data_map: dict[str, dict[str, Any]] = {}
+        for tx in pending_txs:
+            tx_data = tx.content.copy()
+            sender = tx_data.get("from", "")
+            sender_account = account_map.get(sender)
+            tx_data["nonce"] = sender_account.nonce if sender_account else 0
+            tx_data["value"] = tx_data.get("amount", 0)
+            tx_data_map[tx.tx_hash] = tx_data
+
+        # Track processed tx hashes for duplicate detection
+        processed_tx_hashes: set[str] = set()
+
+        # Execute groups in parallel — within each group, txs are independent
+        max_workers = getattr(settings, "parallel_workers", 4)
+        executor = ParallelExecutor(max_workers=max_workers)
+        try:
+            all_deltas: list[tuple[int, StateDelta, Any]] = []  # (index, delta, tx)
+            for group in groups:
+                # Build the list of (tx_hash, tx_data) for this group
+                group_items = [(tx_hash, tx_data_map[tx_hash]) for tx_hash in group]
+
+                def compute_fn(item: tuple[str, dict[str, Any]]) -> StateDelta:
+                    tx_hash, tx_data = item
+                    return compute_state_delta(account_map, tx_data, chain_id, tx_hash, processed_tx_hashes)
+
+                results = executor.execute_groups([group_items], compute_fn)
+                group_deltas = results[0] if results else []
+
+                # Apply successful deltas to account_map immediately (within group,
+                # txs don't conflict, so order within group doesn't matter for state)
+                for i, (tx_hash, _) in enumerate(group_items):
+                    delta = group_deltas[i]
+                    tx = tx_by_hash[tx_hash]
+                    if delta.success:
+                        # Check for duplicate tx in DB
+                        if existing_tx_map.get(tx_hash) is not None:
+                            self._logger.warning(
+                                "[PROPOSE-PARALLEL] Skipping tx %s: already exists in database at block %s",
+                                tx_hash,
+                                existing_tx_map[tx_hash],
+                            )
+                            continue
+                        apply_delta_to_map(account_map, delta, chain_id)
+                        processed_tx_hashes.add(tx_hash)
+                        all_deltas.append((i, delta, tx))
+                    else:
+                        self._logger.warning("[PROPOSE-PARALLEL] Failed to validate tx %s: %s", tx_hash, delta.error)
+        finally:
+            executor.close()
+
+        # Sort deltas by original tx index for deterministic ordering
+        all_deltas.sort(key=lambda x: x[0])
+
+        # Write all deltas to DB in a single batch
+        successful_deltas = [d for _, d, _ in all_deltas]
+        if successful_deltas:
+            apply_deltas_to_db(session, successful_deltas, chain_id)
+
+        # Create Transaction records and track changed addresses
+        processed_txs: list[Any] = []
+        changed_addresses: set[str] = set()
+        for _idx, delta, tx in all_deltas:
+            sender = delta.sender
+            recipient = delta.recipient
+            tx_type = delta.tx_type
+            tx_data = tx.content
+            value = tx_data.get("amount", 0)
+            fee = tx_data.get("fee", 0)
+            original_payload = tx_data.get("payload", {})
+            transaction = Transaction(
+                chain_id=chain_id,
+                tx_hash=tx.tx_hash,
+                sender=sender,
+                recipient=recipient,
+                payload=original_payload,
+                value=value,
+                fee=fee,
+                nonce=tx_data_map[tx.tx_hash].get("nonce", 0),
+                timestamp=timestamp,
+                block_height=next_height,
+                status="confirmed",
+                type=tx_type,
+            )
+            session.add(transaction)
+            changed_addresses.add(sender)
+            if recipient:
+                changed_addresses.add(recipient)
+            existing_tx_map[tx.tx_hash] = next_height
+            processed_txs.append(tx)
+            self._logger.info("[PROPOSE-PARALLEL] Successfully processed tx %s", tx.tx_hash)
+
+        self._logger.info(
+            "[PROPOSE-PARALLEL] Processed %d/%d txs in parallel",
+            len(processed_txs),
+            len(pending_txs),
+        )
+        return processed_txs, changed_addresses, True
 
     def _compute_block_hash(
         self, height: int, parent_hash: str, timestamp: datetime, transactions: list[Any] | None = None
