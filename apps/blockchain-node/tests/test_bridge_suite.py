@@ -234,9 +234,27 @@ class TestBridgeLockEndpoint:
 class TestBridgeConfirmEndpoint:
     """RPC /bridge/confirm signature & field validation (Bug 7)."""
 
+    def test_bridge_confirm_disabled_by_default(self, client: TestClient) -> None:
+        """POST /bridge/confirm must return 503 when BRIDGE_RELEASE_ENABLED is false (Bug 3 fence)."""
+        with patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()):
+            response = client.post(
+                "/bridge/confirm",
+                json={
+                    "transfer_id": "0xtransfer1",
+                    "proof": _base_proof(),
+                    "confirmer": "0xrecipient",
+                    "signature": "0x" + "ff" * 65,
+                },
+            )
+        assert response.status_code == 503
+        assert "disabled" in response.json()["detail"].lower()
+
     def test_bridge_confirm_without_signature_rejected(self, client: TestClient) -> None:
         """POST /bridge/confirm without a confirmer signature must return 403."""
-        with patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()):
+        with (
+            patch("aitbc_chain.config.settings.bridge_release_enabled", True),
+            patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()),
+        ):
             response = client.post(
                 "/bridge/confirm",
                 json={
@@ -249,7 +267,10 @@ class TestBridgeConfirmEndpoint:
 
     def test_bridge_confirm_missing_transfer_id(self, client: TestClient) -> None:
         """POST /bridge/confirm without transfer_id must return 400."""
-        with patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()):
+        with (
+            patch("aitbc_chain.config.settings.bridge_release_enabled", True),
+            patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()),
+        ):
             response = client.post(
                 "/bridge/confirm",
                 json={"proof": _base_proof(), "confirmer": "0xrecipient", "signature": "0x" + "ff" * 65},
@@ -258,7 +279,10 @@ class TestBridgeConfirmEndpoint:
 
     def test_bridge_confirm_missing_proof(self, client: TestClient) -> None:
         """POST /bridge/confirm without proof must return 400."""
-        with patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()):
+        with (
+            patch("aitbc_chain.config.settings.bridge_release_enabled", True),
+            patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()),
+        ):
             response = client.post(
                 "/bridge/confirm",
                 json={

@@ -244,7 +244,14 @@ class CrossChainBridge:
     def _validate_proof(self, proof: dict[str, Any], record: CrossChainTransfer) -> bool:
         """Validate cross-chain transfer proof with cryptographic verification.
 
-        Bug 3: Previously only checked field equality — trivially forgeable.
+        Bug 3 (PARTIAL — v0.5.16): Previously only checked field equality —
+        trivially forgeable. Now requires a valid secp256k1 proposer signature
+        over the proof fields plus block-header anchoring (height + hash).
+        HOWEVER, ``_verify_proposer_signature`` currently accepts ANY valid
+        signer — there is no proposer-set membership check yet. Full proposer-set
+        tracking + Merkle proof verification is deferred to v0.7.2. Until then
+        the release path is fenced behind ``BRIDGE_RELEASE_ENABLED`` (default
+        false) at the RPC layer to prevent unauthorized minting.
         Bug 12: Added chain_id check to prevent cross-chain proof replay.
 
         Required proof fields:
@@ -252,8 +259,6 @@ class CrossChainBridge:
         - chain_id (Bug 12: must match record's chain_id)
         - block_height, block_hash (Bug 3: block header anchoring)
         - proposer_signature (Bug 3: signature from source chain proposer)
-
-        Full Merkle proof verification is deferred to v0.7.2.
         """
         required_fields = [
             "source_chain",
@@ -322,8 +327,11 @@ class CrossChainBridge:
         The signer's address must match the source chain's proposer at the
         claimed block height.
 
-        For now, this verifies the signature is valid for the claimed sender.
-        Full proposer set tracking is deferred to v0.7.2.
+        Bug 3 PARTIAL (v0.5.16): for now, this verifies only that the
+        signature is valid for SOME secp256k1 key — it does NOT check the
+        recovered address against a proposer set. Full proposer-set tracking
+        is deferred to v0.7.2. The release path is fenced behind
+        ``BRIDGE_RELEASE_ENABLED`` (default false) at the RPC layer until then.
         """
         import json as _json
 
