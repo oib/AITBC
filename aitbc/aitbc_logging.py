@@ -33,6 +33,12 @@ class JournalFormatter(logging.Formatter):
         return f"[{record.levelname}] [{record.name}] {record.getMessage()}"
 
 
+# Backward-compat alias: v0.5.11 renamed BlockchainTextFormatter → JournalFormatter.
+# The alias is also exported from aitbc.log_utils; keep it here so direct
+# importers of the canonical module don't break.
+BlockchainTextFormatter = JournalFormatter
+
+
 class StructuredFormatter(logging.Formatter):
     """Structured JSON formatter for log aggregation"""
 
