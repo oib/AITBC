@@ -52,7 +52,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ --colle
 |---|------|----------|-------|--------|
 | A1 | Register `requires_redis`, `requires_postgres`, `requires_genesis` markers + add default `timeout` to pytest config. | 🔴 P0 (blocks B) | `pyproject.toml` | ✅ DONE |
 | A2 | Add shared auto-skip fixtures/hooks so `requires_redis`/`requires_postgres`/`requires_genesis` tests skip when the resource is unreachable. | 🔴 P0 (blocks B) | `apps/blockchain-node/tests/conftest.py` | ✅ DONE |
-| A3 | **(LAST)** Add `apps/blockchain-node/tests` to `testpaths` once B's suite is green. | High | `pyproject.toml` | ⬜ |
+| A3 | **(LAST)** Add `apps/blockchain-node/tests` to `testpaths` once B's suite is green. | High | `pyproject.toml` | ✅ DONE |
 
 ### Agent A — Detailed Instructions
 
