@@ -75,7 +75,7 @@ async def health() -> HealthResponse:
     return HealthResponse(status="healthy", service="trading")
 
 
-@app.get("/ready")
+@app.get("/ready", response_model=None)
 async def ready() -> dict[str, str] | JSONResponse:
     """Readiness check - verifies database connectivity"""
     try:
@@ -631,6 +631,135 @@ async def match_all_pending_trades(
 ):
     """Attempt to match all pending inter-chain trades."""
     return await svc.match_all_pending()
+
+
+# ============================================================================
+# v0.8.1: Cross-Chain Offer Sync Endpoints (B3 + B4)
+# ============================================================================
+
+from aitbc.trading.offer_types import (  # noqa: E402
+    OfferDiscoveryRequest,
+    OfferDiscoveryResult,
+    OfferSyncStatusEntry,
+)
+from .services.offer_sync_service import OfferSyncService  # noqa: E402
+
+
+async def get_offer_sync_service(
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+) -> OfferSyncService:
+    """Get offer sync service instance."""
+    return OfferSyncService(session)
+
+
+def _synced_offer_to_dict(offer: Any) -> dict[str, Any]:
+    """Convert a SyncedOffer to a dict for JSON response."""
+    return offer.to_dict() if hasattr(offer, "to_dict") else dict(offer)
+
+
+def _discovery_result_to_dict(result: OfferDiscoveryResult) -> dict[str, Any]:
+    """Convert an OfferDiscoveryResult to a dict for JSON response."""
+    return {
+        "offers": [_synced_offer_to_dict(o) for o in result.offers],
+        "total_count": result.total_count,
+        "chains_searched": result.chains_searched,
+        "stale_count": result.stale_count,
+        "sync_triggered": result.sync_triggered,
+    }
+
+
+def _status_entry_to_dict(entry: OfferSyncStatusEntry) -> dict[str, Any]:
+    """Convert an OfferSyncStatusEntry to a dict for JSON response."""
+    return {
+        "chain_id": entry.chain_id,
+        "last_sync": entry.last_sync,
+        "offer_count": entry.offer_count,
+        "stale_count": entry.stale_count,
+        "error_count": entry.error_count,
+        "is_syncing": entry.is_syncing,
+    }
+
+
+# --- B3: Offer Discovery Endpoint ---
+
+
+@app.post("/v1/trading/offers/discover")
+async def discover_offers(
+    svc: Annotated[OfferSyncService, Depends(get_offer_sync_service)],
+    source_chain: str | None = None,
+    dest_chain: str | None = None,
+    service_type: str | None = None,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    region: str | None = None,
+    gpu_model: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    """Discover offers across chains with filters.
+
+    Queries the OfferCache. If cached offers are stale, triggers an
+    on-demand sync before returning results.
+    """
+    request = OfferDiscoveryRequest(
+        source_chain=source_chain,
+        dest_chain=dest_chain,
+        service_type=service_type,
+        min_price=min_price,
+        max_price=max_price,
+        region=region,
+        gpu_model=gpu_model,
+        limit=limit,
+        offset=offset,
+    )
+    result = await svc.discover_offers(request)
+    return _discovery_result_to_dict(result)
+
+
+# --- B4: Offer Sync Endpoints ---
+
+
+@app.post("/v1/trading/offers/sync")
+async def sync_offers(
+    svc: Annotated[OfferSyncService, Depends(get_offer_sync_service)],
+    chain_id: str | None = None,
+    service_type: str | None = None,
+    force: bool = False,
+):
+    """Trigger offer sync for a specific chain or all chains."""
+    if chain_id:
+        result = await svc.sync_chain(chain_id)
+    else:
+        results = await svc.sync_all_chains()
+        result = {"results": results, "total_chains": len(results)}
+    return result
+
+
+@app.get("/v1/trading/offers/sync-status")
+async def get_offer_sync_status(
+    svc: Annotated[OfferSyncService, Depends(get_offer_sync_service)],
+):
+    """Get offer sync status per chain."""
+    entries = svc.get_sync_status()
+    return [_status_entry_to_dict(e) for e in entries]
+
+
+@app.get("/v1/trading/offers/cache")
+async def get_cached_offers(
+    svc: Annotated[OfferSyncService, Depends(get_offer_sync_service)],
+    chain_id: str | None = None,
+    service_type: str | None = None,
+    status: str | None = None,
+    limit: int = 100,
+):
+    """Get cached offers with optional filters."""
+    offers = svc.get_cached_offers(
+        chain_id=chain_id,
+        service_type=service_type,
+        status=status,
+        limit=limit,
+    )
+    return [_synced_offer_to_dict(o) for o in offers]
 
 
 if __name__ == "__main__":
