@@ -132,9 +132,9 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/bridge/ && .
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Create `aitbc/bridge/` package — BridgeClient (HTTP client), bridge types (BridgeStatus, BridgeTransfer, BridgeProof, BridgeConfig) | 🔴 P0 | `aitbc/bridge/__init__.py` (new), `aitbc/bridge/types.py` (new), `aitbc/bridge/client.py` (new) | ⬜ |
-| A2 | Create `aitbc/bridge/proof.py` — proof generation + basic validation utilities using `aitbc/crypto/crypto.py` | 🔴 P0 | `aitbc/bridge/proof.py` (new) | ⬜ |
-| A3 | Unit tests for A1-A2 + verify mypy/ruff/pytest clean | High | `tests/unit/test_bridge_sdk.py` (new) | ⬜ |
+| A1 | Create `aitbc/bridge/` package — BridgeClient (HTTP client), bridge types (BridgeStatus, BridgeTransfer, BridgeProof, BridgeConfig) | 🔴 P0 | `aitbc/bridge/__init__.py` (new), `aitbc/bridge/types.py` (new), `aitbc/bridge/client.py` (new) | ✅ |
+| A2 | Create `aitbc/bridge/proof.py` — proof generation + basic validation utilities using `aitbc/crypto/crypto.py` | 🔴 P0 | `aitbc/bridge/proof.py` (new) | ✅ |
+| A3 | Unit tests for A1-A2 + verify mypy/ruff/pytest clean | High | `tests/unit/test_bridge_sdk.py` (new) | ✅ |
 
 ### Agent A — Detailed Instructions
 
