@@ -142,10 +142,10 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/governance/ 
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Create `aitbc/governance/types.py` — GovernanceTxType enum, GovernanceConfig, ProposalData, VoteData, ParameterChangeSchema | 🔴 P0 | `aitbc/governance/types.py` (new), `aitbc/governance/__init__.py` (new) | ⬜ |
-| A2 | Create `aitbc/governance/client.py` — GovernanceClient async HTTP client for governance service RPC | 🔴 P0 | `aitbc/governance/client.py` (new), `aitbc/governance/__init__.py` (extend) | ⬜ |
-| A3 | Create `aitbc/governance/onchain.py` — on-chain tx payload builders + validation | 🔴 P0 | `aitbc/governance/onchain.py` (new), `aitbc/governance/__init__.py` (extend) | ⬜ |
-| A4 | Unit tests for A1-A3 | High | `tests/unit/test_governance_sdk.py` (new) | ⬜ |
+| A1 | Create `aitbc/governance/types.py` — GovernanceTxType enum, GovernanceConfig, ProposalData, VoteData, ParameterChangeSchema | 🔴 P0 | `aitbc/governance/types.py` (new), `aitbc/governance/__init__.py` (new) | ✅ |
+| A2 | Create `aitbc/governance/client.py` — GovernanceClient async HTTP client for governance service RPC | 🔴 P0 | `aitbc/governance/client.py` (new), `aitbc/governance/__init__.py` (extend) | ✅ |
+| A3 | Create `aitbc/governance/onchain.py` — on-chain tx payload builders + validation | 🔴 P0 | `aitbc/governance/onchain.py` (new), `aitbc/governance/__init__.py` (extend) | ✅ |
+| A4 | Unit tests for A1-A3 | High | `tests/unit/test_governance_sdk.py` (new) | ✅ |
 
 ### Agent A — Detailed Instructions
 
