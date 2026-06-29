@@ -33,7 +33,7 @@
 
 ### Already Fixed / Exists (verified — no work needed)
 
-1. ✅ **In-process bridge verification** (v0.7.2) — `InProcessOracleClient` works, used as fallback
+1. ✅ **In-process bridge verification** (v0.7.2) — `InProcessVerifier` works (note: blockchain-node uses inline verification logic, not the shared SDK's `InProcessVerifier` directly — see A1/A2 for integration)
 2. ✅ **Governance SDK** (v0.7.3 Agent A) — types, client, onchain utilities exist
 3. ✅ **Governance service** (v0.7.3) — 991 lines, FastAPI, domain models, service layer
 4. ✅ **ParameterChangeSchema** — dataclass exists, just needs execution logic
