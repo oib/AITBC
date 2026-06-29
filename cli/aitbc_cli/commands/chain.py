@@ -7,6 +7,7 @@ from ..core.chain_manager import ChainManager, ChainNotFoundError
 from ..core.config import load_multichain_config
 from ..models.chain import ChainType
 from ..utils import error, output, success
+from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
 @click.group()
@@ -564,3 +565,87 @@ def monitor(ctx, chain_id, realtime, export, interval):
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
         raise click.Abort() from e
+
+
+@chain.command(name="sync-status")
+@click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
+@click.option("--all-chains", is_flag=True, help="Show status for all supported chains (default: node's configured chains)")
+@click.option("--chain-id", default=None, help="Show status for a specific chain only")
+@click.pass_context
+def sync_status(ctx, node_url, all_chains, chain_id):
+    """Show synchronization status per chain (block height, last hash, sync source).
+
+    Queries the local node's /head and /network-info endpoints. When --all-chains
+    is set, iterates over every chain in the node's supported_chains list and
+    reports per-chain sync status. Use --chain-id to check a single chain.
+    """
+    client = AITBCHTTPClient(base_url=node_url)
+    try:
+        network_info = client.get("/network-info")
+    except NetworkError as e:
+        error(f"Cannot connect to node at {node_url}: {e}")
+        raise click.Abort() from e
+    finally:
+        client.close()
+
+    if isinstance(network_info, dict) and network_info.get("error"):
+        error(f"Error from /network-info: {network_info['error']}")
+        raise click.Abort()
+
+    # Determine which chains to query
+    if chain_id:
+        chains_to_check = [chain_id]
+    elif all_chains or not network_info.get("supported_chains"):
+        # Use supported_chains from network-info, fall back to node's chain_id
+        chains_to_check = network_info.get("supported_chains") or [network_info.get("chain_id", "unknown")]
+    else:
+        chains_to_check = network_info.get("supported_chains") or [network_info.get("chain_id", "unknown")]
+
+    p2p_endpoint = network_info.get("p2p_endpoint", "N/A")
+
+    # Query /head for each chain
+    rows = []
+    client = AITBCHTTPClient(base_url=node_url)
+    try:
+        for cid in chains_to_check:
+            try:
+                head = client.get("/head", params={"chain_id": cid})
+            except NetworkError:
+                rows.append(
+                    {
+                        "Chain ID": cid,
+                        "Height": "N/A",
+                        "Last Block Hash": "N/A",
+                        "Timestamp": "N/A",
+                        "Sync Source": p2p_endpoint,
+                    }
+                )
+                continue
+
+            if isinstance(head, dict) and head.get("error"):
+                rows.append(
+                    {
+                        "Chain ID": cid,
+                        "Height": "N/A",
+                        "Last Block Hash": "N/A",
+                        "Timestamp": "N/A",
+                        "Sync Source": p2p_endpoint,
+                    }
+                )
+                continue
+
+            block_hash = head.get("hash") or head.get("last_block_hash") or "N/A"
+            truncated_hash = f"{block_hash[:16]}..." if block_hash and block_hash != "N/A" else "N/A"
+            rows.append(
+                {
+                    "Chain ID": cid,
+                    "Height": str(head.get("height", "N/A")),
+                    "Last Block Hash": truncated_hash,
+                    "Timestamp": str(head.get("timestamp", "N/A")),
+                    "Sync Source": p2p_endpoint,
+                }
+            )
+    finally:
+        client.close()
+
+    output(rows, ctx.obj.get("output_format", "table"), title="Chain Sync Status")

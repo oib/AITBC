@@ -14,6 +14,7 @@ from .chain import list_chains_command, start_chain_command, stop_chain_command
 from .hub import list_hubs_command, register_hub_command, unregister_hub_command
 from .island import (
     create_island_command,
+    health_command,
     island_info_command,
     join_island_command,
     leave_island_command,
@@ -80,18 +81,37 @@ def leave(ctx, island_id):
 
 
 @island.command()
+@click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
 @click.pass_context
-def list_islands(ctx):
-    """List all known islands"""
-    list_islands_command(ctx)
+def list_islands(ctx, node_url):
+    """List all known islands (queries the node's island manager via RPC)"""
+    list_islands_command(ctx, node_url=node_url)
+
+
+@island.command(name="list")
+@click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
+@click.pass_context
+def list_islands_alias(ctx, node_url):
+    """List all known islands (alias for list-islands)"""
+    list_islands_command(ctx, node_url=node_url)
 
 
 @island.command()
 @click.argument("island_id")
+@click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
 @click.pass_context
-def island_info(ctx, island_id):
-    """Get island information"""
-    island_info_command(ctx, island_id)
+def island_info(ctx, island_id, node_url):
+    """Get island information (queries the node's island manager via RPC)"""
+    island_info_command(ctx, island_id, node_url=node_url)
+
+
+@island.command()
+@click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
+@click.option("--all", "show_all", is_flag=True, help="Show all islands including default")
+@click.pass_context
+def health(ctx, node_url, show_all):
+    """Show health status of connected islands (status, peer count, activity)"""
+    health_command(ctx, node_url=node_url, show_all=show_all)
 
 
 # Hub group
