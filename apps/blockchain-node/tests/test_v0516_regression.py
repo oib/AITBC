@@ -860,17 +860,17 @@ class TestBug14XWalletAddressHeaderWarning:
 
 
 class TestBug15RpcPortFix:
-    """TransactionService must default to port 8006, not 8202."""
+    """TransactionService must default to port 8202 (correct port), not stale 8006."""
 
-    def test_transaction_service_defaults_to_8006(self, monkeypatch) -> None:
-        """TransactionService rpc_url defaults to http://localhost:8006."""
+    def test_transaction_service_defaults_to_8202(self, monkeypatch) -> None:
+        """TransactionService rpc_url defaults to http://localhost:8202."""
         # Ensure BLOCKCHAIN_RPC_URL is not set
         monkeypatch.delenv("BLOCKCHAIN_RPC_URL", raising=False)
         from aitbc.crypto.transaction_service import TransactionService
 
         service = TransactionService()
-        assert service.rpc_url == "http://localhost:8006"
-        assert "8202" not in service.rpc_url
+        assert service.rpc_url == "http://localhost:8202"
+        assert "8006" not in service.rpc_url
 
     def test_transaction_service_respects_env_override(self, monkeypatch) -> None:
         """TransactionService uses BLOCKCHAIN_RPC_URL when set."""

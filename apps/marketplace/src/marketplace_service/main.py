@@ -13,7 +13,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
@@ -124,17 +124,22 @@ async def get_matching_service(session: Annotated[AsyncSession, Depends(get_sess
 
 @app.get("/v1/marketplace/offers")
 async def get_offers(
-    status: str | None,
-    region: str | None,
-    gpu_model: str | None,
     svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+    status: str | None = None,
+    region: str | None = None,
+    gpu_model: str | None = None,
+    chain_id: str | None = None,
 ) -> Any:
-    """Get marketplace offers"""
+    """Get marketplace offers (v0.6.6: optional chain_id filter)"""
     try:
         logger.info(
-            "GET /v1/marketplace/offers called with filters: status=%s, region=%s, gpu_model=%s", status, region, gpu_model
+            "GET /v1/marketplace/offers called with filters: status=%s, region=%s, gpu_model=%s, chain_id=%s",
+            status,
+            region,
+            gpu_model,
+            chain_id,
         )
-        result = await svc.list_offers(status=status, region=region, gpu_model=gpu_model)
+        result = await svc.list_offers(status=status, region=region, gpu_model=gpu_model, chain_id=chain_id)
         logger.info("GET /v1/marketplace/offers returned %s offers", len(result))
         return result
     except Exception as e:
@@ -193,6 +198,36 @@ async def book_offer(
         return result
     except Exception as e:
         logger.error("Error in POST /v1/marketplace/offers/%s/book: %s: %s", offer_id, type(e).__name__, str(e))
+        raise
+
+
+class MatchRequest(BaseModel):
+    """Request model for marketplace matching (v0.6.6)."""
+
+    requirements: dict[str, Any] = Field(default_factory=dict)
+    max_price: float | None = None
+    preferred_region: str | None = None
+    chain_id: str | None = None
+
+
+@app.post("/v1/marketplace/match")
+async def match_request(request: MatchRequest, svc: Annotated[MatchingService, Depends(get_matching_service)]) -> Any:
+    """Match a compute request to the best available GPU offer (v0.6.6).
+
+    Uses price-time priority matching and integrates with the agent-coordinator
+    task queue. Reserves the matched offer via OfferFSM.
+    """
+    try:
+        logger.info("POST /v1/marketplace/match called (chain_id=%s)", request.chain_id)
+        match = await svc.match_and_assign(
+            request.requirements,
+            max_price=request.max_price,
+            preferred_region=request.preferred_region,
+            chain_id=request.chain_id,
+        )
+        return {"status": "success", "match": match}
+    except Exception as e:
+        logger.error("Error in POST /v1/marketplace/match: %s: %s", type(e).__name__, str(e))
         raise
 
 
