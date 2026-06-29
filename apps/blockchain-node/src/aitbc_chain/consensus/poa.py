@@ -40,6 +40,51 @@ logger = get_logger(__name__)
 _METRIC_KEY_SANITIZE = re.compile("[^a-zA-Z0-9_]")
 
 
+# v0.7.3: Governance transaction payload validation
+_GOV_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
+    "GOVERNANCE_PROPOSE": ("proposal_id", "title", "proposer"),
+    "GOVERNANCE_VOTE": ("proposal_id", "voter", "vote_type"),
+    "GOVERNANCE_EXECUTE": ("proposal_id", "executor"),
+}
+
+
+def _validate_governance_payload(tx_type: str, payload: dict[str, Any]) -> list[str]:
+    """Validate a governance transaction payload. Returns list of error messages (empty if valid).
+
+    Checks that the payload contains all required fields for the given governance tx type.
+    Uses ``aitbc.governance.onchain.validate_governance_payload`` when available (Agent A's
+    shared SDK), falling back to inline validation for resilience.
+    """
+    # Try to use the shared SDK validation (Agent A's A3) when available
+    try:
+        from aitbc.governance.onchain import validate_governance_payload as sdk_validate
+        from aitbc.governance.types import GovernanceTxType
+
+        gov_type = GovernanceTxType(tx_type)
+        return sdk_validate(gov_type, payload)
+    except Exception:
+        pass  # SDK not available — use inline validation
+
+    required = _GOV_REQUIRED_FIELDS.get(tx_type)
+    if required is None:
+        return [f"Unknown governance tx type: {tx_type}"]
+
+    errors: list[str] = []
+    for field_name in required:
+        if field_name not in payload:
+            errors.append(f"missing required field: {field_name}")
+        elif not payload[field_name]:
+            errors.append(f"empty required field: {field_name}")
+
+    # Validate vote_type values for GOVERNANCE_VOTE
+    if tx_type == "GOVERNANCE_VOTE" and "vote_type" in payload:
+        vote_type = str(payload["vote_type"]).lower()
+        if vote_type not in ("for", "against", "abstain"):
+            errors.append(f"invalid vote_type: {vote_type} (must be 'for', 'against', or 'abstain')")
+
+    return errors
+
+
 def _sanitize_metric_suffix(value: str) -> str:
     sanitized = _METRIC_KEY_SANITIZE.sub("_", value).strip("_")
     return sanitized or "unknown"
@@ -350,6 +395,17 @@ class PoAProposer:
                             tx_type = tx_type.upper()
                         else:
                             tx_type = "TRANSFER"
+                        # v0.7.3: Validate governance tx payloads
+                        if tx_type.startswith("GOVERNANCE_"):
+                            gov_errors = _validate_governance_payload(tx_type, tx.content.get("payload", {}))
+                            if gov_errors:
+                                nested.rollback()
+                                self._logger.warning(
+                                    "[PROPOSE] Skipping governance tx %s: invalid payload: %s",
+                                    tx.tx_hash,
+                                    ", ".join(gov_errors),
+                                )
+                                continue
                         original_payload = tx.content.get("payload", {})
                         transaction = Transaction(
                             chain_id=self._config.chain_id,
