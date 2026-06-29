@@ -350,7 +350,12 @@ class TestBug3And12BridgeProofVerification:
         # Sign the proof (excluding proposer_signature) with the test private key
         proof_for_signing = {k: v for k, v in proof.items() if k != "proposer_signature"}
         proof["proposer_signature"] = _sign_message(priv_key, proof_for_signing)
-        assert bridge._validate_proof(proof, valid_record) is True
+        # v0.7.2: _validate_proof now does block header lookup + validator set freshness
+        # check. With a mock session, these fail. Use "field-eq" mode (skips block header
+        # lookup) and patch validator set freshness to return True.
+        with patch.object(bridge, "_check_validator_set_freshness", return_value=True):
+            with patch.object(settings, "bridge_verification_mode", "field-eq"):
+                assert bridge._validate_proof(proof, valid_record) is True
 
     def test_rejects_proof_with_invalid_signature(self, bridge, valid_record) -> None:
         """A proof with an invalid (malformed) proposer_signature is rejected."""
