@@ -33,6 +33,8 @@ class MarketplaceOffer(SQLModel, table=True):
     cuda_version: str | None = Field(default=None)
     price_per_hour: float | None = Field(default=None)
     region: str | None = Field(default=None, index=True)
+    # v0.6.6: Chain awareness — which chain this offer is on
+    chain_id: str | None = Field(default=None, index=True)
 
 
 class MarketplaceBid(SQLModel, table=True):

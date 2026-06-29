@@ -15,11 +15,15 @@ class GPUListing(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"gpu_listing_{uuid4().hex[:8]}", primary_key=True)
-    listing_id: str = Field(index=True)
-    island_id: str = Field(index=True)
-    miner_id: str = Field(index=True)
-    gpu_type: str = Field(index=True)
-    price_per_hour: float
+    # v0.6.6: gpu_id and model are the primary identifiers used by service code.
+    gpu_id: str = Field(default="", index=True)
+    model: str = Field(default="Unknown", index=True)
+    # Legacy fields — kept for backward compatibility, now optional.
+    listing_id: str = Field(default="", index=True)
+    island_id: str = Field(default="", index=True)
+    miner_id: str = Field(default="", index=True)
+    gpu_type: str = Field(default="", index=True)
+    price_per_hour: float = Field(default=0.0)
     status: str = Field(default="active", index=True)  # active, inactive, booked
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

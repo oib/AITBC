@@ -66,3 +66,10 @@ async def get_gpu_metrics(
     """Get GPU metrics"""
     metrics = await svc.get_gpu_metrics(gpu_id, limit)
     return {"gpu_id": gpu_id, "metrics": metrics, "total": len(metrics)}
+
+
+@router.post("/advertise")
+async def advertise_to_marketplace(svc: Annotated[GPUService, Depends(get_gpu_service)]) -> Any:
+    """Advertise this edge node's GPU capabilities to the marketplace (v0.6.6)."""
+    result = await svc.advertise_to_marketplace()
+    return result

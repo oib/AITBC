@@ -1,9 +1,11 @@
 """Main FastAPI application for Edge API Service"""
 
+import asyncio
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -23,13 +25,30 @@ from .storage import init_db
 logger = get_logger(__name__)
 
 
+async def _report_health_to_coordinator() -> None:
+    """Background task: periodically report health to agent-coordinator (v0.6.6)."""
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                await client.post(
+                    f"{settings.agent_coordinator_url}/agents/heartbeat",
+                    json={"service": "aitbc-edge", "status": "healthy", "port": settings.app_port},
+                )
+        except Exception as e:
+            logger.debug("Coordinator heartbeat failed: %s", e)
+        await asyncio.sleep(settings.agent_heartbeat_interval_seconds)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifespan context manager for startup/shutdown"""
     logger.info("Starting Edge API Service")
     await init_db()
     logger.info("Database initialized")
+    # v0.6.6: start coordinator health reporting background task
+    health_task = asyncio.create_task(_report_health_to_coordinator())
     yield
+    health_task.cancel()
     logger.info("Shutting down Edge API Service")
 
 
