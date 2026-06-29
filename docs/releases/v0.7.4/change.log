@@ -220,7 +220,7 @@ AITBC v0.7.4 collects the deferred items from v0.7.0-v0.7.3 that were tagged "de
 
 ## 🔐 Security Considerations
 
-- **MultiValidatorPoA**: Requires security review before activation. Consensus bugs can chain-split.
+- **MultiValidatorPoA**: 🔴 **BLOCKING — security review complete, DO NOT ACTIVATE in v0.7.4.** See [Security Review: MultiValidatorPoA + PBFT](security-review-multivalidator-poa.md). 6 Critical + 6 High findings (no block signatures, no slashing, no validator rotation, PBFT messages unsigned, network layer is no-op, fake consensus). Recommend splitting activation to v0.7.5.
 - **External oracle**: Oracle compromise can allow invalid proofs. Use multiple oracles + fallback.
 - **Cross-chain governance**: Proposal propagation must authenticate source chain. Vote aggregation must prevent double-voting.
 - **Parameter automation**: Parameter changes must be validated before application. Rate-limit changes.
@@ -241,8 +241,9 @@ AITBC v0.7.4 collects the deferred items from v0.7.0-v0.7.3 that were tagged "de
 - ✅ Parameter automation applies changes to pool-hub and marketplace
 - ✅ Emergency proposals have accelerated timelock and higher quorum
 - ✅ Coordinator-API uses BridgeClient (duplicate bridge removed)
-- ✅ MultiValidatorPoA activated with security review sign-off
-- ✅ Performance targets met
+- ✅ MultiValidatorPoA security review complete (see [security-review-multivalidator-poa.md](security-review-multivalidator-poa.md))
+- ⛔ MultiValidatorPoA activation DEFERRED to v0.7.5 (6 Critical + 6 High findings must be fixed first)
+- ✅ Performance targets met (excluding MultiValidatorPoA)
 
 ## 🚀 Next Steps
 

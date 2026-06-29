@@ -147,7 +147,7 @@ cd /opt/aitbc && PYTHONPATH=apps/governance/src:aitbc ./venv/bin/python -m pytes
 | B4 | Add governance-triggered parameter change API to marketplace | Medium | `apps/marketplace/src/marketplace_service/` (extend) | ⬜ |
 | B5 | Add emergency proposal handling — accelerated timelock, fast-track execution | Medium | `apps/governance/src/governance_service/services/governance_service.py` (extend) | ⬜ |
 | B6 | Integrate coordinator-api with BridgeClient — replace CrossChainBridgeService | Medium | `apps/coordinator-api/src/app/contexts/cross_chain/` (refactor) | ⬜ |
-| B7 | MultiValidatorPoA activation — security review, remove guard, enable | 🔴 P0 (gated) | `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend) | ⬜ |
+| B7 | MultiValidatorPoA activation — security review, remove guard, enable | ⛔ DEFERRED to v0.7.5 | `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend) | ⛔ Deferred |
 | B8 | Add CLI commands — governance propagate, aggregate-votes, bridge oracle-status, consensus validators/status | Medium | `cli/aitbc_cli/commands/governance.py` (extend), `cli/aitbc_cli/commands/bridge.py` (extend), `cli/aitbc_cli/commands/chain.py` (extend) | ⬜ |
 | B9 | Integration tests | High | `apps/governance/tests/test_v074_deferred.py` (new) | ⬜ |
 
@@ -198,16 +198,21 @@ Refactor `apps/coordinator-api/src/app/contexts/cross_chain/`:
 - Remove duplicate bridge implementation
 - Update tests to use BridgeClient mocks
 
-#### B7: MultiValidatorPoA Activation
+#### B7: MultiValidatorPoA Activation — ⛔ DEFERRED TO v0.7.5
 
-⚠️ **Requires security review sign-off before activation.**
+⛔ **Security review complete — DO NOT ACTIVATE in v0.7.4.** See [security-review-multivalidator-poa.md](security-review-multivalidator-poa.md).
 
-- Security audit of `multi_validator_poa.py` (294 lines) and `pbft.py`
-- Remove `RuntimeError` guard at line 45-49
-- Enable `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` in production config
-- Add consensus validator metrics
-- Add rollback plan (disable if issues found)
-- Test on testnet first
+The review found 6 Critical + 6 High findings:
+- No block signature verification (trivial forgery)
+- No slashing (Byzantine validators face no penalty)
+- No validator rotation (header requires it, not implemented)
+- PBFT messages have no signatures (`signature=""`)
+- PBFT network layer is a no-op (`_send_to_validator` is `pass`)
+- Fake consensus (`attempt_consensus` is `asyncio.sleep` + majority check)
+
+**Recommendation**: Split B7 into a new release **v0.7.5 (Consensus Activation)** with the 12 must-fix items as its scope. v0.7.4 ships without MultiValidatorPoA activation. The RuntimeError guard at `multi_validator_poa.py:45-49` and `pbft.py:60-64` must remain in place.
+
+See the security review doc for the full gating criteria checklist.
 
 #### B8: CLI Commands
 
@@ -244,7 +249,8 @@ Agent A owns `aitbc/bridge/oracle.py`, `aitbc/governance/`. Agent B owns `apps/`
 
 1. **Phase 1** (low-risk, parallel): Agent A A4 (parameter helper), Agent B B3-B5 (parameter APIs, emergency proposals)
 2. **Phase 2** (Agent A first): Agent A A1-A2 (oracle), A3 (cross-chain governance), Agent B B1-B2 (oracle config, cross-chain endpoints)
-3. **Phase 3** (Agent B): B6 (coordinator-api), B7 (MultiValidatorPoA — gated on security review), B8 (CLI), B9 (tests)
+3. **Phase 3** (Agent B): B6 (coordinator-api), B8 (CLI), B9 (tests)
+4. **Phase 4** (⛔ deferred to v0.7.5): B7 (MultiValidatorPoA activation) — security review found 6 Critical + 6 High findings, cannot activate without substantial rework
 
 ### Dependencies
 

@@ -1,0 +1,96 @@
+# AITBC v0.7.5 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Consensus Activation — MultiValidatorPoA + PBFT (fix security review findings, then activate)
+
+## 🎯 Overview
+
+AITBC v0.7.5 activates MultiValidatorPoA and PBFT consensus after the security review findings from v0.7.4 are resolved. This release was split from v0.7.4 B7 after the [security review](../v0.7.4/security-review-multivalidator-poa.md) found that both implementations are scaffolding, not production consensus — 6 Critical + 6 High findings must be fixed before activation.
+
+**Why this release exists**: v0.7.4 B7 (MultiValidatorPoA activation) cannot ship without fixing the security review findings. The work is substantial (real consensus protocol, signatures, slashing, rotation, network transport) and would block v0.7.4's other 5 items. Splitting consensus activation into v0.7.5 lets v0.7.4 ship the low/medium-risk items independently.
+
+**Prerequisites**: [v0.7.4](../v0.7.4/change.log) (deferred v0.7.x items — must ship first so the bridge + governance foundation is in place).
+
+> **Not on the critical path**: v0.8.x (trading) and v0.9.0 (atomic settlement) do not depend on v0.7.5. Single-validator PoA remains the active consensus until v0.7.5 ships.
+
+> **Risk**: High. Consensus bugs = chain splits. Requires testnet soak test (≥48h) before mainnet activation.
+
+## 🎯 Release Highlights
+
+### Must-Fix Before Activation (from security review)
+
+#### Critical (6)
+- **C1**: Block signature verification in `validate_block()` (ed25519)
+- **C2**: Slashing mechanism for Byzantine validators (stake slash + deactivate + broadcast)
+- **C3**: Validator rotation (epoch-based, on-chain)
+- **C4**: PBFT message signatures (sign + verify every message)
+- **C5**: PBFT network transport (replace no-op `_send_to_validator` with gossip layer)
+- **C6**: `record_prepare` must reject conflicting messages, not return True
+
+#### High (6)
+- **H1**: Real consensus in `attempt_consensus()` (message exchange, not majority check)
+- **H2**: Real transaction validation (delegate to existing PoA path)
+- **H3**: Real block creation (parent hash, tx root, state root — not `sha256(time)`)
+- **H4**: Dynamic fault tolerance recalculation (not static at init)
+- **H5**: Safe view change with prepared certificate preservation
+- **H6**: View change timeout for liveness
+
+### Must-Test Before Activation
+- Byzantine validator detection + slashing test
+- Block forgery rejection test (invalid signature)
+- View change safety test (committed block preserved across view change)
+- Network partition recovery test
+- Multi-node PBFT integration test (≥3 nodes, 1 Byzantine)
+- Proposer crash → view change → recovery test
+
+### Operational Requirements
+- Consensus state persistence (survive node restart)
+- Consensus metrics (validator count, consensus rounds, view changes, byzantine detections)
+- Rollback plan (document how to disable if issues found post-activation)
+- Testnet deployment + soak test (≥48h) before mainnet
+
+## 🔧 Breaking Changes
+
+- MultiValidatorPoA activation changes consensus mechanism (single → multi validator)
+- PBFT activation adds 3-phase consensus (pre-prepare → prepare → commit)
+
+## 📊 Migration Guide
+
+### v0.7.4 → v0.7.5
+
+1. **MultiValidatorPoA activation** (after all gating criteria met):
+   ```bash
+   MULTI_VALIDATOR_CONSENSUS_ENABLED=true
+   ```
+
+2. **Testnet soak test** (mandatory before mainnet):
+   - Deploy to testnet with ≥3 validator nodes
+   - Run for ≥48h with continuous block production
+   - Verify: no chain splits, no equivocation, view changes recover correctly
+   - Simulate 1 Byzantine validator, verify slashing works
+
+## 🔐 Security Considerations
+
+- **Full security review**: [security-review-multivalidator-poa.md](../v0.7.4/security-review-multivalidator-poa.md) — 6 Critical + 6 High findings
+- **All findings must be resolved** before activation
+- **Testnet soak test mandatory** — no mainnet activation without 48h testnet validation
+- **Rollback plan required** — document how to disable MultiValidatorPoA if issues found
+
+## 🎯 Success Criteria
+
+- ✅ All 6 Critical findings fixed and tested
+- ✅ All 6 High findings fixed and tested
+- ✅ All 6 must-test scenarios pass
+- ✅ Consensus state persists across node restarts
+- ✅ Consensus metrics exposed
+- ✅ Testnet soak test passes (≥48h, no chain splits)
+- ✅ Rollback plan documented
+- ✅ `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` in production config
+
+---
+
+*Last Updated: 2026-06-29*
+*Version: 0.7.5*
+*Status: Planned*
+*Origin: Split from v0.7.4 B7 after [security review](../v0.7.4/security-review-multivalidator-poa.md)*

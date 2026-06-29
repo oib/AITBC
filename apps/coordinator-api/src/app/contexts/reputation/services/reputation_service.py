@@ -9,6 +9,7 @@ from typing import Any
 from sqlmodel import Session, and_, func, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc_shared.models import ReputationDTO
 
 from ..domain.reputation import (
     AgentReputation,
@@ -186,6 +187,19 @@ class ReputationService:
         reputation data (certification, rewards, etc.).
         """
         return self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()  # type: ignore[return-value]
+
+    def get_reputation_dto(self, agent_id: str) -> ReputationDTO | None:
+        """Return a :class:`ReputationDTO` projection for ``agent_id``.
+
+        Cross-context consumers (certification, partnership, badge) should
+        prefer this over :meth:`get_reputation_by_agent` so they depend only
+        on the shared DTO and not on the reputation context's ORM model.
+        Returns ``None`` when the agent has no reputation profile yet.
+        """
+        reputation = self.get_reputation_by_agent(agent_id)
+        if reputation is None:
+            return None
+        return reputation.to_dto()
 
     async def create_reputation_profile(self, agent_id: str) -> AgentReputation:
         """Create a new reputation profile for an agent"""

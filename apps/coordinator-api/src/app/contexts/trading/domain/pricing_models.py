@@ -284,191 +284,11 @@ class PriceForecast(SQLModel, table=True):
     lessons_learned: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
 
-class PricingOptimization(SQLModel, table=True):
-    """Pricing optimization experiments and results"""
-
-    __tablename__ = "pricing_optimizations"
-    __table_args__ = (
-        Index("idx_pricing_opt_provider", "provider_id"),
-        Index("idx_pricing_opt_experiment", "experiment_id"),
-        Index("idx_pricing_opt_status", "status"),
-        Index("idx_pricing_opt_created", "created_at"),
-        {"extend_existing": True},
-    )
-
-    id: str = Field(default_factory=lambda: f"po_{uuid4().hex[:12]}", primary_key=True)
-    experiment_id: str = Field(index=True)
-    provider_id: str = Field(index=True)
-    resource_type: ResourceType | None = Field(default=None, index=True)
-
-    # Experiment configuration
-    experiment_name: str
-    experiment_type: str  # ab_test, multivariate, optimization
-    hypothesis: str
-    control_strategy: PricingStrategyType
-    test_strategy: PricingStrategyType
-
-    # Experiment parameters
-    sample_size: int
-    confidence_level: float = Field(default=0.95)
-    statistical_power: float = Field(default=0.8)
-    minimum_detectable_effect: float
-
-    # Experiment scope
-    regions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    duration_days: int
-    start_date: datetime
-    end_date: datetime | None = None
-
-    # Results
-    control_performance: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
-    test_performance: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
-    statistical_significance: float | None = None
-    effect_size: float | None = None
-
-    # Business impact
-    revenue_impact: float | None = None
-    profit_impact: float | None = None
-    market_share_impact: float | None = None
-    customer_satisfaction_impact: float | None = None
-
-    # Status and metadata
-    status: str = Field(default="planned")  # planned, running, completed, failed
-    conclusion: str | None = None
-    recommendations: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    completed_at: datetime | None = None
-
-    # Audit trail
-    created_by: str | None = None
-    reviewed_by: str | None = None
-    approved_by: str | None = None
-
-
-class PricingAlert(SQLModel, table=True):
-    """Pricing alerts and notifications"""
-
-    __tablename__ = "pricing_alerts"
-    __table_args__ = (
-        Index("idx_pricing_alerts_provider", "provider_id"),
-        Index("idx_pricing_alerts_type", "alert_type"),
-        Index("idx_pricing_alerts_status", "status"),
-        Index("idx_pricing_alerts_severity", "severity"),
-        Index("idx_pricing_alerts_created", "created_at"),
-        {"extend_existing": True},
-    )
-
-    id: str = Field(default_factory=lambda: f"pa_{uuid4().hex[:12]}", primary_key=True)
-    provider_id: str | None = Field(default=None, index=True)
-    resource_id: str | None = Field(default=None, index=True)
-    resource_type: ResourceType | None = Field(default=None, index=True)
-
-    # Alert details
-    alert_type: str = Field(index=True)  # price_volatility, strategy_performance, market_change, etc.
-    severity: str = Field(index=True)  # low, medium, high, critical
-    title: str
-    description: str
-
-    # Alert conditions
-    trigger_conditions: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    threshold_values: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
-    actual_values: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
-
-    # Alert context
-    market_conditions: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    strategy_context: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    historical_context: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-    # Recommendations and actions
-    recommendations: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    automated_actions_taken: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    manual_actions_required: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Status and resolution
-    status: str = Field(default="active")  # active, acknowledged, resolved, dismissed
-    resolution: str | None = None
-    resolution_notes: str | None = Field(default=None, sa_column=Column(Text))
-
-    # Impact assessment
-    business_impact: str | None = None
-    revenue_impact_estimate: float | None = None
-    customer_impact_estimate: str | None = None
-
-    # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
-    first_seen: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    last_seen: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    acknowledged_at: datetime | None = None
-    resolved_at: datetime | None = None
-
-    # Communication
-    notification_sent: bool = Field(default=False)
-    notification_channels: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    escalation_level: int = Field(default=0)
-
-
-class PricingRule(SQLModel, table=True):
-    """Custom pricing rules and conditions"""
-
-    __tablename__ = "pricing_rules"
-    __table_args__ = (
-        Index("idx_pricing_rules_provider", "provider_id"),
-        Index("idx_pricing_rules_strategy", "strategy_id"),
-        Index("idx_pricing_rules_active", "is_active"),
-        Index("idx_pricing_rules_priority", "priority"),
-        {"extend_existing": True},
-    )
-
-    id: str = Field(default_factory=lambda: f"pr_{uuid4().hex[:12]}", primary_key=True)
-    provider_id: str | None = Field(default=None, index=True)
-    strategy_id: str | None = Field(default=None, index=True)
-
-    # Rule definition
-    rule_name: str
-    rule_description: str | None = None
-    rule_type: str  # condition, action, constraint, optimization
-
-    # Rule logic
-    condition_expression: str = Field(..., description="Logical condition for rule")
-    action_expression: str = Field(..., description="Action to take when condition is met")
-    priority: int = Field(default=5, index=True)  # 1-10 priority
-
-    # Rule scope
-    resource_types: list[ResourceType] = Field(default_factory=list, sa_column=Column(JSON))
-    regions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    time_conditions: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-    # Rule parameters
-    parameters: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    thresholds: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
-    multipliers: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
-
-    # Status and execution
-    is_active: bool = Field(default=True, index=True)
-    execution_count: int = Field(default=0)
-    success_count: int = Field(default=0)
-    failure_count: int = Field(default=0)
-    last_executed: datetime | None = None
-    last_success: datetime | None = None
-
-    # Performance metrics
-    average_execution_time: float | None = None
-    success_rate: float = Field(default=1.0)
-    business_impact: float | None = None
-
-    # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    expires_at: datetime | None = None
-
-    # Audit trail
-    created_by: str | None = None
-    updated_by: str | None = None
-    version: int = Field(default=1)
-    change_log: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+# NOTE (v0.5.19): PricingOptimization, PricingAlert, and PricingRule tables were
+# removed — they were never wired into any service and had no read/write callers.
+# PricingAuditLog below is wired into dynamic_pricing.py as the audit trail for
+# automated price changes and strategy updates. The dropped tables are cleaned up
+# by Alembic migration `drop_unused_pricing_tables`.
 
 
 class PricingAuditLog(SQLModel, table=True):
@@ -572,11 +392,8 @@ __all__ = [
     "MarketMetrics",
     "PriceForecast",
     "PriceTrend",
-    "PricingAlert",
     "PricingAuditLog",
     "PricingHistory",
-    "PricingOptimization",
-    "PricingRule",
     "PricingStrategyType",
     "PricingSummaryView",
     "ProviderPricingStrategy",

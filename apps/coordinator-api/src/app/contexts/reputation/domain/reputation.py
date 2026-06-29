@@ -5,10 +5,13 @@ Implements SQLModel definitions for agent reputation, trust scores, and economic
 
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from sqlmodel import JSON, Column, Field, SQLModel
+
+if TYPE_CHECKING:
+    from aitbc_shared.models import ReputationDTO
 
 
 class ReputationLevel(StrEnum):
@@ -75,6 +78,42 @@ class AgentReputation(SQLModel, table=True):
     reputation_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
     achievements: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     certifications: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+
+    def to_dto(self) -> "ReputationDTO":
+        """Project this ORM row into a context-agnostic :class:`ReputationDTO`.
+
+        Cross-context consumers (certification, partnership, badge) should call
+        this (via ``ReputationService.get_reputation_dto``) rather than
+        importing ``AgentReputation`` directly, so they depend only on the DTO
+        and not on the reputation context's ORM layer.
+        """
+        from aitbc_shared.models import ReputationDTO
+
+        return ReputationDTO(
+            agent_id=self.agent_id,
+            trust_score=self.trust_score,
+            reputation_level=self.reputation_level.value if self.reputation_level else "beginner",
+            performance_rating=self.performance_rating,
+            reliability_score=self.reliability_score,
+            community_rating=self.community_rating,
+            total_earnings=self.total_earnings,
+            transaction_count=self.transaction_count,
+            success_rate=self.success_rate,
+            dispute_count=self.dispute_count,
+            dispute_won_count=self.dispute_won_count,
+            jobs_completed=self.jobs_completed,
+            jobs_failed=self.jobs_failed,
+            average_response_time=self.average_response_time,
+            uptime_percentage=self.uptime_percentage,
+            community_contributions=self.community_contributions,
+            geographic_region=self.geographic_region,
+            service_categories=list(self.service_categories or []),
+            specialization_tags=list(self.specialization_tags or []),
+            certifications=list(self.certifications or []),
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+            last_activity=self.last_activity,
+        )
 
 
 class TrustScoreCalculation(SQLModel, table=True):
