@@ -191,6 +191,43 @@ class BridgeClient:
             await self._client.aclose()
             self._client = None
 
+    # ------------------------------------------------------------------
+    # v0.7.1 §A4 — validator set + security status RPC methods
+    # ------------------------------------------------------------------
+
+    async def register_validator(
+        self,
+        chain_id: str,
+        address: str,
+        public_key: str,
+        signature: str,
+    ) -> dict[str, Any]:
+        """Register a validator for bridge operations."""
+        payload = {
+            "chain_id": chain_id,
+            "address": address,
+            "public_key": public_key,
+            "signature": signature,
+        }
+        resp = await self._ensure_client().post("/bridge/validators/register", json=payload)
+        resp.raise_for_status()
+        return cast(dict[str, Any], resp.json())
+
+    async def get_validator_set(self, chain_id: str, epoch: int | None = None) -> dict[str, Any]:
+        """Get the validator set for a chain."""
+        params: dict[str, Any] = {}
+        if epoch is not None:
+            params["epoch"] = epoch
+        resp = await self._ensure_client().get(f"/bridge/validators/{chain_id}", params=params)
+        resp.raise_for_status()
+        return cast(dict[str, Any], resp.json())
+
+    async def security_status(self) -> dict[str, Any]:
+        """Get bridge security status (multi-sig config, validator count, etc.)."""
+        resp = await self._ensure_client().get("/bridge/security/status")
+        resp.raise_for_status()
+        return cast(dict[str, Any], resp.json())
+
 
 def transfer_from_dict(data: dict[str, Any]) -> BridgeTransfer:
     """Parse a BridgeTransfer from an RPC response dict.
