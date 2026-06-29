@@ -31,6 +31,18 @@ except ImportError as e:
     _island_manager_available = False
     create_island_manager = None
 
+# Multi-chain manager (v0.6.4)
+_multi_chain_manager_available = False
+create_multi_chain_manager: Callable[..., "MultiChainManager"] | None
+try:
+    from .network.multi_chain_manager import MultiChainManager, create_multi_chain_manager
+
+    _multi_chain_manager_available = True
+except ImportError as e:
+    logger.warning("Multi-chain manager module not available: %s", e)
+    _multi_chain_manager_available = False
+    create_multi_chain_manager = None
+
 
 def _load_keystore_password() -> str:
     """Load keystore password from file or environment."""
@@ -105,6 +117,7 @@ class BlockchainNode:
             default_url=settings.default_peer_rpc_url,
         )
         self._subscription_manager: SubscriptionManager | None = None
+        self._multi_chain_manager: MultiChainManager | None = None
 
     @staticmethod
     def _env_value(*names: str) -> str | None:
@@ -349,6 +362,24 @@ class BlockchainNode:
                 logger.error("Failed to initialize island manager: %s", e)
         else:
             logger.warning("Island manager not available - island operations will be disabled")
+        # Multi-chain manager: start secondary chains from island_chains config (v0.6.4)
+        if _multi_chain_manager_available and create_multi_chain_manager is not None:
+            try:
+                default_chain_id = self._supported_chains()[0]
+                base_db_path = Path(settings.get_db_path(default_chain_id))
+                self._multi_chain_manager = create_multi_chain_manager(
+                    default_chain_id=default_chain_id,
+                    base_db_path=base_db_path,
+                    base_rpc_port=int(os.getenv("RPC_PORT", "8006")),
+                    base_p2p_port=int(os.getenv("P2P_PORT", "8007")),
+                )
+                # Start secondary chains (default chain is managed by main proposer logic)
+                await self._multi_chain_manager.start_secondary_chains()
+                # Start health check background task
+                self._task_registry.create_task(self._multi_chain_manager.start, name="multi_chain_manager")
+                logger.info("Multi-chain manager initialized and secondary chains started")
+            except Exception as e:
+                logger.error("Failed to initialize multi-chain manager: %s", e)
         if settings.blockchain_mode == "hub":
             logger.info("Running in HUB mode (blockchain_mode=%s)", settings.blockchain_mode)
             await self._ensure_genesis_for_chains()
@@ -531,6 +562,12 @@ class BlockchainNode:
         logger.info("Shutting down blockchain node, cancelling background tasks...")
         if self._subscription_manager is not None:
             await self._subscription_manager.stop_all()
+        # Stop multi-chain manager (stops all secondary chains gracefully)
+        if self._multi_chain_manager is not None:
+            try:
+                await self._multi_chain_manager.stop()
+            except Exception as e:
+                logger.error("Error stopping multi-chain manager: %s", e)
         await self._task_registry.cancel_all(timeout=10.0)
         for _chain_id, proposer in list(self._proposers.items()):
             await proposer.stop()
