@@ -43,6 +43,221 @@
 8. ✅ **Offer types exist** (v0.8.1) — OfferSyncStatus, SyncedOffer, OfferSyncConfig, etc.
 9. ✅ **v0.8.1 polling-based sync exists** — remains as fallback when subscription fails
 
+## Design Decisions (Resolved 2026-06-29)
+
+All 5 design decisions are grounded in codebase investigation (4 parallel subagent reports). Each decision cites the existing pattern it follows.
+
+### Decision 1: Offer Event Schema
+
+**Decision**: Use `event_type` (not `event`) as the field name, include `source` field, embed `SyncedOffer` object (not raw dict).
+
+```python
+@dataclass
+class OfferEvent:
+    event_type: str          # OfferEventType value: "created" | "updated" | "deleted"
+    offer_id: str
+    chain_id: str
+    offer: SyncedOffer | None = None  # None for deleted events
+    timestamp: str = ""      # ISO 8601 (datetime.now(UTC).isoformat())
+    source: str | None = None  # "blockchain-node" | "trading-service" | None
+```
+
+**Rationale (grounded in evidence)**:
+- Field name `event_type` matches the **agent-coordinator event pattern** (`apps/agent-coordinator/src/app/routing/agent_discovery.py:370-375`): `{"event_type": str, "timestamp": ISO, "payload": dict}`. Using `event` would diverge from the only existing Redis pub/sub event pattern in the codebase.
+- `source` field matches the generic `aitbc.events.Event` dataclass (`aitbc/events/events.py:30-42`): `event_type, data, timestamp, priority, source`. This enables event routing and debugging.
+- Embedding `SyncedOffer` object (with `to_dict()`/`from_dict()`) rather than a raw dict payload matches how `SyncedOffer` is already serialized in `offer_cache.py:65-74` and `offer_types.py:64-116`. It provides type safety and consistent serialization.
+- `timestamp` as ISO string (not datetime object) matches all existing patterns: agent-coordinator, gossip block messages (`consensus/poa.py:502`: `block.timestamp.isoformat()`), and `SyncedOffer.last_synced`.
+
+**Gossip message format** (when publishing to `offers.{chain_id}` topic):
+```json
+{
+  "event_type": "created",
+  "offer_id": "gpu_abc123",
+  "chain_id": "ait-hub",
+  "offer": { /* SyncedOffer.to_dict() output */ },
+  "timestamp": "2026-06-29T12:00:00+00:00",
+  "source": "blockchain-node"
+}
+```
+
+**Event type semantics**:
+| Event | Trigger | `offer` field |
+|-------|---------|---------------|
+| `created` | New GPU_MARKETPLACE tx confirmed | Full `SyncedOffer` |
+| `updated` | Offer status change (e.g., available→reserved) | Full `SyncedOffer` with new status |
+| `deleted` | Offer delisted/expired | `None` (only `offer_id` + `chain_id` needed) |
+
+---
+
+### Decision 2: Gossip Topic Partitioning
+
+**Decision**: Use `offers.{chain_id}` (per-chain partitioning), NOT a single global `offers` topic.
+
+**Rationale (grounded in evidence)**:
+- **ALL existing gossip topics use per-chain partitioning** — this is the only pattern in the codebase:
+  - `blocks.{chain_id}` (`consensus/poa.py:488`, `main.py:223`)
+  - `transactions.{chain_id}` (`main.py:182`)
+  - `chain.{chain_id}.sync` (`network/multi_chain_manager.py:310`)
+- Redis channel name = gossip topic string (1:1 mapping, `gossip/broker.py:174,184,209`). Per-chain topics → separate Redis channels → isolated delivery, per-chain metrics (`gossip_publications_topic_{topic}`), cleaner debugging.
+- Subscribers only receive events for chains they care about. A single global `offers` topic would force every subscriber to filter by `chain_id` in the message handler — wasteful at scale.
+- `chain_id` is ALSO included in the message payload (defense-in-depth, matching how block messages redundantly include `chain_id` at `consensus/poa.py:499`).
+
+**Priority routing**: The existing `_priority_for_topic()` in `gossip/broker.py:318-328` defaults non-block/transaction topics to `PRIORITY_STATUS` (4). Offers are lower priority than blocks/transactions — **no change needed to `_priority_for_topic()`**. Offers default to priority 4, which is correct.
+
+**Subscription pattern** (trading service):
+```python
+# Subscribe to offer events for each registered chain
+for chain_id in registered_chains:
+    sub = await gossip_broker.subscribe(f"offers.{chain_id}")
+    # Process events from sub.queue
+```
+
+---
+
+### Decision 3: Subscription Auth
+
+**Decision**: Reuse the exact lease-based pattern from `/rpc/subscribe/ws`. No JWT, no X-Wallet-Address. Auth via `node_id` + Redis lease.
+
+**Rationale (grounded in evidence)**:
+- The existing WebSocket subscription endpoint (`apps/blockchain-node/src/aitbc_chain/rpc/websocket.py:42-136`) uses **lease-based auth with `node_id`** — no JWT, no wallet address. This is the only WebSocket auth pattern in the codebase.
+- The lease is obtained via prior HTTP POST to `/rpc/subscribe` (`rpc/subscription.py:14-56`), stored in Redis via `lease_tracker.py:80-116`, and validated on WebSocket connect (`websocket.py:54-83`).
+- Config values are proven: `lease_duration=3600` (1hr), `lease_renewal_threshold=300` (5min), `heartbeat_interval=60` (1min) — `config.py:184-188`.
+
+**New endpoints (mirroring existing pattern)**:
+| Endpoint | Mirrors | Purpose |
+|----------|---------|---------|
+| `POST /v1/trading/offers/subscribe` | `POST /rpc/subscribe` | Register, get lease |
+| `POST /v1/trading/offers/heartbeat` | `POST /rpc/heartbeat` | Extend lease |
+| `WS /v1/trading/offers/subscribe/ws` | `WS /rpc/subscribe/ws` | Stream offer events |
+
+**WebSocket first message** (client → server, extends existing pattern with optional filters):
+```json
+{
+  "node_id": "trading-node-1",
+  "chain_id": "ait-hub",
+  "transport": "websocket",
+  "filters": {
+    "service_type": "gpu_marketplace",
+    "min_price": 0.5,
+    "max_price": 10.0,
+    "region": "us-east",
+    "gpu_model": "A100"
+  }
+}
+```
+
+**Lease storage**: The trading service is a separate process from blockchain-node. It needs its own lease tracker pointing at the same Redis, with a **different key prefix** to avoid collisions:
+- Block subscription leases: `lease:subscriber:{node_id}` (existing, `lease_tracker.py`)
+- Offer subscription leases: `lease:offer_subscriber:{node_id}` (new)
+
+**Heartbeat**: Same dual-heartbeat pattern as existing:
+1. Application-level JSON ping every 20s: `{"type": "ping", "timestamp": ...}` (server → client)
+2. HTTP heartbeat for lease renewal every 60s, renews when <300s remaining (client → server)
+3. WebSocket protocol-level ping handled by `websockets` library (`ping_interval=20, ping_timeout=30`)
+
+**Reconnection**: Same backoff as `subscription_client.py:262-276`:
+- WebSocket disconnect → retry after 5s
+- Other errors → fallback to polling (v0.8.1 OfferSyncClient), retry after 30s
+
+---
+
+### Decision 4: Staleness During Subscription Drop
+
+**Decision**: Multi-layer staleness policy. When a subscription drops, mark offers stale (don't delete them), then fall back to polling.
+
+**Rationale (grounded in evidence)**:
+- OfferCache already has per-offer staleness via `last_synced` + `staleness_threshold_seconds` (default 300s, `offer_cache.py:112-123`, `offer_types.py:38-60`). This is the foundation.
+- BlockchainCache uses **TTL + event invalidation** (belt-and-suspenders, `blockchain_cache.py:24-29`). OfferCache should follow the same layered approach.
+- SubscriptionClient already has push→pull fallback (`subscription_client.py:262-276`, `368-382`). Offer subscription should do the same: subscription → polling fallback.
+- **Gap identified**: No per-chain "silent chain" detection exists. This is new work.
+
+**Staleness layers**:
+| Layer | Mechanism | Existing? | Trigger |
+|-------|-----------|-----------|---------|
+| 1. Per-offer TTL | `cache_ttl_seconds=300` — entries auto-expire | ✅ Existing | Time-based |
+| 2. Per-offer staleness | `is_stale()` checks `last_synced` vs threshold | ✅ Existing | Time-based |
+| 3. Per-chain silent detection | `mark_chain_silent()` — mark all chain offers stale | ❌ NEW | Subscription drop + N failed reconnects |
+| 4. Polling fallback | Switch to v0.8.1 OfferSyncClient polling | ✅ Existing (pattern) | Subscription failure |
+
+**New OfferCache methods**:
+```python
+def mark_chain_silent(self, chain_id: str) -> int:
+    """Mark all offers for a chain as stale when subscription drops.
+
+    Sets sync_status=STALE, sync_confidence=0.5 for all offers.
+    Records 'silent_since' in chain sync metadata.
+    Does NOT delete offers — consumers need to know data is uncertain.
+    Returns: number of offers marked stale.
+    """
+
+def is_chain_silent(self, chain_id: str) -> bool:
+    """Check if a chain is marked as silent (subscription dropped)."""
+
+def clear_chain_silent(self, chain_id: str) -> None:
+    """Clear silent status when subscription reconnects."""
+```
+
+**Trigger conditions for `mark_chain_silent()`**:
+1. WebSocket disconnects
+2. Reconnection fails after `subscription_max_reconnect_attempts` (default: 3)
+3. No events received for `subscription_silent_threshold_multiplier × staleness_threshold` (default: 2 × 300s = 600s = 10min)
+
+**Recovery**: When subscription reconnects, call `clear_chain_silent(chain_id)`. The next batch of events will refresh offers via `handle_event()`.
+
+**Config additions**:
+```python
+subscription_max_reconnect_attempts: int = 3
+subscription_silent_threshold_multiplier: int = 2  # silent after 2x staleness threshold
+```
+
+**Key principle**: Never delete cached offers on subscription drop. Mark them stale so consumers can decide whether to use uncertain data. Polling sync will refresh them.
+
+---
+
+### Decision 5: Search Index Opt-In Config
+
+**Decision**: Search index is OFF by default (opt-in). Meilisearch preferred over Elasticsearch. In-memory search as fallback.
+
+**Rationale (grounded in evidence)**:
+- No search index infrastructure exists anywhere in the codebase. This is entirely new.
+- Meilisearch is preferred over Elasticsearch because:
+  - Lighter weight (single binary, ~50MB vs Elasticsearch's JVM + ~500MB)
+  - Simpler API (REST, no query DSL)
+  - Good Python client (`meilisearch-python-sdk`)
+  - Built-in faceted search and full-text search
+  - Sub-millisecond search on small datasets
+- The in-memory fallback (filter/sort on cached offers in OfferCache) ensures the feature works without external dependencies.
+
+**Config defaults**:
+```python
+# apps/trading/src/trading_service/config.py
+offer_search_index_enabled: bool = False  # OFF by default — opt-in
+offer_search_index_backend: str = "meilisearch"  # only supported backend in v0.8.2
+offer_search_index_url: str = "http://localhost:7700"  # Meilisearch default
+offer_search_index_api_key: str = ""  # empty = no auth (dev mode)
+```
+
+**Behavior**:
+| Config | Behavior |
+|--------|----------|
+| `offer_search_index_enabled=False` | Use in-memory search (filter/sort OfferCache entries) |
+| `offer_search_index_enabled=True` + index reachable | Use Meilisearch for search queries |
+| `offer_search_index_enabled=True` + index unreachable | Fall back to in-memory search, log warning |
+
+**Indexing strategy**: Index on offer events (same `OfferEvent` stream that drives cache invalidation):
+- `created` → add document to index
+- `updated` → update document in index
+- `deleted` → remove document from index
+
+**Search scope**:
+- Full-text: `service_type`, `provider`, `attributes.gpu_model`, `attributes.region`
+- Faceted filters: `chain_id`, `service_type`, `region`, `gpu_model`, `price_range`
+- Sort: `price`, `created_at`
+
+**Why not Elasticsearch**: Elasticsearch requires JVM, significant memory, and complex configuration. For a blockchain-adjacent project that values lightweight deployment (single-binary nodes, SQLite/Redis defaults), Meilisearch aligns better. Elasticsearch can be added later if needed.
+
+---
+
 ### Architecture: Advanced Offer Sync (v0.8.2)
 
 ```
@@ -149,7 +364,7 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/trading/ && 
 
 #### A1: Subscription Types
 
-Create `aitbc/trading/subscription_types.py`:
+Create `aitbc/trading/subscription_types.py` — schema is finalized in [Design Decision 1](#decision-1-offer-event-schema):
 
 ```python
 class OfferEventType(StrEnum):
@@ -161,17 +376,32 @@ class OfferEventType(StrEnum):
 
 @dataclass
 class OfferEvent:
-    """An offer change event from a chain."""
+    """An offer change event from a chain.
+
+    Schema aligned with agent-coordinator event pattern
+    (agent_discovery.py:370-375) and aitbc.events.Event (events.py:30-42).
+    See Design Decision 1 for rationale.
+    """
     event_type: str  # OfferEventType value
     offer_id: str
     chain_id: str
     offer: SyncedOffer | None = None  # None for deleted events
-    timestamp: str = ""  # ISO timestamp
+    timestamp: str = ""  # ISO 8601 timestamp
+    source: str | None = None  # "blockchain-node" | "trading-service" | None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize for gossip transport / WebSocket."""
+        ...
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> OfferEvent:
+        """Deserialize from gossip transport."""
+        ...
 
 
 @dataclass
 class OfferSubscription:
-    """Configuration for an offer subscription."""
+    """Configuration for an offer subscription (saved query)."""
     chain_id: str | None = None  # None = all chains
     service_type: str | None = None
     min_price: float | None = None
@@ -179,6 +409,10 @@ class OfferSubscription:
     region: str | None = None
     gpu_model: str | None = None
     debounce_ms: int = 1000  # batch notifications within this window
+
+    def matches(self, event: OfferEvent) -> bool:
+        """Check if an event matches this subscription filter."""
+        ...
 
 
 class SubscriptionStatus(StrEnum):
