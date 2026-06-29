@@ -2,8 +2,6 @@
 Marketplace service for managing marketplace operations
 """
 
-import json
-import os
 import time
 from typing import Any
 
@@ -11,7 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.marketplace import BlockchainRPCClient, OfferFSM
 
+from ..config import settings
 from ..domain.marketplace import MarketplaceOffer, ServiceRating, SoftwareService
 
 logger = get_logger(__name__)
@@ -20,13 +20,24 @@ logger = get_logger(__name__)
 class MarketplaceService:
     def __init__(self, session: AsyncSession):
         self.session = session
+        self._rpc_client = BlockchainRPCClient(rpc_url=settings.blockchain_rpc_url)
 
     async def list_offers(
-        self, status: str | None = None, region: str | None = None, gpu_model: str | None = None
+        self,
+        status: str | None = None,
+        region: str | None = None,
+        gpu_model: str | None = None,
+        chain_id: str | None = None,
     ) -> list[dict[str, Any]]:
-        """List marketplace offers"""
+        """List marketplace offers (v0.6.6: with optional chain_id filter)"""
         try:
-            logger.info("list_offers called with filters: status=%s, region=%s, gpu_model=%s", status, region, gpu_model)
+            logger.info(
+                "list_offers called with filters: status=%s, region=%s, gpu_model=%s, chain_id=%s",
+                status,
+                region,
+                gpu_model,
+                chain_id,
+            )
             stmt = select(MarketplaceOffer)
             if status:
                 stmt = stmt.where(MarketplaceOffer.status == status)
@@ -34,6 +45,8 @@ class MarketplaceService:
                 stmt = stmt.where(MarketplaceOffer.region == region)
             if gpu_model:
                 stmt = stmt.where(MarketplaceOffer.gpu_model == gpu_model)
+            if chain_id:
+                stmt = stmt.where(MarketplaceOffer.chain_id == chain_id)
             logger.info("Executing database query for offers")
             result = list((await self.session.execute(stmt)).all())
             logger.info("Retrieved %s offers", len(result))
@@ -57,12 +70,40 @@ class MarketplaceService:
                             "cuda_version": offer.cuda_version,
                             "price_per_hour": offer.price_per_hour,
                             "region": offer.region,
+                            "chain_id": offer.chain_id,
                         }
                     )
             logger.info("Converted %s offers to dictionaries", len(offers_list))
             return offers_list
         except Exception as e:
             logger.error("Error in list_offers: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def update_offer_status(self, offer_id: str, new_status: str) -> dict[str, Any]:
+        """Update offer status with FSM validation (v0.6.6).
+
+        Uses OfferFSM to validate state transitions. Rejects invalid transitions.
+        """
+        try:
+            stmt = select(MarketplaceOffer).where(MarketplaceOffer.id == offer_id)
+            result = (await self.session.execute(stmt)).first()
+            offer = result[0] if result else None
+            if not offer:
+                raise ValueError(f"Offer not found: {offer_id}")
+
+            # Validate transition via OfferFSM
+            current = OfferFSM.from_string(offer.status)
+            fsm = OfferFSM(current)
+            fsm.transition(OfferFSM.from_string(new_status))
+
+            offer.status = new_status
+            await self.session.commit()
+            logger.info("Offer %s status updated: %s", offer_id, new_status)
+            return {"id": offer_id, "status": new_status}
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error("Error in update_offer_status: %s: %s", type(e).__name__, str(e))
             raise
 
     async def get_offer(self, offer_id: str) -> MarketplaceOffer | None:
@@ -193,85 +234,66 @@ class MarketplaceService:
             logger.error("Error in register_plugin: %s: %s", type(e).__name__, str(e))
             raise
 
-    async def list_software_services(self, service_type: str | None = None, status: str | None = None) -> list[dict[str, Any]]:
-        """List software services with optional filters - aggregates from blockchain and local database"""
+    async def list_software_services(
+        self, service_type: str | None = None, status: str | None = None, chain_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """List software services with optional filters - aggregates from blockchain and local database
+
+        v0.6.6: Uses BlockchainRPCClient for blockchain queries with chain_id filter.
+        """
         from sqlalchemy import select
 
         from ..domain.marketplace import SoftwareService
 
         try:
-            # First, try to get offers from blockchain via RPC
+            # First, try to get offers from blockchain via RPC (v0.6.6: uses BlockchainRPCClient)
             blockchain_offers = []
             try:
-                import httpx
-
-                rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
-                resp = httpx.get(
-                    f"{rpc_url}/rpc/transactions",
-                    params={"type": "GPU_MARKETPLACE", "limit": 500},
-                    timeout=10,
+                # Query GPU offers from blockchain with chain_id filter
+                offers = await self._rpc_client.query_offers(
+                    chain_id=chain_id,
+                    status=status if status else None,
                 )
-                resp.raise_for_status()
-                rpc_data = resp.json()
-
-                # The RPC response may be a list of transactions or a dict with a "transactions" key
-                txs = rpc_data.get("transactions", rpc_data) if isinstance(rpc_data, dict) else rpc_data
-                if not isinstance(txs, list):
-                    txs = []
-
-                for tx in txs:
+                for offer in offers:
                     try:
-                        payload = tx.get("payload")
-                        if isinstance(payload, str):
-                            payload = json.loads(payload)
-                        if isinstance(payload, dict) and payload.get("action") == "offer":
-                            tx_hash = tx.get("tx_hash", "")
-                            sender = tx.get("sender", "")
-                            created_at = tx.get("created_at") or tx.get("timestamp")
-                            block_height = tx.get("block_height")
-                            block_hash = tx.get("block_hash")
-                            block_timestamp = tx.get("block_timestamp")
-                            block_proposer = tx.get("proposer") or tx.get("block_proposer")
-                            # Convert blockchain transaction to software service format
-                            blockchain_offers.append(
-                                {
-                                    "plugin_id": payload.get(
-                                        "offer_id", f"blockchain-{tx_hash[:8] if tx_hash else 'unknown'}"
-                                    ),
-                                    "service_type": "gpu_marketplace",
-                                    "model": payload.get("gpu_model", "unknown"),
-                                    "price": payload.get("price_per_gpu", 0),
-                                    "price_unit": "per_hour",
-                                    "offer_id": payload.get("offer_id", "unknown"),
-                                    "endpoint": "http://hub.aitbc.bubuit.net/rpc",
-                                    "public_endpoint": "http://hub.aitbc.bubuit.net/rpc",
-                                    "health_url": "http://hub.aitbc.bubuit.net/rpc/health",
-                                    "provider_address": payload.get("provider_node_id", sender),
-                                    "node_id": payload.get("provider_node_id", "unknown"),
-                                    "gpu_name": payload.get("gpu_model", "N/A"),
-                                    "gpu_device": "0",
-                                    "gpu_uuid": "N/A",
-                                    "gpu_offer_id": payload.get("offer_id", "N/A"),
-                                    "description": payload.get("description", ""),
-                                    "status": payload.get("status", "active"),
-                                    "registered_at": created_at,
-                                    "updated_at": created_at,
-                                    "avg_rating": 0,
-                                    "rating_count": 0,
-                                    # Blockchain verification information
-                                    "block_height": block_height,
-                                    "block_hash": block_hash,
-                                    "block_timestamp": block_timestamp,
-                                    "block_proposer": block_proposer,
-                                    "tx_hash": tx_hash,
-                                    "confirmed": block_height is not None,
-                                }
-                            )
+                        blockchain_offers.append(
+                            {
+                                "plugin_id": offer.get("gpu_id", offer.get("id", "unknown")),
+                                "service_type": "gpu_marketplace",
+                                "model": offer.get("model", "unknown"),
+                                "price": offer.get("price_per_hour", 0),
+                                "price_unit": "per_hour",
+                                "offer_id": offer.get("gpu_id", "unknown"),
+                                "endpoint": "http://hub.aitbc.bubuit.net/rpc",
+                                "public_endpoint": "http://hub.aitbc.bubuit.net/rpc",
+                                "health_url": "http://hub.aitbc.bubuit.net/rpc/health",
+                                "provider_address": offer.get("provider", offer.get("miner_id", "")),
+                                "node_id": offer.get("miner_id", "unknown"),
+                                "gpu_name": offer.get("model", "N/A"),
+                                "gpu_device": "0",
+                                "gpu_uuid": "N/A",
+                                "gpu_offer_id": offer.get("gpu_id", "N/A"),
+                                "description": offer.get("description", ""),
+                                "status": offer.get("status", "active"),
+                                "registered_at": offer.get("created_at"),
+                                "updated_at": offer.get("updated_at"),
+                                "avg_rating": 0,
+                                "rating_count": 0,
+                                "chain_id": offer.get("chain_id", chain_id),
+                                # Blockchain verification information
+                                "block_height": offer.get("block_height"),
+                                "block_hash": offer.get("block_hash"),
+                                "block_timestamp": offer.get("block_timestamp"),
+                                "block_proposer": offer.get("block_proposer"),
+                                "tx_hash": offer.get("tx_hash", ""),
+                                "confirmed": offer.get("block_height") is not None,
+                            }
+                        )
                     except Exception as e:
-                        logger.warning("Failed to parse blockchain payload: %s", e)
+                        logger.warning("Failed to parse blockchain offer: %s", e)
                         continue
 
-                logger.info("Retrieved %s offers from blockchain RPC", len(blockchain_offers))
+                logger.info("Retrieved %s offers from blockchain RPC (chain_id=%s)", len(blockchain_offers), chain_id)
             except Exception as e:
                 logger.warning("Failed to get offers from blockchain RPC: %s", e)
 
@@ -530,22 +552,6 @@ class MarketplaceService:
             }
         except Exception as e:
             logger.error("Error in query_graph: %s: %s", type(e).__name__, str(e))
-            raise
-
-    async def update_offer_status(self, offer_id: str, status: str) -> MarketplaceOffer | None:
-        """Update offer status"""
-        try:
-            stmt = select(MarketplaceOffer).where(MarketplaceOffer.id == offer_id)
-            result = await self.session.execute(stmt)
-            offer = result.scalars().first()
-            if offer:
-                offer.status = status
-                await self.session.commit()
-                await self.session.refresh(offer)
-                logger.info("Updated offer %s status to %s", offer_id, status)
-            return offer
-        except Exception as e:
-            logger.error("Error in update_offer_status: %s: %s", type(e).__name__, str(e))
             raise
 
     async def _create_bid(self, bid_data: dict[str, Any]) -> Any:
