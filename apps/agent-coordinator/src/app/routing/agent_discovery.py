@@ -66,6 +66,9 @@ class AgentInfo:
     health_score: float = 1.0
     version: str = "1.0.0"
     tags: set[str] = field(default_factory=set)
+    # v0.6.5: chain/island awareness
+    chain_id: str = ""
+    island_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
@@ -83,6 +86,8 @@ class AgentInfo:
             "health_score": self.health_score,
             "version": self.version,
             "tags": list(self.tags),
+            "chain_id": self.chain_id,
+            "island_id": self.island_id,
         }
 
     @classmethod
@@ -93,13 +98,20 @@ class AgentInfo:
         data["last_heartbeat"] = datetime.fromisoformat(data["last_heartbeat"])
         data["registration_time"] = datetime.fromisoformat(data["registration_time"])
         data["tags"] = set(data.get("tags", []))
+        data.setdefault("chain_id", "")
+        data.setdefault("island_id", "")
         return cls(**data)
 
 
 class AgentRegistry:
     """Central agent registry for discovery and management"""
 
-    def __init__(self, redis_url: str = "redis://localhost:6379/1") -> None:
+    def __init__(
+        self,
+        redis_url: str = "redis://localhost:6379/1",
+        cleanup_interval: int | None = None,
+        max_heartbeat_age: int | None = None,
+    ) -> None:
         self.redis_url = redis_url
         self.redis_client: Any = None
         self.agents: dict[str, AgentInfo] = {}
@@ -107,8 +119,13 @@ class AgentRegistry:
         self.capability_index: dict[str, set[str]] = {}
         self.type_index: dict[AgentType, set[str]] = {}
         self.heartbeat_interval = 30
-        self.cleanup_interval = 60
-        self.max_heartbeat_age = 120
+        # v0.6.5: configurable TTL (was hardcoded 60/120)
+        from ..config import settings
+
+        self.cleanup_interval = cleanup_interval if cleanup_interval is not None else settings.agent_cleanup_interval_seconds
+        self.max_heartbeat_age = (
+            max_heartbeat_age if max_heartbeat_age is not None else settings.agent_heartbeat_timeout_seconds
+        )
 
     async def start(self) -> None:
         """Start the registry service"""
@@ -210,6 +227,13 @@ class AgentRegistry:
             if "tags" in query:
                 required_tags = set(query["tags"])
                 candidate_agents = [a for a in candidate_agents if required_tags.issubset(a.tags)]
+            # v0.6.5: chain/island filters
+            if "chain_id" in query:
+                chain_id = query["chain_id"]
+                candidate_agents = [a for a in candidate_agents if a.chain_id == chain_id]
+            if "island_id" in query:
+                island_id = query["island_id"]
+                candidate_agents = [a for a in candidate_agents if a.island_id == island_id]
             if "min_health_score" in query:
                 min_score = query["min_health_score"]
                 candidate_agents = [a for a in candidate_agents if a.health_score >= min_score]
@@ -469,7 +493,13 @@ class AgentDiscoveryService:
 
 
 def create_agent_info(
-    agent_id: str, agent_type: str, capabilities: list[str], services: list[str], endpoints: dict[str, str]
+    agent_id: str,
+    agent_type: str,
+    capabilities: list[str],
+    services: list[str],
+    endpoints: dict[str, str],
+    chain_id: str = "",
+    island_id: str = "",
 ) -> AgentInfo:
     """Create agent information"""
     return AgentInfo(
@@ -482,6 +512,8 @@ def create_agent_info(
         metadata={},
         last_heartbeat=datetime.now(UTC),
         registration_time=datetime.now(UTC),
+        chain_id=chain_id,
+        island_id=island_id,
     )
 
 
