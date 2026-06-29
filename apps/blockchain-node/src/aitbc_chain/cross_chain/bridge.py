@@ -234,6 +234,159 @@ class CrossChainBridge:
             records = session.exec(query).all()
             return [self._build_transfer_from_record(r) for r in records]
 
+    def refund_transfer(self, transfer_id: str, sender: str) -> BridgeTransfer:
+        """Refund a pending bridge transfer — return locked funds to sender.
+
+        Only transfers in 'pending' or 'locked' status can be refunded.
+        Completed/confirmed/refunded transfers cannot be refunded.
+
+        v0.7.0 §B2: Added as the backend for the ``POST /bridge/unlock`` endpoint.
+        The refund returns the locked amount (minus the fee already deducted at
+        lock time) to the sender's balance. The fee is NOT refunded — it was
+        consumed when the lock transaction was created.
+        """
+        with self._session_factory() as session:
+            record = session.get(CrossChainTransfer, transfer_id)
+            if not record:
+                raise ValueError(f"Transfer not found: {transfer_id}")
+            if record.status not in ("pending", "locked"):
+                raise ValueError(f"Transfer cannot be refunded in status '{record.status}'")
+            if record.sender != sender:
+                raise ValueError("Only the original sender can refund this transfer")
+
+            # Return the locked amount to the sender (fee was already deducted at lock time)
+            sender_account = session.get(Account, (record.source_chain, record.sender))
+            if not sender_account:
+                sender_account = Account(chain_id=record.source_chain, address=record.sender, balance=0, nonce=0)
+                session.add(sender_account)
+            sender_account.balance += record.amount
+            session.add(sender_account)
+
+            # Create a BRIDGE_REFUND transaction record
+            refund_tx_hash = hashlib.sha256(
+                f"{transfer_id}:refund:{record.source_chain}:{int(time.time())}".encode()
+            ).hexdigest()
+            refund_tx = Transaction(
+                chain_id=record.source_chain,
+                tx_hash=refund_tx_hash,
+                sender="bridge_refund",
+                recipient=record.sender,
+                payload={
+                    "type": "BRIDGE_REFUND",
+                    "transfer_id": transfer_id,
+                    "target_chain": record.target_chain,
+                    "amount": record.amount,
+                    "asset": record.asset,
+                },
+                value=record.amount,
+                fee=0,
+                nonce=0,
+                timestamp=datetime.now(UTC),
+                block_height=None,
+                status="confirmed",
+                type="BRIDGE_REFUND",
+            )
+            session.add(refund_tx)
+
+            record.status = "refunded"
+            session.add(record)
+            session.commit()
+
+            transfer = self._pending_transfers.pop(transfer_id, None)
+            if transfer:
+                transfer.status = BridgeStatus.refunded
+            else:
+                transfer = self._build_transfer_from_record(record)
+            logger.info(
+                "Bridge transfer refunded: %s... returned %s to %s",
+                transfer_id[:16],
+                record.amount,
+                record.sender[:20],
+            )
+            return transfer
+
+    def get_bridge_balance(self, chain_id: str | None = None) -> dict[str, int]:
+        """Get total locked amount per chain (sum of pending/locked transfers).
+
+        Returns a dict mapping chain_id → total locked amount for that chain.
+        If ``chain_id`` is provided, returns a single-key dict for that chain.
+        """
+        with self._session_factory() as session:
+            query = select(CrossChainTransfer).where(CrossChainTransfer.status.in_(["pending", "locked"]))
+            if chain_id:
+                query = query.where(CrossChainTransfer.source_chain == chain_id)
+            records = session.exec(query).all()
+            balances: dict[str, int] = {}
+            for r in records:
+                balances[r.source_chain] = balances.get(r.source_chain, 0) + r.amount
+            if chain_id and chain_id not in balances:
+                balances[chain_id] = 0
+            return balances
+
+    def batch_lock(self, transfers: list[dict[str, Any]]) -> list[BridgeTransfer]:
+        """Batch lock multiple transfers.
+
+        Each transfer dict must contain: source_chain, target_chain, sender,
+        recipient, amount. Optional: asset (default "native").
+
+        Returns a list of BridgeTransfer results. If any individual lock fails,
+        the error is recorded in the result dict's 'error' field and the
+        remaining transfers are still attempted.
+        """
+        results: list[BridgeTransfer] = []
+        for t in transfers:
+            try:
+                transfer = self.initiate_transfer(
+                    source_chain=t["source_chain"],
+                    target_chain=t["target_chain"],
+                    sender=t["sender"],
+                    recipient=t["recipient"],
+                    amount=t["amount"],
+                    asset=t.get("asset", "native"),
+                )
+                results.append(transfer)
+            except Exception as e:
+                logger.warning("Batch lock failed for transfer: %s", e)
+                # Append a failed transfer placeholder so the caller knows which ones failed
+                results.append(
+                    BridgeTransfer(
+                        transfer_id="",
+                        source_chain=t.get("source_chain", ""),
+                        target_chain=t.get("target_chain", ""),
+                        sender=t.get("sender", ""),
+                        recipient=t.get("recipient", ""),
+                        amount=t.get("amount", 0),
+                        asset=t.get("asset", "native"),
+                        status=BridgeStatus.failed,
+                        source_tx_hash=None,
+                        target_tx_hash=None,
+                        lock_time=None,
+                        confirm_time=None,
+                        proof={"error": str(e)},
+                    )
+                )
+        return results
+
+    def batch_confirm(self, confirmations: list[dict[str, Any]]) -> list[BridgeTransfer | dict[str, Any]]:
+        """Batch confirm multiple transfers.
+
+        Each confirmation dict must contain: transfer_id, proof.
+        Optional: confirmer, signature.
+
+        Returns a list of results. Successful confirmations return BridgeTransfer;
+        failures return a dict with 'transfer_id' and 'error' keys.
+        """
+        results: list[BridgeTransfer | dict[str, Any]] = []
+        for c in confirmations:
+            transfer_id = c.get("transfer_id", "")
+            try:
+                transfer = self.confirm_transfer(transfer_id, c["proof"])
+                results.append(transfer)
+            except Exception as e:
+                logger.warning("Batch confirm failed for transfer %s: %s", transfer_id, e)
+                results.append({"transfer_id": transfer_id, "error": str(e)})
+        return results
+
     def _generate_transfer_id(
         self, source_chain: str, target_chain: str, sender: str, recipient: str, amount: int, timestamp: int
     ) -> str:

@@ -289,6 +289,18 @@ class ChainSettings(BaseSettings):
     # BRIDGE_RELEASE_ENABLED=true only on isolated test/dev networks.
     bridge_release_enabled: bool = False
 
+    # Bridge configuration (v0.7.0). Operational parameters for the cross-chain
+    # bridge. Defaults mirror the constants in aitbc/constants.py
+    # (BRIDGE_TIMEOUT_SECONDS, BRIDGE_RETRY_LIMIT, etc.) so they can be tuned
+    # per-deployment via env vars without code changes.
+    bridge_timeout: int = 300  # Seconds before a transfer is considered stale
+    bridge_retry_limit: int = 3  # Retry attempts for failed bridge operations
+    bridge_fee_basis_points: int = 10  # Bridge fee in basis points (10 = 0.1%)
+    bridge_supported_chains: str = ""  # Comma-separated list of chain IDs the bridge serves
+    bridge_batch_size: int = 10  # Max transfers per batch operation
+    bridge_monitor_interval: int = 60  # Seconds between bridge health checks
+    bridge_stuck_transfer_timeout: int = 3600  # Seconds before a pending transfer is flagged as stuck
+
     # Network compression (v0.6.0). When enabled, gossip/Redis/P2P payloads are
     # gzip-compressed before transmission and decompressed on receive. Env var:
     # NETWORK_COMPRESSION_ENABLED (default true).

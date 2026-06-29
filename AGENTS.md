@@ -145,7 +145,7 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
 
 All 19 `suggestions.md` files across release folders were read, investigated, and incorporated into change.logs. Key findings:
 
-- **v0.5.16**: All 7 original confirmed bugs STILL PRESENT in codebase. 4 additional cross-service bugs added (Bugs 15-18: agent-coordinator port 8202→8006, agent-coordinator drops chain_id, marketplace hardcoded DB path, marketplace direct SQLite queries). Change.log now covers 18 bugs total.
+- **v0.5.16**: ~~All 7 original confirmed bugs STILL PRESENT in codebase.~~ **RE-VERIFIED 2026-06-29: ALL 7 FIXED** across v0.5.16–v0.6.7. 5 fully fixed (TransactionRequest chain_id, sync.py chain_id, agent_stream chain_id, marketplace hardcoded DB path, marketplace raw SQL). 1 partially fixed + fenced (bridge `_validate_proof` — proposer-set membership + Merkle proof deferred to v0.7.2, release fenced behind `BRIDGE_RELEASE_ENABLED=false`). 1 was NOT A BUG (agent_stream port 8202 is correct; the original suggestion had the port direction backwards — 8006 is the stale port, 8202 is correct per blockchain-node config.py:89).
 - **v0.6.3**: All 4 claims confirmed — SubscriptionClient single-hub/chain (`subscription_client.py:23-26`), island manager tasks disabled (`main.py:283-288`), CHAIN_SYNC_SOURCES not implemented, gossip topic not chain-specific (`main.py:146` vs `174`).
 - **v0.6.4**: Dead code confirmed — MultiChainManager (`multi_chain_manager.py:56`), MultiValidatorPoA (`multi_validator_poa.py:33`), PBFT (`pbft.py:48`). join_island has 8 call sites inventoried.
 - **v0.6.6**: GPU service submits transactions without chain_id (`gpu_service/main.py:272-291`). Marketplace direct SQLite already in v0.5.16.
