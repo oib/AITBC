@@ -25,15 +25,15 @@ class PortAllocator:
 
     def __init__(
         self,
-        base_rpc_port: int = 8006,
-        base_p2p_port: int = 8007,
+        base_rpc_port: int = 8202,
+        base_p2p_port: int = 8200,
         port_offsets: str = "",
     ) -> None:
         """Initialize with base ports and optional per-chain offsets.
 
         Args:
-            base_rpc_port: Base RPC port (default 8006).
-            base_p2p_port: Base P2P port (default 8007).
+            base_rpc_port: Base RPC port (default 8202).
+            base_p2p_port: Base P2P port (default 8200).
             port_offsets: Comma-separated "chain_id:offset" pairs.
                 Offset is added to both base ports for that chain.
 
