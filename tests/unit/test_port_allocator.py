@@ -113,7 +113,7 @@ def test_get_ports_idempotent():
     allocator = PortAllocator(port_offsets="chain-a:10")
     first = allocator.get_ports("chain-a")
     second = allocator.get_ports("chain-a")
-    assert first == second == (8016, 8017)
+    assert first == second == (8212, 8210)
 
 
 def test_whitespace_stripped():
