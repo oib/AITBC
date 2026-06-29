@@ -18,7 +18,7 @@ class JoinIslandRequest(BaseModel):
 
     island_id: str
     island_name: str
-    chain_id: str
+    chain_id: str | list[str]
     role: str = "compute-provider"
     is_hub: bool = False
 
@@ -133,6 +133,7 @@ async def list_islands() -> dict[str, Any]:
                 "island_id": island.island_id,
                 "island_name": island.island_name,
                 "chain_id": island.chain_id,
+                "chain_ids": island.chain_ids,
                 "status": island.status.value,
                 "role": getattr(island, "role", "unknown"),
                 "peer_count": island.peer_count,
@@ -163,6 +164,7 @@ async def get_island(island_id: str) -> dict[str, Any]:
         "island_id": island.island_id,
         "island_name": island.island_name,
         "chain_id": island.chain_id,
+        "chain_ids": island.chain_ids,
         "status": island.status.value,
         "role": getattr(island, "role", "unknown"),
         "peer_count": island.peer_count,

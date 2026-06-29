@@ -1,9 +1,17 @@
 """
 Practical Byzantine Fault Tolerance (PBFT) Consensus Implementation
 Provides Byzantine fault tolerance for up to 1/3 faulty validators
+
+# ════════════════════════════════════════════════════════════════
+# THRESHOLD STATE — DO NOT ACTIVATE WITHOUT SECURITY REVIEW
+# Requires: validator rotation, slashing, multi-validator consensus audit
+# Activation: set MULTI_VALIDATOR_CONSENSUS_ENABLED=true (NOT in this release)
+# See: v0.7.x security releases for activation plan
+# ════════════════════════════════════════════════════════════════
 """
 
 import hashlib
+import os
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -49,6 +57,11 @@ class PBFTConsensus:
     """PBFT consensus implementation"""
 
     def __init__(self, consensus: MultiValidatorPoA):
+        if os.getenv("MULTI_VALIDATOR_CONSENSUS_ENABLED", "").lower() != "true":
+            raise RuntimeError(
+                "PBFTConsensus is in THRESHOLD state and not yet activated. "
+                "Set MULTI_VALIDATOR_CONSENSUS_ENABLED=true to override (requires security review)."
+            )
         self.consensus = consensus
         self.state = PBFTState(
             current_view=0, current_sequence=0, prepared_messages={}, committed_messages={}, pre_prepare_messages={}

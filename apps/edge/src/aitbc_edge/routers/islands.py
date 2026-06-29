@@ -15,7 +15,7 @@ class JoinIslandRequest(BaseModel):
 
     island_id: str
     island_name: str
-    chain_id: str
+    chain_id: str | list[str]
     role: str = Field(default="compute-provider")
     is_hub: bool = Field(default=False)
 
