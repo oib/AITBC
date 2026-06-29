@@ -6,7 +6,6 @@ Converted from skipped stubs to functional tests using the shared CLI mock
 fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
 """
 
-import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
