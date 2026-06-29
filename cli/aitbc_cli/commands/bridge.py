@@ -262,3 +262,26 @@ def register_validator(ctx, chain_id, address, public_key, private_key, epoch, r
     except Exception as e:
         error(f"Validator registration failed: {e}")
         raise click.Abort() from e
+
+
+@bridge.command(name="oracle-status")
+@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.pass_context
+def oracle_status(ctx, rpc_url):
+    """Get bridge oracle/verification status (v0.7.2)
+
+    Reports: verification mode, finality config, block header counts,
+    release fence status, multi-sig status.
+    """
+
+    async def _oracle_status():
+        client = _get_bridge_client(rpc_url)
+        async with client:
+            return await client.oracle_status()
+
+    try:
+        result = asyncio.run(_oracle_status())
+        output(result, ctx.obj.get("output_format", "table"), title="Bridge Oracle Status")
+    except Exception as e:
+        error(f"Failed to get bridge oracle status: {e}")
+        raise click.Abort() from e

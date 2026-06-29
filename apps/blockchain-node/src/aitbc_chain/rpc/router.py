@@ -188,13 +188,16 @@ try:
         bridge_confirm,
         bridge_health,
         bridge_lock,
+        bridge_oracle_status,
         bridge_security_status,
         bridge_unlock,
+        get_block_header,
         get_bridge_balance,
         get_bridge_transfer,
         get_validator_set,
         list_pending_transfers,
         register_validator,
+        store_block_header,
     )
 except ImportError as e:
     _import_failed("Bridge module", e)
@@ -210,6 +213,9 @@ except ImportError as e:
     register_validator = None
     get_validator_set = None
     bridge_security_status = None
+    store_block_header = None
+    get_block_header = None
+    bridge_oracle_status = None
 try:
     from .staking import (
         cast_governance_vote,
@@ -909,6 +915,33 @@ async def bridge_security_status_route(request: Request) -> dict[str, Any]:
     if bridge_security_status is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
     return await bridge_security_status(request)
+
+
+@router.post("/bridge/block-headers", summary="Store a remote chain block header")
+@rate_limit(rate=20, per=60)
+async def store_block_header_route(request: Request, header_data: dict) -> dict[str, Any]:
+    """Store a remote chain block header for bridge proof verification (v0.7.2)"""
+    if store_block_header is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    return await store_block_header(request, header_data)
+
+
+@router.get("/bridge/block-headers/{chain_id}/{height}", summary="Get a block header with finality status")
+@rate_limit(rate=100, per=60)
+async def get_block_header_route(request: Request, chain_id: str, height: int) -> dict[str, Any]:
+    """Get a stored block header with finality status (v0.7.2)"""
+    if get_block_header is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    return await get_block_header(request, chain_id, height)
+
+
+@router.get("/bridge/oracle/status", summary="Bridge oracle/verification status")
+@rate_limit(rate=100, per=60)
+async def bridge_oracle_status_route(request: Request) -> dict[str, Any]:
+    """Get bridge oracle/verification status (v0.7.2)"""
+    if bridge_oracle_status is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    return await bridge_oracle_status(request)
 
 
 @router.post("/staking/stake", summary="Stake tokens")

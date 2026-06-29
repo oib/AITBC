@@ -239,6 +239,36 @@ class BridgeValidator(SQLModel, table=True):
     registered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class BridgeBlockHeader(SQLModel, table=True):
+    """Block header from a remote (source) chain (v0.7.2 §B2).
+
+    Stored by the bridge when it learns about source chain blocks (via
+    RPC, gossip, or explicit submission). Used to anchor bridge proofs —
+    the Merkle proof is verified against ``state_root``, and the block
+    header's proposer ``signature`` is verified against the v0.7.1
+    validator set.
+    """
+
+    __tablename__ = "bridge_block_header"
+    __table_args__ = (
+        UniqueConstraint("chain_id", "height", name="uix_bridge_block_chain_height"),
+        Index("idx_bridge_block_chain_finality", "chain_id", "finality_confirmed"),
+        {"extend_existing": True},
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)  # remote chain this header belongs to
+    height: int = Field(index=True)
+    hash: str = Field(index=True)
+    parent_hash: str
+    proposer: str  # proposer address
+    state_root: str  # state root at this block — used for Merkle proof verification
+    signature: str = ""  # proposer signature (v0.7.1 block header signature)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    finality_confirmed: bool = False  # set when confirmation_count >= finality_blocks
+    confirmation_count: int = 0  # number of confirmations seen (child blocks)
+
+
 class Stake(SQLModel, table=True):
     """On-chain staking record"""
 

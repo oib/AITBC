@@ -281,13 +281,15 @@ class ChainSettings(BaseSettings):
     # Chain shutdown timeout (v0.6.4). Graceful stop wait in seconds.
     chain_shutdown_timeout: int = 10
 
-    # Cross-chain bridge release fence (Bug 3 PARTIAL — v0.5.16).
-    # The bridge release path (confirm_transfer / /bridge/confirm) currently
-    # accepts any valid secp256k1 signature as a proposer proof; full proposer-set
-    # + Merkle proof verification is deferred to v0.7.2. Until that lands, the
-    # release (mint) path is default-OFF to prevent unauthorized minting. Set
-    # BRIDGE_RELEASE_ENABLED=true only on isolated test/dev networks.
-    bridge_release_enabled: bool = False
+    # Cross-chain bridge release fence (v0.5.16 → v0.7.2 UNFENCED).
+    # The bridge release path (confirm_transfer / /bridge/confirm) now uses
+    # full cryptographic verification: Merkle proof verification against
+    # stored block headers (v0.7.2 §B3), block header signature verification
+    # against the v0.7.1 validator set (v0.7.2 §B4), finality tracking
+    # (v0.7.2 §B5), and multi-sig threshold signatures (v0.7.1 §B6).
+    # The fence is now UNFENCED (default true) — set BRIDGE_RELEASE_ENABLED=false
+    # to re-fence on isolated test/dev networks.
+    bridge_release_enabled: bool = True
 
     # Bridge configuration (v0.7.0). Operational parameters for the cross-chain
     # bridge. Defaults mirror the constants in aitbc/constants.py
@@ -313,6 +315,16 @@ class ChainSettings(BaseSettings):
     bridge_multisig_timeout: int = 3600  # seconds to collect signatures
     bridge_validator_set_grace_period: int = 7200  # seconds — old epoch valid during rotation
     bridge_block_signature_required: bool = True  # require block header signatures
+
+    # Bridge verification configuration (v0.7.2). Replaces the trivially
+    # forgeable field-equality proof validation with cryptographic Merkle
+    # proof verification against stored block headers. The release fence
+    # (bridge_release_enabled) is unfenced after this verification is
+    # operational and tested.
+    bridge_verification_mode: str = "in_process"  # "in_process" | "oracle"
+    bridge_min_confirmations: int = 3  # minimum confirmations for any transfer
+    bridge_finality_blocks: int = 6  # full finality threshold
+    bridge_large_transfer_threshold: int = 10000  # transfers above this require full finality
 
     # Network compression (v0.6.0). When enabled, gossip/Redis/P2P payloads are
     # gzip-compressed before transmission and decompressed on receive. Env var:
