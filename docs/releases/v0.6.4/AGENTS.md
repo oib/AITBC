@@ -382,15 +382,15 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o a
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Add config fields: `island_chains`, `chain_configs`, `chain_port_offsets`, `multi_chain_start_*`, `multi_chain_health_interval`, `chain_shutdown_timeout` + validators | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/config.py` | ⬜ |
-| B2 | Refactor `IslandMembership`: `chain_id: str` → `chain_ids: list[str]` + `.chain_id` backward compat property. Update `join_island()` + `leave_island()` | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/network/island_manager.py` | ⬜ |
-| B3 | Atomic `join_island()` refactor — update all 8 call sites + `JoinIslandRequest` model | 🔴 P0 | `rpc/islands.py`, `main.py`, `rpc/router.py`, `apps/edge/`, `cli/`, `packages/py/`, `apps/coordinator-api/` | ⬜ |
-| B4 | Wire `MultiChainManager` into `main.py` — startup sequencing with retry/backoff, per-chain port allocation via `PortAllocator` (A1) | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/main.py`, `network/multi_chain_manager.py` | ⬜ |
-| B5 | Add threshold guards to `MultiValidatorPoA` + `PBFT` (comment + runtime RuntimeError) | High | `consensus/multi_validator_poa.py`, `consensus/pbft.py` | ⬜ |
-| B6 | CLI: `chain start` + `chain stop` (delegate to `node/chain.py`), `chain list --island`, wire `node/chain.py` stubs to real RPC | Medium | `cli/aitbc_cli/commands/chain.py`, `cli/aitbc_cli/commands/node/chain.py` | ⬜ |
-| B7 | `make_genesis.py` multi-genesis support — `--island-id` + `--chains` flags | Medium | `apps/blockchain-node/scripts/make_genesis.py` | ⬜ |
-| B8 | Integration tests — multi-chain block production, island leave cleanup, backward compat | 🔴 P0 | `apps/blockchain-node/tests/test_v064_multi_chain.py` (new) | ⬜ |
-| B9 | Verify full test suite + mypy + ruff clean | High | — | ⬜ |
+| B1 | Add config fields: `island_chains`, `chain_configs`, `chain_port_offsets`, `multi_chain_start_*`, `multi_chain_health_interval`, `chain_shutdown_timeout` + validators | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/config.py` | ✅ |
+| B2 | Refactor `IslandMembership`: `chain_id: str` → `chain_ids: list[str]` + `.chain_id` backward compat property. Update `join_island()` + `leave_island()` | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/network/island_manager.py` | ✅ |
+| B3 | Atomic `join_island()` refactor — update all 8 call sites + `JoinIslandRequest` model | 🔴 P0 | `rpc/islands.py`, `main.py`, `rpc/router.py`, `apps/edge/`, `cli/`, `packages/py/`, `apps/coordinator-api/` | ✅ |
+| B4 | Wire `MultiChainManager` into `main.py` — startup sequencing with retry/backoff, per-chain port allocation via `PortAllocator` (A1) | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/main.py`, `network/multi_chain_manager.py` | ✅ |
+| B5 | Add threshold guards to `MultiValidatorPoA` + `PBFT` (comment + runtime RuntimeError) | High | `consensus/multi_validator_poa.py`, `consensus/pbft.py` | ✅ |
+| B6 | CLI: `chain start` + `chain stop` (delegate to `node/chain.py`), `chain list --island`, wire `node/chain.py` stubs to real RPC | Medium | `cli/aitbc_cli/commands/chain.py`, `cli/aitbc_cli/commands/node/chain.py` | ✅ |
+| B7 | `make_genesis.py` multi-genesis support — `--island-id` + `--chains` flags | Medium | `apps/blockchain-node/scripts/make_genesis.py` | ✅ |
+| B8 | Integration tests — multi-chain block production, island leave cleanup, backward compat | 🔴 P0 | `apps/blockchain-node/tests/test_v064_multi_chain.py` (new) | ✅ |
+| B9 | Verify full test suite + mypy + ruff clean | High | — | ✅ |
 
 ### Agent B — Detailed Instructions
 
