@@ -182,13 +182,28 @@ except ImportError as e:
     BridgeRequestRequest = None
     BridgeRequestResponse = None
 try:
-    from .bridge import bridge_confirm, bridge_lock, get_bridge_transfer, list_pending_transfers
+    from .bridge import (
+        bridge_batch_confirm,
+        bridge_batch_lock,
+        bridge_confirm,
+        bridge_health,
+        bridge_lock,
+        bridge_unlock,
+        get_bridge_balance,
+        get_bridge_transfer,
+        list_pending_transfers,
+    )
 except ImportError as e:
     _import_failed("Bridge module", e)
     bridge_lock = None
     bridge_confirm = None
     get_bridge_transfer = None
     list_pending_transfers = None
+    bridge_unlock = None
+    get_bridge_balance = None
+    bridge_health = None
+    bridge_batch_lock = None
+    bridge_batch_confirm = None
 try:
     from .staking import (
         cast_governance_vote,
@@ -807,6 +822,60 @@ async def list_pending_transfers_route(request: Request, chain_id: str | None = 
     if list_pending_transfers is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
     return await list_pending_transfers(request, chain_id)
+
+
+@router.post("/bridge/unlock", summary="Refund a pending bridge transfer")
+@rate_limit(rate=20, per=60)
+async def bridge_unlock_route(request: Request, unlock_data: dict) -> dict[str, Any]:
+    """Refund/cancel a pending bridge transfer — return locked funds to sender"""
+    if bridge_unlock is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    return await bridge_unlock(request, unlock_data)
+
+
+@router.get("/bridge/balance/{chain_id}", summary="Get bridge balance for a chain")
+@rate_limit(rate=100, per=60)
+async def get_bridge_balance_route(request: Request, chain_id: str) -> dict[str, Any]:
+    """Get total locked amount for a chain (sum of pending/locked transfers)"""
+    if get_bridge_balance is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    return await get_bridge_balance(request, chain_id)
+
+
+@router.get("/bridge/health", summary="Bridge health check")
+@rate_limit(rate=100, per=60)
+async def bridge_health_route(request: Request) -> dict[str, Any]:
+    """Get bridge health status — active transfers, pending count, configuration"""
+    if bridge_health is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    return await bridge_health(request)
+
+
+@router.get("/bridge/status/{transfer_id}", summary="Get transfer status (alias)")
+@rate_limit(rate=100, per=60)
+async def get_bridge_status_route(request: Request, transfer_id: str) -> dict[str, Any]:
+    """Alias for GET /bridge/transfer/{transfer_id}"""
+    if get_bridge_transfer is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    return await get_bridge_transfer(request, transfer_id)
+
+
+@router.post("/bridge/batch/lock", summary="Batch lock multiple transfers")
+@rate_limit(rate=20, per=60)
+async def bridge_batch_lock_route(request: Request, batch_data: dict) -> list[dict[str, Any]]:
+    """Batch lock multiple cross-chain transfers"""
+    if bridge_batch_lock is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    return await bridge_batch_lock(request, batch_data)
+
+
+@router.post("/bridge/batch/confirm", summary="Batch confirm multiple transfers")
+@rate_limit(rate=20, per=60)
+async def bridge_batch_confirm_route(request: Request, batch_data: dict) -> list[dict[str, Any]]:
+    """Batch confirm multiple cross-chain transfers (gated by BRIDGE_RELEASE_ENABLED)"""
+    if bridge_batch_confirm is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    return await bridge_batch_confirm(request, batch_data)
 
 
 @router.post("/staking/stake", summary="Stake tokens")

@@ -8,6 +8,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
@@ -215,6 +216,129 @@ class BridgeManager:
     def has_pending_request(self, island_id: str) -> bool:
         """Check if node has pending bridge request to an island"""
         return island_id in self.pending_requests
+
+    # ── v0.7.0 §B4: Bridge monitoring ──────────────────────────────────
+
+    def health_check(self) -> dict[str, Any]:
+        """Check health of all bridge connections.
+
+        Returns a dict mapping bridge_id → health status dict. Each entry
+        includes the bridge state, target island, uptime (for active bridges),
+        and whether the connection is considered healthy.
+        """
+        results: dict[str, Any] = {}
+        now = time.time()
+        for bridge_id, bridge in self.bridges.items():
+            entry: dict[str, Any] = {
+                "bridge_id": bridge_id,
+                "target_island_id": bridge.target_island_id,
+                "state": bridge.state.value,
+                "healthy": bridge.state in (BridgeState.ACTIVE, BridgeState.APPROVED, BridgeState.PENDING),
+            }
+            if bridge.state == BridgeState.ACTIVE and bridge.activated_at:
+                entry["uptime_seconds"] = int(now - bridge.activated_at)
+            if bridge.state == BridgeState.REJECTED:
+                entry["rejection_reason"] = bridge.rejection_reason
+            results[bridge_id] = entry
+        return results
+
+    def detect_stuck_transfers(self, stuck_timeout: int = 3600) -> list[dict[str, Any]]:
+        """Detect bridge transfers that have been pending longer than the timeout.
+
+        Queries the CrossChainTransfer table via the global CrossChainBridge
+        instance for transfers in 'pending' or 'locked' status whose lock_time
+        exceeds the stuck_timeout threshold.
+
+        Returns a list of stuck transfer dicts with transfer_id, age_seconds,
+        and source/target chains.
+        """
+        from ..cross_chain.bridge import get_cross_chain_bridge
+        from datetime import UTC, datetime, timedelta
+
+        bridge = get_cross_chain_bridge()
+        if not bridge:
+            return []
+
+        now = datetime.now(UTC)
+        threshold = timedelta(seconds=stuck_timeout)
+        stuck: list[dict[str, Any]] = []
+        for t in bridge.list_pending_transfers():
+            if not t.lock_time:
+                continue
+            # Handle both timezone-aware and timezone-naive datetimes (SQLite
+            # stores datetimes as naive by default)
+            lock_time = t.lock_time if t.lock_time.tzinfo else t.lock_time.replace(tzinfo=UTC)
+            if (now - lock_time) > threshold:
+                age = int((now - lock_time).total_seconds())
+                stuck.append(
+                    {
+                        "transfer_id": t.transfer_id,
+                        "source_chain": t.source_chain,
+                        "target_chain": t.target_chain,
+                        "sender": t.sender,
+                        "amount": t.amount,
+                        "age_seconds": age,
+                        "lock_time": t.lock_time.isoformat(),
+                    }
+                )
+                logger.warning(
+                    "Stuck bridge transfer detected: %s... pending for %ds",
+                    t.transfer_id[:16],
+                    age,
+                )
+        return stuck
+
+    def get_metrics(self, stuck_timeout: int = 3600) -> dict[str, Any]:
+        """Collect bridge metrics for monitoring.
+
+        Returns a dict with:
+        - active_bridge_count: number of active bridge connections
+        - pending_request_count: number of pending bridge requests
+        - pending_transfer_count: number of pending cross-chain transfers
+        - stuck_transfer_count: number of transfers pending beyond timeout
+        - total_locked_amount: sum of amounts in pending/locked transfers
+        """
+        from ..cross_chain.bridge import get_cross_chain_bridge
+
+        bridge = get_cross_chain_bridge()
+        pending_transfers = bridge.list_pending_transfers() if bridge else []
+        balances = bridge.get_bridge_balance() if bridge else {}
+        stuck = self.detect_stuck_transfers(stuck_timeout) if bridge else []
+        return {
+            "active_bridge_count": len(self.active_bridges),
+            "pending_request_count": len(self.pending_requests),
+            "pending_transfer_count": len(pending_transfers),
+            "stuck_transfer_count": len(stuck),
+            "total_locked_amount": sum(balances.values()),
+            "stuck_transfers": stuck,
+        }
+
+    async def _monitor_loop(self, interval: int = 60, stuck_timeout: int = 3600) -> None:
+        """Background monitoring loop — runs health checks and stuck transfer detection.
+
+        Called every ``interval`` seconds. Logs anomalies (stuck transfers,
+        unhealthy bridges) but does not take corrective action — that's a
+        v0.7.1+ concern.
+        """
+        while self.running:
+            try:
+                # Health check
+                health = self.health_check()
+                unhealthy = [bid for bid, h in health.items() if not h.get("healthy", False)]
+                if unhealthy:
+                    logger.warning("Unhealthy bridges detected: %d", len(unhealthy))
+
+                # Stuck transfer detection
+                stuck = self.detect_stuck_transfers(stuck_timeout)
+                if stuck:
+                    logger.warning("Stuck bridge transfers detected: %d", len(stuck))
+
+                await asyncio.sleep(interval)
+            except Exception as e:
+                logger.error("Bridge monitor loop error: %s", e)
+                await asyncio.sleep(interval)
+
+    # ── end v0.7.0 §B4 ─────────────────────────────────────────────────
 
     async def start(self) -> None:
         """Start bridge manager"""
