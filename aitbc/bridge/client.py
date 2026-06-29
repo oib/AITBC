@@ -228,6 +228,40 @@ class BridgeClient:
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
 
+    # ------------------------------------------------------------------
+    # v0.7.2 §A4 — block header + oracle status RPC methods
+    # ------------------------------------------------------------------
+
+    async def get_block_header(self, chain_id: str, height: int) -> dict[str, Any]:
+        """Get a remote chain block header stored by the bridge.
+
+        Used to anchor bridge proofs — the block header contains the
+        state root that Merkle proofs are verified against.
+        """
+        resp = await self._ensure_client().get(f"/bridge/block-headers/{chain_id}/{height}")
+        resp.raise_for_status()
+        return cast(dict[str, Any], resp.json())
+
+    async def store_block_header(self, header: dict[str, Any]) -> dict[str, Any]:
+        """Store a remote chain block header for bridge verification.
+
+        The header must include a proposer signature (v0.7.1 block header
+        signing). The bridge verifies the signature before storing.
+        """
+        resp = await self._ensure_client().post("/bridge/block-headers", json=header)
+        resp.raise_for_status()
+        return cast(dict[str, Any], resp.json())
+
+    async def oracle_status(self) -> dict[str, Any]:
+        """Get bridge oracle/verification status.
+
+        Reports: verification mode (in_process/oracle), finality config,
+        validator set status, block header count per chain.
+        """
+        resp = await self._ensure_client().get("/bridge/oracle/status")
+        resp.raise_for_status()
+        return cast(dict[str, Any], resp.json())
+
 
 def transfer_from_dict(data: dict[str, Any]) -> BridgeTransfer:
     """Parse a BridgeTransfer from an RPC response dict.
