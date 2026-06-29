@@ -9,6 +9,8 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from ..clients.blockchain import BlockchainClient
+from ..config import settings
 from ..domain.governance import (
     DaoTreasury,
     Delegation,
@@ -23,8 +25,11 @@ from ..domain.governance import (
 
 
 class GovernanceService:
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, blockchain_client: BlockchainClient | None = None):
         self.session = session
+        self._blockchain = blockchain_client or BlockchainClient(
+            rpc_url=settings.blockchain_rpc_url,
+        )
 
     async def list_profiles(
         self,
@@ -78,8 +83,47 @@ class GovernanceService:
         return result.scalars().first()
 
     async def create_proposal(self, proposal_data: dict[str, Any]) -> Proposal:
-        """Create a new proposal"""
+        """Create a new proposal.
+
+        When on-chain submission is enabled (``enable_onchain_submission``),
+        submits a GOVERNANCE_PROPOSE transaction to the blockchain and stores
+        the resulting tx_hash and block_height on the proposal.
+        """
         proposal = Proposal(**proposal_data)
+        # Ensure chain_id is set
+        if not proposal.chain_id:
+            proposal.chain_id = settings.default_chain_id
+
+        if settings.enable_onchain_submission and settings.proposer_private_key:
+            try:
+                from aitbc.governance.onchain import build_proposal_tx
+                from aitbc.governance.types import ProposalData
+
+                proposer_address = proposal_data.get("proposer_address", "")
+                proposal_data_obj = ProposalData(
+                    proposal_id=proposal.proposal_id,
+                    proposer=proposer_address,
+                    title=proposal.title,
+                    description=proposal.description,
+                    proposal_type=proposal.proposal_type,
+                    parameters=proposal.proposal_value,
+                )
+                payload = build_proposal_tx(proposal_data_obj)
+                result = await self._blockchain.submit_governance_tx(
+                    tx_type="GOVERNANCE_PROPOSE",
+                    sender=proposer_address,
+                    private_key=settings.proposer_private_key,
+                    payload=payload,
+                    chain_id=proposal.chain_id,
+                )
+                proposal.tx_hash = result.get("tx_hash")
+                proposal.block_height = result.get("block_height")
+            except Exception as e:
+                # Log but don't block proposal creation — on-chain submission is best-effort
+                import logging
+
+                logging.getLogger(__name__).warning("On-chain GOVERNANCE_PROPOSE submission failed: %s", e)
+
         self.session.add(proposal)
         await self.session.commit()
         await self.session.refresh(proposal)
@@ -100,8 +144,52 @@ class GovernanceService:
         return list(result.scalars().all())
 
     async def create_vote(self, vote_data: dict[str, Any]) -> Vote:
-        """Create a new vote"""
+        """Create a new vote.
+
+        When on-chain submission is enabled, queries the voter's on-chain
+        balance for voting power and submits a GOVERNANCE_VOTE transaction.
+        The on-chain balance at the current block serves as the voting power
+        snapshot.
+        """
         vote = Vote(**vote_data)
+        # Ensure chain_id is set
+        if not vote.chain_id:
+            vote.chain_id = settings.default_chain_id
+
+        if settings.enable_onchain_submission and settings.proposer_private_key:
+            try:
+                from aitbc.governance.onchain import build_vote_tx
+                from aitbc.governance.types import VoteData
+
+                voter_address = vote_data.get("voter_address", "")
+                # Query on-chain balance for voting power snapshot
+                voting_power = await self._blockchain.get_voting_power(voter_address, vote.chain_id)
+                vote.voting_power = voting_power
+                vote.power_at_snapshot = voting_power
+
+                vote_data_obj = VoteData(
+                    proposal_id=vote.proposal_id,
+                    voter=voter_address,
+                    vote_type=str(vote.vote_type),
+                    voting_power=voting_power,
+                    reason=vote.reason or "",
+                    chain_id=vote.chain_id,
+                )
+                payload = build_vote_tx(vote_data_obj)
+                result = await self._blockchain.submit_governance_tx(
+                    tx_type="GOVERNANCE_VOTE",
+                    sender=voter_address,
+                    private_key=settings.proposer_private_key,
+                    payload=payload,
+                    chain_id=vote.chain_id,
+                )
+                vote.tx_hash = result.get("tx_hash")
+                vote.block_height = result.get("block_height")
+            except Exception as e:
+                import logging
+
+                logging.getLogger(__name__).warning("On-chain GOVERNANCE_VOTE submission failed: %s", e)
+
         self.session.add(vote)
         await self.session.commit()
         await self.session.refresh(vote)
@@ -203,8 +291,13 @@ class GovernanceService:
         return delegation
 
     # Proposal Execution Methods
-    async def execute_proposal(self, proposal_id: str) -> Proposal | None:
-        """Execute a passed proposal and log the steps"""
+    async def execute_proposal(self, proposal_id: str, executor_address: str = "") -> Proposal | None:
+        """Execute a passed proposal and log the steps.
+
+        When on-chain submission is enabled, checks that the timelock has
+        expired (based on block height since voting ended) and submits a
+        GOVERNANCE_EXECUTE transaction. The tx_hash is stored on the proposal.
+        """
         proposal = await self.get_proposal(proposal_id)
         if not proposal:
             return None
@@ -217,13 +310,47 @@ class GovernanceService:
         self.session.add(execution_log)
 
         try:
+            tx_hash = None
+            block_height = None
+
+            if settings.enable_onchain_submission and settings.proposer_private_key:
+                from aitbc.governance.onchain import build_execute_tx
+
+                # Check timelock: voting_ends block + timelock_blocks must be <= current block
+                current_height = await self._blockchain.get_block_height(proposal.chain_id)
+                # voting_ends is a datetime; we approximate block height from creation
+                # In a full implementation, voting_ends_block would be stored explicitly
+                # For v0.7.3, we check that enough blocks have passed since the proposal's block_height
+                if proposal.block_height is not None:
+                    blocks_since_proposal = current_height - proposal.block_height
+                    if blocks_since_proposal < settings.timelock_blocks:
+                        raise ValueError(
+                            f"Timelock not expired: {blocks_since_proposal} blocks since proposal, "
+                            f"need {settings.timelock_blocks}"
+                        )
+
+                payload = build_execute_tx(proposal_id, executor_address, proposal.chain_id)
+                result = await self._blockchain.submit_governance_tx(
+                    tx_type="GOVERNANCE_EXECUTE",
+                    sender=executor_address,
+                    private_key=settings.proposer_private_key,
+                    payload=payload,
+                    chain_id=proposal.chain_id,
+                )
+                tx_hash = result.get("tx_hash")
+                block_height = result.get("block_height")
+
             # Update proposal status
             proposal.status = ProposalStatus.EXECUTED
             proposal.executed_at = datetime.now(UTC)
+            if tx_hash:
+                proposal.execution_tx_hash = tx_hash
+            if block_height:
+                proposal.block_height = block_height
 
             # Log execution success
             execution_log.status = "completed"
-            execution_log.result = {"executed_at": proposal.executed_at.isoformat()}
+            execution_log.result = {"executed_at": proposal.executed_at.isoformat(), "tx_hash": tx_hash}
 
             await self.session.commit()
             await self.session.refresh(proposal)
