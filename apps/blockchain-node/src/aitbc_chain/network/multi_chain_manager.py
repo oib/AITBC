@@ -66,8 +66,8 @@ class MultiChainManager:
         self,
         default_chain_id: str,
         base_db_path: Path,
-        base_rpc_port: int = 8006,
-        base_p2p_port: int = 7070,
+        base_rpc_port: int = 8202,
+        base_p2p_port: int = 8200,
         port_allocator: PortAllocator | None = None,
     ) -> None:
         self.default_chain_id = default_chain_id
@@ -385,8 +385,8 @@ def get_multi_chain_manager() -> MultiChainManager | None:
 def create_multi_chain_manager(
     default_chain_id: str,
     base_db_path: Path,
-    base_rpc_port: int = 8006,
-    base_p2p_port: int = 7070,
+    base_rpc_port: int = 8202,
+    base_p2p_port: int = 8200,
     port_allocator: PortAllocator | None = None,
 ) -> MultiChainManager:
     """Create and set global multi-chain manager instance"""
