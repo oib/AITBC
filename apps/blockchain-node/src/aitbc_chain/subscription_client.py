@@ -388,3 +388,18 @@ class SubscriptionClient:
     def get_sync_mode(self) -> str:
         """Get current sync mode."""
         return self._sync_mode
+
+    @property
+    def chain_id(self) -> str:
+        """Chain ID this client subscribes to."""
+        return self._chain_id
+
+    @property
+    def hub_url(self) -> str:
+        """Hub URL this client connects to."""
+        return self._hub_url
+
+    @property
+    def is_connected(self) -> bool:
+        """Whether the client is actively running (connected)."""
+        return self._running
