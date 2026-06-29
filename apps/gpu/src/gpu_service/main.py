@@ -22,6 +22,7 @@ from aitbc.middleware import (
     RequestValidationMiddleware,
 )
 
+from .config import settings  # noqa: E402
 from .services.edge_gpu_service import EdgeGPUService
 from .storage import get_session, init_db
 
@@ -277,7 +278,7 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
                 "nonce": 0,
                 "type": "GPU_REGISTER",
                 "value": 0,
-                "chain_id": transaction_data.get("chain_id") or os.getenv("CHAIN_ID", ""),
+                "chain_id": transaction_data.get("chain_id") or settings.default_chain_id,
                 "payload": {
                     "amount": 0,
                     "gpu_model": gpu_specs.get("model", "Unknown"),
@@ -295,7 +296,7 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
             blockchain_tx_hash = None
             if provider_address:
                 try:
-                    blockchain_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+                    blockchain_url = settings.blockchain_rpc_url
                     import httpx
 
                     async with httpx.AsyncClient(timeout=30) as client:
