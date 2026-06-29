@@ -18,6 +18,7 @@ from .crypto import (
 )
 from .hashing import generate_hmac, verify_hmac
 from .password import hash_password, verify_password
+from .payment_escrow import EscrowEntry, EscrowStatus, PaymentEscrow
 from .secrets import (
     SecretManager,
     generate_nonce,
@@ -42,6 +43,10 @@ __all__ = [
     "SessionManager",
     # Transaction service
     "TransactionService",
+    # Payment escrow (v0.6.5)
+    "EscrowEntry",
+    "EscrowStatus",
+    "PaymentEscrow",
     "decrypt_private_key",
     # Crypto functions
     "derive_ethereum_address",
