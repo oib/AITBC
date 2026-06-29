@@ -4,7 +4,7 @@ import os
 import uuid
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Use the actual data directory where the blockchain database is located
@@ -141,6 +141,30 @@ class ChainSettings(BaseSettings):
             f"{DATA_DIR}/data/{os.getenv('CHAIN_ID', '')}/genesis.json",
         ]
 
+    @field_validator("chain_configs", mode="before")
+    @classmethod
+    def parse_chain_configs(cls, v: dict[str, str] | str) -> dict[str, str]:
+        """Validate chain_configs dict. Values are raw config strings
+        parsed later by ChainConfigParser at point of use."""
+        if not v:
+            return {}
+        if isinstance(v, str):
+            import json
+
+            try:
+                v = json.loads(v)
+            except json.JSONDecodeError:
+                raise ValueError(f"chain_configs must be a dict or JSON string, got: {v}") from None
+        # Validate each value is a non-empty string
+        from aitbc.utils.chain_config import ChainConfigParser
+
+        for chain_id, config_str in v.items():
+            if not isinstance(config_str, str):
+                raise ValueError(f"chain_configs['{chain_id}'] must be a string, got: {type(config_str)}")
+            if config_str.strip():
+                ChainConfigParser.parse(config_str)
+        return v
+
     max_reorg_depth: int = 10  # max blocks to reorg on conflict
     sync_validate_signatures: bool = True  # validate proposer signatures on import
 
@@ -226,6 +250,36 @@ class ChainSettings(BaseSettings):
 
     # Bridge request monitor interval in seconds (v0.6.3).
     bridge_request_monitor_interval: int = 60
+
+    # Multi-chain per island (v0.6.4). Chains hosted on this island.
+    # Comma-separated list of chain_ids. If empty, defaults to [chain_id]
+    # for backward compat with single-chain config.
+    # Env var: ISLAND_CHAINS
+    island_chains: str = ""
+
+    # Per-chain configuration overrides (v0.6.4).
+    # Parsed via ChainConfigParser (aitbc.utils.chain_config).
+    # Env vars: CHAIN_CONFIG_<chain_id>="block_time_seconds:2,max_txs_per_block:500"
+    # Stored as dict[str, str] by pydantic, parsed by field_validator.
+    chain_configs: dict[str, str] = {}
+
+    # Per-chain port offsets (v0.6.4). Offset from base RPC/P2P ports.
+    # Format: "chain_id:offset,chain_id:offset,..."
+    # Env var: CHAIN_PORT_OFFSETS
+    chain_port_offsets: str = ""
+
+    # Multi-chain startup retry config (v0.6.4).
+    # Main chain fails fast; secondary chains retry with exponential backoff.
+    multi_chain_start_max_retries: int = 3
+    multi_chain_start_base_delay: float = 2.0
+    multi_chain_start_max_delay: float = 30.0
+    multi_chain_start_backoff_multiplier: float = 2.0
+
+    # Multi-chain health monitoring (v0.6.4).
+    multi_chain_health_interval: int = 60
+
+    # Chain shutdown timeout (v0.6.4). Graceful stop wait in seconds.
+    chain_shutdown_timeout: int = 10
 
     # Cross-chain bridge release fence (Bug 3 PARTIAL — v0.5.16).
     # The bridge release path (confirm_transfer / /bridge/confirm) currently

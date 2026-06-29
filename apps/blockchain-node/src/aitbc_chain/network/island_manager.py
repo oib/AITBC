@@ -28,11 +28,16 @@ class IslandMembership:
 
     island_id: str
     island_name: str
-    chain_id: str
+    chain_ids: list[str]
     status: IslandStatus
     joined_at: float
     is_hub: bool = False
     peer_count: int = 0
+
+    @property
+    def chain_id(self) -> str:
+        """Backward compat: returns first chain_id."""
+        return self.chain_ids[0] if self.chain_ids else ""
 
 
 @dataclass
@@ -66,7 +71,7 @@ class IslandManager:
         self.islands[self.default_island_id] = IslandMembership(
             island_id=self.default_island_id,
             island_name="default",
-            chain_id=self.default_chain_id,
+            chain_ids=[self.default_chain_id],
             status=IslandStatus.ACTIVE,
             joined_at=time.time(),
             is_hub=False,
@@ -91,37 +96,51 @@ class IslandManager:
         self.running = False
         logger.info("Stopping island manager")
 
-    def join_island(self, island_id: str, island_name: str, chain_id: str, is_hub: bool = False) -> bool:
-        """Join an island"""
+    def join_island(self, island_id: str, island_name: str, chain_id: str | list[str], is_hub: bool = False) -> bool:
+        """Join an island. Accepts single chain_id (str) or multiple chain_ids (list)."""
         if island_id in self.islands:
             logger.warning("Already member of island %s", island_id)
+            return False
+        chain_ids = [chain_id] if isinstance(chain_id, str) else list(chain_id)
+        if not chain_ids:
+            logger.warning("Cannot join island %s with empty chain_ids", island_id)
             return False
         self.islands[island_id] = IslandMembership(
             island_id=island_id,
             island_name=island_name,
-            chain_id=chain_id,
+            chain_ids=chain_ids,
             status=IslandStatus.ACTIVE,
             joined_at=time.time(),
             is_hub=is_hub,
         )
         self.island_peers[island_id] = set()
-        logger.info("Joined island %s (name: %s, chain: %s)", island_id, island_name, chain_id)
+        logger.info("Joined island %s (name: %s, chains: %s)", island_id, island_name, chain_ids)
         return True
 
     def leave_island(self, island_id: str) -> bool:
-        """Leave an island"""
+        """Leave an island. Cleans up all chain resources."""
         if island_id == self.default_island_id:
             logger.warning("Cannot leave default island")
             return False
         if island_id not in self.islands:
             logger.warning("Not member of island %s", island_id)
             return False
+        membership = self.islands[island_id]
+        # Clean up chain resources (databases)
+        for chain_id in membership.chain_ids:
+            try:
+                from ..database import shutdown_db
+
+                shutdown_db(chain_id)
+                logger.info("Shut down database for chain %s on island %s", chain_id, island_id)
+            except Exception as e:
+                logger.warning("Failed to shut down database for chain %s: %s", chain_id, e)
         if island_id in self.active_bridges:
             self.active_bridges.remove(island_id)
         del self.islands[island_id]
         if island_id in self.island_peers:
             del self.island_peers[island_id]
-        logger.info("Left island %s", island_id)
+        logger.info("Left island %s (cleaned up %d chains)", island_id, len(membership.chain_ids))
         return True
 
     def request_bridge(self, target_island_id: str) -> str:
@@ -149,10 +168,11 @@ class IslandManager:
             return False
         request = self.bridge_requests[request_id]
         request.status = "approved"
+        bridge_chain_id = f"bridge-{request.target_island_id[:8]}"
         self.join_island(
             request.target_island_id,
             f"bridge-{request.target_island_id[:8]}",
-            f"bridge-{request.target_island_id[:8]}",
+            bridge_chain_id,
             is_hub=False,
         )
         self.active_bridges.add(request.target_island_id)

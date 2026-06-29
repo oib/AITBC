@@ -7,6 +7,8 @@ import pytest
 
 # Disable rate limiting in tests to avoid 429s from tight loops
 os.environ.setdefault("AITBC_ENABLE_RATE_LIMITING", "false")
+# Enable multi-validator consensus for tests (threshold guard bypass)
+os.environ.setdefault("MULTI_VALIDATOR_CONSENSUS_ENABLED", "true")
 from aitbc_chain.models import Block, Receipt, Transaction  # noqa: F401 - ensure models imported for metadata
 from sqlmodel import Session, SQLModel, create_engine
 
