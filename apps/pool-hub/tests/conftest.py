@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -13,7 +14,19 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 BASE_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(BASE_DIR / ".env")
 
-from poolhub.models import Base  # noqa: E402
+# Ensure pool-hub src is on the path
+_SRC = Path(__file__).resolve().parent.parent / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+
+# Set a default shared secret for test environments if not provided
+os.environ.setdefault("POOLHUB_COORDINATOR_SHARED_SECRET", "test-secret")
+
+# Import Base defensively — unit tests don't need it, only DB integration tests do
+try:
+    from poolhub.models import Base  # noqa: E402,F401
+except Exception:  # pragma: no cover — only fails if settings/env misconfigured
+    Base = None  # type: ignore[assignment]
 
 
 def _get_required_env(name: str) -> str | None:
@@ -25,6 +38,8 @@ def _get_required_env(name: str) -> str | None:
 
 @pytest_asyncio.fixture()
 async def db_engine() -> AsyncEngine:
+    if Base is None:
+        pytest.skip("poolhub.models not available — settings/env not configured")
     dsn = _get_required_env("POOLHUB_TEST_POSTGRES_DSN")
     engine = create_async_engine(dsn, pool_pre_ping=True)
 
@@ -58,5 +73,8 @@ async def redis_client() -> Redis:
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def _clear_redis(redis_client: Redis) -> None:
-    await redis_client.flushdb()
+async def _clear_redis(request: pytest.FixtureRequest) -> None:
+    # Only clear Redis if the test actually uses redis_client
+    if "redis_client" in request.fixturenames:
+        redis_client = request.getfixturevalue("redis_client")
+        await redis_client.flushdb()

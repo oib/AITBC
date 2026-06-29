@@ -23,6 +23,9 @@ class MinerRegistration(BaseModel):
     gpu_info: dict[str, Any]
     endpoint: str | None = None
     max_concurrent_jobs: int = 1
+    # v0.6.7: chain awareness + wallet for reward payments
+    chain_id: str = "ait-hub"
+    wallet_address: str | None = None
 
 
 class MinerStatus(BaseModel):
@@ -47,6 +50,9 @@ class MinerInfo(BaseModel):
     uptime_percent: float
     registered_at: datetime
     last_heartbeat: datetime
+    # v0.6.7: chain awareness
+    chain_id: str = "ait-hub"
+    wallet_address: str | None = None
 
 
 # Dependency injection
@@ -63,7 +69,7 @@ def get_scoring() -> ScoringEngine:
 async def register_miner(
     request: Request, registration: MinerRegistration, registry: Annotated[MinerRegistry, Depends(get_registry)]
 ) -> MinerInfo:
-    """Register a new miner with the pool hub."""
+    """Register a new miner with the pool hub (v0.6.7: chain_id + on-chain registration)."""
     try:
         miner = await registry.register(
             miner_id=registration.miner_id,
@@ -72,7 +78,31 @@ async def register_miner(
             gpu_info=registration.gpu_info,
             endpoint=registration.endpoint,
             max_concurrent_jobs=registration.max_concurrent_jobs,
+            chain_id=registration.chain_id,
+            wallet_address=registration.wallet_address,
         )
+        # v0.6.7: register miner on blockchain (feature-flagged)
+        if registration.wallet_address:
+            try:
+                from poolhub.clients.blockchain import PoolHubBlockchainClient
+                from poolhub.settings import settings
+
+                if settings.enable_reward_distribution:
+                    client = PoolHubBlockchainClient(
+                        rpc_url=settings.blockchain_rpc_url,
+                        chain_id=registration.chain_id,
+                    )
+                    await client.register_miner_on_chain(
+                        miner_id=registration.miner_id,
+                        gpu_info=registration.gpu_info,
+                        address=registration.wallet_address,
+                    )
+            except Exception as e:
+                # On-chain registration failure should not block in-memory registration
+                import logging
+
+                logging.getLogger(__name__).warning("On-chain miner registration failed: %s", e)
+
         return miner  # type: ignore[no-any-return]
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
