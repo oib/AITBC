@@ -84,6 +84,11 @@ class Proposal(SQLModel, table=True):
     execution_timestamp: datetime | None = None
     proposal_metadata: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
+    # v0.7.3 on-chain governance fields
+    chain_id: str = Field(default="ait-hub", index=True)
+    block_height: int | None = Field(default=None)
+    tx_hash: str | None = Field(default=None)  # GOVERNANCE_PROPOSE tx hash
+
     # Legacy fields (kept for compatibility)
     execution_payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     votes_for: float = Field(default=0.0)  # Legacy alias for yes_votes
@@ -126,6 +131,11 @@ class Vote(SQLModel, table=True):
     vote_weight: float = Field(default=0.0)  # Calculated weight
     delegated_from: str | None = None  # For delegated votes
     signature: str | None = None  # 130 char ECDSA signature
+
+    # v0.7.3 on-chain governance fields
+    chain_id: str = Field(default="ait-hub", index=True)
+    block_height: int | None = Field(default=None)
+    tx_hash: str | None = Field(default=None)  # GOVERNANCE_VOTE tx hash
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
