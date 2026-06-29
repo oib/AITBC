@@ -134,6 +134,41 @@ CHAIN_CONFIG_ait-hub-payments="block_time_seconds:2,max_txs_per_block:500"
 CHAIN_CONFIG_ait-hub-gpu="block_time_seconds:5,max_txs_per_block:100"
 ```
 
+**CHAIN_CONFIG_ parsing validator** — parse per-chain config strings into typed `ChainConfig` objects at startup:
+```python
+from pydantic import BaseModel, field_validator
+
+class ChainConfig(BaseModel):
+    """Per-chain configuration overrides."""
+    block_time_seconds: int | None = None
+    max_txs_per_block: int | None = None
+    # Add more per-chain params as needed
+
+# In Settings class:
+@field_validator("chain_configs", mode="before")
+@classmethod
+def parse_chain_configs(cls, v: dict[str, str]) -> dict[str, ChainConfig]:
+    """Parse CHAIN_CONFIG_* env vars into typed ChainConfig objects."""
+    if not v:
+        return {}
+    result: dict[str, ChainConfig] = {}
+    for chain_id, config_str in v.items():
+        if not config_str or not config_str.strip():
+            continue
+        params: dict[str, str] = {}
+        for pair in config_str.split(","):
+            pair = pair.strip()
+            if not pair:
+                continue
+            if ":" not in pair:
+                raise ValueError(f"Invalid CHAIN_CONFIG entry for '{chain_id}': '{pair}'. Expected 'key:value'")
+            k, val = pair.split(":", 1)
+            params[k.strip()] = val.strip()
+        result[chain_id] = ChainConfig(**params)
+    return result
+```
+Fail fast on malformed `CHAIN_CONFIG_*` entries at startup.
+
 #### Island Join with Multiple Chains
 ```python
 def join_island(self, island_id: str, island_name: str, chain_ids: list[str], is_hub: bool = False) -> bool:
@@ -208,6 +243,88 @@ aitbc chain stop --chain-id ait-hub-ai
 aitbc chain list --island
 ```
 
+#### Startup Sequencing with Retry/Backoff
+
+Chains are started sequentially at node boot, sorted by dependency (main chain first). If the main chain fails to start, the node fails fast. Secondary chains retry with exponential backoff.
+
+**Config**:
+```bash
+# MultiChainManager.start_chain() retry config
+MULTI_CHAIN_START_MAX_RETRIES=3
+MULTI_CHAIN_START_BASE_DELAY=2.0   # seconds
+MULTI_CHAIN_START_MAX_DELAY=30.0   # seconds (cap)
+MULTI_CHAIN_START_BACKOFF_MULTIPLIER=2.0
+```
+
+**Sequence**:
+1. Sort chains by dependency: main chain (first in `ISLAND_CHAINS`) first, then secondary chains
+2. Start main chain — fail fast if it fails (no retry, node aborts)
+3. Start secondary chains sequentially with retry/backoff:
+   - Attempt start, catch exceptions
+   - If fail: wait `base_delay * (multiplier ^ attempt)` seconds, capped at `max_delay`
+   - Retry up to `max_retries` times
+   - If exhausted: log error, mark chain as `ChainStatus.ERROR`, continue with other chains
+4. Log startup summary: which chains started, which failed
+
+**Implementation**:
+```python
+async def start_chains_sequentially(self, chain_ids: list[str]) -> None:
+    """Start chains sequentially with retry/backoff for secondary chains."""
+    if not chain_ids:
+        return
+    # Main chain — fail fast
+    main_chain = chain_ids[0]
+    await self.start_chain(main_chain)  # No retry, raises on failure
+
+    # Secondary chains — retry with backoff
+    for chain_id in chain_ids[1:]:
+        for attempt in range(settings.multi_chain_start_max_retries + 1):
+            try:
+                await self.start_chain(chain_id)
+                break
+            except Exception as e:
+                if attempt == settings.multi_chain_start_max_retries:
+                    logger.error("Chain %s failed to start after %d attempts: %s", chain_id, attempt + 1, e)
+                    break
+                delay = min(
+                    settings.multi_chain_start_base_delay * (settings.multi_chain_start_backoff_multiplier ** attempt),
+                    settings.multi_chain_start_max_delay,
+                )
+                logger.warning("Chain %s start attempt %d failed, retrying in %.1fs: %s", chain_id, attempt + 1, delay, e)
+                await asyncio.sleep(delay)
+```
+
+#### Per-Chain Port Allocation
+
+Each chain on an island gets its own RPC and P2P port, allocated as offsets from base ports.
+
+**Config**:
+```bash
+# Base ports (from existing config)
+# rpc_port=8006 (base RPC)
+# p2p_port=8007 (base P2P)
+
+# Per-chain port offsets from base ports
+CHAIN_PORT_OFFSETS="ait-hub-main:0,ait-hub-payments:10,ait-hub-gpu:20"
+
+# Resulting port assignments:
+# ait-hub-main:      RPC 8006, P2P 8007
+# ait-hub-payments:  RPC 8016, P2P 8017
+# ait-hub-gpu:       RPC 8026, P2P 8027
+```
+
+**Resolution logic**:
+```python
+def get_chain_ports(chain_id: str, base_rpc: int, base_p2p: int, offsets: dict[str, int]) -> tuple[int, int]:
+    """Resolve (rpc_port, p2p_port) for a chain."""
+    offset = offsets.get(chain_id, 0)
+    return (base_rpc + offset, base_p2p + offset)
+```
+
+**Conflict detection**: On startup, `MultiChainManager` verifies no two chains share the same port. If conflict detected, log error and refuse to start the conflicting chain.
+
+**Default behavior**: When `CHAIN_PORT_OFFSETS` is empty, all chains share the base ports (backward compat with single-chain config — only one chain uses the ports).
+
 ### Genesis Per Chain
 
 #### Current State
@@ -255,6 +372,29 @@ Each chain has its own:
 - `apps/blockchain-node/src/aitbc_chain/consensus/pbft.py` line 48 — defined, used only in test scripts, NOT in production code
 **Action**: Do NOT activate `MultiValidatorPoA` or `PBFT` in this release. Leave them in clearly commented THRESHOLD state so they don't accidentally run. They require separate security review before activation.
 
+**Threshold guard** — add to top of each file (after module docstring):
+```python
+# ════════════════════════════════════════════════════════════════
+# THRESHOLD STATE — DO NOT ACTIVATE WITHOUT SECURITY REVIEW
+# Requires: validator rotation, slashing, multi-validator consensus audit
+# Activation: set MULTI_VALIDATOR_CONSENSUS_ENABLED=true (NOT in this release)
+# See: v0.7.x security releases for activation plan
+# ════════════════════════════════════════════════════════════════
+```
+
+Additionally, add a runtime guard at the top of each class's `__init__`:
+```python
+class MultiValidatorPoA:
+    def __init__(self, ...):
+        if not os.getenv("MULTI_VALIDATOR_CONSENSUS_ENABLED", "").lower() == "true":
+            raise RuntimeError(
+                "MultiValidatorPoA is in THRESHOLD state and not yet activated. "
+                "Set MULTI_VALIDATOR_CONSENSUS_ENABLED=true to override (requires security review)."
+            )
+        # ... rest of init
+```
+Same pattern for `PBFT.__init__`. This prevents accidental activation even if someone imports and instantiates the class.
+
 #### join_island() Caller Inventory
 **Current signature** (island_manager.py line 94): `join_island(self, island_id: str, island_name: str, chain_id: str, is_hub: bool = False) -> bool`
 **All callers** (must be updated atomically when signature changes to `chain_ids: list[str]`):
@@ -266,15 +406,32 @@ Each chain has its own:
 6. `packages/py/aitbc-agent-sdk/src/aitbc_agent/edge_api_client.py` lines 197-198
 7. `apps/coordinator-api/src/app/contexts/infrastructure/routers/islands_proxy.py` line 50 (proxy, forwards body)
 8. `apps/blockchain-node/src/aitbc_chain/rpc/router.py` lines 614-618 (route handler)
-**Action**: Update all 8 call sites in one atomic refactor. Grep for `join_island` first to catch any new callers.
+
+**Atomic refactor requirement**: All 8 call sites must be updated in a single commit. Any mismatch between caller and callee signatures crashes the island join path. Before merge, verify with:
+```bash
+rg "join_island\(" --type=py apps/ cli/ packages/ | grep -v "def join_island" | grep -v __pycache__
+```
+This must show exactly 8 results, all using the new `chain_ids: list[str]` signature.
+
+**Backward compatibility adapter**: To avoid breaking external callers during transition, add a compatibility wrapper:
+```python
+def join_island(self, island_id: str, island_name: str, chain_id: str | list[str], is_hub: bool = False) -> bool:
+    """Join an island. Accepts single chain_id (str) or multiple chain_ids (list)."""
+    chain_ids = [chain_id] if isinstance(chain_id, str) else chain_id
+    # ... new logic with chain_ids list
+```
+This allows old callers to pass a single string while new callers pass a list.
 
 ## 🔧 Breaking Changes
 
 - `IslandMembership.chain_id` → `IslandMembership.chain_ids` (list instead of string)
-- `join_island()` signature changes: `chain_id: str` → `chain_ids: list[str]`
+  - **Backward compat**: `.chain_id` property returns `chain_ids[0]` for single-chain access
+- `join_island()` signature changes: `chain_id: str` → `chain_ids: str | list[str]` (accepts both for backward compat)
 - `MultiChainManager` is now activated (was dead code) — may affect startup sequence
-- New config: `ISLAND_CHAINS` (optional, defaults to single chain_id for backward compat)
+- New config: `ISLAND_CHAINS`, `CHAIN_PORT_OFFSETS`, `CHAIN_CONFIG_*` (all optional, backward-compatible defaults)
 - `make_genesis.py` gains `--island-id` and `--chains` flags (backward compatible — `--chain-id` still works)
+- `IslandMembership.chain_ids` serialization in RPC: JSON array (`"chain_ids": ["ait-hub-main", "ait-hub-payments"]`)
+- New config: `MULTI_CHAIN_HEALTH_INTERVAL=60` (chain health check interval), `CHAIN_SHUTDOWN_TIMEOUT=10` (graceful stop wait seconds)
 
 ## 📊 Migration Guide
 
@@ -319,6 +476,37 @@ Each chain has its own:
   - Currently `chain list` exists but lacks `--island` flag
   - Implementation: Add `--island` option to existing `chain list` command
 
+### CLI Command Routing
+
+**Current state** (verified):
+- `cli/aitbc_cli/commands/chain.py` — top-level `chain` group with `list`, `status`, `info`, `create`, `delete`, `add`, `remove`, `migrate`, `monitor` subcommands
+- `cli/aitbc_cli/commands/node/chain.py` — `node chain` group with `start`, `stop`, `list_chains` subcommands (implementations: `start_chain_command`, `stop_chain_command`, `list_chains_command`)
+- `cli/aitbc_cli/commands/node/__init__.py` — `node chain` group registered at line 173-176, with `start`, `stop`, `list_chains` subcommands at lines 179-200
+
+**Routing design**: `aitbc chain start/stop` should delegate to the same logic as `aitbc node chain start/stop` — single source of truth in `node/chain.py`. Avoid duplicating command logic:
+
+```python
+# cli/aitbc_cli/commands/chain.py — add start/stop as wrappers
+from .node.chain import start_chain_command, stop_chain_command
+
+@chain.command(name="start")
+@click.argument("chain_id")
+@click.option("--chain-type", type=click.Choice(["bilateral", "micro"]), default="micro")
+@click.pass_context
+def start(ctx, chain_id, chain_type):
+    """Start a chain (delegates to node chain start)."""
+    start_chain_command(ctx, chain_id, chain_type)
+
+@chain.command(name="stop")
+@click.argument("chain_id")
+@click.pass_context
+def stop(ctx, chain_id):
+    """Stop a chain (delegates to node chain stop)."""
+    stop_chain_command(ctx, chain_id)
+```
+
+**`--island` flag for `chain list`**: Add to existing `chain list` command in `chain.py`. When `--island <island_id>` is provided, filter results to chains on that island (query node's `/rpc/islands` or `/network-info` for island→chain mapping).
+
 ## 🧪 Testing
 
 ### Multi-Chain Block Production Testing
@@ -340,6 +528,23 @@ Each chain has its own:
 - Island health monitoring per chain
 - Leave island cleans up all chain memberships
 
+**Island leave cleanup test** (explicit):
+```python
+def test_leave_island_cleans_up_all_chains():
+    """Leave island with 3 chains → verify all 3 chain resources cleaned up."""
+    # Setup: join island with 3 chains
+    manager.join_island("island-1", "Test Island", ["chain-a", "chain-b", "chain-c"])
+    # Start chains (proposers, databases, gossip subscriptions)
+    # ...
+    # Leave island
+    manager.leave_island("island-1")
+    # Verify: all 3 chain databases closed (shutdown_db called)
+    # Verify: all 3 proposers stopped (tasks cancelled)
+    # Verify: all 3 gossip subscriptions unsubscribed (blocks.{chain_id}, transactions.{chain_id})
+    # Verify: island_peers entries removed for all 3 chain_ids
+    # Verify: IslandMembership removed from islands dict
+```
+
 ### Genesis Testing
 - Multi-genesis generation creates correct files per chain
 - Each genesis has unique hash
@@ -350,6 +555,15 @@ Each chain has its own:
 - Single-chain config (no `ISLAND_CHAINS`) still works
 - `--chain-id` flag in `make_genesis.py` still works
 - Existing nodes with single chain_id start without changes
+
+**Backward compat test matrix**:
+| Test | v0.6.3 Behavior | v0.6.4 Expected | Verification |
+|------|-----------------|-----------------|--------------|
+| Single-chain config (no `ISLAND_CHAINS`) | Node starts with one chain | Identical — `ISLAND_CHAINS` defaults to `[chain_id]` | Start node, verify one chain running |
+| `make_genesis.py --chain-id ait-hub` | Generates one genesis file | Identical output — `--island-id`/`--chains` flags optional | Compare genesis hash with v0.6.3 output |
+| `join_island(chain_id="ait-hub")` (single string) | Works with `chain_id: str` | Works via backward compat adapter (`str` → `[str]`) | Call with single string, verify no crash |
+| `IslandMembership.chain_id` access | Returns string | `.chain_id` property returns `chain_ids[0]` for compat | Access `.chain_id`, verify returns first chain |
+| `block_production_chains` not set | All chains produce blocks | All chains produce blocks (default) | Start hub, verify all chains producing |
 
 ### Test Coverage Goals
 - Multi-chain block production: >95%
@@ -388,8 +602,9 @@ Each chain has its own:
 - Multi-chain overhead: <10% per additional chain (vs. single-chain baseline)
 - Block production independence: no cross-chain blocking
 - MultiChainManager memory: <5MB per additional chain
-- Chain health check interval: 60s (configurable)
+- Chain health check interval: 60s (configurable via `MULTI_CHAIN_HEALTH_INTERVAL=60`)
 - Dynamic chain start time: <5 seconds
+- Chain shutdown timeout: 10s graceful wait (configurable via `CHAIN_SHUTDOWN_TIMEOUT=10`)
 
 ## 🎯 Success Criteria
 
@@ -400,6 +615,13 @@ Each chain has its own:
 - ✅ Dynamic chain start/stop works without node restart
 - ✅ Per-chain genesis generation works
 - ✅ Backward compatible: single-chain config still works
+- ✅ All 8 join_island call sites updated atomically (grep verified)
+- ✅ MultiValidatorPoA/PBFT have threshold guards (runtime + comment)
+- ✅ Startup sequencing with retry/backoff for secondary chains
+- ✅ Per-chain port allocation with conflict detection
+- ✅ CHAIN_CONFIG_ parsing validator fails fast on malformed entries
+- ✅ Island leave cleans up all chain resources (databases, proposers, gossip)
+- ✅ **Zero port conflicts across 5+ chains on single island**
 - ✅ All existing tests pass
 
 ## 🚀 Next Steps
@@ -427,6 +649,6 @@ Each chain has its own:
 
 ---
 
-*Last Updated: 2026-06-25*
+*Last Updated: 2026-06-29*
 *Version: 0.6.4*
 *Status: Planned*
