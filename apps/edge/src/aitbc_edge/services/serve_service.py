@@ -108,10 +108,10 @@ class ServeService:
                 return {
                     "result_id": res.result_id,
                     "request_id": res.request_id,
-                    "output_data": res.output_data,  # type: ignore[attr-defined]
-                    "metrics": res.metrics,  # type: ignore[attr-defined]
-                    "status": res.status,  # type: ignore[attr-defined]
+                    "output_data": res.output_data,
+                    "metrics": res.metrics,
+                    "status": res.status,
                     "created_at": res.created_at.isoformat() if res.created_at else None,
-                    "extra_data": res.extra_data,  # type: ignore[attr-defined]
+                    "extra_data": res.extra_data,
                 }
             return None

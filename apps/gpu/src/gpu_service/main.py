@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.marketplace import BlockchainRPCClient, OfferFSM, OfferStatus  # noqa: E402
 from aitbc.middleware import (
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
@@ -28,6 +29,45 @@ from .storage import get_session, init_db
 
 configure_logging(level="INFO")
 logger = get_logger(__name__)
+
+# v0.6.6: Shared blockchain RPC client (chain-aware) and offer FSM
+_rpc_client = BlockchainRPCClient(rpc_url=settings.blockchain_rpc_url)
+
+
+# Map GPURegistry status strings to OfferStatus for FSM validation
+_GPU_STATUS_TO_OFFER: dict[str, OfferStatus] = {
+    "available": OfferStatus.AVAILABLE,
+    "booked": OfferStatus.RESERVED,
+    "online": OfferStatus.AVAILABLE,
+    "offline": OfferStatus.DELISTED,
+    "in_use": OfferStatus.IN_USE,
+}
+_OFFER_TO_GPU_STATUS: dict[OfferStatus, str] = {
+    OfferStatus.AVAILABLE: "available",
+    OfferStatus.RESERVED: "booked",
+    OfferStatus.IN_USE: "in_use",
+    OfferStatus.DELISTED: "offline",
+    OfferStatus.EXPIRED: "offline",
+}
+
+
+def _validate_gpu_status_transition(current: str, new: str) -> str:
+    """Validate a GPU status transition via OfferFSM (v0.6.6).
+
+    Maps GPURegistry status strings to OfferStatus, validates the transition,
+    and returns the new GPURegistry status string. Raises ValueError on invalid
+    transitions.
+    """
+    current_offer = _GPU_STATUS_TO_OFFER.get(current, OfferStatus.AVAILABLE)
+    new_offer = _GPU_STATUS_TO_OFFER.get(new)
+    if new_offer is None:
+        # Unknown status string — allow as-is but log a warning
+        logger.warning("Unknown GPU status '%s', skipping FSM validation", new)
+        return new
+    fsm = OfferFSM(current_offer)
+    fsm.transition(new_offer)
+    mapped = _OFFER_TO_GPU_STATUS.get(new_offer, new)
+    return mapped
 
 
 def discover_gpu_specs() -> dict[str, Any]:
@@ -201,7 +241,8 @@ async def update_gpu(gpu_id: str, gpu_data: dict[str, Any], session: Annotated[A
         if "price_per_hour" in gpu_data:
             gpu.price_per_hour = gpu_data["price_per_hour"]
         if "status" in gpu_data:
-            gpu.status = gpu_data["status"]
+            # v0.6.6: validate status transition via OfferFSM
+            gpu.status = _validate_gpu_status_transition(gpu.status, gpu_data["status"])
         await session.commit()
         await session.refresh(gpu)
         return {
@@ -296,25 +337,21 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
             blockchain_tx_hash = None
             if provider_address:
                 try:
-                    blockchain_url = settings.blockchain_rpc_url
+                    # v0.6.6: use BlockchainRPCClient (chain-aware) instead of raw httpx
                     import httpx
 
                     async with httpx.AsyncClient(timeout=30) as client:
-                        account_info_response = await client.get(f"{blockchain_url}/rpc/account/{provider_address}")
+                        account_info_response = await client.get(
+                            f"{settings.blockchain_rpc_url}/rpc/account/{provider_address}"
+                        )
                         account_info = account_info_response.json()
                         correct_nonce = account_info.get("nonce", 0) if isinstance(account_info, dict) else 0
                         blockchain_tx["nonce"] = correct_nonce
                         logger.info("Using nonce %s for address %s", correct_nonce, provider_address)
-                        response = await client.post(
-                            f"{blockchain_url}/rpc/transaction",
-                            json=blockchain_tx,
-                            headers={"Content-Type": "application/json"},
-                        )
-                        response.raise_for_status()
-                        result = response.json()
-                        blockchain_tx_hash = result.get("transaction_hash")
-                        if blockchain_tx_hash:
-                            logger.info("GPU registered on blockchain: %s", blockchain_tx_hash)
+                    result = await _rpc_client.submit_transaction(blockchain_tx)
+                    blockchain_tx_hash = result.get("transaction_hash")
+                    if blockchain_tx_hash:
+                        logger.info("GPU registered on blockchain: %s", blockchain_tx_hash)
                 except Exception as blockchain_error:
                     logger.warning("Blockchain submission failed, falling back to local storage: %s", blockchain_error)
                     logger.warning("Error type: %s", type(blockchain_error))
@@ -337,6 +374,7 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
                 "status": transaction_data.get("status", "available"),
                 "region": gpu_specs.get("region", ""),
                 "capabilities": gpu_specs.get("capabilities", []),
+                "chain_id": blockchain_tx.get("chain_id", settings.default_chain_id),
                 "blockchain_tx_hash": blockchain_tx_hash,
             }
             from .domain.gpu_marketplace import GPURegistry

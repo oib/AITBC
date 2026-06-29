@@ -40,7 +40,13 @@ class ComputeResult(SQLModel, table=True):
     request_id: str = Field(index=True)
     island_id: str = Field(index=True)
     gpu_id: str
+    # v0.6.6: service code references output_data/metrics/status/extra_data.
+    # Keep `result` for backward compatibility.
     result: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    output_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))
+    metrics: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))
+    status: str = Field(default="completed", index=True)
+    extra_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))
     cache_ttl: int = Field(default=3600)  # 1 hour default
     created_at: datetime = Field(default_factory=datetime.utcnow)
     expires_at: datetime = Field(default_factory=datetime.utcnow)

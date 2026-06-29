@@ -2,9 +2,14 @@
 
 from typing import Any
 
+from aitbc.aitbc_logging import get_logger
+
 from ..clients.gpu_service import GPUServiceClient
+from ..config import settings
 from ..schemas.gpu import GPUListing
 from ..storage import get_session
+
+logger = get_logger(__name__)
 
 
 class GPUService:
@@ -51,12 +56,12 @@ class GPUService:
             from sqlmodel import select
 
             async with get_session() as session:
-                result = await session.execute(select(GPUListing).where(GPUListing.gpu_id == gpu_id))  # type: ignore[attr-defined]
+                result = await session.execute(select(GPUListing).where(GPUListing.gpu_id == gpu_id))
                 gpu = result.scalar_one_or_none()
                 if gpu:
                     return {
-                        "id": gpu.gpu_id,  # type: ignore[attr-defined]
-                        "model": gpu.model,  # type: ignore[attr-defined]
+                        "id": gpu.gpu_id,
+                        "model": gpu.model,
                         "memory_gb": gpu.memory_gb,
                         "cuda_version": gpu.cuda_version,
                         "region": gpu.region,
@@ -70,10 +75,10 @@ class GPUService:
         from sqlmodel import delete
 
         async with get_session() as session:
-            stmt = delete(GPUListing).where(GPUListing.gpu_id == gpu_id)  # type: ignore[attr-defined]
+            stmt = delete(GPUListing).where(GPUListing.gpu_id == gpu_id)
             result = await session.execute(stmt)
             await session.commit()
-            return bool(result.rowcount > 0)  # type: ignore[attr-defined]
+            return bool(result.rowcount > 0)
 
     async def scan_gpus(self, miner_id: str) -> dict[str, Any]:
         """Scan GPUs via GPU service"""
@@ -84,3 +89,35 @@ class GPUService:
         """Get GPU metrics via GPU service"""
         metrics = await self.gpu_client.get_gpu_metrics(gpu_id, limit)
         return metrics
+
+    async def advertise_to_marketplace(self) -> dict[str, Any]:
+        """Advertise this edge node's GPU capabilities to the marketplace (v0.6.6).
+
+        POSTs the list of available GPU profiles to the marketplace service so
+        that the marketplace can include edge-hosted GPUs in offer discovery.
+        """
+        import httpx
+
+        profiles = await self.gpu_client.get_gpu_profiles()
+        payload = {
+            "node_type": "edge",
+            "service": "aitbc-edge",
+            "gpu_count": len(profiles),
+            "gpus": [
+                {
+                    "model": p.get("model", "Unknown"),
+                    "memory_gb": p.get("memory_gb", 0),
+                    "region": p.get("region", ""),
+                    "capabilities": p.get("capabilities", []),
+                }
+                for p in profiles
+            ],
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(f"{settings.marketplace_url}/v1/marketplace/edge-advertise", json=payload)
+                resp.raise_for_status()
+                return {"status": "advertised", "gpu_count": len(profiles), "response": resp.json()}
+        except Exception as e:
+            logger.warning("Failed to advertise to marketplace: %s", e)
+            return {"status": "failed", "error": str(e), "gpu_count": len(profiles)}

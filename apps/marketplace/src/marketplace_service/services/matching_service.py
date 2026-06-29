@@ -2,11 +2,14 @@
 
 from typing import Any
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.marketplace import OfferFSM, OfferStatus
 
+from ..config import settings
 from ..domain.marketplace import MarketplaceOffer
 
 logger = get_logger(__name__)
@@ -97,3 +100,94 @@ class MatchingService:
         if requirements.get("preferred_region") and offer.region == requirements["preferred_region"]:
             score *= 1.1
         return min(max(score, 0.0), 1.0)
+
+    async def match_and_assign(
+        self,
+        requirements: dict[str, Any],
+        max_price: float | None = None,
+        preferred_region: str | None = None,
+        chain_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Match a compute request to the best available GPU offer (v0.6.6).
+
+        Implements price-time priority: offers are sorted by price (ascending)
+        then by registration time (oldest first). The best match is reserved
+        via OfferFSM and a task is submitted to the agent-coordinator.
+
+        Returns a dict with the match details, task_id, and escrow_id.
+        """
+        try:
+            # Price-time priority: order by price asc, then created_at asc (oldest first)
+            stmt = select(MarketplaceOffer).where(MarketplaceOffer.status == "active")
+            if max_price is not None:
+                stmt = stmt.where(MarketplaceOffer.price_per_hour.isnot(None))  # type: ignore
+                stmt = stmt.where(MarketplaceOffer.price_per_hour <= max_price)  # type: ignore
+            if preferred_region:
+                stmt = stmt.where(MarketplaceOffer.region == preferred_region)
+            if chain_id:
+                stmt = stmt.where(MarketplaceOffer.chain_id == chain_id)
+            stmt = stmt.order_by(
+                MarketplaceOffer.price_per_hour.asc(),  # type: ignore[union-attr]
+                MarketplaceOffer.created_at.asc(),  # type: ignore[union-attr]
+            )
+            result = await self.session.execute(stmt)
+            offers = result.scalars().all()
+            if not offers:
+                logger.info("No matching offers found for requirements (chain_id=%s)", chain_id)
+                return {"status": "no_match", "chain_id": chain_id}
+
+            best_offer = offers[0]
+
+            # Reserve the offer via OfferFSM
+            current = OfferFSM.from_string(best_offer.status)
+            fsm = OfferFSM(current)
+            fsm.transition(OfferStatus.RESERVED)
+            best_offer.status = OfferStatus.RESERVED.value
+            await self.session.commit()
+
+            # Submit task to agent-coordinator
+            task_id = None
+            escrow_id = None
+            try:
+                task_payload = {
+                    "chain_id": chain_id or best_offer.chain_id or settings.default_chain_id,
+                    "offer_id": best_offer.id,
+                    "requirements": requirements,
+                    "max_price": max_price,
+                    "preferred_region": preferred_region,
+                    "payment": {"escrow_required": True},
+                }
+                async with httpx.AsyncClient(timeout=10) as client:
+                    resp = await client.post(
+                        f"{settings.agent_coordinator_url}/tasks/submit",
+                        json=task_payload,
+                    )
+                    resp.raise_for_status()
+                    task_data = resp.json()
+                    task_id = task_data.get("task_id")
+                    escrow_id = task_data.get("escrow_id")
+            except Exception as e:
+                logger.warning("Failed to submit task to agent-coordinator: %s", e)
+
+            logger.info(
+                "Matched offer %s (price=%s) for chain_id=%s, task_id=%s",
+                best_offer.id,
+                best_offer.price_per_hour,
+                chain_id,
+                task_id,
+            )
+            return {
+                "status": "matched",
+                "offer_id": best_offer.id,
+                "provider": best_offer.provider,
+                "price_per_hour": best_offer.price_per_hour,
+                "gpu_model": best_offer.gpu_model,
+                "region": best_offer.region,
+                "chain_id": best_offer.chain_id,
+                "task_id": task_id,
+                "escrow_id": escrow_id,
+                "match_score": self._calculate_match_score(best_offer, requirements),
+            }
+        except Exception as e:
+            logger.error("Error in match_and_assign: %s: %s", type(e).__name__, str(e))
+            raise

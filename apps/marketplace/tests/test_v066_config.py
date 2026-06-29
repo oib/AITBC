@@ -70,15 +70,15 @@ class TestMarketplaceConfig:
         assert "from .config import settings" in source
 
     def test_marketplace_service_uses_8202_not_8006(self):
-        """marketplace_service.py defaults to 8202, not stale 8006."""
+        """marketplace_service.py uses settings.blockchain_rpc_url, not stale 8006."""
         import inspect
 
         from marketplace_service.services import marketplace_service
 
         source = inspect.getsource(marketplace_service)
-        assert "8006" not in source.replace("8006", "")  # no 8006 anywhere
-        # The default should be 8202
-        assert "8202" in source
+        assert "8006" not in source  # no stale 8006 anywhere
+        # v0.6.6: uses settings.blockchain_rpc_url (not hardcoded port)
+        assert "settings.blockchain_rpc_url" in source
 
 
 # ---------------------------------------------------------------------------
