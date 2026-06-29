@@ -503,14 +503,14 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/ -q -o a
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Add config: `chain_sync_sources`, `island_registry`, `gossip_backends`, `island_tasks_enabled` + fail-fast validators | 🔴 P0 | `config.py` | ⬜ |
-| B2 | Wire up `SyncSourceResolver` in `main.py` — resolve hub URL per chain | 🔴 P0 | `main.py` | ⬜ |
-| B3 | Multi-hub subscription in `main.py` — use `SubscriptionManager` (A4), one client per chain | 🔴 P0 | `main.py`, `subscription_client.py` | ⬜ |
-| B4 | Enable island manager background tasks + auto-join islands from config | High | `main.py`, `island_manager.py` | ⬜ |
-| B5 | Add `chain sync-status` CLI command — per-chain sync status | Medium | `cli/aitbc_cli/commands/chain.py` | ⬜ |
-| B6 | Add `node island health` CLI command + fix `node island list` stub | Medium | `cli/aitbc_cli/commands/node/__init__.py`, `cli/aitbc_cli/commands/node/island.py` | ⬜ |
-| B7 | Integration tests — multi-chain sync, multi-hub subscription, island membership | 🔴 P0 | `apps/blockchain-node/tests/test_multi_island.py` (new) | ⬜ |
-| B8 | Verify full test suite + mypy + ruff clean | High | — | ⬜ |
+| B1 | Add config: `chain_sync_sources`, `island_registry`, `gossip_backends`, `island_tasks_enabled` + fail-fast validators | 🔴 P0 | `config.py` | ✅ |
+| B2 | Wire up `SyncSourceResolver` in `main.py` — resolve hub URL per chain | 🔴 P0 | `main.py` | ✅ |
+| B3 | Multi-hub subscription in `main.py` — use `SubscriptionManager` (A4), one client per chain | 🔴 P0 | `main.py`, `subscription_client.py` | ✅ |
+| B4 | Enable island manager background tasks + auto-join islands from config | High | `main.py`, `island_manager.py` | ✅ |
+| B5 | Add `chain sync-status` CLI command — per-chain sync status | Medium | `cli/aitbc_cli/commands/chain.py` | ✅ |
+| B6 | Add `node island health` CLI command + fix `node island list` stub | Medium | `cli/aitbc_cli/commands/node/__init__.py`, `cli/aitbc_cli/commands/node/island.py` | ✅ |
+| B7 | Integration tests — multi-chain sync, multi-hub subscription, island membership | 🔴 P0 | `apps/blockchain-node/tests/test_v063_multi_island.py` (new) | ✅ |
+| B8 | Verify full test suite + mypy + ruff clean | High | — | ✅ |
 
 ### Agent B — Detailed Instructions
 
