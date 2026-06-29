@@ -17,26 +17,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-# Import all submodules
-from aitbc.database import (
-    DatabaseConnection,
-    DatabaseMetrics,
-    DatabaseServiceFactory,
-    QueryMetrics,
-    QueryMonitor,
-    ReadReplicaManager,
-    SQLiteDatabaseService,
-    create_async_pooled_engine,
-    create_async_pooled_sessionmaker,
-    create_pooled_engine,
-    create_pooled_sessionmaker,
-    ensure_database,
-    get_database_connection,
-    get_table_info,
-    table_exists,
-    vacuum_database,
-)
-
 # Import submodules directly for testing
 from aitbc.database.connection import DatabaseConnection
 from aitbc.database.monitoring import DatabaseMetrics, QueryMetrics, QueryMonitor
@@ -597,7 +577,7 @@ class TestSQLiteDatabaseService:
             ("INSERT INTO nonexistent (value) VALUES (?)", ("fail",)),
         ]
 
-        with pytest.raises(Exception):
+        with pytest.raises(sqlite3.OperationalError):
             service.execute_transaction(queries)
 
         # First insert should have been rolled back
