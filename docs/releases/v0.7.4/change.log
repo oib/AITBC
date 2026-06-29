@@ -1,0 +1,262 @@
+# AITBC v0.7.4 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Deferred v0.7.x Items — External Oracle Integration, Cross-Chain Governance, Parameter Automation, Emergency Proposals, Coordinator-API Bridge Integration, MultiValidatorPoA Activation
+
+## 🎯 Overview
+
+AITBC v0.7.4 collects the deferred items from v0.7.0-v0.7.3 that were tagged "deferred to v0.8.x" but never assigned to a specific release. These items are natural continuations of the v0.7.x track (bridge + governance + consensus) and belong here rather than in the v0.8.x trading track.
+
+**Why this release exists**: During v0.8.0-v0.8.2 release planning, it was discovered that 7 items were deferred from v0.7.x to "v0.8.x" but none of the v0.8.x releases (trading basics, offer sync, advanced offer sync) pick them up. v0.9.0 (atomic settlement) also doesn't cover them. These items are bridge/governance/consensus work, not trading work — they belong in the v0.7.x track.
+
+**Prerequisites**: [v0.7.0](../v0.7.0/change.log) ✅, [v0.7.1](../v0.7.1/change.log) ✅, [v0.7.2](../v0.7.2/change.log) ✅ (Agent A `9a7b17a34`), [v0.7.3](../v0.7.3/change.log) (Agent A ✅ `923e0a5bc`).
+
+> **Not on the critical path**: v0.8.x and v0.9.0 do not depend on v0.7.4. This release can ship in parallel with v0.8.x work. However, cross-chain governance (item 3) requires v0.7.2 bridge verification to be operational and tested.
+
+> **Risk**: Medium-High. MultiValidatorPoA activation is consensus-critical (requires security review). External oracle integration adds external dependency. Cross-chain governance touches the bridge path.
+
+## 🎯 Release Highlights
+
+### External Oracle Integration
+- 🚧 Implement `ExternalOracleClient` (currently stub with `NotImplementedError`)
+- 🚧 Add `BRIDGE_ORACLE_ENDPOINTS` config
+- 🚧 Oracle fallback policy (in-process → oracle → in-process)
+- 🚧 Oracle roadmap document
+
+### Cross-Chain Governance
+- 🚧 Proposal propagation via bridge (proposal on hub → propagate to islands)
+- 🚧 Cross-chain vote aggregation (votes from all chains → tally on hub)
+- 🚧 Cross-chain proposal execution (execute on all chains after approval)
+
+### Parameter Automation
+- 🚧 Pool-hub parameter change API (governance-driven, not manual)
+- 🚧 Marketplace parameter change API (governance-driven)
+- 🚧 Automatic parameter application after proposal execution
+
+### Emergency Proposals
+- 🚧 Accelerated timelock for emergency proposals (e.g., 4h instead of 48h)
+- 🚧 Higher quorum threshold (80% already configured, needs enforcement)
+- 🚧 Fast-track execution path
+
+### Coordinator-API Bridge Integration
+- 🚧 Integrate coordinator-api with blockchain-node bridge (replace parallel CrossChainBridgeService)
+- 🚧 Use `aitbc.bridge.BridgeClient` instead of custom CrossChainBridgeService
+- 🚧 Remove duplicate bridge implementation
+
+### MultiValidatorPoA Activation
+- 🚧 Security review of MultiValidatorPoA implementation
+- 🚧 Remove `RuntimeError` guard (multi_validator_poa.py:45-49)
+- 🚧 Activate `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` in production
+- 🚧 PBFT activation (depends on MultiValidatorPoA)
+
+## 📋 Detailed Features
+
+### External Oracle Integration (deferred from v0.7.2)
+
+#### Current State
+- `ExternalOracleClient` exists as stub (`aitbc/bridge/oracle.py:228-262`)
+- All methods raise `NotImplementedError`
+- No `BRIDGE_ORACLE_ENDPOINTS` config exists
+- No oracle roadmap document exists
+
+#### Implementation
+- Implement `verify_proof()` — call external oracle API for Merkle proof verification
+- Implement `check_finality()` — call external oracle API for block finality check
+- Add `BRIDGE_ORACLE_ENDPOINTS` config to blockchain-node Settings
+- Add oracle fallback policy: if oracle is unavailable, fall back to in-process verification
+- Create `docs/architecture/oracle-roadmap.md`
+
+#### Oracle Fallback Policy
+- Primary: External oracle (if configured and available)
+- Fallback: In-process verification (v0.7.2, always available)
+- Health check: Periodic oracle health check, switch to fallback on failure
+- Recovery: Attempt oracle reconnection every 60s
+
+### Cross-Chain Governance (deferred from v0.7.3)
+
+#### Current State
+- Governance is single-chain only (v0.7.3)
+- `aitbc/governance/onchain.py` builds single-chain proposal/vote/execute payloads
+- `aitbc/governance/client.py` has no cross-chain methods
+- 0 matches for "cross_chain_governance", "proposal_propagation", "vote_aggregation"
+
+#### Implementation
+- **Proposal propagation**: Proposal created on hub → bridge propagates to islands → islands create mirror proposal
+- **Cross-chain voting**: Votes on all chains → bridge aggregates to hub → hub tallies
+- **Cross-chain execution**: Proposal approved on hub → bridge sends execute command to islands → islands execute
+- Add `propagate_proposal()`, `aggregate_votes()`, `execute_cross_chain()` to GovernanceClient
+- Add cross-chain proposal types to `onchain.py`
+
+### Parameter Automation (deferred from v0.7.3)
+
+#### Current State
+- `ParameterChangeSchema` exists (`aitbc/governance/types.py:119-136`) but has no execute method
+- Comment: "Parameter automation (actually applying the change to the target service) is deferred to v0.8.x"
+- Pool-hub has manual config API (`apps/pool-hub/src/poolhub/app/routers/services.py`) but not governance-driven
+- Marketplace has no parameter change API
+
+#### Implementation
+- Add parameter change API to pool-hub (governance-triggered, not manual)
+- Add parameter change API to marketplace (governance-triggered)
+- After proposal execution, governance service calls target service's parameter API
+- Add `apply_parameter_change()` to governance service
+
+### Emergency Proposals (deferred from v0.7.3)
+
+#### Current State
+- `EMERGENCY = "emergency"` exists in `ProposalType` enum (`aitbc/governance/types.py:41`)
+- `emergency_quorum_threshold: 0.8` configured (`apps/governance/src/governance_service/main.py:221`)
+- No special handling — emergency proposals treated same as regular proposals
+
+#### Implementation
+- Accelerated timelock: 4h instead of 48h for emergency proposals
+- Higher quorum enforcement: 80% (already configured, needs enforcement in code)
+- Fast-track execution: Skip normal timelock if quorum + approval met
+- Add emergency-specific logic to `create_proposal()` and `execute_proposal()`
+
+### Coordinator-API Bridge Integration (deferred from v0.7.0)
+
+#### Current State
+- Coordinator-api has its own `CrossChainBridgeService` (`apps/coordinator-api/src/app/contexts/cross_chain/`)
+- Does NOT use `aitbc.bridge.BridgeClient` (0 matches for "BridgeClient" in coordinator-api)
+- Two parallel bridge implementations exist (blockchain-node + coordinator-api)
+- No integration between them
+
+#### Implementation
+- Replace coordinator-api's `CrossChainBridgeService` with `aitbc.bridge.BridgeClient`
+- Route coordinator-api bridge requests through blockchain-node bridge RPC
+- Remove duplicate bridge implementation from coordinator-api
+- Update coordinator-api tests to use BridgeClient mocks
+
+### MultiValidatorPoA Activation (deferred from v0.7.1)
+
+#### Current State
+- `MultiValidatorPoA` fully implemented (`apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py`, 294 lines)
+- Gated behind `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` env var (line 45-49, raises `RuntimeError` if not set)
+- 0 production imports outside consensus/ and tests/
+- PBFT also dead code, depends on MultiValidatorPoA
+- v0.7.1 AGENTS.md: "Do NOT activate without security review"
+
+#### Implementation
+- **Security review**: Audit MultiValidatorPoA + PBFT for consensus safety
+- **Test coverage**: Ensure multi-validator consensus tests pass
+- **Activation**: Remove RuntimeError guard, enable in production config
+- **Monitoring**: Add consensus validator metrics
+- **Rollback plan**: Ability to disable if issues found
+
+## 🔧 Breaking Changes
+
+- MultiValidatorPoA activation changes consensus mechanism (single → multi validator)
+- Coordinator-API bridge integration removes CrossChainBridgeService (breaking for coordinator-api consumers)
+- Emergency proposals get accelerated timelock (breaking for existing emergency proposal expectations)
+
+## 📊 Migration Guide
+
+### v0.7.3 → v0.7.4
+
+1. **MultiValidatorPoA activation** (if enabled):
+   ```bash
+   MULTI_VALIDATOR_CONSENSUS_ENABLED=true
+   ```
+
+2. **External oracle** (optional):
+   ```bash
+   BRIDGE_ORACLE_ENDPOINTS=oracle1.aitbc.bubuit.net,oracle2.aitbc.bubuit.net
+   BRIDGE_VERIFICATION_MODE=oracle  # or "in_process" (default)
+   ```
+
+3. **Coordinator-API bridge integration**:
+   - Update coordinator-api to use BridgeClient
+   - Remove CrossChainBridgeService references
+
+## 🖥️ CLI Commands
+
+### New Commands
+- `aitbc governance propagate --proposal-id <id>` — Propagate proposal to all chains
+- `aitbc governance aggregate-votes --proposal-id <id>` — Aggregate votes from all chains
+- `aitbc bridge oracle-status` — Show oracle health and fallback status
+- `aitbc consensus validators` — List active validators (MultiValidatorPoA)
+- `aitbc consensus status` — Show consensus mode (single vs multi-validator)
+
+## 🧪 Testing
+
+### External Oracle Testing
+- Oracle proof verification correctness
+- Fallback to in-process on oracle failure
+- Oracle health check and recovery
+
+### Cross-Chain Governance Testing
+- Proposal propagation across chains
+- Vote aggregation correctness
+- Cross-chain execution atomicity
+
+### Parameter Automation Testing
+- Parameter change application after proposal execution
+- Pool-hub parameter API
+- Marketplace parameter API
+
+### Emergency Proposal Testing
+- Accelerated timelock enforcement
+- Higher quorum enforcement
+- Fast-track execution
+
+### Coordinator-API Bridge Testing
+- BridgeClient integration
+- Bridge request routing through blockchain-node
+
+### MultiValidatorPoA Testing
+- Multi-validator consensus correctness
+- Validator add/remove
+- PBFT consensus
+- Consensus mode switching
+
+## 📚 Documentation
+
+- [External Oracle Integration Guide](../architecture/oracle-roadmap.md)
+- [Cross-Chain Governance Architecture](../architecture/cross-chain-governance.md)
+- [Parameter Automation Guide](../getting-started/parameter-automation.md)
+- [MultiValidatorPoA Activation Guide](../getting-started/multi-validator-activation.md)
+
+## 🔐 Security Considerations
+
+- **MultiValidatorPoA**: Requires security review before activation. Consensus bugs can chain-split.
+- **External oracle**: Oracle compromise can allow invalid proofs. Use multiple oracles + fallback.
+- **Cross-chain governance**: Proposal propagation must authenticate source chain. Vote aggregation must prevent double-voting.
+- **Parameter automation**: Parameter changes must be validated before application. Rate-limit changes.
+- **Emergency proposals**: Accelerated timelock increases risk of hasty decisions. Higher quorum mitigates.
+
+## 📈 Performance Targets
+
+- Oracle proof verification: <500ms (external API call)
+- Cross-chain proposal propagation: <30s to all islands
+- Vote aggregation: <60s for all chains
+- Parameter application: <5s after execution
+- MultiValidatorPoA block production: <2s (same as single-validator)
+
+## 🎯 Success Criteria
+
+- ✅ ExternalOracleClient implemented with fallback policy
+- ✅ Cross-chain governance operational (propagate, aggregate, execute)
+- ✅ Parameter automation applies changes to pool-hub and marketplace
+- ✅ Emergency proposals have accelerated timelock and higher quorum
+- ✅ Coordinator-API uses BridgeClient (duplicate bridge removed)
+- ✅ MultiValidatorPoA activated with security review sign-off
+- ✅ Performance targets met
+
+## 🚀 Next Steps
+
+### v0.8.x — Trading Track (parallel, not blocked by v0.7.4)
+- v0.8.0: Inter-chain trading basics
+- v0.8.1: Cross-chain offer sync (polling)
+- v0.8.2: Advanced offer sync (subscription)
+
+### v0.9.0 — Atomic Cross-Chain Settlement
+- HTLC-based atomic settlement
+- Does NOT depend on v0.7.4
+
+---
+
+*Last Updated: 2026-06-29*
+*Version: 0.7.4*
+*Status: Planned*
