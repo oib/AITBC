@@ -232,4 +232,85 @@ def match_all(ctx, format):
         error(f"Error matching trades: {e}")
 
 
+# ============================================================================
+# v0.8.1: Offer Sync Commands (B5)
+# ============================================================================
+
+
+@trade.command()
+@click.option("--source-chain", default=None, help="Filter by source chain")
+@click.option("--dest-chain", default=None, help="Filter by destination chain")
+@click.option("--service-type", default=None, help="Filter by service type (e.g. gpu_marketplace)")
+@click.option("--min-price", default=None, type=float, help="Minimum price filter")
+@click.option("--max-price", default=None, type=float, help="Maximum price filter")
+@click.option("--region", default=None, help="Filter by region")
+@click.option("--gpu-model", default=None, help="Filter by GPU model")
+@click.option("--limit", default=100, type=int, help="Max results")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def discover(ctx, source_chain, dest_chain, service_type, min_price, max_price, region, gpu_model, limit, format):
+    """Discover offers across chains with filters"""
+    try:
+        client = _get_client()
+        params: dict[str, str | int | float] = {"limit": limit}
+        if source_chain:
+            params["source_chain"] = source_chain
+        if dest_chain:
+            params["dest_chain"] = dest_chain
+        if service_type:
+            params["service_type"] = service_type
+        if min_price is not None:
+            params["min_price"] = min_price
+        if max_price is not None:
+            params["max_price"] = max_price
+        if region:
+            params["region"] = region
+        if gpu_model:
+            params["gpu_model"] = gpu_model
+        result = client.post("/v1/trading/offers/discover", json=params)
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error discovering offers: {e}")
+
+
+@trade.command()
+@click.option("--chain-id", default=None, help="Sync specific chain (default: all chains)")
+@click.option("--service-type", default=None, help="Sync specific service type")
+@click.option("--force", is_flag=True, default=False, help="Force sync even if offers are fresh")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def sync(ctx, chain_id, service_type, force, format):
+    """Trigger offer sync for a specific chain or all chains"""
+    try:
+        client = _get_client()
+        params: dict[str, str | bool] = {"force": force}
+        if chain_id:
+            params["chain_id"] = chain_id
+        if service_type:
+            params["service_type"] = service_type
+        result = client.post("/v1/trading/offers/sync", json=params)
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error syncing offers: {e}")
+
+
+@trade.command(name="sync-status")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def sync_status(ctx, format):
+    """Show offer sync status per chain"""
+    try:
+        client = _get_client()
+        result = client.get("/v1/trading/offers/sync-status")
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error getting sync status: {e}")
+
+
 __all__ = ["trade"]

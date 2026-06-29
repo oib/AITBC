@@ -102,6 +102,7 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.7.1** — Bridge Security: <ref_file file="/opt/aitbc/docs/releases/v0.7.1/change.log" />
 - **v0.7.2** — Bridge Verification (In-Process Crypto): <ref_file file="/opt/aitbc/docs/releases/v0.7.2/change.log" />
 - **v0.7.3** — Governance: <ref_file file="/opt/aitbc/docs/releases/v0.7.3/change.log" />
+- **v0.7.4** — Deferred v0.7.x Items (External Oracle, Cross-Chain Governance, Parameter Automation, Emergency Proposals, Coordinator-API Bridge, MultiValidatorPoA): <ref_file file="/opt/aitbc/docs/releases/v0.7.4/change.log" />
 
 ### Infrastructure Track (trading + settlement)
 - **v0.8.0** — Inter-Chain Trading Basics: <ref_file file="/opt/aitbc/docs/releases/v0.8.0/change.log" />
@@ -120,7 +121,7 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.5.18  (test suite repair — blockchain-node suite green + gated) ✅ complete
   → v0.6.0 → v0.6.1 → v0.6.2 → v0.6.3 → v0.6.4  (infra: db/network opt ✅, parallel processing ✅, sync, multi-island, multi-chain)
   → v0.6.5 → v0.6.6 → v0.6.7                      (product: agents ✅, marketplace, pool hub)
-  → v0.7.0 → v0.7.1 → v0.7.2 → v0.7.3             (infra+product: bridge basics, bridge security, bridge verification, governance)
+  → v0.7.0 → v0.7.1 → v0.7.2 → v0.7.3 → v0.7.4     (infra+product: bridge basics, bridge security, bridge verification, governance, deferred v0.7.x items)
   → v0.8.0 → v0.8.1 → v0.8.2 → v0.9.0               (infra: trading basics, offer sync polling, offer sync subscription, atomic settlement)
   → v1.0.0                                          (production readiness)
   → v2.0.0                                          (vision — questionable features, parked for re-evaluation)
