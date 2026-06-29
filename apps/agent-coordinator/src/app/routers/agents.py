@@ -28,6 +28,8 @@ async def register_agent(request_http: Request, request: AgentRegistrationReques
                 capabilities=request.capabilities,
                 services=request.services,
                 endpoints=request.endpoints,
+                chain_id=request.chain_id or "",
+                island_id=request.island_id or "",
             )
             agent_info.metadata = request.metadata
         except ValueError as e:

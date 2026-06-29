@@ -25,12 +25,14 @@ class CreateWorkflowRequest(BaseModel):
     description: str = Field(default="", description="Workflow description")
     steps: list[dict[str, Any]] = Field(..., description="Workflow steps")
     created_by: str = Field(default="", description="Creator identifier")
+    chain_id: str | None = Field(None, description="Chain ID for workflow execution")  # v0.6.5
 
 
 class ExecuteWorkflowRequest(BaseModel):
     """Request to execute a workflow"""
 
     input_parameters: dict[str, Any] = Field(default_factory=dict, description="Input parameters for workflow")
+    chain_id: str | None = Field(None, description="Chain ID to execute on")  # v0.6.5
 
 
 class WorkflowResponse(BaseModel):
