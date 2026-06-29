@@ -52,6 +52,9 @@ class Miner(Base):
     capabilities: Mapped[list[str]] = mapped_column(JSON, default=list)
     trust_score: Mapped[float] = mapped_column(Float, default=0.5)
     region: Mapped[str | None] = mapped_column(String(64))
+    # v0.6.7: chain awareness + wallet for reward payments
+    chain_id: Mapped[str] = mapped_column(String(64), default="ait-hub", index=True)
+    wallet_address: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
     status: Mapped[MinerStatus] = relationship(back_populates="miner", cascade="all, delete-orphan", uselist=False)
     feedback: Mapped[list[Feedback]] = relationship(back_populates="miner", cascade="all, delete-orphan")
@@ -195,3 +198,23 @@ class CapacitySnapshot(Base):
     scaling_reason: Mapped[str] = mapped_column(Text)
     timestamp: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
     meta_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+
+class RewardPayout(Base):
+    """Reward payout record (v0.6.7).
+
+    Tracks reward payouts per miner per epoch to prevent duplicate payouts
+    and provide an audit trail of all reward distributions.
+    """
+
+    __tablename__ = "reward_payouts"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    miner_id: Mapped[str] = mapped_column(String(64), index=True)
+    chain_id: Mapped[str] = mapped_column(String(64), index=True)
+    epoch_number: Mapped[int] = mapped_column(Integer, index=True)
+    amount: Mapped[int] = mapped_column(Integer)  # in compute-seconds
+    tx_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="pending")  # pending, paid, failed
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
+    paid_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))

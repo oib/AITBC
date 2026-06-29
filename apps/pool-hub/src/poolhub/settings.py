@@ -27,7 +27,9 @@ class Settings(BaseSettings):
     bind_host: str = Field(default="127.0.0.1")
     bind_port: int = Field(default=8203)
 
-    coordinator_shared_secret: str = Field(description="Shared secret for coordinator communication - MUST be set via POOLHUB_COORDINATOR_SHARED_SECRET env var")  # No default - must be configured
+    coordinator_shared_secret: str = Field(
+        description="Shared secret for coordinator communication - MUST be set via POOLHUB_COORDINATOR_SHARED_SECRET env var"
+    )  # No default - must be configured
 
     postgres_dsn: str = Field(default="postgresql+asyncpg://poolhub:poolhub@127.0.0.1:5432/aitbc")
     postgres_pool_min: int = Field(default=1)
@@ -50,6 +52,17 @@ class Settings(BaseSettings):
     # Coordinator-API Billing Integration
     coordinator_billing_url: str = Field(default="http://localhost:8011")
     coordinator_api_key: str | None = Field(default=None)
+
+    # Blockchain integration (v0.6.7)
+    blockchain_rpc_url: str = Field(default="http://localhost:8202")
+    default_chain_id: str = Field(default="ait-hub")
+
+    # Agent coordinator integration (v0.6.7 — miner registration)
+    agent_coordinator_url: str = Field(default="http://localhost:8107")
+
+    # Reward distribution (v0.6.7)
+    enable_reward_distribution: bool = Field(default=False)  # feature-flagged
+    reward_sync_interval_blocks: int = Field(default=100)
 
     # SLA Configuration
     sla_thresholds: dict[str, float] = Field(
