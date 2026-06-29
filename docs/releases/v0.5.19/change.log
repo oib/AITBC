@@ -1,0 +1,108 @@
+# AITBC v0.5.19 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Tech Debt Cleanup — Cross-Context Import Refactors, Dead Pricing Models, fakeredis
+
+## 🎯 Overview
+
+AITBC v0.5.19 collects the deferred tech debt items from v0.5.13-v0.5.18 that were tagged "future" or "later" but never assigned to a specific release. After verification, 4 of 7 items are already resolved, leaving 3 outstanding items.
+
+**Why this release exists**: During v0.7.4 and v0.8.2 release planning, it was discovered that 7 tech debt items were deferred from v0.5.x to "future" but never tracked. After re-verification (2026-06-29), 4 items were found to be already resolved, leaving 3 outstanding.
+
+**Prerequisites**: [v0.5.18](../v0.5.18/change.log) ✅ (Test Suite Repair). No other prerequisites.
+
+> **Not on the critical path**: No release depends on v0.5.19. These items can be picked up opportunistically.
+
+> **Risk**: Low. All items are code quality or test infrastructure. No consensus, bridge, or trading path is touched.
+
+## 🎯 Release Highlights
+
+### Cross-Context Import Refactor
+- 🚧 Refactor certification → reputation cross-context imports (AgentReputation) to service interface/DTO
+
+### Dead Code Cleanup
+- 🚧 Wire or remove 6 unused pricing tables (PriceForecast, PricingOptimization, PricingAlert, PricingRule, PricingAuditLog, MarketMetrics duplicate)
+- 🚧 Resolve duplicate MarketMetrics and PriceForecast (trading vs marketplace context)
+
+### Test Infrastructure
+- 🚧 Add fakeredis for in-process Redis testing (separate deliberate change)
+- 🚧 Fix misleading comment in conftest_sqlite.py:57
+
+## 📋 Detailed Features
+
+### Cross-Context Import Refactor (deferred from v0.5.13)
+
+#### Current State — STILL OUTSTANDING
+Certification context imports `AgentReputation` directly from reputation context (20 total references):
+- `apps/coordinator-api/src/app/contexts/certification/services/certification/badge_system.py:10` — 3 references
+- `apps/coordinator-api/src/app/contexts/certification/services/certification/certification_system.py:17` — 6 references
+- `apps/coordinator-api/src/app/contexts/certification/services/certification/partnership_manager.py:14` — 11 references
+
+Import pattern: `from ....reputation.services.reputation_service import AgentReputation`
+
+#### Implementation
+- Introduce a `ReputationDTO` or `ReputationServiceInterface` in a shared location
+- Refactor certification to use the DTO/interface instead of direct model import
+- Update all 20 references across 3 files
+
+### Dead Code Cleanup (deferred from v0.5.13)
+
+#### Current State — PARTIALLY ADDRESSED
+7 pricing tables in `apps/coordinator-api/src/app/contexts/trading/domain/pricing_models.py`:
+- `ProviderPricingStrategy` (line 108) — **PARTIALLY WIRED** (used in `dynamic_pricing.py:344`)
+- `MarketMetrics` (line 171) — **DUPLICATE** (also in `marketplace/domain/gpu_marketplace.py:145`)
+- `PriceForecast` (line 234) — **DUPLICATE** (also in `marketplace/domain/gpu_marketplace.py:82`)
+- `PricingOptimization` (line 287) — **NOT WIRED**
+- `PricingAlert` (line 351) — **NOT WIRED**
+- `PricingRule` (line 413) — **NOT WIRED**
+- `PricingAuditLog` (line 474) — **NOT WIRED** (should be wired — audit trail for pricing changes)
+
+#### Implementation
+- Resolve duplicates: decide which context owns MarketMetrics and PriceForecast (trading or marketplace)
+- Wire `PricingAuditLog` into dynamic_pricing.py (audit trail for all pricing changes)
+- Wire `PricingAlert` and `PricingRule` if useful, or remove if dead code
+- Remove `PricingOptimization` if no use case exists
+- Add Alembic migration if tables are removed
+
+### Test Infrastructure (deferred from v0.5.18)
+
+#### fakeredis
+- Current state: `tests/conftest_sqlite.py:57` has misleading comment "Mock REDIS_URL for tests (uses fakeredis)" but fakeredis is NOT installed
+- Not in `requirements.txt` or `pyproject.toml`
+- Add `fakeredis` as deliberate dependency (pin version published >7 days ago)
+- Use for Redis-dependent tests that currently skip or require live Redis
+- Fix misleading comment in conftest_sqlite.py
+
+## ✅ Already Resolved (verified 2026-06-29 — no action needed)
+
+| Item | From | Resolution |
+|------|------|------------|
+| Cross-context import: ai_analytics → analytics | v0.5.13 | ✅ Resolved in v0.5.14 — ai_analytics merged into analytics as sub-package |
+| Certification → analytics cross-context import | v0.5.13 | ✅ Resolved — 0 imports from certification to analytics exist |
+| _TEMPLATE.md for scenario authors | v0.5.15 | ✅ Resolved — `docs/scenarios/_TEMPLATE.md` exists (129 lines, complete) |
+| 127 skipped CLI tests | v0.5.17 | ✅ Resolved — current CLI tests have 0 permanent skips, only conditional service-availability skips |
+
+## 🔧 Breaking Changes
+
+- None expected. Cross-context refactors are internal. Dead code removal requires migration.
+
+## 🧪 Testing
+
+- Cross-context import refactor: verify no behavior change, all existing tests pass
+- Dead code cleanup: verify create_all still works, no broken references
+- fakeredis: verify Redis-dependent tests pass with fakeredis
+
+## 🎯 Success Criteria
+
+- ✅ Certification → reputation cross-context imports eliminated (20 references refactored)
+- ✅ 6 unused pricing tables wired or removed
+- ✅ Duplicate MarketMetrics/PriceForecast resolved
+- ✅ fakeredis added for Redis-dependent tests
+- ✅ Misleading conftest_sqlite.py comment fixed
+
+---
+
+*Last Updated: 2026-06-29*
+*Version: 0.5.19*
+*Status: Planned*
