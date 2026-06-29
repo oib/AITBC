@@ -205,7 +205,7 @@ class MarketplaceService:
             try:
                 import httpx
 
-                rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")
+                rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
                 resp = httpx.get(
                     f"{rpc_url}/rpc/transactions",
                     params={"type": "GPU_MARKETPLACE", "limit": 500},

@@ -2,9 +2,16 @@
 Test GPU service main application
 """
 
+import sys
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
-from gpu_service.main import app
+
+# Add the gpu src directory to the path
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from gpu_service.main import app  # noqa: E402
 
 
 @pytest.fixture
