@@ -24,7 +24,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from aitbc_chain.cross_chain.bridge import CrossChainBridge
-from aitbc_chain.models import Account, Block, CrossChainTransfer
+from aitbc_chain.models import Account, Block, BridgeBlockHeader, CrossChainTransfer
 from aitbc_chain.rpc.router import router
 
 
@@ -135,6 +135,33 @@ def _seed_sender(engine, chain_id: str, address: str, balance: int) -> None:
     """Seed an account with balance in the in-memory DB."""
     with Session(engine) as session:
         session.add(Account(chain_id=chain_id, address=address, balance=balance, nonce=0))
+        session.commit()
+
+
+def _store_block_header(
+    engine: Any,
+    chain_id: str = "chain-a",
+    height: int = 10,
+    block_hash: str = "0x" + "ab" * 32,
+    proposer: str = "0xproposer",
+    state_root: str = "0x" + "cd" * 32,
+    signature: str = "",
+    confirmation_count: int = 10,
+) -> None:
+    """Store a block header in the DB for bridge proof verification (v0.7.2)."""
+    with Session(engine) as session:
+        header = BridgeBlockHeader(
+            chain_id=chain_id,
+            height=height,
+            hash=block_hash,
+            parent_hash="0x" + "00" * 32,
+            proposer=proposer,
+            state_root=state_root,
+            signature=signature,
+            confirmation_count=confirmation_count,
+            finality_confirmed=confirmation_count >= 6,
+        )
+        session.add(header)
         session.commit()
 
 
@@ -422,10 +449,11 @@ class TestMultiSigThreshold:
     ) -> None:
         """When multisig is disabled, single-signer verification works (backward compat)."""
         _seed_sender(rpc_engine, "chain-a", "0xsender", 100000)
+        # v0.7.2: Store a block header for proof verification
+        _store_block_header(rpc_engine, chain_id="chain-a", height=10)
         transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecip", 5000)
 
         # Build a proof with a single proposer_signature (v0.7.0 style)
-        record = rpc_engine and None  # just to use rpc_engine
         with Session(rpc_engine) as session:
             record = session.get(CrossChainTransfer, transfer.transfer_id)
             assert record is not None
@@ -438,8 +466,11 @@ class TestMultiSigThreshold:
             signer.key.hex(),
         )
 
-        # With multisig disabled, _validate_proof should accept this
-        with patch("aitbc_chain.config.settings.bridge_multisig_enabled", False):
+        # With multisig disabled + block sig disabled, _validate_proof should accept this
+        with (
+            patch("aitbc_chain.config.settings.bridge_multisig_enabled", False),
+            patch("aitbc_chain.config.settings.bridge_block_signature_required", False),
+        ):
             result = bridge._validate_proof(proof_fields, record)
         assert result is True
 
@@ -447,6 +478,8 @@ class TestMultiSigThreshold:
         """M-of-N valid validator signatures meet threshold."""
         _register_validators(bridge, "chain-a", validator_accounts)
         _seed_sender(rpc_engine, "chain-a", "0xsender", 100000)
+        # v0.7.2: Store a block header for proof verification
+        _store_block_header(rpc_engine, chain_id="chain-a", height=10)
         transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecip", 5000)
 
         with Session(rpc_engine) as session:
@@ -463,6 +496,7 @@ class TestMultiSigThreshold:
         with (
             patch("aitbc_chain.config.settings.bridge_multisig_enabled", True),
             patch("aitbc_chain.config.settings.bridge_multisig_threshold", 3),
+            patch("aitbc_chain.config.settings.bridge_block_signature_required", False),
         ):
             result = bridge._validate_proof(proof_fields, record)
         assert result is True
@@ -545,19 +579,20 @@ class TestMultiSigThreshold:
         assert result is False
 
     def test_confirm_release_fence_active(self, initialized_bridge: CrossChainBridge, client: TestClient, rpc_engine) -> None:
-        """Confirm returns 503 when release fence is active (BRIDGE_RELEASE_ENABLED=false)."""
+        """Confirm returns 503 when release fence is explicitly set to false (v0.7.2 unfenced)."""
         _seed_sender(rpc_engine, "chain-a", "0xsender", 100000)
         transfer = initialized_bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecip", 5000)
 
-        response = client.post(
-            "/bridge/confirm",
-            json={
-                "transfer_id": transfer.transfer_id,
-                "proof": {"source_chain": "chain-a"},
-                "confirmer": "0xrecip",
-                "signature": "0x" + "ff" * 65,
-            },
-        )
+        with patch("aitbc_chain.config.settings.bridge_release_enabled", False):
+            response = client.post(
+                "/bridge/confirm",
+                json={
+                    "transfer_id": transfer.transfer_id,
+                    "proof": {"source_chain": "chain-a"},
+                    "confirmer": "0xrecip",
+                    "signature": "0x" + "ff" * 65,
+                },
+            )
         assert response.status_code == 503
         assert "disabled" in response.json()["detail"].lower()
 
