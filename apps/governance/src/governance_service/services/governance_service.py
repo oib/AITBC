@@ -88,11 +88,35 @@ class GovernanceService:
         When on-chain submission is enabled (``enable_onchain_submission``),
         submits a GOVERNANCE_PROPOSE transaction to the blockchain and stores
         the resulting tx_hash and block_height on the proposal.
+
+        v0.7.4: Emergency proposals get an accelerated timelock (4h vs 24h),
+        shorter voting period (2h vs 4h), and higher quorum (80% vs 30%).
         """
         proposal = Proposal(**proposal_data)
         # Ensure chain_id is set
         if not proposal.chain_id:
             proposal.chain_id = settings.default_chain_id
+
+        # v0.7.4: Emergency proposal fast-track
+        is_emergency = proposal.proposal_type == "emergency"
+        if is_emergency:
+            # Override voting period and quorum for emergency proposals
+            from datetime import timedelta
+
+            now = datetime.now(UTC)
+            proposal.voting_starts = now
+            proposal.voting_ends = now + timedelta(
+                seconds=settings.emergency_voting_period_blocks * 2  # ~2s block time
+            )
+            proposal.quorum_required = settings.emergency_quorum_percent
+            proposal.passing_threshold = settings.emergency_approval_percent / 100.0
+            # Store emergency metadata
+            proposal.proposal_metadata = {
+                **proposal.proposal_metadata,
+                "is_emergency": True,
+                "emergency_timelock_blocks": settings.emergency_timelock_blocks,
+                "normal_timelock_blocks": settings.timelock_blocks,
+            }
 
         if settings.enable_onchain_submission and settings.proposer_private_key:
             try:
@@ -212,12 +236,33 @@ class GovernanceService:
         }
 
     async def update_proposal_status(self, proposal_id: str, status: str) -> Proposal | None:
-        """Update proposal status"""
+        """Update proposal status.
+
+        v0.7.4: When transitioning to ``succeeded``, emergency proposals must
+        meet the 80% emergency quorum and 2/3 supermajority approval.
+        """
         stmt = select(Proposal).where(Proposal.proposal_id == proposal_id)
         result = await self.session.execute(stmt)
         proposal = result.scalars().first()
 
         if proposal:
+            # v0.7.4: Emergency proposal quorum enforcement on transition to succeeded
+            if status == "succeeded" and proposal.proposal_type == "emergency":
+                total_votes = proposal.yes_votes + proposal.no_votes + proposal.votes_abstain
+                if total_votes > 0:
+                    approval_rate = proposal.yes_votes / total_votes
+                    if approval_rate < settings.emergency_approval_percent / 100.0:
+                        raise ValueError(
+                            f"Emergency proposal approval {approval_rate:.1%} below "
+                            f"required {settings.emergency_approval_percent:.1%} supermajority"
+                        )
+                    # Check quorum — emergency requires 80%
+                    quorum_met = total_votes >= proposal.quorum_required
+                    if not quorum_met:
+                        raise ValueError(
+                            f"Emergency proposal quorum not met: {total_votes} / {proposal.quorum_required} (80% required)"
+                        )
+
             proposal.status = ProposalStatus(status)
             await self.session.commit()
             await self.session.refresh(proposal)
@@ -323,10 +368,14 @@ class GovernanceService:
                 # For v0.7.3, we check that enough blocks have passed since the proposal's block_height
                 if proposal.block_height is not None:
                     blocks_since_proposal = current_height - proposal.block_height
-                    if blocks_since_proposal < settings.timelock_blocks:
+                    # v0.7.4: Emergency proposals use accelerated timelock
+                    is_emergency = proposal.proposal_type == "emergency"
+                    effective_timelock = settings.emergency_timelock_blocks if is_emergency else settings.timelock_blocks
+                    if blocks_since_proposal < effective_timelock:
                         raise ValueError(
                             f"Timelock not expired: {blocks_since_proposal} blocks since proposal, "
-                            f"need {settings.timelock_blocks}"
+                            f"need {effective_timelock}"
+                            f"{' (emergency fast-track)' if is_emergency else ''}"
                         )
 
                 payload = build_execute_tx(proposal_id, executor_address, proposal.chain_id)

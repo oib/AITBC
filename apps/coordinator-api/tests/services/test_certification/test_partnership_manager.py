@@ -168,14 +168,19 @@ class TestPartnershipManager:
             launched_at=datetime.now(UTC),
         )
 
-        # Mock reputation
-        mock_reputation = MagicMock()
-        mock_reputation.trust_score = 750.0
-        mock_reputation.specialization_tags = ["compute", "storage"]
+        # Mock reputation (real ORM object so to_dto() produces a usable DTO)
+        from app.contexts.reputation.domain.reputation import AgentReputation
+
+        mock_reputation = AgentReputation(
+            agent_id="agent123",
+            trust_score=750.0,
+            specialization_tags=["compute", "storage"],
+            created_at=datetime.now(UTC),
+        )
 
         # apply_for_partnership calls session.execute(...).first() twice:
         #   1. program lookup -> mock_program
-        #   2. reputation lookup (via check_technical_capability) -> mock_reputation
+        #   2. reputation lookup (via check_technical_capability -> get_reputation_dto) -> mock_reputation
         mock_session_instance.execute.return_value.first.side_effect = [mock_program, mock_reputation]
 
         # Mock partnership
