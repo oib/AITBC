@@ -301,6 +301,19 @@ class ChainSettings(BaseSettings):
     bridge_monitor_interval: int = 60  # Seconds between bridge health checks
     bridge_stuck_transfer_timeout: int = 3600  # Seconds before a pending transfer is flagged as stuck
 
+    # Bridge multi-sig configuration (v0.7.1). Security layer for the
+    # cross-chain bridge: M-of-N validators must sign each proof before
+    # funds can be released. Defaults match aitbc/constants.py. The release
+    # fence (bridge_release_enabled) stays in place until v0.7.2 completes
+    # Merkle proof verification — multi-sig is an additional layer, not a
+    # replacement for the fence.
+    bridge_multisig_enabled: bool = False  # require multi-sig for confirm
+    bridge_multisig_threshold: int = 3  # M-of-N minimum signatures
+    bridge_multisig_validators: int = 5  # N total validators
+    bridge_multisig_timeout: int = 3600  # seconds to collect signatures
+    bridge_validator_set_grace_period: int = 7200  # seconds — old epoch valid during rotation
+    bridge_block_signature_required: bool = True  # require block header signatures
+
     # Network compression (v0.6.0). When enabled, gossip/Redis/P2P payloads are
     # gzip-compressed before transmission and decompressed on receive. Env var:
     # NETWORK_COMPRESSION_ENABLED (default true).

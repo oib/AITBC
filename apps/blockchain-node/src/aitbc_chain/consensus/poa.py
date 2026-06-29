@@ -394,6 +394,10 @@ class PoAProposer:
                 state_root = _compute_state_root_incremental(session, self._config.chain_id, account_map, changed_addresses)
             else:
                 state_root = _compute_state_root(session, self._config.chain_id)
+            # v0.7.1: Sign the block hash with the proposer's private key.
+            # The signature proves the proposer authored this block and is
+            # used by bridge proof verification to tie proofs to signed blocks.
+            block_signature = self._sign_block_hash(block_hash)
             block = Block(
                 chain_id=self._config.chain_id,
                 height=next_height,
@@ -403,6 +407,7 @@ class PoAProposer:
                 timestamp=timestamp,
                 tx_count=len(processed_txs),
                 state_root=state_root,
+                signature=block_signature,
             )
             session.add(block)
             session.commit()
@@ -443,6 +448,7 @@ class PoAProposer:
                             "timestamp": block.timestamp.isoformat(),
                             "tx_count": block.tx_count,
                             "state_root": block.state_root,
+                            "signature": block.signature,
                             "transactions": tx_list,
                         },
                     )
@@ -878,3 +884,60 @@ class PoAProposer:
             f"{self._config.chain_id}|{height}|{parent_hash}|{timestamp.isoformat()}|{'|'.join(sorted(tx_hashes))}".encode()
         )
         return "0x" + hashlib.sha256(payload).hexdigest()
+
+    def _sign_block_hash(self, block_hash: str) -> str:
+        """Sign a block hash with the proposer's private key (v0.7.1).
+
+        Returns the hex signature, or empty string if no private key is
+        configured (legacy mode — block signature verification skipped).
+        """
+        from ..config import settings
+
+        private_key = getattr(settings, "proposer_key", None)
+        if not private_key:
+            self._logger.debug("No proposer_key configured; block signature omitted")
+            return ""
+        try:
+            from eth_keys import keys
+
+            pk_hex = private_key.removeprefix("0x")
+            pk = keys.PrivateKey(bytes.fromhex(pk_hex))
+            # The block hash is a sha256 hex string; treat it as the message hash
+            msg_hash = bytes.fromhex(block_hash.removeprefix("0x"))
+            sig = pk.sign_msg_hash(msg_hash)
+            return sig.to_hex()
+        except Exception as e:
+            self._logger.warning("Failed to sign block hash: %s", e)
+            return ""
+
+    @staticmethod
+    def verify_block_signature(block: Block) -> bool:
+        """Verify a block's header signature (v0.7.1).
+
+        Returns True if:
+        - The signature is empty (legacy block, backward-compatible), OR
+        - The signature recovers to the block's proposer address.
+
+        Returns False if the signature is present but invalid or recovers
+        to a different address.
+        """
+        if not block.signature:
+            # Legacy block (pre-v0.7.1) — no signature, skip verification
+            return True
+        try:
+            from eth_keys import keys
+
+            # The block hash is a sha256 hex string; sign_transaction_hash
+            # signs it as a raw hash. We recover by treating the block hash
+            # as the message hash.
+            block_hash_hex = block.hash.removeprefix("0x")
+            msg_hash = bytes.fromhex(block_hash_hex)
+            sig_bytes = bytes.fromhex(block.signature.removeprefix("0x"))
+            if len(sig_bytes) != 65:
+                return False
+            sig = keys.Signature(sig_bytes)
+            pub_key = sig.recover_public_key_from_msg_hash(msg_hash)
+            recovered = pub_key.to_checksum_address()
+            return recovered.lower() == block.proposer.lower()
+        except Exception:
+            return False
