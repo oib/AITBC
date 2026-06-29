@@ -105,7 +105,8 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 
 ### Infrastructure Track (trading + settlement)
 - **v0.8.0** — Inter-Chain Trading Basics: <ref_file file="/opt/aitbc/docs/releases/v0.8.0/change.log" />
-- **v0.8.1** — Cross-Chain Offer Sync: <ref_file file="/opt/aitbc/docs/releases/v0.8.1/change.log" />
+- **v0.8.1** — Cross-Chain Offer Sync (polling-based): <ref_file file="/opt/aitbc/docs/releases/v0.8.1/change.log" />
+- **v0.8.2** — Advanced Offer Sync (subscription, real-time, search index): <ref_file file="/opt/aitbc/docs/releases/v0.8.2/change.log" />
 - **v0.9.0** — Atomic Cross-Chain Settlement: <ref_file file="/opt/aitbc/docs/releases/v0.9.0/change.log" />
 
 ### Post-v1 Vision (not fit until after v1.0.0)
@@ -120,7 +121,7 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.6.0 → v0.6.1 → v0.6.2 → v0.6.3 → v0.6.4  (infra: db/network opt ✅, parallel processing ✅, sync, multi-island, multi-chain)
   → v0.6.5 → v0.6.6 → v0.6.7                      (product: agents ✅, marketplace, pool hub)
   → v0.7.0 → v0.7.1 → v0.7.2 → v0.7.3             (infra+product: bridge basics, bridge security, bridge verification, governance)
-  → v0.8.0 → v0.8.1 → v0.9.0                       (infra: trading basics, offer sync, atomic settlement)
+  → v0.8.0 → v0.8.1 → v0.8.2 → v0.9.0               (infra: trading basics, offer sync polling, offer sync subscription, atomic settlement)
   → v1.0.0                                          (production readiness)
   → v2.0.0                                          (vision — questionable features, parked for re-evaluation)
 ```
@@ -139,6 +140,7 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   - v0.7.2: `bridge oracle-status`
   - v0.8.0: entire `trade` command group (create, list, chains, get, status)
   - v0.8.1: `trade discover`, `trade sync`, `trade sync-status`
+  - v0.8.2: `trade watch`, `trade subscription-status`
   - v0.9.0: `trade lock-escrow`, `trade settle`
 
 ### Suggestions.md Investigation Results
