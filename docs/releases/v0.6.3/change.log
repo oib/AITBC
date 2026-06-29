@@ -21,16 +21,18 @@ Without this release, a follower node configured with `supported_chains=ait-hub,
 ### Per-Chain Sync Source Mapping
 - 🚧 Config mapping of `chain_id → hub_url` (replaces single `default_peer_rpc_url`)
 - 🚧 `CHAIN_SYNC_SOURCES` environment variable for multi-hub configuration
+- 🚧 Fail-fast config validation: malformed entries rejected at startup, not at runtime
 - 🚧 Backward-compatible: single-hub config still works (falls back to `default_peer_rpc_url`)
 
 ### Chain-ID-Aware Sync RPC
-- 🚧 `fetch_blocks_range` sends `chain_id` as query parameter to remote hub
-- 🚧 `bulk_import_from` sends `chain_id` to `/rpc/head` and `/rpc/blocks-range`
-- 🚧 `sync_state_from` sends `chain_id` to `/rpc/state/snapshot`
-- 🚧 Remote hub returns blocks for the requested chain, not its own default chain
+- ✅ `fetch_blocks_range` sends `chain_id` as query parameter to remote hub (done in v0.5.16)
+- ✅ `bulk_import_from` sends `chain_id` to `/rpc/head` and `/rpc/blocks-range` (done in v0.5.16)
+- ✅ `sync_state_from` sends `chain_id` to `/rpc/state/snapshot` (done in v0.5.16)
+- ✅ Remote hub returns blocks for the requested chain, not its own default chain
 
 ### Multi-Hub Subscription Client
 - 🚧 One `SubscriptionClient` per (chain_id, hub_url) pair
+- 🚧 `SubscriptionManager` utility (in `aitbc/network/`) tracks all clients, handles restart-on-failure
 - 🚧 Independent WebSocket push subscriptions per chain
 - 🚧 Per-chain lease management and heartbeat
 - 🚧 Failover: if push subscription fails for one chain, that chain falls back to pull sync independently
@@ -40,17 +42,25 @@ Without this release, a follower node configured with `supported_chains=ait-hub,
 - 🚧 Auto-join islands from `bridge_islands` config on startup
 - 🚧 Island manager background tasks enabled (bridge monitoring, health checks)
 - 🚧 Island health monitoring per connected island
+- 🚧 Configurable task intervals and error retry (replaces hardcoded 30s/60s/10s)
 
 ### Per-Chain Gossip Backend Support
 - 🚧 Per-chain gossip backend configuration (optional)
 - 🚧 Shared gossip backend mode (all islands on one backend) with chain-isolated topics
 - 🚧 Multi-backend mode (each island on its own gossip backend)
 
+### Gossip Topic Migration Window
+- ✅ Chain-specific `transactions.{chain_id}` topics already subscribed (done in v0.6.2)
+- ✅ Legacy `transactions` topic dual-subscribe with `gossip_backward_compat` (done in v0.6.2)
+- 🚧 v1 warning logging: log WARNING when tx received on legacy v1 topic
+- 🚧 30-day migration window config: `GOSSIP_MIGRATION_DAYS=30`, `GOSSIP_LOG_V1_WARNINGS=true`
+- 🚧 After migration period: drop v1 subscription, hard-require chain_id in topic
+
 ### Chain-ID-Aware Transaction Submission
-- 🚧 `TransactionRequest` model gains `chain_id` field (currently dropped by Pydantic)
-- 🚧 `/rpc/transaction` endpoint uses tx `chain_id` instead of hub's default
-- 🚧 Follower transactions routed to correct chain's mempool namespace
-- 🚧 Backward compatible: if `chain_id` not provided, falls back to hub's default
+- ✅ `TransactionRequest` model has `chain_id` field (done in v0.5.16)
+- ✅ `/rpc/transaction` endpoint uses tx `chain_id` instead of hub's default (done in v0.5.16)
+- ✅ Follower transactions routed to correct chain's mempool namespace (done in v0.5.16)
+- ✅ Backward compatible: if `chain_id` not provided, falls back to hub's default (done in v0.5.16)
 
 ## 📋 Detailed Features
 
@@ -182,6 +192,19 @@ async def _setup_island_membership(self) -> None:
 - **Island health check**: periodically checks health of connected islands
 - These tasks are currently disabled in `main.py` — this release enables them
 
+| Task | Purpose | Failure Recovery | Restart Behavior | Config |
+|------|---------|------------------|------------------|--------|
+| `_bridge_request_monitor()` | Monitor pending bridge requests, remove expired ones (>3600s pending) | Catches exceptions, logs error, sleeps 10s, retries | Loop continues on error; task restarts if process restarts; resumes from `bridge_requests` dict state | `bridge_request_monitor_interval=60`, `bridge_request_expiry=3600` |
+| `_island_health_check()` | Periodic health of connected islands — marks islands with 0 peers as INACTIVE after 600s | Catches exceptions, logs error, sleeps 10s, retries | Loop continues on error; task restarts if process restarts; fresh check cycle from `islands` dict | `island_health_check_interval=30`, `island_inactive_threshold=600` |
+
+**Configurable intervals** (replacing hardcoded values in island_manager.py):
+- `ISLAND_TASKS_ENABLED=true` — feature flag to enable background tasks (default: false)
+- `ISLAND_HEALTH_CHECK_INTERVAL=30` — seconds between health checks
+- `BRIDGE_REQUEST_MONITOR_INTERVAL=60` — seconds between bridge request scans
+- `ISLAND_TASK_ERROR_RETRY_INTERVAL=10` — seconds to wait before retrying after error
+- `BRIDGE_REQUEST_EXPIRY=3600` — seconds before a pending bridge request expires
+- `ISLAND_INACTIVE_THRESHOLD=600` — seconds with 0 peers before island marked INACTIVE
+
 ### Per-Chain Gossip Backend Support
 
 #### Configuration
@@ -258,22 +281,23 @@ The hub's RPC endpoints already accept `chain_id` as an optional parameter via `
 **Current state**: `apps/blockchain-node/src/aitbc_chain/main.py` lines 283-288 — island manager is created but `start()` is never called. Line 286 logs "background tasks disabled".
 **Required**: Enumerate and document each background task (name, failure recovery, restart behavior) before enabling. Add configurable retry/backoff.
 
-#### Gossip Topic — Not Chain-Specific
-**Current state**: `apps/blockchain-node/src/aitbc_chain/main.py` line 146 — subscribes to `transactions` (not chain-specific). Line 174 — blocks use `blocks.{chain_id}` (chain-specific).
-**Required**: Migrate to `transactions.{chain_id}` with a 30-day dual-subscribe period (subscribe to both topics, log warnings for v1 peers, then drop v1 support).
+#### Gossip Topic — Chain-Specific (partially done in v0.6.2)
+**Current state**: `apps/blockchain-node/src/aitbc_chain/main.py` lines 149-159 — already subscribes to both `transactions.{chain_id}` (v2, chain-specific) and legacy `transactions` (v1, backward compat) when `gossip_backward_compat=true`.
+**Required for v0.6.3**: Add migration window config (`GOSSIP_MIGRATION_DAYS=30`, `GOSSIP_LOG_V1_WARNINGS=true`), add v1 warning logging in `process_txs()`, document the 30-day dual-subscribe → drop v1 timeline.
 
 #### CHAIN_SYNC_SOURCES — Not Implemented
 **Current state**: No parsing code exists. `CHAIN_SYNC_SOURCES` appears only in documentation. Config file `apps/blockchain-node/src/aitbc_chain/config.py` has no such field.
-**Required**: Add `CHAIN_SYNC_SOURCES` env var parsing to config.py with error handling for malformed values. Define fallback logic when a source is unreachable.
+**Required**: Add `CHAIN_SYNC_SOURCES` env var parsing to config.py with fail-fast validation (malformed entries rejected at startup). Add `field_validator` to catch: missing colon separator, empty chain_id or url, duplicate chain_id. Define fallback logic when a source is unreachable.
 
 ## 🔧 Breaking Changes
 
-- `fetch_blocks_range` and `bulk_import_from` now send `chain_id` as a query parameter (hubs must handle this — they already do via `get_chain_id()`)
-- `SubscriptionClient` is now instantiated per-chain instead of once (multiple WebSocket connections)
-- `transactions` gossip topic changes to `transactions.{chain_id}` (with backward-compatible fallback)
-- Island manager background tasks are now enabled by default (were disabled)
-- `TransactionRequest` model gains `chain_id` field (backward compatible — defaults to hub's chain_id if not provided)
-- New config: `CHAIN_SYNC_SOURCES`, `ISLAND_REGISTRY`, `GOSSIP_BACKENDS` (all optional, backward-compatible defaults)
+- `fetch_blocks_range` and `bulk_import_from` now send `chain_id` as a query parameter (hubs must handle this — they already do via `get_chain_id()`) — ✅ already done in v0.5.16
+- `SubscriptionClient` is now instantiated per-chain instead of once (multiple WebSocket connections) — 🚧 new in v0.6.3
+- `transactions` gossip topic changes to `transactions.{chain_id}` (with backward-compatible fallback) — ✅ already done in v0.6.2
+- Island manager background tasks are now enabled with feature flag (default: disabled) — 🚧 new in v0.6.3
+- `TransactionRequest` model has `chain_id` field (backward compatible — defaults to hub's chain_id if not provided) — ✅ already done in v0.5.16
+- New config: `CHAIN_SYNC_SOURCES`, `ISLAND_REGISTRY`, `GOSSIP_BACKENDS`, `ISLAND_TASKS_ENABLED` (all optional, backward-compatible defaults) — 🚧 new in v0.6.3
+- Config validators fail fast on malformed `CHAIN_SYNC_SOURCES`, `ISLAND_REGISTRY`, `GOSSIP_BACKENDS`, `bridge_islands` — 🚧 new in v0.6.3
 
 ## 📊 Migration Guide
 
@@ -390,15 +414,17 @@ The hub's RPC endpoints already accept `chain_id` as an optional parameter via `
 ## 🎯 Success Criteria
 
 - ✅ Follower node syncs chain A from hub A and chain B from hub B simultaneously
-- ✅ Sync RPC calls send chain_id to remote hub (correct blocks returned per chain)
+- ✅ Sync RPC calls send chain_id to remote hub (correct blocks returned per chain) — ✅ already done in v0.5.16
 - ✅ Multiple SubscriptionClient instances (one per chain/hub pair) working
 - ✅ Push failover per chain (one chain's push failure doesn't affect others)
 - ✅ Island manager auto-joins islands from config and runs background tasks
 - ✅ Island-to-chain-to-hub registry functional
-- ✅ Per-chain gossip topic isolation working
-- ✅ Follower transaction via HTTP RPC routed to correct chain's mempool (not hub's default)
+- ✅ Per-chain gossip topic isolation working — ✅ already done in v0.6.2
+- ✅ Follower transaction via HTTP RPC routed to correct chain's mempool (not hub's default) — ✅ already done in v0.5.16
 - ✅ Backward compatible: single-hub config still works without changes
+- ✅ Config validators fail fast on malformed CHAIN_SYNC_SOURCES, ISLAND_REGISTRY, GOSSIP_BACKENDS
 - ✅ All existing tests pass
+- ✅ **Zero cross-chain block contamination in 24h multi-hub soak test**
 
 ## 🚀 Next Steps
 
@@ -417,6 +443,6 @@ The hub's RPC endpoints already accept `chain_id` as an optional parameter via `
 
 ---
 
-*Last Updated: 2026-06-25*
+*Last Updated: 2026-06-29*
 *Version: 0.6.3*
 *Status: Planned*
