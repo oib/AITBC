@@ -41,6 +41,12 @@ class Block(SQLModel, table=True):
     state_root: str | None = None
     block_metadata: str | None = Field(default=None)
 
+    # Block header signature (v0.7.1) — secp256k1 signature over the block
+    # hash by the proposer. Empty for legacy blocks (pre-v0.7.1). Verified by
+    # PoA consensus during block validation when bridge_block_signature_required
+    # is True. Enables bridge proof verification to tie proofs to signed blocks.
+    signature: str = ""
+
     # Relationships - use sa_relationship_kwargs for lazy loading
     transactions: list["Transaction"] = Relationship(
         back_populates="block",
@@ -208,6 +214,29 @@ class CrossChainTransfer(SQLModel, table=True):
     target_tx_hash: str | None = None
     lock_time: datetime | None = None
     confirm_time: datetime | None = None
+
+
+class BridgeValidator(SQLModel, table=True):
+    """Bridge validator registration (v0.7.1).
+
+    Persists validator set memberships per chain per epoch. Loaded into
+    the in-memory ValidatorSetRegistry (aitbc.bridge.validators) for
+    fast lookup during proof verification.
+    """
+
+    __tablename__ = "bridge_validators"
+    __table_args__ = (
+        Index("ix_bridge_validators_chain_epoch", "chain_id", "epoch"),
+        {"extend_existing": True},
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)  # chain this validator serves
+    address: str = Field(index=True)  # checksum address (0x...)
+    public_key: str  # secp256k1 public key hex (0x...)
+    epoch: int = Field(default=0, index=True)  # validator set epoch number
+    is_active: bool = Field(default=True)
+    registered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class Stake(SQLModel, table=True):
