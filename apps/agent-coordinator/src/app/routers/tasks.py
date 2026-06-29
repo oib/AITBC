@@ -51,7 +51,12 @@ async def submit_task(request_http: Request, request: TaskSubmission, background
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=f"Escrow error: {e}") from None
 
-        await state.task_distributor.submit_task(request.task_data, priority, request.requirements)
+        await state.task_distributor.submit_task(
+            request.task_data,
+            priority,
+            request.requirements,
+            chain_id=chain_id,
+        )
         return {
             "status": "success",
             "message": "Task submitted successfully",
