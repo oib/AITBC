@@ -559,3 +559,92 @@ async def bridge_security_status(request: Request) -> dict[str, Any]:
     except Exception as e:
         _logger.error("Bridge security status failed: %s", e)
         raise HTTPException(status_code=500, detail=f"Bridge security status failed: {str(e)}") from e
+
+
+# ---------------------------------------------------------------------------
+# v0.7.2 §B4-B5: Block header storage + retrieval endpoints
+# ---------------------------------------------------------------------------
+
+
+@rate_limit(rate=20, per=60)
+async def store_block_header(request: Request, header_data: dict[str, Any]) -> dict[str, Any]:
+    """Store a remote chain block header (v0.7.2 §B4).
+
+    The header must include: chain_id, height, hash, proposer, state_root.
+    Optional: parent_hash, signature, confirmation_count, finality_confirmed.
+    """
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+
+        bridge = get_cross_chain_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+
+        required = ["chain_id", "height", "hash", "proposer", "state_root"]
+        for field in required:
+            if field not in header_data:
+                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+
+        header = bridge.store_block_header(header_data)
+        return {
+            "success": True,
+            "chain_id": header.chain_id,
+            "height": header.height,
+            "hash": header.hash,
+            "finality_confirmed": header.finality_confirmed,
+            "confirmation_count": header.confirmation_count,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Store block header failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Store block header failed: {str(e)}") from e
+
+
+@rate_limit(rate=100, per=60)
+async def get_block_header(request: Request, chain_id: str, height: int) -> dict[str, Any]:
+    """Get a stored block header with finality status (v0.7.2 §B5)."""
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+
+        bridge = get_cross_chain_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+
+        status = bridge.get_block_header_status(chain_id, height)
+        if status is None:
+            raise HTTPException(status_code=404, detail=f"No block header found for chain={chain_id} height={height}")
+        return {"success": True, **status}
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Get block header failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Get block header failed: {str(e)}") from e
+
+
+# ---------------------------------------------------------------------------
+# v0.7.2 §B7: Oracle status endpoint
+# ---------------------------------------------------------------------------
+
+
+@rate_limit(rate=100, per=60)
+async def bridge_oracle_status(request: Request) -> dict[str, Any]:
+    """Get bridge oracle/verification status (v0.7.2 §B7).
+
+    Reports: verification mode, finality config, block header counts,
+    release fence status, multi-sig status.
+    """
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+
+        bridge = get_cross_chain_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+        return bridge.get_oracle_status()
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Bridge oracle status failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Bridge oracle status failed: {str(e)}") from e
