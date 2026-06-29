@@ -9,6 +9,7 @@ from ..database import close_engine, create_engine
 from ..redis_cache import close_redis, create_redis
 from ..settings import settings
 from .routers import health_router, match_router, metrics_router
+from .routers.parameters import router as parameters_router
 from .routers.services import router as services_router
 from .routers.sla import router as sla_router
 from .routers.ui import router as ui_router
@@ -37,6 +38,7 @@ app.include_router(services_router, prefix="/v1")
 app.include_router(ui_router)
 app.include_router(validation_router, prefix="/v1")
 app.include_router(sla_router, prefix="/v1")
+app.include_router(parameters_router, prefix="/v1")
 
 
 def create_app() -> FastAPI:
