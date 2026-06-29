@@ -1,10 +1,18 @@
 """
 Multi-Validator Proof of Authority Consensus Implementation
 Extends single validator PoA to support multiple validators with rotation
+
+# ════════════════════════════════════════════════════════════════
+# THRESHOLD STATE — DO NOT ACTIVATE WITHOUT SECURITY REVIEW
+# Requires: validator rotation, slashing, multi-validator consensus audit
+# Activation: set MULTI_VALIDATOR_CONSENSUS_ENABLED=true (NOT in this release)
+# See: v0.7.x security releases for activation plan
+# ════════════════════════════════════════════════════════════════
 """
 
 import asyncio
 import hashlib
+import os
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -34,6 +42,11 @@ class MultiValidatorPoA:
     """Multi-Validator Proof of Authority consensus mechanism"""
 
     def __init__(self, chain_id: str):
+        if os.getenv("MULTI_VALIDATOR_CONSENSUS_ENABLED", "").lower() != "true":
+            raise RuntimeError(
+                "MultiValidatorPoA is in THRESHOLD state and not yet activated. "
+                "Set MULTI_VALIDATOR_CONSENSUS_ENABLED=true to override (requires security review)."
+            )
         self.chain_id = chain_id
         self.validators: dict[str, Validator] = {}
         self.current_proposer_index = 0
