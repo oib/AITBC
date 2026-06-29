@@ -3,6 +3,7 @@ Utility functions for AITBC
 Provides validation, time utilities, JSON utilities, path utilities, and environment variable utilities
 """
 
+from .chain_config import ChainConfigParser
 from .env import get_bool_env_var, get_env_var, get_float_env_var, get_int_env_var, get_list_env_var, get_required_env_var
 from .json_utils import (
     flatten_json,
@@ -73,6 +74,8 @@ from .validation import (
 )
 
 __all__ = [
+    # Chain config
+    "ChainConfigParser",
     # Units
     "SECONDS_PER_AIT",
     # Time utils
