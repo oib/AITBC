@@ -12,6 +12,8 @@ AITBC v0.7.3 matures the governance service (991 lines of existing code) into a 
 
 **Prerequisites**: Requires [v0.7.0](../v0.7.0/change.log) (Bridge Basics — cross-chain governance proposals need bridge), [v0.7.1](../v0.7.1/change.log) (Bridge Security — governance proposals are high-value, need secure bridge), [v0.6.7](../v0.6.7/change.log) (Pool Hub — governance controls pool parameters), and [v0.5.16](../v0.5.16/change.log) (chain_id-aware transactions for governance votes).
 
+> **Rescope (2026-06-29)**: v0.7.3 is now scoped to **same-chain governance only** — on-chain proposals, voting, and execution on a single chain. Cross-chain governance (proposal propagation via bridge, cross-chain vote aggregation) and parameter automation (pool-hub/marketplace parameter APIs) are deferred to v0.8.x. See [AGENTS.md](AGENTS.md) for the grounded task split. The stale port 8006 in the migration guide has been corrected to 8202.
+
 ## 🎯 Release Highlights
 
 ### On-Chain Proposals
@@ -108,7 +110,7 @@ Domain models likely have vote tracking, but no on-chain voting.
 2. **Configure governance**
    ```bash
    # /etc/aitbc/governance.env
-   BLOCKCHAIN_RPC_URL=http://localhost:8006
+   BLOCKCHAIN_RPC_URL=http://localhost:8202
    DEFAULT_CHAIN_ID=ait-hub
    VOTING_PERIOD=7200  # blocks (~2 days at 2s block time)
    QUORUM_PERCENT=30
