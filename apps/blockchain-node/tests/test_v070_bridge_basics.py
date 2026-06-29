@@ -28,7 +28,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from aitbc_chain.cross_chain.bridge import BridgeStatus, CrossChainBridge
-from aitbc_chain.models import Account, CrossChainTransfer
+from aitbc_chain.models import Account, BridgeBlockHeader, CrossChainTransfer
 from aitbc_chain.network.bridge_manager import BridgeManager
 from aitbc_chain.rpc.router import router
 
@@ -140,6 +140,33 @@ def _seed_sender(engine, chain_id: str, address: str, balance: int) -> None:
         session.commit()
 
 
+def _store_block_header(
+    engine: Any,
+    chain_id: str = "chain-a",
+    height: int = 10,
+    block_hash: str = "0x" + "ab" * 32,
+    proposer: str = "0xproposer",
+    state_root: str = "0x" + "cd" * 32,
+    signature: str = "",
+    confirmation_count: int = 10,
+) -> None:
+    """Store a block header in the DB for bridge proof verification (v0.7.2)."""
+    with Session(engine) as session:
+        header = BridgeBlockHeader(
+            chain_id=chain_id,
+            height=height,
+            hash=block_hash,
+            parent_hash="0x" + "00" * 32,
+            proposer=proposer,
+            state_root=state_root,
+            signature=signature,
+            confirmation_count=confirmation_count,
+            finality_confirmed=confirmation_count >= 6,
+        )
+        session.add(header)
+        session.commit()
+
+
 # ---------------------------------------------------------------------------
 # Unlock / Refund Tests
 # ---------------------------------------------------------------------------
@@ -192,6 +219,9 @@ class TestBridgeUnlock:
 
         _seed_sender(engine, source_chain, sender, amount * 2)
 
+        # v0.7.2: Store a block header for proof verification
+        _store_block_header(engine, chain_id=source_chain, height=10, proposer=proposer_account.address.lower())
+
         transfer = bridge.initiate_transfer(
             source_chain=source_chain,
             target_chain="chain-b",
@@ -206,7 +236,8 @@ class TestBridgeUnlock:
             assert record is not None
             proof = _build_valid_proof(record, proposer_account.key.hex())
 
-        bridge.confirm_transfer(transfer.transfer_id, proof)
+        with patch("aitbc_chain.config.settings.bridge_block_signature_required", False):
+            bridge.confirm_transfer(transfer.transfer_id, proof)
 
         # Attempt to refund a completed transfer should fail
         with pytest.raises(ValueError, match="cannot be refunded"):
@@ -457,8 +488,11 @@ class TestBridgeBatch:
         assert "exceeds maximum" in response.json()["detail"]
 
     def test_bridge_batch_confirm_disabled(self, client: TestClient) -> None:
-        """Batch confirm gated by BRIDGE_RELEASE_ENABLED (default false)."""
-        with patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()):
+        """Batch confirm gated by BRIDGE_RELEASE_ENABLED when explicitly false (v0.7.2 unfenced)."""
+        with (
+            patch("aitbc_chain.config.settings.bridge_release_enabled", False),
+            patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()),
+        ):
             response = client.post(
                 "/bridge/batch/confirm",
                 json={"confirmations": [{"transfer_id": "0x1", "proof": {}}]},
