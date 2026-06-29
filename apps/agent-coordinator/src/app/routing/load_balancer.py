@@ -164,10 +164,15 @@ class LoadBalancer:
         if total_tasks > 10:
             weight.reliability_score = success_rate
 
-    async def assign_task(self, task_data: dict[str, Any], requirements: dict[str, Any] | None = None) -> str | None:
+    async def assign_task(
+        self,
+        task_data: dict[str, Any],
+        requirements: dict[str, Any] | None = None,
+        chain_id: str | None = None,
+    ) -> str | None:
         """Assign task to best available agent"""
         try:
-            eligible_agents = await self._find_eligible_agents(task_data, requirements)
+            eligible_agents = await self._find_eligible_agents(task_data, requirements, chain_id=chain_id)
             if not eligible_agents:
                 logger.warning("No eligible agents found for task assignment")
                 return None
@@ -224,13 +229,18 @@ class LoadBalancer:
         except Exception as e:
             logger.error("Error completing task %s: %s", task_id, e)
 
-    async def _find_eligible_agents(self, task_data: dict[str, Any], requirements: dict[str, Any] | None = None) -> list[str]:
+    async def _find_eligible_agents(
+        self,
+        task_data: dict[str, Any],
+        requirements: dict[str, Any] | None = None,
+        chain_id: str | None = None,
+    ) -> list[str]:
         """Find eligible agents for task"""
         logger.warning("=" * 60)
         logger.warning("DEBUG: _find_eligible_agents() CALLED - NEW CODE LOADED")
         logger.warning("=" * 60)
         try:
-            query = {"status": AgentStatus.ACTIVE}
+            query: dict[str, Any] = {"status": AgentStatus.ACTIVE}
             if requirements:
                 if "agent_type" in requirements:
                     query["agent_type"] = requirements["agent_type"]
@@ -240,6 +250,9 @@ class LoadBalancer:
                     query["services"] = requirements["services"]
                 if "min_health_score" in requirements:
                     query["min_health_score"] = requirements["min_health_score"]
+            # v0.6.5: filter by chain_id if provided (agents on the same chain)
+            if chain_id:
+                query["chain_id"] = chain_id
             agents = await self.registry.discover_agents(query)
             logger.info("Found %s agents from registry with query %s", len(agents), query)
             eligible_agents = []
@@ -491,12 +504,14 @@ class TaskDistributor:
         task_data: dict[str, Any],
         priority: TaskPriority = TaskPriority.NORMAL,
         requirements: dict[str, Any] | None = None,
+        chain_id: str | None = None,
     ) -> None:
         """Submit task for distribution"""
         task_info = {
             "task_data": task_data,
             "priority": priority,
             "requirements": requirements,
+            "chain_id": chain_id,
             "submitted_at": datetime.now(UTC),
         }
         await self.priority_queues[priority].put(task_info)
@@ -534,7 +549,11 @@ class TaskDistributor:
         """Distribute a single task"""
         start_time = datetime.now(UTC)
         try:
-            agent_id = await self.load_balancer.assign_task(task_info["task_data"], task_info["requirements"])
+            agent_id = await self.load_balancer.assign_task(
+                task_info["task_data"],
+                task_info["requirements"],
+                chain_id=task_info.get("chain_id"),
+            )
             if agent_id:
                 task_message = create_task_message(
                     sender_id="task_distributor",
