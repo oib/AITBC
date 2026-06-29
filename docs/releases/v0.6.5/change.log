@@ -1,50 +1,62 @@
 # AITBC v0.6.5 Release Notes
 
-**Date**: TBD
-**Status**: 🚧 Planned
-**Scope**: Agent Coordination Service — Registration, Task Queues, Swarm Coordination, Workflow Execution, Blockchain Payment Integration
+**Date**: 2026-06-29
+**Status**: ✅ Complete (A1-A2, B1-B7 + hardening)
+**Scope**: Agent Coordination Service — Registration, Task Queues, Swarm Coordination, Workflow Execution, Blockchain Payment Integration, WebSocket Auth, Observability
 
 ## 🎯 Overview
 
 AITBC v0.6.5 matures the agent-coordinator service (10K lines of existing code) into a production-ready coordination layer for AI agents. The service already exposes APIs for agent registration, task submission, swarm coordination, workflow execution, and consensus — but it lacks blockchain payment integration, multi-chain awareness, and production hardening. This release connects the agent coordination layer to the blockchain so agents can pay for compute, get paid for tasks, and coordinate across chains.
 
-**Why this is a dedicated release**: The agent-coordinator is the largest app in AITBC (10K lines) with zero release plan. It has routers for agents, tasks, swarms, workflows, consensus, messages, monitoring, and coin requests — but the blockchain integration is incomplete (coin_requests router calls `/rpc/transaction` but doesn't send `chain_id`). This release wires it properly to the multi-chain blockchain layer (v0.6.3/v0.6.4) and hardens it for production.
+**Why this is a dedicated release**: The agent-coordinator is the largest app in AITBC (10K lines) with zero release plan. It has routers for agents, tasks, swarms, workflows, consensus, messages, monitoring, and coin requests — but the blockchain integration was incomplete. This release wires it properly to the multi-chain blockchain layer (v0.6.3/v0.6.4), adds chain_id/island_id awareness, payment escrow, WebSocket auth, and observability middleware.
+
+**Port note**: The blockchain node RPC port is **8202** (`apps/blockchain-node/src/aitbc_chain/config.py:89`). The stale port 8006 was cleaned up from `agent_stream.py:361` in this release. The GPU service already used 8202 (correct).
 
 **Prerequisites**: Requires [v0.6.3](../v0.6.3/change.log) (Multi-Island Node Support — agents need to coordinate across chains) and [v0.6.4](../v0.6.4/change.log) (Multi-Chain Per Island — agents run on chains hosted by islands). Requires [v0.5.16](../v0.5.16/change.log) (chain_id-aware transaction submission — coin_requests router needs this).
 
 ## 🎯 Release Highlights
 
 ### Agent Registration & Discovery
-- 🚧 Agent registration with capability advertising (GPU, inference, training, data)
-- 🚧 Agent discovery by capability, region, chain, and reputation
-- 🚧 Agent heartbeat and liveness tracking
-- 🚧 Agent status lifecycle (register → active → idle → deregister)
+- ✅ Agent registration with capability advertising (GPU, inference, training, data)
+- ✅ Agent discovery by capability, region, chain, and reputation
+- ✅ Agent heartbeat and liveness tracking
+- ✅ Agent status lifecycle (register → active → idle → deregister)
+- ✅ **chain_id/island_id** awareness in registration and discovery (B2)
 
 ### Task Queues & Execution
-- 🚧 Priority-based task queues (urgent, normal, batch)
-- 🚧 Task assignment to agents by capability match
-- 🚧 Task status tracking (submitted → assigned → running → completed → failed)
-- 🚧 Task result submission and verification
-- 🚧 Task timeout and retry handling
+- ✅ Priority-based task queues (urgent, normal, batch)
+- ✅ Task assignment to agents by capability match
+- ✅ Task status tracking (submitted → assigned → running → completed → failed)
+- ✅ Task result submission and verification
+- ✅ Task timeout and retry handling
+- ✅ **chain_id** in task submission + **payment escrow** (B3)
 
 ### Swarm Coordination
-- 🚧 Multi-agent swarm formation for complex tasks
-- 🚧 Swarm task distribution and load balancing
-- 🚧 Swarm consensus for task results
-- 🚧 Swarm lifecycle (join → coordinate → complete → disband)
+- ✅ Multi-agent swarm formation for complex tasks
+- ✅ Swarm task distribution and load balancing
+- ✅ Swarm consensus for task results
+- ✅ Swarm lifecycle (join → coordinate → complete → disband)
+- ✅ **chain_id** in swarm models (B4)
 
 ### Workflow Execution
-- 🚧 Multi-step workflow definition and execution
-- 🚧 Workflow status tracking and cancellation
-- 🚧 Workflow execution history and audit trail
-- 🚧 Workflow templating for common patterns (inference pipeline, training pipeline)
+- ✅ Multi-step workflow definition and execution
+- ✅ Workflow status tracking and cancellation
+- ✅ Workflow execution history and audit trail
+- ✅ Workflow templating for common patterns (inference pipeline, training pipeline)
+- ✅ **chain_id** in workflow models (B4)
 
 ### Blockchain Payment Integration
-- 🚧 Agent task payment via blockchain transactions (chain_id-aware)
-- 🚧 Coin request endpoint fixed to send `chain_id` (currently broken — see v0.5.16)
-- 🚧 Task reward distribution to agent accounts
-- 🚧 Payment escrow for task execution (lock payment on task start, release on completion)
-- 🚧 Payment reconciliation with blockchain state
+- ✅ Agent task payment via blockchain transactions (chain_id-aware)
+- ✅ Coin request endpoint — chain_id already included via signed_tx (NOT a bug, verified)
+- ✅ Task reward distribution to agent accounts
+- ✅ Payment escrow for task execution (lock payment on task start, release on completion)
+- ✅ Payment reconciliation with blockchain state
+
+### Production Hardening (v0.6.5 additions)
+- ✅ **WebSocket auth** — API key/JWT token required on WS endpoints (was: zero auth)
+- ✅ **Observability middleware** — structured request/response logging + error metrics
+- ✅ **Stale port fix** — agent_stream.py default 8006→8202 (correct blockchain port)
+- ✅ **Configurable agent TTL** — was hardcoded 60s/120s, now via settings (B5)
 
 ## 📋 Detailed Features
 
