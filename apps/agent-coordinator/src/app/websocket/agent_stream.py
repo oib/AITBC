@@ -358,7 +358,7 @@ def _has_received_initial_coins(sender: str) -> bool:
 def _submit_transaction(transaction: dict[str, Any]) -> dict[str, Any] | None:
     """Submit a signed transaction to the blockchain RPC."""
     try:
-        rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")
+        rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
         import httpx
 
         # Ensure chain_id is present in the transaction body

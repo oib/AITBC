@@ -609,3 +609,61 @@ class TestChainAwareTaskDistribution:
         call_args = lb.registry.discover_agents.call_args
         query = call_args[0][0] if call_args[0] else call_args[1].get("query", {})
         assert "chain_id" not in query
+
+
+# ---------------------------------------------------------------------------
+# v0.6.5 hardening: WebSocket auth + port fix
+# ---------------------------------------------------------------------------
+
+
+class TestWebSocketAuth:
+    """Test WebSocket authentication (v0.6.5 hardening)."""
+
+    def test_authenticate_websocket_with_valid_api_key(self):
+        """_authenticate_websocket accepts valid COORDINATOR_API_KEY."""
+        from src.app.routers.websocket import _authenticate_websocket
+
+        os.environ["COORDINATOR_API_KEY"] = "test-coordinator-key"
+        try:
+            assert _authenticate_websocket(websocket=None, token="test-coordinator-key") is True
+        finally:
+            del os.environ["COORDINATOR_API_KEY"]
+
+    def test_authenticate_websocket_with_valid_secret_key(self):
+        """_authenticate_websocket accepts valid SECRET_KEY."""
+        from src.app.routers.websocket import _authenticate_websocket
+
+        # SECRET_KEY is already set to "test-secret-key" at module load
+        assert _authenticate_websocket(websocket=None, token="test-secret-key") is True
+
+    def test_authenticate_websocket_rejects_no_token(self):
+        """_authenticate_websocket rejects None token."""
+        from src.app.routers.websocket import _authenticate_websocket
+
+        assert _authenticate_websocket(websocket=None, token=None) is False
+
+    def test_authenticate_websocket_rejects_empty_token(self):
+        """_authenticate_websocket rejects empty string token."""
+        from src.app.routers.websocket import _authenticate_websocket
+
+        assert _authenticate_websocket(websocket=None, token="") is False
+
+    def test_authenticate_websocket_rejects_wrong_token(self):
+        """_authenticate_websocket rejects invalid token."""
+        from src.app.routers.websocket import _authenticate_websocket
+
+        assert _authenticate_websocket(websocket=None, token="wrong-key") is False
+
+
+class TestPortFix:
+    """Test that agent_stream.py uses correct port 8202 (not stale 8006)."""
+
+    def test_agent_stream_default_rpc_url_is_8202(self):
+        """_submit_transaction defaults to port 8202, not stale 8006."""
+        import inspect
+
+        from src.app.websocket import agent_stream
+
+        source = inspect.getsource(agent_stream._submit_transaction)
+        assert "8202" in source
+        assert "8006" not in source
