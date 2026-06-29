@@ -10,7 +10,13 @@ AITBC v0.8.0 introduces the foundational inter-chain trading service between AIT
 
 **Split rationale**: The original v0.8.0 plan bundled atomic cross-chain settlement (the hardest problem in crypto — has caused the largest hacks in history: Wormhole $325M, Ronin $625M, Poly Network $611M) with basic trading infrastructure. Atomic settlement requires HTLCs or two-phase commit across independent Byzantine systems, formal verification, and chaos testing. It has been moved to [v0.9.0](../v0.9.0/change.log). Cross-chain offer synchronization (a distributed search problem) has been moved to [v0.8.1](../v0.8.1/change.log).
 
-**Prerequisites**: Requires [v0.7.0](../v0.7.0/change.log) (Bridge Basics) and [v0.7.1](../v0.7.1/change.log) (Bridge Security) for cross-chain escrow infrastructure. Requires [v0.6.3](../v0.6.3/change.log) (Multi-Island Node Support) for nodes to follow chains on multiple islands. Requires [v0.6.4](../v0.6.4/change.log) (Multi-Chain Per Island) for islands to host multiple chains. Requires [v0.6.6](../v0.6.6/change.log) (Compute Marketplace) — inter-chain trading trades compute resources, which are listed on the marketplace. Soft-blocked by [v0.6.0](../v0.6.0/change.log) (Performance) for trade matching latency targets.
+**Prerequisites**: [v0.7.0](../v0.7.0/change.log) ✅ (Bridge Basics), [v0.7.1](../v0.7.1/change.log) ✅ (Bridge Security — multi-sig, validator sets, block sigs), [v0.7.2](../v0.7.2/change.log) ✅ (Bridge Verification — Merkle proofs, finality, oracle, release unfenced), [v0.6.3](../v0.6.3/change.log) ✅ (Multi-Island), [v0.6.4](../v0.6.4/change.log) ✅ (Multi-Chain Per Island), [v0.6.6](../v0.6.6/change.log) ✅ (Compute Marketplace), [v0.6.7](../v0.6.7/change.log) ✅ (Pool Hub). All prerequisites complete and committed.
+
+> **Stale prerequisite correction (2026-06-29)**: The original analysis claimed v0.7.1 and v0.7.2 were "not done" — this is **FALSE**. Both are complete and committed: v0.7.1 (`a4ea61295` + `1fcf1e829`), v0.7.2 (`09fa64342` + `9a7b17a34`). Bridge release is unfenced (`bridge_release_enabled: bool = True`). All 15 bridge RPC endpoints are operational.
+
+> **Stale service-existence correction (2026-06-29)**: The original analysis claimed "No trading service exists" — this is **FALSE**. `apps/trading/` exists with 1011 lines (FastAPI app, domain models, service layer, SQLite storage, systemd service). However, it only has P2P agent-to-agent models (no source_chain/dest_chain fields). v0.8.0 extends this existing service with inter-chain capabilities.
+
+> **Stale port correction**: The migration guide referenced `BLOCKCHAIN_RPC_URL=http://localhost:8006`. Port 8006 is stale — the correct port is **8202** (verified in `aitbc/constants.py:50`).
 
 ## 🎯 Release Highlights
 
@@ -159,25 +165,45 @@ aitbc trade status --trade-id trade_abc123
 aitbc trade history --source-chain ait-hub --dest-chain ait-island1
 ```
 
-### Verified Code Targets (from suggestions.md investigation)
+### Verified Code Targets (from suggestions.md investigation — re-verified 2026-06-29)
+
+#### Trading Service — EXISTS (not "no service exists" as originally claimed)
+**Finding**: `apps/trading/` exists with 1011 lines — FastAPI app (`main.py` 471 lines), domain models (`domain/trading.py` 369 lines), service layer (`services/trading_service.py` 133 lines), SQLite storage (`storage.py` 38 lines), systemd service (`aitbc-trading.service`), wrapper script. Has 20+ endpoints for P2P agent-to-agent trading (requests, matches, agreements, analytics, transactions, blocks, receipts).
+**Required**: Extend with inter-chain trade models, bridge client, chain discovery, matching engine. NOT a new app from scratch.
 
 #### InterChainTrade Schema — Not Defined
-**Finding**: `InterChainTrade` table is mentioned in changelog (line 36: "InterChainTrade table (source_chain, dest_chain, status)") but NO SQLModel definition exists in the codebase. Related models exist in `apps/coordinator-api/src/app/contexts/trading/domain/trading.py` (TradeRequest, TradeMatch, TradeNegotiation, TradeAgreement, TradeSettlement, TradeFeedback) but none named `InterChainTrade`.
-**Required**: Define `InterChainTrade` as a SQLModel with fields: `source_chain`, `dest_chain`, `status`, `source_tx_hash`, `dest_tx_hash`, `amount`, `sender`, `recipient`, `created_at`, `updated_at`. Freeze schema before building matching engine.
+**Finding**: `InterChainTrade` table is mentioned in changelog (line 36) but NO SQLModel definition exists anywhere in the codebase. Existing models in `apps/trading/src/trading_service/domain/trading.py` (TradeRequest, TradeMatch, TradeNegotiation, TradeAgreement, TradeSettlement, TradeFeedback) are P2P agent-to-agent with NO source_chain/dest_chain/chain_id fields. Coordinator-API trading context (`apps/coordinator-api/src/app/contexts/trading/domain/trading.py`, 784 lines) has the same models, also without chain fields.
+**Required**: Define `InterChainTrade` as a SQLModel with fields: `trade_id`, `source_chain`, `dest_chain`, `status`, `source_tx_hash`, `dest_tx_hash`, `amount`, `sender`, `recipient`, `offer_id`, `price`, `quantity`, `created_at`, `updated_at`. Freeze schema before building matching engine.
 
-#### Dispute Resolution — Not Scoped
+#### IslandRegistry Table — Not Defined (but config parsers exist)
+**Finding**: No SQLModel `IslandRegistry` table exists. However, registry concepts exist elsewhere: `aitbc/network/island_registry.py` (104 lines, parses ISLAND_REGISTRY config string), `cli/config_data/chains.py` (122 lines, ChainRegistry class for CLI), `apps/coordinator-api/src/app/agent_identity/registry.py` (450 lines, CrossChainRegistry for agent identity mapping). None are SQLModel tables for trading.
+**Required**: Add `IslandRegistryEntry` SQLModel table for persistent chain registry in trading service.
+
+#### CLI trade.py — Not Defined
+**Finding**: `cli/aitbc_cli/commands/trade.py` does NOT exist. `cli/aitbc_cli/commands/exchange/trading.py` (182 lines) exists but is for external exchanges (Binance, Coinbase, Kraken) with stub functions and mock responses — not inter-chain AITBC trading.
+**Required**: Create `cli/aitbc_cli/commands/trade.py` with command group: create, list, chains, get, status, register-chain, health, history.
+
+#### Exchange App — SQLite Mock (not a v0.8.0 target)
+**Finding**: `apps/exchange/cross_chain_exchange.py` (457 lines) has `cross_chain_swaps`, `bridge_transactions`, `cross_chain_pools` tables but uses SQLite with mock chain operations (`asyncio.sleep()` + fake tx hashes, hardcoded prices). No blockchain-node RPC integration in this file (though `multichain_exchange_api.py` does use `AsyncAITBCHTTPClient`).
+**Required**: NOT a v0.8.0 target. The exchange app will be deprecated or migrated in a future release. v0.8.0 extends `apps/trading/` instead.
+
+#### Bridge RPC Endpoints — Available (15 endpoints)
+**Finding**: `apps/blockchain-node/src/aitbc_chain/rpc/bridge.py` has 15 endpoints: lock, confirm, unlock, transfer/{id}, pending, balance/{chain_id}, health, batch/lock, batch/confirm, validators/register, validators/{chain_id}, security/status, block-headers, block-headers/{chain_id}/{height}, oracle/status. All registered in `router.py` (lines 803-944).
+**Required**: Trading service calls these via `BridgeClient` from `aitbc.bridge` for inter-chain escrow operations.
+
+#### Dispute Resolution — Not Scoped (deferred)
 **Finding**: Dispute resolution framework is mentioned but not scoped.
-**Required**: Define dispute resolution scope: who can dispute, what evidence is required, timeout for disputes, admin arbitration path.
+**Required**: DEFERRED — needs design first. Not a v0.8.0 target.
 
-#### CLI Breaking Change
-**Finding**: CLI change from `aitbc market run` to `aitbc trade create/match/agree` is a breaking change for users.
-**Required**: Add migration notes for existing scripts. Consider backward-compatible aliases for one release cycle.
+#### CLI Breaking Change — Not Actually Breaking
+**Finding**: The original analysis claimed `aitbc market run` → `aitbc trade create` is a breaking change. However, `aitbc market run` does not exist in the CLI (no `market run` command found). The `market` command group has `escrow`, `exchange`, `jobs`, `offers`, `ratings` subcommands but no `run`. So adding `aitbc trade` is purely additive, not breaking.
+**Required**: No migration needed. Add `aitbc trade` as a new command group.
 
 ## 🔧 Breaking Changes
 
-- Trade service requires PostgreSQL database
-- Software marketplace now uses Trading service for trade lifecycle (create/match/agree)
-- CLI command changes: `market run` → `market trade create` + `market trade match`
+- ~~Trade service requires PostgreSQL database~~ **CORRECTION**: The trading service already supports PostgreSQL via `DATABASE_URL` env var in `storage.py:14`. SQLite is the default for dev. No breaking change.
+- ~~CLI command changes: `market run` → `market trade create`~~ **CORRECTION**: `aitbc market run` does not exist in the CLI. The `aitbc trade` command group is purely additive — no breaking change.
+- **Actual change**: New `InterChainTrade` and `IslandRegistryEntry` tables added to trading service database (additive — existing tables unchanged).
 
 ## 📊 Migration Guide
 
@@ -211,6 +237,10 @@ aitbc trade history --source-chain ait-hub --dest-chain ait-island1
    TRADING_ENABLED=true
    MATCHING_ENGINE_ENABLED=true
    EXECUTION_TIMEOUT=300
+   BLOCKCHAIN_RPC_URL=http://localhost:8202
+   BRIDGE_RPC_URL=http://localhost:8202
+   DEFAULT_CHAIN_ID=ait-hub
+   ISLAND_REGISTRY_SYNC_INTERVAL=300
    ```
 
 ## 🖥️ CLI Commands
