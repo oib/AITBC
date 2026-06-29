@@ -161,10 +161,10 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Create `SyncSourceResolver` — parse chain_sync_sources, resolve hub URL per chain | 🔴 P0 | `aitbc/sync/source_resolver.py` (new), `aitbc/sync/__init__.py` (update) | ⬜ |
-| A2 | Create `IslandRegistry` — parse island_registry config, map island_id → chain_id → hub_url | High | `aitbc/network/island_registry.py` (new), `aitbc/network/__init__.py` (update) | ⬜ |
-| A3 | Unit tests for A1-A4 + verify mypy/ruff/pytest clean | High | `tests/unit/test_sync_source_resolver.py`, `tests/unit/test_island_registry.py`, `tests/unit/test_subscription_manager.py` | ⬜ |
-| A4 | Create `SubscriptionManager` — generic multi-hub subscription tracking, per-(chain_id, hub_url) lifecycle | 🔴 P0 | `aitbc/network/subscription_manager.py` (new), `aitbc/network/__init__.py` (update) | ⬜ |
+| A1 | Create `SyncSourceResolver` — parse chain_sync_sources, resolve hub URL per chain | 🔴 P0 | `aitbc/sync/source_resolver.py` (new), `aitbc/sync/__init__.py` (update) | ✅ |
+| A2 | Create `IslandRegistry` — parse island_registry config, map island_id → chain_id → hub_url | High | `aitbc/network/island_registry.py` (new), `aitbc/network/__init__.py` (update) | ✅ |
+| A3 | Unit tests for A1-A4 + verify mypy/ruff/pytest clean | High | `tests/unit/test_sync_source_resolver.py`, `tests/unit/test_island_registry.py`, `tests/unit/test_subscription_manager.py` | ✅ |
+| A4 | Create `SubscriptionManager` — generic multi-hub subscription tracking, per-(chain_id, hub_url) lifecycle | 🔴 P0 | `aitbc/network/subscription_manager.py` (new), `aitbc/network/__init__.py` (update) | ✅ |
 
 ### Agent A — Detailed Instructions
 
