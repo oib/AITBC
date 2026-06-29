@@ -151,10 +151,10 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/trading/ && 
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Create `aitbc/trading/types.py` — InterChainTradeStatus enum, InterChainTradeData, ChainInfo, TradeMatchResult, TradingConfig | 🔴 P0 | `aitbc/trading/types.py` (new), `aitbc/trading/__init__.py` (new) | ⬜ |
-| A2 | Create `aitbc/trading/client.py` — TradingClient async HTTP client for trading service REST API | 🔴 P0 | `aitbc/trading/client.py` (new), `aitbc/trading/__init__.py` (extend) | ⬜ |
-| A3 | Create `aitbc/trading/bridge.py` — bridge integration utilities (lock escrow, verify transfer, query balance/health) | 🔴 P0 | `aitbc/trading/bridge.py` (new), `aitbc/trading/__init__.py` (extend) | ⬜ |
-| A4 | Unit tests for A1-A3 | High | `tests/unit/test_trading_sdk.py` (new) | ⬜ |
+| A1 | Create `aitbc/trading/types.py` — InterChainTradeStatus enum, InterChainTradeData, ChainInfo, TradeMatchResult, TradingConfig | 🔴 P0 | `aitbc/trading/types.py` (new), `aitbc/trading/__init__.py` (new) | ✅ |
+| A2 | Create `aitbc/trading/client.py` — TradingClient async HTTP client for trading service REST API | 🔴 P0 | `aitbc/trading/client.py` (new), `aitbc/trading/__init__.py` (extend) | ✅ |
+| A3 | Create `aitbc/trading/bridge.py` — bridge integration utilities (lock escrow, verify transfer, query balance/health) | 🔴 P0 | `aitbc/trading/bridge.py` (new), `aitbc/trading/__init__.py` (extend) | ✅ |
+| A4 | Unit tests for A1-A3 | High | `tests/unit/test_trading_sdk.py` (new) | ✅ |
 
 ### Agent A — Detailed Instructions
 
