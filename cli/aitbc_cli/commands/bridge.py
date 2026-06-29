@@ -3,6 +3,9 @@
 v0.7.0 §B3: Replaced the broken ``start``/``status``/``stop`` commands (which
 called non-existent ``/rpc/bridge/start`` etc. and fell back to simulated data)
 with actual bridge RPC commands using ``aitbc.bridge.BridgeClient``.
+
+v0.7.1 §B7: Added ``security-status`` and ``register-validator`` subcommands
+for bridge multi-sig management.
 """
 
 import asyncio
@@ -196,4 +199,66 @@ def health(ctx, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Health")
     except Exception as e:
         error(f"Bridge health check failed: {e}")
+        raise click.Abort() from e
+
+
+@bridge.command(name="security-status")
+@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.pass_context
+def security_status(ctx, rpc_url):
+    """Get bridge security status (multi-sig config, validator count, etc.)"""
+
+    async def _security_status():
+        client = _get_bridge_client(rpc_url)
+        async with client:
+            return await client.security_status()
+
+    try:
+        result = asyncio.run(_security_status())
+        output(result, ctx.obj.get("output_format", "table"), title="Bridge Security Status")
+    except Exception as e:
+        error(f"Failed to get bridge security status: {e}")
+        raise click.Abort() from e
+
+
+@bridge.command(name="register-validator")
+@click.option("--chain-id", required=True, help="Chain ID the validator serves")
+@click.option("--address", required=True, help="Validator's checksum address (0x...)")
+@click.option("--public-key", required=True, help="Validator's secp256k1 public key hex (0x...)")
+@click.option(
+    "--private-key",
+    required=True,
+    help="Validator's private key hex (for signing the registration request)",
+)
+@click.option("--epoch", default=0, type=int, help="Validator set epoch number (default: 0)")
+@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.pass_context
+def register_validator(ctx, chain_id, address, public_key, private_key, epoch, rpc_url):
+    """Register a bridge validator for multi-sig operations"""
+
+    # Sign the registration request
+    from aitbc.crypto.crypto import sign_transaction_hash
+
+    # Build the canonical message for signing (matches RPC endpoint's verify_request_signature)
+    sign_data = {"chain_id": chain_id, "address": address, "public_key": public_key, "action": "register"}
+    msg = json.dumps(sign_data, sort_keys=True, separators=(",", ":")).encode()
+    from eth_utils import keccak
+
+    signature = sign_transaction_hash("0x" + keccak(msg).hex(), private_key)
+
+    async def _register():
+        client = _get_bridge_client(rpc_url)
+        async with client:
+            return await client.register_validator(
+                chain_id=chain_id,
+                address=address,
+                public_key=public_key,
+                signature=signature,
+            )
+
+    try:
+        result = asyncio.run(_register())
+        output(result, ctx.obj.get("output_format", "table"), title="Validator Registration")
+    except Exception as e:
+        error(f"Validator registration failed: {e}")
         raise click.Abort() from e
