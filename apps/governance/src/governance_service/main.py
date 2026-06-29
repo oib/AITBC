@@ -83,14 +83,31 @@ async def live() -> dict[str, str]:
 
 
 @app.get("/v1/governance/status")
-async def governance_status() -> dict[str, str]:
+async def governance_status() -> dict[str, Any]:
     """Get governance status"""
-    return {"status": "operational", "service": "governance-service", "message": "Governance service is running"}
+    from .config import settings
+
+    return {
+        "status": "operational",
+        "service": "governance-service",
+        "message": "Governance service is running",
+        "chain_id": settings.default_chain_id,
+        "blockchain_rpc_url": settings.blockchain_rpc_url,
+        "onchain_submission_enabled": settings.enable_onchain_submission,
+        "voting_period_blocks": settings.voting_period_blocks,
+        "quorum_percent": settings.quorum_percent,
+        "approval_percent": settings.approval_percent,
+        "timelock_blocks": settings.timelock_blocks,
+    }
 
 
 async def get_governance_service(session: Annotated[AsyncSession, Depends(get_session_dep)]) -> GovernanceService:
     """Get governance service instance"""
-    return GovernanceService(session)
+    from .clients.blockchain import BlockchainClient
+    from .config import settings
+
+    blockchain_client = BlockchainClient(rpc_url=settings.blockchain_rpc_url)
+    return GovernanceService(session, blockchain_client=blockchain_client)
 
 
 @app.get("/v1/governance/profiles")
@@ -372,16 +389,21 @@ async def delegate_voting_power(
 
 
 @app.post("/v1/governance/proposals/{proposal_id}/execute")
-async def execute_proposal_v2(proposal_id: str, svc: Annotated[GovernanceService, Depends(get_governance_service)]):
-    """Execute a passed proposal (v0.4.12 enhanced with logging)"""
+async def execute_proposal_v2(
+    proposal_id: str,
+    svc: Annotated[GovernanceService, Depends(get_governance_service)],
+    executor_address: str = "",
+):
+    """Execute a passed proposal (v0.4.12 enhanced with logging + v0.7.3 on-chain submission)"""
     try:
-        proposal = await svc.execute_proposal(proposal_id)
+        proposal = await svc.execute_proposal(proposal_id, executor_address=executor_address)
         if not proposal:
             return ({"error": "Proposal not found"}, 404)
         return {
             "proposal_id": proposal_id,
             "status": proposal.status,
             "executed_at": proposal.executed_at.isoformat() if proposal.executed_at else None,
+            "tx_hash": proposal.execution_tx_hash,
         }
     except ValueError as e:
         return ({"error": str(e)}, 400)
