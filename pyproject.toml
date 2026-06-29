@@ -114,6 +114,7 @@ types-python-dateutil = ">=2.9.0"
 types-psycopg2 = ">=2.9.0"
 tqdm = ">=4.66.0"
 ipython = ">=8.0.0"
+fakeredis = "2.36.2"
 
 [tool.poetry.extras]
 ai-ml = [

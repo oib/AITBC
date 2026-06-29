@@ -125,17 +125,25 @@ class TestCertificationSystem:
         """Test agent certification"""
         from app.contexts.certification.domain.certification import AgentCertification, CertificationLevel
         from app.contexts.certification.services.certification.certification_system import CertificationSystem
+        from app.contexts.reputation.domain.reputation import AgentReputation
 
         system = CertificationSystem()
         mock_session_instance = MagicMock()
 
-        # Mock reputation data
-        mock_reputation = MagicMock()
-        mock_reputation.trust_score = 850.0
-        mock_reputation.success_rate = 95.0
-        mock_reputation.jobs_completed = 100
-        mock_reputation.reliability_score = 90.0
-        mock_reputation.specialization_tags = ["compute", "storage"]
+        # Mock reputation data (real ORM object so to_dto() produces a usable DTO)
+        mock_reputation = AgentReputation(
+            agent_id="agent123",
+            trust_score=850.0,
+            success_rate=95.0,
+            jobs_completed=100,
+            reliability_score=90.0,
+            specialization_tags=["compute", "storage"],
+            transaction_count=120,
+            dispute_count=0,
+            average_response_time=1500.0,
+            certifications=["basic"],
+            created_at=datetime.now(UTC),
+        )
 
         mock_session_instance.execute.return_value.first.return_value = mock_reputation
 

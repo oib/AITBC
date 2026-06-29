@@ -7,7 +7,8 @@ from typing import Any
 from uuid import uuid4
 
 from ...domain.certification import AchievementBadge, AgentBadge, BadgeType
-from ....reputation.services.reputation_service import AgentReputation
+from ....reputation.services.reputation_service import ReputationService
+from aitbc_shared.models import ReputationDTO
 from sqlmodel import Session, and_, select
 
 from aitbc.aitbc_logging import get_logger
@@ -125,7 +126,7 @@ class BadgeSystem:
 
     async def verify_badge_eligibility(self, session: Session, agent_id: str, badge: AchievementBadge) -> dict[str, Any]:
         """Verify if agent is eligible for a badge"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = ReputationService(session).get_reputation_dto(agent_id)
         if not reputation:
             return {"eligible": False, "reason": "No agent data available", "metrics": {}, "evidence": []}
         required_metrics = badge.required_metrics
@@ -156,7 +157,7 @@ class BadgeSystem:
             },
         }
 
-    def get_metric_value(self, reputation: AgentReputation, metric: str) -> float:
+    def get_metric_value(self, reputation: ReputationDTO, metric: str) -> float:
         """Get metric value from reputation data"""
         metric_map = {
             "jobs_completed": float(reputation.jobs_completed),

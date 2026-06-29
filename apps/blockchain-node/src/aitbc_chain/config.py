@@ -326,6 +326,14 @@ class ChainSettings(BaseSettings):
     bridge_finality_blocks: int = 6  # full finality threshold
     bridge_large_transfer_threshold: int = 10000  # transfers above this require full finality
 
+    # External oracle configuration (v0.7.4). When bridge_verification_mode
+    # is "oracle", bridge proof verification calls an external oracle service
+    # instead of the in-process verifier. The in-process verifier remains as
+    # a fallback when oracle endpoints are unreachable.
+    bridge_oracle_endpoints: list[str] = []  # External oracle endpoints (e.g. ["http://oracle-1:9000"])
+    bridge_oracle_health_check_interval: int = 60  # seconds between oracle health checks
+    bridge_oracle_timeout: int = 30  # seconds before an oracle request times out
+
     # Network compression (v0.6.0). When enabled, gossip/Redis/P2P payloads are
     # gzip-compressed before transmission and decompressed on receive. Env var:
     # NETWORK_COMPRESSION_ENABLED (default true).

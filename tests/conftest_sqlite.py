@@ -54,7 +54,14 @@ def test_db_url(sqlite_db_path):
 
 @pytest.fixture(scope="function")
 def test_redis_url():
-    """Mock REDIS_URL for tests (uses fakeredis)."""
+    """Set REDIS_URL env var to a test Redis instance.
+
+    Note: this only configures the environment variable. Tests that need an
+    actual Redis connection without a running server should use the
+    ``fakeredis_client`` / ``fakeredis_async_client`` fixtures defined in
+    ``tests/conftest.py``, which provide in-process fakes backed by the
+    ``fakeredis`` package.
+    """
     original = os.environ.get("REDIS_URL")
     os.environ["REDIS_URL"] = "redis://localhost:6379/1"
     yield "redis://localhost:6379/1"
