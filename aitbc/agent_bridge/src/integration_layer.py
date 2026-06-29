@@ -19,7 +19,7 @@ class AITBCServiceIntegration:
     def __init__(self):
         self.service_endpoints = {
             "coordinator_api": "http://localhost:8011",
-            "blockchain_rpc": "http://localhost:8006",
+            "blockchain_rpc": "http://localhost:8202",
             "exchange_service": "http://localhost:8001",
             "marketplace": "http://localhost:8002",
             "agent_registry": "http://localhost:8013",

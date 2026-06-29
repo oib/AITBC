@@ -23,10 +23,10 @@ class SharedHttpClient:
         from aitbc.network import SharedHttpClient
 
         client = SharedHttpClient()
-        resp = await client.get("http://localhost:8006/rpc/block/1")
+        resp = await client.get("http://localhost:8202/rpc/block/1")
         # ... later, in another module ...
         client2 = SharedHttpClient()  # same underlying client
-        resp2 = await client2.post("http://localhost:8006/rpc/transaction", json=tx)
+        resp2 = await client2.post("http://localhost:8202/rpc/transaction", json=tx)
         # Clean up at shutdown:
         await SharedHttpClient.close_instance()
     """
