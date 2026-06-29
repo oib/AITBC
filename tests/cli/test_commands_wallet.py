@@ -11,7 +11,7 @@ initialisation).  These dependencies are mocked so the subcommands can be
 exercised via ``CliRunner``.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
