@@ -31,7 +31,7 @@ def test_health_check(client):
 
 def test_gpu_status(client):
     """Test GPU status endpoint"""
-    response = client.get("/gpu/status")
+    response = client.get("/v1/gpu/status")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "operational"
@@ -40,14 +40,17 @@ def test_gpu_status(client):
 
 def test_get_consumer_gpu_profiles(client):
     """Test get consumer GPU profiles endpoint"""
-    response = client.get("/v1/marketplace/edge-gpu/profiles")
+    response = client.get(
+        "/v1/marketplace/edge-gpu/profiles",
+        params={"architecture": "ampere", "edge_optimized": True, "min_memory_gb": 8},
+    )
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
     # Check that at least one profile is returned
     assert len(data) > 0
-    # Check that profile has required fields
+    # Check that profile has required fields (matches ConsumerGPUProfile model)
     profile = data[0]
-    assert "profile_id" in profile
-    assert "name" in profile
+    assert "id" in profile
+    assert "gpu_model" in profile
     assert "architecture" in profile

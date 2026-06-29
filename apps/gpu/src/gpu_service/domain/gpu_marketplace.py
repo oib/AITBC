@@ -92,6 +92,8 @@ class GPURegistry(SQLModel, table=True):
     region: str = Field(default="", index=True)
     price_per_hour: float = Field(default=0.0)
     status: str = Field(default="available", index=True)  # available, booked, offline
+    # v0.6.6: Chain awareness — which chain this GPU offer is registered on
+    chain_id: str = Field(default="ait-hub", index=True)
     capabilities: list[Any] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     average_rating: float = Field(default=0.0)
     total_reviews: int = Field(default=0)
