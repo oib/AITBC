@@ -158,40 +158,119 @@ def leave_island_command(ctx, island_id):
         raise click.Abort() from e
 
 
-def list_islands_command(ctx):
-    """List all known islands"""
+def list_islands_command(ctx, node_url="http://127.0.0.1:8202"):
+    """List all known islands (queries the node's island manager via RPC)"""
+    from ..utils.http_client import AITBCHTTPClient, NetworkError
+
+    client = AITBCHTTPClient(base_url=node_url)
     try:
-        islands = [
-            {
-                "Island ID": "550e8400-e29b-41d4-a716-446655440000",
-                "Island Name": "default",
-                "Chain ID": "ait-island-default",
-                "Status": "Active",
-                "Peer Count": "3",
-            }
-        ]
-
-        output(islands, ctx.obj.get("output_format", "table"), title="Known Islands")
-
-    except Exception as e:
-        error(f"Error listing islands: {str(e)}")
+        result = client.get("/islands")
+    except NetworkError as e:
+        error(f"Cannot connect to node at {node_url}: {e}")
         raise click.Abort() from e
+    finally:
+        client.close()
 
+    if isinstance(result, dict) and result.get("detail"):
+        error(f"Error from /islands: {result['detail']}")
+        raise click.Abort()
 
-def island_info_command(ctx, island_id):
-    """Get island information"""
-    try:
-        island_info = {
-            "Island ID": island_id,
-            "Island Name": "default",
-            "Chain ID": "ait-island-default",
-            "Status": "Active",
-            "Peer Count": "3",
-            "Created": "2024-01-01T00:00:00Z",
+    islands = result.get("islands", []) if isinstance(result, dict) else []
+    if not islands:
+        output({"message": "No islands found"}, ctx.obj.get("output_format", "table"))
+        return
+
+    islands_data = [
+        {
+            "Island ID": island.get("island_id", "N/A"),
+            "Island Name": island.get("island_name", "N/A"),
+            "Chain ID": island.get("chain_id", "N/A"),
+            "Status": island.get("status", "N/A"),
+            "Peer Count": str(island.get("peer_count", 0)),
+            "Is Hub": str(island.get("is_hub", False)),
         }
+        for island in islands
+    ]
 
-        output(island_info, ctx.obj.get("output_format", "table"), title=f"Island Information: {island_id}")
+    output(islands_data, ctx.obj.get("output_format", "table"), title=f"Known Islands ({len(islands)} total)")
 
-    except Exception as e:
-        error(f"Error getting island info: {str(e)}")
+
+def island_info_command(ctx, island_id, node_url="http://127.0.0.1:8202"):
+    """Get island information (queries the node's island manager via RPC)"""
+    from ..utils.http_client import AITBCHTTPClient, NetworkError
+
+    client = AITBCHTTPClient(base_url=node_url)
+    try:
+        result = client.get(f"/islands/{island_id}")
+    except NetworkError as e:
+        error(f"Cannot connect to node at {node_url}: {e}")
         raise click.Abort() from e
+    finally:
+        client.close()
+
+    if isinstance(result, dict) and result.get("detail"):
+        error(f"Error from /islands/{island_id}: {result['detail']}")
+        raise click.Abort()
+
+    island_data = {
+        "Island ID": result.get("island_id", "N/A"),
+        "Island Name": result.get("island_name", "N/A"),
+        "Chain ID": result.get("chain_id", "N/A"),
+        "Status": result.get("status", "N/A"),
+        "Role": result.get("role", "N/A"),
+        "Peer Count": str(result.get("peer_count", 0)),
+        "Is Hub": str(result.get("is_hub", False)),
+        "Joined At": str(result.get("joined_at", "N/A")),
+    }
+
+    output(island_data, ctx.obj.get("output_format", "table"), title=f"Island Information: {island_id}")
+
+
+def health_command(ctx, node_url="http://127.0.0.1:8202", show_all=False):
+    """Show health status of connected islands (status, peer count, activity).
+
+    Queries the node's /islands RPC endpoint and presents health-focused
+    information. By default, the default island is omitted (it is always
+    active); use --all to include it.
+    """
+    from ..utils.http_client import AITBCHTTPClient, NetworkError
+
+    client = AITBCHTTPClient(base_url=node_url)
+    try:
+        result = client.get("/islands")
+    except NetworkError as e:
+        error(f"Cannot connect to node at {node_url}: {e}")
+        raise click.Abort() from e
+    finally:
+        client.close()
+
+    if isinstance(result, dict) and result.get("detail"):
+        error(f"Error from /islands: {result['detail']}")
+        raise click.Abort()
+
+    islands = result.get("islands", []) if isinstance(result, dict) else []
+    if not islands:
+        output({"message": "No islands found"}, ctx.obj.get("output_format", "table"))
+        return
+
+    health_rows = [
+        {
+            "Island ID": island.get("island_id", "N/A"),
+            "Chain ID": island.get("chain_id", "N/A"),
+            "Status": str(island.get("status", "N/A")).upper(),
+            "Peers": str(island.get("peer_count", 0)),
+            "Hub": "Yes" if island.get("is_hub") else "No",
+            "Joined": str(island.get("joined_at", "N/A")),
+        }
+        for island in islands
+    ]
+
+    # Summary
+    total = len(islands)
+    active = sum(1 for i in islands if i.get("status") == "active")
+    inactive = sum(1 for i in islands if i.get("status") == "inactive")
+    bridging = sum(1 for i in islands if i.get("status") == "bridging")
+
+    output(health_rows, ctx.obj.get("output_format", "table"), title="Island Health")
+    click.echo("")
+    click.echo(f"Summary: {total} total, {active} active, {inactive} inactive, {bridging} bridging")

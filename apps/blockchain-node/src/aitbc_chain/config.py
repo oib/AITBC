@@ -198,6 +198,35 @@ class ChainSettings(BaseSettings):
     hub_discovery_url: str = "hub.aitbc.bubuit.net"  # Hub discovery DNS
     bridge_islands: str = ""  # Comma-separated list of islands to bridge (optional)
 
+    # Multi-island sync sources (v0.6.3). Per-chain hub URL mapping.
+    # Format: "chain_id:url,chain_id:url,..."
+    # Chains not in this mapping fall back to default_peer_rpc_url.
+    # Env var: CHAIN_SYNC_SOURCES
+    chain_sync_sources: str = ""
+
+    # Island registry (v0.6.3). Maps island_id to chain_id and hub_url.
+    # Format: "island_id:chain_id:hub_url,island_id:chain_id:hub_url,..."
+    # Optional 4th field: island_name (defaults to island_id).
+    # Env var: ISLAND_REGISTRY
+    island_registry: str = ""
+
+    # Per-chain gossip backends (v0.6.3). Optional.
+    # Format: "chain_id:redis://url,chain_id:redis://url,..."
+    # If empty, all chains use the shared gossip_backend/gossip_broadcast_url.
+    # Env var: GOSSIP_BACKENDS
+    gossip_backends: str = ""
+
+    # Island manager background tasks (v0.6.3). When enabled, the island
+    # manager starts bridge request monitoring and island health checks.
+    # Default off for safety — enable with ISLAND_TASKS_ENABLED=true.
+    island_tasks_enabled: bool = False
+
+    # Island health check interval in seconds (v0.6.3).
+    island_health_check_interval: int = 30
+
+    # Bridge request monitor interval in seconds (v0.6.3).
+    bridge_request_monitor_interval: int = 60
+
     # Cross-chain bridge release fence (Bug 3 PARTIAL — v0.5.16).
     # The bridge release path (confirm_transfer / /bridge/confirm) currently
     # accepts any valid secp256k1 signature as a proposer proof; full proposer-set
