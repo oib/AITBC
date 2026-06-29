@@ -25,7 +25,7 @@ class IslandService:
         self.rpc_client = BlockchainRPCClient()
 
     async def join_island(
-        self, island_id: str, island_name: str, chain_id: str, role: str = "compute-provider", is_hub: bool = False
+        self, island_id: str, island_name: str, chain_id: str | list[str], role: str = "compute-provider", is_hub: bool = False
     ) -> dict[str, Any]:
         """Join an island via blockchain RPC"""
         # Call blockchain RPC to join island
