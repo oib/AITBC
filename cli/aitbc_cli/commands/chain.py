@@ -649,3 +649,98 @@ def sync_status(ctx, node_url, all_chains, chain_id):
         client.close()
 
     output(rows, ctx.obj.get("output_format", "table"), title="Chain Sync Status")
+
+
+@chain.command(name="start")
+@click.argument("chain_id")
+@click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
+@click.option("--type", "chain_type", type=click.Choice(["bilateral", "micro"]), default="micro", help="Chain type")
+@click.pass_context
+def start_cmd(ctx, chain_id, node_url, chain_type):
+    """Start a secondary chain on the local node (v0.6.4).
+
+    Sends a POST /chains/start request to the node's MultiChainManager.
+    The chain must not already be running and must not be the default chain.
+    """
+    client = AITBCHTTPClient(base_url=node_url)
+    try:
+        result = client.post("/chains/start", json={"chain_id": chain_id, "chain_type": chain_type})
+    except NetworkError as e:
+        error(f"Cannot connect to node at {node_url}: {e}")
+        raise click.Abort() from e
+    finally:
+        client.close()
+
+    if result.get("success"):
+        success(f"Chain {chain_id} started successfully")
+    else:
+        error(f"Failed to start chain {chain_id}: {result.get('message', 'unknown error')}")
+        raise click.Abort()
+
+
+@chain.command(name="stop")
+@click.argument("chain_id")
+@click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
+@click.pass_context
+def stop_cmd(ctx, chain_id, node_url):
+    """Stop a secondary chain on the local node (v0.6.4).
+
+    Sends a POST /chains/stop request to the node's MultiChainManager.
+    The default chain cannot be stopped.
+    """
+    client = AITBCHTTPClient(base_url=node_url)
+    try:
+        result = client.post("/chains/stop", json={"chain_id": chain_id, "chain_type": "micro"})
+    except NetworkError as e:
+        error(f"Cannot connect to node at {node_url}: {e}")
+        raise click.Abort() from e
+    finally:
+        client.close()
+
+    if result.get("success"):
+        success(f"Chain {chain_id} stopped successfully")
+    else:
+        error(f"Failed to stop chain {chain_id}: {result.get('message', 'unknown error')}")
+        raise click.Abort()
+
+
+@chain.command(name="instances")
+@click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
+@click.option("--island", default=None, help="Filter chains by island ID")
+@click.pass_context
+def instances_cmd(ctx, node_url, island):
+    """List all chain instances on the local node (v0.6.4).
+
+    Queries the node's /chains endpoint (MultiChainManager) for all chain
+    instances and their status. Use --island to filter by island ID.
+    """
+    client = AITBCHTTPClient(base_url=node_url)
+    try:
+        result = client.get("/chains")
+    except NetworkError as e:
+        error(f"Cannot connect to node at {node_url}: {e}")
+        raise click.Abort() from e
+    finally:
+        client.close()
+
+    chains = result.get("chains", [])
+    if island:
+        # Filter by island — chain_id typically contains island prefix
+        chains = [c for c in chains if island in c.get("chain_id", "")]
+
+    if not chains:
+        output("No chains found", ctx.obj.get("output_format", "table"))
+        return
+
+    rows = [
+        {
+            "Chain ID": c.get("chain_id", "N/A"),
+            "Type": c.get("chain_type", "N/A"),
+            "Status": c.get("status", "N/A"),
+            "RPC Port": c.get("rpc_port", "N/A"),
+            "P2P Port": c.get("p2p_port", "N/A"),
+            "Error": c.get("error_message") or "",
+        }
+        for c in chains
+    ]
+    output(rows, ctx.obj.get("output_format", "table"), title="Chain Instances")

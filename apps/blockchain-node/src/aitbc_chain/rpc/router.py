@@ -25,6 +25,7 @@ from .accounts import (
     reconcile_balance,
 )
 from .blocks import get_block, get_blocks_range, get_genesis_allocations, get_head, import_block
+from .chains import ChainActionRequest, ChainActionResponse, list_chains, start_chain, stop_chain
 from .gossip import GetLogsRequest, GetLogsResponse, get_logs
 from .subscription import (
     get_lease_status,
@@ -743,6 +744,25 @@ async def get_island_route(island_id: str) -> dict[str, Any]:
     if get_island is None:
         raise HTTPException(status_code=503, detail="Islands module not available")
     return await get_island(island_id)
+
+
+@router.post("/chains/start", summary="Start a secondary chain (v0.6.4)")
+async def start_chain_route(request: ChainActionRequest) -> ChainActionResponse:
+    """Start a secondary chain instance via MultiChainManager"""
+    return await start_chain(request)
+
+
+@router.post("/chains/stop", summary="Stop a secondary chain (v0.6.4)")
+async def stop_chain_route(request: ChainActionRequest) -> ChainActionResponse:
+    """Stop a secondary chain instance via MultiChainManager"""
+    return await stop_chain(request)
+
+
+@router.get("/chains", summary="List all chain instances (v0.6.4)")
+@rate_limit(rate=100, per=60)
+async def list_chains_route() -> dict[str, Any]:
+    """List all chain instances managed by the MultiChainManager"""
+    return await list_chains()
 
 
 @router.post("/islands/bridge", summary="Request a bridge to another island")
