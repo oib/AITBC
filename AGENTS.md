@@ -76,6 +76,7 @@ All prior release plans are complete. Details are in the respective changelogs:
 - **v0.5.15** — Flat-to-context migration + test suite repair (P1–P7): <ref_file file="/opt/aitbc/docs/releases/v0.5.15/change.log" />
 - **v0.5.16** — Security Hardening & Multi-Chain Preparation (18 bugs fixed + signing-scheme regression fix + key model migration to secp256k1): <ref_file file="/opt/aitbc/docs/releases/v0.5.16/change.log" />
 - **v0.5.17** — Test Infrastructure (multi-chain fixtures, multi-node harness, stub test conversion, bridge test suite): <ref_file file="/opt/aitbc/docs/releases/v0.5.17/change.log" />
+- **v0.6.5** — Agent Coordination Service (chain_id/island_id awareness, PaymentEscrow, chain-aware task distribution): <ref_file file="/opt/aitbc/docs/releases/v0.6.5/change.log" />
 
 ## Planned Releases
 
@@ -92,7 +93,7 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.6.4** — Multi-Chain Per Island: <ref_file file="/opt/aitbc/docs/releases/v0.6.4/change.log" />
 
 ### Product Track (interleaved after v0.6.4)
-- **v0.6.5** — Agent Coordination Service: <ref_file file="/opt/aitbc/docs/releases/v0.6.5/change.log" />
+- **v0.6.5** — Agent Coordination Service: <ref_file file="/opt/aitbc/docs/releases/v0.6.5/change.log" /> ✅ complete
 - **v0.6.6** — Compute Marketplace: <ref_file file="/opt/aitbc/docs/releases/v0.6.6/change.log" />
 - **v0.6.7** — Pool Hub & Mining: <ref_file file="/opt/aitbc/docs/releases/v0.6.7/change.log" />
 
@@ -117,7 +118,7 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.5.17  (test infrastructure) ✅ complete
   → v0.5.18  (test suite repair — blockchain-node suite green + gated) ✅ complete
   → v0.6.0 → v0.6.1 → v0.6.2 → v0.6.3 → v0.6.4  (infra: db/network opt ✅, parallel processing ✅, sync, multi-island, multi-chain)
-  → v0.6.5 → v0.6.6 → v0.6.7                      (product: agents, marketplace, pool hub)
+  → v0.6.5 → v0.6.6 → v0.6.7                      (product: agents ✅, marketplace, pool hub)
   → v0.7.0 → v0.7.1 → v0.7.2 → v0.7.3             (infra+product: bridge basics, bridge security, bridge verification, governance)
   → v0.8.0 → v0.8.1 → v0.9.0                       (infra: trading basics, offer sync, atomic settlement)
   → v0.10.0                                         (deferred)
