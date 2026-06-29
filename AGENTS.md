@@ -84,7 +84,7 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 
 ### Immediate Bugfix (Patch)
 - **v0.5.18** — Test Suite Repair (green the `apps/blockchain-node/tests/` suite: 64 failed + 8 errors, all pre-existing; prevent CI hangs; quarantine Redis/Postgres tests; add the suite to `testpaths`). Establishes the green baseline v0.6.0 needs: <ref_file file="/opt/aitbc/docs/releases/v0.5.18/change.log" /> ✅ complete
-- **v0.5.19** — Tech Debt Cleanup (cross-context import refactor, dead pricing models, fakeredis): <ref_file file="/opt/aitbc/docs/releases/v0.5.19/change.log" />
+- **v0.5.19** — Tech Debt Cleanup (cross-context import refactor, dead pricing models, fakeredis): <ref_file file="/opt/aitbc/docs/releases/v0.5.19/change.log" /> ✅ complete
 
 ### Infrastructure Track (multi-chain foundation)
 - **v0.6.0** — Database & Network Optimization (query indexing, connection pooling, N+1 elimination, batch writes, block header caching, network compression): <ref_file file="/opt/aitbc/docs/releases/v0.6.0/change.log" /> ✅ complete
@@ -103,7 +103,8 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.7.1** — Bridge Security: <ref_file file="/opt/aitbc/docs/releases/v0.7.1/change.log" />
 - **v0.7.2** — Bridge Verification (In-Process Crypto): <ref_file file="/opt/aitbc/docs/releases/v0.7.2/change.log" />
 - **v0.7.3** — Governance: <ref_file file="/opt/aitbc/docs/releases/v0.7.3/change.log" />
-- **v0.7.4** — Deferred v0.7.x Items (External Oracle, Cross-Chain Governance, Parameter Automation, Emergency Proposals, Coordinator-API Bridge, MultiValidatorPoA): <ref_file file="/opt/aitbc/docs/releases/v0.7.4/change.log" />
+- **v0.7.4** — Deferred v0.7.x Items (External Oracle, Cross-Chain Governance, Parameter Automation, Emergency Proposals, Coordinator-API Bridge): <ref_file file="/opt/aitbc/docs/releases/v0.7.4/change.log" />
+- **v0.7.5** — Consensus Activation (MultiValidatorPoA + PBFT: fix 6 Critical + 6 High findings from security review, then activate): <ref_file file="/opt/aitbc/docs/releases/v0.7.4/security-review-multivalidator-poa.md" /> — split from v0.7.4 B7 after security review found the implementation is scaffolding, not production consensus
 
 ### Infrastructure Track (trading + settlement)
 - **v0.8.0** — Inter-Chain Trading Basics: <ref_file file="/opt/aitbc/docs/releases/v0.8.0/change.log" />
@@ -123,7 +124,7 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.5.19  (tech debt cleanup — cross-context imports, dead pricing models, fakeredis)
   → v0.6.0 → v0.6.1 → v0.6.2 → v0.6.3 → v0.6.4  (infra: db/network opt ✅, parallel processing ✅, sync, multi-island, multi-chain)
   → v0.6.5 → v0.6.6 → v0.6.7                      (product: agents ✅, marketplace, pool hub)
-  → v0.7.0 → v0.7.1 → v0.7.2 → v0.7.3 → v0.7.4     (infra+product: bridge basics, bridge security, bridge verification, governance, deferred v0.7.x items)
+  → v0.7.0 → v0.7.1 → v0.7.2 → v0.7.3 → v0.7.4 → v0.7.5  (infra+product: bridge basics, bridge security, bridge verification, governance, deferred v0.7.x items, consensus activation)
   → v0.8.0 → v0.8.1 → v0.8.2 → v0.9.0               (infra: trading basics, offer sync polling, offer sync subscription, atomic settlement)
   → v1.0.0                                          (production readiness)
   → v2.0.0                                          (vision — questionable features, parked for re-evaluation)

@@ -355,10 +355,10 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/trading/ && 
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Create `aitbc/trading/subscription_types.py` — OfferEventType, OfferEvent, OfferSubscription, SubscriptionStatus, OfferNotification | 🔴 P0 | `aitbc/trading/subscription_types.py` (new), `aitbc/trading/__init__.py` (extend) | ⬜ |
-| A2 | Create `aitbc/trading/subscription_client.py` — OfferSubscriptionClient WebSocket client | 🔴 P0 | `aitbc/trading/subscription_client.py` (new), `aitbc/trading/__init__.py` (extend) | ⬜ |
-| A3 | Extend `aitbc/trading/offer_types.py` — add OfferEventType enum | Medium | `aitbc/trading/offer_types.py` (extend) | ⬜ |
-| A4 | Unit tests for A1-A3 | High | `tests/unit/test_offer_subscription_sdk.py` (new) | ⬜ |
+| A1 | Create `aitbc/trading/subscription_types.py` — OfferEventType, OfferEvent, OfferSubscription, SubscriptionStatus, OfferNotification | 🔴 P0 | `aitbc/trading/subscription_types.py` (new), `aitbc/trading/__init__.py` (extend) | ✅ |
+| A2 | Create `aitbc/trading/subscription_client.py` — OfferSubscriptionClient WebSocket client | 🔴 P0 | `aitbc/trading/subscription_client.py` (new), `aitbc/trading/__init__.py` (extend) | ✅ |
+| A3 | Extend `aitbc/trading/offer_types.py` — add OfferEventType enum | Medium | `aitbc/trading/offer_types.py` (extend) | ✅ |
+| A4 | Unit tests for A1-A3 | High | `tests/unit/test_offer_subscription_sdk.py` (new) | ✅ |
 
 ### Agent A — Detailed Instructions
 

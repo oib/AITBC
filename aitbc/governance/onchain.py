@@ -87,7 +87,9 @@ def build_parameter_change_params(schema: ParameterChangeSchema) -> dict[str, An
 
     This is stored in ``ProposalData.parameters`` and records the
     old→new value transition for auditability. Actual parameter
-    application is deferred to v0.8.x (parameter automation).
+    application is performed by ``build_parameter_apply_tx`` (v0.7.4)
+    which creates a GOVERNANCE_EXECUTE payload that target services
+    consume to apply the change.
     """
     return {
         "target_service": schema.target_service,
@@ -95,6 +97,116 @@ def build_parameter_change_params(schema: ParameterChangeSchema) -> dict[str, An
         "old_value": schema.old_value,
         "new_value": schema.new_value,
         "description": schema.description,
+    }
+
+
+# Known target services and their configurable parameters (v0.7.4 §A4).
+# Used by validate_parameter_change to reject unknown service/parameter
+# combinations at the SDK layer before tx submission.
+_KNOWN_TARGET_SERVICES: dict[str, set[str]] = {
+    "blockchain": {
+        "block_reward",
+        "max_block_size",
+        "block_interval_seconds",
+        "max_transactions_per_block",
+        "bridge_fee_basis_points",
+    },
+    "pool-hub": {
+        "reward_distribution_enabled",
+        "reward_sync_interval_blocks",
+        "default_chain_id",
+        "agent_coordinator_url",
+    },
+    "marketplace": {
+        "default_chain_id",
+        "agent_coordinator_url",
+        "matching_algorithm",
+    },
+    "governance": {
+        "voting_period_blocks",
+        "quorum_percent",
+        "approval_percent",
+        "timelock_blocks",
+        "emergency_quorum_percent",
+        "emergency_timelock_blocks",
+    },
+}
+
+
+def validate_parameter_change(
+    schema: ParameterChangeSchema,
+    target_service_config: dict[str, Any] | None = None,
+) -> list[str]:
+    """Validate a parameter change before applying it.
+
+    Returns a list of error strings. An empty list means the change is valid.
+
+    Checks:
+    1. target_service is a known service
+    2. parameter_name is a known parameter for that service
+    3. old_value matches the current config value (if config provided)
+    4. new_value is not the same as old_value (no-op check)
+    """
+    errors: list[str] = []
+
+    # Check target_service is known
+    known_params = _KNOWN_TARGET_SERVICES.get(schema.target_service)
+    if known_params is None:
+        errors.append(f"unknown target_service: {schema.target_service} (must be one of {sorted(_KNOWN_TARGET_SERVICES)})")
+        return errors
+
+    # Check parameter_name is known for this service
+    if schema.parameter_name not in known_params:
+        errors.append(
+            f"unknown parameter_name: {schema.parameter_name} "
+            f"for service {schema.target_service} "
+            f"(must be one of {sorted(known_params)})"
+        )
+
+    # No-op check: new_value should differ from old_value
+    if schema.new_value == schema.old_value:
+        errors.append(f"no-op change: new_value ({schema.new_value}) equals old_value ({schema.old_value})")
+
+    # If current config is provided, verify old_value matches
+    if target_service_config is not None:
+        current = target_service_config.get(schema.parameter_name)
+        if current is not None and current != schema.old_value:
+            errors.append(
+                f"old_value mismatch: expected {schema.old_value} but current config "
+                f"has {current} for {schema.target_service}.{schema.parameter_name}"
+            )
+
+    return errors
+
+
+def build_parameter_apply_tx(
+    schema: ParameterChangeSchema,
+    proposal_id: str,
+    executor: str,
+    chain_id: str = "ait-hub",
+) -> dict[str, Any]:
+    """Build a GOVERNANCE_EXECUTE transaction payload that applies a parameter change.
+
+    This is the execution payload for a parameter_change proposal that has
+    passed voting and the timelock. Target services (pool-hub, marketplace,
+    blockchain-node) consume this payload via their governance-triggered
+    parameter API endpoints (Agent B B3/B4) to apply the change.
+
+    The payload includes the full ParameterChangeSchema so the target service
+    can validate the old→new transition before applying.
+    """
+    return {
+        "type": GovernanceTxType.EXECUTE.value,
+        "proposal_id": proposal_id,
+        "executor": executor,
+        "chain_id": chain_id,
+        "parameter_change": {
+            "target_service": schema.target_service,
+            "parameter_name": schema.parameter_name,
+            "old_value": schema.old_value,
+            "new_value": schema.new_value,
+            "description": schema.description,
+        },
     }
 
 

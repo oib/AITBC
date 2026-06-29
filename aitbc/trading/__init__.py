@@ -1,4 +1,4 @@
-"""AITBC inter-chain trading shared SDK (v0.8.0 + v0.8.1).
+"""AITBC inter-chain trading shared SDK (v0.8.0 + v0.8.1 + v0.8.2).
 
 Provides:
 - InterChainTradeStatus: enum for trade lifecycle status (pending → matched
@@ -24,6 +24,14 @@ v0.8.1 additions (offer sync):
 - OfferSyncTrigger: request to trigger offer sync
 - OfferSyncClient: async HTTP client for offer sync endpoints
 - OfferCache: Redis-backed offer cache with staleness tracking
+
+v0.8.2 additions (advanced offer sync):
+- OfferEventType: enum for offer change events (created, updated, deleted)
+- OfferEvent: offer change event for gossip/WebSocket transport
+- OfferSubscription: saved-query filter set for offer streaming
+- SubscriptionStatus: enum for WebSocket subscription lifecycle
+- OfferNotification: debounced batch notification of offer changes
+- OfferSubscriptionClient: WebSocket client for real-time offer streaming
 """
 
 from __future__ import annotations
@@ -35,11 +43,19 @@ from .offer_client import OfferSyncClient
 from .offer_types import (
     OfferDiscoveryRequest,
     OfferDiscoveryResult,
+    OfferEventType,
     OfferSyncConfig,
     OfferSyncStatus,
     OfferSyncStatusEntry,
     OfferSyncTrigger,
     SyncedOffer,
+)
+from .subscription_client import OfferSubscriptionClient
+from .subscription_types import (
+    OfferEvent,
+    OfferNotification,
+    OfferSubscription,
+    SubscriptionStatus,
 )
 from .types import (
     ChainInfo,
@@ -62,12 +78,18 @@ __all__ = [
     "OfferCache",
     "OfferDiscoveryRequest",
     "OfferDiscoveryResult",
+    "OfferEvent",
+    "OfferEventType",
+    "OfferNotification",
+    "OfferSubscription",
+    "OfferSubscriptionClient",
     "OfferSyncClient",
     "OfferSyncConfig",
     "OfferSyncStatus",
     "OfferSyncStatusEntry",
     "OfferSyncTrigger",
     "RegisterChainRequest",
+    "SubscriptionStatus",
     "SyncedOffer",
     "TradeHistoryEntry",
     "TradeMatchResult",

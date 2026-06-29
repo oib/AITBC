@@ -79,23 +79,6 @@ class PriceHistory(SQLModel, table=True):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
 
 
-class PriceForecast(SQLModel, table=True):
-    """Predicted prices with confidence intervals."""
-
-    __tablename__ = "price_forecast"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: f"pf_{uuid4().hex[:10]}", primary_key=True)
-    resource_id: str = Field(index=True)
-    forecast_timestamp: datetime = Field(index=True)
-    predicted_price: float = Field(default=0.0)
-    confidence_lower: float = Field(default=0.0)
-    confidence_upper: float = Field(default=0.0)
-    confidence_score: float = Field(default=0.8)
-    model_version: str = Field(default="v1.0")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
-
-
 class SearchHistory(SQLModel, table=True):
     """Track user search patterns for ML-based recommendations."""
 
@@ -140,24 +123,6 @@ class UserProfile(SQLModel, table=True):
     preferred_capabilities: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
-
-
-class MarketMetrics(SQLModel, table=True):
-    """Real-time market statistics."""
-
-    __tablename__ = "market_metrics"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: f"mm_{uuid4().hex[:10]}", primary_key=True)
-    total_gpus: int = Field(default=0)
-    available_gpus: int = Field(default=0)
-    booked_gpus: int = Field(default=0)
-    total_capacity: float = Field(default=0.0)
-    available_capacity: float = Field(default=0.0)
-    avg_price: float = Field(default=0.0)
-    avg_utilization: float = Field(default=0.0)
-    active_bookings: int = Field(default=0)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
 
 
 class TrendData(SQLModel, table=True):

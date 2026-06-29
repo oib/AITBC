@@ -101,3 +101,37 @@ def mock_faucet_response():
         "transaction_id": "tx_test123",
         "timestamp": "2026-05-05T12:00:00",
     }
+
+
+# ---------------------------------------------------------------------------
+# fakeredis fixtures — in-process Redis fakes (no server required)
+# Added in v0.5.19 so Redis-dependent tests can run without a live Redis.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="function")
+def fakeredis_client():
+    """A synchronous in-process Redis fake (no server required).
+
+    Uses ``fakeredis.FakeRedis``. Each test gets a fresh, isolated server so
+    state never leaks between tests.
+    """
+    import fakeredis
+
+    client = fakeredis.FakeRedis(version=7, decode_responses=True)
+    yield client
+    client.flushall()
+
+
+@pytest.fixture(scope="function")
+async def fakeredis_async_client():
+    """An asynchronous in-process Redis fake (no server required).
+
+    Uses ``fakeredis.FakeAsyncRedis``. Each test gets a fresh, isolated server
+    so state never leaks between tests.
+    """
+    import fakeredis
+
+    client = fakeredis.FakeAsyncRedis(version=7, decode_responses=True)
+    yield client
+    await client.aclose()

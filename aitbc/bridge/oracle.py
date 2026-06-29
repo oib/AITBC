@@ -1,9 +1,11 @@
-"""Bridge oracle client interface (v0.7.2 §A2).
+"""Bridge oracle client interface (v0.7.2 §A2, v0.7.4 §A1).
 
 Abstract interface for bridge proof verification. The default
 implementation (``InProcessVerifier``) uses local cryptographic verification
-(Merkle proofs + block header signatures). A stub ``ExternalOracleClient``
-is included for future external oracle integration (deferred to v0.8.x+).
+(Merkle proofs + block header signatures). The ``ExternalOracleClient``
+(v0.7.4) delegates verification to one or more external oracle HTTP
+endpoints, with an ``OracleFallbackPolicy`` (v0.7.4 §A2) that falls back
+to in-process verification when the oracle is unavailable.
 
 The ``InProcessVerifier`` delegates Merkle proof verification to a
 ``MerkleProofVerifier`` protocol implementation provided by the blockchain
@@ -17,6 +19,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, Protocol, runtime_checkable
+
 
 from .types import (
     BridgeBlockHeader,

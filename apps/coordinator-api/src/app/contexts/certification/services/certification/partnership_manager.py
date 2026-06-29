@@ -11,7 +11,8 @@ from ...domain.certification import (
     PartnershipProgram,
     PartnershipType,
 )
-from ....reputation.services.reputation_service import AgentReputation
+from ....reputation.services.reputation_service import ReputationService
+from aitbc_shared.models import ReputationDTO
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
@@ -165,7 +166,7 @@ class PartnershipManager:
 
     async def check_technical_capability(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Check technical capability requirement"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation: ReputationDTO | None = ReputationService(session).get_reputation_dto(agent_id)
         if not reputation:
             return {"eligible": False, "reason": "No technical capability data available", "score": 0.0, "details": {}}
         trust_score = reputation.trust_score
@@ -186,7 +187,7 @@ class PartnershipManager:
 
     async def check_integration_readiness(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Check integration readiness requirement"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = ReputationService(session).get_reputation_dto(agent_id)
         if not reputation:
             return {"eligible": False, "reason": "No integration data available", "score": 0.0, "details": {}}
         reliability_score = reputation.reliability_score
@@ -202,7 +203,7 @@ class PartnershipManager:
 
     async def check_service_quality(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Check service quality requirement"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = ReputationService(session).get_reputation_dto(agent_id)
         if not reputation:
             return {"eligible": False, "reason": "No service quality data available", "score": 0.0, "details": {}}
         performance_rating = reputation.performance_rating
@@ -218,7 +219,7 @@ class PartnershipManager:
 
     async def check_customer_support(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Check customer support capability"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = ReputationService(session).get_reputation_dto(agent_id)
         if not reputation:
             return {"eligible": False, "reason": "No customer support data available", "score": 0.0, "details": {}}
         response_time = reputation.average_response_time
@@ -234,7 +235,7 @@ class PartnershipManager:
 
     async def check_sales_capability(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Check sales capability requirement"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = ReputationService(session).get_reputation_dto(agent_id)
         if not reputation:
             return {"eligible": False, "reason": "No sales capability data available", "score": 0.0, "details": {}}
         total_earnings = reputation.total_earnings
@@ -250,7 +251,7 @@ class PartnershipManager:
 
     async def check_market_presence(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Check market presence requirement"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = ReputationService(session).get_reputation_dto(agent_id)
         if not reputation:
             return {"eligible": False, "reason": "No market presence data available", "score": 0.0, "details": {}}
         transaction_count = reputation.transaction_count
@@ -270,7 +271,7 @@ class PartnershipManager:
 
     async def check_development_resources(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Check development resources requirement"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = ReputationService(session).get_reputation_dto(agent_id)
         if not reputation:
             return {"eligible": False, "reason": "No development resources data available", "score": 0.0, "details": {}}
         trust_score = reputation.trust_score
@@ -290,7 +291,7 @@ class PartnershipManager:
 
     async def check_market_leader(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Check market leader requirement"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = ReputationService(session).get_reputation_dto(agent_id)
         if not reputation:
             return {"eligible": False, "reason": "No market leadership data available", "score": 0.0, "details": {}}
         trust_score = reputation.trust_score
@@ -319,7 +320,7 @@ class PartnershipManager:
 
     async def check_marketing_capability(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Check marketing capability requirement"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = ReputationService(session).get_reputation_dto(agent_id)
         if not reputation:
             return {"eligible": False, "reason": "No marketing capability data available", "score": 0.0, "details": {}}
         transaction_count = reputation.transaction_count
@@ -339,7 +340,7 @@ class PartnershipManager:
 
     async def check_audience_reach(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Check audience reach requirement"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = ReputationService(session).get_reputation_dto(agent_id)
         if not reputation:
             return {"eligible": False, "reason": "No audience reach data available", "score": 0.0, "details": {}}
         transaction_count = reputation.transaction_count
