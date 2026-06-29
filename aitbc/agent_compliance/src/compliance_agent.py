@@ -35,7 +35,7 @@ class ComplianceAgent:
                 {
                     "type": "compliance",
                     "capabilities": ["kyc_check", "aml_screening", "regulatory_reporting"],
-                    "endpoint": "http://localhost:8006",
+                    "endpoint": "http://localhost:8202",
                 },
             )
 
