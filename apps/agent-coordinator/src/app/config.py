@@ -120,6 +120,20 @@ class Settings(BaseSettings):
     task_batch_size: int = 10
     load_balancer_cache_size: int = 1000
 
+    # Blockchain integration (v0.6.5)
+    blockchain_rpc_url: str = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+    default_chain_id: str = os.getenv("DEFAULT_CHAIN_ID", "ait-hub")
+    default_island_id: str = os.getenv("DEFAULT_ISLAND_ID", "")
+
+    # Task payment escrow (v0.6.5)
+    task_payment_escrow_enabled: bool = False
+    task_payment_timeout_seconds: float = 3600.0
+    task_max_retries: int = 3
+
+    # Agent TTL (v0.6.5 — configurable, was hardcoded in agent_discovery.py)
+    agent_heartbeat_timeout_seconds: int = 120
+    agent_cleanup_interval_seconds: int = 60
+
     @field_validator("debug", mode="before")
     @classmethod
     def _parse_bool_env(cls, v: Any) -> bool:
