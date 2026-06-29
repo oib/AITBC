@@ -69,5 +69,12 @@ BRIDGE_BATCH_SIZE = 10  # max transfers per batch operation
 BRIDGE_MONITOR_INTERVAL = 60  # seconds between health checks
 BRIDGE_STUCK_TRANSFER_TIMEOUT = 3600  # 1 hour — transfers pending longer are flagged
 
+# Bridge multi-sig defaults (v0.7.1)
+BRIDGE_MULTISIG_DEFAULT_THRESHOLD = 3  # M-of-N: minimum signatures required
+BRIDGE_MULTISIG_DEFAULT_VALIDATORS = 5  # N: total validators in set
+BRIDGE_MULTISIG_TIMEOUT = 3600  # seconds to collect signatures
+BRIDGE_VALIDATOR_SET_GRACE_PERIOD = 7200  # seconds — old epoch valid during rotation
+BRIDGE_BLOCK_SIGNATURE_REQUIRED = True  # require block header signatures
+
 # Package version
 PACKAGE_VERSION = __version__

@@ -188,10 +188,13 @@ try:
         bridge_confirm,
         bridge_health,
         bridge_lock,
+        bridge_security_status,
         bridge_unlock,
         get_bridge_balance,
         get_bridge_transfer,
+        get_validator_set,
         list_pending_transfers,
+        register_validator,
     )
 except ImportError as e:
     _import_failed("Bridge module", e)
@@ -204,6 +207,9 @@ except ImportError as e:
     bridge_health = None
     bridge_batch_lock = None
     bridge_batch_confirm = None
+    register_validator = None
+    get_validator_set = None
+    bridge_security_status = None
 try:
     from .staking import (
         cast_governance_vote,
@@ -876,6 +882,33 @@ async def bridge_batch_confirm_route(request: Request, batch_data: dict) -> list
     if bridge_batch_confirm is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
     return await bridge_batch_confirm(request, batch_data)
+
+
+@router.post("/bridge/validators/register", summary="Register a bridge validator")
+@rate_limit(rate=20, per=60)
+async def register_validator_route(request: Request, reg_data: dict) -> dict[str, Any]:
+    """Register a validator for bridge multi-sig operations (v0.7.1)"""
+    if register_validator is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    return await register_validator(request, reg_data)
+
+
+@router.get("/bridge/validators/{chain_id}", summary="Get validator set for a chain")
+@rate_limit(rate=100, per=60)
+async def get_validator_set_route(request: Request, chain_id: str) -> dict[str, Any]:
+    """Get the validator set for a chain (v0.7.1). Optional ?epoch= query param."""
+    if get_validator_set is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    return await get_validator_set(request, chain_id)
+
+
+@router.get("/bridge/security/status", summary="Bridge security status")
+@rate_limit(rate=100, per=60)
+async def bridge_security_status_route(request: Request) -> dict[str, Any]:
+    """Get bridge security status — multi-sig config, validator count, etc. (v0.7.1)"""
+    if bridge_security_status is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    return await bridge_security_status(request)
 
 
 @router.post("/staking/stake", summary="Stake tokens")
