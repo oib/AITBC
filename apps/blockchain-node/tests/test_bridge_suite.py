@@ -22,7 +22,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from aitbc_chain.cross_chain.bridge import BridgeStatus, CrossChainBridge
-from aitbc_chain.models import Account, CrossChainTransfer
+from aitbc_chain.models import Account, BridgeBlockHeader, CrossChainTransfer
 from aitbc_chain.rpc.router import router
 
 
@@ -36,6 +36,35 @@ def _sign_hash(private_key_hex: str, msg_hash: bytes) -> str:
     pk = keys.PrivateKey(bytes.fromhex(private_key_hex.removeprefix("0x")))
     sig = pk.sign_msg_hash(msg_hash)
     return sig.to_hex()
+
+
+def _store_block_header(
+    engine: Any,
+    chain_id: str = "chain-a",
+    height: int = 10,
+    block_hash: str = "0x" + "ab" * 32,
+    proposer: str = "0xproposer",
+    state_root: str = "0x" + "cd" * 32,
+    signature: str = "",
+    confirmation_count: int = 10,
+) -> BridgeBlockHeader:
+    """Store a block header in the DB for bridge proof verification (v0.7.2)."""
+    with Session(engine) as session:
+        header = BridgeBlockHeader(
+            chain_id=chain_id,
+            height=height,
+            hash=block_hash,
+            parent_hash="0x" + "00" * 32,
+            proposer=proposer,
+            state_root=state_root,
+            signature=signature,
+            confirmation_count=confirmation_count,
+            finality_confirmed=confirmation_count >= 6,
+        )
+        session.add(header)
+        session.commit()
+        session.refresh(header)
+        return header
 
 
 def _canonical_hash(data: dict[str, Any]) -> bytes:
@@ -121,6 +150,28 @@ def proposer_account() -> EthAccount:
     return EthAccount.create()
 
 
+@pytest.fixture
+def bridge_with_header(bridge: CrossChainBridge, engine, proposer_account: EthAccount) -> CrossChainBridge:
+    """A bridge with a stored block header at height=10 (v0.7.2).
+
+    Patches settings to disable block signature requirement (the test
+    block header has no real proposer signature) and sets sufficient
+    confirmations for finality.
+    """
+    _store_block_header(
+        engine,
+        chain_id="chain-a",
+        height=10,
+        block_hash="0x" + "ab" * 32,
+        proposer=proposer_account.address.lower(),
+        state_root="0x" + "cd" * 32,
+        signature="",  # no signature — block sig verification disabled
+        confirmation_count=10,  # enough for finality
+    )
+    with patch("aitbc_chain.config.settings.bridge_block_signature_required", False):
+        yield bridge
+
+
 # ---------------------------------------------------------------------------
 # Bridge Proof Verification Tests (Bug 3 + Bug 12 regression)
 # ---------------------------------------------------------------------------
@@ -164,11 +215,11 @@ class TestProofVerification:
             proof["proposer_signature"] = _sign_hash(EthAccount.create().key.hex(), _canonical_hash(proof_for_signing))
             assert bridge._validate_proof(proof, record) is False, f"field {field} mismatch not rejected"
 
-    def test_proof_with_all_fields_accepted(self, bridge: CrossChainBridge, proposer_account: EthAccount) -> None:
+    def test_proof_with_all_fields_accepted(self, bridge_with_header: CrossChainBridge, proposer_account: EthAccount) -> None:
         """A complete, validly-signed proof must be accepted."""
         record = _make_record()
         proof = _make_valid_proof(record, proposer_account.key.hex())
-        assert bridge._validate_proof(proof, record) is True
+        assert bridge_with_header._validate_proof(proof, record) is True
 
     def test_proof_with_invalid_signature_rejected(self, bridge: CrossChainBridge) -> None:
         """Bug 3: proof with an invalid proposer_signature must be rejected."""
@@ -234,9 +285,16 @@ class TestBridgeLockEndpoint:
 class TestBridgeConfirmEndpoint:
     """RPC /bridge/confirm signature & field validation (Bug 7)."""
 
-    def test_bridge_confirm_disabled_by_default(self, client: TestClient) -> None:
-        """POST /bridge/confirm must return 503 when BRIDGE_RELEASE_ENABLED is false (Bug 3 fence)."""
-        with patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()):
+    def test_bridge_confirm_disabled_when_fenced(self, client: TestClient) -> None:
+        """POST /bridge/confirm must return 503 when BRIDGE_RELEASE_ENABLED is false (Bug 3 fence).
+
+        v0.7.2: The fence is now unfenced by default (true). This test
+        verifies the fence still works when explicitly set to false.
+        """
+        with (
+            patch("aitbc_chain.config.settings.bridge_release_enabled", False),
+            patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()),
+        ):
             response = client.post(
                 "/bridge/confirm",
                 json={
@@ -315,6 +373,9 @@ class TestBridgeLifecycle:
             session.add(Account(chain_id=source_chain, address=sender, balance=amount * 2, nonce=0))
             session.commit()
 
+        # v0.7.2: Store a block header for proof verification
+        _store_block_header(engine, chain_id=source_chain, height=10, proposer=proposer_account.address.lower())
+
         # Step 1: lock
         transfer = bridge.initiate_transfer(
             source_chain=source_chain,
@@ -332,8 +393,9 @@ class TestBridgeLifecycle:
             assert record is not None
             proof = _make_valid_proof(record, proposer_account.key.hex())
 
-        # Step 2: confirm
-        completed = bridge.confirm_transfer(transfer.transfer_id, proof)
+        # Step 2: confirm (with block signature verification disabled for test)
+        with patch("aitbc_chain.config.settings.bridge_block_signature_required", False):
+            completed = bridge.confirm_transfer(transfer.transfer_id, proof)
         assert completed.status == BridgeStatus.completed
         assert completed.target_tx_hash is not None
         assert completed.confirm_time is not None
@@ -356,6 +418,9 @@ class TestBridgeLifecycle:
             session.add(Account(chain_id=source_chain, address=sender, balance=amount * 2, nonce=0))
             session.commit()
 
+        # v0.7.2: Store a block header for proof verification
+        _store_block_header(engine, chain_id=source_chain, height=10, proposer=proposer_account.address.lower())
+
         # DB record starts as "pending" after initiation
         transfer = bridge.initiate_transfer(
             source_chain=source_chain,
@@ -373,7 +438,8 @@ class TestBridgeLifecycle:
             assert record.status == "pending"
             proof = _make_valid_proof(record, proposer_account.key.hex())
 
-        completed = bridge.confirm_transfer(transfer.transfer_id, proof)
+        with patch("aitbc_chain.config.settings.bridge_block_signature_required", False):
+            completed = bridge.confirm_transfer(transfer.transfer_id, proof)
         assert completed.status == BridgeStatus.completed
 
         with Session(engine) as session:
@@ -390,11 +456,14 @@ class TestBridgeLifecycle:
 class TestCrossChainContamination:
     """Proofs must not be replayable across chains (Bug 12)."""
 
-    def test_proof_replay_across_chains_rejected(self, bridge: CrossChainBridge, proposer_account: EthAccount) -> None:
+    def test_proof_replay_across_chains_rejected(self, bridge: CrossChainBridge, proposer_account: EthAccount, engine) -> None:
         """A proof valid for chain A must be rejected for a transfer on chain B."""
+        # v0.7.2: Store block header for chain-a
+        _store_block_header(engine, chain_id="chain-a", height=10, proposer=proposer_account.address.lower())
         record_a = _make_record(source_chain="chain-a", target_chain="chain-b")
         proof = _make_valid_proof(record_a, proposer_account.key.hex())
-        assert bridge._validate_proof(proof, record_a) is True
+        with patch("aitbc_chain.config.settings.bridge_block_signature_required", False):
+            assert bridge._validate_proof(proof, record_a) is True
 
         # A different transfer record on chain B must reject chain A's proof
         record_b = _make_record(source_chain="chain-b", target_chain="chain-c")
