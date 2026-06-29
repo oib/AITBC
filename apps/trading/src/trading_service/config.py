@@ -1,8 +1,11 @@
-"""Trading service configuration (v0.8.0 §B1).
+"""Trading service configuration (v0.8.0 §B1, v0.8.1 §B1).
 
 Provides a ``pydantic_settings.BaseSettings`` subclass with blockchain
 and bridge integration fields (RPC URLs, chain_id) and inter-chain
 trading parameters (matching, execution timeout, sync interval).
+
+v0.8.1 additions: offer sync settings (sync_enabled, sync_interval,
+staleness thresholds, cache TTL, per-chain overrides).
 
 All fields are env-var overridable with the ``TRADING_`` prefix.
 """
@@ -36,6 +39,15 @@ class Settings(BaseSettings):
 
     # HTTP client timeout
     http_timeout: float = Field(default=10.0)
+
+    # v0.8.1: Offer sync settings
+    offer_sync_enabled: bool = Field(default=True)
+    offer_sync_interval_seconds: int = Field(default=60)
+    offer_staleness_threshold_seconds: int = Field(default=300)  # 5 min default
+    offer_cache_ttl_seconds: int = Field(default=300)
+    offer_sync_max_bandwidth_kbps: int = Field(default=100)
+    # Per-chain staleness overrides (JSON env var)
+    offer_per_chain_staleness: dict[str, int] = Field(default_factory=dict)
 
 
 @lru_cache(maxsize=1)
