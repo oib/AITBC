@@ -1,4 +1,4 @@
-"""Shared bridge types for cross-chain transfers (v0.7.0 §A1, v0.7.1 §A1).
+"""Shared bridge types for cross-chain transfers (v0.7.0 §A1, v0.7.1 §A1, v0.7.2 §A1).
 
 These are the canonical shared SDK types for the AITBC cross-chain bridge.
 They mirror the in-node types in
@@ -8,8 +8,9 @@ the CLI and other services.
 
 v0.7.0 ships basic field/signature validation only. v0.7.1 adds the
 validator-set registry types (ValidatorInfo, ValidatorSet) and the
-multi-sig ThresholdProof type. Full Merkle proof verification +
-proposer-set membership checking is deferred to v0.7.2.
+multi-sig ThresholdProof type. v0.7.2 adds verification types
+(BridgeBlockHeader, FinalityConfig, ProofVerificationResult,
+VerificationMode) for in-process cryptographic proof verification.
 """
 
 from __future__ import annotations
@@ -143,3 +144,59 @@ class BridgeConfig:
     multisig_enabled: bool = False  # require multi-sig for confirm
     multisig_threshold: int = 3  # M-of-N minimum signatures
     multisig_validators: int = 5  # N total validators
+
+
+# ---------------------------------------------------------------------------
+# v0.7.2 §A1 — Verification types
+# ---------------------------------------------------------------------------
+
+
+class VerificationMode(StrEnum):
+    """Bridge proof verification mode (v0.7.2 §A1)."""
+
+    IN_PROCESS = "in_process"  # default — use local Merkle trie
+    ORACLE = "oracle"  # future — external oracle (stub only in v0.7.2)
+
+
+@dataclass
+class BridgeBlockHeader:
+    """A block header from a remote (source) chain (v0.7.2 §A1).
+
+    Used to anchor bridge proofs — the Merkle proof is verified against
+    ``state_root``, and the block header's proposer signature is verified
+    against the validator set (v0.7.1).
+    """
+
+    chain_id: str
+    height: int
+    hash: str
+    parent_hash: str
+    proposer: str  # proposer address
+    state_root: str  # state root at this block
+    signature: str = ""  # proposer signature (v0.7.1 field)
+    timestamp: datetime | None = None
+    finality_confirmed: bool = False  # set when finality threshold met
+    confirmation_count: int = 0  # number of confirmations seen
+
+
+@dataclass
+class FinalityConfig:
+    """Configuration for block finality tracking (v0.7.2 §A1)."""
+
+    min_confirmations: int = 3  # minimum confirmations for any transfer
+    finality_blocks: int = 6  # full finality threshold
+    large_transfer_threshold: int = 10000  # transfers above this require full finality
+    grace_period_seconds: int = 3600  # validator set transition grace period
+
+
+@dataclass
+class ProofVerificationResult:
+    """Result of a bridge proof verification attempt (v0.7.2 §A1)."""
+
+    valid: bool
+    error: str = ""
+    block_height: int = 0
+    state_root: str = ""
+    finality_confirmed: bool = False
+    validator_epoch: int = 0
+    verification_mode: VerificationMode = VerificationMode.IN_PROCESS
