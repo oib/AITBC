@@ -1,0 +1,265 @@
+# AITBC v0.8.2 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Advanced Offer Sync — Subscription-Based Sync, Real-Time Notifications, Gossip Propagation, Optional Search Index
+
+## 🎯 Overview
+
+AITBC v0.8.2 upgrades the cross-chain offer synchronization from polling-based (v0.8.1) to subscription-based with real-time notifications. Offers are pushed to subscribers via WebSocket and gossip pub/sub, eliminating the polling latency and enabling near-instant offer discovery.
+
+**Why this is a dedicated release**: v0.8.1 established polling-based sync with a local offer cache. While functional, polling has inherent latency (60s default interval) and bandwidth overhead. v0.8.2 adds the real-time layer:
+- WebSocket-based offer change streaming (push instead of poll)
+- Gossip-based offer propagation across islands (Redis pub/sub)
+- Real-time offer notifications for agents (debounced batch notifications)
+- Optional external search index for advanced queries (Elasticsearch/Meilisearch)
+
+**Prerequisites**: [v0.8.1](../v0.8.1/change.log) (Cross-Chain Offer Synchronization — polling-based sync, OfferCache, OfferSyncClient), [v0.8.0](../v0.8.0/change.log) (Inter-Chain Trading Basics), [v0.7.0](../v0.7.0/change.log) ✅, [v0.7.1](../v0.7.1/change.log) ✅, [v0.7.2](../v0.7.2/change.log) ✅.
+
+> **Not on the critical path**: v0.9.0 (Atomic Cross-Chain Settlement) does NOT depend on v0.8.2. v0.9.0 only needs v0.8.1's polling-based sync for offer state. v0.8.2 is an enhancement release that can ship after v0.9.0 or in parallel.
+
+## 🎯 Release Highlights
+
+### Subscription-Based Offer Sync
+- 🚧 WebSocket-based offer change streaming (replaces polling)
+- 🚧 Automatic reconnection with exponential backoff
+- 🚧 Fallback to polling when subscription fails
+- 🚧 Subscription heartbeat and lease management
+- 🚧 Per-chain subscription with independent health
+
+### Real-Time Offer Notifications
+- 🚧 Push notifications when new offers match saved queries
+- 🚧 Debounced batch notifications (avoid flooding)
+- 🚧 WebSocket-based real-time offer stream
+- 🚧 Filter-based subscriptions (service type, price range, region)
+
+### Gossip-Based Offer Propagation
+- 🚧 Publish offer changes to gossip topics (`offers.{chain_id}`)
+- 🚧 Cross-island offer propagation via Redis pub/sub
+- 🚧 Batch publishing with compression (build on v0.6.0)
+- 🚧 Deduplication and priority queue (existing gossip features)
+
+### Optional: External Search Index
+- 🚧 Elasticsearch or Meilisearch integration (optional)
+- 🚧 Index offers on sync for advanced search
+- 🚧 Full-text search, faceted filtering, ranking
+- 🚧 Fallback to in-memory search when index unavailable
+
+## 📋 Detailed Features
+
+### Subscription-Based Offer Sync
+
+#### WebSocket Offer Streaming
+```bash
+# Subscribe to offer changes on a chain
+wscat -c ws://localhost:8104/v1/trading/offers/subscribe?chain_id=ait-hub
+
+# Filter by service type
+wscat -c "ws://localhost:8104/v1/trading/offers/subscribe?chain_id=ait-hub&service_type=gpu_marketplace"
+```
+
+**Protocol**:
+1. Client connects to `/v1/trading/offers/subscribe`
+2. Server validates subscription (lease-based, like `/rpc/subscribe/ws`)
+3. Server streams offer change events: `{"event": "created|updated|deleted", "offer": {...}}`
+4. Heartbeat every 20s (matching existing WebSocket pattern)
+5. Auto-reconnect on disconnect with 5s delay (matching SubscriptionClient)
+
+#### Subscription with Polling Fallback
+- Primary: WebSocket subscription (push mode)
+- Fallback: Polling sync (v0.8.1, pull mode)
+- Health check: If subscription fails 3 times, switch to polling
+- Recovery: Periodically attempt subscription reconnection
+
+#### Per-Chain Subscription Health
+- Track subscription status per chain: `subscribed`, `reconnecting`, `polling_fallback`
+- Expose via `GET /v1/trading/offers/subscription-status`
+- Alert when chains are in fallback mode
+
+### Real-Time Offer Notifications
+
+#### Saved Query Subscriptions
+```bash
+# Subscribe to offers matching a query
+aitbc trade watch --service-type gpu_marketplace --max-price 0.05 --region us-east
+```
+
+**Response (streamed):**
+```json
+{
+  "event": "created",
+  "offer": {
+    "offer_id": "sw_offer_...",
+    "chain_id": "ait-island1.aitbc.bubuit.net",
+    "service_type": "gpu_marketplace",
+    "price": 0.02,
+    "last_synced": "2026-06-25T...",
+    "sync_confidence": "high"
+  }
+}
+```
+
+#### Debounced Batch Notifications
+- Collect offer changes for 1s (configurable)
+- Batch into a single notification
+- Avoids flooding when many offers change simultaneously
+- Configurable debounce interval per subscription
+
+### Gossip-Based Offer Propagation
+
+#### Offer Change Events
+- Publish to gossip topic: `offers.{chain_id}`
+- Event types: `created`, `updated`, `deleted`
+- Uses existing `BroadcastGossipBackend` (Redis pub/sub)
+- Deduplication via existing `GossipBroker` (lines 272-312)
+
+#### Cross-Island Propagation
+- Each island's blockchain-node publishes offer changes to Redis
+- Trading service subscribes to `offers.{chain_id}` for each registered chain
+- Compressed batch publishing for bulk offer changes (v0.6.0 compression)
+
+### Optional: External Search Index
+
+#### Elasticsearch Integration (Optional)
+- Index offers on sync (real-time indexing via subscription events)
+- Full-text search on offer attributes (gpu_model, region, sla)
+- Faceted filtering (price range, service type, chain, region)
+- Ranking by relevance, price, proximity
+
+#### Meilisearch Integration (Alternative)
+- Lighter weight than Elasticsearch
+- Sub-millisecond search latency
+- Typo-tolerant full-text search
+- Simpler deployment (single binary)
+
+#### Fallback Strategy
+- If search index is unavailable, fall back to in-memory search (v0.8.1)
+- Index is a read-optimized view of the OfferCache
+- No data loss if index fails (cache is source of truth)
+
+## 🔧 Breaking Changes
+
+- Offer sync now supports both polling and subscription modes (additive)
+- New WebSocket endpoint `/v1/trading/offers/subscribe` (additive)
+- New gossip topic `offers.{chain_id}` (additive)
+- Offer responses include `subscription_status` field (additive)
+
+## 📊 Migration Guide
+
+### v0.8.1 → v0.8.2
+
+1. **Enable subscription-based sync**
+   ```bash
+   # /etc/aitbc/trading.env
+   OFFER_SYNC_SUBSCRIPTION=true
+   OFFER_SYNC_SUBSCRIPTION_DEBOUNCE_MS=1000
+   OFFER_SYNC_FALLBACK_TO_POLLING=true
+   ```
+
+2. **Optional: Enable external search index**
+   ```bash
+   # /etc/aitbc/trading.env
+   OFFER_SEARCH_INDEX_ENABLED=true
+   OFFER_SEARCH_INDEX_BACKEND=meilisearch  # or elasticsearch
+   OFFER_SEARCH_INDEX_URL=http://localhost:7700
+   ```
+
+3. **Verify subscription status**
+   ```bash
+   aitbc trade subscription-status
+   ```
+
+## 🖥️ CLI Commands
+
+### New Commands (extends `trade` group from v0.8.1)
+- `aitbc trade watch` — Watch for offer changes matching a query (WebSocket stream)
+- `aitbc trade subscription-status` — Show subscription health per chain
+- Implementation: Add subcommands to `cli/aitbc_cli/commands/trade.py`
+
+## 🧪 Testing
+
+### Subscription Testing
+- WebSocket subscription correctness
+- Reconnection on disconnect
+- Fallback to polling on subscription failure
+- Heartbeat and lease management
+- Per-chain subscription health
+
+### Notification Testing
+- Real-time offer notification delivery
+- Debounced batch notifications
+- Filter-based subscriptions
+- Notification ordering guarantees
+
+### Gossip Testing
+- Offer change event publishing
+- Cross-island propagation via Redis pub/sub
+- Deduplication of offer events
+- Batch publishing with compression
+
+### Search Index Testing (if enabled)
+- Index synchronization with cache
+- Full-text search correctness
+- Faceted filtering
+- Fallback to in-memory search
+
+### Test Coverage Goals
+- Subscription: >90%
+- Notifications: >85%
+- Gossip propagation: >85%
+- Search index: >80% (if enabled)
+
+## 📚 Documentation
+
+- [Subscription-Based Sync Guide](../getting-started/offer-subscription.md)
+- [Real-Time Offer Notifications](../architecture/offer-notifications.md)
+- [Gossip-Based Offer Propagation](../architecture/offer-gossip.md)
+- [Search Index Configuration](../getting-started/offer-search-config.md)
+
+## 🚀 Dependencies
+
+### New Dependencies
+- WebSocket client library (for subscription client) — `websockets` already in use
+- Optional: `elasticsearch` or `meilisearch` Python SDK
+
+### Updated Dependencies
+- Trading service v0.8.2+
+- Blockchain node v0.6.2+ (for gossip broker)
+
+## 🔐 Security Considerations
+
+- WebSocket subscriptions must authenticate (lease-based, like existing)
+- Gossip offer events must validate origin chain
+- Search index must not expose private offer attributes
+- Subscription rate limiting to prevent abuse
+- Stale offer detection must not allow offer resurrection attacks
+
+## 📈 Performance Targets
+
+- Offer notification latency: <1s (subscription) vs <60s (polling)
+- Subscription reconnection: <5s
+- Gossip propagation: <500ms cross-island
+- Search index query: <100ms (if enabled)
+- Subscription bandwidth: <10KB/minute per chain (event-based)
+
+## 🎯 Success Criteria
+
+- ✅ WebSocket-based offer subscription operational
+- ✅ Real-time offer notifications working with <1s latency
+- ✅ Gossip-based offer propagation across islands
+- ✅ Automatic fallback to polling on subscription failure
+- ✅ Optional search index integrated (if enabled)
+- ✅ Performance targets met
+
+## 🚀 Next Steps
+
+### v0.9.0 — Atomic Cross-Chain Settlement
+- Atomic cross-chain settlement using HTLC
+- Escrow locking, atomic release, timeout/refund
+- Does NOT depend on v0.8.2 (uses v0.8.1 polling-based sync)
+
+---
+
+*Last Updated: 2026-06-29*
+*Version: 0.8.2*
+*Status: Planned*
