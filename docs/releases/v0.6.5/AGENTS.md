@@ -100,8 +100,8 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/crypto/payme
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Create `PaymentEscrow` — lock/release/refund funds via blockchain transactions | 🔴 P0 | `aitbc/crypto/payment_escrow.py` (new), `aitbc/crypto/__init__.py` (update) | ⬜ |
-| A2 | Unit tests for A1 + verify mypy/ruff/pytest clean | High | `tests/unit/test_payment_escrow.py` | ⬜ |
+| A1 | Create `PaymentEscrow` — lock/release/refund funds via blockchain transactions | 🔴 P0 | `aitbc/crypto/payment_escrow.py` (new), `aitbc/crypto/__init__.py` (update) | ✅ |
+| A2 | Unit tests for A1 + verify mypy/ruff/pytest clean | High | `tests/unit/test_payment_escrow.py` | ✅ |
 
 ### Agent A — Detailed Instructions
 
@@ -357,13 +357,13 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/agent-coordinator/tests/ -q -o
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Add config fields: `BLOCKCHAIN_RPC_URL`, `DEFAULT_CHAIN_ID`, `DEFAULT_ISLAND_ID`, escrow/TTL config | 🔴 P0 | `apps/agent-coordinator/src/app/config.py` | ⬜ |
-| B2 | Add `chain_id`, `island_id` to `AgentRegistrationRequest` + `AgentInfo` + agent discovery filters | 🔴 P0 | `apps/agent-coordinator/src/app/models.py`, `routing/agent_discovery.py`, `routers/agents.py` | ⬜ |
-| B3 | Add `chain_id`, `payment` to `TaskSubmission` + wire `PaymentEscrow` (A1) to task lifecycle | 🔴 P0 | `apps/agent-coordinator/src/app/models.py`, `routers/tasks.py`, `routing/load_balancer.py` | ⬜ |
-| B4 | Add `chain_id` to swarm + workflow models | Medium | `apps/agent-coordinator/src/app/routers/swarm.py`, `routers/workflow.py` | ⬜ |
-| B5 | Make agent TTL configurable (remove hardcoded 120s/60s) | Medium | `apps/agent-coordinator/src/app/routing/agent_discovery.py` | ⬜ |
-| B6 | Integration tests — agent registration with chain_id, task payment escrow, backward compat | 🔴 P0 | `apps/agent-coordinator/tests/test_v065_agent_coordination.py` (new) | ⬜ |
-| B7 | Verify full test suite + mypy + ruff clean | High | — | ⬜ |
+| B1 | Add config fields: `BLOCKCHAIN_RPC_URL`, `DEFAULT_CHAIN_ID`, `DEFAULT_ISLAND_ID`, escrow/TTL config | 🔴 P0 | `apps/agent-coordinator/src/app/config.py` | ✅ |
+| B2 | Add `chain_id`, `island_id` to `AgentRegistrationRequest` + `AgentInfo` + agent discovery filters | 🔴 P0 | `apps/agent-coordinator/src/app/models.py`, `routing/agent_discovery.py`, `routers/agents.py` | ✅ |
+| B3 | Add `chain_id`, `payment` to `TaskSubmission` + wire `PaymentEscrow` (A1) to task lifecycle | 🔴 P0 | `apps/agent-coordinator/src/app/models.py`, `routers/tasks.py`, `routing/load_balancer.py` | ✅ |
+| B4 | Add `chain_id` to swarm + workflow models | Medium | `apps/agent-coordinator/src/app/routers/swarm.py`, `routers/workflow.py` | ✅ |
+| B5 | Make agent TTL configurable (remove hardcoded 120s/60s) | Medium | `apps/agent-coordinator/src/app/routing/agent_discovery.py` | ✅ |
+| B6 | Integration tests — agent registration with chain_id, task payment escrow, backward compat | 🔴 P0 | `apps/agent-coordinator/tests/test_v065_agent_coordination.py` (new) | ✅ |
+| B7 | Verify full test suite + mypy + ruff clean | High | — | ✅ |
 
 ### Agent B — Detailed Instructions
 
