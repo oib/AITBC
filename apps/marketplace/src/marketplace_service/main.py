@@ -16,7 +16,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")
+BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.middleware import (  # noqa: E402
     ErrorHandlerMiddleware,
@@ -25,6 +25,7 @@ from aitbc.middleware import (  # noqa: E402
     RequestValidationMiddleware,
 )
 
+from .config import settings  # noqa: E402
 from .services.marketplace_service import MarketplaceService  # noqa: E402
 from .services.matching_service import MatchingService  # noqa: E402
 from .storage import get_session, init_db  # noqa: E402
@@ -159,7 +160,7 @@ async def _create_escrow_bg(job_id: str, buyer: str, provider: str, amount: floa
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(
-                f"{BLOCKCHAIN_RPC_URL}/rpc/escrow/create",
+                f"{settings.blockchain_rpc_url}/rpc/escrow/create",
                 json={"job_id": job_id, "buyer": buyer, "provider": provider, "amount": amount},
             )
             if resp.status_code == 200:
