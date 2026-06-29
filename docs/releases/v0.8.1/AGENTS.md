@@ -151,10 +151,10 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/trading/ && 
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Create `aitbc/trading/offer_types.py` — OfferSyncStatus, SyncedOffer, OfferSyncConfig, OfferDiscoveryRequest, OfferDiscoveryResult | 🔴 P0 | `aitbc/trading/offer_types.py` (new), `aitbc/trading/__init__.py` (extend) | ⬜ |
-| A2 | Create `aitbc/trading/offer_client.py` — OfferSyncClient async HTTP client | 🔴 P0 | `aitbc/trading/offer_client.py` (new), `aitbc/trading/__init__.py` (extend) | ⬜ |
-| A3 | Create `aitbc/trading/offer_cache.py` — OfferCache wrapping RedisCache | 🔴 P0 | `aitbc/trading/offer_cache.py` (new), `aitbc/trading/__init__.py` (extend) | ⬜ |
-| A4 | Unit tests for A1-A3 | High | `tests/unit/test_offer_sync_sdk.py` (new) | ⬜ |
+| A1 | Create `aitbc/trading/offer_types.py` — OfferSyncStatus, SyncedOffer, OfferSyncConfig, OfferDiscoveryRequest, OfferDiscoveryResult | 🔴 P0 | `aitbc/trading/offer_types.py` (new), `aitbc/trading/__init__.py` (extend) | ✅ |
+| A2 | Create `aitbc/trading/offer_client.py` — OfferSyncClient async HTTP client | 🔴 P0 | `aitbc/trading/offer_client.py` (new), `aitbc/trading/__init__.py` (extend) | ✅ |
+| A3 | Create `aitbc/trading/offer_cache.py` — OfferCache wrapping RedisCache | 🔴 P0 | `aitbc/trading/offer_cache.py` (new), `aitbc/trading/__init__.py` (extend) | ✅ |
+| A4 | Unit tests for A1-A3 | High | `tests/unit/test_offer_sync_sdk.py` (new) | ✅ |
 
 ### Agent A — Detailed Instructions
 
