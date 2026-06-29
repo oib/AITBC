@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from .parallel_fetcher import NoPeersAvailableError, ParallelBlockFetcher
 from .peer_capability import PeerCapability, PeerCapabilityTracker
+from .source_resolver import SyncSourceResolver
 from .state_diff import (
     AccountChange,
     StateDiff,
@@ -24,6 +25,7 @@ __all__ = [
     "PeerCapability",
     "PeerCapabilityTracker",
     "StateDiff",
+    "SyncSourceResolver",
     "apply_state_diff",
     "compute_state_diff",
     "decode_state_diff",
