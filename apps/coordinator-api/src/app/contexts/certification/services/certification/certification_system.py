@@ -14,7 +14,8 @@ from ...domain.certification import (
     CertificationStatus,
     VerificationType,
 )
-from ....reputation.services.reputation_service import AgentReputation
+from ....reputation.services.reputation_service import ReputationService
+from aitbc_shared.models import ReputationDTO
 from sqlmodel import Session, and_, select
 
 from aitbc.aitbc_logging import get_logger
@@ -190,7 +191,7 @@ class CertificationSystem:
 
     async def verify_identity(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Verify agent identity"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation: ReputationDTO | None = ReputationService(session).get_reputation_dto(agent_id)
         if reputation:
             return {
                 "passed": True,
@@ -207,7 +208,7 @@ class CertificationSystem:
 
     async def verify_performance(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Verify agent performance metrics"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = ReputationService(session).get_reputation_dto(agent_id)
         if not reputation:
             return {"passed": False, "reason": "No performance data available", "score": 0.0, "details": {}}
         performance_score = reputation.trust_score
@@ -272,7 +273,7 @@ class CertificationSystem:
 
     async def verify_reliability(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Verify agent reliability and consistency"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = ReputationService(session).get_reputation_dto(agent_id)
         if not reputation:
             return {"passed": False, "reason": "No reliability data available", "score": 0.0, "details": {}}
         reliability_score = reputation.reliability_score
@@ -311,7 +312,7 @@ class CertificationSystem:
 
     async def verify_security(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Verify agent security compliance"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = ReputationService(session).get_reputation_dto(agent_id)
         if not reputation:
             return {"passed": False, "reason": "No security data available", "score": 0.0, "details": {}}
         trust_score = reputation.trust_score
@@ -360,7 +361,7 @@ class CertificationSystem:
 
     async def verify_capability(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Verify agent capabilities and specializations"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = ReputationService(session).get_reputation_dto(agent_id)
         if not reputation:
             return {"passed": False, "reason": "No capability data available", "score": 0.0, "details": {}}
         trust_score = reputation.trust_score

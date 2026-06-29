@@ -19,10 +19,12 @@ from __future__ import annotations
 from .client import GovernanceClient
 from .onchain import (
     build_execute_tx,
+    build_parameter_apply_tx,
     build_parameter_change_params,
     build_proposal_tx,
     build_vote_tx,
     validate_governance_payload,
+    validate_parameter_change,
 )
 from .types import (
     ExecuteData,

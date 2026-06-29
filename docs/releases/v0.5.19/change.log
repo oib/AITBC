@@ -1,7 +1,7 @@
 # AITBC v0.5.19 Release Notes
 
-**Date**: TBD
-**Status**: 🚧 Planned
+**Date**: 2026-06-29
+**Status**: ✅ Complete
 **Scope**: Tech Debt Cleanup — Cross-Context Import Refactors, Dead Pricing Models, fakeredis
 
 ## 🎯 Overview
@@ -19,59 +19,64 @@ AITBC v0.5.19 collects the deferred tech debt items from v0.5.13-v0.5.18 that we
 ## 🎯 Release Highlights
 
 ### Cross-Context Import Refactor
-- 🚧 Refactor certification → reputation cross-context imports (AgentReputation) to service interface/DTO
+- ✅ Refactored certification → reputation cross-context imports to use `ReputationDTO` (shared package) + `ReputationService.get_reputation_dto()` instead of direct `AgentReputation` ORM imports
 
 ### Dead Code Cleanup
-- 🚧 Wire or remove 6 unused pricing tables (PriceForecast, PricingOptimization, PricingAlert, PricingRule, PricingAuditLog, MarketMetrics duplicate)
-- 🚧 Resolve duplicate MarketMetrics and PriceForecast (trading vs marketplace context)
+- ✅ Removed 3 unused pricing tables (`PricingOptimization`, `PricingAlert`, `PricingRule`) — never wired into any service
+- ✅ Wired `PricingAuditLog` into `dynamic_pricing.py` (audit trail for automated price changes + strategy updates)
+- ✅ Removed dead duplicate `MarketMetrics` and `PriceForecast` from marketplace `gpu_marketplace.py` (trading context is canonical)
+- ✅ Added Alembic migration `drop_unused_pricing_tables` to drop the 3 unused tables + leftover `price_forecast` (singular) on existing DBs
 
 ### Test Infrastructure
-- 🚧 Add fakeredis for in-process Redis testing (separate deliberate change)
-- 🚧 Fix misleading comment in conftest_sqlite.py:57
+- ✅ Added `fakeredis` (2.36.2) as a dev dependency
+- ✅ Added `fakeredis_client` / `fakeredis_async_client` fixtures to `tests/conftest.py`
+- ✅ Fixed misleading comment in `conftest_sqlite.py:57` (no longer claims to use fakeredis)
 
 ## 📋 Detailed Features
 
 ### Cross-Context Import Refactor (deferred from v0.5.13)
 
-#### Current State — STILL OUTSTANDING
-Certification context imports `AgentReputation` directly from reputation context (20 total references):
-- `apps/coordinator-api/src/app/contexts/certification/services/certification/badge_system.py:10` — 3 references
-- `apps/coordinator-api/src/app/contexts/certification/services/certification/certification_system.py:17` — 6 references
-- `apps/coordinator-api/src/app/contexts/certification/services/certification/partnership_manager.py:14` — 11 references
+#### Current State — ✅ RESOLVED
+Certification context previously imported `AgentReputation` directly from reputation context (20 total references). All 3 files now use `ReputationDTO` (from `aitbc_shared.models`) + `ReputationService.get_reputation_dto()`:
+- `apps/coordinator-api/src/app/contexts/certification/services/certification/badge_system.py` — import replaced, `get_metric_value` type hint uses `ReputationDTO`
+- `apps/coordinator-api/src/app/contexts/certification/services/certification/certification_system.py` — 5 query sites replaced with `ReputationService(session).get_reputation_dto(agent_id)`
+- `apps/coordinator-api/src/app/contexts/certification/services/certification/partnership_manager.py` — 10 query sites replaced with `ReputationService(session).get_reputation_dto(agent_id)`
 
-Import pattern: `from ....reputation.services.reputation_service import AgentReputation`
+Old import pattern (removed): `from ....reputation.services.reputation_service import AgentReputation`
+New import pattern: `from aitbc_shared.models import ReputationDTO` + `from ....reputation.services.reputation_service import ReputationService`
 
-#### Implementation
-- Introduce a `ReputationDTO` or `ReputationServiceInterface` in a shared location
-- Refactor certification to use the DTO/interface instead of direct model import
-- Update all 20 references across 3 files
+#### Implementation (completed)
+- ✅ `ReputationDTO` dataclass created in `packages/aitbc-shared/aitbc_shared/models/reputation.py` (Agent A)
+- ✅ `AgentReputation.to_dto()` conversion method added to reputation domain
+- ✅ `ReputationService.get_reputation_dto(agent_id) -> ReputationDTO | None` added to reputation service
+- ✅ All 3 certification files refactored — 0 `AgentReputation` imports remain
+- ✅ 2 pre-existing certification tests updated to use real `AgentReputation` objects (so `.to_dto()` works)
 
 ### Dead Code Cleanup (deferred from v0.5.13)
 
-#### Current State — PARTIALLY ADDRESSED
+#### Current State — ✅ RESOLVED
 7 pricing tables in `apps/coordinator-api/src/app/contexts/trading/domain/pricing_models.py`:
-- `ProviderPricingStrategy` (line 108) — **PARTIALLY WIRED** (used in `dynamic_pricing.py:344`)
-- `MarketMetrics` (line 171) — **DUPLICATE** (also in `marketplace/domain/gpu_marketplace.py:145`)
-- `PriceForecast` (line 234) — **DUPLICATE** (also in `marketplace/domain/gpu_marketplace.py:82`)
-- `PricingOptimization` (line 287) — **NOT WIRED**
-- `PricingAlert` (line 351) — **NOT WIRED**
-- `PricingRule` (line 413) — **NOT WIRED**
-- `PricingAuditLog` (line 474) — **NOT WIRED** (should be wired — audit trail for pricing changes)
+- `ProviderPricingStrategy` — **WIRED** (used in `dynamic_pricing.py`)
+- `PricingHistory` — **WIRED** (used in `dynamic_pricing.py`)
+- `MarketMetrics` — **CANONICAL** (marketplace duplicate removed)
+- `PriceForecast` — **CANONICAL** (marketplace duplicate removed)
+- `PricingOptimization` — **REMOVED** (never wired, no use case)
+- `PricingAlert` — **REMOVED** (never wired, no alerting use case)
+- `PricingRule` — **REMOVED** (never wired, no rule-based pricing use case)
+- `PricingAuditLog` — **WIRED** into `dynamic_pricing.py` (audit trail for price changes + strategy updates)
 
-#### Implementation
-- Resolve duplicates: decide which context owns MarketMetrics and PriceForecast (trading or marketplace)
-- Wire `PricingAuditLog` into dynamic_pricing.py (audit trail for all pricing changes)
-- Wire `PricingAlert` and `PricingRule` if useful, or remove if dead code
-- Remove `PricingOptimization` if no use case exists
-- Add Alembic migration if tables are removed
+#### Implementation (completed)
+- ✅ Resolved duplicates: trading context is canonical; removed dead `MarketMetrics` + `PriceForecast` from `marketplace/domain/gpu_marketplace.py`
+- ✅ Wired `PricingAuditLog` into `dynamic_pricing.py` — writes audit entries in `_persist_price_point` (action_type="price_change") and `_persist_provider_strategy` (action_type="strategy_update")
+- ✅ Removed `PricingOptimization`, `PricingAlert`, `PricingRule` models + `__all__` exports
+- ✅ Alembic migration `drop_unused_pricing_tables` drops the 3 removed tables + leftover `price_forecast` (singular) on existing DBs (idempotent via existence check)
 
 ### Test Infrastructure (deferred from v0.5.18)
 
-#### fakeredis
-- Current state: `tests/conftest_sqlite.py:57` has misleading comment "Mock REDIS_URL for tests (uses fakeredis)" but fakeredis is NOT installed
-- Not in `requirements.txt` or `pyproject.toml`
-- Add `fakeredis` as deliberate dependency (pin version published >7 days ago)
-- Use for Redis-dependent tests that currently skip or require live Redis
+#### fakeredis (completed)
+- ✅ Added `fakeredis = "2.36.2"` to `pyproject.toml` dev-dependencies + `fakeredis>=2.36.2` to `requirements-dev.txt`
+- ✅ Added `fakeredis_client` (sync) and `fakeredis_async_client` (async) fixtures to `tests/conftest.py` (auto-loaded by pytest)
+- ✅ Fixed misleading comment in `tests/conftest_sqlite.py:57` — now accurately documents that `test_redis_url` only sets the env var, and points to the fakeredis fixtures in `conftest.py`
 - Fix misleading comment in conftest_sqlite.py
 
 ## ✅ Already Resolved (verified 2026-06-29 — no action needed)

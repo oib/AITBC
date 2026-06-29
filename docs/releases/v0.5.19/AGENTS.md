@@ -54,8 +54,8 @@
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Create `ReputationDTO` dataclass — fields needed by certification context (agent_id, reputation_score, total_tasks, success_rate, etc.) | Medium | `packages/aitbc-shared/aitbc_shared/models/reputation.py` (new or extend) | ⬜ |
-| A2 | Unit tests for ReputationDTO | Low | `tests/unit/test_reputation_dto.py` (new) | ⬜ |
+| A1 | Create `ReputationDTO` dataclass — fields needed by certification context (agent_id, reputation_score, total_tasks, success_rate, etc.) | Medium | `packages/aitbc-shared/aitbc_shared/models/reputation.py` (new or extend) | ✅ complete |
+| A2 | Unit tests for ReputationDTO | Low | `tests/unit/test_reputation_dto.py` (new) | ✅ complete |
 
 ### Agent A — Detailed Instructions
 
@@ -90,11 +90,11 @@ Place in `packages/aitbc-shared/aitbc_shared/models/reputation.py` or a new shar
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Refactor certification to use ReputationDTO instead of AgentReputation | Medium | `apps/coordinator-api/src/app/contexts/certification/services/certification/badge_system.py`, `certification_system.py`, `partnership_manager.py` | ⬜ |
-| B2 | Resolve duplicate pricing models (MarketMetrics, PriceForecast in trading vs marketplace) | Medium | `apps/coordinator-api/src/app/contexts/trading/domain/pricing_models.py`, `apps/coordinator-api/src/app/contexts/marketplace/domain/gpu_marketplace.py` | ⬜ |
-| B3 | Wire or remove unused pricing tables (PricingOptimization, PricingAlert, PricingRule, PricingAuditLog) | Medium | `apps/coordinator-api/src/app/contexts/trading/domain/pricing_models.py`, `dynamic_pricing.py` | ⬜ |
-| B4 | Add fakeredis dependency + fix misleading conftest_sqlite.py comment | Low | `requirements.txt` or `pyproject.toml`, `tests/conftest_sqlite.py` | ⬜ |
-| B5 | Integration tests | Low | `tests/unit/test_v0519_tech_debt.py` (new) | ⬜ |
+| B1 | Refactor certification to use ReputationDTO instead of AgentReputation | Medium | `apps/coordinator-api/src/app/contexts/certification/services/certification/badge_system.py`, `certification_system.py`, `partnership_manager.py` | ✅ complete |
+| B2 | Resolve duplicate pricing models (MarketMetrics, PriceForecast in trading vs marketplace) | Medium | `apps/coordinator-api/src/app/contexts/trading/domain/pricing_models.py`, `apps/coordinator-api/src/app/contexts/marketplace/domain/gpu_marketplace.py` | ✅ complete |
+| B3 | Wire or remove unused pricing tables (PricingOptimization, PricingAlert, PricingRule, PricingAuditLog) | Medium | `apps/coordinator-api/src/app/contexts/trading/domain/pricing_models.py`, `dynamic_pricing.py` | ✅ complete |
+| B4 | Add fakeredis dependency + fix misleading conftest_sqlite.py comment | Low | `requirements.txt` or `pyproject.toml`, `tests/conftest_sqlite.py` | ✅ complete |
+| B5 | Integration tests | Low | `tests/unit/test_v0519_tech_debt.py` (new) | ✅ complete |
 
 ### Agent B — Detailed Instructions
 

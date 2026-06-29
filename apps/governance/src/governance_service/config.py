@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     timelock_blocks: int = Field(default=43200)  # ~24 hours at 2s block time
     snapshot_delay_blocks: int = Field(default=100)  # blocks before voting starts
 
+    # v0.7.4: Emergency proposal parameters
+    emergency_timelock_blocks: int = Field(default=7200)  # ~4h at 2s block time (vs 24h normal)
+    emergency_quorum_percent: float = Field(default=80.0)  # 80% quorum for emergency
+    emergency_voting_period_blocks: int = Field(default=3600)  # ~2h voting (vs 4h normal)
+    emergency_approval_percent: float = Field(default=66.67)  # 2/3 supermajority
+
     # On-chain submission feature flag (disabled until blockchain integration is tested)
     enable_onchain_submission: bool = Field(default=False)
 

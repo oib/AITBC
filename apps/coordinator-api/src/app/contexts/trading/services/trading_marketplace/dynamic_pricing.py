@@ -16,6 +16,7 @@ from aitbc.aitbc_logging import get_logger
 # Importing the pricing persistence models at module load registers their tables
 # with SQLModel.metadata so init_db()/create_all() creates them at startup.
 from ...domain.pricing_models import (  # noqa: E402
+    PricingAuditLog,
     PricingHistory,
     ProviderPricingStrategy,
 )
@@ -354,6 +355,21 @@ class DynamicPricingEngine:
                         is_active=True,
                     )
                 )
+                session.add(
+                    PricingAuditLog(
+                        provider_id=provider_id,
+                        action_type="strategy_update",
+                        action_description=f"Provider strategy set to {strategy.value}",
+                        action_source="automated",
+                        after_state={
+                            "strategy": strategy.value,
+                            "min_price": constraints.min_price if constraints else None,
+                            "max_price": constraints.max_price if constraints else None,
+                        },
+                        changed_fields=["strategy_type", "is_active"],
+                        decision_reasoning=f"strategy={strategy.value}",
+                    )
+                )
                 session.commit()
 
         try:
@@ -634,7 +650,11 @@ class DynamicPricingEngine:
         factors: PricingFactors,
         strategy: PricingStrategy,
     ) -> None:
-        """Persist a price point to the pricing_history table (best-effort)."""
+        """Persist a price point to the pricing_history table (best-effort).
+
+        Also records a PricingAuditLog entry so every pricing decision has an
+        auditable trail (action_source="automated").
+        """
 
         def _write() -> None:
             from .....storage.db import session_scope
@@ -654,6 +674,27 @@ class DynamicPricingEngine:
                         strategy_parameters=self.strategy_configs.get(strategy, {}),
                         pricing_factors=asdict(factors),
                         confidence_score=factors.confidence_score,
+                    )
+                )
+                session.add(
+                    PricingAuditLog(
+                        resource_id=resource_id,
+                        action_type="price_change",
+                        action_description=f"Automated price set to {price:.6f} via {strategy.value}",
+                        action_source="automated",
+                        after_state={
+                            "price": price,
+                            "base_price": factors.base_price,
+                            "strategy": strategy.value,
+                            "confidence_score": factors.confidence_score,
+                        },
+                        changed_fields=["price", "strategy_used"],
+                        decision_reasoning=f"strategy={strategy.value}; confidence={factors.confidence_score:.3f}",
+                        market_conditions={
+                            "demand_level": factors.demand_level,
+                            "supply_level": factors.supply_level,
+                            "market_volatility": factors.market_volatility,
+                        },
                     )
                 )
                 session.commit()

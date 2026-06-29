@@ -34,6 +34,27 @@ class OfferSyncStatus(StrEnum):
     ERROR = "error"
 
 
+class OfferEventType(StrEnum):
+    """Type of offer change event (v0.8.2).
+
+    Published to the ``offers.{chain_id}`` gossip topic and streamed to
+    WebSocket subscribers. ``offer`` field semantics:
+
+    - ``CREATED``: full ``SyncedOffer`` (new listing confirmed on-chain)
+    - ``UPDATED``: full ``SyncedOffer`` with new status/price
+    - ``DELETED``: ``None`` (only ``offer_id`` + ``chain_id`` needed)
+
+    Defined here (in ``offer_types``) rather than ``subscription_types``
+    so that ``subscription_types`` can import it without a circular
+    dependency, and so callers importing from ``offer_types`` get the
+    full offer type surface in one place.
+    """
+
+    CREATED = "created"
+    UPDATED = "updated"
+    DELETED = "deleted"
+
+
 @dataclass
 class OfferSyncConfig:
     """Configuration for offer synchronization.
