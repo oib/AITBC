@@ -27,6 +27,9 @@ class MinerInfo:
     last_heartbeat: datetime = field(default_factory=lambda: datetime.now(UTC))
     gpu_utilization: float = 0.0
     memory_used_gb: float = 0.0
+    # v0.6.7: chain awareness + wallet for reward payments
+    chain_id: str = "ait-hub"
+    wallet_address: str | None = None
 
 
 @dataclass
@@ -78,6 +81,8 @@ class MinerRegistry:
         gpu_info: dict[str, Any],
         endpoint: str | None = None,
         max_concurrent_jobs: int = 1,
+        chain_id: str = "ait-hub",
+        wallet_address: str | None = None,
     ) -> MinerInfo:
         """Register a new miner."""
         async with self._lock:
@@ -94,6 +99,8 @@ class MinerRegistry:
                 gpu_info=gpu_info,
                 endpoint=endpoint,
                 max_concurrent_jobs=max_concurrent_jobs,
+                chain_id=chain_id,
+                wallet_address=wallet_address,
             )
 
             self._miners[miner_id] = miner

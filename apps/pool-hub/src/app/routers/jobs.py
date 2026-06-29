@@ -95,8 +95,8 @@ async def submit_result(
     result: JobResult,
     registry: Annotated[MinerRegistry, Depends(get_registry)],
     scoring: Annotated[ScoringEngine, Depends(get_scoring)],
-) -> dict[str, str]:
-    """Submit job result and update miner stats."""
+) -> dict[str, Any]:
+    """Submit job result and update miner stats (v0.6.7: reward distribution)."""
     miner = await registry.get(result.miner_id)
     if not miner:
         raise HTTPException(status_code=404, detail="Miner not found")
@@ -110,7 +110,38 @@ async def submit_result(
     else:
         await scoring.record_failure(result.miner_id, result.error)
 
-    return {"status": "recorded"}
+    # v0.6.7: Reward distribution (feature-flagged)
+    reward_tx_hash: str | None = None
+    if result.status == "completed":
+        try:
+            from poolhub.clients.blockchain import PoolHubBlockchainClient
+            from poolhub.settings import settings
+
+            if settings.enable_reward_distribution:
+                from aitbc.rewards import REWARD_PER_SHARE
+
+                blockchain_client = PoolHubBlockchainClient(
+                    rpc_url=settings.blockchain_rpc_url,
+                    chain_id=settings.default_chain_id,
+                )
+                # Record contribution in reward policy
+                shares = int(result.metrics.get("compute_seconds", REWARD_PER_SHARE))
+                score = await scoring.calculate_score(miner)
+                blockchain_client.record_contribution(miner_id=result.miner_id, score=score, shares=shares)
+                # Submit reward transaction
+                if miner.wallet_address:
+                    tx_result = await blockchain_client.submit_reward_transaction(
+                        miner_address=miner.wallet_address,
+                        amount=shares,
+                        job_id=result.job_id,
+                    )
+                    reward_tx_hash = tx_result.get("tx_hash")
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).warning("Reward distribution failed: %s", e)
+
+    return {"status": "recorded", "reward_tx_hash": reward_tx_hash}
 
 
 @router.get("/pending")
