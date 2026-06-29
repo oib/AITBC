@@ -108,8 +108,8 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.8.1** — Cross-Chain Offer Sync: <ref_file file="/opt/aitbc/docs/releases/v0.8.1/change.log" />
 - **v0.9.0** — Atomic Cross-Chain Settlement: <ref_file file="/opt/aitbc/docs/releases/v0.9.0/change.log" />
 
-### Deferred
-- **v0.10.0** — Deferred/Questionable Features: <ref_file file="/opt/aitbc/docs/releases/v0.10.0/change.log" />
+### Post-v1 Vision (not fit until after v1.0.0)
+- **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" />
 
 ### Release Sequence (monotonic)
 
@@ -121,8 +121,8 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.6.5 → v0.6.6 → v0.6.7                      (product: agents ✅, marketplace, pool hub)
   → v0.7.0 → v0.7.1 → v0.7.2 → v0.7.3             (infra+product: bridge basics, bridge security, bridge verification, governance)
   → v0.8.0 → v0.8.1 → v0.9.0                       (infra: trading basics, offer sync, atomic settlement)
-  → v0.10.0                                         (deferred)
   → v1.0.0                                          (production readiness)
+  → v2.0.0                                          (vision — questionable features, parked for re-evaluation)
 ```
 
 ### Scope Correction Notes
@@ -156,7 +156,7 @@ All 19 `suggestions.md` files across release folders were read, investigated, an
 - **v0.8.0**: InterChainTrade schema not defined (no SQLModel). Dispute resolution not scoped.
 - **v0.8.1**: IslandManager is membership registry only (264 lines, 14 methods, no offer sync).
 - **v0.9.0**: **DECISION: HTLC** (not two-phase commit). HTLC has partial implementation, two-phase commit has none. Requires dual security audits.
-- **v0.10.0**: Futures/options/margin confirmed copy-pasted from DEX template. **DROP** decision.
+- **v2.0.0**: Futures/options/margin confirmed copy-pasted from DEX template. **DROP** decision. (Was v0.10.0 — moved to v2.0.0 as a vision release not fit until after v1.0.0.)
 - **v1.0.0**: Rewritten from stale v0.4.26-era plan to match current architecture.
 
 Each release's `change.log` now includes a "Verified Code Targets (from suggestions.md investigation)" subsection with specific file paths and line numbers. Each `suggestions.md` has been updated with verification status.

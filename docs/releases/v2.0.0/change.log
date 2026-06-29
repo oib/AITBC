@@ -1,8 +1,8 @@
-# AITBC v0.10.0 Release Notes
+# AITBC v2.0.0 Release Notes
 
 **Date**: TBD
-**Status**: 📋 Deferred / Under Review
-**Scope**: Questionable & Over-Engineered Features — Parked for Re-Evaluation
+**Status**: 📋 Vision / Post-v1.0.0 — Parked for Re-Evaluation
+**Scope**: Questionable & Over-Engineered Features — Vision-Scale Items Not Fit Until After v1.0.0
 
 ## 🎯 Overview
 
@@ -169,11 +169,11 @@ These features have been **removed from their original releases** and moved here
 ### Verified Code Targets (from suggestions.md investigation)
 
 #### Futures/Options/Margin — Confirmed Copy-Pasted from DEX Template
-**Finding**: Confirmed. The v0.10.0 changelog (lines 26-35) explicitly states: "Nobody trades futures contracts on GPU rental", "There is zero code for futures, options, margin, expiry, strike prices, or leverage in the codebase", "This was copy-pasted from a generic DEX template". The actual `TradeType` enum is `AI_POWER`, `COMPUTE_RESOURCES`, `DATA_SERVICES`, `MODEL_SERVICES`, `INFERENCE_TASKS`, `TRAINING_TASKS`.
+**Finding**: Confirmed. The v2.0.0 changelog (lines 26-35) explicitly states: "Nobody trades futures contracts on GPU rental", "There is zero code for futures, options, margin, expiry, strike prices, or leverage in the codebase", "This was copy-pasted from a generic DEX template". The actual `TradeType` enum is `AI_POWER`, `COMPUTE_RESOURCES`, `DATA_SERVICES`, `MODEL_SERVICES`, `INFERENCE_TASKS`, `TRAINING_TASKS`.
 **Decision**: **DROP** futures, options, and margin trading. They do not match AITBC's compute marketplace domain.
 
 #### Feature Re-Evaluation Required
-**Required**: Formally close each of the 11 deferred features with a one-sentence decision: DROP, RE-SCOPE, or RE-SCHEDULE. Keep conclusions in this change.log. If all features are dropped or re-scoped, consider removing v0.10.0 from the roadmap entirely and folding any re-scoped features into their natural releases.
+**Required**: Formally close each of the 11 deferred features with a one-sentence decision: DROP, RE-SCOPE, or RE-SCHEDULE. Keep conclusions in this change.log. If all features are dropped or re-scoped, consider removing v2.0.0 from the roadmap entirely and folding any re-scoped features into their natural releases.
 
 ---
 
@@ -205,5 +205,5 @@ No implementation work should be done on any feature in this release until that 
 ---
 
 *Last Updated: 2026-06-25*
-*Version: 0.10.0*
-*Status: Deferred / Under Review*
+*Version: 2.0.0*
+*Status: Vision / Post-v1.0.0 — Parked for Re-Evaluation*
