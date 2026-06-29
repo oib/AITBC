@@ -139,6 +139,7 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   - v0.6.4: `chain start`, `chain stop`, `chain list --island`
   - v0.7.1: `bridge security-status`, `bridge register-validator`
   - v0.7.2: `bridge oracle-status`
+  - v0.7.4: `governance propagate`, `governance aggregate-votes`, `bridge oracle-status` (real impl), `consensus validators`, `consensus status`
   - v0.8.0: entire `trade` command group (create, list, chains, get, status)
   - v0.8.1: `trade discover`, `trade sync`, `trade sync-status`
   - v0.8.2: `trade watch`, `trade subscription-status`
