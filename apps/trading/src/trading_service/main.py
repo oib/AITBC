@@ -460,6 +460,179 @@ async def monitor_payment(payment_id: str) -> None:
         await asyncio.sleep(30)
 
 
+# ============================================================================
+# v0.8.0: Inter-Chain Trading Endpoints (B4 + B5)
+# ============================================================================
+
+from .services.chain_discovery import ChainDiscoveryService  # noqa: E402
+from .services.inter_chain_service import InterChainTradeService  # noqa: E402
+from .services.matching_engine import MatchingEngine  # noqa: E402
+
+
+async def get_chain_discovery(
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+) -> ChainDiscoveryService:
+    """Get chain discovery service instance."""
+    from .clients.blockchain import BlockchainClient
+    from .config import settings
+
+    return ChainDiscoveryService(session, BlockchainClient(rpc_url=settings.blockchain_rpc_url))
+
+
+async def get_inter_chain_service(
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+) -> InterChainTradeService:
+    """Get inter-chain trade service instance."""
+    return InterChainTradeService(session)
+
+
+async def get_matching_engine(
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+) -> MatchingEngine:
+    """Get matching engine instance."""
+    return MatchingEngine(session)
+
+
+# --- Chain Discovery Endpoints (B4) ---
+
+
+@app.get("/v1/trading/chains")
+async def list_chains(
+    svc: Annotated[ChainDiscoveryService, Depends(get_chain_discovery)],
+    status: str | None = None,
+):
+    """List registered chains for inter-chain trading."""
+    return await svc.list_chains(status=status)
+
+
+@app.post("/v1/trading/chains/register")
+async def register_chain(
+    chain_id: str,
+    endpoint: str,
+    svc: Annotated[ChainDiscoveryService, Depends(get_chain_discovery)],
+):
+    """Register a new chain in the island registry."""
+    return await svc.register_chain(chain_id=chain_id, endpoint=endpoint)
+
+
+@app.get("/v1/trading/chains/{chain_id}/health")
+async def get_chain_health(
+    chain_id: str,
+    svc: Annotated[ChainDiscoveryService, Depends(get_chain_discovery)],
+):
+    """Get health metrics for a specific chain."""
+    return await svc.get_chain_health(chain_id)
+
+
+# --- Inter-Chain Trade Lifecycle Endpoints (B5) ---
+
+
+@app.post("/v1/trading/inter-chain/create")
+async def create_inter_chain_trade(
+    svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)],
+    source_chain: str,
+    dest_chain: str,
+    sender: str,
+    recipient: str,
+    amount: int,
+    offer_id: str | None = None,
+    price: float = 0.0,
+    quantity: int = 0,
+):
+    """Create a new inter-chain trade."""
+    return await svc.create_trade(
+        source_chain=source_chain,
+        dest_chain=dest_chain,
+        sender=sender,
+        recipient=recipient,
+        amount=amount,
+        offer_id=offer_id,
+        price=price,
+        quantity=quantity,
+    )
+
+
+@app.get("/v1/trading/inter-chain")
+async def list_inter_chain_trades(
+    svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)],
+    status: str | None = None,
+    source_chain: str | None = None,
+    dest_chain: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    """List inter-chain trades with optional filters."""
+    return await svc.list_trades(
+        status=status,
+        source_chain=source_chain,
+        dest_chain=dest_chain,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@app.get("/v1/trading/inter-chain/{trade_id}")
+async def get_inter_chain_trade(
+    trade_id: str,
+    svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)],
+):
+    """Get inter-chain trade details."""
+    trade = await svc.get_trade(trade_id)
+    if not trade:
+        return JSONResponse(status_code=404, content={"error": "Trade not found"})
+    return trade
+
+
+@app.get("/v1/trading/inter-chain/{trade_id}/status")
+async def get_inter_chain_trade_status(
+    trade_id: str,
+    svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)],
+):
+    """Get inter-chain trade status."""
+    status = await svc.get_trade_status(trade_id)
+    if not status:
+        return JSONResponse(status_code=404, content={"error": "Trade not found"})
+    return status
+
+
+@app.get("/v1/trading/inter-chain/history")
+async def get_inter_chain_trade_history(
+    svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)],
+    source_chain: str | None = None,
+    dest_chain: str | None = None,
+    limit: int = 50,
+):
+    """Get inter-chain trade history."""
+    return await svc.get_trade_history(
+        source_chain=source_chain,
+        dest_chain=dest_chain,
+        limit=limit,
+    )
+
+
+# --- Matching Engine Endpoint (B6) ---
+
+
+@app.post("/v1/trading/inter-chain/{trade_id}/match")
+async def match_inter_chain_trade(
+    trade_id: str,
+    svc: Annotated[MatchingEngine, Depends(get_matching_engine)],
+):
+    """Attempt to match an inter-chain trade with a counterparty."""
+    result = await svc.match_trade(trade_id)
+    if not result:
+        return JSONResponse(status_code=404, content={"error": "Trade not found"})
+    return result
+
+
+@app.post("/v1/trading/inter-chain/match-all")
+async def match_all_pending_trades(
+    svc: Annotated[MatchingEngine, Depends(get_matching_engine)],
+):
+    """Attempt to match all pending inter-chain trades."""
+    return await svc.match_all_pending()
+
+
 if __name__ == "__main__":
     import os
 
