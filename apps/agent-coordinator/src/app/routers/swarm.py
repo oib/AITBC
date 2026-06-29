@@ -29,6 +29,7 @@ class JoinRequest(BaseModel):
     capability: str
     priority: str
     region: str | None = None
+    chain_id: str | None = None  # v0.6.5
 
 
 class CoordinateRequest(BaseModel):
@@ -38,6 +39,7 @@ class CoordinateRequest(BaseModel):
     collaborators: int
     strategy: str
     timeout_seconds: int
+    chain_id: str | None = None  # v0.6.5
 
 
 class TaskStatus(BaseModel):
@@ -82,6 +84,7 @@ if settings.debug:
             "capability": body.capability,
             "priority": body.priority,
             "region": body.region,
+            "chain_id": body.chain_id,
             "status": "joined",
         }
 
@@ -97,6 +100,7 @@ if settings.debug:
             "collaborators": body.collaborators,
             "strategy": body.strategy,
             "timeout_seconds": body.timeout_seconds,
+            "chain_id": body.chain_id,
             "status": "coordinating",
         }
 

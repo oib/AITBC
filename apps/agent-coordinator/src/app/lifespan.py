@@ -52,6 +52,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from .routing.load_balancer import LoadBalancer, LoadBalancingStrategy, TaskDistributor
     from .storage.message_storage import MessageStorage, PeerStorage
 
+    from .config import settings
+
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/1")
     logger.info("Using Redis URL: %s", redis_url)
     state.agent_registry = AgentRegistry(redis_url=redis_url)
@@ -68,6 +70,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await state.peer_storage.start()
     asyncio.create_task(state.task_distributor.start_distribution())
     asyncio.create_task(state.message_processor.start_processing())
+
+    # v0.6.5: Initialize payment escrow (feature-flagged via settings)
+    if settings.task_payment_escrow_enabled:
+        from aitbc.crypto import PaymentEscrow
+
+        state.payment_escrow = PaymentEscrow(
+            default_timeout=settings.task_payment_timeout_seconds,
+        )
+        logger.info("Payment escrow enabled (timeout=%ss)", settings.task_payment_timeout_seconds)
+    else:
+        logger.info("Payment escrow disabled (task_payment_escrow_enabled=False)")
 
     # Initialize coin requests DB and start background expiration task (v0.5.9 §3)
     init_db()
