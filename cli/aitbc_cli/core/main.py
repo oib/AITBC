@@ -49,6 +49,7 @@ from aitbc_cli.commands.script import script
 from aitbc_cli.commands.security import security
 from aitbc_cli.commands.simulate import simulate
 from aitbc_cli.commands.sync import sync
+from aitbc_cli.commands.trade import trade
 
 # Import modular command groups
 from aitbc_cli.commands.system import system
@@ -165,6 +166,7 @@ cli.add_command(security)
 cli.add_command(compliance)
 cli.add_command(coin_requests)
 cli.add_command(explorer)
+cli.add_command(trade)
 
 
 def main(argv=None):
