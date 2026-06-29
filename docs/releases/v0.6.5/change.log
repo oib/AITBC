@@ -51,68 +51,192 @@ AITBC v0.6.5 matures the agent-coordinator service (10K lines of existing code) 
 ### Agent Registration & Discovery
 
 #### Current State
-The agent-coordinator already has registration and discovery endpoints:
-- `POST /agents/register` — register agent with capabilities
-- `POST /agents/discover` — discover agents by query
-- `GET /agents/{agent_id}` — get agent info
-- `PUT /agents/{agent_id}/status` — update status
-- `POST /agents/{agent_id}/heartbeat` — heartbeat
+The agent-coordinator already has registration and discovery endpoints in `apps/agent-coordinator/src/app/routers/agents.py`:
+- `POST /agents/register` (line 17) — register agent with capabilities
+- `POST /agents/discover` (line 52) — discover agents by query
+- `GET /agents/{agent_id}` (line 72) — get agent info
+- `PUT /agents/{agent_id}/status` (line 90) — update status
+- `POST /agents/{agent_id}/heartbeat` (line 117) — heartbeat
+
+**AgentRegistrationRequest** model (`apps/agent-coordinator/src/app/models.py:6`):
+```python
+class AgentRegistrationRequest(BaseModel):
+    agent_id: str
+    agent_type: str
+    capabilities: list[str]
+    services: list[str]
+    endpoints: dict[str, str]
+    metadata: dict[str, Any]
+```
+
+**AgentInfo** dataclass (`apps/agent-coordinator/src/app/routing/agent_discovery.py:53`):
+```python
+@dataclass
+class AgentInfo:
+    agent_id: str
+    agent_type: AgentType
+    status: AgentStatus
+    capabilities: list[str]
+    services: list[str]
+    endpoints: dict[str, str]
+    metadata: dict[str, Any]
+    last_heartbeat: datetime
+    registration_time: datetime
+    load_metrics: dict[str, float]
+    health_score: float
+    version: str
+    tags: set[str]
+```
 
 #### What's Missing
-- No chain_id awareness — agents can't advertise which chain/island they're on
+- **No `chain_id` field** — `AgentRegistrationRequest` and `AgentInfo` have no chain_id
+- **No `island_id` field** — agents can't advertise which chain/island they're on
 - No reputation scoring (planned for pool-hub v0.6.7)
-- No capability matching algorithm (manual matching only)
+- No capability matching algorithm (manual matching only — `discover_agents` filters by `agent_type` and `capabilities` only, lines 198-206)
 - No agent deregistration cleanup
+- No agent TTL — agents that don't heartbeat are marked inactive (cleanup logic exists at line 110 but `max_heartbeat_age=120s` is hardcoded)
 
 #### Fix
-- Add `chain_id` and `island_id` to agent registration
+- Add `chain_id` and `island_id` to `AgentRegistrationRequest` and `AgentInfo`
+- Add chain_id/island_id to agent discovery query filters
 - Implement capability-based search (GPU model, inference type, training framework)
 - Add agent deregistration with resource cleanup
-- Add agent TTL — agents that don't heartbeat are marked inactive
+- Add agent TTL — agents that don't heartbeat are marked inactive (configurable timeout)
 
 ### Task Queues & Execution
 
 #### Current State
-Task endpoints exist:
-- `POST /tasks/submit` — submit task to queue
-- `GET /tasks/status` — get task status
-- `GET /tasks/queues` — get queue sizes
-- `POST /tasks/queues/{priority}/clear` — clear queue
-- `GET /tasks/queues/stats` — queue statistics
+Task endpoints exist in `apps/agent-coordinator/src/app/routers/tasks.py`:
+- `POST /tasks/submit` (line 18) — submit task to queue
+- `GET /tasks/status` (line 44) — get task status
+- `GET /tasks/queues` (line 58) — get queue sizes
+- `POST /tasks/queues/{priority}/clear` (line 74) — clear queue
+- `GET /tasks/queues/stats` (line 102) — queue statistics
+
+**TaskSubmission** model (`apps/agent-coordinator/src/app/models.py:18`):
+```python
+class TaskSubmission(BaseModel):
+    task_data: dict[str, Any]
+    priority: str = "normal"
+    requirements: dict[str, Any] | None = None
+```
+
+**TaskDistributor** (`apps/agent-coordinator/src/app/routing/load_balancer.py:469`) with `TaskPriority` enum (line 38) and `TaskAssignment` dataclass (line 75).
 
 #### What's Missing
+- **No `chain_id` field** — `TaskSubmission` has no chain_id
+- **No `payment` field** — no payment amount/fee for task execution
 - No blockchain payment for task execution
 - No task-result verification (agent claims completion, but no proof)
 - No task timeout handling (tasks can run forever)
 - No task retry on failure
 
 #### Fix
-- Lock payment on task submission (escrow)
+- Add `chain_id` and `payment` fields to `TaskSubmission` model
+- Lock payment on task submission (escrow via blockchain transaction)
 - Release payment on verified task completion
 - Add task timeout with automatic refund
 - Add task retry with configurable max retries
 
 ### Blockchain Payment Integration
 
-#### Current State (Broken)
-The coin_requests router calls `/rpc/transaction` but doesn't send `chain_id`:
+#### Current State (Partially Fixed)
+The v0.5.16 Bug 16 (coin_requests drops chain_id) has been **FIXED** in `apps/agent-coordinator/src/app/websocket/agent_stream.py:364-366`:
 ```python
-# agent-coordinator/src/app/routers/coin_requests.py
-result = http_client.post("/rpc/transaction", json=signed_tx)
-# ← no chain_id, hits the v0.5.16 bug
+# agent_stream.py — FIXED in v0.5.16
+rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")  # Bug 15: was 8202
+if "chain_id" not in transaction or not transaction.get("chain_id"):
+    transaction["chain_id"] = os.getenv("CHAIN_ID", "")  # Bug 16: chain_id now included
 ```
 
+The `coin_requests.py` router (`apps/agent-coordinator/src/app/routers/coin_requests.py:35`) uses `TransactionService.generate_signed_transaction()` which now includes `chain_id` in the signed transaction dict (fixed in `aitbc/crypto/transaction_service.py:143`).
+
+**What's still missing**:
+- No task payment escrow (lock funds on task start, release on completion)
+- No payment status tracking (pending → locked → released → refunded)
+- No payment reconciliation with blockchain state
+- `TaskSubmission` model (`apps/agent-coordinator/src/app/models.py:18`) has no payment fields
+
 #### Fix
-- Send `chain_id` in coin request transactions (requires v0.5.16 fix)
 - Implement task payment escrow: lock funds on task start, release on completion
 - Add payment status tracking (pending → locked → released → refunded)
 - Reconcile payment state with blockchain state
+- Add `payment` field to `TaskSubmission` model (amount + fee)
 
-## 🔧 Breaking Changes
+## Verified Code Targets (from subagent investigation)
+
+### App Structure
+The v0.6.5 plan targets `apps/agent-coordinator/` (flat router structure, ~10K lines). This is the app referenced in v0.5.16 Bug 15/16 fixes. A separate `apps/coordinator-api/` exists with bounded context architecture but is NOT the target of this release.
+
+### Already Fixed (v0.5.16 — no work needed)
+1. ✅ **Bug 15: Hardcoded port 8202 → 8006** — `agent_stream.py:361` now uses `os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")`
+2. ✅ **Bug 16: Drops chain_id in transaction submission** — `agent_stream.py:364-366` now includes `chain_id` in transaction body
+3. ✅ **TransactionService chain_id** — `aitbc/crypto/transaction_service.py:143` includes `chain_id` in signed transaction dict
+
+### Existing Endpoints (verified — need chain_id/payment additions)
+| Endpoint | File | Line | Current State | v0.6.5 Target |
+|----------|------|------|---------------|---------------|
+| `POST /agents/register` | `routers/agents.py` | 17 | No chain_id/island_id in `AgentRegistrationRequest` | Add chain_id + island_id |
+| `POST /agents/discover` | `routers/agents.py` | 52 | Filters by agent_type + capabilities only | Add chain_id/island_id filter |
+| `GET /agents/{agent_id}` | `routers/agents.py` | 72 | Returns agent info | Include chain_id/island_id in response |
+| `PUT /agents/{agent_id}/status` | `routers/agents.py` | 90 | Updates status | No change needed |
+| `POST /agents/{agent_id}/heartbeat` | `routers/agents.py` | 117 | Updates to ACTIVE | No change needed |
+| `POST /tasks/submit` | `routers/tasks.py` | 18 | No chain_id, no payment | Add chain_id + payment fields |
+| `GET /tasks/status` | `routers/tasks.py` | 44 | Distribution stats | Include per-chain stats |
+| `GET /tasks/queues` | `routers/tasks.py` | 58 | Queue sizes | Include per-chain queues |
+| `POST /tasks/queues/{priority}/clear` | `routers/tasks.py` | 74 | Clears queue | No change needed |
+| `GET /tasks/queues/stats` | `routers/tasks.py` | 102 | Queue stats | Include per-chain stats |
+| `POST /api/v1/agent/coin-requests/execute` | `routers/coin_requests.py` | 35 | ✅ chain_id included (v0.5.16 fix) | No change needed |
+
+### Models (verified — need chain_id/payment additions)
+| Model | File | Line | Current Fields | Missing |
+|-------|------|------|-----------------|---------|
+| `AgentRegistrationRequest` | `models.py` | 6 | agent_id, agent_type, capabilities, services, endpoints, metadata | `chain_id`, `island_id` |
+| `AgentStatusUpdate` | `models.py` | 15 | status, load_metrics | No change needed |
+| `TaskSubmission` | `models.py` | 18 | task_data, priority, requirements | `chain_id`, `payment` |
+| `AgentInfo` | `routing/agent_discovery.py` | 53 | agent_id, agent_type, status, capabilities, services, endpoints, metadata, last_heartbeat, registration_time, load_metrics, health_score, version, tags | `chain_id`, `island_id` |
+| `TaskAssignment` | `routing/load_balancer.py` | 75 | (task distribution dataclass) | `chain_id`, `payment_status` |
+
+### Config (verified — needs additions)
+| Field | File | Status |
+|-------|------|--------|
+| `BLOCKCHAIN_RPC_URL` | `agent_stream.py:361` (env var only) | ❌ Not in `Settings` class — add to `config.py` |
+| `DEFAULT_CHAIN_ID` | — | ❌ Does not exist — add to `config.py` |
+| `DEFAULT_ISLAND_ID` | — | ❌ Does not exist — add to `config.py` |
+| `TASK_PAYMENT_ESCROW_ENABLED` | — | ❌ Does not exist — add to `config.py` |
+| `AGENT_HEARTBEAT_TIMEOUT` | `agent_discovery.py:111` (hardcoded 120s) | Make configurable |
+
+### Test Baseline
+- `apps/agent-coordinator/tests/`: 2 test files (`test_communication.py`, `test_security_agent_coordinator.py`)
+- `apps/coordinator-api/tests/`: 42 test files (separate app, not target of this release)
+
+
 
 - Agent registration now includes `chain_id` and `island_id` (optional but recommended)
-- Task submission now requires `payment` field (amount + fee for task execution)
-- Coin request endpoint now sends `chain_id` (requires v0.5.16 blockchain node)
+- Task submission now includes `chain_id` and `payment` fields (payment optional for backward compat)
+- Coin request endpoint already sends `chain_id` (fixed in v0.5.16 — no further change needed)
+- New config: `DEFAULT_CHAIN_ID`, `DEFAULT_ISLAND_ID`, `BLOCKCHAIN_RPC_URL` (already exists in agent_stream.py env)
+
+## 🔧 Configuration
+
+Add to `apps/agent-coordinator/src/app/config.py`:
+```bash
+# Blockchain integration (v0.6.5)
+BLOCKCHAIN_RPC_URL=http://localhost:8006
+DEFAULT_CHAIN_ID=ait-hub
+DEFAULT_ISLAND_ID=
+
+# Task payment escrow (v0.6.5)
+TASK_PAYMENT_ESCROW_ENABLED=true
+TASK_PAYMENT_TIMEOUT_SECONDS=3600
+TASK_MAX_RETRIES=3
+
+# Agent TTL (v0.6.5)
+AGENT_HEARTBEAT_TIMEOUT_SECONDS=120
+AGENT_CLEANUP_INTERVAL_SECONDS=60
+```
+
+**Note**: `BLOCKCHAIN_RPC_URL` is already read via `os.getenv()` in `agent_stream.py:361` but is NOT in the `Settings` class. Add it to `Settings` for proper config management.
 
 ## 📊 Migration Guide
 
@@ -208,6 +332,6 @@ result = http_client.post("/rpc/transaction", json=signed_tx)
 
 ---
 
-*Last Updated: 2026-06-25*
+*Last Updated: 2026-06-29*
 *Version: 0.6.5*
 *Status: Planned*
