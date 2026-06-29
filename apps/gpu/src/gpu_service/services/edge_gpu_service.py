@@ -5,7 +5,8 @@ Edge GPU service for managing GPU operations
 import subprocess
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
 
@@ -15,7 +16,7 @@ logger = get_logger(__name__)
 
 
 class EdgeGPUService:
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         self.session = session
 
     async def list_profiles(
@@ -31,7 +32,7 @@ class EdgeGPUService:
                 stmt = stmt.where(ConsumerGPUProfile.edge_optimized == edge_optimized)
             if min_memory_gb is not None:
                 stmt = stmt.where(ConsumerGPUProfile.memory_gb >= min_memory_gb)
-            result = self.session.execute(stmt)
+            result = await self.session.execute(stmt)
             return list(result.scalars().all())
         except Exception as e:
             logger.error("Failed to list GPU profiles: %s", e)
@@ -46,7 +47,7 @@ class EdgeGPUService:
                 .order_by(EdgeGPUMetrics.timestamp.desc())
                 .limit(limit)
             )
-            result = self.session.execute(stmt)
+            result = await self.session.execute(stmt)
             return list(result.scalars().all())
         except Exception as e:
             logger.error("Failed to list GPU metrics for %s: %s", gpu_id, e)
@@ -62,7 +63,7 @@ class EdgeGPUService:
     async def seed_profiles(self) -> None:
         """Seed consumer GPU profiles into database"""
         try:
-            result = self.session.execute(select(ConsumerGPUProfile.gpu_model))
+            result = await self.session.execute(select(ConsumerGPUProfile.gpu_model))
             existing_models = {row[0] for row in result.all()}
             created = 0
             for profile in CONSUMER_GPU_PROFILES.values():
@@ -71,9 +72,9 @@ class EdgeGPUService:
                 self.session.add(ConsumerGPUProfile(**profile))
                 created += 1
             if created:
-                self.session.commit()
+                await self.session.commit()
         except Exception as e:
-            self.session.rollback()
+            await self.session.rollback()
             logger.warning("Failed to seed GPU profiles: %s", e)
 
     def _discover_gpus_via_nvidia_smi(self) -> list[dict[str, Any]]:

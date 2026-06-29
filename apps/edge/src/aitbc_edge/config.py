@@ -34,12 +34,18 @@ class Settings(ServiceSettings):
     gpu_service_host: str = "localhost"
     gpu_service_port: int = 8101
 
-    # JWT settings — must be set via JWT_SECRET_KEY env var in production
-    jwt_secret_key: str = ""
-    jwt_algorithm: str = "HS256"
-    jwt_expiration_hours: int = 24
+    # v0.6.6: Marketplace integration — edge advertises capabilities to marketplace
+    marketplace_url: str = "http://localhost:8102"
 
-    # CORS settings
+    # v0.6.6: Agent coordinator integration — edge reports health to agent-coordinator
+    agent_coordinator_url: str = "http://localhost:8010"
+    agent_heartbeat_interval_seconds: int = 60
+
+    # v0.6.6: Payment verification (feature-flagged — disabled by default)
+    require_payment_verification: bool = False
+
+    # JWT auth deferred to v0.7.1 (Bridge Security)
+    # cors_origins retained for cross-origin requests
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080"]
 
 
