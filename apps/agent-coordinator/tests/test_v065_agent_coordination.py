@@ -504,3 +504,108 @@ class TestPaymentEscrowLifecycle:
         """get_escrow_for_task() returns None for unknown task."""
         escrow = self._make_escrow()
         assert escrow.get_escrow_for_task("nonexistent") is None
+
+
+# ---------------------------------------------------------------------------
+# B3: Chain-aware task distribution (load_balancer chain_id routing)
+# ---------------------------------------------------------------------------
+
+
+class TestChainAwareTaskDistribution:
+    """Test that chain_id threads through TaskDistributor → LoadBalancer → agent discovery."""
+
+    def test_submit_task_accepts_chain_id(self):
+        """TaskDistributor.submit_task accepts chain_id and stores it in task_info."""
+        import asyncio
+
+        from src.app.routing.load_balancer import LoadBalancer, TaskDistributor, TaskPriority
+
+        lb = LoadBalancer.__new__(LoadBalancer)
+        td = TaskDistributor.__new__(TaskDistributor)
+        td.load_balancer = lb
+        td.task_queue = asyncio.Queue()
+        td.priority_queues = {p: asyncio.Queue() for p in TaskPriority}
+        td.distribution_stats = {"tasks_distributed": 0, "tasks_completed": 0, "tasks_failed": 0, "avg_distribution_time": 0.0}
+
+        asyncio.run(td.submit_task({"action": "process"}, TaskPriority.NORMAL, chain_id="ait-hub"))
+        task_info = asyncio.run(td.priority_queues[TaskPriority.NORMAL].get())
+        assert task_info["chain_id"] == "ait-hub"
+
+    def test_submit_task_without_chain_id_defaults_none(self):
+        """TaskDistributor.submit_task without chain_id stores None."""
+        import asyncio
+
+        from src.app.routing.load_balancer import LoadBalancer, TaskDistributor, TaskPriority
+
+        td = TaskDistributor.__new__(TaskDistributor)
+        td.load_balancer = LoadBalancer.__new__(LoadBalancer)
+        td.task_queue = asyncio.Queue()
+        td.priority_queues = {p: asyncio.Queue() for p in TaskPriority}
+        td.distribution_stats = {"tasks_distributed": 0, "tasks_completed": 0, "tasks_failed": 0, "avg_distribution_time": 0.0}
+
+        asyncio.run(td.submit_task({"action": "process"}, TaskPriority.NORMAL))
+        task_info = asyncio.run(td.priority_queues[TaskPriority.NORMAL].get())
+        assert task_info["chain_id"] is None
+
+    def test_assign_task_accepts_chain_id(self):
+        """LoadBalancer.assign_task accepts chain_id parameter without error."""
+        from unittest.mock import AsyncMock, patch
+
+        from src.app.routing.load_balancer import LoadBalancer
+
+        lb = LoadBalancer.__new__(LoadBalancer)
+        lb.registry = AsyncMock()
+        lb.agent_weights = {}
+        lb.agent_metrics = {}
+        lb.task_assignments = {}
+        lb.assignment_history = []
+        lb.total_assignments = 0
+        lb.failed_assignments = 0
+        lb.strategy = None
+
+        with patch.object(lb, "_find_eligible_agents", new_callable=AsyncMock) as mock_find:
+            mock_find.return_value = []
+            import asyncio
+
+            result = asyncio.run(lb.assign_task({"action": "process"}, chain_id="ait-hub"))
+            assert result is None
+            # Verify chain_id was passed to _find_eligible_agents
+            mock_find.assert_called_once_with({"action": "process"}, None, chain_id="ait-hub")
+
+    def test_find_eligible_agents_filters_by_chain_id(self):
+        """_find_eligible_agents adds chain_id to discovery query when provided."""
+        from unittest.mock import AsyncMock
+
+        from src.app.routing.load_balancer import LoadBalancer
+
+        lb = LoadBalancer.__new__(LoadBalancer)
+        lb.registry = AsyncMock()
+        lb.agent_weights = {}
+        lb.agent_metrics = {}
+
+        # Registry returns empty list — we just verify the query includes chain_id
+        lb.registry.discover_agents = AsyncMock(return_value=[])
+        import asyncio
+
+        asyncio.run(lb._find_eligible_agents({"action": "process"}, chain_id="ait-hub"))
+        call_args = lb.registry.discover_agents.call_args
+        query = call_args[0][0] if call_args[0] else call_args[1].get("query", {})
+        assert query.get("chain_id") == "ait-hub"
+
+    def test_find_eligible_agents_without_chain_id_no_filter(self):
+        """_find_eligible_agents does not add chain_id to query when not provided."""
+        from unittest.mock import AsyncMock
+
+        from src.app.routing.load_balancer import LoadBalancer
+
+        lb = LoadBalancer.__new__(LoadBalancer)
+        lb.registry = AsyncMock()
+        lb.agent_weights = {}
+        lb.agent_metrics = {}
+        lb.registry.discover_agents = AsyncMock(return_value=[])
+        import asyncio
+
+        asyncio.run(lb._find_eligible_agents({"action": "process"}))
+        call_args = lb.registry.discover_agents.call_args
+        query = call_args[0][0] if call_args[0] else call_args[1].get("query", {})
+        assert "chain_id" not in query
