@@ -61,5 +61,13 @@ REDIS_PORT = 6379
 DEFAULT_CORS_ORIGINS = ["http://localhost:3000", "http://localhost:8080"]
 PRODUCTION_CORS_ORIGINS = ["https://aitbc.io"]
 
+# Bridge defaults (v0.7.0)
+BRIDGE_FEE_BASIS_POINTS = 10  # 0.1% bridge fee
+BRIDGE_TIMEOUT_SECONDS = 300  # 5 minutes for cross-chain transfer
+BRIDGE_RETRY_LIMIT = 3  # retry attempts for failed bridge ops
+BRIDGE_BATCH_SIZE = 10  # max transfers per batch operation
+BRIDGE_MONITOR_INTERVAL = 60  # seconds between health checks
+BRIDGE_STUCK_TRANSFER_TIMEOUT = 3600  # 1 hour — transfers pending longer are flagged
+
 # Package version
 PACKAGE_VERSION = __version__
