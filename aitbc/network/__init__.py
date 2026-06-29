@@ -7,6 +7,7 @@ from .client import AITBCHTTPClient, AsyncAITBCHTTPClient
 from .compression import compress, compress_json, compression_ratio, decompress, decompress_json
 from .http_pool import SharedHttpClient
 from .island_registry import IslandRegistry, IslandRegistryEntry
+from .port_allocator import PortAllocationError, PortAllocator
 from .subscription_manager import SubscriptionClientProtocol, SubscriptionEntry, SubscriptionManager
 from .web3_utils import Web3Client, create_web3_client
 
@@ -15,6 +16,8 @@ __all__ = [
     "AsyncAITBCHTTPClient",
     "IslandRegistry",
     "IslandRegistryEntry",
+    "PortAllocationError",
+    "PortAllocator",
     "SharedHttpClient",
     "SubscriptionClientProtocol",
     "SubscriptionEntry",

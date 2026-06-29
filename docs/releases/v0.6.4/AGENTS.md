@@ -118,9 +118,9 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/network/port
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Create `PortAllocator` — per-chain port allocation with conflict detection | 🔴 P0 | `aitbc/network/port_allocator.py` (new), `aitbc/network/__init__.py` (update) | ⬜ |
-| A2 | Create `ChainConfigParser` — parse "key:value,key:value" strings into typed dict | High | `aitbc/utils/chain_config.py` (new), `aitbc/utils/__init__.py` (update) | ⬜ |
-| A3 | Unit tests for A1-A2 + verify mypy/ruff/pytest clean | High | `tests/unit/test_port_allocator.py`, `tests/unit/test_chain_config.py` | ⬜ |
+| A1 | Create `PortAllocator` — per-chain port allocation with conflict detection | 🔴 P0 | `aitbc/network/port_allocator.py` (new), `aitbc/network/__init__.py` (update) | ✅ |
+| A2 | Create `ChainConfigParser` — parse "key:value,key:value" strings into typed dict | High | `aitbc/utils/chain_config.py` (new), `aitbc/utils/__init__.py` (update) | ✅ |
+| A3 | Unit tests for A1-A2 + verify mypy/ruff/pytest clean | High | `tests/unit/test_port_allocator.py`, `tests/unit/test_chain_config.py` | ✅ |
 
 ### Agent A — Detailed Instructions
 
