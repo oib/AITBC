@@ -214,3 +214,192 @@ async def list_pending_transfers(request: Request, chain_id: str | None = None) 
     except Exception as e:
         _logger.error("List pending transfers failed: %s", e)
         raise HTTPException(status_code=500, detail=f"Failed to list transfers: {str(e)}") from e
+
+
+@rate_limit(rate=20, per=60)
+async def bridge_unlock(request: Request, unlock_data: dict[str, Any]) -> dict[str, Any]:
+    """Refund/cancel a pending bridge transfer — return locked funds to sender.
+
+    v0.7.0 §B2: Only transfers in 'pending' or 'locked' status can be refunded.
+    The sender must sign the unlock request to authorize the refund.
+    """
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+
+        bridge = get_cross_chain_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+        transfer_id = unlock_data.get("transfer_id")
+        sender = unlock_data.get("sender")
+        if not transfer_id or not sender:
+            raise HTTPException(status_code=400, detail="Missing required fields: transfer_id, sender")
+
+        # Verify sender signature
+        signature = unlock_data.get("signature")
+        if not signature:
+            raise HTTPException(status_code=403, detail="Signature required for bridge unlock")
+        sign_data = {"transfer_id": transfer_id, "sender": sender, "action": "unlock"}
+        if not verify_request_signature(cast(str, sender), signature, sign_data):
+            raise HTTPException(status_code=403, detail="Invalid sender signature")
+
+        transfer = bridge.refund_transfer(transfer_id, cast(str, sender).lower())
+        return {
+            "success": True,
+            "transfer_id": transfer.transfer_id,
+            "status": transfer.status.value,
+            "source_chain": transfer.source_chain,
+            "sender": transfer.sender,
+            "amount": transfer.amount,
+            "message": "Bridge transfer refunded successfully",
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Bridge unlock failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Bridge unlock failed: {str(e)}") from e
+
+
+@rate_limit(rate=100, per=60)
+async def get_bridge_balance(request: Request, chain_id: str) -> dict[str, Any]:
+    """Get the total locked balance for a chain (sum of pending/locked transfers)."""
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+
+        bridge = get_cross_chain_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+        balances = bridge.get_bridge_balance(chain_id)
+        return {
+            "success": True,
+            "chain_id": chain_id,
+            "locked_amount": balances.get(chain_id, 0),
+            "balances": balances,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Get bridge balance failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Failed to get bridge balance: {str(e)}") from e
+
+
+@rate_limit(rate=100, per=60)
+async def bridge_health(request: Request) -> dict[str, Any]:
+    """Get bridge health status — active transfers, pending count, configuration."""
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+
+        bridge = get_cross_chain_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+        pending = bridge.list_pending_transfers()
+        balances = bridge.get_bridge_balance()
+        total_locked = sum(balances.values())
+        return {
+            "success": True,
+            "status": "healthy",
+            "bridge_initialized": True,
+            "pending_transfer_count": len(pending),
+            "total_locked_amount": total_locked,
+            "balances_per_chain": balances,
+            "release_enabled": getattr(settings, "bridge_release_enabled", False),
+            "bridge_timeout": getattr(settings, "bridge_timeout", 300),
+            "bridge_batch_size": getattr(settings, "bridge_batch_size", 10),
+            "bridge_monitor_interval": getattr(settings, "bridge_monitor_interval", 60),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Bridge health check failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Bridge health check failed: {str(e)}") from e
+
+
+@rate_limit(rate=20, per=60)
+async def bridge_batch_lock(request: Request, batch_data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Batch lock multiple cross-chain transfers."""
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+
+        bridge = get_cross_chain_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+        transfers = batch_data.get("transfers", [])
+        if not transfers:
+            raise HTTPException(status_code=400, detail="Missing or empty 'transfers' list")
+        max_batch = getattr(settings, "bridge_batch_size", 10)
+        if len(transfers) > max_batch:
+            raise HTTPException(status_code=400, detail=f"Batch size {len(transfers)} exceeds maximum {max_batch}")
+
+        results = bridge.batch_lock(transfers)
+        return [
+            {
+                "success": t.status.value != "failed",
+                "transfer_id": t.transfer_id,
+                "status": t.status.value,
+                "source_chain": t.source_chain,
+                "target_chain": t.target_chain,
+                "sender": t.sender,
+                "recipient": t.recipient,
+                "amount": t.amount,
+                "error": t.proof.get("error") if t.proof and isinstance(t.proof, dict) else None,
+            }
+            for t in results
+        ]
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Bridge batch lock failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Bridge batch lock failed: {str(e)}") from e
+
+
+@rate_limit(rate=20, per=60)
+async def bridge_batch_confirm(request: Request, batch_data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Batch confirm multiple cross-chain transfers.
+
+    Gated by ``BRIDGE_RELEASE_ENABLED`` same as single confirm.
+    """
+    if not getattr(settings, "bridge_release_enabled", False):
+        raise HTTPException(
+            status_code=503,
+            detail="Bridge release path disabled (BRIDGE_RELEASE_ENABLED=false). "
+            "Proof verification is PARTIAL pending v0.7.2 — enable only on isolated test nets.",
+        )
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+
+        bridge = get_cross_chain_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+        confirmations = batch_data.get("confirmations", [])
+        if not confirmations:
+            raise HTTPException(status_code=400, detail="Missing or empty 'confirmations' list")
+        max_batch = getattr(settings, "bridge_batch_size", 10)
+        if len(confirmations) > max_batch:
+            raise HTTPException(status_code=400, detail=f"Batch size {len(confirmations)} exceeds maximum {max_batch}")
+
+        results = bridge.batch_confirm(confirmations)
+        output: list[dict[str, Any]] = []
+        for r in results:
+            if isinstance(r, dict):
+                output.append({"success": False, **r})
+            else:
+                output.append(
+                    {
+                        "success": True,
+                        "transfer_id": r.transfer_id,
+                        "status": r.status.value,
+                        "target_tx_hash": r.target_tx_hash,
+                        "confirm_time": r.confirm_time.isoformat() if r.confirm_time else None,
+                    }
+                )
+        return output
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Bridge batch confirm failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Bridge batch confirm failed: {str(e)}") from e
