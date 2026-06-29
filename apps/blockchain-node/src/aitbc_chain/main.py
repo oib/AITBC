@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from aitbc.async_tasks import TaskRegistry
-from aitbc.network import SharedHttpClient
+from aitbc.network import IslandRegistry, SharedHttpClient, SubscriptionManager
+from aitbc.sync import SyncSourceResolver
 
 from .config import settings
 from .consensus import PoAProposer, ProposerConfig
@@ -99,6 +100,11 @@ class BlockchainNode:
         self._stop_event = asyncio.Event()
         self._proposers: dict[str, PoAProposer] = {}
         self._task_registry = TaskRegistry()
+        self._sync_source_resolver = SyncSourceResolver(
+            sync_sources=settings.chain_sync_sources,
+            default_url=settings.default_peer_rpc_url,
+        )
+        self._subscription_manager: SubscriptionManager | None = None
 
     @staticmethod
     def _env_value(*names: str) -> str | None:
@@ -120,6 +126,14 @@ class BlockchainNode:
         if not chains and settings.chain_id:
             chains = [settings.chain_id]
         return chains
+
+    def get_sync_source(self, chain_id: str) -> str | None:
+        """Resolve sync source URL for a given chain_id.
+
+        Uses the SyncSourceResolver to check per-chain mapping first,
+        then falls back to default_peer_rpc_url.
+        """
+        return self._sync_source_resolver.get_sync_source(chain_id)
 
     def _proposer_config(self, chain_id: str) -> ProposerConfig:
         return ProposerConfig(
@@ -302,12 +316,35 @@ class BlockchainNode:
                     default_island_id,
                     default_chain_id,
                 )
-                create_island_manager(node_id, default_island_id, default_chain_id)
+                island_mgr = create_island_manager(node_id, default_island_id, default_chain_id)
                 logger.info("Island manager created successfully")
-                logger.info(
-                    "Island manager initialized (background tasks disabled)",
-                    extra={"node_id": node_id, "default_island": default_island_id},
-                )
+
+                # Auto-join islands from bridge_islands config
+                if settings.bridge_islands:
+                    registry = IslandRegistry(settings.island_registry)
+                    bridge_island_ids = [i.strip() for i in settings.bridge_islands.split(",") if i.strip()]
+                    for island_id in bridge_island_ids:
+                        entry = registry.get_entry(island_id)
+                        if entry:
+                            island_mgr.join_island(
+                                island_id=entry.island_id,
+                                island_name=entry.island_name,
+                                chain_id=entry.chain_id,
+                                is_hub=False,
+                            )
+                            logger.info("Auto-joined island %s (chain: %s)", entry.island_id, entry.chain_id)
+                        else:
+                            logger.warning("Island %s in bridge_islands but not in island_registry", island_id)
+
+                # Start background tasks if enabled
+                if settings.island_tasks_enabled:
+                    self._task_registry.create_task(island_mgr.start, name="island_manager_tasks")
+                    logger.info("Island manager background tasks started")
+                else:
+                    logger.info(
+                        "Island manager initialized (background tasks disabled)",
+                        extra={"node_id": node_id, "default_island": default_island_id},
+                    )
             except Exception as e:
                 logger.error("Failed to initialize island manager: %s", e)
         else:
@@ -321,17 +358,33 @@ class BlockchainNode:
         elif settings.blockchain_mode == "follower":
             logger.info("Running in FOLLOWER mode (blockchain_mode=%s)", settings.blockchain_mode)
             logger.info("Block production disabled on this node", extra={"proposer_id": settings.proposer_id})
-            subscription_client = None
+            subscription_client: SubscriptionClient | None = None
             if settings.subscription_enabled:
                 node_id = os.getenv("NODE_ID", settings.p2p_node_id or "unknown-node")
-                hub_url = settings.default_peer_rpc_url or settings.genesis_node  # type: ignore[attr-defined]
-                chain_id = self._supported_chains()[0]
-                if hub_url:
-                    subscription_client = SubscriptionClient(hub_url, node_id, chain_id)
-                    self._task_registry.create_task(subscription_client.start, name="subscription_client")
-                    logger.info("Subscription client started for node %s", node_id)
+                chains = self._supported_chains()
+                if len(chains) <= 1:
+                    # Single-chain backward compat: one SubscriptionClient (original path)
+                    chain_id = chains[0] if chains else settings.chain_id
+                    hub_url = self.get_sync_source(chain_id)
+                    if hub_url:
+                        subscription_client = SubscriptionClient(hub_url, node_id, chain_id)
+                        self._task_registry.create_task(subscription_client.start, name="subscription_client")
+                        logger.info("Subscription client started for chain %s via hub %s", chain_id, hub_url)
+                    else:
+                        logger.warning("Subscription client not started: no hub URL configured for chain %s", chain_id)
                 else:
-                    logger.warning("Subscription client not started: no hub URL configured")
+                    # Multi-chain: one SubscriptionClient per (chain_id, hub_url) pair
+                    self._subscription_manager = SubscriptionManager()
+                    for chain_id in chains:
+                        hub_url = self.get_sync_source(chain_id)
+                        if hub_url:
+                            client = SubscriptionClient(hub_url, node_id, chain_id)
+                            self._subscription_manager.add_subscription(chain_id, client)
+                            logger.info("Subscription client registered for chain %s via hub %s", chain_id, hub_url)
+                        else:
+                            logger.warning("No hub URL configured for chain %s, skipping subscription", chain_id)
+                    self._task_registry.create_task(self._subscription_manager.start_all, name="subscription_manager")
+                    logger.info("Subscription manager started for %d chains", len(chains))
             if settings.periodic_sync_enabled:
                 self._task_registry.create_task(
                     lambda sc=subscription_client: self._periodic_sync_task(sc),
@@ -476,6 +529,8 @@ class BlockchainNode:
 
     async def _shutdown(self) -> None:
         logger.info("Shutting down blockchain node, cancelling background tasks...")
+        if self._subscription_manager is not None:
+            await self._subscription_manager.stop_all()
         await self._task_registry.cancel_all(timeout=10.0)
         for _chain_id, proposer in list(self._proposers.items()):
             await proposer.stop()
