@@ -16,7 +16,11 @@ AITBC v0.8.1 implements cross-chain offer discovery and synchronization across A
 
 Combined with the atomic settlement work (now in v0.9.0) in the same release, this was too much. It's split out so v0.8.0 can ship the basic trading infrastructure while offer sync gets focused effort.
 
-**Prerequisites**: Requires [v0.8.0](../v0.8.0/change.log) (Inter-Chain Trading Basics — island registry, chain discovery, trade requests).
+**Prerequisites**: [v0.8.0](../v0.8.0/change.log) (Agent A ✅ `939bb066f` — trading SDK, Agent B ⬜ pending — trading service extension), [v0.7.0](../v0.7.0/change.log) ✅, [v0.7.1](../v0.7.1/change.log) ✅, [v0.7.2](../v0.7.2/change.log) ✅, [v0.6.6](../v0.6.6/change.log) ✅ (Marketplace + OfferFSM + BlockchainRPCClient).
+
+> **Stale prerequisite correction (2026-06-29)**: The original analysis claimed "v0.8.0 is a Concept Plan (no trading service exists yet)" — this is **FALSE**. `apps/trading/` exists (1011 lines) and v0.8.0 Agent A is complete (`939bb066f`). v0.8.0 Agent B is pending but the trading service app exists.
+
+> **Rescope (2026-06-29)**: v0.8.1 is now scoped to **polling-based sync only**. Subscription-based sync (WebSocket), real-time offer notifications, and external search index (Elasticsearch) are deferred to v0.8.2+. The user's recommendation to start with polling-only sync is adopted — subscription adds WebSocket complexity that can be deferred.
 
 ## 🎯 Release Highlights
 
@@ -139,25 +143,41 @@ aitbc trade sync --service-type whisper
 - If offer is no longer available, notify buyer and remove from cache
 - Rate-limit availability checks to avoid overwhelming source chain
 
-### Verified Code Targets (from suggestions.md investigation)
+### Verified Code Targets (from suggestions.md investigation — re-verified 2026-06-29)
 
-#### IslandManager — No Offer Sync Capability
-**Finding**: `apps/blockchain-node/src/aitbc_chain/network/island_manager.py` (264 lines) is purely a membership registry. Methods: join_island, leave_island, request_bridge, approve_bridge_request, reject_bridge_request, get_island_peers, add_island_peer, remove_island_peer, get_island_info, get_all_islands, get_active_bridges, get_bridge_requests, is_member_of_island, is_bridged_to_island. None relate to offer synchronization.
-**Required**: Build offer sync layer from scratch. Start with polling-based sync using `If-Modified-Since` headers. Subscription-based sync can be Phase 2.
+#### IslandManager — No Offer Sync Capability (CONFIRMED)
+**Finding**: `apps/blockchain-node/src/aitbc_chain/network/island_manager.py` (284 lines) is purely a membership registry. 20 methods (not 14 as originally claimed), all related to island membership, bridge requests, peer management, and health checks. Zero methods relate to offer synchronization.
+**Required**: Build offer sync layer from scratch as a separate service. Start with polling-based sync. Subscription-based sync deferred to v0.8.2+.
 
-#### Distributed Search Index — Not Identified
-**Finding**: No distributed search index library is identified for cross-chain offer search.
-**Required**: Decide: simple polling with local cache (v0.8.1), or external search index (elasticsearch/custom) deferred to future release.
+#### Distributed Search Index — Not Identified (CONFIRMED)
+**Finding**: No distributed search index library (Elasticsearch, Meilisearch, custom) is implemented anywhere in the codebase. Only documentation references exist.
+**Required**: v0.8.1 uses local cache (Redis) + in-memory search. External search index deferred to future release.
 
-#### Staleness Threshold
-**Finding**: 5-minute staleness threshold may be too aggressive for slow-block networks.
+#### Staleness Threshold (CONFIRMED)
+**Finding**: No staleness configuration exists in the codebase (only in documentation). 5-minute threshold may be too aggressive for slow-block networks.
 **Required**: Make staleness threshold configurable per chain, with default of 5 minutes for fast chains and 30 minutes for slow chains.
+
+#### Marketplace Offer System — EXISTS (reusable)
+**Finding**: `MarketplaceOffer` model exists (`packages/aitbc-shared/aitbc_shared/models/marketplace.py`) with chain_id field (v0.6.6). `OfferFSM` exists (`aitbc/marketplace/offer_fsm.py`) with 5 states. `BlockchainRPCClient` exists (`aitbc/marketplace/blockchain_rpc.py`) with chain-aware `query_offers()`. GPU resource RPC exists (`GET /rpc/gpus` with chain_id filter). Transaction query RPC exists (`GET /rpc/transactions?transaction_type=GPU_MARKETPLACE`).
+**Required**: Reuse these existing components for offer sync. Do NOT reimplement offer querying.
+
+#### Redis Caching — EXISTS (reusable)
+**Finding**: `RedisCache` exists (`aitbc/caching/redis_cache.py`) with get/set/delete + TTL + in-memory fallback. `BlockchainCache` wraps it for blockchain-specific caching. Redis is used for gossip pub/sub, agent registry, blockchain caching, and hub persistence.
+**Required**: Create `OfferCache` wrapping `RedisCache` for offer-specific caching with staleness tracking.
+
+#### Gossip + WebSocket — EXISTS (deferred to v0.8.2+)
+**Finding**: `BroadcastGossipBackend` (Redis pub/sub) exists in `gossip/broker.py`. WebSocket endpoints exist (`/rpc/blocks`, `/rpc/transactions`, `/rpc/subscribe/ws`). These can be used for subscription-based sync in the future.
+**Required**: NOT used in v0.8.1 (polling only). Subscription-based sync deferred to v0.8.2+.
+
+#### v0.8.0 Trading SDK — EXISTS (extendable)
+**Finding**: `aitbc/trading/` package exists (v0.8.0 Agent A `939bb066f`) with types, TradingClient, TradingBridgeClient. `InterChainTradeData` has `offer_id` field. `ChainInfo` has `offers_count` and `last_sync` fields.
+**Required**: Extend with offer sync types, OfferSyncClient, and OfferCache.
 
 ## 🔧 Breaking Changes
 
-- Trade discovery now returns offers from all chains (not just local)
-- Offer responses include `last_synced` and `sync_confidence` fields
-- New offer sync daemon (`aitbc-offer-sync` service)
+- ~~New offer sync daemon (`aitbc-offer-sync` service)~~ **CORRECTION**: Offer sync runs as part of the existing trading service (`apps/trading/`), not as a separate daemon. No new systemd service needed.
+- Trade discovery now returns offers from all chains (not just local) — additive, not breaking
+- Offer responses include `last_synced` and `sync_confidence` fields — additive, not breaking
 
 ## 📊 Migration Guide
 
@@ -228,8 +248,8 @@ aitbc trade sync --service-type whisper
 ## 🚀 Dependencies
 
 ### New Dependencies
-- WebSocket client libraries (for subscription-based sync)
-- Distributed search index libraries
+- ~~WebSocket client libraries (for subscription-based sync)~~ **DEFERRED to v0.8.2+** — v0.8.1 uses polling only
+- ~~Distributed search index libraries~~ **DEFERRED** — v0.8.1 uses local Redis cache + in-memory search
 
 ### Updated Dependencies
 - Trading service v0.8.1+
