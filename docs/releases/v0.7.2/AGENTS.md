@@ -158,7 +158,7 @@ Phase 0 (prerequisite — Agent B):
 
 **Working directory**: `/opt/aitbc/aitbc/bridge/`
 
-**Prerequisite**: v0.7.1 Agent A ✅ (committed `1fcf1e829`). v0.7.1 Agent B 🔴 (must be complete — provides `BridgeValidator` table + block header `signature` field that the types mirror).
+**Prerequisite**: v0.7.1 Agent A ✅ (committed `1fcf1e829`). v0.7.1 Agent B ✅ (committed `a4ea61295` — provides `BridgeValidator` table + block header `signature` field that the types mirror).
 
 **Verification command**:
 ```bash
@@ -169,10 +169,10 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/bridge/ && .
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Extend bridge types — BridgeBlockHeader, FinalityConfig, ProofVerificationResult, VerificationMode enum | 🔴 P0 | `aitbc/bridge/types.py` (extend), `aitbc/bridge/__init__.py` (extend) | ⬜ |
-| A2 | Create `aitbc/bridge/oracle.py` — OracleClient ABC, InProcessVerifier, ExternalOracleClient stub | 🔴 P0 | `aitbc/bridge/oracle.py` (new), `aitbc/bridge/__init__.py` (extend) | ⬜ |
-| A3 | Create `aitbc/bridge/verification.py` — block header validation, finality check, verification message builder | 🔴 P0 | `aitbc/bridge/verification.py` (new), `aitbc/bridge/__init__.py` (extend) | ⬜ |
-| A4 | Extend BridgeClient with block header + oracle status RPC methods + unit tests for A1-A3 | High | `aitbc/bridge/client.py` (extend), `tests/unit/test_bridge_verification.py` (new) | ⬜ |
+| A1 | Extend bridge types — BridgeBlockHeader, FinalityConfig, ProofVerificationResult, VerificationMode enum | 🔴 P0 | `aitbc/bridge/types.py` (extend), `aitbc/bridge/__init__.py` (extend) | ✅ |
+| A2 | Create `aitbc/bridge/oracle.py` — OracleClient ABC, InProcessVerifier, ExternalOracleClient stub | 🔴 P0 | `aitbc/bridge/oracle.py` (new), `aitbc/bridge/__init__.py` (extend) | ✅ |
+| A3 | Create `aitbc/bridge/verification.py` — block header validation, finality check, verification message builder | 🔴 P0 | `aitbc/bridge/verification.py` (new), `aitbc/bridge/__init__.py` (extend) | ✅ |
+| A4 | Extend BridgeClient with block header + oracle status RPC methods + unit tests for A1-A3 | High | `aitbc/bridge/client.py` (extend), `tests/unit/test_bridge_verification.py` (new) | ✅ |
 
 ### Agent A — Detailed Instructions
 
