@@ -403,3 +403,159 @@ async def bridge_batch_confirm(request: Request, batch_data: dict[str, Any]) -> 
     except Exception as e:
         _logger.error("Bridge batch confirm failed: %s", e)
         raise HTTPException(status_code=500, detail=f"Bridge batch confirm failed: {str(e)}") from e
+
+
+# ---------------------------------------------------------------------------
+# v0.7.1: Validator set management + security status endpoints
+# ---------------------------------------------------------------------------
+
+
+@rate_limit(rate=20, per=60)
+async def register_validator(request: Request, reg_data: dict[str, Any]) -> dict[str, Any]:
+    """Register a bridge validator for a chain (v0.7.1 §B5).
+
+    The registration must be signed by the validator's private key to prove
+    ownership of the address being registered. The signature covers the
+    canonical JSON of {chain_id, address, public_key, action: "register"}.
+    """
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+
+        bridge = get_cross_chain_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+        chain_id = reg_data.get("chain_id")
+        address = reg_data.get("address")
+        public_key = reg_data.get("public_key")
+        signature = reg_data.get("signature")
+        epoch = reg_data.get("epoch", 0)
+
+        if not all([chain_id, address, public_key, signature]):
+            raise HTTPException(
+                status_code=400,
+                detail="Missing required fields: chain_id, address, public_key, signature",
+            )
+
+        # Verify the signature proves ownership of the address
+        sign_data = {"chain_id": chain_id, "address": address, "public_key": public_key, "action": "register"}
+        if not verify_request_signature(cast(str, address), signature, sign_data):
+            raise HTTPException(status_code=403, detail="Invalid validator signature")
+
+        bridge.register_validator(
+            chain_id=cast(str, chain_id),
+            address=cast(str, address).lower(),
+            public_key=cast(str, public_key),
+            epoch=int(epoch),
+        )
+        return {
+            "success": True,
+            "status": "registered",
+            "chain_id": chain_id,
+            "address": address,
+            "epoch": int(epoch),
+            "message": "Validator registered successfully",
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Validator registration failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Validator registration failed: {str(e)}") from e
+
+
+@rate_limit(rate=100, per=60)
+async def get_validator_set(request: Request, chain_id: str) -> dict[str, Any]:
+    """Get the validator set for a chain (v0.7.1 §B5).
+
+    Optional query param ``epoch`` selects a specific epoch (defaults to current).
+    """
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+
+        bridge = get_cross_chain_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
+
+        # Parse epoch from query params if provided
+        epoch_str = request.query_params.get("epoch")
+        epoch = int(epoch_str) if epoch_str else None
+
+        vset = bridge.get_validator_set(chain_id, epoch)
+        if vset is None:
+            return {
+                "success": True,
+                "chain_id": chain_id,
+                "epoch": 0,
+                "threshold": getattr(settings, "bridge_multisig_threshold", 3),
+                "total": 0,
+                "validators": [],
+                "message": "No validators registered for this chain",
+            }
+        return {
+            "success": True,
+            "chain_id": chain_id,
+            "epoch": vset.epoch,
+            "threshold": vset.threshold,
+            "total": vset.total,
+            "validators": [
+                {
+                    "address": v.address,
+                    "public_key": v.public_key,
+                    "is_active": v.is_active,
+                    "registered_at": v.registered_at.isoformat() if v.registered_at else None,
+                }
+                for v in vset.validators
+            ],
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Get validator set failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Failed to get validator set: {str(e)}") from e
+
+
+@rate_limit(rate=100, per=60)
+async def bridge_security_status(request: Request) -> dict[str, Any]:
+    """Get bridge security status (v0.7.1 §B5).
+
+    Returns the multi-sig configuration, validator count, current epoch,
+    block signature requirement, and release fence status.
+    """
+    try:
+        from ..cross_chain.bridge import get_cross_chain_bridge
+
+        bridge = get_cross_chain_bridge()
+        bridge_initialized = bridge is not None
+
+        # Count validators across all chains
+        validator_count = 0
+        current_epoch = 0
+        if bridge_initialized:
+            from sqlmodel import select as _select
+
+            from ..models import BridgeValidator
+
+            with bridge._session_factory() as session:  # type: ignore[union-attr]
+                validator_count = len(session.exec(_select(BridgeValidator).where(BridgeValidator.is_active)).all())
+                # Get max epoch
+                epochs = session.exec(_select(BridgeValidator.epoch)).all()
+                current_epoch = max(epochs) if epochs else 0
+
+        return {
+            "success": True,
+            "multisig_enabled": getattr(settings, "bridge_multisig_enabled", False),
+            "threshold": getattr(settings, "bridge_multisig_threshold", 3),
+            "validators_configured": getattr(settings, "bridge_multisig_validators", 5),
+            "validator_count": validator_count,
+            "current_epoch": current_epoch,
+            "block_signature_required": getattr(settings, "bridge_block_signature_required", True),
+            "release_enabled": getattr(settings, "bridge_release_enabled", False),
+            "bridge_initialized": bridge_initialized,
+            "validator_set_grace_period": getattr(settings, "bridge_validator_set_grace_period", 7200),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Bridge security status failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Bridge security status failed: {str(e)}") from e
