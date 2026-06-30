@@ -212,4 +212,65 @@ def get(ctx, proposal_id: str, format: str):
         error(f"Error getting proposal: {e}")
 
 
+# ============================================================================
+# v0.7.4 §B8: Cross-chain governance CLI commands
+# ============================================================================
+
+
+@governance.command()
+@click.argument("proposal_id")
+@click.option("--target-chains", required=True, help="Comma-separated list of target chain IDs")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def propagate(ctx, proposal_id: str, target_chains: str, format: str):
+    """Propagate a proposal to one or more target chains (v0.7.4)"""
+    try:
+        chains = [c.strip() for c in target_chains.split(",") if c.strip()]
+        if not chains:
+            error("--target-chains must specify at least one chain ID")
+            return
+        client = _get_client()
+        result = client.post(
+            f"/v1/governance/proposals/{proposal_id}/propagate",
+            json={"target_chains": chains},
+        )
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error propagating proposal: {e}")
+
+
+@governance.command(name="aggregate-votes")
+@click.argument("proposal_id")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def aggregate_votes(ctx, proposal_id: str, format: str):
+    """Aggregate votes for a proposal from all chains (v0.7.4)"""
+    try:
+        client = _get_client()
+        result = client.post(f"/v1/governance/proposals/{proposal_id}/aggregate-votes")
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error aggregating votes: {e}")
+
+
+@governance.command(name="execute-cross-chain")
+@click.argument("proposal_id")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def execute_cross_chain(ctx, proposal_id: str, format: str):
+    """Execute a proposal on all chains after approval (v0.7.4)"""
+    try:
+        client = _get_client()
+        result = client.post(f"/v1/governance/proposals/{proposal_id}/execute-cross-chain")
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error executing cross-chain: {e}")
+
+
 __all__ = ["governance"]
