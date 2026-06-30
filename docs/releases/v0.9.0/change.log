@@ -1,7 +1,7 @@
 # AITBC v0.9.0 Release Notes
 
 **Date**: TBD
-**Status**: 🚧 Planned
+**Status**: 🚧 In Progress (B1-B5 complete — HTLC contract integration done; chaos testing + external audit pending)
 **Scope**: Atomic Cross-Chain Settlement — Escrow, Atomic Release, Timeout/Refund, Chaos Testing
 
 ## 🎯 Overview

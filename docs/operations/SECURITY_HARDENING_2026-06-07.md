@@ -400,7 +400,7 @@ sudo -u aitbc-api /opt/aitbc/venv/bin/python -c "print('test')"
 - [MEMORY_CONFIGURATION_2026-06-07.md](./MEMORY_CONFIGURATION_2026-06-07.md) - Memory limits configuration
 - [PERFORMANCE_OPTIMIZATIONS_2026-06-07.md](./PERFORMANCE_OPTIMIZATIONS_2026-06-07.md) - Performance optimizations
 - [SECURITY_VULNERABILITIES_2026-06-07.md](../SECURITY_VULNERABILITIES_2026-06-07.md) - Security remediation
-- [RELEASE_v0.4.13.md](../releases/RELEASE_v0.4.13.md) - Release notes
+- [Release Notes](../releases/README.md) - Current release documentation
 
 ## Maintenance
 

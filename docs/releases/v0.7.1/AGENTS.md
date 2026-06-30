@@ -1,5 +1,8 @@
 # v0.7.1 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Bridge Security Layer — Multi-Sig Validation, Validator Set Registry, Block Header Signatures
 
 **Goal**: Add the security-critical multi-signature layer to the cross-chain bridge. Replace the current "accepts any valid secp256k1 signer" proof verification (`_verify_proposer_signature` in `cross_chain/bridge.py:477-523`) with proper M-of-N threshold signature validation against a per-chain validator set. Add block header signatures so proposers are cryptographically bound to the blocks they produce. Add CLI commands for security status and validator registration.
@@ -17,6 +20,47 @@
 > **Prerequisites**: [v0.7.0](../v0.7.0/change.log) — Bridge Basics. v0.7.0 Agent A (shared bridge SDK) is ✅ committed (`35b029852`). v0.7.0 Agent B (RPC endpoints, CLI, monitoring, tests) exists in the working tree but is **uncommitted** — Agent B must commit v0.7.0 work before starting v0.7.1. [v0.5.16](../v0.5.16/change.log) ✅ (bridge proof hardening + release fence).
 
 > **Risk**: Medium-High. This release touches consensus-critical code (block header signing) and the bridge proof verification path. The `BRIDGE_RELEASE_ENABLED=false` fence prevents unauthorized fund release even if multi-sig has bugs. Block header signature changes are backward-compatible (new optional field, old blocks have empty signature).
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, architecture, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (bridge types extension, multi-sig utilities, validator set registry, BridgeClient extensions, unit tests)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (threat model, config, block header signatures, validator table, RPC endpoints, multi-sig bridge upgrade, CLI, integration tests)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets-from-subagent-investigation-2026-06-29)
+- [Already Fixed / Exists](./overview.md#already-fixed--exists-verified--no-work-needed)
+- [Architecture](./overview.md#architecture-bridge-security-v071)
+- [Task Split Overview](./overview.md#task-split-overview)
+- [Phase 0 - Threat Model](./overview.md#phase-0--threat-model-prerequisite)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [Extend Bridge Types](./agent-a.md#a1-extend-bridge-types)
+- [Multi-Sig Utilities](./agent-a.md#a2-multi-sig-utilities)
+- [Validator Set Registry](./agent-a.md#a3-validator-set-registry)
+- [BridgeClient Extensions + Unit Tests](./agent-a.md#a4-bridgeclient-extensions--unit-tests)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Threat Model Document](./agent-b.md#b1-threat-model-document)
+- [Bridge Security Config + Constants](./agent-b.md#b2-bridge-security-config--constants)
+- [Block Header Signatures](./agent-b.md#b3-block-header-signatures)
+- [BridgeValidator SQLModel Table](./agent-b.md#b4-bridgevalidator-sqlmodel-table)
+- [Validator RPC Endpoints](./agent-b.md#b5-validator-rpc-endpoints)
+- [Upgrade Bridge Proof Verification to Multi-Sig](./agent-b.md#b6-upgrade-bridge-proof-verification-to-multi-sig)
+- [CLI Commands](./agent-b.md#b7-cli-commands)
+- [Integration Tests](./agent-b.md#b8-integration-tests)
 
 ---
 
@@ -708,3 +752,9 @@ Agent B's v0.7.0 work (B1-B7) is currently uncommitted in the working tree:
 ### Shared Files
 
 No shared files are touched by both agents in v0.7.1. Agent A owns `aitbc/bridge/` exclusively. Agent B owns `apps/`, `cli/`, and `aitbc/constants.py` exclusively. The only cross-dependency is Agent B importing from Agent A's `aitbc.bridge` package (B6 imports `verify_threshold_signatures`, `ValidatorSetRegistry`).
+
+---
+
+**Documentation Version**: 1.0
+**Last Updated**: 2026-06-30
+**Release**: v0.7.1 — Bridge Security Layer
