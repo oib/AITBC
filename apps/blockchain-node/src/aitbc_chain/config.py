@@ -399,5 +399,18 @@ class ChainSettings(BaseSettings):
     keystore_path: Path = KEYSTORE_DIR
     keystore_password_file: Path = KEYSTORE_DIR / ".password"
 
+    # Multi-validator consensus (v0.7.5). Master toggle for activating
+    # MultiValidatorPoA + PBFT. When False, single-validator PoA remains
+    # active. The RuntimeError guards in multi_validator_poa.py and pbft.py
+    # read this setting instead of the old MULTI_VALIDATOR_CONSENSUS_ENABLED
+    # env var. Keep False until all v0.7.5 fixes are verified (B14 passes).
+    multi_validator_consensus_enabled: bool = False  # master toggle
+    consensus_view_change_timeout_seconds: int = 30  # H6 — timeout before view change
+    consensus_round_timeout_seconds: int = 10  # per-round timeout
+    consensus_validator_set_epoch_blocks: int = 7200  # C3 — epoch length for rotation
+    consensus_slashing_enabled: bool = True  # C2 — enable slashing
+    consensus_slashing_amount: float = 100.0  # stake to slash per offense
+    consensus_byzantine_threshold: int = 3  # slash count before deactivation
+
 
 settings = ChainSettings()
