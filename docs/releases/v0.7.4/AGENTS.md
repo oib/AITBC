@@ -1,5 +1,8 @@
 # v0.7.4 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Deferred v0.7.x Items — External Oracle, Cross-Chain Governance, Parameter Automation, Emergency Proposals, Coordinator-API Bridge Integration, MultiValidatorPoA Activation
 
 **Goal**: Implement the 7 items deferred from v0.7.0-v0.7.3 that were tagged "deferred to v0.8.x" but never assigned to a specific release. These are bridge/governance/consensus items that belong in the v0.7.x track.
@@ -11,6 +14,46 @@
 > **Risk**: Medium-High. MultiValidatorPoA activation is consensus-critical (requires security review). External oracle adds external dependency. Cross-chain governance touches the bridge path. Low-risk items: parameter automation, emergency proposals.
 
 > **Consider phasing**: Low-risk items (parameter automation, emergency proposals) can ship first. High-risk items (MultiValidatorPoA, external oracle) need security review and can ship later.
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (ExternalOracleClient, oracle fallback, cross-chain governance)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (oracle config, governance endpoints, parameter APIs, MultiValidatorPoA)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets-2026-06-29)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [ExternalOracleClient](./agent-a.md#a1-externaloracleclient)
+- [Oracle Fallback Policy](./agent-a.md#a2-oracle-fallback-policy)
+- [Cross-Chain Governance Utilities](./agent-a.md#a3-cross-chain-governance-utilities)
+- [Parameter Change Execution](./agent-a.md#a4-parameter-change-execution)
+- [Unit Tests](./agent-a.md#a5-unit-tests)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Oracle Config](./agent-b.md#b1-oracle-config)
+- [Cross-Chain Governance Endpoints](./agent-b.md#b2-cross-chain-governance-endpoints)
+- [Pool-Hub Parameter API](./agent-b.md#b3-pool-hub-parameter-api)
+- [Marketplace Parameter API](./agent-b.md#b4-marketplace-parameter-api)
+- [Emergency Proposal Handling](./agent-b.md#b5-emergency-proposal-handling)
+- [Coordinator-API Bridge Integration](./agent-b.md#b6-integrate-coordinator-api-with-bridgeclient)
+- [MultiValidatorPoA Activation](./agent-b.md#b7-multivalidatorpoa-activation--deferred-to-v075)
+- [CLI Commands](./agent-b.md#b8-add-cli-commands)
+- [Integration Tests](./agent-b.md#b9-integration-tests)
 
 ---
 
@@ -56,6 +99,12 @@
 **Conflict boundary**: Agent A owns `aitbc/bridge/oracle.py` and `aitbc/governance/`. Agent B owns `apps/`, `cli/`. Agent B consumes Agent A's oracle client, governance types, and cross-chain governance utilities.
 
 **Sequencing**: Agent A goes first (shared SDK). Agent B starts after Agent A completes relevant tasks. Low-risk items (parameter automation, emergency proposals) can proceed independently.
+
+---
+
+**Documentation Version**: 1.0
+**Last Updated**: 2026-06-30
+**Release**: v0.7.4 — Deferred v0.7.x Items
 
 ---
 

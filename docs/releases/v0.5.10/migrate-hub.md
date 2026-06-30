@@ -1,5 +1,8 @@
 # v0.5.10 Hub Migration Runbook
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Node**: `hub.aitbc.bubuit.net` (PoA authority)
 **Chain ID**: `ait-hub.aitbc.bubuit.net`
 **Date**: 2026-06-23
@@ -18,7 +21,47 @@ This is the step-by-step runbook for migrating the **hub node** to v0.5.10. The 
 
 ---
 
-## Pre-flight Checks
+## Documentation Structure
+
+This migration runbook has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Migration overview and documentation structure
+- **[Pre-flight Checks](./pre-flight-checks.md)** - Pre-migration verification (P1-P7)
+- **[Migration Steps](./migration-steps.md)** - Step-by-step hub migration procedure (Step 1-11)
+- **[Follower Instructions](./follower-instructions.md)** - Follower node migration procedures
+- **[Troubleshooting](./troubleshooting.md)** - Common issues and solutions
+- **[Rollback](./rollback.md)** - Rollback procedures if migration fails
+
+---
+
+## Quick Navigation
+
+### Pre-flight Checks
+- [P1. Code is deployed](./pre-flight-checks.md#p1-code-is-deployed)
+- [P2. Services are currently running](./pre-flight-checks.md#p2-services-are-currently-running)
+- [P3. Database is accessible and has data](./pre-flight-checks.md#p3-database-is-accessible-and-has-data)
+- [P4. Disk space for backups](./pre-flight-checks.md#p4-disk-space-for-backups)
+- [P5. Genesis file exists](./pre-flight-checks.md#p5-genesis-file-exists)
+- [P6. Redis is running](./pre-flight-checks.md#p6-redis-is-running)
+- [P7. Notify follower operators](./pre-flight-checks.md#p7-notify-follower-operators)
+
+### Migration Steps
+- [Step 1. Announce maintenance start](./migration-steps.md#step-1-announce-maintenance-start)
+- [Step 2. Stop all services](./migration-steps.md#step-2-stop-all-services)
+- [Step 3. Manual backup](./migration-steps.md#step-3-manual-backup-in-addition-to-script-backup)
+- [Step 4. Run the migration script](./migration-steps.md#step-4-run-the-migration-script)
+- [Step 5. Verify migration results](./migration-steps.md#step-5-verify-migration-results)
+- [Step 6. Verify genesis.json was scaled](./migration-steps.md#step-6-verify-genesisjson-was-scaled)
+- [Step 7. Flush Redis cache](./migration-steps.md#step-7-flush-redis-cache)
+- [Step 8. Restart services](./migration-steps.md#step-8-restart-services)
+- [Step 9. Post-migration verification](./migration-steps.md#step-9-post-migration-verification)
+- [Step 10. Test a transaction](./migration-steps.md#step-10-test-a-transaction-optional-but-recommended)
+- [Step 11. Announce migration complete](./migration-steps.md#step-11-announce-migration-complete)
+
+### Related Topics
+- [Follower Instructions](./follower-instructions.md) - Follower node procedures
+- [Troubleshooting](./troubleshooting.md) - Common issues and solutions
+- [Rollback](./rollback.md) - Rollback procedures
 
 Complete these **before** the maintenance window. All items must pass.
 

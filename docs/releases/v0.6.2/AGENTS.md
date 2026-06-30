@@ -1,5 +1,8 @@
 # v0.6.2 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Sync & Gossip Optimization — gossip protocol redesign, parallel sync, delta sync.
 
 **Goal**: Reduce block propagation latency and initial sync time by (1) adding message prioritization and batching to the gossip broker, (2) enabling parallel block fetching from multiple peers, and (3) implementing delta-based state synchronization for fast catch-up.
@@ -9,6 +12,45 @@
 > **Prerequisites**: [v0.6.0](../v0.6.0/change.log) (network compression — `GZ:` prefix scheme) and [v0.6.1](../v0.6.1/change.log) (parallel processing — `DependencyGraph`, `ParallelExecutor`, pure state transitions). Both are complete (354+87 tests passing).
 
 > **Risk**: Medium. Gossip changes affect all peers (protocol versioning). Sync changes are behind feature flags. Mitigated by: (1) backward compatibility with v1 peers, (2) feature flags defaulting to off, (3) fallback to sequential sync.
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, architecture, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (peer capability tracking, state diff computation, message priority queue, unit tests)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (gossip prioritization, parallel sync, delta sync, config, CLI, integration tests)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets-from-subagent-investigation)
+- [Architecture: Parallel Sync Approach](./overview.md#architecture-parallel-sync-approach)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [PeerCapabilityTracker](./agent-a.md#a1-peercapabilitytracker)
+- [StateDiff](./agent-a.md#a2-statediff)
+- [PriorityMessageQueue](./agent-a.md#a3-prioritymessagequeue)
+- [Unit tests + verify clean](./agent-a.md#a4-unit-tests--verify-clean)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Add gossip + sync config](./agent-b.md#b1-add-gossip--sync-config)
+- [Wire up PriorityMessageQueue](./agent-b.md#b2-wire-up-prioritymessagequeue-in-gossipbrokerpy)
+- [Add message batching](./agent-b.md#b3-add-message-batching-to-gossipbrokerpy)
+- [Wire up PeerCapabilityTracker](./agent-b.md#b4-wire-up-peercapabilitytracker-in-syncpy)
+- [Wire up parallel sync](./agent-b.md#b5-wire-up-parallel-sync-in-syncpy-bulk_import_from)
+- [Wire up delta sync](./agent-b.md#b6-wire-up-delta-sync-in-syncpy)
+- [Add sync status CLI command](./agent-b.md#b7-add-sync-status-cli-command)
+- [Integration tests](./agent-b.md#b8-integration-tests)
 
 ---
 
@@ -72,6 +114,12 @@
 | **Agent B** | Apps & infrastructure | 8 items | `apps/blockchain-node/src/aitbc_chain/` (gossip, sync, config), `cli/`, `tests/` |
 
 **Conflict boundary**: Agent A owns new `aitbc/sync/` and `aitbc/gossip/` modules. Agent B owns `apps/blockchain-node/` files. Agent B consumes Agent A's utilities — see Coordination Protocol.
+
+---
+
+**Documentation Version**: 1.0
+**Last Updated**: 2026-06-30
+**Release**: v0.6.2 — Sync & Gossip Optimization
 
 ---
 

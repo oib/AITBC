@@ -8,7 +8,7 @@
 
 New AITBC nodes automatically receive 100 free AIT tokens on their first coin request via WebSocket. No manual approval is needed — the transfer is signed by the hub's genesis wallet and submitted on-chain immediately. Further requests require manual approval.
 
-**Alternative Method**: If you have ETH, you can also purchase AIT tokens through the [ETH-to-AIT Bridge](../releases/RELEASE_v0.4.14.md#eth-to-ait-bridge) on Sepolia testnet.
+**Alternative Method**: If you have ETH, you can also purchase AIT tokens through the bridge on Sepolia testnet. See [Release Notes](../releases/README.md) for current bridge documentation.
 
 ## Quick Start
 
@@ -241,7 +241,7 @@ aitbc coin-requests approve req-follower-1782118362
 aitbc coin-requests execute req-follower-1782118362
 ```
 
-Alternatively, use the [ETH-to-AIT Bridge](../releases/RELEASE_v0.4.14.md#eth-to-ait-bridge) for additional tokens without manual approval.
+Alternatively, use the bridge for additional tokens without manual approval. See [Release Notes](../releases/README.md) for current bridge documentation.
 
 ### Balance Not Updated After Transfer
 

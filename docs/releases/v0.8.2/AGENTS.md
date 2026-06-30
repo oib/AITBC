@@ -1,5 +1,8 @@
 # v0.8.2 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Advanced Offer Sync — Subscription-Based Sync, Real-Time Notifications, Gossip Propagation, Optional Search Index
 
 **Goal**: Upgrade cross-chain offer synchronization from polling-based (v0.8.1) to subscription-based with real-time notifications. Offers are pushed to subscribers via WebSocket and gossip pub/sub, eliminating polling latency. Optional external search index for advanced queries.
@@ -9,6 +12,42 @@
 > **Prerequisites**: [v0.8.1](../v0.8.1/change.log) (Agent A ✅ `b3f3ef57d`, Agent B ⬜ pending), [v0.8.0](../v0.8.0/change.log), [v0.7.0](../v0.7.0/change.log) ✅, [v0.7.1](../v0.7.1/change.log) ✅, [v0.7.2](../v0.7.2/change.log) ✅.
 
 > **Risk**: Low-Medium. This is an enhancement layer on v0.8.1. No consensus-critical path is touched. The main risk is WebSocket connection management (reconnection, backpressure) and gossip event ordering. Polling-based sync (v0.8.1) remains as fallback.
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (offer event types, subscription client, search index)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (WebSocket endpoints, gossip integration, CLI, tests)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets-2026-06-29)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [Offer event types](./agent-a.md#a1-offer-event-types)
+- [Offer subscription client](./agent-a.md#a2-offer-subscription-client)
+- [Search index integration](./agent-a.md#a3-search-index-integration-optional)
+- [Unit tests](./agent-a.md#a4-unit-tests)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Offer event publishing](./agent-b.md#b1-offer-event-publishing)
+- [Offer WebSocket endpoint](./agent-b.md#b2-offer-websocket-endpoint)
+- [Gossip integration](./agent-b.md#b3-gossip-integration)
+- [Subscription endpoints](./agent-b.md#b4-subscription-endpoints)
+- [CLI commands](./agent-b.md#b5-cli-commands)
+- [Tests](./agent-b.md#b6-tests)
 
 ---
 
@@ -335,6 +374,12 @@ offer_search_index_api_key: str = ""  # empty = no auth (dev mode)
 **Conflict boundary**: Agent A owns `aitbc/trading/subscription_*.py` (new files) and `offer_types.py` (extend). Agent B owns `apps/trading/`, `cli/`, `apps/blockchain-node/`. Agent B consumes Agent A's `OfferSubscriptionClient`, subscription types, and offer event types.
 
 **Sequencing**: Agent A goes first (shared SDK). Agent B starts after Agent A completes A1-A3 (B2-B4 depend on A1 types + A2 client). B1 (config) can proceed in parallel with Agent A.
+
+---
+
+**Documentation Version**: 1.0
+**Last Updated**: 2026-06-30
+**Release**: v0.8.2 — Advanced Offer Sync
 
 ---
 

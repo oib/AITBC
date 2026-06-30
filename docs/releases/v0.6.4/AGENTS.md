@@ -1,5 +1,8 @@
 # v0.6.4 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Multi-Chain Per Island — Parallel Block Streams, MultiChainManager Activation, Island-Level Chain Registry.
 
 **Goal**: Enable an island to host multiple parallel block streams (chains), each producing blocks independently with its own genesis, block height, state, and mempool — but sharing the same island identity, P2P network, and validator set. Wire up the existing dead-code `MultiChainManager`, make `IslandMembership` hold multiple chain_ids, and activate multi-chain block production within a single island.
@@ -12,7 +15,47 @@
 
 ---
 
-## Status Baseline — Verified Code Targets (from subagent investigation)
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, architecture, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (PortAllocator, ChainConfigParser, unit tests)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (config, IslandMembership, MultiChainManager, CLI, tests)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets)
+- [Already Implemented](./overview.md#already-implemented-verified--no-work-needed)
+- [Architecture](./overview.md#architecture-multi-chain-per-island)
+- [join_island() Caller Inventory](./overview.md#join_island-caller-inventory-8-call-sites--atomic-refactor-required)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [PortAllocator](./agent-a.md#a1-portallocator)
+- [ChainConfigParser](./agent-a.md#a2-chainconfigparser)
+- [Unit Tests](./agent-a.md#a3-unit-tests)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Config Fields](./agent-b.md#b1-add-config-fields)
+- [IslandMembership Refactor](./agent-b.md#b2-refactor-islandmembership)
+- [Atomic join_island Refactor](./agent-b.md#b3-atomic-join_island-refactor)
+- [MultiChainManager Wiring](./agent-b.md#b4-wire-multichainmanager-into-mainpy)
+- [Threshold Guards](./agent-b.md#b5-threshold-guards)
+- [CLI Commands](./agent-b.md#b6-cli-commands)
+- [make_genesis.py Multi-Genesis](./agent-b.md#b7-make_genesispy-multi-genesis)
+- [Integration Tests](./agent-b.md#b8-integration-tests)
+- [Verification](./agent-b.md#b9-verify-full-test-suite)
+- [Dependency Graph](./agent-b.md#dependency-graph)
+- [Coordination](./agent-b.md#coordination)
+- [Success Criteria](./agent-b.md#success-criteria)
 
 | Component | Location | Current State | v0.6.4 Target |
 |-----------|----------|---------------|---------------|

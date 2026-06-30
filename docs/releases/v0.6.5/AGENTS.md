@@ -1,5 +1,8 @@
 # v0.6.5 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Agent Coordination Service — Registration, Task Queues, Swarm Coordination, Workflow Execution, Blockchain Payment Integration.
 
 **Goal**: Mature the agent-coordinator service into a production-ready coordination layer for AI agents. Add chain_id/island_id awareness to agent registration and task submission, implement blockchain payment escrow for task execution, and harden the service for production.
@@ -9,6 +12,43 @@
 > **Prerequisites**: [v0.5.16](../v0.5.16/change.log) (chain_id-aware transaction submission — Bug 15/16 fixed), [v0.6.3](../v0.6.3/change.log) (Multi-Island Node Support), [v0.6.4](../v0.6.4/change.log) (Multi-Chain Per Island). v0.5.16 fixes verified in codebase. v0.6.4 in progress.
 
 > **Risk**: Medium. Adding chain_id/island_id to models is backward compatible (optional fields). Payment escrow adds blockchain transaction overhead. Mitigated by: (1) optional chain_id (defaults to DEFAULT_CHAIN_ID), (2) payment escrow feature-flagged, (3) all changes in agent-coordinator app only.
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, architecture, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (PaymentEscrow utility, unit tests)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (agent-coordinator service integration)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets-from-subagent-investigation)
+- [Already Fixed](./overview.md#already-fixed-verified--no-work-needed)
+- [Architecture: Agent Coordination with Chain Awareness](./overview.md#architecture-agent-coordination-with-chain-awareness)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [PaymentEscrow](./agent-a.md#a1-paymentescrow)
+- [Unit tests](./agent-a.md#a2-unit-tests)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Add config fields](./agent-b.md#b1-add-config-fields)
+- [Add chain_id/island_id to agent models](./agent-b.md#b2-add-chain_idisland_id-to-agent-models)
+- [Add chain_id/payment to task models](./agent-b.md#b3-add-chain_idpayment-to-task-models--escrow-integration)
+- [Add chain_id to swarm + workflow models](./agent-b.md#b4-add-chain_id-to-swarm--workflow-models)
+- [Make agent TTL configurable](./agent-b.md#b5-make-agent-ttl-configurable)
+- [Integration tests](./agent-b.md#b6-integration-tests)
+- [Verify full test suite](./agent-b.md#b7-verify-full-test-suite--mypy--ruff-clean)
 
 ---
 
@@ -82,6 +122,12 @@
 | **Agent B** | Apps & infrastructure | 7 items | `apps/agent-coordinator/` (config, models, routers, routing), `tests/` |
 
 **Conflict boundary**: Agent A owns new `aitbc/` utilities. Agent B owns all `apps/agent-coordinator/` files. Agent B consumes Agent A's utilities.
+
+---
+
+**Documentation Version**: 1.0
+**Last Updated**: 2026-06-30
+**Release**: v0.6.5 — Agent Coordination Service
 
 ---
 

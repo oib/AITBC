@@ -496,7 +496,7 @@ python -m governance_service.main
 
 **Documentation:**
 - Service README: `/opt/aitbc/apps/governance/README.md`
-- Release Notes: `/opt/aitbc/docs/releases/RELEASE_v0.4.12.md`
+- Release Notes: `/opt/aitbc/docs/releases/README.md` - Current release documentation
 
 **Issue Reporting:**
 - Collect logs
