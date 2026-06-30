@@ -744,3 +744,79 @@ def instances_cmd(ctx, node_url, island):
         for c in chains
     ]
     output(rows, ctx.obj.get("output_format", "table"), title="Chain Instances")
+
+
+# ============================================================================
+# v0.7.4 §B8: Consensus CLI commands
+# ============================================================================
+
+
+@chain.group(name="consensus")
+def consensus_group():
+    """Consensus-related commands (v0.7.4)"""
+    pass
+
+
+@consensus_group.command(name="status")
+@click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def consensus_status(ctx, node_url: str, format: str):
+    """Show consensus mode and configuration"""
+    try:
+        client = AITBCHTTPClient(base_url=node_url, timeout=10)
+        try:
+            result = client.get("/rpc/bridge/security-status")
+        except NetworkError:
+            result = {}
+        finally:
+            client.close()
+
+        consensus_info = {
+            "mode": "PoA (single proposer)",
+            "multi_validator_enabled": False,
+            "bridge_multisig_enabled": result.get("multisig_enabled", False),
+            "bridge_multisig_threshold": result.get("threshold", 3),
+            "bridge_multisig_validators": result.get("validator_count", 5),
+            "bridge_release_enabled": result.get("release_enabled", False),
+            "node_url": node_url,
+        }
+        output(consensus_info, ctx.obj.get("output_format", format), title="Consensus Status")
+    except Exception as e:
+        error(f"Error getting consensus status: {e}")
+
+
+@consensus_group.command(name="validators")
+@click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
+@click.option("--chain-id", default="ait-hub", help="Chain ID to query validators for")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def consensus_validators(ctx, node_url: str, chain_id: str, format: str):
+    """List active validators for a chain"""
+    try:
+        client = AITBCHTTPClient(base_url=node_url, timeout=10)
+        try:
+            result = client.get(f"/rpc/bridge/validators/{chain_id}")
+        except NetworkError as e:
+            error(f"Cannot connect to node at {node_url}: {e}")
+            return
+        finally:
+            client.close()
+
+        validators = result.get("validators", [])
+        if not validators:
+            output(f"No validators registered for chain {chain_id}", ctx.obj.get("output_format", format))
+            return
+
+        rows = [
+            {
+                "Address": v.get("address", "N/A"),
+                "Epoch": v.get("epoch", "N/A"),
+                "Active": v.get("is_active", "N/A"),
+                "Public Key": v.get("public_key", "N/A")[:20] + "..." if v.get("public_key") else "N/A",
+            }
+            for v in validators
+        ]
+        output(rows, ctx.obj.get("output_format", format), title=f"Validators for {chain_id}")
+    except Exception as e:
+        error(f"Error listing validators: {e}")
