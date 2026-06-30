@@ -49,6 +49,17 @@ class Settings(BaseSettings):
     # Per-chain staleness overrides (JSON env var)
     offer_per_chain_staleness: dict[str, int] = Field(default_factory=dict)
 
+    # v0.8.2: Offer subscription settings
+    offer_subscription_enabled: bool = Field(default=True)
+    offer_subscription_debounce_ms: int = Field(default=1000)
+    offer_subscription_fallback_to_polling: bool = Field(default=True)
+    offer_subscription_reconnect_delay_seconds: int = Field(default=5)
+    offer_subscription_heartbeat_seconds: int = Field(default=20)
+    # v0.8.2: Optional search index
+    offer_search_index_enabled: bool = Field(default=False)
+    offer_search_index_backend: str = Field(default="meilisearch")
+    offer_search_index_url: str = Field(default="http://localhost:7700")
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
