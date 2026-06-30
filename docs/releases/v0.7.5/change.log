@@ -1,7 +1,7 @@
 # AITBC v0.7.5 Release Notes
 
-**Date**: TBD
-**Status**: 🚧 Planned
+**Date**: 2026-06-30
+**Status**: ✅ Code Complete — Testnet soak test pending
 **Scope**: Consensus Activation — MultiValidatorPoA + PBFT (fix security review findings, then activate)
 
 ## 🎯 Overview
@@ -18,37 +18,65 @@ AITBC v0.7.5 activates MultiValidatorPoA and PBFT consensus after the security r
 
 ## 🎯 Release Highlights
 
-### Must-Fix Before Activation (from security review)
+### Security Findings — All 12 Fixed & Verified ✅
 
-#### Critical (6)
-- **C1**: Block signature verification in `validate_block()` (ed25519)
-- **C2**: Slashing mechanism for Byzantine validators (stake slash + deactivate + broadcast)
-- **C3**: Validator rotation (epoch-based, on-chain)
-- **C4**: PBFT message signatures (sign + verify every message)
-- **C5**: PBFT network transport (replace no-op `_send_to_validator` with gossip layer)
-- **C6**: `record_prepare` must reject conflicting messages, not return True
+#### Critical (6) — All Fixed
+- ✅ **C1**: Block signature verification in `validate_block()` (secp256k1)
+- ✅ **C2**: Slashing mechanism for Byzantine validators (stake slash + deactivate + broadcast)
+- ✅ **C3**: Validator rotation (epoch-based, on-chain)
+- ✅ **C4**: PBFT message signatures (sign + verify every message)
+- ✅ **C5**: PBFT network transport (replaced no-op `_send_to_validator` with gossip layer)
+- ✅ **C6**: `record_prepare` rejects conflicting messages and triggers slashing
 
-#### High (6)
-- **H1**: Real consensus in `attempt_consensus()` (message exchange, not majority check)
-- **H2**: Real transaction validation (delegate to existing PoA path)
-- **H3**: Real block creation (parent hash, tx root, state root — not `sha256(time)`)
-- **H4**: Dynamic fault tolerance recalculation (not static at init)
-- **H5**: Safe view change with prepared certificate preservation
-- **H6**: View change timeout for liveness
+#### High (6) — All Fixed
+- ✅ **H1**: Real consensus in `attempt_consensus()` (message exchange via PBFT)
+- ✅ **H2**: Real transaction validation (delegates to existing PoA path)
+- ✅ **H3**: Real block creation (parent hash, tx hashes, state root — not `sha256(time)`)
+- ✅ **H4**: Dynamic fault tolerance recalculation (updates per round, not static at init)
+- ✅ **H5**: Safe view change with prepared certificate preservation
+- ✅ **H6**: View change timeout for liveness (configurable, default 30s)
 
-### Must-Test Before Activation
-- Byzantine validator detection + slashing test
-- Block forgery rejection test (invalid signature)
-- View change safety test (committed block preserved across view change)
-- Network partition recovery test
-- Multi-node PBFT integration test (≥3 nodes, 1 Byzantine)
-- Proposer crash → view change → recovery test
+### Test Audit Results — 41/41 Tests Passing ✅
 
-### Operational Requirements
-- Consensus state persistence (survive node restart)
-- Consensus metrics (validator count, consensus rounds, view changes, byzantine detections)
-- Rollback plan (document how to disable if issues found post-activation)
-- Testnet deployment + soak test (≥48h) before mainnet
+**Audit Date**: 2026-06-30
+
+| Test Suite | Tests | Status |
+|---|---|---|
+| `test_consensus_integration.py` | 7 | ✅ All Passed |
+| `test_multi_validator_poa.py` | 22 | ✅ All Passed |
+| `test_pbft.py` | 12 | ✅ All Passed |
+
+#### Security Finding → Test Coverage Matrix
+
+| Finding | Test(s) | Status |
+|---|---|---|
+| **C1** Block signature verification | `test_validate_block_accepts_valid_signature`, `test_validate_block_rejects_forged_signature`, `test_validate_block_rejects_unsigned_when_required` | ✅ |
+| **C2** Slashing mechanism | `test_byzantine_detection_triggers_slashing`, `test_slashing_reduces_stake`, `test_slashing_deactivates_after_threshold` | ✅ |
+| **C3** Validator rotation | `test_validator_rotation_epoch_transition` | ✅ |
+| **C4** PBFT message signatures | `test_reject_unsigned_message_when_key_set` | ✅ |
+| **C5** PBFT network transport | `test_gossip_transport_publishes`, `test_gossip_transport_receives` | ✅ |
+| **C6** `record_prepare` rejects conflicts | `test_record_prepare_rejects_conflicting` | ✅ |
+| **H1** Real consensus | `test_full_consensus_round`, `test_quorum_reached` | ✅ |
+| **H2** Real tx validation | `test_validate_transaction_rejects_negative_amount`, `test_validate_transaction_rejects_empty_chain_id` | ✅ |
+| **H3** Real block creation | `test_create_block_includes_parent_hash`, `test_create_block_includes_tx_hashes` | ✅ |
+| **H4** Dynamic fault tolerance | `test_dynamic_fault_tolerance` | ✅ |
+| **H5** Safe view change | `test_view_change_preserves_committed`, `test_view_change_clears_uncommitted` | ✅ |
+| **H6** View change timeout | `test_view_change_recovery` | ✅ |
+
+#### Additional Verified Scenarios
+
+| Scenario | Test | Status |
+|---|---|---|
+| State persistence | `test_state_persistence_save_load` | ✅ |
+| Multi-node PBFT | `test_multi_node_pbft` | ✅ |
+| Byzantine slashing | `test_byzantine_validator_slashed` | ✅ |
+| Block forgery rejection | `test_block_forgery_rejected` | ✅ |
+| Network partition recovery | `test_network_partition_recovery` | ✅ |
+| Metrics collection | `test_collect_metrics` | ✅ |
+
+### Remaining Gate (Process, Not Code)
+
+- ⏳ **Testnet soak test ≥48h** (≥3 nodes, 1 Byzantine) — script created at `scripts/testing/soak_test_consensus.py`
 
 ## 🔧 Breaking Changes
 
@@ -84,13 +112,22 @@ AITBC v0.7.5 activates MultiValidatorPoA and PBFT consensus after the security r
 - ✅ All 6 must-test scenarios pass
 - ✅ Consensus state persists across node restarts
 - ✅ Consensus metrics exposed
-- ✅ Testnet soak test passes (≥48h, no chain splits)
-- ✅ Rollback plan documented
-- ✅ `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` in production config
+- ⏳ Testnet soak test passes (≥48h, no chain splits) — script ready, execution pending
+- ⏳ Rollback plan documented
+- ⏳ `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` in production config
+
+## 🔄 Rollback Plan
+
+If issues are found post-activation:
+
+1. Set `multi_validator_consensus_enabled = false` in `apps/blockchain-node/src/aitbc_chain/config.py`
+2. Restart all blockchain-node instances
+3. Single-validator PoA resumes automatically (RuntimeError guards re-engage)
+4. Investigate consensus state in node databases before re-enabling
 
 ---
 
-*Last Updated: 2026-06-29*
+*Last Updated: 2026-06-30*
 *Version: 0.7.5*
-*Status: Planned*
+*Status: Code Complete — Testnet soak test pending*
 *Origin: Split from v0.7.4 B7 after [security review](../v0.7.4/security-review-multivalidator-poa.md)*
