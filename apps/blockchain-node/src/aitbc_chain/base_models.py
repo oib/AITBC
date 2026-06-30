@@ -359,3 +359,23 @@ class GovernanceVote(SQLModel, table=True):
     voting_power: int = Field(default=0)
     reason: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ConsensusState(SQLModel, table=True):
+    """Persisted multi-validator consensus state (v0.7.5 B11).
+
+    Survives node restart so that validator set, PBFT view/sequence,
+    and slashing history are not lost. One row per chain_id.
+    """
+
+    __tablename__ = "consensus_state"
+    __table_args__ = ({"extend_existing": True},)
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True, unique=True)
+    current_view: int = Field(default=0)
+    current_sequence: int = Field(default=0)
+    current_epoch: int = Field(default=0)
+    validator_set_json: str = Field(default="")  # JSON-serialized validator set
+    slashing_events_json: str = Field(default="[]")  # JSON-serialized slashing history
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

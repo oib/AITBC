@@ -759,26 +759,31 @@ def consensus_group():
 
 @consensus_group.command(name="status")
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
+@click.option("--chain-id", default="ait-hub", help="Chain ID to query consensus status for")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def consensus_status(ctx, node_url: str, format: str):
-    """Show consensus mode and configuration"""
+def consensus_status(ctx, node_url: str, chain_id: str, format: str):
+    """Show consensus mode, view, sequence, epoch, and fault tolerance (v0.7.5)"""
     try:
         client = AITBCHTTPClient(base_url=node_url, timeout=10)
         try:
-            result = client.get("/rpc/bridge/security-status")
+            result = client.get(f"/rpc/consensus/status?chain_id={chain_id}")
         except NetworkError:
             result = {}
         finally:
             client.close()
 
         consensus_info = {
-            "mode": "PoA (single proposer)",
-            "multi_validator_enabled": False,
-            "bridge_multisig_enabled": result.get("multisig_enabled", False),
-            "bridge_multisig_threshold": result.get("threshold", 3),
-            "bridge_multisig_validators": result.get("validator_count", 5),
-            "bridge_release_enabled": result.get("release_enabled", False),
+            "mode": result.get("mode", "PoA (single proposer)"),
+            "multi_validator_enabled": result.get("multi_validator_enabled", False),
+            "chain_id": chain_id,
+            "current_view": result.get("current_view", 0),
+            "current_sequence": result.get("current_sequence", 0),
+            "current_epoch": result.get("current_epoch", 0),
+            "fault_tolerance": result.get("fault_tolerance", 0),
+            "required_messages": result.get("required_messages", 0),
+            "active_validators": result.get("active_validators", 0),
+            "total_validators": result.get("total_validators", 0),
             "node_url": node_url,
         }
         output(consensus_info, ctx.obj.get("output_format", format), title="Consensus Status")
@@ -792,11 +797,11 @@ def consensus_status(ctx, node_url: str, format: str):
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def consensus_validators(ctx, node_url: str, chain_id: str, format: str):
-    """List active validators for a chain"""
+    """List active validators (address, stake, reputation, role, last_proposed) (v0.7.5)"""
     try:
         client = AITBCHTTPClient(base_url=node_url, timeout=10)
         try:
-            result = client.get(f"/rpc/bridge/validators/{chain_id}")
+            result = client.get(f"/rpc/consensus/validators?chain_id={chain_id}")
         except NetworkError as e:
             error(f"Cannot connect to node at {node_url}: {e}")
             return
@@ -811,12 +816,51 @@ def consensus_validators(ctx, node_url: str, chain_id: str, format: str):
         rows = [
             {
                 "Address": v.get("address", "N/A"),
-                "Epoch": v.get("epoch", "N/A"),
+                "Stake": v.get("stake", "N/A"),
+                "Reputation": v.get("reputation", "N/A"),
+                "Role": v.get("role", "N/A"),
                 "Active": v.get("is_active", "N/A"),
-                "Public Key": v.get("public_key", "N/A")[:20] + "..." if v.get("public_key") else "N/A",
+                "Last Proposed": v.get("last_proposed", "N/A"),
             }
             for v in validators
         ]
         output(rows, ctx.obj.get("output_format", format), title=f"Validators for {chain_id}")
     except Exception as e:
         error(f"Error listing validators: {e}")
+
+
+@consensus_group.command(name="slashing-history")
+@click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
+@click.option("--chain-id", default="ait-hub", help="Chain ID to query slashing history for")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def consensus_slashing_history(ctx, node_url: str, chain_id: str, format: str):
+    """Show slashing events (validator, condition, amount, block height) (v0.7.5)"""
+    try:
+        client = AITBCHTTPClient(base_url=node_url, timeout=10)
+        try:
+            result = client.get(f"/rpc/consensus/slashing-history?chain_id={chain_id}")
+        except NetworkError as e:
+            error(f"Cannot connect to node at {node_url}: {e}")
+            return
+        finally:
+            client.close()
+
+        events = result.get("slashing_events", [])
+        if not events:
+            output(f"No slashing events for chain {chain_id}", ctx.obj.get("output_format", format))
+            return
+
+        rows = [
+            {
+                "Validator": e.get("validator_address", "N/A"),
+                "Condition": e.get("condition", "N/A"),
+                "Amount": e.get("slash_amount", "N/A"),
+                "Block Height": e.get("block_height", "N/A"),
+                "Timestamp": e.get("timestamp", "N/A"),
+            }
+            for e in events
+        ]
+        output(rows, ctx.obj.get("output_format", format), title=f"Slashing History for {chain_id}")
+    except Exception as e:
+        error(f"Error getting slashing history: {e}")

@@ -315,34 +315,50 @@ class TestThresholdGuards:
     """Test threshold guards on MultiValidatorPoA and PBFT."""
 
     def test_multi_validator_poa_blocked_without_env(self):
-        """MultiValidatorPoA raises RuntimeError without env var."""
+        """MultiValidatorPoA raises RuntimeError when consensus disabled in config."""
+        from aitbc_chain.config import settings
         from aitbc_chain.consensus.multi_validator_poa import MultiValidatorPoA
 
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("MULTI_VALIDATOR_CONSENSUS_ENABLED", None)
-            with pytest.raises(RuntimeError, match="THRESHOLD state"):
+        original = settings.multi_validator_consensus_enabled
+        settings.multi_validator_consensus_enabled = False
+        try:
+            with pytest.raises(RuntimeError, match="not yet activated"):
                 MultiValidatorPoA("test-chain")
+        finally:
+            settings.multi_validator_consensus_enabled = original
 
     def test_multi_validator_poa_allowed_with_env(self):
-        """MultiValidatorPoA works with env var set."""
+        """MultiValidatorPoA works when consensus enabled in config."""
+        from aitbc_chain.config import settings
         from aitbc_chain.consensus.multi_validator_poa import MultiValidatorPoA
 
-        with patch.dict(os.environ, {"MULTI_VALIDATOR_CONSENSUS_ENABLED": "true"}):
+        original = settings.multi_validator_consensus_enabled
+        settings.multi_validator_consensus_enabled = True
+        try:
             consensus = MultiValidatorPoA("test-chain")
             assert consensus.chain_id == "test-chain"
+        finally:
+            settings.multi_validator_consensus_enabled = original
 
     def test_pbft_blocked_without_env(self):
-        """PBFTConsensus raises RuntimeError without env var."""
+        """PBFTConsensus raises RuntimeError when consensus disabled in config."""
+        from aitbc_chain.config import settings
         from aitbc_chain.consensus.multi_validator_poa import MultiValidatorPoA
         from aitbc_chain.consensus.pbft import PBFTConsensus
 
-        with patch.dict(os.environ, {"MULTI_VALIDATOR_CONSENSUS_ENABLED": "true"}):
+        original = settings.multi_validator_consensus_enabled
+        settings.multi_validator_consensus_enabled = True
+        try:
             poa = MultiValidatorPoA("test-chain")
+        finally:
+            settings.multi_validator_consensus_enabled = original
 
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("MULTI_VALIDATOR_CONSENSUS_ENABLED", None)
-            with pytest.raises(RuntimeError, match="THRESHOLD state"):
+        settings.multi_validator_consensus_enabled = False
+        try:
+            with pytest.raises(RuntimeError, match="not yet activated"):
                 PBFTConsensus(poa)
+        finally:
+            settings.multi_validator_consensus_enabled = original
 
 
 # ---------------------------------------------------------------------------
