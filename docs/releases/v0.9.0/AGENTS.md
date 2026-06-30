@@ -75,12 +75,12 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/settlement/ 
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Create `aitbc/settlement/types.py` — EscrowStatus, SettlementStatus, HTLCState, CrossChainEscrow, EscrowProof, SettlementConfig, ProofChain types | 🔴 P0 | `aitbc/settlement/types.py` (new), `aitbc/settlement/__init__.py` (new) | ⬜ |
-| A2 | Create `aitbc/settlement/htlc.py` — secret generation, hashlock computation, timelock calculation, HTLC state machine | 🔴 P0 | `aitbc/settlement/htlc.py` (new) | ⬜ |
-| A3 | Create `aitbc/settlement/client.py` — SettlementClient async HTTP client for settlement RPC endpoints | 🔴 P0 | `aitbc/settlement/client.py` (new) | ⬜ |
-| A4 | Create `aitbc/settlement/proofs.py` — proof chaining utilities (lock proof → execution proof → release proof → settlement proof) | High | `aitbc/settlement/proofs.py` (new) | ⬜ |
-| A5 | Extend `aitbc/trading/types.py` — add settlement fields to InterChainTradeData, add SettlementPhase enum | High | `aitbc/trading/types.py` (extend), `aitbc/trading/__init__.py` (extend) | ⬜ |
-| A6 | Unit tests for A1-A5 | High | `tests/unit/test_settlement_sdk.py` (new) | ⬜ |
+| A1 | Create `aitbc/settlement/types.py` — EscrowStatus, SettlementStatus, HTLCState, CrossChainEscrow, EscrowProof, SettlementConfig, ProofChain types | 🔴 P0 | `aitbc/settlement/types.py` (new), `aitbc/settlement/__init__.py` (new) | ✅ |
+| A2 | Create `aitbc/settlement/htlc.py` — secret generation, hashlock computation, timelock calculation, HTLC state machine | 🔴 P0 | `aitbc/settlement/htlc.py` (new) | ✅ |
+| A3 | Create `aitbc/settlement/client.py` — SettlementClient async HTTP client for settlement RPC endpoints | 🔴 P0 | `aitbc/settlement/client.py` (new) | ✅ |
+| A4 | Create `aitbc/settlement/proofs.py` — proof chaining utilities (lock proof → execution proof → release proof → settlement proof) | High | `aitbc/settlement/proofs.py` (new) | ✅ |
+| A5 | Extend `aitbc/trading/types.py` — add settlement fields to InterChainTradeData, add SettlementPhase enum | High | `aitbc/trading/types.py` (extend), `aitbc/trading/__init__.py` (extend) | ✅ |
+| A6 | Unit tests for A1-A5 | High | `tests/unit/test_settlement_sdk.py` (new) | ✅ |
 
 ### Agent A — Detailed Instructions
 
@@ -387,18 +387,18 @@ cd /opt/aitbc && PYTHONPATH=apps/blockchain-node/src:apps/trading/src:aitbc ./ve
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Add escrow config to blockchain-node Settings | Medium | `apps/blockchain-node/src/aitbc_chain/config.py` (extend) | ⬜ |
-| B2 | Add CrossChainEscrow + EscrowProof SQLModel tables | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/base_models.py` (extend) | ⬜ |
-| B3 | Implement CrossChainSettlementService — escrow lifecycle, HTLC coordination, timeout monitoring | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py` (new) | ⬜ |
-| B4 | Integrate HTLC contract calls — replace bridge_enhanced.py stubs with real contract interaction | 🔴 P0 | `apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/bridge_enhanced.py` (rewrite HTLC section) | ⬜ |
-| B5 | Add settlement RPC endpoints to blockchain-node | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/rpc/bridge.py` (extend), `apps/blockchain-node/src/aitbc_chain/rpc/router.py` (extend) | ⬜ |
-| B6 | Add settlement endpoints to trading service | High | `apps/trading/src/trading_service/main.py` (extend) | ⬜ |
-| B7 | Extend InterChainTrade model with settlement fields | High | `apps/trading/src/trading_service/domain/inter_chain.py` (extend) | ⬜ |
-| B8 | Implement atomic settlement coordinator — orchestrates lock → verify → execute → settle (or refund) | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/cross_chain/settlement_coordinator.py` (new) | ⬜ |
-| B9 | Add CLI commands — `trade lock-escrow`, `trade settle`, `trade settlement-status` | Medium | `cli/aitbc_cli/commands/trade.py` (extend) | ⬜ |
-| B10 | Enable bridge confirm path — wire v0.7.2 proof verification, remove `BRIDGE_RELEASE_ENABLED` gate | High | `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` (extend) | ⬜ |
-| B11 | Chaos testing infrastructure — settlement-specific partition/reorg/timeout/Byzantine/oracle scenarios | High | `tests/harness/settlement_chaos.py` (new), `tests/integration/test_atomic_settlement.py` (new) | ⬜ |
-| B12 | Integration tests — full settlement lifecycle, timeout/refund, proof chain verification, multi-node | 🔴 P0 | `apps/blockchain-node/tests/test_settlement.py` (new), `tests/integration/test_atomic_settlement.py` (extend) | ⬜ |
+| B1 | Add escrow config to blockchain-node Settings | Medium | `apps/blockchain-node/src/aitbc_chain/config.py` (extend) | ✅ |
+| B2 | Add CrossChainEscrow + EscrowProof SQLModel tables | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/base_models.py` (extend) | ✅ |
+| B3 | Implement CrossChainSettlementService — escrow lifecycle, HTLC coordination, timeout monitoring | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py` (new) | ✅ |
+| B4 | Integrate HTLC contract calls — replace bridge_enhanced.py stubs with real contract interaction | 🔴 P0 | `apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/bridge_enhanced.py` (rewrite HTLC section) | ✅ |
+| B5 | Add settlement RPC endpoints to blockchain-node | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/rpc/bridge.py` (extend), `apps/blockchain-node/src/aitbc_chain/rpc/router.py` (extend) | ✅ |
+| B6 | Add settlement endpoints to trading service | High | `apps/trading/src/trading_service/main.py` (extend) | ✅ |
+| B7 | Extend InterChainTrade model with settlement fields | High | `apps/trading/src/trading_service/domain/inter_chain.py` (extend) | ✅ |
+| B8 | Implement atomic settlement coordinator — orchestrates lock → verify → execute → settle (or refund) | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/cross_chain/settlement_coordinator.py` (new) | ✅ |
+| B9 | Add CLI commands — `trade lock-escrow`, `trade settle`, `trade settlement-status` | Medium | `cli/aitbc_cli/commands/trade.py` (extend) | ✅ |
+| B10 | Enable bridge confirm path — wire v0.7.2 proof verification, remove `BRIDGE_RELEASE_ENABLED` gate | High | `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` (extend) | ✅ |
+| B11 | Chaos testing infrastructure — settlement-specific partition/reorg/timeout/Byzantine/oracle scenarios | High | `tests/harness/settlement_chaos.py` (new), `tests/integration/test_atomic_settlement.py` (new) | ✅ |
+| B12 | Integration tests — full settlement lifecycle, timeout/refund, proof chain verification, multi-node | 🔴 P0 | `apps/blockchain-node/tests/test_settlement.py` (new), `tests/integration/test_atomic_settlement.py` (extend) | ✅ |
 
 ### Agent B — Detailed Instructions
 
