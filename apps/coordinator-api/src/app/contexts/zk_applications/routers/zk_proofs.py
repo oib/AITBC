@@ -7,14 +7,9 @@ Provides REST API endpoints for:
 - Circuit information
 """
 
-# mypy: ignore-errors
-# NOTE: ZK proof library (tenseal/snarkjs) has incomplete type stubs.
-# This router uses placeholder/stub API that doesn't match the current service implementation.
-# Target fix: 2026-07-30 - Add custom type stubs or align router with service API.
-
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
@@ -29,19 +24,18 @@ router = APIRouter(prefix="/zk", tags=["zk-proofs"])
 class GenerateProofRequest(BaseModel):
     """Request to generate a ZK proof"""
 
-    job_id: str
-    miner_id: str
-    input_data: dict[str, Any]
-    output_data: dict[str, Any]
-    result_value: int
-    pricing_rate: int
-    privacy_level: str = "basic"
+    circuit_name: str = "receipt_simple"
+    inputs: dict[str, Any]
+    private_inputs: dict[str, Any] | None = None
 
 
 class VerifyProofRequest(BaseModel):
     """Request to verify a ZK proof"""
 
     proof: dict[str, Any]
+    public_signals: list[str]
+    verification_key: dict[str, Any] | None = None
+    test_mode: bool = False
 
 
 class ProofResponse(BaseModel):
@@ -49,8 +43,9 @@ class ProofResponse(BaseModel):
 
     success: bool
     proof: dict[str, Any]
-    commitment: str
-    timestamp: str
+    proof_id: str
+    circuit_type: str
+    public_signals: list[Any]
 
 
 class VerificationResponse(BaseModel):
@@ -78,20 +73,20 @@ async def generate_proof(request: Request, req: GenerateProofRequest) -> ProofRe
         zk_service = zk_proof_service
 
         result = await zk_service.generate_proof(
-            job_id=req.job_id,
-            miner_id=req.miner_id,
-            input_data=req.input_data,
-            output_data=req.output_data,
-            result_value=req.result_value,
-            pricing_rate=req.pricing_rate,
-            privacy_level=req.privacy_level,
+            circuit_name=req.circuit_name,
+            inputs=req.inputs,
+            private_inputs=req.private_inputs,
         )
 
-        if not result.get("success"):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.get("error", "Proof generation failed"))
+        if result is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Proof generation failed")
 
         return ProofResponse(
-            success=True, proof=result["proof"], commitment=result["commitment"], timestamp=result["timestamp"]
+            success=True,
+            proof=result["proof"],
+            proof_id=result["proof_id"],
+            circuit_type=result["circuit_type"],
+            public_signals=result["public_signals"],
         )
 
     except HTTPException:
@@ -117,12 +112,17 @@ async def verify_proof(request: Request, req: VerifyProofRequest) -> Verificatio
     try:
         zk_service = zk_proof_service
 
-        result = await zk_service.verify_proof(req.proof)
+        result = await zk_service.verify_proof(
+            proof=req.proof,
+            public_signals=req.public_signals,
+            verification_key=req.verification_key,
+            test_mode=req.test_mode,
+        )
 
         return VerificationResponse(
             verified=result["verified"],
-            computation_correct=result["computation_correct"],
-            privacy_preserved=result["privacy_preserved"],
+            computation_correct=result.get("computation_correct", False),
+            privacy_preserved=result.get("privacy_preserved", False),
             reason=result.get("reason", result.get("error", "Unknown")),
             commitment=result.get("commitment", "unknown"),
         )
@@ -134,10 +134,13 @@ async def verify_proof(request: Request, req: VerifyProofRequest) -> Verificatio
 @router.get("/info", summary="Get circuit information")
 @rate_limit(rate=100, per=60)
 async def get_circuit_info(request: Request) -> dict[str, Any]:
-    """Get information about the ZK circuit and setup parameters"""
+    """Get information about available ZK circuits and setup parameters"""
     try:
         zk_service = zk_proof_service
-        return cast(dict[str, Any], zk_service.get_circuit_info())
+        return {
+            "enabled": zk_service.is_enabled(),
+            "available_circuits": list(zk_service.available_circuits.keys()),
+        }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get circuit info: {str(e)}"
@@ -149,11 +152,9 @@ async def health_check(request: Request) -> dict[str, Any]:
     """Check if ZK proof service is operational"""
     try:
         zk_service = zk_proof_service
-        info = zk_service.get_circuit_info()
         return {
-            "status": "healthy",
-            "circuit_type": info.get("circuit_type"),
-            "verification_method": info.get("verification_method"),
+            "status": "healthy" if zk_service.is_enabled() else "disabled",
+            "available_circuits": list(zk_service.available_circuits.keys()),
         }
     except Exception as e:
         return {"status": "unhealthy", "error": str(e)}
