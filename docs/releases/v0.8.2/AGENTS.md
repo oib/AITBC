@@ -480,15 +480,15 @@ cd /opt/aitbc && PYTHONPATH=apps/trading/src:aitbc ./venv/bin/python -m pytest a
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Add subscription config to trading service Settings | 🔴 P0 | `apps/trading/src/trading_service/config.py` (extend) | ⬜ |
-| B2 | Create WebSocket offer subscription endpoint — `/v1/trading/offers/subscribe` | 🔴 P0 | `apps/trading/src/trading_service/main.py` (extend) | ⬜ |
-| B3 | Integrate gossip broker — subscribe to `offers.{chain_id}`, update OfferCache on events | 🔴 P0 | `apps/trading/src/trading_service/services/offer_subscription_service.py` (new) | ⬜ |
-| B4 | Create notification service — saved query matching, debounced batches | Medium | `apps/trading/src/trading_service/services/offer_notification_service.py` (new) | ⬜ |
-| B5 | Add subscription status endpoint — `GET /v1/trading/offers/subscription-status` | Medium | `apps/trading/src/trading_service/main.py` (extend) | ⬜ |
-| B6 | Add CLI trade watch, subscription-status commands | Medium | `cli/aitbc_cli/commands/trade.py` (extend) | ⬜ |
-| B7 | Optional: Search index integration (Meilisearch preferred) | Low | `apps/trading/src/trading_service/services/offer_search_service.py` (new) | ⬜ |
-| B8 | Integration tests | High | `apps/trading/tests/test_v082_offer_subscription.py` (new) | ⬜ |
-| B9 | Optional: Publish offer changes to gossip in blockchain-node | Low | `apps/blockchain-node/src/aitbc_chain/rpc/marketplace.py` (extend) | ⬜ |
+| B1 | Add subscription config to trading service Settings | 🔴 P0 | `apps/trading/src/trading_service/config.py` (extend) | ✅ |
+| B2 | Create WebSocket offer subscription endpoint — `/v1/trading/offers/subscribe` | 🔴 P0 | `apps/trading/src/trading_service/main.py` (extend) | ✅ |
+| B3 | Integrate gossip broker — subscribe to `offers.{chain_id}`, update OfferCache on events | 🔴 P0 | `apps/trading/src/trading_service/services/offer_subscription_service.py` (new) | ✅ |
+| B4 | Create notification service — saved query matching, debounced batches | Medium | `apps/trading/src/trading_service/services/offer_notification_service.py` (new) | ✅ |
+| B5 | Add subscription status endpoint — `GET /v1/trading/offers/subscription-status` | Medium | `apps/trading/src/trading_service/main.py` (extend) | ✅ |
+| B6 | Add CLI trade watch, subscription-status commands | Medium | `cli/aitbc_cli/commands/trade.py` (extend) | ✅ |
+| B7 | Optional: Search index integration (Meilisearch preferred) | Low | `apps/trading/src/trading_service/services/offer_search_service.py` (new) | ✅ |
+| B8 | Integration tests | High | `apps/trading/tests/test_v082_offer_subscription.py` (new) | ✅ |
+| B9 | Optional: Publish offer changes to gossip in blockchain-node | Low | `apps/blockchain-node/src/aitbc_chain/rpc/marketplace.py` (extend) | ✅ |
 
 ### Agent B — Detailed Instructions
 

@@ -196,20 +196,20 @@ cd /opt/aitbc && PYTHONPATH=apps/blockchain-node/src:aitbc ./venv/bin/python -m 
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Add `MULTI_VALIDATOR_CONSENSUS_ENABLED` + consensus config to ChainSettings | Medium | `apps/blockchain-node/src/aitbc_chain/config.py` (extend) | ⬜ |
-| B2 | Rewrite `keys.py` — RSA → secp256k1 via `eth_keys` (use Agent A's `sign_block_hash`/`verify_block_signature`) | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/consensus/keys.py` (rewrite) | ⬜ |
-| B3 | **C1**: Add block signature verification to `validate_block()` — verify proposer signature via `verify_block_signature()` | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend) | ⬜ |
-| B4 | **C2 + C6**: Wire `SlashingManager` into MultiValidatorPoA — `record_prepare()` rejects conflicting messages, `detect_byzantine_behavior()` triggers slashing | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend) | ⬜ |
-| B5 | **C3**: Wire `ValidatorRotation` into MultiValidatorPoA — epoch-based rotation, call `should_rotate()`/`rotate_validators()` on block boundaries | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend) | ⬜ |
-| B6 | **C4**: Add PBFT message signatures — sign every message with sender's secp256k1 key, verify on receipt, reject unsigned/invalid | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/consensus/pbft.py` (extend) | ⬜ |
-| B7 | **C5**: Implement PBFT network transport via gossip broker — replace `_send_to_validator()` no-op with `gossip.publish()` to PBFT topics | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/consensus/pbft.py` (extend) | ⬜ |
-| B8 | **H1**: Replace `attempt_consensus()` stub with real PBFT delegation — pre-prepare → prepare → commit → execute | High | `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend) | ⬜ |
-| B9 | **H2 + H3**: Fix `validate_transaction_async()` and `create_block()` — delegate to PoA's state transition + block creation path | High | `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend) | ⬜ |
-| B10 | **H4 + H5 + H6**: Fix PBFT fault tolerance (dynamic recalc), safe view change (preserve prepared certificates), view change timeout | High | `apps/blockchain-node/src/aitbc_chain/consensus/pbft.py` (extend) | ⬜ |
-| B11 | Add consensus state persistence — `ConsensusState` SQLModel for validator set + PBFT state, survive node restart | Medium | `apps/blockchain-node/src/aitbc_chain/base_models.py` (extend), `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend) | ⬜ |
-| B12 | Add consensus metrics — validator count, consensus rounds, view changes, Byzantine detections | Low | `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend), `apps/blockchain-node/src/aitbc_chain/observability/` (extend) | ⬜ |
-| B13 | Add CLI commands — `consensus validators`, `consensus status`, `consensus slashing-history` | Medium | `cli/aitbc_cli/commands/chain.py` (extend) | ⬜ |
-| B14 | Comprehensive consensus test suite — Byzantine detection + slashing, block forgery rejection, view change safety, network partition recovery, multi-node PBFT integration | 🔴 P0 | `apps/blockchain-node/tests/consensus/test_multi_validator_poa.py` (extend), `apps/blockchain-node/tests/consensus/test_pbft.py` (new), `apps/blockchain-node/tests/consensus/test_consensus_integration.py` (new) | ⬜ |
+| B1 | Add `MULTI_VALIDATOR_CONSENSUS_ENABLED` + consensus config to ChainSettings | Medium | `apps/blockchain-node/src/aitbc_chain/config.py` (extend) | ✅ |
+| B2 | Rewrite `keys.py` — RSA → secp256k1 via `eth_keys` (use Agent A's `sign_block_hash`/`verify_block_signature`) | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/consensus/keys.py` (rewrite) | ✅ |
+| B3 | **C1**: Add block signature verification to `validate_block()` — verify proposer signature via `verify_block_signature()` | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend) | ✅ |
+| B4 | **C2 + C6**: Wire `SlashingManager` into MultiValidatorPoA — `record_prepare()` rejects conflicting messages, `detect_byzantine_behavior()` triggers slashing | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend) | ✅ |
+| B5 | **C3**: Wire `ValidatorRotation` into MultiValidatorPoA — epoch-based rotation, call `should_rotate()`/`rotate_validators()` on block boundaries | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend) | ✅ |
+| B6 | **C4**: Add PBFT message signatures — sign every message with sender's secp256k1 key, verify on receipt, reject unsigned/invalid | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/consensus/pbft.py` (extend) | ✅ |
+| B7 | **C5**: Implement PBFT network transport via gossip broker — replace `_send_to_validator()` no-op with `gossip.publish()` to PBFT topics | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/consensus/pbft.py` (extend) | ✅ |
+| B8 | **H1**: Replace `attempt_consensus()` stub with real PBFT delegation — pre-prepare → prepare → commit → execute | High | `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend) | ✅ |
+| B9 | **H2 + H3**: Fix `validate_transaction_async()` and `create_block()` — delegate to PoA's state transition + block creation path | High | `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend) | ✅ |
+| B10 | **H4 + H5 + H6**: Fix PBFT fault tolerance (dynamic recalc), safe view change (preserve prepared certificates), view change timeout | High | `apps/blockchain-node/src/aitbc_chain/consensus/pbft.py` (extend) | ✅ |
+| B11 | Add consensus state persistence — `ConsensusState` SQLModel for validator set + PBFT state, survive node restart | Medium | `apps/blockchain-node/src/aitbc_chain/base_models.py` (extend), `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend) | ✅ |
+| B12 | Add consensus metrics — validator count, consensus rounds, view changes, Byzantine detections | Low | `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend), `apps/blockchain-node/src/aitbc_chain/observability/` (extend) | ✅ |
+| B13 | Add CLI commands — `consensus validators`, `consensus status`, `consensus slashing-history` | Medium | `cli/aitbc_cli/commands/chain.py` (extend) | ✅ |
+| B14 | Comprehensive consensus test suite — Byzantine detection + slashing, block forgery rejection, view change safety, network partition recovery, multi-node PBFT integration | 🔴 P0 | `apps/blockchain-node/tests/consensus/test_multi_validator_poa.py` (extend), `apps/blockchain-node/tests/consensus/test_pbft.py` (new), `apps/blockchain-node/tests/consensus/test_consensus_integration.py` (new) | ✅ |
 
 ### Agent B — Detailed Instructions
 
