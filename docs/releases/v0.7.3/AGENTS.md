@@ -263,14 +263,14 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/governance/tests/test_v073_gov
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Add governance service Settings class (blockchain_rpc_url, chain_id, voting params) | 🔴 P0 | `apps/governance/src/governance_service/config.py` (new) | ⬜ |
-| B2 | Add blockchain RPC client to governance service (query balance, submit txs) | 🔴 P0 | `apps/governance/src/governance_service/clients/blockchain.py` (new) | ⬜ |
-| B3 | On-chain proposal submission — GOVERNANCE_PROPOSE tx | 🔴 P0 | `apps/governance/src/governance_service/services/governance_service.py`, `main.py` | ⬜ |
-| B4 | On-chain voting with balance snapshot — GOVERNANCE_VOTE tx | 🔴 P0 | `apps/governance/src/governance_service/services/governance_service.py`, `main.py` | ⬜ |
-| B5 | Timelock execution — GOVERNANCE_EXECUTE tx after timelock | 🔴 P0 | `apps/governance/src/governance_service/services/governance_service.py`, `main.py` | ⬜ |
-| B6 | Add domain model fields — chain_id, block_height, tx_hash on Proposal/Vote | High | `apps/governance/src/governance_service/domain/governance.py` | ⬜ |
-| B7 | Add GOVERNANCE_* tx type validation in blockchain-node poa.py | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/consensus/poa.py` | ⬜ |
-| B8 | CLI governance commands + integration tests | High | `cli/aitbc_cli/commands/governance.py` (new), `apps/governance/tests/test_v073_governance.py` (new) | ⬜ |
+| B1 | Add governance service Settings class (blockchain_rpc_url, chain_id, voting params) | 🔴 P0 | `apps/governance/src/governance_service/config.py` (new) | ✅ |
+| B2 | Add blockchain RPC client to governance service (query balance, submit txs) | 🔴 P0 | `apps/governance/src/governance_service/clients/blockchain.py` (new) | ✅ |
+| B3 | On-chain proposal submission — GOVERNANCE_PROPOSE tx | 🔴 P0 | `apps/governance/src/governance_service/services/governance_service.py`, `main.py` | ✅ |
+| B4 | On-chain voting with balance snapshot — GOVERNANCE_VOTE tx | 🔴 P0 | `apps/governance/src/governance_service/services/governance_service.py`, `main.py` | ✅ |
+| B5 | Timelock execution — GOVERNANCE_EXECUTE tx after timelock | 🔴 P0 | `apps/governance/src/governance_service/services/governance_service.py`, `main.py` | ✅ |
+| B6 | Add domain model fields — chain_id, block_height, tx_hash on Proposal/Vote | High | `apps/governance/src/governance_service/domain/governance.py` | ✅ |
+| B7 | Add GOVERNANCE_* tx type validation in blockchain-node poa.py | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/consensus/poa.py` | ✅ |
+| B8 | CLI governance commands + integration tests | High | `cli/aitbc_cli/commands/governance.py` (new), `apps/governance/tests/test_v073_governance.py` (new) | ✅ |
 
 ### Agent B — Detailed Instructions
 

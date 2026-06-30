@@ -580,13 +580,13 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/test_bri
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Add bridge config fields + bridge constants | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/config.py`, `aitbc/constants.py` | ⬜ |
-| B2 | Add missing RPC endpoints: unlock, balance, health, status alias, batch | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/rpc/bridge.py`, `apps/blockchain-node/src/aitbc_chain/rpc/router.py`, `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` | ⬜ |
-| B3 | Fix CLI bridge commands — replace broken stubs with BridgeClient calls | 🔴 P0 | `cli/aitbc_cli/commands/bridge.py` | ⬜ |
-| B4 | Add bridge monitoring — health checks, stuck transfer detection, metrics | High | `apps/blockchain-node/src/aitbc_chain/network/bridge_manager.py` | ⬜ |
-| B5 | Wire CLI node bridge commands to actual RPC | Medium | `cli/aitbc_cli/commands/node/bridge.py` | ⬜ |
-| B6 | Integration tests — unlock, balance, health, batch, monitoring, CLI | 🔴 P0 | `apps/blockchain-node/tests/test_v070_bridge_basics.py` (new) | ⬜ |
-| B7 | Verify mypy + ruff + pytest clean | High | — | ⬜ |
+| B1 | Add bridge config fields + bridge constants | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/config.py`, `aitbc/constants.py` | ✅ |
+| B2 | Add missing RPC endpoints: unlock, balance, health, status alias, batch | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/rpc/bridge.py`, `apps/blockchain-node/src/aitbc_chain/rpc/router.py`, `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` | ✅ |
+| B3 | Fix CLI bridge commands — replace broken stubs with BridgeClient calls | 🔴 P0 | `cli/aitbc_cli/commands/bridge.py` | ✅ |
+| B4 | Add bridge monitoring — health checks, stuck transfer detection, metrics | High | `apps/blockchain-node/src/aitbc_chain/network/bridge_manager.py` | ✅ |
+| B5 | Wire CLI node bridge commands to actual RPC | Medium | `cli/aitbc_cli/commands/node/bridge.py` | ✅ |
+| B6 | Integration tests — unlock, balance, health, batch, monitoring, CLI | 🔴 P0 | `apps/blockchain-node/tests/test_v070_bridge_basics.py` (new) | ✅ |
+| B7 | Verify mypy + ruff + pytest clean | High | — | ✅ |
 
 ### Agent B — Detailed Instructions
 
