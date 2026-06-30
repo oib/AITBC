@@ -45,6 +45,13 @@ class InterChainTrade(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+    # v0.9.0 §B7: Atomic settlement (HTLC) fields
+    escrow_id: str | None = None  # cross-chain escrow ID (set when escrow created)
+    settlement_phase: str = Field(default="none", index=True)  # SettlementPhase value
+    secret_hash: str = ""  # SHA256 hash of the HTLC secret (the hashlock)
+    source_timelock: int = 0  # source chain timelock (block height)
+    dest_timelock: int = 0  # destination chain timelock (must be < source)
+
 
 class IslandRegistryEntry(SQLModel, table=True):
     """Registry of known AITBC chains for inter-chain trading."""
