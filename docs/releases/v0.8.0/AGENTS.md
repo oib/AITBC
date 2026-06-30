@@ -1,5 +1,8 @@
 # v0.8.0 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Inter-Chain Trading Basics — Island Registry, Chain Discovery, Inter-Chain Trade Requests, Basic Matching
 
 **Goal**: Extend the existing `apps/trading/` service (1011 lines, P2P agent-to-agent) with inter-chain trading capabilities: InterChainTrade schema, island registry, chain discovery, inter-chain trade lifecycle, basic matching engine, CLI commands. Defer atomic cross-chain settlement to v0.9.0 and cross-chain offer sync to v0.8.1.
@@ -17,6 +20,46 @@
 > **Prerequisites**: [v0.7.0](../v0.7.0/change.log) ✅, [v0.7.1](../v0.7.1/change.log) ✅, [v0.7.2](../v0.7.2/change.log) ✅, [v0.6.3](../v0.6.3/change.log) ✅, [v0.6.4](../v0.6.4/change.log) ✅, [v0.6.6](../v0.6.6/change.log) ✅, [v0.6.7](../v0.6.7/change.log) ✅.
 
 > **Risk**: Medium. The existing trading service is SQLite-based and P2P-only. Adding inter-chain fields and bridge integration is additive (new tables, new endpoints, new client). The main risk is the matching engine across chains (price-time priority with chain-aware routing). No consensus-critical path is touched — trading is an off-chain service that submits transactions to the blockchain node via RPC.
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, architecture, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (trading types, trading client, bridge integration, unit tests)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (trading config, domain models, RPC clients, chain discovery, trade lifecycle, matching engine, CLI, integration tests)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets-2026-06-29)
+- [Already Fixed / Exists](./overview.md#already-fixed--exists-verified--no-work-needed)
+- [Architecture](./overview.md#architecture-inter-chain-trading-v080)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [Trading Types](./agent-a.md#a1-trading-types)
+- [Trading Client](./agent-a.md#a2-trading-client)
+- [Bridge Integration Utilities](./agent-a.md#a3-bridge-integration-utilities)
+- [Unit Tests](./agent-a.md#a4-unit-tests)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Trading Service Config](./agent-b.md#b1-trading-service-config)
+- [Inter-Chain Domain Models](./agent-b.md#b2-inter-chain-domain-models)
+- [Blockchain/Bridge RPC Client](./agent-b.md#b3-blockchainbridge-rpc-client)
+- [Chain Discovery](./agent-b.md#b4-chain-discovery)
+- [Inter-Chain Trade Lifecycle](./agent-b.md#b5-inter-chain-trade-lifecycle)
+- [Basic Matching Engine](./agent-b.md#b6-basic-matching-engine)
+- [CLI Trade Command Group](./agent-b.md#b7-cli-trade-command-group)
+- [Integration Tests](./agent-b.md#b8-integration-tests)
 
 ---
 
@@ -421,7 +464,12 @@ Use `TradingClient` from A2 for all RPC calls.
 - Chain discovery (register, list, health)
 - Inter-chain trade lifecycle (create → list → get → status → history)
 - Matching engine (price-time priority, cross-chain matching)
-- CLI commands (smoke tests)
+
+---
+
+**Documentation Version**: 1.0
+**Last Updated**: 2026-06-30
+**Release**: v0.8.0 — Inter-Chain Trading Basics
 
 ---
 

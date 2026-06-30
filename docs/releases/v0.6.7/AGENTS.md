@@ -1,5 +1,8 @@
 # v0.6.7 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Pool Hub & Mining — Blockchain Reward Distribution, Miner Registration on-chain, Job Completion Payment.
 
 **Goal**: Wire the existing pool-hub service (3,855 lines, two parallel implementations) into the blockchain payment layer. Add chain_id awareness, reward policy constants, and a single end-to-end flow: job completed → reward paid via blockchain transaction. Register miners on-chain via agent-coordinator.
@@ -9,6 +12,47 @@
 > **Prerequisites**: [v0.6.5](../v0.6.5/change.log) (Agent Coordination — miners register as agents), [v0.6.6](../v0.6.6/change.log) (Compute Marketplace — jobs come from marketplace matches), [v0.5.16](../v0.5.16/change.log) (chain_id-aware transactions). v0.6.6 Agent A complete (OfferFSM + BlockchainRPCClient available in `aitbc.marketplace`).
 
 > **Risk**: Medium. Reward distribution adds blockchain transaction overhead. The two parallel implementations need consolidation. Mitigated by: (1) reward distribution is feature-flagged (default off), (2) consolidation is additive (SQLModel version already works), (3) chain_id is optional (defaults to `DEFAULT_CHAIN_ID`).
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, architecture, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (RewardPolicy, TransactionService fix, unit tests)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (pool-hub settings, blockchain client, reward distribution, miner registration, tests)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets)
+- [Already Fixed / Exists](./overview.md#already-fixed--exists-verified--no-work-needed)
+- [Architecture](./overview.md#architecture-pool-hub-with-blockchain-rewards)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [RewardPolicy](./agent-a.md#a1-rewardpolicy)
+- [TransactionService Fix](./agent-a.md#a2-fix-transactionservice-stale-port--chain_id)
+- [Unit Tests](./agent-a.md#a3-unit-tests)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Pool-hub Settings](./agent-b.md#b1-pool-hub-settings)
+- [PoolHubBlockchainClient](./agent-b.md#b2-poolhubblockchainclient)
+- [Miner Registration](./agent-b.md#b3-miner-registration-with-chain_id)
+- [Reward Distribution](./agent-b.md#b4-wire-reward-distribution-into-job-completion)
+- [RewardPayout Model](./agent-b.md#b5-rewardpayout-model)
+- [Deprecation Notice](./agent-b.md#b6-deprecate-srcapp-in-memory-implementation)
+- [Integration Tests](./agent-b.md#b7-integration-tests)
+- [Dependency Graph](./agent-b.md#dependency-graph)
+- [Coordination](./agent-b.md#coordination)
+- [Success Criteria](./agent-b.md#success-criteria)
 
 ---
 

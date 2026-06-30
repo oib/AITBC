@@ -1,5 +1,8 @@
 # v0.6.6 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Compute Marketplace — GPU Offers, Edge Serving, Marketplace Matching, Blockchain-Backed Service Registration.
 
 **Goal**: Connect the marketplace, GPU, and edge services into a functioning compute marketplace. Add chain_id awareness to offer discovery, implement a formal offer state machine, add payment verification to edge serving, and integrate marketplace matching with agent-coordinator task queues.
@@ -9,6 +12,45 @@
 > **Prerequisites**: [v0.6.5](../v0.6.5/change.log) (Agent Coordination — task assignment, PaymentEscrow), [v0.6.3](../v0.6.3/change.log) (Multi-Island), [v0.6.4](../v0.6.4/change.log) (Multi-Chain Per Island), [v0.5.16](../v0.5.16/change.log) (chain_id-aware transactions). All verified complete.
 
 > **Risk**: Medium. Changes are backward compatible (optional chain_id, feature-flagged payment). Schema fixes in edge service are breaking but the existing code is already broken (runtime errors from schema mismatch). Mitigated by: (1) all offer FSM changes are additive, (2) payment verification is feature-flagged, (3) edge schema fixes fix already-broken code.
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, architecture, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (OfferFSM, BlockchainRPCClient, unit tests)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (marketplace, GPU, edge services integration)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets-from-subagent-investigation)
+- [Already Fixed](./overview.md#already-fixed-verified--no-work-needed)
+- [Architecture: Compute Marketplace with Chain Awareness](./overview.md#architecture-compute-marketplace-with-chain-awareness)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [OfferFSM](./agent-a.md#a1-offerfsm)
+- [BlockchainRPCClient](./agent-a.md#a2-blockchainrpcclient)
+- [Unit tests](./agent-a.md#a3-unit-tests)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Marketplace config](./agent-b.md#b1-marketplace-config)
+- [GPU service config](./agent-b.md#b2-gpu-service-config)
+- [Marketplace integration](./agent-b.md#b3-marketplace-use-blockchainrpcclient-a1)
+- [GPU service integration](./agent-b.md#b4-gpu-service-use-blockchainrpcclient-a1)
+- [Edge service fixes](./agent-b.md#b5-edge-service-fix-schema-mismatches)
+- [Marketplace matching](./agent-b.md#b6-marketplace-matching)
+- [Integration tests](./agent-b.md#b7-integration-tests)
+- [Verify full test suite](./agent-b.md#b8-verify-full-test-suite--ruff--mypy-clean)
 
 ---
 
@@ -91,6 +133,12 @@
 | **Agent B** | Apps & infrastructure | 8 items | `apps/marketplace/`, `apps/gpu/`, `apps/edge/`, `tests/` |
 
 **Conflict boundary**: Agent A owns new `aitbc/marketplace/` utilities. Agent B owns all `apps/marketplace/`, `apps/gpu/`, `apps/edge/` files. Agent B consumes Agent A's utilities. No shared files are touched by both agents.
+
+---
+
+**Documentation Version**: 1.0
+**Last Updated**: 2026-06-30
+**Release**: v0.6.6 — Compute Marketplace
 
 ---
 

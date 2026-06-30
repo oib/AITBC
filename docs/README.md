@@ -5,8 +5,8 @@
 **Level**: All Levels
 **Prerequisites**: Basic computer skills
 **Estimated Time**: Varies by learning path
-**Last Updated**: 2026-06-05
-**Version**: 6.8 (June 5, 2026 Update - service stability fixes, operational status, and enhanced documentation)
+**Last Updated**: 2026-06-30
+**Version**: 7.0 (June 30, 2026 Update - documentation cleanup and link fixes)
 
 ## 🧭 **Navigation Path:**
 
@@ -82,7 +82,7 @@ Core implementation is complete. Remaining tasks are external dependencies for v
 - **Distribution & Binaries (5)**: Debian miner binary, vLLM integration, GitHub Releases, CI/CD building, signature verification
 - **Quality Assurance (2)**: Cross-platform validation, security penetration testing
 
-See [Development Roadmap](ROADMAP.md) for complete list of remaining tasks.
+See [Release Notes](releases/README.md) for current development status and remaining tasks.
 
 ### 🚀 **Production Deployment Status**
 
@@ -131,11 +131,11 @@ See [Development Roadmap](ROADMAP.md) for complete list of remaining tasks.
 
 | **I'm a...** | **Start Here** | **Next Steps** | **Goal** |
 |--------------|----------------|----------------|---------|
-| **👤 New User** | [Getting Started](guides/getting-started/) | [CLI Basics](cli/) | Use AITBC effectively |
-| **👨‍💻 Developer** | [Project Structure](project/) | [Blockchain](blockchain/) | Build on AITBC |
+| **👤 New User** | [Getting Started](getting-started/) | [CLI Basics](cli/) | Use AITBC effectively |
+| **👨‍💻 Developer** | [Blockchain](blockchain/) | [Development](development/) | Build on AITBC |
 | **⛏️ Miner** | [Mining Guide](mining/) | [Blockchain](blockchain/) | Run mining operations |
 | **🔧 Admin** | [CLI](cli/) | [Infrastructure](deployment/) | Manage systems |
-| **🎓 Expert** | [Archive](archive/README.md) | Deep expertise |
+| **🎓 Expert** | [Master Index](MASTER_INDEX.md) | Deep expertise |
 
 ### 📚 **Documentation Map:**
 ```
@@ -160,12 +160,9 @@ See [Development Roadmap](ROADMAP.md) for complete list of remaining tasks.
 ### 🟢 **Getting Started** (Beginner Content)
 For new users, developers getting started, and basic operational tasks.
 
-- [`guides/getting-started/`](./guides/getting-started/) - Introduction, installation, and basic setup
-- [`project/`](./project/) - Project overview and basic concepts
-- [`clients/`](./clients/) - Client setup and basic usage
+- [`getting-started/`](./getting-started/) - Introduction, installation, and basic setup
 - [`mining/`](./mining/) - Mining operations and basic node management
 - [`cli/`](./cli/) - Command-line interface basics
-- [`reports/github-resolution/`](./reports/github-resolution/) - GitHub PR resolution and updates
 
 ### 🤖 **Agent SDK Documentation**
 For agent agents wanting to communicate and collaborate on the blockchain.
@@ -206,19 +203,17 @@ For historical reference, duplicate content, and temporary files.
 ## 🚀 **Quick Navigation**
 
 ### **For New Users**
-1. Start with [`guides/getting-started/`](./guides/getting-started/)
+1. Start with [`getting-started/`](./getting-started/)
 2. Learn basic CLI commands in [`cli/`](./cli/)
-3. Set up your first client in [`clients/`](./clients/)
 
 ### **For Developers**
-1. Review [`project/planning/`](./project/planning/) for development roadmap
-2. Study [`agents/`](./agents/) for agent development
-3. Reference [`architecture/`](./architecture/) for system design
+1. Study [`agents/`](./agents/) for agent development
+2. Reference [`architecture/`](./architecture/) for system design
+3. Review [`development/`](./development/) for development workflow
 
 ### **For System Administrators**
 1. Review [`deployment/`](./deployment/) for deployment strategies
 2. Study [`security/`](./security/) for security implementation
-3. Check [`archive/expert/issues/`](./archive/expert/issues/) for historical issue resolution
 
 ## 🏷️ **File Naming Convention**
 
@@ -229,16 +224,15 @@ Files are organized with descriptive names based on their content and purpose.
 
 ### 📚 **Documentation Navigation:**
 - **🏠 Main Docs**: [← Back to Overview](./README.md) (you are here)
-- **📖 About Docs**: [Documentation Organization](about/DOCS_ORGANIZATION_ANALYSIS.md)
-- **✅ Compliance Audit**: [Docs Compliance Checklist](about/DOCUMENTATION_COMPLIANCE_AUDIT.md)
-- **🎯 Quality Roadmap**: [10/10 Quality Plan](about/DOCS_10_10_ROADMAP.md)
+- **📖 Meta Docs**: [Documentation Standards](meta/README.md)
+- **✅ Compliance Audit**: [Docs Compliance Checklist](meta/DOCUMENTATION_COMPLIANCE_AUDIT.md)
+- **🎯 Quality Roadmap**: [10/10 Quality Plan](meta/DOCS_10_10_ROADMAP.md)
 - **🗂️ Archive Guide**: [Archive Organization](archive/README.md)
 - **✅ Completed Projects**: [Project Completion Tracking](archive/completed/README.md)
 - **🚀 Deployment**: [Deployment Documentation](deployment/README.md)
 - **📖 Reference**: [Reference Documentation](reference/README.md)
 - **📋 Releases**: [Release Notes](releases/README.md)
 - **📊 Reports**: [Reports Documentation](reports/README.md)
-- **🎯 Development Roadmap**: [Current Open Tasks](ROADMAP.md)
 - **📑 Summaries**: [Summaries Documentation](archive/summaries/README.md)
 - **🧵 Trail**: [Trail Documentation](archive/trail/README.md)
 - **🔄 Workflows**: [Workflows Documentation](workflows/README.md)
@@ -272,8 +266,7 @@ Files are organized with descriptive names based on their content and purpose.
 - **🔒 Security**: [Security](security/) → [Security](security/)
 
 ### 📁 **Topic-Specific Entry Points:**
-- **📖 Guides**: [Guides](guides/README.md) - Documentation authoring and usage guides
-- **👛 CLI Technical**: [CLI](cli/README.md) - CLI installation and usage notes
+- ** CLI Technical**: [CLI](cli/README.md) - CLI installation and usage notes
 - **🤖 Agent Integration Assets**: [agents/](agents/) - Agent API spec and manifest assets
 - **📜 Contracts**: [Contracts](contracts/) - ZK verification and contract docs
 - **🧩 agent**: [agent](agent/) - agent agent integration and coordination docs
@@ -281,7 +274,6 @@ Files are organized with descriptive names based on their content and purpose.
 - **🧪 Testing**: [Testing](testing/README.md) - Test suite documentation and validation procedures
 
 ### 📊 **Project Documentation:**
-- **📋 Project Overview**: [Project Documentation](project/) - Project information
 - **✅ Completed Work**: [Completed Projects](archive/completed/) - Finished tasks
 - **📈 Summaries**: [Project Summaries](archive/summaries/) - Project summaries
 - **🔄 Workflows**: [Workflows](workflows/) - Development workflows
@@ -290,7 +282,7 @@ Files are organized with descriptive names based on their content and purpose.
 - **📖 Documentation Issues**: [Report Doc Issues](https://github.com/oib/AITBC/issues)
 - **💬 Community Forum**: [AITBC Forum](https://forum.aitbc.net)
 - **🆘 Technical Support**: [AITBC Support](https://support.aitbc.net)
-- **📚 Learning Resources**: [Additional Resources](guides/getting-started/)
+- **📚 Learning Resources**: [Master Index](MASTER_INDEX.md)
 
 ---
 
@@ -334,14 +326,14 @@ Files are organized with descriptive names based on their content and purpose.
 - **GitHub Repository**: [AITBC Source Code](https://github.com/oib/AITBC)
 - **CLI Reference**: [Complete CLI Documentation](./cli/)
 - **Testing Suite**: [Test Results and Procedures](./cli/testing.md)
-- **Development Setup**: [Environment Configuration](./guides/getting-started/)
+- **Development Setup**: [Environment Configuration](./getting-started/)
 
 ### 📚 **Documentation Standards:**
-- **📖 About Hub**: [About Documentation](about/README.md)
-- **✅ Compliance Audit**: [Docs Compliance Checklist](about/DOCUMENTATION_COMPLIANCE_AUDIT.md)
-- **📋 Template Standard**: [Documentation Template](about/DOCUMENTATION_TEMPLATE_STANDARD.md)
-- **🎯 Quality Roadmap**: [10/10 Quality Plan](about/DOCS_10_10_ROADMAP.md)
-- **📊 Organization Analysis**: [Structure Assessment](about/DOCS_ORGANIZATION_ANALYSIS.md)
+- **📖 Meta Hub**: [Documentation Standards](meta/README.md)
+- **✅ Compliance Audit**: [Docs Compliance Checklist](meta/DOCUMENTATION_COMPLIANCE_AUDIT.md)
+- **📋 Template Standard**: [Documentation Template](meta/DOCUMENTATION_TEMPLATE_STANDARD.md)
+- **🎯 Quality Roadmap**: [10/10 Quality Plan](meta/DOCS_10_10_ROADMAP.md)
+- **📊 Organization Analysis**: [Structure Assessment](meta/DOCS_ORGANIZATION_ANALYSIS.md)
 
 ### 🆘 **Help & Support:**
 - **📖 Documentation Issues**: [Report Doc Issues](https://github.com/oib/AITBC/issues)
@@ -376,7 +368,7 @@ Complete documentation for all AITBC applications and services
 - [Trading Engine](apps/exchange/trading-engine.md) - Trading engine for order matching
 
 **Marketplace**
-- [Marketplace](apps/marketplace/marketplace.md) - GPU marketplace for compute resources
+- [Marketplace](apps/marketplace/marketplace.md) - Hardware+software bundle marketplace (GPU-only marketplace deprecated in v0.4.7)
 - [Pool Hub](apps/marketplace/pool-hub.md) - Pool hub for resource pooling
 
 **Wallet**
@@ -407,44 +399,35 @@ Complete documentation for all AITBC applications and services
 
 ### **🔧 CLI Documentation**
 
-**🎯 [CLI Overview](project/cli/CLI_DOCUMENTATION.md)**
+**🎯 [CLI Overview](cli/)**
 Complete command-line interface documentation
 
 | Section | Description |
 |---------|-------------|
-| [CLI Architecture](project/cli/CLI_DOCUMENTATION.md#architecture) | CLI structure and design |
-| [Command Groups](project/cli/CLI_DOCUMENTATION.md#command-groups) | Available command categories |
-| [Usage Examples](project/cli/CLI_DOCUMENTATION.md#usage-examples) | Common CLI operations |
-| [Configuration](project/cli/CLI_DOCUMENTATION.md#configuration) | CLI setup and config files |
+| [CLI README](cli/README.md) | CLI installation and usage notes |
+| [CLI Commands](cli/) | Available command categories and usage |
 
 ### **📋 Releases**
 
 **🎯 [Release Notes](releases/)**
 Complete release history and version information
 
-| Version | Date | Status | Key Features |
-|---------|------|--------|--------------|
-| [v0.3.2](releases/RELEASE_v0.3.2.md) | April 23, 2026 | ✅ Stable | Test infrastructure, CLI refactoring, CI/CD standardization |
-| [v0.3.1](releases/RELEASE_v0.3.1.md) | April 13, 2026 | ✅ Stable | Milestone tracking fix, test cleanup |
-| [v0.3.0](releases/RELEASE_v0.3.0.md) | March 30, 2026 | ✅ Stable | Multi-node sync, consensus improvements |
-| [v0.2.5](releases/RELEASE_v0.2.5.md) | March 30, 2026 | ✅ Stable | Enhanced monitoring, security hardening |
-| [v0.2.4](releases/RELEASE_v0.2.4.md) | March 15, 2026 | ✅ Stable | Exchange integration, marketplace improvements |
-| [v0.2.3](releases/RELEASE_v0.2.3.md) | March 1, 2026 | ✅ Stable | Initial production release |
+See [Release Index](releases/README.md) for the complete list of releases from v0.5.0 through v2.0.0. Legacy releases (v0.0.x through v0.4.x) are archived in the `archive/` subdirectory.
 
 ### **🏠 Main Documentation**
 
-**📖 [About Documentation](about/README.md)**
+**📖 [Meta Documentation](meta/README.md)**
 Documentation about the documentation system itself
 
 | File | Purpose |
 |------|---------|
-| [📖 About Index](about/README.md) | Overview of the documentation standards hub |
-| [✅ Compliance Audit](about/DOCUMENTATION_COMPLIANCE_AUDIT.md) | Current remediation checklist |
-| [📊 Organization Analysis](about/DOCS_ORGANIZATION_ANALYSIS.md) | Structure analysis and quality assessment |
-| [🎯 10/10 Roadmap](about/DOCS_10_10_ROADMAP.md) | Path to perfect documentation quality |
-| [🗂️ Archive Structure Fix](about/ARCHIVE_STRUCTURE_FIX.md) | Archive reorganization documentation |
-| [📚 Centralization Guide](about/CENTRALIZED_DOCS_STRUCTURE.md) | Documentation centralization process |
-| [📋 Sorting Summary](about/DOCUMENTATION_SORTING_SUMMARY.md) | Documentation sorting and organization |
+| [📖 Meta Index](meta/README.md) | Overview of the documentation standards hub |
+| [✅ Compliance Audit](meta/DOCUMENTATION_COMPLIANCE_AUDIT.md) | Current remediation checklist |
+| [📊 Organization Analysis](meta/DOCS_ORGANIZATION_ANALYSIS.md) | Structure analysis and quality assessment |
+| [🎯 10/10 Roadmap](meta/DOCS_10_10_ROADMAP.md) | Path to perfect documentation quality |
+| [🗂️ Archive Structure Fix](meta/ARCHIVE_STRUCTURE_FIX.md) | Archive reorganization documentation |
+| [📚 Centralization Guide](meta/CENTRALIZED_DOCS_STRUCTURE.md) | Documentation centralization process |
+| [📋 Sorting Summary](meta/DOCUMENTATION_SORTING_SUMMARY.md) | Documentation sorting and organization |
 
 **🤖 [Agent SDK Documentation](agent-sdk/)**
 Complete documentation for agent agent communication
@@ -529,19 +512,6 @@ Project tracking and completion documentation (now in archive)
 | [🧩 agent](agent/README.md) | agent agent integration documentation | Active |
 | [🌐 Website](website/) | Rendered documentation site assets | Active |
 | [🔄 Workflows](workflows/README.md) | Documentation workflow outcomes | Active |
-| [👥 Project](project/README.md) | Project information and coordination | Active |
-
-**📋 [Project Documentation](project/)**
-Core project documentation and implementation guides
-
-| Category | Files | Content |
-|----------|-------|---------|
-| [🧠 AI Economics](marketplace/ai-economics/) | 7 files | Advanced AI economics intelligence |
-| [💻 CLI](project/cli/) | 1 file | Command-line interface documentation |
-| [🏗️ Infrastructure](project/infrastructure/) | 4 files | System infrastructure and deployment |
-| [📋 Requirements](project/requirements/) | 2 files | Project requirements and migration |
-| [✅ Completion](project/completion/) | 1 file | 100% project completion summary |
-| [🔧 Workspace](project/workspace/) | 1 file | Workspace strategy and organization |
 
 ---
 

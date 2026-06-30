@@ -1,5 +1,8 @@
 # v0.8.1 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Cross-Chain Offer Synchronization — Distributed Offer Discovery, Polling-Based Sync, Staleness Detection, Conflict Resolution
 
 **Goal**: Build a cross-chain offer synchronization layer on top of the v0.8.0 trading service. Enable agents to discover offers on other AITBC chains, keep offer state synchronized across the network via polling, detect stale offers, and resolve conflicts. Defer subscription-based sync (WebSocket) and external search index (Elasticsearch) to future releases.
@@ -14,6 +17,42 @@
 > **Prerequisites**: [v0.8.0](../v0.8.0/change.log) (Agent A ✅ `939bb066f`, Agent B ⬜ pending), [v0.7.0](../v0.7.0/change.log) ✅, [v0.7.1](../v0.7.1/change.log) ✅, [v0.7.2](../v0.7.2/change.log) ✅, [v0.6.6](../v0.6.6/change.log) ✅ (Marketplace + OfferFSM + BlockchainRPCClient).
 
 > **Risk**: Medium. Offer sync is an off-chain service layer — no consensus-critical path is touched. The main risk is cache consistency (stale offers → failed trades) and bandwidth management (polling all chains). Redis is already used in the codebase for caching and pub/sub.
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (offer sync types, client, cache)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (sync service, endpoints, CLI, tests)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets-2026-06-29)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [Offer sync types](./agent-a.md#a1-offer-sync-types)
+- [Offer sync client](./agent-a.md#a2-offer-sync-client)
+- [Offer cache](./agent-a.md#a3-offer-cache)
+- [Unit tests](./agent-a.md#a4-unit-tests)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Offer sync config](./agent-b.md#b1-offer-sync-config)
+- [Offer sync service](./agent-b.md#b2-offer-sync-service)
+- [Discovery endpoint](./agent-b.md#b3-discovery-endpoint)
+- [Sync endpoints](./agent-b.md#b4-sync-endpoints)
+- [CLI commands](./agent-b.md#b5-cli-commands)
+- [Tests](./agent-b.md#b6-tests)
 
 ---
 
@@ -131,6 +170,12 @@
 **Conflict boundary**: Agent A owns `aitbc/trading/offer_*.py` (new files). Agent B owns `apps/trading/`, `cli/`. Agent B consumes Agent A's `OfferSyncClient`, offer types, and `OfferCache`. No shared files are touched by both agents.
 
 **Sequencing**: Agent A goes first (shared SDK). Agent B starts after Agent A completes A1-A3 (B2-B4 depend on A1 types + A3 cache). B1 (config) can proceed in parallel with Agent A.
+
+---
+
+**Documentation Version**: 1.0
+**Last Updated**: 2026-06-30
+**Release**: v0.8.1 — Cross-Chain Offer Synchronization
 
 ---
 

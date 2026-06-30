@@ -1,5 +1,8 @@
 # v0.6.1 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Parallel Processing Architecture — parallel transaction validation via dependency analysis, deterministic scheduling, and pure state transitions.
 
 **Goal**: Enable the blockchain node to validate transactions in parallel within a block, dramatically increasing throughput. The key insight: most transactions touch different accounts, so they can be validated independently. Conflicting transactions (same sender/recipient) are serialized. A feature flag allows toggling between parallel and sequential execution for safety.
@@ -9,6 +12,45 @@
 > **Prerequisites**: [v0.6.0](../v0.6.0/change.log) (DB & Network Optimization — batch-fetching, incremental state root, connection pooling). The v0.6.0 batch-fetching in `poa.py:276-305` (all accounts pre-fetched into `account_map`) is the foundation for parallel execution.
 
 > **Risk**: High. Changes to consensus-critical code. Mitigated by: (1) feature flag defaulting to sequential, (2) determinism tests comparing parallel vs sequential output, (3) fallback to sequential on conflict threshold exceeded.
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, architecture, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (DependencyGraph, ParallelExecutor, unit tests)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (pure state transitions, parallel validation wiring, determinism tests)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets-from-subagent-investigation)
+- [Architecture: Parallel Tx Validation Approach](./overview.md#architecture-parallel-tx-validation-approach)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [DependencyGraph](./agent-a.md#a1-dependencygraph)
+- [ParallelExecutor](./agent-a.md#a2-parallelexecutor)
+- [Unit tests](./agent-a.md#a3-unit-tests)
+- [Verify clean](./agent-a.md#a4-verify-clean)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Pure state transition](./agent-b.md#b1-pure-state-transition)
+- [Wire up parallel tx validation in poa.py](./agent-b.md#b2-wire-up-parallel-tx-validation-in-poapy)
+- [Wire up parallel tx validation in sync.py](./agent-b.md#b3-wire-up-parallel-tx-validation-in-syncpy)
+- [Fix mempool ordering determinism](./agent-b.md#b4-fix-mempool-ordering-determinism)
+- [Add parallel processing config](./agent-b.md#b5-add-parallel-processing-config)
+- [Apply incremental state root to sync path](./agent-b.md#b6-apply-incremental-state-root-to-sync-path)
+- [Determinism tests](./agent-b.md#b7-determinism-tests)
+- [Performance benchmarks](./agent-b.md#b8-performance-benchmarks)
 
 ---
 
@@ -65,6 +107,12 @@
 | **Agent B** | Apps & infrastructure | 8 items | `apps/blockchain-node/src/aitbc_chain/` (state, consensus, sync, mempool, config), `tests/` |
 
 **Conflict boundary**: Agent A owns `aitbc/parallel/` (new module). Agent B owns `apps/blockchain-node/`. No shared files. Agent B consumes Agent A's `DependencyGraph` and `ParallelExecutor` — see Coordination Protocol.
+
+---
+
+**Documentation Version**: 1.0
+**Last Updated**: 2026-06-30
+**Release**: v0.6.1 — Parallel Processing Architecture
 
 ---
 

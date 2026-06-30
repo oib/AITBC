@@ -16,23 +16,23 @@ v1.0.0 requires **all** of the following releases to be complete:
 
 | Release | Scope | Status |
 |---------|-------|--------|
-| [v0.5.16](../v0.5.16/change.log) | Security hardening + multi-chain preparation | 🚧 Planned |
-| [v0.5.17](../v0.5.17/change.log) | Test infrastructure | 🚧 Planned |
-| [v0.6.0](../v0.6.0/change.log) | Performance optimization | 🚧 Planned |
-| [v0.6.1](../v0.6.1/change.log) | Parallel processing | 🚧 Planned |
+| [v0.5.16](../v0.5.16/change.log) | Security hardening + multi-chain preparation | ✅ Complete |
+| [v0.5.17](../v0.5.17/change.log) | Test infrastructure | ✅ Complete |
+| [v0.6.0](../v0.6.0/change.log) | Performance optimization | ✅ Complete |
+| [v0.6.1](../v0.6.1/change.log) | Parallel processing | ✅ Complete |
 | [v0.6.2](../v0.6.2/change.log) | Sync & gossip optimization | 🚧 Planned |
 | [v0.6.3](../v0.6.3/change.log) | Multi-island node support | 🚧 Planned |
 | [v0.6.4](../v0.6.4/change.log) | Multi-chain per island | 🚧 Planned |
-| [v0.6.5](../v0.6.5/change.log) | Agent coordination service | 🚧 Planned |
+| [v0.6.5](../v0.6.5/change.log) | Agent coordination service | ✅ Complete |
 | [v0.6.6](../v0.6.6/change.log) | Compute marketplace | 🚧 Planned |
 | [v0.6.7](../v0.6.7/change.log) | Pool hub & mining | 🚧 Planned |
-| [v0.7.0](../v0.7.0/change.log) | Bridge basics | 🚧 Planned |
-| [v0.7.1](../v0.7.1/change.log) | Bridge security | 🚧 Planned |
-| [v0.7.2](../v0.7.2/change.log) | Bridge oracle | 🚧 Planned |
-| [v0.7.3](../v0.7.3/change.log) | Governance | 🚧 Planned |
-| [v0.8.0](../v0.8.0/change.log) | Inter-chain trading | 🚧 Planned |
-| [v0.8.1](../v0.8.1/change.log) | Cross-chain offer sync | 🚧 Planned |
-| [v0.9.0](../v0.9.0/change.log) | Atomic cross-chain settlement | 🚧 Planned |
+| [v0.7.0](../v0.7.0/change.log) | Bridge basics | ✅ Complete |
+| [v0.7.1](../v0.7.1/change.log) | Bridge security | ✅ Complete |
+| [v0.7.2](../v0.7.2/change.log) | Bridge oracle | ✅ Complete |
+| [v0.7.3](../v0.7.3/change.log) | Governance | ✅ Complete |
+| [v0.8.0](../v0.8.0/change.log) | Inter-chain trading | ✅ Complete |
+| [v0.8.1](../v0.8.1/change.log) | Cross-chain offer sync | ✅ Complete |
+| [v0.9.0](../v0.9.0/change.log) | Atomic cross-chain settlement | 🚧 In Progress |
 
 ---
 
@@ -50,12 +50,12 @@ AITBC currently runs on testnet/devnet. Mainnet deployment requires:
 
 | Task | Status | Owner |
 |------|--------|-------|
-| Generate mainnet genesis for ait-hub chain | � Not started | Agent B |
+| Generate mainnet genesis for ait-hub chain | 🔴 Not started | Agent B |
 | Configure production islands and hubs | 🔴 Not started | DevOps |
 | Deploy mainnet bridge service | 🔴 Not started | Agent B |
 | Configure oracle endpoints for mainnet | 🔴 Not started | DevOps |
 | Generate and distribute genesis wallets | 🔴 Not started | Security |
-| Set up block explorer for mainnet | � Not started | DevOps |
+| Set up block explorer for mainnet | 🔴 Not started | DevOps |
 | Configure monitoring for mainnet nodes | 🔴 Not started | DevOps |
 
 ### Acceptance Criteria
@@ -129,7 +129,7 @@ Validator keys, bridge keys, and oracle keys need secure storage. Production req
 | Store validator private keys in HSM/secure enclave | 🔴 Not started | Security |
 | Store bridge signing keys in HSM | 🔴 Not started | Security |
 | Create secret rotation policy (90-day max age) | 🔴 Not started | Security |
-| Audit all env vars for secret leakage in logs | � Not started | Agent B |
+| Audit all env vars for secret leakage in logs | 🔴 Not started | Agent B |
 | Add secret masking to logging | 🔴 Not started | Agent B |
 
 ### Acceptance Criteria

@@ -1,5 +1,8 @@
 # v0.7.5 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Consensus Activation — Fix all 12 security review findings (6 Critical + 6 High), then activate MultiValidatorPoA + PBFT.
 
 **Goal**: Transform the scaffolding MultiValidatorPoA and PBFT implementations into production-grade consensus, satisfying all gating criteria from the [security review](../v0.7.4/security-review-multivalidator-poa.md), then remove the RuntimeError guards and activate multi-validator consensus.
@@ -9,6 +12,49 @@
 > **Risk**: High. Consensus bugs = chain splits. All changes must be tested with multi-node integration tests before activation. Testnet soak test (≥48h) is a mandatory operational requirement before mainnet activation.
 
 > **Not on the critical path**: v0.8.x (trading) and v0.9.0 (atomic settlement) do not depend on v0.7.5. Single-validator PoA remains active until v0.7.5 ships.
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (consensus signing utilities, shared types)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (security fixes, consensus activation, tests)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets-2026-06-29)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [Consensus Signing Utilities](./agent-a.md#a1-consensus-signing-utilities)
+- [Shared Consensus Types](./agent-a.md#a2-shared-consensus-types)
+- [Unit Tests](./agent-a.md#a3-unit-tests)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Config](./agent-b.md#b1-config)
+- [KeyManager rewrite](./agent-b.md#b2-keymanager-rewrite-to-secp256k1)
+- [MultiValidatorPoA fixes](./agent-b.md#b3-multivalidatorpoa-fixes)
+- [PBFT fixes](./agent-b.md#b4-pbft-fixes)
+- [SlashingManager wiring](./agent-b.md#b5-wire-slashingmanager-into-multivalidatorpoa)
+- [ValidatorRotation wiring](./agent-b.md#b6-wire-validatorrotation-into-multivalidatorpoa)
+- [Gossip-based PBFT transport](./agent-b.md#b7-gossip-based-pbft-transport)
+- [Validator persistence](./agent-b.md#b8-validator-persistence)
+- [Metrics](./agent-b.md#b9-metrics)
+- [CLI commands](./agent-b.md#b10-cli-commands)
+- [Tests](./agent-b.md#b11-tests)
+- [Testnet soak test](./agent-b.md#b12-testnet-soak-test)
+- [Mainnet activation](./agent-b.md#b13-mainnet-activation)
+- [Documentation](./agent-b.md#b14-documentation)
 
 ---
 
@@ -51,6 +97,12 @@
 **Conflict boundary**: Agent A owns `aitbc/crypto/` and `aitbc/consensus/` (new). Agent B owns `apps/blockchain-node/` and `cli/`. Agent B consumes Agent A's consensus signing utilities.
 
 **Sequencing**: Agent A goes first (shared consensus crypto). Agent B starts after Agent A A1 completes (signing utilities needed for C1, C4). Agent B B1 (config) and B2 (keys.py rewrite) can proceed independently in parallel with Agent A.
+
+---
+
+**Documentation Version**: 1.0
+**Last Updated**: 2026-06-30
+**Release**: v0.7.5 — Consensus Activation
 
 ---
 

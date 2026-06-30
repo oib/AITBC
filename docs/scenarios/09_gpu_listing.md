@@ -1,10 +1,12 @@
 # GPU Listing
 
 **Level**: Beginner
-**Prerequisites**: Scenario 02 Transaction Sending, Scenario 08 Marketplace Bidding
+**Prerequisites**: Scenario 02 Transaction Sending
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-06-25
-**Version**: 1.0
+**Last Updated**: 2026-06-30
+**Version**: 1.1
+
+> **⚠️ DEPRECATION NOTICE (v0.4.7)**: The GPU-only marketplace with bidding was deprecated in v0.4.7. This scenario describes on-chain GPU resource registration which is still valid, but the marketplace bidding functionality referenced in prerequisites is no longer available. The current marketplace focuses on hardware+software bundles with fixed pricing.
 
 ## Navigation Path
 
@@ -16,7 +18,7 @@ breadcrumb: Home > Scenarios > GPU Listing
 
 ## See Also
 
-- **Previous Scenario**: [Marketplace Bidding](./08_marketplace_bidding.md)
+- **Previous Scenario**: [Transaction Sending](./02_transaction_sending.md)
 - **Next Scenario**: [Agent SDK Identity](./10_agent_sdk_identity.md)
 - **Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md)
 - **Feature Documentation**: [Local GPU Commands](../../cli/aitbc_cli/commands/gpu_marketplace.py), [On-Chain GPU Commands](../../cli/aitbc_cli/commands/gpu_resources.py), [Resource Commands](../../cli/aitbc_cli/commands/resource.py)
