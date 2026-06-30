@@ -432,13 +432,13 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/pool-hub/tests/test_v067_rewar
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Pool-hub settings: add `blockchain_rpc_url`, `default_chain_id`, `agent_coordinator_url`, reward config | 🔴 P0 | `apps/pool-hub/src/poolhub/settings.py` | ⬜ |
-| B2 | Create `PoolHubBlockchainClient` — wraps `BlockchainRPCClient` for reward tx submission + miner registration | 🔴 P0 | `apps/pool-hub/src/poolhub/clients/blockchain.py` (new) | ⬜ |
-| B3 | Add `chain_id` to miner registration + register on blockchain via agent-coordinator | 🔴 P0 | `apps/pool-hub/src/app/routers/miners.py`, `apps/pool-hub/src/app/registry/miner_registry.py`, `apps/pool-hub/src/poolhub/models.py` | ⬜ |
-| B4 | Wire reward distribution into `jobs.py:submit_result()` — calculate reward, submit tx, track payout | 🔴 P0 | `apps/pool-hub/src/app/routers/jobs.py` | ⬜ |
-| B5 | Add `RewardPayout` SQLModel + epoch tracking model | Medium | `apps/pool-hub/src/poolhub/models.py` | ⬜ |
-| B6 | Deprecate `src/app/` in-memory implementation — add deprecation notice, route all new code through `src/poolhub/` | Low | `apps/pool-hub/src/app/__init__.py` (deprecation notice) | ⬜ |
-| B7 | Integration tests — reward lifecycle, chain_id, epoch tracking, duplicate payout prevention | 🔴 P0 | `apps/pool-hub/tests/test_v067_rewards.py` (new) | ⬜ |
+| B1 | Pool-hub settings: add `blockchain_rpc_url`, `default_chain_id`, `agent_coordinator_url`, reward config | 🔴 P0 | `apps/pool-hub/src/poolhub/settings.py` | ✅ |
+| B2 | Create `PoolHubBlockchainClient` — wraps `BlockchainRPCClient` for reward tx submission + miner registration | 🔴 P0 | `apps/pool-hub/src/poolhub/clients/blockchain.py` (new) | ✅ |
+| B3 | Add `chain_id` to miner registration + register on blockchain via agent-coordinator | 🔴 P0 | `apps/pool-hub/src/app/routers/miners.py`, `apps/pool-hub/src/app/registry/miner_registry.py`, `apps/pool-hub/src/poolhub/models.py` | ✅ |
+| B4 | Wire reward distribution into `jobs.py:submit_result()` — calculate reward, submit tx, track payout | 🔴 P0 | `apps/pool-hub/src/app/routers/jobs.py` | ✅ |
+| B5 | Add `RewardPayout` SQLModel + epoch tracking model | Medium | `apps/pool-hub/src/poolhub/models.py` | ✅ |
+| B6 | Deprecate `src/app/` in-memory implementation — add deprecation notice, route all new code through `src/poolhub/` | Low | `apps/pool-hub/src/app/__init__.py` (deprecation notice) | ✅ |
+| B7 | Integration tests — reward lifecycle, chain_id, epoch tracking, duplicate payout prevention | 🔴 P0 | `apps/pool-hub/tests/test_v067_rewards.py` (new) | ✅ |
 
 ### Agent B — Detailed Instructions
 
