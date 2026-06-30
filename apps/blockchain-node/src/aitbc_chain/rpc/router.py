@@ -1500,7 +1500,7 @@ async def file_escrow_dispute_route(escrow_id: str, body: dict[str, Any]) -> dic
 
 @router.post("/bridge/settlement/{escrow_id}/resolve", summary="Resolve a dispute")
 @rate_limit(rate=10, per=60)
-async def resolve_dispute_route(escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:
+async def resolve_escrow_dispute_route(escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:
     """Resolve a dispute for an escrow.
 
     Resolution is "complete" (release to seller) or "refund" (refund buyer).
