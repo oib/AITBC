@@ -283,14 +283,14 @@ cd /opt/aitbc && PYTHONPATH=apps/trading/src:aitbc ./venv/bin/python -m pytest a
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Add trading service Settings class (blockchain_rpc_url, bridge_rpc_url, chain_id, matching params) | 🔴 P0 | `apps/trading/src/trading_service/config.py` (new) | ⬜ |
-| B2 | Add InterChainTrade + IslandRegistry SQLModel tables + Alembic migration | 🔴 P0 | `apps/trading/src/trading_service/domain/inter_chain.py` (new), `apps/trading/alembic/versions/` (new) | ⬜ |
-| B3 | Add blockchain/bridge RPC client to trading service | 🔴 P0 | `apps/trading/src/trading_service/clients/blockchain.py` (new), `apps/trading/src/trading_service/clients/bridge.py` (new) | ⬜ |
-| B4 | Chain discovery — island registry sync, chain health monitoring, register/list/health endpoints | 🔴 P0 | `apps/trading/src/trading_service/services/chain_discovery.py` (new), `main.py` (extend) | ⬜ |
-| B5 | Inter-chain trade lifecycle — create, list, get, status, history endpoints | 🔴 P0 | `apps/trading/src/trading_service/services/inter_chain_service.py` (new), `main.py` (extend) | ⬜ |
-| B6 | Basic matching engine (price-time priority across chains) | High | `apps/trading/src/trading_service/services/matching_engine.py` (new) | ⬜ |
-| B7 | CLI trade command group | 🔴 P0 | `cli/aitbc_cli/commands/trade.py` (new), `cli/aitbc_cli/core/main.py` (extend) | ⬜ |
-| B8 | Integration tests | High | `apps/trading/tests/test_v080_inter_chain.py` (new) | ⬜ |
+| B1 | Add trading service Settings class (blockchain_rpc_url, bridge_rpc_url, chain_id, matching params) | 🔴 P0 | `apps/trading/src/trading_service/config.py` (new) | ✅ |
+| B2 | Add InterChainTrade + IslandRegistry SQLModel tables + Alembic migration | 🔴 P0 | `apps/trading/src/trading_service/domain/inter_chain.py` (new), `apps/trading/alembic/versions/` (new) | ✅ |
+| B3 | Add blockchain/bridge RPC client to trading service | 🔴 P0 | `apps/trading/src/trading_service/clients/blockchain.py` (new), `apps/trading/src/trading_service/clients/bridge.py` (new) | ✅ |
+| B4 | Chain discovery — island registry sync, chain health monitoring, register/list/health endpoints | 🔴 P0 | `apps/trading/src/trading_service/services/chain_discovery.py` (new), `main.py` (extend) | ✅ |
+| B5 | Inter-chain trade lifecycle — create, list, get, status, history endpoints | 🔴 P0 | `apps/trading/src/trading_service/services/inter_chain_service.py` (new), `main.py` (extend) | ✅ |
+| B6 | Basic matching engine (price-time priority across chains) | High | `apps/trading/src/trading_service/services/matching_engine.py` (new) | ✅ |
+| B7 | CLI trade command group | 🔴 P0 | `cli/aitbc_cli/commands/trade.py` (new), `cli/aitbc_cli/core/main.py` (extend) | ✅ |
+| B8 | Integration tests | High | `apps/trading/tests/test_v080_inter_chain.py` (new) | ✅ |
 
 ### Agent B — Detailed Instructions
 
