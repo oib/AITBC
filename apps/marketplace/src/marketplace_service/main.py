@@ -746,6 +746,86 @@ async def get_transactions(
         return ({"error": str(e)}, 500)
 
 
+# ============================================================================
+# v0.7.4 §B4: Governance-triggered parameter change API
+# ============================================================================
+
+
+class ParameterChangeRequest(BaseModel):
+    """Request body for applying a governance-approved parameter change."""
+
+    proposal_id: str = Field(..., description="Governance proposal ID that approved this change")
+    target_service: str = Field(default="marketplace", description="Service type (must be 'marketplace')")
+    parameter_name: str = Field(..., description="Name of the parameter to change")
+    old_value: Any = Field(default=None, description="Expected old value (for validation)")
+    new_value: Any = Field(..., description="New value to apply")
+    description: str = Field(default="", description="Human-readable description of the change")
+
+
+# Allowed parameters that governance can change on the marketplace service
+_MARKETPLACE_GOVERNANCE_PARAMETERS: dict[str, type] = {
+    "default_chain_id": str,
+    "agent_coordinator_url": str,
+    "matching_algorithm": str,
+}
+
+
+@app.post("/v1/marketplace/parameters/apply")
+async def apply_marketplace_parameter(request: ParameterChangeRequest) -> dict[str, Any]:
+    """Apply a governance-approved parameter change to the marketplace service (v0.7.4 §B4).
+
+    Validates that the parameter is known and the old_value matches the
+    current config, then applies the new value to the running settings.
+    """
+    if request.target_service != "marketplace":
+        return JSONResponse(
+            status_code=400, content={"error": f"target_service must be 'marketplace', got '{request.target_service}'"}
+        )
+
+    param_type = _MARKETPLACE_GOVERNANCE_PARAMETERS.get(request.parameter_name)
+    if param_type is None:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": f"Unknown parameter: {request.parameter_name}",
+                "allowed": sorted(_MARKETPLACE_GOVERNANCE_PARAMETERS),
+            },
+        )
+
+    current_value = getattr(settings, request.parameter_name, None)
+    if request.old_value is not None and str(current_value) != str(request.old_value):
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": f"old_value mismatch: expected {request.old_value} but current is {current_value}",
+            },
+        )
+
+    # Apply the change
+    try:
+        setattr(settings, request.parameter_name, param_type(request.new_value))
+        logger.info(
+            "Applied governance parameter change: %s = %s (proposal=%s)",
+            request.parameter_name,
+            request.new_value,
+            request.proposal_id,
+        )
+        from datetime import UTC, datetime
+
+        return {
+            "proposal_id": request.proposal_id,
+            "applied": True,
+            "parameter_name": request.parameter_name,
+            "old_value": current_value,
+            "new_value": request.new_value,
+            "applied_at": datetime.now(UTC).isoformat(),
+            "message": f"Parameter {request.parameter_name} updated successfully",
+        }
+    except Exception as e:
+        logger.error("Failed to apply parameter change: %s", e)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 if __name__ == "__main__":
     import os
 

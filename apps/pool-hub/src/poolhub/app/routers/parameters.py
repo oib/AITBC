@@ -15,8 +15,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..deps import get_db  # type: ignore
-from ..models import ServiceConfig  # type: ignore
+from ..deps import get_db_session as get_db  # type: ignore
+from ...models import ServiceConfig  # type: ignore
 
 router = APIRouter(prefix="/parameters", tags=["parameters"])
 

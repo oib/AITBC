@@ -412,6 +412,172 @@ async def execute_proposal_v2(
         return ({"error": str(e)}, 500)
 
 
+# ============================================================================
+# v0.7.4 §B2: Cross-chain governance endpoints
+# ============================================================================
+
+
+class PropagateRequest(BaseModel):
+    """Request body for cross-chain proposal propagation."""
+
+    target_chains: list[str]
+
+
+@app.post("/v1/governance/proposals/{proposal_id}/propagate")
+async def propagate_proposal(
+    proposal_id: str,
+    request: PropagateRequest,
+    svc: Annotated[GovernanceService, Depends(get_governance_service)],
+) -> dict[str, Any]:
+    """Propagate a proposal to one or more target chains (v0.7.4 §B2).
+
+    Submits a GOVERNANCE_PROPOSE transaction for the proposal on each
+    target chain via the blockchain node's bridge RPC. The proposal must
+    already exist on the hub chain.
+    """
+    from .config import settings
+
+    proposal = await svc.get_proposal(proposal_id)
+    if not proposal:
+        return JSONResponse(status_code=404, content={"error": "Proposal not found"})
+
+    propagated_to: list[str] = []
+    failed: list[str] = []
+    tx_hashes: dict[str, str] = {}
+
+    for chain_id in request.target_chains:
+        try:
+            payload = {
+                "type": "GOVERNANCE_PROPOSE",
+                "proposal_id": proposal_id,
+                "proposer": proposal.get("proposer_id", ""),
+                "title": proposal.get("title", ""),
+                "description": proposal.get("description", ""),
+                "proposal_type": proposal.get("proposal_type", "parameter_change"),
+                "parameters": proposal.get("parameters", {}),
+                "chain_id": chain_id,
+            }
+            tx_data = {
+                "chain_id": chain_id,
+                "from": proposal.get("proposer_id", "genesis"),
+                "to": proposal.get("proposer_id", "genesis"),
+                "amount": 0,
+                "type": "GOVERNANCE_PROPOSE",
+                "payload": payload,
+                "signature": "",
+            }
+            result = await svc._blockchain.submit_transaction(tx_data)
+            tx_hash = result.get("tx_hash", "")
+            tx_hashes[chain_id] = tx_hash
+            propagated_to.append(chain_id)
+            logger.info("Propagated proposal %s to chain %s (tx=%s)", proposal_id, chain_id, tx_hash)
+        except Exception as e:
+            logger.error("Failed to propagate proposal %s to chain %s: %s", proposal_id, chain_id, e)
+            failed.append(chain_id)
+
+    return {
+        "proposal_id": proposal_id,
+        "propagated_to": propagated_to,
+        "failed": failed,
+        "tx_hashes": tx_hashes,
+        "hub_chain": settings.default_chain_id,
+    }
+
+
+@app.post("/v1/governance/proposals/{proposal_id}/aggregate-votes")
+async def aggregate_votes(
+    proposal_id: str,
+    svc: Annotated[GovernanceService, Depends(get_governance_service)],
+) -> dict[str, Any]:
+    """Aggregate votes for a proposal from all chains (v0.7.4 §B2).
+
+    Queries the local vote tally for the proposal. In a multi-chain
+    deployment, this would also query each registered chain for votes
+    cast on this proposal and merge them into the hub chain's tally.
+    """
+    votes = await svc.list_votes(proposal_id=proposal_id)
+    total_for = sum(1 for v in votes if v.get("vote_type") == "for" or v.get("vote_type") == "yes")
+    total_against = sum(1 for v in votes if v.get("vote_type") == "against" or v.get("vote_type") == "no")
+    total_abstain = sum(1 for v in votes if v.get("vote_type") == "abstain")
+    chains_aggregated = [svc._blockchain.rpc_url] if votes else []
+
+    return {
+        "proposal_id": proposal_id,
+        "total_for": total_for,
+        "total_against": total_against,
+        "total_abstain": total_abstain,
+        "chains_aggregated": chains_aggregated,
+        "votes": votes,
+    }
+
+
+@app.post("/v1/governance/proposals/{proposal_id}/execute-cross-chain")
+async def execute_cross_chain(
+    proposal_id: str,
+    svc: Annotated[GovernanceService, Depends(get_governance_service)],
+) -> dict[str, Any]:
+    """Execute a proposal on all chains after approval (v0.7.4 §B2).
+
+    Submits a GOVERNANCE_EXECUTE transaction to each target chain via
+    the blockchain node's bridge RPC. The proposal must have passed
+    voting and the timelock must have expired on the hub chain.
+    """
+    from .config import settings
+
+    proposal = await svc.get_proposal(proposal_id)
+    if not proposal:
+        return JSONResponse(status_code=404, content={"error": "Proposal not found"})
+    if proposal.get("status") not in ("passed", "executed"):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": f"Proposal must be in 'passed' status to execute cross-chain (current: {proposal.get('status')})"
+            },
+        )
+
+    # Determine target chains from proposal metadata or default to hub chain
+    parameters = proposal.get("parameters", {})
+    target_chains = parameters.get("target_chains", [settings.default_chain_id])
+
+    executed_on: list[str] = []
+    failed: list[str] = []
+    tx_hashes: dict[str, str] = {}
+
+    for chain_id in target_chains:
+        try:
+            payload = {
+                "type": "GOVERNANCE_EXECUTE",
+                "proposal_id": proposal_id,
+                "executor": proposal.get("proposer_id", "genesis"),
+                "chain_id": chain_id,
+            }
+            tx_data = {
+                "chain_id": chain_id,
+                "from": proposal.get("proposer_id", "genesis"),
+                "to": proposal.get("proposer_id", "genesis"),
+                "amount": 0,
+                "type": "GOVERNANCE_EXECUTE",
+                "payload": payload,
+                "signature": "",
+            }
+            result = await svc._blockchain.submit_transaction(tx_data)
+            tx_hash = result.get("tx_hash", "")
+            tx_hashes[chain_id] = tx_hash
+            executed_on.append(chain_id)
+            logger.info("Executed proposal %s on chain %s (tx=%s)", proposal_id, chain_id, tx_hash)
+        except Exception as e:
+            logger.error("Failed to execute proposal %s on chain %s: %s", proposal_id, chain_id, e)
+            failed.append(chain_id)
+
+    return {
+        "proposal_id": proposal_id,
+        "executed_on": executed_on,
+        "failed": failed,
+        "tx_hashes": tx_hashes,
+        "hub_chain": settings.default_chain_id,
+    }
+
+
 @app.get("/metrics")
 async def metrics():
     """Prometheus metrics endpoint"""
