@@ -152,9 +152,12 @@ class ChainSettings(BaseSettings):
             import json
 
             try:
-                v = json.loads(v)
+                parsed = json.loads(v)
             except json.JSONDecodeError:
                 raise ValueError(f"chain_configs must be a dict or JSON string, got: {v}") from None
+            if not isinstance(parsed, dict):
+                raise ValueError(f"chain_configs must parse to a dict, got: {type(parsed)}") from None
+            v = parsed
         # Validate each value is a non-empty string
         from aitbc.utils.chain_config import ChainConfigParser
 
