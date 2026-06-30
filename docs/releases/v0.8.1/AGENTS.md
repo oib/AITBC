@@ -279,12 +279,12 @@ cd /opt/aitbc && PYTHONPATH=apps/trading/src:aitbc ./venv/bin/python -m pytest a
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Add offer sync config to trading service Settings | 🔴 P0 | `apps/trading/src/trading_service/config.py` (extend) | ⬜ |
-| B2 | Create OfferSyncService — polling loop per chain, incremental sync, conflict resolution, staleness detection | 🔴 P0 | `apps/trading/src/trading_service/services/offer_sync_service.py` (new) | ⬜ |
-| B3 | Add offer discovery endpoint — POST /v1/trading/offers/discover | 🔴 P0 | `apps/trading/src/trading_service/main.py` (extend) | ⬜ |
-| B4 | Add offer sync endpoints — POST /v1/trading/offers/sync, GET /v1/trading/offers/sync-status | 🔴 P0 | `apps/trading/src/trading_service/main.py` (extend) | ⬜ |
-| B5 | Add CLI trade discover, sync, sync-status commands | 🔴 P0 | `cli/aitbc_cli/commands/trade.py` (extend) | ⬜ |
-| B6 | Integration tests | High | `apps/trading/tests/test_v081_offer_sync.py` (new) | ⬜ |
+| B1 | Add offer sync config to trading service Settings | 🔴 P0 | `apps/trading/src/trading_service/config.py` (extend) | ✅ |
+| B2 | Create OfferSyncService — polling loop per chain, incremental sync, conflict resolution, staleness detection | 🔴 P0 | `apps/trading/src/trading_service/services/offer_sync_service.py` (new) | ✅ |
+| B3 | Add offer discovery endpoint — POST /v1/trading/offers/discover | 🔴 P0 | `apps/trading/src/trading_service/main.py` (extend) | ✅ |
+| B4 | Add offer sync endpoints — POST /v1/trading/offers/sync, GET /v1/trading/offers/sync-status | 🔴 P0 | `apps/trading/src/trading_service/main.py` (extend) | ✅ |
+| B5 | Add CLI trade discover, sync, sync-status commands | 🔴 P0 | `cli/aitbc_cli/commands/trade.py` (extend) | ✅ |
+| B6 | Integration tests | High | `apps/trading/tests/test_v081_offer_sync.py` (new) | ✅ |
 
 ### Agent B — Detailed Instructions
 
