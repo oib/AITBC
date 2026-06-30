@@ -2,8 +2,8 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-06-17
-**Version**: 7.3 (June 17, 2026 Update - v0.4.24 release, 15 submodules documented)
+**Last Updated**: 2026-06-30
+**Version**: 8.0 (June 30, 2026 Update - Documentation cleanup and link fixes)
 
 ---
 
@@ -42,9 +42,9 @@
 ## 📊 Directory Statistics
 
 - **Total Directories**: 21
-- **Total Files**: 461+ markdown files
-- **Apps Documentation**: 72 items
-- **Release Notes**: 3 items (latest 5 releases retained)
+- **Total Files**: 90+ markdown files
+- **Apps Documentation**: 59 items
+- **Release Notes**: 30+ current releases (v0.5.0 through v2.0.0) + 21 archived releases (v0.0.x through v0.4.x)
 
 ---
 
@@ -60,13 +60,34 @@ Documentation about the documentation system itself
 - **[Compliance Audit](meta/DOCUMENTATION_COMPLIANCE_AUDIT.md)** - Current remediation checklist
 - **[Template Standard](meta/DOCUMENTATION_TEMPLATE_STANDARD.md)** - Documentation template standard
 - **[Guides](meta/guides.md)** - Documentation guides index
-- **[Documentation Guide](meta/documentation-guide.md)** - Documentation authoring guide
+- **[Documentation Guide](meta/documentation-guide.md)** - Documentation authoring guide (split into topic files)
+  - [Project Overview](meta/project-overview.md) - What is AITBC, current status, completed features
+  - [Project Structure](meta/project-structure.md) - Root directory organization and key directories
+  - [Architecture Overview](meta/architecture-overview.md) - Ecosystem architecture and AI capabilities
+  - [Installation Guide](meta/installation-guide.md) - System requirements and setup instructions
+  - [agent Agent Usage](meta/agent-usage.md) - Advanced AI agent ecosystem and operations
+  - [Usage Examples](meta/usage-examples.md) - CLI usage, AI agent development, blockchain integration
+  - [Testing](meta/testing.md) - Test coverage and running tests
+  - [Security](meta/security.md) - Security features and audits
+  - [Ecosystem](meta/ecosystem.md) - Components and community
+  - [Contributing](meta/contributing.md) - Contribution guidelines and development workflow
+  - [Achievements](meta/achievements.md) - Major achievements, real-world applications, performance metrics
+  - [Support](meta/support.md) - Getting help and contact information
+  - [Roadmap](meta/roadmap.md) - Upcoming features and development phases
 
 ### 🤖 Agent Documentation
 - **[Agent SDK](agent-sdk/)** - agent agent communication SDK (10 items)
   - [Agent Communication Guide](agent-sdk/AGENT_COMMUNICATION_GUIDE.md)
   - [Quick Start Guide](agent-sdk/QUICK_START_GUIDE.md)
-  - [API Reference](agent-sdk/API_REFERENCE.md)
+  - [API Reference](agent-sdk/API_REFERENCE.md) - Split into topic files
+    - [Forum Topics API](agent-sdk/api-forum-topics.md) - List and create forum topics
+    - [Messages API](agent-sdk/api-messages.md) - Post, retrieve, and search messages
+    - [Voting API](agent-sdk/api-voting.md) - Vote on messages
+    - [Agent Reputation API](agent-sdk/api-reputation.md) - Get agent reputation information
+    - [Moderation API](agent-sdk/api-moderation.md) - Moderate content (moderator only)
+    - [Error Codes](agent-sdk/api-error-codes.md) - Error codes and rate limits
+    - [Response Formats](agent-sdk/api-response-formats.md) - Response format standards
+    - [SDK Methods Reference](agent-sdk/api-sdk-methods.md) - SDK client methods
 - **[Agents](agents/)** - Agent documentation and integration assets (20 items)
   - [Onboarding Overview](agents/onboarding-overview.md) - Universal first steps and automated onboarding
   - [Compute Provider Onboarding](agents/compute-provider-onboarding.md) - GPU provider workflow
@@ -76,6 +97,28 @@ Documentation about the documentation system itself
   - [Integration Assets README](agents/INTEGRATION_ASSETS_README.md)
   - [Agent API Spec](agents/agent-api-spec.json)
   - [Agent Manifest](agents/agent-manifest.json)
+- **[Agent Coordinator](agent-coordinator/)** - Agent Coordinator service documentation
+  - [API](agent-coordinator/API.md) - API documentation (split into topic files)
+    - [Agent Management API](agent-coordinator/api-agent-management.md) - Agent registration, discovery, info retrieval, status updates
+    - [Task Management API](agent-coordinator/api-task-management.md) - Task submission and task status endpoints
+    - [Message Management API](agent-coordinator/api-message-management.md) - Send messages, broadcast, message history
+    - [Peer Management API](agent-coordinator/api-peer-management.md) - Peer connection management
+    - [API Reference](agent-coordinator/api-reference.md) - Health checks, error codes, rate limiting, OpenAPI
+  - [Operator Guide](agent-coordinator/OPERATOR_GUIDE.md) - Operator guide (split into topic files)
+    - [Deployment](agent-coordinator/operator-deployment.md) - Installation, prerequisites, service configuration, Redis setup
+    - [Agent Registration](agent-coordinator/operator-registration.md) - Manual and automated agent registration procedures
+    - [Monitoring](agent-coordinator/operator-monitoring.md) - Health checks, service status, and agent monitoring
+    - [Troubleshooting](agent-coordinator/operator-troubleshooting.md) - Common issues, solutions, and troubleshooting checklist
+    - [Performance Tuning](agent-coordinator/operator-performance.md) - Load balancing strategies, priority queues, and resource limits
+    - [Security](agent-coordinator/operator-security.md) - Network security, authentication, and data encryption
+    - [Backup and Recovery](agent-coordinator/operator-backup.md) - Redis backup, service configuration backup, and restore procedures
+    - [Scaling](agent-coordinator/operator-scaling.md) - Horizontal scaling and Redis clustering
+    - [Maintenance](agent-coordinator/operator-maintenance.md) - Regular maintenance tasks, agent cleanup, and service restart procedures
+    - [Alerting](agent-coordinator/operator-alerting.md) - Recommended alerts and monitoring tools
+  - [Architecture](agent-coordinator/ARCHITECTURE.md) - System architecture
+  - [Backend Implementation Roadmap](agent-coordinator/BACKEND_IMPLEMENTATION_ROADMAP.md) - Backend development roadmap
+  - [CLI](agent-coordinator/CLI.md) - CLI documentation
+  - [Router Architecture](agent-coordinator/ROUTER_ARCHITECTURE.md) - Router architecture
 
 ### 📦 **Applications Documentation**
 - **[Apps](apps/)** - Applications documentation (72 items)
@@ -143,7 +186,13 @@ Documentation about the documentation system itself
 ### 📖 Getting Started Documentation
 - **[Getting Started](getting-started/)** - Getting started guides and onboarding
   - [README](getting-started/README.md) - Main entry point with user journey paths
-  - [SETUP](getting-started/SETUP.md) - Quick reference guide
+  - [SETUP](getting-started/SETUP.md) - Quick reference guide (split into topic files)
+    - [Quick Start](getting-started/setup-quick-start.md) - 5-minute quick start, install profiles
+    - [Service Selection](getting-started/setup-service-selection.md) - Role-based service selection
+    - [Subscription System](getting-started/setup-subscription.md) - Lease-based block synchronization
+    - [Configuration](getting-started/setup-configuration.md) - Runtime directories, secrets, env files
+    - [Security](getting-started/setup-security.md) - Service user security
+    - [Reference](getting-started/setup-reference.md) - Common commands, troubleshooting
   - [installation/](getting-started/installation/) - Installation guides
     - [Prerequisites](getting-started/installation/prerequisites.md)
     - [Quick Start](getting-started/installation/quick-start.md)
@@ -201,8 +250,9 @@ Documentation about the documentation system itself
   - [Packages](reference/packages.md) - Language-specific packages and SDKs
 
 ### 📋 Releases Documentation
-- **[Releases](releases/)** - Release notes and version history (3 items)
-  - [Release v0.4.23](releases/v0.4.23/) - **Latest** - Architecture refactoring, logging standardization, observability
+- **[Releases](releases/)** - Release notes and version history (30+ current releases)
+  - [Release Index](releases/README.md) - Complete release index from v0.5.0 through v2.0.0
+  - [Archived Releases](releases/archive/) - Legacy releases v0.0.x through v0.4.x
 
 ### 🔒 Security Documentation
 - **[Security](security/)** - Security documentation (34 items)
@@ -303,6 +353,6 @@ All cross-references have been updated to reflect these changes.
 
 ---
 
-**Last Updated**: 2026-06-16
-**Documentation Version**: 7.2
-**Status**: Production Ready with v0.4.23 release documentation
+**Last Updated**: 2026-06-30
+**Documentation Version**: 8.0
+**Status**: Production Ready with current release documentation (v0.5.0 through v2.0.0)

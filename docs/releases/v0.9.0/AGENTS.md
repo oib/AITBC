@@ -1,5 +1,8 @@
 # v0.9.0 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Atomic Cross-Chain Settlement — HTLC-based escrow, atomic release, timeout/refund, proof chaining, chaos testing.
 
 **Goal**: Implement the full atomic settlement layer on top of the bridge security (v0.7.1), oracle verification (v0.7.2), and inter-chain trading (v0.8.0-v0.8.2) layers. Uses HTLCs (Hashed Timelock Contracts) — two-phase commit is dropped (see change.log §"HTLC vs Two-Phase Commit — DECISION: HTLC").
@@ -9,6 +12,54 @@
 > **Risk**: 🔴 HIGHEST. Atomic cross-chain settlement caused the largest hacks in crypto history (Wormhole $325M, Ronin $625M, Poly Network $611M). Requires dual external security audits + 6+ months testnet chaos testing before mainnet.
 
 > **Not on the critical path for v1.0.0**: If security audit cannot be completed, v1.0.0 can ship with non-atomic settlement (manual admin refund) and defer atomic settlement to v1.1.0 (see suggestions.md line 14).
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, architecture, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (settlement types, HTLC utilities, settlement client, proof chaining, trading types extension, unit tests)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (escrow config, tables, settlement service, HTLC integration, RPC endpoints, trading endpoints, InterChainTrade model, coordinator, CLI, bridge confirm, chaos testing, integration tests)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets-2026-06-29)
+- [Already Implemented](./overview.md#already-implemented-reusable-no-work-needed)
+- [Task Split Overview](./overview.md#task-split-overview)
+- [Coordination](./overview.md#coordination)
+- [Risk Mitigation](./overview.md#risk-mitigation)
+- [Fallback for v1.0.0](./overview.md#fallback-for-v100)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [Settlement Types](./agent-a.md#a1-settlement-types)
+- [HTLC Utilities](./agent-a.md#a2-htlc-utilities)
+- [Settlement Client](./agent-a.md#a3-settlement-client)
+- [Proof Chaining](./agent-a.md#a4-proof-chaining)
+- [Extend Trading Types](./agent-a.md#a5-extend-trading-types)
+- [Unit Tests](./agent-a.md#a6-unit-tests)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Escrow Config](./agent-b.md#b1-escrow-config)
+- [Escrow Tables](./agent-b.md#b2-escrow-tables)
+- [CrossChainSettlementService](./agent-b.md#b3-crosschainsettlementservice)
+- [HTLC Contract Integration](./agent-b.md#b4-htlc-contract-integration)
+- [Settlement RPC Endpoints](./agent-b.md#b5-settlement-rpc-endpoints)
+- [Trading Service Settlement Endpoints](./agent-b.md#b6-trading-service-settlement-endpoints)
+- [Extend InterChainTrade Model](./agent-b.md#b7-extend-interchain-trade-model)
+- [Atomic Settlement Coordinator](./agent-b.md#b8-atomic-settlement-coordinator)
+- [CLI Commands](./agent-b.md#b9-cli-commands)
+- [Enable Bridge Confirm Path](./agent-b.md#b10-enable-bridge-confirm-path)
+- [Chaos Testing Infrastructure](./agent-b.md#b11-chaos-testing-infrastructure)
+- [Integration Tests](./agent-b.md#b12-integration-tests)
 
 ---
 
@@ -722,3 +773,9 @@ If security audit cannot be completed or chaos testing reveals unfixable issues:
 - Non-atomic settlement: manual admin refund for stuck trades
 - Atomic settlement deferred to v1.1.0
 - This does not block v1.0.0 — single-chain trading and bridge transfers work without escrow
+
+---
+
+**Documentation Version**: 1.0
+**Last Updated**: 2026-06-30
+**Release**: v0.9.0 — Atomic Cross-Chain Settlement

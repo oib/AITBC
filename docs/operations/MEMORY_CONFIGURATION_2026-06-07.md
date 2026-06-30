@@ -250,7 +250,7 @@ If a service consistently hits its memory limit:
 
 - [SERVICE_PORTS.md](../reference/SERVICE_PORTS.md) - Service port configuration
 - [SECURITY_VULNERABILITIES_2026-06-07.md](../SECURITY_VULNERABILITIES_2026-06-07.md) - Security remediation
-- [RELEASE_v0.4.13.md](../releases/RELEASE_v0.4.13.md) - Release notes with optimization roadmap
+- [Release Notes](../releases/README.md) - Current release documentation
 
 ## Maintenance
 

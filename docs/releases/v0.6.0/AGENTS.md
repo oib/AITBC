@@ -1,5 +1,8 @@
 # v0.6.0 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Database & Network Optimization — query indexing, connection pooling, N+1 elimination, batch writes, block header caching, network compression, and shared HTTP client pooling. No parallel processing (that's v0.6.1).
 
 **Goal**: Achieve measurable DB/network/caching performance gains with low regression risk. All changes are additive (indexes, pools, cache layers, batch fetches) — the sequential transaction loop in `poa.py` and full state root recompute architecture stay as-is; only the I/O around them is optimized.
@@ -7,6 +10,47 @@
 > **Scope constraint**: No parallel processing, no architectural changes to the tx loop. Block import rate / tx validation latency targets are v0.6.1. This release targets: query latency <5ms (95th percentile), cache hit rate >80%, mempool query latency <5ms, network compression >50%.
 
 > **Prerequisites**: [v0.5.18](../v0.5.18/change.log) (green blockchain-node test suite — the regression baseline).
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (cache fixes, HTTP pool, compression, benchmarking)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (indexes, connection pooling, N+1 elimination, batch operations)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets-from-subagent-investigation)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [Fix BlockchainCache typing](./agent-a.md#a1-fix-blockchaincache-typing--add-block-by-hash)
+- [In-process BlockHeaderCache](./agent-a.md#a2-in-process-blockheadercache)
+- [Shared async HTTP connection pool](./agent-a.md#a3-shared-async-http-connection-pool)
+- [Compression utility](./agent-a.md#a4-compression-utility)
+- [Benchmarking helpers](./agent-a.md#a5-benchmarking-helpers)
+- [Unit tests](./agent-a.md#a6-unit-tests)
+- [Verify clean](./agent-a.md#a7-verify-clean)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Add missing indexes](./agent-b.md#b1-add-missing-indexes--alembic-migration)
+- [Wire up connection pooling](./agent-b.md#b2-wire-up-connection-pooling)
+- [Eliminate N+1 queries](./agent-b.md#b3-eliminate-n1-queries)
+- [Batch mempool operations](./agent-b.md#b4-batch-mempool-operations)
+- [Incremental state root](./agent-b.md#b5-incremental-state-root)
+- [Wire up shared HTTP client pool](./agent-b.md#b6-wire-up-shared-http-client-pool)
+- [Wire up compression + block header caching](./agent-b.md#b7-wire-up-compression--block-header-caching)
+- [Performance benchmarks](./agent-b.md#b8-performance-benchmarks--verify-targets)
 
 ---
 
@@ -42,6 +86,12 @@
 | **Agent B** | Apps & infrastructure | 8 items | `apps/blockchain-node/src/aitbc_chain/` (models, database, rpc, consensus, sync, mempool, state, gossip, network), `apps/blockchain-node/migrations/`, `tests/` |
 
 **Conflict boundary**: Agent A owns `aitbc/` (except `constants.py`, `log_utils/`). Agent B owns `apps/`. No shared files are edited by both agents. Coordination is via "Agent A creates shared utility → Agent B consumes it" — see Coordination Protocol.
+
+---
+
+**Documentation Version**: 1.0
+**Last Updated**: 2026-06-30
+**Release**: v0.6.0 — Database & Network Optimization
 
 ---
 

@@ -23,6 +23,6 @@ Specifications, audits, and implementation records for AITBC internals.
 
 ## Related
 
-- [Architecture](../6_architecture/) — System design docs
-- [Security](../9_security/) — Security guides
-- [Roadmap](../1_project/2_roadmap.md) — Development roadmap
+- [Architecture](../architecture/) — System design docs
+- [Security](../security/) — Security guides
+- [Release Notes](../releases/README.md) — Current development status
