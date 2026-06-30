@@ -309,8 +309,9 @@ class LoadBalancer:
             return self._predictive_selection(eligible_agents, task_data)
         elif self.strategy == LoadBalancingStrategy.CONSISTENT_HASH:
             return self._consistent_hash_selection(eligible_agents, task_data)
-        else:
-            return eligible_agents[0]
+
+        # All enum members are handled above; mypy knows this is unreachable.
+        return None  # type: ignore[unreachable]
 
     def _round_robin_selection(self, agents: list[str]) -> str:
         """Round-robin agent selection"""

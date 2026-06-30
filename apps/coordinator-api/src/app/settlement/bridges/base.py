@@ -47,6 +47,8 @@ class SettlementMessage:
     nonce: int
     signature: str
     gas_limit: int | None = None
+    zk_proof: dict[str, Any] | None = None
+    privacy_level: str | None = None
     created_at: datetime | None = None
 
     def __post_init__(self) -> None:

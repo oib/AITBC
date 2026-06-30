@@ -166,7 +166,7 @@ class CertificationSystem:
                     AgentCertification.agent_id == agent_id,
                     AgentCertification.certification_level == target_level,
                     AgentCertification.status == CertificationStatus.ACTIVE,
-                    AgentCertification.expires_at > datetime.now(UTC),
+                    AgentCertification.expires_at > datetime.now(UTC),  # type: ignore[operator]
                 )
             )
         ).first()
@@ -198,7 +198,7 @@ class CertificationSystem:
                 "reason": "Identity verified through reputation system",
                 "score": 100.0,
                 "details": {
-                    "verification_date": reputation.created_at.isoformat(),
+                    "verification_date": reputation.created_at.isoformat() if reputation.created_at else None,
                     "verification_method": "reputation_system",
                     "trust_score": reputation.trust_score,
                 },

@@ -328,6 +328,12 @@ class ChainSettings(BaseSettings):
     bridge_min_confirmations: int = 3  # minimum confirmations for any transfer
     bridge_finality_blocks: int = 6  # full finality threshold
     bridge_large_transfer_threshold: int = 10000  # transfers above this require full finality
+    # Production hardening: when True, _validate_proof REJECTS any proof that
+    # does not carry a Merkle inclusion proof (merkle_proof + lock_event). The
+    # default is False to preserve the v0.7.2 "field + signature" verification
+    # mode used by isolated/dev networks; set BRIDGE_REQUIRE_MERKLE_PROOF=true
+    # before enabling the release path on networks that move real value.
+    bridge_require_merkle_proof: bool = False
 
     # External oracle configuration (v0.7.4). When bridge_verification_mode
     # is "oracle", bridge proof verification calls an external oracle service
@@ -425,7 +431,6 @@ class ChainSettings(BaseSettings):
     escrow_timeout_extension_max: int = 604800  # 7 days max extension
     escrow_htlc_enabled: bool = True  # use HTLC contract for escrow
     escrow_htlc_contract_address: str = ""  # deployed CrossChainAtomicSwap.sol
-    escrow_require_proof_verification: bool = True  # require Merkle proof verification
     escrow_large_trade_threshold: int = 10000  # trades above this use large timeout
 
 

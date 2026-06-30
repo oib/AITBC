@@ -8,8 +8,9 @@ from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
 
-from ..registry import MinerRegistry  # type: ignore[import-not-found]
-from ..scoring import ScoringEngine  # type: ignore[import-not-found]
+from ..registry import MinerRegistry
+from ..registry.miner_registry import JobAssignment
+from ..scoring import ScoringEngine
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -24,16 +25,6 @@ class JobRequest(BaseModel):
     priority: int = 0
     deadline: datetime | None = None
     reward: float = 0.0
-
-
-class JobAssignment(BaseModel):
-    """Job assignment response"""
-
-    job_id: str
-    miner_id: str
-    pool_id: str
-    assigned_at: datetime
-    deadline: datetime | None
 
 
 class JobResult(BaseModel):
@@ -83,6 +74,7 @@ async def assign_job(
         job_id=job.job_id,
         miner_id=best_miner.miner_id,
         pool_id=best_miner.pool_id,
+        model=job.model,
         assigned_at=datetime.now(UTC),
         deadline=job.deadline,
     )
@@ -144,21 +136,23 @@ async def submit_result(
     return {"status": "recorded", "reward_tx_hash": reward_tx_hash}
 
 
-@router.get("/pending")
+@router.get("/pending", response_model=list[JobAssignment])
 @rate_limit(rate=200, per=60)
 async def get_pending_jobs(
     request: Request,
     pool_id: str | None,
-    limit: int | None,
     registry: Annotated[MinerRegistry, Depends(get_registry)],
-) -> list[dict[str, Any]]:
+    limit: int = 50,
+) -> list[JobAssignment]:
     """Get pending jobs waiting for assignment."""
-    return await registry.get_pending_jobs(pool_id=pool_id, limit=limit)  # type: ignore[no-any-return]
+    return await registry.get_pending_jobs(pool_id=pool_id, limit=limit)
 
 
-@router.get("/{job_id}")
+@router.get("/{job_id}", response_model=JobAssignment)
 @rate_limit(rate=200, per=60)
-async def get_job_status(request: Request, job_id: str, registry: Annotated[MinerRegistry, Depends(get_registry)]) -> object:
+async def get_job_status(
+    request: Request, job_id: str, registry: Annotated[MinerRegistry, Depends(get_registry)]
+) -> JobAssignment:
     """Get job assignment status."""
     job = await registry.get_job(job_id)
     if not job:

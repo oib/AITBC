@@ -16,6 +16,7 @@ from ...domain.analytics import (
     MarketMetric,
     MetricType,
 )
+from sqlalchemy import desc
 from sqlmodel import Session, and_, select
 
 from aitbc.aitbc_logging import get_logger
@@ -303,7 +304,7 @@ class AnalyticsEngine:
             "opportunity_identification": self.identify_opportunities,
             "risk_assessment": self.assess_risks,
             "performance_analysis": self.analyze_performance,
-        }  # type: ignore[attr-defined]
+        }
         self.trend_thresholds = {"significant_change": 5.0, "strong_trend": 10.0, "critical_trend": 20.0}
         self.anomaly_thresholds = {"statistical": 2.0, "percentage": 15.0, "volume": 100.0}
 
@@ -321,7 +322,7 @@ class AnalyticsEngine:
                     MarketMetric.period_end <= end_time,
                 )
             )
-            .order_by(MarketMetric.recorded_at.desc())
+            .order_by(desc(MarketMetric.recorded_at))  # type: ignore[arg-type]
         ).all()
         trend_insights = await self.analyze_trends(metrics, session)  # type: ignore[arg-type]
         insights.extend(trend_insights)
@@ -514,6 +515,10 @@ class AnalyticsEngine:
                 )
                 insights.append(insight)
         return insights
+
+    async def analyze_performance(self, metrics: list[MarketMetric], session: Session) -> list[MarketInsight]:
+        """Analyze performance metrics (stub)"""
+        return []
 
     def calculate_expected_value(self, metric: MarketMetric, session: Session) -> float | None:
         """Calculate expected value for anomaly detection"""
@@ -791,18 +796,18 @@ class MarketplaceAnalytics:
                     MarketMetric.period_end <= end_time,
                 )
             )
-            .order_by(MarketMetric.recorded_at.desc())
+            .order_by(desc(MarketMetric.recorded_at))  # type: ignore[arg-type]
         ).all()
         recent_insights = self.session.execute(
             select(MarketInsight)
             .where(MarketInsight.created_at >= start_time)
-            .order_by(MarketInsight.created_at.desc())
+            .order_by(desc(MarketInsight.created_at))  # type: ignore[arg-type]
             .limit(10)
         ).all()
         active_alerts = self.session.execute(
             select(AnalyticsAlert)
             .where(and_(AnalyticsAlert.status == "active", AnalyticsAlert.created_at >= start_time))
-            .order_by(AnalyticsAlert.created_at.desc())
+            .order_by(desc(AnalyticsAlert.created_at))  # type: ignore[arg-type]
             .limit(5)
         ).all()
         return {

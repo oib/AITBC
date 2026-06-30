@@ -4,7 +4,7 @@ REST API for analytics, insights, reporting, and dashboards
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -266,7 +266,7 @@ async def create_dashboard(
             refresh_interval=dashboard.refresh_interval,
             auto_refresh=dashboard.auto_refresh,
             owner_id=dashboard.owner_id,
-            status=dashboard.status.value,
+            status=dashboard.status,
             created_at=dashboard.created_at.isoformat(),
             updated_at=dashboard.updated_at.isoformat(),
         )
@@ -298,7 +298,7 @@ async def get_dashboard(
             refresh_interval=dashboard.refresh_interval,
             auto_refresh=dashboard.auto_refresh,
             owner_id=dashboard.owner_id,
-            status=dashboard.status.value,
+            status=dashboard.status,
             created_at=dashboard.created_at.isoformat(),
             updated_at=dashboard.updated_at.isoformat(),
         )
@@ -425,7 +425,7 @@ async def get_market_trends(
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
         trends = await analytics_service.analyze_market_trends(time_period=time_period, metric_categories=metric_categories)  # type: ignore[attr-defined]
-        return trends
+        return cast(dict[str, Any], trends)
     except Exception as e:
         logger.error("Error getting market trends: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -443,7 +443,7 @@ async def get_market_segments(
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
         segments = await analytics_service.analyze_market_segments(segment_by=segment_by, min_market_share=min_market_share)  # type: ignore[attr-defined]
-        return segments
+        return cast(list[dict[str, Any]], segments)
     except Exception as e:
         logger.error("Error getting market segments: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -461,7 +461,7 @@ async def get_competitor_analysis(
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
         analysis = await analytics_service.analyze_competitors(competitor_ids=competitor_ids, analysis_depth=analysis_depth)  # type: ignore[attr-defined]
-        return analysis
+        return cast(dict[str, Any], analysis)
     except Exception as e:
         logger.error("Error getting competitor analysis: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -479,12 +479,12 @@ async def get_metric_forecast(
     """Get metric forecast"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
-        forecast = await analytics_service.forecast_metric(
+        forecast = await analytics_service.forecast_metric(  # type: ignore[attr-defined]
             metric_name=metric_name,
             forecast_periods=forecast_periods,
             confidence_interval=confidence_interval,
-        )  # type: ignore[attr-defined]
-        return forecast
+        )
+        return cast(dict[str, Any], forecast)
     except Exception as e:
         logger.error("Error getting metric forecast: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -502,7 +502,7 @@ async def get_active_alerts(
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
         alerts = await analytics_service.get_active_alerts(severity=severity, category=category)  # type: ignore[attr-defined]
-        return alerts
+        return cast(list[dict[str, Any]], alerts)
     except Exception as e:
         logger.error("Error getting active alerts: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -520,7 +520,7 @@ async def acknowledge_alert(
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
         result = await analytics_service.acknowledge_alert(alert_id=alert_id, acknowledged_by=acknowledged_by)  # type: ignore[attr-defined]
-        return result
+        return cast(dict[str, Any], result)
     except Exception as e:
         logger.error("Error acknowledging alert: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -538,7 +538,7 @@ async def get_performance_benchmarks(
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
         benchmarks = await analytics_service.get_performance_benchmarks(benchmark_type=benchmark_type, time_period=time_period)  # type: ignore[attr-defined]
-        return benchmarks
+        return cast(dict[str, Any], benchmarks)
     except Exception as e:
         logger.error("Error getting performance benchmarks: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -556,7 +556,7 @@ async def get_custom_queries(
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
         queries = await analytics_service.get_custom_queries(query_type=query_type, created_by=created_by)  # type: ignore[attr-defined]
-        return queries
+        return cast(list[dict[str, Any]], queries)
     except Exception as e:
         logger.error("Error getting custom queries: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -574,10 +574,10 @@ async def create_custom_query(
     """Create custom analytics query"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
-        query = await analytics_service.create_custom_query(
+        query = await analytics_service.create_custom_query(  # type: ignore[attr-defined]
             query_name=query_name, query_definition=query_definition, query_type=query_type
-        )  # type: ignore[attr-defined]
-        return query
+        )
+        return cast(dict[str, Any], query)
     except Exception as e:
         logger.error("Error creating custom query: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -595,7 +595,7 @@ async def execute_custom_query(
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
         result = await analytics_service.execute_custom_query(query_id=query_id, parameters=parameters or {})  # type: ignore[attr-defined]
-        return result
+        return cast(dict[str, Any], result)
     except Exception as e:
         logger.error("Error executing custom query: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -613,10 +613,10 @@ async def export_analytics_data(
     """Export analytics data"""
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
-        export_result = await analytics_service.export_analytics_data(
+        export_result = await analytics_service.export_analytics_data(  # type: ignore[attr-defined]
             export_format=export_format, data_types=data_types, date_range=date_range
-        )  # type: ignore[attr-defined]
-        return export_result
+        )
+        return cast(dict[str, Any], export_result)
     except Exception as e:
         logger.error("Error exporting analytics data: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -633,7 +633,7 @@ async def get_realtime_metrics(
     analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
     try:
         metrics = await analytics_service.get_realtime_metrics(metric_names=metric_names)  # type: ignore[attr-defined]
-        return metrics
+        return cast(dict[str, Any], metrics)
     except Exception as e:
         logger.error("Error getting realtime metrics: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e

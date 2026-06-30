@@ -8,15 +8,15 @@ the proposal ID is provided and the parameter change is well-formed.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..deps import get_db_session as get_db  # type: ignore
-from ...models import ServiceConfig  # type: ignore
+from ..deps import get_db_session as get_db
+from ...models import ServiceConfig
 
 router = APIRouter(prefix="/parameters", tags=["parameters"])
 
@@ -93,23 +93,30 @@ async def apply_parameter_change(
             detail=f"Service config for '{change.target_service}' not found",
         )
 
-    # Get old value for audit
+    # Get old value for audit. Use getattr/setattr because SQLAlchemy Mapped
+    # columns are typed as descriptors and direct attribute access confuses mypy.
     old_value: Any
+    new_value: Any
     if change.parameter_name == "max_concurrent":
-        old_value = config.max_concurrent
-        config.max_concurrent = change.new_value
+        new_value = cast(int, change.new_value)
+        old_value = int(config.max_concurrent)
+        config.max_concurrent = new_value
     elif change.parameter_name == "enabled":
-        old_value = config.enabled
-        config.enabled = change.new_value
+        new_value = bool(change.new_value)
+        old_value = bool(config.enabled)
+        config.enabled = new_value
     elif change.parameter_name == "pricing":
-        old_value = config.pricing
-        config.pricing = change.new_value
+        new_value = cast(dict[str, Any], change.new_value)
+        old_value = dict(config.pricing)
+        config.pricing = new_value
     elif change.parameter_name == "config":
-        old_value = config.config
-        config.config = change.new_value
+        new_value = cast(dict[str, Any], change.new_value)
+        old_value = dict(config.config)
+        config.config = new_value
     elif change.parameter_name == "capabilities":
-        old_value = config.capabilities
-        config.capabilities = change.new_value
+        new_value = cast(list[str], change.new_value)
+        old_value = list(config.capabilities)
+        config.capabilities = new_value
     else:
         # Should not reach here due to validation above
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid parameter")

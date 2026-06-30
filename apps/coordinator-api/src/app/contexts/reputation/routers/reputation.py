@@ -278,7 +278,9 @@ async def get_reputation_leaderboard(
     """Get reputation leaderboard"""
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
-        leaderboard_data = await reputation_service.get_leaderboard(category=category, limit=limit, region=region)
+        leaderboard_data = await reputation_service.get_leaderboard(
+            category=category or "overall", limit=limit or 100, region=region or "global"
+        )
         return [LeaderboardEntry(**entry) for entry in leaderboard_data]
     except Exception as e:
         logger.error("Error getting leaderboard: %s", str(e))
@@ -313,8 +315,8 @@ async def get_reputation_metrics(
         ]
         recent_cutoff = datetime.now(UTC) - timedelta(days=1)
         recent_events = session.execute(
-            select(func.count(ReputationEvent.id)).where(ReputationEvent.occurred_at >= recent_cutoff)
-        ).first()  # type: ignore[arg-type]
+            select(func.count(ReputationEvent.id)).where(ReputationEvent.occurred_at >= recent_cutoff)  # type: ignore[arg-type]
+        ).first()
         recent_activity = {
             "events_last_24h": recent_events[0] if recent_events else 0,
             "active_agents": len([r for r in reputations if r.last_activity and r.last_activity >= recent_cutoff]),
@@ -340,10 +342,10 @@ async def get_agent_feedback(
     try:
         feedbacks = session.execute(
             select(CommunityFeedback)
-            .where(and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == "approved"))
-            .order_by(desc(CommunityFeedback.created_at))
+            .where(and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == "approved"))  # type: ignore[arg-type]
+            .order_by(desc(CommunityFeedback.created_at))  # type: ignore[arg-type]
             .limit(limit)
-        ).all()  # type: ignore[arg-type]
+        ).all()
         return [
             FeedbackResponse(
                 id=feedback.id,
@@ -376,9 +378,9 @@ async def get_reputation_events(
         events = session.execute(
             select(ReputationEvent)
             .where(ReputationEvent.agent_id == agent_id)
-            .order_by(desc(ReputationEvent.occurred_at))
+            .order_by(desc(ReputationEvent.occurred_at))  # type: ignore[arg-type]
             .limit(limit)
-        ).all()  # type: ignore[arg-type]
+        ).all()
         return [
             {
                 "id": event.id,
@@ -533,12 +535,13 @@ async def get_cross_chain_leaderboard(
 ) -> dict[str, Any]:
     """Get cross-chain reputation leaderboard"""
     try:
+        effective_min_score = (min_score or 0.0) * 1000
         reputations = session.execute(
             select(AgentReputation)
-            .where(AgentReputation.trust_score >= min_score * 1000)
-            .order_by(desc(AgentReputation.trust_score))
+            .where(AgentReputation.trust_score >= effective_min_score)
+            .order_by(desc(AgentReputation.trust_score))  # type: ignore[arg-type]
             .limit(limit)
-        ).all()  # type: ignore[arg-type]
+        ).all()
         agents = []
         for rep in reputations:
             agents.append(
@@ -629,8 +632,8 @@ async def get_cross_chain_analytics(
 ) -> dict[str, Any]:
     """Get cross-chain reputation analytics"""
     try:
-        total_agents = session.execute(select(func.count(AgentReputation.id))).first()  # type: ignore[arg-type]
-        avg_reputation = session.execute(select(func.avg(AgentReputation.trust_score))).first() or 0.0
+        total_agents = session.execute(select(func.count(AgentReputation.id))).scalar() or 0  # type: ignore[arg-type]
+        avg_reputation = session.execute(select(func.avg(AgentReputation.trust_score))).scalar() or 0.0
         reputations = session.execute(select(AgentReputation)).all()
         distribution = {"master": 0, "expert": 0, "advanced": 0, "intermediate": 0, "beginner": 0}
         score_ranges = {"0.0-0.2": 0, "0.2-0.4": 0, "0.4-0.6": 0, "0.6-0.8": 0, "0.8-1.0": 0}
@@ -660,7 +663,7 @@ async def get_cross_chain_analytics(
                 "chain_diversity_score": 0.0,
             },
             "generated_at": datetime.now(UTC).isoformat(),
-        }  # type: ignore[operator]
+        }
     except Exception as e:
         logger.error("Error getting cross-chain analytics: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e

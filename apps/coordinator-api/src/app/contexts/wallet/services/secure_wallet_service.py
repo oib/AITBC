@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
-from sqlmodel import Session
+from sqlmodel import Session, and_
 
 from aitbc.aitbc_logging import get_logger
 
@@ -48,9 +48,11 @@ class SecureWalletService:
             raise ValueError(f"Password too weak: {', '.join(password_validation['issues'])}")
         existing = self.session.execute(
             select(AgentWallet).where(
-                AgentWallet.agent_id == request.agent_id, AgentWallet.wallet_type == request.wallet_type, AgentWallet.is_active
+                AgentWallet.agent_id == request.agent_id,
+                AgentWallet.wallet_type == request.wallet_type,
+                AgentWallet.is_active,  # type: ignore[arg-type]
             )
-        ).first()  # type: ignore[arg-type]
+        ).first()
         if existing:
             raise ValueError(f"Agent {request.agent_id} already has an active {request.wallet_type} wallet")
         try:
@@ -190,11 +192,13 @@ class SecureWalletService:
         """Update a specific token balance for a wallet"""
         record = self.session.execute(
             select(TokenBalance).where(
-                TokenBalance.wallet_id == wallet_id,
-                TokenBalance.chain_id == chain_id,
-                TokenBalance.token_address == token_address,
+                and_(
+                    TokenBalance.wallet_id == wallet_id,
+                    TokenBalance.chain_id == chain_id,
+                    TokenBalance.token_address == token_address,
+                )
             )
-        ).first()  # type: ignore[arg-type]
+        ).first()
         if record:
             record.balance = balance
             record.updated_at = datetime.now(UTC)
@@ -229,13 +233,13 @@ class SecureWalletService:
         transaction = WalletTransaction(
             wallet_id=wallet_id,
             to_address=request.to_address,
-            amount=request.amount,
-            token_address=request.token_address,
+            amount=request.value,
+            token_address="0x0000000000000000000000000000000000000000",  # Default to native token
             chain_id=request.chain_id,
             data=request.data or "",
             status=TransactionStatus.PENDING,
             created_at=datetime.now(UTC),
-        )  # type: ignore[attr-defined]
+        )
         self.session.add(transaction)
         self.session.commit()
         self.session.refresh(transaction)
@@ -245,11 +249,11 @@ class SecureWalletService:
             signed_tx = await self.contract_service.sign_transaction(
                 private_key=private_key,
                 to_address=request.to_address,
-                amount=request.amount,
-                token_address=request.token_address,
+                amount=request.value,
+                token_address="0x0000000000000000000000000000000000000000",  # Default to native token
                 chain_id=request.chain_id,
                 data=request.data or "",
-            )  # type: ignore[attr-defined]
+            )
             transaction.signed_data = signed_tx
             transaction.status = TransactionStatus.SIGNED  # type: ignore[attr-defined]
             transaction.updated_at = datetime.now(UTC)

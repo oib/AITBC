@@ -166,9 +166,9 @@ class BillingIntegration:
         if self.coordinator_api_key:
             headers["Authorization"] = f"Bearer {self.coordinator_api_key}"
         client = AsyncAITBCHTTPClient(base_url=self.coordinator_billing_url, headers=headers, timeout=30)
-        response = await client.async_post("/api/billing/usage", json=billing_event)
+        response = await client.post("/api/billing/usage", json=billing_event)
         if response:
-            return response  # type: ignore[no-any-return]
+            return response
         else:
             raise NetworkError("Failed to send billing event")
 
@@ -181,9 +181,9 @@ class BillingIntegration:
         params: dict[str, Any] = {"hours": hours}
         if tenant_id:
             params["tenant_id"] = tenant_id
-        response = await client.async_get("/api/billing/metrics", params=params)
+        response = await client.get("/api/billing/metrics", params=params)
         if response:
-            return response  # type: ignore[no-any-return]
+            return response
         else:
             raise NetworkError("Failed to get billing metrics")
 
@@ -194,9 +194,9 @@ class BillingIntegration:
         if self.coordinator_api_key:
             headers["Authorization"] = f"Bearer {self.coordinator_api_key}"
         client = AsyncAITBCHTTPClient(base_url=self.coordinator_billing_url, headers=headers, timeout=30)
-        response = await client.async_post("/api/billing/invoice", json=payload)
+        response = await client.post("/api/billing/invoice", json=payload)
         if response:
-            return response  # type: ignore[no-any-return]
+            return response
         else:
             raise NetworkError("Failed to trigger invoice generation")
 

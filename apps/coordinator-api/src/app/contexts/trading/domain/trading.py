@@ -250,7 +250,7 @@ class TradeAgreement(SQLModel, table=True):
     quality_standards: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Legal and compliance
-    terms_and_conditions: str = Field(default="", max_length=5000)
+    terms_and_conditions: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     compliance_requirements: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     dispute_resolution: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 

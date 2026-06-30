@@ -8,10 +8,11 @@ Enables bridging of assets between different blockchain networks.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from fastapi import HTTPException
 from sqlalchemy import select
-from sqlmodel import Session
+from sqlmodel import Session, and_
 
 from aitbc.aitbc_logging import get_logger
 
@@ -192,9 +193,11 @@ class CrossChainBridgeService:
                 raise HTTPException(status_code=400, detail="Invalid validator signature")
             existing_confirmation = self.session.execute(
                 select(BridgeTransaction).where(
-                    BridgeTransaction.bridge_request_id == bridge_request.id,
-                    BridgeTransaction.validator_address == validator_address,
-                    BridgeTransaction.transaction_type == "confirmation",
+                    and_(
+                        BridgeTransaction.bridge_request_id == bridge_request.id,
+                        BridgeTransaction.validator_address == validator_address,
+                        BridgeTransaction.transaction_type == "confirmation",
+                    )
                 )
             ).first()
             if existing_confirmation:
@@ -208,7 +211,7 @@ class CrossChainBridgeService:
                 confirmed_at=datetime.now(UTC),
             )
             self.session.add(confirmation)
-            total_confirmations = await self._count_confirmations(bridge_request.id)
+            total_confirmations = await self._count_confirmations(bridge_request.id)  # type: ignore[arg-type]
             required_confirmations = await self._get_required_confirmations(bridge_request.source_chain_id)
             if total_confirmations >= required_confirmations:
                 bridge_request.status = BridgeRequestStatus.CONFIRMED
@@ -349,11 +352,23 @@ class CrossChainBridgeService:
 
     async def _get_supported_token(self, token_address: str) -> SupportedToken | None:
         """Get supported token configuration"""
-        return self.session.execute(select(SupportedToken).where(SupportedToken.token_address == token_address)).first()
+        return (
+            self.session.execute(
+                select(SupportedToken).where(SupportedToken.token_address == token_address)  # type: ignore[arg-type]
+            )
+            .scalars()
+            .first()
+        )
 
     async def _get_chain_config(self, chain_id: int) -> ChainConfig | None:
         """Get chain configuration"""
-        return self.session.execute(select(ChainConfig).where(ChainConfig.chain_id == chain_id)).first()
+        return (
+            self.session.execute(
+                select(ChainConfig).where(ChainConfig.chain_id == chain_id)  # type: ignore[arg-type]
+            )
+            .scalars()
+            .first()
+        )
 
     async def _generate_transfer_zk_proof(self, transfer_request: BridgeCreateRequest, sender_address: str) -> dict:
         """Generate ZK proof for transfer"""
@@ -372,7 +387,8 @@ class CrossChainBridgeService:
         """Get bridge confirmations"""
         confirmations = self.session.execute(
             select(BridgeTransaction).where(
-                BridgeTransaction.bridge_request_id == request_id, BridgeTransaction.transaction_type == "confirmation"
+                BridgeTransaction.bridge_request_id == request_id,
+                BridgeTransaction.transaction_type == "confirmation",  # type: ignore[arg-type]
             )
         ).all()
         return [
@@ -387,7 +403,7 @@ class CrossChainBridgeService:
     async def _get_bridge_transactions(self, request_id: int) -> list[dict]:
         """Get all bridge transactions"""
         transactions = self.session.execute(
-            select(BridgeTransaction).where(BridgeTransaction.bridge_request_id == request_id)
+            select(BridgeTransaction).where(BridgeTransaction.bridge_request_id == request_id)  # type: ignore[arg-type]
         ).all()
         return [
             {
@@ -410,7 +426,7 @@ class CrossChainBridgeService:
         source_confirmation_time = source_chain.avg_block_time * source_chain.min_confirmations
         target_confirmation_time = target_chain.avg_block_time * target_chain.min_confirmations
         total_estimated_time = source_confirmation_time + target_confirmation_time + 300
-        return bridge_request.created_at + timedelta(seconds=total_estimated_time)  # type: ignore[no-any-return]
+        return bridge_request.created_at + timedelta(seconds=total_estimated_time)
 
     async def _analyze_bridge_failure(self, bridge_request: BridgeRequest) -> dict:
         """Analyze bridge failure reason"""
@@ -442,7 +458,13 @@ class CrossChainBridgeService:
 
     async def _get_validator(self, validator_address: str) -> Validator | None:
         """Get validator information"""
-        return self.session.execute(select(Validator).where(Validator.validator_address == validator_address)).first()
+        return (
+            self.session.execute(
+                select(Validator).where(Validator.validator_address == validator_address)  # type: ignore[arg-type]
+            )
+            .scalars()
+            .first()
+        )
 
     async def _verify_validator_signature(self, confirm_request: BridgeConfirmRequest, validator_address: str) -> bool:
         """Verify validator signature"""
@@ -452,7 +474,8 @@ class CrossChainBridgeService:
         """Count confirmations for bridge request"""
         confirmations = self.session.execute(
             select(BridgeTransaction).where(
-                BridgeTransaction.bridge_request_id == request_id, BridgeTransaction.transaction_type == "confirmation"
+                BridgeTransaction.bridge_request_id == request_id,
+                BridgeTransaction.transaction_type == "confirmation",  # type: ignore[arg-type]
             )
         ).all()
         return len(confirmations)
@@ -472,7 +495,7 @@ class CrossChainBridgeService:
             "target_chain": bridge_request.target_chain_id,
         }
         merkle_proof = await self.merkle_tree_service.generate_proof(leaf_data)
-        return merkle_proof
+        return cast(MerkleProof, merkle_proof)
 
     async def _verify_merkle_proof(self, merkle_proof: list[str], bridge_request: BridgeRequest) -> bool:
         """Verify Merkle proof"""

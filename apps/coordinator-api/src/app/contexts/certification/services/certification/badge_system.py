@@ -104,7 +104,7 @@ class BadgeSystem:
         ).first()
         if existing_badge:
             return (False, None, "Agent already has this badge")
-        eligibility_result = await self.verify_badge_eligibility(session, agent_id, badge)
+        eligibility_result = await self.verify_badge_eligibility(session, agent_id, badge)  # type: ignore[arg-type]
         if not eligibility_result["eligible"]:
             return (False, None, f"Agent not eligible: {eligibility_result['reason']}")
         agent_badge = AgentBadge(
@@ -176,11 +176,11 @@ class BadgeSystem:
         awarded_badges = []
         automatic_badges = session.execute(
             select(AchievementBadge).where(
-                and_(AchievementBadge.is_active, AchievementBadge.badge_type.in_([BadgeType.ACHIEVEMENT, BadgeType.MILESTONE]))
+                and_(AchievementBadge.is_active, AchievementBadge.badge_type.in_([BadgeType.ACHIEVEMENT, BadgeType.MILESTONE]))  # type: ignore[attr-defined]
             )
         ).all()
         for badge in automatic_badges:
-            eligibility_result = await self.verify_badge_eligibility(session, agent_id, badge)
+            eligibility_result = await self.verify_badge_eligibility(session, agent_id, badge)  # type: ignore[arg-type]
             if eligibility_result["eligible"]:
                 existing = session.execute(
                     select(AgentBadge).where(and_(AgentBadge.agent_id == agent_id, AgentBadge.badge_id == badge.badge_id))
