@@ -1,5 +1,8 @@
 # v0.7.0 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Cross-Chain Bridge Basics — Lock/Unlock, RPC, Simple Transfers, Monitoring
 
 **Goal**: Complete the foundational cross-chain bridge infrastructure in blockchain-node. The core bridge logic already exists (`cross_chain/bridge.py` — 401 lines, lock/confirm flow, partial proof validation). This release adds the missing pieces: refund/unlock endpoint, bridge balance query, bridge health monitoring, CLI command fixes, batch operations, and a shared bridge client SDK in `aitbc/bridge/`.
@@ -9,6 +12,45 @@
 > **Prerequisites**: [v0.6.0](../v0.6.0/change.log) ✅, [v0.6.1](../v0.6.1/change.log) ✅, [v0.6.3](../v0.6.3/change.log) ✅, [v0.6.4](../v0.6.4/change.log) ✅, [v0.5.16](../v0.5.16/change.log) ✅. All technical prerequisites complete. v0.6.6/v0.6.7 (product track) are in progress but touch different code (marketplace/pool-hub) — no file conflicts with bridge work.
 
 > **Risk**: Low-Medium. The bridge core already exists and is tested (401-line test suite). This release adds missing endpoints and monitoring — it does not change the proof validation logic. The `BRIDGE_RELEASE_ENABLED=false` fence prevents unauthorized fund release until v0.7.2.
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, architecture, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (BridgeClient, bridge types, proof utilities, unit tests)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (bridge config, RPC endpoints, CLI fixes, monitoring, tests)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets)
+- [Already Fixed / Exists](./overview.md#already-fixed--exists-verified--no-work-needed)
+- [Architecture](./overview.md#architecture-bridge-basics-v070)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [BridgeClient + Bridge Types](./agent-a.md#a1-bridgeclient--bridge-types)
+- [Proof Utilities](./agent-a.md#a2-proof-utilities)
+- [Unit Tests](./agent-a.md#a3-unit-tests)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Bridge Config + Constants](./agent-b.md#b1-bridge-config--constants)
+- [Missing RPC Endpoints](./agent-b.md#b2-missing-rpc-endpoints)
+- [Fix CLI Bridge Commands](./agent-b.md#b3-fix-cli-bridge-commands)
+- [Bridge Monitoring](./agent-b.md#b4-bridge-monitoring)
+- [CLI Node Bridge Commands](./agent-b.md#b5-cli-node-bridge-commands)
+- [Integration Tests](./agent-b.md#b6-integration-tests)
+- [Verification](./agent-b.md#b7-verification)
+- [Coordination Protocol](./agent-b.md#coordination-protocol)
 
 ---
 
@@ -733,3 +775,9 @@ The following are explicitly **NOT** in v0.7.0 scope:
 - **v0.7.2**: Merkle proof verification (`merkle_patricia_trie.verify_proof`), proposer-set membership checking, block header signature verification, finality tracking, validator set epoch transitions, `BRIDGE_RELEASE_ENABLED` fence removal
 
 The `BRIDGE_RELEASE_ENABLED=false` fence **remains in place** throughout v0.7.0. The confirm/release path stays gated until v0.7.2 completes full cryptographic verification.
+
+---
+
+**Documentation Version**: 1.0
+**Last Updated**: 2026-06-30
+**Release**: v0.7.0 — Cross-Chain Bridge Basics

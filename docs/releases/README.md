@@ -3,8 +3,8 @@
 **Level**: All Levels
 **Prerequisites**: None
 **Estimated Time**: 5-15 minutes
-**Last Updated**: June 8, 2026
-**Version**: 1.2
+**Last Updated**: June 30, 2026
+**Version**: 2.0
 
 ## 🧭 **Navigation Path:**
 **🏠 [Documentation Home](../README.md)** → **📋 Releases** → *You are here*
@@ -25,63 +25,59 @@
 
 Read the release notes newest-first:
 
-- **[v0.4.23](RELEASE_v0.4.23.md)** - June 15, 2026 - **Architecture Refactoring, Logging Standardization, Observability Enhancement** 📋 Planning
-- **[v0.4.22](RELEASE_v0.4.22.md)** - June 15, 2026 - **Blockchain-node MyPy Type Safety Completion, Quality Improvements** ✅ Released
-- **[v0.4.14](RELEASE_v0.4.14.md)** - June 8, 2026 - **Infrastructure Activation, Security & Monitoring** ✅ Released
-- **[v0.4.13](RELEASE_v0.4.13.md)** - June 7, 2026 - **Security Remediation & System Stabilization**
-- **[v0.4.12](RELEASE_v0.4.12.md)** - June 7, 2026 - **Governance Service & DAO Integration** (Concept Plan)
-- **[v0.4.11](RELEASE_v0.4.11.md)** - June 7, 2026 - **System Maintenance & Fixes**
-- **[v0.4.10](RELEASE_v0.4.10.md)** - January 4, 2025 - **Security & Performance Major Release**
-- **[v0.4.9](RELEASE_v0.4.9.md)** - June 6, 2026
-- **[v0.4.8](RELEASE_v0.4.8.md)** - June 6, 2026
-- **[v0.4.7](RELEASE_v0.4.7.md)** - May 14, 2026
-- **[v0.4.6](RELEASE_v0.4.6.md)** - April 17, 2026
-- **[v0.4.5](RELEASE_v0.4.5.md)** - March 14, 2026
-- **[v0.4.4](RELEASE_v0.4.4.md)** - March 14, 2026
-- **[v0.4.3](RELEASE_v0.4.3.md)** - June 2, 2026
-- **[v0.4.2](RELEASE_v0.4.2.md)** - June 2, 2026
-- **[v0.4.1](RELEASE_v0.4.1.md)** - June 2, 2026
-- **[v0.4.0](RELEASE_v0.4.0.md)** - June 2, 2026
-- **[v0.3.9](RELEASE_v0.3.9.md)** - May 13, 2026
-- **[v0.3.8](RELEASE_v0.3.8.md)** - May 12, 2026
-- **[v0.3.7](RELEASE_v0.3.7.md)** - May 11, 2026
-- **[v0.3.6](RELEASE_v0.3.6.md)** - May 10, 2026
-- **[v0.3.5](RELEASE_v0.3.5.md)** - May 2, 2026
-- **[v0.3.4](RELEASE_v0.3.4.md)** - May 9, 2026
-- **[v0.3.3](RELEASE_v0.3.3.md)** - April 28, 2026
-- **[v0.3.2](RELEASE_v0.3.2.md)** - April 23, 2026
-- **[v0.3.1](RELEASE_v0.3.1.md)** - April 13, 2026
-- **[v0.3.0](RELEASE_v0.3.0.md)** - April 5, 2026
-- **[v0.2.9](RELEASE_v0.2.9.md)** - April 12, 2026
-- **[v0.2.8](RELEASE_v0.2.8.md)** - April 10, 2026
-- **[v0.2.7](RELEASE_v0.2.7.md)** - April 8, 2026
-- **[v0.2.6](RELEASE_v0.2.6.md)** - April 1, 2026
-- **[v0.2.5](RELEASE_v0.2.5.md)** - March 30, 2026
-- **[v0.2.4](RELEASE_v0.2.4.md)** - March 15, 2026
-- **[v0.2.3](RELEASE_v0.2.3.md)** - March 1, 2026
-- **[v0.2.2.5](RELEASE_v0.2.2.5.md)** - March 1, 2026
-- **[v0.2.2.4](RELEASE_v0.2.2.4.md)** - February 28, 2026
-- **[v0.2.2.3](RELEASE_v0.2.2.3.md)** - February 27, 2026
-- **[v0.2.2.2](RELEASE_v0.2.2.2.md)** - February 24, 2026
-- **[v0.2.2.1](RELEASE_v0.2.2.1.md)** - February 17, 2026
-- **[v0.2.2](RELEASE_v0.2.2.md)** - February 15, 2026
-- **[v0.2.1.5](RELEASE_v0.2.1.5.md)** - February 15, 2026
-- **[v0.2.1.4](RELEASE_v0.2.1.4.md)** - February 14, 2026
-- **[v0.2.1.3](RELEASE_v0.2.1.3.md)** - February 13, 2026
-- **[v0.2.1.2](RELEASE_v0.2.1.2.md)** - February 12, 2026
-- **[v0.2.1.1](RELEASE_v0.2.1.1.md)** - February 11, 2026
-- **[v0.2.1](RELEASE_v0.2.1.md)** - February 8, 2026
-- **[v0.2.0](RELEASE_v0.2.0.md)** - February 1, 2026
-- **[v0.1.4](RELEASE_v0.1.4.md)** - January 29, 2026
-- **[v0.1.3](RELEASE_v0.1.3.md)** - January 26, 2026
-- **[v0.1.2](RELEASE_v0.1.2.md)** - January 24, 2026
-- **[v0.1.1](RELEASE_v0.1.1.md)** - January 25, 2026
-- **[v0.1.0](RELEASE_v0.1.0.md)** - January 15, 2026
-- **[v0.0.5](RELEASE_v0.0.5.md)** - December 30, 2025
-- **[v0.0.4](RELEASE_v0.0.4.md)** - December 29, 2025
-- **[v0.0.3](RELEASE_v0.0.3.md)** - December 28, 2025
-- **[v0.0.2](RELEASE_v0.0.2.md)** - December 22, 2025
-- **[v0.0.1](RELEASE_v0.0.1.md)** - December 1, 2025
+### Current Releases (v0.5.x+)
+- **[v2.0.0](v2.0.0/change.log)** - Vision/Questionable Features — Parked for Re-Evaluation
+- **[v1.0.0](v1.0.0/change.log)** - Production Readiness
+- **[v0.9.0](v0.9.0/change.log)** - Atomic Cross-Chain Settlement
+- **[v0.8.2](v0.8.2/change.log)** - Advanced Offer Sync (subscription, real-time, search index)
+- **[v0.8.1](v0.8.1/change.log)** - Cross-Chain Offer Sync (polling-based)
+- **[v0.8.0](v0.8.0/change.log)** - Inter-Chain Trading Basics
+- **[v0.7.5](v0.7.5/change.log)** - Consensus Activation (MultiValidatorPoA + PBFT)
+- **[v0.7.4](v0.7.4/change.log)** - Deferred v0.7.x Items (External Oracle, Cross-Chain Governance, Parameter Automation, Emergency Proposals, Coordinator-API Bridge)
+- **[v0.7.3](v0.7.3/change.log)** - Governance
+- **[v0.7.2](v0.7.2/change.log)** - Bridge Verification (In-Process Crypto)
+- **[v0.7.1](v0.7.1/change.log)** - Bridge Security
+- **[v0.7.0](v0.7.0/change.log)** - Bridge Basics
+- **[v0.6.7](v0.6.7/change.log)** - Pool Hub & Mining
+- **[v0.6.6](v0.6.6/change.log)** - Compute Marketplace
+- **[v0.6.5](v0.6.5/change.log)** - Agent Coordination Service ✅
+- **[v0.6.4](v0.6.4/change.log)** - Multi-Chain Per Island
+- **[v0.6.3](v0.6.3/change.log)** - Multi-Island Node Support
+- **[v0.6.2](v0.6.2/change.log)** - Sync & Gossip Optimization
+- **[v0.6.1](v0.6.1/change.log)** - Parallel Processing ✅
+- **[v0.6.0](v0.6.0/change.log)** - Database & Network Optimization ✅
+- **[v0.5.19](v0.5.19/change.log)** - Tech Debt Cleanup ✅
+- **[v0.5.18](v0.5.18/change.log)** - Test Suite Repair ✅
+- **[v0.5.17](v0.5.17/change.log)** - Test Infrastructure ✅
+- **[v0.5.16](v0.5.16/change.log)** - Security Hardening & Multi-Chain Preparation ✅
+- **[v0.5.15](v0.5.15/change.log)** - Flat-to-Context Migration + Test Suite Repair
+- **[v0.5.14](v0.5.14/change.log)** - Cross-Context Dependency Elimination
+- **[v0.5.13](v0.5.13/change.log)** - Coordinator-API Bounded Context
+- **[v0.5.12](v0.5.12/change.log)** - Duplication Elimination & Large-File Decomposition
+- **[v0.5.11](v0.5.11/change.log)** - (See change.log for details)
+- **[v0.5.10](v0.5.10/change.log)** - (See change.log for details)
+- **[v0.5.9](v0.5.9/change.log)** - (See change.log for details)
+- **[v0.5.8](v0.5.8/change.log)** - (See change.log for details)
+- **[v0.5.7](v0.5.7/change.log)** - (See change.log for details)
+- **[v0.5.6](v0.5.6/change.log)** - (See change.log for details)
+- **[v0.5.5](v0.5.5/change.log)** - (See change.log for details)
+- **[v0.5.4](v0.5.4/change.log)** - (See change.log for details)
+- **[v0.5.3](v0.5.3/change.log)** - (See change.log for details)
+- **[v0.5.2](v0.5.2/change.log)** - (See change.log for details)
+- **[v0.5.1](v0.5.1/change.log)** - (See change.log for details)
+- **[v0.5.0](v0.5.0/change.log)** - Production Infrastructure
+
+### Legacy Releases (v0.4.x and earlier)
+> **Note**: Legacy release files (v0.0.x through v0.4.x) have been archived to the `archive/` subdirectory. These releases use the old single-file format and are preserved for historical reference.
+
+- **[View Archived Releases](archive/)** - All v0.0.x through v0.4.x releases (archived 2026-06-30)
+- **[v0.4.27](v0.4.27/change.log)** - (See change.log for details)
+- **[v0.4.26](v0.4.26/change.log)** - (See change.log for details)
+- **[v0.4.25](v0.4.25/change.log)** - (See change.log for details)
+- **[v0.4.16](v0.4.16/change.log)** - (See change.log for details)
+- **[v0.4.7](v0.4.7/changelog.md)** - May 14, 2026 - **Multi-Model Ollama, Hardware+Software Bundles, GPU Marketplace Deprecated** ✅
+- **[v0.4.6](v0.4.6/changelog.md)** - April 17, 2026
+- **[v0.4.4](v0.4.4/changelog.md)** - March 14, 2026
 
 ---
 
@@ -113,6 +109,6 @@ This directory records versioned release notes, migration context, and milestone
 
 ---
 
-*Last updated: June 17, 2026*
-*Version: 1.3*
-*Status: Release index*
+*Last updated: June 30, 2026*
+*Version: 2.0*
+*Status: Release index (updated to include all v0.5.x+ releases)*

@@ -1,5 +1,8 @@
 # v0.7.2 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Bridge Verification — In-Process Cryptographic Proof Verification, Block Header Verification, Validator Set Tracking, Oracle Client Stub
 
 **Goal**: Replace the current trivially forgeable bridge proof validation (`_validate_proof` in `cross_chain/bridge.py:399-475`, which only checks field equality + signature format) with cryptographic Merkle proof verification using the existing `merkle_patricia_trie.verify_proof()`. Verify block header proposer signatures against the v0.7.1 validator set registry. Track block finality per chain. Include an abstract oracle client interface for future external oracle integration.
@@ -19,6 +22,47 @@
 > **Risk**: High. This release unfences the bridge release path. The Merkle proof verification must be correct — a bug here means an attacker can mint tokens on the destination chain without a real lock on the source chain. The existing `merkle_patricia_trie.verify_proof` is tested but has not been used in the bridge path before.
 
 > **Prerequisites**: [v0.7.0](../v0.7.0/change.log) ✅ (Agent A committed), [v0.7.1](../v0.7.1/change.log) (Agent A ✅ committed, Agent B 🔴 not started), [v0.5.16](../v0.5.16/change.log) ✅ (bridge proof hardening + release fence).
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, architecture, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (verification types, oracle interface, verification utilities, BridgeClient extensions, unit tests)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (verification config, block header storage, Merkle proof verification, block header verification, finality tracking, validator epoch tracking, unfence release path, CLI, integration tests)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets-2026-06-29)
+- [Already Fixed / Exists](./overview.md#already-fixed--exists-verified--no-work-needed)
+- [Hard Blockers](./overview.md#hard-blockers-must-be-resolved-before-v072-implementation)
+- [Architecture](./overview.md#architecture-bridge-verification-v072)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [Extend Bridge Types](./agent-a.md#a1-extend-bridge-types)
+- [Oracle Client Interface](./agent-a.md#a2-oracle-client-interface)
+- [Verification Utilities](./agent-a.md#a3-verification-utilities)
+- [BridgeClient Extensions + Unit Tests](./agent-a.md#a4-bridgeclient-extensions--unit-tests)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Bridge Verification Config + Constants](./agent-b.md#b1-bridge-verification-config--constants)
+- [Remote Block Header Storage](./agent-b.md#b2-remote-block-header-storage)
+- [Merkle Proof Verification](./agent-b.md#b3-merkle-proof-verification)
+- [Block Header Signature Verification](./agent-b.md#b4-block-header-signature-verification)
+- [Finality Tracking](./agent-b.md#b5-finality-tracking)
+- [Validator Set Epoch Tracking](./agent-b.md#b6-validator-set-epoch-tracking)
+- [Unfence Release Path + CLI](./agent-b.md#b7-unfence-release-path--cli)
+- [Integration Tests](./agent-b.md#b8-integration-tests)
 
 ---
 
@@ -701,3 +745,9 @@ v0.7.1 Agent B (BridgeValidator, block header sig, threshold sig)
     │                 │                        ├── B7 (unfence + CLI)
     │                 │                        └── B8 (tests)
 ```
+
+---
+
+**Documentation Version**: 1.0
+**Last Updated**: 2026-06-30
+**Release**: v0.7.2 — Bridge Verification
