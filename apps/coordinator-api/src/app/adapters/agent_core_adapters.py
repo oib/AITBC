@@ -24,14 +24,14 @@ from aitbc_agent_core.protocols.security import IAuditor, ISecurityManager
 from aitbc_agent_core.protocols.zk_proof import IZKProofService
 
 # Import from coordinator-api's own domain models
-from app.contexts.agent_coordination.domain.agent import (
+from app.contexts.agent_coordination.domain.agent import (  # type: ignore
     AgentExecution,
     AgentStepExecution,
 )
-from app.contexts.agent_coordination.services.orchestrator_service import AIAgentOrchestrator
+from app.contexts.agent_coordination.services.orchestrator_service import AIAgentOrchestrator  # type: ignore
 
 # Import from coordinator-api services
-from app.contexts.agent_coordination.services.security import (
+from app.contexts.agent_coordination.services.security import (  # type: ignore
     AgentAuditor,
     AgentSecurityManager,
 )

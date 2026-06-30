@@ -34,7 +34,8 @@ async def expire_old_requests() -> None:
                 )
                 for req in expired_requests:
                     req.status = CoinRequestStatus.EXPIRED
-                    req.audit_log += f" | Auto-expired at {datetime.now(UTC).isoformat()}"
+                    existing_log = req.audit_log or ""
+                    req.audit_log = f"{existing_log} | Auto-expired at {datetime.now(UTC).isoformat()}"
                     logger.info("Expired request %s from %s", req.id, req.sender)
                 if expired_requests:
                     logger.info("Expired %s old coin requests", len(expired_requests))

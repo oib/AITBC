@@ -39,7 +39,6 @@ def register_routers(app: Any) -> None:
         multi_modal_rl,
         services,
         swarm,
-        training,
         users,
         web_vitals,
     )
@@ -69,7 +68,6 @@ def register_routers(app: Any) -> None:
     app.include_router(multi_modal_rl, prefix="/multi-modal", tags=["multi-modal"])
     app.include_router(services, prefix="/services", tags=["services"])
     app.include_router(swarm, prefix="/swarm", tags=["swarm"])
-    app.include_router(training, prefix="/training", tags=["training"])
     app.include_router(users, prefix="/users", tags=["users"])
     app.include_router(web_vitals, prefix="/web-vitals", tags=["web-vitals"])
 
@@ -81,17 +79,26 @@ def register_routers(app: Any) -> None:
     except ImportError:
         logger.warning("ML ZK proofs router not available (missing tenseal)")
 
-    from ..contexts.hermes.routers.hermes_decision import router as hermes_decision
-    from ..contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced
-    from ..contexts.hermes.routers.hermes_health import router as hermes_health
-    from ..contexts.hermes.routers.hermes_resource import router as hermes_resource
-    from ..contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
+    try:
+        from ..contexts.hermes.routers.hermes_decision import router as hermes_decision  # type: ignore
+        from ..contexts.hermes.routers.hermes_enhanced_simple import router as hermes_enhanced  # type: ignore
+        from ..contexts.hermes.routers.hermes_health import router as hermes_health  # type: ignore
+        from ..contexts.hermes.routers.hermes_resource import router as hermes_resource  # type: ignore
+        from ..contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
+    except ImportError:
+        logger.warning("Hermes/infrastructure routers not available")
+        hermes_decision = hermes_enhanced = hermes_health = hermes_resource = monitoring_dashboard = None  # type: ignore[assignment]
 
-    app.include_router(hermes_enhanced, prefix="/hermes", tags=["hermes"])
-    app.include_router(hermes_decision, prefix="/hermes/decision", tags=["hermes-decision"])
-    app.include_router(hermes_health, prefix="/hermes/health", tags=["hermes-health"])
-    app.include_router(hermes_resource, prefix="/hermes/resource", tags=["hermes-resource"])
-    app.include_router(monitoring_dashboard, prefix="/infrastructure/monitoring", tags=["infrastructure-monitoring"])
+    if hermes_enhanced:
+        app.include_router(hermes_enhanced, prefix="/hermes", tags=["hermes"])
+    if hermes_decision:
+        app.include_router(hermes_decision, prefix="/hermes/decision", tags=["hermes-decision"])
+    if hermes_health:
+        app.include_router(hermes_health, prefix="/hermes/health", tags=["hermes-health"])
+    if hermes_resource:
+        app.include_router(hermes_resource, prefix="/hermes/resource", tags=["hermes-resource"])
+    if monitoring_dashboard:
+        app.include_router(monitoring_dashboard, prefix="/infrastructure/monitoring", tags=["infrastructure-monitoring"])
 
     try:
         from ..contexts.multimodal.routers.multi_modal_rl import router as multi_modal_rl_router

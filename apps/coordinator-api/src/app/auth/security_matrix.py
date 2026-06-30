@@ -143,4 +143,4 @@ def check_role_match(required_level: AuthLevel, user_role: str | None) -> bool:
         return user_role == "miner"
     if required_level == AuthLevel.ADMIN_OR_CLIENT:
         return user_role in ("admin", "client")
-    return False
+    return False  # type: ignore[unreachable]

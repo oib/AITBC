@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
-from app.shared_kernel.enums import TransactionPriority
+from app.shared_kernel.enums import TransactionPriority  # type: ignore
 
 
 class TransactionType(StrEnum):

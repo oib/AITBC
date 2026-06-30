@@ -542,7 +542,9 @@ class P2PTradingProtocol:
 
     async def find_matches(self, request_id: str) -> list[dict[str, Any]]:
         """Find matching sellers for a trade request"""
-        trade_request = self.session.execute(select(TradeRequest).where(TradeRequest.request_id == request_id)).first()
+        trade_request = (
+            self.session.execute(select(TradeRequest).where(TradeRequest.request_id == request_id)).scalars().first()
+        )
         if not trade_request:
             raise ValueError(f"Trade request {request_id} not found")
         seller_offers = await self.get_available_sellers(trade_request)
@@ -579,13 +581,15 @@ class P2PTradingProtocol:
 
     async def initiate_negotiation(self, match_id: str, initiator: str, strategy: str = "balanced") -> TradeNegotiation:
         """Initiate negotiation between buyer and seller"""
-        trade_match = self.session.execute(select(TradeMatch).where(TradeMatch.match_id == match_id)).first()
+        trade_match = self.session.execute(select(TradeMatch).where(TradeMatch.match_id == match_id)).scalars().first()
         if not trade_match:
             raise ValueError(f"Trade match {match_id} not found")
-        trade_request = self.session.execute(
-            select(TradeRequest).where(TradeRequest.request_id == trade_match.request_id)
-        ).first()
-        initial_offer = self.negotiation_system.generate_initial_offer(trade_request, trade_match.seller_offer)
+        trade_request = (
+            self.session.execute(select(TradeRequest).where(TradeRequest.request_id == trade_match.request_id))
+            .scalars()
+            .first()
+        )
+        initial_offer = self.negotiation_system.generate_initial_offer(trade_request, trade_match.seller_offer)  # type: ignore[arg-type]
         negotiation = TradeNegotiation(
             negotiation_id=f"neg_{uuid4().hex[:8]}",
             match_id=match_id,

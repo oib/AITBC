@@ -61,7 +61,9 @@ async def scan_gpus(request: ScanGPUsRequest, svc: Annotated[GPUService, Depends
 
 @router.get("/{gpu_id}/metrics")
 async def get_gpu_metrics(
-    gpu_id: str, limit: int | None, svc: Annotated[GPUService, Depends(get_gpu_service)]
+    gpu_id: str,
+    svc: Annotated[GPUService, Depends(get_gpu_service)],
+    limit: int = 100,
 ) -> dict[str, Any]:
     """Get GPU metrics"""
     metrics = await svc.get_gpu_metrics(gpu_id, limit)

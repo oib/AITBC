@@ -6,6 +6,7 @@ Core reputation calculation and aggregation engine for multi-chain agent reputat
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy import desc
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
@@ -146,8 +147,8 @@ class CrossChainReputationEngine:
             stmt = (
                 select(ReputationEvent)
                 .where(ReputationEvent.agent_id == agent_id, ReputationEvent.occurred_at >= cutoff_date)
-                .order_by(ReputationEvent.occurred_at)
-            )  # type: ignore[arg-type]
+                .order_by(desc(ReputationEvent.occurred_at))  # type: ignore[arg-type]
+            )
             events = self.session.exec(stmt).all()
             scores = []
             for event in events:
@@ -165,9 +166,9 @@ class CrossChainReputationEngine:
             stmt = (
                 select(ReputationEvent)
                 .where(ReputationEvent.agent_id == agent_id)
-                .order_by(ReputationEvent.occurred_at.desc())
+                .order_by(desc(ReputationEvent.occurred_at))  # type: ignore[arg-type]
                 .limit(10)
-            )  # type: ignore[attr-defined]
+            )
             events = self.session.exec(stmt).all()
             if len(events) < 2:
                 return anomalies
@@ -341,7 +342,7 @@ class CrossChainReputationEngine:
                 "anomalies": anomalies,
                 "created_at": reputation.created_at,
                 "updated_at": reputation.updated_at,
-            }  # type: ignore[attr-defined]
+            }
         except Exception as e:
             logger.error("Error getting reputation summary for agent %s: %s", agent_id, e)
             return {"agent_id": agent_id, "error": str(e)}

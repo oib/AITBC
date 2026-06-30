@@ -146,7 +146,8 @@ async def collect_sla_metrics(sla_collector: Annotated[SLACollector, Depends(get
 async def get_capacity_snapshots(hours: int | None, db: Annotated[Session, Depends(get_db)]) -> list[CapacitySnapshotResponse]:
     """Get capacity planning snapshots"""
     try:
-        cutoff = datetime.now(UTC) - timedelta(hours=hours)
+        hours_value = hours if hours is not None else 24
+        cutoff = datetime.now(UTC) - timedelta(hours=hours_value)
         stmt = (
             db.query(CapacitySnapshot).filter(CapacitySnapshot.timestamp >= cutoff).order_by(CapacitySnapshot.timestamp.desc())
         )

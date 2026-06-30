@@ -48,6 +48,8 @@ async def remote_execute_coin_request(
     tx_service = TransactionService()
     if not tx_service.genesis_private_key:
         raise HTTPException(status_code=503, detail="GENESIS_PRIVATE_KEY not configured on this node")
+    if not tx_service.genesis_address:
+        raise HTTPException(status_code=503, detail="GENESIS_ADDRESS not configured on this node")
 
     balance = tx_service.get_balance(tx_service.genesis_address)
     total_required = req.amount + TRANSACTION_FEE

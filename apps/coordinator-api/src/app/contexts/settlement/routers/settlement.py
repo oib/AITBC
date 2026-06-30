@@ -5,7 +5,7 @@ Settlement router for cross-chain settlements
 import asyncio
 from typing import Any
 
-from app.settlement.manager import BridgeManager  # type: ignore[import-not-found]
+from app.settlement.manager import BridgeManager  # type: ignore
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel, Field
 
