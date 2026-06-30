@@ -528,14 +528,14 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/test_bri
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Create bridge threat model doc (Phase 0 prerequisite) | 🔴 P0 | `docs/architecture/bridge-threat-model.md` (new) | ⬜ |
-| B2 | Add bridge security config fields + constants | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/config.py`, `aitbc/constants.py` | ⬜ |
-| B3 | Add block header signature field + PoA signing/verification | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/base_models.py`, `apps/blockchain-node/src/aitbc_chain/consensus/poa.py` | ⬜ |
-| B4 | Create BridgeValidator SQLModel table + validator set cache | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/base_models.py` (or new models file), `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` | ⬜ |
-| B5 | Add validator RPC endpoints — register, get set, security status | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/rpc/bridge.py`, `apps/blockchain-node/src/aitbc_chain/rpc/router.py` | ⬜ |
-| B6 | Upgrade bridge proof verification to multi-sig threshold | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` | ⬜ |
-| B7 | Add CLI commands — security-status, register-validator | High | `cli/aitbc_cli/commands/bridge.py` | ⬜ |
-| B8 | Integration tests + verify mypy/ruff/pytest clean | High | `apps/blockchain-node/tests/test_v071_bridge_security.py` (new) | ⬜ |
+| B1 | Create bridge threat model doc (Phase 0 prerequisite) | 🔴 P0 | `docs/architecture/bridge-threat-model.md` (new) | ✅ |
+| B2 | Add bridge security config fields + constants | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/config.py`, `aitbc/constants.py` | ✅ |
+| B3 | Add block header signature field + PoA signing/verification | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/base_models.py`, `apps/blockchain-node/src/aitbc_chain/consensus/poa.py` | ✅ |
+| B4 | Create BridgeValidator SQLModel table + validator set cache | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/base_models.py` (or new models file), `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` | ✅ |
+| B5 | Add validator RPC endpoints — register, get set, security status | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/rpc/bridge.py`, `apps/blockchain-node/src/aitbc_chain/rpc/router.py` | ✅ |
+| B6 | Upgrade bridge proof verification to multi-sig threshold | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` | ✅ |
+| B7 | Add CLI commands — security-status, register-validator | High | `cli/aitbc_cli/commands/bridge.py` | ✅ |
+| B8 | Integration tests + verify mypy/ruff/pytest clean | High | `apps/blockchain-node/tests/test_v071_bridge_security.py` (new) | ✅ |
 
 ### Agent B — Detailed Instructions
 
