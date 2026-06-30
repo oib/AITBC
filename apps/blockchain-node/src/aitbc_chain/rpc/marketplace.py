@@ -1,7 +1,8 @@
 """Marketplace RPC endpoints for AITBC blockchain"""
 
 import json
-from datetime import datetime
+import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -9,15 +10,48 @@ from pydantic import BaseModel, Field
 
 from aitbc.security import SecurityAuditor, SecurityValidator
 
+from ..config import settings
 from ..metrics import metrics_registry
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # Security auditor for logging
 security_auditor = SecurityAuditor()
 
 # In-memory storage for marketplace listings
 _marketplace_listings: list[dict[str, Any]] = []
+
+
+async def _publish_offer_event(
+    event_type: str, offer_id: str, chain_id: str, offer_data: dict[str, Any] | None = None
+) -> None:
+    """Publish an offer change event to the gossip topic ``offers.{chain_id}``.
+
+    This is the v0.8.2 §B9 integration point — on marketplace listing
+    create/update/delete, an ``OfferEvent`` is published to the gossip
+    broker so that trading services subscribed to ``offers.{chain_id}``
+    receive real-time notifications.
+    """
+    try:
+        from ..gossip import gossip_broker
+
+        event: dict[str, Any] = {
+            "event_type": event_type,
+            "offer_id": offer_id,
+            "chain_id": chain_id,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "source": "blockchain-node",
+        }
+        if offer_data is not None:
+            event["offer"] = offer_data
+        else:
+            event["offer"] = None
+        topic = f"offers.{chain_id}"
+        await gossip_broker.publish(topic, event)
+        logger.debug("Published offer event %s for offer %s to topic %s", event_type, offer_id, topic)
+    except Exception as e:
+        logger.warning("Failed to publish offer event: %s", e)
 
 
 class MarketplaceListing(BaseModel):
@@ -126,6 +160,9 @@ async def marketplace_create(request: MarketplaceCreateRequest) -> dict[str, Any
         # Add to storage
         _marketplace_listings.append(new_listing)
 
+        # Publish offer created event to gossip (v0.8.2 §B9)
+        await _publish_offer_event("created", listing_id, settings.chain_id, new_listing)
+
         return {
             "listing_id": listing_id,
             "status": "created",
@@ -168,6 +205,8 @@ async def marketplace_delete_listing(listing_id: str) -> dict[str, Any]:
         for i, listing in enumerate(_marketplace_listings):
             if listing.get("listing_id") == listing_id:
                 _marketplace_listings.pop(i)
+                # Publish offer deleted event to gossip (v0.8.2 §B9)
+                await _publish_offer_event("deleted", listing_id, settings.chain_id)
                 return {"listing_id": listing_id, "status": "deleted", "message": "Marketplace listing deleted successfully"}
 
         raise HTTPException(status_code=404, detail="Listing not found")
