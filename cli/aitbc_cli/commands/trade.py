@@ -313,4 +313,184 @@ def sync_status(ctx, format):
         error(f"Error getting sync status: {e}")
 
 
+# ============================================================================
+# v0.9.0 §B9: Settlement Commands
+# ============================================================================
+
+
+def _run_settlement_coro(coro):
+    """Run an async settlement coroutine in a sync CLI context."""
+    import asyncio
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():  # pragma: no cover — nested loop (not expected in CLI)
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                return pool.submit(lambda: asyncio.run(coro)).result()
+    except RuntimeError:
+        pass  # no running loop — fall through to asyncio.run
+    return asyncio.run(coro)
+
+
+@trade.command(name="lock-escrow")
+@click.option("--trade-id", required=True, help="Trade ID to lock escrow for")
+@click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
+@click.option("--timeout", type=int, default=None, help="Escrow timeout in seconds")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def lock_escrow_cmd(ctx, trade_id, node_url, timeout, format):
+    """Lock escrow for a cross-chain trade (v0.9.0)"""
+    try:
+        from aitbc.settlement.client import SettlementClient
+        from aitbc.settlement.types import SettlementConfig
+
+        config = SettlementConfig(settlement_rpc_url=node_url)
+
+        async def _run():
+            async with SettlementClient(config) as client:
+                # Look up the trade via the trading service to get chain/sender/recipient/amount
+                http_client = _get_client()
+                trade = http_client.get(f"/v1/trading/inter-chain/{trade_id}")
+                if not isinstance(trade, dict):
+                    error(f"Trade {trade_id} not found")
+                    return
+                return await client.create_escrow(
+                    trade_id=trade_id,
+                    source_chain=trade.get("source_chain", ""),
+                    dest_chain=trade.get("dest_chain", ""),
+                    sender=trade.get("sender", ""),
+                    recipient=trade.get("recipient", ""),
+                    amount=trade.get("amount", 0),
+                    timeout_seconds=timeout,
+                )
+
+        result = _run_settlement_coro(_run())
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error locking escrow: {e}")
+
+
+@trade.command(name="settle")
+@click.option("--trade-id", required=True, help="Trade ID to settle")
+@click.option("--secret", required=True, help="HTLC secret to reveal")
+@click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def settle_cmd(ctx, trade_id, secret, node_url, format):
+    """Settle a cross-chain trade by revealing the HTLC secret (v0.9.0)"""
+    try:
+        from aitbc.settlement.client import SettlementClient
+        from aitbc.settlement.types import SettlementConfig
+
+        config = SettlementConfig(settlement_rpc_url=node_url)
+
+        async def _run():
+            # Look up the trade's escrow_id via the trading service
+            http_client = _get_client()
+            trade = http_client.get(f"/v1/trading/inter-chain/{trade_id}")
+            if not isinstance(trade, dict):
+                error(f"Trade {trade_id} not found")
+                return None
+            escrow_id = trade.get("escrow_id")
+            if not escrow_id:
+                error(f"Trade {trade_id} has no escrow — lock escrow first")
+                return None
+            async with SettlementClient(config) as client:
+                return await client.settle(escrow_id, secret)
+
+        result = _run_settlement_coro(_run())
+        if result is not None:
+            output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error settling trade: {e}")
+
+
+@trade.command(name="settlement-status")
+@click.option("--trade-id", required=True, help="Trade ID to check")
+@click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def settlement_status_cmd(ctx, trade_id, node_url, format):
+    """Get settlement status for a cross-chain trade (v0.9.0)"""
+    try:
+        from aitbc.settlement.client import SettlementClient
+        from aitbc.settlement.types import SettlementConfig
+
+        config = SettlementConfig(settlement_rpc_url=node_url)
+
+        async def _run():
+            # Look up the trade's escrow_id via the trading service
+            http_client = _get_client()
+            trade = http_client.get(f"/v1/trading/inter-chain/{trade_id}")
+            if not isinstance(trade, dict):
+                error(f"Trade {trade_id} not found")
+                return None
+            escrow_id = trade.get("escrow_id")
+            if not escrow_id:
+                return {
+                    "trade_id": trade_id,
+                    "settlement_phase": trade.get("settlement_phase", "none"),
+                    "escrow_id": None,
+                    "escrow_status": "none",
+                }
+            async with SettlementClient(config) as client:
+                status = await client.get_escrow_status(escrow_id)
+            return {
+                "trade_id": trade_id,
+                "settlement_phase": trade.get("settlement_phase", "none"),
+                "escrow_id": escrow_id,
+                "escrow_status": status,
+            }
+
+        result = _run_settlement_coro(_run())
+        if result is not None:
+            output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error getting settlement status: {e}")
+
+
+@trade.command(name="refund")
+@click.option("--trade-id", required=True, help="Trade ID to refund")
+@click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def refund_cmd(ctx, trade_id, node_url, format):
+    """Trigger refund for a cross-chain trade (v0.9.0)"""
+    try:
+        from aitbc.settlement.client import SettlementClient
+        from aitbc.settlement.types import SettlementConfig
+
+        config = SettlementConfig(settlement_rpc_url=node_url)
+
+        async def _run():
+            # Look up the trade's escrow_id via the trading service
+            http_client = _get_client()
+            trade = http_client.get(f"/v1/trading/inter-chain/{trade_id}")
+            if not isinstance(trade, dict):
+                error(f"Trade {trade_id} not found")
+                return None
+            escrow_id = trade.get("escrow_id")
+            if not escrow_id:
+                error(f"Trade {trade_id} has no escrow — lock escrow first")
+                return None
+            async with SettlementClient(config) as client:
+                return await client.refund(escrow_id)
+
+        result = _run_settlement_coro(_run())
+        if result is not None:
+            output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error refunding trade: {e}")
+
+
 __all__ = ["trade"]
