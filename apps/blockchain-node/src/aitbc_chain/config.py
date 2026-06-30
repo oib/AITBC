@@ -412,5 +412,18 @@ class ChainSettings(BaseSettings):
     consensus_slashing_amount: float = 100.0  # stake to slash per offense
     consensus_byzantine_threshold: int = 3  # slash count before deactivation
 
+    # Cross-chain settlement (v0.9.0). Atomic settlement uses HTLCs to
+    # ensure either both chains settle or both refund. Gated behind
+    # escrow_enabled until security audit + testnet soak test pass.
+    escrow_enabled: bool = False  # master toggle for atomic settlement
+    escrow_atomic_settlement: bool = True  # use HTLC (vs manual admin refund)
+    escrow_timeout_default: int = 3600  # 1 hour default timeout
+    escrow_timeout_large: int = 86400  # 24 hours for large trades
+    escrow_timeout_extension_max: int = 604800  # 7 days max extension
+    escrow_htlc_enabled: bool = True  # use HTLC contract for escrow
+    escrow_htlc_contract_address: str = ""  # deployed CrossChainAtomicSwap.sol
+    escrow_require_proof_verification: bool = True  # require Merkle proof verification
+    escrow_large_trade_threshold: int = 10000  # trades above this use large timeout
+
 
 settings = ChainSettings()

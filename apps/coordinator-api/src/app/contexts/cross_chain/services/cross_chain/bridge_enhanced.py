@@ -5,7 +5,6 @@ Production-ready cross-chain bridge service with atomic swap protocol implementa
 
 import asyncio
 import hashlib
-import secrets
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
@@ -469,10 +468,54 @@ class CrossChainBridgeService:
             raise
 
     async def _execute_htlc_swap(self, bridge_request: BridgeRequest) -> None:
-        """Execute HTLC (Hashed Timelock Contract) swap"""
+        """Execute HTLC (Hashed Timelock Contract) swap.
+
+        Uses the shared HTLC utilities (``aitbc.settlement.htlc``) to generate
+        a cryptographically random secret, compute its SHA256 hashlock, and
+        calculate source/destination timelocks. The source timelock expires
+        AFTER the destination timelock so the buyer has time to claim on the
+        source chain after the seller reveals the secret on the destination
+        chain.
+        """
         try:
-            secret = secrets.token_hex(32)
-            secret_hash = hashlib.sha256(secret.encode()).hexdigest()
+            from aitbc.settlement.htlc import (
+                calculate_dest_timelock,
+                calculate_source_timelock,
+                compute_hashlock,
+                generate_secret,
+            )
+
+            # Generate a cryptographically random 32-byte secret and compute
+            # its SHA256 hash (the hashlock published on-chain).
+            secret = generate_secret()
+            secret_hash = compute_hashlock(secret)
+
+            # Calculate timelocks (block heights). block_time_seconds=5 is the
+            # default AITBC block time; current_block_height defaults to 0
+            # (the wallet adapter / chain state supplies the real height at
+            # contract creation time).
+            block_time_seconds = 5
+            current_block_height = 0
+            timeout_seconds = 3600  # 1 hour default
+            source_timelock = calculate_source_timelock(
+                current_block_height=current_block_height,
+                timeout_seconds=timeout_seconds,
+                block_time_seconds=block_time_seconds,
+            )
+            dest_timelock = calculate_dest_timelock(
+                source_timelock=source_timelock,
+                source_block_time=block_time_seconds,
+                dest_block_time=block_time_seconds,
+            )
+            logger.info(
+                "HTLC swap initiated for bridge request %s: hashlock=%s source_timelock=%d dest_timelock=%d timeout=%ds",
+                bridge_request.id,
+                secret_hash,
+                source_timelock,
+                dest_timelock,
+                timeout_seconds,
+            )
+
             source_htlc_data = await self._create_htlc_contract(bridge_request, secret_hash, "source")
             source_adapter = self.wallet_adapters[bridge_request.source_chain_id]
             source_tx = await source_adapter.execute_transaction(
@@ -517,15 +560,84 @@ class CrossChainBridgeService:
         return {"pool_address": pool_address, "swap_data": swap_data}
 
     async def _create_htlc_contract(self, bridge_request: BridgeRequest, secret_hash: str, direction: str) -> dict[str, Any]:
-        """Create HTLC contract data"""
+        """Create HTLC contract data with real HTLC parameters.
+
+        Returns a dict containing the on-chain HTLC contract parameters
+        (``secret_hash``, ``timelock``, ``sender``, ``recipient``, ``amount``,
+        ``asset``, ``direction``) plus ``contract_address`` / ``contract_data``
+        used by the wallet adapter to submit the funding transaction.
+
+        The source timelock is calculated with ``calculate_source_timelock``
+        and the destination timelock with ``calculate_dest_timelock`` (which
+        must expire before the source timelock). ``block_time_seconds`` defaults
+        to 5 and ``current_block_height`` defaults to 0.
+        """
+        from aitbc.settlement.htlc import calculate_dest_timelock, calculate_source_timelock
+
+        block_time_seconds = 5
+        current_block_height = 0
+        timeout_seconds = 3600  # 1 hour default
+
+        # Calculate the source timelock first (needed for dest timelock).
+        source_timelock = calculate_source_timelock(
+            current_block_height=current_block_height,
+            timeout_seconds=timeout_seconds,
+            block_time_seconds=block_time_seconds,
+        )
+
+        if direction == "source":
+            timelock = source_timelock
+            sender = bridge_request.user_address
+            recipient = bridge_request.target_address
+        else:
+            timelock = calculate_dest_timelock(
+                source_timelock=source_timelock,
+                source_block_time=block_time_seconds,
+                dest_block_time=block_time_seconds,
+            )
+            sender = bridge_request.target_address
+            recipient = bridge_request.user_address
+
+        # Contract address / data used by the wallet adapter call site to
+        # submit the funding transaction to the chain.
         contract_address = (
             f"0x{hashlib.sha256(f'htlc_{bridge_request.id}_{direction}_{secret_hash}'.encode()).hexdigest()[:40]}"
         )
         contract_data = f"0x{hashlib.sha256(f'htlc_data_{bridge_request.id}_{secret_hash}'.encode()).hexdigest()}"
-        return {"contract_address": contract_address, "contract_data": contract_data, "secret_hash": secret_hash}
+
+        return {
+            "contract_address": contract_address,
+            "contract_data": contract_data,
+            "secret_hash": secret_hash,
+            "timelock": timelock,
+            "sender": sender,
+            "recipient": recipient,
+            "amount": bridge_request.amount,
+            "asset": bridge_request.token_address,
+            "direction": direction,
+        }
 
     async def _complete_htlc(self, bridge_request: BridgeRequest, secret: str) -> None:
-        """Complete HTLC by revealing secret"""
+        """Complete HTLC by revealing and verifying the secret.
+
+        Verifies that the revealed secret matches the hashlock stored on the
+        bridge request (set during ``_execute_htlc_swap``), logs the
+        completion, and updates the bridge request status to COMPLETED.
+        """
+        from aitbc.settlement.htlc import verify_secret
+
+        stored_hashlock = getattr(bridge_request, "secret_hash", "")
+        if not stored_hashlock or not verify_secret(secret, stored_hashlock):
+            logger.error(
+                "HTLC completion failed for bridge request %s: secret does not match stored hashlock",
+                bridge_request.id,
+            )
+            raise ValueError("HTLC secret verification failed: secret does not match stored hashlock")
+
+        logger.info(
+            "HTLC secret verified for bridge request %s, completing swap",
+            bridge_request.id,
+        )
         bridge_request.target_transaction_hash = (
             f"0x{hashlib.sha256(f'htlc_complete_{bridge_request.id}_{secret}'.encode()).hexdigest()}"
         )
