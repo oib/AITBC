@@ -336,18 +336,18 @@ class AgentIdentityCore:
         stmt = select(AgentIdentity)
         if query:
             stmt = stmt.where(
-                AgentIdentity.display_name.ilike(f"%{query}%")
-                | AgentIdentity.description.ilike(f"%{query}%")
-                | AgentIdentity.agent_id.ilike(f"%{query}%")
-            )  # type: ignore[attr-defined]
+                AgentIdentity.display_name.ilike(f"%{query}%")  # type: ignore[attr-defined]
+                | AgentIdentity.description.ilike(f"%{query}%")  # type: ignore[attr-defined]
+                | AgentIdentity.agent_id.ilike(f"%{query}%")  # type: ignore[attr-defined]
+            )
         if status:
             stmt = stmt.where(AgentIdentity.status == status)
         if verification_level:
             stmt = stmt.where(AgentIdentity.verification_level == verification_level)
         if chain_id:
-            stmt = stmt.join(CrossChainMapping, AgentIdentity.agent_id == CrossChainMapping.agent_id).where(
+            stmt = stmt.join(CrossChainMapping, AgentIdentity.agent_id == CrossChainMapping.agent_id).where(  # type: ignore[arg-type]
                 CrossChainMapping.chain_id == chain_id
-            )  # type: ignore[arg-type]
+            )
         stmt = stmt.offset(offset).limit(limit)
         result = self.session.execute(stmt)
         return list(result.scalars().all())

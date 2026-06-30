@@ -7,6 +7,7 @@ Service for managing the developer ecosystem, bounties, certifications, and regi
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from fastapi import HTTPException
 from sqlalchemy import desc
@@ -164,13 +165,18 @@ class DeveloperPlatformService:
 
     async def get_leaderboard(self, limit: int = 100, offset: int = 0) -> list[DeveloperProfile]:
         """Get developer leaderboard sorted by reputation score"""
-        return self.session.execute(
-            select(DeveloperProfile)
-            .where(DeveloperProfile.is_active)
-            .order_by(desc(DeveloperProfile.reputation_score))
-            .offset(offset)
-            .limit(limit)
-        ).all()  # type: ignore[arg-type, return-value]
+        return cast(
+            list[DeveloperProfile],
+            self.session.execute(
+                select(DeveloperProfile)
+                .where(DeveloperProfile.is_active)
+                .order_by(desc(DeveloperProfile.reputation_score))  # type: ignore[arg-type]
+                .offset(offset)
+                .limit(limit)
+            )
+            .scalars()
+            .all(),
+        )
 
     async def get_developer_stats(self, wallet_address: str) -> dict:
         """Get comprehensive developer statistics"""
@@ -214,11 +220,16 @@ class DeveloperPlatformService:
 
     async def get_my_submissions(self, developer_id: str) -> list[BountySubmission]:
         """Get all submissions by a developer"""
-        return self.session.execute(
-            select(BountySubmission)
-            .where(BountySubmission.developer_id == developer_id)
-            .order_by(desc(BountySubmission.submitted_at))
-        ).all()  # type: ignore[arg-type, return-value]
+        return cast(
+            list[BountySubmission],
+            self.session.execute(
+                select(BountySubmission)
+                .where(BountySubmission.developer_id == developer_id)
+                .order_by(desc(BountySubmission.submitted_at))  # type: ignore[arg-type]
+            )
+            .scalars()
+            .all(),
+        )
 
     async def create_regional_hub(self, name: str, region: str, description: str, manager_address: str) -> RegionalHub:
         """Create a regional developer hub"""

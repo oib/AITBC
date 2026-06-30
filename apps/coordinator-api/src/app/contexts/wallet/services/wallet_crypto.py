@@ -49,7 +49,7 @@ def verify_keypair_consistency(private_key: str, expected_address: str) -> bool:
         return False
 
 
-def derive_secure_key(password: str, salt: bytes = None) -> bytes:  # type: ignore[assignment]
+def derive_secure_key(password: str, salt: bytes | None = None) -> tuple[bytes, bytes]:
     """
     Derive secure encryption key using PBKDF2
 
@@ -71,7 +71,7 @@ def derive_secure_key(password: str, salt: bytes = None) -> bytes:  # type: igno
     )
 
     key = kdf.derive(password.encode())
-    return base64.urlsafe_b64encode(key), salt  # type: ignore[return-value]
+    return base64.urlsafe_b64encode(key), salt
 
 
 def encrypt_private_key(private_key: str, password: str) -> dict[str, str]:
@@ -89,12 +89,12 @@ def encrypt_private_key(private_key: str, password: str) -> dict[str, str]:
     fernet_key, salt = derive_secure_key(password)
 
     # Encrypt
-    f = Fernet(fernet_key)  # type: ignore[arg-type]
+    f = Fernet(fernet_key)
     encrypted = f.encrypt(private_key.encode())
 
     return {
         "encrypted_key": encrypted.decode(),
-        "salt": base64.b64encode(salt).decode(),  # type: ignore[arg-type]
+        "salt": base64.b64encode(salt).decode(),
         "algorithm": "PBKDF2-SHA256-Fernet",
         "iterations": 600_000,  # type: ignore[dict-item]
     }
@@ -123,7 +123,7 @@ def decrypt_private_key(encrypted_data: dict[str, str], password: str) -> str:
         fernet_key, _ = derive_secure_key(password, salt)
 
         # Decrypt
-        f = Fernet(fernet_key)  # type: ignore[arg-type]
+        f = Fernet(fernet_key)
         decrypted = f.decrypt(encrypted_key)
 
         return decrypted.decode()

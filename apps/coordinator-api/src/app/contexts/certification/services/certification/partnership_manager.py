@@ -3,7 +3,7 @@ Partnership Manager - Partnership program management system
 """
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from ...domain.certification import (
@@ -77,13 +77,16 @@ class PartnershipManager:
             tier_levels=kwargs.get("tier_levels", ["basic", "premium"]),
             benefits_by_tier=kwargs.get(
                 "benefits_by_tier",
-                {"basic": type_config.get("benefits", []), "premium": type_config.get("benefits", []) + ["enhanced_support"]},
+                {
+                    "basic": cast(list[str], type_config.get("benefits", [])),
+                    "premium": cast(list[str], type_config.get("benefits", [])) + ["enhanced_support"],
+                },
             ),
             requirements_by_tier=kwargs.get(
                 "requirements_by_tier",
                 {
-                    "basic": type_config.get("requirements", []),
-                    "premium": type_config.get("requirements", []) + ["advanced_criteria"],
+                    "basic": cast(list[str], type_config.get("requirements", [])),
+                    "premium": cast(list[str], type_config.get("requirements", [])) + ["advanced_criteria"],
                 },
             ),
             eligibility_requirements=kwargs.get("eligibility_requirements", type_config.get("requirements", [])),
@@ -97,7 +100,7 @@ class PartnershipManager:
             performance_metrics=kwargs.get("performance_metrics", ["sales_volume", "customer_satisfaction"]),
             max_participants=kwargs.get("max_participants"),
             launched_at=datetime.now(UTC) if kwargs.get("launch_immediately", False) else None,
-        )  # type: ignore[operator]
+        )
         session.add(program)
         session.commit()
         session.refresh(program)

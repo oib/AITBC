@@ -69,6 +69,13 @@ class AgentReputation(SQLModel, table=True):
     service_categories: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     specialization_tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
+    # Cross-chain reputation metrics
+    aggregated_score: float = Field(default=0.0)
+    chain_count: int = Field(default=0)
+    active_chains: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    consistency_score: float = Field(default=0.0)
+    chain_scores: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

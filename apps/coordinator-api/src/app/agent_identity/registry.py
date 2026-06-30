@@ -280,10 +280,10 @@ class CrossChainRegistry:
                     to_chain,
                     verifier_address,
                     self._generate_proof_hash(
-                        target_mapping or await self.get_cross_chain_mapping_by_agent_chain(agent_id, to_chain)
+                        target_mapping or await self.get_cross_chain_mapping_by_agent_chain(agent_id, to_chain)  # type: ignore[arg-type]
                     ),
                     {"migration": True, "source_chain": from_chain},
-                )  # type: ignore[arg-type]
+                )
                 migration_result["verification_copied"] = True
             else:
                 migration_result["verification_copied"] = False

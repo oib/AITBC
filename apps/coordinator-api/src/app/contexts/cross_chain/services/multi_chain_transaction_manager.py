@@ -430,8 +430,8 @@ class ChainTransactionManager:
             current_time = datetime.now(UTC)
             stuck_threshold = timedelta(minutes=30)
             stmt = select(ChainTransaction).where(
-                ChainTransaction.status.in_([TransactionStatus.PROCESSING, TransactionStatus.SUBMITTED])
-            )  # type: ignore[attr-defined]
+                ChainTransaction.status.in_([TransactionStatus.PROCESSING, TransactionStatus.SUBMITTED])  # type: ignore[attr-defined]
+            )
             transactions = self.session.execute(stmt).scalars().all()
             for tx in transactions:
                 if current_time - tx.updated_at > stuck_threshold:

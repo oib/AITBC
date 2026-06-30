@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+from sqlalchemy import asc, desc
 from sqlmodel import Session, and_, select
 
 from aitbc.aitbc_logging import get_logger
@@ -50,8 +51,8 @@ class RewardCalculator:
         tier_config = session.execute(
             select(RewardTierConfig)
             .where(and_(RewardTierConfig.min_trust_score <= trust_score, RewardTierConfig.is_active))
-            .order_by(RewardTierConfig.min_trust_score.desc())
-        ).first()  # type: ignore[attr-defined]
+            .order_by(desc(RewardTierConfig.min_trust_score))  # type: ignore[arg-type]
+        ).first()
         if tier_config:
             return tier_config.base_multiplier  # type: ignore[no-any-return]
         elif trust_score >= 900:
@@ -366,9 +367,9 @@ class RewardEngine:
                     RewardCalculation.calculated_at >= datetime.now(UTC) - timedelta(days=30),
                 )
             )
-            .order_by(RewardCalculation.calculated_at.desc())
+            .order_by(desc(RewardCalculation.calculated_at))  # type: ignore[arg-type]
             .limit(10)
-        ).all()  # type: ignore[attr-defined]
+        ).all()
         recent_distributions = self.session.execute(
             select(RewardDistribution)
             .where(
@@ -377,9 +378,9 @@ class RewardEngine:
                     RewardDistribution.created_at >= datetime.now(UTC) - timedelta(days=30),
                 )
             )
-            .order_by(RewardDistribution.created_at.desc())
+            .order_by(desc(RewardDistribution.created_at))  # type: ignore[arg-type]
             .limit(10)
-        ).all()  # type: ignore[attr-defined]
+        ).all()
         return {
             "agent_id": agent_id,
             "current_tier": profile.current_tier.value,
@@ -415,11 +416,14 @@ class RewardEngine:
         pending_distributions = self.session.execute(
             select(RewardDistribution)
             .where(
-                and_(RewardDistribution.status == RewardStatus.PENDING, RewardDistribution.scheduled_at <= datetime.now(UTC))
+                and_(
+                    RewardDistribution.status == RewardStatus.PENDING,
+                    RewardDistribution.scheduled_at <= datetime.now(UTC),  # type: ignore[operator]
+                )
             )
-            .order_by(RewardDistribution.priority.asc(), RewardDistribution.created_at.asc())
+            .order_by(asc(RewardDistribution.priority), asc(RewardDistribution.created_at))  # type: ignore[arg-type]
             .limit(limit)
-        ).all()  # type: ignore[attr-defined, operator]
+        ).all()
         processed = 0
         failed = 0
         for distribution in pending_distributions:
@@ -439,17 +443,19 @@ class RewardEngine:
             start_date = datetime.now(UTC) - timedelta(days=30)
         if not end_date:
             end_date = datetime.now(UTC)
-        distributions = self.session.execute(
-            select(RewardDistribution)
-            .where(
-                and_(
-                    RewardDistribution.created_at >= start_date,
-                    RewardDistribution.created_at <= end_date,
-                    RewardDistribution.status == RewardStatus.DISTRIBUTED,
+        distributions = (
+            self.session.execute(
+                select(RewardDistribution).where(
+                    and_(
+                        RewardDistribution.created_at >= start_date,
+                        RewardDistribution.created_at <= end_date,
+                        RewardDistribution.status == RewardStatus.DISTRIBUTED,
+                    )
                 )
             )
+            .scalars()
             .all()
-        )  # type: ignore[attr-defined]
+        )
         if not distributions:
             return {
                 "period_type": period_type,
@@ -463,7 +469,9 @@ class RewardEngine:
         unique_agents = len({d.agent_id for d in distributions})
         average_reward = total_rewards / unique_agents if unique_agents > 0 else 0.0
         agent_ids = list({d.agent_id for d in distributions})
-        profiles = self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id.in_(agent_ids))).all()  # type: ignore[attr-defined]
+        profiles = (
+            self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id.in_(agent_ids))).scalars().all()
+        )  # type: ignore[attr-defined]
         tier_distribution: dict[str, int] = {}
         for profile in profiles:
             tier = profile.current_tier.value
@@ -477,4 +485,4 @@ class RewardEngine:
             "average_reward_per_agent": average_reward,
             "tier_distribution": tier_distribution,
             "total_distributions": len(distributions),
-        }  # type: ignore[arg-type]
+        }

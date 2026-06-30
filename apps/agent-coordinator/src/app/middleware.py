@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 
 def register_middleware(app: Any) -> None:
-    @app.middleware("http")  # type: ignore[untyped-decorator]
+    @app.middleware("http")
     async def observability_middleware(request: Request, call_next: RequestResponseEndpoint) -> Response:
         """v0.6.5: Request/response logging + error metrics in one place.
 
@@ -63,7 +63,7 @@ def register_middleware(app: Any) -> None:
 
         return response
 
-    @app.middleware("http")  # type: ignore[untyped-decorator]
+    @app.middleware("http")
     async def security_headers_middleware(request: Request, call_next: RequestResponseEndpoint) -> Response:
         response = await call_next(request)
         headers = security_headers.get_security_headers()

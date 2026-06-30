@@ -1,10 +1,9 @@
 """B12: Integration tests for CrossChainSettlementService (v0.9.0).
 
 Tests the HTLC-based atomic settlement lifecycle and proof chain using an
-in-memory mock DB (no real database required). The settlement service is a
-simulation layer — it updates DB records and generates proof records but does
-not submit real on-chain HTLC contract transactions. The state transitions
-and proof chain are real and verifiable, which is what we test here.
+in-memory mock DB (no real database required). The settlement service calls
+the Python-native HTLCContract (B4) to move funds between accounts — the
+state transitions, fund movement, and proof chain are real and verifiable.
 """
 
 from __future__ import annotations
@@ -39,7 +38,7 @@ from aitbc.settlement.proofs import (  # noqa: E402
     verify_proof_chain,
 )
 from aitbc.settlement.types import EscrowProof, EscrowStatus, ProofType  # noqa: E402
-from aitbc_chain.base_models import CrossChainEscrowRecord, EscrowProofRecord  # noqa: E402
+from aitbc_chain.base_models import Account, CrossChainEscrowRecord, EscrowProofRecord, HTLCSwapState  # noqa: E402
 from aitbc_chain.config import settings  # noqa: E402
 from aitbc_chain.cross_chain.settlement import CrossChainSettlementService  # noqa: E402
 
@@ -68,15 +67,18 @@ class _MockResult:
 class MockSession:
     """In-memory mock SQLAlchemy session for settlement tests.
 
-    Stores ``CrossChainEscrowRecord`` and ``EscrowProofRecord`` instances in
-    dicts/lists keyed by primary key. Supports the subset of the Session API
-    used by ``CrossChainSettlementService``: ``execute``, ``add``, ``commit``,
-    ``refresh``.
+    Stores ``CrossChainEscrowRecord``, ``EscrowProofRecord``, ``Account``, and
+    ``HTLCSwapState`` instances in dicts keyed by primary key. Supports the
+    subset of the Session API used by ``CrossChainSettlementService`` and
+    ``HTLCContract``: ``execute``, ``add``, ``commit``, ``refresh``, ``get``,
+    ``flush``.
     """
 
     def __init__(self):
         self.escrows: dict[str, CrossChainEscrowRecord] = {}
         self.proofs: list[EscrowProofRecord] = []
+        self.accounts: dict[tuple[str, str], Account] = {}
+        self.swaps: dict[str, HTLCSwapState] = {}
         self._escrow_counter = 0
         self._proof_counter = 0
 
@@ -95,6 +97,22 @@ class MockSession:
             # Replace existing proof with same id (re-add pattern)
             self.proofs = [p for p in self.proofs if p.id != record.id]
             self.proofs.append(record)
+        elif isinstance(record, Account):
+            self.accounts[(record.chain_id, record.address)] = record
+        elif isinstance(record, HTLCSwapState):
+            self.swaps[record.swap_id] = record
+
+    def get(self, model_cls, primary_key):
+        if model_cls is Account:
+            return self.accounts.get(primary_key)
+        elif model_cls is HTLCSwapState:
+            return self.swaps.get(primary_key)
+        elif model_cls is CrossChainEscrowRecord:
+            return self.escrows.get(primary_key)
+        return None
+
+    def flush(self):
+        pass
 
     def commit(self):
         pass
@@ -163,6 +181,11 @@ class MockSession:
 def mock_session():
     """Create a fresh MockSession and patch session_scope to use it."""
     session = MockSession()
+
+    # Pre-fund common test accounts for HTLC contract operations (B4)
+    for addr, balance in [("alice", 100000), ("bob", 50000)]:
+        session.add(Account(chain_id="ait-hub", address=addr, balance=balance, nonce=0))
+    session.flush()
 
     @contextmanager
     def fake_scope(chain_id: str = ""):
