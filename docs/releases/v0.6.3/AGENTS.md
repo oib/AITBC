@@ -1,5 +1,8 @@
 # v0.6.3 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Multi-Island Node Support — Per-Chain Sync Sources, Multi-Hub Subscription, Island-to-Chain Registry.
 
 **Goal**: Enable a follower node to sync chains from different hubs on different islands simultaneously. Fix the single-hub/single-chain assumption in the subscription client, enable per-chain sync source mapping, and activate the island manager background tasks.
@@ -12,7 +15,48 @@
 
 ---
 
-## Status Baseline — Verified Code Targets (from subagent investigation)
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, architecture, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (SyncSourceResolver, IslandRegistry, SubscriptionManager, unit tests)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (config, multi-hub subscription, island manager, CLI, tests)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets)
+- [Already Implemented](./overview.md#already-implemented-verified--no-work-needed)
+- [Gossip Topic Migration Window](./overview.md#gossip-topic-migration-window-v062--v063)
+- [Architecture](./overview.md#architecture-multi-hub-subscription)
+- [Pre-Coding Integration Test](./overview.md#pre-coding-integration-test)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [SyncSourceResolver](./agent-a.md#a1-syncsourceresolver)
+- [IslandRegistry](./agent-a.md#a2-islandregistry)
+- [Unit Tests](./agent-a.md#a3-unit-tests)
+- [SubscriptionManager](./agent-a.md#a4-subscriptionmanager)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Config Fields](./agent-b.md#b1-add-config-fields)
+- [SyncSourceResolver Wiring](./agent-b.md#b2-wire-up-syncsourceresolver-in-mainpy)
+- [Multi-Hub Subscription](./agent-b.md#b3-multi-hub-subscription-in-mainpy)
+- [Island Manager Activation](./agent-b.md#b4-enable-island-manager-background-tasks)
+- [CLI Commands](./agent-b.md#b5-add-chain-sync-status-cli-command)
+- [Island CLI Commands](./agent-b.md#b6-add-node-island-health--fix-node-island-list)
+- [Integration Tests](./agent-b.md#b7-integration-tests)
+- [Verification](./agent-b.md#b8-verify-full-test-suite)
+- [Coordination Protocol](./agent-b.md#coordination-protocol)
+- [Dependency Graph](./agent-b.md#dependency-graph)
+- [Success Criteria](./agent-b.md#success-criteria)
 
 | Component | Location | Current State | v0.6.3 Target |
 |-----------|----------|---------------|---------------|

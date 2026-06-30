@@ -52,6 +52,6 @@ forge test
 ## References
 
 - Service README: `/opt/aitbc/apps/governance/README.md`
-- Release Notes: `/opt/aitbc/docs/releases/RELEASE_v0.4.12.md`
+- Release Notes: `/opt/aitbc/docs/releases/README.md` - Current release documentation
 - Smart Contracts: `/opt/aitbc/contracts/governance/src/`
 - Tests: `/opt/aitbc/contracts/governance/test/`

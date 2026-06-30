@@ -15,7 +15,7 @@
 
 ## 🎯 **See Also:**
 - **🤖 Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md) - SDK-level development guidance for agents
-- **🧩 Agent Services**: [Apps / Agents Documentation](../apps/agents/README.md) - Runtime agent services and orchestration
+- **🧩 Agent Services**: [Apps Documentation](../apps/README.md) - Runtime agent services and orchestration
 - **🤖 Agents**: [Agents](../agents/) - Learning path for agent concepts
 - **📋 Project Overview**: [Project Documentation](../project/README.md) - Project-level architecture and context
 
@@ -39,7 +39,7 @@ This directory contains the canonical integration artifacts for AITBC agent inte
 ## 🔗 **Where to go next**
 
 - [Agent SDK Documentation](../agent-sdk/README.md)
-- [Apps / Agents Documentation](../apps/agents/README.md)
+- [Apps Documentation](../apps/README.md)
 - [Agents](../agents/)
 - [Master Index](../MASTER_INDEX.md)
 

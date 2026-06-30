@@ -1,5 +1,8 @@
 # v0.7.3 — Agent Task Assignment
 
+**Last Updated**: 2026-06-30
+**Version**: 1.0
+
 **Release Theme**: Governance — On-Chain Proposals, Voting, Parameter Changes (Same-Chain)
 
 **Goal**: Wire the existing governance service (991 lines, `apps/governance/src/`) to the blockchain so proposals and votes are on-chain transactions. Replace local-only voting power with on-chain AIT balance snapshots. Add governance transaction types to blockchain-node. Defer cross-chain governance to v0.8.x (requires v0.7.2 verification + v0.7.1 multi-sig).
@@ -18,6 +21,45 @@
 > **Prerequisites**: [v0.7.0](../v0.7.0/change.log) ✅, [v0.7.1](../v0.7.1/change.log) ✅ (Agent A `1fcf1e829` + Agent B `a4ea61295`), [v0.7.2](../v0.7.2/change.log) (Agent A ✅ `9a7b17a34`, Agent B 🔴 in progress), [v0.6.7](../v0.6.7/change.log) ✅ (`5bb3803bd`), [v0.5.16](../v0.5.16/change.log) ✅.
 
 > **Risk**: Medium. Same-chain governance is self-contained — no bridge dependency. The main risk is adding new transaction types to blockchain-node (consensus-critical path). The existing tx processing in `poa.py:348` already handles arbitrary `type` strings in `tx.content`, so GOVERNANCE_* types are additive (new payload handling, not new consensus logic).
+
+---
+
+## Documentation Structure
+
+This release documentation has been split into topic-focused files:
+
+- **[Overview](./overview.md)** - Release overview, status baseline, and task split overview
+- **[Agent A Tasks](./agent-a.md)** - Shared core implementation (governance types, client, on-chain utilities)
+- **[Agent B Tasks](./agent-b.md)** - Apps & infrastructure implementation (governance service config, blockchain tx types, CLI)
+
+---
+
+## Quick Navigation
+
+### Overview
+- [Status Baseline](./overview.md#status-baseline--verified-code-targets-2026-06-29)
+- [Task Split Overview](./overview.md#task-split-overview)
+
+### Agent A (Shared Core)
+- [Scope](./agent-a.md#scope)
+- [Tasks](./agent-a.md#tasks)
+- [Governance types](./agent-a.md#a1-governance-types)
+- [Governance client](./agent-a.md#a2-governance-client)
+- [On-chain utilities](./agent-a.md#a3-on-chain-utilities)
+- [Unit tests](./agent-a.md#a4-unit-tests)
+
+### Agent B (Apps & Infrastructure)
+- [Scope](./agent-b.md#scope)
+- [Tasks](./agent-b.md#tasks)
+- [Governance config](./agent-b.md#b1-governance-config)
+- [Blockchain client](./agent-b.md#b2-blockchain-client)
+- [On-chain proposals](./agent-b.md#b3-on-chain-proposals)
+- [On-chain voting](./agent-b.md#b4-on-chain-voting)
+- [Timelock execution](./agent-b.md#b5-timelock-execution)
+- [Tests](./agent-b.md#b6-tests)
+- [Governance tx types](./agent-b.md#b7-governance-tx-types)
+- [Governance tx payload validation](./agent-b.md#b8-governance-tx-payload-validation)
+- [CLI commands](./agent-b.md#b9-cli-commands)
 
 ---
 
@@ -122,6 +164,12 @@
 **Conflict boundary**: Agent A owns `aitbc/governance/` package (new). Agent B owns `apps/governance/`, `apps/blockchain-node/`, and `cli/`. Agent B consumes Agent A's `GovernanceClient`, governance types, and on-chain utilities. No shared files are touched by both agents.
 
 **Sequencing**: Agent A goes first (shared SDK). Agent B starts after Agent A completes A1-A3 (B2-B5 depend on A1 types + A3 utilities). B1 (config) can proceed in parallel with Agent A.
+
+---
+
+**Documentation Version**: 1.0
+**Last Updated**: 2026-06-30
+**Release**: v0.7.3 — Governance
 
 ---
 

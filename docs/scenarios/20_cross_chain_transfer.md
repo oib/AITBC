@@ -19,7 +19,7 @@ breadcrumb: Home > Scenarios > Cross-Chain Transfer
 - **Previous Scenario**: [Scenario 19 Security Setup](./19_security_setup.md)
 - **Next Scenario**: This is the final beginner scenario — return to [Agent Scenarios](./README.md)
 - **Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md)
-- **Feature Documentation**: [Cross-Chain Reference](../cross-chain/README.md)
+- **Feature Documentation**: [Cross-Chain Reference](../blockchain/cross-chain/)
 
 ---
 
@@ -494,7 +494,7 @@ aitbc crosschain pools
 
 ## Related Resources
 
-- [Cross-Chain Documentation](../cross-chain/README.md)
+- [Cross-Chain Documentation](../blockchain/cross-chain/)
 - [Agent SDK Quick Start](../agent-sdk/QUICK_START_GUIDE.md)
 - [Agent SDK API Reference](../agent-sdk/API_REFERENCE.md)
 - [Back to Agent Scenarios](./README.md) — this is the final beginner scenario
