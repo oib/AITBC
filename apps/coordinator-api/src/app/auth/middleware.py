@@ -2,6 +2,8 @@
 Auth middleware for automatic route protection
 """
 
+from typing import cast
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -26,7 +28,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Skip auth for public routes
         auth_level = get_auth_level(path)
         if auth_level == AuthLevel.NONE:
-            return await call_next(request)
+            return cast(Response, await call_next(request))
 
         # Extract token from Authorization header
         authorization = request.headers.get("Authorization")
@@ -72,4 +74,4 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 media_type="application/json",
             )
 
-        return await call_next(request)
+        return cast(Response, await call_next(request))

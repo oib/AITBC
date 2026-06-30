@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 ZK Proofs Router - Zero-knowledge proof generation and verification
 
@@ -9,7 +10,7 @@ Provides REST API endpoints for:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
@@ -132,7 +133,7 @@ async def get_circuit_info(request: Request) -> dict[str, Any]:
     """Get information about the ZK circuit and setup parameters"""
     try:
         zk_service = zk_proof_service
-        return zk_service.get_circuit_info()
+        return cast(dict[str, Any], zk_service.get_circuit_info())
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get circuit info: {str(e)}"

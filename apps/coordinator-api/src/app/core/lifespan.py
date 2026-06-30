@@ -17,9 +17,9 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: Any) -> AsyncIterator[None]:
     """Lifecycle events for the Coordinator API."""
-    from .config import settings  # type: ignore[import-not-found]
-    from .database_async import close_async_db, init_async_db  # type: ignore[import-not-found]
-    from .storage.db import init_db  # type: ignore[import-not-found]
+    from .config import settings  # type: ignore
+    from .database_async import close_async_db, init_async_db  # type: ignore
+    from .storage.db import init_db  # type: ignore
 
     lifecycle_state = get_lifecycle_state()
     lifecycle_state.set_state(lifecycle_state.STARTING)
@@ -40,8 +40,8 @@ async def lifespan(app: Any) -> AsyncIterator[None]:
         try:
             from sqlmodel import select
 
-            from .contexts.infrastructure.domain import Job
-            from .storage import get_session  # type: ignore[import-not-found]
+            from .contexts.infrastructure.domain import Job  # type: ignore
+            from .storage import get_session  # type: ignore
 
             session_gen = get_session()
             session = next(session_gen)

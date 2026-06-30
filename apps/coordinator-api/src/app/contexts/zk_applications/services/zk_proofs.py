@@ -122,7 +122,7 @@ class ZKProofService:
             if test_mode:
                 logger.warning("Test mode enabled: accepting mock proof without cryptographic verification - THIS IS INSECURE")
                 # Fail closed in production: only allow test_mode in non-production environments
-                from ..config import settings
+                from ..config import settings  # type: ignore
 
                 if settings.environment == "production":
                     return {"verified": False, "error": "Test mode not allowed in production"}

@@ -75,10 +75,10 @@ class GPUService:
         from sqlmodel import delete
 
         async with get_session() as session:
-            stmt = delete(GPUListing).where(GPUListing.gpu_id == gpu_id)
+            stmt = delete(GPUListing).where(GPUListing.gpu_id == gpu_id)  # type: ignore[arg-type]
             result = await session.execute(stmt)
             await session.commit()
-            return bool(result.rowcount > 0)
+            return bool(result.rowcount > 0)  # type: ignore[attr-defined]
 
     async def scan_gpus(self, miner_id: str) -> dict[str, Any]:
         """Scan GPUs via GPU service"""

@@ -6,7 +6,7 @@ Business logic for AI agent bounty system with ZK-proof verification
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
@@ -124,7 +124,7 @@ class BountyService:
             if tags:
                 for tag in tags:
                     query = query.where(Bounty.tags.contains([tag]))  # type: ignore[attr-defined]
-            query = query.order_by(Bounty.creation_time.desc())  # type: ignore[attr-defined]
+            query = query.order_by(desc(Bounty.creation_time))  # type: ignore[arg-type]
             offset = (page - 1) * limit
             query = query.offset(offset).limit(limit)
             result = self.session.execute(query).scalars().all()  # type: ignore[union-attr]
@@ -158,8 +158,8 @@ class BountyService:
             if bounty.submission_count >= bounty.max_submissions:
                 raise ValueError("Maximum submissions reached")
             existing_stmt = select(BountySubmission).where(
-                and_(BountySubmission.bounty_id == bounty_id, BountySubmission.submitter_address == submitter_address)
-            )  # type: ignore[arg-type]
+                and_(BountySubmission.bounty_id == bounty_id, BountySubmission.submitter_address == submitter_address)  # type: ignore[arg-type]
+            )
             existing = self.session.execute(existing_stmt).scalar_one_or_none()  # type: ignore[union-attr]
             if existing:
                 raise ValueError("Already submitted to this bounty")
@@ -191,9 +191,9 @@ class BountyService:
         try:
             stmt = (
                 select(BountySubmission)
-                .where(BountySubmission.bounty_id == bounty_id)
-                .order_by(BountySubmission.submission_time.desc())
-            )  # type: ignore[attr-defined, arg-type]
+                .where(BountySubmission.bounty_id == bounty_id)  # type: ignore[arg-type]
+                .order_by(desc(BountySubmission.submission_time))  # type: ignore[arg-type]
+            )
             result = self.session.execute(stmt).scalars().all()  # type: ignore[union-attr]
             return list(result)
         except Exception as e:
@@ -206,8 +206,8 @@ class BountyService:
         """Verify a bounty submission"""
         try:
             stmt = select(BountySubmission).where(
-                and_(BountySubmission.submission_id == submission_id, BountySubmission.bounty_id == bounty_id)
-            )  # type: ignore[arg-type]
+                and_(BountySubmission.submission_id == submission_id, BountySubmission.bounty_id == bounty_id)  # type: ignore[arg-type]
+            )
             submission = self.session.execute(stmt).scalar_one_or_none()  # type: ignore[union-attr]
             if not submission:
                 raise ValueError("Submission not found")
@@ -237,8 +237,8 @@ class BountyService:
         """Create a dispute for a submission"""
         try:
             stmt = select(BountySubmission).where(
-                and_(BountySubmission.submission_id == submission_id, BountySubmission.bounty_id == bounty_id)
-            )  # type: ignore[arg-type]
+                and_(BountySubmission.submission_id == submission_id, BountySubmission.bounty_id == bounty_id)  # type: ignore[arg-type]
+            )
             submission = self.session.execute(stmt).scalar_one_or_none()  # type: ignore[union-attr]
             if not submission:
                 raise ValueError("Submission not found")
@@ -268,7 +268,7 @@ class BountyService:
             query = select(Bounty).where(Bounty.creator_id == user_address)  # type: ignore[arg-type]
             if status:
                 query = query.where(Bounty.status == status)  # type: ignore[arg-type]
-            query = query.order_by(Bounty.creation_time.desc())  # type: ignore[attr-defined]
+            query = query.order_by(desc(Bounty.creation_time))  # type: ignore[arg-type]
             offset = (page - 1) * limit
             query = query.offset(offset).limit(limit)
             result = self.session.execute(query).scalars().all()  # type: ignore[union-attr]
@@ -285,7 +285,7 @@ class BountyService:
             query = select(BountySubmission).where(BountySubmission.submitter_address == user_address)  # type: ignore[arg-type]
             if status:
                 query = query.where(BountySubmission.status == status)  # type: ignore[arg-type]
-            query = query.order_by(BountySubmission.submission_time.desc())  # type: ignore[attr-defined]
+            query = query.order_by(desc(BountySubmission.submission_time))  # type: ignore[arg-type]
             offset = (page - 1) * limit
             query = query.offset(offset).limit(limit)
             result = self.session.execute(query).scalars().all()  # type: ignore[union-attr]
@@ -306,20 +306,20 @@ class BountyService:
             else:
                 start_date = datetime.now(UTC) - timedelta(weeks=1)
             stmt = (
-                select(
+                select(  # type: ignore[call-overload]
                     BountySubmission.submitter_address,
-                    func.count(BountySubmission.submission_id).label("submissions"),
+                    func.count(BountySubmission.submission_id).label("submissions"),  # type: ignore[arg-type]
                     func.avg(BountySubmission.accuracy).label("avg_accuracy"),
                     func.sum(Bounty.reward_amount).label("total_rewards"),
                 )
                 .join(Bounty)
                 .where(
-                    and_(BountySubmission.status == SubmissionStatus.VERIFIED, BountySubmission.submission_time >= start_date)
+                    and_(BountySubmission.status == SubmissionStatus.VERIFIED, BountySubmission.submission_time >= start_date)  # type: ignore[arg-type]
                 )
                 .group_by(BountySubmission.submitter_address)
-                .order_by(func.sum(Bounty.reward_amount).desc())
+                .order_by(desc(func.sum(Bounty.reward_amount)))
                 .limit(limit)
-            )  # type: ignore[arg-type,call-overload]
+            )
             result = self.session.execute(stmt).all()  # type: ignore[union-attr]
             leaderboard: list[dict[str, Any]] = []
             for row in result:
@@ -350,36 +350,36 @@ class BountyService:
                 start_date = datetime.now(UTC) - timedelta(days=30)
             total_stmt = select(func.count(Bounty.bounty_id)).where(Bounty.creation_time >= start_date)  # type: ignore[arg-type]
             total_bounties = self.session.execute(total_stmt).scalar() or 0  # type: ignore[union-attr]
-            active_stmt = select(func.count(Bounty.bounty_id)).where(
-                and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.ACTIVE)
-            )  # type: ignore[arg-type]
+            active_stmt = select(func.count(Bounty.bounty_id)).where(  # type: ignore[arg-type]
+                and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.ACTIVE)  # type: ignore[arg-type]
+            )
             active_bounties = self.session.execute(active_stmt).scalar() or 0  # type: ignore[union-attr]
-            completed_stmt = select(func.count(Bounty.bounty_id)).where(
-                and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.COMPLETED)
-            )  # type: ignore[arg-type]
+            completed_stmt = select(func.count(Bounty.bounty_id)).where(  # type: ignore[arg-type]
+                and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.COMPLETED)  # type: ignore[arg-type]
+            )
             completed_bounties = self.session.execute(completed_stmt).scalar() or 0  # type: ignore[union-attr]
             total_locked_stmt = select(func.sum(Bounty.reward_amount)).where(Bounty.creation_time >= start_date)  # type: ignore[arg-type]
             total_value_locked = self.session.execute(total_locked_stmt).scalar() or 0.0  # type: ignore[union-attr]
             total_rewards_stmt = select(func.sum(Bounty.reward_amount)).where(
-                and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.COMPLETED)
-            )  # type: ignore[arg-type]
+                and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.COMPLETED)  # type: ignore[arg-type]
+            )
             total_rewards_paid = self.session.execute(total_rewards_stmt).scalar() or 0.0  # type: ignore[union-attr]
             success_rate = completed_bounties / total_bounties * 100 if total_bounties > 0 else 0.0
             avg_reward = total_value_locked / total_bounties if total_bounties > 0 else 0.0
             tier_stmt = (
-                select(Bounty.tier, func.count(Bounty.bounty_id).label("count"))
+                select(Bounty.tier, func.count(Bounty.bounty_id).label("count"))  # type: ignore[call-overload, arg-type]
                 .where(Bounty.creation_time >= start_date)
                 .group_by(Bounty.tier)
-            )  # type: ignore[arg-type, call-overload]
+            )
             tier_result = self.session.execute(tier_stmt).all()  # type: ignore[union-attr]
             tier_distribution = {row.tier.value: row.count for row in tier_result}
-            expired_stmt = select(func.count(Bounty.bounty_id)).where(
-                and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.EXPIRED)
-            )  # type: ignore[arg-type]
+            expired_stmt = select(func.count(Bounty.bounty_id)).where(  # type: ignore[arg-type]
+                and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.EXPIRED)  # type: ignore[arg-type]
+            )
             expired_bounties = self.session.execute(expired_stmt).scalar() or 0  # type: ignore[union-attr]
-            disputed_stmt = select(func.count(Bounty.bounty_id)).where(
-                and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.DISPUTED)
-            )  # type: ignore[arg-type]
+            disputed_stmt = select(func.count(Bounty.bounty_id)).where(  # type: ignore[arg-type]
+                and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.DISPUTED)  # type: ignore[arg-type]
+            )
             disputed_bounties = self.session.execute(disputed_stmt).scalar() or 0  # type: ignore[union-attr]
             fees_stmt = select(func.sum(Bounty.platform_fee + Bounty.creation_fee)).where(Bounty.creation_time >= start_date)  # type: ignore[arg-type]
             total_fees_collected = self.session.execute(fees_stmt).scalar() or 0.0  # type: ignore[union-attr]
@@ -433,9 +433,9 @@ class BountyService:
             search_pattern = f"%{query}%"
             stmt = (
                 select(Bounty)
-                .where(or_(Bounty.title.ilike(search_pattern), Bounty.description.ilike(search_pattern)))
-                .order_by(Bounty.creation_time.desc())
-            )  # type: ignore[attr-defined]
+                .where(or_(Bounty.title.ilike(search_pattern), Bounty.description.ilike(search_pattern)))  # type: ignore[attr-defined]
+                .order_by(desc(Bounty.creation_time))  # type: ignore[arg-type]
+            )
             offset = (page - 1) * limit
             stmt = stmt.offset(offset).limit(limit)
             result = self.session.execute(stmt).scalars().all()  # type: ignore[union-attr]
