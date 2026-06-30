@@ -3,6 +3,12 @@ Cryptographic utilities for AITBC
 Provides encryption, signing, hashing, and security-related functions
 """
 
+from .consensus_signing import (
+    sign_block_hash,
+    sign_consensus_message,
+    verify_block_signature,
+    verify_consensus_message,
+)
 from .crypto import (
     decrypt_private_key,
     derive_ethereum_address,
@@ -43,6 +49,11 @@ __all__ = [
     "SessionManager",
     # Transaction service
     "TransactionService",
+    # Consensus signing (v0.7.5)
+    "sign_block_hash",
+    "sign_consensus_message",
+    "verify_block_signature",
+    "verify_consensus_message",
     # Payment escrow (v0.6.5)
     "EscrowEntry",
     "EscrowStatus",
