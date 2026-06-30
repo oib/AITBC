@@ -78,6 +78,11 @@ All prior release plans are complete. Details are in the respective changelogs:
 - **v0.5.17** — Test Infrastructure (multi-chain fixtures, multi-node harness, stub test conversion, bridge test suite): <ref_file file="/opt/aitbc/docs/releases/v0.5.17/change.log" />
 - **v0.6.5** — Agent Coordination Service (chain_id/island_id awareness, PaymentEscrow, chain-aware task distribution): <ref_file file="/opt/aitbc/docs/releases/v0.6.5/change.log" />
 
+### Security Audit & Status
+
+- **Bridge Security Audit** (Bug #3 + Bug #4 fixed, regression tests passing): <ref_file file="/opt/aitbc/docs/releases/AUDIT.md" />
+- **Release Status Overview** (all releases, config defaults, audit summary): <ref_file file="/opt/aitbc/docs/releases/STATUS.md" />
+
 ## Planned Releases
 
 The release roadmap is split into two interleaved tracks: **infrastructure** (blockchain, bridge, sync, settlement) and **product** (agent coordination, compute marketplace, pool hub, governance). Product releases are interleaved after the multi-chain foundation is complete. Version numbers are monotonic — each release has a higher version than the one before it.
@@ -89,31 +94,31 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 ### Infrastructure Track (multi-chain foundation)
 - **v0.6.0** — Database & Network Optimization (query indexing, connection pooling, N+1 elimination, batch writes, block header caching, network compression): <ref_file file="/opt/aitbc/docs/releases/v0.6.0/change.log" /> ✅ complete
 - **v0.6.1** — Parallel Processing (parallel tx validation via dependency analysis, deterministic scheduling, pure state transitions): <ref_file file="/opt/aitbc/docs/releases/v0.6.1/change.log" /> ✅ complete
-- **v0.6.2** — Sync & Gossip Optimization (gossip protocol versioning, message prioritization, compact blocks, parallel sync from multiple peers, delta sync): <ref_file file="/opt/aitbc/docs/releases/v0.6.2/change.log" />
-- **v0.6.3** — Multi-Island Node Support: <ref_file file="/opt/aitbc/docs/releases/v0.6.3/change.log" />
-- **v0.6.4** — Multi-Chain Per Island: <ref_file file="/opt/aitbc/docs/releases/v0.6.4/change.log" />
+- **v0.6.2** — Sync & Gossip Optimization (gossip protocol versioning, message prioritization, compact blocks, parallel sync from multiple peers, delta sync): <ref_file file="/opt/aitbc/docs/releases/v0.6.2/change.log" /> 🚧 planned
+- **v0.6.3** — Multi-Island Node Support: <ref_file file="/opt/aitbc/docs/releases/v0.6.3/change.log" /> 🚧 planned
+- **v0.6.4** — Multi-Chain Per Island: <ref_file file="/opt/aitbc/docs/releases/v0.6.4/change.log" /> 🚧 planned
 
 ### Product Track (interleaved after v0.6.4)
 - **v0.6.5** — Agent Coordination Service: <ref_file file="/opt/aitbc/docs/releases/v0.6.5/change.log" /> ✅ complete
-- **v0.6.6** — Compute Marketplace: <ref_file file="/opt/aitbc/docs/releases/v0.6.6/change.log" />
-- **v0.6.7** — Pool Hub & Mining: <ref_file file="/opt/aitbc/docs/releases/v0.6.7/change.log" />
+- **v0.6.6** — Compute Marketplace: <ref_file file="/opt/aitbc/docs/releases/v0.6.6/change.log" /> 🚧 planned
+- **v0.6.7** — Pool Hub & Mining: <ref_file file="/opt/aitbc/docs/releases/v0.6.7/change.log" /> 🚧 planned
 
 ### Infrastructure + Product (bridge + governance)
-- **v0.7.0** — Bridge Basics: <ref_file file="/opt/aitbc/docs/releases/v0.7.0/change.log" />
-- **v0.7.1** — Bridge Security: <ref_file file="/opt/aitbc/docs/releases/v0.7.1/change.log" />
-- **v0.7.2** — Bridge Verification (In-Process Crypto): <ref_file file="/opt/aitbc/docs/releases/v0.7.2/change.log" />
-- **v0.7.3** — Governance: <ref_file file="/opt/aitbc/docs/releases/v0.7.3/change.log" />
-- **v0.7.4** — Deferred v0.7.x Items (External Oracle, Cross-Chain Governance, Parameter Automation, Emergency Proposals, Coordinator-API Bridge): <ref_file file="/opt/aitbc/docs/releases/v0.7.4/change.log" />
-- **v0.7.5** — Consensus Activation (MultiValidatorPoA + PBFT: fix 6 Critical + 6 High findings from security review, then activate): <ref_file file="/opt/aitbc/docs/releases/v0.7.4/security-review-multivalidator-poa.md" /> — split from v0.7.4 B7 after security review found the implementation is scaffolding, not production consensus
+- **v0.7.0** — Bridge Basics: <ref_file file="/opt/aitbc/docs/releases/v0.7.0/change.log" /> ✅ complete
+- **v0.7.1** — Bridge Security: <ref_file file="/opt/aitbc/docs/releases/v0.7.1/change.log" /> ✅ complete
+- **v0.7.2** — Bridge Verification (In-Process Crypto): <ref_file file="/opt/aitbc/docs/releases/v0.7.2/change.log" /> ✅ complete
+- **v0.7.3** — Governance: <ref_file file="/opt/aitbc/docs/releases/v0.7.3/change.log" /> ✅ complete
+- **v0.7.4** — Deferred v0.7.x Items (External Oracle, Cross-Chain Governance, Parameter Automation, Emergency Proposals, Coordinator-API Bridge): <ref_file file="/opt/aitbc/docs/releases/v0.7.4/change.log" /> ✅ complete
+- **v0.7.5** — Consensus Activation (MultiValidatorPoA + PBFT: fix 6 Critical + 6 High findings from security review, then activate): <ref_file file="/opt/aitbc/docs/releases/v0.7.4/security-review-multivalidator-poa.md" /> ⚠️ code complete, NOT activated (soak test pending) — split from v0.7.4 B7 after security review found the implementation is scaffolding, not production consensus
 
 ### Infrastructure Track (trading + settlement)
-- **v0.8.0** — Inter-Chain Trading Basics: <ref_file file="/opt/aitbc/docs/releases/v0.8.0/change.log" />
-- **v0.8.1** — Cross-Chain Offer Sync (polling-based): <ref_file file="/opt/aitbc/docs/releases/v0.8.1/change.log" />
-- **v0.8.2** — Advanced Offer Sync (subscription, real-time, search index): <ref_file file="/opt/aitbc/docs/releases/v0.8.2/change.log" />
-- **v0.9.0** — Atomic Cross-Chain Settlement: <ref_file file="/opt/aitbc/docs/releases/v0.9.0/change.log" />
+- **v0.8.0** — Inter-Chain Trading Basics: <ref_file file="/opt/aitbc/docs/releases/v0.8.0/change.log" /> ✅ complete
+- **v0.8.1** — Cross-Chain Offer Sync (polling-based): <ref_file file="/opt/aitbc/docs/releases/v0.8.1/change.log" /> ✅ complete
+- **v0.8.2** — Advanced Offer Sync (subscription, real-time, search index): <ref_file file="/opt/aitbc/docs/releases/v0.8.2/change.log" /> ✅ complete
+- **v0.9.0** — Atomic Cross-Chain Settlement: <ref_file file="/opt/aitbc/docs/releases/v0.9.0/change.log" /> 🚧 in progress (B1-B5 complete; chaos testing + external audit pending)
 
 ### Post-v1 Vision (not fit until after v1.0.0)
-- **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" />
+- **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
 
 ### Release Sequence (monotonic)
 
@@ -152,7 +157,7 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
 
 All 19 `suggestions.md` files across release folders were read, investigated, and incorporated into change.logs. Key findings:
 
-- **v0.5.16**: ~~All 7 original confirmed bugs STILL PRESENT in codebase.~~ **RE-VERIFIED 2026-06-29: ALL 7 FIXED** across v0.5.16–v0.6.7. 5 fully fixed (TransactionRequest chain_id, sync.py chain_id, agent_stream chain_id, marketplace hardcoded DB path, marketplace raw SQL). 1 partially fixed + fenced (bridge `_validate_proof` — proposer-set membership + Merkle proof deferred to v0.7.2, release fenced behind `BRIDGE_RELEASE_ENABLED=false`). 1 was NOT A BUG (agent_stream port 8202 is correct; the original suggestion had the port direction backwards — 8006 is the stale port, 8202 is correct per blockchain-node config.py:89).
+- **v0.5.16**: ~~All 7 original confirmed bugs STILL PRESENT in codebase.~~ **RE-VERIFIED 2026-06-29: ALL 7 FIXED** across v0.5.16–v0.6.7. 5 fully fixed (TransactionRequest chain_id, sync.py chain_id, agent_stream chain_id, marketplace hardcoded DB path, marketplace raw SQL). 1 partially fixed + fenced (bridge `_validate_proof` — proposer-set membership + Merkle proof deferred to v0.7.2, release fenced behind `BRIDGE_RELEASE_ENABLED=false`). 1 was NOT A BUG (agent_stream port 8202 is correct; the original suggestion had the port direction backwards — 8006 is the stale port, 8202 is correct per blockchain-node config.py:89). **UPDATE 2026-06-18: Bridge `_validate_proof` security audit completed — Bug #3 (proposer signature validator-set membership) and Bug #4 (Merkle proof enforcement) fixed with regression tests. See [AUDIT.md](docs/releases/AUDIT.md).**
 - **v0.6.3**: All 4 claims confirmed — SubscriptionClient single-hub/chain (`subscription_client.py:23-26`), island manager tasks disabled (`main.py:283-288`), CHAIN_SYNC_SOURCES not implemented, gossip topic not chain-specific (`main.py:146` vs `174`).
 - **v0.6.4**: Dead code confirmed — MultiChainManager (`multi_chain_manager.py:56`), MultiValidatorPoA (`multi_validator_poa.py:33`), PBFT (`pbft.py:48`). join_island has 8 call sites inventoried.
 - **v0.6.6**: GPU service submits transactions without chain_id (`gpu_service/main.py:272-291`). Marketplace direct SQLite already in v0.5.16.
