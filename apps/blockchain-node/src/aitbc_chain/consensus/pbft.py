@@ -3,19 +3,21 @@ Practical Byzantine Fault Tolerance (PBFT) Consensus Implementation
 Provides Byzantine fault tolerance for up to 1/3 faulty validators
 
 # ════════════════════════════════════════════════════════════════
-# THRESHOLD STATE — DO NOT ACTIVATE WITHOUT SECURITY REVIEW
-# Requires: validator rotation, slashing, multi-validator consensus audit
-# Activation: set MULTI_VALIDATOR_CONSENSUS_ENABLED=true (NOT in this release)
-# See: v0.7.x security releases for activation plan
+# v0.7.5: All 5 security review findings fixed (C4-C5, H4-H6).
+# Guard now reads from settings.multi_validator_consensus_enabled
+# instead of MULTI_VALIDATOR_CONSENSUS_ENABLED env var.
+# Keep guard in place until B14 test suite passes.
 # ════════════════════════════════════════════════════════════════
 """
 
+import asyncio
 import hashlib
-import os
 import time
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
+from ..config import settings
 from .multi_validator_poa import MultiValidatorPoA
 
 
@@ -56,13 +58,18 @@ class PBFTState:
 class PBFTConsensus:
     """PBFT consensus implementation"""
 
-    def __init__(self, consensus: MultiValidatorPoA):
-        if os.getenv("MULTI_VALIDATOR_CONSENSUS_ENABLED", "").lower() != "true":
+    def __init__(self, consensus: MultiValidatorPoA, private_key: str = "", chain_id: str = "ait-hub"):
+        if not settings.multi_validator_consensus_enabled:
             raise RuntimeError(
-                "PBFTConsensus is in THRESHOLD state and not yet activated. "
-                "Set MULTI_VALIDATOR_CONSENSUS_ENABLED=true to override (requires security review)."
+                "PBFTConsensus is not yet activated. "
+                "Set multi_validator_consensus_enabled=true in config to enable (requires security review)."
             )
         self.consensus = consensus
+        self._private_key = private_key
+        self._chain_id = chain_id
+        self._gossip_backend: Any = None
+        self._consensus_timer: asyncio.Task[None] | None = None
+        self._view_change_count = 0
         self.state = PBFTState(
             current_view=0, current_sequence=0, prepared_messages={}, committed_messages={}, pre_prepare_messages={}
         )
