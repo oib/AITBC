@@ -41,6 +41,33 @@ class InterChainTradeStatus(StrEnum):
     FAILED = "failed"
 
 
+class SettlementPhase(StrEnum):
+    """Settlement phase for an inter-chain trade (v0.9.0).
+
+    Tracks the atomic settlement progress separately from the trade
+    status. A trade can be ``completed`` (trade delivered) but still
+    in ``settling`` phase (escrow not yet released).
+
+    - ``none``: no settlement initiated (trade not yet locked)
+    - ``escrow_created``: escrow record created, HTLC params generated
+    - ``escrow_locked``: funds locked on source chain (HTLC funded)
+    - ``lock_verified``: lock proof verified on destination chain
+    - ``trade_executed``: trade executed on destination chain
+    - ``settled``: both chains settled atomically (terminal)
+    - ``refunded``: both chains refunded after timeout (terminal)
+    - ``disputed``: under dispute resolution
+    """
+
+    NONE = "none"
+    ESCROW_CREATED = "escrow_created"
+    ESCROW_LOCKED = "escrow_locked"
+    LOCK_VERIFIED = "lock_verified"
+    TRADE_EXECUTED = "trade_executed"
+    SETTLED = "settled"
+    REFUNDED = "refunded"
+    DISPUTED = "disputed"
+
+
 class ChainStatus(StrEnum):
     """Status of a registered AITBC chain in the island registry."""
 
@@ -92,6 +119,12 @@ class InterChainTradeData:
     source_tx_hash: str | None = None
     dest_tx_hash: str | None = None
     chain_id: str = "ait-hub"
+    # v0.9.0 settlement fields
+    escrow_id: str = ""
+    settlement_phase: str = "none"  # SettlementPhase value
+    secret_hash: str = ""
+    source_timelock: int = 0
+    dest_timelock: int = 0
 
 
 @dataclass

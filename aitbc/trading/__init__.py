@@ -32,6 +32,12 @@ v0.8.2 additions (advanced offer sync):
 - SubscriptionStatus: enum for WebSocket subscription lifecycle
 - OfferNotification: debounced batch notification of offer changes
 - OfferSubscriptionClient: WebSocket client for real-time offer streaming
+
+v0.9.0 additions (atomic settlement):
+- SettlementPhase: enum for settlement lifecycle (none → escrow_created →
+  escrow_locked → lock_verified → trade_executed → settled/refunded)
+- InterChainTradeData extended with escrow_id, settlement_phase,
+  secret_hash, source_timelock, dest_timelock fields
 """
 
 from __future__ import annotations
@@ -64,6 +70,7 @@ from .types import (
     InterChainTradeData,
     InterChainTradeStatus,
     RegisterChainRequest,
+    SettlementPhase,
     TradeHistoryEntry,
     TradeMatchResult,
     TradingConfig,
@@ -89,6 +96,7 @@ __all__ = [
     "OfferSyncStatusEntry",
     "OfferSyncTrigger",
     "RegisterChainRequest",
+    "SettlementPhase",
     "SubscriptionStatus",
     "SyncedOffer",
     "TradeHistoryEntry",
