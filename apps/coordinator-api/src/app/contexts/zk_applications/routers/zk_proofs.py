@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 ZK Proofs Router - Zero-knowledge proof generation and verification
 
