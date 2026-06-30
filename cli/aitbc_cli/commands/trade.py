@@ -314,6 +314,102 @@ def sync_status(ctx, format):
 
 
 # ============================================================================
+# v0.8.2: Offer Subscription Commands (B6)
+# ============================================================================
+
+
+@trade.command()
+@click.option("--chain-id", default=None, help="Filter by chain ID")
+@click.option("--service-type", default=None, help="Filter by service type")
+@click.option("--min-price", default=None, type=float, help="Minimum price filter")
+@click.option("--max-price", default=None, type=float, help="Maximum price filter")
+@click.option("--region", default=None, help="Filter by region")
+@click.option("--gpu-model", default=None, help="Filter by GPU model")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def watch(ctx, chain_id, service_type, min_price, max_price, region, gpu_model, format):
+    """Stream offer changes in real-time via WebSocket subscription"""
+    import asyncio
+    import json as _json
+
+    from aitbc.trading.subscription_client import OfferSubscriptionClient
+    from aitbc.trading.subscription_types import OfferSubscription
+
+    rpc_url = _get_client()._base_url
+
+    async def _watch() -> None:
+        sub = OfferSubscription(
+            chain_id=chain_id,
+            service_type=service_type,
+            min_price=min_price,
+            max_price=max_price,
+            region=region,
+            gpu_model=gpu_model,
+        )
+        target_chain = chain_id or "ait-hub"
+        client = OfferSubscriptionClient(rpc_url=rpc_url, node_id=f"cli-watch-{target_chain}")
+        try:
+            async for event in client.subscribe(target_chain, sub):
+                click.echo(_json.dumps(event.to_dict(), indent=2))
+        except KeyboardInterrupt:
+            pass
+        finally:
+            await client.close()
+
+    try:
+        asyncio.run(_watch())
+    except KeyboardInterrupt:
+        click.echo("Stopped watching")
+    except Exception as e:
+        error(f"Error watching offers: {e}")
+
+
+@trade.command(name="subscription-status")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def subscription_status(ctx, format):
+    """Show offer subscription health per chain"""
+    try:
+        client = _get_client()
+        result = client.get("/v1/trading/offers/subscription-status")
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error getting subscription status: {e}")
+
+
+@trade.command()
+@click.option("--query", default="", help="Search query text")
+@click.option("--chain-id", default=None, help="Filter by chain ID")
+@click.option("--service-type", default=None, help="Filter by service type")
+@click.option("--min-price", default=None, type=float, help="Minimum price filter")
+@click.option("--max-price", default=None, type=float, help="Maximum price filter")
+@click.option("--limit", default=100, type=int, help="Max results")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def search(ctx, query, chain_id, service_type, min_price, max_price, limit, format):
+    """Search offers via the optional search index"""
+    try:
+        client = _get_client()
+        params: dict[str, str | int | float] = {"q": query, "limit": limit}
+        if chain_id:
+            params["chain_id"] = chain_id
+        if service_type:
+            params["service_type"] = service_type
+        if min_price is not None:
+            params["min_price"] = min_price
+        if max_price is not None:
+            params["max_price"] = max_price
+        result = client.get("/v1/trading/offers/search", params=params)
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error searching offers: {e}")
+
+
+# ============================================================================
 # v0.9.0 §B9: Settlement Commands
 # ============================================================================
 
