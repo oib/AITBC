@@ -554,11 +554,13 @@ class CrossChainBridge:
         The signer's address must match the source chain's proposer at the
         claimed block height.
 
-        Bug 3 PARTIAL (v0.5.16): for now, this verifies only that the
-        signature is valid for SOME secp256k1 key — it does NOT check the
-        recovered address against a proposer set. Full proposer-set tracking
-        is deferred to v0.7.2. The release path is fenced behind
-        ``BRIDGE_RELEASE_ENABLED`` (default false) at the RPC layer until then.
+        Bug 3 (v0.7.2 verification complete): ``_validate_proof`` now performs
+        full cryptographic verification — Merkle proof verification against
+        stored block headers, block header signature verification against the
+        v0.7.1 validator set, finality tracking, and multi-sig threshold
+        signatures. The release-path gate is now at the RPC layer and is
+        enabled when either ``escrow_enabled`` or ``bridge_release_enabled`` is
+        True (see ``rpc/bridge.py``).
         """
         import json as _json
 

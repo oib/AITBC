@@ -379,3 +379,72 @@ class ConsensusState(SQLModel, table=True):
     validator_set_json: str = Field(default="")  # JSON-serialized validator set
     slashing_events_json: str = Field(default="[]")  # JSON-serialized slashing history
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class CrossChainEscrowRecord(SQLModel, table=True):
+    """Cross-chain escrow record for atomic settlement (v0.9.0).
+
+    Persists the HTLC escrow lifecycle: pending → locked → verified →
+    executing → completed (or refunded/failed/disputed).
+    """
+
+    __tablename__ = "cross_chain_escrows"
+    __table_args__ = (
+        UniqueConstraint("escrow_id", name="uix_escrow_id"),
+        Index("ix_escrow_trade_id", "trade_id"),
+        Index("ix_escrow_status", "status"),
+        {"extend_existing": True},
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    escrow_id: str = Field(index=True)
+    trade_id: str = Field(index=True)
+    source_chain: str = Field(index=True)
+    dest_chain: str
+    sender: str
+    recipient: str
+    amount: int
+    asset: str = "native"
+    status: str = "pending"  # EscrowStatus value
+    secret_hash: str = ""
+    secret: str = ""
+    source_timelock: int = 0
+    dest_timelock: int = 0
+    source_lock_tx_hash: str = ""
+    dest_execution_tx_hash: str = ""
+    source_release_tx_hash: str = ""
+    dest_release_tx_hash: str = ""
+    timeout_seconds: int = 3600
+    timeout_extended: bool = False
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    locked_at: datetime | None = None
+    settled_at: datetime | None = None
+    refunded_at: datetime | None = None
+
+
+class EscrowProofRecord(SQLModel, table=True):
+    """Proof record in the settlement proof chain (v0.9.0).
+
+    Each escrow has up to 5 proofs: lock → verification → execution →
+    release → settlement. Proofs are chained via previous_proof_hash.
+    """
+
+    __tablename__ = "escrow_proofs"
+    __table_args__ = (
+        Index("ix_proof_escrow_id", "escrow_id"),
+        Index("ix_proof_type", "proof_type"),
+        {"extend_existing": True},
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    escrow_id: str = Field(index=True)
+    proof_type: str  # ProofType value
+    chain_id: str
+    block_height: int
+    block_hash: str
+    tx_hash: str
+    proposer_signature: str = ""
+    validator_signatures_json: str = "[]"
+    merkle_proof_json: str = "[]"
+    previous_proof_hash: str = ""
+    timestamp: float = 0.0
