@@ -543,14 +543,14 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/blockchain-node/tests/test_bri
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Add bridge verification config fields + constants | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/config.py`, `aitbc/constants.py` | ⬜ |
-| B2 | Create BridgeBlockHeader SQLModel table for remote chain headers | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/base_models.py` (or new models file) | ⬜ |
-| B3 | Replace `_validate_proof` with Merkle proof verification | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` | ⬜ |
-| B4 | Implement block header signature verification using v0.7.1 validator set | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` | ⬜ |
-| B5 | Implement finality tracking — confirmations per chain, threshold enforcement | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` | ⬜ |
-| B6 | Validator set epoch tracking with DB persistence + grace period | High | `apps/blockchain-node/src/aitbc_chain/base_models.py`, `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` | ⬜ |
-| B7 | Unfence bridge release path + add CLI `oracle-status` command | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/config.py`, `cli/aitbc_cli/commands/bridge.py` | ⬜ |
-| B8 | Integration tests + verify mypy/ruff/pytest clean | High | `apps/blockchain-node/tests/test_v072_bridge_verification.py` (new) | ⬜ |
+| B1 | Add bridge verification config fields + constants | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/config.py`, `aitbc/constants.py` | ✅ |
+| B2 | Create BridgeBlockHeader SQLModel table for remote chain headers | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/base_models.py` (or new models file) | ✅ |
+| B3 | Replace `_validate_proof` with Merkle proof verification | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` | ✅ |
+| B4 | Implement block header signature verification using v0.7.1 validator set | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` | ✅ |
+| B5 | Implement finality tracking — confirmations per chain, threshold enforcement | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` | ✅ |
+| B6 | Validator set epoch tracking with DB persistence + grace period | High | `apps/blockchain-node/src/aitbc_chain/base_models.py`, `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` | ✅ |
+| B7 | Unfence bridge release path + add CLI `oracle-status` command | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/config.py`, `cli/aitbc_cli/commands/bridge.py` | ✅ |
+| B8 | Integration tests + verify mypy/ruff/pytest clean | High | `apps/blockchain-node/tests/test_v072_bridge_verification.py` (new) | ✅ |
 
 ### Agent B — Detailed Instructions
 

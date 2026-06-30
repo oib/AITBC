@@ -76,11 +76,11 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/bridge/ aitb
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Implement `ExternalOracleClient` — replace NotImplementedError stubs with real oracle API calls | Medium | `aitbc/bridge/oracle.py` (extend) | ⬜ |
-| A2 | Add oracle fallback policy — in-process → oracle → in-process fallback logic | Medium | `aitbc/bridge/oracle.py` (extend), `aitbc/bridge/proof.py` (extend) | ⬜ |
-| A3 | Add cross-chain governance utilities — `propagate_proposal()`, `aggregate_votes()`, `execute_cross_chain()` | 🔴 P0 | `aitbc/governance/onchain.py` (extend), `aitbc/governance/client.py` (extend) | ⬜ |
-| A4 | Add parameter change execution helper — `build_parameter_apply_tx()` | Medium | `aitbc/governance/onchain.py` (extend) | ⬜ |
-| A5 | Unit tests for A1-A4 | High | `tests/unit/test_v074_deferred.py` (new) | ⬜ |
+| A1 | Implement `ExternalOracleClient` — replace NotImplementedError stubs with real oracle API calls | Medium | `aitbc/bridge/oracle.py` (extend) | ✅ |
+| A2 | Add oracle fallback policy — in-process → oracle → in-process fallback logic | Medium | `aitbc/bridge/oracle.py` (extend), `aitbc/bridge/proof.py` (extend) | ✅ |
+| A3 | Add cross-chain governance utilities — `propagate_proposal()`, `aggregate_votes()`, `execute_cross_chain()` | 🔴 P0 | `aitbc/governance/onchain.py` (extend), `aitbc/governance/client.py` (extend) | ✅ |
+| A4 | Add parameter change execution helper — `build_parameter_apply_tx()` | Medium | `aitbc/governance/onchain.py` (extend) | ✅ (pre-existing) |
+| A5 | Unit tests for A1-A4 | High | `tests/unit/test_v074_deferred.py` (new) | ✅ |
 
 ### Agent A — Detailed Instructions
 
@@ -141,15 +141,15 @@ cd /opt/aitbc && PYTHONPATH=apps/governance/src:aitbc ./venv/bin/python -m pytes
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Add `BRIDGE_ORACLE_ENDPOINTS` config to blockchain-node Settings | Medium | `apps/blockchain-node/src/aitbc_chain/config.py` (extend) | ⬜ |
-| B2 | Add cross-chain governance endpoints to governance service | 🔴 P0 | `apps/governance/src/governance_service/main.py` (extend) | ⬜ |
-| B3 | Add governance-triggered parameter change API to pool-hub | Medium | `apps/pool-hub/src/poolhub/app/routers/services.py` (extend) | ⬜ |
-| B4 | Add governance-triggered parameter change API to marketplace | Medium | `apps/marketplace/src/marketplace_service/` (extend) | ⬜ |
-| B5 | Add emergency proposal handling — accelerated timelock, fast-track execution | Medium | `apps/governance/src/governance_service/services/governance_service.py` (extend) | ⬜ |
-| B6 | Integrate coordinator-api with BridgeClient — replace CrossChainBridgeService | Medium | `apps/coordinator-api/src/app/contexts/cross_chain/` (refactor) | ⬜ |
+| B1 | Add `BRIDGE_ORACLE_ENDPOINTS` config to blockchain-node Settings | Medium | `apps/blockchain-node/src/aitbc_chain/config.py` (extend) | ✅ |
+| B2 | Add cross-chain governance endpoints to governance service | 🔴 P0 | `apps/governance/src/governance_service/main.py` (extend) | ✅ |
+| B3 | Add governance-triggered parameter change API to pool-hub | Medium | `apps/pool-hub/src/poolhub/app/routers/services.py` (extend) | ✅ |
+| B4 | Add governance-triggered parameter change API to marketplace | Medium | `apps/marketplace/src/marketplace_service/` (extend) | ✅ |
+| B5 | Add emergency proposal handling — accelerated timelock, fast-track execution | Medium | `apps/governance/src/governance_service/services/governance_service.py` (extend) | ✅ |
+| B6 | Integrate coordinator-api with BridgeClient — replace CrossChainBridgeService | Medium | `apps/coordinator-api/src/app/contexts/cross_chain/` (refactor) | ✅ |
 | B7 | MultiValidatorPoA activation — security review, remove guard, enable | ⛔ DEFERRED to v0.7.5 | `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` (extend) | ⛔ Deferred |
-| B8 | Add CLI commands — governance propagate, aggregate-votes, bridge oracle-status, consensus validators/status | Medium | `cli/aitbc_cli/commands/governance.py` (extend), `cli/aitbc_cli/commands/bridge.py` (extend), `cli/aitbc_cli/commands/chain.py` (extend) | ⬜ |
-| B9 | Integration tests | High | `apps/governance/tests/test_v074_deferred.py` (new) | ⬜ |
+| B8 | Add CLI commands — governance propagate, aggregate-votes, bridge oracle-status, consensus validators/status | Medium | `cli/aitbc_cli/commands/governance.py` (extend), `cli/aitbc_cli/commands/bridge.py` (extend), `cli/aitbc_cli/commands/chain.py` (extend) | ✅ |
+| B9 | Integration tests | High | `apps/governance/tests/test_v074_deferred.py` (new) | ✅ |
 
 ### Agent B — Detailed Instructions
 

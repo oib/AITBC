@@ -395,12 +395,12 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check apps/marketplace/ apps/gpu/ app
 |---|------|----------|-------|--------|
 | B1 | Marketplace config: add Settings class (fix 8006→8202, add DEFAULT_CHAIN_ID, AGENT_COORDINATOR_URL) | 🔴 P0 | `apps/marketplace/src/marketplace_service/config.py` (new), `main.py`, `services/marketplace_service.py` | ✅ |
 | B2 | GPU service config: add Settings class, fix chain_id default (""→"ait-hub") | 🔴 P0 | `apps/gpu/src/gpu_service/config.py` (new), `main.py` | ✅ |
-| B3 | Marketplace: use BlockchainRPCClient (A2) for offer queries, add chain_id filter, wire OfferFSM (A1) | 🔴 P0 | `apps/marketplace/src/marketplace_service/services/marketplace_service.py`, `domain/marketplace.py` | ⬜ |
-| B4 | GPU service: use BlockchainRPCClient (A2), fix chain_id default, wire OfferFSM (A1) into GPURegistry status | 🔴 P0 | `apps/gpu/src/gpu_service/main.py`, `domain/gpu_marketplace.py` | ⬜ |
-| B5 | Edge service: fix schema mismatches (GPUListing, ComputeResult), add payment verification, add marketplace advertising, add coordinator health reporting | 🔴 P0 | `apps/edge/src/aitbc_edge/schemas/gpu.py`, `schemas/serve.py`, `services/gpu_service.py`, `services/serve_service.py`, `routers/serve.py`, `config.py` | ⬜ |
-| B6 | Marketplace matching: price-time priority matching + agent-coordinator task queue integration | Medium | `apps/marketplace/src/marketplace_service/services/matching_service.py`, `main.py` | ⬜ |
-| B7 | Integration tests — offer lifecycle, chain_id routing, payment verification, matching | 🔴 P0 | `apps/marketplace/tests/test_v066_marketplace.py` (new), `apps/gpu/tests/test_v066_gpu.py` (new) | ⬜ |
-| B8 | Verify full test suite + ruff + mypy clean | High | — | ⬜ |
+| B3 | Marketplace: use BlockchainRPCClient (A2) for offer queries, add chain_id filter, wire OfferFSM (A1) | 🔴 P0 | `apps/marketplace/src/marketplace_service/services/marketplace_service.py`, `domain/marketplace.py` | ✅ |
+| B4 | GPU service: use BlockchainRPCClient (A2), fix chain_id default, wire OfferFSM (A1) into GPURegistry status | 🔴 P0 | `apps/gpu/src/gpu_service/main.py`, `domain/gpu_marketplace.py` | ✅ |
+| B5 | Edge service: fix schema mismatches (GPUListing, ComputeResult), add payment verification, add marketplace advertising, add coordinator health reporting | 🔴 P0 | `apps/edge/src/aitbc_edge/schemas/gpu.py`, `schemas/serve.py`, `services/gpu_service.py`, `services/serve_service.py`, `routers/serve.py`, `config.py` | ✅ |
+| B6 | Marketplace matching: price-time priority matching + agent-coordinator task queue integration | Medium | `apps/marketplace/src/marketplace_service/services/matching_service.py`, `main.py` | ✅ |
+| B7 | Integration tests — offer lifecycle, chain_id routing, payment verification, matching | 🔴 P0 | `apps/marketplace/tests/test_v066_marketplace.py` (new), `apps/gpu/tests/test_v066_gpu.py` (new) | ✅ |
+| B8 | Verify full test suite + ruff + mypy clean | High | — | ✅ |
 
 ### Agent B — Detailed Instructions
 
