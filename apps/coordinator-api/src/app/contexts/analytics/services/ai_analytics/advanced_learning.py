@@ -94,10 +94,11 @@ class LearningSession:
     training_data: list[dict[str, Any]]
     validation_data: list[dict[str, Any]]
     hyperparameters: dict[str, Any]
-    results: dict[str, float]
+    results: dict[str, Any]
     iterations: int
     convergence_threshold: float
     early_stopping: bool
+    early_stopping_patience: int
     checkpoint_frequency: int
 
 
@@ -269,6 +270,7 @@ class AdvancedLearningService:
                 iterations=0,
                 convergence_threshold=final_hyperparams.get("convergence_threshold", self.convergence_threshold),
                 early_stopping=final_hyperparams.get("early_stopping", True),
+                early_stopping_patience=final_hyperparams.get("early_stopping_patience", self.early_stopping_patience),
                 checkpoint_frequency=10,
             )
             self.learning_sessions[session_id] = session
@@ -310,6 +312,7 @@ class AdvancedLearningService:
                 iterations=0,
                 convergence_threshold=0.001,
                 early_stopping=True,
+                early_stopping_patience=10,
                 checkpoint_frequency=10,
             )
             self.learning_sessions[session_id] = session
@@ -349,6 +352,7 @@ class AdvancedLearningService:
                 iterations=0,
                 convergence_threshold=0.001,
                 early_stopping=False,
+                early_stopping_patience=10,
                 checkpoint_frequency=5,
             )
             self.learning_sessions[session_id] = session
@@ -481,21 +485,21 @@ class AdvancedLearningService:
                 session.iterations = iteration
                 if iteration > 0 and iteration % 10 == 0:
                     loss = np.random.uniform(0.1, 1.0) * (1.0 - iteration / 100)
-                    session.results[f"epoch_{iteration}"] = {"loss": loss}  # type: ignore[assignment]
+                    session.results[f"epoch_{iteration}"] = {"loss": loss}
                     if loss < session.convergence_threshold:
                         session.status = LearningStatus.COMPLETED
                         break
-                    if session.early_stopping and iteration > session.early_stopping_patience:  # type: ignore[attr-defined]
+                    if session.early_stopping and iteration > session.early_stopping_patience:
                         if loss > session.results.get(f"epoch_{iteration - session.early_stopping_patience}", {}).get(
                             "loss", 1.0
-                        ):  # type: ignore[call-overload, attr-defined, union-attr]
+                        ):
                             session.status = LearningStatus.COMPLETED
                             break
             model.accuracy = np.random.uniform(0.7, 0.95)
             model.precision = np.random.uniform(0.7, 0.95)
             model.recall = np.random.uniform(0.7, 0.95)
             model.f1_score = np.random.uniform(0.7, 0.95)
-            model.loss = session.results.get(f"epoch_{session.iterations}", {}).get("loss", 0.1)  # type: ignore[call-overload, union-attr]
+            model.loss = session.results.get(f"epoch_{session.iterations}", {}).get("loss", 0.1)
             model.training_time = (datetime.now(UTC) - session.start_time).total_seconds()
             model.inference_time = np.random.uniform(0.01, 0.1)
             model.status = LearningStatus.ACTIVE
@@ -523,7 +527,7 @@ class AdvancedLearningService:
                 session.iterations = iteration
                 if iteration % 100 == 0:
                     loss = np.random.uniform(0.1, 1.0) * (1.0 - iteration / 1000)
-                    session.results[f"meta_iter_{iteration}"] = {"loss": loss}  # type: ignore[assignment]
+                    session.results[f"meta_iter_{iteration}"] = {"loss": loss}
                     if loss < session.convergence_threshold:
                         break
             model.accuracy = np.random.uniform(0.8, 0.98)
@@ -549,7 +553,7 @@ class AdvancedLearningService:
                 session.iterations = round_num
                 if round_num % 10 == 0:
                     loss = np.random.uniform(0.1, 1.0) * (1.0 - round_num / 100)
-                    session.results[f"round_{round_num}"] = {"loss": loss}  # type: ignore[assignment]
+                    session.results[f"round_{round_num}"] = {"loss": loss}
                     if loss < session.convergence_threshold:
                         break
             model.accuracy = np.random.uniform(0.75, 0.92)
@@ -732,6 +736,7 @@ class AdvancedLearningService:
                 session_data["start_time"] = datetime.fromisoformat(session_data["start_time"])
                 if session_data.get("end_time"):
                     session_data["end_time"] = datetime.fromisoformat(session_data["end_time"])
+                session_data.setdefault("early_stopping_patience", 10)
                 self.learning_sessions[session_id] = LearningSession(**session_data)
             logger.info("Learning data imported successfully")
         else:

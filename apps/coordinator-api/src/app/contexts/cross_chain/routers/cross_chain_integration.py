@@ -7,26 +7,26 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 from uuid import uuid4
 
-from app.agent_identity.manager import AgentIdentityManager  # type: ignore[import-not-found]
-from app.agent_identity.wallet_adapter_enhanced import (  # type: ignore[import-not-found]
+from app.agent_identity.manager import AgentIdentityManager  # type: ignore
+from app.agent_identity.wallet_adapter_enhanced import (  # type: ignore
     SecurityLevel,
     TransactionStatus,
     WalletAdapterFactory,
     WalletStatus,
 )
-from app.contexts.cross_chain.services.cross_chain.bridge_enhanced import (  # type: ignore[import-not-found]
+from app.contexts.cross_chain.services.cross_chain.bridge_enhanced import (  # type: ignore
     BridgeProtocol,
     BridgeSecurityLevel,
     CrossChainBridgeService,
 )
 from ..domain.chain_transaction import TransactionType
-from app.contexts.reputation.services.reputation_engine import CrossChainReputationEngine
-from app.contexts.cross_chain.services.multi_chain_transaction_manager import (
+from app.contexts.reputation.services.reputation_engine import CrossChainReputationEngine  # type: ignore
+from app.contexts.cross_chain.services.multi_chain_transaction_manager import (  # type: ignore
     ChainTransactionManager,
     RoutingStrategy,
     TransactionPriority,
 )
-from app.storage.db import get_session  # type: ignore[import-not-found]
+from app.storage.db import get_session  # type: ignore
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session
 
@@ -72,7 +72,7 @@ async def create_enhanced_wallet(
             "chain_id": chain_id,
             "chain_type": wallet_data["chain_type"],
             "owner_address": owner_address,
-            "security_level": security_level.value,
+            "security_level": security_level.value if security_level else None,
             "status": WalletStatus.ACTIVE.value,
             "created_at": wallet_data["created_at"],
             "security_config": wallet_data["security_config"],
@@ -112,7 +112,7 @@ async def execute_wallet_transaction(
     to_address: str,
     amount: float,
     session: Annotated[Session, Depends(get_session)],
-    chain_id: int = None,
+    chain_id: int | None = None,
     token_address: str | None = None,
     data: dict[str, Any] | None = None,
     gas_limit: int | None = None,
@@ -146,7 +146,7 @@ async def get_wallet_transaction_history(
     request: Request,
     wallet_address: str,
     session: Annotated[Session, Depends(get_session)],
-    chain_id: int = None,
+    chain_id: int | None = None,
     limit: int | None = None,
     offset: int | None = None,
     from_block: int | None = None,
@@ -173,7 +173,7 @@ async def sign_message(
     wallet_address: str,
     message: str,
     session: Annotated[Session, Depends(get_session)],
-    chain_id: int = None,
+    chain_id: int | None = None,
     private_key: str | None = None,
     rpc_url: str | None = None,
 ) -> dict[str, Any]:
@@ -198,7 +198,7 @@ async def verify_signature(
     signature: str,
     address: str,
     session: Annotated[Session, Depends(get_session)],
-    chain_id: int = None,
+    chain_id: int | None = None,
     rpc_url: str | None = None,
 ) -> dict[str, Any]:
     """Verify a message signature"""
@@ -224,9 +224,9 @@ async def create_bridge_request(
     request: Request,
     user_address: str,
     session: Annotated[Session, Depends(get_session)],
-    source_chain_id: int = None,
-    target_chain_id: int = None,
-    amount: float = None,
+    source_chain_id: int | None = None,
+    target_chain_id: int | None = None,
+    amount: float | None = None,
     token_address: str | None = None,
     target_address: str | None = None,
     protocol: BridgeProtocol | None = None,

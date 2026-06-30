@@ -448,3 +448,33 @@ class EscrowProofRecord(SQLModel, table=True):
     merkle_proof_json: str = "[]"
     previous_proof_hash: str = ""
     timestamp: float = 0.0
+
+
+class HTLCSwapState(SQLModel, table=True):
+    """Persistent HTLC swap state (v0.9.0 B4).
+
+    Mirrors the Solidity ``mapping(bytes32 => Swap)`` storage. Each row
+    represents a single atomic swap with its lock state and fund movement
+    status.
+    """
+
+    __tablename__ = "htlc_swaps"
+    __table_args__ = (
+        Index("ix_htlc_initiator", "initiator"),
+        Index("ix_htlc_participant", "participant"),
+        Index("ix_htlc_status", "status"),
+        {"extend_existing": True},
+    )
+
+    swap_id: str = Field(primary_key=True)
+    initiator: str = Field(index=True)
+    participant: str = Field(index=True)
+    token: str = "native"
+    amount: int = 0
+    hashlock: str = ""
+    timelock: int = 0
+    status: str = Field(default="open", index=True)  # open, completed, refunded
+    secret: str = ""
+    created_at: float = 0.0
+    completed_at: float | None = None
+    refunded_at: float | None = None

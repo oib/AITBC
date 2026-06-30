@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Agent Reward System Domain Models
 Implements SQLModel definitions for performance-based rewards, incentives, and distributions

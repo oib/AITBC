@@ -31,9 +31,16 @@ class AIApprovalStrategy(ApprovalStrategy):
         with get_db_session() as session:
             requests = session.query(CoinRequest).filter(CoinRequest.sender == sender, CoinRequest.created_at >= cutoff).all()
 
-            return [{"amount": r.amount, "status": r.status.value, "created_at": r.created_at.isoformat()} for r in requests]
+            return [
+                {
+                    "amount": r.amount,
+                    "status": r.status.value if r.status is not None else None,
+                    "created_at": r.created_at.isoformat() if r.created_at is not None else None,
+                }
+                for r in requests
+            ]
 
-    async def approve(self, request: dict[str, Any]) -> dict[str, Any]:
+    def approve(self, request: dict[str, Any]) -> dict[str, Any]:
         """
         Use AI to evaluate and approve/reject request.
 
@@ -56,9 +63,9 @@ class AIApprovalStrategy(ApprovalStrategy):
         prompt = self._build_prompt(sender, amount, wallet_address, history)
 
         try:
-            # Query Ollama
-            async with httpx.AsyncClient(timeout=30) as client:
-                response = await client.post(
+            # Query Ollama (sync client because approve is a sync method)
+            with httpx.Client(timeout=30) as client:
+                response = client.post(
                     f"{self.ollama_url}/api/generate",
                     json={"model": self.model, "prompt": prompt, "stream": False},
                 )

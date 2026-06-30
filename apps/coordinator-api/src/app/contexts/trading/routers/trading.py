@@ -269,8 +269,8 @@ async def get_trade_matches(
     """Get trade matches for a request"""
     try:
         matches = session.execute(
-            select(TradeMatch).where(TradeMatch.request_id == request_id).order_by(desc(TradeMatch.match_score))
-        ).all()  # type: ignore[arg-type]
+            select(TradeMatch).where(TradeMatch.request_id == request_id).order_by(desc(TradeMatch.match_score))  # type: ignore[arg-type]
+        ).all()
         return [
             TradeMatchResponse(
                 match_id=match.match_id,

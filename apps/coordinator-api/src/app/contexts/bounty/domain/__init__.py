@@ -1,6 +1,6 @@
 """Bounty domain models."""
 
-from app.contexts.bounty.domain.bounty import (
+from app.contexts.bounty.domain.bounty import (  # type: ignore
     Bounty,
     BountyIntegration,
     BountyStats,

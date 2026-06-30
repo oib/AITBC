@@ -8,10 +8,11 @@ Provides liquidity pool management, token swapping, and dynamic fee adjustment.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from fastapi import HTTPException
 from sqlalchemy import select
-from sqlmodel import Session
+from sqlmodel import Session, and_
 
 from aitbc.aitbc_logging import get_logger
 
@@ -120,11 +121,16 @@ class AMMService:
             pool.reserve_b += liquidity_request.amount_b
             pool.total_liquidity += liquidity_result.liquidity_received
             pool.updated_at = datetime.now(UTC)
-            position = self.session.execute(
-                select(LiquidityPosition).where(
-                    LiquidityPosition.pool_id == pool.id, LiquidityPosition.provider_address == provider_address
+            position = (
+                self.session.execute(
+                    select(LiquidityPosition).where(
+                        LiquidityPosition.pool_id == pool.id,
+                        LiquidityPosition.provider_address == provider_address,  # type: ignore[arg-type]
+                    )
                 )
-            ).first()
+                .scalars()
+                .first()
+            )
             if position:
                 position.liquidity_amount += liquidity_result.liquidity_received
                 position.shares_owned = position.liquidity_amount / pool.total_liquidity * 100
@@ -157,11 +163,16 @@ class AMMService:
         """Remove liquidity from a pool"""
         try:
             pool = await self._get_pool_by_id(liquidity_request.pool_id)
-            position = self.session.execute(
-                select(LiquidityPosition).where(
-                    LiquidityPosition.pool_id == pool.id, LiquidityPosition.provider_address == provider_address
+            position = (
+                self.session.execute(
+                    select(LiquidityPosition).where(
+                        LiquidityPosition.pool_id == pool.id,
+                        LiquidityPosition.provider_address == provider_address,  # type: ignore[arg-type]
+                    )
                 )
-            ).first()
+                .scalars()
+                .first()
+            )
             if not position:
                 raise HTTPException(status_code=404, detail="Liquidity position not found")
             if position.liquidity_amount < liquidity_request.liquidity_amount:
@@ -283,9 +294,13 @@ class AMMService:
             liquidity_ratio = pool_metrics.total_value_locked / 1000000
             incentive_multiplier = max(1.0, 2.0 - liquidity_ratio)
             daily_reward = 100 * incentive_multiplier
-            existing_program = self.session.execute(
-                select(IncentiveProgram).where(IncentiveProgram.pool_id == pool_id)
-            ).first()
+            existing_program = (
+                self.session.execute(
+                    select(IncentiveProgram).where(IncentiveProgram.pool_id == pool_id)  # type: ignore[arg-type]
+                )
+                .scalars()
+                .first()
+            )
             if existing_program:
                 existing_program.daily_reward_amount = daily_reward
                 existing_program.incentive_multiplier = incentive_multiplier
@@ -304,7 +319,7 @@ class AMMService:
             self.session.commit()
             self.session.refresh(program)
             logger.info("Created incentive program for pool %s with daily reward $%s", pool_id, daily_reward)
-            return program
+            return cast(IncentiveProgram, program)
         except Exception as e:
             logger.error("Error creating incentive program: %s", str(e))
             raise HTTPException(status_code=500, detail=str(e)) from e
@@ -322,10 +337,14 @@ class AMMService:
     async def get_user_positions(self, user_address: str) -> list[LiquidityPosition]:
         """Get all liquidity positions for a user"""
         try:
-            positions = self.session.execute(
-                select(LiquidityPosition).where(LiquidityPosition.provider_address == user_address)
-            ).all()
-            return positions  # type: ignore[return-value]
+            positions = (
+                self.session.execute(
+                    select(LiquidityPosition).where(LiquidityPosition.provider_address == user_address)  # type: ignore[arg-type]
+                )
+                .scalars()
+                .all()
+            )
+            return cast(list[LiquidityPosition], positions)
         except Exception as e:
             logger.error("Error getting user positions: %s", str(e))
             raise HTTPException(status_code=500, detail=str(e)) from e
@@ -339,12 +358,16 @@ class AMMService:
 
     async def _get_existing_pool(self, token_a: str, token_b: str) -> LiquidityPool | None:
         """Check if pool exists for token pair"""
-        pool = self.session.execute(
-            select(LiquidityPool).where(
-                (LiquidityPool.token_a == token_a) & (LiquidityPool.token_b == token_b)
-                | (LiquidityPool.token_a == token_b) & (LiquidityPool.token_b == token_a)
+        pool = (
+            self.session.execute(
+                select(LiquidityPool).where(
+                    (LiquidityPool.token_a == token_a) & (LiquidityPool.token_b == token_b)
+                    | (LiquidityPool.token_a == token_b) & (LiquidityPool.token_b == token_a)  # type: ignore[arg-type]
+                )
             )
-        ).first()
+            .scalars()
+            .first()
+        )
         return pool
 
     async def _validate_pool_creation(self, pool_data: PoolCreate, creator_address: str) -> ValidationResult:
@@ -388,7 +411,7 @@ class AMMService:
         """Calculate optimal amount of token B for adding liquidity"""
         if pool.reserve_a == 0:
             return 0.0
-        return amount_a * pool.reserve_b / pool.reserve_a  # type: ignore[no-any-return]
+        return amount_a * pool.reserve_b / pool.reserve_a
 
     async def _calculate_swap_output(self, pool: LiquidityPool, amount_in: float, token_in: str) -> float:
         """Calculate output amount for swap using constant product formula"""
@@ -401,7 +424,7 @@ class AMMService:
         fee_amount = amount_in * pool.fee_percentage / 100
         amount_in_after_fee = amount_in - fee_amount
         amount_out = amount_in_after_fee * reserve_out / (reserve_in + amount_in_after_fee)
-        return amount_out  # type: ignore[no-any-return]
+        return amount_out
 
     async def _initialize_pool_metrics(self, pool: LiquidityPool) -> None:
         """Initialize pool metrics"""
@@ -419,44 +442,73 @@ class AMMService:
 
     async def _update_pool_metrics(self, pool: LiquidityPool) -> None:
         """Update pool metrics"""
-        metrics = self.session.execute(select(PoolMetrics).where(PoolMetrics.pool_id == pool.id)).first()
+        metrics = (
+            self.session.execute(
+                select(PoolMetrics).where(PoolMetrics.pool_id == pool.id)  # type: ignore[arg-type]
+            )
+            .scalars()
+            .first()
+        )
         if not metrics:
             await self._initialize_pool_metrics(pool)
-            metrics = self.session.execute(select(PoolMetrics).where(PoolMetrics.pool_id == pool.id)).first()
+            metrics = (
+                self.session.execute(
+                    select(PoolMetrics).where(PoolMetrics.pool_id == pool.id)  # type: ignore[arg-type]
+                )
+                .scalars()
+                .first()
+            )
+        assert metrics is not None
         token_a_price = await self.price_service.get_price(pool.token_a)
         token_b_price = await self.price_service.get_price(pool.token_b)
         tvl = pool.reserve_a * token_a_price + pool.reserve_b * token_b_price
         apr = 0.0
         if tvl > 0 and pool.total_liquidity > 0:
-            daily_fees = metrics.total_fees_24h  # type: ignore[union-attr]
+            daily_fees = metrics.total_fees_24h
             annual_fees = daily_fees * 365
             apr = annual_fees / tvl * 100
         utilization_rate = 0.0
         if pool.total_liquidity > 0:
             utilization_rate = tvl / pool.total_liquidity * 100
-        metrics.total_value_locked = tvl  # type: ignore[union-attr]
-        metrics.apr = apr  # type: ignore[union-attr]
-        metrics.utilization_rate = utilization_rate  # type: ignore[union-attr]
-        metrics.updated_at = datetime.now(UTC)  # type: ignore[union-attr]
+        metrics.total_value_locked = tvl
+        metrics.apr = apr
+        metrics.utilization_rate = utilization_rate
+        metrics.updated_at = datetime.now(UTC)
         self.session.commit()
 
     async def _get_pool_metrics(self, pool: LiquidityPool) -> PoolMetrics:
         """Get comprehensive pool metrics"""
-        metrics = self.session.execute(select(PoolMetrics).where(PoolMetrics.pool_id == pool.id)).first()
+        metrics = (
+            self.session.execute(
+                select(PoolMetrics).where(PoolMetrics.pool_id == pool.id)  # type: ignore[arg-type]
+            )
+            .scalars()
+            .first()
+        )
         if not metrics:
             await self._initialize_pool_metrics(pool)
-            metrics = self.session.execute(select(PoolMetrics).where(PoolMetrics.pool_id == pool.id)).first()
+            metrics = (
+                self.session.execute(
+                    select(PoolMetrics).where(PoolMetrics.pool_id == pool.id)  # type: ignore[arg-type]
+                )
+                .scalars()
+                .first()
+            )
+        assert metrics is not None
         twenty_four_hours_ago = datetime.now(UTC) - timedelta(hours=24)
         recent_swaps = self.session.execute(
             select(SwapTransaction).where(
-                SwapTransaction.pool_id == pool.id, SwapTransaction.executed_at >= twenty_four_hours_ago
+                and_(
+                    SwapTransaction.pool_id == pool.id,
+                    SwapTransaction.executed_at >= twenty_four_hours_ago,  # type: ignore[operator]
+                )
             )
         ).all()
         total_volume = sum(swap.amount_in for swap in recent_swaps)
         total_fees = sum(swap.fee_amount for swap in recent_swaps)
-        metrics.total_volume_24h = total_volume  # type: ignore[union-attr]
-        metrics.total_fees_24h = total_fees  # type: ignore[union-attr]
-        return metrics
+        metrics.total_volume_24h = total_volume
+        metrics.total_fees_24h = total_fees
+        return cast(PoolMetrics, metrics)
 
 
 class ValidationResult:

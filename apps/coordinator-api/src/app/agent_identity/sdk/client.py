@@ -100,7 +100,7 @@ class AgentIdentityClient:
         data: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
         **kwargs: Any,
-    ) -> dict[str, Any]:
+    ) -> Any:
         """Make HTTP request with retry logic"""
         await self._ensure_session()
         url = urljoin(self.base_url, endpoint)
@@ -108,7 +108,7 @@ class AgentIdentityClient:
             try:
                 async with self.session.request(method, url, json=data, params=params, **kwargs) as response:  # type: ignore[union-attr]
                     if response.status == 200:
-                        return await response.json()  # type: ignore[no-any-return]
+                        return await response.json()
                     elif response.status == 401:
                         raise AuthenticationError("Authentication failed")
                     elif response.status == 404:
@@ -122,15 +122,15 @@ class AgentIdentityClient:
                 await asyncio.sleep(2**attempt)
         raise APIError("Max retries exceeded") from None
 
-    async def _post(self, endpoint: str, data: dict[str, Any]) -> dict[str, Any]:
+    async def _post(self, endpoint: str, data: dict[str, Any]) -> Any:
         """Make a POST request with retry logic"""
         for attempt in range(self.max_retries):
             try:
                 async with self.session.post(self.base_url + endpoint, json=data) as response:  # type: ignore[union-attr]
                     if response.status == 200:
-                        return await response.json()  # type: ignore[no-any-return]
+                        return await response.json()
                     elif response.status == 201:
-                        return await response.json()  # type: ignore[no-any-return]
+                        return await response.json()
                     elif response.status == 400:
                         error_data = await response.json()
                         raise ValidationError(error_data.get("detail", "Bad request"))
@@ -187,10 +187,9 @@ class AgentIdentityClient:
             created_at=response["created_at"],
         )
 
-    async def get_identity(self, agent_id: str) -> dict[str, Any]:
+    async def get_identity(self, agent_id: str) -> Any:
         """Get comprehensive agent identity summary"""
-        response = await self._request("GET", f"/agent-identity/identities/{agent_id}")
-        return response
+        return await self._request("GET", f"/agent-identity/identities/{agent_id}")
 
     async def update_identity(self, agent_id: str, updates: dict[str, Any]) -> UpdateIdentityResponse:
         """Update agent identity and related components"""
@@ -214,15 +213,14 @@ class AgentIdentityClient:
         chain_mappings: dict[int, str],
         verifier_address: str | None = None,
         verification_type: VerificationType = VerificationType.BASIC,
-    ) -> dict[str, Any]:
+    ) -> Any:
         """Register cross-chain identity mappings"""
         request_data = {
             "chain_mappings": chain_mappings,
             "verifier_address": verifier_address,
             "verification_type": verification_type.value,
         }
-        response = await self._request("POST", f"/agent-identity/identities/{agent_id}/cross-chain/register", request_data)
-        return response
+        return await self._request("POST", f"/agent-identity/identities/{agent_id}/cross-chain/register", request_data)
 
     async def get_cross_chain_mappings(self, agent_id: str) -> list[CrossChainMapping]:
         """Get all cross-chain mappings for an agent"""
@@ -245,7 +243,7 @@ class AgentIdentityClient:
                 updated_at=datetime.fromisoformat(m["updated_at"]),
             )
             for m in response
-        ]  # type: ignore[arg-type, index]
+        ]
 
     async def verify_identity(
         self,
@@ -372,12 +370,11 @@ class AgentIdentityClient:
                 timestamp=datetime.fromisoformat(tx["timestamp"]),
             )
             for tx in response
-        ]  # type: ignore[arg-type, index]
+        ]
 
-    async def get_all_wallets(self, agent_id: str) -> dict[str, Any]:
+    async def get_all_wallets(self, agent_id: str) -> Any:
         """Get all wallets for an agent across all chains"""
-        response = await self._request("GET", f"/agent-identity/identities/{agent_id}/wallets")
-        return response
+        return await self._request("GET", f"/agent-identity/identities/{agent_id}/wallets")
 
     async def search_identities(
         self,
@@ -434,18 +431,16 @@ class AgentIdentityClient:
     async def get_supported_chains(self) -> list[ChainConfig]:
         """Get list of supported blockchains"""
         response = await self._request("GET", "/agent-identity/chains/supported")
-        return [ChainConfig(**chain) for chain in response]  # type: ignore[arg-type]
+        return [ChainConfig(**chain) for chain in response]
 
-    async def export_identity(self, agent_id: str, format: str = "json") -> dict[str, Any]:
+    async def export_identity(self, agent_id: str, format: str = "json") -> Any:
         """Export agent identity data for backup or migration"""
         request_data = {"format": format}
-        response = await self._request("POST", f"/agent-identity/identities/{agent_id}/export", request_data)
-        return response
+        return await self._request("POST", f"/agent-identity/identities/{agent_id}/export", request_data)
 
-    async def import_identity(self, export_data: dict[str, Any]) -> dict[str, Any]:
+    async def import_identity(self, export_data: dict[str, Any]) -> Any:
         """Import agent identity data from backup or migration"""
-        response = await self._request("POST", "/agent-identity/identities/import", export_data)
-        return response
+        return await self._request("POST", "/agent-identity/identities/import", export_data)
 
     async def resolve_identity(self, agent_id: str, chain_id: int) -> str:
         """Resolve agent identity to chain-specific address"""

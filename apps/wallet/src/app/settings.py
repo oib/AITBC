@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from pydantic import ConfigDict, Field, field_validator
-from pydantic_settings import BaseSettings
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from aitbc.constants import DATA_DIR
 
@@ -42,7 +42,7 @@ class Settings(BaseSettings):
                 raise ValueError("BLOCKCHAIN_RPC_URL cannot be localhost in production")
         return v
 
-    model_config = ConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
 
 settings = Settings()

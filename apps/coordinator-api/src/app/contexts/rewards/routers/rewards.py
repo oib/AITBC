@@ -9,8 +9,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import desc
-from sqlalchemy.orm import Session
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -133,7 +132,7 @@ async def get_reward_profile(
     request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> RewardProfileResponse:
     """Get comprehensive reward profile for an agent"""
-    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
+    reward_engine = RewardEngine(session)
     try:
         profile_data = await reward_engine.get_reward_summary(agent_id)
         if "error" in profile_data:
@@ -152,7 +151,7 @@ async def create_reward_profile(
     request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Create a new reward profile for an agent"""
-    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
+    reward_engine = RewardEngine(session)
     try:
         profile = await reward_engine.create_reward_profile(agent_id)
         return {
@@ -173,7 +172,7 @@ async def calculate_and_distribute_reward(
     request: Request, reward_request: RewardRequest, session: Annotated[Session, Depends(get_session)]
 ) -> RewardResponse:
     """Calculate and distribute reward for an agent"""
-    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
+    reward_engine = RewardEngine(session)
     try:
         reference_date = None
         if reward_request.reference_date:
@@ -205,7 +204,6 @@ async def get_tier_progress(
     request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> TierProgressResponse:
     """Get tier progress information for an agent"""
-    RewardEngine(session)  # type: ignore[arg-type]
     try:
         profile = session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).first()
         if not profile:
@@ -271,9 +269,9 @@ async def batch_process_pending_rewards(
     session: Annotated[Session, Depends(get_session)],
 ) -> BatchProcessResponse:
     """Process pending reward distributions in batch"""
-    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
+    reward_engine = RewardEngine(session)
     try:
-        result = await reward_engine.batch_process_pending_rewards(limit)
+        result = await reward_engine.batch_process_pending_rewards(limit or 100)
         return BatchProcessResponse(processed=result["processed"], failed=result["failed"], total=result["total"])
     except Exception as e:
         logger.error("Error batch processing rewards: %s", str(e))
@@ -290,7 +288,7 @@ async def get_reward_analytics(
     session: Annotated[Session, Depends(get_session)],
 ) -> RewardAnalyticsResponse:
     """Get reward system analytics"""
-    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
+    reward_engine = RewardEngine(session)
     try:
         start_dt = None
         end_dt = None
@@ -299,7 +297,7 @@ async def get_reward_analytics(
         if end_date:
             end_dt = datetime.fromisoformat(end_date)
         analytics_data = await reward_engine.get_reward_analytics(
-            period_type=period_type, start_date=start_dt, end_date=end_dt
+            period_type=period_type or "monthly", start_date=start_dt, end_date=end_dt
         )
         return RewardAnalyticsResponse(**analytics_data)
     except Exception as e:
@@ -394,8 +392,8 @@ async def get_agent_milestones(
 
         query = select(RewardMilestone).where(RewardMilestone.agent_id == agent_id)
         if not include_completed:
-            query = query.where(not RewardMilestone.is_completed)
-        milestones = session.execute(query.order_by(RewardMilestone.created_at.desc())).all()
+            query = query.where(RewardMilestone.is_completed == False)  # noqa: E712
+        milestones = session.execute(query.order_by(desc(RewardMilestone.created_at))).scalars().all()  # type: ignore[arg-type]
         return [
             MilestoneResponse(
                 id=milestone.id,
@@ -434,7 +432,13 @@ async def get_reward_distributions(
         query = select(RewardDistribution).where(RewardDistribution.agent_id == agent_id)
         if status:
             query = query.where(RewardDistribution.status == status)
-        distributions = session.execute(query.order_by(RewardDistribution.created_at.desc()).limit(limit)).all()
+        distributions = (
+            session.execute(
+                query.order_by(desc(RewardDistribution.created_at)).limit(limit or 100)  # type: ignore[arg-type]
+            )
+            .scalars()
+            .all()
+        )
         return [
             {
                 "id": distribution.id,
@@ -461,12 +465,12 @@ async def simulate_reward_calculation(
     request: Request, reward_request: RewardRequest, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Simulate reward calculation without distributing"""
-    reward_engine = RewardEngine(session)  # type: ignore[arg-type]
+    reward_engine = RewardEngine(session)
     try:
         await reward_engine.create_reward_profile(reward_request.agent_id)
         reward_calculation = reward_engine.calculator.calculate_total_reward(
             reward_request.agent_id, reward_request.base_amount, reward_request.performance_metrics, session
-        )  # type: ignore[arg-type]
+        )
         return {
             "agent_id": reward_request.agent_id,
             "reward_type": reward_request.reward_type.value,
