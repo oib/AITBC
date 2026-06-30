@@ -23,12 +23,6 @@ All 8 applications now have zero type checking errors:
 
 ## Current Files with Type Ignores
 
-### apps/coordinator-api/src/app/contexts/rewards/domain/rewards.py
-- **Status**: ⚠️ Pending - Has `# mypy: ignore-errors` at file level
-- **Reason**: Complex Pydantic model relationships and circular dependencies with reward distribution logic
-- **Target Fix Date**: 2026-07-15
-- **Action Plan**: Refactor reward models to eliminate circular dependencies, add proper type annotations for dynamic model fields
-
 ### apps/coordinator-api/src/app/contexts/zk_applications/routers/zk_proofs.py
 - **Status**: ⚠️ Pending - Has `# mypy: ignore-errors` at file level
 - **Reason**: ZK proof library (tenseal) has incomplete type stubs, complex cryptographic operations with Any types
