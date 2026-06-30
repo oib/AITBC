@@ -40,6 +40,7 @@ from .oracle import (
     InProcessVerifier,
     MerkleProofVerifier,
     OracleClient,
+    OracleFallbackPolicy,
 )
 from .proof import (
     REQUIRED_PROOF_FIELDS,
@@ -81,6 +82,7 @@ __all__ = [
     "InProcessVerifier",
     "MerkleProofVerifier",
     "OracleClient",
+    "OracleFallbackPolicy",
     "ProofVerificationResult",
     "REQUIRED_PROOF_FIELDS",
     "ThresholdProof",

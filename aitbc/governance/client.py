@@ -206,6 +206,82 @@ class GovernanceClient:
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
 
+    # ------------------------------------------------------------------
+    # Cross-chain governance (v0.7.4 §A3)
+    # ------------------------------------------------------------------
+
+    async def propagate_proposal(
+        self,
+        proposal_id: str,
+        target_chains: list[str],
+    ) -> dict[str, Any]:
+        """Propagate a proposal to one or more target chains (islands).
+
+        Calls ``POST /v1/governance/proposals/{id}/propagate`` on the
+        governance service, which submits bridge transactions to replicate
+        the proposal on each target chain. The proposal must already exist
+        on the hub chain.
+
+        Args:
+            proposal_id: The proposal to propagate.
+            target_chains: List of chain IDs to propagate to.
+
+        Returns:
+            A dict with per-chain propagation results:
+            ``{"proposal_id": str, "propagated_to": [str], "failed": [str], "tx_hashes": {chain_id: hash}}``.
+        """
+        payload = {"target_chains": target_chains}
+        resp = await self._ensure_client().post(
+            f"/v1/governance/proposals/{proposal_id}/propagate",
+            json=payload,
+        )
+        resp.raise_for_status()
+        return cast(dict[str, Any], resp.json())
+
+    async def aggregate_votes(self, proposal_id: str) -> dict[str, Any]:
+        """Aggregate votes for a proposal from all chains.
+
+        Calls ``POST /v1/governance/proposals/{id}/aggregate-votes`` on
+        the governance service, which queries each registered chain for
+        votes cast on this proposal and merges them into the hub chain's
+        tally.
+
+        Args:
+            proposal_id: The proposal to aggregate votes for.
+
+        Returns:
+            A dict with the aggregated vote tally:
+            ``{"proposal_id": str, "total_for": int, "total_against": int,
+            "total_abstain": int, "chains_aggregated": [str], "votes": [...]}``.
+        """
+        resp = await self._ensure_client().post(
+            f"/v1/governance/proposals/{proposal_id}/aggregate-votes",
+        )
+        resp.raise_for_status()
+        return cast(dict[str, Any], resp.json())
+
+    async def execute_cross_chain(self, proposal_id: str) -> dict[str, Any]:
+        """Execute a proposal on all chains after approval.
+
+        Calls ``POST /v1/governance/proposals/{id}/execute-cross-chain``
+        on the governance service, which submits execution transactions
+        to each target chain. The proposal must have passed voting and
+        the timelock must have expired on the hub chain.
+
+        Args:
+            proposal_id: The approved proposal to execute cross-chain.
+
+        Returns:
+            A dict with per-chain execution results:
+            ``{"proposal_id": str, "executed_on": [str], "failed": [str],
+            "tx_hashes": {chain_id: hash}}``.
+        """
+        resp = await self._ensure_client().post(
+            f"/v1/governance/proposals/{proposal_id}/execute-cross-chain",
+        )
+        resp.raise_for_status()
+        return cast(dict[str, Any], resp.json())
+
     async def close(self) -> None:
         """Close the HTTP client."""
         if self._client:
