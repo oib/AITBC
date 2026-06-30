@@ -18,10 +18,13 @@ from __future__ import annotations
 
 from .client import GovernanceClient
 from .onchain import (
+    build_cross_chain_execute_tx,
     build_execute_tx,
     build_parameter_apply_tx,
     build_parameter_change_params,
+    build_proposal_propagation_tx,
     build_proposal_tx,
+    build_vote_aggregation_tx,
     build_vote_tx,
     validate_governance_payload,
     validate_parameter_change,
@@ -48,8 +51,13 @@ __all__ = [
     "VoteChoice",
     "VoteData",
     "build_execute_tx",
+    "build_cross_chain_execute_tx",
+    "build_parameter_apply_tx",
     "build_parameter_change_params",
+    "build_proposal_propagation_tx",
     "build_proposal_tx",
+    "build_vote_aggregation_tx",
     "build_vote_tx",
     "validate_governance_payload",
+    "validate_parameter_change",
 ]

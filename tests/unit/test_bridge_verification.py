@@ -321,20 +321,22 @@ def test_in_process_verifier_verify_proof_merkle_no_verifier_skips() -> None:
 
 
 def test_external_oracle_client_mode() -> None:
-    client = ExternalOracleClient(endpoint="http://oracle.example")
+    client = ExternalOracleClient(endpoints=["http://oracle.example"])
     assert client.mode == VerificationMode.ORACLE
 
 
-def test_external_oracle_client_verify_proof_raises() -> None:
+def test_external_oracle_client_verify_proof_no_endpoints() -> None:
+    """With no endpoints, verify_proof returns an invalid result (not raise)."""
     client = ExternalOracleClient()
-    with pytest.raises(NotImplementedError, match="deferred"):
-        client.verify_proof({}, _block_header(), FinalityConfig())
+    result = client.verify_proof({}, _block_header(), FinalityConfig())
+    assert result.valid is False
+    assert "unavailable" in result.error.lower() or "all oracle" in result.error.lower()
 
 
-def test_external_oracle_client_check_finality_raises() -> None:
+def test_external_oracle_client_check_finality_no_endpoints() -> None:
+    """With no endpoints, check_finality returns False (not raise)."""
     client = ExternalOracleClient()
-    with pytest.raises(NotImplementedError, match="deferred"):
-        client.check_finality(_block_header(), FinalityConfig(), 100)
+    assert client.check_finality(_block_header(), FinalityConfig(), 100) is False
 
 
 def test_oracle_client_is_abstract() -> None:
