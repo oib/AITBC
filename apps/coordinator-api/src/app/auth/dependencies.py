@@ -2,7 +2,7 @@
 Role-based authentication dependencies
 """
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Depends, Header, HTTPException, Request, status
 
@@ -37,7 +37,7 @@ def get_token(authorization: str | None = Header(default=None, alias="Authorizat
     return authorization[7:]  # Remove "Bearer " prefix
 
 
-def require_auth(token: str = Depends(get_token)) -> dict[str, any]:
+def require_auth(token: str = Depends(get_token)) -> dict[str, Any]:
     """
     Require valid JWT token (any role)
 
@@ -50,7 +50,7 @@ def require_auth(token: str = Depends(get_token)) -> dict[str, any]:
     return verify_access_token(token)
 
 
-def require_admin(token: str = Depends(get_token)) -> dict[str, any]:
+def require_admin(token: str = Depends(get_token)) -> dict[str, Any]:
     """
     Require admin role
 
@@ -63,7 +63,7 @@ def require_admin(token: str = Depends(get_token)) -> dict[str, any]:
     return verify_access_token(token, required_role="admin")
 
 
-def require_client(token: str = Depends(get_token)) -> dict[str, any]:
+def require_client(token: str = Depends(get_token)) -> dict[str, Any]:
     """
     Require client role
 
@@ -76,7 +76,7 @@ def require_client(token: str = Depends(get_token)) -> dict[str, any]:
     return verify_access_token(token, required_role="client")
 
 
-def require_miner_jwt(token: str = Depends(get_token)) -> dict[str, any]:
+def require_miner_jwt(token: str = Depends(get_token)) -> dict[str, Any]:
     """
     Require miner role via JWT
 
@@ -89,7 +89,7 @@ def require_miner_jwt(token: str = Depends(get_token)) -> dict[str, any]:
     return verify_access_token(token, required_role="miner")
 
 
-def require_miner_api_key(request: Request) -> dict[str, any]:
+def require_miner_api_key(request: Request) -> dict[str, Any]:
     """
     Authenticate miner via X-Api-Key header (legacy/internal service auth).
 
@@ -125,7 +125,7 @@ def require_miner_api_key(request: Request) -> dict[str, any]:
     return {"sub": sub, "role": "miner"}
 
 
-def require_miner(request: Request) -> dict[str, any]:
+def require_miner(request: Request) -> dict[str, Any]:
     """
     Require miner authentication — tries JWT first, falls back to API key.
 
@@ -151,7 +151,7 @@ def require_miner(request: Request) -> dict[str, any]:
 
 
 # Type aliases for dependency injection
-AuthDep = Annotated[dict[str, any], Depends(require_auth)]
-AdminDep = Annotated[dict[str, any], Depends(require_admin)]
-ClientDep = Annotated[dict[str, any], Depends(require_client)]
-MinerDep = Annotated[dict[str, any], Depends(require_miner)]
+AuthDep = Annotated[dict[str, Any], Depends(require_auth)]
+AdminDep = Annotated[dict[str, Any], Depends(require_admin)]
+ClientDep = Annotated[dict[str, Any], Depends(require_client)]
+MinerDep = Annotated[dict[str, Any], Depends(require_miner)]

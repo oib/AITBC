@@ -168,6 +168,7 @@ ensure_newline_before_comments = true
 [tool.mypy]
 python_version = "3.13"
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
+mypy_path = ["packages/aitbc-shared"]
 
 # Enable stricter type checking for incremental migration
 check_untyped_defs = true

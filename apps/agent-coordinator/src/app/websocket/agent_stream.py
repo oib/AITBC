@@ -8,7 +8,7 @@ import json
 import os
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -349,7 +349,7 @@ def _has_received_initial_coins(sender: str) -> bool:
         )
         count = cursor.fetchone()[0]
         conn.close()
-        return count > 0
+        return bool(count > 0)
     except Exception as e:
         logger.warning("Could not query coin_requests DB: %s", e)
         return False
@@ -369,7 +369,7 @@ def _submit_transaction(transaction: dict[str, Any]) -> dict[str, Any] | None:
         resp.raise_for_status()
         result = resp.json()
         logger.info("Transaction submitted: %s", result)
-        return result
+        return cast(dict[str, Any], result)
     except Exception as e:
         logger.error("Failed to submit transaction: %s", e)
         return None

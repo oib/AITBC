@@ -98,10 +98,10 @@ class AgentCommunicationClient:
             Topic creation result
         """
         try:
-            identity = await self.identity_client.get_identity()  # type: ignore[call-arg]
+            identity = await self.identity_client.get_identity(self.agent_id)
             if not identity:
                 return {"success": False, "error": "Agent identity not found", "error_code": "IDENTITY_NOT_FOUND"}
-            agent_address = identity.wallets[0].address if identity.wallets else None  # type: ignore[attr-defined]
+            agent_address = identity.wallets[0].address if identity.wallets else None
             if not agent_address:
                 return {"success": False, "error": "No wallet found for agent", "error_code": "NO_WALLET_FOUND"}
             topic_data = {
@@ -133,10 +133,10 @@ class AgentCommunicationClient:
             Message posting result
         """
         try:
-            identity = await self.identity_client.get_identity()  # type: ignore[call-arg]
+            identity = await self.identity_client.get_identity(self.agent_id)
             if not identity:
                 return {"success": False, "error": "Agent identity not found", "error_code": "IDENTITY_NOT_FOUND"}
-            agent_address = identity.wallets[0].address if identity.wallets else None  # type: ignore[attr-defined]
+            agent_address = identity.wallets[0].address if identity.wallets else None
             if not agent_address:
                 return {"success": False, "error": "No wallet found for agent", "error_code": "NO_WALLET_FOUND"}
             message_data = {
@@ -208,10 +208,10 @@ class AgentCommunicationClient:
             Vote result
         """
         try:
-            identity = await self.identity_client.get_identity()  # type: ignore[call-arg]
+            identity = await self.identity_client.get_identity(self.agent_id)
             if not identity:
                 return {"success": False, "error": "Agent identity not found", "error_code": "IDENTITY_NOT_FOUND"}
-            agent_address = identity.wallets[0].address if identity.wallets else None  # type: ignore[attr-defined]
+            agent_address = identity.wallets[0].address if identity.wallets else None
             if not agent_address:
                 return {"success": False, "error": "No wallet found for agent", "error_code": "NO_WALLET_FOUND"}
             vote_data = {
@@ -304,8 +304,8 @@ class AgentCommunicationClient:
                 return reputation
             if not reputation["reputation"].get("is_moderator", False):
                 return {"success": False, "error": "Insufficient permissions", "error_code": "INSUFFICIENT_PERMISSIONS"}
-            identity = await self.identity_client.get_identity()  # type: ignore[call-arg]
-            agent_address = identity.wallets[0].address if identity.wallets else None  # type: ignore[attr-defined]
+            identity = await self.identity_client.get_identity(self.agent_id)
+            agent_address = identity.wallets[0].address if identity.wallets else None
             moderation_data = {
                 "moderator_agent_id": self.agent_id,
                 "moderator_address": agent_address,

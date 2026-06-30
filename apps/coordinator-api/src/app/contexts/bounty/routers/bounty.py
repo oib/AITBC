@@ -191,11 +191,15 @@ async def create_bounty(
 ) -> BountyResponse:
     """Create a new bounty"""
     try:
-        logger.info("Creating bounty: %s by user %s", request.title, user["sub"])  # type: ignore[attr-defined]
-        bounty = await bounty_service.create_bounty(creator_id=user["sub"], **request.dict())  # type: ignore[attr-defined]
+        logger.info("Creating bounty: %s by user %s", bounty_request.title, user["sub"])
+        bounty = await bounty_service.create_bounty(creator_id=user["sub"], **bounty_request.dict())
         background_tasks.add_task(
-            blockchain_service.deploy_bounty_contract, bounty.bounty_id, bounty.reward_amount, bounty.tier, bounty.deadline
-        )  # type: ignore[attr-defined]
+            blockchain_service.deploy_bounty_contract,  # type: ignore[attr-defined]
+            bounty.bounty_id,
+            bounty.reward_amount,
+            bounty.tier,
+            bounty.deadline,
+        )
         return BountyResponse.from_orm(bounty)  # type: ignore[pydantic-orm]
     except Exception as e:
         logger.error("Failed to create bounty: %s", e)
@@ -276,17 +280,17 @@ async def submit_bounty_solution(
         if datetime.now(UTC) > bounty.deadline:
             raise HTTPException(status_code=400, detail="Bounty deadline has passed")
         submission = await bounty_service.create_submission(
-            bounty_id=bounty_id, submitter_address=user["sub"], **request.dict()
-        )  # type: ignore[attr-defined]
+            bounty_id=bounty_id, submitter_address=user["sub"], **submission_request.dict()
+        )
         background_tasks.add_task(
-            blockchain_service.submit_bounty_solution,
+            blockchain_service.submit_bounty_solution,  # type: ignore[attr-defined]
             bounty_id,
             submission.submission_id,
-            request.zk_proof,
-            request.performance_hash,
-            request.accuracy,
-            request.response_time,
-        )  # type: ignore[attr-defined]
+            submission_request.zk_proof,
+            submission_request.performance_hash,
+            submission_request.accuracy,
+            submission_request.response_time,
+        )
         return BountySubmissionResponse.from_orm(submission)  # type: ignore[pydantic-orm]
     except HTTPException:
         raise
@@ -339,14 +343,18 @@ async def verify_bounty_submission(
             raise HTTPException(status_code=403, detail="Not authorized to verify submissions")
         await bounty_service.verify_submission(
             bounty_id=bounty_id,
-            submission_id=request.submission_id,
-            verified=request.verified,
-            verifier_address=request.verifier_address,
-            verification_notes=request.verification_notes,
-        )  # type: ignore[attr-defined]
+            submission_id=verification_request.submission_id,
+            verified=verification_request.verified,
+            verifier_address=verification_request.verifier_address,
+            verification_notes=verification_request.verification_notes,
+        )
         background_tasks.add_task(
-            blockchain_service.verify_submission, bounty_id, request.submission_id, request.verified, request.verifier_address
-        )  # type: ignore[attr-defined]
+            blockchain_service.verify_submission,  # type: ignore[attr-defined]
+            bounty_id,
+            verification_request.submission_id,
+            verification_request.verified,
+            verification_request.verifier_address,
+        )
         return {"message": "Submission verified successfully"}
     except Exception as e:
         logger.error("Failed to verify bounty submission: %s", e)
@@ -369,17 +377,17 @@ async def dispute_bounty_submission(
     try:
         await bounty_service.create_dispute(
             bounty_id=bounty_id,
-            submission_id=request.submission_id,
+            submission_id=dispute_request.submission_id,
             disputer_address=user["sub"],
-            dispute_reason=request.dispute_reason,
-        )  # type: ignore[attr-defined]
+            dispute_reason=dispute_request.dispute_reason,
+        )
         background_tasks.add_task(
-            blockchain_service.dispute_submission,
+            blockchain_service.dispute_submission,  # type: ignore[attr-defined]
             bounty_id,
-            request.submission_id,
+            dispute_request.submission_id,
             user["sub"],
-            request.dispute_reason,
-        )  # type: ignore[attr-defined]
+            dispute_request.dispute_reason,
+        )
         return {"message": "Dispute created successfully"}
     except Exception as e:
         logger.error("Failed to create dispute: %s", e)
@@ -400,7 +408,7 @@ async def get_my_created_bounties(
     """Get bounties created by the current user"""
     try:
         bounties = await bounty_service.get_user_created_bounties(
-            user_address=user["sub"], status=status, page=page, limit=limit
+            user_address=user["sub"], status=status, page=page or 1, limit=limit or 20
         )
         return [BountyResponse.from_orm(bounty) for bounty in bounties]  # type: ignore[pydantic-orm]
     except Exception as e:
@@ -422,7 +430,7 @@ async def get_my_submissions(
     """Get submissions made by the current user"""
     try:
         submissions = await bounty_service.get_user_submissions(
-            user_address=user["sub"], status=status, page=page, limit=limit
+            user_address=user["sub"], status=status, page=page or 1, limit=limit or 20
         )
         return [BountySubmissionResponse.from_orm(sub) for sub in submissions]  # type: ignore[pydantic-orm]
     except Exception as e:
@@ -441,7 +449,7 @@ async def get_bounty_leaderboard(
 ) -> dict[str, Any]:
     """Get bounty leaderboard"""
     try:
-        leaderboard = await bounty_service.get_leaderboard(period=period, limit=limit)
+        leaderboard = await bounty_service.get_leaderboard(period=period or "weekly", limit=limit or 50)
         return leaderboard  # type: ignore[return-value]
     except Exception as e:
         logger.error("Failed to get bounty leaderboard: %s", e)
@@ -458,7 +466,7 @@ async def get_bounty_stats(
 ) -> BountyStatsResponse:
     """Get bounty statistics"""
     try:
-        stats = await bounty_service.get_bounty_stats(period=period)
+        stats = await bounty_service.get_bounty_stats(period=period or "weekly")
         return BountyStatsResponse.from_orm(stats)  # type: ignore[pydantic-orm]
     except Exception as e:
         logger.error("Failed to get bounty stats: %s", e)
@@ -523,7 +531,7 @@ async def get_bounty_tags(
 ) -> dict[str, Any]:
     """Get popular bounty tags"""
     try:
-        tags = await bounty_service.get_popular_tags(limit=limit)
+        tags = await bounty_service.get_popular_tags(limit=limit or 20)
         return {"tags": tags}
     except Exception as e:
         logger.error("Failed to get bounty tags: %s", e)
@@ -542,7 +550,7 @@ async def search_bounties(
 ) -> list[BountyResponse]:
     """Search bounties by text"""
     try:
-        bounties = await bounty_service.search_bounties(query=query, page=page, limit=limit)
+        bounties = await bounty_service.search_bounties(query=query or "", page=page or 1, limit=limit or 20)
         return [BountyResponse.from_orm(bounty) for bounty in bounties]  # type: ignore[pydantic-orm]
     except Exception as e:
         logger.error("Failed to search bounties: %s", e)

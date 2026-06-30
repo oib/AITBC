@@ -1,6 +1,6 @@
 """Reputation domain models."""
 
-from app.contexts.reputation.domain.cross_chain_reputation import (
+from app.contexts.reputation.domain.cross_chain_reputation import (  # type: ignore
     CrossChainAggregationRequest,
     CrossChainAnalyticsResponse,
     CrossChainLeaderboardResponse,

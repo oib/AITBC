@@ -1,6 +1,5 @@
 """Miner management routes for Pool Hub"""
 
-from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -8,8 +7,9 @@ from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
 
-from ..registry import MinerRegistry  # type: ignore[import-not-found]
-from ..scoring import ScoringEngine  # type: ignore[import-not-found]
+from ..registry import MinerRegistry
+from ..registry.miner_registry import MinerInfo
+from ..scoring import ScoringEngine
 
 router = APIRouter(prefix="/miners", tags=["miners"])
 
@@ -36,23 +36,6 @@ class MinerStatus(BaseModel):
     current_jobs: int = 0
     gpu_utilization: float = 0.0
     memory_used_gb: float = 0.0
-
-
-class MinerInfo(BaseModel):
-    """Miner information response"""
-
-    miner_id: str
-    pool_id: str
-    capabilities: list[str]
-    status: str
-    score: float
-    jobs_completed: int
-    uptime_percent: float
-    registered_at: datetime
-    last_heartbeat: datetime
-    # v0.6.7: chain awareness
-    chain_id: str = "ait-hub"
-    wallet_address: str | None = None
 
 
 # Dependency injection
@@ -103,7 +86,7 @@ async def register_miner(
 
                 logging.getLogger(__name__).warning("On-chain miner registration failed: %s", e)
 
-        return miner  # type: ignore[no-any-return]
+        return miner
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -135,23 +118,21 @@ async def get_miner(request: Request, miner_id: str, registry: Annotated[MinerRe
     miner = await registry.get(miner_id)
     if not miner:
         raise HTTPException(status_code=404, detail="Miner not found")
-    return miner  # type: ignore[no-any-return]
+    return miner
 
 
 @router.get("/", response_model=list[MinerInfo])
 @rate_limit(rate=200, per=60)
 async def list_miners(
     request: Request,
-    pool_id: str | None,
-    status: str | None,
-    capability: str | None,
-    limit: int | None,
     registry: Annotated[MinerRegistry, Depends(get_registry)],
+    pool_id: str | None = None,
+    status: str | None = None,
+    capability: str | None = None,
+    limit: int = 50,
 ) -> list[MinerInfo]:
     """List miners with optional filters."""
-    return await registry.list(  # type: ignore[no-any-return]
-        pool_id=pool_id, status=status, capability=capability, limit=limit
-    )
+    return await registry.list(pool_id=pool_id, status=status, capability=capability, limit=limit)
 
 
 @router.delete("/{miner_id}")

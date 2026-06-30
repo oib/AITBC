@@ -1,6 +1,6 @@
 """Advanced AI domain models."""
 
-from app.contexts.advanced_ai.domain.federated_learning import (
+from app.contexts.advanced_ai.domain.federated_learning import (  # type: ignore
     FederatedLearningSession,
     LocalModelUpdate,
     ParticipantStatus,

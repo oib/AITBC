@@ -10,7 +10,7 @@ import secrets
 from typing import Any
 
 from sqlalchemy import select
-from sqlmodel import Session
+from sqlmodel import Session, and_
 
 from aitbc.aitbc_logging import get_logger
 
@@ -29,9 +29,11 @@ class WalletService:
         """Create a new wallet for an agent"""
         existing = self.session.execute(
             select(AgentWallet).where(
-                AgentWallet.agent_id == request.agent_id, AgentWallet.wallet_type == request.wallet_type, AgentWallet.is_active
+                AgentWallet.agent_id == request.agent_id,
+                AgentWallet.wallet_type == request.wallet_type,
+                AgentWallet.is_active,  # type: ignore[arg-type]
             )
-        ).first()  # type: ignore[arg-type]
+        ).first()
         if existing:
             raise ValueError(f"Agent {request.agent_id} already has an active {request.wallet_type} wallet")
         try:
@@ -82,11 +84,13 @@ class WalletService:
         """Update a specific token balance for a wallet"""
         record = self.session.execute(
             select(TokenBalance).where(
-                TokenBalance.wallet_id == wallet_id,
-                TokenBalance.chain_id == chain_id,
-                TokenBalance.token_address == token_address,
+                and_(
+                    TokenBalance.wallet_id == wallet_id,
+                    TokenBalance.chain_id == chain_id,
+                    TokenBalance.token_address == token_address,
+                )
             )
-        ).first()  # type: ignore[arg-type]
+        ).first()
         if record:
             record.balance = balance
         else:

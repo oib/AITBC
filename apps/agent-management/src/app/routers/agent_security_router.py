@@ -332,11 +332,11 @@ async def update_trust_score(
     entity_type: str,
     entity_id: str,
     execution_success: bool,
-    execution_time: float | None,
-    security_violation: bool | None,
-    policy_violation: bool | None,
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[str, Depends(require_admin_key())],
+    execution_time: float | None = None,
+    security_violation: bool = False,
+    policy_violation: bool = False,
 ) -> AgentTrustScore:
     """Update trust score based on execution results"""
     try:
@@ -376,10 +376,10 @@ async def update_trust_score(
 async def create_sandbox(
     request: Request,
     execution_id: str,
-    security_level: SecurityLevel | None,
-    workflow_requirements: dict[str, Any] | None,
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[str, Depends(require_admin_key())],
+    security_level: SecurityLevel = SecurityLevel.PUBLIC,
+    workflow_requirements: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create sandbox environment for agent execution"""
     try:

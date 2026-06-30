@@ -6,7 +6,7 @@ Implements reputation management, trust score calculations, and economic profili
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlmodel import Session, and_, func, select
+from sqlmodel import Session, and_, desc, func, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc_shared.models import ReputationDTO
@@ -361,15 +361,15 @@ class ReputationService:
                     ReputationEvent.agent_id == agent_id, ReputationEvent.occurred_at >= datetime.now(UTC) - timedelta(days=30)
                 )
             )
-            .order_by(ReputationEvent.occurred_at.desc())
+            .order_by(desc(ReputationEvent.occurred_at))
             .limit(10)
-        ).all()  # type: ignore[attr-defined]
+        ).all()
         recent_feedback = self.session.execute(
             select(CommunityFeedback)
             .where(and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == "approved"))
-            .order_by(CommunityFeedback.created_at.desc())
+            .order_by(desc(CommunityFeedback.created_at))
             .limit(5)
-        ).all()  # type: ignore[attr-defined]
+        ).all()
         return {
             "agent_id": agent_id,
             "trust_score": reputation.trust_score,

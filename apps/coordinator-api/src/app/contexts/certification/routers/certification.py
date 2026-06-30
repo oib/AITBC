@@ -9,8 +9,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import desc
-from sqlalchemy.orm import Session
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -155,7 +154,7 @@ async def certify_agent(
     request: Request, certification_request: CertificationRequest, session: Annotated[Session, Depends(get_session)]
 ) -> CertificationResponse:
     """Certify an agent at a specific level"""
-    certification_service = CertificationAndPartnershipService(session)  # type: ignore[arg-type]
+    certification_service = CertificationAndPartnershipService(session)
     try:
         success, certification, errors = await certification_service.certification_system.certify_agent(
             session=session,
@@ -163,9 +162,10 @@ async def certify_agent(
             level=certification_request.level,
             issued_by=certification_request.issued_by,
             certification_type=certification_request.certification_type,
-        )  # type: ignore[arg-type]
+        )
         if not success:
             raise HTTPException(status_code=400, detail=f"Certification failed: {'; '.join(errors)}")
+        assert certification is not None
         return CertificationResponse(
             certification_id=certification.certification_id,
             agent_id=certification.agent_id,
@@ -179,7 +179,7 @@ async def certify_agent(
             requirements_met=certification.requirements_met,
             granted_privileges=certification.granted_privileges,
             access_levels=certification.access_levels,
-        )  # type: ignore[union-attr]
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -193,11 +193,11 @@ async def renew_certification(
     request: Request, certification_id: str, renewed_by: str, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Renew an existing certification"""
-    certification_service = CertificationAndPartnershipService(session)  # type: ignore[arg-type]
+    certification_service = CertificationAndPartnershipService(session)
     try:
         success, message = await certification_service.certification_system.renew_certification(
             session=session, certification_id=certification_id, renewed_by=renewed_by
-        )  # type: ignore[arg-type]
+        )
         if not success:
             raise HTTPException(status_code=400, detail=message)
         return {"success": True, "message": message, "certification_id": certification_id}
@@ -254,14 +254,14 @@ async def create_partnership_program(
     try:
         program = await partnership_manager.create_partnership_program(
             session=session,
-            program_name=request.program_name,
-            program_type=request.program_type,
-            description=request.description,
-            created_by=request.created_by,
-            tier_levels=request.tier_levels,
-            max_participants=request.max_participants,
-            launch_immediately=request.launch_immediately,
-        )  # type: ignore[attr-defined, arg-type]
+            program_name=program_request.program_name,
+            program_type=program_request.program_type,
+            description=program_request.description,
+            created_by=program_request.created_by,
+            tier_levels=program_request.tier_levels,
+            max_participants=program_request.max_participants,
+            launch_immediately=program_request.launch_immediately,
+        )
         return {
             "program_id": program.program_id,
             "program_name": program.program_name,
@@ -291,9 +291,10 @@ async def apply_for_partnership(
             agent_id=application.agent_id,
             program_id=application.program_id,
             application_data=application.application_data,
-        )  # type: ignore[arg-type]
+        )
         if not success:
             raise HTTPException(status_code=400, detail=f"Application failed: {'; '.join(errors)}")
+        assert partnership is not None
         return PartnershipResponse(
             partnership_id=partnership.partnership_id,
             agent_id=partnership.agent_id,
@@ -306,7 +307,7 @@ async def apply_for_partnership(
             performance_score=partnership.performance_score,
             total_earnings=partnership.total_earnings,
             earned_benefits=partnership.earned_benefits,
-        )  # type: ignore[union-attr]
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -405,7 +406,7 @@ async def create_badge(
             description=badge_request.description,
             criteria=badge_request.criteria,
             created_by=badge_request.created_by,
-        )  # type: ignore[arg-type]
+        )
         return {
             "badge_id": badge.badge_id,
             "badge_name": badge.badge_name,
@@ -439,7 +440,7 @@ async def award_badge(
             awarded_by=badge_request.awarded_by,
             award_reason=badge_request.award_reason,
             context=badge_request.context,
-        )  # type: ignore[arg-type]
+        )
         if not success:
             raise HTTPException(status_code=400, detail=message)
         badge = (
@@ -568,7 +569,7 @@ async def check_automatic_badges(
     """Check and award automatic badges for an agent"""
     badge_system = BadgeSystem()
     try:
-        awarded_badges = await badge_system.check_and_award_automatic_badges(session, agent_id)  # type: ignore[arg-type]
+        awarded_badges = await badge_system.check_and_award_automatic_badges(session, agent_id)
         return {
             "agent_id": agent_id,
             "badges_awarded": awarded_badges,
@@ -586,7 +587,7 @@ async def get_agent_summary(
     request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> AgentCertificationSummary:
     """Get comprehensive certification and partnership summary for an agent"""
-    certification_service = CertificationAndPartnershipService(session)  # type: ignore[arg-type]
+    certification_service = CertificationAndPartnershipService(session)
     try:
         summary = await certification_service.get_agent_certification_summary(agent_id)
         return AgentCertificationSummary(**summary)
@@ -716,7 +717,7 @@ async def get_certification_leaderboard(
             query = select(AgentCertification).where(AgentCertification.status == CertificationStatus.ACTIVE)
         else:
             query = select(AgentCertification).where(AgentCertification.status == CertificationStatus.ACTIVE)
-        certifications = session.execute(query.order_by(desc(AgentCertification.issued_at)).limit(limit * 2)).all()  # type: ignore[arg-type]
+        certifications = session.execute(query.order_by(desc(AgentCertification.issued_at)).limit((limit or 100) * 2)).all()  # type: ignore[arg-type]
         agent_scores = {}
         for cert in certifications:
             if cert.agent_id not in agent_scores:

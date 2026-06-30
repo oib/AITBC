@@ -13,6 +13,7 @@ from typing import Any
 
 import websockets
 from websockets.server import ServerProtocol as WebSocketServerProtocol
+from websockets.asyncio.server import Server as WebSocketServer
 
 from aitbc.aitbc_logging import get_logger
 
@@ -81,7 +82,7 @@ class MarketDataCollector:
         self.max_data_age = timedelta(hours=48)
         self.max_raw_data_points = 10000
         self.websocket_port = config.get("websocket_port", 8765)
-        self.websocket_server = None
+        self.websocket_server: WebSocketServer | None = None
 
     async def initialize(self) -> None:
         """Initialize the market data collector"""

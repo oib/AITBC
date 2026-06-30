@@ -117,9 +117,9 @@ async def get_deployment_config(
 async def deploy_workflow(
     request: Request,
     config_id: str,
-    target_environment: str | None,
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[str, Depends(require_admin_key())],
+    target_environment: str = "production",
 ) -> dict[str, Any]:
     """Deploy agent workflow to target environment"""
     try:
@@ -290,9 +290,9 @@ async def get_deployment_instance(
 async def integrate_with_zk_system(
     request: Request,
     execution_id: str,
-    verification_level: VerificationLevel | None,
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[str, Depends(require_admin_key())],
+    verification_level: VerificationLevel = VerificationLevel.BASIC,
 ) -> dict[str, Any]:
     """Integrate agent execution with ZK proof system"""
     try:
@@ -320,9 +320,9 @@ async def integrate_with_zk_system(
 async def get_deployment_metrics(
     request: Request,
     deployment_id: str,
-    time_range: str | None,
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[str, Depends(require_admin_key())],
+    time_range: str = "1h",
 ) -> dict[str, Any]:
     """Get metrics for deployment over time range"""
     try:
