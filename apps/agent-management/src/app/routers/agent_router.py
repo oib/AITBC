@@ -55,11 +55,11 @@ async def create_workflow(
 @rate_limit(rate=200, per=60)
 async def list_workflows(
     request: Request,
-    owner_id: str | None,
-    is_public: bool | None,
-    tags: list[str] | None,
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[str, Depends(require_admin_key())],
+    owner_id: str | None = None,
+    is_public: bool | None = None,
+    tags: str | None = None,
 ) -> list[AIAgentWorkflow]:
     """List agent workflows with filtering"""
     try:
@@ -71,8 +71,10 @@ async def list_workflows(
         if is_public is not None:
             query = query.where(AIAgentWorkflow.is_public == is_public)
         if tags:
-            for tag in tags:
-                query = query.where(AIAgentWorkflow.tags.contains([tag]))  # type: ignore[attr-defined]
+            for tag in tags.split(","):
+                tag = tag.strip()
+                if tag:
+                    query = query.where(AIAgentWorkflow.tags.contains(tag))  # type: ignore[attr-defined]
         workflows = session.exec(query).all()
         return list(workflows)
     except Exception as e:
