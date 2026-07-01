@@ -2,14 +2,13 @@
 Real GPU Miner Client for AITBC - runs on host with actual GPU
 """
 
-import logging
 import os
 import subprocess
 import sys
 import time
 from datetime import UTC, datetime
 
-from aitbc.aitbc_logging import get_logger
+from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 
@@ -24,21 +23,11 @@ RETRY_DELAY = 30
 coordinator_client = AITBCHTTPClient(
     base_url=COORDINATOR_URL, headers={"X-Api-Key": AUTH_TOKEN, "Content-Type": "application/json"}, timeout=30
 )
-LOG_PATH = "/var/log/aitbc/production_miner.log"
-os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 
-
-class FlushHandler(logging.StreamHandler):
-    def emit(self, record):
-        super().emit(record)
-        self.flush()
-
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[FlushHandler(sys.stdout), logging.FileHandler(LOG_PATH)],
-)
+# Use the canonical AITBC logging setup: JournalFormatter for console (no
+# redundant timestamp — journalctl already adds one) and StructuredFormatter
+# for the rotated log file (requires LOG_DIR env var, set in the unit file).
+configure_logging(level="INFO", service_name="miner", to_file=True)
 logger = get_logger(__name__)
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
