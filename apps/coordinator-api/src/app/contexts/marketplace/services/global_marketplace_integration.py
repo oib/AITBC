@@ -16,6 +16,10 @@ from aitbc.aitbc_logging import get_logger
 from ....agent_identity.wallet_adapter_enhanced import WalletAdapterFactory
 from ...reputation.services.reputation_engine import CrossChainReputationEngine
 from ...cross_chain.services.multi_chain_transaction_manager import ChainTransactionManager
+
+# B16: CrossChainBridgeService is deprecated; see bridge_client_adapter.py. Kept because
+# this integration service depends on its SQLModel-based API (initialize_bridge) which
+# BridgeClientAdapter does not yet provide. Migrate callers when feasible.
 from ...cross_chain.services.cross_chain.bridge_enhanced import (
     BridgeProtocol,
     BridgeSecurityLevel,

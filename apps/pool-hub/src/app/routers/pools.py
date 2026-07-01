@@ -39,6 +39,28 @@ class PoolStats(BaseModel):
     uptime_percent: float
 
 
+class PoolJoinRequest(BaseModel):
+    """Pool join request"""
+
+    miner_id: str
+    capabilities: list[str] = []
+
+
+class PoolLeaveRequest(BaseModel):
+    """Pool leave request"""
+
+    miner_id: str
+
+
+class PoolMembershipResponse(BaseModel):
+    """Pool membership response"""
+
+    pool_id: str
+    miner_id: str
+    member_count: int
+    status: str
+
+
 def get_registry() -> MinerRegistry:
     return MinerRegistry()
 
@@ -150,3 +172,58 @@ async def delete_pool(
 
     await registry.delete_pool(pool_id)
     return {"status": "deleted"}
+
+
+@router.post("/{pool_id}/join", response_model=PoolMembershipResponse)
+@rate_limit(rate=50, per=60)
+async def join_pool(
+    request: Request,
+    pool_id: str,
+    body: PoolJoinRequest,
+    registry: Annotated[MinerRegistry, Depends(get_registry)],
+) -> PoolMembershipResponse:
+    """Join a miner to a pool."""
+    pool = await registry.get_pool(pool_id)
+    if not pool:
+        raise HTTPException(status_code=404, detail="Pool not found")
+
+    existing = await registry.get(body.miner_id)
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Miner {body.miner_id} already in pool {existing.pool_id}")
+
+    await registry.register(
+        miner_id=body.miner_id,
+        pool_id=pool_id,
+        capabilities=body.capabilities,
+        gpu_info={},
+    )
+
+    updated = await registry.get_pool(pool_id)
+    member_count = updated.miner_count if updated else 0
+    return PoolMembershipResponse(pool_id=pool_id, miner_id=body.miner_id, member_count=member_count, status="joined")
+
+
+@router.post("/{pool_id}/leave", response_model=PoolMembershipResponse)
+@rate_limit(rate=50, per=60)
+async def leave_pool(
+    request: Request,
+    pool_id: str,
+    body: PoolLeaveRequest,
+    registry: Annotated[MinerRegistry, Depends(get_registry)],
+) -> PoolMembershipResponse:
+    """Remove a miner from a pool."""
+    pool = await registry.get_pool(pool_id)
+    if not pool:
+        raise HTTPException(status_code=404, detail="Pool not found")
+
+    miner = await registry.get(body.miner_id)
+    if not miner:
+        raise HTTPException(status_code=404, detail=f"Miner {body.miner_id} not found")
+    if miner.pool_id != pool_id:
+        raise HTTPException(status_code=409, detail=f"Miner {body.miner_id} not in pool {pool_id}")
+
+    await registry.unregister(body.miner_id)
+
+    updated = await registry.get_pool(pool_id)
+    member_count = updated.miner_count if updated else 0
+    return PoolMembershipResponse(pool_id=pool_id, miner_id=body.miner_id, member_count=member_count, status="left")

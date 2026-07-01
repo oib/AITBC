@@ -20,6 +20,9 @@ class SubmitComputeRequest(BaseModel):
     priority: str = Field(default="normal")
     # v0.6.6: optional escrow ID for payment verification
     escrow_id: str | None = None
+    # v0.10.1: job_id is the preferred parameter (matches blockchain escrow endpoint).
+    # escrow_id is kept for backward compatibility.
+    job_id: str | None = None
 
 
 def get_serve_service() -> ServeService:
@@ -34,13 +37,15 @@ async def submit_compute_request(
     """Submit compute request (v0.6.6: optional payment verification)"""
     # v0.6.6: verify payment before serving (feature-flagged)
     if settings.require_payment_verification:
-        if not request.escrow_id:
-            raise HTTPException(status_code=402, detail="Payment required: escrow_id is required")
+        # v0.10.1: prefer job_id (matches blockchain escrow endpoint), fall back to escrow_id
+        escrow_key = request.job_id or request.escrow_id
+        if not escrow_key:
+            raise HTTPException(status_code=402, detail="Payment required: job_id (or escrow_id) is required")
         from aitbc.marketplace import BlockchainRPCClient
 
         rpc_url = f"http://{settings.blockchain_rpc_host}:{settings.blockchain_rpc_port}"
         rpc_client = BlockchainRPCClient(rpc_url=rpc_url)
-        escrow = await rpc_client.verify_escrow(request.escrow_id)
+        escrow = await rpc_client.verify_escrow(escrow_key)
         if not escrow or escrow.get("status") != "locked":
             raise HTTPException(status_code=402, detail="Payment required: escrow not locked")
     result = await svc.submit_compute_request(request.gpu_id, request.model_name, request.input_data, request.priority)

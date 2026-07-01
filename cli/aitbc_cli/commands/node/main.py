@@ -67,7 +67,7 @@ def info(ctx, node_id):
             "Endpoint": node_config.endpoint,
         }
 
-        output(basic_info, ctx.obj.get("output_format", "table"), title=f"Node Information: {node_id}")
+        output(basic_info, ctx.obj.get("output", "table"), title=f"Node Information: {node_id}")
 
         # Performance metrics
         metrics = {
@@ -78,7 +78,7 @@ def info(ctx, node_id):
             "Network Out": f"{node_info['network_out_mb']:.1f}MB/s",
         }
 
-        output(metrics, ctx.obj.get("output_format", "table"), title="Performance Metrics")
+        output(metrics, ctx.obj.get("output", "table"), title="Performance Metrics")
 
         # Hosted chains
         if node_info.get("hosted_chains"):
@@ -87,7 +87,7 @@ def info(ctx, node_id):
                 for chain_id, chain in node_info["hosted_chains"].items()
             ]
 
-            output(chains_data, ctx.obj.get("output_format", "table"), title="Hosted Chains")
+            output(chains_data, ctx.obj.get("output", "table"), title="Hosted Chains")
 
     except Exception as e:
         error(f"Error getting node info: {str(e)}")
@@ -129,7 +129,7 @@ def chains(ctx, show_private, node_id):
         asyncio.run(get_all_chains())
 
         if not all_chains:
-            output("No chains found on any node", ctx.obj.get("output_format", "table"))
+            output("No chains found on any node", ctx.obj.get("output", "table"))
             return
 
         # Filter private chains if not requested
@@ -151,7 +151,7 @@ def chains(ctx, show_private, node_id):
             for node_id, chain in all_chains
         ]
 
-        output(chains_data, ctx.obj.get("output_format", "table"), title="Chains by Node")
+        output(chains_data, ctx.obj.get("output", "table"), title="Chains by Node")
 
     except Exception as e:
         error(f"Error listing chains: {str(e)}")
@@ -167,7 +167,7 @@ def list(ctx, format):
         config = load_multichain_config()
 
         if not config.nodes:
-            output("No nodes configured", ctx.obj.get("output_format", "table"))
+            output("No nodes configured", ctx.obj.get("output", "table"))
             return
 
         nodes_data = [
@@ -181,7 +181,7 @@ def list(ctx, format):
             for node_id, node_config in config.nodes.items()
         ]
 
-        output(nodes_data, ctx.obj.get("output_format", "table"), title="Configured Nodes")
+        output(nodes_data, ctx.obj.get("output", "table"), title="Configured Nodes")
 
     except Exception as e:
         error(f"Error listing nodes: {str(e)}")
@@ -224,7 +224,7 @@ def add(ctx, node_id, endpoint, timeout, max_connections, retry_count):
             "Retry Count": retry_count,
         }
 
-        output(result, ctx.obj.get("output_format", "table"))
+        output(result, ctx.obj.get("output", "table"))
 
     except Exception as e:
         error(f"Error adding node: {str(e)}")
@@ -254,7 +254,7 @@ def remove(ctx, node_id, force):
                 "Max Connections": node_config.max_connections,
             }
 
-            output(node_info, ctx.obj.get("output_format", "table"), title="Node to Remove")
+            output(node_info, ctx.obj.get("output", "table"), title="Node to Remove")
 
             if not click.confirm(f"Are you sure you want to remove node {node_id}?"):
                 raise click.Abort()

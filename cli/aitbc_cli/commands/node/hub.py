@@ -93,7 +93,7 @@ def register_hub_command(ctx, public_address, public_port, redis_url, hub_discov
                 "Status": "Registered",
             }
 
-            output(hub_info, ctx.obj.get("output_format", "table"), title="Hub Registration")
+            output(hub_info, ctx.obj.get("output", "table"), title="Hub Registration")
             success("Successfully registered as hub")
         else:
             error("Failed to register as hub")
@@ -155,7 +155,7 @@ def unregister_hub_command(ctx, redis_url, hub_discovery_url):
         if result:
             hub_info = {"Node ID": node_id, "Status": "Unregistered"}
 
-            output(hub_info, ctx.obj.get("output_format", "table"), title="Hub Unregistration")
+            output(hub_info, ctx.obj.get("output", "table"), title="Hub Unregistration")
             success("Successfully unregistered as hub")
         else:
             error("Failed to unregister as hub")
@@ -180,7 +180,7 @@ def list_hubs_command(ctx, redis_url):
         hubs = asyncio.run(get_hubs())
 
         if not hubs:
-            output("No hubs registered", ctx.obj.get("output_format", "table"))
+            output("No hubs registered", ctx.obj.get("output", "table"))
             return
 
         hubs_data = []
@@ -196,7 +196,7 @@ def list_hubs_command(ctx, redis_url):
                 }
             )
 
-        output(hubs_data, ctx.obj.get("output_format", "table"), title="Registered Hubs")
+        output(hubs_data, ctx.obj.get("output", "table"), title="Registered Hubs")
 
     except Exception as e:
         error(f"Error listing hubs: {str(e)}")

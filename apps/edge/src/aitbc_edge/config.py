@@ -41,8 +41,8 @@ class Settings(ServiceSettings):
     agent_coordinator_url: str = "http://localhost:8010"
     agent_heartbeat_interval_seconds: int = 60
 
-    # v0.6.6: Payment verification (feature-flagged — disabled by default)
-    require_payment_verification: bool = False
+    # v0.6.6: Payment verification (v0.10.1: enabled by default for end-to-end flow)
+    require_payment_verification: bool = True
 
     # JWT auth deferred to v0.7.1 (Bridge Security)
     # cors_origins retained for cross-origin requests

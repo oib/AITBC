@@ -39,6 +39,30 @@ async def _report_health_to_coordinator() -> None:
         await asyncio.sleep(settings.agent_heartbeat_interval_seconds)
 
 
+async def _register_edge_node_on_blockchain() -> None:
+    """Register this edge node on the blockchain on startup (v0.6.6)."""
+    import socket
+
+    node_id = os.getenv("NODE_ID", f"edge-{socket.gethostname()}")
+    rpc_url = f"http://{settings.blockchain_rpc_host}:{settings.blockchain_rpc_port}"
+    payload = {
+        "node_id": node_id,
+        "endpoint": f"http://{settings.app_host}:{settings.app_port}",
+        "region": os.getenv("EDGE_REGION", ""),
+        "gpu_count": 0,
+        "total_vram": 0,
+        "capabilities": [],
+        "registered_by": os.getenv("WALLET_ADDRESS", "edge-admin"),
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(f"{rpc_url}/rpc/edge/register", json=payload)
+            resp.raise_for_status()
+            logger.info("Edge node registered on blockchain: %s", node_id)
+    except Exception as e:
+        logger.warning("Failed to register edge node on blockchain: %s", e)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifespan context manager for startup/shutdown"""
@@ -47,6 +71,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Database initialized")
     # v0.6.6: start coordinator health reporting background task
     health_task = asyncio.create_task(_report_health_to_coordinator())
+    # v0.6.6: Register edge node on blockchain
+    await _register_edge_node_on_blockchain()
     yield
     health_task.cancel()
     logger.info("Shutting down Edge API Service")
