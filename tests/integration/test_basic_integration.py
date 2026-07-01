@@ -10,14 +10,15 @@ import pytest
 @pytest.mark.integration
 def test_coordinator_client_fixture(coordinator_client):
     """Test that the coordinator_client fixture works"""
-    # Test that we can make a request
-    response = coordinator_client.get("/docs")
+    # Test that we can make a request to a live endpoint
+    response = coordinator_client.get("/health")
 
     # Should succeed
     assert response.status_code == 200
 
-    # Check it's the FastAPI docs
-    assert "swagger" in response.text.lower() or "openapi" in response.text.lower()
+    # Check it's a health response
+    data = response.json()
+    assert "status" in data or "healthy" in response.text.lower()
 
 
 @pytest.mark.integration
