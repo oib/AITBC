@@ -1,7 +1,7 @@
 # AITBC v0.6.3 Release Notes
 
 **Date**: TBD
-**Status**: 🚧 Planned
+**Status**: 🚧 Code Complete (B1-B8 complete — island_tasks_enabled defaults to off for safety)
 **Scope**: Multi-Island Node Support — Per-Chain Sync Sources, Multi-Hub Subscription, Island-to-Chain Registry
 
 ## 🎯 Overview
