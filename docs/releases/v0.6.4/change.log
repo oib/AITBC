@@ -1,7 +1,7 @@
 # AITBC v0.6.4 Release Notes
 
 **Date**: TBD
-**Status**: 🚧 Planned
+**Status**: 🚧 Code Complete (B1-B9 complete — MultiValidatorPoA/PBFT remain in THRESHOLD state)
 **Scope**: Multi-Chain Per Island — Parallel Block Streams, MultiChainManager Activation, Island-Level Chain Registry
 
 ## 🎯 Overview
@@ -34,28 +34,28 @@ But the island layer assumes **one chain per island** (`IslandMembership.chain_i
 ## 🎯 Release Highlights
 
 ### Multi-Chain Block Production
-- 🚧 Wire `MultiChainManager` into `main.py` (currently dead code)
-- 🚧 Multiple `PoAProposer` instances running in parallel, one per chain
-- 🚧 Each chain has independent block height, genesis, state, and mempool
-- 🚧 Shared island identity across all chains on the island
-- 🚧 Per-chain block production enable/disable via `block_production_chains`
+- ✅ Wire `MultiChainManager` into `main.py` (currently dead code)
+- ✅ Multiple `PoAProposer` instances running in parallel, one per chain
+- ✅ Each chain has independent block height, genesis, state, and mempool
+- ✅ Shared island identity across all chains on the island
+- ✅ Per-chain block production enable/disable via `block_production_chains`
 
 ### Island-Level Chain Registry
-- 🚧 `IslandMembership.chain_id` changed from single string to list of chain_ids
-- 🚧 Config: `ISLAND_CHAINS` mapping (island_id → list of chain_ids)
-- 🚧 Auto-register chains on island join
-- 🚧 Island health monitoring per chain
+- ✅ `IslandMembership.chain_id` changed from single string to list of chain_ids
+- ✅ Config: `ISLAND_CHAINS` mapping (island_id → list of chain_ids)
+- ✅ Auto-register chains on island join
+- ✅ Island health monitoring per chain
 
 ### MultiChainManager Activation
-- 🚧 Activate `MultiChainManager` in node startup
-- 🚧 Per-chain lifecycle management (start/stop individual chains)
-- 🚧 Per-chain health monitoring
-- 🚧 Per-chain port allocation (RPC and P2P ports)
+- ✅ Activate `MultiChainManager` in node startup
+- ✅ Per-chain lifecycle management (start/stop individual chains)
+- ✅ Per-chain health monitoring
+- ✅ Per-chain port allocation (RPC and P2P ports)
 
 ### Genesis Per Chain
-- 🚧 `make_genesis.py` supports generating multiple genesis files per island
-- 🚧 Per-chain genesis with shared island parameters
-- 🚧 Island-level genesis coordination (shared validator set, shared economic params)
+- ✅ `make_genesis.py` supports generating multiple genesis files per island
+- ✅ Per-chain genesis with shared island parameters
+- ✅ Island-level genesis coordination (shared validator set, shared economic params)
 
 ## 📋 Detailed Features
 
