@@ -1,10 +1,25 @@
 """
 Cross-Chain Bridge Service
 Production-ready cross-chain bridge service with atomic swap protocol implementation
+
+.. deprecated:: v0.10.1 (B16)
+    ``CrossChainBridgeService`` is a duplicate bridge implementation that is
+    superseded by ``BridgeClientAdapter`` (see
+    ``bridge_client_adapter.py``), which routes bridge operations through the
+    blockchain-node's bridge RPC endpoints via the shared ``aitbc.bridge.BridgeClient``.
+
+    This module is kept for backward compatibility with the SQLModel persistence
+    layer and existing router endpoints that depend on its API
+    (``initialize_bridge``, ``create_bridge_request``, ``get_bridge_request_status``,
+    ``cancel_bridge_request``, ``get_bridge_statistics``, ``get_liquidity_pools``).
+    New bridge RPC operations (lock, confirm, unlock, status, balance, health)
+    should go through ``BridgeClientAdapter`` instead. Do not add new callers of
+    ``CrossChainBridgeService``; migrate existing callers when feasible.
 """
 
 import asyncio
 import hashlib
+import warnings
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
@@ -53,6 +68,12 @@ class CrossChainBridgeService:
     _global_whitelist: set[tuple[int, int]] = set()
 
     def __init__(self, session: Session):
+        warnings.warn(
+            "CrossChainBridgeService (bridge_enhanced) is deprecated since v0.10.1 (B16); "
+            "use BridgeClientAdapter from bridge_client_adapter.py for new bridge RPC operations.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.session = session
         self.wallet_adapters: dict[int, EnhancedWalletAdapter] = {}
         self.bridge_protocols: dict[str, Any] = {}

@@ -1073,16 +1073,48 @@ async def get_mining_status_route(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
 ) -> dict[str, Any]:
-    """Get current mining status (requires admin authentication)"""
+    """Get current mining status (requires admin authentication).
+
+    v0.6.7: Aggregates status from coordinator-api miner registry. Falls back
+    to local in-memory miners if coordinator-api is unavailable.
+    """
     # Bug 9: Add admin authentication to mining endpoints
     get_authenticated_address(request, credentials)
+
+    # v0.6.7: Query coordinator-api for registered miners
+    import os
+
+    import httpx
+
+    coordinator_url = os.getenv("COORDINATOR_API_URL", "http://localhost:8203")
+    coordinator_miners: list[dict[str, Any]] = []
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{coordinator_url}/v1/miners")
+            if resp.status_code == 200:
+                data = resp.json()
+                coordinator_miners = data.get("miners", []) if isinstance(data, dict) else data
+    except Exception:
+        pass  # Fall back to local miners
+
+    if coordinator_miners:
+        active = [m for m in coordinator_miners if m.get("status") == "active"]
+        return {
+            "status": "mining" if active else "idle",
+            "miners": coordinator_miners,
+            "active_count": len(active),
+            "source": "coordinator-api",
+        }
+
+    # Fallback: local in-memory miners
     if not hasattr(start_mining_route, "miners"):
-        return {"status": "idle", "miners": [], "active_count": 0}
+        return {"status": "idle", "miners": [], "active_count": 0, "source": "local"}
     active_miners = [m for m in start_mining_route.miners.values() if m.get("enabled", False)]
     return {
         "status": "mining" if active_miners else "idle",
         "miners": list(start_mining_route.miners.values()),
         "active_count": len(active_miners),
+        "source": "local",
     }
 
 
@@ -1092,12 +1124,34 @@ async def list_miners_route(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
 ) -> dict[str, Any]:
-    """List all registered miners (requires admin authentication)"""
+    """List all registered miners (requires admin authentication).
+
+    v0.6.7: Queries coordinator-api miner registry. Falls back to local
+    in-memory miners if coordinator-api is unavailable.
+    """
     # Bug 9: Add admin authentication to mining endpoints (this endpoint was previously unauthenticated)
     get_authenticated_address(request, credentials)
+
+    # v0.6.7: Query coordinator-api for registered miners
+    import os
+
+    import httpx
+
+    coordinator_url = os.getenv("COORDINATOR_API_URL", "http://localhost:8203")
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{coordinator_url}/v1/miners")
+            if resp.status_code == 200:
+                data = resp.json()
+                miners = data.get("miners", []) if isinstance(data, dict) else data
+                return {"miners": miners, "count": len(miners), "source": "coordinator-api"}
+    except Exception:
+        pass  # Fall back to local miners
+
+    # Fallback: local in-memory miners
     if not hasattr(start_mining_route, "miners"):
-        return {"miners": [], "count": 0}
-    return {"miners": list(start_mining_route.miners.values()), "count": len(start_mining_route.miners)}
+        return {"miners": [], "count": 0, "source": "local"}
+    return {"miners": list(start_mining_route.miners.values()), "count": len(start_mining_route.miners), "source": "local"}
 
 
 @router.post("/subscribe", summary="Register for block subscription with lease")

@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     # When empty, on-chain submission is skipped (local-only mode).
     proposer_private_key: str = Field(default="")
 
+    # v0.10.1: Target service URLs for parameter automation (applying governance-approved
+    # parameter changes to the target service's parameter API after execution).
+    poolhub_url: str = Field(default="http://localhost:8103")
+    marketplace_url: str = Field(default="http://localhost:8102")
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

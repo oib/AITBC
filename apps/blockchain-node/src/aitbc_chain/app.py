@@ -6,10 +6,12 @@ import time
 from collections import defaultdict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -123,11 +125,32 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     try:
         node_id = os.getenv("NODE_ID", "unknown-node")
-        default_island_id = os.getenv("DEFAULT_ISLAND_ID", f"{settings.supported_chains.split(',')[0].strip()}-island")
-        default_chain_id = settings.supported_chains.split(",")[0].strip() if settings.supported_chains else "ait-mainnet"
+        default_island_id = os.getenv(
+            "DEFAULT_ISLAND_ID",
+            f"{settings.supported_chains.split(',')[0].strip() or settings.chain_id}-island",
+        )
+        default_chain_id = settings.supported_chains.split(",")[0].strip() or settings.chain_id or "ait-mainnet"
         create_island_manager(node_id, default_island_id, default_chain_id)
     except Exception as e:
         _app_logger.error("Failed to initialize island manager: %s", e)
+
+    # v0.6.4: Initialize MultiChainManager in the RPC service so that
+    # /rpc/chains and /rpc/chains/start|stop endpoints work without the
+    # separate blockchain-node service process.
+    try:
+        from .network.multi_chain_manager import create_multi_chain_manager
+
+        _mcm_chain_id = locals().get("default_chain_id") or settings.chain_id or "ait-mainnet"
+        base_db_path = Path(settings.get_db_path(_mcm_chain_id))
+        create_multi_chain_manager(
+            default_chain_id=_mcm_chain_id,
+            base_db_path=base_db_path,
+            base_rpc_port=int(os.getenv("RPC_PORT", "8202")),
+            base_p2p_port=int(os.getenv("P2P_PORT", "8200")),
+        )
+        _app_logger.info("Multi-chain manager initialized in RPC service")
+    except Exception as e:
+        _app_logger.warning("Failed to initialize multi-chain manager: %s", e)
 
     proposers = []
     block_production_override = _env_value(
@@ -210,6 +233,7 @@ def create_app() -> FastAPI:
     configure_logging(level="INFO")
     app = FastAPI(title="AITBC Blockchain Node", version="v0.2.2", lifespan=lifespan)
     app.add_middleware(RequestLoggingMiddleware)
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
     # app.add_middleware(RateLimitMiddleware, max_requests=100000, window_seconds=60)
     app.add_middleware(
         CORSMiddleware,

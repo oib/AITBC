@@ -31,7 +31,7 @@ def request_bridge_command(ctx, target_island_id):
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.post("/rpc/islands/bridge", json={"target_island_id": target_island_id})
-        output(result, ctx.obj.get("output_format", "table"), title="Bridge Request")
+        output(result, ctx.obj.get("output", "table"), title="Bridge Request")
     except NetworkError as e:
         error(f"Cannot connect to blockchain node at {rpc_url}: {e}")
         raise click.Abort() from e
@@ -49,7 +49,7 @@ def approve_bridge_command(ctx, request_id, approving_node_id):
             "/rpc/islands/bridge/approve",
             json={"bridge_id": request_id, "approving_node_id": approving_node_id},
         )
-        output(result, ctx.obj.get("output_format", "table"), title="Bridge Approved")
+        output(result, ctx.obj.get("output", "table"), title="Bridge Approved")
     except NetworkError as e:
         error(f"Cannot connect to blockchain node at {rpc_url}: {e}")
         raise click.Abort() from e
@@ -67,7 +67,7 @@ def reject_bridge_command(ctx, request_id, reason):
             "/rpc/islands/bridge/reject",
             json={"bridge_id": request_id, "reason": reason or ""},
         )
-        output(result, ctx.obj.get("output_format", "table"), title="Bridge Rejected")
+        output(result, ctx.obj.get("output", "table"), title="Bridge Rejected")
     except NetworkError as e:
         error(f"Cannot connect to blockchain node at {rpc_url}: {e}")
         raise click.Abort() from e
@@ -98,7 +98,7 @@ def list_bridges_command(ctx):
                     "Release Enabled": result.get("release_enabled", False),
                 }
             )
-        output(bridges, ctx.obj.get("output_format", "table"), title="Bridge Connections")
+        output(bridges, ctx.obj.get("output", "table"), title="Bridge Connections")
     except Exception as e:
         error(f"Error listing bridges: {e}")
         raise click.Abort() from e
