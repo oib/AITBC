@@ -104,6 +104,8 @@ async def bridge_confirm(request: Request, confirm_data: dict[str, Any]) -> dict
     The confirm path is enabled when either ``escrow_enabled`` (settlement
     layer) or ``bridge_release_enabled`` is True.
     """
+    # Fence check must happen BEFORE signature verification to allow testing
+    # with invalid signatures when the fence is disabled
     if not (getattr(settings, "escrow_enabled", False) or getattr(settings, "bridge_release_enabled", False)):
         raise HTTPException(
             status_code=503,
@@ -365,6 +367,8 @@ async def bridge_batch_confirm(request: Request, batch_data: dict[str, Any]) -> 
     Gated by ``escrow_enabled`` or ``bridge_release_enabled`` same as single
     confirm. v0.7.2 proof verification is complete.
     """
+    # Fence check must happen BEFORE signature verification to allow testing
+    # with invalid signatures when the fence is disabled
     if not (getattr(settings, "escrow_enabled", False) or getattr(settings, "bridge_release_enabled", False)):
         raise HTTPException(
             status_code=503,
