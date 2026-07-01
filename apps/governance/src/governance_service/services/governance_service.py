@@ -21,6 +21,7 @@ from ..domain.governance import (
     ProposalStatus,
     TokenStake,
     Vote,
+    VoteType,
 )
 
 
@@ -223,6 +224,19 @@ class GovernanceService:
                 logging.getLogger(__name__).warning("On-chain GOVERNANCE_VOTE submission failed: %s", e)
 
         self.session.add(vote)
+
+        # Update proposal vote counters
+        proposal = await self.get_proposal(vote.proposal_id)
+        if proposal:
+            if vote.vote_type == VoteType.FOR:
+                proposal.yes_votes += vote.voting_power_used
+                proposal.votes_for = proposal.yes_votes
+            elif vote.vote_type == VoteType.AGAINST:
+                proposal.no_votes += vote.voting_power_used
+                proposal.votes_against = proposal.no_votes
+            elif vote.vote_type == VoteType.ABSTAIN:
+                proposal.votes_abstain += vote.voting_power_used
+
         await self.session.commit()
         await self.session.refresh(vote)
         return vote
