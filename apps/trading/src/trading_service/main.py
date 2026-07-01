@@ -12,7 +12,8 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -137,6 +138,12 @@ async def live() -> dict[str, str]:
 async def trading_status() -> dict[str, str]:
     """Get trading status"""
     return {"status": "operational", "service": "trading", "message": "Trading service is running"}
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def metrics() -> PlainTextResponse:
+    """Prometheus metrics endpoint"""
+    return PlainTextResponse(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 async def get_trading_service(session: Annotated[AsyncSession, Depends(get_session_dep)]) -> TradingService:
