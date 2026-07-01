@@ -22,6 +22,13 @@ def test_health_check(client):
     assert data["service"] == "trading"
 
 
+def test_metrics_endpoint(client):
+    """Test Prometheus metrics endpoint"""
+    response = client.get("/metrics")
+    assert response.status_code == 200
+    assert "text/plain" in response.headers.get("content-type", "")
+
+
 def test_trading_status(client):
     """Test trading status endpoint"""
     response = client.get("/trading/status")
