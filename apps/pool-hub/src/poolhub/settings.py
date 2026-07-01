@@ -28,8 +28,9 @@ class Settings(BaseSettings):
     bind_port: int = Field(default=8203)
 
     coordinator_shared_secret: str = Field(
-        description="Shared secret for coordinator communication - MUST be set via POOLHUB_COORDINATOR_SHARED_SECRET env var"
-    )  # No default - must be configured
+        default="",
+        description="Shared secret for coordinator communication - set via POOLHUB_COORDINATOR_SHARED_SECRET env var",
+    )
 
     postgres_dsn: str = Field(default="postgresql+asyncpg://poolhub:poolhub@127.0.0.1:5432/aitbc")
     postgres_pool_min: int = Field(default=1)
