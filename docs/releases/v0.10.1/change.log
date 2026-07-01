@@ -1,0 +1,394 @@
+# AITBC v0.10.1 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 Planned
+**Scope**: Gap Fill — Activate and fix ALL features from v0.6.0–v0.8.2 that were planned but never wired up, deployed, or had broken CLI/RPC integration
+
+## 🎯 Overview
+
+v0.10.1 is a **gap-fill release** that completes the implementation of features planned in v0.6.0 through v0.8.2. These releases were marked as "complete" or "planned" in their changelogs, but testing in v0.10.0 revealed that many features have broken CLI commands, misconfigured services, dead-code endpoints, unwired infrastructure, or were never deployed.
+
+This release does **not** add new features — it makes existing code actually work. A comprehensive audit found **20 gaps** across 9 releases. All fixable gaps are addressed in this release. 4 architectural gaps (parallel block validation, gossip v2 protocol, compact blocks, epoch rewards in block production) are deferred to v1.0.0.
+
+**Prerequisites**: [v0.10.0](../v0.10.0/change.log) (complete — all critical runtime bugs fixed, features activated).
+
+## 🎯 Release Highlights
+
+### CLI Fixes (v0.6.2, v0.6.3)
+
+#### Fix 1: CLI endpoint path mismatch (v0.6.2)
+- ✅ `aitbc sync status` fails with 404 — calls `/head` instead of `/rpc/head`
+- ✅ `aitbc chain sync-status` fails with 404 — calls `/network-info`, `/head`, `/chains/*` without `/rpc/` prefix
+- ✅ `aitbc node island list/get` fails with 404 — calls `/islands` without `/rpc/` prefix
+- ✅ Root cause: RPC router is mounted with `prefix="/rpc"` in `app.py:220`, but CLI commands use unprefixed paths
+- ✅ Fix: Add `/rpc/` prefix to 10 endpoint calls across 3 CLI files
+
+#### Fix 2: Island ID "-island" bug (v0.6.3)
+- ✅ `GET /rpc/islands` returns `island_id: "-island"` instead of `ait-hub.aitbc.bubuit.net-island`
+- ✅ Root cause: `app.py:126` constructs `default_island_id = f"{settings.supported_chains.split(',')[0].strip()}-island"` — when `SUPPORTED_CHAINS` env var is not set, `settings.supported_chains` is `""`, producing `"-island"`
+- ✅ Fix: Add config validator that defaults `supported_chains` to `chain_id` when empty, AND add `SUPPORTED_CHAINS` to `/etc/aitbc/blockchain.env`
+
+#### Fix 3: Node CLI crash — context key mismatch (v0.6.3)
+- ✅ `aitbc node island list` crashes with traceback
+- ✅ Root cause: CLI commands access `ctx.obj.get("output_format", "table")` but the CLI framework sets `ctx.obj["output"]` (not `"output_format"`)
+- ✅ Fix: Replace all `ctx.obj.get("output_format", ...)` with `ctx.obj.get("output", ...)` across 5 node command files (31 occurrences)
+- ✅ Also fix duplicate "list" command registration in `node/__init__.py`
+
+### Infrastructure Wiring (v0.6.0, v0.6.2, v0.6.4)
+
+#### Fix 4: HTTP RPC compression missing (v0.6.0)
+- ✅ Gossip/P2P compression works via `encode_payload()`/`decode_payload()`, but HTTP RPC endpoints serve uncompressed JSON
+- ✅ `sync.py:fetch_blocks_range()` sends no `Accept-Encoding` headers
+- ✅ FastAPI app has no `GZipMiddleware`
+- ✅ Fix: Add `GZipMiddleware` to `app.py`, add `Accept-Encoding: gzip` headers to sync HTTP client
+
+#### Fix 5: P2P→sync peer registration not wired (v0.6.2)
+- ✅ `p2p_network.py:85-91` has `set_peer_capability_callback()` but it's never called in `main.py`
+- ✅ `PeerCapabilityTracker` stays empty → parallel sync never activates (always falls back to sequential)
+- ✅ Fix: Wire `p2p_network.set_peer_capability_callback(sync.register_sync_peer)` in `main.py`
+
+#### Fix 6: Feature flags default OFF (v0.6.2)
+- ✅ `sync_delta_enabled=False`, `sync_parallel_enabled=False`, `gossip_priority_enabled=False`
+- ✅ Infrastructure exists for delta sync, parallel sync, and message prioritization but is inert
+- ✅ Fix: Enable these flags in config for this node (with safe defaults)
+
+#### Fix 7: MultiChainManager not initialized in RPC service (v0.6.4)
+- ✅ `GET /rpc/chains` returns 503 "Multi-chain manager not available"
+- ✅ Root cause: `MultiChainManager` is initialized in `main.py` (blockchain-node service) but NOT in `app.py` (blockchain-rpc service). The two services run as separate processes.
+- ✅ Fix: Initialize `MultiChainManager` in `app.py` lifespan startup (after island manager init)
+
+### Marketplace & Edge (v0.6.6)
+
+#### Fix 8: Edge node marketplace endpoint missing (v0.6.6)
+- ✅ Edge service calls `POST /v1/marketplace/edge-advertise` but marketplace service has no such endpoint
+- ✅ Fix: Add `POST /v1/marketplace/edge-advertise` endpoint to marketplace service
+
+#### Fix 9: Escrow verification parameter mismatch (v0.6.6)
+- ✅ `BlockchainRPCClient.verify_escrow()` calls `GET /rpc/escrow/{escrow_id}` but the blockchain endpoint uses `job_id`, not `escrow_id`
+- ✅ Fix: Update `verify_escrow()` to use `job_id` parameter
+
+#### Fix 10: Edge node registration on blockchain (v0.6.6)
+- ✅ No `EdgeNode` model exists. Only GPUs are registered on-chain, not edge nodes themselves
+- ✅ v0.6.6 changelog calls for "Edge node registration with blockchain"
+- ✅ Fix: Add `EdgeNode` model and blockchain registration endpoint, or document that GPU registration suffices
+
+#### Fix 11: Edge health monitoring incomplete (v0.6.6)
+- ✅ Edge reports health to coordinator-api, but marketplace has no edge health endpoint or integration
+- ✅ `health_score` field in marketplace exists but is never populated from edge health data
+- ✅ Fix: Add marketplace endpoint to query edge health, integrate coordinator heartbeat data
+
+#### Fix 12: Service payment flow not wired (v0.6.6)
+- ✅ Payment verification code exists in edge service but is feature-flagged off (`require_payment_verification=False`)
+- ✅ No end-to-end wiring with marketplace escrow
+- ✅ Fix: Wire payment verification flow end-to-end (marketplace → escrow → edge service)
+
+### Mining & Pool Hub (v0.6.7)
+
+#### Fix 13: Pool join/leave endpoints (v0.6.7)
+- ✅ Pool-hub has pool management (create, list, stats) but no explicit join/leave endpoints
+- ✅ Fix: Add `POST /pools/{pool_id}/join` and `POST /pools/{pool_id}/leave` endpoints
+
+#### Fix 14: Mining RPC stubs wired to coordinator (v0.6.7)
+- ✅ `GET /rpc/mining/status` and `GET /rpc/mining/miners` return empty stubs — not connected to pool-hub or coordinator-api
+- ✅ Fix: Wire mining RPC endpoints to query coordinator-api miner registry
+
+### Governance (v0.7.4)
+
+#### Fix 15: Parameter automation incomplete (v0.7.4)
+- ✅ Governance service executes proposals but does NOT call pool-hub/marketplace parameter APIs to actually apply changes
+- ✅ `ParameterChangeSchema` comment says "Parameter automation deferred to v0.8.x" — but v0.8.x didn't implement it either
+- ✅ Pool-hub parameter API exists: `POST /v1/poolhub/parameters/apply`
+- ✅ Marketplace parameter API exists: `POST /v1/marketplace/parameters/apply`
+- ✅ Fix: Add HTTP client calls in `GovernanceService.execute_proposal()` to call target service parameter APIs after successful proposal execution
+
+#### Fix 16: Duplicate bridge implementation in coordinator-api (v0.7.4)
+- ✅ `CrossChainBridgeService` was supposed to be removed but still exists alongside `BridgeClientAdapter`
+- ✅ Two parallel bridge implementations create code duplication and potential inconsistency
+- ✅ Fix: Remove `CrossChainBridgeService` (`bridge_enhanced.py`, `bridge.py`) and fully migrate to `BridgeClientAdapter`
+
+### Trading Service (v0.8.0–v0.8.2)
+
+#### Fix 17: Deploy trading service (v0.8.0–v0.8.2)
+- ✅ All `aitbc trade *` CLI commands fail with "Connection refused" — trading service not running
+- ✅ Root cause: `aitbc-trading.service` exists but is not linked in systemd (not in `link-systemd.sh` allowed services list)
+- ✅ Fix: Add `aitbc-trading` to the hub service list in `link-systemd.sh`, link the service, enable and start it
+- ✅ Trading service listens on port 8104, has 50+ endpoints for inter-chain trading, offer sync, and settlement
+- ✅ Uses SQLite at `/var/lib/aitbc/data/trading_service.db` (separate from blockchain DB)
+
+#### Fix 18: Trading service gossip integration missing (v0.8.2)
+- ✅ WebSocket subscription endpoint uses in-memory `asyncio.Queue` as mock — no `GossipBroker.subscribe()` call
+- ✅ Blockchain-node publishes offer events to gossip topic `offers.{chain_id}`, but trading service never subscribes
+- ✅ The publisher/subscriber pipeline is broken: blockchain-node publishes → nobody listens
+- ✅ Fix: Import `GossipBroker` in trading service, replace in-memory queue with `gossip_broker.subscribe(f"offers.{chain_id}")`, configure gossip backend connection
+
+#### Fix 19: Lease tracker is a stub (v0.8.2)
+- ✅ `POST /v1/trading/offers/subscribe` returns a fake expiry — no Redis lease tracker integration
+- ✅ Fix: Integrate with Redis lease tracker (key prefix: `lease:offer_subscriber:{node_id}`), implement actual lease validation in WebSocket endpoint, add heartbeat renewal logic
+
+#### Fix 20: Polling fallback not implemented (v0.8.2)
+- ✅ Config flag `offer_subscription_fallback_to_polling=True` exists but no actual fallback logic when gossip fails
+- ✅ Fix: Implement automatic fallback to v0.8.1 `OfferSyncService` polling when gossip subscription fails, add health check and recovery logic
+
+## 📋 Task Breakdown
+
+### B1: CLI endpoint path fixes (v0.6.2) — Low risk
+**Files**:
+- `cli/aitbc_cli/commands/sync.py` — lines 117, 120: add `/rpc/` prefix
+- `cli/aitbc_cli/commands/chain.py` — lines 584, 612, 667, 693, 719: add `/rpc/` prefix
+- `cli/aitbc_cli/commands/node/island.py` — lines 167, 204, 240: add `/rpc/` prefix
+
+**Verification**: `aitbc sync status --node-url http://localhost:8202` returns sync info, `aitbc node island list` queries real islands
+
+### B2: Island ID config fix (v0.6.3) — Low risk
+**Files**:
+- `apps/blockchain-node/src/aitbc_chain/config.py` — add `@model_validator(mode='after')` to default `supported_chains` to `chain_id` when empty
+- `/etc/aitbc/blockchain.env` — add `SUPPORTED_CHAINS=ait-hub.aitbc.bubuit.net`
+- `apps/blockchain-node/src/aitbc_chain/app.py` — line 126: add fallback `or settings.chain_id` to island_id construction
+
+**Verification**: `GET /rpc/islands` returns `island_id: "ait-hub.aitbc.bubuit.net-island"` (not `"-island"`)
+
+### B3: Node CLI context key fix (v0.6.3) — Low risk
+**Files**:
+- `cli/aitbc_cli/commands/node/island.py` — replace `output_format` with `output` (~9 occurrences)
+- `cli/aitbc_cli/commands/node/__init__.py` — replace `output_format` with `output` (~6 occurrences), fix duplicate "list" command
+- `cli/aitbc_cli/commands/node/bridge.py` — replace `output_format` with `output` (~4 occurrences)
+- `cli/aitbc_cli/commands/node/monitor.py` — replace `output_format` with `output` (~2 occurrences)
+- `cli/aitbc_cli/commands/node/main.py` — replace `output_format` with `output` (~7 occurrences)
+
+**Verification**: `aitbc node island list` runs without crash, `aitbc node list` runs without crash
+
+### B4: HTTP RPC compression (v0.6.0) — Low risk
+**Files**:
+- `apps/blockchain-node/src/aitbc_chain/app.py` — add `GZipMiddleware(minimum_size=1000)` to FastAPI app
+- `apps/blockchain-node/src/aitbc_chain/sync.py` — add `Accept-Encoding: gzip, deflate` headers to `fetch_blocks_range()` and remote head fetch HTTP calls
+
+**Verification**: `curl -H "Accept-Encoding: gzip" -s http://localhost:8202/rpc/blocks-range?start=1&end=10 --output - | file -` shows compressed content
+
+### B5: P2P→sync peer registration wiring (v0.6.2) — Medium risk
+**Files**:
+- `apps/blockchain-node/src/aitbc_chain/main.py` — after ChainSync creation, call `p2p_network.set_peer_capability_callback(sync.register_sync_peer)` to populate PeerCapabilityTracker from P2P handshakes
+
+**Verification**: With P2P peers connected, `sync._peer_tracker.get_all_peers()` returns >0 peers
+
+### B6: Enable sync/gossip feature flags (v0.6.2) — Low risk
+**Files**:
+- `apps/blockchain-node/src/aitbc_chain/config.py` — change defaults: `sync_delta_enabled=True`, `sync_parallel_enabled=True`, `gossip_priority_enabled=True`
+- `/etc/aitbc/blockchain.env` — add explicit flag settings for documentation
+
+**Verification**: `GET /rpc/state/delta?from_height=X&to_height=Y` returns delta, sync uses parallel mode when peers available, gossip messages are prioritized
+
+### B7: MultiChainManager initialization in RPC service (v0.6.4) — Medium risk
+**Files**:
+- `apps/blockchain-node/src/aitbc_chain/app.py` — add MultiChainManager init in lifespan (after island manager init, ~line 130)
+
+**Verification**: `GET /rpc/chains` returns chain list (not 503)
+
+### B8: Edge node marketplace endpoint (v0.6.6) — Medium risk
+**Files**:
+- `apps/marketplace/src/marketplace_service/main.py` — add `POST /v1/marketplace/edge-advertise` endpoint that accepts GPU capabilities from edge nodes and stores them
+
+**Verification**: Edge service can advertise GPU capabilities to marketplace without 404
+
+### B9: Escrow verification parameter fix (v0.6.6) — Low risk
+**Files**:
+- `aitbc/marketplace/blockchain_rpc.py` — fix `verify_escrow()` to use `job_id` instead of `escrow_id`
+- `apps/edge/src/aitbc_edge/routers/serve.py` — update escrow verification to pass `job_id`
+- `apps/edge/src/aitbc_edge/schemas/serve.py` — add `job_id` field to compute request schema
+
+**Verification**: Edge service escrow verification works against blockchain RPC
+
+### B10: Edge node registration on blockchain (v0.6.6) — Medium risk
+**Files**:
+- `apps/blockchain-node/src/aitbc_chain/state/gpu_resources.py` — add `EdgeNodeRegistration` SQLModel (node_id, endpoint, region, gpu_count, total_vram, capabilities, registered_at, status)
+- `apps/blockchain-node/src/aitbc_chain/rpc/gpu_resources.py` — add `POST /rpc/edge/register` and `GET /rpc/edge/info/{node_id}` endpoints
+- `apps/edge/src/aitbc_edge/main.py` — call edge registration on startup
+
+**Verification**: `POST /rpc/edge/register` registers edge node on-chain, `GET /rpc/edge/info/{node_id}` returns details
+
+### B11: Edge health monitoring integration (v0.6.6) — Medium risk
+**Files**:
+- `apps/marketplace/src/marketplace_service/main.py` — add `GET /v1/marketplace/edge/{node_id}/health` endpoint
+- `apps/marketplace/src/marketplace_service/domain/marketplace.py` — populate `health_score` and `last_health_check` from coordinator-api heartbeat data
+
+**Verification**: `GET /v1/marketplace/edge/{node_id}/health` returns edge health status
+
+### B12: Service payment flow wiring (v0.6.6) — Medium risk
+**Files**:
+- `apps/edge/src/aitbc_edge/config.py` — enable `require_payment_verification=True` for production
+- `apps/edge/src/aitbc_edge/routers/serve.py` — ensure escrow `job_id` is passed from marketplace matching flow
+- `apps/marketplace/src/marketplace_service/services/matching_service.py` — pass `job_id` to edge service when assigning tasks
+
+**Verification**: Compute request without valid escrow returns 402, with valid escrow proceeds
+
+### B13: Pool join/leave endpoints (v0.6.7) — Medium risk
+**Files**:
+- `apps/pool-hub/src/app/routers/pools.py` — add `POST /{pool_id}/join` (with miner_id, capabilities) and `POST /{pool_id}/leave` (with miner_id)
+
+**Verification**: Miners can join and leave pools via API, pool member count updates
+
+### B14: Mining RPC endpoints wired to coordinator (v0.6.7) — Medium risk
+**Files**:
+- `apps/blockchain-node/src/aitbc_chain/rpc/router.py` — replace stub mining endpoints with HTTP calls to coordinator-api (`GET /v1/miners` for miners list, aggregate status from coordinator)
+
+**Verification**: `GET /rpc/mining/miners` returns registered miners from coordinator-api, `GET /rpc/mining/status` shows real mining status
+
+### B15: Parameter automation in governance (v0.7.4) — Medium risk
+**Files**:
+- `apps/governance/src/governance_service/services/governance_service.py` — in `execute_proposal()`, after on-chain tx submission, call target service parameter API based on proposal category:
+  - `poolhub` → `POST /v1/poolhub/parameters/apply`
+  - `marketplace` → `POST /v1/marketplace/parameters/apply`
+  - `blockchain` → apply directly to config
+- `aitbc/governance/types.py` — remove "deferred to v0.8.x" comment from `ParameterChangeSchema`
+
+**Verification**: Create a governance proposal for a parameter change, execute it, verify the parameter is actually applied to the target service (pool-hub or marketplace)
+
+### B16: Remove duplicate bridge implementation (v0.7.4) — Medium risk
+**Files**:
+- `apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/bridge_enhanced.py` — remove or deprecate
+- `apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/bridge.py` — remove or deprecate
+- All routers/services that import `CrossChainBridgeService` — migrate to `BridgeClientAdapter`
+- Verify no remaining references to the old bridge implementation
+
+**Verification**: `grep -r "CrossChainBridgeService" apps/coordinator-api/` returns no active imports, bridge functionality works via `BridgeClientAdapter`
+
+### B17: Deploy trading service (v0.8.0–v0.8.2) — Low risk
+**Files**:
+- `scripts/utils/link-systemd.sh` — add `aitbc-trading` to hub service list
+- Run: `link-systemd.sh`, `systemctl daemon-reload`, `systemctl enable --now aitbc-trading`
+
+**Verification**: `curl http://localhost:8104/health` returns OK, `aitbc trade chains` returns chain list, `aitbc trade list` returns trades
+
+### B18: Trading service gossip integration (v0.8.2) — Medium risk
+**Files**:
+- `apps/trading/src/trading_service/services/offer_subscription_service.py` — replace in-memory `asyncio.Queue` mock with actual `GossipBroker.subscribe(f"offers.{chain_id}")` call
+- `apps/trading/src/trading_service/config.py` — add gossip backend config fields (gossip_backend, gossip_broadcast_url)
+- `apps/trading/src/trading_service/main.py` — initialize gossip broker connection on startup
+
+**Verification**: Create a marketplace listing on blockchain-node → trading service receives offer event via gossip → WebSocket subscribers get notified
+
+### B19: Lease tracker integration (v0.8.2) — Medium risk
+**Files**:
+- `apps/trading/src/trading_service/services/offer_subscription_service.py` — integrate with Redis lease tracker for subscription auth
+- `apps/trading/src/trading_service/main.py` — `POST /v1/trading/offers/subscribe` returns real lease expiry from Redis, WebSocket endpoint validates lease
+
+**Verification**: Subscribe to offers → get real lease expiry → heartbeat renews lease → lease expires without heartbeat
+
+### B20: Polling fallback for offer subscription (v0.8.2) — Medium risk
+**Files**:
+- `apps/trading/src/trading_service/services/offer_subscription_service.py` — implement automatic fallback to `OfferSyncService` polling when gossip subscription fails or disconnects
+- Add health check logic: if gossip subscription silent for `subscription_silent_threshold_multiplier` × heartbeat interval, switch to polling
+- Add recovery logic: periodically attempt to re-establish gossip subscription
+
+**Verification**: Disconnect gossip backend → trading service falls back to polling → reconnect gossip → service switches back to subscription mode
+
+## ⏭️ Deferred to v1.0.0 (Architectural Changes)
+
+These gaps require fundamental architecture changes and are deferred to v1.0.0:
+
+| # | Source | Gap | Reason |
+|---|--------|-----|--------|
+| D1 | v0.6.1 | Parallel block validation, pipeline processing, parallel gas calculation | Requires block-level architecture redesign. Only parallel tx validation is implemented. |
+| D2 | v0.6.2 | Gossip protocol v2 message handling, block propagation pipelining, propagation monitoring, compact blocks | Network protocol redesign. Only version field in handshake exists. |
+| D3 | v0.6.7 | Epoch-based rewards wired to block production | `RewardDistributor` exists but not called in PoA block production loop. Touches consensus. |
+| D4 | v0.6.3 | Gossip topic migration window (v1→v2 with 30-day timeline) | Low priority, no urgency — dual-subscribe infrastructure already exists. |
+
+## 📝 Documentation & Operational Items
+
+| # | Source | Item | Status |
+|---|--------|------|--------|
+| O1 | v0.7.4 | `docs/architecture/oracle-roadmap.md` missing | Create in v0.10.1 |
+| O2 | v0.7.5 | 48h testnet soak test pending | Schedule after v0.10.1 |
+| O3 | v0.7.5 | External security audit not performed | Acknowledged — homebrew project, no audit budget |
+
+## 🔧 Breaking Changes
+
+- **Feature flag defaults change**: `sync_delta_enabled`, `sync_parallel_enabled`, `gossip_priority_enabled` change from `False` → `True`. Set explicitly in env to re-disable.
+- **Edge service payment verification**: `require_payment_verification` changes from `False` → `True`. Edge service will require valid escrow for compute requests.
+- **Duplicate bridge removal**: `CrossChainBridgeService` removed from coordinator-api. Any code importing it must migrate to `BridgeClientAdapter`.
+- None of these affect existing working features — they activate or fix non-functional code.
+
+## 📁 Files Changed (estimated)
+
+### `cli/aitbc_cli/commands/`
+- `sync.py` — 2 endpoint path fixes
+- `chain.py` — 5 endpoint path fixes
+- `node/island.py` — 3 endpoint path fixes + 9 context key fixes
+- `node/__init__.py` — 6 context key fixes + duplicate command fix
+- `node/bridge.py` — 4 context key fixes
+- `node/monitor.py` — 2 context key fixes
+- `node/main.py` — 7 context key fixes
+
+### `apps/blockchain-node/src/aitbc_chain/`
+- `config.py` — model validator for `supported_chains` default, enable feature flags
+- `app.py` — island ID fallback + MultiChainManager init + GZipMiddleware
+- `main.py` — P2P→sync peer registration wiring
+- `sync.py` — Accept-Encoding headers for HTTP client
+- `rpc/router.py` — mining endpoints wired to coordinator-api
+- `rpc/gpu_resources.py` — edge node registration endpoints
+- `state/gpu_resources.py` — EdgeNodeRegistration model
+
+### `apps/marketplace/src/marketplace_service/`
+- `main.py` — edge-advertise endpoint + edge health endpoint
+- `domain/marketplace.py` — populate health_score from coordinator data
+- `services/matching_service.py` — pass job_id to edge service
+
+### `apps/edge/src/aitbc_edge/`
+- `config.py` — enable payment verification
+- `routers/serve.py` — use job_id for escrow verification
+- `schemas/serve.py` — add job_id field
+- `main.py` — call edge registration on startup
+
+### `apps/pool-hub/src/app/routers/`
+- `pools.py` — join/leave endpoints
+
+### `apps/governance/src/governance_service/`
+- `services/governance_service.py` — parameter automation in execute_proposal()
+
+### `apps/coordinator-api/src/app/contexts/cross_chain/`
+- Remove `bridge_enhanced.py`, `bridge.py` (duplicate bridge)
+- Migrate routers to `BridgeClientAdapter`
+
+### `apps/trading/src/trading_service/`
+- `services/offer_subscription_service.py` — gossip integration + lease tracker + polling fallback
+- `config.py` — gossip backend config
+- `main.py` — gossip broker init, real lease expiry
+
+### `aitbc/marketplace/`
+- `blockchain_rpc.py` — escrow verification parameter fix
+
+### `aitbc/governance/`
+- `types.py` — remove "deferred" comment
+
+### `scripts/utils/`
+- `link-systemd.sh` — add aitbc-trading to service list
+
+### `/etc/aitbc/`
+- `blockchain.env` — add SUPPORTED_CHAINS, feature flag settings
+
+### `docs/architecture/`
+- `oracle-roadmap.md` — create missing documentation
+
+## 📋 Commit Log
+
+| Commit | Type | Scope | Description |
+|--------|------|-------|-------------|
+| TBD | fix | cli | Fix CLI endpoint paths to use /rpc/ prefix (B1, v0.6.2) |
+| TBD | fix | config | Fix island ID "-island" bug with config validator (B2, v0.6.3) |
+| TBD | fix | cli | Fix node CLI context key mismatch and duplicate command (B3, v0.6.3) |
+| TBD | feat | compression | Add GZipMiddleware + Accept-Encoding headers (B4, v0.6.0) |
+| TBD | fix | sync | Wire P2P peer registration to sync PeerCapabilityTracker (B5, v0.6.2) |
+| TBD | feat | config | Enable delta sync, parallel sync, gossip priority flags (B6, v0.6.2) |
+| TBD | fix | multi-chain | Initialize MultiChainManager in RPC service (B7, v0.6.4) |
+| TBD | fix | marketplace | Add edge-advertise endpoint (B8, v0.6.6) |
+| TBD | fix | escrow | Fix escrow verification parameter mismatch (B9, v0.6.6) |
+| TBD | feat | blockchain | Add edge node registration on blockchain (B10, v0.6.6) |
+| TBD | feat | marketplace | Add edge health monitoring integration (B11, v0.6.6) |
+| TBD | fix | edge | Wire service payment flow end-to-end (B12, v0.6.6) |
+| TBD | feat | pool-hub | Add pool join/leave endpoints (B13, v0.6.7) |
+| TBD | fix | mining | Wire mining RPC endpoints to coordinator-api (B14, v0.6.7) |
+| TBD | fix | governance | Complete parameter automation in proposal execution (B15, v0.7.4) |
+| TBD | refactor | coordinator | Remove duplicate bridge implementation (B16, v0.7.4) |
+| TBD | feat | trading | Deploy trading service (B17, v0.8.0–v0.8.2) |
+| TBD | fix | trading | Integrate gossip broker for offer subscription (B18, v0.8.2) |
+| TBD | fix | trading | Integrate Redis lease tracker for subscription auth (B19, v0.8.2) |
+| TBD | fix | trading | Implement polling fallback for offer subscription (B20, v0.8.2) |
