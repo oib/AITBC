@@ -359,7 +359,6 @@ class TestCLICommands:
         assert result.exit_code == 0
         assert "sync-status" in result.output or "synchronization" in result.output.lower()
 
-    @pytest.mark.skip(reason="CLI bridge module has pre-existing import error unrelated to v0.6.3")
     def test_island_health_help(self):
         """node island health command is registered and shows help."""
         from click.testing import CliRunner
@@ -371,7 +370,6 @@ class TestCLICommands:
         assert result.exit_code == 0
         assert "health" in result.output.lower()
 
-    @pytest.mark.skip(reason="CLI bridge module has pre-existing import error unrelated to v0.6.3")
     def test_island_list_alias(self):
         """node island list (alias) is registered."""
 
@@ -381,7 +379,6 @@ class TestCLICommands:
         assert "list" in island_group.commands
         assert "list-islands" in island_group.commands
 
-    @pytest.mark.skip(reason="CLI bridge module has pre-existing import error unrelated to v0.6.3")
     def test_island_list_islands_not_stub(self):
         """list-islands command accepts --node-url (not the old stub)."""
         from click.testing import CliRunner
