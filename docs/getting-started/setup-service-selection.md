@@ -1,7 +1,7 @@
 # AITBC Setup - Service Selection
 
-**Last Updated**: 2026-06-30
-**Version**: 1.0
+**Last Updated**: 2026-07-01
+**Version**: 1.1
 
 ## Role-Based Service Selection
 
@@ -16,10 +16,10 @@ Both axes are evaluated independently and their service lists are merged. This m
 
 | BLOCKCHAIN_MODE | MARKET_ROLE | Services | Count |
 |----------------|-------------|----------|-------|
-| hub | customer | base + hub | 20 |
-| hub | shop | base + hub + shop | 22 |
-| follower | customer | base + follower | 9 |
-| follower | shop | base + follower + shop | 12 |
+| hub | customer | base + hub | 18 |
+| hub | shop | base + hub + shop | 23 |
+| follower | customer | base + follower | 10 |
+| follower | shop | base + follower + shop | 15 |
 
 ### Base Services (All Nodes)
 
@@ -33,6 +33,8 @@ Every node gets these services enabled and started:
 | `aitbc-recovery` | — | Boot recovery (relinks systemd + loads secrets) |
 | `aitbc-monitoring` | — | System monitoring |
 | `aitbc-backup` | — | Daily backup service |
+| `aitbc-trading` | 8109 | Trading service (inter-chain offer sync, gossip integration) |
+| `aitbc-governance` | 8105 | Governance service (proposals, voting — all nodes participate) |
 
 ### Hub Services (BLOCKCHAIN_MODE=hub)
 
@@ -43,7 +45,6 @@ In addition to base services, hub nodes get:
 | `aitbc-blockchain-p2p` | 8200 | P2P network service |
 | `aitbc-coordinator-api` | 8203 | Coordinator API (agent management, jobs) |
 | `aitbc-api-gateway` | 8201 | Public API gateway (reverse proxy) |
-| `aitbc-governance` | 8105 | Governance service |
 | `aitbc-exchange` | 8106 | Exchange API |
 | `aitbc-marketplace` | — | Marketplace service |
 | `aitbc-bridge-monitor` | — | ETH↔AIT bridge monitor |
@@ -71,6 +72,8 @@ In addition to the blockchain mode services, shop nodes get:
 | `aitbc-gpu` | 8101 | GPU service API (advertises hardware to coordinator) |
 | `aitbc-miner` | — | GPU compute provider client (registers with coordinator, sends heartbeats) |
 | `aitbc-coordinator-api` | 8203 | Coordinator API (for local job coordination) |
+| `aitbc-edge` | 8111 | Edge compute API (GPU job dispatch, health reporting) |
+| `aitbc-pool-hub` | 8210 | Mining pool hub (pool join/leave, miner registration) |
 
 > **Note:** Shop services are added regardless of `BLOCKCHAIN_MODE`. A `hub+shop` node gets hub services PLUS shop services. A `follower+shop` node gets follower services PLUS shop services.
 
@@ -90,8 +93,6 @@ The following services are never auto-enabled by `setup.sh`. They remain availab
 | `aitbc-multimodal` | Multi-modal agent feature |
 | `aitbc-whisper` | Audio transcription needed |
 | `aitbc-ffmpeg` | Video processing needed |
-| `aitbc-trading` | Trading bot feature |
-| `aitbc-edge` | Edge API needed |
 | `aitbc-plugin` | Plugin system needed |
 
 ```bash
