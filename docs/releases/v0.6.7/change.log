@@ -1,7 +1,7 @@
 # AITBC v0.6.7 Release Notes
 
 **Date**: TBD
-**Status**: 🚧 Planned
+**Status**: ✅ Complete (A1-A3 ✅, B1-B7 ✅ — all implementation done; all tests passing)
 **Scope**: Pool Hub & Mining — Miner Registry, Job Assignment, Scoring Engine, Reward Distribution
 
 ## 🎯 Overview
