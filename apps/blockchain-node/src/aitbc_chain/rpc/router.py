@@ -1270,7 +1270,7 @@ async def create_escrow_route(request: Request, escrow_data: dict[str, Any]) -> 
     try:
         from ..cross_chain.settlement import CrossChainSettlementService
 
-        service = CrossChainSettlementService()
+        service = CrossChainSettlementService(chain_id=settings.chain_id)
         result = await service.create_escrow(
             trade_id=escrow_data["trade_id"],
             source_chain=escrow_data["source_chain"],
@@ -1299,7 +1299,7 @@ async def lock_escrow_route(escrow_id: str) -> dict[str, Any]:
     try:
         from ..cross_chain.settlement import CrossChainSettlementService
 
-        service = CrossChainSettlementService()
+        service = CrossChainSettlementService(chain_id=settings.chain_id)
         return await service.lock_escrow(escrow_id)
     except HTTPException:
         raise
@@ -1317,7 +1317,7 @@ async def verify_lock_route(escrow_id: str) -> dict[str, Any]:
     try:
         from ..cross_chain.settlement import CrossChainSettlementService
 
-        service = CrossChainSettlementService()
+        service = CrossChainSettlementService(chain_id=settings.chain_id)
         return await service.verify_lock(escrow_id)
     except HTTPException:
         raise
@@ -1335,7 +1335,7 @@ async def execute_trade_route(escrow_id: str) -> dict[str, Any]:
     try:
         from ..cross_chain.settlement import CrossChainSettlementService
 
-        service = CrossChainSettlementService()
+        service = CrossChainSettlementService(chain_id=settings.chain_id)
         return await service.execute_trade(escrow_id)
     except HTTPException:
         raise
@@ -1359,7 +1359,7 @@ async def settle_escrow_route(escrow_id: str, body: dict[str, Any]) -> dict[str,
         secret = body.get("secret", "")
         if not secret:
             raise HTTPException(status_code=400, detail="Missing required field: secret")
-        service = CrossChainSettlementService()
+        service = CrossChainSettlementService(chain_id=settings.chain_id)
         return await service.settle(escrow_id, secret)
     except HTTPException:
         raise
@@ -1377,7 +1377,7 @@ async def refund_escrow_route(escrow_id: str) -> dict[str, Any]:
     try:
         from ..cross_chain.settlement import CrossChainSettlementService
 
-        service = CrossChainSettlementService()
+        service = CrossChainSettlementService(chain_id=settings.chain_id)
         return await service.refund(escrow_id)
     except HTTPException:
         raise
@@ -1395,7 +1395,7 @@ async def get_escrow_route(escrow_id: str) -> dict[str, Any]:
     try:
         from ..cross_chain.settlement import CrossChainSettlementService
 
-        service = CrossChainSettlementService()
+        service = CrossChainSettlementService(chain_id=settings.chain_id)
         result = await service.get_escrow(escrow_id)
         if not result:
             raise HTTPException(status_code=404, detail="Escrow not found")
@@ -1416,7 +1416,7 @@ async def get_escrow_status_route(escrow_id: str) -> dict[str, Any]:
     try:
         from ..cross_chain.settlement import CrossChainSettlementService
 
-        service = CrossChainSettlementService()
+        service = CrossChainSettlementService(chain_id=settings.chain_id)
         status = await service.get_escrow_status(escrow_id)
         return {"escrow_id": escrow_id, "status": status}
     except HTTPException:
@@ -1435,7 +1435,7 @@ async def get_proof_chain_route(escrow_id: str) -> dict[str, Any]:
     try:
         from ..cross_chain.settlement import CrossChainSettlementService
 
-        service = CrossChainSettlementService()
+        service = CrossChainSettlementService(chain_id=settings.chain_id)
         proofs = await service.get_proof_chain(escrow_id)
         return {"escrow_id": escrow_id, "proofs": proofs}
     except HTTPException:
@@ -1460,7 +1460,7 @@ async def extend_timeout_route(escrow_id: str, body: dict[str, Any]) -> dict[str
         extension_seconds = body.get("extension_seconds", 0)
         if not extension_seconds or extension_seconds <= 0:
             raise HTTPException(status_code=400, detail="Missing or invalid extension_seconds")
-        service = CrossChainSettlementService()
+        service = CrossChainSettlementService(chain_id=settings.chain_id)
         return await service.extend_timeout(escrow_id, int(extension_seconds))
     except HTTPException:
         raise

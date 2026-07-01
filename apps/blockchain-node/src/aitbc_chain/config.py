@@ -412,8 +412,11 @@ class ChainSettings(BaseSettings):
     # MultiValidatorPoA + PBFT. When False, single-validator PoA remains
     # active. The RuntimeError guards in multi_validator_poa.py and pbft.py
     # read this setting instead of the old MULTI_VALIDATOR_CONSENSUS_ENABLED
-    # env var. Keep False until all v0.7.5 fixes are verified (B14 passes).
-    multi_validator_consensus_enabled: bool = False  # master toggle
+    # env var. Enabled for homebrew testing — no external security audit will
+    # be performed (poor homebrew project). Single-validator PoA still
+    # produces blocks; this flag only unlocks MultiValidatorPoA/PBFT for
+    # testing via RPC endpoints.
+    multi_validator_consensus_enabled: bool = True  # enabled for homebrew testing
     consensus_view_change_timeout_seconds: int = 30  # H6 — timeout before view change
     consensus_round_timeout_seconds: int = 10  # per-round timeout
     consensus_validator_set_epoch_blocks: int = 7200  # C3 — epoch length for rotation
@@ -422,9 +425,11 @@ class ChainSettings(BaseSettings):
     consensus_byzantine_threshold: int = 3  # slash count before deactivation
 
     # Cross-chain settlement (v0.9.0). Atomic settlement uses HTLCs to
-    # ensure either both chains settle or both refund. Gated behind
-    # escrow_enabled until security audit + testnet soak test pass.
-    escrow_enabled: bool = False  # master toggle for atomic settlement
+    # ensure either both chains settle or both refund. Enabled for homebrew
+    # testing — no external security audit will be performed (poor homebrew
+    # project). Settlement RPC endpoints and CrossChainSettlementService
+    # are now active.
+    escrow_enabled: bool = True  # enabled for homebrew testing
     escrow_atomic_settlement: bool = True  # use HTLC (vs manual admin refund)
     escrow_timeout_default: int = 3600  # 1 hour default timeout
     escrow_timeout_large: int = 86400  # 24 hours for large trades
