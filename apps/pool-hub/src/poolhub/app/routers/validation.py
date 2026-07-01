@@ -7,8 +7,8 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends
 
 from ..deps import get_miner_from_token  # type: ignore
-from ..models import Miner  # type: ignore
-from ..services.validation import HardwareValidator  # type: ignore
+from ...models import Miner  # type: ignore
+from ...services.validation import HardwareValidator  # type: ignore
 
 router = APIRouter(tags=["validation"])
 validator = HardwareValidator()
