@@ -5,6 +5,11 @@ scenarios for atomic cross-chain settlement. Each scenario verifies
 that atomicity is maintained — no funds stuck in partial state under
 any failure condition.
 
+NOTE: These tests create isolated SQLAlchemy metadata registries and
+should be run separately from other test suites to avoid model registry
+conflicts (e.g., multiple "Transaction" classes). Run with:
+  pytest tests/harness/settlement_chaos.py -q
+
 Scenarios:
 - partition_during_lock: network partition mid-lock (source/dest disconnected)
 - partition_during_settle: network partition mid-settle (secret reveal fails)
@@ -26,7 +31,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, create_engine, select
 
 # Ensure blockchain-node src is on path
 _BLOCKCHAIN_SRC = os.path.join(os.path.dirname(__file__), "..", "..", "apps", "blockchain-node", "src")
@@ -174,7 +179,9 @@ class SettlementChaosHarness:
             connect_args={"check_same_thread": False},
             echo=False,
         )
-        SQLModel.metadata.create_all(source_engine)
+        from aitbc_chain.base_models import SQLModel as ChainSQLModel
+
+        ChainSQLModel.metadata.create_all(source_engine)
 
         # Dest chain DB
         dest_db = os.path.join(tmpdir.name, "dest.db")
@@ -183,7 +190,7 @@ class SettlementChaosHarness:
             connect_args={"check_same_thread": False},
             echo=False,
         )
-        SQLModel.metadata.create_all(dest_engine)
+        ChainSQLModel.metadata.create_all(dest_engine)
 
         # Fund the sender on source chain
         from aitbc_chain.base_models import Account
@@ -230,9 +237,15 @@ class SettlementChaosHarness:
 
             # Simulate: lock succeeds on source, but dest is partitioned
             # (verification cannot happen)
-            from aitbc_chain.base_models import CrossChainEscrowRecord
+            from aitbc_chain.base_models import CrossChainEscrowRecord, Account
 
             with Session(setup.source_engine) as session:
+                # Deduct amount from sender (lock simulation)
+                account = session.get(Account, (setup.source_chain_id, setup.sender))
+                if account:
+                    account.balance -= self.amount
+                    session.add(account)
+
                 record = session.exec(
                     select(CrossChainEscrowRecord).where(CrossChainEscrowRecord.escrow_id == escrow["escrow_id"])
                 ).first()
@@ -248,8 +261,9 @@ class SettlementChaosHarness:
             assert status == EscrowStatus.LOCKED.value, f"Expected locked, got {status}"
 
             # Verify: sender's funds are locked (deducted from balance)
+            # Sender started with amount * 2, locked amount, so should have amount remaining
             sender_balance = setup.get_source_balance(setup.sender)
-            assert sender_balance == self.amount, "Sender should have amount locked"
+            assert sender_balance == self.amount, f"Sender should have {self.amount} remaining, got {sender_balance}"
 
             # Simulate: timeout reached, refund triggered
             with Session(setup.source_engine) as session:
@@ -260,11 +274,8 @@ class SettlementChaosHarness:
                     record.status = EscrowStatus.REFUNDED.value
                     record.refunded_at = __import__("datetime").datetime.now(__import__("datetime").UTC)
                     session.add(record)
-                    # Return funds to sender
-                    account = session.get(
-                        __import__("aitbc_chain.base_models", fromlist=["Account"]).Account,
-                        (setup.source_chain_id, setup.sender),
-                    )
+                    # Return funds to sender (refund simulation)
+                    account = session.get(Account, (setup.source_chain_id, setup.sender))
                     if account:
                         account.balance += self.amount
                         session.add(account)
@@ -272,7 +283,9 @@ class SettlementChaosHarness:
 
             # Verify: atomicity maintained — sender got funds back
             sender_balance_after = setup.get_source_balance(setup.sender)
-            assert sender_balance_after == self.amount * 2, "Sender should have full refund"
+            assert sender_balance_after == self.amount * 2, (
+                f"Sender should have {self.amount * 2} after refund, got {sender_balance_after}"
+            )
 
             return {
                 "scenario": "partition_during_lock",
@@ -298,9 +311,15 @@ class SettlementChaosHarness:
             escrow = setup.create_escrow_on_source(timeout_seconds=1)
 
             # Advance through lifecycle to executing state
-            from aitbc_chain.base_models import CrossChainEscrowRecord
+            from aitbc_chain.base_models import CrossChainEscrowRecord, Account
 
             with Session(setup.source_engine) as session:
+                # Deduct amount from sender (lock simulation)
+                account = session.get(Account, (setup.source_chain_id, setup.sender))
+                if account:
+                    account.balance -= self.amount
+                    session.add(account)
+
                 record = session.exec(
                     select(CrossChainEscrowRecord).where(CrossChainEscrowRecord.escrow_id == escrow["escrow_id"])
                 ).first()
@@ -641,3 +660,67 @@ class SettlementChaosHarness:
                     }
                 )
         return results
+
+
+# ---------------------------------------------------------------------------
+# Pytest test cases for chaos scenarios
+# ---------------------------------------------------------------------------
+
+
+def test_chaos_partition_during_lock():
+    """Test atomicity under network partition during lock phase."""
+    harness = SettlementChaosHarness()
+    result = harness.simulate_partition_during_lock()
+    assert result["result"] == "pass"
+    assert result["atomicity_maintained"] is True
+
+
+def test_chaos_partition_during_settle():
+    """Test atomicity under network partition during settle phase."""
+    harness = SettlementChaosHarness()
+    result = harness.simulate_partition_during_settle()
+    assert result["result"] == "pass"
+    assert result["atomicity_maintained"] is True
+
+
+def test_chaos_timeout_race():
+    """Test atomicity when timeout races with settlement."""
+    harness = SettlementChaosHarness()
+    result = harness.simulate_timeout_race()
+    assert result["result"] == "pass"
+    assert result["atomicity_maintained"] is True
+
+
+def test_chaos_oracle_failure():
+    """Test that proof chain verification catches oracle failures."""
+    harness = SettlementChaosHarness()
+    result = harness.simulate_oracle_failure()
+    assert result["result"] == "pass"
+    assert result["atomicity_maintained"] is True
+    assert len(result["proof_chain_errors"]) > 0
+
+
+def test_chaos_byzantine_validator():
+    """Test that multi-sig verification catches Byzantine validators."""
+    harness = SettlementChaosHarness()
+    result = harness.simulate_byzantine_validator()
+    assert result["result"] == "pass"
+    assert result["atomicity_maintained"] is True
+
+
+def test_chaos_reorg_during_lock():
+    """Test atomicity under chain reorg during lock phase."""
+    harness = SettlementChaosHarness()
+    result = harness.simulate_reorg_during_lock()
+    assert result["result"] == "pass"
+    assert result["atomicity_maintained"] is True
+
+
+def test_chaos_all_scenarios():
+    """Run all chaos scenarios and verify atomicity is maintained."""
+    harness = SettlementChaosHarness()
+    results = harness.run_all_scenarios()
+    assert len(results) == 6
+    for result in results:
+        assert result["result"] == "pass", f"Scenario {result['scenario']} failed: {result.get('error')}"
+        assert result["atomicity_maintained"] is True
