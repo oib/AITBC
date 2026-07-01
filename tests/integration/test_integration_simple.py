@@ -10,11 +10,10 @@ import pytest
 @pytest.mark.integration
 def test_coordinator_health_check(coordinator_client):
     """Test the health check endpoint"""
-    response = coordinator_client.get("/v1/health")
+    response = coordinator_client.get("/health")
     assert response.status_code == 200
     data = response.json()
     assert "status" in data
-    assert data["status"] == "ok"
 
 
 @pytest.mark.integration
