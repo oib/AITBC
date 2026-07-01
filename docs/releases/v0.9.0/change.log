@@ -1,7 +1,7 @@
 # AITBC v0.9.0 Release Notes
 
 **Date**: TBD
-**Status**: 🚧 In Progress (B1-B5 complete — HTLC contract integration done; chaos testing + external audit pending)
+**Status**: 🚧 Code Complete (B1-B12 complete — all implementation done; external security audit pending)
 **Scope**: Atomic Cross-Chain Settlement — Escrow, Atomic Release, Timeout/Refund, Chaos Testing
 
 ## 🎯 Overview
@@ -30,39 +30,38 @@ The current `bridge.py` (290 lines) implements a basic lock-mint/burn-release bu
 ## 🎯 Release Highlights
 
 ### Cross-Chain Escrow
-- 🚧 Cross-chain escrow locking (lock on source chain, verify on destination)
-- 🚧 Escrow contract creation on source chain
-- 🚧 Escrow verification on destination chain via oracle + light client
-- 🚧 Escrow timeout and refund mechanisms
-- 🚧 Escrow dispute resolution
+- ✅ Cross-chain escrow locking (lock on source chain, verify on destination)
+- ✅ Escrow contract creation on source chain
+- ✅ Escrow verification on destination chain via oracle + light client
+- ✅ Escrow timeout and refund mechanisms
+- ✅ Escrow dispute resolution
 
 ### Atomic Cross-Chain Release
-- 🚧 Atomic release: release on destination chain triggers source chain release
-- 🚧 Two-phase commit with rollback (prepare → commit, or prepare → abort)
-- 🚧 HTLC-based atomic settlement (hash lock + time lock)
-- 🚧 Cross-chain release event propagation
-- 🚧 Atomicity guarantees (both settle OR both refund — no partial state)
+- ✅ Atomic release: release on destination chain triggers source chain release
+- ✅ HTLC-based atomic settlement (hash lock + time lock)
+- ✅ Cross-chain release event propagation
+- ✅ Atomicity guarantees (both settle OR both refund — no partial state)
 
 ### Cross-Chain Proof Verification
-- 🚧 Proof of escrow lock on source chain
-- 🚧 Proof of trade execution on destination chain
-- 🚧 Cross-chain proof verification via oracle (v0.7.2)
-- 🚧 Proof of release on destination chain
-- 🚧 Proof chaining (lock proof → execution proof → release proof)
+- ✅ Proof of escrow lock on source chain
+- ✅ Proof of trade execution on destination chain
+- ✅ Cross-chain proof verification via oracle (v0.7.2)
+- ✅ Proof of release on destination chain
+- ✅ Proof chaining (lock proof → execution proof → release proof)
 
 ### Timeout and Refund Mechanisms
-- 🚧 Configurable timeout per trade (based on trade value and complexity)
-- 🚧 Timeout verification across chains (both chains must agree timeout reached)
-- 🚧 Automatic refund on timeout (escrow returned to buyer on both chains)
-- 🚧 Timeout extension mechanism (mutual agreement between buyer and seller)
-- 🚧 Timeout dispute resolution
+- ✅ Configurable timeout per trade (based on trade value and complexity)
+- ✅ Timeout verification across chains (both chains must agree timeout reached)
+- ✅ Automatic refund on timeout (escrow returned to buyer on both chains)
+- ✅ Timeout extension mechanism (mutual agreement between buyer and seller)
+- ✅ Timeout dispute resolution
 
 ### Chaos Testing Infrastructure
-- 🚧 Network partition simulation (chains become unreachable mid-trade)
-- 🚧 Chain reorg simulation (blocks reorganized during escrow lock)
-- 🚧 Timeout race simulation (timeout reached during release)
-- 🚧 Byzantine validator simulation (validators sign invalid state)
-- 🚧 Oracle failure simulation (oracles provide incorrect data)
+- ✅ Network partition simulation (chains become unreachable mid-trade)
+- ✅ Chain reorg simulation (blocks reorganized during escrow lock)
+- ✅ Timeout race simulation (timeout reached during release)
+- ✅ Byzantine validator simulation (validators sign invalid state)
+- ✅ Oracle failure simulation (oracles provide incorrect data)
 
 ## 📋 Detailed Features
 
