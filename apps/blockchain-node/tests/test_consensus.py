@@ -513,12 +513,20 @@ class TestPoAProposer:
                 assert len(blocks) == 0
 
 
+@pytest.mark.skip(
+    reason="Incremental state root computation was removed in v0.7.1 - it produced incorrect roots by excluding unchanged accounts. Full recompute is now the only correct approach."
+)
 def test_incremental_state_root_matches_full_recompute(test_db: Session) -> None:
     """Verify that incremental state root computation matches full recompute.
 
     B5: The incremental path builds the trie from a batch-fetched account_map
     and only re-reads changed accounts, while the full recompute loads ALL
     accounts. Both must produce the same root for the same state.
+
+    NOTE: This test is skipped because the incremental approach was removed
+    in v0.7.1. The incremental trie created a fresh trie per call but only
+    populated it with changed accounts, producing wrong roots that excluded
+    all other accounts. Full recompute is now the only correct option.
     """
     from aitbc_chain.consensus.poa import _compute_state_root, _compute_state_root_incremental
 
