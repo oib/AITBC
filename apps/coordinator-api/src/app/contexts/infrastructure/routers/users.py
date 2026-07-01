@@ -151,12 +151,27 @@ async def login_user(
     }
 
 
+def _extract_token(request: Request) -> str:
+    """Extract session token from Authorization header or query parameter."""
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        return auth_header.split(" ", 1)[1].strip()
+    return request.query_params.get("token", "")
+
+
 @router.get("/users/me", response_model=UserProfile)
 @rate_limit(rate=100, per=60)
-async def get_current_user(session: Annotated[Session, Depends(get_session)], token: str, request: Request) -> dict[str, Any]:
+async def get_current_user(
+    session: Annotated[Session, Depends(get_session)],
+    request: Request,
+    token: str = "",
+) -> dict[str, Any]:
     """Get current user profile"""
+    effective_token = token or _extract_token(request)
+    if not effective_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
 
-    user_id = await verify_session_token(token)
+    user_id = await verify_session_token(effective_token)
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
@@ -169,7 +184,7 @@ async def get_current_user(session: Annotated[Session, Depends(get_session)], to
         "email": user.email,
         "username": user.username,
         "created_at": user.created_at.isoformat(),
-        "session_token": token,
+        "session_token": effective_token,
     }
 
 

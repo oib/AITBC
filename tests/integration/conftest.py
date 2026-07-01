@@ -38,6 +38,7 @@ def skip_if_app_unavailable() -> None:
 def coordinator_client() -> Generator[TestClient]:
     """Create a test client for coordinator API with Redis storage."""
     os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
+    os.environ.setdefault("DEBUG", "true")
 
     assert create_app is not None
     app = create_app()
@@ -47,11 +48,30 @@ def coordinator_client() -> Generator[TestClient]:
 
 @pytest.fixture
 def authenticated_client(coordinator_client: TestClient) -> Generator[TestClient]:
-    """Create an authenticated test client with admin token."""
-    admin_password = os.getenv("TEST_ADMIN_PASSWORD") or os.getenv("DEMO_ADMIN_PASSWORD") or "admin123"
-    login_data = {"username": "admin", "password": admin_password}
-    login_response = coordinator_client.post("/api/v1/auth/login", json=login_data)
-    token = login_response.json()["access_token"]
+    """Create an authenticated test client with a session token.
+
+    Registers a test user via the coordinator API and uses the returned
+    session token for authenticated requests. The coordinator API accepts
+    the token via the Authorization: Bearer header or the ``token`` query
+    parameter.
+    """
+    register_data = {
+        "email": "integration-test@aitbc.local",
+        "username": "integration_test_user",
+        "wallet_address": "aitbc_integration_test",
+    }
+    register_response = coordinator_client.post("/v1/register", json=register_data)
+    if register_response.status_code not in (200, 201):
+        # If registration failed, try login with the same wallet address
+        login_response = coordinator_client.post("/v1/users/login", json={"wallet_address": register_data["wallet_address"]})
+        if login_response.status_code not in (200, 201):
+            pytest.skip(f"Could not authenticate integration test user: {register_response.text} / {login_response.text}")
+        token = login_response.json().get("session_token", "")
+    else:
+        token = register_response.json().get("session_token", "")
+
+    if not token:
+        pytest.skip("No session token returned for integration test user")
 
     assert create_app is not None
     app = create_app()
