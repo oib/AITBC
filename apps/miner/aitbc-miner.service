@@ -10,6 +10,7 @@ Environment="PATH=/opt/aitbc/venv/bin:/usr/bin:/usr/local/bin"
 Environment="PYTHONPATH=/opt/aitbc"
 Environment="COORDINATOR_URL=http://localhost:8203"
 Environment="MINER_ID=aitbc-miner-1"
+Environment="LOG_DIR=/var/log/aitbc"
 # Secret: AUTH_TOKEN moved to /etc/aitbc/%N.env (created at deploy time, not committed)
 EnvironmentFile=/etc/aitbc/%N.env
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/miner/production_miner.py
@@ -17,6 +18,7 @@ Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=aitbc-miner
 # Security hardening (v0.5.0)
 PrivateTmp=yes
 NoNewPrivileges=yes
