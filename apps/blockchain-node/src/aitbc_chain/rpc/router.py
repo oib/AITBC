@@ -34,7 +34,7 @@ from .subscription import (
     register_subscription,
     revoke_subscription,
 )
-from .sync import export_chain, force_sync, import_chain
+from .sync import export_chain, force_sync, get_sync_config, import_chain
 from .transactions import (
     TransactionRequest,
     query_transactions,
@@ -730,6 +730,13 @@ async def import_chain_route(request: Request, import_data: dict) -> dict[str, A
 async def force_sync_route(request: Request, peer_data: dict) -> dict[str, Any]:
     """Force blockchain reorganization to sync with specified peer"""
     return await force_sync(request, peer_data)
+
+
+@router.get("/sync/config", summary="Get sync optimization configuration (v0.6.2)")
+@rate_limit(rate=200, per=60)
+async def get_sync_config_route(request: Request) -> dict[str, Any]:
+    """Get sync optimization configuration"""
+    return await get_sync_config(request)
 
 
 @router.post("/eth_getLogs", summary="Query smart contract event logs")
