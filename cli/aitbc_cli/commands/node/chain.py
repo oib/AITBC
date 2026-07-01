@@ -4,10 +4,7 @@ Multi-chain management commands for parallel chains.
 
 import click
 
-try:
-    from ...utils.output import error, output, success
-except ImportError:
-    from utils import error, output, success
+from aitbc_cli.utils import error, output, success
 
 
 def start_chain_command(ctx, chain_id, chain_type):
