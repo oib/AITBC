@@ -6,7 +6,7 @@ Provides database session management using SQLModel.
 from collections.abc import Generator
 
 from sqlalchemy import Engine, create_engine
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
 from aitbc.aitbc_logging import get_logger
 
@@ -27,7 +27,8 @@ def get_engine() -> Engine:
 
 
 def get_session() -> Generator[Session]:
-    """Get a database session for dependency injection."""
+    """Get a database session for dependency injection. Uses SQLModel Session
+    so .exec() is available for SQLModel queries."""
     engine = get_engine()
     with Session(engine) as session:
         try:
