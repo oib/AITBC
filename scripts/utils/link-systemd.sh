@@ -118,6 +118,7 @@ get_allowed_services() {
         aitbc-coordinator-api
         aitbc-edge
         aitbc-pool-hub
+        aitbc-marketplace
     )
 
     if [ "$role_spec" = "all" ]; then

@@ -141,12 +141,14 @@ get_services_for_role() {
     # coordinator-api is required by the miner (COORDINATOR_URL=http://localhost:8203)
     # edge provides the edge compute API for GPU job dispatch
     # pool-hub manages mining pools (join/leave, miner registration)
+    # marketplace is needed by edge (MARKETPLACE_URL=http://localhost:8102)
     local shop_services=(
         aitbc-gpu
         aitbc-miner
         aitbc-coordinator-api
         aitbc-edge
         aitbc-pool-hub
+        aitbc-marketplace
     )
 
     # Customer nodes: base only (interacts with hub via CLI)
