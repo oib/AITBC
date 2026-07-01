@@ -11,9 +11,9 @@ import socket
 import click
 
 try:
-    from ...utils.output import error, output, success
+    from aitbc_cli.utils import error, output, success
 except ImportError:
-    from utils import error, output, success
+    from aitbc_cli.utils import error, output, success
 
 
 def register_hub_command(ctx, public_address, public_port, redis_url, hub_discovery_url):
