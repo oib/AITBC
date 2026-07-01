@@ -14,6 +14,7 @@ from sqlmodel import Session, delete, select
 
 from aitbc.rate_limiting import rate_limit
 
+from ..config import settings
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Block, Transaction
@@ -319,3 +320,20 @@ async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, A
     except Exception as e:
         _logger.error("Error forcing sync: %s", e)
         raise HTTPException(status_code=500, detail=f"Failed to force sync: {str(e)}") from e
+
+
+@rate_limit(rate=200, per=60)
+async def get_sync_config(request: Request) -> dict[str, Any]:
+    """Get sync optimization configuration (v0.6.2)"""
+    return {
+        "sync_parallel_enabled": settings.sync_parallel_enabled,
+        "sync_parallel_max_peers": settings.sync_parallel_max_peers,
+        "sync_parallel_timeout": settings.sync_parallel_timeout,
+        "sync_delta_enabled": settings.sync_delta_enabled,
+        "sync_delta_threshold": settings.sync_delta_threshold,
+        "sync_delta_max_blocks": settings.sync_delta_max_blocks,
+        "gossip_priority_enabled": settings.gossip_priority_enabled,
+        "gossip_protocol_version": settings.gossip_protocol_version,
+        "gossip_backward_compat": settings.gossip_backward_compat,
+        "gossip_message_batch_size": settings.gossip_message_batch_size,
+    }

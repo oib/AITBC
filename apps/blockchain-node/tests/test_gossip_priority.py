@@ -42,20 +42,23 @@ class TestGossipPriority:
     @pytest.mark.asyncio
     async def test_priority_disabled_uses_direct_publish(self):
         """When priority is disabled, publish goes directly to backend."""
-        backend = InMemoryGossipBackend()
-        broker = GossipBroker(backend)
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("aitbc_chain.gossip.broker.settings.gossip_priority_enabled", False)
 
-        # _priority_enabled should be False by default (settings.gossip_priority_enabled=False)
-        assert broker._priority_enabled is False
-        assert broker._priority_queue is None
+            backend = InMemoryGossipBackend()
+            broker = GossipBroker(backend)
 
-        # Publish should go directly to backend
-        sub = await broker.subscribe("test_topic")
-        await broker.publish("test_topic", {"msg": "hello"})
-        msg = await asyncio.wait_for(sub.get(), timeout=1.0)
-        assert msg["msg"] == "hello"
+            # _priority_enabled should be False when explicitly disabled
+            assert broker._priority_enabled is False
+            assert broker._priority_queue is None
 
-        await broker.shutdown()
+            # Publish should go directly to backend
+            sub = await broker.subscribe("test_topic")
+            await broker.publish("test_topic", {"msg": "hello"})
+            msg = await asyncio.wait_for(sub.get(), timeout=1.0)
+            assert msg["msg"] == "hello"
+
+            await broker.shutdown()
 
     @pytest.mark.asyncio
     async def test_priority_enabled_routes_through_queue(self):
