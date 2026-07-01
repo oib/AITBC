@@ -112,6 +112,8 @@ get_services_for_role() {
         aitbc-recovery
         aitbc-monitoring
         aitbc-backup.timer
+        aitbc-trading
+        aitbc-governance
     )
 
     # Hub-specific services
@@ -119,7 +121,6 @@ get_services_for_role() {
         aitbc-blockchain-p2p
         aitbc-coordinator-api
         aitbc-api-gateway
-        aitbc-governance
         aitbc-exchange
         aitbc-marketplace
         aitbc-bridge-monitor
@@ -138,10 +139,14 @@ get_services_for_role() {
 
     # Shop-specific services (GPU provider, in addition to base)
     # coordinator-api is required by the miner (COORDINATOR_URL=http://localhost:8203)
+    # edge provides the edge compute API for GPU job dispatch
+    # pool-hub manages mining pools (join/leave, miner registration)
     local shop_services=(
         aitbc-gpu
         aitbc-miner
         aitbc-coordinator-api
+        aitbc-edge
+        aitbc-pool-hub
     )
 
     # Customer nodes: base only (interacts with hub via CLI)
