@@ -13,11 +13,8 @@ import click
 
 from aitbc.bridge import BridgeClient, BridgeConfig
 
-try:
-    from ...utils.output import error, output
-    from ...utils.http_client import AITBCHTTPClient, NetworkError
-except ImportError:
-    from utils import error, output  # type: ignore[no-redef]
+from aitbc_cli.utils import error, output
+from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
 
 def _get_rpc_url(ctx) -> str:

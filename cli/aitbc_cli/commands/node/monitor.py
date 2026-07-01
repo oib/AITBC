@@ -10,11 +10,11 @@ import click
 try:
     from ..core.config import load_multichain_config
     from ..core.node_client import NodeClient
-    from ...utils.output import error, output
+    from aitbc_cli.utils import error, output
 except ImportError:
     from aitbc_cli.core.config import load_multichain_config
     from aitbc_cli.core.node_client import NodeClient
-    from utils import error, output
+    from aitbc_cli.utils import error, output
 
 
 def monitor_command(ctx, node_id, realtime, interval):
@@ -147,11 +147,11 @@ def test_command(ctx, node_id):
         # Overall result
         all_passed = all(result["Status"] == "PASS" for result in test_results)
         if all_passed:
-            from ...utils.output import success
+            from aitbc_cli.utils import success
 
             success("All tests passed!")
         else:
-            from ...utils.output import warning
+            from aitbc_cli.utils import warning
 
             warning("Some tests failed")
 
