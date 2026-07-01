@@ -119,6 +119,7 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 
 ### Patch Releases
 - **v0.10.0** — Runtime Bug Fixes, Service Modernization & Feature Activation (consensus state root fix, SharedHttpClient classmethod fix, DB column migration, session_scope chain_id fix, PyCUDA log noise, exchange module entry point, miner logging, enable multi-validator consensus + atomic settlement for homebrew testing): <ref_file file="/opt/aitbc/docs/releases/v0.10.0/change.log" /> ✅ complete
+- **v0.10.1** — Gap Fill for v0.6.0–v0.8.2 (20 tasks: CLI endpoint paths, island ID bug, node CLI crash, HTTP RPC compression, P2P→sync wiring, feature flag activation, MultiChainManager init, edge-advertise/registration/health/payment, pool join/leave, mining RPC wired to coordinator, parameter automation, duplicate bridge removal, trading service deploy + gossip integration + lease tracker + polling fallback): <ref_file file="/opt/aitbc/docs/releases/v0.10.1/change.log" /> ✅ complete
 
 ### Post-v1 Vision (not fit until after v1.0.0)
 - **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
@@ -134,7 +135,8 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.6.5 → v0.6.6 → v0.6.7                      (product: agents ✅, marketplace, pool hub)
   → v0.7.0 → v0.7.1 → v0.7.2 → v0.7.3 → v0.7.4 → v0.7.5  (infra+product: bridge basics, bridge security, bridge verification, governance, deferred v0.7.x items, consensus activation)
   → v0.8.0 → v0.8.1 → v0.8.2 → v0.9.0               (infra: trading basics, offer sync polling, offer sync subscription, atomic settlement)
-  → v0.10.0                                         (patch: runtime bug fixes — consensus state root, SharedHttpClient, DB migration, service modernization)
+  → v0.10.0                                         (patch: runtime bug fixes — consensus state root, SharedHttpClient, DB migration, service modernization) ✅
+  → v0.10.1                                         (gap fill: 20 tasks fixing v0.6.0–v0.8.2 unwired/deployed/broken features) ✅
   → v1.0.0                                          (production readiness)
   → v2.0.0                                          (vision — questionable features, parked for re-evaluation)
 ```
