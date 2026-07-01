@@ -167,6 +167,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as e:
         _app_logger.warning("Failed to initialize balance tracker: %s", e)
 
+    # Initialize cross-chain bridge (enables /rpc/bridge/* endpoints)
+    try:
+        from .cross_chain.bridge import init_cross_chain_bridge
+
+        init_cross_chain_bridge(session_scope)
+        _app_logger.info("Cross-chain bridge initialized")
+    except Exception as e:
+        _app_logger.warning("Failed to initialize cross-chain bridge: %s", e)
+
     # Consolidated startup summary
     _app_logger.info(
         "Blockchain node started: chains=%s mode=%s role=%s hardware=%s block_prod=%s",
