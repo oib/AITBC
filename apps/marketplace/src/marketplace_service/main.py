@@ -189,7 +189,7 @@ async def book_offer(
         result = await svc.book_offer(offer_id, booking_data)
         logger.info("POST /v1/marketplace/offers/%s/book completed", offer_id)
         buyer = booking_data.get("wallet") or booking_data.get("buyer")
-        provider = result.get("provider") or booking_data.get("provider")
+        provider = booking_data.get("provider") or result.get("provider")
         amount = float(booking_data.get("amount") or booking_data.get("price") or 0)
         bid_id = result.get("bid_id")
         if bid_id and buyer and provider and amount:
@@ -264,7 +264,7 @@ async def get_marketplace_overview(svc: Annotated[MarketplaceService, Depends(ge
     """Get hardware+software bundle marketplace overview"""
     logger.info("GET /v1/marketplace called - marketplace overview")
     offers = await svc.list_offers()
-    active_offers = [o for o in offers if o.get("status") == "active"]
+    active_offers = [o for o in offers if o.get("status") == "available"]
     avg_price = 0
     if active_offers:
         total_price = sum(o.get("price_per_hour", 0) for o in active_offers)
