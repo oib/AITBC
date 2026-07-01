@@ -109,16 +109,16 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.7.2** — Bridge Verification (In-Process Crypto): <ref_file file="/opt/aitbc/docs/releases/v0.7.2/change.log" /> ✅ complete
 - **v0.7.3** — Governance: <ref_file file="/opt/aitbc/docs/releases/v0.7.3/change.log" /> ✅ complete
 - **v0.7.4** — Deferred v0.7.x Items (External Oracle, Cross-Chain Governance, Parameter Automation, Emergency Proposals, Coordinator-API Bridge): <ref_file file="/opt/aitbc/docs/releases/v0.7.4/change.log" /> ✅ complete
-- **v0.7.5** — Consensus Activation (MultiValidatorPoA + PBFT: fix 6 Critical + 6 High findings from security review, then activate): <ref_file file="/opt/aitbc/docs/releases/v0.7.4/security-review-multivalidator-poa.md" /> ⚠️ code complete, NOT activated (soak test pending) — split from v0.7.4 B7 after security review found the implementation is scaffolding, not production consensus
+- **v0.7.5** — Consensus Activation (MultiValidatorPoA + PBFT: fix 6 Critical + 6 High findings from security review, then activate): <ref_file file="/opt/aitbc/docs/releases/v0.7.4/security-review-multivalidator-poa.md" /> ⚠️ code complete, enabled for homebrew testing in v0.10.0 (no external security audit — poor homebrew project)
 
 ### Infrastructure Track (trading + settlement)
 - **v0.8.0** — Inter-Chain Trading Basics: <ref_file file="/opt/aitbc/docs/releases/v0.8.0/change.log" /> ✅ complete
 - **v0.8.1** — Cross-Chain Offer Sync (polling-based): <ref_file file="/opt/aitbc/docs/releases/v0.8.1/change.log" /> ✅ complete
 - **v0.8.2** — Advanced Offer Sync (subscription, real-time, search index): <ref_file file="/opt/aitbc/docs/releases/v0.8.2/change.log" /> ✅ complete
-- **v0.9.0** — Atomic Cross-Chain Settlement: <ref_file file="/opt/aitbc/docs/releases/v0.9.0/change.log" /> 🚧 in progress (B1-B5 complete; chaos testing + external audit pending)
+- **v0.9.0** — Atomic Cross-Chain Settlement: <ref_file file="/opt/aitbc/docs/releases/v0.9.0/change.log" /> 🚧 in progress (B1-B5 complete; escrow_enabled=True in v0.10.0 for homebrew testing — no external security audit)
 
 ### Patch Releases
-- **v0.10.0** — Runtime Bug Fixes & Service Modernization (consensus state root fix, SharedHttpClient classmethod fix, DB column migration, session_scope chain_id fix, PyCUDA log noise, exchange module entry point, miner logging): <ref_file file="/opt/aitbc/docs/releases/v0.10.0/change.log" /> ✅ complete
+- **v0.10.0** — Runtime Bug Fixes, Service Modernization & Feature Activation (consensus state root fix, SharedHttpClient classmethod fix, DB column migration, session_scope chain_id fix, PyCUDA log noise, exchange module entry point, miner logging, enable multi-validator consensus + atomic settlement for homebrew testing): <ref_file file="/opt/aitbc/docs/releases/v0.10.0/change.log" /> ✅ complete
 
 ### Post-v1 Vision (not fit until after v1.0.0)
 - **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
