@@ -238,7 +238,20 @@ async def get_dispute(dispute_id: int) -> GetDisputeResponse:
         result = dispute_resolution_service.get_dispute(dispute_id)
         if not result.get("success"):
             raise HTTPException(status_code=404, detail=result.get("error", "Dispute not found"))
-        dispute_data = result["dispute"]
+        d = result["dispute"]
+        # Map contract dataclass fields to response model fields
+        dispute_data = {
+            "dispute_id": d["dispute_id"],
+            "agreement_id": d["agreement_id"],
+            "plaintiff": d.get("initiator", ""),
+            "respondent": d.get("respondent", ""),
+            "dispute_type": d.get("dispute_type", ""),
+            "reason": d.get("reason", ""),
+            "status": d.get("status", ""),
+            "created_at": str(d.get("filing_time", "")),
+            "evidence": [],
+            "votes": [],
+        }
         return GetDisputeResponse(**dispute_data)
     except HTTPException:
         raise
@@ -256,7 +269,21 @@ async def get_dispute_evidence(dispute_id: int) -> list[GetEvidenceResponse]:
         result = dispute_resolution_service.get_dispute_evidence(dispute_id)
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to get dispute evidence"))
-        return [GetEvidenceResponse(**e) for e in result["evidence"]]
+        evidence_list = []
+        for e in result["evidence"]:
+            evidence_list.append(
+                GetEvidenceResponse(
+                    evidence_id=e["evidence_id"],
+                    dispute_id=e["dispute_id"],
+                    evidence_hash=e.get("evidence_hash", ""),
+                    evidence_type=e.get("evidence_type", ""),
+                    description=e.get("evidence_data", ""),
+                    submitted_by=e.get("submitter", ""),
+                    verified=e.get("is_valid", False),
+                    created_at=str(e.get("submission_time", "")),
+                )
+            )
+        return evidence_list
     except HTTPException:
         raise
     except Exception as e:
