@@ -181,6 +181,86 @@ class ChainSettings(BaseSettings):
                 ChainConfigParser.parse(config_str)
         return v
 
+    @field_validator("chain_sync_sources")
+    @classmethod
+    def validate_chain_sync_sources(cls, v: str) -> str:
+        """Fail fast on malformed CHAIN_SYNC_SOURCES at startup (v0.6.3)."""
+        if not v or not v.strip():
+            return v
+        seen: set[str] = set()
+        for pair in v.split(","):
+            pair = pair.strip()
+            if not pair:
+                continue
+            parts = pair.split(":", 1)
+            if len(parts) != 2:
+                raise ValueError(f"Invalid CHAIN_SYNC_SOURCES entry: '{pair}'. Expected 'chain_id:url'")
+            chain_id, url = parts[0].strip(), parts[1].strip()
+            if not chain_id or not url:
+                raise ValueError(f"Invalid CHAIN_SYNC_SOURCES entry: '{pair}'. Empty chain_id or url")
+            if chain_id in seen:
+                raise ValueError(f"Duplicate chain_id in CHAIN_SYNC_SOURCES: '{chain_id}'")
+            seen.add(chain_id)
+        return v
+
+    @field_validator("island_registry")
+    @classmethod
+    def validate_island_registry(cls, v: str) -> str:
+        """Fail fast on malformed ISLAND_REGISTRY at startup (v0.6.3)."""
+        if not v or not v.strip():
+            return v
+        seen: set[str] = set()
+        for entry in v.split(","):
+            entry = entry.strip()
+            if not entry:
+                continue
+            parts = entry.split(":")
+            if len(parts) < 3:
+                raise ValueError(f"Invalid ISLAND_REGISTRY entry: '{entry}'. Expected 'island_id:chain_id:hub_url'")
+            island_id = parts[0].strip()
+            if not island_id:
+                raise ValueError(f"Invalid ISLAND_REGISTRY entry: '{entry}'. Empty island_id")
+            if island_id in seen:
+                raise ValueError(f"Duplicate island_id in ISLAND_REGISTRY: '{island_id}'")
+            seen.add(island_id)
+        return v
+
+    @field_validator("gossip_backends")
+    @classmethod
+    def validate_gossip_backends(cls, v: str) -> str:
+        """Fail fast on malformed GOSSIP_BACKENDS at startup (v0.6.3)."""
+        if not v or not v.strip():
+            return v
+        seen: set[str] = set()
+        for entry in v.split(","):
+            entry = entry.strip()
+            if not entry:
+                continue
+            parts = entry.split(":", 1)
+            if len(parts) != 2:
+                raise ValueError(f"Invalid GOSSIP_BACKENDS entry: '{entry}'. Expected 'chain_id:redis://url'")
+            chain_id = parts[0].strip()
+            if not chain_id:
+                raise ValueError(f"Invalid GOSSIP_BACKENDS entry: '{entry}'. Empty chain_id")
+            if chain_id in seen:
+                raise ValueError(f"Duplicate chain_id in GOSSIP_BACKENDS: '{chain_id}'")
+            seen.add(chain_id)
+        return v
+
+    @field_validator("bridge_islands")
+    @classmethod
+    def validate_bridge_islands(cls, v: str) -> str:
+        """Validate bridge_islands CSV format: UUIDs only, no spaces, no empty entries (v0.6.3)."""
+        if not v or not v.strip():
+            return v
+        islands = [i.strip() for i in v.split(",") if i.strip()]
+        if len(islands) != len(set(islands)):
+            raise ValueError(f"Duplicate island_id in bridge_islands: '{v}'")
+        for island_id in islands:
+            if " " in island_id:
+                raise ValueError(f"Invalid bridge_islands entry: '{island_id}'. No spaces allowed (use UUID format)")
+        return v
+
     max_reorg_depth: int = 10  # max blocks to reorg on conflict
     sync_validate_signatures: bool = True  # validate proposer signatures on import
 
@@ -266,6 +346,21 @@ class ChainSettings(BaseSettings):
 
     # Bridge request monitor interval in seconds (v0.6.3).
     bridge_request_monitor_interval: int = 60
+
+    # Error retry interval for island background tasks (v0.6.3).
+    island_task_error_retry_interval: int = 10
+
+    # Bridge request expiry in seconds (v0.6.3).
+    bridge_request_expiry: int = 3600
+
+    # Island inactive threshold in seconds (v0.6.3).
+    island_inactive_threshold: int = 600
+
+    # Gossip topic migration (v0.6.3).
+    gossip_tx_topic_v1: str = "transactions"
+    gossip_tx_topic_v2_template: str = "transactions.{chain_id}"
+    gossip_migration_days: int = 30
+    gossip_log_v1_warnings: bool = True
 
     # Multi-chain per island (v0.6.4). Chains hosted on this island.
     # Comma-separated list of chain_ids. If empty, defaults to [chain_id]
