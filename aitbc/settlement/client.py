@@ -11,17 +11,17 @@ explicit ``close()``. Methods raise ``httpx.HTTPStatusError`` on non-2xx
 responses; callers are responsible for retry/backoff.
 
 Endpoint mapping (Agent B B5 — blockchain node, port 8202):
-- POST /bridge/settlement/create           -> create_escrow
-- POST /bridge/settlement/{id}/lock        -> lock_escrow
-- POST /bridge/settlement/{id}/verify      -> verify_lock
-- POST /bridge/settlement/{id}/execute     -> execute_trade
-- POST /bridge/settlement/{id}/settle      -> settle
-- POST /bridge/settlement/{id}/refund      -> refund
-- GET  /bridge/settlement/{id}             -> get_escrow
-- POST /bridge/settlement/{id}/extend-timeout -> extend_timeout
-- GET  /bridge/settlement/{id}/proofs      -> get_proofs
-- POST /bridge/settlement/{id}/dispute     -> file_dispute
-- POST /bridge/settlement/{id}/resolve     -> resolve_dispute
+- POST /rpc/bridge/settlement/create           -> create_escrow
+- POST /rpc/bridge/settlement/{id}/lock        -> lock_escrow
+- POST /rpc/bridge/settlement/{id}/verify      -> verify_lock
+- POST /rpc/bridge/settlement/{id}/execute     -> execute_trade
+- POST /rpc/bridge/settlement/{id}/settle      -> settle
+- POST /rpc/bridge/settlement/{id}/refund      -> refund
+- GET  /rpc/bridge/settlement/{id}             -> get_escrow
+- POST /rpc/bridge/settlement/{id}/extend-timeout -> extend_timeout
+- GET  /rpc/bridge/settlement/{id}/proofs      -> get_proofs
+- POST /rpc/bridge/settlement/{id}/dispute     -> file_dispute
+- POST /rpc/bridge/settlement/{id}/resolve     -> resolve_dispute
 
 Trading service endpoints (Agent B B6 — port 8104):
 - POST /v1/trading/trades/{id}/lock-escrow      -> lock_escrow_for_trade
@@ -119,7 +119,7 @@ class SettlementClient:
         }
         if timeout_seconds is not None:
             payload["timeout_seconds"] = timeout_seconds
-        resp = await self._ensure_client().post("/bridge/settlement/create", json=payload)
+        resp = await self._ensure_client().post("/rpc/bridge/settlement/create", json=payload)
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
 
@@ -130,7 +130,7 @@ class SettlementClient:
         with the pre-computed hashlock and timelock. Returns the lock
         proof and source lock transaction hash.
         """
-        resp = await self._ensure_client().post(f"/bridge/settlement/{escrow_id}/lock")
+        resp = await self._ensure_client().post(f"/rpc/bridge/settlement/{escrow_id}/lock")
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
 
@@ -141,7 +141,7 @@ class SettlementClient:
         or external oracle with fallback, v0.7.4) to verify that funds
         were actually locked on the source chain.
         """
-        resp = await self._ensure_client().post(f"/bridge/settlement/{escrow_id}/verify")
+        resp = await self._ensure_client().post(f"/rpc/bridge/settlement/{escrow_id}/verify")
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
 
@@ -152,7 +152,7 @@ class SettlementClient:
         service delivered, compute job completed). Generates the
         execution proof.
         """
-        resp = await self._ensure_client().post(f"/bridge/settlement/{escrow_id}/execute")
+        resp = await self._ensure_client().post(f"/rpc/bridge/settlement/{escrow_id}/execute")
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
 
@@ -168,7 +168,7 @@ class SettlementClient:
             secret: The HTLC secret (hex string) that matches the hashlock
         """
         resp = await self._ensure_client().post(
-            f"/bridge/settlement/{escrow_id}/settle",
+            f"/rpc/bridge/settlement/{escrow_id}/settle",
             json={"secret": secret},
         )
         resp.raise_for_status()
@@ -180,13 +180,13 @@ class SettlementClient:
         Initiates refund on both chains when the timelock has expired.
         Both chains must refund atomically — no partial state.
         """
-        resp = await self._ensure_client().post(f"/bridge/settlement/{escrow_id}/refund")
+        resp = await self._ensure_client().post(f"/rpc/bridge/settlement/{escrow_id}/refund")
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
 
     async def get_escrow(self, escrow_id: str) -> dict[str, Any]:
         """Get full escrow details by ID."""
-        resp = await self._ensure_client().get(f"/bridge/settlement/{escrow_id}")
+        resp = await self._ensure_client().get(f"/rpc/bridge/settlement/{escrow_id}")
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
 
@@ -211,7 +211,7 @@ class SettlementClient:
         from the original timeout.
         """
         resp = await self._ensure_client().post(
-            f"/bridge/settlement/{escrow_id}/extend-timeout",
+            f"/rpc/bridge/settlement/{escrow_id}/extend-timeout",
             json={"extension_seconds": extension_seconds},
         )
         resp.raise_for_status()
@@ -272,7 +272,7 @@ class SettlementClient:
 
     async def get_proofs(self, escrow_id: str) -> dict[str, Any]:
         """Get the full proof chain for an escrow."""
-        resp = await self._ensure_client().get(f"/bridge/settlement/{escrow_id}/proofs")
+        resp = await self._ensure_client().get(f"/rpc/bridge/settlement/{escrow_id}/proofs")
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
 
@@ -298,7 +298,7 @@ class SettlementClient:
         timeout/refund until the dispute is resolved.
         """
         resp = await self._ensure_client().post(
-            f"/bridge/settlement/{escrow_id}/dispute",
+            f"/rpc/bridge/settlement/{escrow_id}/dispute",
             json={"reason": reason, "evidence": evidence},
         )
         resp.raise_for_status()
@@ -312,7 +312,7 @@ class SettlementClient:
             resolution: "complete" (release to seller) or "refund" (refund buyer)
         """
         resp = await self._ensure_client().post(
-            f"/bridge/settlement/{escrow_id}/resolve",
+            f"/rpc/bridge/settlement/{escrow_id}/resolve",
             json={"resolution": resolution},
         )
         resp.raise_for_status()
