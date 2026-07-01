@@ -97,13 +97,21 @@ class GovernanceService:
         if not proposal.chain_id:
             proposal.chain_id = settings.default_chain_id
 
+        # Set voting period if not already provided
+        from datetime import timedelta
+
+        now = datetime.now(UTC)
+        if not proposal.voting_starts:
+            proposal.voting_starts = now
+        if not proposal.voting_ends:
+            proposal.voting_ends = now + timedelta(
+                seconds=settings.voting_period_blocks * 2  # ~2s block time
+            )
+
         # v0.7.4: Emergency proposal fast-track
         is_emergency = proposal.proposal_type == "emergency"
         if is_emergency:
             # Override voting period and quorum for emergency proposals
-            from datetime import timedelta
-
-            now = datetime.now(UTC)
             proposal.voting_starts = now
             proposal.voting_ends = now + timedelta(
                 seconds=settings.emergency_voting_period_blocks * 2  # ~2s block time
