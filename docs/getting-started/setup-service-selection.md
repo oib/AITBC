@@ -19,7 +19,7 @@ Both axes are evaluated independently and their service lists are merged. This m
 | hub | customer | base + hub | 18 |
 | hub | shop | base + hub + shop | 23 |
 | follower | customer | base + follower | 10 |
-| follower | shop | base + follower + shop | 15 |
+| follower | shop | base + follower + shop | 16 |
 
 ### Base Services (All Nodes)
 
@@ -74,6 +74,7 @@ In addition to the blockchain mode services, shop nodes get:
 | `aitbc-coordinator-api` | 8203 | Coordinator API (for local job coordination) |
 | `aitbc-edge` | 8111 | Edge compute API (GPU job dispatch, health reporting) |
 | `aitbc-pool-hub` | 8210 | Mining pool hub (pool join/leave, miner registration) |
+| `aitbc-marketplace` | 8102 | Marketplace service (hardware/software bundle listings — needed by edge) |
 
 > **Note:** Shop services are added regardless of `BLOCKCHAIN_MODE`. A `hub+shop` node gets hub services PLUS shop services. A `follower+shop` node gets follower services PLUS shop services.
 
