@@ -250,19 +250,21 @@ async def test_allocate_gpu_without_chain_id_raises() -> None:
 
 
 # ---------------------------------------------------------------------------
-# verify_escrow
+# verify_escrow (v0.10.1 A1: job_id parameter, backward-compat escrow_id)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 async def test_verify_escrow_found() -> None:
-    resp = _mock_response(200, {"escrow_id": "esc1", "status": "locked"})
+    resp = _mock_response(200, {"job_id": "job1", "status": "locked"})
     client = _mock_async_client(resp)
     rpc = BlockchainRPCClient(rpc_url=RPC_URL)
     with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
-        result = await rpc.verify_escrow("esc1")
+        result = await rpc.verify_escrow("job1")
     assert result is not None
     assert result["status"] == "locked"
+    # Verify the URL uses job_id as the path parameter
+    client.get.assert_called_once_with(f"{RPC_URL}/rpc/escrow/job1")
 
 
 @pytest.mark.asyncio
@@ -273,6 +275,39 @@ async def test_verify_escrow_not_found() -> None:
     with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
         result = await rpc.verify_escrow("nonexistent")
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_verify_escrow_keyword_job_id() -> None:
+    """verify_escrow accepts job_id as a keyword argument (v0.10.1 A1)."""
+    resp = _mock_response(200, {"job_id": "job2", "status": "released"})
+    client = _mock_async_client(resp)
+    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
+    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
+        result = await rpc.verify_escrow(job_id="job2")
+    assert result is not None
+    assert result["status"] == "released"
+    client.get.assert_called_once_with(f"{RPC_URL}/rpc/escrow/job2")
+
+
+@pytest.mark.asyncio
+async def test_verify_escrow_legacy_escrow_id_fallback() -> None:
+    """verify_escrow falls back to escrow_id when job_id is empty (backward compat)."""
+    resp = _mock_response(200, {"job_id": "esc3", "status": "locked"})
+    client = _mock_async_client(resp)
+    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
+    with patch("aitbc.marketplace.blockchain_rpc.httpx.AsyncClient", return_value=client):
+        result = await rpc.verify_escrow(job_id="", escrow_id="esc3")
+    assert result is not None
+    client.get.assert_called_once_with(f"{RPC_URL}/rpc/escrow/esc3")
+
+
+@pytest.mark.asyncio
+async def test_verify_escrow_empty_raises() -> None:
+    """verify_escrow raises ValueError when both job_id and escrow_id are empty."""
+    rpc = BlockchainRPCClient(rpc_url=RPC_URL)
+    with pytest.raises(ValueError, match="job_id"):
+        await rpc.verify_escrow("")
 
 
 # ---------------------------------------------------------------------------

@@ -124,13 +124,33 @@ class ParameterChangeSchema:
     values. This is stored in ``ProposalData.parameters`` for
     ``parameter_change`` type proposals.
 
-    Parameter automation (actually applying the change to the target
-    service) is deferred to v0.8.x — v0.7.3 only records the schema
-    on-chain for transparency and auditability.
+    Parameter automation (applying the change to the target service) is
+    implemented in v0.10.1 — the governance service calls the target
+    service's parameter API (``POST /v1/{service}/parameters/apply``)
+    after a proposal is executed on-chain. Use ``to_apply_dict()`` to
+    produce the request body expected by those endpoints.
+
+    Supported ``target_service`` values:
+    - ``"blockchain"`` — blockchain node (applied via direct config update)
+    - ``"poolhub"`` — pool-hub service (``POST /v1/poolhub/parameters/apply``)
+    - ``"marketplace"`` — marketplace service (``POST /v1/marketplace/parameters/apply``)
     """
 
-    target_service: str  # "blockchain", "pool-hub", "marketplace"
+    target_service: str  # "blockchain", "poolhub", "marketplace"
     parameter_name: str
     old_value: Any
     new_value: Any
     description: str = ""
+
+    def to_apply_dict(self) -> dict[str, Any]:
+        """Convert to the request body expected by the target service's parameter API.
+
+        Both pool-hub and marketplace parameter endpoints accept a JSON body
+        with ``target_service``, ``parameter_name``, and ``new_value`` fields.
+        This helper produces that dict from the schema.
+        """
+        return {
+            "target_service": self.target_service,
+            "parameter_name": self.parameter_name,
+            "new_value": self.new_value,
+        }
