@@ -4,6 +4,7 @@ from collections.abc import Generator
 
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlmodel import Session as SQLModelSession
 
 from .config import ServiceSettings
 
@@ -23,8 +24,8 @@ def get_engine(settings: ServiceSettings) -> Engine:
 
 
 def get_sessionmaker(engine: Engine) -> sessionmaker[Session]:
-    """Create session factory."""
-    return sessionmaker[Session](bind=engine, autoflush=False, autocommit=False)
+    """Create session factory. Uses SQLModel Session class so .exec() is available."""
+    return sessionmaker[Session](bind=engine, autoflush=False, autocommit=False, class_=SQLModelSession)
 
 
 def get_db(engine: Engine) -> Generator[Session]:
