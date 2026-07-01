@@ -23,7 +23,7 @@ try:
 except (ImportError, Exception) as e:
     CUDA_AVAILABLE = False
     logger = get_logger(__name__)
-    logger.warning(
+    logger.debug(
         "PyCUDA not available or no CUDA-capable device detected: %s. GPU optimization will run in simulation mode", e
     )
 
@@ -84,7 +84,7 @@ class MarketplaceGPUOptimizer:
                     "status": "idle",
                 },
             ]
-            logger.info("Initialized %s simulated GPU devices", len(self.gpu_devices))
+            logger.debug("Initialized %s simulated GPU devices", len(self.gpu_devices))
         else:
             try:
                 num_devices = cuda.Device.count()
