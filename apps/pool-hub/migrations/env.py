@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from logging.config import fileConfig
 
 from alembic import context
 from poolhub.models import Base
-from poolhub.settings import settings
 from sqlalchemy.ext.asyncio import create_async_engine
 
 config = context.config
@@ -14,6 +14,19 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+
+
+def _get_postgres_dsn() -> str:
+    """Get the async Postgres DSN from env var, falling back to the default.
+
+    Reads POOLHUB_POSTGRES_DSN directly instead of importing poolhub.settings,
+    which requires coordinator_shared_secret to be set — not needed for
+    migrations.
+    """
+    return os.getenv(
+        "POOLHUB_POSTGRES_DSN",
+        "postgresql+asyncpg://poolhub:poolhub@127.0.0.1:5432/aitbc",
+    )
 
 
 def _configure_context(connection=None, *, url: str | None = None) -> None:
@@ -26,13 +39,13 @@ def _configure_context(connection=None, *, url: str | None = None) -> None:
 
 
 def run_migrations_offline() -> None:
-    _configure_context(url=settings.postgres_dsn)
+    _configure_context(url=_get_postgres_dsn())
     with context.begin_transaction():
         context.run_migrations()
 
 
 async def run_migrations_online() -> None:
-    connectable = create_async_engine(settings.postgres_dsn, pool_pre_ping=True)
+    connectable = create_async_engine(_get_postgres_dsn(), pool_pre_ping=True)
     async with connectable.connect() as connection:
         await connection.run_sync(_configure_context)
         await connection.run_sync(lambda conn: context.run_migrations())
