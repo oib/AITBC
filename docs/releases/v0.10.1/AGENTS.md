@@ -43,9 +43,9 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/marketplace/
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Fix `BlockchainRPCClient.verify_escrow()` — use `job_id` instead of `escrow_id` | 🔴 P0 | `aitbc/marketplace/blockchain_rpc.py` | ⬜ |
-| A2 | Update `ParameterChangeSchema` — remove "deferred to v0.8.x" comment, add `target_service` and `parameter_name` fields for automation | 🟡 P1 | `aitbc/governance/types.py` | ⬜ |
-| A3 | Unit tests for A1 + A2 + verify mypy/ruff/pytest clean | High | `tests/unit/test_blockchain_rpc_client.py` (new), `tests/unit/test_governance_types.py` (new) | ⬜ |
+| A1 | Fix `BlockchainRPCClient.verify_escrow()` — use `job_id` instead of `escrow_id` | 🔴 P0 | `aitbc/marketplace/blockchain_rpc.py` | ✅ |
+| A2 | Update `ParameterChangeSchema` — remove "deferred to v0.8.x" comment, add `target_service` and `parameter_name` fields for automation | 🟡 P1 | `aitbc/governance/types.py` | ✅ |
+| A3 | Unit tests for A1 + A2 + verify mypy/ruff/pytest clean | High | `tests/unit/test_blockchain_rpc_client.py` (new), `tests/unit/test_governance_types.py` (new) | ✅ |
 
 ### Agent A — Detailed Instructions
 
@@ -102,26 +102,26 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m mypy 
 
 | # | Task | Priority | Source | Files | Status |
 |---|------|----------|--------|-------|--------|
-| B1 | CLI endpoint path fixes — add `/rpc/` prefix | 🔴 P0 | v0.6.2 | `cli/aitbc_cli/commands/sync.py`, `chain.py`, `node/island.py` | ⬜ |
-| B2 | Island ID "-island" config fix | 🔴 P0 | v0.6.3 | `apps/blockchain-node/src/aitbc_chain/config.py`, `app.py`, `/etc/aitbc/blockchain.env` | ⬜ |
-| B3 | Node CLI context key fix (`output_format`→`output`) | 🔴 P0 | v0.6.3 | `cli/aitbc_cli/commands/node/*` (5 files) | ⬜ |
-| B4 | HTTP RPC compression — GZipMiddleware + Accept-Encoding | 🟡 P1 | v0.6.0 | `apps/blockchain-node/src/aitbc_chain/app.py`, `sync.py` | ⬜ |
-| B5 | P2P→sync peer registration wiring | 🟡 P1 | v0.6.2 | `apps/blockchain-node/src/aitbc_chain/main.py` | ⬜ |
-| B6 | Enable sync/gossip feature flags | 🟡 P1 | v0.6.2 | `apps/blockchain-node/src/aitbc_chain/config.py`, `/etc/aitbc/blockchain.env` | ⬜ |
-| B7 | MultiChainManager init in RPC service | 🟡 P1 | v0.6.4 | `apps/blockchain-node/src/aitbc_chain/app.py` | ⬜ |
-| B8 | Edge-advertise endpoint in marketplace | 🟡 P1 | v0.6.6 | `apps/marketplace/src/marketplace_service/main.py` | ⬜ |
-| B9 | Edge service escrow verification — use `job_id` | 🟡 P1 | v0.6.6 | `apps/edge/src/aitbc_edge/routers/serve.py`, `schemas/serve.py` | ⬜ |
-| B10 | Edge node registration on blockchain | 🟠 P2 | v0.6.6 | `apps/blockchain-node/src/aitbc_chain/rpc/gpu_resources.py`, `state/gpu_resources.py`, `apps/edge/src/aitbc_edge/main.py` | ⬜ |
-| B11 | Edge health monitoring integration | 🟠 P2 | v0.6.6 | `apps/marketplace/src/marketplace_service/main.py`, `domain/marketplace.py` | ⬜ |
-| B12 | Service payment flow wiring | 🟠 P2 | v0.6.6 | `apps/edge/src/aitbc_edge/config.py`, `routers/serve.py`, `apps/marketplace/src/marketplace_service/services/matching_service.py` | ⬜ |
-| B13 | Pool join/leave endpoints | 🟡 P1 | v0.6.7 | `apps/pool-hub/src/app/routers/pools.py` | ⬜ |
-| B14 | Mining RPC endpoints wired to coordinator | 🟡 P1 | v0.6.7 | `apps/blockchain-node/src/aitbc_chain/rpc/router.py` | ⬜ |
-| B15 | Parameter automation in governance execution | 🟠 P2 | v0.7.4 | `apps/governance/src/governance_service/services/governance_service.py` | ⬜ |
-| B16 | Remove duplicate bridge implementation | 🟠 P2 | v0.7.4 | `apps/coordinator-api/src/app/contexts/cross_chain/` | ⬜ |
-| B17 | Deploy trading service | 🔴 P0 | v0.8.0 | `scripts/utils/link-systemd.sh`, systemd | ⬜ |
-| B18 | Trading service gossip integration | 🟠 P2 | v0.8.2 | `apps/trading/src/trading_service/services/offer_subscription_service.py`, `config.py`, `main.py` | ⬜ |
-| B19 | Lease tracker integration | 🟠 P2 | v0.8.2 | `apps/trading/src/trading_service/services/offer_subscription_service.py`, `main.py` | ⬜ |
-| B20 | Polling fallback for offer subscription | 🟠 P2 | v0.8.2 | `apps/trading/src/trading_service/services/offer_subscription_service.py` | ⬜ |
+| B1 | CLI endpoint path fixes — add `/rpc/` prefix | 🔴 P0 | v0.6.2 | `cli/aitbc_cli/commands/sync.py`, `chain.py`, `node/island.py` | ✅ |
+| B2 | Island ID "-island" config fix | 🔴 P0 | v0.6.3 | `apps/blockchain-node/src/aitbc_chain/config.py`, `app.py`, `/etc/aitbc/blockchain.env` | ✅ |
+| B3 | Node CLI context key fix (`output_format`→`output`) | 🔴 P0 | v0.6.3 | `cli/aitbc_cli/commands/node/*` (5 files) | ✅ |
+| B4 | HTTP RPC compression — GZipMiddleware + Accept-Encoding | 🟡 P1 | v0.6.0 | `apps/blockchain-node/src/aitbc_chain/app.py`, `sync.py` | ✅ |
+| B5 | P2P→sync peer registration wiring | 🟡 P1 | v0.6.2 | `apps/blockchain-node/src/aitbc_chain/main.py` | ✅ |
+| B6 | Enable sync/gossip feature flags | 🟡 P1 | v0.6.2 | `apps/blockchain-node/src/aitbc_chain/config.py`, `/etc/aitbc/blockchain.env` | ✅ |
+| B7 | MultiChainManager init in RPC service | 🟡 P1 | v0.6.4 | `apps/blockchain-node/src/aitbc_chain/app.py` | ✅ |
+| B8 | Edge-advertise endpoint in marketplace | 🟡 P1 | v0.6.6 | `apps/marketplace/src/marketplace_service/main.py` | ✅ |
+| B9 | Edge service escrow verification — use `job_id` | 🟡 P1 | v0.6.6 | `apps/edge/src/aitbc_edge/routers/serve.py`, `schemas/serve.py` | ✅ |
+| B10 | Edge node registration on blockchain | 🟠 P2 | v0.6.6 | `apps/blockchain-node/src/aitbc_chain/rpc/gpu_resources.py`, `state/gpu_resources.py`, `apps/edge/src/aitbc_edge/main.py` | ✅ |
+| B11 | Edge health monitoring integration | 🟠 P2 | v0.6.6 | `apps/marketplace/src/marketplace_service/main.py`, `domain/marketplace.py` | ✅ |
+| B12 | Service payment flow wiring | 🟠 P2 | v0.6.6 | `apps/edge/src/aitbc_edge/config.py`, `routers/serve.py`, `apps/marketplace/src/marketplace_service/services/matching_service.py` | ✅ |
+| B13 | Pool join/leave endpoints | 🟡 P1 | v0.6.7 | `apps/pool-hub/src/app/routers/pools.py` | ✅ |
+| B14 | Mining RPC endpoints wired to coordinator | 🟡 P1 | v0.6.7 | `apps/blockchain-node/src/aitbc_chain/rpc/router.py` | ✅ |
+| B15 | Parameter automation in governance execution | 🟠 P2 | v0.7.4 | `apps/governance/src/governance_service/services/governance_service.py` | ✅ |
+| B16 | Remove duplicate bridge implementation | 🟠 P2 | v0.7.4 | `apps/coordinator-api/src/app/contexts/cross_chain/` | ✅ |
+| B17 | Deploy trading service | 🔴 P0 | v0.8.0 | `scripts/utils/link-systemd.sh`, systemd | ✅ |
+| B18 | Trading service gossip integration | 🟠 P2 | v0.8.2 | `apps/trading/src/trading_service/services/offer_subscription_service.py`, `config.py`, `main.py` | ✅ |
+| B19 | Lease tracker integration | 🟠 P2 | v0.8.2 | `apps/trading/src/trading_service/services/offer_subscription_service.py`, `main.py` | ✅ |
+| B20 | Polling fallback for offer subscription | 🟠 P2 | v0.8.2 | `apps/trading/src/trading_service/services/offer_subscription_service.py` | ✅ |
 
 ### Agent B — Detailed Instructions
 
