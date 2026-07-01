@@ -1483,13 +1483,14 @@ async def file_escrow_dispute_route(escrow_id: str, body: dict[str, Any]) -> dic
 
         reason = body.get("reason", "")
         evidence = body.get("evidence", "")
-        with session_scope() as session:
+        with session_scope(settings.chain_id) as session:
             stmt = select(CrossChainEscrowRecord).where(CrossChainEscrowRecord.escrow_id == escrow_id)
             record = session.execute(stmt).scalars().first()
             if not record:
                 raise HTTPException(status_code=404, detail="Escrow not found")
             record.status = "disputed"
             session.add(record)
+            session.commit()
         return {"escrow_id": escrow_id, "status": "disputed", "reason": reason, "evidence": evidence}
     except HTTPException:
         raise
@@ -1517,13 +1518,14 @@ async def resolve_escrow_dispute_route(escrow_id: str, body: dict[str, Any]) -> 
         if resolution not in ("complete", "refund"):
             raise HTTPException(status_code=400, detail="resolution must be 'complete' or 'refund'")
         final_status = "completed" if resolution == "complete" else "refunded"
-        with session_scope() as session:
+        with session_scope(settings.chain_id) as session:
             stmt = select(CrossChainEscrowRecord).where(CrossChainEscrowRecord.escrow_id == escrow_id)
             record = session.execute(stmt).scalars().first()
             if not record:
                 raise HTTPException(status_code=404, detail="Escrow not found")
             record.status = final_status
             session.add(record)
+            session.commit()
         return {"escrow_id": escrow_id, "status": final_status, "resolution": resolution}
     except HTTPException:
         raise

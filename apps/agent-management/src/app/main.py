@@ -26,8 +26,11 @@ SessionLocal = get_sessionmaker(engine)
 # Lifespan context manager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startup — create tables from both SQLAlchemy and SQLModel metadata
     Base.metadata.create_all(bind=engine)
+    from sqlmodel import SQLModel
+
+    SQLModel.metadata.create_all(bind=engine)
     logger.info("Agent Management service started")
     yield
     # Shutdown
