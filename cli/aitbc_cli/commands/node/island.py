@@ -12,9 +12,9 @@ import uuid
 import click
 
 try:
-    from ...utils.output import error, output, success
+    from aitbc_cli.utils import error, output, success
 except ImportError:
-    from utils import error, output, success
+    from aitbc_cli.utils import error, output, success
 
 
 def create_island_command(ctx, island_id, island_name, chain_id):
@@ -160,7 +160,7 @@ def leave_island_command(ctx, island_id):
 
 def list_islands_command(ctx, node_url="http://127.0.0.1:8202"):
     """List all known islands (queries the node's island manager via RPC)"""
-    from ...utils.http_client import AITBCHTTPClient, NetworkError
+    from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
     client = AITBCHTTPClient(base_url=node_url)
     try:
@@ -197,7 +197,7 @@ def list_islands_command(ctx, node_url="http://127.0.0.1:8202"):
 
 def island_info_command(ctx, island_id, node_url="http://127.0.0.1:8202"):
     """Get island information (queries the node's island manager via RPC)"""
-    from ...utils.http_client import AITBCHTTPClient, NetworkError
+    from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
     client = AITBCHTTPClient(base_url=node_url)
     try:
@@ -233,7 +233,7 @@ def health_command(ctx, node_url="http://127.0.0.1:8202", show_all=False):
     information. By default, the default island is omitted (it is always
     active); use --all to include it.
     """
-    from ...utils.http_client import AITBCHTTPClient, NetworkError
+    from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
     client = AITBCHTTPClient(base_url=node_url)
     try:

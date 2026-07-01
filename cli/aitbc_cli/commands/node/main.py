@@ -15,7 +15,7 @@ try:
         save_multichain_config,
     )
     from ..core.node_client import NodeClient
-    from ...utils.output import error, info, output, success
+    from aitbc_cli.utils import error, info, output, success
 except ImportError:
     from aitbc_cli.core.config import (
         add_node_config,
@@ -25,7 +25,7 @@ except ImportError:
         save_multichain_config,
     )
     from aitbc_cli.core.node_client import NodeClient
-    from utils import error, output, success
+    from aitbc_cli.utils import error, output, success
 
     def info(message):
         click.echo(message)
