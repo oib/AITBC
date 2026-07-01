@@ -27,6 +27,7 @@ class TestCoordinatorAPI:
         os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
         os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars-long")
         os.environ.setdefault("TEST_ADMIN_PASSWORD", "test-admin-password")
+        os.environ.setdefault("DEBUG", "true")
         from app.main import app
 
         return TestClient(app)
@@ -43,14 +44,14 @@ class TestCoordinatorAPI:
 
     def test_metrics_endpoint(self, client: TestClient):
         """Test Prometheus metrics endpoint"""
-        # /metrics redirects to /metrics/
-        response = client.get("/metrics", follow_redirects=True)
+        # Prometheus metrics are mounted at /prometheus in the current app.
+        response = client.get("/prometheus")
         assert response.status_code == 200
         assert "text/plain" in response.headers.get("content-type", "")
 
     def test_metrics_direct_endpoint(self, client: TestClient):
         """Test Prometheus metrics endpoint directly"""
-        response = client.get("/metrics/")
+        response = client.get("/prometheus")
         assert response.status_code == 200
         assert "text/plain" in response.headers.get("content-type", "")
 
@@ -69,6 +70,7 @@ class TestCoordinatorAPIErrorHandling:
         os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
         os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars-long")
         os.environ.setdefault("TEST_ADMIN_PASSWORD", "test-admin-password")
+        os.environ.setdefault("DEBUG", "true")
         from app.main import app
 
         return TestClient(app)
@@ -98,6 +100,7 @@ class TestCoordinatorAPIPerformance:
         os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
         os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars-long")
         os.environ.setdefault("TEST_ADMIN_PASSWORD", "test-admin-password")
+        os.environ.setdefault("DEBUG", "true")
         from app.main import app
 
         return TestClient(app)
