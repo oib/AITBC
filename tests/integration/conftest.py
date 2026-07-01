@@ -13,6 +13,10 @@ from starlette.testclient import TestClient
 # prior release. This is a pre-existing issue outside v0.5.18's scope.
 collect_ignore = ["test_staking_lifecycle.py"]
 
+# Enable debug mode for integration tests so legacy compatibility routes and
+# docs are available. Must be set before importing the coordinator app.
+os.environ.setdefault("DEBUG", "true")
+
 # Clear any cached app modules to avoid conflicts
 for mod_name in list(sys.modules.keys()):
     if mod_name == "app" or mod_name.startswith("app."):
@@ -38,7 +42,6 @@ def skip_if_app_unavailable() -> None:
 def coordinator_client() -> Generator[TestClient]:
     """Create a test client for coordinator API with Redis storage."""
     os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
-    os.environ.setdefault("DEBUG", "true")
 
     assert create_app is not None
     app = create_app()
@@ -82,14 +85,11 @@ def authenticated_client(coordinator_client: TestClient) -> Generator[TestClient
 
 @pytest.fixture
 def sample_agent_data() -> dict[str, Any]:
-    """Sample agent registration data."""
+    """Sample agent registration data for the current /v1/agent/agents/register endpoint."""
     return {
         "agent_id": "test-integration-agent",
-        "agent_type": "worker",
+        "public_key": "test-public-key",
         "capabilities": ["data-processing", "analysis"],
-        "services": ["task-execution"],
-        "endpoints": {"http": "http://localhost:9002"},
-        "metadata": {"version": "1.0.0", "test": True},
     }
 
 

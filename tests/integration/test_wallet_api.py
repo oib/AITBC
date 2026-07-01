@@ -62,7 +62,7 @@ class TestWalletAPI:
     @pytest.mark.skip(reason="Requires database connection")
     def test_wallet_list_endpoint(self, client: TestClient):
         """Test wallet listing endpoint"""
-        response = client.get("/api/v1/wallets")
+        response = client.get("/v1/wallets")
         assert response.status_code == 200
 
     @pytest.mark.skip(reason="Requires database connection")
@@ -70,7 +70,7 @@ class TestWalletAPI:
         """Test wallet creation endpoint"""
         wallet_data = {"name": "integration-test-wallet", "description": "Integration test wallet"}
 
-        response = client.post("/api/v1/wallets", json=wallet_data)
+        response = client.post("/v1/wallets", json=wallet_data)
         assert response.status_code in (200, 201)
 
     @pytest.mark.skip(reason="Requires database connection")
@@ -80,7 +80,7 @@ class TestWalletAPI:
 
         for name in wallet_names:
             wallet_data = {"name": name}
-            response = client.post("/api/v1/wallets", json=wallet_data)
+            response = client.post("/v1/wallets", json=wallet_data)
             assert response.status_code in (200, 201)
 
 
@@ -105,7 +105,7 @@ class TestWalletErrorHandling:
     @pytest.mark.skip(reason="Requires database connection")
     def test_nonexistent_wallet(self, client: TestClient):
         """Test requesting nonexistent wallet"""
-        response = client.get("/api/v1/wallets/nonexistent-wallet-123")
+        response = client.get("/v1/wallets/nonexistent-wallet-123")
         assert response.status_code == 404
 
     @pytest.mark.skip(reason="Requires database connection")
@@ -113,7 +113,7 @@ class TestWalletErrorHandling:
         """Test creating wallet with invalid data"""
         invalid_data = {"invalid_field": "invalid_value"}
 
-        response = client.post("/api/v1/wallets", json=invalid_data)
+        response = client.post("/v1/wallets", json=invalid_data)
         assert response.status_code in (400, 422)
 
     @pytest.mark.skip(reason="Requires database connection")
@@ -121,7 +121,7 @@ class TestWalletErrorHandling:
         """Test creating wallet with empty name"""
         invalid_data = {"name": ""}
 
-        response = client.post("/api/v1/wallets", json=invalid_data)
+        response = client.post("/v1/wallets", json=invalid_data)
         assert response.status_code in (400, 422)
 
 
