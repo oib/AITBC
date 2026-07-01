@@ -1,3 +1,4 @@
+import os
 import sys
 from logging.config import fileConfig
 from pathlib import Path
@@ -14,6 +15,29 @@ from sqlmodel import SQLModel
 
 # this is the Alembic Config object
 config = context.config
+
+
+def _sync_database_url() -> str:
+    """Build a sync DB URL from the same env vars as storage.py.
+
+    storage.py uses async drivers (asyncpg/aiosqlite); Alembic uses sync
+    drivers (psycopg2/sqlite). Convert the async URL to its sync equivalent.
+    """
+    db_type = os.getenv("DB_TYPE", "sqlite")
+    if db_type == "postgresql":
+        host = os.getenv("DB_HOST", "localhost")
+        port = os.getenv("DB_PORT", "5432")
+        name = os.getenv("DB_NAME", "aitbc_governance")
+        user = os.getenv("DB_USER", "aitbc")
+        password = os.getenv("DB_PASS", "")
+        return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
+    url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:////var/lib/aitbc/data/governance_service.db")
+    # Convert async driver to sync for Alembic
+    return url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
+
+
+# Override the hardcoded URL in alembic.ini with the env-var-derived one
+config.set_main_option("sqlalchemy.url", _sync_database_url())
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:
