@@ -33,7 +33,7 @@ cd /opt/aitbc && PYTHONPATH=apps/blockchain-node/src:apps/trading/src:aitbc ./ve
 | B8 | Implement atomic settlement coordinator — orchestrates lock → verify → execute → settle (or refund) | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/cross_chain/settlement_coordinator.py` (new) | ✅ |
 | B9 | Add CLI commands — `trade lock-escrow`, `trade settle`, `trade settlement-status` | Medium | `cli/aitbc_cli/commands/trade.py` (extend) | ✅ |
 | B10 | Enable bridge confirm path — wire v0.7.2 proof verification, remove `BRIDGE_RELEASE_ENABLED` gate | High | `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` (extend) | ✅ |
-| B11 | Chaos testing infrastructure — settlement-specific partition/reorg/timeout/Byzantine/oracle scenarios | High | `tests/harness/settlement_chaos.py` (new), `tests/integration/test_atomic_settlement.py` (new) | ✅ |
+| B11 | Chaos testing infrastructure — settlement-specific partition/reorg/timeout/Byzantine/oracle scenarios | High | `tests/harness/settlement_chaos.py` (new), `tests/integration/test_atomic_settlement.py` (new) | ✅ (7 chaos test cases added; run separately to avoid SQLAlchemy registry conflicts) |
 | B12 | Integration tests — full settlement lifecycle, timeout/refund, proof chain verification, multi-node | 🔴 P0 | `apps/blockchain-node/tests/test_settlement.py` (new), `tests/integration/test_atomic_settlement.py` (extend) | ✅ |
 
 ---
