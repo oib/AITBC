@@ -37,12 +37,13 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("trade_id"),
+        if_not_exists=True,
     )
-    op.create_index("idx_inter_chain_status", "inter_chain_trades", ["status"])
-    op.create_index("idx_inter_chain_chains", "inter_chain_trades", ["source_chain", "dest_chain"])
-    op.create_index("idx_inter_chain_sender", "inter_chain_trades", ["sender"])
-    op.create_index("idx_inter_chain_trades_source_chain", "inter_chain_trades", ["source_chain"])
-    op.create_index("idx_inter_chain_trades_dest_chain", "inter_chain_trades", ["dest_chain"])
+    op.create_index("idx_inter_chain_status", "inter_chain_trades", ["status"], if_not_exists=True)
+    op.create_index("idx_inter_chain_chains", "inter_chain_trades", ["source_chain", "dest_chain"], if_not_exists=True)
+    op.create_index("idx_inter_chain_sender", "inter_chain_trades", ["sender"], if_not_exists=True)
+    op.create_index("idx_inter_chain_trades_source_chain", "inter_chain_trades", ["source_chain"], if_not_exists=True)
+    op.create_index("idx_inter_chain_trades_dest_chain", "inter_chain_trades", ["dest_chain"], if_not_exists=True)
 
     op.create_table(
         "island_registry",
@@ -54,8 +55,9 @@ def upgrade() -> None:
         sa.Column("registered_at", sa.DateTime(), nullable=False),
         sa.Column("last_sync", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("chain_id"),
+        if_not_exists=True,
     )
-    op.create_index("idx_island_status", "island_registry", ["status"])
+    op.create_index("idx_island_status", "island_registry", ["status"], if_not_exists=True)
 
 
 def downgrade() -> None:
