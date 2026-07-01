@@ -11,7 +11,9 @@
 
 > **Risk**: 🔴 HIGHEST. Atomic cross-chain settlement caused the largest hacks in crypto history (Wormhole $325M, Ronin $625M, Poly Network $611M). Requires dual external security audits + 6+ months testnet chaos testing before mainnet.
 
-> **Not on the critical path for v1.0.0**: If security audit cannot be completed, v1.0.0 can ship with non-atomic settlement (manual admin refund) and defer atomic settlement to v1.1.0 (see suggestions.md line 14).
+> **External audit status**: SKIPPED — poor project, no budget. Atomic settlement is implemented and tested but **not externally audited**. Use at your own risk.
+
+> **Not on the critical path for v1.0.0**: v1.0.0 can ship with atomic settlement code-complete but unaudited. Production use requires external audit.
 
 ---
 
