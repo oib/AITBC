@@ -115,7 +115,7 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.8.0** — Inter-Chain Trading Basics: <ref_file file="/opt/aitbc/docs/releases/v0.8.0/change.log" /> ✅ complete
 - **v0.8.1** — Cross-Chain Offer Sync (polling-based): <ref_file file="/opt/aitbc/docs/releases/v0.8.1/change.log" /> ✅ complete
 - **v0.8.2** — Advanced Offer Sync (subscription, real-time, search index): <ref_file file="/opt/aitbc/docs/releases/v0.8.2/change.log" /> ✅ complete
-- **v0.9.0** — Atomic Cross-Chain Settlement: <ref_file file="/opt/aitbc/docs/releases/v0.9.0/change.log" /> 🚧 code complete (A1-A6 ✅, B1-B12 ✅; all tests passing; external security audit pending)
+- **v0.9.0** — Atomic Cross-Chain Settlement: <ref_file file="/opt/aitbc/docs/releases/v0.9.0/change.log" /> ✅ complete (A1-A6 ✅, B1-B12 ✅; all tests passing; external security audit skipped — poor project, no budget)
 
 ### Patch Releases
 - **v0.10.0** — Runtime Bug Fixes, Service Modernization & Feature Activation (consensus state root fix, SharedHttpClient classmethod fix, DB column migration, session_scope chain_id fix, PyCUDA log noise, exchange module entry point, miner logging, enable multi-validator consensus + atomic settlement for homebrew testing): <ref_file file="/opt/aitbc/docs/releases/v0.10.0/change.log" /> ✅ complete
