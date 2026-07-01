@@ -1,7 +1,7 @@
 # v0.10.1 — Agent Task Assignment
 
 **Last Updated**: 2026-07-01
-**Version**: 1.0
+**Version**: 1.1 — All tasks complete, post-verification fixes applied
 
 **Release Theme**: Gap Fill — Activate and fix ALL features from v0.6.0–v0.8.2 that were planned but never wired up, deployed, or had broken CLI/RPC integration.
 
