@@ -88,6 +88,7 @@ get_allowed_services() {
         aitbc-monitoring
         aitbc-backup
         aitbc-trading
+        aitbc-governance
     )
 
     # Hub-specific services (blockchain producer)
@@ -95,7 +96,6 @@ get_allowed_services() {
         aitbc-blockchain-p2p
         aitbc-coordinator-api
         aitbc-api-gateway
-        aitbc-governance
         aitbc-exchange
         aitbc-marketplace
         aitbc-bridge-monitor
@@ -116,6 +116,8 @@ get_allowed_services() {
         aitbc-gpu
         aitbc-miner
         aitbc-coordinator-api
+        aitbc-edge
+        aitbc-pool-hub
     )
 
     if [ "$role_spec" = "all" ]; then
