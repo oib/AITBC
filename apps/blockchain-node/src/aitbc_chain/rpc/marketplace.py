@@ -115,7 +115,12 @@ async def marketplace_listings() -> dict[str, Any]:
                 except json.JSONDecodeError:
                     continue
 
+        # Merge on-chain listings with in-memory listings
+        listings.extend(_marketplace_listings)
+
         return {"listings": listings, "total": len(listings), "timestamp": datetime.now().isoformat()}
+    except HTTPException:
+        raise
     except Exception as e:
         metrics_registry.increment("rpc_marketplace_listings_errors_total")
         raise HTTPException(status_code=500, detail=str(e)) from e
