@@ -67,6 +67,6 @@ check_service "Modality Optimization" "http://localhost:8021/health"
 # Check process status
 echo ""
 echo "Process Status:"
-ps aux | grep -E "simple_daemon|uvicorn|simple_exchange_api" | grep -v grep | while read line; do
+ps aux | grep -E "simple_daemon|uvicorn|apps.exchange.simple_exchange.server" | grep -v grep | while read line; do
     echo -e "${GREEN}✓${NC} $line"
 done
