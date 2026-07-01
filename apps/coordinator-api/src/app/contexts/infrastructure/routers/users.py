@@ -65,7 +65,7 @@ async def register_user(
     """Register a new user"""
 
     # Check if user already exists
-    existing_user = session.execute(select(User).where(User.email == user_data.email)).first()
+    existing_user = session.execute(select(User).where(User.email == user_data.email)).scalars().first()
 
     if existing_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
@@ -112,7 +112,7 @@ async def login_user(
     # In production, implement proper authentication
 
     # Find user by wallet address
-    wallet = session.execute(select(Wallet).where(Wallet.address == login_data.wallet_address)).first()
+    wallet = session.execute(select(Wallet).where(Wallet.address == login_data.wallet_address)).scalars().first()
 
     if not wallet:
         # Create new user for wallet
@@ -135,7 +135,9 @@ async def login_user(
         session.commit()
     else:
         # Update last login
-        user = session.execute(select(User).where(User.id == wallet.user_id)).first()  # type: ignore[assignment]
+        user = session.execute(select(User).where(User.id == wallet.user_id)).scalars().first()  # type: ignore[assignment]
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found for wallet")
         user.last_login = datetime.now(UTC)
         session.commit()
 
@@ -195,7 +197,7 @@ async def get_user_balance(
 ) -> dict[str, Any]:
     """Get user's AITBC balance"""
 
-    wallet = session.execute(select(Wallet).where(Wallet.user_id == user_id)).first()
+    wallet = session.execute(select(Wallet).where(Wallet.user_id == user_id)).scalars().first()
 
     if not wallet:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wallet not found")

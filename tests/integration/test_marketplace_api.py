@@ -2,12 +2,18 @@
 Marketplace Service Integration Tests (using TestClient)
 Tests the complete API functionality without requiring running services
 Note: Some endpoints require database setup and are marked as expected to fail
+
+Note: The marketplace_service package was removed/refactored during the
+v0.5.x context migration. These tests are skipped until the marketplace
+service is reintroduced in the current architecture.
 """
 
 import os
 
 import pytest
 from starlette.testclient import TestClient
+
+pytestmark = pytest.mark.skip(reason="marketplace_service package not available in current architecture")
 
 
 class TestMarketplaceAPI:
