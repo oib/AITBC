@@ -2,13 +2,15 @@
 
 **Date**: 2026-07-01
 **Status**: ✅ Complete
-**Scope**: Runtime Bug Fixes, Service Modernization & Feature Activation — fix critical consensus, database, and networking bugs affecting hub and customer-no-gpu node profiles; modernize service entry points and logging; enable multi-validator consensus and atomic settlement for homebrew testing (no external security audit).
+**Scope**: Runtime Bug Fixes, Service Modernization & Feature Activation — fix critical consensus, database, networking, and API bugs affecting hub and customer-no-gpu node profiles; modernize service entry points and logging; enable multi-validator consensus and atomic settlement for homebrew testing (no external security audit).
 
 ## 🎯 Overview
 
-v0.10.0 is a **bugfix and modernization release** that resolves five issues discovered during deployment of the `hub:customer:nogpu` node profile. Four of the five fixes address **critical runtime failures** that prevented core services from functioning correctly; one is a logging/entry-point modernization.
+v0.10.0 is a **bugfix and modernization release** that resolves 11 issues discovered during deployment and testing of the `hub:customer:nogpu` node profile. Nine of the 11 fixes address **critical runtime failures** that prevented core services from functioning correctly; two are logging/entry-point modernization.
 
 The most severe bug — broken `SharedHttpClient` classmethod calls — has been latent since v0.6.0 (commit `a48878ca6`), where callers were introduced using `SharedHttpClient.get(url)` classmethod syntax while the methods were still defined as instance methods. This silently broke all inter-node HTTP communication: chain sync, escrow routes, hub discovery, consensus genesis fetch, and the startup health check. The second critical bug — wrong state root computation — caused the hub to produce blocks with invalid state roots since the incremental computation was introduced.
+
+The second batch of fixes (commits `b7a2c932f` through `b19cd5053`) addressed issues discovered when activating and testing the multi-validator consensus and atomic settlement features: the cross-chain bridge was never initialized on startup, settlement routes used the wrong chain_id, escrow dispute/resolve didn't persist to DB, agent-management couldn't create or list workflows, dispute GET endpoints returned validation errors, marketplace listings were invisible, and the backup script produced duplicate journal entries.
 
 **Prerequisites**: [v0.9.0](../v0.9.0/change.log) (in progress; these fixes are independent of the settlement work).
 
@@ -16,7 +18,7 @@ The most severe bug — broken `SharedHttpClient` classmethod calls — has been
 
 | Profile | Services affected |
 |---------|-------------------|
-| `hub:customer:nogpu` | blockchain-node, blockchain-rpc, coordinator-api, exchange |
+| `hub:customer:nogpu` | blockchain-node, blockchain-rpc, coordinator-api, exchange, agent-management |
 | `follower:customer:nogpu` | blockchain-node, blockchain-rpc, blockchain-sync |
 
 ## 🎯 Release Highlights
@@ -73,6 +75,47 @@ The most severe bug — broken `SharedHttpClient` classmethod calls — has been
 - ✅ Bridge confirm path also unblocked (`escrow_enabled or bridge_release_enabled` — bridge was already `True`)
 - ⚠️ **No external security audit** — atomic cross-chain settlement is the highest-risk feature class in crypto (Wormhole $325M, Ronin $625M, Poly Network $611M). Enabled at own risk for testing.
 
+### Critical: Cross-chain bridge not initialized on startup
+- ✅ `init_cross_chain_bridge()` was defined but never called in the FastAPI lifespan startup — all `/rpc/bridge/*` endpoints returned 503 "Cross-chain bridge not initialized"
+- ✅ Added the init call after `init_balance_tracker()` in `app.py` lifespan
+- ✅ Bridge health, security status, lock/confirm/unlock, batch operations, and validator registration now all functional
+
+### Critical: Settlement RPC routes used wrong chain_id
+- ✅ 10 settlement routes in `router.py` instantiated `CrossChainSettlementService()` with the hardcoded default `"ait-hub"` instead of `settings.chain_id`
+- ✅ On nodes with non-default chain IDs (e.g., `ait-hub.aitbc.bubuit.net`), this caused `sqlite3.OperationalError: unable to open database file` because the service looked for a DB file that didn't exist
+- ✅ Fixed all 10 routes to pass `chain_id=settings.chain_id`
+
+### Critical: Escrow dispute/resolve not persisting to DB
+- ✅ `file_escrow_dispute_route` and `resolve_escrow_dispute_route` in `router.py` had two bugs:
+  1. `session_scope()` called without `chain_id` — queried the default DB instead of the chain-specific DB where escrow records live
+  2. No `session.commit()` — `session_scope` doesn't auto-commit, so status changes were never flushed
+- ✅ Fixed: `session_scope(settings.chain_id)` + explicit `session.commit()`
+- ✅ Dispute → DB shows "disputed", Resolve → DB shows "refunded"
+
+### Critical: Agent-management missing SQLModel tables
+- ✅ `main.py` called `Base.metadata.create_all()` (SQLAlchemy `declarative_base()`) but all domain models (`AIAgentWorkflow`, `AgentStep`, `AgentExecution`, etc.) are `SQLModel` classes with separate metadata
+- ✅ Added `SQLModel.metadata.create_all(bind=engine)` — `ai_agent_workflows` and 8 other tables now created on startup
+
+### Critical: Agent-management Session.exec() and tags serialization
+- ✅ `storage/__init__.py` `get_session()` used SQLAlchemy `Session` instead of SQLModel `Session` — `.exec()` unavailable, causing `list_workflows` to fail with `"'Session' object has no attribute 'exec'"`
+- ✅ `AgentWorkflowCreate` and `AgentWorkflowUpdate` had `tags: list[str]` but `AIAgentWorkflow` table model has `tags: str` — SQLite can't bind a list. Added `.dict()` override to JSON-serialize tags.
+- ✅ `list_workflows` had `tags: list[str] | None` as a query param, making FastAPI require a request body for a GET endpoint. Changed to `tags: str | None` (comma-separated) and reordered params so `Annotated[Depends]` come before defaulted params.
+
+### High: Dispute response field mapping
+- ✅ `Dispute` dataclass uses `initiator`/`filing_time`, but `GetDisputeResponse` expects `plaintiff`/`created_at` — route handler passed raw `asdict()` output, causing validation errors
+- ✅ `Evidence` dataclass uses `submitter`/`evidence_data`/`is_valid`/`submission_time`, but `GetEvidenceResponse` expects `submitted_by`/`description`/`verified`/`created_at`
+- ✅ Fixed both route handlers with explicit field mapping from dataclass to response model
+
+### High: Marketplace list missing in-memory listings
+- ✅ `POST /marketplace/create` stored listings in `_marketplace_listings` (in-memory), but `GET /marketplace/listings` only read `GPU_MARKETPLACE` transactions from the blockchain DB — the two storage mechanisms were disconnected
+- ✅ Fixed: list endpoint now merges in-memory listings into the response
+
+### Medium: Backup script duplicate journal entries and log levels
+- ✅ `log()` and `error()` functions sent each message to journal twice (echo to stdout + `systemd-cat`) and added a manual `[date time]` prefix duplicating journalctl's own timestamp
+- ✅ Replaced with `systemd-cat` only (no stdout echo under systemd), using proper priority levels: `log()` → info, `warn()` → warning, `error()` → err
+- ✅ Non-fatal skips (DB dir not found, Redis RDB not found) now use `warn()` instead of `log()`
+- ✅ Removed leading whitespace from log messages
+
 ## 📋 Commit Log
 
 | Commit | Type | Scope | Description |
@@ -82,7 +125,12 @@ The most severe bug — broken `SharedHttpClient` classmethod calls — has been
 | `b7929bdd7` | refactor | exchange | Convert exchange API to module-based execution |
 | `24c6de541` | refactor | miner | Standardize logging to use canonical AITBC logging setup |
 | `5e630119f` | fix | consensus | Remove broken incremental state root computation and use full recompute |
-| (this release) | feat | config | Enable multi_validator_consensus_enabled and escrow_enabled for homebrew testing |
+| `d6eb7ae8d` | feat | config | Enable multi_validator_consensus and escrow_enabled for homebrew testing |
+| `b7a2c932f` | fix | bridge | Initialize cross-chain bridge on startup (was never called in lifespan) |
+| `ace4d5f4a` | fix | settlement | Escrow dispute/resolve not persisting + agent-management missing SQLModel tables |
+| `9546c3991` | fix | agent-mgmt | Fix Session.exec() and tags serialization for workflow endpoints |
+| `0f81f9af7` | fix | disputes | Dispute response field mapping + marketplace list missing in-memory listings |
+| `b19cd5053` | fix | backup | Use proper journal priority levels (info/warning/err) in backup script |
 
 ## 🔧 Breaking Changes
 
@@ -95,9 +143,14 @@ The most severe bug — broken `SharedHttpClient` classmethod calls — has been
 ### `apps/blockchain-node/src/aitbc_chain/`
 - `database.py` — `_migrate_existing_columns()`, `class_=Session` on sessionmakers, `init_db()` calls migration
 - `rpc/accounts.py` — 6 `session_scope()` calls fixed to pass `chain_id`
+- `rpc/router.py` — 10 settlement routes pass `settings.chain_id` to `CrossChainSettlementService`; dispute/resolve routes pass `settings.chain_id` + `session.commit()`
+- `rpc/disputes.py` — field mapping from `Dispute`/`Evidence` dataclasses to `GetDisputeResponse`/`GetEvidenceResponse`
+- `rpc/marketplace.py` — list endpoint merges in-memory listings
 - `consensus/poa.py` — removed `compute_state_root_incremental` import + usage; always full recompute
 - `sync.py` — removed changed-addresses tracking + `account_map` building; always full recompute
 - `sync_cli.py` — added `init_db(settings.chain_id)` before `ChainSync` start
+- `app.py` — added `init_cross_chain_bridge(session_scope)` call in lifespan startup
+- `config.py` — `multi_validator_consensus_enabled: True`, `escrow_enabled: True` (enabled for homebrew testing, no external security audit)
 
 ### `aitbc/network/`
 - `http_pool.py` — `get/post/put/delete` converted to `@classmethod`
@@ -114,11 +167,18 @@ The most severe bug — broken `SharedHttpClient` classmethod calls — has been
 - `aitbc-miner.service` — added `LOG_DIR` env + `SyslogIdentifier=aitbc-miner`
 - `production_miner.py` — replaced custom logging with `configure_logging()`
 
-### `apps/blockchain-node/src/aitbc_chain/` (config)
-- `config.py` — `multi_validator_consensus_enabled: True`, `escrow_enabled: True` (enabled for homebrew testing, no external security audit)
+### `apps/agent-management/src/app/`
+- `main.py` — added `SQLModel.metadata.create_all(bind=engine)` after `Base.metadata.create_all()`
+- `core/database.py` — `sessionmaker` uses `class_=SQLModelSession` for `.exec()` support
+- `storage/__init__.py` — `get_session()` uses SQLModel `Session` instead of SQLAlchemy `Session`
+- `domain/agent.py` — `AgentWorkflowCreate`/`AgentWorkflowUpdate` `.dict()` override JSON-serializes `tags` (list→str for SQLite)
+- `routers/agent_router.py` — `list_workflows` params reordered (Annotated[Depends] before defaults); `tags` changed from `list[str]` to comma-separated `str`
 
 ### `scripts/monitoring/`
 - `health-check.sh` — updated `ps` grep pattern to match new exchange module name
+
+### `scripts/maintenance/`
+- `aitbc-backup.sh` — replaced dual echo+systemd-cat with single `systemd-cat` call using proper priority levels (`log`→info, `warn`→warning, `error`→err); removed manual timestamp prefix; non-fatal skips use `warn()`
 
 ## 🚀 Deployment
 
@@ -126,7 +186,7 @@ The most severe bug — broken `SharedHttpClient` classmethod calls — has been
 ```bash
 git pull
 sudo systemctl daemon-reload
-sudo systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc aitbc-coordinator-api aitbc-exchange
+sudo systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc aitbc-coordinator-api aitbc-exchange aitbc-agent-management
 ```
 
 ### Follower/customer node (`follower:customer:nogpu`)
@@ -153,11 +213,17 @@ After restart, confirm services are healthy:
 # Hub: blockchain-node producing blocks with correct state roots
 journalctl -u aitbc-blockchain-node -n 50 --no-pager
 
+# Hub: blockchain-rpc initialized bridge on startup
+journalctl -u aitbc-blockchain-rpc -n 20 --no-pager | grep "Cross-chain bridge initialized"
+
 # Hub: coordinator-api started without PyCUDA warnings
 journalctl -u aitbc-coordinator-api -n 30 --no-pager
 
 # Hub: exchange started without deprecation warning
 journalctl -u aitbc-exchange -n 20 --no-pager
+
+# Hub: agent-management created SQLModel tables on startup
+journalctl -u aitbc-agent-management -n 20 --no-pager
 
 # Follower: blockchain-sync running with up-to-date schema
 journalctl -u aitbc-blockchain-sync -n 30 --no-pager
@@ -165,8 +231,27 @@ journalctl -u aitbc-blockchain-sync -n 30 --no-pager
 # Consensus: multi-validator status now returns real data (not "not enabled")
 curl -s http://localhost:8202/rpc/consensus/status | python -m json.tool
 
-# Settlement: escrow endpoints no longer return 503
-curl -s http://localhost:8202/rpc/settlement/status | python -m json.tool
+# Bridge: health endpoint returns bridge_initialized=true (not 503)
+curl -s http://localhost:8202/rpc/bridge/health | python -m json.tool
+
+# Settlement: escrow creation works (no more sqlite3.OperationalError)
+curl -s -X POST http://localhost:8202/rpc/bridge/settlement/create \
+  -H "Content-Type: application/json" \
+  -d '{"trade_id":"verify","source_chain":"ait-hub.aitbc.bubuit.net","dest_chain":"ait-testnet","sender":"ait1db5247d03ca2e40f3995a583b2c097ab703efd4d","recipient":"aitbc1c10f0e4fb1d162bb27af88a698b8c2e6e39a844f","amount":50,"timeout_seconds":3600}' \
+  | python -m json.tool
+
+# Disputes: GET returns proper JSON (not 500 validation error)
+curl -s http://localhost:8202/rpc/disputes/1 | python -m json.tool
+
+# Marketplace: list includes in-memory listings
+curl -s http://localhost:8202/rpc/marketplace/listings | python -m json.tool
+
+# Agent workflows: list returns JSON (not "body required" error)
+curl -s "http://localhost:8204/v1/agents/workflows?owner_id=dev_key&is_public=true" | python -m json.tool
+
+# Backup: single journal entry per line with proper priority
+journalctl -u aitbc-backup -n 20 --no-pager
+journalctl -u aitbc-backup -p err --no-pager  # errors only
 ```
 
 ## 🎯 Success Criteria
@@ -181,10 +266,19 @@ curl -s http://localhost:8202/rpc/settlement/status | python -m json.tool
 - ✅ Miner service uses canonical logging (shop nodes only)
 - ✅ `multi_validator_consensus_enabled=True` — MultiValidatorPoA/PBFT available for testing via RPC
 - ✅ `escrow_enabled=True` — settlement RPC endpoints and CrossChainSettlementService active for testing
+- ✅ Cross-chain bridge initialized on startup — `/rpc/bridge/health` returns `bridge_initialized: true`
+- ✅ Settlement routes use `settings.chain_id` — no `sqlite3.OperationalError` on non-default chain IDs
+- ✅ Escrow dispute/resolve persist to DB — `session_scope(settings.chain_id)` + `session.commit()`
+- ✅ Agent-management creates SQLModel tables on startup — `ai_agent_workflows` table exists
+- ✅ Agent workflow list endpoint returns JSON (not "body required" error)
+- ✅ Agent workflow tags serialize as JSON string for SQLite (not `sqlite3.ProgrammingError`)
+- ✅ Dispute GET endpoints return proper response models (not 500 validation errors)
+- ✅ Marketplace list endpoint includes in-memory listings
+- ✅ Backup script logs each line once with proper journal priority levels (info/warning/err)
 - ⚠️ Both feature activations are without external security audit (homebrew project, at own risk)
 
 ---
 
-*Last Updated: 2026-07-01*
+*Last Updated: 2026-07-01 (updated with post-activation fixes)*
 *Version: 0.10.0*
 *Status: Complete — Runtime Bug Fixes, Service Modernization & Feature Activation*
