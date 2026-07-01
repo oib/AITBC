@@ -96,7 +96,7 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.6.1** — Parallel Processing (parallel tx validation via dependency analysis, deterministic scheduling, pure state transitions): <ref_file file="/opt/aitbc/docs/releases/v0.6.1/change.log" /> ✅ complete
 - **v0.6.2** — Sync & Gossip Optimization (gossip protocol versioning, message prioritization, compact blocks, parallel sync from multiple peers, delta sync): <ref_file file="/opt/aitbc/docs/releases/v0.6.2/change.log" /> ✅ complete
 - **v0.6.3** — Multi-Island Node Support: <ref_file file="/opt/aitbc/docs/releases/v0.6.3/change.log" /> ✅ complete
-- **v0.6.4** — Multi-Chain Per Island: <ref_file file="/opt/aitbc/docs/releases/v0.6.4/change.log" /> 🚧 code complete (B1-B9 complete — MultiValidatorPoA/PBFT remain in THRESHOLD state)
+- **v0.6.4** — Multi-Chain Per Island: <ref_file file="/opt/aitbc/docs/releases/v0.6.4/change.log" /> ✅ complete (MultiValidatorPoA/PBFT remain in THRESHOLD state for security review)
 
 ### Product Track (interleaved after v0.6.4)
 - **v0.6.5** — Agent Coordination Service: <ref_file file="/opt/aitbc/docs/releases/v0.6.5/change.log" /> ✅ complete
