@@ -9,7 +9,7 @@ import asyncio
 import os
 
 from aitbc_chain.config import settings
-from aitbc_chain.database import session_scope
+from aitbc_chain.database import init_db, session_scope
 from aitbc_chain.logger import get_logger
 from aitbc_chain.sync import ChainSync
 
@@ -28,6 +28,10 @@ async def main() -> None:
     parser.add_argument("--batch-size", type=int, default=100, help="Blocks per batch")
     parser.add_argument("--poll-interval", type=float, default=0.2, help="Seconds between batches")
     args = parser.parse_args()
+
+    # Ensure the chain DB schema is up to date (adds missing columns such as
+    # block.signature to existing DBs). create_all only handles new tables.
+    init_db(settings.chain_id)
 
     sync = ChainSync(
         session_factory=session_scope,  # type: ignore[arg-type]
