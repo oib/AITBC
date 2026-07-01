@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
+from sqlalchemy import DateTime
 from sqlmodel import JSON, Column, Field, Index, SQLModel
 
 
@@ -51,8 +52,8 @@ class GovernanceProfile(SQLModel, table=True):
 
     delegate_to: str | None = Field(default=None)
 
-    joined_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    last_voted_at: datetime | None = None
+    joined_at: datetime = Field(default_factory=lambda: datetime.now(UTC), sa_column=Column(DateTime(timezone=True)))
+    last_voted_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True)))
 
 
 class Proposal(SQLModel, table=True):
@@ -100,10 +101,10 @@ class Proposal(SQLModel, table=True):
 
     status: ProposalStatus = Field(default=ProposalStatus.DRAFT)
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    voting_starts: datetime
-    voting_ends: datetime
-    executed_at: datetime | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), sa_column=Column(DateTime(timezone=True)))
+    voting_starts: datetime = Field(sa_column=Column(DateTime(timezone=True)))
+    voting_ends: datetime = Field(sa_column=Column(DateTime(timezone=True)))
+    executed_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True)))
 
 
 class Vote(SQLModel, table=True):
@@ -137,7 +138,7 @@ class Vote(SQLModel, table=True):
     block_height: int | None = Field(default=None)
     tx_hash: str | None = Field(default=None)  # GOVERNANCE_VOTE tx hash
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), sa_column=Column(DateTime(timezone=True)))
 
 
 class Delegation(SQLModel, table=True):
