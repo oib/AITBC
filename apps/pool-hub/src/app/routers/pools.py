@@ -61,8 +61,14 @@ class PoolMembershipResponse(BaseModel):
     status: str
 
 
+_registry_singleton: MinerRegistry | None = None
+
+
 def get_registry() -> MinerRegistry:
-    return MinerRegistry()
+    global _registry_singleton
+    if _registry_singleton is None:
+        _registry_singleton = MinerRegistry()
+    return _registry_singleton
 
 
 @router.post("/", response_model=PoolInfo)

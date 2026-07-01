@@ -15,6 +15,12 @@ from .routers.sla import router as sla_router
 from .routers.ui import router as ui_router
 from .routers.validation import router as validation_router
 
+# Pool management router (from legacy app structure — uses MinerRegistry)
+try:
+    from app.routers.pools import router as pools_router
+except ImportError:
+    pools_router = None
+
 configure_logging(level="INFO")
 logger = get_logger(__name__)
 
@@ -39,6 +45,8 @@ app.include_router(ui_router)
 app.include_router(validation_router, prefix="/v1")
 app.include_router(sla_router, prefix="/v1")
 app.include_router(parameters_router, prefix="/v1")
+if pools_router is not None:
+    app.include_router(pools_router, prefix="/v1")
 
 
 def create_app() -> FastAPI:

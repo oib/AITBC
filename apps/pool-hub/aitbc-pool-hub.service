@@ -1,0 +1,34 @@
+[Unit]
+Description=AITBC Pool Hub Service
+After=network.target
+
+[Service]
+Type=simple
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc/apps/pool-hub
+Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/pool-hub/src:/opt/aitbc/packages/py/aitbc-core/src:$PYTHONPATH"
+EnvironmentFile=/etc/aitbc/%N.env
+Environment=LOG_FORMAT=json
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn poolhub.app.main:app --host 127.0.0.1 --port 8203
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-pool-hub
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ProtectSystem=full
+ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
