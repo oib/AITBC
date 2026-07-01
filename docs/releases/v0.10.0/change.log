@@ -2,7 +2,7 @@
 
 **Date**: 2026-07-01
 **Status**: ✅ Complete
-**Scope**: Runtime Bug Fixes & Service Modernization — fix critical consensus, database, and networking bugs affecting hub and customer-no-gpu node profiles; modernize service entry points and logging.
+**Scope**: Runtime Bug Fixes, Service Modernization & Feature Activation — fix critical consensus, database, and networking bugs affecting hub and customer-no-gpu node profiles; modernize service entry points and logging; enable multi-validator consensus and atomic settlement for homebrew testing (no external security audit).
 
 ## 🎯 Overview
 
@@ -59,6 +59,20 @@ The most severe bug — broken `SharedHttpClient` classmethod calls — has been
 - ✅ Add `LOG_DIR` environment variable and `SyslogIdentifier=aitbc-miner` to systemd service
 - ✅ Only affects `MARKET_ROLE=shop` nodes (miner is in `shop_services`, not enabled on hub/customer)
 
+### Feature Activation: Multi-validator consensus (v0.7.5) — enabled for homebrew testing
+- ✅ Flip `multi_validator_consensus_enabled` from `False` → `True` in `config.py`
+- ✅ `MultiValidatorPoA` and `PBFTConsensus` classes now instantiate without `RuntimeError`
+- ✅ `/consensus/status` and `/consensus/validators` RPC endpoints return real consensus data instead of "not enabled" stubs
+- ✅ Single-validator `PoAProposer` (in `poa.py`) continues to produce blocks — this flag only unlocks the multi-validator consensus classes and RPC endpoints for testing
+- ⚠️ **No external security audit** — this is a poor homebrew project. The v0.7.5 security review found the implementation was scaffolding, not production consensus. Enabled at own risk for testing.
+
+### Feature Activation: Atomic cross-chain settlement (v0.9.0) — enabled for homebrew testing
+- ✅ Flip `escrow_enabled` from `False` → `True` in `config.py`
+- ✅ 12 settlement RPC endpoints in `router.py` now active (previously returned 503)
+- ✅ `CrossChainSettlementService` operations (lock, verify, execute, release, refund) now functional
+- ✅ Bridge confirm path also unblocked (`escrow_enabled or bridge_release_enabled` — bridge was already `True`)
+- ⚠️ **No external security audit** — atomic cross-chain settlement is the highest-risk feature class in crypto (Wormhole $325M, Ronin $625M, Poly Network $611M). Enabled at own risk for testing.
+
 ## 📋 Commit Log
 
 | Commit | Type | Scope | Description |
@@ -68,10 +82,12 @@ The most severe bug — broken `SharedHttpClient` classmethod calls — has been
 | `b7929bdd7` | refactor | exchange | Convert exchange API to module-based execution |
 | `24c6de541` | refactor | miner | Standardize logging to use canonical AITBC logging setup |
 | `5e630119f` | fix | consensus | Remove broken incremental state root computation and use full recompute |
+| (this release) | feat | config | Enable multi_validator_consensus_enabled and escrow_enabled for homebrew testing |
 
 ## 🔧 Breaking Changes
 
-- None. All changes are bug fixes or internal refactors. No public API changes.
+- **`multi_validator_consensus_enabled` default changed from `False` → `True`** — `MultiValidatorPoA`/`PBFTConsensus` now instantiate on demand. Single-validator PoA still produces blocks. Set `MULTI_VALIDATOR_CONSENSUS_ENABLED=false` in env to re-disable.
+- **`escrow_enabled` default changed from `False` → `True`** — settlement RPC endpoints and `CrossChainSettlementService` now active. Set `ESCROW_ENABLED=false` in env to re-disable.
 - The `simple_exchange_api.py` shim is retained for backward compatibility but is no longer used by any launcher.
 
 ## 📁 Files Changed
@@ -97,6 +113,9 @@ The most severe bug — broken `SharedHttpClient` classmethod calls — has been
 ### `apps/miner/`
 - `aitbc-miner.service` — added `LOG_DIR` env + `SyslogIdentifier=aitbc-miner`
 - `production_miner.py` — replaced custom logging with `configure_logging()`
+
+### `apps/blockchain-node/src/aitbc_chain/` (config)
+- `config.py` — `multi_validator_consensus_enabled: True`, `escrow_enabled: True` (enabled for homebrew testing, no external security audit)
 
 ### `scripts/monitoring/`
 - `health-check.sh` — updated `ps` grep pattern to match new exchange module name
@@ -142,6 +161,12 @@ journalctl -u aitbc-exchange -n 20 --no-pager
 
 # Follower: blockchain-sync running with up-to-date schema
 journalctl -u aitbc-blockchain-sync -n 30 --no-pager
+
+# Consensus: multi-validator status now returns real data (not "not enabled")
+curl -s http://localhost:8202/rpc/consensus/status | python -m json.tool
+
+# Settlement: escrow endpoints no longer return 503
+curl -s http://localhost:8202/rpc/settlement/status | python -m json.tool
 ```
 
 ## 🎯 Success Criteria
@@ -154,9 +179,12 @@ journalctl -u aitbc-blockchain-sync -n 30 --no-pager
 - ✅ No `DeprecationWarning` from exchange service in journal
 - ✅ No PyCUDA `warning`-level log spam on no-GPU hub nodes
 - ✅ Miner service uses canonical logging (shop nodes only)
+- ✅ `multi_validator_consensus_enabled=True` — MultiValidatorPoA/PBFT available for testing via RPC
+- ✅ `escrow_enabled=True` — settlement RPC endpoints and CrossChainSettlementService active for testing
+- ⚠️ Both feature activations are without external security audit (homebrew project, at own risk)
 
 ---
 
 *Last Updated: 2026-07-01*
 *Version: 0.10.0*
-*Status: Complete — Runtime Bug Fixes & Service Modernization*
+*Status: Complete — Runtime Bug Fixes, Service Modernization & Feature Activation*
