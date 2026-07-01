@@ -14,7 +14,7 @@ LOG_TAG="aitbc-backup"
 
 # Log to journal with proper priority levels (info/warning/err).
 # When running interactively (TTY), also echo to console.
-_log() { local pri="$1" msg="$2"; systemd-cat -t "$LOG_TAG" -p "$pri" <<< "$msg"; [[ -t 1 ]] && echo "$msg"; }
+_log() { local pri="$1" msg="$2"; systemd-cat -t "$LOG_TAG" -p "$pri" <<< "$msg"; [[ -t 1 ]] && echo "$msg" || true; }
 log()  { _log info    "$1"; }
 warn() { _log warning "WARN: $1"; }
 error(){ _log err     "ERROR: $1" >&2; }
