@@ -12,8 +12,12 @@ BACKUP_DIR="${BACKUP_BASE}/${TIMESTAMP}"
 RETENTION_DAYS=30
 LOG_TAG="aitbc-backup"
 
-log()  { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"; systemd-cat -t "$LOG_TAG" -p info  echo "$1" 2>/dev/null || true; }
-error(){ echo "[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: $1" >&2; systemd-cat -t "$LOG_TAG" -p err echo "$1" 2>/dev/null || true; }
+# Log to journal with proper priority levels (info/warning/err).
+# When running interactively (TTY), also echo to console.
+_log() { local pri="$1" msg="$2"; systemd-cat -t "$LOG_TAG" -p "$pri" <<< "$msg"; [[ -t 1 ]] && echo "$msg"; }
+log()  { _log info    "$1"; }
+warn() { _log warning "WARN: $1"; }
+error(){ _log err     "ERROR: $1" >&2; }
 
 log "Starting AITBC backup to ${BACKUP_DIR}"
 mkdir -p "${BACKUP_DIR}"
@@ -30,14 +34,14 @@ fi
 
 log "Backing up PostgreSQL aitbc_governance..."
 if [ -z "$GOVERNANCE_PW" ]; then
-    error "  PostgreSQL backup FAILED: no governance password found"
-    error "  Expected /etc/aitbc/credentials/postgres_aitbc_governance_password or DB_PASS in /etc/aitbc/aitbc-governance.env"
+    error "PostgreSQL backup FAILED: no governance password found"
+    error "Expected /etc/aitbc/credentials/postgres_aitbc_governance_password or DB_PASS in /etc/aitbc/aitbc-governance.env"
 else
     if PGPASSWORD="$GOVERNANCE_PW" pg_dump -U aitbc_governance -h localhost aitbc_governance \
         | gzip > "${BACKUP_DIR}/governance_postgres.sql.gz"; then
-        log "  PostgreSQL backup: OK ($(du -sh "${BACKUP_DIR}/governance_postgres.sql.gz" | cut -f1))"
+        log "PostgreSQL backup: OK ($(du -sh "${BACKUP_DIR}/governance_postgres.sql.gz" | cut -f1))"
     else
-        error "  PostgreSQL backup FAILED"
+        error "PostgreSQL backup FAILED"
     fi
 fi
 
@@ -50,11 +54,11 @@ if [ -d "$CHAIN_DB_DIR" ]; then
         dest="${BACKUP_DIR}/chain_$(echo "$rel" | tr '/' '_').gz"
         # Use SQLite online backup via .dump to get consistent snapshot
         sqlite3 "$dbfile" ".dump" 2>/dev/null | gzip > "$dest" \
-            && log "  SQLite $(basename "$dbfile"): OK" \
-            || error "  SQLite $(basename "$dbfile") FAILED"
+            && log "SQLite $(basename "$dbfile"): OK" \
+            || error "SQLite $(basename "$dbfile") FAILED"
     done
 else
-    log "  Chain DB dir not found at ${CHAIN_DB_DIR}, skipping"
+    warn "Chain DB dir not found at ${CHAIN_DB_DIR}, skipping"
 fi
 
 # ── Keystore ──────────────────────────────────────────────────────────────────
@@ -62,17 +66,17 @@ KEYSTORE_DIR="/var/lib/aitbc/keystore"
 if [ -d "$KEYSTORE_DIR" ]; then
     log "Backing up keystore..."
     tar czf "${BACKUP_DIR}/keystore.tar.gz" -C "$(dirname "$KEYSTORE_DIR")" "$(basename "$KEYSTORE_DIR")" \
-        && log "  Keystore backup: OK ($(du -sh "${BACKUP_DIR}/keystore.tar.gz" | cut -f1))" \
-        || error "  Keystore backup FAILED"
+        && log "Keystore backup: OK ($(du -sh "${BACKUP_DIR}/keystore.tar.gz" | cut -f1))" \
+        || error "Keystore backup FAILED"
 fi
 
 # ── Service Configuration ─────────────────────────────────────────────────────
 log "Backing up service configurations..."
 tar czf "${BACKUP_DIR}/etc-aitbc.tar.gz" /etc/aitbc/ 2>/dev/null \
-    && log "  /etc/aitbc: OK" || error "  /etc/aitbc backup FAILED"
+    && log "/etc/aitbc: OK" || error "/etc/aitbc backup FAILED"
 
 tar czf "${BACKUP_DIR}/prometheus-config.tar.gz" /etc/prometheus/ 2>/dev/null \
-    && log "  /etc/prometheus: OK" || error "  Prometheus config backup FAILED"
+    && log "/etc/prometheus: OK" || error "Prometheus config backup FAILED"
 
 # ── Redis RDB Snapshot ────────────────────────────────────────────────────────
 log "Triggering Redis snapshot..."
@@ -81,10 +85,10 @@ REDIS_RDB=$(redis-cli CONFIG GET dir 2>/dev/null | tail -1)
 REDIS_FILE=$(redis-cli CONFIG GET dbfilename 2>/dev/null | tail -1)
 if [ -f "${REDIS_RDB}/${REDIS_FILE}" ]; then
     cp "${REDIS_RDB}/${REDIS_FILE}" "${BACKUP_DIR}/redis.rdb" \
-        && log "  Redis RDB: OK ($(du -sh "${BACKUP_DIR}/redis.rdb" | cut -f1))" \
-        || error "  Redis RDB copy FAILED"
+        && log "Redis RDB: OK ($(du -sh "${BACKUP_DIR}/redis.rdb" | cut -f1))" \
+        || error "Redis RDB copy FAILED"
 else
-    log "  Redis RDB not found, skipping"
+    warn "Redis RDB not found, skipping"
 fi
 
 # ── Finalize ──────────────────────────────────────────────────────────────────
@@ -94,7 +98,7 @@ log "Backup complete: ${BACKUP_DIR} (total: ${TOTAL})"
 # ── Prune old backups ─────────────────────────────────────────────────────────
 log "Pruning backups older than ${RETENTION_DAYS} days..."
 find "${BACKUP_BASE}" -maxdepth 1 -type d -mtime "+${RETENTION_DAYS}" -exec rm -rf {} + 2>/dev/null \
-    && log "  Prune complete" || true
+    && log "Prune complete" || true
 
 KEPT=$(find "${BACKUP_BASE}" -maxdepth 1 -type d | grep -c "^${BACKUP_BASE}/[0-9]" || echo 0)
 log "Retained backup snapshots: ${KEPT}"
