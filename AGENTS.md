@@ -101,7 +101,7 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 ### Product Track (interleaved after v0.6.4)
 - **v0.6.5** — Agent Coordination Service: <ref_file file="/opt/aitbc/docs/releases/v0.6.5/change.log" /> ✅ complete
 - **v0.6.6** — Compute Marketplace: <ref_file file="/opt/aitbc/docs/releases/v0.6.6/change.log" /> ✅ complete
-- **v0.6.7** — Pool Hub & Mining: <ref_file file="/opt/aitbc/docs/releases/v0.6.7/change.log" /> 🚧 planned
+- **v0.6.7** — Pool Hub & Mining: <ref_file file="/opt/aitbc/docs/releases/v0.6.7/change.log" /> ✅ complete
 
 ### Infrastructure + Product (bridge + governance)
 - **v0.7.0** — Bridge Basics: <ref_file file="/opt/aitbc/docs/releases/v0.7.0/change.log" /> ✅ complete
