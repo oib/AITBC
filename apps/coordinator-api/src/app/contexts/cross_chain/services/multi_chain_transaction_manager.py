@@ -16,6 +16,10 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 
 from ....agent_identity.wallet_adapter_enhanced import EnhancedWalletAdapter, SecurityLevel, WalletAdapterFactory
+
+# B16: CrossChainBridgeService is deprecated; see bridge_client_adapter.py. Kept because
+# this manager depends on its SQLModel-based API (initialize_bridge) which
+# BridgeClientAdapter does not yet provide. Migrate callers when feasible.
 from .cross_chain.bridge_enhanced import CrossChainBridgeService
 from ..domain.chain_transaction import (
     ChainTransaction,

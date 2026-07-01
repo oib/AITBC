@@ -114,10 +114,10 @@ def status(node_url, chain_id):
     try:
         # Query current chain head
         head_params = {"chain_id": chain_id} if chain_id else None
-        head = client.get("/head", params=head_params)
+        head = client.get("/rpc/head", params=head_params)
 
         # Query network info
-        network_info = client.get("/network-info")
+        network_info = client.get("/rpc/network-info")
     except NetworkError as e:
         click.echo(f"Error: Cannot connect to node at {node_url}")
         raise click.Abort() from e
@@ -126,10 +126,10 @@ def status(node_url, chain_id):
 
     # Handle error responses from endpoints
     if isinstance(head, dict) and head.get("error"):
-        click.echo(f"Error from /head: {head['error']}")
+        click.echo(f"Error from /rpc/head: {head['error']}")
         raise click.Abort()
     if isinstance(network_info, dict) and network_info.get("error"):
-        click.echo(f"Error from /network-info: {network_info['error']}")
+        click.echo(f"Error from /rpc/network-info: {network_info['error']}")
         raise click.Abort()
 
     # Extract head fields (fall back to network-info chain_id if not provided)

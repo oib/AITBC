@@ -3,10 +3,24 @@ Cross-Chain Bridge Service
 
 Secure cross-chain asset transfer protocol with ZK proof validation.
 Enables bridging of assets between different blockchain networks.
+
+.. deprecated:: v0.10.1 (B16)
+    ``CrossChainBridgeService`` (this module) is a duplicate bridge implementation
+    that is superseded by ``BridgeClientAdapter`` (see
+    ``bridge_client_adapter.py``), which routes bridge operations through the
+    blockchain-node's bridge RPC endpoints via the shared ``aitbc.bridge.BridgeClient``.
+
+    This module is kept for backward compatibility with the SQLModel persistence
+    layer and the ZK-proof/contract-interaction based API it exposes
+    (``initiate_transfer``, ``monitor_bridge_status``, ``dispute_resolution``).
+    New bridge RPC operations (lock, confirm, unlock, status, balance, health)
+    should go through ``BridgeClientAdapter`` instead. Do not add new callers of
+    ``CrossChainBridgeService``; migrate existing callers when feasible.
 """
 
 from __future__ import annotations
 
+import warnings
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
@@ -53,6 +67,12 @@ class CrossChainBridgeService:
         merkle_tree_service: MerkleTreeService,
         bridge_monitor: BridgeMonitor,
     ) -> None:
+        warnings.warn(
+            "CrossChainBridgeService (bridge) is deprecated since v0.10.1 (B16); "
+            "use BridgeClientAdapter from bridge_client_adapter.py for new bridge RPC operations.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.session = session
         self.contract_service = contract_service
         self.zk_proof_service = zk_proof_service

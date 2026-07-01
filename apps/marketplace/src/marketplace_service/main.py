@@ -826,6 +826,144 @@ async def apply_marketplace_parameter(request: ParameterChangeRequest) -> dict[s
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+# ============================================================================
+# v0.6.6: Edge node advertisement & health endpoints
+# ============================================================================
+
+
+class EdgeAdvertiseRequest(BaseModel):
+    """Request body for edge node advertisement (POST /v1/marketplace/edge-advertise)."""
+
+    node_id: str = Field(..., description="Unique edge node identifier")
+    endpoint: str = Field(default="", description="Edge service endpoint URL")
+    node_type: str = Field(default="edge")
+    service: str = Field(default="aitbc-edge")
+    gpu_models: list[str] = Field(default_factory=list)
+    gpu_count: int = Field(default=0)
+    total_vram: int = Field(default=0)
+    region: str = Field(default="")
+    capabilities: list[str] = Field(default_factory=list)
+    gpus: list[dict[str, Any]] = Field(default_factory=list, description="Raw GPU profiles from edge service")
+
+
+@app.post("/v1/marketplace/edge-advertise")
+async def edge_advertise(
+    request: EdgeAdvertiseRequest, session: Annotated[AsyncSession, Depends(get_session)]
+) -> dict[str, Any]:
+    """Register or update an edge node's GPU capabilities in the marketplace (v0.6.6).
+
+    Edge nodes call this endpoint on startup to advertise their available
+    GPU resources. If the node_id already exists, the record is updated.
+    """
+    from datetime import datetime
+    from sqlalchemy import select
+
+    from .domain.marketplace import EdgeNodeAdvertisement
+
+    # Extract gpu_models from gpus list if not provided directly
+    gpu_models = request.gpu_models
+    if not gpu_models and request.gpus:
+        gpu_models = [g.get("model", "Unknown") for g in request.gpus]
+    gpu_count = request.gpu_count or len(request.gpus)
+    total_vram = request.total_vram or sum(g.get("memory_gb", 0) for g in request.gpus)
+    capabilities = request.capabilities
+    if not capabilities and request.gpus:
+        capabilities = list(set(c for g in request.gpus for c in g.get("capabilities", [])))
+
+    stmt = select(EdgeNodeAdvertisement).where(EdgeNodeAdvertisement.node_id == request.node_id)
+    result = await session.execute(stmt)
+    existing = result.scalars().first()
+
+    now = datetime.utcnow()
+    if existing:
+        existing.endpoint = request.endpoint
+        existing.gpu_models = gpu_models
+        existing.gpu_count = gpu_count
+        existing.total_vram = total_vram
+        existing.region = request.region
+        existing.capabilities = capabilities
+        existing.updated_at = now
+        await session.commit()
+        logger.info("Updated edge node advertisement: %s", request.node_id)
+        return {"status": "updated", "node_id": request.node_id, "gpu_count": gpu_count}
+    else:
+        adv = EdgeNodeAdvertisement(
+            node_id=request.node_id,
+            endpoint=request.endpoint,
+            node_type=request.node_type,
+            service=request.service,
+            gpu_models=gpu_models,
+            gpu_count=gpu_count,
+            total_vram=total_vram,
+            region=request.region,
+            capabilities=capabilities,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(adv)
+        await session.commit()
+        logger.info("Registered new edge node advertisement: %s", request.node_id)
+        return {"status": "registered", "node_id": request.node_id, "gpu_count": gpu_count}
+
+
+@app.get("/v1/marketplace/edge-advertise")
+async def list_edge_nodes(session: Annotated[AsyncSession, Depends(get_session)], region: str | None = None) -> dict[str, Any]:
+    """List all registered edge nodes (v0.6.6)."""
+    from sqlalchemy import select
+
+    from .domain.marketplace import EdgeNodeAdvertisement
+
+    stmt = select(EdgeNodeAdvertisement).where(EdgeNodeAdvertisement.status == "active")
+    if region:
+        stmt = stmt.where(EdgeNodeAdvertisement.region == region)
+    result = await session.execute(stmt)
+    nodes = result.scalars().all()
+    return {
+        "nodes": [
+            {
+                "node_id": n.node_id,
+                "endpoint": n.endpoint,
+                "gpu_models": n.gpu_models,
+                "gpu_count": n.gpu_count,
+                "total_vram": n.total_vram,
+                "region": n.region,
+                "capabilities": n.capabilities,
+                "health_score": n.health_score,
+                "status": n.status,
+            }
+            for n in nodes
+        ],
+        "total": len(nodes),
+    }
+
+
+@app.get("/v1/marketplace/edge/{node_id}/health")
+async def get_edge_health(node_id: str, session: Annotated[AsyncSession, Depends(get_session)]) -> dict[str, Any]:
+    """Get health status for a specific edge node (v0.6.6).
+
+    Returns the edge node's health score, last health check time, and
+    basic capability info from the marketplace database.
+    """
+    from sqlalchemy import select
+
+    from .domain.marketplace import EdgeNodeAdvertisement
+
+    stmt = select(EdgeNodeAdvertisement).where(EdgeNodeAdvertisement.node_id == node_id)
+    result = await session.execute(stmt)
+    node = result.scalars().first()
+    if not node:
+        return JSONResponse(status_code=404, content={"error": f"Edge node {node_id} not found"})
+    return {
+        "node_id": node.node_id,
+        "health_score": node.health_score,
+        "last_health_check": node.last_health_check,
+        "status": node.status,
+        "gpu_count": node.gpu_count,
+        "endpoint": node.endpoint,
+        "region": node.region,
+    }
+
+
 if __name__ == "__main__":
     import os
 
