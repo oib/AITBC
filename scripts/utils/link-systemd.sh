@@ -87,6 +87,7 @@ get_allowed_services() {
         aitbc-recovery
         aitbc-monitoring
         aitbc-backup
+        aitbc-trading
     )
 
     # Hub-specific services (blockchain producer)

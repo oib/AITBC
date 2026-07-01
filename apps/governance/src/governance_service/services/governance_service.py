@@ -397,9 +397,19 @@ class GovernanceService:
             if block_height:
                 proposal.block_height = block_height
 
+            # v0.10.1: Parameter automation — apply parameter changes to the target service
+            # after successful proposal execution. Only applies for parameter_change proposals.
+            automation_result = None
+            if proposal.proposal_type == "parameter_change" and proposal.proposal_value:
+                automation_result = await self._apply_parameter_change(proposal)
+
             # Log execution success
             execution_log.status = "completed"
-            execution_log.result = {"executed_at": proposal.executed_at.isoformat(), "tx_hash": tx_hash}
+            execution_log.result = {
+                "executed_at": proposal.executed_at.isoformat(),
+                "tx_hash": tx_hash,
+                "parameter_automation": automation_result,
+            }
 
             await self.session.commit()
             await self.session.refresh(proposal)
@@ -410,3 +420,59 @@ class GovernanceService:
             execution_log.error_message = str(e)
             await self.session.commit()
             raise
+
+    async def _apply_parameter_change(self, proposal: Proposal) -> dict[str, Any]:
+        """Apply a governance-approved parameter change to the target service (v0.10.1).
+
+        Calls the target service's parameter API (POST /v1/{service}/parameters/apply)
+        with the parameter change details from the proposal's ``proposal_value``.
+        """
+        import httpx
+
+        params = proposal.proposal_value
+        target_service = params.get("target_service", "")
+        parameter_name = params.get("parameter_name", "")
+        new_value = params.get("new_value")
+
+        if not target_service or not parameter_name:
+            return {"applied": False, "reason": "missing target_service or parameter_name"}
+
+        # Map target_service to URL and endpoint
+        service_urls = {
+            "poolhub": settings.poolhub_url,
+            "marketplace": settings.marketplace_url,
+        }
+
+        if target_service == "blockchain":
+            # Direct config change not supported via API — log warning
+            return {"applied": False, "reason": "blockchain parameter changes require manual config update"}
+
+        base_url = service_urls.get(target_service)
+        if not base_url:
+            return {"applied": False, "reason": f"unknown target_service: {target_service}"}
+
+        endpoint = f"{base_url}/v1/{target_service}/parameters/apply"
+        payload = {
+            "proposal_id": proposal.proposal_id,
+            "target_service": target_service,
+            "parameter_name": parameter_name,
+            "old_value": params.get("old_value"),
+            "new_value": new_value,
+            "description": params.get("description", ""),
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(endpoint, json=payload)
+                if resp.status_code == 200:
+                    result = resp.json()
+                    return {"applied": True, "target_service": target_service, "result": result}
+                else:
+                    return {
+                        "applied": False,
+                        "target_service": target_service,
+                        "status_code": resp.status_code,
+                        "error": resp.text,
+                    }
+        except Exception as e:
+            return {"applied": False, "target_service": target_service, "error": str(e)}

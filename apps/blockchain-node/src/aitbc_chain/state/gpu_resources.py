@@ -53,3 +53,29 @@ class GPUAllocation(SQLModel, table=True):
     allocated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     completed_at: datetime | None = None
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class EdgeNodeRegistration(SQLModel, table=True):
+    """On-chain edge node registration record (v0.6.6)."""
+
+    __tablename__ = "edge_node_registration"
+    __table_args__ = (
+        UniqueConstraint("chain_id", "node_id", name="uix_edge_node_chain_node"),
+        {"extend_existing": True},
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    node_id: str = Field(index=True)
+    endpoint: str = Field(default="")
+    region: str = Field(default="", index=True)
+    gpu_count: int = Field(default=0)
+    total_vram: int = Field(default=0)
+    capabilities: list[Any] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False),
+    )
+    registered_by: str = Field(index=True)
+    registered_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+    status: str = Field(default="active", index=True)  # active, deactivated
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

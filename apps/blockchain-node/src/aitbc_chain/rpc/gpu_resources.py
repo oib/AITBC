@@ -286,3 +286,129 @@ async def allocate_gpu(request: GPUAllocationRequest, chain_id: str | None = Non
     except Exception as e:
         metrics_registry.increment("rpc_gpu_allocate_errors_total")
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# ============================================================================
+# v0.6.6: Edge node registration endpoints
+# ============================================================================
+
+
+class EdgeNodeRegistrationRequest(BaseModel):
+    """Request to register an edge node on-chain (v0.6.6)."""
+
+    node_id: str = Field(..., description="Edge node unique identifier")
+    endpoint: str = Field(default="", description="Edge service endpoint URL")
+    region: str = Field(default="", description="Geographic region")
+    gpu_count: int = Field(default=0, ge=0, description="Number of GPUs")
+    total_vram: int = Field(default=0, ge=0, description="Total VRAM in GB")
+    capabilities: list[Any] = Field(default_factory=list, description="Node capabilities")
+    registered_by: str = Field(..., description="Wallet address of registrant")
+
+
+@router.post("/edge/register", summary="Register edge node on-chain", tags=["gpu_resources"])
+async def register_edge_node(request: EdgeNodeRegistrationRequest, chain_id: str | None = None) -> dict[str, Any]:
+    """Register an edge node on the blockchain (v0.6.6)."""
+    if chain_id is None:
+        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+
+    try:
+        metrics_registry.increment("rpc_edge_register_total")
+
+        from ..database import session_scope
+        from ..state.gpu_resources import EdgeNodeRegistration
+
+        with session_scope() as session:
+            from sqlalchemy import and_, select
+
+            result = session.execute(
+                select(EdgeNodeRegistration).where(
+                    and_(
+                        EdgeNodeRegistration.chain_id == chain_id,  # type: ignore[arg-type]
+                        EdgeNodeRegistration.node_id == request.node_id,  # type: ignore[arg-type]
+                    )
+                )
+            )
+            existing = result.scalar_one_or_none()
+
+            if existing:
+                existing.endpoint = request.endpoint
+                existing.region = request.region
+                existing.gpu_count = request.gpu_count
+                existing.total_vram = request.total_vram
+                existing.capabilities = request.capabilities
+                existing.status = "active"
+                existing.updated_at = datetime.now(UTC)
+                session.commit()
+                return {"node_id": request.node_id, "status": "updated", "message": "Edge node registration updated on-chain"}
+
+            registration = EdgeNodeRegistration(
+                chain_id=chain_id,
+                node_id=request.node_id,
+                endpoint=request.endpoint,
+                region=request.region,
+                gpu_count=request.gpu_count,
+                total_vram=request.total_vram,
+                capabilities=request.capabilities,
+                registered_by=request.registered_by,
+                registered_at=datetime.now(UTC),
+                status="active",
+            )
+            session.add(registration)
+            session.commit()
+
+            return {
+                "node_id": request.node_id,
+                "status": "registered",
+                "message": "Edge node registered on-chain successfully",
+            }
+
+    except Exception as e:
+        metrics_registry.increment("rpc_edge_register_errors_total")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/edge/info/{node_id}", summary="Query edge node registration", tags=["gpu_resources"])
+async def get_edge_node(node_id: str, chain_id: str | None = None) -> dict[str, Any]:
+    """Query edge node registration from blockchain (v0.6.6)."""
+    if chain_id is None:
+        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+
+    try:
+        metrics_registry.increment("rpc_edge_get_total")
+
+        from ..database import session_scope
+        from ..state.gpu_resources import EdgeNodeRegistration
+
+        with session_scope() as session:
+            from sqlalchemy import and_, select
+
+            result = session.execute(
+                select(EdgeNodeRegistration).where(
+                    and_(
+                        EdgeNodeRegistration.chain_id == chain_id,  # type: ignore[arg-type]
+                        EdgeNodeRegistration.node_id == node_id,  # type: ignore[arg-type]
+                    )
+                )
+            )
+            node = result.scalar_one_or_none()
+
+            if not node:
+                raise HTTPException(status_code=404, detail=f"Edge node {node_id} not found")
+
+            return {
+                "node_id": node.node_id,
+                "endpoint": node.endpoint,
+                "region": node.region,
+                "gpu_count": node.gpu_count,
+                "total_vram": node.total_vram,
+                "capabilities": node.capabilities,
+                "registered_by": node.registered_by,
+                "status": node.status,
+                "registered_at": node.registered_at.isoformat() if node.registered_at else None,
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        metrics_registry.increment("rpc_edge_get_errors_total")
+        raise HTTPException(status_code=500, detail=str(e)) from e
