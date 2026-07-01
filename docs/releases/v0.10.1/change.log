@@ -50,7 +50,8 @@ This release does **not** add new features — it makes existing code actually w
 #### Fix 6: Feature flags default OFF (v0.6.2)
 - ✅ `sync_delta_enabled=False`, `sync_parallel_enabled=False`, `gossip_priority_enabled=False`
 - ✅ Infrastructure exists for delta sync, parallel sync, and message prioritization but is inert
-- ✅ Fix: Enable these flags in config for this node (with safe defaults)
+- ✅ Fix: Enable these flags at runtime via `/etc/aitbc/blockchain.env` (`SYNC_DELTA_ENABLED=true`, `SYNC_PARALLEL_ENABLED=true`, `GOSSIP_PRIORITY_ENABLED=true`)
+- ⚠️ **Note**: Config defaults in `config.py` remain `False` for safety (reverted in `f35dd9099` after initial B6 commit `549c23eea` enabled them). Flags are activated via env-var overrides on this node, not via config defaults. This keeps deployments explicit — operators must opt in.
 
 #### Fix 7: MultiChainManager not initialized in RPC service (v0.6.4)
 - ✅ `GET /rpc/chains` returns 503 "Multi-chain manager not available"
@@ -172,10 +173,12 @@ This release does **not** add new features — it makes existing code actually w
 
 ### B6: Enable sync/gossip feature flags (v0.6.2) — Low risk
 **Files**:
-- `apps/blockchain-node/src/aitbc_chain/config.py` — change defaults: `sync_delta_enabled=True`, `sync_parallel_enabled=True`, `gossip_priority_enabled=True`
-- `/etc/aitbc/blockchain.env` — add explicit flag settings for documentation
+- `apps/blockchain-node/src/aitbc_chain/config.py` — initial B6 commit (`549c23eea`) changed defaults `False` → `True`; later reverted to `False` for safety in `f35dd9099` (v0.6.2 release finalization). Config defaults remain `False`.
+- `/etc/aitbc/blockchain.env` — flags enabled at runtime via env vars: `SYNC_DELTA_ENABLED=true`, `SYNC_PARALLEL_ENABLED=true`, `GOSSIP_PRIORITY_ENABLED=true`
 
-**Verification**: `GET /rpc/state/delta?from_height=X&to_height=Y` returns delta, sync uses parallel mode when peers available, gossip messages are prioritized
+**Implementation note**: The initial implementation enabled the flags via config defaults, but a subsequent commit reverted the defaults to `False` to keep deployments explicit (operators must opt in via env vars). The flags ARE active on this node via `/etc/aitbc/blockchain.env`. This is the safer approach — config defaults stay off, runtime activation is explicit.
+
+**Verification**: `GET /rpc/sync/config` returns the active flag state (after service restart). `GET /rpc/state/delta?from_height=X&to_height=Y` returns delta, sync uses parallel mode when peers available, gossip messages are prioritized.
 
 ### B7: MultiChainManager initialization in RPC service (v0.6.4) — Medium risk
 **Files**:
@@ -302,7 +305,7 @@ These gaps require fundamental architecture changes and are deferred to v1.0.0:
 
 ## 🔧 Breaking Changes
 
-- **Feature flag defaults change**: `sync_delta_enabled`, `sync_parallel_enabled`, `gossip_priority_enabled` change from `False` → `True`. Set explicitly in env to re-disable.
+- **Feature flag activation (not a default change)**: `sync_delta_enabled`, `sync_parallel_enabled`, `gossip_priority_enabled` are enabled at runtime via `/etc/aitbc/blockchain.env` env vars. Config defaults in `config.py` remain `False` for safety (operators must explicitly opt in). Initial B6 commit changed defaults to `True`, but this was reverted in `f35dd9099` to keep deployments explicit.
 - **Edge service payment verification**: `require_payment_verification` changes from `False` → `True`. Edge service will require valid escrow for compute requests.
 - **Duplicate bridge removal**: `CrossChainBridgeService` removed from coordinator-api. Any code importing it must migrate to `BridgeClientAdapter`.
 - None of these affect existing working features — they activate or fix non-functional code.
