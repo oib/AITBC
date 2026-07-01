@@ -122,3 +122,26 @@ class GraphEdge(SQLModel, table=True):
     weight: float = Field(default=1.0)
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+
+class EdgeNodeAdvertisement(SQLModel, table=True):
+    """Edge node advertisement registered via POST /v1/marketplace/edge-advertise (v0.6.6)."""
+
+    __tablename__ = "edge_node_advertisements"
+    __table_args__ = {"extend_existing": True}
+
+    id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
+    node_id: str = Field(index=True, unique=True)
+    endpoint: str = Field(default="")
+    node_type: str = Field(default="edge")
+    service: str = Field(default="aitbc-edge")
+    gpu_models: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    gpu_count: int = Field(default=0)
+    total_vram: int = Field(default=0)
+    region: str = Field(default="", index=True)
+    capabilities: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    health_score: float = Field(default=1.0, ge=0.0, le=1.0)
+    last_health_check: datetime | None = Field(default=None)
+    status: str = Field(default="active", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)

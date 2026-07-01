@@ -20,6 +20,11 @@ from .mempool import init_mempool
 from .subscription_client import SubscriptionClient
 from .sync import ChainSync
 
+try:
+    from .p2p_network import get_p2p_network
+except ImportError:
+    get_p2p_network = None
+
 logger = get_logger("aitbc_chain.main")
 create_island_manager: Callable[[str, str, str], "IslandManager"] | None
 try:
@@ -362,6 +367,21 @@ class BlockchainNode:
                 logger.error("Failed to initialize island manager: %s", e)
         else:
             logger.warning("Island manager not available - island operations will be disabled")
+        # v0.6.2: Wire P2P peer capability callback to sync peer tracker.
+        # When the P2P service runs in-process, discovered peers are registered
+        # with the ChainSync PeerCapabilityTracker, enabling parallel sync.
+        if get_p2p_network is not None:
+            p2p_service = get_p2p_network()
+            if p2p_service is not None:
+                try:
+                    default_chain = self._supported_chains()[0] if self._supported_chains() else settings.chain_id
+                    peer_sync = ChainSync(session_factory=lambda cid=default_chain: session_scope(cid), chain_id=default_chain)
+                    p2p_service.set_peer_capability_callback(peer_sync.register_sync_peer)
+                    logger.info("P2P peer capability callback wired to ChainSync peer tracker")
+                except Exception as e:
+                    logger.warning("Failed to wire P2P peer capability callback: %s", e)
+            else:
+                logger.debug("P2P service not available in-process — peer capability callback not wired")
         # Multi-chain manager: start secondary chains from island_chains config (v0.6.4)
         if _multi_chain_manager_available and create_multi_chain_manager is not None:
             try:

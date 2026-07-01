@@ -4,7 +4,7 @@ import os
 import uuid
 from pathlib import Path
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Use the actual data directory where the blockchain database is located
@@ -77,6 +77,19 @@ class ChainSettings(BaseSettings):
 
         # If neither exists, return the standard path for creation
         return standard_path
+
+    @model_validator(mode="after")
+    def _default_supported_chains(self) -> ChainSettings:
+        """Default supported_chains to chain_id when empty.
+
+        Without this, when SUPPORTED_CHAINS is unset the island ID is
+        constructed as ``"-island"`` (empty string + suffix). Defaulting
+        to ``chain_id`` produces a valid island ID like
+        ``"ait-hub.aitbc.bubuit.net-island"``.
+        """
+        if not self.supported_chains.strip():
+            self.supported_chains = self.chain_id
+        return self
 
     # CORS configuration
     cors_origins: list[str] = (
@@ -371,14 +384,14 @@ class ChainSettings(BaseSettings):
     gossip_backward_compat: bool = True  # Accept v1 peers with deprecation
     gossip_legacy_peer_timeout: int = 3600  # Seconds before disconnecting v1 peers
     gossip_message_batch_size: int = 10  # Max messages per batched gossip frame
-    gossip_priority_enabled: bool = False  # Enable message prioritization (default off)
+    gossip_priority_enabled: bool = True  # Enable message prioritization (v0.6.2)
 
     # Parallel sync (v0.6.2). Feature flag for parallel block fetching
     # from multiple peers. Default off for safety — enable with
     # SYNC_PARALLEL_ENABLED=true. SYNC_PARALLEL_MAX_PEERS caps the number
     # of peers used concurrently for block range requests.
     # SYNC_PARALLEL_TIMEOUT is the per-peer request timeout in seconds.
-    sync_parallel_enabled: bool = False  # Feature flag — default off for safety
+    sync_parallel_enabled: bool = True  # Feature flag — enabled (v0.6.2)
     sync_parallel_max_peers: int = 4  # Max peers for parallel block fetching
     sync_parallel_timeout: float = 30.0  # Timeout per peer request (seconds)
 
@@ -390,7 +403,7 @@ class ChainSettings(BaseSettings):
     # which delta sync falls back to full sync (default 0.5 = 50%).
     # SYNC_DELTA_MAX_BLOCKS caps the gap size eligible for delta sync
     # (above this, full sync is used to bound diff computation cost).
-    sync_delta_enabled: bool = False  # Feature flag — default off for safety
+    sync_delta_enabled: bool = True  # Feature flag — enabled (v0.6.2)
     sync_delta_threshold: float = 0.5  # Fall back to full sync if delta > 50% of state
     sync_delta_max_blocks: int = 100  # Max blocks for delta sync (use full sync above this)
 

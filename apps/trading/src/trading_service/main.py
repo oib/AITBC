@@ -45,7 +45,47 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifecycle events for the Trading Service."""
     logger.info("Starting Trading Service")
     await init_db()
+
+    # v0.10.1 §B18: Initialize gossip client on startup
+    global _gossip_client
+    try:
+        from .config import settings as _settings
+        from .services.gossip_client import GossipClient
+
+        _gossip_client = GossipClient(
+            backend=_settings.gossip_backend,
+            redis_url=_settings.gossip_broadcast_url,
+        )
+        await _gossip_client.start()
+        logger.info("Gossip client initialized (backend=%s)", _settings.gossip_backend)
+    except Exception as e:
+        logger.warning("Failed to initialize gossip client: %s — using fallback", e)
+
+    # v0.10.1 §B19: Initialize lease tracker on startup
+    global _lease_tracker
+    try:
+        from .config import settings as _settings
+        from .services.lease_tracker import OfferLeaseTracker
+
+        _lease_tracker = OfferLeaseTracker(redis_url=_settings.lease_tracker_redis_url)
+        await _lease_tracker.start()
+        logger.info("Offer lease tracker initialized")
+    except Exception as e:
+        logger.warning("Failed to initialize lease tracker: %s — using fallback", e)
+
     yield
+
+    # v0.10.1 §B18/B19: Shutdown gossip client and lease tracker
+    if _gossip_client is not None:
+        try:
+            await _gossip_client.stop()
+        except Exception:
+            pass
+    if _lease_tracker is not None:
+        try:
+            await _lease_tracker.stop()
+        except Exception:
+            pass
     logger.info("Shutting down Trading Service")
 
 
@@ -645,6 +685,20 @@ from aitbc.trading.offer_types import (  # noqa: E402
 from .services.offer_sync_service import OfferSyncService  # noqa: E402
 
 
+class _PollingSyncWrapper:
+    """Lightweight wrapper for B20 polling fallback.
+
+    Creates an :class:`OfferSyncService` with a fresh DB session on each
+    ``sync_chain`` call, then closes the session.  This avoids holding a
+    long-lived session in the global subscription service.
+    """
+
+    async def sync_chain(self, chain_id: str) -> dict[str, Any]:
+        async with get_session() as session:
+            svc = OfferSyncService(session)
+            return await svc.sync_chain(chain_id)
+
+
 async def get_offer_sync_service(
     session: Annotated[AsyncSession, Depends(get_session_dep)],
 ) -> OfferSyncService:
@@ -784,13 +838,37 @@ from .services.offer_subscription_service import OfferSubscriptionService  # noq
 _subscription_service: OfferSubscriptionService | None = None
 _notification_service: OfferNotificationService | None = None
 _search_service: OfferSearchService | None = None
+# v0.10.1 §B18/B19: Gossip client and lease tracker (initialized in lifespan)
+_gossip_client: Any = None
+_lease_tracker: Any = None
 
 
 def _get_subscription_service() -> OfferSubscriptionService:
     """Get or create the global OfferSubscriptionService."""
     global _subscription_service
     if _subscription_service is None:
-        _subscription_service = OfferSubscriptionService()
+        from .services.gossip_client import GossipClient
+        from .services.lease_tracker import OfferLeaseTracker
+
+        from .config import settings as _settings
+
+        # B18: Use the gossip client initialized on startup (or create a fallback)
+        gossip = _gossip_client or GossipClient(
+            backend=_settings.gossip_backend,
+            redis_url=_settings.gossip_broadcast_url,
+        )
+        # B19: Use the lease tracker initialized on startup (or create a fallback)
+        tracker = _lease_tracker or OfferLeaseTracker(redis_url=_settings.lease_tracker_redis_url)
+
+        # B20: Factory that creates an OfferSyncService for polling fallback
+        def _sync_factory() -> _PollingSyncWrapper:
+            return _PollingSyncWrapper()
+
+        _subscription_service = OfferSubscriptionService(
+            gossip_client=gossip,
+            lease_tracker=tracker,
+            offer_sync_factory=_sync_factory,
+        )
     return _subscription_service
 
 
@@ -819,6 +897,10 @@ async def subscribe_to_offers(request: dict[str, Any]):
     Mirrors the blockchain-node ``POST /rpc/subscribe`` pattern.
     Returns a lease expiry timestamp that the client uses to track
     when to renew via the heartbeat endpoint.
+
+    v0.10.1 §B19: Uses the Redis-backed :class:`OfferLeaseTracker` for
+    real lease management.  Falls back to a computed expiry when Redis
+    is unavailable so the endpoint always returns a valid response.
     """
     from .config import settings as _settings
 
@@ -827,10 +909,15 @@ async def subscribe_to_offers(request: dict[str, Any]):
     if not node_id:
         return JSONResponse(status_code=400, content={"error": "node_id is required"})
 
-    import time as _time
+    svc = _get_subscription_service()
+    lease_duration = _settings.offer_subscription_heartbeat_seconds * 3
+    try:
+        expiry = await svc.register_lease(node_id=node_id, chain_id=chain_id)
+    except Exception as e:
+        logger.warning("Lease registration failed for %s: %s — using computed expiry", node_id, e)
+        import time as _time
 
-    lease_duration = 3600
-    expiry = _time.time() + lease_duration
+        expiry = _time.time() + lease_duration
     return {"node_id": node_id, "chain_id": chain_id, "expiry": expiry, "lease_duration": lease_duration}
 
 
@@ -839,6 +926,10 @@ async def offer_heartbeat(request: dict[str, Any]):
     """Renew an offer subscription lease.
 
     Mirrors the blockchain-node ``POST /rpc/heartbeat`` pattern.
+
+    v0.10.1 §B19: Uses the Redis-backed :class:`OfferLeaseTracker` to
+    renew the lease.  Falls back to a computed expiry when Redis is
+    unavailable or the lease was not found.
     """
     from .config import settings as _settings
 
@@ -847,10 +938,18 @@ async def offer_heartbeat(request: dict[str, Any]):
     if not node_id:
         return JSONResponse(status_code=400, content={"error": "node_id is required"})
 
-    import time as _time
+    svc = _get_subscription_service()
+    lease_duration = _settings.offer_subscription_heartbeat_seconds * 3
+    try:
+        expiry = await svc.renew_lease(node_id=node_id)
+        if expiry == 0.0:
+            # Lease not found — re-register so the client can continue
+            expiry = await svc.register_lease(node_id=node_id, chain_id=chain_id)
+    except Exception as e:
+        logger.warning("Lease renewal failed for %s: %s — using computed expiry", node_id, e)
+        import time as _time
 
-    lease_duration = 3600
-    expiry = _time.time() + lease_duration
+        expiry = _time.time() + lease_duration
     return {"node_id": node_id, "chain_id": chain_id, "expiry": expiry, "renewed": True}
 
 
@@ -893,6 +992,13 @@ async def offer_subscription_websocket(websocket: _WebSocket):
 
         subscriber_id = f"{node_id}:{chain_id}"
 
+        # v0.10.1 §B19: Register a lease for this subscriber
+        lease_expiry: float = 0.0
+        try:
+            lease_expiry = await sub_svc.register_lease(node_id=node_id, chain_id=chain_id)
+        except Exception as e:
+            logger.warning("WebSocket lease registration failed for %s: %s", node_id, e)
+
         # Build subscription from filters
         subscription = _OfferSubscription(
             chain_id=filters.get("chain_id", chain_id),
@@ -922,6 +1028,7 @@ async def offer_subscription_websocket(websocket: _WebSocket):
                 "node_id": node_id,
                 "chain_id": chain_id,
                 "filters": filters,
+                "lease_expiry": lease_expiry,
             }
         )
 
@@ -939,6 +1046,11 @@ async def offer_subscription_websocket(websocket: _WebSocket):
             try:
                 while True:
                     await _asyncio.sleep(_settings.offer_subscription_heartbeat_seconds)
+                    # v0.10.1 §B19: Renew lease on each heartbeat
+                    try:
+                        await sub_svc.renew_lease(node_id=node_id)
+                    except Exception:
+                        pass
                     await websocket.send_json({"type": "ping", "timestamp": _time.time()})
             except _WebSocketDisconnect:
                 pass
@@ -952,6 +1064,16 @@ async def offer_subscription_websocket(websocket: _WebSocket):
                     try:
                         parsed = _json.loads(msg)
                         if parsed.get("type") == "pong":
+                            # v0.10.1 §B19: Validate lease on WebSocket receive
+                            try:
+                                valid = await sub_svc.validate_lease(node_id=node_id)
+                                if not valid:
+                                    logger.info("Lease invalid for %s — closing WebSocket", node_id)
+                                    await websocket.send_json({"error": "lease expired"})
+                                    await websocket.close(code=1008)
+                                    return
+                            except Exception:
+                                pass  # tolerate lease-check errors
                             continue
                     except _json.JSONDecodeError:
                         continue
@@ -977,6 +1099,13 @@ async def offer_subscription_websocket(websocket: _WebSocket):
     finally:
         if subscriber_id:
             await notif_svc.unregister_subscriber(subscriber_id)
+            # v0.10.1 §B19: Revoke lease on disconnect
+            try:
+                parts = subscriber_id.split(":", 1)
+                if len(parts) == 2:
+                    await sub_svc.revoke_lease(parts[0])
+            except Exception:
+                pass
         try:
             await websocket.close()
         except Exception:

@@ -28,7 +28,7 @@ def create_island_command(ctx, island_id, island_name, chain_id):
 
         island_info = {"Island ID": island_id, "Island Name": island_name, "Chain ID": chain_id, "Created": "Now"}
 
-        output(island_info, ctx.obj.get("output_format", "table"), title="New Island Created")
+        output(island_info, ctx.obj.get("output", "table"), title="New Island Created")
         success(f"Island {island_name} ({island_id}) created successfully")
 
     except Exception as e:
@@ -121,17 +121,17 @@ def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub):
                 "Credentials Stored": credentials_path,
             }
 
-            output(join_info, ctx.obj.get("output_format", "table"), title=f"Joined Island: {island_name}")
+            output(join_info, ctx.obj.get("output", "table"), title=f"Joined Island: {island_name}")
 
             # Display member list
             members = response.get("members", [])
             if members:
-                output(members, ctx.obj.get("output_format", "table"), title="Island Members")
+                output(members, ctx.obj.get("output", "table"), title="Island Members")
 
             # Display credentials
             credentials = response.get("credentials", {})
             if credentials:
-                output(credentials, ctx.obj.get("output_format", "table"), title="Blockchain Credentials")
+                output(credentials, ctx.obj.get("output", "table"), title="Blockchain Credentials")
 
             success(f"Successfully joined island {island_name}")
 
@@ -164,7 +164,7 @@ def list_islands_command(ctx, node_url="http://127.0.0.1:8202"):
 
     client = AITBCHTTPClient(base_url=node_url)
     try:
-        result = client.get("/islands")
+        result = client.get("/rpc/islands")
     except NetworkError as e:
         error(f"Cannot connect to node at {node_url}: {e}")
         raise click.Abort() from e
@@ -172,12 +172,12 @@ def list_islands_command(ctx, node_url="http://127.0.0.1:8202"):
         client.close()
 
     if isinstance(result, dict) and result.get("detail"):
-        error(f"Error from /islands: {result['detail']}")
+        error(f"Error from /rpc/islands: {result['detail']}")
         raise click.Abort()
 
     islands = result.get("islands", []) if isinstance(result, dict) else []
     if not islands:
-        output({"message": "No islands found"}, ctx.obj.get("output_format", "table"))
+        output({"message": "No islands found"}, ctx.obj.get("output", "table"))
         return
 
     islands_data = [
@@ -192,7 +192,7 @@ def list_islands_command(ctx, node_url="http://127.0.0.1:8202"):
         for island in islands
     ]
 
-    output(islands_data, ctx.obj.get("output_format", "table"), title=f"Known Islands ({len(islands)} total)")
+    output(islands_data, ctx.obj.get("output", "table"), title=f"Known Islands ({len(islands)} total)")
 
 
 def island_info_command(ctx, island_id, node_url="http://127.0.0.1:8202"):
@@ -201,7 +201,7 @@ def island_info_command(ctx, island_id, node_url="http://127.0.0.1:8202"):
 
     client = AITBCHTTPClient(base_url=node_url)
     try:
-        result = client.get(f"/islands/{island_id}")
+        result = client.get(f"/rpc/islands/{island_id}")
     except NetworkError as e:
         error(f"Cannot connect to node at {node_url}: {e}")
         raise click.Abort() from e
@@ -209,7 +209,7 @@ def island_info_command(ctx, island_id, node_url="http://127.0.0.1:8202"):
         client.close()
 
     if isinstance(result, dict) and result.get("detail"):
-        error(f"Error from /islands/{island_id}: {result['detail']}")
+        error(f"Error from /rpc/islands/{island_id}: {result['detail']}")
         raise click.Abort()
 
     island_data = {
@@ -223,7 +223,7 @@ def island_info_command(ctx, island_id, node_url="http://127.0.0.1:8202"):
         "Joined At": str(result.get("joined_at", "N/A")),
     }
 
-    output(island_data, ctx.obj.get("output_format", "table"), title=f"Island Information: {island_id}")
+    output(island_data, ctx.obj.get("output", "table"), title=f"Island Information: {island_id}")
 
 
 def health_command(ctx, node_url="http://127.0.0.1:8202", show_all=False):
@@ -237,7 +237,7 @@ def health_command(ctx, node_url="http://127.0.0.1:8202", show_all=False):
 
     client = AITBCHTTPClient(base_url=node_url)
     try:
-        result = client.get("/islands")
+        result = client.get("/rpc/islands")
     except NetworkError as e:
         error(f"Cannot connect to node at {node_url}: {e}")
         raise click.Abort() from e
@@ -245,12 +245,12 @@ def health_command(ctx, node_url="http://127.0.0.1:8202", show_all=False):
         client.close()
 
     if isinstance(result, dict) and result.get("detail"):
-        error(f"Error from /islands: {result['detail']}")
+        error(f"Error from /rpc/islands: {result['detail']}")
         raise click.Abort()
 
     islands = result.get("islands", []) if isinstance(result, dict) else []
     if not islands:
-        output({"message": "No islands found"}, ctx.obj.get("output_format", "table"))
+        output({"message": "No islands found"}, ctx.obj.get("output", "table"))
         return
 
     health_rows = [
@@ -271,6 +271,6 @@ def health_command(ctx, node_url="http://127.0.0.1:8202", show_all=False):
     inactive = sum(1 for i in islands if i.get("status") == "inactive")
     bridging = sum(1 for i in islands if i.get("status") == "bridging")
 
-    output(health_rows, ctx.obj.get("output_format", "table"), title="Island Health")
+    output(health_rows, ctx.obj.get("output", "table"), title="Island Health")
     click.echo("")
     click.echo(f"Summary: {total} total, {active} active, {inactive} inactive, {bridging} bridging")

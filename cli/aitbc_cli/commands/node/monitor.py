@@ -96,7 +96,7 @@ def monitor_command(ctx, node_id, realtime, interval):
                 {"Metric": "Uptime", "Value": f"{node_info['uptime_days']}d {node_info['uptime_hours']}h"},
             ]
 
-            output(stats_data, ctx.obj.get("output_format", "table"), title=f"Node Statistics: {node_id}")
+            output(stats_data, ctx.obj.get("output", "table"), title=f"Node Statistics: {node_id}")
 
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
@@ -142,7 +142,7 @@ def test_command(ctx, node_id):
             },
         ]
 
-        output(test_results, ctx.obj.get("output_format", "table"), title=f"Node Test Results: {node_id}")
+        output(test_results, ctx.obj.get("output", "table"), title=f"Node Test Results: {node_id}")
 
         # Overall result
         all_passed = all(result["Status"] == "PASS" for result in test_results)

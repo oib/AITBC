@@ -55,6 +55,15 @@ class Settings(BaseSettings):
     offer_subscription_fallback_to_polling: bool = Field(default=True)
     offer_subscription_reconnect_delay_seconds: int = Field(default=5)
     offer_subscription_heartbeat_seconds: int = Field(default=20)
+    # v0.8.2 §B20: Polling fallback thresholds
+    subscription_silent_threshold_multiplier: int = Field(default=2)  # silent after 2x heartbeat
+    subscription_max_reconnect_attempts: int = Field(default=3)
+    subscription_reconnect_interval_seconds: int = Field(default=60)  # re-establish gossip every 60s
+    # v0.8.2 §B18: Gossip backend config (mirrors blockchain-node gossip settings)
+    gossip_backend: str = Field(default="broadcast")  # "broadcast" (Redis pub/sub) | "memory"
+    gossip_broadcast_url: str = Field(default="redis://localhost:6379")
+    # v0.8.2 §B19: Lease tracker Redis URL (defaults to gossip_broadcast_url)
+    lease_tracker_redis_url: str = Field(default="redis://localhost:6379")
     # v0.8.2: Optional search index
     offer_search_index_enabled: bool = Field(default=False)
     offer_search_index_backend: str = Field(default="meilisearch")

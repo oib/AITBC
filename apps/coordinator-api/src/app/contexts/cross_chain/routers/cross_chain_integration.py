@@ -14,6 +14,12 @@ from app.agent_identity.wallet_adapter_enhanced import (  # type: ignore
     WalletAdapterFactory,
     WalletStatus,
 )
+
+# B16: CrossChainBridgeService is deprecated; see bridge_client_adapter.py. Kept because
+# the router endpoints depend on its SQLModel-based API (initialize_bridge,
+# create_bridge_request, get_bridge_request_status, cancel_bridge_request,
+# get_bridge_statistics, get_liquidity_pools) which BridgeClientAdapter does not yet
+# provide. Migrate callers when feasible.
 from app.contexts.cross_chain.services.cross_chain.bridge_enhanced import (  # type: ignore
     BridgeProtocol,
     BridgeSecurityLevel,
