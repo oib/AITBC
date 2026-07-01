@@ -7,7 +7,7 @@ with chain_id-aware methods for:
 - Submitting transactions with chain_id (POST /rpc/transaction)
 - Registering GPUs on-chain (POST /rpc/gpu/register)
 - Allocating GPUs on-chain (POST /rpc/gpu/allocate)
-- Verifying escrow status (GET /rpc/escrow/{escrow_id})
+- Verifying escrow status (GET /rpc/escrow/{job_id})
 
 Uses httpx.AsyncClient directly. Retry/circuit-breaker can be layered on
 top by wiring in ``aitbc.network.client.AsyncAITBCHTTPClient`` in a future
@@ -102,15 +102,25 @@ class BlockchainRPCClient:
             resp.raise_for_status()
             return cast(dict[str, Any], resp.json())
 
-    async def verify_escrow(self, escrow_id: str) -> dict[str, Any] | None:
+    async def verify_escrow(self, job_id: str, *, escrow_id: str | None = None) -> dict[str, Any] | None:
         """Verify escrow status on blockchain.
 
-        Calls GET /rpc/escrow/{escrow_id}. Returns None if not found (404).
+        Calls GET /rpc/escrow/{job_id}. Returns None if not found (404).
         For v0.6.6, escrow verification may also go through the agent-coordinator's
         escrow endpoint — this method provides direct blockchain verification.
+
+        Args:
+            job_id: The job ID used to create the escrow (path parameter on the
+                blockchain RPC endpoint).
+            escrow_id: Deprecated — kept for backward compatibility. If provided
+                and ``job_id`` is empty, falls back to using ``escrow_id`` as the
+                path parameter. New callers should pass ``job_id`` instead.
         """
+        path_id = job_id or escrow_id or ""
+        if not path_id:
+            raise ValueError("verify_escrow requires job_id (or legacy escrow_id)")
         async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.get(f"{self._rpc_url}/rpc/escrow/{escrow_id}")
+            resp = await client.get(f"{self._rpc_url}/rpc/escrow/{path_id}")
             if resp.status_code == 404:
                 return None
             resp.raise_for_status()
