@@ -15,7 +15,7 @@ try:
         save_multichain_config,
     )
     from ..core.node_client import NodeClient
-    from ..utils.output import error, info, output, success
+    from ...utils.output import error, info, output, success
 except ImportError:
     from aitbc_cli.core.config import (
         add_node_config,

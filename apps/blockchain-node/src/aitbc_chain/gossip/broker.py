@@ -275,7 +275,8 @@ class GossipBroker:
         self._dedup_lock: asyncio.Lock = asyncio.Lock()
         if self._priority_enabled:
             self._priority_queue = PriorityMessageQueue()
-            self._start_priority_drain()
+            # _start_priority_drain() is deferred to first start()/publish()
+            # call to avoid "no running event loop" at import time.
 
     def _compute_message_id(self, topic: str, message: Any) -> str:
         """Compute a deterministic identifier for a (topic, message) pair.
@@ -353,6 +354,8 @@ class GossipBroker:
         if not self._started:
             await self._backend.start()
             self._started = True
+        if self._priority_enabled and self._priority_task is None:
+            self._start_priority_drain()
         message_id = self._compute_message_id(topic, message)
         if await self._is_duplicate(message_id):
             metrics_registry.increment("gossip_dedup_skipped_total")
@@ -367,6 +370,8 @@ class GossipBroker:
         if not self._started:
             await self._backend.start()
             self._started = True
+        if self._priority_enabled and self._priority_task is None:
+            self._start_priority_drain()
         unique: list[Any] = []
         for message in messages:
             message_id = self._compute_message_id(topic, message)
