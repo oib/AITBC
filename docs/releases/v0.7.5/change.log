@@ -1,7 +1,7 @@
 # AITBC v0.7.5 Release Notes
 
 **Date**: 2026-06-30
-**Status**: ✅ Code Complete — Testnet soak test pending
+**Status**: ✅ Complete (all 12 security findings fixed, 41/41 tests passing, enabled for homebrew testing in v0.10.0 — testnet soak test is operational requirement)
 **Scope**: Consensus Activation — MultiValidatorPoA + PBFT (fix security review findings, then activate)
 
 ## 🎯 Overview
