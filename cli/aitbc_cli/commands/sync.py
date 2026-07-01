@@ -118,6 +118,9 @@ def status(node_url, chain_id):
 
         # Query network info
         network_info = client.get("/rpc/network-info")
+
+        # Query sync configuration (v0.6.2)
+        sync_config = client.get("/rpc/sync/config")
     except NetworkError as e:
         click.echo(f"Error: Cannot connect to node at {node_url}")
         raise click.Abort() from e
@@ -131,6 +134,9 @@ def status(node_url, chain_id):
     if isinstance(network_info, dict) and network_info.get("error"):
         click.echo(f"Error from /rpc/network-info: {network_info['error']}")
         raise click.Abort()
+    # Sync config endpoint might not exist in older versions
+    if isinstance(sync_config, dict) and sync_config.get("error"):
+        sync_config = None
 
     # Extract head fields (fall back to network-info chain_id if not provided)
     resolved_chain_id = chain_id or network_info.get("chain_id") or head.get("chain_id")
@@ -153,3 +159,14 @@ def status(node_url, chain_id):
         p2p_endpoint,
         supported_chains,
     )
+
+    # Show v0.6.2 sync optimization status if available
+    if sync_config:
+        click.echo("\nSync Optimization (v0.6.2)")
+        click.echo("-" * 40)
+        parallel_enabled = sync_config.get("sync_parallel_enabled", False)
+        delta_enabled = sync_config.get("sync_delta_enabled", False)
+        priority_enabled = sync_config.get("gossip_priority_enabled", False)
+        click.echo(f"Parallel sync      : {'enabled' if parallel_enabled else 'disabled'}")
+        click.echo(f"Delta sync        : {'enabled' if delta_enabled else 'disabled'}")
+        click.echo(f"Gossip priority   : {'enabled' if priority_enabled else 'disabled'}")
