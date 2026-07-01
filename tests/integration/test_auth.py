@@ -15,7 +15,7 @@ class TestAuthentication:
         if not admin_password:
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
         login_data = {"username": "admin", "password": admin_password}
-        response = coordinator_client.post("/api/v1/auth/login", json=login_data)
+        response = coordinator_client.post("/v1/auth/login", json=login_data)
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
@@ -29,13 +29,13 @@ class TestAuthentication:
         if not os.getenv("TEST_ADMIN_PASSWORD"):
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
         login_data = {"username": "admin", "password": "wrongpassword"}
-        response = coordinator_client.post("/api/v1/auth/login", json=login_data)
+        response = coordinator_client.post("/v1/auth/login", json=login_data)
         assert response.status_code == 401
 
     def test_login_missing_fields(self, coordinator_client: TestClient):
         """Test login with missing username or password."""
         login_data = {"username": "admin"}
-        response = coordinator_client.post("/api/v1/auth/login", json=login_data)
+        response = coordinator_client.post("/v1/auth/login", json=login_data)
         assert response.status_code == 422
 
     def test_refresh_token_success(self, coordinator_client: TestClient):
@@ -44,11 +44,11 @@ class TestAuthentication:
         if not admin_password:
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
         login_data = {"username": "admin", "password": admin_password}
-        login_response = coordinator_client.post("/api/v1/auth/login", json=login_data)
+        login_response = coordinator_client.post("/v1/auth/login", json=login_data)
         refresh_token = login_response.json()["refresh_token"]
 
         refresh_data = {"refresh_token": refresh_token}
-        response = coordinator_client.post("/api/v1/auth/refresh", json=refresh_data)
+        response = coordinator_client.post("/v1/auth/refresh", json=refresh_data)
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
@@ -60,11 +60,11 @@ class TestAuthentication:
         if not admin_password:
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
         login_data = {"username": "admin", "password": admin_password}
-        login_response = coordinator_client.post("/api/v1/auth/login", json=login_data)
+        login_response = coordinator_client.post("/v1/auth/login", json=login_data)
         token = login_response.json()["access_token"]
 
         validate_data = {"token": token}
-        response = coordinator_client.post("/api/v1/auth/validate", json=validate_data)
+        response = coordinator_client.post("/v1/auth/validate", json=validate_data)
         assert response.status_code == 200
         data = response.json()
         assert data["valid"] is True
@@ -72,7 +72,7 @@ class TestAuthentication:
     def test_validate_token_invalid(self, coordinator_client: TestClient):
         """Test validation with invalid token."""
         validate_data = {"token": "invalid_token"}
-        response = coordinator_client.post("/api/v1/auth/validate", json=validate_data)
+        response = coordinator_client.post("/v1/auth/validate", json=validate_data)
         assert response.status_code == 401
 
 
@@ -89,7 +89,7 @@ class TestAuthMiddleware:
             {"username": "user", "password": os.getenv("TEST_USER_PASSWORD", "user123")},
         ]
         for user in users:
-            response = coordinator_client.post("/api/v1/auth/login", json=user)
+            response = coordinator_client.post("/v1/auth/login", json=user)
             assert response.status_code == 200
             data = response.json()
             assert data["status"] == "success"
@@ -101,12 +101,12 @@ class TestAuthMiddleware:
         if not os.getenv("TEST_ADMIN_PASSWORD"):
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
         login_data = {"username": "admin", "password": os.getenv("TEST_ADMIN_PASSWORD")}
-        login_response = coordinator_client.post("/api/v1/auth/login", json=login_data)
+        login_response = coordinator_client.post("/v1/auth/login", json=login_data)
         refresh_token = login_response.json()["refresh_token"]
 
         for _ in range(3):
             refresh_data = {"refresh_token": refresh_token}
-            response = coordinator_client.post("/api/v1/auth/refresh", json=refresh_data)
+            response = coordinator_client.post("/v1/auth/refresh", json=refresh_data)
             assert response.status_code == 200
             data = response.json()
             if data["status"] == "success":
@@ -117,17 +117,17 @@ class TestAuthMiddleware:
         if not os.getenv("TEST_ADMIN_PASSWORD"):
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
         login_data = {"username": "admin", "password": os.getenv("TEST_ADMIN_PASSWORD")}
-        login_response = coordinator_client.post("/api/v1/auth/login", json=login_data)
+        login_response = coordinator_client.post("/v1/auth/login", json=login_data)
         valid_token = login_response.json()["access_token"]
 
-        response = coordinator_client.post("/api/v1/auth/validate", json={"token": valid_token})
+        response = coordinator_client.post("/v1/auth/validate", json={"token": valid_token})
         assert response.status_code == 200
         data = response.json()
         assert data["valid"] is True
 
         invalid_tokens = ["invalid_token", "Bearer invalid", ""]
         for invalid_token in invalid_tokens:
-            response = coordinator_client.post("/api/v1/auth/validate", json={"token": invalid_token})
+            response = coordinator_client.post("/v1/auth/validate", json={"token": invalid_token})
             assert response.status_code in (401, 422)
 
     def test_api_key_operations(self, coordinator_client: TestClient):
@@ -135,15 +135,15 @@ class TestAuthMiddleware:
         if not os.getenv("TEST_ADMIN_PASSWORD"):
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
         login_data = {"username": "admin", "password": os.getenv("TEST_ADMIN_PASSWORD")}
-        login_response = coordinator_client.post("/api/v1/auth/login", json=login_data)
+        login_response = coordinator_client.post("/v1/auth/login", json=login_data)
         token = login_response.json()["access_token"]
 
         response = coordinator_client.post(
-            "/api/v1/auth/api-key/generate?user_id=test_user&permissions=READ", headers={"Authorization": f"Bearer {token}"}
+            "/v1/auth/api-key/generate?user_id=test_user&permissions=READ", headers={"Authorization": f"Bearer {token}"}
         )
         assert response.status_code in (200, 403, 500)
 
-        response = coordinator_client.post("/api/v1/auth/api-key/validate?api_key=test_api_key")
+        response = coordinator_client.post("/v1/auth/api-key/validate?api_key=test_api_key")
         assert response.status_code in (200, 401, 500)
 
     def test_protected_endpoints_without_auth(self, coordinator_client: TestClient):
@@ -162,16 +162,16 @@ class TestAuthAdvanced:
         if not os.getenv("TEST_ADMIN_PASSWORD"):
             pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
         login_data = {"username": "admin", "password": os.getenv("TEST_ADMIN_PASSWORD")}
-        login_response = coordinator_client.post("/api/v1/auth/login", json=login_data)
+        login_response = coordinator_client.post("/v1/auth/login", json=login_data)
         access_token = login_response.json()["access_token"]
         refresh_token = login_response.json()["refresh_token"]
 
-        response = coordinator_client.post("/api/v1/auth/validate", json={"token": access_token})
+        response = coordinator_client.post("/v1/auth/validate", json={"token": access_token})
         assert response.status_code == 200
 
         for _ in range(2):
             refresh_data = {"refresh_token": refresh_token}
-            response = coordinator_client.post("/api/v1/auth/refresh", json=refresh_data)
+            response = coordinator_client.post("/v1/auth/refresh", json=refresh_data)
             if response.status_code == 200:
                 refresh_token = response.json().get("refresh_token", refresh_token)
 
@@ -185,7 +185,7 @@ class TestAuthAdvanced:
         ]
         for creds in invalid_credentials:
             if creds.get("username") is not None:
-                response = coordinator_client.post("/api/v1/auth/login", json=creds)
+                response = coordinator_client.post("/v1/auth/login", json=creds)
                 assert response.status_code in (401, 422)
 
     def test_auth_api_key_scenarios(self, coordinator_client: TestClient):
@@ -195,7 +195,7 @@ class TestAuthAdvanced:
 
         for user_id in user_ids:
             for perm in permissions:
-                response = coordinator_client.post(f"/api/v1/auth/api-key/generate?user_id={user_id}&permissions={perm}")
+                response = coordinator_client.post(f"/v1/auth/api-key/generate?user_id={user_id}&permissions={perm}")
                 assert response.status_code in (200, 401, 403, 500)
 
     def test_auth_protected_endpoints_with_valid_token(self, authenticated_client: TestClient):
