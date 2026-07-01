@@ -23,7 +23,7 @@ class MarketplaceOffer(SQLModel, table=True):
     capacity: int = Field(default=0, nullable=False)
     price: float = Field(default=0.0, nullable=False)
     sla: str = Field(default="")
-    status: str = Field(default="open", max_length=20)
+    status: str = Field(default="available", max_length=20)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
     attributes: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     # GPU-specific fields
