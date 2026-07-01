@@ -12,16 +12,18 @@
 #   3. Sync Python venv (reinstall requirements + CLI)
 #   4. Relink systemd unit files (role-aware, via link-systemd.sh)
 #   5. daemon-reload + enable services for this role
-#   6. Restart all aitbc services
-#   7. Run health check
-#   8. Print summary + DB migration reminder
+#   6. Run Alembic DB migrations for all services with alembic.ini
+#   7. Restart all aitbc services
+#   8. Run health check
+#   9. Print summary + manual follow-up reminders
 #
 # Usage:
 #   sudo /opt/aitbc/scripts/deployment/update.sh
-#   sudo /opt/aitbc/scripts/deployment/update.sh --no-pull    # skip git pull
-#   sudo /opt/aitbc/scripts/deployment/update.sh --no-restart # skip service restart
+#   sudo /opt/aitbc/scripts/deployment/update.sh --no-pull     # skip git pull
+#   sudo /opt/aitbc/scripts/deployment/update.sh --no-restart  # skip service restart
+#   sudo /opt/aitbc/scripts/deployment/update.sh --no-migrate  # skip DB migrations
 #   sudo /opt/aitbc/scripts/deployment/update.sh --skip-backup # skip pre-update backup
-#   sudo /opt/aitbc/scripts/deployment/update.sh --remote URL # override git remote
+#   sudo /opt/aitbc/scripts/deployment/update.sh --remote URL  # override git remote
 #
 # Prerequisites:
 #   - Node already set up via setup.sh
@@ -50,6 +52,7 @@ GIT_REMOTE="${AITBC_GIT_REMOTE:-https://github.com/oib/AITBC.git}"
 DO_PULL=true
 DO_RESTART=true
 DO_BACKUP=true
+DO_MIGRATE=true
 
 # Colors
 RED='\033[0;31m'
@@ -88,6 +91,7 @@ parse_args() {
         case "$1" in
             --no-pull)    DO_PULL=false; shift ;;
             --no-restart) DO_RESTART=false; shift ;;
+            --no-migrate) DO_MIGRATE=false; shift ;;
             --skip-backup) DO_BACKUP=false; shift ;;
             --remote)     GIT_REMOTE="$2"; shift 2 ;;
             -h|--help)
@@ -392,10 +396,55 @@ enable_services() {
 }
 
 # ----------------------------------------------------------------------------
-# Step 5: Restart all aitbc services
+# Step 5: Run Alembic DB migrations for all services with alembic.ini
+# ----------------------------------------------------------------------------
+run_migrations() {
+    log "Step 5: Running Alembic DB migrations..."
+    local alembic_bin="$VENV_DIR/bin/alembic"
+    if [ ! -x "$alembic_bin" ]; then
+        warning "alembic not found in venv ($alembic_bin) — skipping migrations"
+        return 0
+    fi
+
+    # Services known to have alembic.ini (scanned at runtime below for robustness)
+    local migrated=0 failed=0 skipped=0
+
+    while IFS= read -r ini; do
+        local svc_dir
+        svc_dir=$(dirname "$ini")
+        local svc_name
+        svc_name=$(basename "$svc_dir")
+        log "  Migrating: $svc_name (in $svc_dir)"
+
+        # Load service-specific DB env vars from /etc/aitbc/<svc>.env if present
+        # so alembic env.py picks up the correct DATABASE_URL / DB_TYPE / etc.
+        local env_file="/etc/aitbc/${svc_name}.env"
+        if [ -f "$env_file" ]; then
+            # shellcheck disable=SC1090
+            source "$env_file" 2>/dev/null || true
+        fi
+
+        if ( set -o pipefail && cd "$svc_dir" && PYTHONPATH=src "$alembic_bin" upgrade head 2>&1 | sed 's/^/    /' ); then
+            success "  migrated: $svc_name"
+            ((migrated++))
+        else
+            warning "  migration failed for $svc_name (table may already exist from create_all, multiple heads, or DB unreachable)"
+            warning "  inspect: cd $svc_dir && PYTHONPATH=src $alembic_bin upgrade head"
+            ((failed++))
+        fi
+    done < <(find "$AITBC_ROOT/apps" -maxdepth 3 -name "alembic.ini" 2>/dev/null | sort)
+
+    log "Migrations: ${migrated} ok, ${failed} failed, ${skipped} skipped"
+    if [ "$failed" -gt 0 ]; then
+        warning "Some migrations failed — services will still restart; check output above"
+    fi
+}
+
+# ----------------------------------------------------------------------------
+# Step 6: Restart all aitbc services
 # ----------------------------------------------------------------------------
 restart_services() {
-    log "Step 5: Restarting all aitbc services..."
+    log "Step 6: Restarting all aitbc services..."
     local services=()
     local svc
 
@@ -440,7 +489,7 @@ restart_services() {
 # Step 6: Health check
 # ----------------------------------------------------------------------------
 run_health_check() {
-    log "Step 6: Running health check..."
+    log "Step 7: Running health check..."
     if [ ! -x "$HEALTH_CHECK_SCRIPT" ]; then
         warning "Health check script not found or not executable: $HEALTH_CHECK_SCRIPT"
         return 0
@@ -453,7 +502,7 @@ run_health_check() {
 }
 
 # ----------------------------------------------------------------------------
-# Step 7: Summary + DB migration reminder
+# Step 8: Summary + manual follow-up reminders
 # ----------------------------------------------------------------------------
 print_summary() {
     local role
@@ -471,16 +520,32 @@ print_summary() {
         echo "  Services NOT restarted (--no-restart). Apply manually if needed:"
         echo "    sudo systemctl restart aitbc-*"
     fi
+    if [ "${DO_MIGRATE}" = "true" ]; then
+        echo "  DB migrations run automatically (see Step 5 output above)."
+    else
+        echo "  DB migrations NOT run (--no-migrate). Apply manually if needed (see below)."
+    fi
     echo ""
     echo "  Manual follow-ups to consider:"
-    echo "    - DB migrations (alembic) if schema changed:"
-    echo "        cd $AITBC_ROOT/apps/blockchain-node && alembic upgrade head"
+    echo "    - DB migrations (alembic) — services with alembic.ini:"
+    echo "        blockchain-node, pool-hub, governance, trading"
+    echo "      Run individually if auto-migration was skipped or failed:"
+    echo "        cd $AITBC_ROOT/apps/blockchain-node && PYTHONPATH=src ../../venv/bin/alembic upgrade head"
+    echo "        cd $AITBC_ROOT/apps/pool-hub       && PYTHONPATH=src ../../venv/bin/alembic upgrade head"
+    echo "        cd $AITBC_ROOT/apps/governance     && PYTHONPATH=src ../../venv/bin/alembic upgrade head"
+    echo "        cd $AITBC_ROOT/apps/trading        && PYTHONPATH=src ../../venv/bin/alembic upgrade head"
     echo "    - Review changed config templates in examples/ vs /etc/aitbc/"
     echo "    - If nginx configs changed, update both container + host proxy:"
     echo "        Container: /opt/aitbc/examples/nginx/nginx-*.conf.example"
     echo "        Host proxy: /opt/aitbc/examples/nginx/nginx-*-proxy.conf.example"
     echo "        See: /opt/aitbc/examples/nginx/README.md"
-    echo "    - Check logs: journalctl -u aitbc-blockchain-node -n 50 --no-pager"
+    echo "    - Check logs for all running aitbc services:"
+    echo "        journalctl -u 'aitbc-*' -n 50 --no-pager --since '5 min ago'"
+    echo "      Or per-service, e.g.:"
+    echo "        journalctl -u aitbc-blockchain-node -n 50 --no-pager"
+    echo "        journalctl -u aitbc-trading -n 50 --no-pager"
+    echo "        journalctl -u aitbc-governance -n 50 --no-pager"
+    echo "        journalctl -u aitbc-pool-hub -n 50 --no-pager"
     echo ""
 }
 
@@ -503,8 +568,8 @@ main() {
 
     if [ "$DO_PULL" = "true" ]; then
         do_git_pull || exit 1
-        if [ "${NO_CHANGES:-false}" = "true" ] && [ "$DO_RESTART" = "false" ]; then
-            success "No changes and --no-restart set — nothing to do"
+        if [ "${NO_CHANGES:-false}" = "true" ] && [ "$DO_RESTART" = "false" ] && [ "$DO_MIGRATE" = "false" ]; then
+            success "No changes, --no-restart and --no-migrate set — nothing to do"
             exit 0
         fi
     else
@@ -515,6 +580,12 @@ main() {
     sync_venv
     relink_systemd
     enable_services
+
+    if [ "$DO_MIGRATE" = "true" ]; then
+        run_migrations
+    else
+        log "Skipping DB migrations (--no-migrate)"
+    fi
 
     if [ "$DO_RESTART" = "true" ]; then
         restart_services
