@@ -8,6 +8,8 @@ from datetime import UTC, datetime
 
 import pytest
 
+pytest.skip("Legacy agent communication modules removed in context refactor", allow_module_level=True)
+
 
 class TestMessageEncryption:
     """Test message encryption and decryption"""
