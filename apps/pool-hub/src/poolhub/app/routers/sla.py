@@ -13,10 +13,10 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 
-from ..database import get_db  # type: ignore
-from ..models import CapacitySnapshot  # type: ignore
-from ..services.billing_integration import BillingIntegration  # type: ignore
-from ..services.sla_collector import SLACollector  # type: ignore
+from ...database import get_session as get_db  # type: ignore
+from ...models import CapacitySnapshot  # type: ignore
+from ...services.billing_integration import BillingIntegration  # type: ignore
+from ...services.sla_collector import SLACollector  # type: ignore
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/sla", tags=["SLA"])
