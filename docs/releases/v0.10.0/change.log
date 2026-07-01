@@ -1,0 +1,162 @@
+# AITBC v0.10.0 Release Notes
+
+**Date**: 2026-07-01
+**Status**: ✅ Complete
+**Scope**: Runtime Bug Fixes & Service Modernization — fix critical consensus, database, and networking bugs affecting hub and customer-no-gpu node profiles; modernize service entry points and logging.
+
+## 🎯 Overview
+
+v0.10.0 is a **bugfix and modernization release** that resolves five issues discovered during deployment of the `hub:customer:nogpu` node profile. Four of the five fixes address **critical runtime failures** that prevented core services from functioning correctly; one is a logging/entry-point modernization.
+
+The most severe bug — broken `SharedHttpClient` classmethod calls — has been latent since v0.6.0 (commit `a48878ca6`), where callers were introduced using `SharedHttpClient.get(url)` classmethod syntax while the methods were still defined as instance methods. This silently broke all inter-node HTTP communication: chain sync, escrow routes, hub discovery, consensus genesis fetch, and the startup health check. The second critical bug — wrong state root computation — caused the hub to produce blocks with invalid state roots since the incremental computation was introduced.
+
+**Prerequisites**: [v0.9.0](../v0.9.0/change.log) (in progress; these fixes are independent of the settlement work).
+
+**Node profile impact**:
+
+| Profile | Services affected |
+|---------|-------------------|
+| `hub:customer:nogpu` | blockchain-node, blockchain-rpc, coordinator-api, exchange |
+| `follower:customer:nogpu` | blockchain-node, blockchain-rpc, blockchain-sync |
+
+## 🎯 Release Highlights
+
+### Critical: Consensus state root fix
+- ✅ Remove broken incremental state root computation from `PoAProposer` — use full recompute
+- ✅ Remove broken incremental state root computation from `ChainSync` block import — use full recompute
+- ✅ The incremental approach created a fresh trie per call but only populated it with accounts touched in the current block, producing wrong roots that excluded all other accounts. For blocks with no transactions this produced `0x00..00`; for blocks with transactions it produced a root that didn't match the full state. Since the trie is not persisted across blocks, a full recompute is the only correct option.
+
+### Critical: SharedHttpClient classmethod refactor
+- ✅ Convert `get()`, `post()`, `put()`, `delete()` from instance methods to classmethods
+- ✅ Fixes latent bug since v0.6.0: all 13 call sites used `SharedHttpClient.get(url)` classmethod syntax on instance methods, which would raise `TypeError: get() missing 1 required positional argument`
+- ✅ Affected call sites: `chain_sync.py` (4), `consensus/poa.py` (2), `rpc/escrow_routes.py` (3), `network/hub_discovery.py` (2), `main.py` (1)
+- ✅ Both classmethod (`SharedHttpClient.get(url)`) and instance (`SharedHttpClient().get(url)`) invocation styles now work
+
+### Critical: Database column migration + session fixes
+- ✅ Add `_migrate_existing_columns()` to `init_db()` — inspects SQLModel metadata, compares with actual SQLite schema, issues `ALTER TABLE ADD COLUMN` for missing columns (e.g., `block.signature`)
+- ✅ `SQLModel.metadata.create_all` only creates new tables; this function handles columns added to existing tables by subsequent releases
+- ✅ Add `class_=Session` to both `sessionmaker()` calls — without this, `Session.exec()` (SQLModel method) was missing, causing `AttributeError` on blockchain-node startup
+- ✅ Fix 6 `session_scope()` calls in `rpc/accounts.py` to pass `chain_id` — previously `get_state_snapshot`, `get_state_delta`, and `get_account_balance` always queried the default chain DB regardless of which chain was requested
+
+### High: Sync CLI schema initialization
+- ✅ Add `init_db(settings.chain_id)` call in `sync_cli.py` before starting `ChainSync`
+- ✅ Ensures chain DB schema is up to date (adds missing columns such as `block.signature`) before the sync loop reads them
+
+### Medium: PyCUDA log noise reduction (hub-only)
+- ✅ Downgrade PyCUDA "not available" log from `warning` → `debug` in `gpu_optimizer.py`
+- ✅ Downgrade simulated GPU device init log from `info` → `debug`
+- ✅ Silences noisy startup journal spam on no-GPU hub nodes running coordinator-api
+
+### Medium: Exchange API module-based execution (hub-only)
+- ✅ Update systemd service `ExecStart` from deprecated `simple_exchange_api.py` shim to `python -m apps.exchange.simple_exchange.server`
+- ✅ Update `deploy_simple.sh`, `exchange_wrapper.sh`, and `health-check.sh` to use module invocation
+- ✅ Removes `DeprecationWarning` from journal on every exchange service startup
+
+### Low: Miner logging standardization (shop-only, not on hub/customer)
+- ✅ Replace custom `FlushHandler` and `basicConfig` with canonical `configure_logging()` from `aitbc.aitbc_logging`
+- ✅ Use `JournalFormatter` for console output (no redundant timestamps — journalctl adds one)
+- ✅ Use `StructuredFormatter` for rotated log files via `to_file=True`
+- ✅ Add `LOG_DIR` environment variable and `SyslogIdentifier=aitbc-miner` to systemd service
+- ✅ Only affects `MARKET_ROLE=shop` nodes (miner is in `shop_services`, not enabled on hub/customer)
+
+## 📋 Commit Log
+
+| Commit | Type | Scope | Description |
+|--------|------|-------|-------------|
+| `d2f888178` | fix | database | Add column migration support and fix session_scope chain_id usage |
+| `fd6b503b9` | refactor | network | Convert SharedHttpClient methods to classmethods |
+| `b7929bdd7` | refactor | exchange | Convert exchange API to module-based execution |
+| `24c6de541` | refactor | miner | Standardize logging to use canonical AITBC logging setup |
+| `5e630119f` | fix | consensus | Remove broken incremental state root computation and use full recompute |
+
+## 🔧 Breaking Changes
+
+- None. All changes are bug fixes or internal refactors. No public API changes.
+- The `simple_exchange_api.py` shim is retained for backward compatibility but is no longer used by any launcher.
+
+## 📁 Files Changed
+
+### `apps/blockchain-node/src/aitbc_chain/`
+- `database.py` — `_migrate_existing_columns()`, `class_=Session` on sessionmakers, `init_db()` calls migration
+- `rpc/accounts.py` — 6 `session_scope()` calls fixed to pass `chain_id`
+- `consensus/poa.py` — removed `compute_state_root_incremental` import + usage; always full recompute
+- `sync.py` — removed changed-addresses tracking + `account_map` building; always full recompute
+- `sync_cli.py` — added `init_db(settings.chain_id)` before `ChainSync` start
+
+### `aitbc/network/`
+- `http_pool.py` — `get/post/put/delete` converted to `@classmethod`
+
+### `apps/coordinator-api/src/app/contexts/trading/services/trading_marketplace/`
+- `gpu_optimizer.py` — PyCUDA log levels downgraded (warning→debug, info→debug)
+
+### `apps/exchange/`
+- `aitbc-exchange.service` — `ExecStart` uses `python -m apps.exchange.simple_exchange.server`
+- `deploy_simple.sh` — module invocation with `PYTHONPATH=/opt/aitbc`
+- `exchange_wrapper.sh` — `cd /opt/aitbc` + module invocation
+
+### `apps/miner/`
+- `aitbc-miner.service` — added `LOG_DIR` env + `SyslogIdentifier=aitbc-miner`
+- `production_miner.py` — replaced custom logging with `configure_logging()`
+
+### `scripts/monitoring/`
+- `health-check.sh` — updated `ps` grep pattern to match new exchange module name
+
+## 🚀 Deployment
+
+### Hub node (`hub:customer:nogpu`)
+```bash
+git pull
+sudo systemctl daemon-reload
+sudo systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc aitbc-coordinator-api aitbc-exchange
+```
+
+### Follower/customer node (`follower:customer:nogpu`)
+```bash
+git pull
+sudo systemctl daemon-reload
+sudo systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc aitbc-blockchain-sync
+```
+
+### Shop node (`*:shop:gpu`)
+```bash
+git pull
+sudo systemctl daemon-reload
+sudo systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc aitbc-miner
+```
+
+> `daemon-reload` is required because systemd service files changed (`aitbc-exchange.service`, `aitbc-miner.service`).
+
+## 🧪 Verification
+
+After restart, confirm services are healthy:
+
+```bash
+# Hub: blockchain-node producing blocks with correct state roots
+journalctl -u aitbc-blockchain-node -n 50 --no-pager
+
+# Hub: coordinator-api started without PyCUDA warnings
+journalctl -u aitbc-coordinator-api -n 30 --no-pager
+
+# Hub: exchange started without deprecation warning
+journalctl -u aitbc-exchange -n 20 --no-pager
+
+# Follower: blockchain-sync running with up-to-date schema
+journalctl -u aitbc-blockchain-sync -n 30 --no-pager
+```
+
+## 🎯 Success Criteria
+
+- ✅ `aitbc-blockchain-node` starts without `AttributeError: 'Session' object has no attribute 'exec'`
+- ✅ Hub produces blocks with correct state roots (full recompute, not broken incremental)
+- ✅ Inter-node HTTP calls (chain sync, escrow, hub discovery, consensus) no longer raise `TypeError`
+- ✅ RPC account endpoints query the correct chain DB (not always default)
+- ✅ Existing SQLite databases auto-migrate missing columns on startup
+- ✅ No `DeprecationWarning` from exchange service in journal
+- ✅ No PyCUDA `warning`-level log spam on no-GPU hub nodes
+- ✅ Miner service uses canonical logging (shop nodes only)
+
+---
+
+*Last Updated: 2026-07-01*
+*Version: 0.10.0*
+*Status: Complete — Runtime Bug Fixes & Service Modernization*
