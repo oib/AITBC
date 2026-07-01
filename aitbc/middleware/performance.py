@@ -59,7 +59,7 @@ class PerformanceLoggingMiddleware(BaseHTTPMiddleware):
                 duration_ms,
             )
         elif status >= 400:
-            logger.info(
+            logger.warning(
                 "Request performance - Method: %s, Path: %s, Status: %s, Duration: %sms",
                 request.method,
                 path,
