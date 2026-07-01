@@ -94,6 +94,15 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 )
             elif response.status_code >= 400:
                 metrics_registry.increment("rpc_client_errors_total")
+                _app_logger.warning(
+                    "Client error",
+                    extra={
+                        "method": method,
+                        "path": path,
+                        "status": response.status_code,
+                        "duration_ms": round(duration * 1000, 2),
+                    },
+                )
             return response
         except HTTPException:
             raise

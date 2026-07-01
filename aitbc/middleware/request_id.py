@@ -57,7 +57,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         elif status >= 500:
             logger.warning("Request completed - ID: %s, Status: %s, Path: %s", request_id, status, path)
         elif status >= 400:
-            logger.info("Request completed - ID: %s, Status: %s, Path: %s", request_id, status, path)
+            logger.warning("Request completed - ID: %s, Status: %s, Path: %s", request_id, status, path)
         else:
             logger.debug("Request completed - ID: %s, Status: %s", request_id, status)
 
