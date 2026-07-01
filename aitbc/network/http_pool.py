@@ -74,21 +74,30 @@ class SharedHttpClient:
             )
         return SharedHttpClient._client
 
-    async def get(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Perform an async GET request using the shared client."""
-        return await self._get_client().get(url, **kwargs)
+    @classmethod
+    async def get(cls, url: str, **kwargs: Any) -> httpx.Response:
+        """Perform an async GET request using the shared client.
 
-    async def post(self, url: str, **kwargs: Any) -> httpx.Response:
+        Callable as a classmethod (``SharedHttpClient.get(url)``) or via an
+        instance (``SharedHttpClient().get(url)``) — both resolve to the
+        singleton underlying client.
+        """
+        return await cls()._get_client().get(url, **kwargs)
+
+    @classmethod
+    async def post(cls, url: str, **kwargs: Any) -> httpx.Response:
         """Perform an async POST request using the shared client."""
-        return await self._get_client().post(url, **kwargs)
+        return await cls()._get_client().post(url, **kwargs)
 
-    async def put(self, url: str, **kwargs: Any) -> httpx.Response:
+    @classmethod
+    async def put(cls, url: str, **kwargs: Any) -> httpx.Response:
         """Perform an async PUT request using the shared client."""
-        return await self._get_client().put(url, **kwargs)
+        return await cls()._get_client().put(url, **kwargs)
 
-    async def delete(self, url: str, **kwargs: Any) -> httpx.Response:
+    @classmethod
+    async def delete(cls, url: str, **kwargs: Any) -> httpx.Response:
         """Perform an async DELETE request using the shared client."""
-        return await self._get_client().delete(url, **kwargs)
+        return await cls()._get_client().delete(url, **kwargs)
 
     @classmethod
     async def close_instance(cls) -> None:
