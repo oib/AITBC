@@ -15,7 +15,7 @@ EnvironmentFile=/etc/aitbc/%N.env
 Environment=LOG_FORMAT=json
 # Network binding: localhost only (internal service)
 Environment=MARKETPLACE_BIND_HOST=127.0.0.1
-Environment=MARKETPLACE_BIND_PORT=8104
+Environment=MARKETPLACE_BIND_PORT=8102
 ExecStart=/opt/aitbc/venv/bin/python -m marketplace_service.main
 Restart=on-failure
 RestartSec=5
