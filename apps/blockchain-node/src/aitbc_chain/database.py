@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import Engine, event
+from sqlalchemy import Engine, event, inspect, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
@@ -169,7 +169,7 @@ class DatabaseOperationValidator:
 _validator = DatabaseOperationValidator()
 
 # Session factory for the module-level engine (sessionmaker factory pattern).
-_session_factory = sessionmaker(bind=_engine, autoflush=False, autocommit=False)
+_session_factory = sessionmaker(bind=_engine, autoflush=False, autocommit=False, class_=Session)
 
 # Cache of session factories per chain_id (chain-specific engines are created
 # lazily by get_engine; reuse a sessionmaker once the engine exists).
@@ -181,7 +181,7 @@ def _get_session_factory(chain_id: str) -> sessionmaker:
     resolved_chain_id = chain_id or _default_chain_id or settings.chain_id or "ait-mainnet"
     if resolved_chain_id not in _session_factories:
         engine = get_engine(chain_id)
-        _session_factories[resolved_chain_id] = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+        _session_factories[resolved_chain_id] = sessionmaker(bind=engine, autoflush=False, autocommit=False, class_=Session)
     return _session_factories[resolved_chain_id]
 
 
@@ -210,6 +210,39 @@ def session_scope(chain_id: str = "") -> Generator[Session]:
 _engine_internal = _engine
 
 
+def _migrate_existing_columns(engine: Engine) -> None:
+    """Add missing columns to existing SQLite tables.
+
+    SQLModel.metadata.create_all only creates new tables — it does not add
+    columns to tables that already exist. This function inspects each table
+    in the metadata and adds any columns that are missing from the DB schema.
+    """
+    inspector = inspect(engine)
+    with engine.begin() as conn:
+        for table_obj in SQLModel.metadata.sorted_tables:
+            table_name = table_obj.name
+            if not inspector.has_table(table_name):
+                continue
+            existing_cols = {col["name"] for col in inspector.get_columns(table_name)}
+            for col in table_obj.columns:
+                if col.name in existing_cols:
+                    continue
+                coltype = col.type.compile(engine.dialect)
+                default = ""
+                if col.default is not None and col.default.arg is not None:
+                    val = col.default.arg
+                    if isinstance(val, str):
+                        default = f" DEFAULT '{val}'"
+                    else:
+                        default = f" DEFAULT {val}"
+                elif not col.nullable:
+                    # Non-nullable column without a default — supply empty string for text cols
+                    default = " DEFAULT ''"
+                conn.execute(
+                    text(f"ALTER TABLE {table_name} ADD COLUMN {col.name} {coltype}{default}")
+                )
+
+
 def init_db(chain_id: str = "") -> None:
     """Initialize database with file-based encryption
 
@@ -231,6 +264,9 @@ def init_db(chain_id: str = "") -> None:
         # If tables already exist, that's okay
         if "already exists" not in str(e):
             raise
+
+    # Add missing columns to existing tables (create_all only creates new tables)
+    _migrate_existing_columns(engine)
 
     # Set permissive file permissions on database file to handle filesystem restrictions
     if db_path.exists():

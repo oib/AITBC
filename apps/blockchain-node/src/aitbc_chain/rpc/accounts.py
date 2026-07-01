@@ -34,7 +34,7 @@ async def get_account(request: Request, address: str, chain_id: str | None = Non
     cached = _cache.get(cache_key)
     if cached is not None:
         return cached  # type: ignore[no-any-return]
-    with session_scope() as session:
+    with session_scope(chain_id) as session:
         account = session.exec(select(Account).where(Account.address == address).where(Account.chain_id == chain_id)).first()
         if not account:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
@@ -67,7 +67,7 @@ async def get_account_details(request: Request, address: str, chain_id: str | No
     cached = _cache.get(cache_key)
     if cached is not None:
         return cached  # type: ignore[no-any-return]
-    with session_scope() as session:
+    with session_scope(chain_id) as session:
         account = session.get(Account, (chain_id, address))
         if not account:
             raise HTTPException(status_code=404, detail=f"Account {address} not found on chain {chain_id}")
@@ -108,7 +108,7 @@ async def create_account(request: Request, account_data: dict[str, Any]) -> dict
         address = "0x" + address
     if not all(c in "0123456789abcdef" for c in address[2:]):
         raise HTTPException(status_code=400, detail="address must be a valid hex string")
-    with session_scope() as session:
+    with session_scope(chain_id) as session:
         existing_account = session.get(Account, (chain_id, address))
         if existing_account:
             return {
@@ -163,7 +163,7 @@ async def faucet_request(request: Request, faucet_data: dict[str, Any]) -> dict[
         raise HTTPException(status_code=400, detail="address must be a valid hex string")
     if amount > 36000000000:
         amount = 36000000000
-    with session_scope() as session:
+    with session_scope(chain_id) as session:
         account = session.get(Account, (chain_id, address))
         if not account:
             account = Account(chain_id=chain_id, address=address, balance=0, nonce=0)
@@ -258,7 +258,7 @@ async def get_state_snapshot(request: Request, chain_id: str | None = None) -> d
     can reconcile their local state with the hub's state root.
     """
     chain_id = get_chain_id(chain_id)
-    with session_scope() as session:
+    with session_scope(chain_id) as session:
         accounts = session.exec(select(Account).where(Account.chain_id == chain_id)).all()
         from ..state.merkle_patricia_trie import StateManager
 
@@ -301,7 +301,7 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
             "fallback": "full_sync",
         }
 
-    with session_scope() as session:
+    with session_scope(chain_id) as session:
         # Get state roots at from_height and to_height
         from_block = session.exec(select(Block).where(Block.chain_id == chain_id, Block.height == from_height)).first()
         to_block = session.exec(select(Block).where(Block.chain_id == chain_id, Block.height == to_height)).first()
