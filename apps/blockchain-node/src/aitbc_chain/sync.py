@@ -1004,35 +1004,15 @@ class ChainSync:
                     session.add(tx)
         if block_data.get("state_root") and (not skip_state_root_validation):
             session.flush()
-            # Use incremental state root computation — track changed addresses
-            # during tx processing, then only re-read those accounts.
-            changed_addresses: set[str] = set()
-            if transactions:
-                for tx_data in transactions:
-                    sender_addr = tx_data.get("from", "")
-                    recipient_addr = tx_data.get("to", "")
-                    if sender_addr:
-                        changed_addresses.add(sender_addr)
-                    if recipient_addr:
-                        changed_addresses.add(recipient_addr)
-            # Build account_map from changed addresses (batch read)
-            account_map: dict[str, Account] = {}  # type: ignore[no-redef]
-            if changed_addresses:
-                existing = session.exec(
-                    select(Account).where(
-                        Account.chain_id == self._chain_id,
-                        Account.address.in_(changed_addresses),  # type: ignore[attr-defined]
-                    )
-                ).all()
-                account_map = {acc.address: acc for acc in existing}
-            from .state.state_root_utils import compute_state_root_incremental
+            # Compute state root from the full account state. The previous
+            # "incremental" approach created a fresh trie per call but only
+            # populated it with accounts touched in this block — producing an
+            # empty trie (root=0x00..00) for blocks with no transactions and a
+            # wrong root for blocks with transactions. Since the trie is not
+            # persisted across blocks, a full recompute is the only correct option.
+            from .state.state_root_utils import compute_state_root_full
 
-            computed_hex = compute_state_root_incremental(session, self._chain_id, account_map, changed_addresses)
-            if computed_hex is None:
-                # Fallback to full recompute if incremental fails
-                from .state.state_root_utils import compute_state_root_full
-
-                computed_hex = compute_state_root_full(session, self._chain_id)
+            computed_hex = compute_state_root_full(session, self._chain_id)
             computed_root = bytes.fromhex(computed_hex.replace("0x", "")) if computed_hex else None
             try:
                 expected_root = bytes.fromhex(str(block_data.get("state_root")).replace("0x", ""))

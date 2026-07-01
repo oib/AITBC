@@ -29,10 +29,7 @@ from ..state.pure_state_transition import (
     compute_state_delta,
     extract_read_write_sets,
 )
-from ..state.state_root_utils import (
-    compute_state_root_full as _compute_state_root,
-    compute_state_root_incremental as _compute_state_root_incremental,
-)
+from ..state.state_root_utils import compute_state_root_full as _compute_state_root
 from ..state.state_transition import get_state_transition
 
 logger = get_logger(__name__)
@@ -444,12 +441,12 @@ class PoAProposer:
                 )
                 return False
             block_hash = self._compute_block_hash(next_height, parent_hash, timestamp, processed_txs)
-            # Compute state root incrementally — only re-read changed accounts
-            # instead of loading ALL accounts from the DB.
-            if changed_addresses:
-                state_root = _compute_state_root_incremental(session, self._config.chain_id, account_map, changed_addresses)
-            else:
-                state_root = _compute_state_root(session, self._config.chain_id)
+            # Compute state root from the full account state. The previous
+            # "incremental" approach created a fresh trie per call but only
+            # populated it with changed accounts — producing a wrong root that
+            # excluded all other accounts. Since the trie is not persisted across
+            # blocks, a full recompute is the only correct option.
+            state_root = _compute_state_root(session, self._config.chain_id)
             # v0.7.1: Sign the block hash with the proposer's private key.
             # The signature proves the proposer authored this block and is
             # used by bridge proof verification to tie proofs to signed blocks.
