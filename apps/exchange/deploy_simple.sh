@@ -3,15 +3,17 @@
 # Deploy Simple Real AITBC Trade Exchange
 echo "🚀 Deploying Simple Real AITBC Trade Exchange..."
 
+cd /opt/aitbc/apps/exchange
+
 # Kill existing services
 echo "🔄 Stopping existing services..."
 pkill -f "server.py --port 3002" || true
 pkill -f "exchange_api.py" || true
-pkill -f "simple_exchange_api.py" || true
+pkill -f "apps.exchange.simple_exchange.server" || true
 
 # Start the Simple Exchange API server
 echo "🔥 Starting Simple Exchange API server on port 3003..."
-nohup python3 simple_exchange_api.py > simple_exchange_api.log 2>&1 &
+PYTHONPATH=/opt/aitbc nohup python3 -m apps.exchange.simple_exchange.server --port 3003 > simple_exchange_api.log 2>&1 &
 sleep 2
 
 # Replace the frontend with real trading version
@@ -25,7 +27,7 @@ sleep 2
 
 # Check if services are running
 echo "✅ Checking services..."
-if pgrep -f "simple_exchange_api.py" > /dev/null; then
+if pgrep -f "apps.exchange.simple_exchange.server" > /dev/null; then
     echo "✓ Simple Exchange API is running on port 3003"
 else
     echo "✗ Simple Exchange API failed to start"
