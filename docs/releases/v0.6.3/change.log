@@ -19,10 +19,10 @@ Without this release, a follower node configured with `supported_chains=ait-hub,
 ## 🎯 Release Highlights
 
 ### Per-Chain Sync Source Mapping
-- 🚧 Config mapping of `chain_id → hub_url` (replaces single `default_peer_rpc_url`)
-- 🚧 `CHAIN_SYNC_SOURCES` environment variable for multi-hub configuration
-- 🚧 Fail-fast config validation: malformed entries rejected at startup, not at runtime
-- 🚧 Backward-compatible: single-hub config still works (falls back to `default_peer_rpc_url`)
+- ✅ Config mapping of `chain_id → hub_url` (replaces single `default_peer_rpc_url`)
+- ✅ `CHAIN_SYNC_SOURCES` environment variable for multi-hub configuration
+- ✅ Fail-fast config validation: malformed entries rejected at startup, not at runtime
+- ✅ Backward-compatible: single-hub config still works (falls back to `default_peer_rpc_url`)
 
 ### Chain-ID-Aware Sync RPC
 - ✅ `fetch_blocks_range` sends `chain_id` as query parameter to remote hub (done in v0.5.16)
@@ -31,23 +31,23 @@ Without this release, a follower node configured with `supported_chains=ait-hub,
 - ✅ Remote hub returns blocks for the requested chain, not its own default chain
 
 ### Multi-Hub Subscription Client
-- 🚧 One `SubscriptionClient` per (chain_id, hub_url) pair
-- 🚧 `SubscriptionManager` utility (in `aitbc/network/`) tracks all clients, handles restart-on-failure
-- 🚧 Independent WebSocket push subscriptions per chain
-- 🚧 Per-chain lease management and heartbeat
-- 🚧 Failover: if push subscription fails for one chain, that chain falls back to pull sync independently
+- ✅ One `SubscriptionClient` per (chain_id, hub_url) pair
+- ✅ `SubscriptionManager` utility (in `aitbc/network/`) tracks all clients, handles restart-on-failure
+- ✅ Independent WebSocket push subscriptions per chain
+- ✅ Per-chain lease management and heartbeat
+- ✅ Failover: if push subscription fails for one chain, that chain falls back to pull sync independently
 
 ### Island-to-Chain Registry
-- 🚧 Config binding: `island_id → chain_id → hub_url`
-- 🚧 Auto-join islands from `bridge_islands` config on startup
-- 🚧 Island manager background tasks enabled (bridge monitoring, health checks)
-- 🚧 Island health monitoring per connected island
-- 🚧 Configurable task intervals and error retry (replaces hardcoded 30s/60s/10s)
+- ✅ Config binding: `island_id → chain_id → hub_url`
+- ✅ Auto-join islands from `bridge_islands` config on startup
+- ✅ Island manager background tasks enabled (bridge monitoring, health checks)
+- ✅ Island health monitoring per connected island
+- ✅ Configurable task intervals and error retry (replaces hardcoded 30s/60s/10s)
 
 ### Per-Chain Gossip Backend Support
-- 🚧 Per-chain gossip backend configuration (optional)
-- 🚧 Shared gossip backend mode (all islands on one backend) with chain-isolated topics
-- 🚧 Multi-backend mode (each island on its own gossip backend)
+- ✅ Per-chain gossip backend configuration (optional)
+- ✅ Shared gossip backend mode (all islands on one backend) with chain-isolated topics
+- ✅ Multi-backend mode (each island on its own gossip backend)
 
 ### Gossip Topic Migration Window
 - ✅ Chain-specific `transactions.{chain_id}` topics already subscribed (done in v0.6.2)
