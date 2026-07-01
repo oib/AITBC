@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import DateTime
+from sqlalchemy import DateTime, String
 from sqlmodel import JSON, Column, Field, Index, SQLModel
 
 
@@ -99,7 +99,7 @@ class Proposal(SQLModel, table=True):
     snapshot_block: int | None = Field(default=None)
     snapshot_timestamp: datetime | None = Field(default=None)
 
-    status: ProposalStatus = Field(default=ProposalStatus.DRAFT)
+    status: ProposalStatus = Field(default=ProposalStatus.DRAFT, sa_column=Column(String(20)))
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), sa_column=Column(DateTime(timezone=True)))
     voting_starts: datetime = Field(sa_column=Column(DateTime(timezone=True)))
@@ -121,7 +121,7 @@ class Vote(SQLModel, table=True):
     proposal_id: str = Field(foreign_key="proposals.proposal_id", index=True)
     voter_id: str = Field(foreign_key="governance_profiles.profile_id")
 
-    vote_type: VoteType
+    vote_type: VoteType = Field(sa_column=Column(String(20)))
     voting_power_used: float
     reason: str | None = None
     power_at_snapshot: float = Field(default=0.0)
