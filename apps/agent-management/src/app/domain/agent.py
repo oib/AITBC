@@ -238,6 +238,13 @@ class AgentWorkflowCreate(SQLModel):
     tags: list[str] = Field(default_factory=list)
     is_public: bool = Field(default=False)
 
+    def dict(self, **kwargs: Any) -> dict[str, Any]:
+        """Override dict to serialize tags as JSON string for the table model."""
+        d = super().dict(**kwargs)
+        import json
+        d["tags"] = json.dumps(d.get("tags", []))
+        return d
+
 
 class AgentWorkflowUpdate(SQLModel):
     """Request model for updating agent workflows"""
@@ -252,6 +259,14 @@ class AgentWorkflowUpdate(SQLModel):
     verification_level: VerificationLevel | None = Field(default=None)
     tags: list[str] | None = Field(default=None)
     is_public: bool | None = Field(default=None)
+
+    def dict(self, **kwargs: Any) -> dict[str, Any]:
+        """Override dict to serialize tags as JSON string for the table model."""
+        d = super().dict(**kwargs)
+        if d.get("tags") is not None:
+            import json
+            d["tags"] = json.dumps(d["tags"])
+        return d
 
 
 class AgentExecutionRequest(SQLModel):
