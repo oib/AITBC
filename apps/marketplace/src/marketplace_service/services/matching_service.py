@@ -44,7 +44,7 @@ class MatchingService:
         """
         try:
             logger.info("Finding best match for bid requirements: %s", bid_requirements.keys())
-            stmt = select(MarketplaceOffer).where(MarketplaceOffer.status == "active")
+            stmt = select(MarketplaceOffer).where(MarketplaceOffer.status == OfferStatus.AVAILABLE.value)
             if max_price is not None:
                 stmt = stmt.where(MarketplaceOffer.price_per_hour.isnot(None))  # type: ignore
                 stmt = stmt.where(MarketplaceOffer.price_per_hour <= max_price)  # type: ignore
@@ -118,7 +118,7 @@ class MatchingService:
         """
         try:
             # Price-time priority: order by price asc, then created_at asc (oldest first)
-            stmt = select(MarketplaceOffer).where(MarketplaceOffer.status == "active")
+            stmt = select(MarketplaceOffer).where(MarketplaceOffer.status == OfferStatus.AVAILABLE.value)
             if max_price is not None:
                 stmt = stmt.where(MarketplaceOffer.price_per_hour.isnot(None))  # type: ignore
                 stmt = stmt.where(MarketplaceOffer.price_per_hour <= max_price)  # type: ignore
