@@ -80,7 +80,7 @@ def leave(ctx, island_id):
     leave_island_command(ctx, island_id)
 
 
-@island.command()
+@island.command(name="list-islands")
 @click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
 @click.pass_context
 def list_islands(ctx, node_url):

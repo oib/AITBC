@@ -148,6 +148,7 @@ class MatchingService:
             # Submit task to agent-coordinator
             task_id = None
             escrow_id = None
+            job_id = None
             try:
                 task_payload = {
                     "chain_id": chain_id or best_offer.chain_id or settings.default_chain_id,
@@ -166,6 +167,8 @@ class MatchingService:
                     task_data = resp.json()
                     task_id = task_data.get("task_id")
                     escrow_id = task_data.get("escrow_id")
+                    # v0.10.1: job_id is the preferred identifier for escrow verification
+                    job_id = task_data.get("job_id") or escrow_id
             except Exception as e:
                 logger.warning("Failed to submit task to agent-coordinator: %s", e)
 
@@ -186,6 +189,7 @@ class MatchingService:
                 "chain_id": best_offer.chain_id,
                 "task_id": task_id,
                 "escrow_id": escrow_id,
+                "job_id": job_id,
                 "match_score": self._calculate_match_score(best_offer, requirements),
             }
         except Exception as e:

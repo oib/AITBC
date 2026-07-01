@@ -581,7 +581,7 @@ def sync_status(ctx, node_url, all_chains, chain_id):
     """
     client = AITBCHTTPClient(base_url=node_url)
     try:
-        network_info = client.get("/network-info")
+        network_info = client.get("/rpc/network-info")
     except NetworkError as e:
         error(f"Cannot connect to node at {node_url}: {e}")
         raise click.Abort() from e
@@ -589,7 +589,7 @@ def sync_status(ctx, node_url, all_chains, chain_id):
         client.close()
 
     if isinstance(network_info, dict) and network_info.get("error"):
-        error(f"Error from /network-info: {network_info['error']}")
+        error(f"Error from /rpc/network-info: {network_info['error']}")
         raise click.Abort()
 
     # Determine which chains to query
@@ -609,7 +609,7 @@ def sync_status(ctx, node_url, all_chains, chain_id):
     try:
         for cid in chains_to_check:
             try:
-                head = client.get("/head", params={"chain_id": cid})
+                head = client.get("/rpc/head", params={"chain_id": cid})
             except NetworkError:
                 rows.append(
                     {
@@ -664,7 +664,7 @@ def start_cmd(ctx, chain_id, node_url, chain_type):
     """
     client = AITBCHTTPClient(base_url=node_url)
     try:
-        result = client.post("/chains/start", json={"chain_id": chain_id, "chain_type": chain_type})
+        result = client.post("/rpc/chains/start", json={"chain_id": chain_id, "chain_type": chain_type})
     except NetworkError as e:
         error(f"Cannot connect to node at {node_url}: {e}")
         raise click.Abort() from e
@@ -690,7 +690,7 @@ def stop_cmd(ctx, chain_id, node_url):
     """
     client = AITBCHTTPClient(base_url=node_url)
     try:
-        result = client.post("/chains/stop", json={"chain_id": chain_id, "chain_type": "micro"})
+        result = client.post("/rpc/chains/stop", json={"chain_id": chain_id, "chain_type": "micro"})
     except NetworkError as e:
         error(f"Cannot connect to node at {node_url}: {e}")
         raise click.Abort() from e
@@ -716,7 +716,7 @@ def instances_cmd(ctx, node_url, island):
     """
     client = AITBCHTTPClient(base_url=node_url)
     try:
-        result = client.get("/chains")
+        result = client.get("/rpc/chains")
     except NetworkError as e:
         error(f"Cannot connect to node at {node_url}: {e}")
         raise click.Abort() from e

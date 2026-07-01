@@ -115,7 +115,7 @@ class ChainSync:
         self._validate_signatures = validate_signatures
         self._batch_size = batch_size
         self._poll_interval = poll_interval
-        self._client = httpx.AsyncClient(timeout=10.0)
+        self._client = httpx.AsyncClient(timeout=10.0, headers={"Accept-Encoding": "gzip, deflate"})
         self._last_bulk_sync_time = 0
         self._min_bulk_sync_interval = getattr(settings, "min_bulk_sync_interval", 60)
         self._rejection_counts: dict[str, int] = {}
