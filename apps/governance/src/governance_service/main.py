@@ -595,4 +595,4 @@ if __name__ == "__main__":
     host = os.getenv("GOVERNANCE_BIND_HOST", "0.0.0.0")
     port = int(os.getenv("GOVERNANCE_BIND_PORT", "8105"))
 
-    uvicorn.run(app, host=host, port=port)
+    uvicorn.run(app, host=host, port=port, access_log=False)

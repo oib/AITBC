@@ -1278,4 +1278,4 @@ if __name__ == "__main__":
     host = os.getenv("TRADING_BIND_HOST", "0.0.0.0")
     port = int(os.getenv("TRADING_BIND_PORT", "8104"))
 
-    uvicorn.run(app, host=host, port=port)
+    uvicorn.run(app, host=host, port=port, access_log=False)
