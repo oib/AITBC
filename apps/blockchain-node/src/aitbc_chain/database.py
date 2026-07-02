@@ -15,7 +15,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from aitbc.database.pooling import create_pooled_engine
 
 # Import all models to ensure they are registered with SQLModel.metadata
-from .base_models import Account, Block, Escrow, Receipt, Transaction  # noqa: F401
+from .base_models import Account, Block, Escrow, Receipt, SmartContract, Transaction  # noqa: F401
 from .config import settings
 
 # Database encryption key (in production, this should come from HSM or secure key storage)
@@ -238,9 +238,7 @@ def _migrate_existing_columns(engine: Engine) -> None:
                 elif not col.nullable:
                     # Non-nullable column without a default — supply empty string for text cols
                     default = " DEFAULT ''"
-                conn.execute(
-                    text(f"ALTER TABLE {table_name} ADD COLUMN {col.name} {coltype}{default}")
-                )
+                conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col.name} {coltype}{default}"))
 
 
 def init_db(chain_id: str = "") -> None:

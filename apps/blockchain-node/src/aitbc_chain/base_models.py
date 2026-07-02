@@ -478,3 +478,37 @@ class HTLCSwapState(SQLModel, table=True):
     created_at: float = 0.0
     completed_at: float | None = None
     refunded_at: float | None = None
+
+
+class SmartContract(SQLModel, table=True):
+    """Deployed smart contract registry entry.
+
+    Stores contract metadata and deployed bytecode/ABI. The contract address
+    is deterministically derived from the deployer address, contract name, and
+    deployment nonce.
+    """
+
+    __tablename__ = "smart_contract"
+    __table_args__ = (
+        UniqueConstraint("chain_id", "address", name="uix_smart_contract_chain_address"),
+        {"extend_existing": True},
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    address: str = Field(index=True)
+    name: str = Field(index=True)
+    contract_type: str = Field(default="general")  # zk-verifier, escrow, governance, general
+    deployer: str = Field(index=True)
+    bytecode: str = Field(default="")  # hex-encoded contract bytecode
+    abi: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False),
+    )
+    state: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False),
+    )
+    status: str = Field(default="deployed", index=True)  # deployed, destroyed
+    deployed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
