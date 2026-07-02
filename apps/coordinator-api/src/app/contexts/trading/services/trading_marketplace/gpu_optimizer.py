@@ -56,8 +56,16 @@ class MarketplaceGPUOptimizer:
         self._initialize_gpu_devices()
 
     def _initialize_gpu_devices(self) -> None:
-        """Initialize available GPU devices"""
+        """Initialize available GPU devices.
+
+        In simulation mode, creates simulated RTX 4090 devices for testing.
+        A warning is logged — simulated devices do not represent real hardware.
+        """
         if self.simulation_mode:
+            logger.warning(
+                "GPU optimizer running in SIMULATION MODE — using simulated RTX 4090 devices, "
+                "not real hardware. Do not use in production."
+            )
             self.gpu_devices = [
                 {
                     "id": 0,

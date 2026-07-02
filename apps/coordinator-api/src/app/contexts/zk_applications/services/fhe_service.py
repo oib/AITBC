@@ -60,11 +60,20 @@ class FHEProvider(ABC):
 
 
 class MockFHEProvider(FHEProvider):
-    """Mock FHE provider for testing without real FHE libraries"""
+    """Mock FHE provider for testing without real FHE libraries.
+
+    WARNING: This provider does NOT perform real homomorphic encryption.
+    Data is serialized as plaintext JSON. It must not be used in production
+    environments where cryptographic guarantees are required. A warning is
+    logged on every encryption call.
+    """
 
     def __init__(self) -> None:
         self.available = True
-        logger.info("Mock FHE provider initialized")
+        logger.warning(
+            "MockFHEProvider initialized — this is NOT a real FHE implementation. "
+            "Data will NOT be encrypted. Do not use in production."
+        )
 
     def generate_context(self, scheme: str, **kwargs: Any) -> FHEContext:
         """Generate mock FHE context"""
@@ -84,9 +93,13 @@ class MockFHEProvider(FHEProvider):
         )
 
     def encrypt(self, data: np.ndarray, context: FHEContext) -> EncryptedData:
-        """Mock encryption - serialize data as JSON (numpy-safe)."""
+        """Mock encryption - serialize data as JSON (numpy-safe).
+
+        WARNING: This is NOT encryption. Data is stored as plaintext JSON.
+        """
         import json
 
+        logger.warning("MockFHEProvider.encrypt called — data is NOT encrypted, stored as plaintext JSON")
         payload = {"data": data.tolist(), "shape": list(data.shape), "dtype": str(data.dtype)}
         ciphertext = json.dumps(payload).encode("utf-8")
         return EncryptedData(ciphertext=ciphertext, context=context, shape=data.shape, dtype=str(data.dtype))
