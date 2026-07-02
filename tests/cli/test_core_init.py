@@ -3,7 +3,6 @@ Core Init Tests
 Tests for core package initialization
 """
 
-
 import pytest
 
 

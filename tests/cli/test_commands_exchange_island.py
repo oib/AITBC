@@ -49,9 +49,7 @@ class TestExchangeIslandCommands:
     @patch("aitbc_cli.commands.exchange_island.get_island_id", return_value="island-test-123")
     @patch("aitbc_cli.commands.exchange_island.get_rpc_endpoint", return_value="http://localhost:8202")
     @patch("aitbc_cli.commands.exchange_island.safe_load_credentials")
-    def test_exchange_island_orderbook_command(
-        self, mock_creds, mock_rpc, mock_island, mock_http_class, runner
-    ):
+    def test_exchange_island_orderbook_command(self, mock_creds, mock_rpc, mock_island, mock_http_class, runner):
         """``exchange-island orderbook`` displays the order book from the mocked RPC."""
         mock_creds.return_value = {"island_id": "island-test-123", "credentials": {"p2p_port": 8001}}
         mock_client = mock_http_class.return_value
@@ -73,9 +71,7 @@ class TestExchangeIslandCommands:
     @patch("aitbc_cli.commands.exchange_island.get_island_id", return_value="island-test-123")
     @patch("aitbc_cli.commands.exchange_island.get_rpc_endpoint", return_value="http://localhost:8202")
     @patch("aitbc_cli.commands.exchange_island.safe_load_credentials")
-    def test_exchange_island_orderbook_empty(
-        self, mock_creds, mock_rpc, mock_island, mock_http_class, runner
-    ):
+    def test_exchange_island_orderbook_empty(self, mock_creds, mock_rpc, mock_island, mock_http_class, runner):
         """``exchange-island orderbook`` handles an empty order book gracefully."""
         mock_creds.return_value = {"island_id": "island-test-123", "credentials": {"p2p_port": 8001}}
         mock_client = mock_http_class.return_value
@@ -100,14 +96,20 @@ class TestExchangeIslandCommands:
     @patch("aitbc_cli.commands.exchange_island.get_island_id", return_value="island-test-123")
     @patch("aitbc_cli.commands.exchange_island.get_rpc_endpoint", return_value="http://localhost:8202")
     @patch("aitbc_cli.commands.exchange_island.safe_load_credentials")
-    def test_exchange_island_orders_command(
-        self, mock_creds, mock_rpc, mock_island, mock_http_class, runner
-    ):
+    def test_exchange_island_orders_command(self, mock_creds, mock_rpc, mock_island, mock_http_class, runner):
         """``exchange-island orders`` lists exchange orders from the mocked RPC."""
         mock_creds.return_value = {"island_id": "island-test-123", "credentials": {"p2p_port": 8001}}
         mock_client = mock_http_class.return_value
         mock_client.get.return_value = [
-            {"order_id": "ord1", "side": "buy", "amount": 10.0, "max_price": 0.001, "pair": "AIT/BTC", "status": "open", "user_id": "user1"},
+            {
+                "order_id": "ord1",
+                "side": "buy",
+                "amount": 10.0,
+                "max_price": 0.001,
+                "pair": "AIT/BTC",
+                "status": "open",
+                "user_id": "user1",
+            },
         ]
 
         from aitbc_cli.commands.exchange_island import exchange_island

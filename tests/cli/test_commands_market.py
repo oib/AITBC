@@ -226,7 +226,10 @@ class TestGetWalletAddress:
     def test_from_wallet_service_original_address(self):
         wallets = {
             "items": [
-                {"wallet_id": "my-agent-wallet", "metadata": {"original_address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"}},
+                {
+                    "wallet_id": "my-agent-wallet",
+                    "metadata": {"original_address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"},
+                },
             ]
         }
         mock_client = Mock()
@@ -438,8 +441,16 @@ class TestMarketListCommand:
     def test_list_with_provider_filter(self, runner, mock_config):
         offers = {
             "offers": [
-                {"provider_address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "service_type": "ollama", "status": "active"},
-                {"provider_address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1", "service_type": "ollama", "status": "active"},
+                {
+                    "provider_address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+                    "service_type": "ollama",
+                    "status": "active",
+                },
+                {
+                    "provider_address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
+                    "service_type": "ollama",
+                    "status": "active",
+                },
             ]
         }
         mock_client = Mock()

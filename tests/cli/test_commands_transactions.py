@@ -150,9 +150,12 @@ class TestTransactionsCommands:
             transactions,
             [
                 "estimate-fee",
-                "--from", "test-wallet",
-                "--to", "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
-                "--amount", "100",
+                "--from",
+                "test-wallet",
+                "--to",
+                "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+                "--amount",
+                "100",
             ],
         )
 
@@ -173,9 +176,12 @@ class TestTransactionsCommands:
             transactions,
             [
                 "estimate-fee",
-                "--from", "test-wallet",
-                "--to", "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
-                "--amount", "100",
+                "--from",
+                "test-wallet",
+                "--to",
+                "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+                "--amount",
+                "100",
             ],
         )
 

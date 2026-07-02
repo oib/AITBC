@@ -77,11 +77,16 @@ class TestAICommands:
             ai,
             [
                 "submit",
-                "--wallet", "test-wallet",
-                "--type", "inference",
-                "--prompt", "Hello world",
-                "--payment", "5.0",
-                "--coordinator-url", "http://coordinator:8006",
+                "--wallet",
+                "test-wallet",
+                "--type",
+                "inference",
+                "--prompt",
+                "Hello world",
+                "--payment",
+                "5.0",
+                "--coordinator-url",
+                "http://coordinator:8006",
             ],
         )
 
