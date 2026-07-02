@@ -98,9 +98,11 @@ class EventBus:
             self._background_tasks.add(task)
             task.add_done_callback(self._background_tasks.discard)
             task.add_done_callback(
-                lambda t: logger.error("Background event publish failed: %s", t.exception())
-                if not t.cancelled() and t.exception()
-                else None
+                lambda t: (
+                    logger.error("Background event publish failed: %s", t.exception())
+                    if not t.cancelled() and t.exception()
+                    else None
+                )
             )
         else:
             asyncio.run(self.publish(event))
