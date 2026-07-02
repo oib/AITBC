@@ -236,7 +236,11 @@ async def get_user_transactions(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     # Query transactions from the database
-    txs = session.exec(select(Transaction).where(Transaction.user_id == user_id).order_by(Transaction.created_at.desc())).all()
+    txs = (
+        session.execute(select(Transaction).where(Transaction.user_id == user_id).order_by(Transaction.created_at.desc()))
+        .scalars()
+        .all()
+    )
 
     transactions = [
         {
