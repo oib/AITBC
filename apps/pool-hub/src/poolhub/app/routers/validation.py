@@ -85,7 +85,7 @@ async def get_hardware_profile(miner: Annotated[Miner, Depends(get_miner_from_to
 
     # Analyze hardware capabilities
     profile = {
-        "miner_id": miner.id,
+        "miner_id": miner.miner_id,
         "hardware": {
             "gpu": {"name": miner.gpu_name, "vram_gb": miner.gpu_vram_gb, "available": miner.gpu_name is not None},
             "cpu": {"cores": miner.cpu_cores},
