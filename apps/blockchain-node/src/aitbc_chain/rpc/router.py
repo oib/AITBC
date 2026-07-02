@@ -285,9 +285,30 @@ async def get_block_route(request: Request, height: int, chain_id: str | None = 
 @router.get("/blocks-range", summary="Get blocks in height range")
 @rate_limit(rate=200, per=60)
 async def get_blocks_range_route(
-    request: Request, start: int = 0, end: int = 10, include_tx: bool = True, chain_id: str | None = None
+    request: Request,
+    start: int | None = None,
+    end: int | None = None,
+    limit: int | None = None,
+    include_tx: bool = True,
+    chain_id: str | None = None,
 ) -> dict[str, Any]:
-    """Get blocks in a height range"""
+    """Get blocks in a height range.
+
+    Either specify ``start`` and ``end`` (inclusive height range), or
+    ``limit`` (returns the most recent N blocks from the chain head).
+    If neither is provided, defaults to start=0, end=10.
+    """
+    if limit is not None and start is None and end is None:
+        # Resolve the current head and compute the range
+        from .blocks import get_head
+
+        head_result = await get_head(request, chain_id)
+        head_height = head_result.get("height", 0)
+        end = head_height
+        start = max(0, head_height - limit + 1)
+    else:
+        start = start or 0
+        end = end if end is not None else 10
     return await get_blocks_range(request, start, end, include_tx, chain_id)
 
 
