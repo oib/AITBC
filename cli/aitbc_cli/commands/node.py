@@ -36,6 +36,7 @@ except ImportError:
 
 
 import uuid
+from ..utils.error_handling import abort
 
 
 @click.group()
@@ -53,8 +54,7 @@ def node_info(ctx, node_id):
         config = load_multichain_config()
 
         if node_id not in config.nodes:
-            error(f"Node {node_id} not found in configuration")
-            raise click.Abort()
+            abort(ctx, f"Node {node_id} not found in configuration")
 
         node_config = config.nodes[node_id]
 
@@ -99,8 +99,7 @@ def node_info(ctx, node_id):
             output(chains_data, ctx.obj.get("output_format", "table"), title="Hosted Chains")
 
     except Exception as e:
-        error(f"Error getting node info: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting node info: {str(e)}", from_exception=e)
 
 
 @node.command()
@@ -165,8 +164,7 @@ def chains(ctx, show_private, node_id):
         output(chains_data, ctx.obj.get("output_format", "table"), title="Chains by Node")
 
     except Exception as e:
-        error(f"Error listing chains: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing chains: {str(e)}", from_exception=e)
 
 
 @node.command()
@@ -195,8 +193,7 @@ def list_nodes(ctx, format):
         output(nodes_data, ctx.obj.get("output_format", "table"), title="Configured Nodes")
 
     except Exception as e:
-        error(f"Error listing nodes: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing nodes: {str(e)}", from_exception=e)
 
 
 @node.command()
@@ -212,8 +209,7 @@ def add(ctx, node_id, endpoint, timeout, max_connections, retry_count):
         config = load_multichain_config()
 
         if node_id in config.nodes:
-            error(f"Node {node_id} already exists")
-            raise click.Abort()
+            abort(ctx, f"Node {node_id} already exists")
 
         node_config = get_default_node_config()
         node_config.id = node_id
@@ -241,8 +237,7 @@ def add(ctx, node_id, endpoint, timeout, max_connections, retry_count):
         output(result, ctx.obj.get("output_format", "table"))
 
     except Exception as e:
-        error(f"Error adding node: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error adding node: {str(e)}", from_exception=e)
 
 
 @node.command()
@@ -255,8 +250,7 @@ def remove(ctx, node_id, force):
         config = load_multichain_config()
 
         if node_id not in config.nodes:
-            error(f"Node {node_id} not found")
-            raise click.Abort()
+            abort(ctx, f"Node {node_id} not found")
 
         if not force:
             # Show node information before removal
@@ -282,8 +276,7 @@ def remove(ctx, node_id, force):
         success(f"Node {node_id} removed successfully!")
 
     except Exception as e:
-        error(f"Error removing node: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error removing node: {str(e)}", from_exception=e)
 
 
 @node.command()
@@ -297,8 +290,7 @@ def monitor(ctx, node_id, realtime, interval):
         config = load_multichain_config()
 
         if node_id not in config.nodes:
-            error(f"Node {node_id} not found")
-            raise click.Abort()
+            abort(ctx, f"Node {node_id} not found")
 
         node_config = config.nodes[node_id]
 
@@ -376,8 +368,7 @@ def monitor(ctx, node_id, realtime, interval):
             output(stats_data, ctx.obj.get("output_format", "table"), title=f"Node Statistics: {node_id}")
 
     except Exception as e:
-        error(f"Error during monitoring: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error during monitoring: {str(e)}", from_exception=e)
 
 
 @node.command()
@@ -389,8 +380,7 @@ def test(ctx, node_id):
         config = load_multichain_config()
 
         if node_id not in config.nodes:
-            error(f"Node {node_id} not found")
-            raise click.Abort()
+            abort(ctx, f"Node {node_id} not found")
 
         node_config = config.nodes[node_id]
 
@@ -427,12 +417,10 @@ def test(ctx, node_id):
 
             output(test_data, ctx.obj.get("output_format", "table"), title=f"Node Test Results: {node_id}")
         else:
-            error(f"Failed to connect to node {node_id}: {result['error']}")
-            raise click.Abort()
+            abort(ctx, f"Failed to connect to node {node_id}: {result['error']}")
 
     except Exception as e:
-        error(f"Error testing node: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error testing node: {str(e)}", from_exception=e)
 
 
 # Island management commands
@@ -465,8 +453,7 @@ def create(ctx, island_id, island_name, chain_id):
         # and notify the island manager
 
     except Exception as e:
-        error(f"Error creating island: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error creating island: {str(e)}", from_exception=e)
 
 
 @island.command()
@@ -496,12 +483,10 @@ def join(ctx, island_id, island_name, chain_id, hub, is_hub):
                     public_key_pem = key_data.get("public_key_pem")
                     break
         else:
-            error(f"Keystore not found at {keystore_path}")
-            raise click.Abort()
+            abort(ctx, f"Keystore not found at {keystore_path}")
 
         if not public_key_pem:
-            error("No public key found in keystore")
-            raise click.Abort()
+            abort(ctx, "No public key found in keystore")
 
         # Generate node_id using hostname-based method
         local_address = socket.gethostbyname(hostname)
@@ -579,12 +564,10 @@ def join(ctx, island_id, island_name, chain_id, hub, is_hub):
                 # Hub registration would happen here via the hub register command
                 click.echo("Run 'aitbc node hub register' to complete hub registration")
         else:
-            error("Failed to join island - no response from hub")
-            raise click.Abort()
+            abort(ctx, "Failed to join island - no response from hub")
 
     except Exception as e:
-        error(f"Error joining island: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error joining island: {str(e)}", from_exception=e)
 
 
 @island.command()
@@ -598,8 +581,7 @@ def leave(ctx, island_id):
         # Note: In a real implementation, this would update the island manager
 
     except Exception as e:
-        error(f"Error leaving island: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error leaving island: {str(e)}", from_exception=e)
 
 
 @island.command()
@@ -621,8 +603,7 @@ def list_islands(ctx):
         output(islands, ctx.obj.get("output_format", "table"), title="Known Islands")
 
     except Exception as e:
-        error(f"Error listing islands: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing islands: {str(e)}", from_exception=e)
 
 
 @island.command()
@@ -644,8 +625,7 @@ def island_info(ctx, island_id):
         output(island_info, ctx.obj.get("output_format", "table"), title=f"Island Information: {island_id}")
 
     except Exception as e:
-        error(f"Error getting island info: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting island info: {str(e)}", from_exception=e)
 
 
 # Hub management commands
@@ -667,8 +647,7 @@ def register(ctx, public_address, public_port, redis_url, hub_discovery_url):
         # Get environment variables
         island_id = os.getenv("ISLAND_ID")
         if not island_id:
-            error("ISLAND_ID environment variable not set")
-            raise click.Abort()
+            abort(ctx, "ISLAND_ID environment variable not set")
         island_name = os.getenv("ISLAND_NAME", "default")
 
         # Get system hostname
@@ -686,12 +665,10 @@ def register(ctx, public_address, public_port, redis_url, hub_discovery_url):
                     public_key_pem = key_data.get("public_key_pem")
                     break
         else:
-            error(f"Keystore not found at {keystore_path}")
-            raise click.Abort()
+            abort(ctx, f"Keystore not found at {keystore_path}")
 
         if not public_key_pem:
-            error("No public key found in keystore")
-            raise click.Abort()
+            abort(ctx, "No public key found in keystore")
 
         # Generate node_id using hostname-based method
         local_address = socket.gethostbyname(hostname)
@@ -743,12 +720,10 @@ def register(ctx, public_address, public_port, redis_url, hub_discovery_url):
             output(hub_info, ctx.obj.get("output_format", "table"), title="Hub Registration")
             success("Successfully registered as hub")
         else:
-            error("Failed to register as hub")
-            raise click.Abort()
+            abort(ctx, "Failed to register as hub")
 
     except Exception as e:
-        error(f"Error registering as hub: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error registering as hub: {str(e)}", from_exception=e)
 
 
 @hub.command()
@@ -761,8 +736,7 @@ def unregister(ctx, redis_url, hub_discovery_url):
         # Get environment variables
         island_id = os.getenv("ISLAND_ID")
         if not island_id:
-            error("ISLAND_ID environment variable not set")
-            raise click.Abort()
+            abort(ctx, "ISLAND_ID environment variable not set")
         island_name = os.getenv("ISLAND_NAME", "default")
 
         # Get system hostname
@@ -780,12 +754,10 @@ def unregister(ctx, redis_url, hub_discovery_url):
                     public_key_pem = key_data.get("public_key_pem")
                     break
         else:
-            error(f"Keystore not found at {keystore_path}")
-            raise click.Abort()
+            abort(ctx, f"Keystore not found at {keystore_path}")
 
         if not public_key_pem:
-            error("No public key found in keystore")
-            raise click.Abort()
+            abort(ctx, "No public key found in keystore")
 
         # Generate node_id using hostname-based method
         local_address = socket.gethostbyname(hostname)
@@ -817,12 +789,10 @@ def unregister(ctx, redis_url, hub_discovery_url):
             output(hub_info, ctx.obj.get("output_format", "table"), title="Hub Unregistration")
             success("Successfully unregistered as hub")
         else:
-            error("Failed to unregister as hub")
-            raise click.Abort()
+            abort(ctx, "Failed to unregister as hub")
 
     except Exception as e:
-        error(f"Error unregistering as hub: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error unregistering as hub: {str(e)}", from_exception=e)
 
 
 @hub.command()
@@ -869,8 +839,7 @@ def list_hubs(ctx, redis_url):
             info("No registered hubs found")
 
     except Exception as e:
-        error(f"Error listing hubs: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing hubs: {str(e)}", from_exception=e)
 
 
 # Bridge management commands
@@ -891,8 +860,7 @@ def request(ctx, target_island_id):
         # Note: In a real implementation, this would use the bridge manager
 
     except Exception as e:
-        error(f"Error requesting bridge: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error requesting bridge: {str(e)}", from_exception=e)
 
 
 @bridge.command()
@@ -907,8 +875,7 @@ def approve(ctx, request_id, approving_node_id):
         # Note: In a real implementation, this would use the bridge manager
 
     except Exception as e:
-        error(f"Error approving bridge request: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error approving bridge request: {str(e)}", from_exception=e)
 
 
 @bridge.command()
@@ -923,8 +890,7 @@ def reject(ctx, request_id, reason):
         # Note: In a real implementation, this would use the bridge manager
 
     except Exception as e:
-        error(f"Error rejecting bridge request: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error rejecting bridge request: {str(e)}", from_exception=e)
 
 
 @bridge.command()
@@ -938,8 +904,7 @@ def list_bridges(ctx):
         output(bridges, ctx.obj.get("output_format", "table"), title="Bridge Connections")
 
     except Exception as e:
-        error(f"Error listing bridges: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing bridges: {str(e)}", from_exception=e)
 
 
 # Multi-chain management commands
@@ -970,8 +935,7 @@ def start(ctx, chain_id, chain_type):
         # Note: In a real implementation, this would use the multi-chain manager
 
     except Exception as e:
-        error(f"Error starting chain: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error starting chain: {str(e)}", from_exception=e)
 
 
 @chain.command()
@@ -985,8 +949,7 @@ def stop(ctx, chain_id):
         # Note: In a real implementation, this would use the multi-chain manager
 
     except Exception as e:
-        error(f"Error stopping chain: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error stopping chain: {str(e)}", from_exception=e)
 
 
 @chain.command()
@@ -1002,5 +965,4 @@ def list_chains(ctx):
         output(chains, ctx.obj.get("output_format", "table"), title="Active Chains")
 
     except Exception as e:
-        error(f"Error listing chains: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing chains: {str(e)}", from_exception=e)

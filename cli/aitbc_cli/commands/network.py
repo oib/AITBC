@@ -4,7 +4,8 @@ import os
 
 import click
 
-from ..utils import error, output
+from ..utils import output
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
@@ -69,8 +70,7 @@ def status(ctx, rpc_url):
         }
         output(status, ctx.obj.get("output_format", "table"), title="Network Status (Simulated)")
     except Exception as e:
-        error(f"Error getting network status: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting network status: {e}", from_exception=e)
 
 
 @network.command()
@@ -87,8 +87,7 @@ def peers(ctx, rpc_url):
         peers = {"status": "simulated", "peers": [], "message": "RPC endpoint not available - showing simulated peers"}
         output(peers, ctx.obj.get("output_format", "table"), title="Connected Peers (Simulated)")
     except Exception as e:
-        error(f"Error listing peers: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing peers: {e}", from_exception=e)
 
 
 @network.command()
@@ -102,11 +101,9 @@ def test(ctx, peer, rpc_url):
         result = http_client.post("/force-sync", json={"peer": peer})
         output(result, ctx.obj.get("output_format", "table"), title=f"Connectivity Test: {peer}")
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error testing connectivity: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error testing connectivity: {e}", from_exception=e)
 
 
 @network.command()
@@ -119,11 +116,9 @@ def force_sync(ctx, rpc_url):
         result = http_client.post("/force-sync", json={})
         output(result, ctx.obj.get("output_format", "table"), title="Force Sync")
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error forcing sync: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error forcing sync: {e}", from_exception=e)
 
 
 @network.command()
@@ -143,14 +138,12 @@ def subscribe(ctx, node_id, transport, chain_id, duration, rpc_url):
     if not node_id:
         node_id = get_default_node_id()
         if not node_id:
-            error("node-id is required. Set NODE_ID in /etc/aitbc/node.env or use --node-id option")
-            raise click.Abort()
+            abort(ctx, "node-id is required. Set NODE_ID in /etc/aitbc/node.env or use --node-id option")
 
     if not chain_id:
         chain_id = get_default_chain_id()
         if not chain_id:
-            error("chain-id is required. Set SUPPORTED_CHAINS in /etc/aitbc/node.env or use --chain-id option")
-            raise click.Abort()
+            abort(ctx, "chain-id is required. Set SUPPORTED_CHAINS in /etc/aitbc/node.env or use --chain-id option")
 
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
@@ -158,11 +151,9 @@ def subscribe(ctx, node_id, transport, chain_id, duration, rpc_url):
         result = http_client.post("/rpc/subscribe", json=subscription_data)
         output(result, ctx.obj.get("output_format", "table"), title="Subscription Registered")
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error registering subscription: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error registering subscription: {e}", from_exception=e)
 
 
 @network.command()
@@ -175,8 +166,7 @@ def heartbeat(ctx, node_id, duration, rpc_url):
     if not node_id:
         node_id = get_default_node_id()
         if not node_id:
-            error("node-id is required. Set NODE_ID in /etc/aitbc/node.env or use --node-id option")
-            raise click.Abort()
+            abort(ctx, "node-id is required. Set NODE_ID in /etc/aitbc/node.env or use --node-id option")
 
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
@@ -184,11 +174,9 @@ def heartbeat(ctx, node_id, duration, rpc_url):
         result = http_client.post("/rpc/subscription/heartbeat", json=heartbeat_data)
         output(result, ctx.obj.get("output_format", "table"), title="Lease Extended")
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error extending lease: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error extending lease: {e}", from_exception=e)
 
 
 @network.command()
@@ -200,19 +188,16 @@ def lease_status(ctx, node_id, rpc_url):
     if not node_id:
         node_id = get_default_node_id()
         if not node_id:
-            error("node-id is required. Set NODE_ID in /etc/aitbc/node.env or use --node-id option")
-            raise click.Abort()
+            abort(ctx, "node-id is required. Set NODE_ID in /etc/aitbc/node.env or use --node-id option")
 
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         result = http_client.get(f"/rpc/subscription/lease-status?node_id={node_id}")
         output(result, ctx.obj.get("output_format", "table"), title="Lease Status")
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error checking lease status: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error checking lease status: {e}", from_exception=e)
 
 
 @network.command()
@@ -227,8 +212,6 @@ def subscribers(ctx, chain_id, rpc_url):
         result = http_client.get("/rpc/subscription/subscribers", params=params)
         output(result, ctx.obj.get("output_format", "table"), title="Active Subscribers")
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error listing subscribers: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing subscribers: {e}", from_exception=e)

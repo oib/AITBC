@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from ..config import get_config
 from ..utils import error, info, output, success
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet import decrypt_private_key
 
@@ -35,9 +36,7 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> dict:
         try:
             wallet_data["private_key"] = decrypt_value(wallet_data["private_key"], password)
         except Exception:
-            error("Invalid password for wallet")
-            raise click.Abort() from None
-
+            abort(None, "Invalid password for wallet")
     return wallet_data
 
 
@@ -91,15 +90,13 @@ def purchase(listing_id: str, quantity: int, wallet: str | None):
         import httpx
 
         if not wallet:
-            error("Wallet name required for payment")
-            raise click.Abort()
+            abort(None, "Wallet name required for payment")
 
         # Get wallet configuration
         config = get_config()
         keystore_path = DEFAULT_KEYSTORE_DIR / f"{wallet}.json"
         if not keystore_path.exists():
-            error(f"Wallet '{wallet}' not found")
-            raise click.Abort()
+            abort(None, f"Wallet '{wallet}' not found")
 
         # Load wallet
         with open(keystore_path) as f:
@@ -107,8 +104,7 @@ def purchase(listing_id: str, quantity: int, wallet: str | None):
 
         wallet_address = wallet_data.get("address")
         if not wallet_address:
-            error("Invalid wallet data")
-            raise click.Abort()
+            abort(None, "Invalid wallet data")
 
         # Get wallet password
         password = os.environ.get("AITBC_WALLET_PASSWORD") or click.prompt("Wallet password", hide_input=True)
@@ -118,8 +114,7 @@ def purchase(listing_id: str, quantity: int, wallet: str | None):
         listing_response = httpx.get(f"{marketplace_url}/v1/marketplace/listings/{listing_id}")
 
         if listing_response.status_code != 200:
-            error(f"Failed to get listing: {listing_response.text}")
-            raise click.Abort()
+            abort(None, f"Failed to get listing: {listing_response.text}")
 
         listing = listing_response.json()
         price = listing.get("price", 0) * quantity
@@ -137,8 +132,7 @@ def purchase(listing_id: str, quantity: int, wallet: str | None):
         )
 
         if unlock_response.status_code != 200:
-            error("Failed to unlock wallet")
-            raise click.Abort()
+            abort(None, "Failed to unlock wallet")
 
         # Sign transaction
         tx_payload = {
@@ -152,8 +146,7 @@ def purchase(listing_id: str, quantity: int, wallet: str | None):
         sign_response = httpx.post(f"{wallet_daemon_url}/v1/chains/ait-hub/wallets/{wallet}/sign", json=tx_payload)
 
         if sign_response.status_code != 200:
-            error(f"Failed to sign transaction: {sign_response.text}")
-            raise click.Abort()
+            abort(None, f"Failed to sign transaction: {sign_response.text}")
 
         signed_tx = sign_response.json()
         tx_hash = signed_tx.get("transaction_hash")
@@ -163,14 +156,12 @@ def purchase(listing_id: str, quantity: int, wallet: str | None):
         submit_response = httpx.post(f"{blockchain_rpc_url}/rpc/transactions/marketplace", json=signed_tx)
 
         if submit_response.status_code != 200:
-            error(f"Failed to submit transaction: {submit_response.text}")
-            raise click.Abort()
+            abort(None, f"Failed to submit transaction: {submit_response.text}")
 
         success(f"Purchase successful (tx: {tx_hash[:16]}...)")
 
     except Exception as e:
-        error(f"Error purchasing: {e}")
-        raise click.Abort() from e
+        abort(None, f"Error purchasing: {e}", from_exception=e)
 
 
 @marketplace.command()

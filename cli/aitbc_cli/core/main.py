@@ -108,6 +108,7 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     ctx.obj["url"] = url
     ctx.obj["api_key"] = api_key
     ctx.obj["output"] = output
+    ctx.obj["output_format"] = output
     ctx.obj["verbose"] = verbose
     ctx.obj["debug"] = debug
 
@@ -171,8 +172,16 @@ cli.add_command(trade)
 
 def main(argv=None):
     """Entry point for console scripts and compatibility wrappers."""
+    from aitbc_cli.utils.error_handling import CLIError
+
     try:
         return cli.main(args=argv, prog_name="aitbc", standalone_mode=False)
+    except CLIError as e:
+        # Error already printed by abort(); just exit with the proper code
+        return e.exit_code
+    except click.Abort:
+        # Legacy bare click.Abort() — error message already printed, no traceback
+        return 1
     except click.exceptions.NoArgsIsHelpError as e:
         # Show help message and exit cleanly
         click.echo(str(e))

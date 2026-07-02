@@ -7,7 +7,8 @@ import click
 
 from ..core.analytics import ChainAnalytics
 from ..core.config import load_multichain_config
-from ..utils import error, output, success
+from ..utils import output, success
+from ..utils.error_handling import abort
 
 
 @click.group()
@@ -31,8 +32,7 @@ def summary(ctx, chain_id, hours, format):
             # Single chain summary
             summary = analytics.get_chain_performance_summary(chain_id, hours)
             if not summary:
-                error(f"No data available for chain {chain_id}")
-                raise click.Abort()
+                abort(ctx, f"No data available for chain {chain_id}")
 
             # Format summary for display
             summary_data = [
@@ -52,8 +52,7 @@ def summary(ctx, chain_id, hours, format):
             analysis = analytics.get_cross_chain_analysis()
 
             if not analysis:
-                error("No analytics data available")
-                raise click.Abort()
+                abort(ctx, "No analytics data available")
 
             # Overview data
             overview_data = [
@@ -84,8 +83,7 @@ def summary(ctx, chain_id, hours, format):
                 output(comparison_data, ctx.obj.get("output_format", format), title="Chain Performance Comparison")
 
     except Exception as e:
-        error(f"Error getting analytics summary: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting analytics summary: {str(e)}", from_exception=e)
 
 
 @analytics.command()
@@ -172,8 +170,7 @@ def monitor(ctx, realtime, interval, chain_id):
             if chain_id:
                 summary = analytics.get_chain_performance_summary(chain_id, 1)
                 if not summary:
-                    error(f"No data available for chain {chain_id}")
-                    raise click.Abort()
+                    abort(ctx, f"No data available for chain {chain_id}")
 
                 monitor_data = [
                     {"Metric": "Chain ID", "Value": summary["chain_id"]},
@@ -206,8 +203,7 @@ def monitor(ctx, realtime, interval, chain_id):
                 output(monitor_data, ctx.obj.get("output_format", "table"), title="System Monitor")
 
     except Exception as e:
-        error(f"Error during monitoring: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error during monitoring: {str(e)}", from_exception=e)
 
 
 @analytics.command()
@@ -229,8 +225,7 @@ def predict(ctx, chain_id, hours, format):
             predictions = asyncio.run(analytics.predict_chain_performance(chain_id, hours))
 
             if not predictions:
-                error(f"No prediction data available for chain {chain_id}")
-                raise click.Abort()
+                abort(ctx, f"No prediction data available for chain {chain_id}")
 
             prediction_data = [
                 {
@@ -254,8 +249,7 @@ def predict(ctx, chain_id, hours, format):
                     all_predictions[chain_id] = predictions
 
             if not all_predictions:
-                error("No prediction data available")
-                raise click.Abort()
+                abort(ctx, "No prediction data available")
 
             # Format predictions for display
             prediction_data = []
@@ -274,8 +268,7 @@ def predict(ctx, chain_id, hours, format):
             output(prediction_data, ctx.obj.get("output_format", format), title="Chain Performance Predictions")
 
     except Exception as e:
-        error(f"Error generating predictions: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error generating predictions: {str(e)}", from_exception=e)
 
 
 @analytics.command()
@@ -346,8 +339,7 @@ def optimize(ctx, chain_id, format):
             output(recommendation_data, ctx.obj.get("output_format", format), title="Chain Optimization Recommendations")
 
     except Exception as e:
-        error(f"Error getting optimization recommendations: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting optimization recommendations: {str(e)}", from_exception=e)
 
 
 @analytics.command()
@@ -391,8 +383,7 @@ def alerts(ctx, severity, hours, format):
         output(alert_data, ctx.obj.get("output_format", format), title=f"Performance Alerts (Last {hours}h)")
 
     except Exception as e:
-        error(f"Error getting alerts: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting alerts: {str(e)}", from_exception=e)
 
 
 @analytics.command()
@@ -415,9 +406,7 @@ def dashboard(ctx, format):
 
             click.echo(json.dumps(dashboard_data, indent=2, default=str))
         else:
-            error("Dashboard data only available in JSON format")
-            raise click.Abort()
+            abort(ctx, "Dashboard data only available in JSON format")
 
     except Exception as e:
-        error(f"Error getting dashboard data: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting dashboard data: {str(e)}", from_exception=e)

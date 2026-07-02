@@ -7,6 +7,7 @@ from ..core.chain_manager import ChainManager, ChainNotFoundError
 from ..core.config import load_multichain_config
 from ..models.chain import ChainType
 from ..utils import error, output, success
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
@@ -22,21 +23,68 @@ def chain():
 )
 @click.option("--show-private", is_flag=True, help="Show private chains")
 @click.option("--sort", type=click.Choice(["id", "size", "nodes", "created"]), default="id", help="Sort by field")
+@click.option(
+    "--island",
+    is_flag=False,
+    flag_value="__LIST__",
+    default=None,
+    help="List attached islands when used without a value; with a value, filter chains by island ID (substring match on chain ID).",
+)
+@click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL (used with --island)")
 @click.pass_context
-def list(ctx, chain_type, show_private, sort):
-    """List all available chains"""
+def list(ctx, chain_type, show_private, sort, island, node_url):
+    """List all available chains.
+
+    Use --island without a value to list the islands attached to the local node.
+    Use --island <ID> to filter chains by island ID.
+    """
+    import asyncio
+
+    # Bare --island: list attached islands from the node
+    if island == "__LIST__":
+        client = AITBCHTTPClient(base_url=node_url)
+        try:
+            result = client.get("/rpc/islands")
+        except NetworkError as e:
+            abort(ctx, f"Cannot connect to node at {node_url}: {e}", from_exception=e)
+        finally:
+            client.close()
+
+        islands = result.get("islands", [])
+        if not islands:
+            output("No islands found", ctx.obj.get("output_format", "table"))
+            return
+
+        islands_data = [
+            {
+                "Island ID": isl.get("island_id", "N/A"),
+                "Island Name": isl.get("island_name", "N/A"),
+                "Chain ID": isl.get("chain_id", "N/A"),
+                "Chain IDs": ", ".join(isl.get("chain_ids", [])) if isl.get("chain_ids") else isl.get("chain_id", "N/A"),
+                "Status": isl.get("status", "N/A"),
+                "Role": isl.get("role", "N/A"),
+                "Peer Count": isl.get("peer_count", 0),
+                "Is Hub": isl.get("is_hub", False),
+            }
+            for isl in islands
+        ]
+        output(islands_data, ctx.obj.get("output_format", "table"), title="Attached Islands")
+        return
+
     try:
         config = load_multichain_config()
         chain_manager = ChainManager(config)
 
         # Get chains
-        import asyncio
-
         chains = asyncio.run(
             chain_manager.list_chains(
                 chain_type=ChainType(chain_type) if chain_type != "all" else None, include_private=show_private, sort_by=sort
             )
         )
+
+        # Filter by island — chain_id typically contains island prefix
+        if island:
+            chains = [c for c in chains if island in c.id]
 
         if not chains:
             output("No chains found", ctx.obj.get("output_format", "table"))
@@ -62,8 +110,7 @@ def list(ctx, chain_type, show_private, sort):
         output(chains_data, ctx.obj.get("output_format", "table"), title="Available Chains")
 
     except Exception as e:
-        error(f"Error listing chains: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing chains: {str(e)}", from_exception=e)
 
 
 @chain.command()
@@ -127,11 +174,9 @@ def status(ctx, chain_id, detailed):
             echo(status_list)
 
     except ChainNotFoundError:
-        error(f"Chain {chain_id} not found")
-        raise click.Abort() from None
+        abort(ctx, f"Chain {chain_id} not found")
     except Exception as e:
-        error(f"Error getting chain status: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting chain status: {str(e)}", from_exception=e)
 
 
 @chain.command()
@@ -196,11 +241,9 @@ def info(ctx, chain_id, detailed, metrics):
             output(performance_info, ctx.obj.get("output_format", "table"), title="Performance Metrics")
 
     except ChainNotFoundError:
-        error(f"Chain {chain_id} not found")
-        raise click.Abort() from None
+        abort(ctx, f"Chain {chain_id} not found")
     except Exception as e:
-        error(f"Error getting chain info: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting chain info: {str(e)}", from_exception=e)
 
 
 @chain.command()
@@ -256,8 +299,7 @@ def create(ctx, config_file, node, dry_run):
             success("Private chain created! Use access codes to invite participants.")
 
     except Exception as e:
-        error(f"Error creating chain: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error creating chain: {str(e)}", from_exception=e)
 
 
 @chain.command()
@@ -291,8 +333,7 @@ def delete(ctx, chain_id, force, confirm):
             output(warning_info, ctx.obj.get("output_format", "table"), title="Chain Deletion Warning")
 
             if not confirm:
-                error("To confirm deletion, use --confirm flag")
-                raise click.Abort()
+                abort(ctx, "To confirm deletion, use --confirm flag")
 
         # Delete chain
         import asyncio
@@ -302,15 +343,12 @@ def delete(ctx, chain_id, force, confirm):
         if is_success:
             success(f"Chain {chain_id} deleted successfully!")
         else:
-            error(f"Failed to delete chain {chain_id}")
-            raise click.Abort()
+            abort(ctx, f"Failed to delete chain {chain_id}")
 
     except ChainNotFoundError:
-        error(f"Chain {chain_id} not found")
-        raise click.Abort() from None
+        abort(ctx, f"Chain {chain_id} not found")
     except Exception as e:
-        error(f"Error deleting chain: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error deleting chain: {str(e)}", from_exception=e)
 
 
 @chain.command()
@@ -330,12 +368,10 @@ def add(ctx, chain_id, node_id):
         if is_success:
             success(f"Chain {chain_id} added to node {node_id} successfully!")
         else:
-            error(f"Failed to add chain {chain_id} to node {node_id}")
-            raise click.Abort()
+            abort(ctx, f"Failed to add chain {chain_id} to node {node_id}")
 
     except Exception as e:
-        error(f"Error adding chain to node: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error adding chain to node: {str(e)}", from_exception=e)
 
 
 @chain.command()
@@ -354,12 +390,10 @@ def remove(ctx, chain_id, node_id, migrate):
         if is_success:
             success(f"Chain {chain_id} removed from node {node_id} successfully!")
         else:
-            error(f"Failed to remove chain {chain_id} from node {node_id}")
-            raise click.Abort()
+            abort(ctx, f"Failed to remove chain {chain_id} from node {node_id}")
 
     except Exception as e:
-        error(f"Error removing chain from node: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error removing chain from node: {str(e)}", from_exception=e)
 
 
 @chain.command()
@@ -403,12 +437,10 @@ def migrate(ctx, chain_id, from_node, to_node, dry_run, verify):
 
             output(result, ctx.obj.get("output_format", "table"))
         else:
-            error(f"Migration failed: {migration_result.error}")
-            raise click.Abort()
+            abort(ctx, f"Migration failed: {migration_result.error}")
 
     except Exception as e:
-        error(f"Error during migration: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error during migration: {str(e)}", from_exception=e)
 
 
 @chain.command()
@@ -441,8 +473,7 @@ def backup(ctx, chain_id, path, compress, verify):
         output(result, ctx.obj.get("output_format", "table"))
 
     except Exception as e:
-        error(f"Error during backup: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error during backup: {str(e)}", from_exception=e)
 
 
 @chain.command()
@@ -471,8 +502,7 @@ def restore(ctx, backup_file, node, verify):
         output(result, ctx.obj.get("output_format", "table"))
 
     except Exception as e:
-        error(f"Error during restoration: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error during restoration: {str(e)}", from_exception=e)
 
 
 @chain.command()
@@ -560,11 +590,9 @@ def monitor(ctx, chain_id, realtime, export, interval):
                 success(f"Statistics exported to {export}")
 
     except ChainNotFoundError:
-        error(f"Chain {chain_id} not found")
-        raise click.Abort() from None
+        abort(ctx, f"Chain {chain_id} not found")
     except Exception as e:
-        error(f"Error during monitoring: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error during monitoring: {str(e)}", from_exception=e)
 
 
 @chain.command(name="sync-status")
@@ -583,14 +611,12 @@ def sync_status(ctx, node_url, all_chains, chain_id):
     try:
         network_info = client.get("/rpc/network-info")
     except NetworkError as e:
-        error(f"Cannot connect to node at {node_url}: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Cannot connect to node at {node_url}: {e}", from_exception=e)
     finally:
         client.close()
 
     if isinstance(network_info, dict) and network_info.get("error"):
-        error(f"Error from /rpc/network-info: {network_info['error']}")
-        raise click.Abort()
+        abort(ctx, f"Error from /rpc/network-info: {network_info['error']}")
 
     # Determine which chains to query
     if chain_id:
@@ -666,16 +692,14 @@ def start_cmd(ctx, chain_id, node_url, chain_type):
     try:
         result = client.post("/rpc/chains/start", json={"chain_id": chain_id, "chain_type": chain_type})
     except NetworkError as e:
-        error(f"Cannot connect to node at {node_url}: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Cannot connect to node at {node_url}: {e}", from_exception=e)
     finally:
         client.close()
 
     if result.get("success"):
         success(f"Chain {chain_id} started successfully")
     else:
-        error(f"Failed to start chain {chain_id}: {result.get('message', 'unknown error')}")
-        raise click.Abort()
+        abort(ctx, f"Failed to start chain {chain_id}: {result.get('message', 'unknown error')}")
 
 
 @chain.command(name="stop")
@@ -692,16 +716,14 @@ def stop_cmd(ctx, chain_id, node_url):
     try:
         result = client.post("/rpc/chains/stop", json={"chain_id": chain_id, "chain_type": "micro"})
     except NetworkError as e:
-        error(f"Cannot connect to node at {node_url}: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Cannot connect to node at {node_url}: {e}", from_exception=e)
     finally:
         client.close()
 
     if result.get("success"):
         success(f"Chain {chain_id} stopped successfully")
     else:
-        error(f"Failed to stop chain {chain_id}: {result.get('message', 'unknown error')}")
-        raise click.Abort()
+        abort(ctx, f"Failed to stop chain {chain_id}: {result.get('message', 'unknown error')}")
 
 
 @chain.command(name="instances")
@@ -718,8 +740,7 @@ def instances_cmd(ctx, node_url, island):
     try:
         result = client.get("/rpc/chains")
     except NetworkError as e:
-        error(f"Cannot connect to node at {node_url}: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Cannot connect to node at {node_url}: {e}", from_exception=e)
     finally:
         client.close()
 

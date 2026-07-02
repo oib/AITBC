@@ -1,6 +1,6 @@
 """
 Exchange Island CLI Commands
-Commands for trading AIT coin against BTC and ETH on the island exchange
+Commands for trading AIT coin against ETH on the island exchange
 """
 
 import hashlib
@@ -12,6 +12,7 @@ from datetime import datetime
 import click
 
 from ..utils import error, info, output, success
+from ..utils.error_handling import abort
 
 # Import shared modules
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
@@ -19,6 +20,9 @@ from ..utils.island_credentials import get_chain_id, get_island_id, get_rpc_endp
 
 # Initialize logger
 logger = get_logger(__name__)
+
+# Module-level keystore path (patchable in tests)
+KEYSTORE_PATH = "/var/lib/aitbc/keystore/validator_keys.json"
 
 
 def safe_load_credentials():
@@ -32,26 +36,25 @@ def safe_load_credentials():
 
 
 # Supported trading pairs
-SUPPORTED_PAIRS = ["AIT/BTC", "AIT/ETH"]
+SUPPORTED_PAIRS = ["AIT/ETH"]
 
 
 @click.group()
 def exchange_island():
-    """Exchange commands for trading AIT against BTC and ETH on the island"""
+    """Exchange commands for trading AIT against ETH on the island"""
     pass
 
 
 @exchange_island.command()
 @click.argument("ait_amount", type=float)
-@click.argument("quote_currency", type=click.Choice(["BTC", "ETH"]))
+@click.argument("quote_currency", type=click.Choice(["ETH"]))
 @click.option("--max-price", type=float, help="Maximum price to pay per AIT")
 @click.pass_context
 def buy(ctx, ait_amount: float, quote_currency: str, max_price: float | None):
-    """Buy AIT with BTC or ETH"""
+    """Buy AIT with ETH"""
     try:
         if ait_amount <= 0:
-            error("AIT amount must be greater than 0")
-            raise click.Abort()
+            abort(ctx, "AIT amount must be greater than 0")
 
         # Load island credentials
         credentials = safe_load_credentials()
@@ -67,7 +70,7 @@ def buy(ctx, ait_amount: float, quote_currency: str, max_price: float | None):
         p2p_port = credentials.get("credentials", {}).get("p2p_port", 8001)
 
         # Get public key for node ID generation
-        keystore_path = "/var/lib/aitbc/keystore/validator_keys.json"
+        keystore_path = KEYSTORE_PATH
         if os.path.exists(keystore_path):
             with open(keystore_path) as f:
                 keys = json.load(f)
@@ -79,11 +82,9 @@ def buy(ctx, ait_amount: float, quote_currency: str, max_price: float | None):
                     content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
                     user_id = hashlib.sha256(content.encode()).hexdigest()
                 else:
-                    error("No public key found in keystore")
-                    raise click.Abort()
+                    abort(ctx, "No public key found in keystore")
         else:
-            error(f"Keystore not found at {keystore_path}")
-            raise click.Abort()
+            abort(ctx, f"Keystore not found at {keystore_path}")
 
         pair = f"AIT/{quote_currency}"
 
@@ -129,28 +130,24 @@ def buy(ctx, ait_amount: float, quote_currency: str, max_price: float | None):
             }
             output(order_info, ctx.obj.get("output_format", "table"))
         except NetworkError as e:
-            error(f"Network error submitting transaction: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Network error submitting transaction: {e}", from_exception=e)
         except Exception as e:
-            error(f"Error submitting transaction: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Error submitting transaction: {e}", from_exception=e)
 
     except Exception as e:
-        error(f"Error creating buy order: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error creating buy order: {str(e)}", from_exception=e)
 
 
 @exchange_island.command()
 @click.argument("ait_amount", type=float)
-@click.argument("quote_currency", type=click.Choice(["BTC", "ETH"]))
+@click.argument("quote_currency", type=click.Choice(["ETH"]))
 @click.option("--min-price", type=float, help="Minimum price to accept per AIT")
 @click.pass_context
 def sell(ctx, ait_amount: float, quote_currency: str, min_price: float | None):
-    """Sell AIT for BTC or ETH"""
+    """Sell AIT for ETH"""
     try:
         if ait_amount <= 0:
-            error("AIT amount must be greater than 0")
-            raise click.Abort()
+            abort(ctx, "AIT amount must be greater than 0")
 
         # Load island credentials
         credentials = safe_load_credentials()
@@ -166,7 +163,7 @@ def sell(ctx, ait_amount: float, quote_currency: str, min_price: float | None):
         p2p_port = credentials.get("credentials", {}).get("p2p_port", 8001)
 
         # Get public key for node ID generation
-        keystore_path = "/var/lib/aitbc/keystore/validator_keys.json"
+        keystore_path = KEYSTORE_PATH
         if os.path.exists(keystore_path):
             with open(keystore_path) as f:
                 keys = json.load(f)
@@ -178,11 +175,9 @@ def sell(ctx, ait_amount: float, quote_currency: str, min_price: float | None):
                     content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
                     user_id = hashlib.sha256(content.encode()).hexdigest()
                 else:
-                    error("No public key found in keystore")
-                    raise click.Abort()
+                    abort(ctx, "No public key found in keystore")
         else:
-            error(f"Keystore not found at {keystore_path}")
-            raise click.Abort()
+            abort(ctx, f"Keystore not found at {keystore_path}")
 
         pair = f"AIT/{quote_currency}"
 
@@ -228,11 +223,9 @@ def sell(ctx, ait_amount: float, quote_currency: str, min_price: float | None):
             }
             output(order_info, ctx.obj.get("output_format", "table"))
         except NetworkError as e:
-            error(f"Network error submitting transaction: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Network error submitting transaction: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error creating sell order: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error creating sell order: {str(e)}", from_exception=e)
 
 
 @exchange_island.command()
@@ -324,17 +317,15 @@ def orderbook(ctx, pair: str, limit: int):
                     info(f"Best Bid: {best_bid:.8f} {pair.split('/')[1]}/AIT")
                     info(f"Best Ask: {best_ask:.8f} {pair.split('/')[1]}/AIT")
         except NetworkError as e:
-            error(f"Network error fetching order book: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Network error fetching order book: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error fetching order book: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error fetching order book: {str(e)}", from_exception=e)
 
 
 @exchange_island.command()
 @click.pass_context
 def rates(ctx):
-    """View current exchange rates for AIT/BTC and AIT/ETH"""
+    """View current exchange rates for AIT/ETH"""
     try:
         # Load island credentials
         credentials = safe_load_credentials()
@@ -378,12 +369,10 @@ def rates(ctx):
             output(rates_data, ctx.obj.get("output_format", "table"), title="Exchange Rates")
 
         except Exception as e:
-            error(f"Network error querying blockchain: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Network error querying blockchain: {e}", from_exception=e)
 
     except Exception as e:
-        error(f"Error viewing exchange rates: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error viewing exchange rates: {str(e)}", from_exception=e)
 
 
 @exchange_island.command()
@@ -438,12 +427,10 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
 
             output(orders_data, ctx.obj.get("output_format", "table"), title=f"Exchange Orders ({island_id[:16]}...)")
         except NetworkError as e:
-            error(f"Network error querying blockchain: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Network error querying blockchain: {e}", from_exception=e)
 
     except Exception as e:
-        error(f"Error listing orders: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing orders: {str(e)}", from_exception=e)
 
 
 @exchange_island.command()
@@ -465,7 +452,7 @@ def cancel(ctx, order_id: str):
         local_address = socket.gethostbyname(hostname)
         p2p_port = credentials.get("credentials", {}).get("p2p_port", 8001)
 
-        keystore_path = "/var/lib/aitbc/keystore/validator_keys.json"
+        keystore_path = KEYSTORE_PATH
         if os.path.exists(keystore_path):
             with open(keystore_path) as f:
                 keys = json.load(f)
@@ -495,9 +482,7 @@ def cancel(ctx, order_id: str):
             _ = http_client.post("/transaction", json=cancel_data)
             success(f"Order {order_id} cancelled successfully!")
         except NetworkError as e:
-            error(f"Network error submitting transaction: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Network error submitting transaction: {e}", from_exception=e)
 
     except Exception as e:
-        error(f"Error cancelling order: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error cancelling order: {str(e)}", from_exception=e)

@@ -2,7 +2,8 @@
 
 import click
 
-from ..utils import error, output
+from ..utils import output
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
@@ -23,11 +24,9 @@ def deploy(ctx, contract_name, rpc_url):
         result = http_client.post("/rpc/contracts/deploy", json={"contract_name": contract_name})
         output(result, ctx.obj.get("output_format", "table"), title="Contract Deployed")
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error deploying contract: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error deploying contract: {e}", from_exception=e)
 
 
 @contract.command()
@@ -48,8 +47,6 @@ def call(ctx, contract_address, method, args, rpc_url):
         result = http_client.post("/rpc/contracts/call", json=payload)
         output(result, ctx.obj.get("output_format", "table"), title="Contract Call")
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error calling contract: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error calling contract: {e}", from_exception=e)

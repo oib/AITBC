@@ -11,6 +11,7 @@ from ..config import get_config
 from ..core.config import load_multichain_config
 from ..core.marketplace import ChainType, GlobalChainMarketplace, MarketplaceStatus
 from ..utils import error, output, success
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
@@ -53,34 +54,26 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
             _ = ChainType(chain_type)
         except ValueError:
             error(f"Invalid chain type: {chain_type}")
-            error(f"Valid types: {[t.value for t in ChainType]}")
-            raise click.Abort() from None
-
+            abort(ctx, f"Valid types: {[t.value for t in ChainType]}")
         # Parse price
         try:
             _ = Decimal(price)
         except (ValueError, TypeError):
-            error("Invalid price format")
-            raise click.Abort() from None
-
+            abort(ctx, "Invalid price format")
         # Parse specifications
         chain_specs = {}
         if specs:
             try:
                 chain_specs = json.loads(specs)
             except json.JSONDecodeError:
-                error("Invalid JSON specifications")
-                raise click.Abort() from None
-
+                abort(ctx, "Invalid JSON specifications")
         # Parse metadata
         metadata_dict = {}
         if metadata:
             try:
                 metadata_dict = json.loads(metadata)
             except json.JSONDecodeError:
-                error("Invalid JSON metadata")
-                raise click.Abort() from None
-
+                abort(ctx, "Invalid JSON metadata")
         # Create listing transaction
         listing_id = f"chain_listing_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         listing_data = {
@@ -119,12 +112,10 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
 
             output(listing_info, ctx.obj.get("output_format", "table"))
         except Exception as e:
-            error(f"Error submitting transaction: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Error submitting transaction: {e}", from_exception=e)
 
     except Exception as e:
-        error(f"Error creating listing: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error creating listing: {str(e)}", from_exception=e)
 
 
 @marketplace.command()
@@ -155,12 +146,10 @@ def buy(ctx, listing_id, buyer_id, payment):
 
             output(transaction_data, ctx.obj.get("output_format", "table"))
         else:
-            error("Failed to purchase chain")
-            raise click.Abort()
+            abort(ctx, "Failed to purchase chain")
 
     except Exception as e:
-        error(f"Error purchasing chain: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error purchasing chain: {str(e)}", from_exception=e)
 
 
 @marketplace.command()
@@ -188,12 +177,10 @@ def complete(ctx, transaction_id, transaction_hash):
 
             output(transaction_data, ctx.obj.get("output_format", "table"))
         else:
-            error(f"Failed to complete transaction {transaction_id}")
-            raise click.Abort()
+            abort(ctx, f"Failed to complete transaction {transaction_id}")
 
     except Exception as e:
-        error(f"Error completing transaction: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error completing transaction: {str(e)}", from_exception=e)
 
 
 @marketplace.command()
@@ -216,33 +203,25 @@ def search(ctx, type, min_price, max_price, seller, status, format):
             try:
                 chain_type = ChainType(type)
             except ValueError:
-                error(f"Invalid chain type: {type}")
-                raise click.Abort() from None
-
+                abort(ctx, f"Invalid chain type: {type}")
         min_price_dec = None
         if min_price:
             try:
                 min_price_dec = Decimal(min_price)
             except (ValueError, TypeError):
-                error("Invalid minimum price format")
-                raise click.Abort() from None
-
+                abort(ctx, "Invalid minimum price format")
         max_price_dec = None
         if max_price:
             try:
                 max_price_dec = Decimal(max_price)
             except (ValueError, TypeError):
-                error("Invalid maximum price format")
-                raise click.Abort() from None
-
+                abort(ctx, "Invalid maximum price format")
         listing_status = None
         if status:
             try:
                 listing_status = MarketplaceStatus(status)
             except ValueError:
-                error(f"Invalid status: {status}")
-                raise click.Abort() from None
-
+                abort(ctx, f"Invalid status: {status}")
         # Search listings
         listings = asyncio.run(marketplace.search_listings(chain_type, min_price_dec, max_price_dec, seller, listing_status))
 
@@ -269,8 +248,7 @@ def search(ctx, type, min_price, max_price, seller, status, format):
         output(listing_data, ctx.obj.get("output_format", format), title="Marketplace Listings")
 
     except Exception as e:
-        error(f"Error searching listings: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error searching listings: {str(e)}", from_exception=e)
 
 
 @marketplace.command()
@@ -287,8 +265,7 @@ def economy(ctx, chain_id, format):
         economy = asyncio.run(marketplace.get_chain_economy(chain_id))
 
         if not economy:
-            error(f"No economic data available for chain {chain_id}")
-            raise click.Abort()
+            abort(ctx, f"No economic data available for chain {chain_id}")
 
         # Format output
         economy_data = [
@@ -307,8 +284,7 @@ def economy(ctx, chain_id, format):
         output(economy_data, ctx.obj.get("output_format", format), title=f"Chain Economy: {chain_id}")
 
     except Exception as e:
-        error(f"Error getting chain economy: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting chain economy: {str(e)}", from_exception=e)
 
 
 @marketplace.command()
@@ -348,8 +324,7 @@ def transactions(ctx, user_id, role, format):
         output(transaction_data, ctx.obj.get("output_format", format), title=f"Transactions for {user_id}")
 
     except Exception as e:
-        error(f"Error getting user transactions: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting user transactions: {str(e)}", from_exception=e)
 
 
 @marketplace.command()
@@ -365,8 +340,7 @@ def overview(ctx, format):
         overview = asyncio.run(marketplace.get_marketplace_overview())
 
         if not overview:
-            error("No marketplace data available")
-            raise click.Abort()
+            abort(ctx, "No marketplace data available")
 
         # Marketplace metrics
         if "marketplace_metrics" in overview:
@@ -432,8 +406,7 @@ def overview(ctx, format):
             output(escrow_data, ctx.obj.get("output_format", format), title="Escrow Summary")
 
     except Exception as e:
-        error(f"Error getting marketplace overview: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting marketplace overview: {str(e)}", from_exception=e)
 
 
 @marketplace.command()
@@ -520,8 +493,7 @@ def monitor(ctx, realtime, interval):
             output(monitor_data, ctx.obj.get("output_format", "table"), title="Marketplace Monitor")
 
     except Exception as e:
-        error(f"Error during monitoring: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error during monitoring: {str(e)}", from_exception=e)
 
 
 @marketplace.command()
