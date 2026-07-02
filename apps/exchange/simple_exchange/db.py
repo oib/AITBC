@@ -1,9 +1,7 @@
 """Database setup for the AITBC Trade Exchange (stdlib http.server backend)."""
 
 import os
-import random
 import sqlite3
-from datetime import UTC, datetime, timedelta
 
 from aitbc.constants import DATA_DIR
 
@@ -88,38 +86,6 @@ def init_db():
         cursor.execute("ALTER TABLE orders ADD COLUMN tx_hash TEXT")
     except Exception:
         pass
-
-    conn.commit()
-    conn.close()
-
-
-def create_mock_trades():
-    """Create some mock trades"""
-    db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-
-    # Check if we have trades
-    cursor.execute("SELECT COUNT(*) FROM trades")
-    if cursor.fetchone()[0] > 0:
-        conn.close()
-        return
-
-    # Create mock trades
-    now = datetime.now(UTC)
-    for _i in range(20):
-        amount = random.uniform(10, 500)
-        price = random.uniform(0.000009, 0.000012)
-        total = amount * price
-        created_at = now - timedelta(minutes=random.randint(0, 60))
-
-        cursor.execute(
-            """
-            INSERT INTO trades (amount, price, total, created_at)
-            VALUES (?, ?, ?, ?)
-        """,
-            (amount, price, total, created_at),
-        )
 
     conn.commit()
     conn.close()

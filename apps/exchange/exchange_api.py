@@ -7,7 +7,7 @@ import hashlib
 import sys
 import time
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException, status
@@ -127,34 +127,12 @@ class OrderBookResponse(BaseModel):
 
 
 def create_mock_trades(db: Session):
-    """Create some mock trades for demonstration"""
-    import random
+    """Deprecated — no longer creates mock trades.
 
-    # Create mock trades over the last hour
-    now = datetime.now(UTC)
-    trades = []
-
-    for i in range(20):
-        # Generate random trade data
-        amount = random.uniform(10, 500)
-        price = random.uniform(0.000009, 0.000012)
-        total = amount * price
-
-        trade = Trade(
-            buyer_id=1,  # Mock user ID
-            seller_id=2,  # Mock user ID
-            order_id=1,  # Mock order ID
-            amount=amount,
-            price=price,
-            total=total,
-            trade_hash=f"mock_tx_{i:04d}",
-            created_at=now - timedelta(minutes=random.randint(0, 60)),
-        )
-        trades.append(trade)
-
-    db.add_all(trades)
-    db.commit()
-    logger.info("Created mock trades", count=len(trades))
+    The exchange now uses only real trade data. This function is kept as a
+    no-op for backward compatibility with any code that calls it.
+    """
+    logger.info("create_mock_trades is a no-op — exchange uses real data only")
 
 
 @app.get("/api/trades/recent", response_model=list[TradeResponse])
