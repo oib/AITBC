@@ -108,6 +108,7 @@ class ChainManager:
     def _create_default_chain(self) -> None:
         """Create default chain configuration"""
         import os
+
         chain_id = os.getenv("CHAIN_ID", "")
         default_chain = ChainConfig(
             chain_id=chain_id,
