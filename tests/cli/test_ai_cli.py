@@ -3,7 +3,6 @@ AI CLI Tests
 Tests for AI job management CLI commands
 """
 
-
 import pytest
 from aitbc_cli.commands.ai import ai
 from click.testing import CliRunner

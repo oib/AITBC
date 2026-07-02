@@ -3,7 +3,6 @@ Agent SDK CLI Tests
 Tests for agent SDK and coordinator CLI commands
 """
 
-
 import pytest
 from aitbc_cli.commands.agent_sdk import agent
 from click.testing import CliRunner

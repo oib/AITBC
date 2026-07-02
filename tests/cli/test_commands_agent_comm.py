@@ -42,9 +42,7 @@ class TestAgentCommCommands:
     @patch("aitbc_cli.commands.agent_comm.asyncio.run")
     @patch("aitbc_cli.commands.agent_comm.CrossChainAgentCommunication")
     @patch("aitbc_cli.commands.agent_comm.load_multichain_config")
-    def test_agent_comm_register_command(
-        self, mock_load_config, mock_comm_class, mock_asyncio_run, runner
-    ):
+    def test_agent_comm_register_command(self, mock_load_config, mock_comm_class, mock_asyncio_run, runner):
         """``agent_comm register`` registers an agent and reports success.
 
         Note: the production code assigns ``success = asyncio.run(...)`` which
@@ -80,9 +78,7 @@ class TestAgentCommCommands:
     @patch("aitbc_cli.commands.agent_comm.asyncio.run")
     @patch("aitbc_cli.commands.agent_comm.CrossChainAgentCommunication")
     @patch("aitbc_cli.commands.agent_comm.load_multichain_config")
-    def test_agent_comm_status_command(
-        self, mock_load_config, mock_comm_class, mock_asyncio_run, runner
-    ):
+    def test_agent_comm_status_command(self, mock_load_config, mock_comm_class, mock_asyncio_run, runner):
         """``agent_comm status`` retrieves agent status from the mocked comm layer."""
         mock_asyncio_run.return_value = {
             "agent_info": {

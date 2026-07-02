@@ -3,7 +3,6 @@ Models Init Tests
 Tests for models package initialization
 """
 
-
 import pytest
 
 

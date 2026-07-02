@@ -3,7 +3,6 @@ Crypto Utils Tests
 Tests for cryptographic utility functions
 """
 
-
 import pytest
 
 

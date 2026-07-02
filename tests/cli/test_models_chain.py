@@ -3,7 +3,6 @@ Models Chain Tests
 Tests for chain data models
 """
 
-
 import pytest
 
 

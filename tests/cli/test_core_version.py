@@ -3,7 +3,6 @@ Core Version Tests
 Tests for version information
 """
 
-
 import pytest
 
 
