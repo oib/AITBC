@@ -2,11 +2,14 @@
 DAO Governance Service
 
 Service for managing multi-jurisdictional DAOs, regional councils, and global treasuries.
+Submits governance votes and treasury allocations to the blockchain node RPC.
 """
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import HTTPException
 from sqlmodel import Session, select
@@ -15,15 +18,98 @@ from aitbc.aitbc_logging import get_logger
 
 from ..domain.dao_governance import DAOMember, DAOProposal, ProposalState, ProposalType, TreasuryAllocation, Vote
 from ..schemas.dao_governance import AllocationCreate, MemberCreate, ProposalCreate, VoteCreate
-from ...blockchain.contract_interactions import ContractInteractionService  # type: ignore[import-not-found]
 
 logger = get_logger(__name__)
 
+BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")
+
+
+async def _submit_governance_vote_to_chain(
+    proposal_id: str,
+    voter_address: str,
+    vote_type: str,
+    voting_power: float,
+    reason: str | None = None,
+) -> str:
+    """Submit a governance vote to the blockchain node RPC.
+
+    Returns the on-chain vote ID as the tx_hash.
+    Raises HTTPException if the blockchain node rejects the vote.
+    """
+    import httpx
+
+    payload: dict[str, Any] = {
+        "proposal_id": proposal_id,
+        "voter_address": voter_address,
+        "vote_type": vote_type,
+        "voting_power": int(voting_power),
+    }
+    if reason:
+        payload["reason"] = reason
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(f"{BLOCKCHAIN_RPC_URL}/governance/vote", json=payload)
+            if resp.status_code == 200:
+                data = resp.json()
+                return str(data.get("vote_id", ""))
+            else:
+                detail = (
+                    resp.json().get("detail", resp.text)
+                    if resp.headers.get("content-type", "").startswith("application/json")
+                    else resp.text
+                )
+                raise HTTPException(status_code=resp.status_code, detail=f"Blockchain rejected vote: {detail}")
+    except httpx.ConnectError as e:
+        raise HTTPException(status_code=503, detail=f"Blockchain node unavailable: {e}") from e
+
+
+async def _submit_treasury_allocation_to_chain(
+    proposal_id: str,
+    amount: float,
+    recipient_address: str,
+    token_symbol: str,
+    purpose: str,
+) -> str:
+    """Submit a treasury allocation to the blockchain node RPC as a transfer transaction.
+
+    Returns the on-chain tx hash.
+    Raises HTTPException if the blockchain node rejects the transaction.
+    """
+    import httpx
+
+    payload = {
+        "from": "treasury",
+        "to": recipient_address,
+        "amount": int(amount * 3600),  # convert AIT to compute-seconds
+        "type": "GOVERNANCE_TRANSFER",
+        "metadata": {
+            "proposal_id": proposal_id,
+            "purpose": purpose,
+            "token_symbol": token_symbol,
+        },
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(f"{BLOCKCHAIN_RPC_URL}/rpc/sendTransaction", json=payload)
+            if resp.status_code == 200:
+                data = resp.json()
+                return str(data.get("tx_hash", ""))
+            else:
+                detail = (
+                    resp.json().get("detail", resp.text)
+                    if resp.headers.get("content-type", "").startswith("application/json")
+                    else resp.text
+                )
+                raise HTTPException(status_code=resp.status_code, detail=f"Blockchain rejected treasury allocation: {detail}")
+    except httpx.ConnectError as e:
+        raise HTTPException(status_code=503, detail=f"Blockchain node unavailable: {e}") from e
+
 
 class DAOGovernanceService:
-    def __init__(self, session: Session, contract_service: ContractInteractionService):
+    def __init__(self, session: Session):
         self.session = session
-        self.contract_service = contract_service
 
     async def register_member(self, request: MemberCreate) -> DAOMember:
         existing = self.session.execute(select(DAOMember).where(DAOMember.wallet_address == request.wallet_address)).first()
@@ -90,9 +176,16 @@ class DAOGovernanceService:
             if not member.is_council_member or member.council_region != proposal.target_region:
                 raise HTTPException(status_code=403, detail="Not a member of the target regional council")
             weight = 1.0
-        vote = Vote(
-            proposal_id=proposal.id, member_id=member.id, support=request.support, weight=weight, tx_hash="0x_mock_vote_tx"
+        vote = Vote(proposal_id=proposal.id, member_id=member.id, support=request.support, weight=weight, tx_hash="")
+        # Submit the vote to the blockchain and store the real tx hash
+        vote_type = "for" if request.support else "against"
+        tx_hash = await _submit_governance_vote_to_chain(
+            proposal_id=str(proposal.id),
+            voter_address=member.wallet_address,
+            vote_type=vote_type,
+            voting_power=weight,
         )
+        vote.tx_hash = tx_hash
         if request.support:
             proposal.for_votes += weight
         else:
@@ -135,13 +228,21 @@ class DAOGovernanceService:
 
     async def allocate_treasury(self, request: AllocationCreate) -> TreasuryAllocation:
         """Allocate funds from the global treasury"""
+        # Submit the allocation to the blockchain and store the real tx hash
+        tx_hash = await _submit_treasury_allocation_to_chain(
+            proposal_id=str(request.proposal_id),
+            amount=request.amount,
+            recipient_address=request.recipient_address,
+            token_symbol=request.token_symbol,
+            purpose=request.purpose,
+        )
         allocation = TreasuryAllocation(
             proposal_id=request.proposal_id,
             amount=request.amount,
             token_symbol=request.token_symbol,
             recipient_address=request.recipient_address,
             purpose=request.purpose,
-            tx_hash="0x_mock_treasury_tx",
+            tx_hash=tx_hash,
         )
         self.session.add(allocation)
         self.session.commit()

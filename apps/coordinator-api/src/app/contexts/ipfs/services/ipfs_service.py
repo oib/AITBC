@@ -10,7 +10,6 @@ Provides:
 
 from __future__ import annotations
 
-import hashlib
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -109,7 +108,11 @@ class IPFSClient:
         if is_available:
             return await self._upload_to_ipfs(data, filename, pin, wrap_with_directory)
         else:
-            return self._generate_mock_cid(data, filename)
+            raise RuntimeError(
+                "IPFS node is unavailable and no fallback is configured. "
+                "Cannot upload data — no real CID can be generated. "
+                "Start an IPFS node or configure IPFS_API_URL."
+            )
 
     async def _upload_to_ipfs(self, data: bytes, filename: str, pin: bool, wrap_with_directory: bool) -> IPFSUploadResult:
         """Upload to real IPFS node"""
@@ -139,20 +142,6 @@ class IPFSClient:
         except Exception as e:
             logger.error("IPFS upload failed: %s", e)
             raise
-
-    def _generate_mock_cid(self, data: bytes, filename: str) -> IPFSUploadResult:
-        """Generate a mock CID for testing when IPFS is unavailable"""
-        hash_value = hashlib.sha256(data).hexdigest()
-        mock_cid = f"Qm{hash_value[:44]}"
-        logger.debug("Generated mock CID: %s", mock_cid)
-        return IPFSUploadResult(
-            cid=mock_cid,
-            size=len(data),
-            name=filename or mock_cid[:16],
-            timestamp=datetime.now(UTC),
-            gateway_url=f"https://ipfs.io/ipfs/{mock_cid}",
-            pinned=False,
-        )
 
     async def _pin_to_external_service(self, cid: str, name: str, size: int) -> bool:
         """Pin CID to external pinning service"""
