@@ -345,21 +345,28 @@ async def review_bounty_submission(
     try:
         if approved:
             submission = await dev_service.approve_submission(submission_id, reviewer_address, review_notes)
+            return {
+                "success": True,
+                "submission_id": submission.id,
+                "bounty_id": submission.bounty_id,
+                "developer_address": submission.developer.wallet_address,  # type: ignore[attr-defined]
+                "reward_amount": submission.bounty.reward_amount,  # type: ignore[attr-defined]
+                "is_approved": submission.is_approved,
+                "tx_hash_reward": submission.tx_hash_reward,
+                "reviewed_at": submission.reviewed_at.isoformat(),  # type: ignore[union-attr]
+                "message": "Submission approved and reward distributed",
+            }
         else:
-            # In a real implementation, would have a reject method
-            raise HTTPException(status_code=400, detail="Rejection not implemented in this demo")
-
-        return {
-            "success": True,
-            "submission_id": submission.id,
-            "bounty_id": submission.bounty_id,
-            "developer_address": submission.developer.wallet_address,  # type: ignore[attr-defined]
-            "reward_amount": submission.bounty.reward_amount,  # type: ignore[attr-defined]
-            "is_approved": submission.is_approved,
-            "tx_hash_reward": submission.tx_hash_reward,
-            "reviewed_at": submission.reviewed_at.isoformat(),  # type: ignore[union-attr]
-            "message": "Submission approved and reward distributed",
-        }
+            submission = await dev_service.reject_submission(submission_id, reviewer_address, review_notes)
+            return {
+                "success": True,
+                "submission_id": submission.id,
+                "bounty_id": submission.bounty_id,
+                "developer_address": submission.developer.wallet_address,  # type: ignore[attr-defined]
+                "is_approved": submission.is_approved,
+                "reviewed_at": submission.reviewed_at.isoformat(),  # type: ignore[union-attr]
+                "message": "Submission rejected and bounty reopened",
+            }
 
     except HTTPException:
         raise
