@@ -2,7 +2,8 @@
 
 import click
 
-from ..utils import error, output
+from ..utils import output
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
@@ -34,8 +35,7 @@ def send(ctx, recipient, message, rpc_url):
         }
         output(result, ctx.obj.get("output_format", "table"), title="Message Sent (Simulated)")
     except Exception as e:
-        error(f"Error sending message: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error sending message: {e}", from_exception=e)
 
 
 @messaging.command()
@@ -52,8 +52,7 @@ def list(ctx, rpc_url):
         messages = {"status": "simulated", "messages": [], "message": "RPC endpoint not available - showing simulated list"}
         output(messages, ctx.obj.get("output_format", "table"), title="Messages (Simulated)")
     except Exception as e:
-        error(f"Error listing messages: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing messages: {e}", from_exception=e)
 
 
 @messaging.command()
@@ -68,8 +67,6 @@ def topic(ctx, title, description, rpc_url):
         result = http_client.post("/rpc/messaging/topic", json={"title": title, "description": description})
         output(result, ctx.obj.get("output_format", "table"), title="Topic Created")
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error creating topic: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error creating topic: {e}", from_exception=e)

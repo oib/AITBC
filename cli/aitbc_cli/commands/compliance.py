@@ -2,7 +2,8 @@
 
 import click
 
-from ..utils import error, output
+from ..utils import output
+from ..utils.error_handling import abort
 
 
 @click.group()
@@ -20,8 +21,7 @@ def check(ctx, standard):
         result = {"standard": standard, "compliance_level": "compliant", "issues": []}
         output(result, ctx.obj.get("output_format", "table"), title=f"Compliance Check: {standard}")
     except Exception as e:
-        error(f"Error running compliance check: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error running compliance check: {e}", from_exception=e)
 
 
 @compliance.command()
@@ -33,5 +33,4 @@ def report(ctx, format):
         result = {"action": "compliance_report", "format": format, "status": "generated"}
         output(result, ctx.obj.get("output_format", "table"), title="Compliance Report")
     except Exception as e:
-        error(f"Error generating compliance report: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error generating compliance report: {e}", from_exception=e)

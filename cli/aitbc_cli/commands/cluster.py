@@ -2,7 +2,8 @@
 
 import click
 
-from ..utils import error, output
+from ..utils import output
+from ..utils.error_handling import abort
 
 
 @click.group()
@@ -19,8 +20,7 @@ def status(ctx):
         result = {"cluster_health": "healthy", "nodes": 3, "active_nodes": 3}
         output(result, ctx.obj.get("output_format", "table"), title="Cluster Status")
     except Exception as e:
-        error(f"Error getting cluster status: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting cluster status: {e}", from_exception=e)
 
 
 @cluster.command()
@@ -31,8 +31,7 @@ def sync(ctx):
         result = {"action": "cluster_sync", "status": "completed"}
         output(result, ctx.obj.get("output_format", "table"), title="Cluster Sync")
     except Exception as e:
-        error(f"Error in cluster sync: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error in cluster sync: {e}", from_exception=e)
 
 
 @cluster.command()
@@ -43,5 +42,4 @@ def balance(ctx):
         result = {"action": "cluster_balance", "status": "completed"}
         output(result, ctx.obj.get("output_format", "table"), title="Cluster Balance")
     except Exception as e:
-        error(f"Error in cluster balance: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error in cluster balance: {e}", from_exception=e)
