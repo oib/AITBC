@@ -328,30 +328,62 @@ async def get_transactions(
 
 @app.get("/v1/blocks")
 async def get_blocks(limit: int | None, session: Annotated[AsyncSession, Depends(get_session_dep)]):
-    """List recent blocks
-
-    NOTE: Trading service is not production-critical.
-    This endpoint returns placeholder data until trading service becomes production.
-    In production, this would query blockchain RPC for actual block data.
-    """
-    return {"blocks": [], "limit": limit, "total": 0}
+    """List recent blocks from the blockchain node RPC."""
+    return await _fetch_blocks_from_chain(limit, chain_id=None)
 
 
 @app.get("/v1/explorer/blocks")
 async def get_blocks_v1(limit: int | None, chain_id: str | None, session: Annotated[AsyncSession, Depends(get_session_dep)]):
-    """List recent blocks (v1/explorer path for CLI compatibility)
-
-    NOTE: Trading service is not production-critical.
-    This endpoint returns placeholder data until trading service becomes production.
-    In production, this would query blockchain RPC for actual block data.
-    """
-    return {"blocks": [], "limit": limit, "chain_id": chain_id or os.getenv("CHAIN_ID", ""), "total": 0}
+    """List recent blocks (v1/explorer path for CLI compatibility)"""
+    return await _fetch_blocks_from_chain(limit, chain_id=chain_id)
 
 
 @app.get("/api/v1/blocks")
 async def get_blocks_api(limit: int | None, chain_id: str | None, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """List recent blocks (api/v1 path for CLI compatibility)"""
-    return {"blocks": [], "limit": limit, "chain_id": chain_id or os.getenv("CHAIN_ID", ""), "total": 0}
+    return await _fetch_blocks_from_chain(limit, chain_id=chain_id)
+
+
+async def _fetch_blocks_from_chain(limit: int | None, chain_id: str | None) -> dict[str, Any]:
+    """Fetch recent blocks from the blockchain node RPC."""
+    import httpx
+
+    rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")
+    actual_chain_id = chain_id or os.getenv("CHAIN_ID", "")
+    actual_limit = min(limit or 50, 100)
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            params: dict[str, Any] = {"limit": actual_limit}
+            if actual_chain_id:
+                params["chain_id"] = actual_chain_id
+            resp = await client.get(f"{rpc_url}/rpc/blocks", params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                blocks = data.get("blocks", [])
+                return {
+                    "blocks": blocks,
+                    "limit": actual_limit,
+                    "chain_id": actual_chain_id,
+                    "total": len(blocks),
+                }
+            else:
+                return {
+                    "blocks": [],
+                    "limit": actual_limit,
+                    "chain_id": actual_chain_id,
+                    "total": 0,
+                    "error": f"Blockchain RPC returned {resp.status_code}",
+                }
+    except Exception as e:
+        logger.error("Failed to fetch blocks from blockchain: %s", e)
+        return {
+            "blocks": [],
+            "limit": actual_limit,
+            "chain_id": actual_chain_id,
+            "total": 0,
+            "error": f"Blockchain RPC unavailable: {e}",
+        }
 
 
 @app.get("/v1/blocks/{block_id}")
