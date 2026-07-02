@@ -15,6 +15,7 @@ from aitbc.utils.validation import validate_address
 
 from ..config import get_config
 from ..utils import error, success
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet import decrypt_private_key
 
@@ -195,33 +196,31 @@ def send(
             else:
                 # Wallet is encrypted, need password
                 if not sys.stdin.isatty():
-                    error(
-                        "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable."
+                    abort(
+                        None,
+                        "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.",
                     )
-                    raise click.Abort()
                 else:
                     import getpass
 
                     try:
                         password = getpass.getpass("Enter wallet password: ")
                     except Exception as e:
-                        error(f"Password prompt failed: {e}")
-                        raise click.Abort() from e
+                        abort(None, f"Password prompt failed: {e}", from_exception=e)
         else:
             # Wallet file doesn't exist, will fail later in _send_transaction_impl
             if not sys.stdin.isatty():
-                error(
-                    "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable."
+                abort(
+                    None,
+                    "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.",
                 )
-                raise click.Abort()
             else:
                 import getpass
 
                 try:
                     password = getpass.getpass("Enter wallet password: ")
                 except Exception as e:
-                    error(f"Password prompt failed: {e}")
-                    raise click.Abort() from e
+                    abort(None, f"Password prompt failed: {e}", from_exception=e)
 
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
@@ -284,48 +283,45 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
                 else:
                     # Wallet is encrypted, need password
                     if not sys.stdin.isatty():
-                        error(
-                            "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable."
+                        abort(
+                            None,
+                            "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.",
                         )
-                        raise click.Abort()
                     else:
                         import getpass
 
                         try:
                             password = getpass.getpass("Enter wallet password: ")
                         except Exception as e:
-                            error(f"Password prompt failed: {e}")
-                            raise click.Abort() from e
+                            abort(None, f"Password prompt failed: {e}", from_exception=e)
             else:
                 # Wallet file doesn't exist
                 if not sys.stdin.isatty():
-                    error(
-                        "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable."
+                    abort(
+                        None,
+                        "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.",
                     )
-                    raise click.Abort()
                 else:
                     import getpass
 
                     try:
                         password = getpass.getpass("Enter wallet password: ")
                     except Exception as e:
-                        error(f"Password prompt failed: {e}")
-                        raise click.Abort() from e
+                        abort(None, f"Password prompt failed: {e}", from_exception=e)
         else:
             # Empty transactions file
             if not sys.stdin.isatty():
-                error(
-                    "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable."
+                abort(
+                    None,
+                    "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.",
                 )
-                raise click.Abort()
             else:
                 import getpass
 
                 try:
                     password = getpass.getpass("Enter wallet password: ")
                 except Exception as e:
-                    error(f"Password prompt failed: {e}")
-                    raise click.Abort() from e
+                    abort(None, f"Password prompt failed: {e}", from_exception=e)
 
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL

@@ -16,6 +16,7 @@ except ImportError:
 
 from ..config import get_config
 from ..utils import error, output, success
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
@@ -315,8 +316,7 @@ try:
             if auto_detect:
                 capabilities = get_agent_capabilities()
                 if "error" in capabilities:
-                    error(f"Auto-detection failed: {capabilities['error']}")
-                    raise click.Abort()
+                    abort(ctx, f"Auto-detection failed: {capabilities['error']}")
             else:
                 capabilities = {
                     "compute_type": compute_type,
@@ -337,8 +337,7 @@ try:
             result = create_agent(name, agent_type, capabilities, coordinator_url)
 
             if "error" in result:
-                error(f"Failed to create agent: {result['error']}")
-                raise click.Abort()
+                abort(ctx, f"Failed to create agent: {result['error']}")
 
             success("Agent created successfully!")
 
@@ -357,8 +356,7 @@ try:
             output(agent_data, ctx.obj.get("output_format", format), title="Agent Created")
 
         except Exception as e:
-            error(f"Error creating agent: {str(e)}")
-            raise click.Abort() from e
+            abort(ctx, f"Error creating agent: {str(e)}", from_exception=e)
 
     @agent.command()
     @click.argument("agent_id")
@@ -371,8 +369,7 @@ try:
             result = asyncio.run(register_agent(agent_id, coordinator_url))
 
             if "error" in result:
-                error(f"Failed to register agent: {result['error']}")
-                raise click.Abort()
+                abort(ctx, f"Failed to register agent: {result['error']}")
 
             success(f"Agent {agent_id} registered successfully!")
 
@@ -386,8 +383,7 @@ try:
             output(reg_data, ctx.obj.get("output_format", format), title="Agent Registration")
 
         except Exception as e:
-            error(f"Error registering agent: {str(e)}")
-            raise click.Abort() from e
+            abort(ctx, f"Error registering agent: {str(e)}", from_exception=e)
 
     @agent.command()
     @click.argument("agent_id")
@@ -456,8 +452,7 @@ try:
             )
 
         except Exception as e:
-            error(f"Error registering identity: {str(e)}")
-            raise click.Abort() from e
+            abort(ctx, f"Error registering identity: {str(e)}", from_exception=e)
 
     @agent.command()
     @click.argument("agent_id")
@@ -489,8 +484,7 @@ try:
             output(result, ctx.obj.get("output_format", format))
 
         except Exception as e:
-            error(f"Error getting identity: {str(e)}")
-            raise click.Abort() from e
+            abort(ctx, f"Error getting identity: {str(e)}", from_exception=e)
 
     @agent.command()
     @click.argument("agent_id")
@@ -525,8 +519,7 @@ try:
             output(result, ctx.obj.get("output_format", format))
 
         except Exception as e:
-            error(f"Error verifying identity: {str(e)}")
-            raise click.Abort() from e
+            abort(ctx, f"Error verifying identity: {str(e)}", from_exception=e)
 
     @agent.command()
     @click.option("--agent-dir", type=click.Path(), help="Agent directory path")
@@ -554,8 +547,7 @@ try:
             output(agent_list, ctx.obj.get("output_format", format), title="Local Agents")
 
         except Exception as e:
-            error(f"Error listing agents: {str(e)}")
-            raise click.Abort() from e
+            abort(ctx, f"Error listing agents: {str(e)}", from_exception=e)
 
     @agent.command()
     @click.argument("agent_id")
@@ -578,8 +570,7 @@ try:
             output(status_list, ctx.obj.get("output_format", format), title=f"Agent Status: {agent_id}")
 
         except Exception as e:
-            error(f"Error getting agent status: {str(e)}")
-            raise click.Abort() from e
+            abort(ctx, f"Error getting agent status: {str(e)}", from_exception=e)
 
     @agent.command()
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
@@ -590,8 +581,7 @@ try:
             caps = get_agent_capabilities()
 
             if "error" in caps:
-                error(f"Failed to detect capabilities: {caps['error']}")
-                raise click.Abort()
+                abort(ctx, f"Failed to detect capabilities: {caps['error']}")
 
             caps_list = [
                 {"Field": "GPU Memory", "Value": f"{caps['gpu_memory']} MiB"},
@@ -605,8 +595,7 @@ try:
             output(caps_list, ctx.obj.get("output_format", format), title="System Capabilities")
 
         except Exception as e:
-            error(f"Error detecting capabilities: {str(e)}")
-            raise click.Abort() from e
+            abort(ctx, f"Error detecting capabilities: {str(e)}", from_exception=e)
 
     @agent.command()
     @click.argument("name")
@@ -619,14 +608,12 @@ try:
             result = set_agent_config(name, key, value)
 
             if "error" in result:
-                error(f"Failed to set configuration: {result['error']}")
-                raise click.Abort()
+                abort(ctx, f"Failed to set configuration: {result['error']}")
 
             success(f"Configuration set: {name}.{key} = {result['value']}")
 
         except Exception as e:
-            error(f"Error setting configuration: {str(e)}")
-            raise click.Abort() from e
+            abort(ctx, f"Error setting configuration: {str(e)}", from_exception=e)
 
     @agent.command()
     @click.argument("name")
@@ -639,8 +626,7 @@ try:
             result = get_agent_config(name, key)
 
             if "error" in result:
-                error(f"Failed to get configuration: {result['error']}")
-                raise click.Abort()
+                abort(ctx, f"Failed to get configuration: {result['error']}")
 
             if key:
                 config_data = [
@@ -653,8 +639,7 @@ try:
                 output(result["config"], ctx.obj.get("output_format", format), title=f"Agent Config: {name}")
 
         except Exception as e:
-            error(f"Error getting configuration: {str(e)}")
-            raise click.Abort() from e
+            abort(ctx, f"Error getting configuration: {str(e)}", from_exception=e)
 
     @agent.command()
     @click.argument("name")
@@ -667,12 +652,10 @@ try:
             if result.get("valid"):
                 success(f"Configuration is valid: {name}")
             else:
-                error(f"Configuration validation failed: {result.get('error')}")
-                raise click.Abort()
+                abort(ctx, f"Configuration validation failed: {result.get('error')}")
 
         except Exception as e:
-            error(f"Error validating configuration: {str(e)}")
-            raise click.Abort() from e
+            abort(ctx, f"Error validating configuration: {str(e)}", from_exception=e)
 
     @agent.command()
     @click.argument("file_path")
@@ -684,14 +667,12 @@ try:
             result = import_agent_config(file_path, name)
 
             if "error" in result:
-                error(f"Failed to import configuration: {result['error']}")
-                raise click.Abort()
+                abort(ctx, f"Failed to import configuration: {result['error']}")
 
             success(f"Configuration imported: {result['name']} -> {result['config_file']}")
 
         except Exception as e:
-            error(f"Error importing configuration: {str(e)}")
-            raise click.Abort() from e
+            abort(ctx, f"Error importing configuration: {str(e)}", from_exception=e)
 
     @agent.command()
     @click.argument("name")
@@ -703,14 +684,12 @@ try:
             result = export_agent_config(name, output_path)
 
             if "error" in result:
-                error(f"Failed to export configuration: {result['error']}")
-                raise click.Abort()
+                abort(ctx, f"Failed to export configuration: {result['error']}")
 
             success(f"Configuration exported: {name} -> {result['exported_to']}")
 
         except Exception as e:
-            error(f"Error exporting configuration: {str(e)}")
-            raise click.Abort() from e
+            abort(ctx, f"Error exporting configuration: {str(e)}", from_exception=e)
 
     @agent.command()
     @click.argument("job_id")
@@ -826,11 +805,9 @@ try:
             output(result, ctx.obj.get("output_format", format), title="Discovered Agents")
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
-            error("Make sure the agent-coordinator service is running")
-            raise click.Abort() from e
+            abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
         except Exception as e:
-            error(f"Error discovering agents: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Error discovering agents: {e}", from_exception=e)
 
     @agent.command()
     @click.option("--agent-id", required=True, help="Agent ID")
@@ -851,11 +828,9 @@ try:
             output(result, ctx.obj.get("output_format", format), title=f"Inbox for {agent_id}")
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
-            error("Make sure the agent-coordinator service is running")
-            raise click.Abort() from e
+            abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
         except Exception as e:
-            error(f"Error getting inbox: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Error getting inbox: {e}", from_exception=e)
 
     @agent.command()
     @click.option("--agent-id", required=True, help="Agent ID")
@@ -876,15 +851,12 @@ try:
             output(result, ctx.obj.get("output_format", format), title="Subscription")
             success(f"Agent {agent_id} subscribed to topic {topic}")
         except json.JSONDecodeError as e:
-            error(f"Invalid JSON in filter: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Invalid JSON in filter: {e}", from_exception=e)
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
-            error("Make sure the agent-coordinator service is running")
-            raise click.Abort() from e
+            abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
         except Exception as e:
-            error(f"Error subscribing to topic: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Error subscribing to topic: {e}", from_exception=e)
 
     @agent.group()
     def workflow():
@@ -913,18 +885,14 @@ try:
             output(result, ctx.obj.get("output_format", format), title="Created Workflow")
             success(f"Workflow '{name}' created successfully")
         except FileNotFoundError as e:
-            error(f"File not found: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"File not found: {e}", from_exception=e)
         except json.JSONDecodeError as e:
-            error(f"Invalid JSON in steps file: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Invalid JSON in steps file: {e}", from_exception=e)
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
-            error("Make sure the agent-coordinator service is running")
-            raise click.Abort() from e
+            abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
         except Exception as e:
-            error(f"Error creating workflow: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Error creating workflow: {e}", from_exception=e)
 
     @workflow.command()
     @click.option("--workflow-id", required=True, help="Workflow ID")
@@ -949,18 +917,14 @@ try:
             output(result, ctx.obj.get("output_format", format), title="Workflow Execution")
             success(f"Workflow {workflow_id} execution started")
         except FileNotFoundError as e:
-            error(f"File not found: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"File not found: {e}", from_exception=e)
         except json.JSONDecodeError as e:
-            error(f"Invalid JSON in input file: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Invalid JSON in input file: {e}", from_exception=e)
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
-            error("Make sure the agent-coordinator service is running")
-            raise click.Abort() from e
+            abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
         except Exception as e:
-            error(f"Error executing workflow: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Error executing workflow: {e}", from_exception=e)
 
     @workflow.command()
     @click.option("--workflow-id", required=True, help="Workflow ID")
@@ -978,11 +942,9 @@ try:
             output(result, ctx.obj.get("output_format", format), title=f"Workflow Status: {workflow_id}")
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
-            error("Make sure the agent-coordinator service is running")
-            raise click.Abort() from e
+            abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
         except Exception as e:
-            error(f"Error getting workflow status: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Error getting workflow status: {e}", from_exception=e)
 
     @workflow.command()
     @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
@@ -999,11 +961,9 @@ try:
             output(result, ctx.obj.get("output_format", format), title="Workflows")
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
-            error("Make sure the agent-coordinator service is running")
-            raise click.Abort() from e
+            abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
         except Exception as e:
-            error(f"Error listing workflows: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Error listing workflows: {e}", from_exception=e)
 
 except ImportError:
     # Click not available, commands will be added programmatically

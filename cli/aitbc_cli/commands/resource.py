@@ -9,6 +9,7 @@ import click
 
 from ..config import get_config
 from ..utils import error, output, success
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
@@ -28,9 +29,10 @@ def resource():
 def allocate(resource_type: str, quantity: int, priority: str, mock: bool):
     """Allocate resources (EXPERIMENTAL)"""
     if not mock:
-        error("[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing.")
-        click.echo("To proceed with mock data, run: aitbc resource allocate --mock")
-        raise click.Abort()
+        abort(
+            None,
+            "[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing. To proceed with mock data, run: aitbc resource allocate --mock",
+        )
 
     success(f"Allocate {quantity} {resource_type} with {priority} priority")
     click.echo(json.dumps({"allocation_id": f"alloc_{int(time.time())}", "status": "Allocated (mock)", "cost_per_hour": 25}))
@@ -43,9 +45,10 @@ def allocate(resource_type: str, quantity: int, priority: str, mock: bool):
 def list(resource_id: str | None, format: str, mock: bool):
     """List allocated resources (EXPERIMENTAL)"""
     if not mock:
-        error("[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing.")
-        click.echo("To proceed with mock data, run: aitbc resource list --mock")
-        raise click.Abort()
+        abort(
+            None,
+            "[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing. To proceed with mock data, run: aitbc resource list --mock",
+        )
 
     success("Allocated resources:")
     resources = [
@@ -70,9 +73,10 @@ def list(resource_id: str | None, format: str, mock: bool):
 def release(resource_id: str, mock: bool):
     """Release allocated resources (EXPERIMENTAL)"""
     if not mock:
-        error("[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing.")
-        click.echo("To proceed with mock data, run: aitbc resource release --mock")
-        raise click.Abort()
+        abort(
+            None,
+            "[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing. To proceed with mock data, run: aitbc resource release --mock",
+        )
 
     success(f"Release resource {resource_id}")
     click.echo(json.dumps({"resource_id": resource_id, "status": "Released (mock)"}))
@@ -84,9 +88,10 @@ def release(resource_id: str, mock: bool):
 def utilization(format: str, mock: bool):
     """Get resource utilization metrics (EXPERIMENTAL)"""
     if not mock:
-        error("[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing.")
-        click.echo("To proceed with mock data, run: aitbc resource utilization --mock")
-        raise click.Abort()
+        abort(
+            None,
+            "[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing. To proceed with mock data, run: aitbc resource utilization --mock",
+        )
 
     success("Resource utilization:")
     metrics = {
@@ -113,9 +118,10 @@ def utilization(format: str, mock: bool):
 def optimize(target: str, agent_id: str | None, mock: bool):
     """Optimize resource allocation (EXPERIMENTAL)"""
     if not mock:
-        error("[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing.")
-        click.echo("To proceed with mock data, run: aitbc resource optimize --mock")
-        raise click.Abort()
+        abort(
+            None,
+            "[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing. To proceed with mock data, run: aitbc resource optimize --mock",
+        )
 
     success(f"Optimize resources for target: {target}")
     if agent_id:
@@ -142,7 +148,7 @@ def status(ctx, resource_id: str | None):
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
 
         if resource_id:
             status_data = http_client.get(f"/api/v1/resources/{resource_id}/status")
@@ -172,7 +178,7 @@ def deallocate(ctx, resource_id: str, force: bool):
             return
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
         result = http_client.post(f"/api/v1/resources/{resource_id}/deallocate")
         success(f"Resource {resource_id} deallocated successfully")
         output(result, ctx.obj.get("output_format", "table"))

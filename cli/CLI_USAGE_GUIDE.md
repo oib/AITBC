@@ -56,7 +56,7 @@ The CLI registers 50+ top-level command groups in `aitbc_cli/core/main.py`. Run 
 - `market` — on-chain GPU marketplace (offer, list, match, escrow, run, transcribe, transcode, rate, ratings)
 - `marketplace` — global chain marketplace (legacy compat)
 - `exchange` — exchange integration and trading (register, create-pair, add-liquidity, start-trading, status, monitor)
-- `exchange-island` — AIT/BTC/ETH trading on islands
+- `exchange-island` — AIT/ETH trading on islands
 - `gpu` — local GPU hardware management
 - `gpu-onchain` — on-chain GPU resource tracking
 - `pool-hub` — pool hub SLA monitoring and billing

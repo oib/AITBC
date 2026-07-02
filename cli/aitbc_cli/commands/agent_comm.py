@@ -9,6 +9,7 @@ import click
 from ..core.agent_communication import AgentInfo, AgentMessage, AgentStatus, CrossChainAgentCommunication, MessageType
 from ..core.config import load_multichain_config
 from ..utils import error, output, success
+from ..utils.error_handling import abort
 
 
 @click.group()
@@ -68,12 +69,10 @@ def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, 
 
             output(agent_data, ctx.obj.get("output_format", "table"))
         else:
-            error(f"Failed to register agent {agent_id}")
-            raise click.Abort()
+            abort(ctx, f"Failed to register agent {agent_id}")
 
     except Exception as e:
-        error(f"Error registering agent: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error registering agent: {str(e)}", from_exception=e)
 
 
 @agent_comm.command()
@@ -123,8 +122,7 @@ def list(ctx, chain_id, status, capabilities, format):
         output(agent_data, ctx.obj.get("output_format", format), title="Registered Agents")
 
     except Exception as e:
-        error(f"Error listing agents: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing agents: {str(e)}", from_exception=e)
 
 
 @agent_comm.command()
@@ -165,8 +163,7 @@ def discover(ctx, chain_id, capabilities, format):
         output(agent_data, ctx.obj.get("output_format", format), title=f"Agents on Chain {chain_id}")
 
     except Exception as e:
-        error(f"Error discovering agents: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error discovering agents: {str(e)}", from_exception=e)
 
 
 @agent_comm.command()
@@ -190,18 +187,14 @@ def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_ch
             msg_type = MessageType(message_type)
         except ValueError:
             error(f"Invalid message type: {message_type}")
-            error(f"Valid types: {[t.value for t in MessageType]}")
-            raise click.Abort() from None
-
+            abort(ctx, f"Valid types: {[t.value for t in MessageType]}")
         # Parse payload
         payload_dict = {}
         if payload:
             try:
                 payload_dict = json.loads(payload)
             except json.JSONDecodeError:
-                error("Invalid JSON payload")
-                raise click.Abort() from None
-
+                abort(ctx, "Invalid JSON payload")
         # Create message
         message = AgentMessage(
             message_id=f"msg_{datetime.now().strftime('%Y%m%d%H%M%S')}_{sender_id}",
@@ -237,12 +230,9 @@ def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_ch
 
             output(message_data, ctx.obj.get("output_format", "table"))
         else:
-            error(f"Failed to send message to {receiver_id}")
-            raise click.Abort() from None
-
+            abort(ctx, f"Failed to send message to {receiver_id}")
     except Exception as e:
-        error(f"Error sending message: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error sending message: {str(e)}", from_exception=e)
 
 
 @agent_comm.command()
@@ -262,9 +252,7 @@ def collaborate(ctx, agent_ids, collaboration_type, governance):
             try:
                 governance_dict = json.loads(governance)
             except json.JSONDecodeError:
-                error("Invalid JSON governance rules")
-                raise click.Abort() from None
-
+                abort(ctx, "Invalid JSON governance rules")
         # Create collaboration
         collaboration_id = asyncio.run(comm.create_collaboration(list(agent_ids), collaboration_type, governance_dict))
 
@@ -281,12 +269,9 @@ def collaborate(ctx, agent_ids, collaboration_type, governance):
 
             output(collab_data, ctx.obj.get("output_format", "table"))
         else:
-            error("Failed to create collaboration")
-            raise click.Abort() from None
-
+            abort(ctx, "Failed to create collaboration")
     except Exception as e:
-        error(f"Error creating collaboration: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error creating collaboration: {str(e)}", from_exception=e)
 
 
 @agent_comm.command()
@@ -327,12 +312,10 @@ def reputation(ctx, agent_id, interaction_result, feedback):
             else:
                 success(f"Reputation updated for {agent_id}")
         else:
-            error(f"Failed to update reputation for {agent_id}")
-            raise click.Abort()
+            abort(ctx, f"Failed to update reputation for {agent_id}")
 
     except Exception as e:
-        error(f"Error updating reputation: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error updating reputation: {str(e)}", from_exception=e)
 
 
 @agent_comm.command()
@@ -349,8 +332,7 @@ def status(ctx, agent_id, format):
         agent_status = asyncio.run(comm.get_agent_status(agent_id))
 
         if not agent_status:
-            error(f"Agent {agent_id} not found")
-            raise click.Abort()
+            abort(ctx, f"Agent {agent_id} not found")
 
         # Format output
         status_data = [
@@ -373,8 +355,7 @@ def status(ctx, agent_id, format):
         output(status_data, ctx.obj.get("output_format", format), title=f"Agent Status: {agent_id}")
 
     except Exception as e:
-        error(f"Error getting agent status: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting agent status: {str(e)}", from_exception=e)
 
 
 @agent_comm.command()
@@ -390,8 +371,7 @@ def network(ctx, format):
         overview = asyncio.run(comm.get_network_overview())
 
         if not overview:
-            error("No network data available")
-            raise click.Abort()
+            abort(ctx, "No network data available")
 
         # Overview data
         overview_data = [
@@ -430,8 +410,7 @@ def network(ctx, format):
             output(collab_data, ctx.obj.get("output_format", format), title="Collaborations by Type")
 
     except Exception as e:
-        error(f"Error getting network overview: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting network overview: {str(e)}", from_exception=e)
 
 
 @agent_comm.command()
@@ -507,5 +486,4 @@ def monitor(ctx, realtime, interval):
             output(monitor_data, ctx.obj.get("output_format", "table"), title="Agent Network Monitor")
 
     except Exception as e:
-        error(f"Error during monitoring: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error during monitoring: {str(e)}", from_exception=e)
