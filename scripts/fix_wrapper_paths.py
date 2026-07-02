@@ -25,7 +25,9 @@ def update_wrapper_file(file_path):
         (r'CRYPTO_DIR = Path\("/opt/aitbc/([^"]+)"\)', r'CRYPTO_DIR = AITBC_HOME / "\1"'),
         (
             r'env\["PYTHONPATH"\] = "/opt/aitbc:([^"]+)"',
-            lambda m: f'env["PYTHONPATH"] = ":".join([str(REPO_DIR), {m.group(1).replace(":", '", "').replace("/opt/aitbc/", 'str(AITBC_HOME / "')}])',
+            lambda m: (
+                f'env["PYTHONPATH"] = ":".join([str(REPO_DIR), {m.group(1).replace(":", '", "').replace("/opt/aitbc/", 'str(AITBC_HOME / "')}])'
+            ),
         ),
     ]
 
