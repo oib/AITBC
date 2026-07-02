@@ -1,8 +1,14 @@
 """
 Data layer abstraction for AITBC
-Provides toggle between mock and real data sources for development/testing
+Provides toggle between mock and real data sources for development/testing.
+
+WARNING: When USE_MOCK_DATA=true (or use_mock_data=True), all data returned
+is synthetically generated and does NOT reflect real blockchain state. This
+mode is intended for development and testing only. A warning is logged on
+initialization when mock mode is active.
 """
 
+import logging
 import os
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -13,6 +19,8 @@ try:
     HAS_HTTPX = True
 except ImportError:
     HAS_HTTPX = False
+
+logger = logging.getLogger(__name__)
 
 
 class DataLayer:
@@ -28,6 +36,12 @@ class DataLayer:
             self.use_mock_data = os.getenv("USE_MOCK_DATA", "false").lower() == "true"
         else:
             self.use_mock_data = use_mock_data
+
+        if self.use_mock_data:
+            logger.warning(
+                "DataLayer initialized in MOCK MODE — all data will be synthetically generated. "
+                "This is NOT real blockchain data. Do not use in production."
+            )
 
         self.mock_generator = MockDataGenerator()
         self.real_fetcher = RealDataFetcher()
