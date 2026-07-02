@@ -33,6 +33,7 @@ except ImportError:
         return {}
 
 
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
@@ -355,9 +356,7 @@ def run(ctx, scenario: str, params: str | None, async_run: bool):
             try:
                 sim_data["params"] = json.loads(params)
             except json.JSONDecodeError:
-                error("Invalid JSON parameters")
-                raise click.Abort() from None
-
+                abort(ctx, "Invalid JSON parameters")
         result = http_client.post("/simulate/run", json=sim_data)
         success(f"Simulation '{scenario}' started")
         output(result, ctx.obj.get("output_format", "table"))
