@@ -7,7 +7,7 @@ Service for managing the developer ecosystem, bounties, certifications, and regi
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import cast
+from typing import Any, cast
 
 from fastapi import HTTPException
 from sqlalchemy import desc
@@ -137,14 +137,70 @@ class DeveloperPlatformService:
         submission.reviewed_at = datetime.now(UTC)
         bounty.status = BountyStatus.COMPLETED
         bounty.assigned_developer_id = developer.id
-        tx_hash = "0x" + "mock_tx_hash_" + submission_id[:10]
+        # Submit reward payout to the blockchain
+        tx_hash = await self._submit_reward_payout(bounty, developer)
         submission.tx_hash_reward = tx_hash
         developer.total_earned_aitbc += bounty.reward_amount
         developer.reputation_score += 5.0
         self.session.commit()
         self.session.refresh(submission)
-        logger.info("Approved submission %s, paid %s to %s", submission_id, bounty.reward_amount, developer.wallet_address)
+        logger.info(
+            "Approved submission %s, paid %s to %s (tx: %s)",
+            submission_id,
+            bounty.reward_amount,
+            developer.wallet_address,
+            tx_hash,
+        )
         return submission
+
+    async def reject_submission(self, submission_id: str, reviewer_address: str, review_notes: str) -> BountySubmission:
+        """Reject a submission — marks it as rejected and reopens the bounty."""
+        submission = self.session.get(BountySubmission, submission_id)
+        if not submission:
+            raise HTTPException(status_code=404, detail="Submission not found")
+        if submission.is_approved:
+            raise HTTPException(status_code=400, detail="Cannot reject an already-approved submission")
+        if submission.reviewed_at is not None:
+            raise HTTPException(status_code=400, detail="Submission has already been reviewed")
+        bounty = submission.bounty  # type: ignore[attr-defined]
+        submission.is_approved = False
+        submission.review_notes = review_notes
+        submission.reviewer_address = reviewer_address
+        submission.reviewed_at = datetime.now(UTC)
+        # Reopen the bounty for new submissions
+        bounty.status = BountyStatus.OPEN
+        self.session.commit()
+        self.session.refresh(submission)
+        logger.info("Rejected submission %s by %s", submission_id, reviewer_address)
+        return submission
+
+    async def _submit_reward_payout(self, bounty: Any, developer: Any) -> str:
+        """Submit a reward payout transaction to the blockchain node RPC.
+
+        Returns the on-chain tx hash.
+        """
+        import os
+
+        import httpx
+
+        rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")
+        payload = {
+            "from": "treasury",
+            "to": developer.wallet_address,
+            "amount": int(bounty.reward_amount * 3600),  # AIT → compute-seconds
+            "type": "BOUNTY_REWARD",
+            "metadata": {"bounty_id": str(bounty.id), "developer": developer.wallet_address},
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(f"{rpc_url}/rpc/sendTransaction", json=payload)
+                if resp.status_code == 200:
+                    return str(resp.json().get("tx_hash", ""))
+                else:
+                    logger.error("Reward payout failed: blockchain returned %s", resp.status_code)
+                    raise HTTPException(status_code=502, detail=f"Blockchain rejected reward payout: {resp.status_code}")
+        except httpx.ConnectError as e:
+            raise HTTPException(status_code=503, detail=f"Blockchain node unavailable: {e}") from e
 
     async def get_developer_profile(self, wallet_address: str) -> DeveloperProfile | None:
         """Get developer profile by wallet address"""
