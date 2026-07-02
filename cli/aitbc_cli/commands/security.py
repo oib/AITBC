@@ -2,7 +2,8 @@
 
 import click
 
-from ..utils import error, output
+from ..utils import output
+from ..utils.error_handling import abort
 
 
 @click.group()
@@ -19,8 +20,7 @@ def audit(ctx):
         result = {"security_score": "A+", "vulnerabilities": 0, "recommendations": []}
         output(result, ctx.obj.get("output_format", "table"), title="Security Audit")
     except Exception as e:
-        error(f"Error running security audit: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error running security audit: {e}", from_exception=e)
 
 
 @security.command()
@@ -31,8 +31,7 @@ def scan(ctx):
         result = {"action": "security_scan", "status": "completed", "issues_found": 0}
         output(result, ctx.obj.get("output_format", "table"), title="Security Scan")
     except Exception as e:
-        error(f"Error running security scan: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error running security scan: {e}", from_exception=e)
 
 
 @security.command()
@@ -43,5 +42,4 @@ def patch(ctx):
         result = {"action": "security_patch", "status": "completed"}
         output(result, ctx.obj.get("output_format", "table"), title="Security Patch")
     except Exception as e:
-        error(f"Error applying security patches: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error applying security patches: {e}", from_exception=e)

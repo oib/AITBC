@@ -16,7 +16,8 @@ import click
 
 from aitbc.bridge import BridgeClient, BridgeConfig
 
-from ..utils import error, output
+from ..utils import output
+from ..utils.error_handling import abort
 
 
 def _get_bridge_client(rpc_url: str) -> BridgeClient:
@@ -60,8 +61,7 @@ def lock(ctx, target_chain, sender, recipient, amount, asset, source_chain, sign
         result = asyncio.run(_lock())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Lock")
     except Exception as e:
-        error(f"Bridge lock failed: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Bridge lock failed: {e}", from_exception=e)
 
 
 @bridge.command()
@@ -76,8 +76,7 @@ def confirm(ctx, transfer_id, confirmer, signature, proof_file, rpc_url):
     try:
         proof = json.loads(Path(proof_file).read_text())
     except Exception as e:
-        error(f"Failed to read proof file: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Failed to read proof file: {e}", from_exception=e)
 
     async def _confirm():
         client = _get_bridge_client(rpc_url)
@@ -93,8 +92,7 @@ def confirm(ctx, transfer_id, confirmer, signature, proof_file, rpc_url):
         result = asyncio.run(_confirm())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Confirm")
     except Exception as e:
-        error(f"Bridge confirm failed: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Bridge confirm failed: {e}", from_exception=e)
 
 
 @bridge.command()
@@ -119,8 +117,7 @@ def unlock(ctx, transfer_id, sender, signature, rpc_url):
         result = asyncio.run(_unlock())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Unlock")
     except Exception as e:
-        error(f"Bridge unlock failed: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Bridge unlock failed: {e}", from_exception=e)
 
 
 @bridge.command()
@@ -139,8 +136,7 @@ def status(ctx, transfer_id, rpc_url):
         result = asyncio.run(_status())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Transfer Status")
     except Exception as e:
-        error(f"Failed to get bridge status: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Failed to get bridge status: {e}", from_exception=e)
 
 
 @bridge.command()
@@ -159,8 +155,7 @@ def pending(ctx, chain_id, rpc_url):
         result = asyncio.run(_pending())
         output(result, ctx.obj.get("output_format", "table"), title="Pending Bridge Transfers")
     except Exception as e:
-        error(f"Failed to list pending transfers: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Failed to list pending transfers: {e}", from_exception=e)
 
 
 @bridge.command()
@@ -179,8 +174,7 @@ def balance(ctx, chain_id, rpc_url):
         result = asyncio.run(_balance())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Balance")
     except Exception as e:
-        error(f"Failed to get bridge balance: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Failed to get bridge balance: {e}", from_exception=e)
 
 
 @bridge.command()
@@ -198,8 +192,7 @@ def health(ctx, rpc_url):
         result = asyncio.run(_health())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Health")
     except Exception as e:
-        error(f"Bridge health check failed: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Bridge health check failed: {e}", from_exception=e)
 
 
 @bridge.command(name="security-status")
@@ -217,8 +210,7 @@ def security_status(ctx, rpc_url):
         result = asyncio.run(_security_status())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Security Status")
     except Exception as e:
-        error(f"Failed to get bridge security status: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Failed to get bridge security status: {e}", from_exception=e)
 
 
 @bridge.command(name="register-validator")
@@ -260,8 +252,7 @@ def register_validator(ctx, chain_id, address, public_key, private_key, epoch, r
         result = asyncio.run(_register())
         output(result, ctx.obj.get("output_format", "table"), title="Validator Registration")
     except Exception as e:
-        error(f"Validator registration failed: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Validator registration failed: {e}", from_exception=e)
 
 
 @bridge.command(name="oracle-status")
@@ -283,5 +274,4 @@ def oracle_status(ctx, rpc_url):
         result = asyncio.run(_oracle_status())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Oracle Status")
     except Exception as e:
-        error(f"Failed to get bridge oracle status: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Failed to get bridge oracle status: {e}", from_exception=e)

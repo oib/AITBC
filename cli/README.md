@@ -77,7 +77,7 @@ The CLI exposes 50+ top-level command groups registered in `aitbc_cli/core/main.
 | `agent-msg` | Agent messaging via Agent Coordinator (8107) | `ping`, `send`, `receive`, `peers`, `request-coins` |
 | `node` | Federated mesh node management | `add`, `list`, `info`, `remove`, `test`, `bridge`, `chain`, `hub`, `island` |
 | `exchange` | Exchange integration & trading | `register`, `create-pair`, `add-liquidity`, `start-trading`, `status`, `monitor` |
-| `exchange-island` | AIT/BTC/ETH trading on islands | (island exchange ops) |
+| `exchange-island` | AIT/ETH trading on islands | (island exchange ops) |
 | `gpu` | Local GPU hardware management | (GPU service ops) |
 | `gpu-onchain` | On-chain GPU resource tracking | (on-chain GPU ops) |
 | `sync` | Blockchain synchronization | `bulk` |

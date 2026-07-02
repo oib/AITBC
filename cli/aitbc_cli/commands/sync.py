@@ -5,6 +5,7 @@ from pathlib import Path
 
 import click
 
+from aitbc_cli.utils.error_handling import abort
 from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
 
@@ -19,7 +20,8 @@ def sync():
 @click.option("--import-url", default="http://127.0.0.1:8202", help="Local RPC URL for import")
 @click.option("--batch-size", type=int, default=100, help="Blocks per batch (default: 100)")
 @click.option("--poll-interval", type=float, default=0.2, help="Seconds between batches (default: 0.2)")
-def bulk(source, import_url, batch_size, poll_interval):
+@click.pass_context
+def bulk(ctx, source, import_url, batch_size, poll_interval):
     """Bulk import blocks from a leader to catch up quickly"""
     # Resolve paths to the sync_cli.py script
     # Get the AITBC root directory (parent of cli directory)
@@ -38,9 +40,7 @@ def bulk(source, import_url, batch_size, poll_interval):
     sync_cli = src_dir / "aitbc_chain" / "sync_cli.py"
 
     if not sync_cli.exists():
-        click.echo(f"Error: sync_cli.py not found at {sync_cli}")
-        click.echo("Ensure bulk sync feature is deployed.")
-        raise click.Abort()
+        abort(ctx, f"sync_cli.py not found at {sync_cli}. Ensure bulk sync feature is deployed.")
 
     cmd = [
         str(venv_python),
@@ -65,12 +65,10 @@ def bulk(source, import_url, batch_size, poll_interval):
     try:
         result = subprocess.run(cmd, env=env, capture_output=False)
         if result.returncode != 0:
-            click.echo("Error: Bulk sync failed. Check logs for details.")
-            raise click.Abort()
+            abort(ctx, "Bulk sync failed. Check logs for details.")
         click.echo("Bulk sync completed.")
     except Exception as e:
-        click.echo(f"Error during bulk sync: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error during bulk sync: {e}", from_exception=e)
 
 
 def _format_status_table(
@@ -108,7 +106,8 @@ def _format_status_table(
 @sync.command()
 @click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
 @click.option("--chain-id", default=None, help="Chain ID to check (defaults to node's configured chain)")
-def status(node_url, chain_id):
+@click.pass_context
+def status(ctx, node_url, chain_id):
     """Show synchronization status (current block, peer count, sync progress)."""
     client = AITBCHTTPClient(base_url=node_url)
     try:
@@ -122,18 +121,15 @@ def status(node_url, chain_id):
         # Query sync configuration (v0.6.2)
         sync_config = client.get("/rpc/sync/config")
     except NetworkError as e:
-        click.echo(f"Error: Cannot connect to node at {node_url}")
-        raise click.Abort() from e
+        abort(ctx, f"Cannot connect to node at {node_url}", from_exception=e)
     finally:
         client.close()
 
     # Handle error responses from endpoints
     if isinstance(head, dict) and head.get("error"):
-        click.echo(f"Error from /rpc/head: {head['error']}")
-        raise click.Abort()
+        abort(ctx, f"Error from /rpc/head: {head['error']}")
     if isinstance(network_info, dict) and network_info.get("error"):
-        click.echo(f"Error from /rpc/network-info: {network_info['error']}")
-        raise click.Abort()
+        abort(ctx, f"Error from /rpc/network-info: {network_info['error']}")
     # Sync config endpoint might not exist in older versions
     if isinstance(sync_config, dict) and sync_config.get("error"):
         sync_config = None

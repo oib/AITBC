@@ -4,7 +4,8 @@ from pathlib import Path
 
 import click
 
-from ..utils import error, output
+from ..utils import output
+from ..utils.error_handling import abort
 
 
 @click.group()
@@ -32,8 +33,7 @@ def run(ctx, script_path, args):
             title=f"Script: {script_path}",
         )
     except Exception as e:
-        error(f"Error running script: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error running script: {e}", from_exception=e)
 
 
 @script.command()
@@ -44,8 +44,7 @@ def list(ctx, script_dir):
     try:
         scripts_path = Path(script_dir)
         if not scripts_path.exists():
-            error(f"Scripts directory not found: {script_dir}")
-            raise click.Abort()
+            abort(ctx, f"Scripts directory not found: {script_dir}")
 
         scripts = []
         for script_file in scripts_path.rglob("*.sh"):
@@ -53,5 +52,4 @@ def list(ctx, script_dir):
 
         output(scripts, ctx.obj.get("output_format", "table"), title="Available Scripts")
     except Exception as e:
-        error(f"Error listing scripts: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing scripts: {e}", from_exception=e)

@@ -8,6 +8,7 @@ import click
 
 from ..config import get_config
 from ..utils import error, info, output, success
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
@@ -50,9 +51,7 @@ def register(ctx, gpu_id: str, specs: str | None):
             try:
                 gpu_data["specs"] = json.loads(specs)
             except json.JSONDecodeError:
-                error("Invalid JSON specifications")
-                raise click.Abort() from None
-
+                abort(ctx, "Invalid JSON specifications")
         result = http_client.post("/v1/gpu/register", json=gpu_data)
         success(f"GPU {gpu_id} registered successfully")
         output(result, ctx.obj.get("output_format", "table"))
@@ -106,16 +105,12 @@ def update(ctx, gpu_id: str, pricing: str | None, status: str | None):
                 try:
                     update_data["price_per_hour"] = float(pricing)
                 except ValueError:
-                    error("Invalid pricing value")
-                    raise click.Abort() from None
-
+                    abort(ctx, "Invalid pricing value")
         if status:
             update_data["status"] = status
 
         if not update_data:
-            error("No updates provided. Specify --pricing or --status")
-            raise click.Abort() from None
-
+            abort(ctx, "No updates provided. Specify --pricing or --status")
         result = http_client.put(f"/v1/gpu/{gpu_id}", json=update_data)
         success(f"GPU {gpu_id} updated successfully")
         output(result, ctx.obj.get("output_format", "table"))
@@ -160,9 +155,7 @@ def list(ctx):
 
             output(gpu_data, ctx.obj.get("output_format", "table"), title="Local Registered GPUs")
         except NetworkError as e:
-            error(f"Network error querying GPU service: {e}")
-            raise click.Abort() from e
+            abort(ctx, f"Network error querying GPU service: {e}", from_exception=e)
 
     except Exception as e:
-        error(f"Error listing GPUs: {str(e)}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing GPUs: {str(e)}", from_exception=e)

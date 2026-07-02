@@ -2,7 +2,8 @@
 
 import click
 
-from ..utils import error, output
+from ..utils import output
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
@@ -31,8 +32,7 @@ def status(ctx, rpc_url):
         }
         output(status, ctx.obj.get("output_format", "table"), title="Pool Hub Status (Simulated)")
     except Exception as e:
-        error(f"Error getting pool hub status: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting pool hub status: {e}", from_exception=e)
 
 
 @pool_hub.command()
@@ -58,5 +58,4 @@ def sla(ctx, pool_id, rpc_url):
         }
         output(sla_data, ctx.obj.get("output_format", "table"), title="SLA Monitor (Simulated)")
     except Exception as e:
-        error(f"Error monitoring SLA: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error monitoring SLA: {e}", from_exception=e)
