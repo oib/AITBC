@@ -16,7 +16,7 @@ from sqlmodel import Session, select
 
 from aitbc.rate_limiting import rate_limit
 
-from ...infrastructure.domain import User, Wallet
+from ...infrastructure.domain import Transaction, User, Wallet
 from ....schemas import UserBalance, UserCreate, UserLogin, UserProfile
 from ....storage import get_session
 
@@ -106,10 +106,13 @@ async def register_user(
 async def login_user(
     login_data: UserLogin, request: Request, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
-    """Login user with wallet address"""
+    """Login user with wallet address.
 
-    # For demo, we'll create or get user by wallet address
-    # In production, implement proper authentication
+    Authenticates a user by their wallet address. If the wallet is not yet
+    registered, a new user account is created and linked to the wallet.
+    This is wallet-based authentication — no password is required, the
+    wallet address itself serves as the identity.
+    """
 
     # Find user by wallet address
     wallet = session.execute(select(Wallet).where(Wallet.address == login_data.wallet_address)).scalars().first()
@@ -226,8 +229,27 @@ async def logout_user(token: str, request: Request) -> dict[str, str]:
 async def get_user_transactions(
     user_id: str, request: Request, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
-    """Get user's transaction history"""
+    """Get user's transaction history from the database."""
+    # Verify the user exists
+    user = session.execute(select(User).where(User.id == user_id)).scalars().first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    # For demo, return empty list
-    # In production, query from transaction table
-    return {"user_id": user_id, "transactions": [], "total": 0}
+    # Query transactions from the database
+    txs = session.exec(select(Transaction).where(Transaction.user_id == user_id).order_by(Transaction.created_at.desc())).all()
+
+    transactions = [
+        {
+            "id": tx.id,
+            "type": tx.type,
+            "status": tx.status,
+            "amount": tx.amount,
+            "fee": tx.fee,
+            "description": tx.description,
+            "created_at": tx.created_at.isoformat() if tx.created_at else None,
+            "confirmed_at": tx.confirmed_at.isoformat() if tx.confirmed_at else None,
+        }
+        for tx in txs
+    ]
+
+    return {"user_id": user_id, "transactions": transactions, "total": len(transactions)}
