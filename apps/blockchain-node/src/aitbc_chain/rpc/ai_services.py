@@ -1,14 +1,25 @@
-"""AI Services RPC endpoints for AITBC blockchain"""
+"""AI Services RPC endpoints for AITBC blockchain.
+
+AI jobs are persisted in the on-chain database instead of in-memory storage.
+No demo/seed jobs are created — the job list starts empty and is populated
+by real submissions.
+"""
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
+from sqlmodel import select
 
+from ..base_models import Transaction
+from ..database import session_scope
+from ..logger import get_logger
 from ..metrics import metrics_registry
 from .router import router
+
+_logger = get_logger(__name__)
 
 
 class AIJobRequest(BaseModel):
@@ -34,34 +45,23 @@ class AIJobResponse(BaseModel):
     result: dict[str, Any] | None = None
 
 
-# In-memory storage for demo (in production, use database)
-_ai_jobs: list[dict[str, Any]] = [
-    {
-        "job_id": "job_demo_001",
-        "wallet_address": "ait1demo_client_123...",
-        "job_type": "text",
-        "prompt": "Generate a summary of blockchain technology",
-        "payment": 100.0,
-        "status": "completed",
-        "created_at": (datetime.now() - timedelta(hours=1)).isoformat(),
-        "completed_at": (datetime.now() - timedelta(minutes=30)).isoformat(),
-        "result": {
-            "output": "Blockchain is a distributed ledger technology...",
-            "tokens_used": 150,
-            "processing_time": "2.5 minutes",
-        },
-    },
-    {
-        "job_id": "job_demo_002",
-        "wallet_address": "ait1demo_client_456...",
-        "job_type": "image",
-        "prompt": "Create an image of a futuristic blockchain city",
-        "payment": 250.0,
-        "status": "processing",
-        "created_at": (datetime.now() - timedelta(minutes=15)).isoformat(),
-        "estimated_completion": (datetime.now() + timedelta(minutes=10)).isoformat(),
-    },
-]
+def _job_from_tx(tx: Transaction) -> dict[str, Any]:
+    """Convert a Transaction row with type='ai_job' to a job dict."""
+    payload = tx.payload or {}
+    return {
+        "job_id": payload.get("job_id", tx.tx_hash),
+        "wallet_address": tx.sender,
+        "job_type": payload.get("job_type", "unknown"),
+        "prompt": payload.get("prompt", ""),
+        "payment": payload.get("payment", 0.0),
+        "parameters": payload.get("parameters", {}),
+        "status": tx.status,
+        "created_at": tx.created_at.isoformat() if tx.created_at else None,
+        "estimated_completion": payload.get("estimated_completion"),
+        "result": payload.get("result"),
+        "tx_hash": tx.tx_hash,
+        "block_height": tx.block_height,
+    }
 
 
 @router.post("/ai/submit", summary="Submit AI job", tags=["ai"])
@@ -74,23 +74,33 @@ async def ai_submit_job(request: AIJobRequest) -> dict[str, Any]:
         job_id = f"job_{uuid.uuid4().hex[:8]}"
 
         # Calculate estimated completion time
-        estimated_completion = datetime.now() + timedelta(minutes=30)
+        estimated_completion = datetime.now(UTC) + timedelta(minutes=30)
 
-        # Create new job
-        new_job = {
-            "job_id": job_id,
-            "wallet_address": request.wallet_address,
-            "job_type": request.job_type,
-            "prompt": request.prompt,
-            "payment": request.payment,
-            "parameters": request.parameters or {},
-            "status": "queued",
-            "created_at": datetime.now().isoformat(),
-            "estimated_completion": estimated_completion.isoformat(),
-        }
+        # Store as a transaction in the database
+        tx_hash = "0x" + uuid.uuid4().hex
+        chain_id = ""  # default chain
 
-        # Add to storage
-        _ai_jobs.append(new_job)
+        with session_scope(chain_id) as session:
+            tx = Transaction(
+                chain_id=chain_id,
+                tx_hash=tx_hash,
+                sender=request.wallet_address,
+                recipient="ai_service",
+                payload={
+                    "job_id": job_id,
+                    "job_type": request.job_type,
+                    "prompt": request.prompt,
+                    "payment": request.payment,
+                    "parameters": request.parameters or {},
+                    "estimated_completion": estimated_completion.isoformat(),
+                },
+                type="ai_job",
+                status="queued",
+            )
+            session.add(tx)
+            session.commit()
+
+        _logger.info("AI job submitted: %s by %s", job_id, request.wallet_address)
 
         return {
             "job_id": job_id,
@@ -100,6 +110,7 @@ async def ai_submit_job(request: AIJobRequest) -> dict[str, Any]:
             "wallet_address": request.wallet_address,
             "payment": request.payment,
             "job_type": request.job_type,
+            "tx_hash": tx_hash,
         }
 
     except Exception as e:
@@ -113,23 +124,22 @@ async def ai_list_jobs(wallet_address: str | None = None, status: str | None = N
     try:
         metrics_registry.increment("rpc_ai_list_total")
 
-        # Filter jobs
-        filtered_jobs = _ai_jobs.copy()
+        with session_scope("") as session:
+            stmt = select(Transaction).where(Transaction.type == "ai_job")
+            if wallet_address:
+                stmt = stmt.where(Transaction.sender == wallet_address)
+            if status:
+                stmt = stmt.where(Transaction.status == status)
+            stmt = stmt.order_by(Transaction.created_at.desc())
+            txs = session.exec(stmt).all()
 
-        if wallet_address:
-            filtered_jobs = [job for job in filtered_jobs if job.get("wallet_address") == wallet_address]
-
-        if status:
-            filtered_jobs = [job for job in filtered_jobs if job.get("status") == status]
-
-        # Sort by creation time (newest first)
-        filtered_jobs.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+            jobs = [_job_from_tx(tx) for tx in txs]
 
         return {
-            "jobs": filtered_jobs,
-            "total": len(filtered_jobs),
+            "jobs": jobs,
+            "total": len(jobs),
             "filters": {"wallet_address": wallet_address, "status": status},
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     except Exception as e:
@@ -143,10 +153,16 @@ async def ai_get_job(job_id: str) -> dict[str, Any]:
     try:
         metrics_registry.increment("rpc_ai_get_total")
 
-        # Find job
-        for job in _ai_jobs:
-            if job.get("job_id") == job_id:
-                return {"job": job, "found": True}
+        with session_scope("") as session:
+            # Search by job_id in payload — since job_id is stored in JSON payload,
+            # we filter in Python after fetching ai_job transactions
+            stmt = select(Transaction).where(Transaction.type == "ai_job")
+            txs = session.exec(stmt).all()
+
+            for tx in txs:
+                payload = tx.payload or {}
+                if payload.get("job_id") == job_id:
+                    return {"job": _job_from_tx(tx), "found": True}
 
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -163,17 +179,23 @@ async def ai_cancel_job(job_id: str) -> dict[str, Any]:
     try:
         metrics_registry.increment("rpc_ai_cancel_total")
 
-        # Find and update job
-        for job in _ai_jobs:
-            if job.get("job_id") == job_id:
-                current_status = job.get("status")
-                if current_status in ["completed", "cancelled"]:
-                    raise HTTPException(status_code=400, detail=f"Cannot cancel job with status: {current_status}")
+        with session_scope("") as session:
+            stmt = select(Transaction).where(Transaction.type == "ai_job")
+            txs = session.exec(stmt).all()
 
-                job["status"] = "cancelled"
-                job["cancelled_at"] = datetime.now().isoformat()
+            for tx in txs:
+                payload = tx.payload or {}
+                if payload.get("job_id") == job_id:
+                    current_status = tx.status
+                    if current_status in ["completed", "cancelled"]:
+                        raise HTTPException(status_code=400, detail=f"Cannot cancel job with status: {current_status}")
 
-                return {"job_id": job_id, "status": "cancelled", "message": "AI job cancelled successfully"}
+                    tx.status = "cancelled"
+                    tx.payload = {**payload, "cancelled_at": datetime.now(UTC).isoformat()}
+                    session.add(tx)
+                    session.commit()
+
+                    return {"job_id": job_id, "status": "cancelled", "message": "AI job cancelled successfully"}
 
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -190,23 +212,28 @@ async def ai_stats() -> dict[str, Any]:
     try:
         metrics_registry.increment("rpc_ai_stats_total")
 
-        total_jobs = len(_ai_jobs)
-        status_counts: dict[str, int] = {}
-        type_counts: dict[str, int] = {}
-        total_revenue = 0.0
+        with session_scope("") as session:
+            stmt = select(Transaction).where(Transaction.type == "ai_job")
+            txs = session.exec(stmt).all()
 
-        for job in _ai_jobs:
-            # Count by status
-            status = job.get("status", "unknown")
-            status_counts[status] = status_counts.get(status, 0) + 1
+            total_jobs = len(txs)
+            status_counts: dict[str, int] = {}
+            type_counts: dict[str, int] = {}
+            total_revenue = 0.0
 
-            # Count by type
-            job_type = job.get("job_type", "unknown")
-            type_counts[job_type] = type_counts.get(job_type, 0) + 1
+            for tx in txs:
+                payload = tx.payload or {}
+                # Count by status
+                status = tx.status or "unknown"
+                status_counts[status] = status_counts.get(status, 0) + 1
 
-            # Sum revenue for completed jobs
-            if status == "completed":
-                total_revenue += job.get("payment", 0.0)
+                # Count by type
+                job_type = payload.get("job_type", "unknown")
+                type_counts[job_type] = type_counts.get(job_type, 0) + 1
+
+                # Sum revenue for completed jobs
+                if status == "completed":
+                    total_revenue += payload.get("payment", 0.0)
 
         return {
             "total_jobs": total_jobs,
@@ -214,7 +241,7 @@ async def ai_stats() -> dict[str, Any]:
             "type_breakdown": type_counts,
             "total_revenue": total_revenue,
             "average_payment": total_revenue / max(1, status_counts.get("completed", 0)),
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     except Exception as e:
