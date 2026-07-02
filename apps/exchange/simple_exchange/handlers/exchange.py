@@ -235,15 +235,13 @@ class ExchangeMixin:
                 self.send_json_response(order)
 
         except Exception as e:
-            # Fallback to hardcoded values if blockchain is down
+            # Blockchain is down — return an honest error, not fake supply numbers
             self.send_json_response(
                 {
-                    "total_supply": "21000000",
-                    "circulating_supply": "1000000",
-                    "treasury_balance": "0",
-                    "source": "fallback",
-                    "error": str(e),
-                }
+                    "error": f"Blockchain RPC unavailable: {e}",
+                    "source": "error",
+                },
+                status=503,
             )
 
     def handle_treasury_balance(self):
@@ -416,16 +414,153 @@ class ExchangeMixin:
             )
 
     def handle_wallet_connect(self):
-        """Handle wallet connection request"""
+        """Handle wallet connection request.
+
+        Requires the client to provide their wallet address in the request
+        body. No mock address is generated.
+        """
         if not self._require_api_key():
             return
-        import secrets
 
-        self._read_json_body()  # Consume and discard body (with size guard)
+        body = self._read_json_body()
+        if body is None:
+            return
 
-        mock_address = "aitbc" + secrets.token_hex(20)
-        self.send_json_response({"address": mock_address, "status": "connected"})
+        address = body.get("address")
+        if not address:
+            self.send_json_response({"error": "Wallet address is required in request body"}, status=400)
+            return
+
+        # Verify the wallet exists via the wallet service
+        import os
+
+        wallet_url = os.getenv("WALLET_SERVICE_URL", "http://localhost:8108")
+        try:
+            import httpx
+
+            with httpx.Client(timeout=10) as client:
+                resp = client.get(f"{wallet_url}/v1/wallets", params={"address": address})
+                if resp.status_code == 200:
+                    wallets = resp.json().get("wallets", [])
+                    if wallets:
+                        self.send_json_response(
+                            {
+                                "address": address,
+                                "status": "connected",
+                                "wallet_id": wallets[0].get("wallet_id", ""),
+                            }
+                        )
+                    else:
+                        self.send_json_response({"error": "Wallet not found", "address": address}, status=404)
+                else:
+                    self.send_json_response({"error": f"Wallet service error: {resp.status_code}"}, status=502)
+        except Exception as e:
+            self.send_json_response({"error": f"Wallet service unavailable: {e}"}, status=503)
 
     def match_orders(self, order):
-        """Match orders — placeholder for order matching logic"""
-        pass
+        """Match a new order against existing open orders in the database.
+
+        Implements a simple price-time priority matching engine:
+        - A BUY order matches SELL orders with price <= buy price
+        - A SELL order matches BUY orders with price >= sell price
+        Matched trades are recorded in the trades table.
+        """
+        import sqlite3
+
+        from .db import get_db_path
+
+        if not order or "order_type" not in order:
+            return
+
+        db_path = get_db_path()
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        new_type = order["order_type"]
+        new_price = order["price"]
+        new_remaining = order["remaining"]
+        new_id = order.get("id")
+
+        # Find matching orders (opposite side, price-compatible)
+        if new_type == "BUY":
+            # Match against SELL orders with price <= our buy price
+            cursor.execute(
+                """
+                SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash
+                FROM orders
+                WHERE order_type = 'SELL' AND status = 'open' AND price <= ?
+                ORDER BY price ASC, created_at ASC
+                """,
+                (new_price,),
+            )
+        else:
+            # Match against BUY orders with price >= our sell price
+            cursor.execute(
+                """
+                SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash
+                FROM orders
+                WHERE order_type = 'BUY' AND status = 'open' AND price >= ?
+                ORDER BY price DESC, created_at ASC
+                """,
+                (new_price,),
+            )
+
+        matching_orders = cursor.fetchall()
+
+        for match_row in matching_orders:
+            if new_remaining <= 0:
+                break
+
+            match_id = match_row[0]
+            match_remaining = match_row[6]
+            match_price = match_row[3]
+
+            if match_remaining <= 0:
+                continue
+
+            # Calculate trade quantity
+            trade_qty = min(new_remaining, match_remaining)
+            trade_total = trade_qty * match_price
+
+            # Record the trade
+            cursor.execute(
+                """
+                INSERT INTO trades (amount, price, total, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (trade_qty, match_price, trade_total, datetime.now(UTC).isoformat()),
+            )
+
+            # Update the matching order
+            new_match_filled = match_row[5] + trade_qty
+            new_match_remaining = match_remaining - trade_qty
+            new_match_status = "filled" if new_match_remaining <= 0 else "open"
+
+            cursor.execute(
+                """
+                UPDATE orders SET filled = ?, remaining = ?, status = ?
+                WHERE id = ?
+                """,
+                (new_match_filled, new_match_remaining, new_match_status, match_id),
+            )
+
+            # Update the new order
+            new_remaining -= trade_qty
+            order["filled"] = order.get("filled", 0) + trade_qty
+            order["remaining"] = new_remaining
+
+            if new_remaining <= 0:
+                order["status"] = "filled"
+
+        # Update the new order in the database
+        if new_id:
+            cursor.execute(
+                """
+                UPDATE orders SET filled = ?, remaining = ?, status = ?
+                WHERE id = ?
+                """,
+                (order.get("filled", 0), order.get("remaining", 0), order.get("status", "open"), new_id),
+            )
+
+        conn.commit()
+        conn.close()
