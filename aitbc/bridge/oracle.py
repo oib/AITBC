@@ -69,7 +69,8 @@ class OracleClient(ABC):
 
     Implementations:
     - ``InProcessVerifier`` — default, uses local cryptographic verification
-    - ``ExternalOracleClient`` — stub for future external oracle integration
+    - ``ExternalOracleClient`` — delegates to external HTTP oracle endpoints
+      (requires configured oracle URLs; no oracle network is deployed yet)
     """
 
     @abstractmethod
