@@ -74,7 +74,6 @@ class MarketplaceRegion(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-
 class GlobalMarketplaceConfig(SQLModel, table=True):
     """Global marketplace configuration settings"""
 
@@ -101,7 +100,6 @@ class GlobalMarketplaceConfig(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_modified_by: str | None = Field(default=None)
-
 
 
 class GlobalMarketplaceOffer(SQLModel, table=True):
@@ -146,7 +144,6 @@ class GlobalMarketplaceOffer(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = Field(default=None)
-
 
 
 class GlobalMarketplaceTransaction(SQLModel, table=True):
@@ -196,7 +193,6 @@ class GlobalMarketplaceTransaction(SQLModel, table=True):
     transaction_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
-
 class GlobalMarketplaceAnalytics(SQLModel, table=True):
     """Global marketplace analytics and metrics"""
 
@@ -244,7 +240,6 @@ class GlobalMarketplaceAnalytics(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-
 class GlobalMarketplaceGovernance(SQLModel, table=True):
     """Global marketplace governance and rules"""
 
@@ -282,7 +277,6 @@ class GlobalMarketplaceGovernance(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     effective_from: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = Field(default=None)
-
 
 
 # Request/Response Models for API

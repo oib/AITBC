@@ -2,7 +2,6 @@
 Tests for cryptographic utility functions
 """
 
-
 import pytest
 from aitbc_cli.utils.crypto_utils import (
     MultisigSecurityManager,
@@ -19,7 +18,12 @@ class TestCreateSignatureChallenge:
 
     def test_create_challenge_basic(self):
         """Test basic challenge creation"""
-        tx_data = {"tx_id": "tx123", "to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "amount": 100, "timestamp": 1234567890}
+        tx_data = {
+            "tx_id": "tx123",
+            "to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+            "amount": 100,
+            "timestamp": 1234567890,
+        }
         nonce = "abc123"
 
         challenge = create_signature_challenge(tx_data, nonce)
@@ -38,7 +42,12 @@ class TestCreateSignatureChallenge:
 
     def test_create_challenge_deterministic(self):
         """Test that same inputs produce same challenge"""
-        tx_data = {"tx_id": "tx123", "to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "amount": 100, "timestamp": 1234567890}
+        tx_data = {
+            "tx_id": "tx123",
+            "to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+            "amount": 100,
+            "timestamp": 1234567890,
+        }
         nonce = "abc123"
 
         challenge1 = create_signature_challenge(tx_data, nonce)
@@ -94,7 +103,12 @@ class TestValidateMultisigTransaction:
 
     def test_validate_missing_field(self):
         """Test validation with missing required field"""
-        tx_data = {"to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "amount": 100, "timestamp": 1234567890, "nonce": "abc123"}
+        tx_data = {
+            "to": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+            "amount": 100,
+            "timestamp": 1234567890,
+            "nonce": "abc123",
+        }
 
         is_valid, error = validate_multisig_transaction(tx_data)
 

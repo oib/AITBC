@@ -3,7 +3,6 @@ Reputation CLI Tests
 Tests for reputation management CLI commands
 """
 
-
 import pytest
 from aitbc_cli.commands.reputation import reputation
 from click.testing import CliRunner

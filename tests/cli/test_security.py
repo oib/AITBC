@@ -3,7 +3,6 @@ Security Utils Tests
 Tests for secure encryption utilities
 """
 
-
 import pytest
 
 

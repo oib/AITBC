@@ -41,9 +41,7 @@ class TestCoinRequestsCommands:
 
     @patch("aitbc_cli.commands.coin_requests.init_db")
     @patch("aitbc_cli.commands.coin_requests.get_db_session")
-    def test_coin_requests_list_command(
-        self, mock_get_db_session, mock_init_db, runner
-    ):
+    def test_coin_requests_list_command(self, mock_get_db_session, mock_init_db, runner):
         """``coin_requests list`` shows 'No coin requests found' when DB is empty."""
         mock_session = MagicMock()
         mock_query = MagicMock()
@@ -61,9 +59,7 @@ class TestCoinRequestsCommands:
 
     @patch("aitbc_cli.commands.coin_requests.init_db")
     @patch("aitbc_cli.commands.coin_requests.get_db_session")
-    def test_coin_requests_show_not_found(
-        self, mock_get_db_session, mock_init_db, runner
-    ):
+    def test_coin_requests_show_not_found(self, mock_get_db_session, mock_init_db, runner):
         """``coin_requests show`` reports 'not found' for a non-existent request."""
         mock_session = MagicMock()
         mock_query = MagicMock()
