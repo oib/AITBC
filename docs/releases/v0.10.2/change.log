@@ -119,7 +119,41 @@ A comprehensive scan identified **17 categories** of mock/placeholder code acros
 | Coordinator-api tests | `pytest apps/coordinator-api/tests/ -q` | 246 passed, 14 skipped ✓ |
 | **Total** | | **968 tests passing** |
 
-## 📋 Commit Log
+## � Live Testing Results
+
+All unmocked features were tested on the live shop node (13 services running). Issues found during testing were fixed in commit `100fa49f1`:
+
+| Feature | Test | Result |
+|---------|------|--------|
+| Smart contract list | `GET /rpc/contracts` | Empty list (DB-backed, no hardcoded guardian) ✓ |
+| Smart contract deploy | `POST /rpc/contracts/deploy` | Real deterministic address `0xfff3bff6...` ✓ |
+| Smart contract verify | `POST /rpc/contracts/verify` | Honest `valid: false` with reason ✓ |
+| AI jobs list | `GET /rpc/ai/jobs` | Empty (no demo jobs) ✓ |
+| AI job submit | `POST /rpc/ai/submit` | Real DB transaction, job_id returned ✓ |
+| AI job stats | `GET /rpc/ai/stats` | Real DB counts ✓ |
+| Exchange wallet balance | `GET /api/wallet/balance` | Real blockchain balance query ✓ |
+| Exchange wallet connect | `POST /api/wallet/connect` | Requires address, verifies via wallet service ✓ |
+| Exchange order matching | `POST /api/orders` (SELL then BUY) | Orders matched, trades recorded ✓ |
+| Exchange supply | `GET /api/total-supply` | Real blockchain treasury balance ✓ |
+| Governance vote | `POST /rpc/governance/vote` | Real vote_id=2 from blockchain DB ✓ |
+| Developer platform reject | `POST /review?approved=false` | Returns 404 "Submission not found" (not "not implemented") ✓ |
+| IPFS upload | `POST /v1/ipfs/upload` | Honest error (no fake Qm CID) ✓ |
+| Miner registration | Heartbeats accepted | Real session token (no demo-token) ✓ |
+| User transactions | `GET /v1/users/{id}/transactions` | Real DB query (not empty list) ✓ |
+| Trading block explorer | `GET /v1/blocks?limit=3` | Real blockchain blocks returned ✓ |
+
+**Issues found and fixed during testing:**
+- AI services routes were defined but never imported into the RPC router → added import
+- Exchange `match_orders` had wrong import path (`from .db` → `from ..db`) → fixed
+- Exchange balance endpoint used wrong URL (`/rpc/getBalance` → `/rpc/balance`) → fixed
+- User transactions used `session.exec()` (SQLModel) instead of `session.execute().scalars()` (SQLAlchemy) → fixed
+- Trading block explorer used wrong endpoint (`/rpc/blocks` → `/rpc/blocks-range`) and wrong default port (8006 → 8202) → fixed
+
+**Not testable on this node:**
+- Agent execution receipts (agent-management service not deployed)
+- Pool-hub hardware profile categories (requires registered miner token auth)
+
+## �📋 Commit Log
 
 | Commit | Type | Scope | Description |
 |--------|------|-------|-------------|
@@ -131,3 +165,4 @@ A comprehensive scan identified **17 categories** of mock/placeholder code acros
 | `a3a0b655c` | fix | core | Honest oracle docstring, data layer mock warning, feature flag accuracy |
 | `7e5f302eb` | style | — | Apply ruff format to pre-existing formatting drift |
 | `144f788a1` | style | — | Apply ruff format to tests and marketplace model |
+| `100fa49f1` | fix | testing | Wire AI services routes, fix exchange import path and RPC URLs |
