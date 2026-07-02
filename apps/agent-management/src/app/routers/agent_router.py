@@ -12,6 +12,7 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 from app.domain.agent import (
+    AgentExecution,
     AgentExecutionRequest,
     AgentExecutionResponse,
     AgentExecutionStatus,
@@ -405,29 +406,46 @@ async def get_execution_receipt(
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[str, Depends(require_admin_key())],
 ) -> dict[str, Any]:
-    """Get verifiable receipt for completed execution"""
+    """Get verifiable receipt for completed execution.
+
+    Queries the real execution record from the database and returns its
+    stored receipt data. Returns 404 if the execution doesn't exist, or
+    409 if it hasn't completed yet (no receipt available).
+    """
     try:
+        execution = session.exec(select(AgentExecution).where(AgentExecution.id == execution_id)).first()
+
+        if not execution:
+            raise HTTPException(status_code=404, detail=f"Execution not found: {execution_id}")
+
+        if execution.status != AgentStatus.COMPLETED:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Execution {execution_id} has not completed (status: {execution.status.value})",
+            )
+
+        # Return the stored receipt from the execution record
+        receipt = execution.execution_receipt
+        if not receipt:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No receipt available for execution {execution_id}",
+            )
+
         receipt_data = {
             "execution_id": execution_id,
-            "workflow_id": f"workflow_{execution_id}",
-            "status": "completed",
-            "receipt_id": f"receipt_{execution_id}",
-            "miner_signature": "0xmock_signature_placeholder",
-            "coordinator_attestations": [
-                {
-                    "coordinator_id": "coordinator_1",
-                    "signature": "0xmock_attestation_1",
-                    "timestamp": datetime.now(UTC).isoformat(),
-                }
-            ],
-            "minted_amount": 1000,
-            "recorded_at": datetime.now(UTC).isoformat(),
-            "verified": True,
-            "block_hash": "0xmock_block_hash",
-            "transaction_hash": "0xmock_tx_hash",
+            "workflow_id": execution.workflow_id,
+            "status": execution.status.value,
+            "receipt": receipt,
+            "verification_proof": execution.verification_proof,
+            "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
+            "total_execution_time": execution.total_execution_time,
+            "total_cost": execution.total_cost,
         }
-        logger.info("Generated receipt for execution: %s", execution_id)
+        logger.info("Retrieved receipt for execution: %s", execution_id)
         return receipt_data
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Failed to get execution receipt: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
