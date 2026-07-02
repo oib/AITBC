@@ -174,7 +174,11 @@ def register_miner():
         response = client.post("/v1/miners/register", json=register_data)
         if response:
             logger.info("Successfully registered miner: %s", response)
-            return response.get("session_token", "demo-token")
+            token = response.get("session_token")
+            if not token:
+                logger.error("Registration succeeded but no session_token returned by coordinator")
+                return None
+            return token
         else:
             logger.error("Registration failed")
             return None
