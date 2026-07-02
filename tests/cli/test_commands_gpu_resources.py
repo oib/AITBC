@@ -92,7 +92,9 @@ class TestGPUResourcesCommands:
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health", return_value="test-chain")
     @patch("aitbc_cli.commands.gpu_resources.AITBCHTTPClient")
     @patch("aitbc_cli.commands.gpu_resources.get_config")
-    def test_gpu_list_command_with_status_filter(self, mock_get_config, mock_http_class, mock_chain_health, runner, mock_config):
+    def test_gpu_list_command_with_status_filter(
+        self, mock_get_config, mock_http_class, mock_chain_health, runner, mock_config
+    ):
         """``gpu-onchain list --status`` filters GPUs by status."""
         mock_get_config.return_value = mock_config
         mock_client = mock_http_class.return_value

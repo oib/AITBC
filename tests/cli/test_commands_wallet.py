@@ -158,9 +158,7 @@ class TestWalletCommands:
     @patch("aitbc_cli.utils.dual_mode_wallet_adapter.DualModeWalletAdapter")
     @patch("aitbc_cli.utils.chain_id.get_chain_id", return_value="test-chain")
     @patch("aitbc_cli.commands.wallet.get_config")
-    def test_wallet_create_already_exists(
-        self, mock_get_config, mock_get_chain_id, mock_adapter_class, runner, tmp_path
-    ):
+    def test_wallet_create_already_exists(self, mock_get_config, mock_get_chain_id, mock_adapter_class, runner, tmp_path):
         """``wallet create`` reports an error when the wallet already exists."""
         mock_config = mock_get_config.return_value
         mock_config.blockchain_rpc_url = "http://localhost:8202"

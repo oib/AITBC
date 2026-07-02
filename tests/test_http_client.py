@@ -82,6 +82,7 @@ class TestCircuitBreaker:
             cb.check()
         # Wait for timeout
         import time
+
         time.sleep(0.02)
         cb.check()  # should reset and not raise
         assert cb.is_open is False
@@ -112,6 +113,7 @@ class TestRateLimit:
         rl = RateLimiter(rate_limit=1, window_seconds=0.01)
         rl.record_request()
         import time
+
         time.sleep(0.02)
         rl.check()  # old request expired, should not raise
 
@@ -260,6 +262,7 @@ class TestAsyncHTTPClient:
     @pytest.mark.skip(reason="pytest-asyncio not configured")
     async def test_async_get(self):
         from aitbc.network import AsyncAITBCHTTPClient
+
         client = AsyncAITBCHTTPClient(base_url="https://api.example.com")
         mock_resp = MagicMock()
         mock_resp.json.return_value = {"data": 1}

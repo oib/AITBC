@@ -326,9 +326,7 @@ class TestWalletCommands:
         # v0.5.17 B6: The balance command doesn't create wallet files, but
         # the create command does. Test that create works.
         wallet_path = str(tmp_path / "new_wallet.json")
-        result = runner.invoke(
-            wallet, ["--wallet-path", wallet_path, "create"], obj={"config": mock_config, "output": "json"}
-        )
+        result = runner.invoke(wallet, ["--wallet-path", wallet_path, "create"], obj={"config": mock_config, "output": "json"})
         # create command may need a password or generate one — just verify it doesn't crash
         assert result.exit_code in (0, 1, 2)
 
@@ -386,7 +384,8 @@ class TestWalletCommands:
         """Test unstaking with invalid stake ID — CLI delegates to blockchain RPC."""
         # v0.5.17 B6: Stake ID validation is now done by blockchain RPC.
         result = runner.invoke(
-            wallet, ["--wallet-path", temp_wallet, "unstake", "nonexistent_id"],
+            wallet,
+            ["--wallet-path", temp_wallet, "unstake", "nonexistent_id"],
             obj={"config": mock_config, "output": "json"},
         )
         assert result.exit_code != 0

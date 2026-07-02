@@ -70,9 +70,12 @@ class TestContractCommands:
             contract,
             [
                 "call",
-                "--contract-address", "0xA1B2C3D4E5F60718293A4B5C6D7E8F90A1B2C3D4",
-                "--method", "balanceOf",
-                "--args", '["0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"]',
+                "--contract-address",
+                "0xA1B2C3D4E5F60718293A4B5C6D7E8F90A1B2C3D4",
+                "--method",
+                "balanceOf",
+                "--args",
+                '["0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"]',
             ],
         )
 
