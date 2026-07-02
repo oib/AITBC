@@ -29,6 +29,21 @@ logger = get_logger(__name__)
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     create_engine()
     create_redis()
+    # Create tables on startup (idempotent — safe for existing DBs)
+    from sqlalchemy import text
+
+    from ..database import get_engine
+    from ..models import Base
+
+    engine = get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        # Enable citext extension if available (optional, ignore errors)
+        try:
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS citext"))
+        except Exception:
+            pass  # Extension not available — not required
+    logger.info("Database tables ensured")
     try:
         yield
     finally:
