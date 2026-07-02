@@ -33,7 +33,7 @@
   },
   "enable_zk_proof_verification": {
     "enabled": false,
-    "description": "Enable real zero-knowledge proof verification for agent executions. Currently uses mock implementation.",
+    "description": "Enable real zero-knowledge proof verification for agent executions. When disabled, the verify_contract RPC endpoint returns 'valid: false' with reason 'ZK proof verification is not enabled' — no mock verification is performed.",
     "rollout_percentage": 0.0,
     "whitelisted_users": [],
     "blacklisted_users": [],
