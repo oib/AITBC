@@ -123,10 +123,39 @@ def _get_grade_from_score(score: int) -> str:
 
 
 def _get_best_categories(compatible: list[tuple[Any, ...]]) -> list[str]:
-    """Get the categories with highest compatibility"""
-    # This would need category info from registry
-    # For now, return placeholder
-    return ["AI/ML", "Media Processing"]
+    """Derive best categories from compatible service IDs.
+
+    Maps service IDs to categories based on known service type prefixes.
+    Returns the categories sorted by frequency among compatible services.
+    """
+    if not compatible:
+        return []
+
+    # Map service ID prefixes to categories
+    category_map = {
+        "ollama": "AI/ML",
+        "whisper": "AI/ML",
+        "llm": "AI/ML",
+        "stable-diffusion": "AI/ML",
+        "ffmpeg": "Media Processing",
+        "peertube": "Media Processing",
+        "transcode": "Media Processing",
+        "render": "Media Processing",
+    }
+
+    category_counts: dict[str, int] = {}
+    for service_id, _score in compatible:
+        if not isinstance(service_id, str):
+            continue
+        service_lower = service_id.lower()
+        for prefix, category in category_map.items():
+            if prefix in service_lower:
+                category_counts[category] = category_counts.get(category, 0) + 1
+                break
+
+    # Sort by count (most compatible services first)
+    sorted_categories = sorted(category_counts, key=lambda c: category_counts[c], reverse=True)
+    return sorted_categories
 
 
 def _generate_recommendations(miner: Miner, compatible: list[tuple[Any, ...]]) -> list[str]:
