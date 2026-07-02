@@ -106,7 +106,16 @@ def init_database():
             )
         cursor.execute(
             "\n            INSERT OR IGNORE INTO cross_chain_pools \n            (pool_id, token_a, token_b, chain_a, chain_b, reserve_a, reserve_b, total_liquidity)\n            VALUES (?, ?, ?, ?, ?, ?, ?, ?)\n        ",
-            (f"{chain_id}-ait-hub.aitbc.bubuit.net-AITBC", "AITBC", "AITBC", chain_id, "ait-hub.aitbc.bubuit.net", 1000, 1000, 2000),
+            (
+                f"{chain_id}-ait-hub.aitbc.bubuit.net-AITBC",
+                "AITBC",
+                "AITBC",
+                chain_id,
+                "ait-hub.aitbc.bubuit.net",
+                1000,
+                1000,
+                2000,
+            ),
         )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_orders_chain_id ON orders(chain_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_trades_chain_id ON trades(chain_id)")

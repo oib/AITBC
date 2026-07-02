@@ -242,6 +242,7 @@ class AgentWorkflowCreate(SQLModel):
         """Override dict to serialize tags as JSON string for the table model."""
         d = super().dict(**kwargs)
         import json
+
         d["tags"] = json.dumps(d.get("tags", []))
         return d
 
@@ -265,6 +266,7 @@ class AgentWorkflowUpdate(SQLModel):
         d = super().dict(**kwargs)
         if d.get("tags") is not None:
             import json
+
             d["tags"] = json.dumps(d["tags"])
         return d
 
