@@ -245,6 +245,10 @@ try:
     from .gpu_resources import *  # noqa: F403
 except ImportError as e:
     _import_failed("GPU resources module", e)
+try:
+    from .ai_services import *  # noqa: F403
+except ImportError as e:
+    _import_failed("AI services module", e)
 _last_import_time = 0
 _import_lock = asyncio.Lock()
 

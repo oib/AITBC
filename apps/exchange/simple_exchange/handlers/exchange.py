@@ -391,7 +391,7 @@ class ExchangeMixin:
             import urllib.request
 
             # Get AITBC balance from blockchain
-            blockchain_url = f"{RPC_BASE_URL}/rpc/getBalance/{address}"
+            blockchain_url = f"{RPC_BASE_URL}/rpc/balance/{address}"
             with urllib.request.urlopen(blockchain_url, timeout=RPC_TIMEOUT) as response:
                 balance_data = json.loads(response.read().decode())
 
@@ -467,7 +467,7 @@ class ExchangeMixin:
         """
         import sqlite3
 
-        from .db import get_db_path
+        from ..db import get_db_path
 
         if not order or "order_type" not in order:
             return
