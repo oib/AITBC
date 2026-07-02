@@ -3,7 +3,6 @@ Security Init Tests
 Tests for security module initialization
 """
 
-
 import pytest
 
 

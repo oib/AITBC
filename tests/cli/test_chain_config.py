@@ -3,7 +3,6 @@ CLI Command Tests
 Tests for CLI command models and utilities
 """
 
-
 import pytest
 from aitbc_cli.models.chain import (
     ChainConfig,

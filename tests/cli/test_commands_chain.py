@@ -42,9 +42,7 @@ class TestChainCommands:
     @patch("asyncio.run")
     @patch("aitbc_cli.commands.chain.ChainManager")
     @patch("aitbc_cli.commands.chain.load_multichain_config")
-    def test_chain_list_command(
-        self, mock_load_config, mock_chain_manager_class, mock_asyncio_run, runner
-    ):
+    def test_chain_list_command(self, mock_load_config, mock_chain_manager_class, mock_asyncio_run, runner):
         """``chain list`` lists available chains from the mocked chain manager."""
         # Return an empty list — the command should output "No chains found".
         mock_asyncio_run.return_value = []
@@ -60,9 +58,7 @@ class TestChainCommands:
     @patch("asyncio.run")
     @patch("aitbc_cli.commands.chain.ChainManager")
     @patch("aitbc_cli.commands.chain.load_multichain_config")
-    def test_chain_list_with_chains(
-        self, mock_load_config, mock_chain_manager_class, mock_asyncio_run, runner
-    ):
+    def test_chain_list_with_chains(self, mock_load_config, mock_chain_manager_class, mock_asyncio_run, runner):
         """``chain list`` formats and outputs chains when available."""
         mock_chain = MagicMock()
         mock_chain.id = "chain-1"
@@ -87,9 +83,7 @@ class TestChainCommands:
     @patch("asyncio.run")
     @patch("aitbc_cli.commands.chain.ChainManager")
     @patch("aitbc_cli.commands.chain.load_multichain_config")
-    def test_chain_status_command(
-        self, mock_load_config, mock_chain_manager_class, mock_asyncio_run, runner
-    ):
+    def test_chain_status_command(self, mock_load_config, mock_chain_manager_class, mock_asyncio_run, runner):
         """``chain status`` without a chain-id lists all chain statuses."""
         mock_chain = MagicMock()
         mock_chain.id = "chain-1"

@@ -51,8 +51,10 @@ class TestExchangeCommands:
             exchange,
             [
                 "register",
-                "--name", "TestExchange",
-                "--api-key", "test-key-123",
+                "--name",
+                "TestExchange",
+                "--api-key",
+                "test-key-123",
                 "--sandbox",
             ],
         )

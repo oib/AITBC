@@ -41,9 +41,7 @@ class TestAnalyticsCommands:
 
     @patch("aitbc_cli.commands.analytics.ChainAnalytics")
     @patch("aitbc_cli.commands.analytics.load_multichain_config")
-    def test_analytics_summary_command(
-        self, mock_load_config, mock_analytics_class, runner
-    ):
+    def test_analytics_summary_command(self, mock_load_config, mock_analytics_class, runner):
         """``analytics summary`` returns cross-chain analysis from the mocked analytics layer."""
         mock_analytics = mock_analytics_class.return_value
         mock_analytics.get_cross_chain_analysis.return_value = {
@@ -71,9 +69,7 @@ class TestAnalyticsCommands:
 
     @patch("aitbc_cli.commands.analytics.ChainAnalytics")
     @patch("aitbc_cli.commands.analytics.load_multichain_config")
-    def test_analytics_summary_single_chain(
-        self, mock_load_config, mock_analytics_class, runner
-    ):
+    def test_analytics_summary_single_chain(self, mock_load_config, mock_analytics_class, runner):
         """``analytics summary --chain-id`` returns single-chain performance summary."""
         mock_analytics = mock_analytics_class.return_value
         mock_analytics.get_chain_performance_summary.return_value = {
