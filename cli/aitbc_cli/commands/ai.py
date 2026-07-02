@@ -3,7 +3,8 @@
 import click
 
 from ..config import get_config
-from ..utils import error, output, success
+from ..utils import output, success
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
@@ -35,8 +36,7 @@ def submit(ctx, wallet, job_type, prompt, payment, password, password_file, chai
         # Get coordinator URL
         coord_url = coordinator_url or config.coordinator_url
         if not coord_url:
-            error("Coordinator URL not configured")
-            raise click.Abort()
+            abort(ctx, "Coordinator URL not configured")
 
         # Get RPC URL
         _ = rpc_url or config.blockchain_rpc_url
@@ -66,11 +66,9 @@ def submit(ctx, wallet, job_type, prompt, payment, password, password_file, chai
         output(result, ctx.obj.get("output_format", format))
 
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error submitting job: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error submitting job: {e}", from_exception=e)
 
 
 @ai.command()
@@ -86,8 +84,7 @@ def jobs(ctx, limit, status, coordinator_url, format):
     try:
         coord_url = coordinator_url or config.coordinator_url
         if not coord_url:
-            error("Coordinator URL not configured")
-            raise click.Abort()
+            abort(ctx, "Coordinator URL not configured")
 
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
         params = {"limit": limit}
@@ -98,11 +95,9 @@ def jobs(ctx, limit, status, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title="AI Jobs")
 
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error listing jobs: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing jobs: {e}", from_exception=e)
 
 
 @ai.command()
@@ -117,12 +112,10 @@ def status(ctx, job_id, coordinator_url, format):
     try:
         coord_url = coordinator_url or config.coordinator_url
         if not coord_url:
-            error("Coordinator URL not configured")
-            raise click.Abort()
+            abort(ctx, "Coordinator URL not configured")
 
         if not job_id:
-            error("Job ID required")
-            raise click.Abort()
+            abort(ctx, "Job ID required")
 
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
         result = http_client.get(f"/api/v1/jobs/{job_id}")
@@ -130,11 +123,9 @@ def status(ctx, job_id, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title=f"Job Status: {job_id}")
 
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting job status: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting job status: {e}", from_exception=e)
 
 
 @ai.group()
@@ -154,8 +145,7 @@ def list(ctx, coordinator_url, format):
     try:
         coord_url = coordinator_url or config.coordinator_url
         if not coord_url:
-            error("Coordinator URL not configured")
-            raise click.Abort()
+            abort(ctx, "Coordinator URL not configured")
 
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
         result = http_client.get("/api/v1/services")
@@ -163,11 +153,9 @@ def list(ctx, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title="AI Services")
 
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error listing services: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing services: {e}", from_exception=e)
 
 
 @service.command()
@@ -182,12 +170,10 @@ def service_status(ctx, name, coordinator_url, format):
     try:
         coord_url = coordinator_url or config.coordinator_url
         if not coord_url:
-            error("Coordinator URL not configured")
-            raise click.Abort()
+            abort(ctx, "Coordinator URL not configured")
 
         if not name:
-            error("Service name required")
-            raise click.Abort()
+            abort(ctx, "Service name required")
 
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
         result = http_client.get(f"/api/v1/services/{name}")
@@ -195,11 +181,9 @@ def service_status(ctx, name, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title=f"Service Status: {name}")
 
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting service status: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting service status: {e}", from_exception=e)
 
 
 @service.command()
@@ -214,12 +198,10 @@ def test(ctx, name, coordinator_url, format):
     try:
         coord_url = coordinator_url or config.coordinator_url
         if not coord_url:
-            error("Coordinator URL not configured")
-            raise click.Abort()
+            abort(ctx, "Coordinator URL not configured")
 
         if not name:
-            error("Service name required")
-            raise click.Abort()
+            abort(ctx, "Service name required")
 
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
         result = http_client.post(f"/api/v1/services/{name}/test")
@@ -228,11 +210,9 @@ def test(ctx, name, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title=f"Service Test: {name}")
 
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error testing service: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error testing service: {e}", from_exception=e)
 
 
 @ai.command()
@@ -247,12 +227,10 @@ def results(ctx, job_id, coordinator_url, format):
     try:
         coord_url = coordinator_url or config.coordinator_url
         if not coord_url:
-            error("Coordinator URL not configured")
-            raise click.Abort()
+            abort(ctx, "Coordinator URL not configured")
 
         if not job_id:
-            error("Job ID required")
-            raise click.Abort()
+            abort(ctx, "Job ID required")
 
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
         result = http_client.get(f"/api/v1/jobs/{job_id}/results")
@@ -260,11 +238,9 @@ def results(ctx, job_id, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title=f"Job Results: {job_id}")
 
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting job results: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting job results: {e}", from_exception=e)
 
 
 @ai.command()
@@ -282,12 +258,10 @@ def cancel(ctx, job_id, wallet, password, password_file, coordinator_url, format
     try:
         coord_url = coordinator_url or config.coordinator_url
         if not coord_url:
-            error("Coordinator URL not configured")
-            raise click.Abort()
+            abort(ctx, "Coordinator URL not configured")
 
         if not job_id:
-            error("Job ID required")
-            raise click.Abort()
+            abort(ctx, "Job ID required")
 
         # Get password
         if password_file:
@@ -301,11 +275,9 @@ def cancel(ctx, job_id, wallet, password, password_file, coordinator_url, format
         output(result, ctx.obj.get("output_format", format))
 
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error cancelling job: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error cancelling job: {e}", from_exception=e)
 
 
 @ai.command()
@@ -319,8 +291,7 @@ def stats(ctx, coordinator_url, format):
     try:
         coord_url = coordinator_url or config.coordinator_url
         if not coord_url:
-            error("Coordinator URL not configured")
-            raise click.Abort()
+            abort(ctx, "Coordinator URL not configured")
 
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
         result = http_client.get("/api/v1/stats")
@@ -328,11 +299,9 @@ def stats(ctx, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title="AI Service Statistics")
 
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting statistics: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting statistics: {e}", from_exception=e)
 
 
 @ai.command()
@@ -346,8 +315,7 @@ def distribution_stats(ctx, coordinator_url, format):
     try:
         coord_url = coordinator_url or config.coordinator_url
         if not coord_url:
-            error("Coordinator URL not configured")
-            raise click.Abort()
+            abort(ctx, "Coordinator URL not configured")
 
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30)
         result = http_client.get("/api/v1/agent/stats/distribution")
@@ -355,8 +323,6 @@ def distribution_stats(ctx, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title="Task Distribution Statistics")
 
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting distribution statistics: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting distribution statistics: {e}", from_exception=e)

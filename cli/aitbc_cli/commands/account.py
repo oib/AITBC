@@ -2,7 +2,8 @@
 
 import click
 
-from ..utils import error, output
+from ..utils import output
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
@@ -29,11 +30,9 @@ def get(ctx, address, rpc_url, chain_id):
 
         output(account_data, ctx.obj.get("output_format", "table"), title=f"Account: {address}")
     except NetworkError as e:
-        error(f"Network error: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting account: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error getting account: {e}", from_exception=e)
 
 
 @account.command()
@@ -60,5 +59,4 @@ def list(ctx, rpc_url, chain_id):
         }
         output(accounts, ctx.obj.get("output_format", "table"), title="Accounts (Simulated)")
     except Exception as e:
-        error(f"Error listing accounts: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error listing accounts: {e}", from_exception=e)

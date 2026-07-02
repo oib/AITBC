@@ -4,7 +4,7 @@ Unit tests for Exchange Island CLI commands
 
 import json
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
@@ -47,7 +47,11 @@ def mock_credentials_file(tmp_path):
 
 @pytest.fixture
 def mock_keystore(tmp_path):
-    """Create a temporary keystore for testing"""
+    """Create a temporary keystore for testing.
+
+    Patches the module-level KEYSTORE_PATH constant so commands read
+    from a temp file instead of /var/lib/aitbc/keystore/validator_keys.json.
+    """
     keystore = {
         "test_key_id": {"public_key_pem": "-----BEGIN PUBLIC KEY-----\ntest_public_key_data\n-----END PUBLIC KEY-----"}
     }
@@ -56,21 +60,19 @@ def mock_keystore(tmp_path):
     with open(keystore_path, "w") as f:
         json.dump(keystore, f)
 
-    # Monkey patch keystore path
-    import aitbc_cli.commands.exchange_island as ei_module
+    keystore_str = str(keystore_path)
 
-    original_path = ei_module.__dict__.get("keystore_path")
-
-    yield str(keystore_path)
-
-    # Restore
-    if original_path:
-        ei_module.keystore_path = original_path
+    with patch("aitbc_cli.commands.exchange_island.KEYSTORE_PATH", keystore_str):
+        yield keystore_str
 
 
 @pytest.fixture
 def runner():
-    """Create a Click CLI runner"""
+    """Create a Click CLI runner.
+
+    Tests should use run_with_obj() to invoke commands with a default
+    context object so ctx.obj.get("output_format") works.
+    """
     return CliRunner()
 
 
@@ -78,13 +80,11 @@ def test_exchange_buy_command(mock_credentials_file, mock_keystore, runner):
     """Test exchange buy command"""
     from aitbc_cli.commands.exchange_island import exchange_island
 
-    with patch("aitbc_cli.commands.exchange_island.httpx.Client") as mock_client:
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"transaction_id": "test_tx_id"}
-        mock_client.return_value.__enter__.return_value.post.return_value = mock_response
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient") as mock_client:
+        # AITBCHTTPClient.post() returns the parsed JSON directly
+        mock_client.return_value.post.return_value = {"transaction_id": "test_tx_id"}
 
-        result = runner.invoke(exchange_island, ["buy", "100", "BTC", "--max-price", "0.00001"])
+        result = runner.invoke(exchange_island, ["buy", "100", "ETH", "--max-price", "0.00001"], obj={})
 
         assert result.exit_code == 0
         assert "Buy order created successfully" in result.output
@@ -94,7 +94,8 @@ def test_exchange_buy_command_invalid_amount(mock_credentials_file, runner):
     """Test exchange buy command with invalid amount"""
     from aitbc_cli.commands.exchange_island import exchange_island
 
-    result = runner.invoke(exchange_island, ["buy", "-10", "BTC"])
+    # Use "--" to separate options from positional args so "-10" is not parsed as a flag
+    result = runner.invoke(exchange_island, ["buy", "--", "-10", "ETH"], obj={})
 
     assert result.exit_code != 0
     assert "must be greater than 0" in result.output
@@ -104,13 +105,11 @@ def test_exchange_sell_command(mock_credentials_file, mock_keystore, runner):
     """Test exchange sell command"""
     from aitbc_cli.commands.exchange_island import exchange_island
 
-    with patch("aitbc_cli.commands.exchange_island.httpx.Client") as mock_client:
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"transaction_id": "test_tx_id"}
-        mock_client.return_value.__enter__.return_value.post.return_value = mock_response
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient") as mock_client:
+        # AITBCHTTPClient.post() returns the parsed JSON directly
+        mock_client.return_value.post.return_value = {"transaction_id": "test_tx_id"}
 
-        result = runner.invoke(exchange_island, ["sell", "100", "ETH", "--min-price", "0.0005"])
+        result = runner.invoke(exchange_island, ["sell", "100", "ETH", "--min-price", "0.0005"], obj={})
 
         assert result.exit_code == 0
         assert "Sell order created successfully" in result.output
@@ -120,7 +119,7 @@ def test_exchange_sell_command_invalid_amount(mock_credentials_file, runner):
     """Test exchange sell command with invalid amount"""
     from aitbc_cli.commands.exchange_island import exchange_island
 
-    result = runner.invoke(exchange_island, ["sell", "-10", "ETH"])
+    result = runner.invoke(exchange_island, ["sell", "--", "-10", "ETH"], obj={})
 
     assert result.exit_code != 0
     assert "must be greater than 0" in result.output
@@ -130,15 +129,14 @@ def test_exchange_orderbook_command(mock_credentials_file, runner):
     """Test exchange orderbook command"""
     from aitbc_cli.commands.exchange_island import exchange_island
 
-    with patch("aitbc_cli.commands.exchange_island.httpx.Client") as mock_client:
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = [
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient") as mock_client:
+        # AITBCHTTPClient.get() returns the parsed JSON directly
+        mock_client.return_value.get.return_value = [
             {
                 "action": "buy",
                 "order_id": "exchange_buy_test",
                 "user_id": "test_user",
-                "pair": "AIT/BTC",
+                "pair": "AIT/ETH",
                 "side": "buy",
                 "amount": 100.0,
                 "max_price": 0.00001,
@@ -149,7 +147,7 @@ def test_exchange_orderbook_command(mock_credentials_file, runner):
                 "action": "sell",
                 "order_id": "exchange_sell_test",
                 "user_id": "test_user2",
-                "pair": "AIT/BTC",
+                "pair": "AIT/ETH",
                 "side": "sell",
                 "amount": 100.0,
                 "min_price": 0.000009,
@@ -157,9 +155,8 @@ def test_exchange_orderbook_command(mock_credentials_file, runner):
                 "created_at": "2024-01-01T00:00:00",
             },
         ]
-        mock_client.return_value.__enter__.return_value.get.return_value = mock_response
 
-        result = runner.invoke(exchange_island, ["orderbook", "AIT/BTC"])
+        result = runner.invoke(exchange_island, ["orderbook", "AIT/ETH"], obj={})
 
         assert result.exit_code == 0
 
@@ -168,13 +165,11 @@ def test_exchange_rates_command(mock_credentials_file, runner):
     """Test exchange rates command"""
     from aitbc_cli.commands.exchange_island import exchange_island
 
-    with patch("aitbc_cli.commands.exchange_island.httpx.Client") as mock_client:
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = []
-        mock_client.return_value.__enter__.return_value.get.return_value = mock_response
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient") as mock_client:
+        # AITBCHTTPClient.get() returns the parsed JSON directly
+        mock_client.return_value.get.return_value = []
 
-        result = runner.invoke(exchange_island, ["rates"])
+        result = runner.invoke(exchange_island, ["rates"], obj={})
 
         assert result.exit_code == 0
 
@@ -183,15 +178,14 @@ def test_exchange_orders_command(mock_credentials_file, runner):
     """Test exchange orders command"""
     from aitbc_cli.commands.exchange_island import exchange_island
 
-    with patch("aitbc_cli.commands.exchange_island.httpx.Client") as mock_client:
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = [
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient") as mock_client:
+        # AITBCHTTPClient.get() returns the parsed JSON directly
+        mock_client.return_value.get.return_value = [
             {
                 "action": "buy",
                 "order_id": "exchange_buy_test",
                 "user_id": "test_user",
-                "pair": "AIT/BTC",
+                "pair": "AIT/ETH",
                 "side": "buy",
                 "amount": 100.0,
                 "max_price": 0.00001,
@@ -199,9 +193,8 @@ def test_exchange_orders_command(mock_credentials_file, runner):
                 "created_at": "2024-01-01T00:00:00",
             }
         ]
-        mock_client.return_value.__enter__.return_value.get.return_value = mock_response
 
-        result = runner.invoke(exchange_island, ["orders"])
+        result = runner.invoke(exchange_island, ["orders"], obj={})
 
         assert result.exit_code == 0
 
@@ -210,12 +203,11 @@ def test_exchange_cancel_command(mock_credentials_file, mock_keystore, runner):
     """Test exchange cancel command"""
     from aitbc_cli.commands.exchange_island import exchange_island
 
-    with patch("aitbc_cli.commands.exchange_island.httpx.Client") as mock_client:
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_client.return_value.__enter__.return_value.post.return_value = mock_response
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient") as mock_client:
+        # AITBCHTTPClient.post() returns the parsed JSON directly
+        mock_client.return_value.post.return_value = {"transaction_id": "cancel_tx_id"}
 
-        result = runner.invoke(exchange_island, ["cancel", "exchange_buy_test123"])
+        result = runner.invoke(exchange_island, ["cancel", "exchange_buy_test123"], obj={})
 
         assert result.exit_code == 0
         assert "cancelled successfully" in result.output
@@ -225,7 +217,7 @@ def test_exchange_orderbook_invalid_pair(mock_credentials_file, runner):
     """Test exchange orderbook command with invalid pair"""
     from aitbc_cli.commands.exchange_island import exchange_island
 
-    result = runner.invoke(exchange_island, ["orderbook", "INVALID/PAIR"])
+    result = runner.invoke(exchange_island, ["orderbook", "INVALID/PAIR"], obj={})
 
     assert result.exit_code != 0
 
@@ -234,7 +226,7 @@ def test_exchange_buy_invalid_currency(mock_credentials_file, runner):
     """Test exchange buy command with invalid currency"""
     from aitbc_cli.commands.exchange_island import exchange_island
 
-    result = runner.invoke(exchange_island, ["buy", "100", "INVALID"])
+    result = runner.invoke(exchange_island, ["buy", "100", "INVALID"], obj={})
 
     assert result.exit_code != 0
 
@@ -243,7 +235,7 @@ def test_exchange_sell_invalid_currency(mock_credentials_file, runner):
     """Test exchange sell command with invalid currency"""
     from aitbc_cli.commands.exchange_island import exchange_island
 
-    result = runner.invoke(exchange_island, ["sell", "100", "INVALID"])
+    result = runner.invoke(exchange_island, ["sell", "100", "INVALID"], obj={})
 
     assert result.exit_code != 0
 

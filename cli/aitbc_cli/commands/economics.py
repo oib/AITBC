@@ -2,7 +2,8 @@
 
 import click
 
-from ..utils import error, output
+from ..utils import output
+from ..utils.error_handling import abort
 
 
 @click.group()
@@ -20,8 +21,7 @@ def distributed(ctx, cost_optimize):
         result = {"action": "distributed_optimization", "cost_optimize": cost_optimize, "status": "simulated"}
         output(result, ctx.obj.get("output_format", "table"), title="Distributed Economics")
     except Exception as e:
-        error(f"Error in distributed economics: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error in distributed economics: {e}", from_exception=e)
 
 
 @economics.command()
@@ -33,8 +33,7 @@ def model(ctx, type):
         result = {"action": "economic_modeling", "model_type": type, "status": "simulated"}
         output(result, ctx.obj.get("output_format", "table"), title="Economic Model")
     except Exception as e:
-        error(f"Error in economic modeling: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error in economic modeling: {e}", from_exception=e)
 
 
 @economics.command()
@@ -45,5 +44,4 @@ def market(ctx):
         result = {"action": "market_analysis", "status": "simulated"}
         output(result, ctx.obj.get("output_format", "table"), title="Market Economics")
     except Exception as e:
-        error(f"Error in market analysis: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error in market analysis: {e}", from_exception=e)

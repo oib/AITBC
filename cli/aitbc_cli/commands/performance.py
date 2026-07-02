@@ -2,7 +2,8 @@
 
 import click
 
-from ..utils import error, output
+from ..utils import output
+from ..utils.error_handling import abort
 
 
 @click.group()
@@ -32,8 +33,7 @@ def benchmark(ctx, rpc_url):
         }
         output(result, ctx.obj.get("output_format", "table"), title="Performance Benchmark (Simulated)")
     except Exception as e:
-        error(f"Error running benchmark: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error running benchmark: {e}", from_exception=e)
 
 
 @performance.command()
@@ -56,8 +56,7 @@ def optimize(ctx, rpc_url):
         }
         output(result, ctx.obj.get("output_format", "table"), title="Performance Optimization (Simulated)")
     except Exception as e:
-        error(f"Error optimizing performance: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error optimizing performance: {e}", from_exception=e)
 
 
 @performance.command()
@@ -80,5 +79,4 @@ def tune(ctx, rpc_url):
         }
         output(result, ctx.obj.get("output_format", "table"), title="System Tuning (Simulated)")
     except Exception as e:
-        error(f"Error tuning system: {e}")
-        raise click.Abort() from e
+        abort(ctx, f"Error tuning system: {e}", from_exception=e)
