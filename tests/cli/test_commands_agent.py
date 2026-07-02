@@ -75,13 +75,15 @@ class TestAgentCommands:
         ws_conn.recv = AsyncMock(
             side_effect=[
                 json.dumps({"type": "connection_established", "agent_id": "follower"}),
-                json.dumps({
-                    "type": "PONG",
-                    "sender": "hub-coordinator",
-                    "recipient": "follower",
-                    "content": "PONG from hub-coordinator",
-                    "timestamp": "2026-06-22T00:00:00Z",
-                }),
+                json.dumps(
+                    {
+                        "type": "PONG",
+                        "sender": "hub-coordinator",
+                        "recipient": "follower",
+                        "content": "PONG from hub-coordinator",
+                        "timestamp": "2026-06-22T00:00:00Z",
+                    }
+                ),
             ]
         )
         ws_ctx = AsyncMock()
@@ -170,9 +172,7 @@ class TestAgentCommands:
     @patch("aitbc_cli.commands.agent.get_config")
     @patch("aitbc_cli.commands.agent.success")
     @patch("aitbc_cli.commands.agent.error")
-    def test_agent_request_coins_auto_transfer(
-        self, mock_error, mock_success, mock_config, mock_ws, mock_wallet
-    ):
+    def test_agent_request_coins_auto_transfer(self, mock_error, mock_success, mock_config, mock_ws, mock_wallet):
         """Test request-coins sends REQUEST_COINS and receives COINS_TRANSFERRED."""
         mock_config.return_value.agent_coordinator_url = "http://hub:8107"
         mock_wallet.return_value = "aitbc1abc123"
@@ -182,15 +182,17 @@ class TestAgentCommands:
         ws_conn.recv = AsyncMock(
             side_effect=[
                 json.dumps({"type": "connection_established"}),
-                json.dumps({
-                    "type": "COINS_TRANSFERRED",
-                    "sender": "hub-coordinator",
-                    "recipient": "follower",
-                    "amount": 100,
-                    "wallet_address": "aitbc1abc123",
-                    "transaction_hash": "0xabc123",
-                    "timestamp": "2026-06-22T10:00:00Z",
-                }),
+                json.dumps(
+                    {
+                        "type": "COINS_TRANSFERRED",
+                        "sender": "hub-coordinator",
+                        "recipient": "follower",
+                        "amount": 100,
+                        "wallet_address": "aitbc1abc123",
+                        "transaction_hash": "0xabc123",
+                        "timestamp": "2026-06-22T10:00:00Z",
+                    }
+                ),
             ]
         )
         ws_ctx = AsyncMock()
@@ -218,9 +220,7 @@ class TestAgentCommands:
     @patch("aitbc_cli.commands.agent.get_config")
     @patch("aitbc_cli.commands.agent.success")
     @patch("aitbc_cli.commands.agent.error")
-    def test_agent_request_coins_pending_approval(
-        self, mock_error, mock_success, mock_config, mock_ws, mock_wallet
-    ):
+    def test_agent_request_coins_pending_approval(self, mock_error, mock_success, mock_config, mock_ws, mock_wallet):
         """Test request-coins handles pending_approval for subsequent requests."""
         mock_config.return_value.agent_coordinator_url = "http://hub:8107"
         mock_wallet.return_value = "aitbc1abc123"
@@ -231,23 +231,27 @@ class TestAgentCommands:
         ws_conn.recv = AsyncMock(
             side_effect=[
                 json.dumps({"type": "connection_established"}),
-                json.dumps({
-                    "type": "handler_acknowledgment",
-                    "handler_results": {
-                        "message_type": "REQUEST_COINS",
-                        "handlers_triggered": 1,
-                        "results": [{
-                            "handler": "request_coins_handler",
-                            "result": {
-                                "action": "coin_request_received",
-                                "request_id": "req-follower-1234567890",
-                                "status": "pending_approval",
-                                "message": "Initial coins already granted. Further requests require manual approval. Use 'aitbc coin-requests approve <request_id>' to approve.",
-                            },
-                            "success": True,
-                        }],
-                    },
-                }),
+                json.dumps(
+                    {
+                        "type": "handler_acknowledgment",
+                        "handler_results": {
+                            "message_type": "REQUEST_COINS",
+                            "handlers_triggered": 1,
+                            "results": [
+                                {
+                                    "handler": "request_coins_handler",
+                                    "result": {
+                                        "action": "coin_request_received",
+                                        "request_id": "req-follower-1234567890",
+                                        "status": "pending_approval",
+                                        "message": "Initial coins already granted. Further requests require manual approval. Use 'aitbc coin-requests approve <request_id>' to approve.",
+                                    },
+                                    "success": True,
+                                }
+                            ],
+                        },
+                    }
+                ),
             ]
         )
         ws_ctx = AsyncMock()

@@ -150,8 +150,10 @@ class TestReputationCommands:
                 "feedback",
                 "agent1",
                 "reviewer1",
-                "--overall", "4.5",
-                "--text", "Great work",
+                "--overall",
+                "4.5",
+                "--text",
+                "Great work",
             ],
         )
 

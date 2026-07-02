@@ -28,8 +28,9 @@ class TestSimulateCommands:
     @pytest.fixture(autouse=True)
     def mock_http(self, mock_config):
         """Mock AITBCHTTPClient for coordinator API calls"""
-        with patch("aitbc_cli.commands.simulate.AITBCHTTPClient") as mock_http_class, patch(
-            "aitbc_cli.commands.simulate.get_config", return_value=mock_config
+        with (
+            patch("aitbc_cli.commands.simulate.AITBCHTTPClient") as mock_http_class,
+            patch("aitbc_cli.commands.simulate.get_config", return_value=mock_config),
         ):
             mock_instance = Mock()
             mock_http_class.return_value = mock_instance

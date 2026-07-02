@@ -2,7 +2,6 @@
 Tests for CLI error handling utilities
 """
 
-
 import pytest
 from aitbc_cli.utils.error_handling import (
     APIError,
