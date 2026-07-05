@@ -12,6 +12,7 @@ from enum import Enum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -116,9 +117,9 @@ class P2PDiscovery:
 
         # Start discovery tasks
         tasks = [
-            asyncio.create_task(self._discovery_loop()),
-            asyncio.create_task(self._peer_health_check()),
-            asyncio.create_task(self._listen_for_discovery()),
+            create_task_with_logging(self._discovery_loop(), name="discovery_loop"),
+            create_task_with_logging(self._peer_health_check(), name="discovery_peer_health_check"),
+            create_task_with_logging(self._listen_for_discovery(), name="discovery_listen"),
         ]
 
         try:

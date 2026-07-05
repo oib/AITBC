@@ -10,6 +10,7 @@ from enum import Enum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 from .discovery import NodeStatus, P2PDiscovery
 from .health import PeerHealthMonitor
@@ -134,7 +135,7 @@ class NetworkPartitionManager:
             )
 
             # Start recovery procedures
-            asyncio.create_task(self._start_partition_recovery())
+            create_task_with_logging(self._start_partition_recovery(), name="partition_recovery")
 
     async def _handle_partition_healed(self) -> None:
         """Handle healed network partition"""
@@ -178,9 +179,9 @@ class NetworkPartitionManager:
         log_info("Starting partition recovery procedures")
 
         recovery_tasks = [
-            asyncio.create_task(self._attempt_reconnection()),
-            asyncio.create_task(self._bootstrap_from_known_nodes()),
-            asyncio.create_task(self._coordinate_with_other_partitions()),
+            create_task_with_logging(self._attempt_reconnection(), name="partition_attempt_reconnection"),
+            create_task_with_logging(self._bootstrap_from_known_nodes(), name="partition_bootstrap_from_known_nodes"),
+            create_task_with_logging(self._coordinate_with_other_partitions(), name="partition_coordinate_with_others"),
         ]
 
         try:

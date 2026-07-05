@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import asyncio
 
+from aitbc.async_tasks import create_task_with_logging
+
 from ..logger import get_logger
 from .settlement import CrossChainSettlementService
 
@@ -150,7 +152,7 @@ class AtomicSettlementCoordinator:
             return
 
         self._running = True
-        self._task = asyncio.create_task(self._monitor_loop())
+        self._task = create_task_with_logging(self._monitor_loop(), name="settlement_monitor_loop")
         logger.info("Settlement timeout monitor started (interval=%ds)", _MONITOR_INTERVAL_SECONDS)
 
     async def stop_monitor(self) -> None:
