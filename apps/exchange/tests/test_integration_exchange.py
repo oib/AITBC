@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 def mock_database():
     """Mock database initialization"""
     with patch("exchange_api.init_db"):
-        with patch("exchange_api.get_db_session") as mock_get_db:
+        with patch("exchange_api.get_db") as mock_get_db:
             mock_session = MagicMock()
             mock_get_db.return_value = mock_session
             yield
