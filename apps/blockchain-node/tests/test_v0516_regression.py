@@ -548,7 +548,7 @@ class TestBug7BridgeLockConfirmSignatureVerification:
     """bridge_lock and bridge_confirm must verify signatures."""
 
     def test_bridge_lock_rejects_without_signature(self, client, initialized_bridge) -> None:
-        """POST /bridge/lock without signature returns 403."""
+        """POST /bridge/lock without signature returns 422 (Pydantic validation)."""
         response = client.post(
             "/bridge/lock",
             json={
@@ -560,7 +560,8 @@ class TestBug7BridgeLockConfirmSignatureVerification:
                 # signature intentionally omitted
             },
         )
-        assert response.status_code == 403
+        # Pydantic validation rejects missing signature before reaching the bridge function
+        assert response.status_code == 422
 
     def test_bridge_lock_rejects_invalid_signature(self, client, initialized_bridge) -> None:
         """POST /bridge/lock with invalid signature returns 403."""
@@ -578,7 +579,7 @@ class TestBug7BridgeLockConfirmSignatureVerification:
         assert response.status_code == 403
 
     def test_bridge_confirm_rejects_without_signature(self, client, initialized_bridge) -> None:
-        """POST /bridge/confirm without confirmer signature returns 403."""
+        """POST /bridge/confirm without confirmer signature returns 422 (Pydantic validation)."""
         # B1 fence: enable the release path so we reach the Bug 7 signature check.
         with patch.object(settings, "bridge_release_enabled", True):
             response = client.post(
@@ -590,7 +591,8 @@ class TestBug7BridgeLockConfirmSignatureVerification:
                     # signature intentionally omitted
                 },
             )
-        assert response.status_code == 403
+        # Pydantic validation rejects missing signature before reaching the bridge function
+        assert response.status_code == 422
 
     def test_bridge_confirm_rejects_without_confirmer(self, client, initialized_bridge) -> None:
         """POST /bridge/confirm without confirmer address returns 403."""

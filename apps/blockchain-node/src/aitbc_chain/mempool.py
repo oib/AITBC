@@ -162,7 +162,7 @@ class InMemoryMempool:
         chain_transactions = self._get_chain_transactions(chain_id)
         if not chain_transactions:
             return
-        lowest = min(chain_transactions.values(), key=lambda t: (t.fee, -t.received_at))
+        lowest = min(chain_transactions.values(), key=lambda t: (t.fee, t.received_at))
         del chain_transactions[lowest.tx_hash]
         metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
 
@@ -230,7 +230,7 @@ class DatabaseMempool:
                     to_evict = session.exec(
                         select(MempoolEntry)
                         .where(MempoolEntry.chain_id == chain_id)
-                        .order_by(cast(Any, MempoolEntry.fee).asc(), cast(Any, MempoolEntry.received_at).desc())
+                        .order_by(cast(Any, MempoolEntry.fee).asc(), cast(Any, MempoolEntry.received_at).asc())
                         .limit(1)
                     ).first()
                     if to_evict:
@@ -287,7 +287,7 @@ class DatabaseMempool:
                         to_evict = session.exec(
                             select(MempoolEntry)
                             .where(MempoolEntry.chain_id == chain_id)
-                            .order_by(cast(Any, MempoolEntry.fee).asc(), cast(Any, MempoolEntry.received_at).desc())
+                            .order_by(cast(Any, MempoolEntry.fee).asc(), cast(Any, MempoolEntry.received_at).asc())
                             .limit(1)
                         ).first()
                         if to_evict:

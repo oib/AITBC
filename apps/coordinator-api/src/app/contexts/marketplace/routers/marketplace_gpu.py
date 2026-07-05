@@ -604,9 +604,17 @@ async def list_orders(
         stmt = stmt.where(GPUBooking.status == status)
     stmt = stmt.order_by(GPUBooking.created_at.desc()).limit(limit)  # type: ignore[attr-defined]
     bookings = session.execute(stmt).scalars().all()
+
+    # Batch-fetch all referenced GPUs in a single query to avoid N+1
+    gpu_ids = {b.gpu_id for b in bookings if b.gpu_id}
+    gpu_map: dict[str, GPURegistry] = {}
+    if gpu_ids:
+        gpus = session.execute(select(GPURegistry).where(col(GPURegistry.id).in_(gpu_ids))).scalars().all()
+        gpu_map = {g.id: g for g in gpus}
+
     orders = []
     for b in bookings:
-        gpu = session.get(GPURegistry, b.gpu_id)
+        gpu = gpu_map.get(b.gpu_id)
         orders.append(
             {
                 "order_id": b.id,
