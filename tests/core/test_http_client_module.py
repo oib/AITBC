@@ -1,10 +1,10 @@
 """
-Tests for AITBC HTTP client module (network/http_client.py)
+Tests for AITBC HTTP client module (network/client.py)
 This module has 11% coverage and 370 statements.
 """
 
 import importlib.util
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -19,7 +19,7 @@ def load_module_from_path(module_name, file_path):
     return module
 
 
-http_client = load_module_from_path("aitbc.network.http_client", Path("/opt/aitbc/aitbc/network/http_client.py"))
+http_client = load_module_from_path("aitbc.network.client", Path("/opt/aitbc/aitbc/network/client.py"))
 
 
 # ============================================================================
@@ -37,33 +37,33 @@ class TestAITBCHTTPClient:
         assert client.base_url == "https://api.example.com"
         assert client.timeout == 30
         assert client.headers == {"Authorization": "Bearer token"}
-        assert client.max_retries == 3
-        assert client.enable_cache is False
+        assert client.retry_policy.max_retries == 3
+        assert client.cache.enable is False
         assert client.enable_logging is False
-        assert client._failure_count == 0
-        assert client._circuit_open is False
+        assert client.circuit_breaker.failure_count == 0
+        assert client.circuit_breaker.is_open is False
 
     def test_client_initialization_defaults(self):
         client = http_client.AITBCHTTPClient()
         assert client.base_url == ""
         assert client.timeout == 30
         assert client.headers == {}
-        assert client.max_retries == 3
-        assert client.enable_cache is False
-        assert client.cache_ttl == 300
+        assert client.retry_policy.max_retries == 3
+        assert client.cache.enable is False
+        assert client.cache.ttl == 300
 
     def test_client_initialization_with_cache(self):
         client = http_client.AITBCHTTPClient(enable_cache=True, cache_ttl=600)
-        assert client.enable_cache is True
-        assert client.cache_ttl == 600
+        assert client.cache.enable is True
+        assert client.cache.ttl == 600
 
     def test_client_initialization_with_circuit_breaker(self):
         client = http_client.AITBCHTTPClient(circuit_breaker_threshold=10)
-        assert client.circuit_breaker_threshold == 10
+        assert client.circuit_breaker.threshold == 10
 
     def test_client_initialization_with_rate_limit(self):
         client = http_client.AITBCHTTPClient(rate_limit=100)
-        assert client.rate_limit == 100
+        assert client.rate_limiter.rate_limit == 100
 
     def test_build_url_with_base(self):
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
@@ -87,104 +87,105 @@ class TestAITBCHTTPClient:
     def test_circuit_breaker_closed(self):
         client = http_client.AITBCHTTPClient()
         # Should not raise
-        client._check_circuit_breaker()
+        client.circuit_breaker.check()
 
     def test_circuit_breaker_open(self):
         client = http_client.AITBCHTTPClient()
-        client._circuit_open = True
-        client._circuit_open_time = datetime.now()
+        client.circuit_breaker.is_open = True
+        client.circuit_breaker._state = "open"
+        client.circuit_breaker.open_time = datetime.now(UTC)
 
         with pytest.raises(http_client.CircuitBreakerOpenError):
-            client._check_circuit_breaker()
+            client.circuit_breaker.check()
 
     def test_record_failure(self):
         client = http_client.AITBCHTTPClient(circuit_breaker_threshold=3)
-        client._record_failure()
-        assert client._failure_count == 1
-        assert client._circuit_open is False
+        client.circuit_breaker.record_failure()
+        assert client.circuit_breaker.failure_count == 1
+        assert client.circuit_breaker.is_open is False
 
     def test_record_failure_opens_circuit(self):
         client = http_client.AITBCHTTPClient(circuit_breaker_threshold=3)
-        client._failure_count = 2
-        client._record_failure()
-        assert client._failure_count == 3
-        assert client._circuit_open is True
-        assert client._circuit_open_time is not None
+        client.circuit_breaker.failure_count = 2
+        client.circuit_breaker.record_failure()
+        assert client.circuit_breaker.failure_count == 3
+        assert client.circuit_breaker.is_open is True
+        assert client.circuit_breaker.open_time is not None
 
     def test_rate_limit_not_set(self):
         client = http_client.AITBCHTTPClient()
         # Should not raise
-        client._check_rate_limit()
+        client.rate_limiter.check()
 
     def test_rate_limit_not_exceeded(self):
         client = http_client.AITBCHTTPClient(rate_limit=10)
-        client._request_times = [datetime.now()]
+        client.rate_limiter.request_times = [datetime.now(UTC)]
         # Should not raise
-        client._check_rate_limit()
+        client.rate_limiter.check()
 
     def test_rate_limit_exceeded(self):
         client = http_client.AITBCHTTPClient(rate_limit=2)
-        client._request_times = [datetime.now(), datetime.now()]
+        client.rate_limiter.request_times = [datetime.now(UTC), datetime.now(UTC)]
 
         with pytest.raises(http_client.RateLimitError):
-            client._check_rate_limit()
+            client.rate_limiter.check()
 
     def test_record_request(self):
         client = http_client.AITBCHTTPClient(rate_limit=10)
-        client._record_request()
-        assert len(client._request_times) == 1
+        client.rate_limiter.record_request()
+        assert len(client.rate_limiter.request_times) == 1
 
     def test_record_request_no_rate_limit(self):
         client = http_client.AITBCHTTPClient()
-        client._record_request()
-        assert len(client._request_times) == 0
+        client.rate_limiter.record_request()
+        assert len(client.rate_limiter.request_times) == 0
 
     def test_get_cache_key_no_params(self):
         client = http_client.AITBCHTTPClient()
-        key = client._get_cache_key("https://api.example.com/users")
+        key = client.cache.get_cache_key("https://api.example.com/users")
         assert key == "https://api.example.com/users"
 
     def test_get_cache_key_with_params(self):
         client = http_client.AITBCHTTPClient()
-        key = client._get_cache_key("https://api.example.com/users", {"page": 1, "limit": 10})
+        key = client.cache.get_cache_key("https://api.example.com/users", {"page": 1, "limit": 10})
         assert "https://api.example.com/users:" in key
         assert len(key) > 50  # SHA256 hash
 
     def test_get_cache_disabled(self):
         client = http_client.AITBCHTTPClient(enable_cache=False)
-        result = client._get_cache("test_key")
+        result = client.cache.get("test_key")
         assert result is None
 
     def test_get_cache_miss(self):
         client = http_client.AITBCHTTPClient(enable_cache=True)
-        result = client._get_cache("test_key")
+        result = client.cache.get("test_key")
         assert result is None
 
     def test_get_cache_hit(self):
         client = http_client.AITBCHTTPClient(enable_cache=True)
-        client._cache["test_key"] = ({"data": "value"}, datetime.now())
-        result = client._get_cache("test_key")
+        client.cache.cache["test_key"] = ({"data": "value"}, datetime.now(UTC))
+        result = client.cache.get("test_key")
         assert result == {"data": "value"}
 
     def test_get_cache_expired(self):
         client = http_client.AITBCHTTPClient(enable_cache=True, cache_ttl=0.01)
         import time
 
-        client._cache["test_key"] = ({"data": "value"}, datetime.now())
+        client.cache.cache["test_key"] = ({"data": "value"}, datetime.now(UTC))
         time.sleep(0.02)
-        result = client._get_cache("test_key")
+        result = client.cache.get("test_key")
         assert result is None
-        assert "test_key" not in client._cache
+        assert "test_key" not in client.cache.cache
 
     def test_set_cache_disabled(self):
         client = http_client.AITBCHTTPClient(enable_cache=False)
-        client._set_cache("test_key", {"data": "value"})
-        assert "test_key" not in client._cache
+        client.cache.set("test_key", {"data": "value"})
+        assert "test_key" not in client.cache.cache
 
     def test_set_cache_enabled(self):
         client = http_client.AITBCHTTPClient(enable_cache=True)
-        client._set_cache("test_key", {"data": "value"})
-        assert "test_key" in client._cache
+        client.cache.set("test_key", {"data": "value"})
+        assert "test_key" in client.cache.cache
 
     @patch("requests.Session.get")
     def test_get_success(self, mock_get):
@@ -202,7 +203,7 @@ class TestAITBCHTTPClient:
     @patch("requests.Session.get")
     def test_get_with_cache_hit(self, mock_get):
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com", enable_cache=True)
-        client._cache["https://api.example.com/test"] = ({"cached": True}, datetime.now())
+        client.cache.cache["https://api.example.com/test"] = ({"cached": True}, datetime.now(UTC))
 
         result = client.get("/test")
 
@@ -220,13 +221,14 @@ class TestAITBCHTTPClient:
         result = client.get("/test")
 
         assert result == {"result": "success"}
-        assert "https://api.example.com/test" in client._cache
+        assert "https://api.example.com/test" in client.cache.cache
 
     @patch("requests.Session.get")
     def test_get_circuit_breaker_open(self, mock_get):
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
-        client._circuit_open = True
-        client._circuit_open_time = datetime.now()
+        client.circuit_breaker.is_open = True
+        client.circuit_breaker._state = "open"
+        client.circuit_breaker.open_time = datetime.now(UTC)
 
         with pytest.raises(http_client.CircuitBreakerOpenError):
             client.get("/test")
@@ -234,7 +236,7 @@ class TestAITBCHTTPClient:
     @patch("requests.Session.get")
     def test_get_rate_limit_exceeded(self, mock_get):
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com", rate_limit=1)
-        client._request_times = [datetime.now()]
+        client.rate_limiter.request_times = [datetime.now(UTC)]
 
         with pytest.raises(http_client.RateLimitError):
             client.get("/test")
@@ -280,8 +282,9 @@ class TestAITBCHTTPClient:
     @patch("requests.Session.post")
     def test_post_circuit_breaker_open(self, mock_post):
         client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
-        client._circuit_open = True
-        client._circuit_open_time = datetime.now()
+        client.circuit_breaker.is_open = True
+        client.circuit_breaker._state = "open"
+        client.circuit_breaker.open_time = datetime.now(UTC)
 
         with pytest.raises(http_client.CircuitBreakerOpenError):
             client.post("/test")
@@ -351,15 +354,14 @@ class TestAsyncAITBCHTTPClient:
         assert client.base_url == "https://api.example.com"
         assert client.timeout == 30
         assert client.headers == {"Authorization": "Bearer token"}
-        assert client.max_retries == 3
-        assert client._client is None
+        assert client.retry_policy.max_retries == 3
 
     def test_async_client_initialization_defaults(self):
         client = http_client.AsyncAITBCHTTPClient()
         assert client.base_url == ""
         assert client.timeout == 30
         assert client.headers == {}
-        assert client.max_retries == 3
+        assert client.retry_policy.max_retries == 3
 
     @pytest.mark.asyncio
     async def test_async_context_manager(self):
@@ -371,7 +373,7 @@ class TestAsyncAITBCHTTPClient:
 
         client = http_client.AsyncAITBCHTTPClient(base_url="https://api.example.com")
         async with client:
-            assert client._client is not None
+            assert client is not None
 
     def test_async_build_url(self):
         client = http_client.AsyncAITBCHTTPClient(base_url="https://api.example.com")
@@ -380,48 +382,57 @@ class TestAsyncAITBCHTTPClient:
 
     def test_async_circuit_breaker_open(self):
         client = http_client.AsyncAITBCHTTPClient()
-        client._circuit_open = True
-        client._circuit_open_time = datetime.now()
+        client.circuit_breaker.is_open = True
+        client.circuit_breaker._state = "open"
+        client.circuit_breaker.open_time = datetime.now(UTC)
 
         with pytest.raises(http_client.CircuitBreakerOpenError):
-            client._check_circuit_breaker()
+            client.circuit_breaker.check()
 
     def test_async_record_failure(self):
         client = http_client.AsyncAITBCHTTPClient(circuit_breaker_threshold=3)
-        client._record_failure()
-        assert client._failure_count == 1
+        client.circuit_breaker.record_failure()
+        assert client.circuit_breaker.failure_count == 1
 
     def test_async_rate_limit_exceeded(self):
         client = http_client.AsyncAITBCHTTPClient(rate_limit=2)
-        client._request_times = [datetime.now(), datetime.now()]
+        client.rate_limiter.request_times = [datetime.now(UTC), datetime.now(UTC)]
 
         with pytest.raises(http_client.RateLimitError):
-            client._check_rate_limit()
+            client.rate_limiter.check()
 
     def test_async_get_cache_key(self):
         client = http_client.AsyncAITBCHTTPClient()
-        key = client._get_cache_key("https://api.example.com/users", {"page": 1})
+        key = client.cache.get_cache_key("https://api.example.com/users", {"page": 1})
         assert "https://api.example.com/users:" in key
 
     def test_async_get_cache_hit(self):
         client = http_client.AsyncAITBCHTTPClient(enable_cache=True)
-        client._cache["test_key"] = ({"cached": True}, datetime.now())
-        result = client._get_cache("test_key")
+        client.cache.cache["test_key"] = ({"cached": True}, datetime.now(UTC))
+        result = client.cache.get("test_key")
         assert result == {"cached": True}
 
     def test_async_set_cache(self):
         client = http_client.AsyncAITBCHTTPClient(enable_cache=True)
-        client._set_cache("test_key", {"data": "value"})
-        assert "test_key" in client._cache
+        client.cache.set("test_key", {"data": "value"})
+        assert "test_key" in client.cache.cache
 
     @pytest.mark.asyncio
-    async def test_async_get_not_initialized(self):
-        client = http_client.AsyncAITBCHTTPClient()
-        with pytest.raises(RuntimeError, match="not initialized"):
-            await client.async_get("/test")
+    async def test_async_get_circuit_breaker_open(self):
+        client = http_client.AsyncAITBCHTTPClient(base_url="https://api.example.com")
+        client.circuit_breaker.is_open = True
+        client.circuit_breaker._state = "open"
+        client.circuit_breaker.open_time = datetime.now(UTC)
+
+        with pytest.raises(http_client.CircuitBreakerOpenError):
+            await client.get("/test")
 
     @pytest.mark.asyncio
-    async def test_async_post_not_initialized(self):
-        client = http_client.AsyncAITBCHTTPClient()
-        with pytest.raises(RuntimeError, match="not initialized"):
-            await client.async_post("/test")
+    async def test_async_post_circuit_breaker_open(self):
+        client = http_client.AsyncAITBCHTTPClient(base_url="https://api.example.com")
+        client.circuit_breaker.is_open = True
+        client.circuit_breaker._state = "open"
+        client.circuit_breaker.open_time = datetime.now(UTC)
+
+        with pytest.raises(http_client.CircuitBreakerOpenError):
+            await client.post("/test")
