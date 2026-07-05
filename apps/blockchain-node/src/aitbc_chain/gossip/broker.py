@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import Any
 
+from aitbc.async_tasks import create_task_with_logging
 from aitbc.gossip import PriorityMessageQueue, PrioritizedMessage
 
 from ..config import settings
@@ -133,7 +134,7 @@ class InMemoryGossipBackend(GossipBackend):
                             _clear_topic_metrics(topic)
                         _update_subscriber_metrics(self._topics)
 
-            asyncio.create_task(_remove())
+            create_task_with_logging(_remove(), name="gossip_unsubscribe")
 
         return TopicSubscription(topic=topic, queue=queue, _unsubscribe=_unsubscribe)
 

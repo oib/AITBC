@@ -16,6 +16,7 @@ from websockets.server import ServerProtocol as WebSocketServerProtocol
 from websockets.asyncio.server import Server as WebSocketServer
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -88,9 +89,9 @@ class MarketDataCollector:
         """Initialize the market data collector"""
         logger.info("Initializing Market Data Collector")
         for source in DataSource:
-            asyncio.create_task(self._collect_data_source(source))
-        asyncio.create_task(self._aggregate_market_data())
-        asyncio.create_task(self._cleanup_old_data())
+            create_task_with_logging(self._collect_data_source(source), name=f"collect_data_{source.value}")
+        create_task_with_logging(self._aggregate_market_data(), name="aggregate_market_data")
+        create_task_with_logging(self._cleanup_old_data(), name="cleanup_old_data")
         await self._start_websocket_server()
         logger.info("Market Data Collector initialized")
 
