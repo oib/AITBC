@@ -5,7 +5,7 @@ Database models for the AITBC Trade Exchange
 
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, Numeric, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -18,17 +18,18 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String(50), unique=True, index=True, nullable=False)
+    username = Column(String(50), unique=True, index=True, nullable=True)
     email = Column(String(100), unique=True, index=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
-    bitcoin_address = Column(String(100), unique=True, nullable=False)
-    aitbc_address = Column(String(100), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=True)  # Optional for wallet-based login
+    wallet_address = Column(String(100), unique=True, index=True, nullable=True)
+    bitcoin_address = Column(String(100), unique=True, nullable=True)
+    aitbc_address = Column(String(100), unique=True, nullable=True)
     created_at = Column(DateTime, default=datetime.now(UTC))
     is_active = Column(Boolean, default=True)
 
     # Relationships
     orders = relationship("Order", back_populates="user")
-    trades = relationship("Trade", back_populates="buyer")
+    trades = relationship("Trade", back_populates="buyer", foreign_keys="Trade.buyer_id")
 
     def __repr__(self):
         return f"<User(username='{self.username}')>"
@@ -42,12 +43,12 @@ class Order(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     order_type = Column(String(4), nullable=False)  # 'BUY' or 'SELL'
-    amount = Column(Float, nullable=False)  # Amount of AITBC
-    price = Column(Float, nullable=False)  # Price in BTC
-    total = Column(Float, nullable=False)  # Total in BTC (amount * price)
-    filled = Column(Float, default=0.0)  # Amount filled
-    remaining = Column(Float, nullable=False)  # Amount remaining to fill
-    status = Column(String(20), default="OPEN")  # OPEN, PARTIALLY_FILLED, FILLED, CANCELLED
+    amount = Column(Numeric(18, 8), nullable=False)  # Amount of AITBC
+    price = Column(Numeric(18, 8), nullable=False)  # Price in BTC
+    total = Column(Numeric(18, 8), nullable=False)  # Total in BTC (amount * price)
+    filled = Column(Numeric(18, 8), default=0)  # Amount filled
+    remaining = Column(Numeric(18, 8), nullable=False)  # Amount remaining to fill
+    status = Column(String(20), default="OPEN", index=True)  # OPEN, PARTIALLY_FILLED, FILLED, CANCELLED
     created_at = Column(DateTime, default=datetime.now(UTC))
     updated_at = Column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
 
@@ -58,6 +59,7 @@ class Order(Base):
     __table_args__ = (
         Index("idx_order_type_status", "order_type", "status"),
         Index("idx_price_status", "price", "status"),
+        Index("idx_status", "status"),
     )
 
     def __repr__(self):
@@ -73,9 +75,9 @@ class Trade(Base):
     buyer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     seller_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
-    amount = Column(Float, nullable=False)  # Amount of AITBC traded
-    price = Column(Float, nullable=False)  # Trade price in BTC
-    total = Column(Float, nullable=False)  # Total value in BTC
+    amount = Column(Numeric(18, 8), nullable=False)  # Amount of AITBC traded
+    price = Column(Numeric(18, 8), nullable=False)  # Trade price in BTC
+    total = Column(Numeric(18, 8), nullable=False)  # Total value in BTC
     trade_hash = Column(String(100), unique=True, nullable=False)  # Blockchain transaction hash
     created_at = Column(DateTime, default=datetime.now(UTC))
 
@@ -100,10 +102,10 @@ class Balance(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
-    btc_balance = Column(Float, default=0.0)
-    aitbc_balance = Column(Float, default=0.0)
-    btc_locked = Column(Float, default=0.0)  # Locked in open orders
-    aitbc_locked = Column(Float, default=0.0)  # Locked in open orders
+    btc_balance = Column(Numeric(18, 8), default=0)
+    aitbc_balance = Column(Numeric(18, 8), default=0)
+    btc_locked = Column(Numeric(18, 8), default=0)  # Locked in open orders
+    aitbc_locked = Column(Numeric(18, 8), default=0)  # Locked in open orders
     updated_at = Column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
 
     # Relationship
