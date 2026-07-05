@@ -34,7 +34,7 @@ def submit(ctx, wallet, job_type, prompt, payment, password, password_file, chai
 
     try:
         # Get coordinator URL
-        coord_url = coordinator_url or config.coordinator_url
+        coord_url = coordinator_url or config.agent_coordinator_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -82,7 +82,7 @@ def jobs(ctx, limit, status, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_url
+        coord_url = coordinator_url or config.agent_coordinator_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -110,7 +110,7 @@ def status(ctx, job_id, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_url
+        coord_url = coordinator_url or config.agent_coordinator_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -143,7 +143,7 @@ def list(ctx, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_url
+        coord_url = coordinator_url or config.agent_coordinator_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -168,7 +168,7 @@ def service_status(ctx, name, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_url
+        coord_url = coordinator_url or config.agent_coordinator_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -196,7 +196,7 @@ def test(ctx, name, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_url
+        coord_url = coordinator_url or config.agent_coordinator_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -225,7 +225,7 @@ def results(ctx, job_id, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_url
+        coord_url = coordinator_url or config.agent_coordinator_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -256,7 +256,7 @@ def cancel(ctx, job_id, wallet, password, password_file, coordinator_url, format
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_url
+        coord_url = coordinator_url or config.agent_coordinator_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -289,7 +289,7 @@ def stats(ctx, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_url
+        coord_url = coordinator_url or config.agent_coordinator_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
@@ -313,7 +313,7 @@ def distribution_stats(ctx, coordinator_url, format):
     config = get_config()
 
     try:
-        coord_url = coordinator_url or config.coordinator_url
+        coord_url = coordinator_url or config.agent_coordinator_url
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 

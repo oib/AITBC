@@ -349,7 +349,7 @@ def run(ctx, scenario: str, params: str | None, async_run: bool):
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
         sim_data = {"scenario": scenario, "async": async_run}
 
         if params:
@@ -376,7 +376,7 @@ def status(ctx, simulation_id: str):
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
         status_data = http_client.get(f"/simulate/{simulation_id}/status")
         success(f"Simulation {simulation_id} Status:")
         output(status_data, ctx.obj.get("output_format", "table"))
@@ -396,7 +396,7 @@ def result(ctx, simulation_id: str):
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
         result_data = http_client.get(f"/simulate/{simulation_id}/result")
         success(f"Simulation {simulation_id} Results:")
         output(result_data, ctx.obj.get("output_format", "table"))
