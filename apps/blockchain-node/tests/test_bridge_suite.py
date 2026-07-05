@@ -239,7 +239,7 @@ class TestBridgeLockEndpoint:
     """RPC /bridge/lock signature & field validation (Bug 7)."""
 
     def test_bridge_lock_without_signature_rejected(self, client: TestClient) -> None:
-        """POST /bridge/lock without a signature must return 403."""
+        """POST /bridge/lock without a signature must be rejected (422 Pydantic validation)."""
         with patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()):
             response = client.post(
                 "/bridge/lock",
@@ -250,7 +250,8 @@ class TestBridgeLockEndpoint:
                     "amount": 1000,
                 },
             )
-        assert response.status_code == 403
+        # Pydantic validation rejects missing signature before reaching the bridge function
+        assert response.status_code == 422
 
     def test_bridge_lock_with_invalid_signature_rejected(self, client: TestClient) -> None:
         """POST /bridge/lock with a wrong signature must return 403."""
@@ -268,13 +269,14 @@ class TestBridgeLockEndpoint:
         assert response.status_code == 403
 
     def test_bridge_lock_missing_required_fields(self, client: TestClient) -> None:
-        """POST /bridge/lock missing target_chain/sender/recipient must return 400."""
+        """POST /bridge/lock missing target_chain/sender/recipient must return 422."""
         with patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()):
             response = client.post(
                 "/bridge/lock",
                 json={"amount": 1000, "signature": "0x" + "ff" * 65},
             )
-        assert response.status_code == 400
+        # Pydantic validation rejects missing required fields
+        assert response.status_code == 422
 
 
 # ---------------------------------------------------------------------------
@@ -315,7 +317,7 @@ class TestBridgeConfirmEndpoint:
         assert "disabled" in response.json()["detail"].lower()
 
     def test_bridge_confirm_without_signature_rejected(self, client: TestClient) -> None:
-        """POST /bridge/confirm without a confirmer signature must return 403."""
+        """POST /bridge/confirm without a confirmer signature must return 422 (Pydantic validation)."""
         with (
             patch("aitbc_chain.config.settings.bridge_release_enabled", True),
             patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()),
@@ -328,10 +330,11 @@ class TestBridgeConfirmEndpoint:
                     "confirmer": "0xrecipient",
                 },
             )
-        assert response.status_code == 403
+        # Pydantic validation rejects missing signature before reaching the bridge function
+        assert response.status_code == 422
 
     def test_bridge_confirm_missing_transfer_id(self, client: TestClient) -> None:
-        """POST /bridge/confirm without transfer_id must return 400."""
+        """POST /bridge/confirm without transfer_id must return 422."""
         with (
             patch("aitbc_chain.config.settings.bridge_release_enabled", True),
             patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()),
@@ -340,10 +343,11 @@ class TestBridgeConfirmEndpoint:
                 "/bridge/confirm",
                 json={"proof": _base_proof(), "confirmer": "0xrecipient", "signature": "0x" + "ff" * 65},
             )
-        assert response.status_code == 400
+        # Pydantic validation rejects missing transfer_id
+        assert response.status_code == 422
 
     def test_bridge_confirm_missing_proof(self, client: TestClient) -> None:
-        """POST /bridge/confirm without proof must return 400."""
+        """POST /bridge/confirm without proof must return 422."""
         with (
             patch("aitbc_chain.config.settings.bridge_release_enabled", True),
             patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()),
@@ -356,7 +360,8 @@ class TestBridgeConfirmEndpoint:
                     "signature": "0x" + "ff" * 65,
                 },
             )
-        assert response.status_code == 400
+        # Pydantic validation rejects missing proof
+        assert response.status_code == 422
 
 
 # ---------------------------------------------------------------------------
