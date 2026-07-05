@@ -51,7 +51,10 @@ def start(wallet_name: str, threads: int, rpc_url: str | None):
             click.echo(f"Status: {result.get('status', 'started')}")
             return result
         except NetworkError as e:
-            error(f"Error starting mining: {e}")
+            if "404" in str(e):
+                error("Mining RPC endpoint not found. Check blockchain-node RPC configuration.")
+            else:
+                error(f"Error starting mining: {e}")
             return None
         except Exception as e:
             error(f"Error: {e}")
