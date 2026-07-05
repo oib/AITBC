@@ -12,6 +12,7 @@ from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 from .cross_chain_reputation import CrossChainReputationService  # type: ignore[import-not-found]
 
@@ -165,9 +166,9 @@ class AgentCommunicationService:
         """Initialize the agent communication service"""
         logger.info("Initializing Agent Communication Service")
         await self._load_communication_data()
-        asyncio.create_task(self._process_message_queue())
-        asyncio.create_task(self._cleanup_expired_messages())
-        asyncio.create_task(self._cleanup_inactive_channels())
+        create_task_with_logging(self._process_message_queue(), name="agent_process_message_queue")
+        create_task_with_logging(self._cleanup_expired_messages(), name="agent_cleanup_expired_messages")
+        create_task_with_logging(self._cleanup_inactive_channels(), name="agent_cleanup_inactive_channels")
         logger.info("Agent Communication Service initialized")
 
     async def authorize_agent(self, agent_id: str) -> bool:

@@ -12,6 +12,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 from aitbc.exceptions import NetworkError
 from aitbc.network import AsyncAITBCHTTPClient
 
@@ -215,7 +216,7 @@ class BillingIntegrationScheduler:
             return
         self.running = True
         self.logger.info("Billing Integration scheduler started")
-        asyncio.create_task(self._sync_loop(sync_interval_hours))
+        create_task_with_logging(self._sync_loop(sync_interval_hours), name="billing_sync_loop")
 
     async def stop(self) -> None:
         """Stop the billing synchronization scheduler"""

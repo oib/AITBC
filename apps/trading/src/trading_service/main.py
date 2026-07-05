@@ -1084,6 +1084,7 @@ async def offer_subscription_websocket(websocket: _WebSocket):
         # Heartbeat + receive loop
         import asyncio as _asyncio
         import time as _time
+        from aitbc.async_tasks import create_task_with_logging
 
         async def _heartbeat() -> None:
             try:
@@ -1125,8 +1126,8 @@ async def offer_subscription_websocket(websocket: _WebSocket):
             except Exception:
                 pass
 
-        heartbeat_task = _asyncio.create_task(_heartbeat())
-        receive_task = _asyncio.create_task(_receive_loop())
+        heartbeat_task = create_task_with_logging(_heartbeat(), name="trading_offer_heartbeat")
+        receive_task = create_task_with_logging(_receive_loop(), name="trading_offer_receive")
         done, pending = await _asyncio.wait([heartbeat_task, receive_task], return_when=_asyncio.FIRST_COMPLETED)
         for task in pending:
             task.cancel()
