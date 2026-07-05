@@ -33,6 +33,8 @@ import httpx
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+from aitbc.async_tasks import create_task_with_logging
+
 from .offer_types import OfferEventType
 from .offer_client import OfferSyncClient
 from .offer_types import OfferDiscoveryRequest, SyncedOffer
@@ -222,7 +224,7 @@ class OfferSubscriptionClient:
             self._status[chain_id] = SubscriptionStatus.POLLING_FALLBACK
 
         # Start lease renewal in the background.
-        heartbeat_task = asyncio.create_task(self._heartbeat_loop(chain_id))
+        heartbeat_task = create_task_with_logging(self._heartbeat_loop(chain_id), name=f"subscription_heartbeat_{chain_id}")
         try:
             if self._status[chain_id] == SubscriptionStatus.SUBSCRIBED:
                 async for event in self._ws_stream(chain_id, filters):

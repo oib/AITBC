@@ -11,6 +11,7 @@ from enum import Enum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -193,7 +194,7 @@ class ContractUpgradeManager:
             self.upgrade_proposals[proposal_id] = proposal
 
             # Start voting process
-            asyncio.create_task(self._manage_voting_process(proposal_id))
+            create_task_with_logging(self._manage_voting_process(proposal_id), name="upgrade_manage_voting")
 
             log_info(f"Upgrade proposal created: {proposal_id} - {contract_type} {current_version} -> {new_version}")
             return True, "Upgrade proposal created successfully", proposal_id
@@ -263,7 +264,7 @@ class ContractUpgradeManager:
             log_info(f"Proposal {proposal_id} approved with {approval_rate:.2%} approval")
 
             # Schedule execution
-            asyncio.create_task(self._execute_upgrade(proposal_id))
+            create_task_with_logging(self._execute_upgrade(proposal_id), name="upgrade_execute")
         else:
             proposal.status = UpgradeStatus.REJECTED
             log_info(f"Proposal {proposal_id} rejected with {approval_rate:.2%} approval")
@@ -341,7 +342,7 @@ class ContractUpgradeManager:
                 )
 
                 # Start rollback window
-                asyncio.create_task(self._manage_rollback_window(proposal_id))
+                create_task_with_logging(self._manage_rollback_window(proposal_id), name="upgrade_rollback_window")
             else:
                 proposal.status = UpgradeStatus.FAILED
                 log_error(f"Upgrade execution failed: {proposal_id}")

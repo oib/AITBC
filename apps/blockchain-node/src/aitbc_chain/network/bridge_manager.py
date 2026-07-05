@@ -11,6 +11,7 @@ from enum import Enum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -344,7 +345,7 @@ class BridgeManager:
         """Start bridge manager"""
         self.running = True
         logger.info("Starting bridge manager")
-        tasks = [asyncio.create_task(self._request_timeout_monitor())]
+        tasks = [create_task_with_logging(self._request_timeout_monitor(), name="bridge_request_timeout_monitor")]
         try:
             await asyncio.gather(*tasks)
         except Exception as e:

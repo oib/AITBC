@@ -229,7 +229,7 @@ class BroadcastGossipBackend(GossipBackend):
                 logger.error("[BROKER SUB ERROR] Redis subscription error for topic %s: %s", topic, e)
             logger.info("[BROKER SUB] Redis subscription ended for topic: %s", topic)
 
-        task = asyncio.create_task(_run_subscription(), name=f"broadcast-sub:{topic}")
+        task = create_task_with_logging(_run_subscription(), name=f"broadcast-sub:{topic}")
         async with self._lock:
             self._tasks.add(task)
             metrics_registry.set_gauge("gossip_broadcast_subscribers_total", float(len(self._tasks)))
@@ -244,7 +244,7 @@ class BroadcastGossipBackend(GossipBackend):
                     self._tasks.discard(task)
                     metrics_registry.set_gauge("gossip_broadcast_subscribers_total", float(len(self._tasks)))
 
-            asyncio.create_task(_stop())
+            create_task_with_logging(_stop(), name="broadcast_unsubscribe_stop")
 
         return TopicSubscription(topic=topic, queue=queue, _unsubscribe=_unsubscribe)
 
@@ -349,7 +349,7 @@ class GossipBroker:
                     # Avoid crashing the drain loop on transient backend errors
                     await asyncio.sleep(0.001)
 
-        self._priority_task = asyncio.create_task(_drain(), name="gossip-priority-drain")
+        self._priority_task = create_task_with_logging(_drain(), name="gossip-priority-drain")
 
     async def publish(self, topic: str, message: Any) -> None:
         if not self._started:

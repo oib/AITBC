@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import os
 import time
 from collections import defaultdict
@@ -30,6 +29,7 @@ from .rpc.utils import set_poa_proposer
 from .rpc.websocket import router as websocket_router
 
 from aitbc.aitbc_logging import configure_logging
+from aitbc.async_tasks import create_task_with_logging
 
 marketplace_router: APIRouter | None
 try:
@@ -183,7 +183,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 )
                 proposer = PoAProposer(config=proposer_config, session_factory=session_scope)
                 set_poa_proposer(proposer)
-                asyncio.create_task(proposer.start())
+                create_task_with_logging(proposer.start(), name="poa_proposer_start")
                 proposers.append(proposer)
         except Exception as e:
             _app_logger.warning("Failed to initialize PoA proposer for mining: %s", e)
