@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from aitbc.aitbc_logging import configure_logging, get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 configure_logging(level="INFO", service_name="edge", to_file=True)
 
@@ -70,7 +71,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await init_db()
     logger.info("Database initialized")
     # v0.6.6: start coordinator health reporting background task
-    health_task = asyncio.create_task(_report_health_to_coordinator())
+    health_task = create_task_with_logging(_report_health_to_coordinator(), name="edge_health_report")
     # v0.6.6: Register edge node on blockchain
     await _register_edge_node_on_blockchain()
     yield

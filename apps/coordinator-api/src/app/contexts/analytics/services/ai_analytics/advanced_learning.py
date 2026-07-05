@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -185,10 +186,10 @@ class AdvancedLearningService:
         """Initialize the advanced learning service"""
         logger.info("Initializing Advanced Learning Service")
         await self._load_learning_data()
-        asyncio.create_task(self._monitor_learning_sessions())
-        asyncio.create_task(self._process_federated_learning())
-        asyncio.create_task(self._optimize_model_performance())
-        asyncio.create_task(self._cleanup_inactive_sessions())
+        create_task_with_logging(self._monitor_learning_sessions(), name="monitor_learning_sessions")
+        create_task_with_logging(self._process_federated_learning(), name="process_federated_learning")
+        create_task_with_logging(self._optimize_model_performance(), name="optimize_model_performance")
+        create_task_with_logging(self._cleanup_inactive_sessions(), name="cleanup_inactive_sessions")
         logger.info("Advanced Learning Service initialized")
 
     async def create_model(
