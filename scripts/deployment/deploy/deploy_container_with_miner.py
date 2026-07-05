@@ -145,9 +145,9 @@ WantedBy=multi-user.target
 
     print("\n✅ Deployment complete!")
     print("\n📊 Service URLs:")
-    print(f"  - Coordinator API: http://{container_ip}:8203")
-    print(f"  - Blockchain RPC: http://{container_ip}:8202")
-    print(f"  - Exchange: http://{container_ip}:8106")
+    print(f"  - Coordinator API: http://{container_ip}:8000")
+    print(f"  - Blockchain RPC: http://{container_ip}:9080")
+    print(f"  - Trade Exchange: http://{container_ip}:3002")
     print(f"  - GPU Registry: http://{container_ip}:8091")
     print("\n🔍 Check GPU status:")
     print(f"  curl http://{container_ip}:8091/miners/list")
