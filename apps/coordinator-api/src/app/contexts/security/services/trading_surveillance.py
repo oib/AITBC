@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -105,7 +106,7 @@ class TradingSurveillance:
             return
         self.monitoring_symbols = dict.fromkeys(symbols, True)
         self.is_monitoring = True
-        self.monitoring_task = asyncio.create_task(self._monitor_loop())
+        self.monitoring_task = create_task_with_logging(self._monitor_loop(), name="trading_surveillance_monitor")
         logger.info("🔍 Trading surveillance started for %s symbols", len(symbols))
 
     async def stop_monitoring(self) -> None:

@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -87,7 +88,7 @@ class MarketplaceMonitor:
         if self.is_running:
             return
         self.is_running = True
-        self._monitor_task = asyncio.create_task(self._metric_tick_loop())
+        self._monitor_task = create_task_with_logging(self._metric_tick_loop(), name="metric_tick_loop")
         logger.info("Marketplace Monitor started")
 
     async def stop(self) -> None:

@@ -13,6 +13,7 @@ from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 from ..protocols.communication import AgentMessage, MessageType
 from ..protocols.message_types import DiscoveryMessage
@@ -131,8 +132,8 @@ class AgentRegistry:
         """Start the registry service"""
         self.redis_client = redis_client.from_url(self.redis_url)
         await self._load_agents_from_redis()
-        asyncio.create_task(self._heartbeat_monitor())
-        asyncio.create_task(self._cleanup_inactive_agents())
+        create_task_with_logging(self._heartbeat_monitor(), name="heartbeat_monitor")
+        create_task_with_logging(self._cleanup_inactive_agents(), name="cleanup_inactive_agents")
         logger.info("Agent registry started")
 
     async def stop(self) -> None:

@@ -18,6 +18,7 @@ from typing import Any
 
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 from aitbc.http_client import RequestIDPropagatingClient
 
 logger = get_logger(__name__)
@@ -258,7 +259,7 @@ class OracleService:
         if self._running:
             return
         self._running = True
-        self._update_task = asyncio.create_task(self._update_loop())
+        self._update_task = create_task_with_logging(self._update_loop(), name="oracle_update_loop")
         logger.info("Oracle service started")
 
     def stop(self) -> None:
@@ -297,7 +298,7 @@ class OracleService:
         data = self.feed.set_manual_price(pair, price, confidence)
         for callback in self._subscribers:
             try:
-                asyncio.create_task(callback(data))
+                create_task_with_logging(callback(data), name="oracle_callback")
             except Exception as e:
                 logger.warning("Price subscriber error: %s", e)
         return data.to_dict()

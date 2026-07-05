@@ -456,7 +456,7 @@ class DynamicPricingEngine:
         if factors.market_volatility > self.circuit_breaker_threshold:
             self.circuit_breakers[resource_id] = True
             logger.warning("Triggered circuit breaker for %s due to high volatility", resource_id)
-            asyncio.create_task(self._reset_circuit_breaker(resource_id, 3600))
+            create_task_with_logging(self._reset_circuit_breaker(resource_id, 3600), name="reset_circuit_breaker")
         return price
 
     def _calculate_demand_multiplier(self, demand_level: float, strategy: PricingStrategy) -> float:
