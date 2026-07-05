@@ -7,6 +7,8 @@ from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from aitbc.async_tasks import create_task_with_logging
+
 from .bridges.base import BridgeAdapter, BridgeConfig, BridgeError, BridgeStatus, SettlementMessage, SettlementResult
 from .bridges.layerzero import LayerZeroAdapter
 from .storage import SettlementStorage
@@ -78,7 +80,7 @@ class BridgeManager:
                 )
 
                 # Start monitoring for completion
-                asyncio.create_task(self._monitor_settlement(result.message_id))
+                create_task_with_logging(self._monitor_settlement(result.message_id), name="monitor_settlement")
 
                 return result
 

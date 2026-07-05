@@ -16,6 +16,7 @@ from app.contexts.cross_chain.services.cross_chain.reputation import (
 )
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -167,9 +168,9 @@ class AgentCommunicationService:
         """Initialize the agent communication service"""
         logger.info("Initializing Agent Communication Service")
         await self._load_communication_data()
-        asyncio.create_task(self._process_message_queue())
-        asyncio.create_task(self._cleanup_expired_messages())
-        asyncio.create_task(self._cleanup_inactive_channels())
+        create_task_with_logging(self._process_message_queue(), name="process_message_queue")
+        create_task_with_logging(self._cleanup_expired_messages(), name="cleanup_expired_messages")
+        create_task_with_logging(self._cleanup_inactive_channels(), name="cleanup_inactive_channels")
         logger.info("Agent Communication Service initialized")
 
     async def authorize_agent(self, agent_id: str) -> bool:

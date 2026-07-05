@@ -10,6 +10,7 @@ from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -123,7 +124,7 @@ class BidStrategyEngine:
         logger.info("Initializing Bid Strategy Engine")
         await self._load_market_history()
         await self._load_agent_preferences()
-        asyncio.create_task(self._monitor_market_conditions())
+        create_task_with_logging(self._monitor_market_conditions(), name="monitor_market_conditions")
         logger.info("Bid Strategy Engine initialized")
 
     async def calculate_bid(

@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd  # type: ignore[import-untyped]
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -109,7 +110,7 @@ class AdvancedAnalytics:
             logger.warning("⚠️  Analytics monitoring already running")
             return
         self.is_monitoring = True
-        self.monitoring_task = asyncio.create_task(self._monitor_loop(symbols))  # type: ignore[assignment]
+        self.monitoring_task = create_task_with_logging(self._monitor_loop(symbols), name="monitor_loop")  # type: ignore[assignment]
         logger.info("📊 Analytics monitoring started for %s symbols", len(symbols))
 
     async def stop_monitoring(self) -> None:
