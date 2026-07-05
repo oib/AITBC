@@ -2,10 +2,10 @@
 HTTP client implementations for AITBC applications
 """
 
-import asyncio
 from datetime import UTC, datetime
 from typing import Any, cast
 
+import httpx
 import requests
 
 from ..aitbc_logging import get_logger
@@ -409,11 +409,8 @@ class AsyncAITBCHTTPClient:
         start_time = datetime.now(UTC)
 
         async def _make_request():
-            # Use requests in async context for now (can be upgraded to httpx later)
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(
-                None, lambda: requests.get(url, params=params, headers=req_headers, timeout=self.timeout)
-            )
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                return await client.get(url, params=params, headers=req_headers)
 
         try:
             response = await self.retry_policy.execute_async(_make_request)
@@ -431,7 +428,7 @@ class AsyncAITBCHTTPClient:
         except RetryError as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"GET request failed: {e}") from e
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"GET request failed: {e}") from e
 
@@ -469,10 +466,8 @@ class AsyncAITBCHTTPClient:
         start_time = datetime.now(UTC)
 
         async def _make_request():
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(
-                None, lambda: requests.post(url, data=data, json=json, headers=req_headers, timeout=self.timeout)
-            )
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                return await client.post(url, data=data, json=json, headers=req_headers)
 
         try:
             response = await self.retry_policy.execute_async(_make_request)
@@ -489,7 +484,7 @@ class AsyncAITBCHTTPClient:
         except RetryError as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"POST request failed: {e}") from e
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"POST request failed: {e}") from e
 
@@ -527,10 +522,8 @@ class AsyncAITBCHTTPClient:
         start_time = datetime.now(UTC)
 
         async def _make_request():
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(
-                None, lambda: requests.put(url, data=data, json=json, headers=req_headers, timeout=self.timeout)
-            )
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                return await client.put(url, data=data, json=json, headers=req_headers)
 
         try:
             response = await self.retry_policy.execute_async(_make_request)
@@ -547,7 +540,7 @@ class AsyncAITBCHTTPClient:
         except RetryError as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"PUT request failed: {e}") from e
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"PUT request failed: {e}") from e
 
@@ -580,10 +573,8 @@ class AsyncAITBCHTTPClient:
         start_time = datetime.now(UTC)
 
         async def _make_request():
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(
-                None, lambda: requests.delete(url, params=params, headers=req_headers, timeout=self.timeout)
-            )
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                return await client.delete(url, params=params, headers=req_headers)
 
         try:
             response = await self.retry_policy.execute_async(_make_request)
@@ -600,7 +591,7 @@ class AsyncAITBCHTTPClient:
         except RetryError as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"DELETE request failed: {e}") from e
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             self.circuit_breaker.record_failure()
             raise NetworkError(f"DELETE request failed: {e}") from e
 
