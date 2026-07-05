@@ -161,7 +161,8 @@ class TestExternalOracleClientHealth:
 
 
 class TestExternalOracleClientVerifyProof:
-    def test_verify_proof_success(self) -> None:
+    @pytest.mark.asyncio
+    async def test_verify_proof_success(self) -> None:
         client = ExternalOracleClient(endpoints=["http://oracle1"])
         oracle_resp = {
             "valid": True,
@@ -171,72 +172,77 @@ class TestExternalOracleClientVerifyProof:
             "verification_mode": "oracle",
         }
         mock_resp = _mock_response(json_data=oracle_resp)
-        with patch("httpx.Client") as mock_client_cls:
+        with patch("httpx.AsyncClient") as mock_client_cls:
             mock_client = MagicMock()
-            mock_client.post = MagicMock(return_value=mock_resp)
-            mock_client.__enter__ = MagicMock(return_value=mock_client)
-            mock_client.__exit__ = MagicMock(return_value=None)
+            mock_client.post = AsyncMock(return_value=mock_resp)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
-            result = client.verify_proof(_proof(), _block_header(), _finality_config())
+            result = await client.verify_proof(_proof(), _block_header(), _finality_config())
         assert result.valid is True
         assert result.verification_mode == VerificationMode.ORACLE
         assert result.block_height == 100
         assert result.finality_confirmed is True
 
-    def test_verify_proof_all_endpoints_fail(self) -> None:
+    @pytest.mark.asyncio
+    async def test_verify_proof_all_endpoints_fail(self) -> None:
         client = ExternalOracleClient(endpoints=["http://oracle1"])
-        with patch("httpx.Client") as mock_client_cls:
+        with patch("httpx.AsyncClient") as mock_client_cls:
             mock_client = MagicMock()
-            mock_client.post = MagicMock(side_effect=httpx.ConnectError("refused"))
-            mock_client.__enter__ = MagicMock(return_value=mock_client)
-            mock_client.__exit__ = MagicMock(return_value=None)
+            mock_client.post = AsyncMock(side_effect=httpx.ConnectError("refused"))
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
-            result = client.verify_proof(_proof(), _block_header(), _finality_config())
+            result = await client.verify_proof(_proof(), _block_header(), _finality_config())
         assert result.valid is False
         assert "unavailable" in result.error.lower() or "all oracle" in result.error.lower()
         assert result.verification_mode == VerificationMode.ORACLE
 
-    def test_verify_proof_no_endpoints(self) -> None:
+    @pytest.mark.asyncio
+    async def test_verify_proof_no_endpoints(self) -> None:
         client = ExternalOracleClient()
-        result = client.verify_proof(_proof(), _block_header(), _finality_config())
+        result = await client.verify_proof(_proof(), _block_header(), _finality_config())
         assert result.valid is False
         assert "unavailable" in result.error.lower() or "all oracle" in result.error.lower()
 
-    def test_verify_proof_failover_to_second_endpoint(self) -> None:
+    @pytest.mark.asyncio
+    async def test_verify_proof_failover_to_second_endpoint(self) -> None:
         client = ExternalOracleClient(endpoints=["http://oracle1", "http://oracle2"])
         oracle_resp = {"valid": True, "verification_mode": "oracle"}
         mock_resp = _mock_response(json_data=oracle_resp)
-        with patch("httpx.Client") as mock_client_cls:
+        with patch("httpx.AsyncClient") as mock_client_cls:
             mock_client = MagicMock()
-            mock_client.post = MagicMock(side_effect=[httpx.ConnectError("refused"), mock_resp])
-            mock_client.__enter__ = MagicMock(return_value=mock_client)
-            mock_client.__exit__ = MagicMock(return_value=None)
+            mock_client.post = AsyncMock(side_effect=[httpx.ConnectError("refused"), mock_resp])
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
-            result = client.verify_proof(_proof(), _block_header(), _finality_config())
+            result = await client.verify_proof(_proof(), _block_header(), _finality_config())
         assert result.valid is True
 
 
 class TestExternalOracleClientCheckFinality:
-    def test_check_finality_true(self) -> None:
+    @pytest.mark.asyncio
+    async def test_check_finality_true(self) -> None:
         client = ExternalOracleClient(endpoints=["http://oracle1"])
         mock_resp = _mock_response(json_data={"final": True})
-        with patch("httpx.Client") as mock_client_cls:
+        with patch("httpx.AsyncClient") as mock_client_cls:
             mock_client = MagicMock()
-            mock_client.post = MagicMock(return_value=mock_resp)
-            mock_client.__enter__ = MagicMock(return_value=mock_client)
-            mock_client.__exit__ = MagicMock(return_value=None)
+            mock_client.post = AsyncMock(return_value=mock_resp)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
-            assert client.check_finality(_block_header(), _finality_config(), 100) is True
+            assert await client.check_finality(_block_header(), _finality_config(), 100) is True
 
-    def test_check_finality_false_on_failure(self) -> None:
+    @pytest.mark.asyncio
+    async def test_check_finality_false_on_failure(self) -> None:
         client = ExternalOracleClient(endpoints=["http://oracle1"])
-        with patch("httpx.Client") as mock_client_cls:
+        with patch("httpx.AsyncClient") as mock_client_cls:
             mock_client = MagicMock()
-            mock_client.post = MagicMock(side_effect=httpx.ConnectError("refused"))
-            mock_client.__enter__ = MagicMock(return_value=mock_client)
-            mock_client.__exit__ = MagicMock(return_value=None)
+            mock_client.post = AsyncMock(side_effect=httpx.ConnectError("refused"))
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
-            assert client.check_finality(_block_header(), _finality_config(), 100) is False
+            assert await client.check_finality(_block_header(), _finality_config(), 100) is False
 
 
 # ---------------------------------------------------------------------------
@@ -245,30 +251,33 @@ class TestExternalOracleClientCheckFinality:
 
 
 class TestOracleFallbackPolicy:
-    def test_oracle_healthy_uses_oracle(self) -> None:
+    @pytest.mark.asyncio
+    async def test_oracle_healthy_uses_oracle(self) -> None:
         oracle = ExternalOracleClient(endpoints=["http://oracle1"])
         in_process = InProcessVerifier()
         policy = OracleFallbackPolicy(oracle, in_process)
         policy._oracle_healthy = True
 
         oracle_result = ProofVerificationResult(valid=True, verification_mode=VerificationMode.ORACLE)
-        with patch.object(oracle, "verify_proof", return_value=oracle_result):
-            result = policy.verify_with_fallback(_proof(), _block_header(), _finality_config())
+        with patch.object(oracle, "verify_proof", new_callable=AsyncMock, return_value=oracle_result):
+            result = await policy.verify_with_fallback(_proof(), _block_header(), _finality_config())
         assert result.valid is True
         assert policy.last_mode == VerificationMode.ORACLE
 
-    def test_oracle_unhealthy_uses_in_process(self) -> None:
+    @pytest.mark.asyncio
+    async def test_oracle_unhealthy_uses_in_process(self) -> None:
         oracle = ExternalOracleClient(endpoints=["http://oracle1"])
         in_process = InProcessVerifier()
         policy = OracleFallbackPolicy(oracle, in_process)
         policy._oracle_healthy = False
 
-        with patch.object(oracle, "verify_proof") as mock_oracle:
-            policy.verify_with_fallback(_proof(), _block_header(), _finality_config())
+        with patch.object(oracle, "verify_proof", new_callable=AsyncMock) as mock_oracle:
+            await policy.verify_with_fallback(_proof(), _block_header(), _finality_config())
         mock_oracle.assert_not_called()
         assert policy.last_mode == VerificationMode.IN_PROCESS
 
-    def test_oracle_infrastructure_error_falls_back(self) -> None:
+    @pytest.mark.asyncio
+    async def test_oracle_infrastructure_error_falls_back(self) -> None:
         oracle = ExternalOracleClient(endpoints=["http://oracle1"])
         in_process = InProcessVerifier()
         policy = OracleFallbackPolicy(oracle, in_process)
@@ -279,11 +288,12 @@ class TestOracleFallbackPolicy:
             error="All oracle endpoints unavailable or failed",
             verification_mode=VerificationMode.ORACLE,
         )
-        with patch.object(oracle, "verify_proof", return_value=infra_error):
-            policy.verify_with_fallback(_proof(), _block_header(), _finality_config())
+        with patch.object(oracle, "verify_proof", new_callable=AsyncMock, return_value=infra_error):
+            await policy.verify_with_fallback(_proof(), _block_header(), _finality_config())
         assert policy.last_mode == VerificationMode.IN_PROCESS
 
-    def test_oracle_genuine_failure_does_not_fall_back(self) -> None:
+    @pytest.mark.asyncio
+    async def test_oracle_genuine_failure_does_not_fall_back(self) -> None:
         """A genuine verification failure (not infra error) is returned, not fallen back from."""
         oracle = ExternalOracleClient(endpoints=["http://oracle1"])
         in_process = InProcessVerifier()
@@ -295,32 +305,34 @@ class TestOracleFallbackPolicy:
             error="Merkle proof verification failed",
             verification_mode=VerificationMode.ORACLE,
         )
-        with patch.object(oracle, "verify_proof", return_value=genuine_fail):
-            with patch.object(in_process, "verify_proof") as mock_inproc:
-                result = policy.verify_with_fallback(_proof(), _block_header(), _finality_config())
+        with patch.object(oracle, "verify_proof", new_callable=AsyncMock, return_value=genuine_fail):
+            with patch.object(in_process, "verify_proof", new_callable=AsyncMock) as mock_inproc:
+                result = await policy.verify_with_fallback(_proof(), _block_header(), _finality_config())
         mock_inproc.assert_not_called()
         assert result.valid is False
         assert result.error == "Merkle proof verification failed"
         assert policy.last_mode == VerificationMode.ORACLE
 
-    def test_check_finality_with_fallback_oracle_true(self) -> None:
+    @pytest.mark.asyncio
+    async def test_check_finality_with_fallback_oracle_true(self) -> None:
         oracle = ExternalOracleClient(endpoints=["http://oracle1"])
         in_process = InProcessVerifier()
         policy = OracleFallbackPolicy(oracle, in_process)
         policy._oracle_healthy = True
 
-        with patch.object(oracle, "check_finality", return_value=True):
-            assert policy.check_finality_with_fallback(_block_header(), _finality_config(), 100) is True
+        with patch.object(oracle, "check_finality", new_callable=AsyncMock, return_value=True):
+            assert await policy.check_finality_with_fallback(_block_header(), _finality_config(), 100) is True
 
-    def test_check_finality_with_fallback_oracle_false_uses_in_process(self) -> None:
+    @pytest.mark.asyncio
+    async def test_check_finality_with_fallback_oracle_false_uses_in_process(self) -> None:
         oracle = ExternalOracleClient(endpoints=["http://oracle1"])
         in_process = InProcessVerifier()
         policy = OracleFallbackPolicy(oracle, in_process)
         policy._oracle_healthy = True
 
-        with patch.object(oracle, "check_finality", return_value=False):
-            with patch.object(in_process, "check_finality", return_value=True) as mock_inproc:
-                assert policy.check_finality_with_fallback(_block_header(), _finality_config(), 100) is True
+        with patch.object(oracle, "check_finality", new_callable=AsyncMock, return_value=False):
+            with patch.object(in_process, "check_finality", new_callable=AsyncMock, return_value=True) as mock_inproc:
+                assert await policy.check_finality_with_fallback(_block_header(), _finality_config(), 100) is True
         mock_inproc.assert_called_once()
 
     def test_check_oracle_health_updates_status(self) -> None:
