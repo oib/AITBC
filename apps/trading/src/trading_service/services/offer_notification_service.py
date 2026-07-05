@@ -12,6 +12,7 @@ import asyncio
 import logging
 from typing import Any
 
+from aitbc.async_tasks import create_task_with_logging
 from aitbc.trading.subscription_types import OfferEvent, OfferNotification, OfferSubscription
 
 logger = logging.getLogger(__name__)
@@ -102,7 +103,7 @@ class OfferNotificationService:
             except asyncio.CancelledError:
                 pass
 
-        self._flush_tasks[subscriber_id] = asyncio.create_task(_flush(), name=f"offer-debounce-{subscriber_id}")
+        self._flush_tasks[subscriber_id] = create_task_with_logging(_flush(), name=f"offer-debounce-{subscriber_id}")
 
     async def _flush_batch(self, subscriber_id: str) -> None:
         """Flush pending events as a batch notification to the subscriber."""

@@ -9,6 +9,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.async_tasks import create_task_with_logging
 from aitbc.rate_limiting import RateLimitMiddleware
 
 from .api_jsonrpc import router as jsonrpc_router
@@ -140,10 +141,9 @@ async def _import_file_wallets() -> None:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     init_db()
     start_monitoring()
-    import asyncio
 
-    asyncio.create_task(_import_genesis_wallet_from_env())
-    asyncio.create_task(_import_file_wallets())
+    create_task_with_logging(_import_genesis_wallet_from_env(), name="import_genesis_wallet")
+    create_task_with_logging(_import_file_wallets(), name="import_file_wallets")
     yield
 
 
