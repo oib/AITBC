@@ -10,10 +10,23 @@ from pydantic import BaseModel, Field
 from aitbc.rate_limiting import rate_limit
 
 from ...logger import get_logger
+from ..utils import get_supported_chains, validate_chain_id
 
 _logger = get_logger(__name__)
 
 router = APIRouter(prefix="/bridge", tags=["bridge"])
+
+
+def _validate_chain_id(chain_id: str) -> None:
+    """Validate chain_id against the supported_chains whitelist.
+
+    Raises HTTPException(400) if the chain_id is not in the whitelist.
+    """
+    if not validate_chain_id(chain_id):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -126,6 +139,9 @@ async def bridge_lock_route(request: Request, lock_data: BridgeLockRequest) -> d
     """Initiate a cross-chain bridge transfer by locking funds"""
     if bridge_lock is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
+    _validate_chain_id(lock_data.target_chain)
+    if lock_data.source_chain:
+        _validate_chain_id(lock_data.source_chain)
     return await bridge_lock(request, lock_data.model_dump(exclude_none=True))
 
 
@@ -153,6 +169,8 @@ async def list_pending_transfers_route(request: Request, chain_id: str | None = 
     """List all pending cross-chain transfers"""
     if list_pending_transfers is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
+    if chain_id:
+        _validate_chain_id(chain_id)
     return await list_pending_transfers(request, chain_id)
 
 
@@ -171,6 +189,7 @@ async def get_bridge_balance_route(request: Request, chain_id: str) -> dict[str,
     """Get total locked amount for a chain (sum of pending/locked transfers)"""
     if get_bridge_balance is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
+    _validate_chain_id(chain_id)
     return await get_bridge_balance(request, chain_id)
 
 
@@ -216,6 +235,7 @@ async def register_validator_route(request: Request, reg_data: ValidatorRegister
     """Register a validator for bridge multi-sig operations (v0.7.1)"""
     if register_validator is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
+    _validate_chain_id(reg_data.chain_id)
     return await register_validator(request, reg_data.model_dump(exclude_none=True))
 
 
@@ -225,6 +245,7 @@ async def get_validator_set_route(request: Request, chain_id: str) -> dict[str, 
     """Get the validator set for a chain (v0.7.1). Optional ?epoch= query param."""
     if get_validator_set is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
+    _validate_chain_id(chain_id)
     return await get_validator_set(request, chain_id)
 
 
@@ -243,6 +264,7 @@ async def store_block_header_route(request: Request, header_data: BlockHeaderReq
     """Store a remote chain block header for bridge proof verification (v0.7.2)"""
     if store_block_header is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
+    _validate_chain_id(header_data.chain_id)
     return await store_block_header(request, header_data.model_dump(exclude_none=True))
 
 
@@ -252,6 +274,7 @@ async def get_block_header_route(request: Request, chain_id: str, height: int) -
     """Get a stored block header with finality status (v0.7.2)"""
     if get_block_header is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
+    _validate_chain_id(chain_id)
     return await get_block_header(request, chain_id, height)
 
 
