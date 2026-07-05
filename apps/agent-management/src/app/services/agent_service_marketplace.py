@@ -12,6 +12,7 @@ from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -200,10 +201,10 @@ class AgentServiceMarketplace:
         """Initialize the marketplace service"""
         logger.info("Initializing Agent Service Marketplace")
         await self._load_marketplace_data()
-        asyncio.create_task(self._monitor_request_timeouts())
-        asyncio.create_task(self._update_marketplace_analytics())
-        asyncio.create_task(self._process_service_recommendations())
-        asyncio.create_task(self._maintain_guild_reputation())
+        create_task_with_logging(self._monitor_request_timeouts(), name="agent_marketplace_monitor_timeouts")
+        create_task_with_logging(self._update_marketplace_analytics(), name="agent_marketplace_update_analytics")
+        create_task_with_logging(self._process_service_recommendations(), name="agent_marketplace_process_recommendations")
+        create_task_with_logging(self._maintain_guild_reputation(), name="agent_marketplace_maintain_guild_reputation")
         logger.info("Agent Service Marketplace initialized")
 
     async def list_service(

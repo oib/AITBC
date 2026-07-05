@@ -10,6 +10,7 @@ from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 from .bid_strategy_engine import BidResult  # type: ignore[import-not-found]
 from .task_decomposition import (  # type: ignore[import-not-found]
@@ -140,8 +141,8 @@ class AgentOrchestrator:
         """Initialize the orchestrator"""
         logger.info("Initializing Agent Orchestrator")
         await self._load_agent_capabilities()
-        asyncio.create_task(self._monitor_executions())
-        asyncio.create_task(self._update_agent_status())
+        create_task_with_logging(self._monitor_executions(), name="agent_monitor_executions")
+        create_task_with_logging(self._update_agent_status(), name="agent_update_status")
         logger.info("Agent Orchestrator initialized")
 
     async def orchestrate_task(
