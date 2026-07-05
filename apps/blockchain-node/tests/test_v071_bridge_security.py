@@ -348,13 +348,14 @@ class TestValidatorRegistration:
         assert response.status_code == 403
 
     def test_register_validator_missing_fields(self, rpc_setup) -> None:
-        """POST /bridge/validators/register with missing fields returns 400."""
+        """POST /bridge/validators/register with missing fields returns 422 (Pydantic validation)."""
         bridge, client = rpc_setup
         response = client.post(
             "/bridge/validators/register",
             json={"chain_id": "chain-a"},
         )
-        assert response.status_code == 400
+        # Pydantic validation rejects missing required fields (address, public_key, signature)
+        assert response.status_code == 422
 
 
 # ---------------------------------------------------------------------------
