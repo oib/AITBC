@@ -415,3 +415,9 @@ class OfferSubscriptionClient:
         if self._http_client is not None:
             await self._http_client.aclose()
             self._http_client = None
+
+    def __del__(self) -> None:
+        if hasattr(self, "_http_client") and self._http_client is not None:
+            import warnings
+
+            warnings.warn(f"{self.__class__.__name__} was not properly closed", stacklevel=2)

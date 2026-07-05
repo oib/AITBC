@@ -14,9 +14,23 @@ class GPUServiceClient:
         self.base_url = f"http://{settings.gpu_service_host}:{settings.gpu_service_port}"
         self.client = httpx.AsyncClient(timeout=30.0)
 
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+
     async def close(self) -> None:
         """Close the HTTP client"""
-        await self.client.aclose()
+        if self.client:
+            await self.client.aclose()
+            self.client = None
+
+    def __del__(self):
+        if hasattr(self, "client") and self.client is not None:
+            import warnings
+
+            warnings.warn(f"{self.__class__.__name__} was not properly closed", stacklevel=2)
 
     async def scan_gpus(self, miner_id: str) -> dict[str, Any]:
         """Scan GPUs via GPU service"""
