@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -280,7 +281,7 @@ class GovernanceService:
         try:
             import httpx
 
-            blockchain_rpc_url = "http://localhost:8202"
+            blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
             response = httpx.get(f"{blockchain_rpc_url}/rpc/accounts/{address}")
             if response.status_code == 200:
                 account_data = response.json()

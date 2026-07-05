@@ -9,6 +9,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
+from ..config import settings
 from ..contexts.infrastructure.domain import Job
 from .bridges.base import BridgeStatus, SettlementMessage, SettlementResult
 from .manager import BridgeManager
@@ -163,7 +164,7 @@ class SettlementHook:
         try:
             import httpx
 
-            response = httpx.get("http://localhost:8202/rpc/chain")
+            response = httpx.get(f"{settings.blockchain_rpc_url}/rpc/chain")
             if response.status_code == 200:
                 chain_data = response.json()
                 return chain_data.get("chain_id", 1)  # type: ignore[no-any-return]
