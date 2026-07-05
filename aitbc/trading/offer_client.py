@@ -148,3 +148,9 @@ class OfferSyncClient:
         if self._client:
             await self._client.aclose()
             self._client = None
+
+    def __del__(self) -> None:
+        if hasattr(self, "_client") and self._client is not None:
+            import warnings
+
+            warnings.warn(f"{self.__class__.__name__} was not properly closed", stacklevel=2)
