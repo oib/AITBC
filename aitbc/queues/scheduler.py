@@ -10,6 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 import contextlib
 
 logger = get_logger(__name__)
@@ -61,7 +62,7 @@ class JobScheduler:
         if self.running:
             return
         self.running = True
-        self.task = asyncio.create_task(self._run_scheduler())
+        self.task = create_task_with_logging(self._run_scheduler(), name="queue_scheduler")
 
     async def stop(self) -> None:
         """Stop the scheduler"""

@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from aitbc.async_tasks import create_task_with_logging
+
 from ..config import settings
 from .multi_validator_poa import MultiValidatorPoA
 
@@ -360,7 +362,7 @@ class PBFTConsensus:
         timeout = settings.consensus_view_change_timeout_seconds
         # Exponential backoff: timeout * 2^view_change_count, capped at 300s
         timeout = min(timeout * (2**self._view_change_count), 300)
-        self._consensus_timer = asyncio.create_task(self._on_timeout(timeout))
+        self._consensus_timer = create_task_with_logging(self._on_timeout(timeout), name="pbft_consensus_timer")
 
     async def _on_timeout(self, delay: float) -> None:
         """H6: callback fired when the consensus timer elapses — triggers a view change."""
