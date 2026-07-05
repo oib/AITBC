@@ -58,7 +58,7 @@ def create_agent(name: str, agent_type: str, capabilities: dict, coordinator_url
             "address": agent.identity.address,
             "agent_type": agent_type,
             "capabilities": capabilities,
-            "coordinator_url": coordinator_url or (config.coordinator_url if config else ""),
+            "coordinator_url": coordinator_url or (config.agent_coordinator_url if config else ""),
         }
 
         with open(config_file, "w") as f:
@@ -81,7 +81,7 @@ async def register_agent(agent_id: str, coordinator_url: str = None) -> dict:
     """Register an agent with the coordinator"""
     if coordinator_url is None:
         config = get_config()
-        coordinator_url = config.coordinator_url
+        coordinator_url = config.agent_coordinator_url
     if Agent is None:
         return {"error": "Agent SDK not available"}
 
@@ -699,7 +699,7 @@ try:
         config = get_config()
 
         try:
-            http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+            http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
             job_data = http_client.get(f"/api/v1/jobs/{job_id}")
             success(f"Job {job_id}:")
             output(job_data, ctx.obj.get("output_format", "table"))
@@ -717,7 +717,7 @@ try:
         config = get_config()
 
         try:
-            http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+            http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
             params = {"limit": limit}
             if status:
                 params["status"] = status
@@ -740,7 +740,7 @@ try:
         config = get_config()
 
         try:
-            http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+            http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
             job_data = {"task": task, "priority": priority}
             if model:
                 job_data["model"] = model
@@ -761,7 +761,7 @@ try:
         config = get_config()
 
         try:
-            http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+            http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
             result = http_client.delete(f"/api/v1/jobs/{job_id}")
             success(f"Job {job_id} cancelled")
             output(result, ctx.obj.get("output_format", "table"))
