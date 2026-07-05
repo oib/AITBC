@@ -11,6 +11,7 @@ from enum import Enum
 from typing import Any
 
 from .aitbc_logging import get_logger
+from .async_tasks import create_task_with_logging
 import contextlib
 
 logger = get_logger(__name__)
@@ -331,7 +332,7 @@ class AlertManager:
         if self._running:
             return
         self._running = True
-        self._task = asyncio.create_task(self._run_checks())
+        self._task = create_task_with_logging(self._run_checks(), name="alerting_checks")
         logger.info("Alert manager started")
 
     async def stop(self) -> None:

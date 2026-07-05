@@ -13,6 +13,7 @@ from typing import Any
 from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 from aitbc.network.port_allocator import PortAllocator
 
 from ..base_models import Block
@@ -318,7 +319,7 @@ class MultiChainManager:
         """Start multi-chain manager"""
         self.running = True
         logger.info("Starting multi-chain manager")
-        tasks = [asyncio.create_task(self._chain_health_check())]
+        tasks = [create_task_with_logging(self._chain_health_check(), name="multi_chain_health_check")]
         try:
             await asyncio.gather(*tasks)
         except Exception as e:

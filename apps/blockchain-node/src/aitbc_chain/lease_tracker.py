@@ -16,6 +16,7 @@ def _fmt_expiry(expiry: float) -> str:
     return datetime.fromtimestamp(expiry, UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
+from aitbc.async_tasks import create_task_with_logging
 from .logger import get_logger
 
 logger = get_logger(__name__)
@@ -58,7 +59,7 @@ class LeaseTracker:
             pong = await asyncio.to_thread(self._redis.ping)
             logger.info("Redis ping successful: %s", pong)
             self._running = True
-            self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+            self._cleanup_task = create_task_with_logging(self._cleanup_loop(), name="lease_tracker_cleanup")
             logger.info("Lease tracker started successfully")
         except Exception as e:
             logger.error("Failed to start lease tracker: %s", e)

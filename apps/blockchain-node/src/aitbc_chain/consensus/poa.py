@@ -12,6 +12,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlmodel import Session, select
 
+from aitbc.async_tasks import create_task_with_logging
 from aitbc.network import SharedHttpClient
 from aitbc.parallel import DependencyGraph, ParallelExecutor
 
@@ -160,7 +161,7 @@ class PoAProposer:
             self._last_block_timestamp = head.timestamp
             self._logger.info("Initialized last block timestamp from head", extra={"height": head.height})
         self._stop_event.clear()
-        self._task = asyncio.create_task(self._run_loop())
+        self._task = create_task_with_logging(self._run_loop(), name="poa_proposer_loop")
 
     async def stop(self) -> None:
         if self._task is None:
