@@ -277,7 +277,7 @@ class AdvancedLearningService:
             self.learning_sessions[session_id] = session
             model.status = LearningStatus.TRAINING
             model.last_updated = datetime.now(UTC)
-            asyncio.create_task(self._execute_learning_session(session_id))
+            create_task_with_logging(self._execute_learning_session(session_id), name="execute_learning_session")
             logger.info("Learning session started: %s", session_id)
             return session
         except Exception as e:
@@ -317,7 +317,7 @@ class AdvancedLearningService:
                 checkpoint_frequency=10,
             )
             self.learning_sessions[session_id] = session
-            asyncio.create_task(self._execute_meta_learning(session_id, algorithm))
+            create_task_with_logging(self._execute_meta_learning(session_id, algorithm), name="execute_meta_learning")
             logger.info("Meta-learning started: %s", session_id)
             return session_id
         except Exception as e:
@@ -357,7 +357,7 @@ class AdvancedLearningService:
                 checkpoint_frequency=5,
             )
             self.learning_sessions[session_id] = session
-            asyncio.create_task(self._execute_federated_learning(session_id, algorithm))
+            create_task_with_logging(self._execute_federated_learning(session_id, algorithm), name="execute_federated_learning")
             logger.info("Federated learning setup: %s", session_id)
             return session_id
         except Exception as e:

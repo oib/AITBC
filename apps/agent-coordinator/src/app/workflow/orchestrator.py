@@ -12,6 +12,7 @@ from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 redis_client: Any = None
 try:
@@ -253,7 +254,7 @@ class WorkflowOrchestrator:
         )
         await self._save_workflow_execution(execution)
         self.active_executions[execution_id] = execution
-        asyncio.create_task(self._execute_workflow_async(execution))
+        create_task_with_logging(self._execute_workflow_async(execution), name="execute_workflow_async")
         logger.info("Started workflow execution %s for workflow %s", execution_id, workflow_id)
         return execution
 
