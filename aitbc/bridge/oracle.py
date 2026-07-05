@@ -74,7 +74,7 @@ class OracleClient(ABC):
     """
 
     @abstractmethod
-    def verify_proof(
+    async def verify_proof(
         self,
         proof: dict[str, Any],
         block_header: BridgeBlockHeader,
@@ -95,7 +95,7 @@ class OracleClient(ABC):
         ...
 
     @abstractmethod
-    def check_finality(
+    async def check_finality(
         self,
         block_header: BridgeBlockHeader,
         finality_config: FinalityConfig,
@@ -142,7 +142,7 @@ class InProcessVerifier(OracleClient):
     def mode(self) -> VerificationMode:
         return VerificationMode.IN_PROCESS
 
-    def verify_proof(
+    async def verify_proof(
         self,
         proof: dict[str, Any],
         block_header: BridgeBlockHeader,
@@ -203,7 +203,7 @@ class InProcessVerifier(OracleClient):
             verification_mode=VerificationMode.IN_PROCESS,
         )
 
-    def check_finality(
+    async def check_finality(
         self,
         block_header: BridgeBlockHeader,
         finality_config: FinalityConfig,
@@ -249,9 +249,11 @@ class ExternalOracleClient(OracleClient):
     marked unhealthy for ``unhealthy_cooldown_seconds`` (default 60s)
     before being retried.
 
-    This client is synchronous (matching the ``OracleClient`` ABC).
-    HTTP calls use a short-lived ``httpx.Client`` per request to avoid
-    holding connections across the verification boundary.
+    This client is asynchronous (matching the ``OracleClient`` ABC).
+    HTTP calls use a short-lived ``httpx.AsyncClient`` per request to avoid
+    holding connections across the verification boundary. The health check
+    (``is_healthy``) remains synchronous because it runs in a background
+    thread via ``OracleFallbackPolicy.start_health_check``.
     """
 
     def __init__(
@@ -286,12 +288,12 @@ class ExternalOracleClient(OracleClient):
         self._unhealthy_until[endpoint] = time.time() + self._unhealthy_cooldown
         logger.warning("Oracle endpoint %s marked unhealthy for %ss", endpoint, self._unhealthy_cooldown)
 
-    def _post_json(self, endpoint: str, path: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+    async def _post_json(self, endpoint: str, path: str, payload: dict[str, Any]) -> dict[str, Any] | None:
         """POST JSON to an oracle endpoint. Returns None on failure."""
         url = f"{endpoint}{path}"
         try:
-            with httpx.Client(timeout=self._timeout) as client:
-                resp = client.post(url, json=payload)
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                resp = await client.post(url, json=payload)
                 resp.raise_for_status()
                 return cast(dict[str, Any], resp.json())
         except Exception as e:
@@ -316,7 +318,7 @@ class ExternalOracleClient(OracleClient):
                 self._mark_unhealthy(endpoint)
         return False
 
-    def verify_proof(
+    async def verify_proof(
         self,
         proof: dict[str, Any],
         block_header: BridgeBlockHeader,
@@ -337,7 +339,7 @@ class ExternalOracleClient(OracleClient):
             "finality_config": _finality_config_to_dict(finality_config),
         }
         for endpoint in self._healthy_endpoints():
-            data = self._post_json(endpoint, "/v1/verify-proof", payload)
+            data = await self._post_json(endpoint, "/v1/verify-proof", payload)
             if data is None:
                 continue
             return _result_from_dict(data, block_header)
@@ -349,7 +351,7 @@ class ExternalOracleClient(OracleClient):
             verification_mode=VerificationMode.ORACLE,
         )
 
-    def check_finality(
+    async def check_finality(
         self,
         block_header: BridgeBlockHeader,
         finality_config: FinalityConfig,
@@ -366,7 +368,7 @@ class ExternalOracleClient(OracleClient):
             "transfer_amount": transfer_amount,
         }
         for endpoint in self._healthy_endpoints():
-            data = self._post_json(endpoint, "/v1/check-finality", payload)
+            data = await self._post_json(endpoint, "/v1/check-finality", payload)
             if data is None:
                 continue
             return bool(data.get("final", False))
@@ -523,7 +525,7 @@ class OracleFallbackPolicy:
                 logger.error("Oracle health check loop error: %s", e)
             stop_event.wait(self._health_check_interval)
 
-    def verify_with_fallback(
+    async def verify_with_fallback(
         self,
         proof: dict[str, Any],
         block_header: BridgeBlockHeader,
@@ -544,7 +546,7 @@ class OracleFallbackPolicy:
         when the oracle is unreachable or returns an infrastructure error.
         """
         if self._oracle_healthy:
-            result = self._oracle.verify_proof(proof, block_header, finality_config)
+            result = await self._oracle.verify_proof(proof, block_header, finality_config)
             # Infrastructure error → fallback. Genuine verification failure → return.
             if result.valid:
                 self._last_mode = VerificationMode.ORACLE
@@ -557,11 +559,11 @@ class OracleFallbackPolicy:
                 self._last_mode = VerificationMode.ORACLE
                 return result
         # In-process fallback.
-        result = self._in_process.verify_proof(proof, block_header, finality_config)
+        result = await self._in_process.verify_proof(proof, block_header, finality_config)
         self._last_mode = VerificationMode.IN_PROCESS
         return result
 
-    def check_finality_with_fallback(
+    async def check_finality_with_fallback(
         self,
         block_header: BridgeBlockHeader,
         finality_config: FinalityConfig,
@@ -569,10 +571,10 @@ class OracleFallbackPolicy:
     ) -> bool:
         """Check finality, falling back from oracle to in-process."""
         if self._oracle_healthy:
-            result = self._oracle.check_finality(block_header, finality_config, transfer_amount)
+            result = await self._oracle.check_finality(block_header, finality_config, transfer_amount)
             if result:
                 return True
             # Oracle returned False — could be genuine or infrastructure.
             # Fall back to in-process for a definitive answer.
             logger.debug("Oracle finality check returned False, verifying in-process")
-        return self._in_process.check_finality(block_header, finality_config, transfer_amount)
+        return await self._in_process.check_finality(block_header, finality_config, transfer_amount)
