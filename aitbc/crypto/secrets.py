@@ -4,6 +4,7 @@ Secret management with encryption, rotation, and expiration
 
 import os
 import secrets
+import threading
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -43,6 +44,7 @@ class SecretManager:
 
         self.secrets: dict[str, dict[str, Any]] = {}
         self.default_ttl_hours = default_ttl_hours
+        self._lock = threading.Lock()
 
     def set_secret(self, key: str, value: str, ttl_hours: int | None = None) -> None:
         """Store an encrypted secret with expiration tracking
@@ -55,13 +57,14 @@ class SecretManager:
         ttl_hours = ttl_hours or self.default_ttl_hours
         encrypted = self.fernet.encrypt(value.encode("utf-8"))
 
-        self.secrets[key] = {
-            "encrypted_value": encrypted.decode("utf-8"),
-            "created_at": datetime.now(UTC).isoformat(),
-            "expires_at": (datetime.now(UTC) + timedelta(hours=ttl_hours)).isoformat(),
-            "version": 1,
-            "rotated_at": None,
-        }
+        with self._lock:
+            self.secrets[key] = {
+                "encrypted_value": encrypted.decode("utf-8"),
+                "created_at": datetime.now(UTC).isoformat(),
+                "expires_at": (datetime.now(UTC) + timedelta(hours=ttl_hours)).isoformat(),
+                "version": 1,
+                "rotated_at": None,
+            }
 
     def get_secret(self, key: str) -> str | None:
         """Retrieve and decrypt a secret, checking expiration
@@ -99,30 +102,32 @@ class SecretManager:
         Returns:
             True if rotation successful, False if secret not found
         """
-        if key not in self.secrets:
-            return False
+        with self._lock:
+            if key not in self.secrets:
+                return False
 
-        old_secret = self.secrets[key]
-        ttl_hours = ttl_hours or self.default_ttl_hours
+            old_secret = self.secrets[key]
+            ttl_hours = ttl_hours or self.default_ttl_hours
 
-        encrypted = self.fernet.encrypt(new_value.encode("utf-8"))
+            encrypted = self.fernet.encrypt(new_value.encode("utf-8"))
 
-        self.secrets[key] = {
-            "encrypted_value": encrypted.decode("utf-8"),
-            "created_at": old_secret["created_at"],  # Keep original creation time
-            "expires_at": (datetime.now(UTC) + timedelta(hours=ttl_hours)).isoformat(),
-            "version": old_secret["version"] + 1,
-            "rotated_at": datetime.now(UTC).isoformat(),
-        }
+            self.secrets[key] = {
+                "encrypted_value": encrypted.decode("utf-8"),
+                "created_at": old_secret["created_at"],  # Keep original creation time
+                "expires_at": (datetime.now(UTC) + timedelta(hours=ttl_hours)).isoformat(),
+                "version": old_secret["version"] + 1,
+                "rotated_at": datetime.now(UTC).isoformat(),
+            }
 
-        return True
+            return True
 
     def delete_secret(self, key: str) -> bool:
         """Delete a secret"""
-        if key in self.secrets:
-            del self.secrets[key]
-            return True
-        return False
+        with self._lock:
+            if key in self.secrets:
+                del self.secrets[key]
+                return True
+            return False
 
     def list_secrets(self, include_expired: bool = False) -> list[str]:
         """List all secret keys
@@ -168,13 +173,16 @@ class SecretManager:
         Returns:
             Number of secrets cleaned up
         """
-        current_time = datetime.now(UTC)
-        expired_keys = [key for key, data in self.secrets.items() if current_time > datetime.fromisoformat(data["expires_at"])]
+        with self._lock:
+            current_time = datetime.now(UTC)
+            expired_keys = [
+                key for key, data in self.secrets.items() if current_time > datetime.fromisoformat(data["expires_at"])
+            ]
 
-        for key in expired_keys:
-            del self.secrets[key]
+            for key in expired_keys:
+                del self.secrets[key]
 
-        return len(expired_keys)
+            return len(expired_keys)
 
     def rotate_encryption_key(self, new_key: str) -> bool:
         """Rotate the master encryption key and re-encrypt all secrets
