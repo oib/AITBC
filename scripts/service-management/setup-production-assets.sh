@@ -22,8 +22,8 @@ curl -L https://unpkg.com/lucide@latest/dist/umd/lucide.js -o /home/oib/windsurf
 cat > /home/oib/windsurf/aitbc/assets/tailwind.config.js << 'EOF'
 module.exports = {
   content: [
-    "./apps/trade-exchange/index.html",
-    "./apps/marketplace-ui/index.html"
+    "./apps/marketplace/src/marketplace_service/templates/**/*.html",
+    "./apps/trading/src/trading_service/templates/**/*.html"
   ],
   darkMode: 'class',
   theme: {

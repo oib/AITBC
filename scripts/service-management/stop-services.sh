@@ -63,15 +63,16 @@ fi
 # Force kill any remaining services
 echo "Cleaning up any remaining processes..."
 if [ "$DRY_RUN" = true ]; then
-    echo "[DRY RUN] Would run: sudo fuser -k 8000/tcp"
-    echo "[DRY RUN] Would run: sudo fuser -k 9080/tcp"
-    echo "[DRY RUN] Would run: sudo fuser -k 3001/tcp"
-    echo "[DRY RUN] Would run: sudo fuser -k 3002/tcp"
-    echo "[DRY RUN] Would run: pkill -f 'uvicorn.*aitbc'"
-    echo "[DRY RUN] Would run: pkill -f 'server.py'"
+    echo "[DRY RUN] Would run: sudo systemctl stop aitbc-*"
+    echo "[DRY RUN] Would run: sudo fuser -k 8106/tcp"
+    echo "[DRY RUN] Would run: sudo fuser -k 8107/tcp"
+    echo "[DRY RUN] Would run: sudo fuser -k 8108/tcp"
+    echo "[DRY RUN] Would run: sudo fuser -k 8201/tcp"
+    echo "[DRY RUN] Would run: sudo fuser -k 8202/tcp"
+    echo "[DRY RUN] Would run: sudo fuser -k 8203/tcp"
 else
     if [ "$FORCE" = false ]; then
-        echo "⚠️  This will forcefully kill processes on ports 8000, 9080, 3001, 3002"
+        echo "⚠️  This will stop all AITBC systemd services and kill processes on ports 8106-8203"
         read -p "Continue? (y/N): " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -79,12 +80,16 @@ else
             exit 1
         fi
     fi
-    sudo fuser -k 8000/tcp 2>/dev/null || true
-    sudo fuser -k 9080/tcp 2>/dev/null || true
-    sudo fuser -k 3001/tcp 2>/dev/null || true
-    sudo fuser -k 3002/tcp 2>/dev/null || true
-    pkill -f "uvicorn.*aitbc" 2>/dev/null || true
-    pkill -f "server.py" 2>/dev/null || true
+    # Stop systemd services (canonical method)
+    sudo systemctl stop aitbc-exchange aitbc-marketplace aitbc-trading aitbc-wallet 2>/dev/null || true
+    sudo systemctl stop aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p 2>/dev/null || true
+    # Kill any stray manual processes on service ports
+    sudo fuser -k 8106/tcp 2>/dev/null || true
+    sudo fuser -k 8107/tcp 2>/dev/null || true
+    sudo fuser -k 8108/tcp 2>/dev/null || true
+    sudo fuser -k 8201/tcp 2>/dev/null || true
+    sudo fuser -k 8202/tcp 2>/dev/null || true
+    sudo fuser -k 8203/tcp 2>/dev/null || true
 fi
 
 if [ "$DRY_RUN" = true ]; then
