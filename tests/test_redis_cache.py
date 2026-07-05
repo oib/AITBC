@@ -4,7 +4,7 @@ Tests for Redis caching utilities
 
 from unittest.mock import patch
 
-from aitbc.redis_cache import RedisCache, cache_key, get_cache
+from aitbc.caching import RedisCache, cache_key, get_cache
 
 
 class TestRedisCache:
