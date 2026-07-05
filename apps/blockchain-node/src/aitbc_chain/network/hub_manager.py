@@ -13,6 +13,7 @@ from enum import Enum
 from typing import Any, cast
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 from aitbc.constants import DATA_DIR, KEYSTORE_DIR
 
 from ..config import settings
@@ -360,7 +361,7 @@ class HubManager:
         """Start hub manager"""
         self.running = True
         logger.info("Starting hub manager for node %s", self.local_node_id)
-        tasks = [asyncio.create_task(self._hub_health_check()), asyncio.create_task(self._peer_cleanup())]
+        tasks = [create_task_with_logging(self._hub_health_check(), name="hub_health_check"), create_task_with_logging(self._peer_cleanup(), name="hub_peer_cleanup")]
         try:
             await asyncio.gather(*tasks)
         except Exception as e:
