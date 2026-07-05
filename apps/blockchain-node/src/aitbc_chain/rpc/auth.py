@@ -5,11 +5,15 @@ Authentication utilities for blockchain RPC endpoints.
 import os
 
 from fastapi import HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from ..logger import get_logger
 
 _logger = get_logger(__name__)
+
+# Shared HTTPBearer security scheme for authenticated endpoints.
+# Sub-routers import this as ``from ..auth import security``.
+security = HTTPBearer(auto_error=False)
 
 
 def get_authenticated_address(request: Request, credentials: HTTPAuthorizationCredentials | None = None) -> str:
