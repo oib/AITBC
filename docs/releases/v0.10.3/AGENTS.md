@@ -439,14 +439,14 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
 | B3 | Fix exchange database session leak | 🔴 P0 | `apps/exchange/database.py`, `apps/exchange/simple_exchange/handlers/exchange.py`, `marketplace.py` | ✅ |
 | B4 | Fix exchange session token predictability | 🔴 P0 | `apps/exchange/exchange_api.py` | ✅ (exchange_api.py only — simple_exchange uses API-key auth, not session tokens) |
 | B5 | Replace sync requests with httpx.AsyncClient in AsyncAITBCHTTPClient | 🟡 P1 | `aitbc/network/client.py` | ✅ |
-| B6 | Replace sync httpx.Client with async in bridge/oracle.py | 🟡 P1 | `aitbc/bridge/oracle.py` | ⏭️ |
+| B6 | Replace sync httpx.Client with async in bridge/oracle.py | 🟡 P1 | `aitbc/bridge/oracle.py` | ✅ |
 | B7 | Fix database connection leak in SQLiteDatabaseService | 🟡 P1 | `aitbc/database/service.py` | ✅ |
-| B8 | Add error handling to fire-and-forget tasks in blockchain-node | 🟡 P1 | `apps/blockchain-node/src/aitbc_chain/gossip/broker.py`, `p2p_network.py` | ✅ |
+| B8 | Add error handling to fire-and-forget tasks in blockchain-node | 🟡 P1 | `apps/blockchain-node/src/aitbc_chain/` (18 files) | ✅ |
 | B9 | Add error handling to fire-and-forget tasks in edge | 🟡 P1 | `apps/edge/src/aitbc_edge/main.py` | ✅ |
-| B10 | Add error handling to fire-and-forget tasks in agent-coordinator | 🟡 P1 | `apps/agent-coordinator/src/app/lifespan.py` | ✅ |
-| B11 | Add error handling to fire-and-forget tasks in coordinator-api | 🟡 P1 | `apps/coordinator-api/src/app/contexts/analytics/services/ai_analytics/advanced_learning.py`, `trading/services/*.py` | ✅ |
+| B10 | Add error handling to fire-and-forget tasks in agent-coordinator | 🟡 P1 | `apps/agent-coordinator/src/app/` (4 files) | ✅ |
+| B11 | Add error handling to fire-and-forget tasks in coordinator-api | 🟡 P1 | `apps/coordinator-api/src/app/` (13 files) | ✅ |
 | B12 | Fix missing rollback in coordinator-api submit_job | 🟡 P1 | `apps/coordinator-api/src/app/contexts/infrastructure/routers/client.py` | ✅ |
-| B13 | Add Pydantic validation to bridge RPC endpoints | 🟡 P1 | `apps/blockchain-node/src/aitbc_chain/rpc/routers/bridge.py` | ✅ |
+| B13 | Add Pydantic validation + chain_id whitelist to bridge RPC | 🟡 P1 | `apps/blockchain-node/src/aitbc_chain/rpc/routers/bridge.py` | ✅ |
 | B14 | Add N+1 query fix for GPU orders | 🟢 P2 | `apps/coordinator-api/src/app/contexts/marketplace/routers/marketplace_gpu.py` | ✅ |
 | B15 | Fix mempool eviction policy bug | 🟢 P2 | `apps/blockchain-node/src/aitbc_chain/mempool.py` | ✅ |
 
@@ -624,11 +624,11 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
 
 **File**: `aitbc/bridge/oracle.py` — lines 293, 310
 
-**Problem**: `ExternalOracleClient` uses synchronous `httpx.Client` in async context, blocking the event loop.
+**Problem**: `ExternalOracleClient` uses synchronous `httpx.Client`, blocking the event loop if called from async code.
 
-**Status**: ⏭️ **SKIPPED** — Investigation revealed that `ExternalOracleClient` is a synchronous class that is not used in any async context. Converting it to async would break the sync interface without fixing any real bug. The original analysis was incorrect.
+**Fix**: Converted `OracleClient` ABC, `InProcessVerifier`, `ExternalOracleClient`, and `OracleFallbackPolicy` to async. `verify_proof`, `check_finality`, `verify_with_fallback`, and `check_finality_with_fallback` are now `async def`. `_post_json` uses `httpx.AsyncClient`. The `is_healthy()` health check remains synchronous because it runs in a background thread via `OracleFallbackPolicy.start_health_check()`.
 
-**Verification**: N/A — no change made.
+**Verification**: `pytest tests/unit/test_bridge_verification.py tests/unit/test_v074_deferred.py` — 77 passed.
 
 ---
 
@@ -671,37 +671,22 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
 
 #### B8-B11: Add error handling to fire-and-forget tasks
 
-**Files**:
-- `apps/blockchain-node/src/aitbc_chain/gossip/broker.py` — line 136
-- `apps/blockchain-node/src/aitbc_chain/p2p_network.py` — line 256
-- `apps/edge/src/aitbc_edge/main.py` — lines 73, 77
-- `apps/agent-coordinator/src/app/lifespan.py` — lines 72-73
-- `apps/coordinator-api/src/app/contexts/analytics/services/advanced_learning.py` — lines 188-191
-- `apps/coordinator-api/src/app/contexts/trading/services/market_data_collector.py` — lines 91-92
-- `apps/coordinator-api/src/app/contexts/trading/services/trading_marketplace/dynamic_pricing.py` — lines 221-223
+**Files**: 78+ bare `asyncio.create_task()` calls converted across 40+ files in:
+- `apps/blockchain-node/src/aitbc_chain/` (18 files: app, chain_sync, combined_main, consensus/pbft, consensus/poa, contracts/upgrades, cross_chain/settlement_coordinator, gossip/broker, lease_tracker, network/*, p2p_network, subscription_client)
+- `apps/agent-coordinator/src/app/` (4 files: protocols/communication, monitoring/alerting, workflow/orchestrator, routing/agent_discovery)
+- `apps/coordinator-api/src/app/` (13 files: analytics, agent_coordination, blockchain, cross_chain, infrastructure, marketplace, security, multimodal, settlement, trading)
+- `apps/trading/src/trading_service/` (4 files: main, gossip_client, offer_subscription_service, offer_notification_service)
+- `apps/pool-hub/src/poolhub/services/` (2 files: sla_collector, billing_integration)
+- `apps/agent-management/src/app/services/` (5 files: agent_service, agent_orchestrator, agent_performance_service, agent_service_marketplace, agent_communication)
+- `apps/blockchain-event-bridge/src/blockchain_event_bridge/bridge.py`
+- `apps/wallet/src/app/main.py`
+- `aitbc/` (5 files: alerting, trading/subscription_client, network/subscription_manager, queues/scheduler, queues/worker)
 
 **Problem**: `asyncio.create_task()` calls have no exception handling. Errors are silently lost, making debugging difficult.
 
-**Fix**:
-1. For services with TaskRegistry (coordinator-api, agent-coordinator), route through it:
-   ```python
-   _task_registry.create_task(coro, name="task-name")
-   ```
-2. For services without TaskRegistry, add wrapper function:
-   ```python
-   def create_task_with_logging(coro, name):
-       task = asyncio.create_task(coro, name=name)
-       def done_callback(t):
-           try:
-               t.result()
-           except Exception as e:
-               logger.exception(f"Task {name} failed: {e}")
-       task.add_done_callback(done_callback)
-       return task
-   ```
-3. Replace all `asyncio.create_task()` calls with the wrapper
+**Fix**: Replaced all bare `asyncio.create_task(coro)` with `create_task_with_logging(coro, name="...")` from `aitbc.async_tasks`. The helper attaches a done-callback that logs exceptions with full traceback. Only immediately-awaited patterns in `aitbc/queues/decorators.py` and `aitbc/async_helpers/async_helpers.py` were intentionally left as-is.
 
-**Verification**: Test that exceptions in background tasks are logged with full traceback.
+**Verification**: `ruff check .` passes. `pytest tests/unit -q` — 870 passed, 0 failed.
 
 ---
 
@@ -736,37 +721,24 @@ except Exception as e:
 
 #### B13: Add Pydantic validation to bridge RPC endpoints
 
-**File**: `apps/blockchain-node/src/aitbc_chain/rpc/routers/bridge.py` — lines 58, 67, 94, 103, 157, 184
+**File**: `apps/blockchain-node/src/aitbc_chain/rpc/routers/bridge.py`
 
 **Problem**: Endpoints accept raw `dict` request bodies without validation. `chain_id` has no whitelist validation.
 
 **Fix**:
-1. Create Pydantic models for request bodies:
-   ```python
-   from pydantic import BaseModel, Field
+1. Pydantic models were added in the initial B13 commit for all 7 request bodies (lock, confirm, unlock, batch, validator register, block header).
+2. Added `_validate_chain_id()` helper to the bridge router that calls the existing `validate_chain_id()` from `rpc/utils.py` (checks against `settings.supported_chains`).
+3. Applied validation to all 7 endpoints that accept a `chain_id`:
+   - POST /bridge/lock (validates `target_chain` + optional `source_chain`)
+   - GET /bridge/pending (validates optional `chain_id` query param)
+   - GET /bridge/balance/{chain_id}
+   - POST /bridge/validators/register (validates `chain_id` in body)
+   - GET /bridge/validators/{chain_id}
+   - POST /bridge/block-headers (validates `chain_id` in body)
+   - GET /bridge/block-headers/{chain_id}/{height}
+4. Updated 5 test files with `autouse` fixtures patching `supported_chains` to allow test chain IDs.
 
-   class BridgeRequest(BaseModel):
-       chain_id: int = Field(..., ge=1, description="Chain ID")
-       amount: str = Field(..., description="Amount to bridge")
-       # ... other fields
-   ```
-2. Add chain ID whitelist validation:
-   ```python
-   SUPPORTED_CHAINS = [1, 2]  # from config
-
-   def validate_chain_id(chain_id: int):
-       if chain_id not in SUPPORTED_CHAINS:
-           raise HTTPException(status_code=400, detail=f"Unsupported chain_id: {chain_id}")
-   ```
-3. Update endpoints to use Pydantic models:
-   ```python
-   @router.post("/bridge/lock")
-   async def lock_escrow(request: BridgeRequest):
-       validate_chain_id(request.chain_id)
-       # ... rest of logic
-   ```
-
-**Verification**: Test that invalid input returns 400. Test that unsupported chain_id returns 400.
+**Verification**: `pytest tests/test_bridge_suite.py tests/test_v070_bridge_basics.py tests/test_v071_bridge_security.py tests/test_v072_bridge_verification.py tests/test_v0516_regression.py` — 131 passed, 4 skipped.
 
 ---
 
