@@ -213,60 +213,60 @@ def test_in_process_verifier_mode() -> None:
     assert verifier.mode == VerificationMode.IN_PROCESS
 
 
-def test_in_process_verifier_check_finality_small_transfer() -> None:
+async def test_in_process_verifier_check_finality_small_transfer() -> None:
     """Small transfers need only min_confirmations."""
     verifier = InProcessVerifier()
     config = FinalityConfig(min_confirmations=3, finality_blocks=6, large_transfer_threshold=10000)
     # 3 confirmations — meets min but not full finality
     header = _block_header(confirmation_count=3)
-    assert verifier.check_finality(header, config, transfer_amount=5000) is True
+    assert await verifier.check_finality(header, config, transfer_amount=5000) is True
 
 
-def test_in_process_verifier_check_finality_small_transfer_below() -> None:
+async def test_in_process_verifier_check_finality_small_transfer_below() -> None:
     verifier = InProcessVerifier()
     config = FinalityConfig(min_confirmations=3, finality_blocks=6, large_transfer_threshold=10000)
     header = _block_header(confirmation_count=2)
-    assert verifier.check_finality(header, config, transfer_amount=5000) is False
+    assert await verifier.check_finality(header, config, transfer_amount=5000) is False
 
 
-def test_in_process_verifier_check_finality_large_transfer() -> None:
+async def test_in_process_verifier_check_finality_large_transfer() -> None:
     """Large transfers need full finality_blocks."""
     verifier = InProcessVerifier()
     config = FinalityConfig(min_confirmations=3, finality_blocks=6, large_transfer_threshold=10000)
     # 5 confirmations — meets min but NOT full finality (6)
     header = _block_header(confirmation_count=5)
-    assert verifier.check_finality(header, config, transfer_amount=50000) is False
+    assert await verifier.check_finality(header, config, transfer_amount=50000) is False
 
 
-def test_in_process_verifier_check_finality_large_transfer_meets() -> None:
+async def test_in_process_verifier_check_finality_large_transfer_meets() -> None:
     verifier = InProcessVerifier()
     config = FinalityConfig(min_confirmations=3, finality_blocks=6, large_transfer_threshold=10000)
     header = _block_header(confirmation_count=6)
-    assert verifier.check_finality(header, config, transfer_amount=50000) is True
+    assert await verifier.check_finality(header, config, transfer_amount=50000) is True
 
 
-def test_in_process_verifier_verify_proof_state_root_mismatch() -> None:
+async def test_in_process_verifier_verify_proof_state_root_mismatch() -> None:
     verifier = InProcessVerifier()
     header = _block_header(state_root="0xheader_root")
     proof = {"state_root": "0xdifferent_root", "amount": 100}
     config = FinalityConfig()
-    result = verifier.verify_proof(proof, header, config)
+    result = await verifier.verify_proof(proof, header, config)
     assert result.valid is False
     assert "State root mismatch" in result.error
 
 
-def test_in_process_verifier_verify_proof_no_merkle_proof() -> None:
+async def test_in_process_verifier_verify_proof_no_merkle_proof() -> None:
     """Proof without merkle_proof field — should pass (no trie verification)."""
     verifier = InProcessVerifier()
     header = _block_header(state_root="0xroot", confirmation_count=10)
     proof = {"state_root": "0xroot", "amount": 100}
     config = FinalityConfig()
-    result = verifier.verify_proof(proof, header, config)
+    result = await verifier.verify_proof(proof, header, config)
     assert result.valid is True
     assert result.finality_confirmed is True
 
 
-def test_in_process_verifier_verify_proof_with_merkle_verifier_valid() -> None:
+async def test_in_process_verifier_verify_proof_with_merkle_verifier_valid() -> None:
     """Merkle proof verification with a valid proof."""
     mock_verifier = MagicMock(spec=MerkleProofVerifier)
     mock_verifier.verify_merkle_proof.return_value = True
@@ -281,12 +281,12 @@ def test_in_process_verifier_verify_proof_with_merkle_verifier_valid() -> None:
         "merkle_proof": ["0xdeadbeef", "0xcafebabe"],
     }
     config = FinalityConfig()
-    result = verifier.verify_proof(proof, header, config)
+    result = await verifier.verify_proof(proof, header, config)
     assert result.valid is True
     mock_verifier.verify_merkle_proof.assert_called_once()
 
 
-def test_in_process_verifier_verify_proof_with_merkle_verifier_invalid() -> None:
+async def test_in_process_verifier_verify_proof_with_merkle_verifier_invalid() -> None:
     """Merkle proof verification with an invalid proof."""
     mock_verifier = MagicMock(spec=MerkleProofVerifier)
     mock_verifier.verify_merkle_proof.return_value = False
@@ -301,12 +301,12 @@ def test_in_process_verifier_verify_proof_with_merkle_verifier_invalid() -> None
         "merkle_proof": ["0xdeadbeef"],
     }
     config = FinalityConfig()
-    result = verifier.verify_proof(proof, header, config)
+    result = await verifier.verify_proof(proof, header, config)
     assert result.valid is False
     assert result.error == "Merkle proof verification failed"
 
 
-def test_in_process_verifier_verify_proof_merkle_no_verifier_skips() -> None:
+async def test_in_process_verifier_verify_proof_merkle_no_verifier_skips() -> None:
     """Merkle proof provided but no verifier set — should skip (not fail)."""
     verifier = InProcessVerifier(merkle_verifier=None)
     header = _block_header(state_root="0xroot", confirmation_count=10)
@@ -316,7 +316,7 @@ def test_in_process_verifier_verify_proof_merkle_no_verifier_skips() -> None:
         "merkle_proof": ["0xdeadbeef"],
     }
     config = FinalityConfig()
-    result = verifier.verify_proof(proof, header, config)
+    result = await verifier.verify_proof(proof, header, config)
     assert result.valid is True  # skipped, not failed
 
 
@@ -325,18 +325,18 @@ def test_external_oracle_client_mode() -> None:
     assert client.mode == VerificationMode.ORACLE
 
 
-def test_external_oracle_client_verify_proof_no_endpoints() -> None:
+async def test_external_oracle_client_verify_proof_no_endpoints() -> None:
     """With no endpoints, verify_proof returns an invalid result (not raise)."""
     client = ExternalOracleClient()
-    result = client.verify_proof({}, _block_header(), FinalityConfig())
+    result = await client.verify_proof({}, _block_header(), FinalityConfig())
     assert result.valid is False
     assert "unavailable" in result.error.lower() or "all oracle" in result.error.lower()
 
 
-def test_external_oracle_client_check_finality_no_endpoints() -> None:
+async def test_external_oracle_client_check_finality_no_endpoints() -> None:
     """With no endpoints, check_finality returns False (not raise)."""
     client = ExternalOracleClient()
-    assert client.check_finality(_block_header(), FinalityConfig(), 100) is False
+    assert await client.check_finality(_block_header(), FinalityConfig(), 100) is False
 
 
 def test_oracle_client_is_abstract() -> None:
