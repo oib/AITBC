@@ -12,7 +12,7 @@ from fastapi import HTTPException, Request, status
 from sqlmodel import select
 
 from aitbc.rate_limiting import rate_limit
-from aitbc.redis_cache import RedisCache
+from aitbc.caching import RedisCache
 
 from ..config import settings
 from ..database import session_scope
