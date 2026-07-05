@@ -43,6 +43,27 @@ def _generate_cache_key(func_name: str, args: tuple, kwargs: dict) -> str:
     return ":".join(key_parts)
 
 
+def cache_key(*parts: str, prefix: str = "aitbc") -> str:
+    """Generate a cache key from parts.
+
+    Legacy function from deprecated aitbc.redis_cache shim.
+    Generates a simple colon-separated key with optional prefix.
+
+    Args:
+        *parts: Key parts to join
+        prefix: Prefix for the key (default: "aitbc")
+
+    Returns:
+        Cache key string, hashed if too long
+    """
+    key_string = ":".join(str(part) for part in parts)
+    full_key = f"{prefix}:{key_string}"
+    if len(full_key) > 250:
+        hash_value = hashlib.sha256(full_key.encode()).hexdigest()[:16]
+        return f"{prefix}:hashed:{hash_value}"
+    return full_key
+
+
 def generate_cache_key(prefix: str, *args: Any, **kwargs: Any) -> str:
     """Generate a consistent cache key from arguments.
 
