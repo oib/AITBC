@@ -41,6 +41,7 @@ class AITBCServiceIntegration:
             async with self.session.get(f"{self.service_endpoints['blockchain_rpc']}/health") as response:
                 return dict(await response.json())
         except Exception as e:
+            logger.exception("Service call failed: blockchain_rpc")
             return {"error": str(e), "status": "unavailable"}
 
     async def get_exchange_status(self) -> dict[str, Any]:
@@ -50,6 +51,7 @@ class AITBCServiceIntegration:
             async with self.session.get(f"{self.service_endpoints['exchange_service']}/api/health") as response:
                 return dict(await response.json())
         except Exception as e:
+            logger.exception("Service call failed: exchange_service")
             return {"error": str(e), "status": "unavailable"}
 
     async def get_coordinator_status(self) -> dict[str, Any]:
@@ -59,6 +61,7 @@ class AITBCServiceIntegration:
             async with self.session.get(f"{self.service_endpoints['coordinator_api']}/health") as response:
                 return dict(await response.json())
         except Exception as e:
+            logger.exception("Service call failed: coordinator_api")
             return {"error": str(e), "status": "unavailable"}
 
     async def submit_transaction(self, transaction_data: dict[str, Any]) -> dict[str, Any]:
@@ -70,6 +73,7 @@ class AITBCServiceIntegration:
             ) as response:
                 return dict(await response.json())
         except Exception as e:
+            logger.exception("Service call failed: blockchain_rpc (submit_transaction)")
             return {"error": str(e), "status": "failed"}
 
     async def get_market_data(self, symbol: str = "AITBC/BTC") -> dict[str, Any]:
@@ -79,6 +83,7 @@ class AITBCServiceIntegration:
             async with self.session.get(f"{self.service_endpoints['exchange_service']}/api/market/{symbol}") as response:
                 return dict(await response.json())
         except Exception as e:
+            logger.exception("Service call failed: exchange_service (get_market_data)")
             return {"error": str(e), "status": "failed"}
 
     async def register_agent_with_coordinator(self, agent_data: dict[str, Any]) -> dict[str, Any]:
@@ -90,6 +95,7 @@ class AITBCServiceIntegration:
             ) as response:
                 return dict(await response.json())
         except Exception as e:
+            logger.exception("Service call failed: agent_registry (register_agent)")
             return {"error": str(e), "status": "failed"}
 
 
