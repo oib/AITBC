@@ -10,6 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 from .config import settings
 from .mempool import compute_tx_hash
@@ -253,7 +254,7 @@ class P2PNetworkService:
                 if already_connected_ip:
                     self.connected_endpoints.add(endpoint)
                     continue
-                asyncio.create_task(self._dial_peer(host, port))
+                create_task_with_logging(self._dial_peer(host, port), name=f"dial_peer_{host}:{port}")
             await asyncio.sleep(10)
 
     async def _dial_peer(self, host: str, port: int) -> None:

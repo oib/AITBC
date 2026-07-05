@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 # Importing the pricing persistence models at module load registers their tables
 # with SQLModel.metadata so init_db()/create_all() creates them at startup.
@@ -218,9 +219,9 @@ class DynamicPricingEngine:
         logger.info("Initializing Dynamic Pricing Engine")
         await self._load_pricing_history()
         await self._load_provider_strategies()
-        asyncio.create_task(self._update_market_conditions())
-        asyncio.create_task(self._monitor_price_volatility())
-        asyncio.create_task(self._optimize_strategies())
+        create_task_with_logging(self._update_market_conditions(), name="update_market_conditions")
+        create_task_with_logging(self._monitor_price_volatility(), name="monitor_price_volatility")
+        create_task_with_logging(self._optimize_strategies(), name="optimize_strategies")
         logger.info("Dynamic Pricing Engine initialized")
 
     async def calculate_dynamic_price(
