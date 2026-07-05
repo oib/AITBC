@@ -108,3 +108,33 @@ _global_registry = TaskRegistry()
 def get_global_registry() -> TaskRegistry:
     """Get the global task registry."""
     return _global_registry
+
+
+def create_task_with_logging(coro: Any, *, name: str) -> asyncio.Task[Any]:
+    """Create a fire-and-forget background task with exception logging.
+
+    Unlike ``TaskRegistry.create_task`` (which takes a callable), this
+    accepts a coroutine object — matching the ``asyncio.create_task``
+    signature — and adds a done-callback that logs any unhandled exception.
+
+    Use this for services that don't have a ``TaskRegistry`` instance but
+    still need error visibility for background tasks.
+
+    Args:
+        coro: Coroutine object to run as a background task.
+        name: Human-readable name for logging.
+
+    Returns:
+        The created asyncio.Task.
+    """
+    task = asyncio.create_task(coro, name=name)
+
+    def _log_exception(t: asyncio.Task[Any]) -> None:
+        if t.cancelled():
+            return
+        exc = t.exception()
+        if exc is not None:
+            logger.error("Background task %s failed: %s", name, exc, exc_info=exc)
+
+    task.add_done_callback(_log_exception)
+    return task
