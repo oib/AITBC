@@ -37,19 +37,13 @@ def init_db():
 
 
 def get_db() -> Session:
-    """Get database session"""
+    """Get database session (FastAPI dependency generator).
+
+    Yields a session and ensures it is closed after the request, preventing
+    connection leaks. Use as ``db: Annotated[Session, Depends(get_db)]``.
+    """
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-
-
-# Dependency for FastAPI
-def get_db_session():
-    """Get database session for FastAPI dependency"""
-    db = SessionLocal()
-    try:
-        return db
-    finally:
-        pass  # Don't close here, let the caller handle it
