@@ -88,7 +88,7 @@ class Settings(BaseSettings):
     connection_timeout: int = 30
 
     # Security settings
-    secret_key: str = os.getenv("SECRET_KEY", "default_secret_key_change_in_production")
+    secret_key: str = os.getenv("SECRET_KEY")  # Required field
     allowed_hosts: list[str] = os.getenv("ALLOWED_HOSTS", "*").split(",") if os.getenv("ALLOWED_HOSTS") else ["*"]
     cors_origins: list[str] = (
         os.getenv("CORS_ORIGINS", "").split(",")
@@ -133,6 +133,16 @@ class Settings(BaseSettings):
     # Agent TTL (v0.6.5 — configurable, was hardcoded in agent_discovery.py)
     agent_heartbeat_timeout_seconds: int = 120
     agent_cleanup_interval_seconds: int = 60
+
+    @field_validator("secret_key")
+    @classmethod
+    def _validate_secret_key(cls, v: str) -> str:
+        """Validate secret_key is set in production."""
+        if not v:
+            raise ValueError("SECRET_KEY must be set")
+        if v == "default_secret_key_change_in_production":
+            raise ValueError("SECRET_KEY must be changed from default value")
+        return v
 
     @field_validator("debug", mode="before")
     @classmethod

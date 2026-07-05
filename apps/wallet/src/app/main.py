@@ -39,7 +39,10 @@ async def _import_genesis_wallet_from_env() -> None:
     if not private_key_hex or not address:
         return
     daemon_url = "http://localhost:8108"
-    password = os.getenv("WALLET_IMPORT_PASSWORD", "Aitbc-Import-Pass1")
+    password = os.getenv("WALLET_IMPORT_PASSWORD")
+    if not password:
+        logger.warning("WALLET_IMPORT_PASSWORD not set, skipping genesis wallet auto-import")
+        return
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             r = await client.get(f"{daemon_url}/v1/wallets")
@@ -79,7 +82,10 @@ async def _import_file_wallets() -> None:
     if not wallet_files:
         return
     daemon_url = "http://localhost:8108"
-    password = os.getenv("WALLET_IMPORT_PASSWORD", "Aitbc-Password-123")
+    password = os.getenv("WALLET_IMPORT_PASSWORD")
+    if not password:
+        logger.warning("WALLET_IMPORT_PASSWORD not set, skipping file wallet auto-import")
+        return
     import asyncio
 
     max_retries = 10
