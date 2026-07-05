@@ -12,6 +12,7 @@ from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -385,7 +386,7 @@ class RedisMessageBroker:
         pubsub = redis_client.pubsub()
         await pubsub.subscribe(channel)
         self.channels[channel] = {"pubsub": pubsub, "handler": handler}
-        asyncio.create_task(self._listen_to_channel(channel, pubsub, handler))
+        create_task_with_logging(self._listen_to_channel(channel, pubsub, handler), name="listen_to_channel")
 
     async def _listen_to_channel(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
         """Listen for messages on channel"""

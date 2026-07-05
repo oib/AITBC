@@ -11,6 +11,7 @@ from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -182,9 +183,9 @@ class CrossChainReputationService:
         """Initialize the cross-chain reputation service"""
         logger.info("Initializing Cross-Chain Reputation Service")
         await self._load_reputation_data()
-        asyncio.create_task(self._monitor_reputation_sync())
-        asyncio.create_task(self._process_stake_rewards())
-        asyncio.create_task(self._cleanup_expired_stakes())
+        create_task_with_logging(self._monitor_reputation_sync(), name="monitor_reputation_sync")
+        create_task_with_logging(self._process_stake_rewards(), name="process_stake_rewards")
+        create_task_with_logging(self._cleanup_expired_stakes(), name="cleanup_expired_stakes")
         logger.info("Cross-Chain Reputation Service initialized")
 
     async def initialize_agent_reputation(

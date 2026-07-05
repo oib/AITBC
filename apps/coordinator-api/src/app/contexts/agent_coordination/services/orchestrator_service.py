@@ -10,6 +10,7 @@ from typing import Any
 from sqlmodel import Session, select, update
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 from app.contexts.agent_coordination.domain.agent import (
     AgentExecution,
@@ -201,7 +202,7 @@ class AIAgentOrchestrator:
             await self.state_manager.update_execution_status(
                 execution.id, status=AgentStatus.RUNNING, started_at=datetime.now(UTC), total_steps=len(workflow.steps)
             )
-            asyncio.create_task(self._execute_steps_async(execution.id, request.inputs))
+            create_task_with_logging(self._execute_steps_async(execution.id, request.inputs), name="execute_steps_async")
             return AgentExecutionResponse(
                 execution_id=execution.id,
                 workflow_id=workflow.id,
