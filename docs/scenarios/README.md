@@ -1,10 +1,10 @@
 # AITBC Agent Scenarios
 
-**Level**: Beginner track (20 scenarios)
+**Levels**: Beginner (scenarios 01-20), Intermediate (scenarios 21-32)
 **Prerequisites**: AITBC CLI (`aitbc`) installed, basic Python knowledge
-**Estimated Time**: 15-30 minutes per scenario
-**Last Updated**: 2026-06-25
-**Version**: 1.0
+**Estimated Time**: 10-30 minutes per scenario
+**Last Updated**: 2026-07-05
+**Version**: 1.1
 
 ## Navigation Path
 
@@ -16,7 +16,7 @@ breadcrumb: Home > Scenarios > Overview
 
 ## What's in this directory
 
-This directory contains 20 beginner scenarios demonstrating how AI agents use AITBC features via the real `aitbc` CLI and the `aitbc_agent` SDK. Each scenario focuses on one feature category and includes both CLI workflows and Python SDK examples grounded in the current API surface.
+This directory contains 32 scenarios (20 beginner + 12 intermediate) demonstrating how AI agents use AITBC features via the real `aitbc` CLI and the `aitbc_agent` SDK, plus live verification scenarios for shop-node fixes. Each scenario focuses on one feature category and includes both CLI workflows and Python SDK examples grounded in the current API surface.
 
 > **Note**: These scenarios replace the earlier hermes-era scenario docs that were removed in the "AI Trusted Blockchain Computing" rebrand. They target the **real** CLI command groups and the **real** `aitbc_agent` SDK package (`packages/py/aitbc-agent-sdk/`), not the retired mock training infrastructure.
 
@@ -44,6 +44,25 @@ This directory contains 20 beginner scenarios demonstrating how AI agents use AI
 | 18 | [Analytics Collection](./18_analytics_collection.md) | Summaries, monitoring, predictions | `aitbc analytics` |
 | 19 | [Security Setup](./19_security_setup.md) | Audit, scan, and patch | `aitbc security` |
 | 20 | [Cross-Chain Transfer](./20_cross_chain_transfer.md) | Swaps and bridge operations | `aitbc crosschain`, `aitbc bridge` |
+
+### Intermediate Scenarios (Shop-Node Live Verification)
+
+These scenarios verify fixes applied to shop-node services (v0.10.3). They test real running services on a live shop node and confirm that bugs (A3-A14, B5-B15) have been resolved.
+
+| # | Scenario | Tasks | Focus |
+|---|----------|-------|-------|
+| 21 | [Service Startup & Connectivity](./21_service_startup_connectivity.md) | A3, B9 | Service startup, port corrections, edge registration logging |
+| 22 | [Bridge RPC Input Validation](./22_bridge_rpc_validation.md) | B13 | Pydantic 422 validation on all bridge RPC endpoints |
+| 23 | [Mempool Eviction Order](./23_mempool_eviction_order.md) | B15 | Oldest low-fee tx evicted first (not newest) |
+| 24 | [Fire-and-Forget Task Error Logging](./24_task_error_logging.md) | B8, B9 | Background task exceptions logged, not swallowed |
+| 25 | [Job Submission with Payment Failure](./25_job_payment_failure.md) | B12 | Payment rollback, no orphaned records, job proceeds |
+| 26 | [GPU Marketplace N+1 Query Fix](./26_gpu_nplus1_query.md) | B14 | Batch-fetch GPUs in single WHERE IN query |
+| 27 | [CLI Commands](./27_cli_commands.md) | A2, A7, A8, A3 | CLI commands work, correct ports, no crashes |
+| 28 | [HTTP Client Resource Cleanup](./28_http_client_cleanup.md) | A12, A13, A14 | `__del__` warnings, context managers, FD stability |
+| 29 | [Database Connection Leak](./29_database_connection_leak.md) | B7 | `__del__` closes connections, context manager support |
+| 30 | [Secret Manager Thread Safety](./30_secret_manager_thread_safety.md) | A11 | Concurrent access with threading.Lock, 0 errors |
+| 31 | [Async HTTP Client Non-Blocking](./31_async_http_client.md) | B5 | `httpx.AsyncClient` (not `requests` + `run_in_executor`) |
+| 32 | [Hardcoded Secrets Fail-Fast](./32_hardcoded_secrets_failfast.md) | A4, A5 | Production rejects missing/default/short secrets |
 
 ---
 
@@ -76,5 +95,5 @@ This directory contains 20 beginner scenarios demonstrating how AI agents use AI
 
 ---
 
-*Last updated: 2026-06-25*
-*Version: 1.0*
+*Last updated: 2026-07-05*
+*Version: 1.1*
