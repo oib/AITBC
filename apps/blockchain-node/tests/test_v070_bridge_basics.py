@@ -302,7 +302,7 @@ class TestBridgeUnlock:
         assert data["status"] == "refunded"
 
     def test_bridge_unlock_endpoint_no_signature(self, rpc_setup, rpc_engine) -> None:
-        """POST /bridge/unlock without signature returns 403."""
+        """POST /bridge/unlock without signature returns 422 (Pydantic validation)."""
         bridge, client = rpc_setup
         sender = "0xnoSigSender"
         _seed_sender(rpc_engine, "chain-a", sender, 10000)
@@ -319,7 +319,8 @@ class TestBridgeUnlock:
             "/bridge/unlock",
             json={"transfer_id": transfer.transfer_id, "sender": sender},
         )
-        assert response.status_code == 403
+        # Pydantic validation rejects missing signature before reaching the bridge function
+        assert response.status_code == 422
 
 
 # ---------------------------------------------------------------------------
@@ -466,9 +467,9 @@ class TestBridgeBatch:
         assert all(item["status"] == "locked" for item in data)
 
     def test_bridge_batch_lock_empty_rejected(self, initialized_bridge: CrossChainBridge, client: TestClient) -> None:
-        """Empty batch rejected."""
+        """Empty batch rejected (422 Pydantic validation — min_length=1)."""
         response = client.post("/bridge/batch/lock", json={"transfers": []})
-        assert response.status_code == 400
+        assert response.status_code == 422
 
     def test_bridge_batch_lock_exceeds_limit_rejected(self, initialized_bridge: CrossChainBridge, client: TestClient) -> None:
         """Batch over max size rejected."""
