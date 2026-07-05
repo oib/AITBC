@@ -136,6 +136,13 @@ def bridge(engine) -> CrossChainBridge:
     return CrossChainBridge(lambda: Session(engine))
 
 
+@pytest.fixture(autouse=True)
+def _patch_supported_chains():
+    """Allow test chain IDs (chain-a, chain-b, chain-c) in bridge RPC validation."""
+    with patch("aitbc_chain.config.settings.supported_chains", "chain-a,chain-b,chain-c,chain-empty"):
+        yield
+
+
 @pytest.fixture
 def client() -> TestClient:
     """FastAPI TestClient bound to the RPC router (wrapped in an app for middleware)."""
