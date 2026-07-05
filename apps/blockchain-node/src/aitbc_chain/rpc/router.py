@@ -6,13 +6,13 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import HTTPAuthorizationCredentials
 
 from aitbc.rate_limiting import rate_limit
 
 from ..logger import get_logger
 from ..mempool import get_mempool as get_mempool_instance
-from .auth import get_authenticated_address
+from .auth import get_authenticated_address, security
 from .transactions import TransactionRequest  # noqa: F401  # re-exported for backward compatibility
 
 _logger = get_logger(__name__)
@@ -33,7 +33,6 @@ def _import_failed(module_name: str, error: Exception) -> None:
     _logger.error(msg, module_name, error)
 
 
-security = HTTPBearer(auto_error=False)
 router = APIRouter()
 
 # Include sub-routers
