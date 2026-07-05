@@ -19,6 +19,18 @@ class AITBCHTTPClient:
         self.timeout = timeout
         self.client = httpx.Client(timeout=timeout, follow_redirects=True)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def __del__(self):
+        if hasattr(self, "client") and self.client is not None:
+            import warnings
+
+            warnings.warn(f"{self.__class__.__name__} was not properly closed", stacklevel=2)
+
     def get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         """GET request to blockchain RPC"""
         try:
