@@ -225,3 +225,84 @@ After v0.10.3, the codebase is production-ready from a correctness and resource 
 4. **Security audit** — External security review of bridge and consensus code
 
 See [AGENTS.md](AGENTS.md) for detailed task assignment and [suggestions.md](suggestions.md) for future improvement suggestions.
+
+## 📦 Backport: simple_exchange B1/B2/B3 (2026-07-05)
+
+**Problem**: The B1–B4 exchange fixes were applied to `apps/exchange/exchange_api.py` (FastAPI + SQLAlchemy), but the running systemd service (`aitbc-exchange.service`) starts `apps/exchange/simple_exchange/server.py` (stdlib `http.server` + raw `sqlite3`). The fixes protected dead code — the live service still had float-for-money columns, no transaction atomicity for order matching, and unguarded DB connections.
+
+**Fix**: Backported B1, B2, and B3 to the running `simple_exchange` implementation. B4 (session token predictability) does not apply — `simple_exchange` uses static API-key auth, not session tokens.
+
+| Fix | What changed | Files |
+|-----|-------------|-------|
+| **B2 (float→Decimal)** | Schema columns changed from `REAL` to `TEXT` (Decimal-as-string). All monetary arithmetic uses `Decimal`. Automatic migration of existing REAL columns via table rebuild in `init_db()`. | `simple_exchange/db.py`, `simple_exchange/handlers/exchange.py`, `simple_exchange/handlers/marketplace.py` |
+| **B1 (race condition)** | Order insert + matching now run in a single `BEGIN IMMEDIATE` transaction, acquiring the SQLite write lock before reading open orders. Prevents concurrent double-matching. | `simple_exchange/handlers/exchange.py` (`handle_place_order`, `_match_orders_in_txn`) |
+| **B3 (connection leak)** | All `sqlite3.connect()` calls wrapped in `try/finally` to guarantee cleanup on exceptions. | `simple_exchange/handlers/exchange.py`, `simple_exchange/handlers/marketplace.py` |
+
+**Tests**: 14 new tests in `apps/exchange/tests/test_simple_exchange_b1_b2_b3.py` covering Decimal arithmetic, schema migration, order matching atomicity, connection cleanup, and marketplace price storage.
+
+**Verification**:
+```bash
+cd /opt/aitbc && ./venv/bin/python -m pytest apps/exchange/tests/ -q -o addopts=""
+# 14 passed
+```
+
+## 🗑️ Legacy Exchange Implementation Removal (2026-07-05)
+
+**Problem**: `apps/exchange/` contained 20+ legacy files — a dead FastAPI implementation (`exchange_api.py`, `models.py`, `database.py`), 8 standalone scripts, 2 deploy scripts, 6 frontend assets, 1 deprecated shim, and an examples directory — none of which were used by the running service (`simple_exchange/server.py`). The legacy code created confusion (B1–B4 fixes were applied to dead code), inflated the codebase, and included a broken `get_db_path()` that created literal `sqlite:` and `postgresql+psycopg:` directories.
+
+**Removed**:
+
+| Category | Files removed |
+|----------|--------------|
+| Dead FastAPI implementation | `exchange_api.py`, `models.py`, `database.py` |
+| Dead standalone scripts | `cross_chain_exchange.py`, `multichain_exchange_api.py`, `real_exchange_integration.py`, `simple_exchange_api_pg.py`, `complete_cross_chain_exchange.py`, `bitcoin-wallet.py`, `health_monitor.py`, `build.py` |
+| Deploy scripts | `deploy_real_exchange.sh`, `deploy_simple.sh` |
+| Frontend assets | `server.py`, `index.html`, `admin.html`, `index_inline.html`, `styles.css`, `update_price_ticker.js` |
+| Deprecated shim | `simple_exchange_api.py` |
+| Examples | `examples/` (entire directory) |
+| Legacy tests | `tests/test_unit_exchange.py`, `tests/test_integration_exchange.py`, `tests/test_edge_cases_exchange.py` (tested `exchange_api.py`) |
+| Broken path artifacts | `postgresql+psycopg:` directory, `sqlite:` directory, `var/` directory |
+| Old scripts | `scripts/` (migrate_to_postgresql.py, seed_market.py, setup_postgresql.sh) |
+
+**Bug fix**: `get_db_path()` had a broken `.replace("sqlite://///", "")` pattern that didn't match the actual `sqlite:///` prefix (3 slashes, not 5). This caused SQLite to create literal `sqlite:` directories inside `apps/exchange/`. Fixed to correctly strip the prefix and return an absolute path. Database moved from broken `apps/exchange/sqlite:/var/lib/aitbc/data/exchange/exchange.db` to correct `/var/lib/aitbc/data/exchange/exchange.db`.
+
+**What remains in `apps/exchange/`**:
+- `simple_exchange/` — the running service (server, db, handlers)
+- `tests/` — `test_simple_exchange_b1_b2_b3.py` + `conftest.py`
+- `aitbc-exchange.service` — systemd unit
+- `exchange_wrapper.sh` — systemd wrapper
+- `__init__.py` — package marker
+- `README.md` — updated documentation
+
+**Note**: Legacy deployment scripts in `scripts/service-management/` and `scripts/deployment/` previously referenced the removed `server.py --port 3002` and dead paths (`apps/trade-exchange/`, `apps/marketplace-ui/`). These have been cleaned up — see the script cleanup section below.
+
+## 🧹 Legacy Deployment Script Cleanup (2026-07-05)
+
+**Problem**: After removing the legacy exchange implementation, 11 scripts in `scripts/service-management/` and `scripts/deployment/` still referenced dead files (`server.py`, `exchange_api.py`, `simple_exchange_api.py`, `apps/trade-exchange/`, `apps/marketplace-ui/`) and dead ports (3001, 3002, 8000, 9080). The actual running services use ports 8106 (exchange), 8107 (marketplace), 8201 (trading), 8202 (blockchain RPC), 8203 (coordinator API), 8108 (wallet) — all managed via systemd.
+
+**Updated scripts** (now use real systemd services + correct ports):
+
+| Script | Changes |
+|--------|---------|
+| `service-management/check-container.sh` | Replaced manual `python server.py` starts with `systemctl start aitbc-*`; updated port checks from 3001/3002/8000/9080 to 8106/8107/8108/8201/8202/8203 |
+| `service-management/run-local-services.sh` | Replaced manual process starts with `systemctl start aitbc-*`; updated port checks and URL output to real service ports |
+| `service-management/fix-services.sh` | Replaced manual `python server.py` starts with `systemctl start aitbc-*`; updated port references |
+| `service-management/stop-services.sh` | Replaced `fuser -k` on dead ports with `systemctl stop aitbc-*` + `fuser -k` on real ports (8106-8203) |
+| `service-management/diagnose-services.sh` | Replaced dead port checks with systemd service status + real port checks; updated test endpoints |
+| `service-management/setup-production-assets.sh` | Replaced `apps/trade-exchange/index.html` and `apps/marketplace-ui/index.html` refs with `apps/marketplace/src/marketplace_service/templates/` and `apps/trading/src/trading_service/templates/` |
+| `deployment/deploy/deploy-to-server.sh` | Replaced hardcoded systemd unit generation with `find ... -name 'aitbc-*.service' -exec cp`; updated nginx proxy ports; updated project path to `/opt/aitbc` |
+| `deployment/deploy/deploy-to-container.sh` | Same as deploy-to-server.sh but for incus container; updated all port refs and service names |
+| `deployment/deploy/container-deploy.py` | Replaced manual `python server.py` startup with systemd service installation + start; updated all port refs |
+| `deployment/deploy/deploy_container_with_miner.py` | Replaced `simple_exchange_api.py` with `apps.exchange.simple_exchange.server`; updated ports from 8000/9080/3002 to 8203/8202/8106; updated paths from `/home/oib/aitbc` to `/opt/aitbc` |
+| `deployment/deploy/deploy-domain.sh` | Replaced manual HTML editing with systemd service restart; updated nginx config to real ports; updated project path |
+| `services/gpu/integrate_gpu_exchange.py` | Replaced HTML file editing (removed frontend) with API endpoint integration guidance; updated exchange URL from port 3002 to 8106 |
+
+**Removed scripts** (entirely obsolete — referenced only removed frontend files):
+
+| Script | Reason |
+|--------|--------|
+| `deployment/deploy/deploy-exchange.sh` | Copied `apps/trade-exchange/index.html` and `server.py` (both removed) |
+| `deployment/deploy/deploy-production.sh` | Edited `apps/trade-exchange/index.prod.html` and `apps/marketplace-ui/index.html` (both removed) |
+
+**Verification**: All updated scripts pass `bash -n` syntax check and `python3 -c "import ast; ast.parse(...)"`. Ruff clean for Python scripts.
+
