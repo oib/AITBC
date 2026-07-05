@@ -1,6 +1,6 @@
 # AITBC Agent Scenarios
 
-**Levels**: Beginner (scenarios 01-20), Intermediate (scenarios 21-32)
+**Levels**: Beginner (scenarios 01-20), Intermediate (scenarios 21-35)
 **Prerequisites**: AITBC CLI (`aitbc`) installed, basic Python knowledge
 **Estimated Time**: 10-30 minutes per scenario
 **Last Updated**: 2026-07-05
@@ -16,7 +16,7 @@ breadcrumb: Home > Scenarios > Overview
 
 ## What's in this directory
 
-This directory contains 32 scenarios (20 beginner + 12 intermediate) demonstrating how AI agents use AITBC features via the real `aitbc` CLI and the `aitbc_agent` SDK, plus live verification scenarios for shop-node fixes. Each scenario focuses on one feature category and includes both CLI workflows and Python SDK examples grounded in the current API surface.
+This directory contains 35 scenarios (20 beginner + 15 intermediate) demonstrating how AI agents use AITBC features via the real `aitbc` CLI and the `aitbc_agent` SDK, plus live verification scenarios for shop-node fixes. Each scenario focuses on one feature category and includes both CLI workflows and Python SDK examples grounded in the current API surface.
 
 > **Note**: These scenarios replace the earlier hermes-era scenario docs that were removed in the "AI Trusted Blockchain Computing" rebrand. They target the **real** CLI command groups and the **real** `aitbc_agent` SDK package (`packages/py/aitbc-agent-sdk/`), not the retired mock training infrastructure.
 
@@ -63,6 +63,9 @@ These scenarios verify fixes applied to shop-node services (v0.10.3). They test 
 | 30 | [Secret Manager Thread Safety](./30_secret_manager_thread_safety.md) | A11 | Concurrent access with threading.Lock, 0 errors |
 | 31 | [Async HTTP Client Non-Blocking](./31_async_http_client.md) | B5 | `httpx.AsyncClient` (not `requests` + `run_in_executor`) |
 | 32 | [Hardcoded Secrets Fail-Fast](./32_hardcoded_secrets_failfast.md) | A4, A5 | Production rejects missing/default/short secrets |
+| 33 | [Exchange Financial Correctness — Gap Analysis](./33_exchange_financial_correctness.md) | B1, B2, B3, B4 | Audit which exchange implementation is running; test float drift, race conditions, session handling |
+| 34 | [Hub↔Customer Node End-to-End](./34_hub_customer_node_e2e.md) | A6 | Cross-network job submission, bridge queries, exchange trading; verify no hardcoded localhost URLs |
+| 35 | [Fire-and-Forget Logging (B10/B11)](./35_fire_and_forget_logging_b10_b11.md) | B10, B11 | Agent-coordinator TaskRegistry + coordinator-api create_task_with_logging; exceptions logged, not swallowed |
 
 ---
 
@@ -96,4 +99,4 @@ These scenarios verify fixes applied to shop-node services (v0.10.3). They test 
 ---
 
 *Last updated: 2026-07-05*
-*Version: 1.1*
+*Version: 1.2*

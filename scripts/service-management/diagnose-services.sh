@@ -6,60 +6,57 @@ echo "🔍 Diagnosing AITBC Services"
 echo "=========================="
 echo ""
 
-# Check local services
-echo "📋 Local Services:"
-echo "Port 8000 (Coordinator API):"
-lsof -i :8000 2>/dev/null || echo "  ❌ Not running"
+# Check systemd services
+echo "📋 Systemd Services:"
+for svc in aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p aitbc-exchange aitbc-marketplace aitbc-trading aitbc-wallet; do
+    status=$(systemctl is-active "$svc" 2>/dev/null || echo "not-found")
+    echo "  $svc: $status"
+done
 
-echo "Port 9080 (Blockchain Node):"
-lsof -i :9080 2>/dev/null || echo "  ❌ Not running"
-
-echo "Port 3001 (Marketplace UI):"
-lsof -i :3001 2>/dev/null || echo "  ❌ Not running"
-
-echo "Port 3002 (Trade Exchange):"
-lsof -i :3002 2>/dev/null || echo "  ❌ Not running"
+echo ""
+echo "🌐 Ports listening:"
+for port in 8106 8107 8108 8201 8202 8203; do
+    echo -n "  Port $port: "
+    if ss -ltnp 2>/dev/null | grep -q ":$port "; then
+        echo "✅ listening"
+    else
+        echo "❌ not listening"
+    fi
+done
 
 echo ""
 echo "🌐 Testing Endpoints:"
 
-# Test local endpoints
-echo "Local API Health:"
-curl -s http://127.0.0.1:8000/v1/health 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
+echo "Coordinator API Health:"
+curl -s http://127.0.0.1:8203/v1/health 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
 
-echo "Local Blockchain:"
-curl -s http://127.0.0.1:9080/rpc/head 2>/dev/null | head -c 50 && echo "..." || echo "  ❌ Failed"
+echo "Blockchain RPC:"
+curl -s http://127.0.0.1:8202/rpc/head 2>/dev/null | head -c 50 && echo "..." || echo "  ❌ Failed"
 
-echo "Local Admin:"
-curl -s http://127.0.0.1:8000/v1/admin/stats 2>/dev/null | head -c 50 && echo "..." || echo "  ❌ Failed"
+echo "Exchange Health:"
+curl -s http://127.0.0.1:8106/health 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
+
+echo "Marketplace Health:"
+curl -s http://127.0.0.1:8107/health 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
+
+echo "Trading Health:"
+curl -s http://127.0.0.1:8201/health 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
+
+echo "Wallet Health:"
+curl -s http://127.0.0.1:8108/health 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
 
 echo ""
 echo "🌐 Remote Endpoints (via domain):"
 echo "Domain API Health:"
 curl -s https://aitbc.bubuit.net/health 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
 
-echo "Domain Admin:"
-curl -s https://aitbc.bubuit.net/admin/stats 2>/dev/null | head -c 50 && echo "..." || echo "  ❌ Failed"
-
-echo ""
-echo "🔧 Fixing common issues..."
-
-# Stop any conflicting services
-echo "Stopping local services..."
-sudo fuser -k 8000/tcp 2>/dev/null || true
-sudo fuser -k 9080/tcp 2>/dev/null || true
-sudo fuser -k 3001/tcp 2>/dev/null || true
-sudo fuser -k 3002/tcp 2>/dev/null || true
-
 echo ""
 echo "📝 Instructions:"
-echo "1. Make sure you're in the incus group: sudo usermod -aG incus \$USER"
-echo "2. Log out and log back in"
-echo "3. Run: incus exec aitbc -- bash"
-echo "4. Inside container, run: /home/oib/start_aitbc.sh"
-echo "5. Check services: ps aux | grep uvicorn"
+echo "1. Start services: sudo systemctl start aitbc-*"
+echo "2. Check status:   systemctl status aitbc-exchange"
+echo "3. View logs:      journalctl -u aitbc-exchange -f"
 echo ""
-echo "If services are running in container but not accessible:"
-echo "1. Check port forwarding to 10.1.223.93"
-echo "2. Check nginx config in container"
-echo "3. Check firewall rules"
+echo "If services won't start:"
+echo "1. Check logs: journalctl -u aitbc-exchange --since '5 min ago'"
+echo "2. Check config: /etc/aitbc/*.env"
+echo "3. Check secrets: sudo systemctl status aitbc-load-secrets"

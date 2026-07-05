@@ -44,10 +44,8 @@ def deploy_to_container():
 
     # Stop local services
     print("\n📋 Stopping local services...")
-    subprocess.run("sudo fuser -k 8000/tcp 2>/dev/null || true", shell=True)
-    subprocess.run("sudo fuser -k 9080/tcp 2>/dev/null || true", shell=True)
-    subprocess.run("pkill -f 'marketplace-ui' 2>/dev/null || true", shell=True)
-    subprocess.run("pkill -f 'trade-exchange' 2>/dev/null || true", shell=True)
+    subprocess.run("sudo systemctl stop aitbc-exchange aitbc-marketplace aitbc-trading 2>/dev/null || true", shell=True)
+    subprocess.run("sudo systemctl stop aitbc-coordinator-api aitbc-blockchain-rpc 2>/dev/null || true", shell=True)
 
     # Copy project to container
     print("\n📁 Copying project to container...")
@@ -68,28 +66,28 @@ def deploy_to_container():
     # Create startup script with GPU miner
     print("\n🔧 Creating startup script with GPU miner...")
     startup_script = """#!/bin/bash
-cd /home/oib/aitbc
-source .venv/bin/activate
+cd /opt/aitbc
+source venv/bin/activate
 
 # Start coordinator API
 echo "Starting Coordinator API..."
 cd apps/coordinator-api
-source ../../.venv/bin/activate
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+source ../../venv/bin/activate
+python -m uvicorn src.app.main:app --host 0.0.0.0 --port 8203 &
 COORD_PID=$!
 
 # Start blockchain node
 echo "Starting Blockchain Node..."
-cd ../../apps/blockchain-node
-source ../../.venv/bin/activate
-python -m uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 9080 &
+cd ../blockchain-node
+source ../../venv/bin/activate
+python -m uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 8202 &
 BLOCK_PID=$!
 
-# Start trade exchange
-echo "Starting Trade Exchange..."
-cd ../../apps/trade-exchange
-source ../../.venv/bin/activate
-python simple_exchange_api.py &
+# Start exchange
+echo "Starting Exchange..."
+cd ../exchange
+source ../../venv/bin/activate
+python -m apps.exchange.simple_exchange.server --port 8106 &
 EXCHANGE_PID=$!
 
 # Start GPU registry
@@ -104,9 +102,9 @@ python gpu_miner_with_wait.py &
 MINER_PID=$!
 
 echo "All services started!"
-echo "Coordinator API: http://10.1.223.93:8000"
-echo "Blockchain RPC: http://10.1.223.93:9080"
-echo "Trade Exchange: http://10.1.223.93:3002"
+echo "Coordinator API: http://10.1.223.93:8203"
+echo "Blockchain RPC: http://10.1.223.93:8202"
+echo "Exchange: http://10.1.223.93:8106"
 echo "GPU Registry: http://10.1.223.93:8091"
 
 # Wait for services
@@ -147,9 +145,9 @@ WantedBy=multi-user.target
 
     print("\n✅ Deployment complete!")
     print("\n📊 Service URLs:")
-    print(f"  - Coordinator API: http://{container_ip}:8000")
-    print(f"  - Blockchain RPC: http://{container_ip}:9080")
-    print(f"  - Trade Exchange: http://{container_ip}:3002")
+    print(f"  - Coordinator API: http://{container_ip}:8203")
+    print(f"  - Blockchain RPC: http://{container_ip}:8202")
+    print(f"  - Exchange: http://{container_ip}:8106")
     print(f"  - GPU Registry: http://{container_ip}:8091")
     print("\n🔍 Check GPU status:")
     print(f"  curl http://{container_ip}:8091/miners/list")
