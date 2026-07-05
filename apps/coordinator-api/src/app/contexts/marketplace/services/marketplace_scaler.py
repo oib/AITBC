@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -54,7 +55,7 @@ class ResourceScaler:
         if self.is_running:
             return
         self.is_running = True
-        self._scaler_task = asyncio.create_task(self._scaling_loop())
+        self._scaler_task = create_task_with_logging(self._scaling_loop(), name="scaling_loop")
         logger.info("Resource Scaler started (Min: %s, Max: %s)", self.policy.min_nodes, self.policy.max_nodes)
 
     async def stop(self) -> None:

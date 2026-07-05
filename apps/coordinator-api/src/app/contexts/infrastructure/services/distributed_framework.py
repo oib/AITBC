@@ -13,6 +13,7 @@ from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -98,8 +99,8 @@ class DistributedProcessingCoordinator:
         if self.is_running:
             return
         self.is_running = True
-        self._scheduler_task = asyncio.create_task(self._scheduling_loop())
-        self._monitor_task = asyncio.create_task(self._health_monitor_loop())
+        self._scheduler_task = create_task_with_logging(self._scheduling_loop(), name="scheduling_loop")
+        self._monitor_task = create_task_with_logging(self._health_monitor_loop(), name="health_monitor_loop")
         logger.info("Distributed Processing Coordinator started")
 
     async def stop(self) -> None:
@@ -190,7 +191,7 @@ class DistributedProcessingCoordinator:
                 if best_worker:
                     await self._assign_task(task, best_worker)
                 else:
-                    asyncio.create_task(self._requeue_delayed(priority, task))
+                    create_task_with_logging(self._requeue_delayed(priority, task), name="requeue_delayed")
                 self.task_queue.task_done()
             except asyncio.CancelledError:
                 break
@@ -236,7 +237,7 @@ class DistributedProcessingCoordinator:
         elif worker.status == WorkerStatus.IDLE:
             worker.status = WorkerStatus.BUSY
         logger.debug("Assigned task %s to worker %s", task.task_id, worker.worker_id)
-        asyncio.create_task(self._simulate_worker_execution(task, worker))
+        create_task_with_logging(self._simulate_worker_execution(task, worker), name="simulate_worker_execution")
 
     async def _simulate_worker_execution(self, task: DistributedTask, worker: WorkerNode) -> None:
         """Simulate the execution on the remote worker node"""
@@ -296,7 +297,7 @@ class DistributedProcessingCoordinator:
             task.error = f"Attempt {task.retries} failed: {error}"
             logger.warning("Task %s failed, scheduling retry %s/%s", task_id, task.retries, task.max_retries)
             queue_priority = 100 - min(task.priority, 100) + task.retries * 5
-            asyncio.create_task(self.task_queue.put((queue_priority, time.time(), task.task_id)))
+            create_task_with_logging(self.task_queue.put((queue_priority, time.time(), task.task_id)), name="requeue_task")
         else:
             task.status = TaskStatus.FAILED
             task.error = f"Max retries exceeded. Final error: {error}"

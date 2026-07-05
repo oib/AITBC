@@ -3,7 +3,6 @@ Advanced Reinforcement Learning Engine
 Main engine class for RL-based marketplace strategies and agent optimization
 """
 
-import asyncio
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -15,6 +14,7 @@ import torch.optim as optim
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 from app.contexts.advanced_rl.domain import ReinforcementLearningConfig
 from .agents import PPOAgent, RainbowDQNAgent, SACAgent
@@ -374,7 +374,7 @@ class AdvancedReinforcementLearningEngine:
         session.add(rl_config)
         session.commit()
         session.refresh(rl_config)
-        asyncio.create_task(self.train_rl_agent(session, config_id))
+        create_task_with_logging(self.train_rl_agent(session, config_id), name="train_rl_agent")
         logger.info("Created RL agent with algorithm %s", algorithm)
         return rl_config
 
