@@ -41,7 +41,7 @@ class CLIConfig(BaseAITBCConfig):
     governance_service_url: str = Field(default="http://localhost:8105", description="Governance Service URL")
     agent_coordinator_url: str = Field(default="http://localhost:8107", description="Agent Coordinator URL")
     edge_api_host: str = Field(default="localhost", description="Edge API host")
-    edge_api_port: int = Field(default=8103, description="Edge API port")
+    edge_api_port: int = Field(default=8111, description="Edge API port")
     wallet_daemon_url: str = Field(default="http://localhost:8108", description="Wallet daemon URL")
     wallet_url: str = Field(default="http://localhost:8108", description="Wallet daemon URL (alias for compatibility)")
     blockchain_rpc_url: str = Field(default="http://localhost:8202", description="Blockchain RPC URL")
@@ -61,6 +61,11 @@ class CLIConfig(BaseAITBCConfig):
 
     # Config file path (for backward compatibility)
     config_file: str | None = Field(default=None, description="Path to config file")
+
+    @property
+    def coordinator_url(self) -> str:
+        """Deprecated alias for agent_coordinator_url"""
+        return self.agent_coordinator_url
 
 
 def get_config(config_file: str | None = None) -> CLIConfig:

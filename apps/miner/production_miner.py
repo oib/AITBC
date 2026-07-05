@@ -12,7 +12,7 @@ from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 
-COORDINATOR_URL = os.environ.get("COORDINATOR_URL", "http://127.0.0.1:8011")
+COORDINATOR_URL = os.environ.get("COORDINATOR_URL", "http://127.0.0.1:8107")
 MINER_ID = os.environ.get("MINER_API_KEY", "")
 AUTH_TOKEN = os.environ.get("MINER_API_KEY", "")
 if not MINER_ID or not AUTH_TOKEN:
