@@ -4,6 +4,7 @@ import asyncio
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 from .action_handlers.agent_daemon import AgentDaemonHandler
 from .action_handlers.coordinator_api import CoordinatorAPIHandler
@@ -58,19 +59,19 @@ class BlockchainEventBridge:
         if self.settings.subscribe_blocks:
             self.block_subscriber = BlockEventSubscriber(self.settings)
             self.block_subscriber.set_bridge(self)
-            task = asyncio.create_task(self.block_subscriber.run(), name="block-subscriber")
+            task = create_task_with_logging(self.block_subscriber.run(), name="block-subscriber")
             self._tasks.add(task)
             logger.info("Block event subscriber started")
         if self.settings.subscribe_transactions:
             self.transaction_subscriber = TransactionEventSubscriber(self.settings)
             self.transaction_subscriber.set_bridge(self)
-            task = asyncio.create_task(self.transaction_subscriber.run(), name="transaction-subscriber")
+            task = create_task_with_logging(self.transaction_subscriber.run(), name="transaction-subscriber")
             self._tasks.add(task)
             logger.info("Transaction event subscriber started")
         if self.settings.subscribe_contracts:
             self.contract_subscriber = ContractEventSubscriber(self.settings)
             self.contract_subscriber.set_bridge(self)
-            task = asyncio.create_task(self.contract_subscriber.run(), name="contract-subscriber")
+            task = create_task_with_logging(self.contract_subscriber.run(), name="contract-subscriber")
             self._tasks.add(task)
             logger.info("Contract event subscriber started")
         self._running = True
