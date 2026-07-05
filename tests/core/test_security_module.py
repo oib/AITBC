@@ -1,5 +1,5 @@
 """
-Tests for AITBC security utilities module (crypto/security.py)
+Tests for AITBC security utilities module (crypto/tokens.py)
 This module has 0% coverage and 220 statements.
 """
 
@@ -18,7 +18,7 @@ def load_module_from_path(module_name, file_path):
     return module
 
 
-security = load_module_from_path("aitbc.crypto.security", Path("/opt/aitbc/aitbc/crypto/security.py"))
+security = load_module_from_path("aitbc.crypto", Path("/opt/aitbc/aitbc/crypto/__init__.py"))
 
 
 # ============================================================================
