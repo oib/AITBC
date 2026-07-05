@@ -874,13 +874,14 @@ class TestBridgeVerificationRPC:
         assert data["height"] == 10
 
     def test_store_block_header_missing_fields(self, rpc_setup) -> None:
-        """POST /bridge/block-headers with missing fields returns 400."""
+        """POST /bridge/block-headers with missing fields returns 422 (Pydantic validation)."""
         bridge, client = rpc_setup
         response = client.post(
             "/bridge/block-headers",
             json={"chain_id": "chain-a"},
         )
-        assert response.status_code == 400
+        # Pydantic validation rejects missing required fields (height, hash, proposer, state_root)
+        assert response.status_code == 422
 
     def test_get_block_header_rpc(self, rpc_setup) -> None:
         """GET /bridge/block-headers/{chain_id}/{height} returns a stored header."""

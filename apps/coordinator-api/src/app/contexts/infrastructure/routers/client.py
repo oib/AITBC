@@ -46,6 +46,10 @@ async def submit_job(
             session.refresh(job)
             logger.info("Payment created for job %s: %s", job.id, payment.id)
         except Exception as e:
+            # Rollback any partial payment changes before marking as skipped.
+            # This prevents orphaned payment records from a partially-successful create_payment.
+            session.rollback()
+            session.refresh(job)
             logger.warning("Payment creation failed for job %s, proceeding without payment: %s", job.id, e)
             job.payment_status = "skipped"
             session.commit()
