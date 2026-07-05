@@ -3,7 +3,6 @@ Alerting System for AITBC Agent Coordinator
 Implements comprehensive alerting with multiple channels and SLA monitoring
 """
 
-import asyncio
 import json
 import logging
 import smtplib
@@ -13,6 +12,7 @@ from enum import Enum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 try:
     from email.mime.multipart import MIMEMultipart
@@ -490,7 +490,7 @@ class AlertManager:
         self.alerts[alert_id] = alert
         message = self._generate_alert_message(alert, metrics)
         for channel in rule.notification_channels:
-            asyncio.create_task(self.notification_manager.send_notification(channel, alert, message))
+            create_task_with_logging(self.notification_manager.send_notification(channel, alert, message), name="send_notification")
 
     def _find_similar_active_alert(self, rule: AlertRule) -> Alert | None:
         """Find similar active alert"""

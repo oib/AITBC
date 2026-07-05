@@ -2,7 +2,6 @@
 Multi-Modal Fusion Engine - Main service for multi-modal fusion operations
 """
 
-import asyncio
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -13,6 +12,7 @@ import torch.nn as nn
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 from app.contexts.multimodal.domain import FusionModel
 from .neural_modules import AdaptiveModalityWeighting, CrossModalAttention, MultiModalTransformer
@@ -246,7 +246,7 @@ class MultiModalFusionEngine:
         session.add(fusion_model)
         session.commit()
         session.refresh(fusion_model)
-        asyncio.create_task(self.train_fusion_model(session, fusion_id))
+        create_task_with_logging(self.train_fusion_model(session, fusion_id), name="train_fusion_model")
         logger.info("Created fusion model %s with strategy %s", fusion_id, fusion_strategy)
         return fusion_model
 

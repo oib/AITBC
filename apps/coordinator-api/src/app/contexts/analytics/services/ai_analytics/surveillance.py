@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd  # type: ignore[import-untyped]
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -145,7 +146,7 @@ class AISurveillanceSystem:
             logger.warning("⚠️  AI surveillance already running")
             return
         self.is_running = True
-        self.monitoring_task = asyncio.create_task(self._surveillance_loop(symbols))
+        self.monitoring_task = create_task_with_logging(self._surveillance_loop(symbols), name="surveillance_loop")
         logger.info("🔍 AI Surveillance started for %s symbols", len(symbols))
 
     async def stop_surveillance(self) -> None:
