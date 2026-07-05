@@ -108,6 +108,19 @@ class Settings(BaseAITBCConfig):
     jwt_secret: str = ""  # Override None default from base; must be set via env in production
     hmac_secret: str | None = None
 
+    @field_validator("jwt_secret")
+    @classmethod
+    def _validate_jwt_secret(cls, v: str) -> str:
+        """Validate jwt_secret is set and not a known default in production."""
+        if _is_production():
+            if not v:
+                raise ValueError("JWT secret must be set in production")
+            if v in ("change-me-in-production", "change-this-secret-key-in-production", "your_secret_here"):
+                raise ValueError("JWT_SECRET must be changed from default value")
+            if len(v) < 32:
+                raise ValueError("JWT_SECRET must be at least 32 characters long in production")
+        return v
+
     # CORS - override inherited allow_origins with coordinator-api specific defaults
     allow_origins: list[str] = Field(
         default=[
