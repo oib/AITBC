@@ -25,6 +25,7 @@ import logging
 from collections import defaultdict
 from typing import Any
 
+from aitbc.async_tasks import create_task_with_logging
 from aitbc.network import decompress_json
 
 logger = logging.getLogger(__name__)
@@ -197,7 +198,7 @@ class GossipClient:
                 except Exception as e:
                     logger.warning("GossipClient Redis subscription error for %s: %s", topic, e)
 
-            task = asyncio.create_task(_listen(), name=f"gossip-sub-{topic}")
+            task = create_task_with_logging(_listen(), name=f"gossip-sub-{topic}")
             self._tasks.add(task)
 
             def _close() -> None:
@@ -219,7 +220,7 @@ class GossipClient:
                         if not queues:
                             self._mem_topics.pop(topic, None)
 
-            asyncio.create_task(_remove())
+            create_task_with_logging(_remove(), name=f"gossip-unsubscribe-{topic}")
 
         return GossipSubscription(topic=topic, queue=queue, close_fn=_close_mem)
 
