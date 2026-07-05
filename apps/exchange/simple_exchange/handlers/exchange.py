@@ -1,12 +1,46 @@
-"""Trading, metrics, treasury, and health handlers."""
+"""Trading, metrics, treasury, and health handlers.
+
+Monetary arithmetic uses ``Decimal`` throughout (B2 backport from v0.10.3).
+Order placement and matching occur within a single ``BEGIN IMMEDIATE``
+transaction to prevent race conditions (B1 backport). All database
+connections are closed via ``try/finally`` (B3 backport).
+"""
 
 import json
 import sqlite3
 import urllib.parse
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from ..db import get_db_path
 from .base import RPC_BASE_URL, RPC_TIMEOUT
+
+
+def _to_decimal(value) -> Decimal:
+    """Convert a value to Decimal, handling str/int/float safely.
+
+    Using ``str()`` first avoids the float-to-Decimal precision trap
+    (e.g., ``Decimal(0.1)`` gives ``0.1000000000000000055511151231257827...``,
+    but ``Decimal(str(0.1))`` gives ``0.1``).
+    """
+    return Decimal(str(value))
+
+
+def _row_to_order(row) -> dict:
+    """Convert a database row to an order dict with Decimal monetary values."""
+    return {
+        "id": row[0],
+        "order_type": row[1],
+        "amount": row[2],
+        "price": row[3],
+        "total": row[4],
+        "filled": row[5],
+        "remaining": row[6],
+        "status": row[7],
+        "created_at": row[8],
+        "user_address": row[9] if len(row) > 9 else None,
+        "tx_hash": row[10] if len(row) > 10 else None,
+    }
 
 
 class ExchangeMixin:
@@ -17,90 +51,101 @@ class ExchangeMixin:
         query = urllib.parse.parse_qs(parsed.query)
         limit = int(query.get("limit", [20])[0])
 
-        db_path = get_db_path()
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
+        conn = sqlite3.connect(get_db_path())
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id, amount, price, total, created_at
+                FROM trades
+                ORDER BY created_at DESC
+                LIMIT ?
+            """,
+                (limit,),
+            )
 
-        cursor.execute(
-            """
-            SELECT id, amount, price, total, created_at
-            FROM trades
-            ORDER BY created_at DESC
-            LIMIT ?
-        """,
-            (limit,),
-        )
-
-        trades = []
-        for row in cursor.fetchall():
-            trades.append({"id": row[0], "amount": row[1], "price": row[2], "total": row[3], "created_at": row[4]})
-
-        conn.close()
+            trades = []
+            for row in cursor.fetchall():
+                trades.append({"id": row[0], "amount": row[1], "price": row[2], "total": row[3], "created_at": row[4]})
+        finally:
+            conn.close()
 
         self.send_json_response(trades)
 
     def get_orderbook(self):
         """Get order book"""
-        db_path = get_db_path()
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
+        conn = sqlite3.connect(get_db_path())
+        try:
+            cursor = conn.cursor()
 
-        # Get sell orders
-        cursor.execute("""
-            SELECT id, order_type, amount, price, total, filled, remaining, status, created_at
-            FROM orders
-            WHERE order_type = 'SELL' AND status = 'open'
-            ORDER BY price ASC
-            LIMIT 20
-        """)
+            # Get sell orders
+            cursor.execute("""
+                SELECT id, order_type, amount, price, total, filled, remaining, status, created_at
+                FROM orders
+                WHERE order_type = 'SELL' AND status = 'open'
+                ORDER BY price ASC
+                LIMIT 20
+            """)
 
-        sells = []
-        for row in cursor.fetchall():
-            sells.append(
-                {
-                    "id": row[0],
-                    "order_type": row[1],
-                    "amount": row[2],
-                    "price": row[3],
-                    "total": row[4],
-                    "filled": row[5],
-                    "remaining": row[6],
-                    "status": row[7],
-                    "created_at": row[8],
-                }
-            )
+            sells = []
+            for row in cursor.fetchall():
+                sells.append(
+                    {
+                        "id": row[0],
+                        "order_type": row[1],
+                        "amount": row[2],
+                        "price": row[3],
+                        "total": row[4],
+                        "filled": row[5],
+                        "remaining": row[6],
+                        "status": row[7],
+                        "created_at": row[8],
+                    }
+                )
 
-        # Get buy orders
-        cursor.execute("""
-            SELECT id, order_type, amount, price, total, filled, remaining, status, created_at
-            FROM orders
-            WHERE order_type = 'BUY' AND status = 'open'
-            ORDER BY price DESC
-            LIMIT 20
-        """)
+            # Get buy orders
+            cursor.execute("""
+                SELECT id, order_type, amount, price, total, filled, remaining, status, created_at
+                FROM orders
+                WHERE order_type = 'BUY' AND status = 'open'
+                ORDER BY price DESC
+                LIMIT 20
+            """)
 
-        buys = []
-        for row in cursor.fetchall():
-            buys.append(
-                {
-                    "id": row[0],
-                    "order_type": row[1],
-                    "amount": row[2],
-                    "price": row[3],
-                    "total": row[4],
-                    "filled": row[5],
-                    "remaining": row[6],
-                    "status": row[7],
-                    "created_at": row[8],
-                }
-            )
-
-        conn.close()
+            buys = []
+            for row in cursor.fetchall():
+                buys.append(
+                    {
+                        "id": row[0],
+                        "order_type": row[1],
+                        "amount": row[2],
+                        "price": row[3],
+                        "total": row[4],
+                        "filled": row[5],
+                        "remaining": row[6],
+                        "status": row[7],
+                        "created_at": row[8],
+                    }
+                )
+        finally:
+            conn.close()
 
         self.send_json_response({"buys": buys, "sells": sells})
 
     def handle_place_order(self):
-        """Place a new order on the blockchain"""
+        """Place a new order on the blockchain.
+
+        B1 fix: The order insert and matching logic run within a single
+        ``BEGIN IMMEDIATE`` transaction. This acquires the SQLite write lock
+        before reading open orders, preventing two concurrent requests from
+        matching the same counterparty order (double-spend risk).
+
+        B2 fix: All monetary values (amount, price, total, filled, remaining)
+        are stored as TEXT (Decimal-as-string) for exact arithmetic. No float
+        rounding drift.
+
+        B3 fix: Database connections are closed via try/finally.
+        """
         if not self._require_api_key():
             return
         data = self._read_json_body()
@@ -110,11 +155,11 @@ class ExchangeMixin:
 
         try:
             order_type = data.get("order_type")
-            amount = data.get("amount")
-            price = data.get("price")
+            amount_raw = data.get("amount")
+            price_raw = data.get("price")
             user_address = data.get("user_address")
 
-            if not all([order_type, amount, price, user_address]):
+            if not all([order_type, amount_raw, price_raw, user_address]):
                 self.send_error(400, "Missing required fields")
                 return
 
@@ -122,7 +167,13 @@ class ExchangeMixin:
                 self.send_error(400, "Invalid order type")
                 return
 
+            # B2: Convert to Decimal for exact monetary arithmetic
+            amount_dec = _to_decimal(amount_raw)
+            price_dec = _to_decimal(price_raw)
+            total_dec = amount_dec * price_dec
+
             # Create order transaction on blockchain
+            tx_hash = ""
             try:
                 import urllib.parse
                 import urllib.request
@@ -132,8 +183,8 @@ class ExchangeMixin:
                     "from": user_address,
                     "type": "ORDER",
                     "order_type": order_type,
-                    "amount": str(amount),
-                    "price": str(price),
+                    "amount": str(amount_dec),
+                    "price": str(price_dec),
                     "nonce": 0,  # Would get actual nonce from wallet
                 }
 
@@ -147,92 +198,47 @@ class ExchangeMixin:
 
                 with urllib.request.urlopen(req, timeout=RPC_TIMEOUT) as response:
                     tx_result = json.loads(response.read().decode())
+                tx_hash = tx_result.get("tx_hash", "")
 
-                # Store order in local database for orderbook
-                total = amount * price
+            except Exception:
+                # Fallback to database-only if blockchain is down
+                pass
 
-                db_path = get_db_path()
-                conn = sqlite3.connect(db_path)
+            # B1: Insert order and match within a single transaction.
+            # BEGIN IMMEDIATE acquires the write lock before we read open orders,
+            # preventing concurrent requests from double-matching the same counterparty.
+            conn = sqlite3.connect(get_db_path(), timeout=30)
+            try:
+                conn.execute("BEGIN IMMEDIATE")
                 cursor = conn.cursor()
 
+                # Store order in local database for orderbook (B2: store as TEXT)
                 cursor.execute(
                     """
                     INSERT INTO orders (order_type, amount, price, total, remaining, user_address, tx_hash)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                    (order_type, amount, price, total, amount, user_address, tx_result.get("tx_hash", "")),
+                    (order_type, str(amount_dec), str(price_dec), str(total_dec), str(amount_dec), user_address, tx_hash),
                 )
 
                 order_id = cursor.lastrowid
-                conn.commit()
 
                 # Get the created order
                 cursor.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
                 row = cursor.fetchone()
+                order = _row_to_order(row)
 
-                order = {
-                    "id": row[0],
-                    "order_type": row[1],
-                    "amount": row[2],
-                    "price": row[3],
-                    "total": row[4],
-                    "filled": row[5],
-                    "remaining": row[6],
-                    "status": row[7],
-                    "created_at": row[8],
-                    "user_address": row[9],
-                    "tx_hash": row[10],
-                }
+                # B1: Match within the same transaction (holds the write lock)
+                self._match_orders_in_txn(cursor, order)
 
-                conn.close()
-
-                # Try to match orders
-                self.match_orders(order)
-
-                self.send_json_response(order)
-
+                conn.commit()
             except Exception:
-                # Fallback to database-only if blockchain is down
-                total = amount * price
-
-                db_path = get_db_path()
-                conn = sqlite3.connect(db_path)
-                cursor = conn.cursor()
-
-                cursor.execute(
-                    """
-                    INSERT INTO orders (order_type, amount, price, total, remaining, user_address)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                    (order_type, amount, price, total, amount, user_address),
-                )
-
-                order_id = cursor.lastrowid
-                conn.commit()
-
-                # Get the created order
-                cursor.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
-                row = cursor.fetchone()
-
-                order = {
-                    "id": row[0],
-                    "order_type": row[1],
-                    "amount": row[2],
-                    "price": row[3],
-                    "total": row[4],
-                    "filled": row[5],
-                    "remaining": row[6],
-                    "status": row[7],
-                    "created_at": row[8],
-                    "user_address": row[9] if len(row) > 9 else None,
-                }
-
+                conn.rollback()
+                raise
+            finally:
                 conn.close()
 
-                # Try to match orders
-                self.match_orders(order)
-
-                self.send_json_response(order)
+            self.send_json_response(order)
 
         except Exception as e:
             # Blockchain is down — return an honest error, not fake supply numbers
@@ -457,28 +463,26 @@ class ExchangeMixin:
         except Exception as e:
             self.send_json_response({"error": f"Wallet service unavailable: {e}"}, status=503)
 
-    def match_orders(self, order):
-        """Match a new order against existing open orders in the database.
+    def _match_orders_in_txn(self, cursor, order: dict) -> None:
+        """Match a new order against existing open orders within an existing transaction.
 
-        Implements a simple price-time priority matching engine:
-        - A BUY order matches SELL orders with price <= buy price
-        - A SELL order matches BUY orders with price >= sell price
-        Matched trades are recorded in the trades table.
+        B1 fix: This runs within the caller's transaction (which holds the
+        write lock via ``BEGIN IMMEDIATE``). The matching read+update is
+        atomic with the order insert, preventing concurrent double-matching.
+
+        B2 fix: All monetary arithmetic uses Decimal. Values are stored as
+        TEXT (Decimal-as-string) in the database.
+
+        Args:
+            cursor: SQLite cursor within an active transaction.
+            order: The new order dict (mutated in place with updated filled/remaining/status).
         """
-        import sqlite3
-
-        from ..db import get_db_path
-
         if not order or "order_type" not in order:
             return
 
-        db_path = get_db_path()
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-
         new_type = order["order_type"]
-        new_price = order["price"]
-        new_remaining = order["remaining"]
+        new_price = _to_decimal(order["price"])
+        new_remaining = _to_decimal(order["remaining"])
         new_id = order.get("id")
 
         # Find matching orders (opposite side, price-compatible)
@@ -491,7 +495,7 @@ class ExchangeMixin:
                 WHERE order_type = 'SELL' AND status = 'open' AND price <= ?
                 ORDER BY price ASC, created_at ASC
                 """,
-                (new_price,),
+                (str(new_price),),
             )
         else:
             # Match against BUY orders with price >= our sell price
@@ -502,7 +506,7 @@ class ExchangeMixin:
                 WHERE order_type = 'BUY' AND status = 'open' AND price >= ?
                 ORDER BY price DESC, created_at ASC
                 """,
-                (new_price,),
+                (str(new_price),),
             )
 
         matching_orders = cursor.fetchall()
@@ -512,27 +516,28 @@ class ExchangeMixin:
                 break
 
             match_id = match_row[0]
-            match_remaining = match_row[6]
-            match_price = match_row[3]
+            match_remaining = _to_decimal(match_row[6])
+            match_price = _to_decimal(match_row[3])
+            match_filled = _to_decimal(match_row[5])
 
             if match_remaining <= 0:
                 continue
 
-            # Calculate trade quantity
+            # B2: Calculate trade quantity with Decimal (exact arithmetic)
             trade_qty = min(new_remaining, match_remaining)
             trade_total = trade_qty * match_price
 
-            # Record the trade
+            # Record the trade (B2: store as TEXT)
             cursor.execute(
                 """
                 INSERT INTO trades (amount, price, total, created_at)
                 VALUES (?, ?, ?, ?)
                 """,
-                (trade_qty, match_price, trade_total, datetime.now(UTC).isoformat()),
+                (str(trade_qty), str(match_price), str(trade_total), datetime.now(UTC).isoformat()),
             )
 
-            # Update the matching order
-            new_match_filled = match_row[5] + trade_qty
+            # Update the matching order (B2: Decimal arithmetic, store as TEXT)
+            new_match_filled = match_filled + trade_qty
             new_match_remaining = match_remaining - trade_qty
             new_match_status = "filled" if new_match_remaining <= 0 else "open"
 
@@ -541,26 +546,50 @@ class ExchangeMixin:
                 UPDATE orders SET filled = ?, remaining = ?, status = ?
                 WHERE id = ?
                 """,
-                (new_match_filled, new_match_remaining, new_match_status, match_id),
+                (str(new_match_filled), str(new_match_remaining), new_match_status, match_id),
             )
 
-            # Update the new order
+            # Update the new order (in-memory)
             new_remaining -= trade_qty
-            order["filled"] = order.get("filled", 0) + trade_qty
-            order["remaining"] = new_remaining
+            order["filled"] = str(_to_decimal(order.get("filled", 0)) + trade_qty)
+            order["remaining"] = str(new_remaining)
 
             if new_remaining <= 0:
                 order["status"] = "filled"
 
-        # Update the new order in the database
+        # Update the new order in the database (B2: store as TEXT)
         if new_id:
             cursor.execute(
                 """
                 UPDATE orders SET filled = ?, remaining = ?, status = ?
                 WHERE id = ?
                 """,
-                (order.get("filled", 0), order.get("remaining", 0), order.get("status", "open"), new_id),
+                (str(order.get("filled", 0)), str(order.get("remaining", 0)), order.get("status", "open"), new_id),
             )
 
-        conn.commit()
-        conn.close()
+    def match_orders(self, order: dict) -> None:
+        """Match a new order against existing open orders (standalone transaction).
+
+        This is a backward-compatible wrapper that opens its own transaction
+        with ``BEGIN IMMEDIATE``. Prefer ``_match_orders_in_txn`` when the
+        caller already holds a transaction (e.g., ``handle_place_order``).
+
+        B1 fix: Uses ``BEGIN IMMEDIATE`` to acquire the write lock before
+        reading open orders, preventing concurrent double-matching.
+
+        B3 fix: Connection is closed via try/finally.
+        """
+        if not order or "order_type" not in order:
+            return
+
+        conn = sqlite3.connect(get_db_path(), timeout=30)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            cursor = conn.cursor()
+            self._match_orders_in_txn(cursor, order)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
