@@ -6,7 +6,7 @@ These modules have 0% coverage and are high-value targets.
 import asyncio
 import importlib.util
 import tempfile
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -23,9 +23,9 @@ def load_module_from_path(module_name, file_path):
 
 
 # Load the modules
-caching = load_module_from_path("aitbc.caching", Path("/opt/aitbc/aitbc/caching.py"))
+caching = load_module_from_path("aitbc.caching", Path("/opt/aitbc/aitbc/caching/__init__.py"))
 
-queue_manager = load_module_from_path("aitbc.queues", Path("/opt/aitbc/aitbc/queues/queue_manager.py"))
+import aitbc.queues.queue_manager as queue_manager
 
 # Note: Async tests use @pytest.mark.asyncio decorator individually
 
@@ -47,7 +47,7 @@ class TestCacheEntry:
         assert entry.last_accessed is not None
 
     def test_cache_entry_with_expiration(self):
-        expires = datetime.now() + timedelta(hours=1)
+        expires = datetime.now(UTC) + timedelta(hours=1)
         entry = caching.CacheEntry(value="test", expires_at=expires)
         assert entry.expires_at == expires
 
@@ -56,12 +56,12 @@ class TestCacheEntry:
         assert not entry.is_expired()
 
     def test_is_expired_future(self):
-        expires = datetime.now() + timedelta(hours=1)
+        expires = datetime.now(UTC) + timedelta(hours=1)
         entry = caching.CacheEntry(value="test", expires_at=expires)
         assert not entry.is_expired()
 
     def test_is_expired_past(self):
-        expires = datetime.now() - timedelta(hours=1)
+        expires = datetime.now(UTC) - timedelta(hours=1)
         entry = caching.CacheEntry(value="test", expires_at=expires)
         assert entry.is_expired()
 

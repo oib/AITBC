@@ -9,7 +9,7 @@ from .block_header_cache import BlockHeaderCache
 from .blockchain_cache import BlockchainCache
 from .blockchain_decorator import cached_blockchain
 from .cache_entry import CacheEntry
-from .decorators import _generate_cache_key, cached, cached_lru, generate_cache_key
+from .decorators import _generate_cache_key, cache_key, cached, cached_lru, generate_cache_key
 from .invalidator import CacheInvalidator
 from .lru_cache import LRUCache
 from .metrics import CacheMetrics, get_cache_metrics
@@ -64,6 +64,7 @@ __all__ = [
     "RedisCache",
     "TTLCache",
     "_generate_cache_key",  # Internal utility, tests depend on it
+    "cache_key",  # Legacy function from deprecated shim
     "cached",
     "cached_blockchain",
     "cached_lru",

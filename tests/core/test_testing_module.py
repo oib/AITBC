@@ -4,21 +4,11 @@ This module has 0% coverage and 222 statements.
 """
 
 import asyncio
-import importlib.util
 from pathlib import Path
 
 import pytest
 
-
-# Load module directly by file path to avoid namespace conflicts
-def load_module_from_path(module_name, file_path):
-    spec = importlib.util.spec_from_file_location(module_name, file_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-testing = load_module_from_path("aitbc.testing", Path("/opt/aitbc/aitbc/testing/testing.py"))
+import aitbc.testing.testing as testing
 
 
 # ============================================================================
