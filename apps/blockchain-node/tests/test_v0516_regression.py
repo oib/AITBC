@@ -547,6 +547,12 @@ class TestBug5AuthorizeArbitratorOwnerVerification:
 class TestBug7BridgeLockConfirmSignatureVerification:
     """bridge_lock and bridge_confirm must verify signatures."""
 
+    @pytest.fixture(autouse=True)
+    def _patch_supported_chains(self):
+        """Allow test chain IDs (ait-source, ait-target) in bridge RPC validation."""
+        with patch.object(settings, "supported_chains", "ait-source,ait-target,chain-a,chain-b"):
+            yield
+
     def test_bridge_lock_rejects_without_signature(self, client, initialized_bridge) -> None:
         """POST /bridge/lock without signature returns 422 (Pydantic validation)."""
         response = client.post(

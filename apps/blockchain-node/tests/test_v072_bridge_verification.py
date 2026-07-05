@@ -127,6 +127,13 @@ def _generate_merkle_proof(key: str, value: str) -> tuple[list[bytes], bytes]:
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _patch_supported_chains():
+    """Allow test chain IDs (chain-a, chain-b, chain-c) in bridge RPC validation."""
+    with patch("aitbc_chain.config.settings.supported_chains", "chain-a,chain-b,chain-c,chain-empty"):
+        yield
+
+
 @pytest.fixture
 def rpc_engine():
     """Engine with StaticPool for cross-thread in-memory SQLite sharing."""

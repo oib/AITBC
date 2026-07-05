@@ -62,6 +62,13 @@ def _sign_request(sender_account: EthAccount, data: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _patch_supported_chains():
+    """Allow test chain IDs (chain-a, chain-b, chain-c) in bridge RPC validation."""
+    with patch("aitbc_chain.config.settings.supported_chains", "chain-a,chain-b,chain-c,chain-empty"):
+        yield
+
+
 @pytest.fixture
 def bridge(engine) -> CrossChainBridge:
     """A CrossChainBridge backed by the in-memory engine (same-thread only)."""
