@@ -19,7 +19,7 @@ from ..models import Account, Receipt, Transaction
 from .gpu_resources import GPUAllocation, GPURegistration
 
 try:
-    from aitbc.redis_cache import RedisCache
+    from aitbc.caching import RedisCache
 
     _REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     _cache: RedisCache | None = RedisCache(redis_url=_REDIS_URL, default_ttl=30)
