@@ -44,7 +44,7 @@ def dashboard(ctx, refresh: int, duration: int):
             console.print(f"[dim]Refreshing every {refresh}s | Elapsed: {int(elapsed)}s[/dim]\n")
             # Fetch system dashboard
             try:
-                http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=5)
+                http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=5)
                 # Get dashboard data
                 url = "/api/v1/dashboard"
                 dashboard = http_client.get(url, headers={"X-Api-Key": config.api_key or ""})
@@ -100,7 +100,7 @@ def metrics(ctx, period: str, export_path: str | None):
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         # Coordinator metrics
         try:
-            resp = http_client.get(f"{config.coordinator_url}/status", headers={"X-Api-Key": config.api_key or ""})
+            resp = http_client.get(f"{config.agent_coordinator_url}/status", headers={"X-Api-Key": config.api_key or ""})
             if resp.status_code == 200:
                 metrics_data["coordinator"] = resp.json()
                 metrics_data["coordinator"]["status"] = "online"
@@ -112,7 +112,7 @@ def metrics(ctx, period: str, export_path: str | None):
         # Job metrics
         try:
             resp = http_client.get(
-                f"{config.coordinator_url}/v1/jobs", headers={"X-Api-Key": config.api_key or ""}, params={"limit": 100}
+                f"{config.agent_coordinator_url}/v1/jobs", headers={"X-Api-Key": config.api_key or ""}, params={"limit": 100}
             )
             if resp.status_code == 200:
                 jobs = resp.json()
@@ -128,7 +128,7 @@ def metrics(ctx, period: str, export_path: str | None):
 
         # Miner metrics
         try:
-            resp = http_client.get(f"{config.coordinator_url}/v1/miners", headers={"X-Api-Key": config.api_key or ""})
+            resp = http_client.get(f"{config.agent_coordinator_url}/v1/miners", headers={"X-Api-Key": config.api_key or ""})
             if resp.status_code == 200:
                 miners = resp.json()
                 if isinstance(miners, list):
@@ -255,7 +255,7 @@ def history(ctx, period: str):
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         try:
             resp = http_client.get(
-                f"{config.coordinator_url}/v1/jobs", headers={"X-Api-Key": config.api_key or ""}, params={"limit": 500}
+                f"{config.agent_coordinator_url}/v1/jobs", headers={"X-Api-Key": config.api_key or ""}, params={"limit": 500}
             )
             if resp.status_code == 200:
                 jobs = resp.json()

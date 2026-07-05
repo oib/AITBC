@@ -27,7 +27,7 @@ def status(ctx):
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
         status_data = http_client.get("/edge-gpu/metrics")
         success("Edge Status:")
         output(status_data, ctx.obj.get("output_format", "table"))
@@ -44,7 +44,7 @@ def balance(ctx):
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
         balance_data = http_client.get("/edge-gpu/balance")
         success("Edge Wallet Balance:")
         output(balance_data, ctx.obj.get("output_format", "table"))
@@ -64,7 +64,7 @@ def transfer(ctx, to_address: str, amount: float, note: str | None):
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
         transfer_data = {"to_address": to_address, "amount": amount}
         if note:
             transfer_data["note"] = note
