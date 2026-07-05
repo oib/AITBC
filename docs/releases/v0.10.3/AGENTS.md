@@ -434,10 +434,10 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes apps/exchange/ app
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Fix exchange order matching race condition | 🔴 P0 | `apps/exchange/exchange_api.py` | ✅ |
-| B2 | Migrate exchange Float columns to Numeric | 🔴 P0 | `apps/exchange/models.py`, alembic migration | ✅ |
-| B3 | Fix exchange database session leak | 🔴 P0 | `apps/exchange/database.py` | ✅ |
-| B4 | Fix exchange session token predictability | 🔴 P0 | `apps/exchange/exchange_api.py` | ✅ |
+| B1 | Fix exchange order matching race condition | 🔴 P0 | `apps/exchange/exchange_api.py`, `apps/exchange/simple_exchange/handlers/exchange.py` | ✅ |
+| B2 | Migrate exchange Float columns to Numeric | 🔴 P0 | `apps/exchange/models.py`, alembic migration, `apps/exchange/simple_exchange/db.py` | ✅ |
+| B3 | Fix exchange database session leak | 🔴 P0 | `apps/exchange/database.py`, `apps/exchange/simple_exchange/handlers/exchange.py`, `marketplace.py` | ✅ |
+| B4 | Fix exchange session token predictability | 🔴 P0 | `apps/exchange/exchange_api.py` | ✅ (exchange_api.py only — simple_exchange uses API-key auth, not session tokens) |
 | B5 | Replace sync requests with httpx.AsyncClient in AsyncAITBCHTTPClient | 🟡 P1 | `aitbc/network/client.py` | ✅ |
 | B6 | Replace sync httpx.Client with async in bridge/oracle.py | 🟡 P1 | `aitbc/bridge/oracle.py` | ⏭️ |
 | B7 | Fix database connection leak in SQLiteDatabaseService | 🟡 P1 | `aitbc/database/service.py` | ✅ |
@@ -854,3 +854,22 @@ After v0.10.3 is complete, the following items are suggested for future releases
 2. **Observability** — Add comprehensive metrics for critical operations
 3. **Documentation** — Complete deployment guides and runbooks
 4. **Security audit** — External security review of bridge and consensus code
+
+---
+
+## Backport: simple_exchange B1/B2/B3 (2026-07-05)
+
+**Problem discovered during scenario drafting**: The B1–B4 fixes were applied to `apps/exchange/exchange_api.py` (FastAPI + SQLAlchemy), but the running systemd service (`aitbc-exchange.service`) starts `apps/exchange/simple_exchange/server.py` (stdlib `http.server` + raw `sqlite3`). The fixes protected dead code — the live service still had float-for-money columns, no transaction atomicity for order matching, and unguarded DB connections.
+
+**Backport applied**:
+
+| Fix | What changed | Files |
+|-----|-------------|-------|
+| **B2 (float→Decimal)** | Schema columns changed from `REAL` to `TEXT` (Decimal-as-string). All monetary arithmetic uses `Decimal`. Automatic migration of existing REAL columns via table rebuild in `init_db()`. | `simple_exchange/db.py`, `simple_exchange/handlers/exchange.py`, `simple_exchange/handlers/marketplace.py` |
+| **B1 (race condition)** | Order insert + matching now run in a single `BEGIN IMMEDIATE` transaction, acquiring the SQLite write lock before reading open orders. Prevents concurrent double-matching. | `simple_exchange/handlers/exchange.py` (`handle_place_order`, `_match_orders_in_txn`) |
+| **B3 (connection leak)** | All `sqlite3.connect()` calls wrapped in `try/finally` to guarantee cleanup on exceptions. | `simple_exchange/handlers/exchange.py`, `simple_exchange/handlers/marketplace.py` |
+| **B4 (token predictability)** | N/A — `simple_exchange` uses static API-key auth (`X-Api-Key` header), not session tokens. No change needed. | — |
+
+**Tests**: 14 new tests in `apps/exchange/tests/test_simple_exchange_b1_b2_b3.py`. All 41 exchange tests pass (27 existing + 14 new).
+
+**Scenarios**: Scenario 33 ([Exchange Financial Correctness](../../scenarios/33_exchange_financial_correctness.md)) updated to reflect the backport.
