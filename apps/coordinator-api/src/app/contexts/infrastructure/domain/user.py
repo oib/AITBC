@@ -36,7 +36,7 @@ class Wallet(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: str = Field(foreign_key="users.id")
     address: str = Field(unique=True, index=True)
-    balance: float = Field(default=0.0)
+    balance: float = Field(default=0.0, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -55,8 +55,8 @@ class Transaction(SQLModel, table=True):
     user_id: str = Field(foreign_key="users.id")
     wallet_id: int | None = Field(foreign_key="wallets.id")
     type: str = Field(max_length=20)
-    status: str = Field(default="pending", max_length=20)
-    amount: float
+    status: str = Field(default="pending", max_length=20, index=True)
+    amount: float = Field(index=True)
     fee: float = Field(default=0.0)
     description: str | None = None
     tx_metadata: str | None = Field(default=None, sa_column=Column(JSON))
