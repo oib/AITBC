@@ -14,13 +14,13 @@ def pool_hub():
 
 
 @pool_hub.command()
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--pool-hub-url", default="http://localhost:8203", help="Pool Hub service URL")
 @click.pass_context
-def status(ctx, rpc_url):
+def status(ctx, pool_hub_url):
     """Check pool hub status"""
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        status = http_client.get("/rpc/pool_hub/status")
+        http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=10)
+        status = http_client.get("/api/pools/status")
         output(status, ctx.obj.get("output_format", "table"), title="Pool Hub Status")
     except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
@@ -37,16 +37,16 @@ def status(ctx, rpc_url):
 
 @pool_hub.command()
 @click.option("--pool-id", help="Specific pool ID")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--pool-hub-url", default="http://localhost:8203", help="Pool Hub service URL")
 @click.pass_context
-def sla(ctx, pool_id, rpc_url):
+def sla(ctx, pool_id, pool_hub_url):
     """Monitor SLA"""
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=10)
         params = {}
         if pool_id:
             params["pool_id"] = pool_id
-        sla_data = http_client.get("/rpc/pool_hub/sla", params=params)
+        sla_data = http_client.get("/api/pools/sla", params=params)
         output(sla_data, ctx.obj.get("output_format", "table"), title="SLA Monitor")
     except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
