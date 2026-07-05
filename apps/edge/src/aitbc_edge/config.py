@@ -38,7 +38,7 @@ class Settings(ServiceSettings):
     marketplace_url: str = "http://localhost:8102"
 
     # v0.6.6: Agent coordinator integration — edge reports health to agent-coordinator
-    agent_coordinator_url: str = "http://localhost:8010"
+    agent_coordinator_url: str = "http://localhost:8107"
     agent_heartbeat_interval_seconds: int = 60
 
     # v0.6.6: Payment verification (v0.10.1: enabled by default for end-to-end flow)

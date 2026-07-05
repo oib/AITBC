@@ -92,7 +92,7 @@ def status(ctx):
     config = get_config()
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
         status_data = http_client.get("/api/v1/status")
         success("System Status:")
         output(status_data, ctx.obj.get("output_format", "table"))
