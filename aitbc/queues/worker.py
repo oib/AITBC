@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 import contextlib
 
 logger = get_logger(__name__)
@@ -62,7 +63,7 @@ class BackgroundTaskManager:
             "result": None,
             "error": None,
         }
-        task = asyncio.create_task(wrapped_task())
+        task = create_task_with_logging(wrapped_task(), name=f"queue_task_{task_id}")
         self.tasks[task_id] = task
         return task_id
 
@@ -119,7 +120,7 @@ class WorkerPool:
             return
         self.running = True
         for i in range(self.num_workers):
-            worker = asyncio.create_task(self._worker(i))
+            worker = create_task_with_logging(self._worker(i), name=f"queue_worker_{i}")
             self.workers.append(worker)
 
     async def stop(self) -> None:

@@ -12,6 +12,7 @@ from enum import Enum
 import ping3  # type: ignore
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 from .discovery import NodeStatus, PeerNode
 
@@ -90,7 +91,7 @@ class PeerHealthMonitor:
 
         for _node_id, peer in peers.items():
             if peer.status == NodeStatus.ONLINE:
-                task = asyncio.create_task(self._check_peer_health(peer))
+                task = create_task_with_logging(self._check_peer_health(peer), name="peer_health_check")
                 tasks.append(task)
 
         if tasks:

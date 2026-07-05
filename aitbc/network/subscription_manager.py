@@ -12,6 +12,8 @@ import logging
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
+from aitbc.async_tasks import create_task_with_logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -95,7 +97,7 @@ class SubscriptionManager:
         self._running = True
         for chain_id, entry in self._subscriptions.items():
             if entry.task is None or entry.task.done():
-                entry.task = asyncio.create_task(
+                entry.task = create_task_with_logging(
                     self._run_subscription(chain_id),
                     name=f"subscription_{chain_id}",
                 )

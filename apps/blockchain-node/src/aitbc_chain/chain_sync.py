@@ -8,6 +8,7 @@ import os
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 from aitbc.network import SharedHttpClient
 
 logger = get_logger("chain_sync")
@@ -59,9 +60,9 @@ class ChainSyncService:
         except Exception as e:
             logger.error("Failed to connect to Redis: %s", e)
             return
-        receive_task = asyncio.create_task(self._receive_blocks())
+        receive_task = create_task_with_logging(self._receive_blocks(), name="chain_sync_receive_blocks")
         await self._receiver_ready.wait()
-        broadcast_task = asyncio.create_task(self._broadcast_blocks())
+        broadcast_task = create_task_with_logging(self._broadcast_blocks(), name="chain_sync_broadcast_blocks")
         try:
             await self._stop_event.wait()
         finally:
