@@ -28,6 +28,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
+from aitbc.async_tasks import create_task_with_logging
 from aitbc.trading.offer_cache import OfferCache
 from aitbc.trading.offer_types import OfferEventType
 from aitbc.trading.subscription_types import OfferEvent, SubscriptionStatus
@@ -134,7 +135,7 @@ class OfferSubscriptionService:
         self._chain_status[chain_id] = SubscriptionStatus.SUBSCRIBED
         self._chain_stats[chain_id] = {"last_event": "", "event_count": 0}
         self._last_event_time[chain_id] = time.monotonic()
-        task = asyncio.create_task(self._subscribe_loop(chain_id), name=f"offer-sub-{chain_id}")
+        task = create_task_with_logging(self._subscribe_loop(chain_id), name=f"offer-sub-{chain_id}")
         self._subscription_tasks[chain_id] = task
         logger.info("Started offer subscription for chain %s", chain_id)
 
@@ -230,7 +231,7 @@ class OfferSubscriptionService:
 
         # B20: Start reconnect task (attempts to re-establish gossip every 60s)
         if settings.offer_subscription_fallback_to_polling:
-            reconnect_task = asyncio.create_task(self._reconnect_loop(chain_id), name=f"offer-reconnect-{chain_id}")
+            reconnect_task = create_task_with_logging(self._reconnect_loop(chain_id), name=f"offer-reconnect-{chain_id}")
             self._reconnect_tasks[chain_id] = reconnect_task
 
         silent_threshold = settings.subscription_silent_threshold_multiplier * settings.offer_subscription_heartbeat_seconds

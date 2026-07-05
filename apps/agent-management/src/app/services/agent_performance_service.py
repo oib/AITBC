@@ -3,7 +3,6 @@ Advanced Agent Performance Service
 Implements meta-learning, resource optimization, and performance enhancement for agents
 """
 
-import asyncio
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -11,6 +10,7 @@ from uuid import uuid4
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 from app.domain.agent_performance import (  # type: ignore[import-not-found]
     AgentPerformanceProfile,
     LearningStrategy,
@@ -73,7 +73,7 @@ class MetaLearningEngine:
         session.add(model)
         session.commit()
         session.refresh(model)
-        asyncio.create_task(self.train_meta_model(session, model_id))
+        create_task_with_logging(self.train_meta_model(session, model_id), name="agent_train_meta_model")
         logger.info("Created meta-learning model %s with strategy %s", model_id, meta_strategy.value)
         return model
 

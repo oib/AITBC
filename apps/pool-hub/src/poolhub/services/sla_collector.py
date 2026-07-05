@@ -11,6 +11,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 
 from ..models import CapacitySnapshot, Feedback, MatchResult, Miner, MinerStatus, SLAMetric, SLAViolation
 
@@ -251,7 +252,7 @@ class SLACollectorScheduler:
             return
         self.running = True
         self.logger.info("SLA Collector scheduler started")
-        asyncio.create_task(self._collection_loop(collection_interval_seconds))
+        create_task_with_logging(self._collection_loop(collection_interval_seconds), name="sla_collection_loop")
 
     async def stop(self) -> None:
         """Stop the SLA collection scheduler"""
