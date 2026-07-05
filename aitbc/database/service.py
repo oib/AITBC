@@ -48,6 +48,7 @@ class SQLiteDatabaseService(DatabaseService):
         self.pool_size = pool_size
         self._connections: list[sqlite3.Connection] = []
         self._current_connection_index = 0
+        self._closed = False
         self._ensure_database()
         logger.info("Initialized SQLite database service for %s", db_path)
 
@@ -59,7 +60,9 @@ class SQLiteDatabaseService(DatabaseService):
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get a connection from the pool"""
-        if self._connections and len(self._connections) >= self.pool_size:
+        if self._closed:
+            raise RuntimeError("DatabaseService is closed")
+        if len(self._connections) >= self.pool_size:
             conn = self._connections[self._current_connection_index]
             self._current_connection_index = (self._current_connection_index + 1) % len(self._connections)
             return conn
@@ -136,11 +139,34 @@ class SQLiteDatabaseService(DatabaseService):
                 raise
 
     def close(self) -> None:
-        """Close all database connections"""
+        """Close all database connections (idempotent)."""
+        if self._closed:
+            return
         for conn in self._connections:
-            conn.close()
+            try:
+                conn.close()
+            except Exception as e:
+                logger.warning("Error closing connection: %s", e)
         self._connections.clear()
+        self._closed = True
         logger.info("Closed all database connections")
+
+    def __del__(self) -> None:
+        """Ensure connections are closed on garbage collection."""
+        if not self._closed and self._connections:
+            import warnings
+
+            warnings.warn(
+                f"{self.__class__.__name__} was not properly closed — closing connections in __del__",
+                stacklevel=2,
+            )
+            self.close()
+
+    def __enter__(self) -> "SQLiteDatabaseService":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
 
 
 class DatabaseServiceFactory:
