@@ -58,9 +58,8 @@ v0.10.3 is a **bug-fix and hardening release** that addresses critical issues di
 - **After**: All clients now implement async context manager protocol. Services register clients in lifespan for automatic shutdown. Added `__del__` with warning for manual cleanup.
 
 #### Blocking I/O in Async Paths
-- **Before**: `AsyncAITBCHTTPClient` wrapped sync `requests` in executor (`aitbc/network/client.py`). Wallet `get_wallet_balance()` and governance `get_voting_power()` used sync `httpx.get()` in async contexts.
-- **After**: Converted `AsyncAITBCHTTPClient` to `httpx.AsyncClient` with proper async/await patterns. Removed executor wrapper.
-- **Note**: B6 (ExternalOracleClient sync→async) was skipped — investigation revealed `ExternalOracleClient` is a synchronous class not used in async contexts. Converting it would break the sync interface without fixing any real bug.
+- **Before**: `AsyncAITBCHTTPClient` wrapped sync `requests` in executor (`aitbc/network/client.py`). Wallet `get_wallet_balance()` and governance `get_voting_power()` used sync `httpx.get()` in async contexts. `ExternalOracleClient` used sync `httpx.Client` for oracle HTTP calls.
+- **After**: Converted `AsyncAITBCHTTPClient` to `httpx.AsyncClient` with proper async/await patterns. Removed executor wrapper. Converted `ExternalOracleClient` and `OracleFallbackPolicy` to async (`httpx.AsyncClient`, `async def verify_proof`, `async def check_finality`, `async def verify_with_fallback`, `async def check_finality_with_fallback`). The `is_healthy()` health check remains synchronous because it runs in a background thread via `OracleFallbackPolicy.start_health_check()`.
 
 #### Database Connection Leak
 - **Before**: `SQLiteDatabaseService._get_connection()` created connections and appended to list without auto-cleanup.
@@ -69,8 +68,8 @@ v0.10.3 is a **bug-fix and hardening release** that addresses critical issues di
 ### Category 4: Concurrency Safety (5 fixes)
 
 #### Fire-and-Forget Task Error Handling
-- **Before**: `asyncio.create_task()` calls in `apps/blockchain-node/gossip/broker.py`, `p2p_network.py`, `apps/edge/main.py`, `apps/agent-coordinator/lifespan.py`, and coordinator-api services had no exception handling. Errors were silently lost.
-- **After**: All tasks now routed through `TaskRegistry` with done-callbacks that log exceptions. Added explicit error logging for fire-and-forget patterns.
+- **Before**: `asyncio.create_task()` calls across blockchain-node, edge, agent-coordinator, coordinator-api, trading, pool-hub, agent-management, blockchain-event-bridge, wallet, and shared core services had no exception handling. Errors were silently lost.
+- **After**: All fire-and-forget tasks now routed through `create_task_with_logging()` (which attaches a done-callback that logs exceptions) or `TaskRegistry` (for long-running restartable tasks). Converted 78+ bare `asyncio.create_task()` calls across 40+ files. Only immediately-awaited patterns (`asyncio.create_task(coro)` followed by `await task`) in `aitbc/queues/decorators.py` and `aitbc/async_helpers/async_helpers.py` were intentionally left as-is.
 
 #### SecretManager Thread Safety
 - **Before**: Background rotation thread mutated `self.secrets` dict without locking, causing race conditions with main thread access.
@@ -88,7 +87,7 @@ v0.10.3 is a **bug-fix and hardening release** that addresses critical issues di
 
 #### Bridge RPC Input Validation
 - **Before**: Bridge endpoints accepted raw `dict` request bodies without Pydantic validation. `chain_id` parameters had no whitelist validation.
-- **After**: Added Pydantic models for all request bodies. Added chain ID whitelist validation (pattern from `rpc/staking.py`).
+- **After**: Added Pydantic models for all request bodies. Added chain ID whitelist validation using the existing `validate_chain_id()` helper from `rpc/utils.py` (checks against `settings.supported_chains`). All 7 bridge RPC endpoints that accept a `chain_id` (lock, list pending, balance, validator register, validator set, block header store, block header get) now reject unknown chain IDs with HTTP 400.
 
 #### SQL Injection Defense
 - **Before**: `_migrate_existing_columns` used f-string interpolation for table/column names in DDL.
@@ -180,7 +179,7 @@ All critical fixes were tested on the live shop node (13 services running):
 | CLI routing | 2 | Medium |
 | Hardcoded URLs | 2 | Low |
 | Pre-existing fix | 1 | High |
-| **Total** | **28 fixed + 1 skipped** | — |
+| **Total** | **29 fixed (B6 backfilled post-release)** | — |
 
 ## 🔄 Breaking Changes
 
