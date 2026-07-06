@@ -1,0 +1,51 @@
+# v0.10.5 — JWT/Auth Consolidation
+
+## Summary
+
+Consolidates the duplicated JWT, password hashing, API key, RBAC, and auth middleware implementations from `coordinator-api` and `agent-coordinator` into a single shared `aitbc/auth/` package. The old app-level auth modules are now thin re-export shims with deprecation warnings.
+
+## Changes
+
+### New Shared Module: `aitbc/auth/`
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| `aitbc/auth/__init__.py` | Public API exports | 131 |
+| `aitbc/auth/jwt.py` | Unified JWT handler (exception-style + dict-style) | 280 |
+| `aitbc/auth/password.py` | Password hashing (bcrypt + PBKDF2 legacy) | 128 |
+| `aitbc/auth/api_key.py` | API key generation/management with persistent storage | 131 |
+| `aitbc/auth/permissions.py` | RBAC (Permission, Role, PermissionManager) | 364 |
+| `aitbc/auth/dependencies.py` | FastAPI dependency injection (AuthDep, AdminDep, etc.) | 175 |
+| `aitbc/auth/middleware.py` | AuthMiddleware, RateLimiter, get_current_user, SecurityHeaders, InputValidator | 424 |
+| `aitbc/auth/security_matrix.py` | Route-based auth levels (AuthLevel, ROUTE_SECURITY_MATRIX) | 155 |
+
+### Migrated Modules (now re-export shims with DeprecationWarning)
+
+| Old Module | New Location |
+|------------|-------------|
+| `apps/coordinator-api/src/app/auth/jwt_auth.py` | `aitbc.auth.jwt` (JWTAuth subclass with app config) |
+| `apps/coordinator-api/src/app/auth/dependencies.py` | `aitbc.auth.dependencies` |
+| `apps/coordinator-api/src/app/auth/middleware.py` | `aitbc.auth.middleware` (AuthMiddleware) |
+| `apps/coordinator-api/src/app/auth/security_matrix.py` | `aitbc.auth.security_matrix` |
+| `apps/agent-coordinator/src/app/auth/jwt_handler.py` | `aitbc.auth.jwt` + `aitbc.auth.password` + `aitbc.auth.api_key` |
+| `apps/agent-coordinator/src/app/auth/permissions.py` | `aitbc.auth.permissions` |
+| `apps/agent-coordinator/src/app/auth/middleware.py` | `aitbc.auth.middleware` |
+| `aitbc/access_control.py` | `aitbc.auth` (preserves AccessController, APIKeyAuth, SecureHeaders for backward compat) |
+| `aitbc/crypto/password.py` | `aitbc.auth.password` (hash_password_pbkdf2, verify_password_pbkdf2) |
+
+### Design Decisions
+
+1. **Two API styles supported**: The coordinator-api uses exception-raising (`HTTPException`) while agent-coordinator uses dict-returning (`{"status": "success"|"error", ...}`). The shared module supports both via `JWTAuth` (exception-style) and `JWTHandler` (dict-style).
+
+2. **Re-export shims, not deletions**: The old app-level modules are kept as thin shims with `DeprecationWarning` to avoid breaking the ~20 router files that import from `app.auth`. Full migration to direct `aitbc.auth` imports can be done incrementally.
+
+3. **Lazy initialization**: Global instances (`jwt_auth`, `jwt_handler`, `password_manager`, `api_key_manager`, `permission_manager`) use lazy initialization to avoid import-time side effects.
+
+4. **Config integration**: The coordinator-api's `JWTAuth` subclass passes app-specific settings (`jwt_secret`, `jwt_algorithm`, `jwt_expiration_hours`) to the shared base class, preserving the original config-driven behavior.
+
+## Verification
+
+- `ruff check .` — All checks passed
+- `pytest tests/unit` — 873 passed, 0 failed
+- `pytest apps/coordinator-api/tests` — 246 passed, 14 skipped, 0 failed
+- `pytest apps/agent-coordinator/tests` — 75 passed, 1 pre-existing failure (unrelated to auth)
