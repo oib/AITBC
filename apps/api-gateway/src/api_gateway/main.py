@@ -1,3 +1,4 @@
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 from typing import Annotated
 
 """
@@ -71,7 +72,7 @@ SERVICES: dict[str, dict[str, object]] = {
     },
     "coordinator": {"base_url": os.getenv("COORDINATOR_API_URL", "http://localhost:8203"), "prefix": "/v1/coordinator"},
     "wallet": {"base_url": os.getenv("WALLET_SERVICE_URL", "http://localhost:8108"), "prefix": "/v1/wallet"},
-    "escrow": {"base_url": os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202") + "/rpc", "prefix": "/v1/escrow"},
+    "escrow": {"base_url": os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL) + "/rpc", "prefix": "/v1/escrow"},
     "plugin": {
         "base_url": os.getenv("COORDINATOR_API_URL", "http://localhost:8203"),
         "prefix": "/v1/plugin",

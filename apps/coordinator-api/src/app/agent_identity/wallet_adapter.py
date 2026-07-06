@@ -4,6 +4,7 @@ Provides blockchain-agnostic wallet interface for agents
 """
 
 import secrets
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -222,7 +223,7 @@ class MultiChainWalletAdapter:
                 "rpc_url": "https://api.avax.network/ext/bc/C/rpc",
                 "name": "Avalanche C-Chain",
             },
-            1000: {"chain_type": ChainType.AITBC, "rpc_url": "http://localhost:8006", "name": "AITBC Mainnet"},
+            1000: {"chain_type": ChainType.AITBC, "rpc_url": BLOCKCHAIN_RPC_URL, "name": "AITBC Mainnet"},
         }
 
     def get_adapter(self, chain_id: int) -> WalletAdapter:
