@@ -4,6 +4,8 @@ This file is the source of truth for project conventions, verification commands,
 
 **Current in-flight plan**: [v0.10.6](docs/releases/v0.10.6/AGENTS.md) — Dead Code Elimination, Decimal Migration Completion & Duplicate Consolidation (delete ~1,570 lines of dead modules, complete Decimal migration for wallet/trading/marketplace/pool-hub, fix blocking I/O + N+1 + missing indexes, consolidate circuit breakers/address validation/config classes/health endpoints)
 
+**Next planned**: [v0.10.7](docs/releases/v0.10.7/AGENTS.md) — Dead Code Elimination (coordinator-api + agent-management) & Duplicate Consolidation (delete ~5,800 lines of dead code, collapse agent-management services onto coordinator-api's agent_coordination context, consolidate blockchain RPC clients, CLI error handling, DB init, config classes, security utils, health endpoints, CORS setup)
+
 ## Project Layout
 
 - `aitbc/` — shared core library (types, config, db, logging, queues, crypto, network, agent_bridge, agent_protocols, agent_registry, etc.)
@@ -127,6 +129,7 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.10.4** — Performance, Correctness & Cleanup (24 tasks: Decimal migration for pool-hub billing + trading pricing/bid engines, N+1 query elimination, missing DB indexes, asyncio.Lock race condition fixes, ~1,000 lines dead code deletion, HTTP client/JWT/retry/config-validator consolidation): <ref_file file="/opt/aitbc/docs/releases/v0.10.4/change.log" /> 🚧 in progress
 - **v0.10.5** — JWT/Auth Consolidation (shared `aitbc/auth/` module: unified JWT handler, password hashing, API keys, RBAC, FastAPI dependencies, middleware, security matrix; old app-level auth modules converted to re-export shims with deprecation warnings): <ref_file file="/opt/aitbc/docs/releases/v0.10.5/change.log" /> ✅ complete
 - **v0.10.6** — Dead Code Elimination, Decimal Migration Completion & Duplicate Consolidation (delete 7 dead `aitbc/` modules ~1,570 lines, complete Decimal migration for wallet/trading/marketplace/pool-hub, fix blocking I/O + mempool N+1 + missing indexes, consolidate circuit breakers/address validation/config classes/health endpoints, sweep stale port 8006): <ref_file file="/opt/aitbc/docs/releases/v0.10.6/change.log" /> 🚧 in progress
+- **v0.10.7** — Dead Code Elimination (coordinator-api + agent-management) & Duplicate Consolidation (delete ~5,800 lines of dead code, collapse agent-management services onto coordinator-api's agent_coordination context, consolidate blockchain RPC clients, CLI error handling, DB init, config classes, security utils, health endpoints, CORS setup): <ref_file file="/opt/aitbc/docs/releases/v0.10.7/change.log" /> 📋 planned
 
 ### Post-v1 Vision (not fit until after v1.0.0)
 - **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
@@ -149,6 +152,7 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.10.4                                         (performance, correctness & cleanup: Decimal migration, N+1 elimination, indexes, race conditions, dead code deletion, infrastructure consolidation) 🚧
   → v0.10.5                                         (JWT/auth consolidation: shared aitbc/auth/ module, re-export shims) ✅
   → v0.10.6                                         (dead code elimination, Decimal migration completion, duplicate consolidation) 🚧
+  → v0.10.7                                         (dead code elimination: coordinator-api + agent-management, duplicate consolidation: blockchain RPC, CLI error handling, DB init, config, security, health, CORS) 📋
   → v1.0.0                                          (production readiness)
   → v2.0.0                                          (vision — questionable features, parked for re-evaluation)
 ```
