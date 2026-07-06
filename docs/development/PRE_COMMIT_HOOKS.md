@@ -27,7 +27,7 @@ pre-commit run --all-files
 pre-commit run
 
 # Run specific hooks
-pre-commit run black flake8 mypy
+pre-commit run ruff ruff-format mypy
 ```
 
 ### Automatic execution
@@ -42,8 +42,7 @@ git commit --no-verify
 ## Available Hooks
 
 ### Python
-- **black**: Code formatting
-- **flake8**: Linting (max line length: 120)
+- **ruff**: Linting and formatting (replaces black, isort, flake8, pydocstyle, pyupgrade)
 - **mypy**: Type checking
 - **bandit**: Security scanning
 
