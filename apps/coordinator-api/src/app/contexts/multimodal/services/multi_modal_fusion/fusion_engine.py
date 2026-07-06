@@ -61,16 +61,16 @@ class MultiModalFusionEngine:
         modality_dims = {}
         for modality, _data in modal_data.items():
             if modality in self.modality_types:
-                modality_dims[modality] = self.modality_types[modality]["dim"]
+                modality_dims[modality] = int(self.modality_types[modality]["dim"])  # type: ignore[call-overload]
         fusion_model = MultiModalTransformer(
             modality_dims=modality_dims,
-            embed_dim=default_config["embed_dim"],
-            num_layers=default_config["num_layers"],
-            num_heads=default_config["num_heads"],
-        ).to(self.device)  # type: ignore[arg-type]
+            embed_dim=int(default_config["embed_dim"]),
+            num_layers=int(default_config["num_layers"]),
+            num_heads=int(default_config["num_heads"]),
+        ).to(self.device)
         adaptive_weighting = AdaptiveModalityWeighting(
-            num_modalities=len(modality_dims), embed_dim=default_config["embed_dim"]
-        ).to(self.device)  # type: ignore[arg-type]
+            num_modalities=len(modality_dims), embed_dim=int(default_config["embed_dim"])
+        ).to(self.device)
         optimizer = torch.optim.Adam(
             list(fusion_model.parameters()) + list(adaptive_weighting.parameters()), lr=default_config["learning_rate"]
         )
@@ -114,8 +114,8 @@ class MultiModalFusionEngine:
         attention_networks = nn.ModuleDict()
         for modality in modality_names:
             attention_networks[modality] = CrossModalAttention(
-                embed_dim=default_config["embed_dim"], num_heads=default_config["num_heads"]
-            ).to(self.device)  # type: ignore[arg-type]
+                embed_dim=int(default_config["embed_dim"]), num_heads=int(default_config["num_heads"])
+            ).to(self.device)
         optimizer = torch.optim.Adam(attention_networks.parameters(), lr=default_config["learning_rate"])
         training_history: dict[str, Any] = {"losses": [], "attention_patterns": {}}
         for _epoch in range(default_config["epochs"]):  # type: ignore[call-overload]
@@ -252,7 +252,7 @@ class MultiModalFusionEngine:
 
     async def train_fusion_model(self, session: Session, fusion_id: str) -> dict[str, Any]:
         """Train a fusion model"""
-        fusion_model = session.execute(select(FusionModel).where(FusionModel.fusion_id == fusion_id)).first()
+        fusion_model = session.execute(select(FusionModel).where(FusionModel.fusion_id == fusion_id)).scalars().first()
         if not fusion_model:
             raise ValueError(f"Fusion model {fusion_id} not found")
         try:

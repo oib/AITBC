@@ -132,15 +132,16 @@ async def login_user(
         session.refresh(user)
 
         # Create wallet
-        wallet = Wallet(user_id=user.id, address=login_data.wallet_address, balance=0.0, created_at=datetime.now(UTC))  # type: ignore[assignment]
+        wallet = Wallet(user_id=user.id, address=login_data.wallet_address, balance=0.0, created_at=datetime.now(UTC))
 
         session.add(wallet)
         session.commit()
     else:
         # Update last login
-        user = session.execute(select(User).where(User.id == wallet.user_id)).scalars().first()  # type: ignore[assignment]
-        if user is None:
+        found = session.execute(select(User).where(User.id == wallet.user_id)).scalars().first()
+        if found is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found for wallet")
+        user = found
         user.last_login = datetime.now(UTC)
         session.commit()
 
@@ -237,7 +238,7 @@ async def get_user_transactions(
 
     # Query transactions from the database
     txs = (
-        session.execute(select(Transaction).where(Transaction.user_id == user_id).order_by(Transaction.created_at.desc()))
+        session.execute(select(Transaction).where(Transaction.user_id == user_id).order_by(Transaction.created_at.desc()))  # type: ignore[attr-defined]
         .scalars()
         .all()
     )

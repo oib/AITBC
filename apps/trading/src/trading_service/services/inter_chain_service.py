@@ -76,7 +76,8 @@ class InterChainTradeService:
             stmt = stmt.where(InterChainTrade.source_chain == source_chain)
         if dest_chain:
             stmt = stmt.where(InterChainTrade.dest_chain == dest_chain)
-        stmt = stmt.order_by(InterChainTrade.created_at.desc()).limit(limit).offset(offset)
+        stmt = stmt.order_by(InterChainTrade.created_at.desc())  # type: ignore[attr-defined]
+        stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -122,11 +123,11 @@ class InterChainTradeService:
         Returns completed/cancelled/failed trades, optionally filtered
         by source/dest chain.
         """
-        stmt = select(InterChainTrade).where(InterChainTrade.status.in_(["completed", "cancelled", "failed"]))
+        stmt = select(InterChainTrade).where(InterChainTrade.status.in_(["completed", "cancelled", "failed"]))  # type: ignore[attr-defined]
         if source_chain:
             stmt = stmt.where(InterChainTrade.source_chain == source_chain)
         if dest_chain:
             stmt = stmt.where(InterChainTrade.dest_chain == dest_chain)
-        stmt = stmt.order_by(InterChainTrade.updated_at.desc()).limit(limit)
+        stmt = stmt.order_by(InterChainTrade.updated_at.desc()).limit(limit)  # type: ignore[attr-defined]
         result = await self.session.execute(stmt)
         return list(result.scalars().all())

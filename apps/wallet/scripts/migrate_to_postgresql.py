@@ -5,13 +5,19 @@ import json
 import sqlite3
 from pathlib import Path
 
-import psycopg2  # type: ignore
+import psycopg2
 
 from aitbc.constants import DATA_DIR
 
 # Database configurations
 SQLITE_DB = str(DATA_DIR / "data" / "wallet_ledger.db")
-PG_CONFIG = {"host": "localhost", "database": "aitbc_wallet", "user": "aitbc_user", "password": "aitbc_password", "port": 5432}
+PG_CONFIG: dict[str, str | int] = {
+    "host": "localhost",
+    "database": "aitbc_wallet",
+    "user": "aitbc_user",
+    "password": "aitbc_password",
+    "port": 5432,
+}
 
 
 def create_pg_schema():

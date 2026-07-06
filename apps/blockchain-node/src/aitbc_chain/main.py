@@ -23,7 +23,7 @@ from .sync import ChainSync
 try:
     from .p2p_network import get_p2p_network
 except ImportError:
-    get_p2p_network = None
+    get_p2p_network = None  # type: ignore[assignment]
 
 logger = get_logger("aitbc_chain.main")
 create_island_manager: Callable[[str, str, str], "IslandManager"] | None
@@ -166,8 +166,9 @@ class BlockchainNode:
     async def _ensure_genesis_for_chains(self) -> None:
         for chain_id in self._supported_chains():
             proposer = PoAProposer(
-                config=self._proposer_config(chain_id), session_factory=lambda chain_id=chain_id: session_scope(chain_id)
-            )  # type: ignore[arg-type]
+                config=self._proposer_config(chain_id),
+                session_factory=lambda chain_id=chain_id: session_scope(chain_id),  # type: ignore[misc]
+            )
             await proposer._ensure_genesis_block()
 
     async def _setup_gossip_subscribers(self) -> None:
@@ -247,9 +248,9 @@ class BlockchainNode:
                             logger.info("Importing block for chain %s: %s", chain_id_param, block_data.get("height"))
 
                             sync = ChainSync(
-                                session_factory=lambda chain_id_param=chain_id_param: session_scope(chain_id_param),
+                                session_factory=lambda chain_id_param=chain_id_param: session_scope(chain_id_param),  # type: ignore[misc,arg-type]
                                 chain_id=chain_id_param,
-                            )  # type: ignore[arg-type]
+                            )
                             res = sync.import_block(block_data, transactions=block_data.get("transactions"))
                             logger.info("Import result: accepted=%s, reason=%s", res.accepted, res.reason)
                             if not res.accepted and "Gap detected" in res.reason and settings.auto_sync_enabled:
@@ -297,7 +298,7 @@ class BlockchainNode:
                             logger.error("Error processing block from gossip for chain %s: %s", chain_id_param, exc)
 
                 self._task_registry.create_task(
-                    lambda c=chain_id, b=block_sub: process_blocks_for_chain(chain_id_param=c, block_sub_param=b),
+                    lambda c=chain_id, b=block_sub: process_blocks_for_chain(chain_id_param=c, block_sub_param=b),  # type: ignore[misc]
                     name=f"gossip_blocks_{chain_id}",
                 )
             except Exception as e:
@@ -375,7 +376,7 @@ class BlockchainNode:
             if p2p_service is not None:
                 try:
                     default_chain = self._supported_chains()[0] if self._supported_chains() else settings.chain_id
-                    peer_sync = ChainSync(session_factory=lambda cid=default_chain: session_scope(cid), chain_id=default_chain)
+                    peer_sync = ChainSync(session_factory=lambda cid=default_chain: session_scope(cid), chain_id=default_chain)  # type: ignore[misc,arg-type]
                     p2p_service.set_peer_capability_callback(peer_sync.register_sync_peer)
                     logger.info("P2P peer capability callback wired to ChainSync peer tracker")
                 except Exception as e:
@@ -438,7 +439,7 @@ class BlockchainNode:
                     logger.info("Subscription manager started for %d chains", len(chains))
             if settings.periodic_sync_enabled:
                 self._task_registry.create_task(
-                    lambda sc=subscription_client: self._periodic_sync_task(sc),
+                    lambda sc=subscription_client: self._periodic_sync_task(sc),  # type: ignore[misc]
                     name="periodic_sync",
                 )
         else:
@@ -470,8 +471,9 @@ class BlockchainNode:
                 continue
 
             proposer = PoAProposer(
-                config=self._proposer_config(chain_id), session_factory=lambda chain_id=chain_id: session_scope(chain_id)
-            )  # type: ignore[arg-type]
+                config=self._proposer_config(chain_id),
+                session_factory=lambda chain_id=chain_id: session_scope(chain_id),  # type: ignore[misc]
+            )
             self._proposers[chain_id] = proposer
             self._task_registry.create_task(proposer.start, name=f"proposer_{chain_id}")
 
@@ -495,7 +497,8 @@ class BlockchainNode:
                     for chain_id in chains:
                         try:
                             sync = ChainSync(
-                                session_factory=lambda chain_id=chain_id: session_scope(chain_id), chain_id=chain_id
+                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),
+                                chain_id=chain_id,  # type: ignore[misc,arg-type]
                             )
                             result = await sync.sync_state_from(source_url)
                             if result.get("synced", 0) > 0:
@@ -515,7 +518,8 @@ class BlockchainNode:
                     for chain_id in chains:
                         try:
                             sync = ChainSync(
-                                session_factory=lambda chain_id=chain_id: session_scope(chain_id), chain_id=chain_id
+                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),
+                                chain_id=chain_id,  # type: ignore[misc,arg-type]
                             )
                             local_status = sync.get_sync_status()
                             local_height = local_status.get("head_height", 0)
@@ -551,7 +555,8 @@ class BlockchainNode:
                     for chain_id in chains:
                         try:
                             sync = ChainSync(
-                                session_factory=lambda chain_id=chain_id: session_scope(chain_id), chain_id=chain_id
+                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),
+                                chain_id=chain_id,  # type: ignore[misc,arg-type]
                             )
                             imported = await sync.bulk_import_from(source_url)
                             if imported > 0:

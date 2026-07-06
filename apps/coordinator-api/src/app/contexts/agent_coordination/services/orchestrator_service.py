@@ -55,14 +55,15 @@ class AgentStateManager:
         """Update execution status and related fields"""
         stmt = (
             update(AgentExecution)
-            .where(AgentExecution.id == execution_id)
+            .where(AgentExecution.id == execution_id)  # type: ignore[arg-type]
             .values(status=status, updated_at=datetime.now(UTC), **kwargs)
-        )  # type: ignore[arg-type]
+        )
         self.session.execute(stmt)
         self.session.commit()
         execution = self.session.get(AgentExecution, execution_id)
+        assert execution is not None
         logger.info("Updated execution %s status to %s", execution_id, status)
-        return execution  # type: ignore[return-value]
+        return execution
 
     async def get_execution(self, execution_id: str) -> AgentExecution | None:
         """Get execution by ID"""
@@ -89,13 +90,14 @@ class AgentStateManager:
         """Update step execution"""
         stmt = (
             update(AgentStepExecution)
-            .where(AgentStepExecution.id == step_execution_id)
+            .where(AgentStepExecution.id == step_execution_id)  # type: ignore[arg-type]
             .values(updated_at=datetime.now(UTC), **kwargs)
-        )  # type: ignore[arg-type]
+        )
         self.session.execute(stmt)
         self.session.commit()
         step_execution = self.session.get(AgentStepExecution, step_execution_id)
-        return step_execution  # type: ignore[return-value]
+        assert step_execution is not None
+        return step_execution
 
 
 class AgentVerifier:
@@ -108,7 +110,7 @@ class AgentVerifier:
         self, step_execution: AgentStepExecution, verification_level: VerificationLevel
     ) -> dict[str, Any]:
         """Verify a single step execution"""
-        verification_result = {
+        verification_result: dict[str, Any] = {
             "verified": False,
             "proof": None,
             "verification_time": 0.0,
@@ -123,7 +125,7 @@ class AgentVerifier:
                 verification_result = await self._basic_verify_step(step_execution)
         except Exception as e:
             logger.error("Step verification failed: %s", e)
-            verification_result["error"] = str(e)  # type: ignore[assignment]
+            verification_result["error"] = str(e)
         return verification_result
 
     async def _basic_verify_step(self, step_execution: AgentStepExecution) -> dict[str, Any]:
@@ -196,8 +198,10 @@ class AIAgentOrchestrator:
         if not workflow:
             raise ValueError(f"Workflow not found: {request.workflow_id}")
         execution = await self.state_manager.create_execution(
-            workflow_id=request.workflow_id, client_id=client_id, verification_level=request.verification_level
-        )  # type: ignore[arg-type]
+            workflow_id=request.workflow_id,
+            client_id=client_id,
+            verification_level=request.verification_level or VerificationLevel.BASIC,
+        )
         try:
             await self.state_manager.update_execution_status(
                 execution.id, status=AgentStatus.RUNNING, started_at=datetime.now(UTC), total_steps=len(workflow.steps)
@@ -256,10 +260,11 @@ class AIAgentOrchestrator:
                     current_inputs.update(step_result.output_data)
                 await self.state_manager.update_execution_status(
                     execution_id,
-                    current_step=execution.current_step + 1,
-                    completed_steps=execution.completed_steps + 1,
+                    status=AgentStatus.RUNNING,
+                    current_step=execution.current_step + 1,  # type: ignore[union-attr]
+                    completed_steps=execution.completed_steps + 1,  # type: ignore[union-attr]
                     step_states=step_results,
-                )  # type: ignore[union-attr, call-arg]
+                )
             await self._complete_execution(execution_id, step_results)
         except Exception as e:
             await self._handle_execution_failure(execution_id, e)

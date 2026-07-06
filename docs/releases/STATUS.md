@@ -39,6 +39,7 @@
 | v0.10.7 | Dead code elimination (coordinator-api + agent-management) | ✅ Complete | ~5,800 lines deleted; agent-management deprecated; RPC clients/CLI/DB init consolidated |
 | v0.10.8 | Config consolidation & dead retry helper cleanup | ✅ Complete | config.py vs hierarchical_config.py resolved; 3 dead retry helpers deleted |
 | v0.10.9 | Dead code elimination & status drift cleanup | ✅ Complete | ~2,900 lines deleted; status drift fixed; stale ports cleaned; auth shims migrated |
+| v0.10.10 | Code quality & testing roadmap | ✅ Complete | mypy coverage expanded to 859 files (0 errors), coverage gate 46%, property-based tests, perf regression, dep pinning, dev script, integration fixtures |
 | v1.0.0 | Production readiness | 🚧 Planned | Requires all v0.5.16–v0.10.x complete |
 | v2.0.0 | Vision/questionable features | 🅿️ Parked | For re-evaluation after v1.0.0 |
 

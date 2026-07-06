@@ -549,7 +549,7 @@ class GlobalMarketplaceIntegrationService:
         """Calculate optimized pricing based on strategy"""
         try:
             optimized_pricing = {"regional_pricing": {}, "cross_chain_pricing": {}, "price_improvement": 0.0}
-            base_price = offer.base_price
+            base_price = float(offer.base_price)
             if strategy == "balanced":
                 for region in offer.regions_available:
                     regional_condition = market_conditions["regional_conditions"].get(region, {})

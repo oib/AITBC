@@ -252,7 +252,7 @@ async def create_offer(
 @app.get("/v1/marketplace/analytics")
 async def get_analytics(period_type: str | None, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]) -> Any:
     """Get marketplace analytics"""
-    return await svc.get_analytics(period_type=period_type)
+    return await svc.get_analytics(period_type=period_type)  # type: ignore[arg-type]
 
 
 @app.get("/v1/marketplace")
@@ -322,7 +322,7 @@ async def get_marketplace_performance(
 ) -> Any:
     """Get marketplace performance metrics (migrated from Coordinator API)"""
     logger.info("GET /v1/marketplace/performance called with period=%s", period)
-    analytics = await svc.get_analytics(period_type=period)
+    analytics = await svc.get_analytics(period_type=period)  # type: ignore[arg-type]
     performance = {
         "period": period,
         "total_volume": analytics.get("total_volume", 0),
@@ -359,7 +359,7 @@ async def calculate_dynamic_pricing(
         price_multiplier = 0.9
     else:
         price_multiplier = 1.0
-    suggested_price = base_price * price_multiplier
+    suggested_price = float(base_price) * price_multiplier
     return {
         "offer_id": offer_id,
         "base_price": base_price,
@@ -591,7 +591,7 @@ async def get_service_ratings(
     """Get ratings for a marketplace service offer"""
     try:
         logger.info("GET /v1/marketplace/offer/%s/ratings called", service_id)
-        ratings = await svc.get_service_ratings(service_id, limit, offset)
+        ratings = await svc.get_service_ratings(service_id, limit, offset)  # type: ignore[arg-type]
         service = await svc.get_software_service(service_id)
         if not service:
             service = await svc.get_service_by_offer_id(service_id)
@@ -635,7 +635,7 @@ async def get_unsynced_ratings(limit: int | None, svc: Annotated[MarketplaceServ
     """Get ratings that haven't been synced to remote nodes"""
     try:
         logger.info("GET /v1/marketplace/ratings/unsynced called")
-        ratings = await svc.get_unsynced_ratings(limit)
+        ratings = await svc.get_unsynced_ratings(limit)  # type: ignore[arg-type]
         return {"ratings": ratings, "count": len(ratings)}
     except Exception as e:
         logger.error("Error in GET /v1/marketplace/ratings/unsynced: %s: %s", type(e).__name__, str(e))
@@ -774,13 +774,13 @@ async def apply_marketplace_parameter(request: ParameterChangeRequest) -> dict[s
     current config, then applies the new value to the running settings.
     """
     if request.target_service != "marketplace":
-        return JSONResponse(
+        return JSONResponse(  # type: ignore[return-value]
             status_code=400, content={"error": f"target_service must be 'marketplace', got '{request.target_service}'"}
         )
 
     param_type = _MARKETPLACE_GOVERNANCE_PARAMETERS.get(request.parameter_name)
     if param_type is None:
-        return JSONResponse(
+        return JSONResponse(  # type: ignore[return-value]
             status_code=400,
             content={
                 "error": f"Unknown parameter: {request.parameter_name}",
@@ -790,7 +790,7 @@ async def apply_marketplace_parameter(request: ParameterChangeRequest) -> dict[s
 
     current_value = getattr(settings, request.parameter_name, None)
     if request.old_value is not None and str(current_value) != str(request.old_value):
-        return JSONResponse(
+        return JSONResponse(  # type: ignore[return-value]
             status_code=409,
             content={
                 "error": f"old_value mismatch: expected {request.old_value} but current is {current_value}",
@@ -819,7 +819,7 @@ async def apply_marketplace_parameter(request: ParameterChangeRequest) -> dict[s
         }
     except Exception as e:
         logger.error("Failed to apply parameter change: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        return JSONResponse(status_code=500, content={"error": str(e)})  # type: ignore[return-value]
 
 
 # ============================================================================
@@ -866,7 +866,7 @@ async def edge_advertise(
     if not capabilities and request.gpus:
         capabilities = list(set(c for g in request.gpus for c in g.get("capabilities", [])))
 
-    stmt = select(EdgeNodeAdvertisement).where(EdgeNodeAdvertisement.node_id == request.node_id)
+    stmt = select(EdgeNodeAdvertisement).where(EdgeNodeAdvertisement.node_id == request.node_id)  # type: ignore[arg-type]
     result = await session.execute(stmt)
     existing = result.scalars().first()
 
@@ -909,9 +909,9 @@ async def list_edge_nodes(session: Annotated[AsyncSession, Depends(get_session)]
 
     from .domain.marketplace import EdgeNodeAdvertisement
 
-    stmt = select(EdgeNodeAdvertisement).where(EdgeNodeAdvertisement.status == "active")
+    stmt = select(EdgeNodeAdvertisement).where(EdgeNodeAdvertisement.status == "active")  # type: ignore[arg-type]
     if region:
-        stmt = stmt.where(EdgeNodeAdvertisement.region == region)
+        stmt = stmt.where(EdgeNodeAdvertisement.region == region)  # type: ignore[arg-type]
     result = await session.execute(stmt)
     nodes = result.scalars().all()
     return {
@@ -944,11 +944,11 @@ async def get_edge_health(node_id: str, session: Annotated[AsyncSession, Depends
 
     from .domain.marketplace import EdgeNodeAdvertisement
 
-    stmt = select(EdgeNodeAdvertisement).where(EdgeNodeAdvertisement.node_id == node_id)
+    stmt = select(EdgeNodeAdvertisement).where(EdgeNodeAdvertisement.node_id == node_id)  # type: ignore[arg-type]
     result = await session.execute(stmt)
     node = result.scalars().first()
     if not node:
-        return JSONResponse(status_code=404, content={"error": f"Edge node {node_id} not found"})
+        return JSONResponse(status_code=404, content={"error": f"Edge node {node_id} not found"})  # type: ignore[return-value]
     return {
         "node_id": node.node_id,
         "health_score": node.health_score,

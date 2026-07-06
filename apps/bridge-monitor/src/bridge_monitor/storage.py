@@ -131,7 +131,7 @@ def update_deposit(
     cursor = conn.cursor()
 
     updates = []
-    params = []
+    params: list[Any] = []
 
     if ait_amount is not None:
         updates.append("ait_amount = ?")

@@ -284,8 +284,8 @@ class GlobalMarketplaceService:
             stmt = (
                 select(GlobalMarketplaceAnalytics)
                 .where(GlobalMarketplaceAnalytics.region == region, GlobalMarketplaceAnalytics.created_at >= cutoff_time)
-                .order_by(desc(GlobalMarketplaceAnalytics.created_at))
-            )  # type: ignore[arg-type]
+                .order_by(desc(GlobalMarketplaceAnalytics.created_at))  # type: ignore[arg-type]
+            )
             analytics = self.session.execute(stmt).first()
             if analytics:
                 return {
@@ -366,8 +366,8 @@ class RegionManager:
             stmt = (
                 select(MarketplaceRegion)
                 .where(MarketplaceRegion.status == RegionStatus.ACTIVE)
-                .order_by(desc(MarketplaceRegion.priority_weight))
-            )  # type: ignore[arg-type]
+                .order_by(desc(MarketplaceRegion.priority_weight))  # type: ignore[arg-type]
+            )
             regions = self.session.execute(stmt).all()
             if not regions:
                 raise ValueError("No active regions available")

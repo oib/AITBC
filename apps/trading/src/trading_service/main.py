@@ -33,7 +33,7 @@ from .storage import get_session, init_db
 
 configure_logging(level="INFO")
 logger = get_logger(__name__)
-BITCOIN_CONFIG = {
+BITCOIN_CONFIG: dict[str, Any] = {
     "testnet": True,
     "main_address": "tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
     "exchange_rate": 100000,
@@ -213,7 +213,7 @@ async def create_agreement(agreement_data: dict[str, Any], svc: Annotated[Tradin
 @app.get("/v1/trading/analytics")
 async def get_analytics(period_type: str | None, svc: Annotated[TradingService, Depends(get_trading_service)]):
     """Get trading analytics"""
-    return await svc.get_analytics(period_type=period_type)
+    return await svc.get_analytics(period_type=period_type)  # type: ignore[arg-type]
 
 
 @app.post("/v1/transactions")
@@ -279,7 +279,7 @@ async def get_transactions(
                         "buyer_agent_id": r.buyer_agent_id,
                         "trade_type": r.trade_type,
                         "status": r.status,
-                        "island_id": r.island_id,
+                        "island_id": r.island_id,  # type: ignore[attr-defined]
                         "created_at": r.created_at.isoformat() if r.created_at else None,
                     }
                     for r in requests
@@ -291,12 +291,12 @@ async def get_transactions(
             transactions.extend(
                 [
                     {
-                        "match_id": m.match_id,
+                        "match_id": m.match_id,  # type: ignore[attr-defined]
                         "action": "match",
                         "request_id": m.request_id,
-                        "seller_agent_id": m.seller_agent_id,
+                        "seller_agent_id": m.seller_agent_id,  # type: ignore[attr-defined]
                         "status": m.status,
-                        "island_id": m.island_id,
+                        "island_id": m.island_id,  # type: ignore[attr-defined]
                         "created_at": m.created_at.isoformat() if m.created_at else None,
                     }
                     for m in matches
@@ -308,11 +308,11 @@ async def get_transactions(
             transactions.extend(
                 [
                     {
-                        "agreement_id": a.agreement_id,
+                        "agreement_id": a.agreement_id,  # type: ignore[attr-defined]
                         "action": "agreement",
-                        "match_id": a.match_id,
+                        "match_id": a.match_id,  # type: ignore[attr-defined]
                         "status": a.status,
-                        "island_id": a.island_id,
+                        "island_id": a.island_id,  # type: ignore[attr-defined]
                         "created_at": a.created_at.isoformat() if a.created_at else None,
                     }
                     for a in agreements
@@ -329,14 +329,16 @@ async def get_transactions(
 
 
 @app.get("/v1/blocks")
-async def get_blocks(limit: int | None = None, session: Annotated[AsyncSession, Depends(get_session_dep)] = None):
+async def get_blocks(limit: int | None = None, session: Annotated[AsyncSession | None, Depends(get_session_dep)] = None):
     """List recent blocks from the blockchain node RPC."""
     return await _fetch_blocks_from_chain(limit, chain_id=None)
 
 
 @app.get("/v1/explorer/blocks")
 async def get_blocks_v1(
-    limit: int | None = None, chain_id: str | None = None, session: Annotated[AsyncSession, Depends(get_session_dep)] = None
+    limit: int | None = None,
+    chain_id: str | None = None,
+    session: Annotated[AsyncSession | None, Depends(get_session_dep)] = None,
 ):
     """List recent blocks (v1/explorer path for CLI compatibility)"""
     return await _fetch_blocks_from_chain(limit, chain_id=chain_id)
@@ -344,7 +346,9 @@ async def get_blocks_v1(
 
 @app.get("/api/v1/blocks")
 async def get_blocks_api(
-    limit: int | None = None, chain_id: str | None = None, session: Annotated[AsyncSession, Depends(get_session_dep)] = None
+    limit: int | None = None,
+    chain_id: str | None = None,
+    session: Annotated[AsyncSession | None, Depends(get_session_dep)] = None,
 ):
     """List recent blocks (api/v1 path for CLI compatibility)"""
     return await _fetch_blocks_from_chain(limit, chain_id=chain_id)
@@ -1213,7 +1217,7 @@ def _get_settlement_client() -> SettlementClient:
 async def lock_escrow(
     trade_id: str,
     timeout_seconds: int | None = None,
-    svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)] = None,  # noqa: B008
+    svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)] = None,  # type: ignore[assignment]  # noqa: B008
 ):
     """Initiate escrow lock for a trade.
 
@@ -1261,7 +1265,7 @@ async def lock_escrow(
 async def settle_trade(
     trade_id: str,
     secret: str,
-    svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)] = None,  # noqa: B008
+    svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)] = None,  # type: ignore[assignment]  # noqa: B008
 ):
     """Settle a trade by revealing the HTLC secret.
 
@@ -1289,7 +1293,7 @@ async def settle_trade(
 @app.get("/v1/trading/trades/{trade_id}/settlement-status")
 async def settlement_status(
     trade_id: str,
-    svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)] = None,  # noqa: B008
+    svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)] = None,  # type: ignore[assignment]  # noqa: B008
 ):
     """Get settlement status for a trade.
 

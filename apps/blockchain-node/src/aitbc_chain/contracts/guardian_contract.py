@@ -18,7 +18,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from eth_utils import keccak, to_checksum_address  # type: ignore[attr-defined]
+from eth_utils import keccak, to_checksum_address
 
 
 @dataclass
