@@ -43,11 +43,11 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Delete 11 dead coordinator-api modules (~4,800 lines) | 🟡 P2 | coordinator-api contexts: trading/amm, agent_coordination/portfolio, reputation/cross_chain_aggregator, infrastructure/distributed_framework, repositories/confidential, marketplace/marketplace_enhanced*, marketplace/marketplace_cache_optimizer, marketplace/marketplace_scaler, utils/cache_management | ⬜ |
-| A2 | Delete dead CLI migration service (~313 lines) | 🟡 P2 | `cli/utils/wallet_migration_service.py` | ⬜ |
-| A3 | Delete 5 dead aitbc/ re-export shims (~300 lines) | 🟡 P2 | `aitbc/access_control.py`, `aitbc/crypto/password.py`, `aitbc/security_hardening.py`, `aitbc/metrics.py`, `aitbc/log_utils/logging.py` (confirm with AGENTS.md first) | ⬜ |
-| A4 | Delete dead classes in live files (~1,000 lines) | 🟡 P2 | `TaskDecompositionEngine`, `EthereumBridge`, `MockHSMStorage`, `HSMProviderInterface`, `AutoOptimizer`, `ModalityOptimizationManager`, `RedisMessageBroker`, `WebSocketHandler`, `QuotaMiddleware` | ⬜ |
-| A5 | Delete orphan tests for dead modules | 🟡 P2 | tests for deleted modules + `tests/test_access_control.py`, `tests/test_metrics.py`, `tests/test_imports.py` (if those shims are deleted) | ⬜ |
+| A1 | Delete 11 dead coordinator-api modules (~4,800 lines) | 🟡 P2 | coordinator-api contexts: trading/amm, agent_coordination/portfolio, reputation/cross_chain_aggregator, infrastructure/distributed_framework, repositories/confidential, marketplace/marketplace_enhanced*, marketplace/marketplace_cache_optimizer, marketplace/marketplace_scaler, utils/cache_management | ✅ |
+| A2 | Delete dead CLI migration service (~313 lines) | 🟡 P2 | `cli/utils/wallet_migration_service.py` | ✅ |
+| A3 | Delete 5 dead aitbc/ re-export shims (~300 lines) | 🟡 P2 | `aitbc/access_control.py`, `aitbc/crypto/password.py`, `aitbc/security_hardening.py`, `aitbc/metrics.py`, `aitbc/log_utils/logging.py` (confirm with AGENTS.md first) | ✅ (4/5 — `log_utils/logging.py` kept per AGENTS.md) |
+| A4 | Delete dead classes in live files (~1,000 lines) | 🟡 P2 | `TaskDecompositionEngine`, `EthereumBridge`, `MockHSMStorage`, `HSMProviderInterface`, `AutoOptimizer`, `ModalityOptimizationManager`, `RedisMessageBroker`, `WebSocketHandler`, `QuotaMiddleware` | ✅ |
+| A5 | Delete orphan tests for dead modules | 🟡 P2 | tests for deleted modules + `tests/test_access_control.py`, `tests/test_metrics.py`, `tests/test_imports.py` (if those shims are deleted) | ✅ |
 
 ### Agent A — Detailed Instructions
 
