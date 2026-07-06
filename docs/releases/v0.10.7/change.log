@@ -58,21 +58,21 @@ v0.10.7 is a **dead code elimination and duplicate consolidation release** that 
 See [AGENTS.md](AGENTS.md) for the full task assignment and detailed instructions.
 
 ### Agent A — Dead Code Elimination (SWE 1.6)
-- [ ] A1: Delete 11 dead coordinator-api modules (~4,800 lines)
-- [ ] A2: Delete dead CLI migration service (~313 lines)
-- [ ] A3: Delete 5 dead aitbc/ re-export shims (~300 lines)
-- [ ] A4: Delete dead classes in live files (~1,000 lines)
-- [ ] A5: Delete orphan tests for dead modules
+- [x] A1: Delete 11 dead coordinator-api modules (~4,800 lines)
+- [x] A2: Delete dead CLI migration service (~313 lines)
+- [x] A3: Delete 5 dead aitbc/ re-export shims (~300 lines) — 4/5 deleted, `log_utils/logging.py` kept per AGENTS.md
+- [x] A4: Delete dead classes in live files (~1,000 lines)
+- [x] A5: Delete orphan tests for dead modules
 
 ### Agent B — Duplicate Consolidation (GLM 5.2)
-- [ ] B1: Collapse agent-management services onto coordinator-api agent_coordination context (~4,800 lines)
-- [ ] B2: Create shared blockchain RPC client (~100 lines)
-- [ ] B3: Merge CLI error handling (~150 lines)
-- [ ] B4: Consolidate DB init modules (~200 lines)
-- [ ] B5: Adopt ServiceSettings across 5 services (~150 lines)
-- [ ] B6: Consolidate security utils (~200 lines)
-- [ ] B7: Eliminate small copy-pastes (~100 lines)
-- [ ] B8: Fix GlobalMarketplaceOffer Decimal inconsistency (~30 lines)
+- [x] B1: Deprecate agent-management entirely (Option A — service not deployed, broken, port conflict)
+- [x] B2: Create shared blockchain RPC client in `aitbc/blockchain/rpc_client.py`
+- [x] B3: Delete dead `cli/utils/error_handling.py` (zero importers)
+- [x] B4: Consolidate DB init modules — agent-management deleted in B1; pool-hub kept (async singleton)
+- [x] B5: Adopt ServiceSettings across 5 services (config.py vs hierarchical_config.py deferred)
+- [x] B6: Consolidate security utils into `aitbc/security/encryption.py`
+- [x] B7: Eliminate small copy-pastes (`to_decimal` helper, `setup_cors` middleware)
+- [x] B8: Fix GlobalMarketplaceOffer Decimal inconsistency (coordinator-api float → Decimal Numeric(20,8))
 
 ---
 
