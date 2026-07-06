@@ -13,15 +13,22 @@ from ...utils.http_client import AITBCHTTPClient, get_logger
 # Initialize logger
 logger = get_logger(__name__)
 
-from . import market
-
 
 # ---------------------------------------------------------------------------
 
 
-@market.group()
-def escrow():
-    """Manage blockchain escrow for GPU jobs"""
+def escrow_group():
+    """Create and return the escrow group"""
+
+    @click.group()
+    def escrow():
+        """Manage blockchain escrow for GPU jobs"""
+        pass
+
+    return escrow
+
+
+escrow = escrow_group()
 
 
 def _get_blockchain_rpc_url(config) -> str:

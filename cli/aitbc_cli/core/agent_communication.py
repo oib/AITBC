@@ -441,8 +441,8 @@ class CrossChainAgentCommunication:
         """Get cross-chain network overview"""
         try:
             # Count agents by chain
-            agents_by_chain = defaultdict(int)
-            active_agents_by_chain = defaultdict(int)
+            agents_by_chain: defaultdict[str, int] = defaultdict(int)
+            active_agents_by_chain: defaultdict[str, int] = defaultdict(int)
 
             for agent in self.agents.values():
                 agents_by_chain[agent.chain_id] += 1
@@ -450,7 +450,7 @@ class CrossChainAgentCommunication:
                     active_agents_by_chain[agent.chain_id] += 1
 
             # Count collaborations by type
-            collaborations_by_type = defaultdict(int)
+            collaborations_by_type: defaultdict[str, int] = defaultdict(int)
             active_collaborations = 0
 
             for collab in self.collaborations.values():

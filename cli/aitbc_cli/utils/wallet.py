@@ -20,8 +20,8 @@ def decrypt_private_key(keystore_path: Path, password: str) -> str:
     - AES-256-GCM (blockchain-node standard)
     - Fernet (scripts/utils standard)
     """
-    with open(keystore_path) as f:
-        ks = json.load(f)
+    with open(keystore_path) as keystore_file:
+        ks = json.load(keystore_file)
 
     crypto = ks.get("crypto", ks)  # Handle both nested and flat crypto structures
 
@@ -56,9 +56,9 @@ def decrypt_private_key(keystore_path: Path, password: str) -> str:
         dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000, dklen=32)
         fernet_key = base64.urlsafe_b64encode(dk)
 
-        f = Fernet(fernet_key)
+        fernet = Fernet(fernet_key)
         ciphertext = base64.b64decode(crypto["ciphertext"])
-        priv = f.decrypt(ciphertext)
+        priv = fernet.decrypt(ciphertext)
         return priv.decode()
 
     else:

@@ -9,6 +9,7 @@ import os
 import random
 import sys
 import time
+from typing import Any
 
 import click
 
@@ -16,17 +17,17 @@ import click
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from config import get_config
+    from config import get_config  # type: ignore[import-not-found]
     from utils import error, output, setup_logging, success
 except ImportError:
 
-    def output(msg, format_type):
+    def output(msg, format_type):  # type: ignore[misc]
         click.echo(msg)
 
-    def error(msg):
+    def error(msg):  # type: ignore[misc]
         click.echo(f"Error: {msg}")
 
-    def setup_logging(verbose, debug):
+    def setup_logging(verbose, debug):  # type: ignore[misc]
         return "INFO"
 
     def get_config(config_file=None, role=None):
@@ -54,10 +55,10 @@ def blockchain(blocks, transactions, delay, output):
     """Simulate blockchain block production and transactions"""
     click.echo(f"Simulating blockchain with {blocks} blocks, {transactions} transactions per block")
 
-    results = []
+    results: list[dict[str, Any]] = []
     for block_num in range(blocks):
         # Simulate block production
-        block_data = {"block_number": block_num + 1, "timestamp": time.time(), "transactions": []}
+        block_data: dict[str, Any] = {"block_number": block_num + 1, "timestamp": time.time(), "transactions": []}
 
         # Generate transactions
         for _tx_num in range(transactions):
@@ -198,16 +199,23 @@ def network(nodes, network_delay, failure_rate):
     click.echo(f"Simulating network with {nodes} nodes, {network_delay}s delay, {failure_rate:.2f} failure rate")
 
     # Create nodes
-    network_nodes = []
+    network_nodes: list[dict[str, Any]] = []
     for i in range(nodes):
-        node = {"id": f"node_{i + 1}", "address": f"10.1.223.{90 + i}", "status": "active", "height": 0, "connected_to": []}
+        node: dict[str, Any] = {
+            "id": f"node_{i + 1}",
+            "address": f"10.1.223.{90 + i}",
+            "status": "active",
+            "height": 0,
+            "connected_to": [],
+        }
         network_nodes.append(node)
 
     # Create network topology (ring + mesh)
     for i, node in enumerate(network_nodes):
         # Connect to next node (ring)
         next_node = network_nodes[(i + 1) % len(network_nodes)]
-        node["connected_to"].append(next_node["id"])
+        node_connected_to: list[str] = node["connected_to"]
+        node_connected_to.append(next_node["id"])
 
         # Connect to random nodes (mesh)
         if len(network_nodes) > 2:
@@ -215,17 +223,18 @@ def network(nodes, network_delay, failure_rate):
                 [n["id"] for n in network_nodes if n["id"] != node["id"]], min(2, len(network_nodes) - 1)
             )
             for conn in mesh_connections:
-                if conn not in node["connected_to"]:
-                    node["connected_to"].append(conn)
+                if conn not in node_connected_to:
+                    node_connected_to.append(conn)
 
     # Display network topology
     click.echo("\nNetwork Topology:")
     for node in network_nodes:
-        click.echo(f"  {node['id']} ({node['address']}): connected to {', '.join(node['connected_to'])}")
+        node_connections = node["connected_to"]
+        click.echo(f"  {node['id']} ({node['address']}): connected to {', '.join(node_connections)}")
 
     # Simulate network operations
     click.echo("\nSimulating network operations...")
-    active_nodes = network_nodes.copy()
+    active_nodes: list[dict[str, Any]] = network_nodes.copy()
 
     for step in range(10):
         # Simulate failures
@@ -241,12 +250,14 @@ def network(nodes, network_delay, failure_rate):
         if active_nodes:
             # Random node produces block
             producer = random.choice(active_nodes)
-            producer["height"] += 1
+            producer_height: int = producer["height"]
+            producer["height"] = producer_height + 1
 
             # Propagate to connected nodes
             for node in active_nodes:
+                node_height: int = node["height"]
                 if node["id"] != producer["id"] and node["id"] in producer["connected_to"]:
-                    node["height"] = max(node["height"], producer["height"] - 1)
+                    node["height"] = max(node_height, producer["height"] - 1)
 
             click.echo(
                 f"Step {step + 1}: {producer['id']} produced block {producer['height']}, {len(active_nodes)} nodes active"
@@ -258,7 +269,8 @@ def network(nodes, network_delay, failure_rate):
     click.echo("\nFinal Network Status:")
     for node in network_nodes:
         status_icon = "✅" if node["status"] == "active" else "❌"
-        click.echo(f"  {status_icon} {node['id']}: height {node['height']}, connections: {len(node['connected_to'])}")
+        connected_to: list[str] = node["connected_to"]
+        click.echo(f"  {status_icon} {node['id']}: height {node['height']}, connections: {len(connected_to)}")
 
 
 @simulate.command()
@@ -330,7 +342,7 @@ def ai_jobs(jobs, models, duration_range):
         click.echo(f"  Average Duration: {avg_duration:.1f}s")
 
         # Model statistics
-        model_stats = {}
+        model_stats: dict[str, int] = {}
         for job in completed_jobs:
             model_stats[job["model"]] = model_stats.get(job["model"], 0) + 1
 

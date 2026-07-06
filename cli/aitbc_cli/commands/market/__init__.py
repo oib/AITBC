@@ -49,7 +49,7 @@ def get_chain_id() -> str:
         # Credentials use 'island_chain_id' key
         chain_id = creds.get("island_chain_id") or creds.get("chain_id")
         if chain_id:
-            return chain_id
+            return str(chain_id)
     except (FileNotFoundError, ValueError):
         pass
     # Fall back to hub discovery URL config
@@ -61,7 +61,9 @@ def get_chain_id() -> str:
 def get_island_id() -> str:
     """Get island ID from island credentials or blockchain config for hub nodes"""
     try:
-        return load_island_credentials().get("island_id")
+        island_id = load_island_credentials().get("island_id")
+        if island_id:
+            return str(island_id)
     except FileNotFoundError:
         # Hub nodes use blockchain config
         node_role = os.getenv("NODE_ROLE", "")
@@ -69,6 +71,8 @@ def get_island_id() -> str:
             return os.getenv("ISLAND_ID", "ait-hub")
         error("Island credentials required for island ID")
         raise click.Abort() from None
+    error("Island ID not found in credentials")
+    raise click.Abort() from None
 
 
 def get_wallet_address() -> str:
@@ -84,13 +88,13 @@ def get_wallet_address() -> str:
                     metadata = wallet.get("metadata", {})
                     address = metadata.get("address") or metadata.get("original_address")
                     if address:
-                        return address
+                        return str(address)
             # Fallback to first wallet if my-agent-wallet not found
             genesis_wallet = wallets["items"][0]
             metadata = genesis_wallet.get("metadata", {})
             address = metadata.get("address") or metadata.get("original_address")
             if address:
-                return address
+                return str(address)
     except Exception as e:
         logger.warning("Failed to get wallet from service: %s", e)
 
@@ -100,7 +104,9 @@ def get_wallet_address() -> str:
         try:
             with open(wallet_path) as f:
                 wallet = json.load(f)
-                return wallet.get("address")
+                address = wallet.get("address")
+                if address:
+                    return str(address)
         except Exception as e:
             logger.warning("Failed to load local wallet: %s", e)
 
@@ -118,7 +124,8 @@ def get_account_nonce(address: str, chain_id: str) -> int:
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
         response = http_client.get(f"/rpc/accounts/{address}?chain_id={chain_id}")
-        return response.get("nonce", 0)
+        nonce = response.get("nonce", 0)
+        return int(nonce) if nonce is not None else 0
     except Exception as e:
         error(f"Failed to get account nonce: {e}")
         return 0

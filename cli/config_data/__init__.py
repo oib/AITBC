@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 import click
-import yaml
+import yaml  # type: ignore[import-untyped]
 from dotenv import load_dotenv
 
 
@@ -58,16 +58,16 @@ class Config:
         self.load_from_file()
 
         # Override with environment variables
-        if os.getenv("AITBC_URL"):
-            self.coordinator_url = os.getenv("AITBC_URL")
-        if os.getenv("AITBC_API_KEY"):
-            self.api_key = os.getenv("AITBC_API_KEY")
-        if os.getenv("AITBC_ROLE"):
-            self.role = os.getenv("AITBC_ROLE")
-        if os.getenv("AITBC_BLOCKCHAIN_RPC_URL"):
-            self.blockchain_rpc_url = os.getenv("AITBC_BLOCKCHAIN_RPC_URL")
-        if os.getenv("AITBC_WALLET_URL"):
-            self.wallet_url = os.getenv("AITBC_WALLET_URL")
+        if url := os.getenv("AITBC_URL"):
+            self.coordinator_url = url
+        if api_key := os.getenv("AITBC_API_KEY"):
+            self.api_key = api_key
+        if role := os.getenv("AITBC_ROLE"):
+            self.role = role
+        if blockchain_rpc_url := os.getenv("AITBC_BLOCKCHAIN_RPC_URL"):
+            self.blockchain_rpc_url = blockchain_rpc_url
+        if wallet_url := os.getenv("AITBC_WALLET_URL"):
+            self.wallet_url = wallet_url
 
         # Validate and enforce localhost URLs
         self._validate_localhost_urls()

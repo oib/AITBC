@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.panel import Panel
@@ -58,11 +58,11 @@ class AuditLogger:
 
         self._secure_logger = SecureAuditLogger(log_dir)
 
-    def log(self, action: str, details: dict = None, user: str = None):
+    def log(self, action: str, details: dict[str, Any] | None = None, user: str | None = None):
         """Log an audit event with cryptographic integrity"""
         self._secure_logger.log(action, details, user)
 
-    def get_logs(self, limit: int = 50, action_filter: str = None) -> list:
+    def get_logs(self, limit: int = 50, action_filter: str | None = None) -> list:
         """Read audit log entries with integrity verification"""
         return self._secure_logger.get_logs(limit, action_filter)
 
@@ -79,7 +79,7 @@ class AuditLogger:
         return self._secure_logger.search_logs(query, limit)
 
 
-def _get_fernet_key(key: str = None) -> bytes:
+def _get_fernet_key(key: str | None = None) -> bytes:
     """Derive a Fernet key from a password using Argon2 KDF"""
     import base64
     import getpass
@@ -151,7 +151,7 @@ def _get_fernet_key(key: str = None) -> bytes:
         return base64.urlsafe_b64encode(key_bytes)
 
 
-def encrypt_value(value: str, key: str = None) -> str:
+def encrypt_value(value: str, key: str | None = None) -> str:
     """Encrypt a value using Fernet symmetric encryption"""
     import base64
 
@@ -163,7 +163,7 @@ def encrypt_value(value: str, key: str = None) -> str:
     return base64.b64encode(encrypted).decode()
 
 
-def decrypt_value(encrypted: str, key: str = None) -> str:
+def decrypt_value(encrypted: str, key: str | None = None) -> str:
     """Decrypt a Fernet-encrypted value"""
     import base64
 
@@ -193,14 +193,14 @@ def setup_logging(verbosity: int, debug: bool = False) -> str:
     return log_level
 
 
-def render(data: Any, format_type: str = "table", title: str = None):
+def render(data: Any, format_type: str = "table", title: str | None = None):
     """Format and output data"""
     if format_type == "json":
         console.print(json.dumps(data, indent=2, default=str))
     elif format_type == "yaml":
         console.print(yaml.dump(data, default_flow_style=False, sort_keys=False))
     elif format_type == "table":
-        if isinstance(data, dict) and not isinstance(data, list):
+        if isinstance(data, dict):
             # Simple key-value table
             table = Table(show_header=False, box=None, title=title)
             table.add_column("Key", style="cyan")
@@ -237,7 +237,7 @@ def render(data: Any, format_type: str = "table", title: str = None):
 
 
 # Backward compatibility alias
-def output(data: Any, format_type: str = "table", title: str = None):
+def output(data: Any, format_type: str = "table", title: str | None = None):
     """Deprecated: use render() instead - kept for backward compatibility"""
     return render(data, format_type, title)
 
@@ -279,7 +279,7 @@ def create_http_client_with_retry(
     """
     import httpx
 
-    class RetryTransport(httpx.Transport):
+    class RetryTransport(httpx.Transport):  # type: ignore[name-defined]
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.max_retries = max_retries
@@ -288,7 +288,7 @@ def create_http_client_with_retry(
             self.backoff_factor = 2.0
 
         def handle_request(self, request):
-            last_exception = None
+            last_exception: Exception | None = None
 
             for attempt in range(self.max_retries + 1):
                 try:
@@ -298,9 +298,7 @@ def create_http_client_with_retry(
                     if hasattr(response, "status_code"):
                         retryable_codes = {429, 502, 503, 504}
                         if response.status_code in retryable_codes:
-                            last_exception = httpx.HTTPStatusError(
-                                f"Retryable status code {response.status_code}", request=request, response=response
-                            )
+                            last_exception = RuntimeError(f"Retryable status code {response.status_code}")
 
                             if attempt == self.max_retries:
                                 break
@@ -311,7 +309,7 @@ def create_http_client_with_retry(
 
                     return response
 
-                except (httpx.NetworkError, httpx.TimeoutException) as e:
+                except Exception as e:
                     last_exception = e
 
                     if attempt == self.max_retries:
@@ -320,6 +318,8 @@ def create_http_client_with_retry(
                     delay = min(self.base_delay * (self.backoff_factor**attempt), self.max_delay)
                     time.sleep(delay)
 
+            if last_exception is None:
+                raise RuntimeError("Retry transport failed without exception")
             raise last_exception
 
     return httpx.Client(transport=RetryTransport(), timeout=timeout)
