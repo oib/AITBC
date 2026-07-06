@@ -33,10 +33,11 @@ v0.10.9 is a **dead-code elimination and status-drift cleanup release**. It cont
 | Stale ports — test fixtures 8006 | 1 | ~60 | ~60 |
 | Stale ports — CORS config | 1 | ~10 | ~10 |
 | Stale ports — payments wallet URL | 1 | ~2 | ~2 |
+| Stale ports — health-check.sh | 1 | ~8 | ~8 |
 | Auth shim migration | 7 | ~30 | ~200 |
 | Deprecated constants — HERMES_PORT | 1 | 0 | ~3 |
 | Documentation — agent-management refs | 1 | 0 | ~5 |
-| **Total** | **33** | **~112** | **~3,176** |
+| **Total** | **34** | **~120** | **~3,184** |
 
 ---
 
@@ -64,8 +65,9 @@ See [AGENTS.md](AGENTS.md) for the full task assignment and detailed instruction
 - [ ] B2: Clean up stale port 8006 references in test fixtures (~60 occurrences)
 - [ ] B3: Update coordinator-api CORS config to use current port constants
 - [ ] B4: Fix hardcoded wallet port 20000 in payments service
-- [ ] B5: Migrate auth shim importers to `aitbc.auth` + delete deprecated shims
-- [ ] B6: Remove agent-management references from documentation
+- [x] B5: Fix health-check.sh hardcoded ports
+- [ ] B6: Migrate auth shim importers to `aitbc.auth` + delete deprecated shims
+- [ ] B7: Remove agent-management references from documentation
 
 ---
 
