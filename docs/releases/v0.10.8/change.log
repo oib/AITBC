@@ -1,7 +1,7 @@
 # AITBC v0.10.8 Release Notes
 
-**Date**: TBD
-**Status**: 📋 Planned — Config Consolidation & Dead Retry Helper Cleanup
+**Date**: 2026-07-06
+**Status**: ✅ Complete — Config Consolidation & Dead Retry Helper Cleanup
 **Scope**: Resolve the `aitbc/config.py` vs `aitbc/config/hierarchical_config.py` package shadowing issue, consolidate simple health endpoints, and delete 3 unused retry helper implementations (zero production importers).
 
 ## 🎯 Overview
@@ -44,11 +44,11 @@ v0.10.8 is a **small cleanup release** that closes out the 3 deferred items from
 See [AGENTS.md](AGENTS.md) for the full task assignment and detailed instructions.
 
 ### Agent A — Dead Retry Helper Cleanup (SWE 1.6)
-- [ ] A1: Delete 3 dead retry helpers + update tests
+- [x] A1: Delete 3 dead retry helpers + update tests
 
 ### Agent B — Config Consolidation & Health Endpoints (GLM 5.2)
-- [ ] B1: Consolidate config.py into hierarchical_config.py (eliminate package shadowing)
-- [ ] B2: Add `create_simple_health_response()` helper + update 11 services
+- [x] B1: Consolidate config.py into hierarchical_config.py (eliminate package shadowing)
+- [x] B2: Add `create_simple_health_response()` helper + update 11 services
 
 ---
 
