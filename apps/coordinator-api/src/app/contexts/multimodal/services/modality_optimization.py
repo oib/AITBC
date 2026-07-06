@@ -3,7 +3,6 @@ Modality-Specific Optimization Strategies - Phase 5.1
 Specialized optimization for text, image, audio, video, tabular, and graph data
 """
 
-import asyncio
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated, Any
@@ -14,7 +13,6 @@ from sqlalchemy.orm import Session
 from aitbc.aitbc_logging import get_logger
 
 from ....storage import get_session
-from .multimodal_agent import ModalityType
 
 logger = get_logger(__name__)
 
@@ -664,71 +662,3 @@ class VideoOptimizer(ModalityOptimizer):
     def _balanced_video_features(self, fps: int, duration: float, width: int, height: int) -> dict[str, Any]:
         """Balanced video features"""
         return {"motion_features": [0.1, 0.2, 0.3, 0.4, 0.5], "temporal_features": [0.6, 0.7, 0.8], "feature_dim": 256}
-
-
-class ModalityOptimizationManager:
-    """Manager for all modality-specific optimizers"""
-
-    def __init__(self, session: Annotated[Session, Depends(get_session)]):
-        self.session = session
-        self._optimizers = {
-            ModalityType.TEXT: TextOptimizer(session),
-            ModalityType.IMAGE: ImageOptimizer(session),
-            ModalityType.AUDIO: AudioOptimizer(session),
-            ModalityType.VIDEO: VideoOptimizer(session),
-            ModalityType.TABULAR: ModalityOptimizer(session),
-            ModalityType.GRAPH: ModalityOptimizer(session),
-        }
-
-    async def optimize_modality(
-        self,
-        modality: ModalityType,
-        data: Any,
-        strategy: OptimizationStrategy = OptimizationStrategy.BALANCED,
-        constraints: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Optimize data for specific modality"""
-        optimizer = self._optimizers.get(modality)
-        if optimizer is None:
-            raise ValueError(f"No optimizer available for modality: {modality}")
-        return await optimizer.optimize(data, strategy, constraints)
-
-    async def optimize_multimodal(
-        self,
-        multimodal_data: dict[ModalityType, Any],
-        strategy: OptimizationStrategy = OptimizationStrategy.BALANCED,
-        constraints: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Optimize multiple modalities"""
-        start_time = datetime.now(UTC)
-        results = {}
-        tasks = []
-        for modality, data in multimodal_data.items():
-            task = self.optimize_modality(modality, data, strategy, constraints)
-            tasks.append((modality, task))
-        completed_tasks = await asyncio.gather(*[task for _, task in tasks], return_exceptions=True)
-        for (modality, _), result in zip(tasks, completed_tasks, strict=False):
-            if isinstance(result, Exception):
-                logger.error("Optimization failed for %s: %s", modality, result)
-                results[modality.value] = {"error": str(result)}
-            else:
-                results[modality.value] = result  # type: ignore[assignment]
-        processing_time = (datetime.now(UTC) - start_time).total_seconds()
-        total_compression = sum(
-            result.get("optimization_metrics", {}).get("compression_ratio", 1.0)
-            for result in results.values()
-            if "error" not in result
-        )  # type: ignore[call-overload, union-attr]
-        avg_compression = total_compression / len([r for r in results.values() if "error" not in r])
-        return {
-            "multimodal_optimization": True,
-            "strategy": strategy,
-            "modalities_processed": list(multimodal_data.keys()),
-            "results": results,
-            "aggregate_metrics": {
-                "average_compression_ratio": avg_compression,
-                "total_processing_time": processing_time,
-                "modalities_count": len(multimodal_data),
-            },
-            "processing_time_seconds": processing_time,
-        }

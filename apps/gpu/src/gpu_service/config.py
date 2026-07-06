@@ -1,39 +1,31 @@
-"""Configuration for AITBC GPU Service (v0.6.6)."""
+"""Configuration for AITBC GPU Service (v0.6.6, v0.10.7 §B5).
+
+Subclasses ``aitbc_shared.core.config.ServiceSettings`` to inherit common
+service fields (service_name, app_env, debug, log_level, database, api_prefix,
+enable_metrics, enable_health_check) while adding blockchain integration fields.
+"""
 
 from __future__ import annotations
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 
-import os
+from aitbc_shared.core.config import ServiceSettings
 
-try:
-    from pydantic_settings import BaseSettings, SettingsConfigDict
-except ImportError:
-    from pydantic import BaseSettings  # type: ignore[assignment]
-
-    SettingsConfigDict = None  # type: ignore[misc,assignment]
+from pydantic_settings import SettingsConfigDict
 
 
-class Settings(BaseSettings):
+class Settings(ServiceSettings):
     """GPU service settings (v0.6.6)."""
 
-    if SettingsConfigDict is not None:
-        model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
 
     # Blockchain integration
-    blockchain_rpc_url: str = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
-    default_chain_id: str = os.getenv("DEFAULT_CHAIN_ID", "ait-hub")
+    blockchain_rpc_url: str = BLOCKCHAIN_RPC_URL
+    default_chain_id: str = "ait-hub"
 
-    # Service binding
-    gpu_bind_host: str = os.getenv("GPU_BIND_HOST", "0.0.0.0")  # nosec B104
-    gpu_bind_port: int = int(os.getenv("GPU_BIND_PORT", "8101"))
-
-    if SettingsConfigDict is None:
-
-        class Config:
-            env_file = ".env"
-            env_file_encoding = "utf-8"
-            case_sensitive = False
-            extra = "allow"
+    # Service binding (kept for backward compat with GPU_BIND_HOST/PORT env vars;
+    # ServiceSettings also provides app_host/app_port)
+    gpu_bind_host: str = "0.0.0.0"  # nosec B104
+    gpu_bind_port: int = 8101
 
 
 settings = Settings()
