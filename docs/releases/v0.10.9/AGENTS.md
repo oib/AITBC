@@ -213,13 +213,13 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Fix status drift — version bump, mark v0.10.4 complete, update STATUS.md | 🟡 P2 | `pyproject.toml`, `AGENTS.md`, `docs/releases/v0.10.4/change.log`, `docs/releases/STATUS.md` | ⬜ |
-| B2 | Clean up stale port 8006 references in test fixtures (~60 occurrences) | 🟡 P2 | `tests/fixtures/cli_mocks.py`, `tests/fixtures/multi_chain.py`, `tests/unit/test_http_pool.py`, `tests/unit/test_island_registry.py`, `tests/unit/test_sync_source_resolver.py` | ⬜ |
-| B3 | Update coordinator-api CORS config to use current port constants | 🟡 P2 | `apps/coordinator-api/src/app/config.py` | ⬜ |
-| B4 | Fix hardcoded wallet port 20000 in payments service | 🟡 P2 | `apps/coordinator-api/src/app/contexts/payments/services/payments.py` | ⬜ |
+| B1 | Fix status drift — version bump, mark v0.10.4 complete, update STATUS.md | 🟡 P2 | `pyproject.toml`, `AGENTS.md`, `docs/releases/v0.10.4/change.log`, `docs/releases/STATUS.md` | ✅ |
+| B2 | Clean up stale port 8006 references in test fixtures (~60 occurrences) | 🟡 P2 | `tests/fixtures/cli_mocks.py`, `tests/fixtures/multi_chain.py`, `tests/unit/test_http_pool.py`, `tests/unit/test_island_registry.py`, `tests/unit/test_sync_source_resolver.py` | ✅ |
+| B3 | Update coordinator-api CORS config to use current port constants | 🟡 P2 | `apps/coordinator-api/src/app/config.py` | ✅ |
+| B4 | Fix hardcoded wallet port 20000 in payments service | 🟡 P2 | `apps/coordinator-api/src/app/contexts/payments/services/payments.py` | ✅ |
 | B5 | Fix health-check.sh hardcoded ports | 🟡 P2 | `health-check.sh` | ✅ |
-| B6 | Migrate auth shim importers to `aitbc.auth` + delete deprecated shims | 🟡 P2 | 7 auth shim files + internal importers | ⬜ |
-| B7 | Remove agent-management references from documentation | 🟢 P3 | `docs/getting-started/setup-service-selection.md` | ⬜ |
+| B6 | Migrate auth shim importers to `aitbc.auth` + delete deprecated shims | 🟡 P2 | 7 auth shim files + internal importers | ✅ |
+| B7 | Remove agent-management references from documentation | 🟢 P3 | `docs/getting-started/setup-service-selection.md` | ✅ |
 
 ### Agent B — Detailed Instructions
 

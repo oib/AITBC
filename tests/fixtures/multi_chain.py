@@ -126,7 +126,7 @@ def multi_chain_setup(tmp_path) -> Generator[MultiChainSetup]:
         session_factory=_make_session_factory(island_engine),
         db_path=str(tmp_path / "ait-island1.db"),
         is_hub=False,
-        sync_sources={"ait-hub": "http://localhost:8006"},
+        sync_sources={"ait-hub": "http://localhost:8202"},
     )
     setup.chains["ait-island1"] = island_ctx
 
@@ -144,8 +144,8 @@ def three_chain_setup(tmp_path) -> Generator[MultiChainSetup]:
 
     configs = [
         ("ait-hub", True, {}),
-        ("ait-island1", False, {"ait-hub": "http://localhost:8006"}),
-        ("ait-island2", False, {"ait-hub": "http://localhost:8006"}),
+        ("ait-island1", False, {"ait-hub": "http://localhost:8202"}),
+        ("ait-island2", False, {"ait-hub": "http://localhost:8202"}),
     ]
 
     for chain_id, is_hub, sync_sources in configs:
@@ -186,12 +186,12 @@ def island_registry(multi_chain_setup) -> dict[str, dict[str, str]]:
     return {
         "island-hub": {
             "chain_id": "ait-hub",
-            "hub_url": "http://localhost:8006",
+            "hub_url": "http://localhost:8202",
             "hub_chain_id": "ait-hub",
         },
         "island-1": {
             "chain_id": "ait-island1",
-            "hub_url": "http://localhost:8006",
+            "hub_url": "http://localhost:8202",
             "hub_chain_id": "ait-hub",
         },
     }

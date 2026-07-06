@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.constants import WALLET_PORT
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 
@@ -25,7 +26,7 @@ class PaymentService:
 
     def __init__(self, session: Annotated[Session, Depends(get_session)]):
         self.session = session
-        self.wallet_base_url = "http://127.0.0.1:20000"
+        self.wallet_base_url = f"http://127.0.0.1:{WALLET_PORT}"
         self.exchange_base_url = "http://127.0.0.1:8106"
 
     async def create_payment(self, job_id: str, payment_data: JobPaymentCreate) -> JobPayment:

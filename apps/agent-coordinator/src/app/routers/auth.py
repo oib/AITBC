@@ -3,11 +3,10 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.auth import api_key_manager, get_jwt_handler, get_current_user, Permission, Role, permission_manager
 from aitbc.rate_limiting import rate_limit
 
-from ..auth.jwt_handler import api_key_manager, jwt_handler
-from ..auth.middleware import get_current_user
-from ..auth.permissions import Permission, Role, permission_manager
+jwt_handler = get_jwt_handler()
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
