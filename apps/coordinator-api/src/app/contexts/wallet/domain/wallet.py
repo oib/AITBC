@@ -7,9 +7,10 @@ Domain models for managing agent wallets across multiple blockchain networks.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, Numeric
 from sqlmodel import Field, SQLModel
 
 
@@ -77,7 +78,7 @@ class TokenBalance(SQLModel, table=True):
     chain_id: int = Field(foreign_key="wallet_network_config.chain_id", index=True)
     token_address: str = Field(index=True)  # "native" for native currency
     token_symbol: str = Field()
-    balance: float = Field(default=0.0)
+    balance: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     last_updated: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Relationships
@@ -102,10 +103,10 @@ class WalletTransaction(SQLModel, table=True):
     chain_id: int = Field(foreign_key="wallet_network_config.chain_id", index=True)
     tx_hash: str | None = Field(default=None, index=True)
     to_address: str = Field(index=True)
-    value: float = Field(default=0.0)
+    value: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     data: str | None = Field(default=None)
     gas_limit: int | None = Field(default=None)
-    gas_price: float | None = Field(default=None)
+    gas_price: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8)))
     nonce: int | None = Field(default=None)
     status: TransactionStatus = Field(default=TransactionStatus.PENDING, index=True)
     error_message: str | None = Field(default=None)

@@ -4,11 +4,13 @@ Implements SQLModel definitions for P2P trading, matching, negotiation, and sett
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
-from sqlmodel import JSON, Column, Field, SQLModel
+from sqlalchemy import JSON, Column, Numeric
+from sqlmodel import Field, SQLModel
 
 
 class TradeStatus(StrEnum):
@@ -76,7 +78,7 @@ class TradeRequest(SQLModel, table=True):
     constraints: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Pricing and terms
-    budget_range: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))  # min, max
+    budget_range: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))  # min, max (Decimal-serializable)
     preferred_terms: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     negotiation_flexible: bool = Field(default=True)
 
@@ -186,7 +188,7 @@ class TradeNegotiation(SQLModel, table=True):
     final_terms: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Negotiation parameters
-    price_range: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    price_range: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))  # min, max (Decimal-serializable)
     service_level_agreements: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     delivery_terms: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     payment_terms: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
@@ -239,7 +241,7 @@ class TradeAgreement(SQLModel, table=True):
     service_level_agreement: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Pricing and payment
-    total_price: float = Field(ge=0)
+    total_price: Decimal = Field(default=Decimal("0"), ge=0, sa_column=Column(Numeric(20, 8)))
     currency: str = Field(default="AITBC")
     payment_schedule: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     settlement_type: SettlementType
@@ -288,7 +290,7 @@ class TradeSettlement(SQLModel, table=True):
 
     # Settlement details
     settlement_type: SettlementType
-    total_amount: float = Field(ge=0)
+    total_amount: Decimal = Field(default=Decimal("0"), ge=0, sa_column=Column(Numeric(20, 8)))
     currency: str = Field(default="AITBC")
 
     # Payment processing
@@ -307,10 +309,10 @@ class TradeSettlement(SQLModel, table=True):
     completed_milestones: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Fees and deductions
-    platform_fee: float = Field(default=0.0)
-    processing_fee: float = Field(default=0.0)
-    gas_fee: float = Field(default=0.0)
-    net_amount_seller: float = Field(ge=0)
+    platform_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    processing_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    gas_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    net_amount_seller: Decimal = Field(default=Decimal("0"), ge=0, sa_column=Column(Numeric(20, 8)))
 
     # Status and timestamps
     status: TradeStatus = Field(default=TradeStatus.SETTLING)
@@ -394,9 +396,9 @@ class TradingAnalytics(SQLModel, table=True):
     cancelled_trades: int = Field(default=0)
 
     # Financial metrics
-    total_trade_volume: float = Field(default=0.0)
-    average_trade_value: float = Field(default=0.0)
-    total_platform_fees: float = Field(default=0.0)
+    total_trade_volume: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    average_trade_value: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    total_platform_fees: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
 
     # Trade type distribution
     trade_type_distribution: dict[str, int] = Field(default_factory=dict, sa_column=Column(JSON))
