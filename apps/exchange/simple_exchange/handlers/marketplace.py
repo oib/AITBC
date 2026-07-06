@@ -8,14 +8,10 @@ import random
 import sqlite3
 import urllib.parse
 from datetime import UTC, datetime
-from decimal import Decimal
+
+from aitbc.utils.decimal import to_decimal as _to_decimal
 
 from ..db import get_db_path
-
-
-def _to_decimal(value) -> Decimal:
-    """Convert a value to Decimal, handling str/int/float safely."""
-    return Decimal(str(value))
 
 
 class MarketplaceMixin:

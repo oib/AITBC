@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
+from aitbc.middleware import setup_cors
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -240,9 +240,10 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=1000)
     # app.add_middleware(RateLimitMiddleware, max_requests=100000, window_seconds=60)
-    app.add_middleware(
-        CORSMiddleware,
+    setup_cors(
+        app,
         allow_origins=settings.cors_origins,
+        allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization", "X-API-Key"],
     )
