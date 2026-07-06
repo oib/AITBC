@@ -35,7 +35,7 @@ cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 
 ## Conventions
 
-- **Python 3.13**, line length 127 (black + ruff), `target-version = "py313"`.
+- **Python 3.13**, line length 127 (ruff), `target-version = "py313"`.
 - **SQLModel** for ORM models in `apps/coordinator-api/src/app/domain/`. Add `index=True` on columns filtered/ordered at the SQL layer. Composite indexes via `sqlalchemy.Index(...)` in `__table_args__` tuple.
 - **Config**: `pydantic_settings.BaseSettings`. Shared base lives in `apps/shared-core/src/app/core/config.py` (`ServiceSettings`, `DatabaseConfig`). New services should subclass these rather than redefining `DatabaseConfig`.
 - **Logging**: `aitbc.aitbc_logging` is canonical. `aitbc/log_utils/logging.py` is a thin re-export shim — do not duplicate logging setup.

@@ -15,7 +15,7 @@ pip install -e ".[dev]"
 
 This installs:
 - Core production dependencies
-- Development tools (pytest, black, ruff, mypy, etc.)
+- Development tools (pytest, ruff, mypy, etc.)
 - All testing dependencies
 
 ### Production Installation
