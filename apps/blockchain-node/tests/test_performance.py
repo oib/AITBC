@@ -14,19 +14,76 @@ Run with: pytest tests/test_performance.py -q -o addopts="" -m slow
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Generator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 
 import pytest
 from sqlmodel import Session, create_engine, select
 from sqlmodel.pool import StaticPool
 
-from aitbc.benchmark import CacheMetrics, QueryTimer
 from aitbc.network.compression import compress_json, compression_ratio, decompress_json
 from aitbc_chain.base_models import Account, Block, Transaction
 from aitbc_chain.mempool import DatabaseMempool
 
 pytestmark = pytest.mark.slow
+
+
+# --- Inline benchmark utilities (formerly aitbc/benchmark.py, deleted in v0.10.9) ---
+
+
+class QueryTimer:
+    """Accumulates DB query timings across multiple calls."""
+
+    def __init__(self) -> None:
+        self._timings: dict[str, list[float]] = {}
+
+    @contextmanager
+    def measure(self, label: str) -> Generator[None]:
+        start = time.perf_counter()
+        try:
+            yield
+        finally:
+            elapsed_ms = (time.perf_counter() - start) * 1000.0
+            self._timings.setdefault(label, []).append(elapsed_ms)
+
+    def summary(self) -> dict[str, dict[str, float]]:
+        result: dict[str, dict[str, float]] = {}
+        for label, times in self._timings.items():
+            sorted_times = sorted(times)
+            n = len(sorted_times)
+            p95_idx = int(n * 0.95) - 1 if n > 0 else 0
+            result[label] = {
+                "count": float(n),
+                "total_ms": sum(times),
+                "avg_ms": sum(times) / n if n else 0.0,
+                "min_ms": min(times) if times else 0.0,
+                "max_ms": max(times) if times else 0.0,
+                "p95_ms": sorted_times[max(p95_idx, 0)] if sorted_times else 0.0,
+            }
+        return result
+
+
+class CacheMetrics:
+    """Tracks cache hit/miss counts and ratios."""
+
+    def __init__(self) -> None:
+        self._hits = 0
+        self._misses = 0
+
+    def hit(self, key: str) -> None:
+        self._hits += 1
+
+    def miss(self, key: str) -> None:
+        self._misses += 1
+
+    @property
+    def total(self) -> int:
+        return self._hits + self._misses
+
+    def ratio(self) -> float:
+        return self._hits / self.total if self.total > 0 else 0.0
 
 
 @pytest.fixture
