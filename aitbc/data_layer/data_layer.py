@@ -10,6 +10,7 @@ initialization when mock mode is active.
 
 import logging
 import os
+import secrets
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -104,16 +105,17 @@ class MockDataGenerator:
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         """Generate mock transaction data"""
-        from aitbc.testing import MockFactory, TestDataGenerator
-
+        # ponytail: inlined from deleted aitbc.testing.MockFactory/TestDataGenerator
         transactions = []
         for _ in range(limit):
-            tx = TestDataGenerator.generate_transaction_data(
-                from_address=address or MockFactory.generate_ethereum_address(),
-                to_address=MockFactory.generate_ethereum_address(),
-            )
-            if tx_type:
-                tx["type"] = tx_type
+            tx = {
+                "from_address": address or f"0x{secrets.token_hex(20)}",
+                "to_address": f"0x{secrets.token_hex(20)}",
+                "hash": f"0x{secrets.token_hex(32)}",
+                "amount": 1.0,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "type": tx_type or "transfer",
+            }
             transactions.append(tx)
 
         return transactions
@@ -122,15 +124,14 @@ class MockDataGenerator:
         self, validator: str | None = None, min_tx: int | None = None, limit: int = 50
     ) -> list[dict[str, Any]]:
         """Generate mock block data"""
-        from aitbc.testing import MockFactory
-
+        # ponytail: inlined from deleted aitbc.testing.MockFactory
         blocks = []
         for i in range(limit):
             blocks.append(
                 {
                     "height": 10000 + i,
-                    "hash": MockFactory.generate_hash(),
-                    "validator": validator or MockFactory.generate_ethereum_address(),
+                    "hash": f"0x{secrets.token_hex(32)}",
+                    "validator": validator or f"0x{secrets.token_hex(20)}",
                     "tx_count": min_tx or 5,
                     "timestamp": datetime.now(UTC).isoformat(),
                 }
