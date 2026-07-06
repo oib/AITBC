@@ -144,17 +144,94 @@ class SLACollector:
         }
 
     async def collect_all_miner_metrics(self) -> dict[str, Any]:
-        """Collect all SLA metrics for all miners"""
+        """Collect all SLA metrics for all miners.
+
+        Uses batched queries (O(1) round trips) instead of per-miner loops:
+        1. Fetch all miner statuses in one query.
+        2. Fetch recent match results for all miners in one query.
+        3. Fetch recent feedback for all miners in one query.
+        Then aggregate in Python.
+        """
         miners = self.db.execute(select(Miner)).scalars().all()
+        miner_ids = [m.miner_id for m in miners]
         results: dict[str, Any] = {"miners_processed": 0, "metrics_collected": [], "violations_detected": 0}
-        for miner in miners:
+        if not miner_ids:
+            results["capacity"] = await self.collect_capacity_availability()
+            results["violations_detected"] = 0
+            return results
+
+        now = datetime.now(UTC)
+        week_ago = now - timedelta(days=7)
+
+        # Batch 1: all miner statuses (for uptime)
+        status_map: dict[str, MinerStatus] = {
+            ms.miner_id: ms
+            for ms in (await self.db.execute(select(MinerStatus).where(MinerStatus.miner_id.in_(miner_ids)))).scalars().all()  # type: ignore[misc]
+        }
+
+        # Batch 2: recent match results for all miners (for response time)
+        match_results = (
+            (
+                await self.db.execute(
+                    select(MatchResult)
+                    .where(MatchResult.miner_id.in_(miner_ids))
+                    .where(MatchResult.created_at >= week_ago)
+                    .order_by(desc(MatchResult.created_at))
+                )
+            )
+            .scalars()
+            .all()  # type: ignore[misc]
+        )
+        # Group by miner_id, keep latest 100 per miner
+        match_by_miner: dict[str, list[MatchResult]] = {}
+        for mr in match_results:
+            match_by_miner.setdefault(mr.miner_id, []).append(mr)
+        for mid in list(match_by_miner):
+            match_by_miner[mid] = match_by_miner[mid][:100]
+
+        # Batch 3: recent feedback for all miners (for completion rate)
+        feedback_records = (
+            (
+                await self.db.execute(
+                    select(Feedback)
+                    .where(Feedback.miner_id.in_(miner_ids))
+                    .where(Feedback.created_at >= week_ago)
+                    .order_by(Feedback.created_at.desc())
+                )
+            )
+            .scalars()
+            .all()  # type: ignore[misc]
+        )
+        feedback_by_miner: dict[str, list[Feedback]] = {}
+        for fb in feedback_records:
+            feedback_by_miner.setdefault(fb.miner_id, []).append(fb)
+        for mid in list(feedback_by_miner):
+            feedback_by_miner[mid] = feedback_by_miner[mid][:100]
+
+        # Aggregate in Python (no further DB round trips)
+        for miner_id in miner_ids:
             try:
-                uptime = await self.collect_miner_uptime(miner.miner_id)
-                response_time = await self.collect_response_time(miner.miner_id)
-                completion_rate = await self.collect_completion_rate(miner.miner_id)
+                # Uptime from status
+                uptime = self._compute_uptime_from_status(status_map.get(miner_id))
+                ms = status_map.get(miner_id)
+                if ms:
+                    ms.uptime_pct = uptime
+
+                # Response time from match results
+                mrs = match_by_miner.get(miner_id, [])
+                response_times = [r.eta_ms for r in mrs if r.eta_ms is not None]
+                response_time: float | None = sum(response_times) / len(response_times) if response_times else None
+
+                # Completion rate from feedback
+                fbs = feedback_by_miner.get(miner_id, [])
+                completion_rate: float | None = None
+                if fbs:
+                    successful = sum(1 for f in fbs if f.outcome == "success")
+                    completion_rate = successful / len(fbs) * 100.0
+
                 results["metrics_collected"].append(
                     {
-                        "miner_id": miner.miner_id,
+                        "miner_id": miner_id,
                         "uptime_pct": uptime,
                         "response_time_ms": response_time,
                         "completion_rate_pct": completion_rate,
@@ -162,7 +239,11 @@ class SLACollector:
                 )
                 results["miners_processed"] += 1
             except Exception as e:
-                logger.error("Failed to collect metrics for miner %s: %s", miner.miner_id, e)
+                logger.error("Failed to collect metrics for miner %s: %s", miner_id, e)
+
+        # Commit uptime updates in one transaction
+        await self.db.commit()  # type: ignore[misc, func-returns-value]
+
         capacity = await self.collect_capacity_availability()
         results["capacity"] = capacity
         violation_stmt = (
@@ -175,6 +256,19 @@ class SLACollector:
             "SLA collection complete: processed=%s, violations=%s", results["miners_processed"], results["violations_detected"]
         )
         return results
+
+    @staticmethod
+    def _compute_uptime_from_status(status: MinerStatus | None) -> float:
+        """Compute uptime percentage from a MinerStatus record (no DB access)."""
+        if not status:
+            return 0.0
+        if status.last_heartbeat_at:
+            time_since_heartbeat = (datetime.now(UTC) - status.last_heartbeat_at).total_seconds()
+            if time_since_heartbeat > 300:
+                return 0.0
+            uptime_pct = 100.0 - time_since_heartbeat / 300.0 * 100.0
+            return max(0.0, min(100.0, uptime_pct))
+        return 0.0
 
     async def get_sla_metrics(self, miner_id: str | None = None, hours: int = 24) -> list[SLAMetric]:
         """Get SLA metrics for a miner or all miners"""
