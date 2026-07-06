@@ -16,11 +16,29 @@ logger = logging.getLogger(__name__)
 
 
 class BlockchainClient:
-    """Async blockchain RPC client for trading service operations."""
+    """Async blockchain RPC client for trading service operations.
+
+    Uses a shared ``httpx.AsyncClient`` instance to avoid per-request
+    TCP+TLS handshake overhead. The client is lazily created on first
+    use and must be closed via ``aclose()`` during service shutdown.
+    """
 
     def __init__(self, rpc_url: str = "http://localhost:8202", timeout: float = 10.0) -> None:
         self._rpc_url = rpc_url.rstrip("/")
         self._timeout = timeout
+        self._client: httpx.AsyncClient | None = None
+
+    def _ensure_client(self) -> httpx.AsyncClient:
+        """Lazily create the shared HTTP client."""
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(timeout=self._timeout)
+        return self._client
+
+    async def aclose(self) -> None:
+        """Close the shared HTTP client. Call during service shutdown."""
+        if self._client is not None and not self._client.is_closed:
+            await self._client.aclose()
+            self._client = None
 
     @property
     def rpc_url(self) -> str:
@@ -34,10 +52,10 @@ class BlockchainClient:
         params: dict[str, Any] = {}
         if chain_id:
             params["chain_id"] = chain_id
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.get(f"{self._rpc_url}/rpc/info", params=params)
-            resp.raise_for_status()
-            return cast(dict[str, Any], resp.json())
+        client = self._ensure_client()
+        resp = await client.get(f"{self._rpc_url}/rpc/info", params=params)
+        resp.raise_for_status()
+        return cast(dict[str, Any], resp.json())
 
     async def get_block_height(self, chain_id: str | None = None) -> int:
         """Get the current block height for a chain."""
@@ -45,10 +63,10 @@ class BlockchainClient:
         if chain_id:
             params["chain_id"] = chain_id
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                resp = await client.get(f"{self._rpc_url}/rpc/height", params=params)
-                resp.raise_for_status()
-                data = cast(dict[str, Any], resp.json())
+            client = self._ensure_client()
+            resp = await client.get(f"{self._rpc_url}/rpc/height", params=params)
+            resp.raise_for_status()
+            data = cast(dict[str, Any], resp.json())
             return int(data.get("height", 0))
         except Exception as e:
             logger.warning("Failed to get block height: %s", e)
@@ -60,12 +78,12 @@ class BlockchainClient:
         if chain_id:
             params["chain_id"] = chain_id
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                resp = await client.get(f"{self._rpc_url}/rpc/account/{address}", params=params)
-                if resp.status_code == 404:
-                    return 0
-                resp.raise_for_status()
-                data = cast(dict[str, Any], resp.json())
+            client = self._ensure_client()
+            resp = await client.get(f"{self._rpc_url}/rpc/account/{address}", params=params)
+            if resp.status_code == 404:
+                return 0
+            resp.raise_for_status()
+            data = cast(dict[str, Any], resp.json())
             return int(data.get("balance", 0))
         except Exception as e:
             logger.warning("Failed to get balance for %s: %s", address, e)
