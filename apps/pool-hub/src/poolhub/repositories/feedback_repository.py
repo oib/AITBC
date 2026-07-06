@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+from decimal import Decimal
 
 from redis.asyncio import Redis
 from sqlalchemy import select
@@ -30,7 +31,7 @@ class FeedbackRepository:
         outcome: str,
         latency_ms: int | None = None,
         fail_code: str | None = None,
-        tokens_spent: float | None = None,
+        tokens_spent: Decimal | None = None,
     ) -> Feedback:
         feedback = Feedback(
             job_id=job_id,

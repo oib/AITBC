@@ -6,6 +6,7 @@ Implements proper Ethereum cryptography and secure key storage
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import select
@@ -188,7 +189,7 @@ class SecureWalletService:
         """Get all tracked balances for a wallet"""
         return self.session.execute(select(TokenBalance).where(TokenBalance.wallet_id == wallet_id)).all()  # type: ignore[arg-type, return-value]
 
-    async def update_balance(self, wallet_id: int, chain_id: int, token_address: str, balance: float) -> TokenBalance:
+    async def update_balance(self, wallet_id: int, chain_id: int, token_address: str, balance: Decimal) -> TokenBalance:
         """Update a specific token balance for a wallet"""
         record = self.session.execute(
             select(TokenBalance).where(

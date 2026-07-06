@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..domain.wallet import TransactionStatus, WalletType
@@ -23,10 +25,10 @@ class WalletResponse(BaseModel):
 class TransactionRequest(BaseModel):
     chain_id: int
     to_address: str
-    value: float = 0.0
+    value: Decimal = Decimal("0")
     data: str | None = None
     gas_limit: int | None = None
-    gas_price: float | None = None
+    gas_price: Decimal | None = None
 
 
 class TransactionResponse(BaseModel):

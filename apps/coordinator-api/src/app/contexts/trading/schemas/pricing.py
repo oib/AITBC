@@ -4,6 +4,7 @@ Pydantic models for dynamic pricing API requests and responses
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -49,7 +50,7 @@ class DynamicPriceRequest(BaseModel):
 
     resource_id: str = Field(..., description="Unique resource identifier")
     resource_type: ResourceType = Field(..., description="Type of resource")
-    base_price: float = Field(..., gt=0, description="Base price for calculation")
+    base_price: Decimal = Field(..., gt=0, description="Base price for calculation")
     strategy: PricingStrategy | None = Field(None, description="Pricing strategy to use")
     constraints: dict[str, Any] | None = Field(None, description="Pricing constraints")
     region: str = Field("global", description="Geographic region")
@@ -108,11 +109,11 @@ class DynamicPriceResponse(BaseModel):
 
     resource_id: str = Field(..., description="Resource identifier")
     resource_type: str = Field(..., description="Resource type")
-    current_price: float = Field(..., description="Current base price")
-    recommended_price: float = Field(..., description="Calculated dynamic price")
+    current_price: Decimal = Field(..., description="Current base price")
+    recommended_price: Decimal = Field(..., description="Calculated dynamic price")
     price_trend: str = Field(..., description="Price trend indicator")
     confidence_score: float = Field(..., ge=0, le=1, description="Confidence in price calculation")
-    factors_exposed: dict[str, float] = Field(..., description="Pricing factors breakdown")
+    factors_exposed: dict[str, Any] = Field(..., description="Pricing factors breakdown")
     reasoning: list[str] = Field(..., description="Explanation of price calculation")
     next_update: datetime = Field(..., description="Next scheduled price update")
     strategy_used: str = Field(..., description="Strategy used for calculation")
@@ -124,7 +125,7 @@ class PricePoint(BaseModel):
     """Single price point in forecast"""
 
     timestamp: str = Field(..., description="Timestamp of price point")
-    price: float = Field(..., description="Forecasted price")
+    price: Decimal = Field(..., description="Forecasted price")
     demand_level: float = Field(..., ge=0, le=1, description="Expected demand level")
     supply_level: float = Field(..., ge=0, le=1, description="Expected supply level")
     confidence: float = Field(..., ge=0, le=1, description="Confidence in forecast")
@@ -157,7 +158,7 @@ class MarketConditions(BaseModel):
 
     demand_level: float = Field(..., ge=0, le=1, description="Current demand level")
     supply_level: float = Field(..., ge=0, le=1, description="Current supply level")
-    average_price: float = Field(..., ge=0, description="Average market price")
+    average_price: Decimal = Field(..., ge=0, description="Average market price")
     price_volatility: float = Field(..., ge=0, description="Price volatility index")
     utilization_rate: float = Field(..., ge=0, le=1, description="Resource utilization rate")
     market_sentiment: float = Field(..., ge=-1, le=1, description="Market sentiment score")
@@ -174,8 +175,8 @@ class MarketTrends(BaseModel):
 class CompetitorAnalysis(BaseModel):
     """Competitor pricing analysis"""
 
-    average_competitor_price: float = Field(..., ge=0, description="Average competitor price")
-    price_range: dict[str, float] = Field(..., description="Price range (min/max)")
+    average_competitor_price: Decimal = Field(..., ge=0, description="Average competitor price")
+    price_range: dict[str, Any] = Field(..., description="Price range (min/max)")
     competitor_count: int = Field(..., ge=0, description="Number of competitors tracked")
 
 
@@ -208,7 +209,7 @@ class PriceHistoryPoint(BaseModel):
     """Single point in price history"""
 
     timestamp: str = Field(..., description="Timestamp of price point")
-    price: float = Field(..., description="Price at timestamp")
+    price: Decimal = Field(..., description="Price at timestamp")
     demand_level: float = Field(..., ge=0, le=1, description="Demand level at timestamp")
     supply_level: float = Field(..., ge=0, le=1, description="Supply level at timestamp")
     confidence: float = Field(..., ge=0, le=1, description="Confidence at timestamp")
@@ -218,9 +219,9 @@ class PriceHistoryPoint(BaseModel):
 class PriceStatistics(BaseModel):
     """Price statistics"""
 
-    average_price: float = Field(..., ge=0, description="Average price")
-    min_price: float = Field(..., ge=0, description="Minimum price")
-    max_price: float = Field(..., ge=0, description="Maximum price")
+    average_price: Decimal = Field(..., ge=0, description="Average price")
+    min_price: Decimal = Field(..., ge=0, description="Minimum price")
+    max_price: Decimal = Field(..., ge=0, description="Maximum price")
     price_volatility: float = Field(..., ge=0, description="Price volatility")
     total_changes: int = Field(..., ge=0, description="Total number of price changes")
 
@@ -260,7 +261,7 @@ class BulkPricingUpdateResponse(BaseModel):
 class PricingFactors(BaseModel):
     """Pricing calculation factors"""
 
-    base_price: float = Field(..., description="Base price")
+    base_price: Decimal = Field(..., description="Base price")
     demand_multiplier: float = Field(..., description="Demand-based multiplier")
     supply_multiplier: float = Field(..., description="Supply-based multiplier")
     time_multiplier: float = Field(..., description="Time-based multiplier")
@@ -281,8 +282,8 @@ class PricingFactors(BaseModel):
 class PriceConstraints(BaseModel):
     """Pricing calculation constraints"""
 
-    min_price: float | None = Field(None, ge=0, description="Minimum allowed price")
-    max_price: float | None = Field(None, ge=0, description="Maximum allowed price")
+    min_price: Decimal | None = Field(None, ge=0, description="Minimum allowed price")
+    max_price: Decimal | None = Field(None, ge=0, description="Maximum allowed price")
     max_change_percent: float = Field(0.5, ge=0, le=1, description="Maximum percent change per update")
     min_change_interval: int = Field(300, ge=60, description="Minimum seconds between changes")
     strategy_lock_period: int = Field(3600, ge=300, description="Strategy lock period in seconds")
@@ -334,10 +335,10 @@ class AggregatedMarketData(BaseModel):
     timestamp: datetime = Field(..., description="Aggregation timestamp")
     demand_level: float = Field(..., ge=0, le=1, description="Aggregated demand level")
     supply_level: float = Field(..., ge=0, le=1, description="Aggregated supply level")
-    average_price: float = Field(..., ge=0, description="Average price")
+    average_price: Decimal = Field(..., ge=0, description="Average price")
     price_volatility: float = Field(..., ge=0, description="Price volatility")
     utilization_rate: float = Field(..., ge=0, le=1, description="Utilization rate")
-    competitor_prices: list[float] = Field(default_factory=list, description="Competitor prices")
+    competitor_prices: list[Any] = Field(default_factory=list, description="Competitor prices")
     market_sentiment: float = Field(..., ge=-1, le=1, description="Market sentiment")
     data_sources: list[str] = Field(default_factory=list, description="Data sources used")
     confidence_score: float = Field(..., ge=0, le=1, description="Aggregation confidence")
@@ -377,8 +378,8 @@ class ValidationError(BaseModel):
 class PricingEngineConfig(BaseModel):
     """Pricing engine configuration"""
 
-    min_price: float = Field(0.001, gt=0, description="Minimum allowed price")
-    max_price: float = Field(1000.0, gt=0, description="Maximum allowed price")
+    min_price: Decimal = Field(Decimal("0.001"), gt=0, description="Minimum allowed price")
+    max_price: Decimal = Field(Decimal("1000"), gt=0, description="Maximum allowed price")
     update_interval: int = Field(300, ge=60, description="Update interval in seconds")
     forecast_horizon: int = Field(72, ge=1, le=168, description="Forecast horizon in hours")
     max_volatility_threshold: float = Field(0.3, ge=0, le=1, description="Max volatility threshold")
@@ -418,8 +419,8 @@ class PricingAnalytics(BaseModel):
     provider_id: str = Field(..., description="Provider identifier")
     period_start: datetime = Field(..., description="Analysis period start")
     period_end: datetime = Field(..., description="Analysis period end")
-    total_revenue: float = Field(..., ge=0, description="Total revenue")
-    average_price: float = Field(..., ge=0, description="Average price")
+    total_revenue: Decimal = Field(..., ge=0, description="Total revenue")
+    average_price: Decimal = Field(..., ge=0, description="Average price")
     price_volatility: float = Field(..., ge=0, description="Price volatility")
     utilization_rate: float = Field(..., ge=0, le=1, description="Average utilization rate")
     strategy_effectiveness: float = Field(..., ge=0, le=1, description="Strategy effectiveness score")
