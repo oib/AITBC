@@ -20,6 +20,19 @@ class MatchingService:
 
     def __init__(self, session: AsyncSession):
         self.session = session
+        self._http_client: httpx.AsyncClient | None = None
+
+    def _ensure_client(self) -> httpx.AsyncClient:
+        """Lazily create a shared HTTP client for coordinator calls."""
+        if self._http_client is None or self._http_client.is_closed:
+            self._http_client = httpx.AsyncClient(timeout=10)
+        return self._http_client
+
+    async def aclose(self) -> None:
+        """Close the shared HTTP client."""
+        if self._http_client is not None and not self._http_client.is_closed:
+            await self._http_client.aclose()
+            self._http_client = None
 
     async def find_best_match(
         self,
@@ -158,17 +171,17 @@ class MatchingService:
                     "preferred_region": preferred_region,
                     "payment": {"escrow_required": True},
                 }
-                async with httpx.AsyncClient(timeout=10) as client:
-                    resp = await client.post(
-                        f"{settings.agent_coordinator_url}/tasks/submit",
-                        json=task_payload,
-                    )
-                    resp.raise_for_status()
-                    task_data = resp.json()
-                    task_id = task_data.get("task_id")
-                    escrow_id = task_data.get("escrow_id")
-                    # v0.10.1: job_id is the preferred identifier for escrow verification
-                    job_id = task_data.get("job_id") or escrow_id
+                client = self._ensure_client()
+                resp = await client.post(
+                    f"{settings.agent_coordinator_url}/tasks/submit",
+                    json=task_payload,
+                )
+                resp.raise_for_status()
+                task_data = resp.json()
+                task_id = task_data.get("task_id")
+                escrow_id = task_data.get("escrow_id")
+                # v0.10.1: job_id is the preferred identifier for escrow verification
+                job_id = task_data.get("job_id") or escrow_id
             except Exception as e:
                 logger.warning("Failed to submit task to agent-coordinator: %s", e)
 
