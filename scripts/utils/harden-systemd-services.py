@@ -48,7 +48,6 @@ SERVICES_NEEDING_WRITE_ACCESS = {
     "aitbc-learning.service",
     "aitbc-modality-optimization.service",
     "aitbc-multimodal.service",
-    "aitbc-agent-management.service",
     "aitbc-ffmpeg.service",
     "aitbc-whisper.service",
     "aitbc-edge.service",
@@ -61,7 +60,6 @@ SERVICES_NEEDING_WRITE_ACCESS = {
 # Services that are oneshot (no restart, no watchdog)
 ONESHOT_SERVICES = {
     "aitbc-load-secrets.service",
-    "aitbc-plugin.service",
 }
 
 

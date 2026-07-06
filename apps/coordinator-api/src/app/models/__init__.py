@@ -69,7 +69,6 @@ from .services import (
     WhisperRequest,
 )
 
-# from .confidential import ConfidentialReceipt, ConfidentialAttestation
 # from .multitenant import Tenant, TenantConfig, TenantUser
 # from .registry import (
 #     ServiceRegistry,

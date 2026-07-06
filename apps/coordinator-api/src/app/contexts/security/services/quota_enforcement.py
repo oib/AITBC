@@ -333,38 +333,3 @@ class QuotaEnforcementService:
         """Calculate cost for resource usage"""
         unit_price = await self._get_unit_price(resource_type)
         return unit_price * quantity
-
-
-class QuotaMiddleware:
-    """Middleware to enforce quotas on API endpoints"""
-
-    def __init__(self, quota_service: QuotaEnforcementService):
-        self.quota_service = quota_service
-        self.logger = __import__("logging").getLogger(f"aitbc.{self.__class__.__name__}")
-        self.endpoint_costs = {
-            "/jobs": {"resource": "compute_hours", "cost": Decimal("0.1")},
-            "/models": {"resource": "storage_gb", "cost": Decimal("0.1")},
-            "/data": {"resource": "storage_gb", "cost": Decimal("0.05")},
-            "/analytics": {"resource": "api_calls", "cost": Decimal("1")},
-        }
-
-    async def check_endpoint_quota(self, endpoint: str, estimated_cost: Decimal = Decimal("0")) -> None:
-        """Check if endpoint call is within quota"""
-        resource_config = self.endpoint_costs.get(endpoint)
-        if not resource_config:
-            return
-        try:
-            await self.quota_service.check_quota(resource_config["resource"], resource_config["cost"] + estimated_cost)  # type: ignore[arg-type, operator]
-        except QuotaExceededError as e:
-            self.logger.warning("Quota exceeded for endpoint %s: %s", endpoint, e)
-            raise
-
-    async def consume_endpoint_quota(self, endpoint: str, actual_cost: Decimal = Decimal("0")) -> None:
-        """Consume quota after endpoint execution"""
-        resource_config = self.endpoint_costs.get(endpoint)
-        if not resource_config:
-            return
-        try:
-            await self.quota_service.consume_quota(resource_config["resource"], resource_config["cost"] + actual_cost)  # type: ignore[arg-type, operator]
-        except Exception as e:
-            self.logger.error("Failed to consume quota for %s: %s", endpoint, e)
