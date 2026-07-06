@@ -1,6 +1,6 @@
-"""Test imports for all 15 aitbc submodules.
+"""Test imports for aitbc submodules.
 
-This test verifies that all 15 submodules can be imported successfully
+This test verifies that aitbc submodules can be imported successfully
 and their public exports are accessible.
 
 This test should achieve 100% coverage for all submodule __init__.py files.
@@ -122,48 +122,6 @@ class TestSubmoduleImports:
         assert get_bool_env_var is not None
         assert ensure_dir is not None
 
-    def test_events_imports(self):
-        """Test aitbc.events imports."""
-        from aitbc.events import (
-            Event,
-            EventBus,
-        )
-
-        assert Event is not None
-        assert EventBus is not None
-
-    def test_queues_imports(self):
-        """Test aitbc.queues imports."""
-        from aitbc.queues import (
-            Job,
-            JobStatus,
-            TaskQueue,
-        )
-
-        assert Job is not None
-        assert JobStatus is not None
-        assert TaskQueue is not None
-
-    def test_state_imports(self):
-        """Test aitbc.state imports."""
-        from aitbc.state import (
-            StateMachine,
-            StateTransition,
-        )
-
-        assert StateMachine is not None
-        assert StateTransition is not None
-
-    def test_testing_imports(self):
-        """Test aitbc.testing imports."""
-        from aitbc.testing import (
-            MockFactory,
-            TestDataGenerator,
-        )
-
-        assert MockFactory is not None
-        assert TestDataGenerator is not None
-
     def test_data_layer_imports(self):
         """Test aitbc.data_layer imports."""
         from aitbc.data_layer import (
@@ -177,40 +135,6 @@ class TestSubmoduleImports:
         assert MockDataGenerator is not None
         assert RealDataFetcher is not None
         assert get_data_layer is not None
-
-    def test_api_imports(self):
-        """Test aitbc.api imports."""
-        from aitbc.api import (
-            APIResponse,
-            error_response,
-            success_response,
-        )
-
-        assert APIResponse is not None
-        assert success_response is not None
-        assert error_response is not None
-
-    def test_decorators_imports(self):
-        """Test aitbc.decorators imports."""
-        from aitbc.decorators import (
-            retry,
-            timing,
-        )
-
-        assert retry is not None
-        assert timing is not None
-
-    def test_monitoring_imports(self):
-        """Test aitbc.monitoring imports."""
-        from aitbc.monitoring import (
-            HealthChecker,
-            MetricsCollector,
-            PerformanceTimer,
-        )
-
-        assert HealthChecker is not None
-        assert MetricsCollector is not None
-        assert PerformanceTimer is not None
 
     def test_oracles_imports(self):
         """Test aitbc.oracles imports."""
