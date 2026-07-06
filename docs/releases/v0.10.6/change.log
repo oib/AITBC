@@ -1,6 +1,6 @@
 # AITBC v0.10.6 Release Notes
 
-**Date**: TBD
+**Date**: 2026-07-06
 **Status**: 🚧 In Progress — Dead code elimination, Decimal migration completion, duplicate consolidation
 **Scope**: Delete ~1,570 lines of never-integrated infrastructure modules, complete the Decimal migration for remaining float-based financial fields (wallet, trading, marketplace, pool-hub), fix blocking I/O and N+1 queries in hot paths, and consolidate remaining duplicates (circuit breakers, address validation, config classes, health endpoints, DB helpers).
 
