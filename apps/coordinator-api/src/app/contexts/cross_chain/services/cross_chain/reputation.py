@@ -5,6 +5,8 @@ Implements portable reputation scores across multiple blockchain networks
 
 import asyncio
 import json
+import time
+from collections import OrderedDict
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -14,6 +16,80 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
+
+
+class TTLCache:
+    """Simple LRU + TTL cache for bounding in-memory dict growth.
+
+    Evicts entries that are either:
+    - Older than ``ttl_seconds`` (TTL expiry), or
+    - Beyond ``maxsize`` (LRU eviction of least-recently-accessed).
+    """
+
+    def __init__(self, maxsize: int = 10_000, ttl_seconds: float = 3600.0) -> None:
+        self._data: OrderedDict[str, tuple[Any, float]] = OrderedDict()
+        self._maxsize = maxsize
+        self._ttl = ttl_seconds
+
+    def _is_expired(self, ts: float) -> bool:
+        return (time.time() - ts) > self._ttl
+
+    def _evict_expired(self) -> None:
+        now = time.time()
+        expired = [k for k, (_, ts) in self._data.items() if (now - ts) > self._ttl]
+        for k in expired:
+            del self._data[k]
+
+    def __contains__(self, key: str) -> bool:
+        if key not in self._data:
+            return False
+        _, ts = self._data[key]
+        if self._is_expired(ts):
+            del self._data[key]
+            return False
+        return True
+
+    def __getitem__(self, key: str) -> Any:
+        val, ts = self._data[key]
+        if self._is_expired(ts):
+            del self._data[key]
+            raise KeyError(key)
+        # Move to end (most recently used)
+        self._data.move_to_end(key)
+        return val
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        if key in self._data:
+            self._data.move_to_end(key)
+        self._data[key] = (value, time.time())
+        # LRU eviction
+        while len(self._data) > self._maxsize:
+            self._data.popitem(last=False)
+
+    def __delitem__(self, key: str) -> None:
+        del self._data[key]
+
+    def __len__(self) -> int:
+        self._evict_expired()
+        return len(self._data)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def keys(self):
+        self._evict_expired()
+        return list(self._data.keys())
+
+    def values(self):
+        self._evict_expired()
+        return [v for v, _ in self._data.values()]
+
+    def items(self):
+        self._evict_expired()
+        return [(k, v) for k, (v, _) in self._data.items()]
 
 
 class ReputationTier(StrEnum):
@@ -144,10 +220,14 @@ class CrossChainReputationService:
 
     def __init__(self, config: dict[str, Any]):
         self.config = config
-        self.reputation_data: dict[str, ReputationScore] = {}
-        self.chain_reputations: dict[str, dict[int, ReputationScore]] = {}
-        self.reputation_stakes: dict[str, list[ReputationStake]] = {}
-        self.reputation_delegations: dict[str, list[ReputationDelegation]] = {}
+        # Bounded caches with LRU + TTL eviction to prevent unbounded memory growth.
+        # maxsize/ttl can be overridden via config.
+        maxsize = config.get("reputation_cache_maxsize", 10_000)
+        ttl = config.get("reputation_cache_ttl_seconds", 3600.0)
+        self.reputation_data: TTLCache = TTLCache(maxsize=maxsize, ttl_seconds=ttl)
+        self.chain_reputations: TTLCache = TTLCache(maxsize=maxsize, ttl_seconds=ttl)
+        self.reputation_stakes: TTLCache = TTLCache(maxsize=maxsize, ttl_seconds=ttl)
+        self.reputation_delegations: TTLCache = TTLCache(maxsize=maxsize, ttl_seconds=ttl)
         self.cross_chain_syncs: list[CrossChainSync] = []
         self.base_score = 1000
         self.success_bonus = 100
@@ -409,15 +489,23 @@ class CrossChainReputationService:
 
     async def get_top_agents(self, limit: int = 100, chain_id: int | None = None) -> list[ReputationAnalytics]:
         """Get top agents by reputation score"""
-        analytics = []
-        for agent_id in self.reputation_data:
-            try:
-                agent_analytics = await self.get_reputation_analytics(agent_id)
-                if chain_id is None or (agent_id in self.chain_reputations and chain_id in self.chain_reputations[agent_id]):
-                    analytics.append(agent_analytics)
-            except Exception as e:
-                logger.error("Error getting analytics for agent %s: %s", agent_id, e)
-                continue
+        semaphore = asyncio.Semaphore(50)
+
+        async def fetch(agent_id: str) -> ReputationAnalytics | None:
+            async with semaphore:
+                try:
+                    return await self.get_reputation_analytics(agent_id)
+                except Exception as e:
+                    logger.error("Error getting analytics for agent %s: %s", agent_id, e)
+                    return None
+
+        results = await asyncio.gather(*[fetch(aid) for aid in self.reputation_data])
+        analytics = [
+            r
+            for r, aid in zip(results, self.reputation_data, strict=True)
+            if r is not None
+            and (chain_id is None or (aid in self.chain_reputations and chain_id in self.chain_reputations[aid]))
+        ]
         analytics.sort(key=lambda x: x.effective_score, reverse=True)
         return analytics[:limit]
 
