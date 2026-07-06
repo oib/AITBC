@@ -64,14 +64,14 @@ async def create_cross_chain_marketplace_offer(
             service_type=service_type,
             resource_specification=resource_specification,
             base_price=base_price,
-            currency=currency,
-            total_capacity=total_capacity,
+            currency=currency or "USD",
+            total_capacity=total_capacity or 100,
             regions_available=regions_available,
             supported_chains=supported_chains,
             cross_chain_pricing=cross_chain_pricing,
-            auto_bridge_enabled=auto_bridge_enabled,
-            reputation_threshold=reputation_threshold,
-            deadline_minutes=deadline_minutes,
+            auto_bridge_enabled=auto_bridge_enabled if auto_bridge_enabled is not None else True,
+            reputation_threshold=reputation_threshold if reputation_threshold is not None else 500.0,
+            deadline_minutes=deadline_minutes or 60,
         )
         return offer
     except ValueError:
@@ -99,9 +99,9 @@ async def get_integrated_marketplace_offers(
             service_type=service_type,
             chain_id=chain_id,
             min_reputation=min_reputation,
-            include_cross_chain=include_cross_chain,
-            limit=limit,
-            offset=offset,
+            include_cross_chain=include_cross_chain if include_cross_chain is not None else True,
+            limit=limit or 100,
+            offset=offset or 0,
         )
         return offers
     except Exception:
@@ -161,7 +161,7 @@ async def optimize_offer_pricing(
     try:
         optimization = await integration_service.optimize_global_offer_pricing(
             offer_id=offer_id,
-            optimization_strategy=optimization_strategy,
+            optimization_strategy=optimization_strategy or "balanced",
             target_regions=target_regions,
             target_chains=target_chains,
         )
@@ -200,12 +200,12 @@ async def execute_cross_chain_transaction(
             quantity=quantity,
             source_chain=source_chain,
             target_chain=target_chain,
-            source_region=source_region,
-            target_region=target_region,
-            payment_method=payment_method,
+            source_region=source_region or "global",
+            target_region=target_region or "global",
+            payment_method=payment_method or "crypto",
             bridge_protocol=bridge_protocol,
-            priority=priority,
-            auto_execute_bridge=auto_execute_bridge,
+            priority=priority or TransactionPriority.MEDIUM,
+            auto_execute_bridge=auto_execute_bridge if auto_execute_bridge is not None else True,
         )
         return transaction
     except ValueError:
@@ -229,7 +229,7 @@ async def get_cross_chain_transactions(
     """Get cross-chain marketplace transactions"""
     try:
         transactions = await integration_service.marketplace_service.get_global_transactions(
-            user_id=buyer_id or seller_id, status=status, limit=limit, offset=offset
+            user_id=buyer_id or seller_id, status=status, limit=limit or 100, offset=offset or 0
         )
         cross_chain_transactions = []
         for tx in transactions:
@@ -277,7 +277,7 @@ async def get_cross_chain_analytics(
     """Get comprehensive cross-chain analytics"""
     try:
         analytics = await integration_service.get_cross_chain_analytics(
-            time_period_hours=time_period_hours, region=region, chain_id=chain_id
+            time_period_hours=time_period_hours or 24, region=region, chain_id=chain_id
         )
         return analytics
     except Exception:

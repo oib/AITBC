@@ -53,7 +53,7 @@ class MarketplaceBid(SQLModel, table=True):
     submitted_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
 
     @classmethod
-    def with_table_name(cls, table_name: str):
+    def with_table_name(cls, table_name: str) -> type[MarketplaceBid]:
         """Create a dynamic table name for the model"""
         cls.__tablename__ = table_name
         return cls

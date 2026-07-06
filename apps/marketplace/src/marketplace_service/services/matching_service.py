@@ -105,7 +105,7 @@ class MatchingService:
         """
         score = 1.0
         if requirements.get("max_price"):
-            price_ratio = float(offer.price_per_hour) / float(requirements["max_price"])
+            price_ratio = float(offer.price_per_hour or 0) / float(requirements["max_price"])
             score *= 1.0 - price_ratio * 0.3
         if requirements.get("capacity"):
             capacity_ratio = min(offer.capacity / requirements["capacity"], 2.0)
@@ -141,7 +141,7 @@ class MatchingService:
                 stmt = stmt.where(MarketplaceOffer.chain_id == chain_id)
             stmt = stmt.order_by(
                 MarketplaceOffer.price_per_hour.asc(),  # type: ignore[union-attr]
-                MarketplaceOffer.created_at.asc(),  # type: ignore[union-attr]
+                MarketplaceOffer.created_at.asc(),  # type: ignore[attr-defined]
             )
             result = await self.session.execute(stmt)
             offers = result.scalars().all()

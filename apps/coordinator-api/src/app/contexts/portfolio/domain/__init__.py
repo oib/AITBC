@@ -1,6 +1,6 @@
 """Portfolio domain models."""
 
-from app.contexts.portfolio.domain.agent_portfolio import (  # type: ignore
+from app.contexts.portfolio.domain.agent_portfolio import (
     AgentPortfolio,
     PortfolioAsset,
     PortfolioStrategy,

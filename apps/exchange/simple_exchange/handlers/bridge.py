@@ -20,7 +20,7 @@ class BridgeMixin:
 
             result = get_price_oracle().get_price(base, quote)
             if result:
-                self.send_json_response(
+                self.send_json_response(  # type: ignore[attr-defined]
                     {
                         "pair": f"{result.base}/{result.quote}",
                         "price": result.price,
@@ -29,15 +29,15 @@ class BridgeMixin:
                     }
                 )
             else:
-                self.send_json_response({"error": f"No price available for {base}/{quote}"}, status=404)
+                self.send_json_response({"error": f"No price available for {base}/{quote}"}, status=404)  # type: ignore[attr-defined]
         except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
+            self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
 
     def handle_bridge_status(self, tx_id):
         """GET /v1/bridge/status[/{tx_id}]"""
         bridge_addr = os.getenv("BRIDGE_CONTRACT_ADDRESS")
         if tx_id:
-            self.send_json_response(
+            self.send_json_response(  # type: ignore[attr-defined]
                 {"tx_id": tx_id, "status": "pending", "message": "Bridge contract not yet deployed on-chain"}
             )
         else:
@@ -48,7 +48,7 @@ class BridgeMixin:
                 status = "configured"
                 msg = "Deploy bridge contract with: npx hardhat run contracts/scripts/deploy-bridge.js --network sepolia"
             deposit_addr = os.getenv("BRIDGE_ETH_ADDRESS")
-            self.send_json_response(
+            self.send_json_response(  # type: ignore[attr-defined]
                 {
                     "bridge": "CrossChainBridge",
                     "status": status,
@@ -66,7 +66,7 @@ class BridgeMixin:
 
     def handle_bridge_deposit(self):
         """POST /v1/bridge/deposit — initiate ETH→AIT bridge deposit"""
-        if not self._require_api_key():
+        if not self._require_api_key():  # type: ignore[attr-defined]
             return
         try:
             import sys
@@ -74,12 +74,12 @@ class BridgeMixin:
             sys.path.insert(0, "/opt/aitbc")
             from aitbc.oracles.price_oracle import get_price_oracle
 
-            body = self._read_json_body()
+            body = self._read_json_body()  # type: ignore[attr-defined]
             eth_amount = float(body.get("eth_amount", 0))
             ait_address = body.get("ait_address", "")
 
             if not eth_amount or not ait_address:
-                self.send_json_response({"error": "eth_amount and ait_address required"}, status=400)
+                self.send_json_response({"error": "eth_amount and ait_address required"}, status=400)  # type: ignore[attr-defined]
                 return
 
             # Get bridge configuration
@@ -88,12 +88,12 @@ class BridgeMixin:
             eth_network = os.getenv("ETH_NETWORK", "sepolia")
 
             if not bridge_eth_address:
-                self.send_json_response({"error": "Bridge not configured - BRIDGE_ETH_ADDRESS not set"}, status=500)
+                self.send_json_response({"error": "Bridge not configured - BRIDGE_ETH_ADDRESS not set"}, status=500)  # type: ignore[attr-defined]
                 return
 
             # Validate minimum deposit
             if eth_amount < min_eth_deposit:
-                self.send_json_response(
+                self.send_json_response(  # type: ignore[attr-defined]
                     {"error": f"Minimum deposit is {min_eth_deposit} ETH", "min_deposit": min_eth_deposit}, status=400
                 )
                 return
@@ -116,7 +116,7 @@ class BridgeMixin:
             # (matches what bridge_monitor.parse_ait_recipient decodes)
             transaction_data_hex = "0x" + ait_address.encode("utf-8").hex()
 
-            self.send_json_response(
+            self.send_json_response(  # type: ignore[attr-defined]
                 {
                     "status": "ready",
                     "message": "Send ETH to the bridge address with your AIT address in transaction data",
@@ -141,27 +141,27 @@ class BridgeMixin:
                 status=200,
             )
         except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
+            self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
 
     def handle_bridge_withdraw(self):
         """POST /v1/bridge/withdraw — initiate AIT→ETH bridge withdrawal (DISABLED)"""
-        if not self._require_api_key():
+        if not self._require_api_key():  # type: ignore[attr-defined]
             return
         try:
             import sys
 
             sys.path.insert(0, "/opt/aitbc")
 
-            body = self._read_json_body()
+            body = self._read_json_body()  # type: ignore[attr-defined]
             ait_amount = float(body.get("ait_amount", 0))
             eth_address = body.get("eth_address", "")
 
             if not ait_amount or not eth_address:
-                self.send_json_response({"error": "ait_amount and eth_address required"}, status=400)
+                self.send_json_response({"error": "ait_amount and eth_address required"}, status=400)  # type: ignore[attr-defined]
                 return
 
             # Feature is disabled
-            self.send_json_response(
+            self.send_json_response(  # type: ignore[attr-defined]
                 {
                     "status": "disabled",
                     "message": "AIT→ETH withdrawals are currently disabled. Only ETH→AIT deposits are supported.",
@@ -172,7 +172,7 @@ class BridgeMixin:
                 status=503,
             )
         except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
+            self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
 
     def handle_bridge_deposits(self, parsed):
         """GET /v1/bridge/deposits — list bridge deposits"""
@@ -193,7 +193,7 @@ class BridgeMixin:
                 try:
                     status = BridgeDepositStatus(status_filter)
                 except ValueError:
-                    self.send_json_response({"error": f"Invalid status: {status_filter}"}, status=400)
+                    self.send_json_response({"error": f"Invalid status: {status_filter}"}, status=400)  # type: ignore[attr-defined]
                     return
 
             deposits = get_deposits(status=status, limit=limit, offset=offset)
@@ -206,9 +206,9 @@ class BridgeMixin:
                     deposits_list.append(d)
                 else:
                     # sqlite3.Row object
-                    deposits_list.append(dict(d))
+                    deposits_list.append(dict(d))  # type: ignore[unreachable]
 
-            self.send_json_response(
+            self.send_json_response(  # type: ignore[attr-defined]
                 {
                     "deposits": deposits_list,
                     "count": len(deposits_list),
@@ -218,7 +218,7 @@ class BridgeMixin:
                 }
             )
         except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
+            self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
 
     def handle_bridge_deposit_detail(self, tx_hash):
         """GET /v1/bridge/deposit/{tx_hash} — get deposit details"""
@@ -230,23 +230,23 @@ class BridgeMixin:
 
             deposit = get_deposit(tx_hash)
             if not deposit:
-                self.send_json_response({"error": "Deposit not found"}, status=404)
+                self.send_json_response({"error": "Deposit not found"}, status=404)  # type: ignore[attr-defined]
                 return
 
-            self.send_json_response(deposit)
+            self.send_json_response(deposit)  # type: ignore[attr-defined]
         except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
+            self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
 
     def handle_bridge_estimate(self):
         """POST /v1/bridge/estimate — estimate AIT amount for ETH"""
-        if not self._require_api_key():
+        if not self._require_api_key():  # type: ignore[attr-defined]
             return
         try:
-            body = self._read_json_body()
+            body = self._read_json_body()  # type: ignore[attr-defined]
             eth_amount = float(body.get("eth_amount", 0))
 
             if eth_amount <= 0:
-                self.send_json_response({"error": "eth_amount must be positive"}, status=400)
+                self.send_json_response({"error": "eth_amount must be positive"}, status=400)  # type: ignore[attr-defined]
                 return
 
             import sys
@@ -259,19 +259,19 @@ class BridgeMixin:
             ait_usd_result = oracle.get_price("AIT", "USD")
 
             if not eth_usd_result or not ait_usd_result:
-                self.send_json_response({"error": "Cannot get oracle prices"}, status=503)
+                self.send_json_response({"error": "Cannot get oracle prices"}, status=503)  # type: ignore[attr-defined]
                 return
 
             eth_usd = eth_usd_result.price
             ait_usd = ait_usd_result.price
 
             if ait_usd == 0:
-                self.send_json_response({"error": "AIT/USD price is zero"}, status=503)
+                self.send_json_response({"error": "AIT/USD price is zero"}, status=503)  # type: ignore[attr-defined]
                 return
 
             ait_amount = (eth_amount * eth_usd) / ait_usd
 
-            self.send_json_response(
+            self.send_json_response(  # type: ignore[attr-defined]
                 {
                     "eth_amount": eth_amount,
                     "eth_usd_price": eth_usd,
@@ -281,4 +281,4 @@ class BridgeMixin:
                 }
             )
         except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
+            self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]

@@ -103,7 +103,7 @@ if settings.debug:
 
     @router.get("/list", response_model=list[SwarmInfo])
     @rate_limit(rate=200, per=60)
-    async def list_swarms(  # type: ignore[no-untyped-def]
+    async def list_swarms(
         request: Request,
         swarm_id: str | None = Query(None, description="Filter by swarm ID"),
         status: str | None = Query(None, description="Filter by status"),

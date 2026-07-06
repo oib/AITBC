@@ -300,7 +300,7 @@ class DynamicPricingEngine:
                 demand_forecast = self._forecast_demand_level(demand_levels, hour)
                 supply_forecast = self._forecast_supply_level(supply_levels, hour)
                 base_forecast = prices[-1] + price_trend * hour
-                seasonal_adjusted = base_forecast * seasonal_factor
+                seasonal_adjusted = base_forecast * float(seasonal_factor)
                 demand_adjusted = seasonal_adjusted * (1 + (demand_forecast - 0.5) * 0.3)
                 supply_adjusted = demand_adjusted * (1 + (0.5 - supply_forecast) * 0.2)
                 forecast_price = max(float(self.min_price), min(supply_adjusted, float(self.max_price)))

@@ -44,7 +44,7 @@ def _encrypt_if_password(private_key: str) -> tuple[str, bool]:
 
 
 # Real chains data from configuration
-chains_data = {
+chains_data: dict[str, Any] = {
     "chains": [
         {
             "chain_id": os.getenv("CHAIN_ID", ""),
@@ -146,7 +146,7 @@ async def create_chain(request: dict[str, Any]):
         raise HTTPException(status_code=400, detail="chain_id and name are required")
 
     # Check if chain already exists
-    chains: list[dict[str, Any]] = chains_data["chains"]  # type: ignore
+    chains: list[dict[str, Any]] = chains_data["chains"]
     for chain in chains:
         if chain["chain_id"] == chain_id:
             raise HTTPException(status_code=409, detail=f"Chain {chain_id} already exists")
@@ -163,7 +163,7 @@ async def create_chain(request: dict[str, Any]):
         "metadata": metadata,
     }
 
-    chains_data["chains"].append(new_chain)  # type: ignore
+    chains_data["chains"].append(new_chain)
 
     return JSONResponse({"success": True, "chain": new_chain}, status_code=201)
 
@@ -413,7 +413,7 @@ async def create_wallet(request: dict[str, Any] | None = None):
         import io
         import sys
 
-        from aitbc_cli.commands.wallet import create_wallet as cli_create_wallet  # type: ignore
+        from aitbc_cli.commands.wallet import create_wallet as cli_create_wallet  # type: ignore[attr-defined]
 
         old_stdout = sys.stdout
         sys.stdout = io.StringIO()

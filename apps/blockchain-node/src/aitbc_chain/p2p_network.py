@@ -709,12 +709,12 @@ class P2PNetworkService:
             from .database import session_scope
 
             with session_scope(self.chain_id) as session:
-                from .models import BlockHeader
+                from .models import Block
 
                 from sqlalchemy import select
 
-                stmt = select(BlockHeader).order_by(BlockHeader.height.desc()).limit(1)
-                block = session.exec(stmt).first()
+                stmt = select(Block).order_by(Block.height.desc()).limit(1)  # type: ignore[attr-defined]
+                block = session.exec(stmt).first()  # type: ignore[call-overload]
                 return block.height if block else 0
         except Exception:
             return 0

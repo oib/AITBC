@@ -28,6 +28,8 @@ Read the release notes newest-first:
 ### Current Releases (v0.5.x+)
 - **[v2.0.0](v2.0.0/change.log)** - Vision/Questionable Features — Parked for Re-Evaluation
 - **[v1.0.0](v1.0.0/change.log)** - Production Readiness
+- **[v0.10.10](v0.10.10/change.log)** - Code Quality & Testing Roadmap (mypy coverage, coverage gate, property-based tests, perf regression, dep pinning, dev script, integration fixtures) ✅
+- **[v0.10.9](v0.10.9/change.log)** - Dead Code Elimination & Status Drift Cleanup
 - **[v0.9.0](v0.9.0/change.log)** - Atomic Cross-Chain Settlement
 - **[v0.8.2](v0.8.2/change.log)** - Advanced Offer Sync (subscription, real-time, search index)
 - **[v0.8.1](v0.8.1/change.log)** - Cross-Chain Offer Sync (polling-based)

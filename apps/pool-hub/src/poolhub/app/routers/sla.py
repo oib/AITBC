@@ -13,10 +13,10 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 
-from ...database import get_session as get_db  # type: ignore
-from ...models import CapacitySnapshot  # type: ignore
-from ...services.billing_integration import BillingIntegration  # type: ignore
-from ...services.sla_collector import SLACollector  # type: ignore
+from ...database import get_session as get_db
+from ...models import CapacitySnapshot
+from ...services.billing_integration import BillingIntegration
+from ...services.sla_collector import SLACollector
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/sla", tags=["SLA"])
@@ -97,8 +97,8 @@ async def get_miner_sla_metrics(
 ) -> list[SLAMetricResponse]:
     """Get SLA metrics for a specific miner"""
     try:
-        metrics = await sla_collector.get_sla_metrics(miner_id=miner_id, hours=hours)
-        return metrics  # type: ignore[no-any-return]
+        metrics = await sla_collector.get_sla_metrics(miner_id=miner_id, hours=hours if hours is not None else 24)
+        return metrics  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error getting SLA metrics for miner %s: %s", miner_id, e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -110,8 +110,8 @@ async def get_all_sla_metrics(
 ) -> list[SLAMetricResponse]:
     """Get SLA metrics across all miners"""
     try:
-        metrics = await sla_collector.get_sla_metrics(miner_id=None, hours=hours)
-        return metrics  # type: ignore[no-any-return]
+        metrics = await sla_collector.get_sla_metrics(miner_id=None, hours=hours if hours is not None else 24)
+        return metrics  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error getting SLA metrics: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -124,8 +124,10 @@ async def get_sla_violations(
     """Get SLA violations"""
     try:
         sla_collector = SLACollector(db)
-        violations = await sla_collector.get_sla_violations(miner_id=miner_id, resolved=resolved)
-        return violations  # type: ignore[no-any-return]
+        violations = await sla_collector.get_sla_violations(
+            miner_id=miner_id, resolved=resolved if resolved is not None else False
+        )
+        return violations  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error getting SLA violations: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -136,7 +138,7 @@ async def collect_sla_metrics(sla_collector: Annotated[SLACollector, Depends(get
     """Trigger SLA metrics collection for all miners"""
     try:
         results = await sla_collector.collect_all_miner_metrics()
-        return results  # type: ignore[no-any-return]
+        return results
     except Exception as e:
         logger.error("Error collecting SLA metrics: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -152,7 +154,7 @@ async def get_capacity_snapshots(hours: int | None, db: Annotated[Session, Depen
             db.query(CapacitySnapshot).filter(CapacitySnapshot.timestamp >= cutoff).order_by(CapacitySnapshot.timestamp.desc())
         )
         snapshots = stmt.all()
-        return snapshots  # type: ignore[no-any-return]
+        return snapshots  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error getting capacity snapshots: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -219,8 +221,8 @@ async def get_billing_usage(
 ) -> dict[str, Any]:
     """Get billing usage data from coordinator-api"""
     try:
-        metrics = await billing_integration.get_billing_metrics(tenant_id=tenant_id, hours=hours)
-        return metrics  # type: ignore[no-any-return]
+        metrics = await billing_integration.get_billing_metrics(tenant_id=tenant_id, hours=hours)  # type: ignore[arg-type]
+        return metrics
     except Exception as e:
         logger.error("Error getting billing usage: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -240,7 +242,7 @@ async def sync_billing_usage(
             )
         else:
             result = await billing_integration.sync_all_miners_usage(hours_back=request.hours_back)
-        return result  # type: ignore[no-any-return]
+        return result
     except Exception as e:
         logger.error("Error syncing billing usage: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -260,7 +262,7 @@ async def record_usage(
             job_id=request.job_id,
             metadata=request.metadata,
         )
-        return result  # type: ignore[no-any-return]
+        return result
     except Exception as e:
         logger.error("Error recording usage: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -275,7 +277,7 @@ async def generate_invoice(
         result = await billing_integration.trigger_invoice_generation(
             tenant_id=request.tenant_id, period_start=request.period_start, period_end=request.period_end
         )
-        return result  # type: ignore[no-any-return]
+        return result
     except Exception as e:
         logger.error("Error generating invoice: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e

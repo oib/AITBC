@@ -35,7 +35,7 @@ from ....storage import get_session
 
 # Placeholder for service_registry - to be properly imported when module structure is fixed
 class MockServiceRegistry:
-    def get_service(self, service_type: str) -> None:
+    def get_service(self, service_type: str) -> Any:
         return None
 
 
@@ -74,7 +74,7 @@ async def submit_service_job(
     response.headers["X-Deprecation-Message"] = "Use /v1/registry/services/{service_id} instead"
 
     # Check if service exists in registry
-    service = service_registry.get_service(service_type.value)  # type: ignore[func-returns-value]
+    service = service_registry.get_service(service_type.value)
     if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Service {service_type} not found")
 
@@ -474,7 +474,7 @@ async def get_service_schema(request: Request, service_type: ServiceType) -> dic
     This endpoint will be removed in version 2.0.
     """
     # Get service from registry
-    service = service_registry.get_service(service_type.value)  # type: ignore[func-returns-value]
+    service = service_registry.get_service(service_type.value)
     if not service:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Service {service_type} not found")
 
@@ -507,7 +507,7 @@ async def get_service_schema(request: Request, service_type: ServiceType) -> dic
 
 async def validate_service_request(service_id: str, request_data: dict[str, Any]) -> dict[str, Any]:
     """Validate a service request against the service schema"""
-    service = service_registry.get_service(service_id)  # type: ignore[func-returns-value]
+    service = service_registry.get_service(service_id)
     if not service:
         return {"valid": False, "errors": [f"Service {service_id} not found"]}
 

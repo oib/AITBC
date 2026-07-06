@@ -31,7 +31,7 @@ class EdgeGPUService:
             if edge_optimized is not None:
                 stmt = stmt.where(ConsumerGPUProfile.edge_optimized == edge_optimized)
             if min_memory_gb is not None:
-                stmt = stmt.where(ConsumerGPUProfile.memory_gb >= min_memory_gb)
+                stmt = stmt.where(ConsumerGPUProfile.memory_gb >= min_memory_gb)  # type: ignore[operator]
             result = await self.session.execute(stmt)
             return list(result.scalars().all())
         except Exception as e:
@@ -44,7 +44,7 @@ class EdgeGPUService:
             stmt = (
                 select(EdgeGPUMetrics)
                 .where(EdgeGPUMetrics.gpu_id == gpu_id)
-                .order_by(EdgeGPUMetrics.timestamp.desc())
+                .order_by(EdgeGPUMetrics.timestamp.desc())  # type: ignore[attr-defined]
                 .limit(limit)
             )
             result = await self.session.execute(stmt)
@@ -53,11 +53,11 @@ class EdgeGPUService:
             logger.error("Failed to list GPU metrics for %s: %s", gpu_id, e)
             return []
 
-    def create_metric(self, payload: dict[str, Any]) -> EdgeGPUMetrics:
+    async def create_metric(self, payload: dict[str, Any]) -> EdgeGPUMetrics:
         metric = EdgeGPUMetrics(**payload)
         self.session.add(metric)
-        self.session.commit()
-        self.session.refresh(metric)
+        await self.session.commit()
+        await self.session.refresh(metric)
         return metric
 
     async def seed_profiles(self) -> None:
@@ -121,7 +121,7 @@ class EdgeGPUService:
             if not discovered_gpus:
                 logger.info("No GPUs discovered via nvidia-smi for miner %s", miner_id)
                 stmt = select(GPURegistry).where(GPURegistry.miner_id == miner_id)
-                result = self.session.execute(stmt)
+                result = await self.session.execute(stmt)
                 existing_gpus = result.scalars().all()
                 gpu_list = [
                     {
@@ -146,7 +146,7 @@ class EdgeGPUService:
             for gpu_info in discovered_gpus:
                 gpu_id = f"gpu_{miner_id}_{gpu_info['index']}"
                 stmt = select(GPURegistry).where(GPURegistry.id == gpu_id)
-                result = self.session.execute(stmt)
+                result = await self.session.execute(stmt)
                 existing = result.scalar_one_or_none()
                 if existing:
                     existing.model = gpu_info["name"]
@@ -185,7 +185,7 @@ class EdgeGPUService:
                         }
                     )
                     registered_count += 1
-            self.session.commit()
+            await self.session.commit()
             return {
                 "miner_id": miner_id,
                 "gpus": gpu_list,
@@ -194,7 +194,7 @@ class EdgeGPUService:
                 "discovery_method": "nvidia_smi",
             }
         except Exception as e:
-            self.session.rollback()
+            await self.session.rollback()
             logger.error("Failed to discover GPUs for miner %s: %s", miner_id, e)
             return {"miner_id": miner_id, "gpus": [], "registered": 0, "edge_optimized": 0, "error": str(e)}
 

@@ -74,10 +74,10 @@ def _initialize_tracing() -> None:
     try:
         import os
 
-        from opentelemetry import trace  # type: ignore[import-not-found]
+        from opentelemetry import trace
         from opentelemetry.exporter.jaeger.thrift import JaegerExporter  # type: ignore[import-not-found]
-        from opentelemetry.sdk.trace import TracerProvider  # type: ignore[import-not-found]
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor  # type: ignore[import-not-found]
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
         jaeger_host = os.environ.get("JAEGER_HOST", "localhost")
         jaeger_port = int(os.environ.get("JAEGER_PORT", 6831))
@@ -85,7 +85,7 @@ def _initialize_tracing() -> None:
         tracer_provider = trace.get_tracer_provider()
         jaeger_exporter = JaegerExporter(agent_host_name=jaeger_host, agent_port=jaeger_port)
         span_processor = BatchSpanProcessor(jaeger_exporter)
-        tracer_provider.add_span_processor(span_processor)
+        tracer_provider.add_span_processor(span_processor)  # type: ignore[attr-defined]
         logger.info("Jaeger tracing exporter configured: %s:%s", jaeger_host, jaeger_port)
     except ImportError:
         logger.warning("opentelemetry packages not installed, skipping tracing exporter")

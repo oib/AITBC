@@ -12,7 +12,7 @@ import json
 from typing import Any
 
 
-def safe_loads(data: bytes, max_size: int = 10 * 1024 * 1024) -> Any:
+def safe_loads(data: bytes | str, max_size: int = 10 * 1024 * 1024) -> Any:
     """
     Safely load JSON data with size validation.
 

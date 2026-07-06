@@ -310,7 +310,7 @@ class OfferSubscriptionService:
             while self._running:
                 await asyncio.sleep(settings.subscription_reconnect_interval_seconds)
                 if not self._running:
-                    break
+                    break  # type: ignore[unreachable]
 
                 # B20: When in polling fallback, perform a poll sync
                 if self._chain_status.get(chain_id) == SubscriptionStatus.POLLING_FALLBACK:

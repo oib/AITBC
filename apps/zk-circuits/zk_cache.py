@@ -88,7 +88,7 @@ class ZKCircuitCache:
             if self.cache_manifest.exists():
                 with open(self.cache_manifest) as f:
                     manifest = json.load(f)
-                return manifest.get(cache_key)
+                return manifest.get(cache_key)  # type: ignore[no-any-return]
         except Exception:  # nosec B110 - intentional silent failure
             pass
         return None

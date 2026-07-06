@@ -10,7 +10,8 @@ import os
 
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 from aitbc_shared.core.config import ServiceSettings
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
+from pydantic_settings import SettingsConfigDict
 
 
 class Settings(ServiceSettings):
@@ -63,7 +64,7 @@ class Settings(ServiceSettings):
                 raise ValueError("BLOCKCHAIN_RPC_URL cannot be localhost in production")
         return v
 
-    model_config = ConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
 settings = Settings()

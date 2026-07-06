@@ -11,15 +11,12 @@ from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import Any, TypeVar
+from typing import Any, overload
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
-
-
-_V = TypeVar("_V")
 
 
 class TTLCache[V]:
@@ -81,6 +78,10 @@ class TTLCache[V]:
         self._evict_expired()
         return len(self._data)
 
+    @overload
+    def get(self, key: str, default: None = None) -> V | None: ...
+    @overload
+    def get(self, key: str, default: V) -> V: ...
     def get(self, key: str, default: V | None = None) -> V | None:
         try:
             return self[key]

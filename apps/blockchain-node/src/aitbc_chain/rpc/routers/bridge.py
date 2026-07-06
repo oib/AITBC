@@ -3,6 +3,7 @@ Bridge router.
 """
 
 from typing import Any
+from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -95,21 +96,21 @@ class BlockHeaderRequest(BaseModel):
 
 
 # Optional imports - will be None if module not available
-bridge_batch_confirm = None
-bridge_batch_lock = None
-bridge_confirm = None
-bridge_health = None
-bridge_lock = None
-bridge_oracle_status = None
-bridge_security_status = None
-bridge_unlock = None
-get_block_header = None
-get_bridge_balance = None
-get_bridge_transfer = None
-get_validator_set = None
-list_pending_transfers = None
-register_validator = None
-store_block_header = None
+bridge_batch_confirm: Callable[..., Any] | None = None
+bridge_batch_lock: Callable[..., Any] | None = None
+bridge_confirm: Callable[..., Any] | None = None
+bridge_health: Callable[..., Any] | None = None
+bridge_lock: Callable[..., Any] | None = None
+bridge_oracle_status: Callable[..., Any] | None = None
+bridge_security_status: Callable[..., Any] | None = None
+bridge_unlock: Callable[..., Any] | None = None
+get_block_header: Callable[..., Any] | None = None
+get_bridge_balance: Callable[..., Any] | None = None
+get_bridge_transfer: Callable[..., Any] | None = None
+get_validator_set: Callable[..., Any] | None = None
+list_pending_transfers: Callable[..., Any] | None = None
+register_validator: Callable[..., Any] | None = None
+store_block_header: Callable[..., Any] | None = None
 
 try:
     from ..bridge import (
@@ -142,7 +143,7 @@ async def bridge_lock_route(request: Request, lock_data: BridgeLockRequest) -> d
     _validate_chain_id(lock_data.target_chain)
     if lock_data.source_chain:
         _validate_chain_id(lock_data.source_chain)
-    return await bridge_lock(request, lock_data.model_dump(exclude_none=True))
+    return await bridge_lock(request, lock_data.model_dump(exclude_none=True))  # type: ignore[no-any-return]
 
 
 @router.post("/confirm", summary="Confirm and release cross-chain transfer")
@@ -151,7 +152,7 @@ async def bridge_confirm_route(request: Request, confirm_data: BridgeConfirmRequ
     """Confirm a cross-chain bridge transfer and release funds"""
     if bridge_confirm is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
-    return await bridge_confirm(request, confirm_data.model_dump(exclude_none=True))
+    return await bridge_confirm(request, confirm_data.model_dump(exclude_none=True))  # type: ignore[no-any-return]
 
 
 @router.get("/transfer/{transfer_id}", summary="Get transfer status")
@@ -160,7 +161,7 @@ async def get_bridge_transfer_route(request: Request, transfer_id: str) -> dict[
     """Get the status of a cross-chain transfer"""
     if get_bridge_transfer is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
-    return await get_bridge_transfer(request, transfer_id)
+    return await get_bridge_transfer(request, transfer_id)  # type: ignore[no-any-return]
 
 
 @router.get("/pending", summary="List pending bridge transfers")
@@ -171,7 +172,7 @@ async def list_pending_transfers_route(request: Request, chain_id: str | None = 
         raise HTTPException(status_code=503, detail="Bridge module not available")
     if chain_id:
         _validate_chain_id(chain_id)
-    return await list_pending_transfers(request, chain_id)
+    return await list_pending_transfers(request, chain_id)  # type: ignore[no-any-return]
 
 
 @router.post("/unlock", summary="Refund a pending bridge transfer")
@@ -180,7 +181,7 @@ async def bridge_unlock_route(request: Request, unlock_data: BridgeUnlockRequest
     """Refund/cancel a pending bridge transfer — return locked funds to sender"""
     if bridge_unlock is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
-    return await bridge_unlock(request, unlock_data.model_dump(exclude_none=True))
+    return await bridge_unlock(request, unlock_data.model_dump(exclude_none=True))  # type: ignore[no-any-return]
 
 
 @router.get("/balance/{chain_id}", summary="Get bridge balance for a chain")
@@ -190,7 +191,7 @@ async def get_bridge_balance_route(request: Request, chain_id: str) -> dict[str,
     if get_bridge_balance is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
     _validate_chain_id(chain_id)
-    return await get_bridge_balance(request, chain_id)
+    return await get_bridge_balance(request, chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/health", summary="Bridge health check")
@@ -199,7 +200,7 @@ async def bridge_health_route(request: Request) -> dict[str, Any]:
     """Get bridge health status — active transfers, pending count, configuration"""
     if bridge_health is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
-    return await bridge_health(request)
+    return await bridge_health(request)  # type: ignore[no-any-return]
 
 
 @router.get("/status/{transfer_id}", summary="Get transfer status (alias)")
@@ -208,7 +209,7 @@ async def get_bridge_status_route(request: Request, transfer_id: str) -> dict[st
     """Alias for GET /bridge/transfer/{transfer_id}"""
     if get_bridge_transfer is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
-    return await get_bridge_transfer(request, transfer_id)
+    return await get_bridge_transfer(request, transfer_id)  # type: ignore[no-any-return]
 
 
 @router.post("/batch/lock", summary="Batch lock multiple transfers")
@@ -217,7 +218,7 @@ async def bridge_batch_lock_route(request: Request, batch_data: BridgeBatchReque
     """Batch lock multiple cross-chain transfers"""
     if bridge_batch_lock is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
-    return await bridge_batch_lock(request, batch_data.model_dump(exclude_none=True))
+    return await bridge_batch_lock(request, batch_data.model_dump(exclude_none=True))  # type: ignore[no-any-return]
 
 
 @router.post("/batch/confirm", summary="Batch confirm multiple transfers")
@@ -226,7 +227,7 @@ async def bridge_batch_confirm_route(request: Request, batch_data: BridgeBatchRe
     """Batch confirm multiple cross-chain transfers (gated by BRIDGE_RELEASE_ENABLED)"""
     if bridge_batch_confirm is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
-    return await bridge_batch_confirm(request, batch_data.model_dump(exclude_none=True))
+    return await bridge_batch_confirm(request, batch_data.model_dump(exclude_none=True))  # type: ignore[no-any-return]
 
 
 @router.post("/validators/register", summary="Register a bridge validator")
@@ -236,7 +237,7 @@ async def register_validator_route(request: Request, reg_data: ValidatorRegister
     if register_validator is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
     _validate_chain_id(reg_data.chain_id)
-    return await register_validator(request, reg_data.model_dump(exclude_none=True))
+    return await register_validator(request, reg_data.model_dump(exclude_none=True))  # type: ignore[no-any-return]
 
 
 @router.get("/validators/{chain_id}", summary="Get validator set for a chain")
@@ -246,7 +247,7 @@ async def get_validator_set_route(request: Request, chain_id: str) -> dict[str, 
     if get_validator_set is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
     _validate_chain_id(chain_id)
-    return await get_validator_set(request, chain_id)
+    return await get_validator_set(request, chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/security/status", summary="Bridge security status")
@@ -255,7 +256,7 @@ async def bridge_security_status_route(request: Request) -> dict[str, Any]:
     """Get bridge security status — multi-sig config, validator count, etc. (v0.7.1)"""
     if bridge_security_status is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
-    return await bridge_security_status(request)
+    return await bridge_security_status(request)  # type: ignore[no-any-return]
 
 
 @router.post("/block-headers", summary="Store a remote chain block header")
@@ -265,7 +266,7 @@ async def store_block_header_route(request: Request, header_data: BlockHeaderReq
     if store_block_header is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
     _validate_chain_id(header_data.chain_id)
-    return await store_block_header(request, header_data.model_dump(exclude_none=True))
+    return await store_block_header(request, header_data.model_dump(exclude_none=True))  # type: ignore[no-any-return]
 
 
 @router.get("/block-headers/{chain_id}/{height}", summary="Get a block header with finality status")
@@ -275,7 +276,7 @@ async def get_block_header_route(request: Request, chain_id: str, height: int) -
     if get_block_header is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
     _validate_chain_id(chain_id)
-    return await get_block_header(request, chain_id, height)
+    return await get_block_header(request, chain_id, height)  # type: ignore[no-any-return]
 
 
 @router.get("/oracle/status", summary="Bridge oracle/verification status")
@@ -284,4 +285,4 @@ async def bridge_oracle_status_route(request: Request) -> dict[str, Any]:
     """Get bridge oracle/verification status (v0.7.2)"""
     if bridge_oracle_status is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
-    return await bridge_oracle_status(request)
+    return await bridge_oracle_status(request)  # type: ignore[no-any-return]
