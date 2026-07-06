@@ -9,7 +9,7 @@ from typing import Annotated, Any
 from uuid import uuid4
 
 import numpy as np
-from app.storage import get_session  # type: ignore[import-not-found]
+from app.storage import get_session
 from fastapi import Depends
 from sqlalchemy.orm import Session
 

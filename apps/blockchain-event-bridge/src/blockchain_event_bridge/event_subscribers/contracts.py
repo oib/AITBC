@@ -74,7 +74,7 @@ class ContractEventSubscriber:
         """Initialize block tracking from current chain height."""
         try:
             client = await self._get_client()
-            head_data = await client.async_get("/head")
+            head_data = await client.get("/head")
             current_height = head_data.get("height", 0)
             for contract in self.contract_addresses:
                 if self.contract_addresses[contract]:
@@ -92,10 +92,10 @@ class ContractEventSubscriber:
             if not contract_address:
                 continue
             try:
-                head_data = await client.async_get("/head")
+                head_data = await client.get("/head")
                 current_height = head_data.get("height", 0)
                 last_height = self.last_processed_blocks.get(contract_name, current_height - 100)
-                logs_data = await client.async_post(
+                logs_data = await client.post(
                     "/eth_getLogs",
                     json={
                         "address": contract_address,

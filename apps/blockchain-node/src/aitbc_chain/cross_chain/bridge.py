@@ -323,7 +323,7 @@ class CrossChainBridge:
         If ``chain_id`` is provided, returns a single-key dict for that chain.
         """
         with self._session_factory() as session:
-            query = select(CrossChainTransfer).where(CrossChainTransfer.status.in_(["pending", "locked"]))
+            query = select(CrossChainTransfer).where(CrossChainTransfer.status.in_(["pending", "locked"]))  # type: ignore[attr-defined]
             if chain_id:
                 query = query.where(CrossChainTransfer.source_chain == chain_id)
             records = session.exec(query).all()
@@ -703,7 +703,7 @@ class CrossChainBridge:
                 latest = session.exec(
                     select(BridgeValidator.epoch)
                     .where(BridgeValidator.chain_id == chain_id)
-                    .order_by(BridgeValidator.epoch.desc())  # type: ignore[union-attr]
+                    .order_by(BridgeValidator.epoch.desc())  # type: ignore[attr-defined]
                     .limit(1)
                 ).first()
                 if latest is None:
@@ -821,7 +821,7 @@ class CrossChainBridge:
     def _get_block_header(self, chain_id: str, height: int) -> BridgeBlockHeader | None:
         """Look up a stored remote block header by chain_id + height (B2/B3)."""
         with self._session_factory() as session:
-            return session.exec(
+            return session.exec(  # type: ignore[no-any-return]
                 select(BridgeBlockHeader).where(
                     BridgeBlockHeader.chain_id == chain_id,
                     BridgeBlockHeader.height == height,
@@ -860,7 +860,7 @@ class CrossChainBridge:
                 session.refresh(existing)
                 # Update finality status
                 self._update_finality(chain_id, existing, session)
-                return existing
+                return existing  # type: ignore[no-any-return]
             else:
                 header = BridgeBlockHeader(
                     chain_id=chain_id,
@@ -1042,7 +1042,7 @@ class CrossChainBridge:
             latest = session.exec(
                 select(BridgeValidator)
                 .where(BridgeValidator.chain_id == chain_id)
-                .order_by(BridgeValidator.registered_at.desc())  # type: ignore[union-attr]
+                .order_by(BridgeValidator.registered_at.desc())  # type: ignore[attr-defined]
                 .limit(1)
             ).first()
             if latest is None:

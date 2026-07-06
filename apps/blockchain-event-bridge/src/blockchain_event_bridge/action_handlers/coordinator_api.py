@@ -56,7 +56,7 @@ class CoordinatorAPIHandler:
             payload = tx_data.get("payload", {})
             job_id = payload.get("job_id")
             if job_id:
-                await client.async_post(f"/v1/ai-jobs/{job_id}/notify", json=tx_data)
+                await client.post(f"/v1/ai-jobs/{job_id}/notify", json=tx_data)
                 logger.info("Successfully notified coordinator about AI job %s", job_id)
         except NetworkError as e:
             logger.error("Network error triggering AI job processing: %s", e)
@@ -70,7 +70,7 @@ class CoordinatorAPIHandler:
             payload = tx_data.get("payload", {})
             recipient = tx_data.get("to")
             if recipient:
-                await client.async_post(f"/v1/agents/{recipient}/message", json={"transaction": tx_data, "payload": payload})
+                await client.post(f"/v1/agents/{recipient}/message", json={"transaction": tx_data, "payload": payload})
                 logger.info("Successfully notified coordinator about message to %s", recipient)
         except NetworkError as e:
             logger.error("Network error triggering agent message processing: %s", e)
@@ -84,7 +84,7 @@ class CoordinatorAPIHandler:
             payload = tx_data.get("payload", {})
             listing_id = payload.get("listing_id")
             if listing_id:
-                await client.async_post(f"/v1/marketplace/{listing_id}/sync", json={"transaction": tx_data})
+                await client.post(f"/v1/marketplace/{listing_id}/sync", json={"transaction": tx_data})
                 logger.info("Successfully updated marketplace listing %s", listing_id)
         except NetworkError as e:
             logger.error("Network error triggering marketplace update: %s", e)

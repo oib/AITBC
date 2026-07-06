@@ -112,7 +112,7 @@ async def services_summary(request: Request) -> dict[str, Any]:
     """
     try:
         health_data = await collect_all_health_data()
-        summary = {"timestamp": datetime.now(UTC).isoformat(), "services": {}}
+        summary: dict[str, Any] = {"timestamp": datetime.now(UTC).isoformat(), "services": {}}
         for service_id, service_info in SERVICES.items():
             health = health_data.get(service_id, {})
             summary["services"][service_id] = {
@@ -122,7 +122,7 @@ async def services_summary(request: Request) -> dict[str, Any]:
                 "description": service_info["description"],
                 "icon": service_info["icon"],
                 "last_check": health.get("timestamp"),
-            }  # type: ignore[index]
+            }
         return summary
     except Exception as e:
         logger.error("Failed to generate services summary: %s", e)

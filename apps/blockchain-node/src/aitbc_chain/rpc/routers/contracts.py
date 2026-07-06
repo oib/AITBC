@@ -3,6 +3,7 @@ Contracts router.
 """
 
 from typing import Any
+from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -15,20 +16,20 @@ _logger = get_logger(__name__)
 router = APIRouter(prefix="/contracts", tags=["contracts"])
 
 # Optional imports - will be None if module not available
-call_contract = None
-create_forum_topic = None
-deploy_contract = None
-deploy_messaging_contract = None
-get_agent_reputation = None
-get_forum_topics = None
-get_messaging_contract_state = None
-get_topic_messages = None
-list_contracts = None
-moderate_message = None
-post_message = None
-search_messages = None
-verify_contract = None
-vote_message = None
+call_contract: Callable[..., Any] | None = None
+create_forum_topic: Callable[..., Any] | None = None
+deploy_contract: Callable[..., Any] | None = None
+deploy_messaging_contract: Callable[..., Any] | None = None
+get_agent_reputation: Callable[..., Any] | None = None
+get_forum_topics: Callable[..., Any] | None = None
+get_messaging_contract_state: Callable[..., Any] | None = None
+get_topic_messages: Callable[..., Any] | None = None
+list_contracts: Callable[..., Any] | None = None
+moderate_message: Callable[..., Any] | None = None
+post_message: Callable[..., Any] | None = None
+search_messages: Callable[..., Any] | None = None
+verify_contract: Callable[..., Any] | None = None
+vote_message: Callable[..., Any] | None = None
 
 try:
     from ..contracts import (
@@ -57,7 +58,7 @@ async def deploy_messaging_contract_route(request: Request, deploy_data: dict) -
     """Deploy the agent messaging contract to the blockchain"""
     if deploy_messaging_contract is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await deploy_messaging_contract(request, deploy_data)
+    return await deploy_messaging_contract(request, deploy_data)  # type: ignore[no-any-return]
 
 
 @router.get("", summary="List deployed contracts")
@@ -66,7 +67,7 @@ async def list_contracts_route(request: Request) -> dict[str, Any]:
     """List all deployed contracts"""
     if list_contracts is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await list_contracts(request)
+    return await list_contracts(request)  # type: ignore[no-any-return]
 
 
 @router.post("/deploy", summary="Deploy a smart contract")
@@ -75,7 +76,7 @@ async def deploy_contract_route(request: Request, deploy_data: dict) -> dict[str
     """Deploy a new smart contract to the blockchain"""
     if deploy_contract is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await deploy_contract(request, deploy_data)
+    return await deploy_contract(request, deploy_data)  # type: ignore[no-any-return]
 
 
 @router.post("/call", summary="Call a contract method")
@@ -84,7 +85,7 @@ async def call_contract_route(request: Request, call_data: dict) -> dict[str, An
     """Call a method on a deployed contract"""
     if call_contract is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await call_contract(request, call_data)
+    return await call_contract(request, call_data)  # type: ignore[no-any-return]
 
 
 @router.post("/verify", summary="Verify a ZK proof")
@@ -93,7 +94,7 @@ async def verify_contract_route(request: Request, verify_data: dict) -> dict[str
     """Verify a ZK proof against a contract"""
     if verify_contract is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await verify_contract(request, verify_data)
+    return await verify_contract(request, verify_data)  # type: ignore[no-any-return]
 
 
 @router.get("/messaging/state", summary="Get messaging contract state")
@@ -102,7 +103,7 @@ async def get_messaging_contract_state_route(request: Request) -> dict[str, Any]
     """Get the current state of the messaging contract"""
     if get_messaging_contract_state is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await get_messaging_contract_state(request)
+    return await get_messaging_contract_state(request)  # type: ignore[no-any-return]
 
 
 # Messaging/forum endpoints (grouped under /messaging for better organization)
@@ -114,7 +115,7 @@ async def get_forum_topics_route(
     """Get list of forum topics"""
     if get_forum_topics is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await get_forum_topics(request, limit, offset, sort_by)
+    return await get_forum_topics(request, limit, offset, sort_by)  # type: ignore[no-any-return]
 
 
 @router.post("/messaging/topics/create", summary="Create forum topic")
@@ -123,7 +124,7 @@ async def create_forum_topic_route(request: Request, topic_data: dict) -> dict[s
     """Create a new forum topic"""
     if create_forum_topic is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await create_forum_topic(request, topic_data)
+    return await create_forum_topic(request, topic_data)  # type: ignore[no-any-return]
 
 
 @router.get("/messaging/topics/{topic_id}/messages", summary="Get topic messages")
@@ -134,7 +135,7 @@ async def get_topic_messages_route(
     """Get messages from a forum topic"""
     if get_topic_messages is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await get_topic_messages(request, topic_id, limit, offset, sort_by)
+    return await get_topic_messages(request, topic_id, limit, offset, sort_by)  # type: ignore[no-any-return]
 
 
 @router.post("/messaging/messages/post", summary="Post message")
@@ -143,7 +144,7 @@ async def post_message_route(request: Request, message_data: dict) -> dict[str, 
     """Post a message to a forum topic"""
     if post_message is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await post_message(request, message_data)
+    return await post_message(request, message_data)  # type: ignore[no-any-return]
 
 
 @router.post("/messaging/messages/{message_id}/vote", summary="Vote on message")
@@ -152,7 +153,7 @@ async def vote_message_route(request: Request, message_id: str, vote_data: dict)
     """Vote on a message (upvote/downvote)"""
     if vote_message is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await vote_message(request, message_id, vote_data)
+    return await vote_message(request, message_id, vote_data)  # type: ignore[no-any-return]
 
 
 @router.get("/messaging/messages/search", summary="Search messages")
@@ -161,7 +162,7 @@ async def search_messages_route(request: Request, query: str, limit: int = 50) -
     """Search messages by content"""
     if search_messages is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await search_messages(request, query, limit)
+    return await search_messages(request, query, limit)  # type: ignore[no-any-return]
 
 
 @router.get("/messaging/agents/{agent_id}/reputation", summary="Get agent reputation")
@@ -170,7 +171,7 @@ async def get_agent_reputation_route(request: Request, agent_id: str) -> dict[st
     """Get agent reputation information"""
     if get_agent_reputation is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await get_agent_reputation(request, agent_id)
+    return await get_agent_reputation(request, agent_id)  # type: ignore[no-any-return]
 
 
 @router.post("/messaging/messages/{message_id}/moderate", summary="Moderate message")
@@ -179,4 +180,4 @@ async def moderate_message_route(request: Request, message_id: str, moderation_d
     """Moderate a message (moderator only)"""
     if moderate_message is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await moderate_message(request, message_id, moderation_data)
+    return await moderate_message(request, message_id, moderation_data)  # type: ignore[no-any-return]

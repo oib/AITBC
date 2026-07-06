@@ -14,7 +14,7 @@ from pathlib import Path
 from zk_cache import ZKCircuitCache
 
 
-def compile_circuit_cached(circuit_file: str, output_dir: str = None, use_cache: bool = True) -> dict:
+def compile_circuit_cached(circuit_file: str, output_dir: str | None = None, use_cache: bool = True) -> dict:
     """
     Compile a ZK circuit with caching support
 

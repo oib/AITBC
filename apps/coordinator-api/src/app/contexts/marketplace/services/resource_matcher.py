@@ -169,12 +169,12 @@ class ResourceMatcher:
             self.session.execute(
                 select(GPURegistry)
                 .where(GPURegistry.status == "available")
-                .order_by(GPURegistry.average_rating.desc())
+                .order_by(GPURegistry.average_rating.desc())  # type: ignore[attr-defined]
                 .limit(limit)
             )
             .scalars()
             .all()
-        )  # type: ignore[attr-defined]
+        )
         return [
             {
                 "gpu_id": gpu.id,

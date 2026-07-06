@@ -4,9 +4,9 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
-from app.contexts.edge_gpu.domain import ConsumerGPUProfile, EdgeGPUMetrics, GPUArchitecture  # type: ignore
-from app.data.consumer_gpu_profiles import CONSUMER_GPU_PROFILES  # type: ignore
-from app.storage import get_session  # type: ignore
+from app.contexts.edge_gpu.domain import ConsumerGPUProfile, EdgeGPUMetrics, GPUArchitecture
+from app.data.consumer_gpu_profiles import CONSUMER_GPU_PROFILES
+from app.storage import get_session
 
 
 class EdgeGPUService:
@@ -26,17 +26,17 @@ class EdgeGPUService:
         if edge_optimized is not None:
             stmt = stmt.where(ConsumerGPUProfile.edge_optimized == edge_optimized)
         if min_memory_gb is not None:
-            stmt = stmt.where(ConsumerGPUProfile.memory_gb >= min_memory_gb)
-        return list(self.session.execute(stmt).all())
+            stmt = stmt.where(ConsumerGPUProfile.memory_gb >= min_memory_gb)  # type: ignore[operator]
+        return [r[0] for r in self.session.execute(stmt).all()]
 
     def list_metrics(self, gpu_id: str, limit: int = 100) -> list[EdgeGPUMetrics]:
         stmt = (
             select(EdgeGPUMetrics)
             .where(EdgeGPUMetrics.gpu_id == gpu_id)
-            .order_by(EdgeGPUMetrics.timestamp.desc())
+            .order_by(EdgeGPUMetrics.timestamp.desc())  # type: ignore[attr-defined]
             .limit(limit)
         )
-        return list(self.session.execute(stmt).all())
+        return [r[0] for r in self.session.execute(stmt).all()]
 
     def create_metric(self, payload: dict[str, Any]) -> EdgeGPUMetrics:
         metric = EdgeGPUMetrics(**payload)
@@ -46,9 +46,9 @@ class EdgeGPUService:
         return metric
 
     def seed_profiles(self) -> None:
-        existing_models = set(self.session.execute(select(ConsumerGPUProfile.gpu_model)).all())
+        existing_models = {r[0] for r in self.session.execute(select(ConsumerGPUProfile.gpu_model)).all()}
         created = 0
-        for profile in CONSUMER_GPU_PROFILES:
+        for profile in CONSUMER_GPU_PROFILES.values():
             if profile["gpu_model"] in existing_models:
                 continue
             self.session.add(ConsumerGPUProfile(**profile))

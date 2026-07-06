@@ -57,7 +57,7 @@ class SimpleBroadcast:
                 return self
 
             async def __anext__(self) -> str:
-                return await self.queue.get()
+                return await self.queue.get()  # type: ignore[no-any-return]
 
         return Subscriber(queue, self._subscribers, channel)
 
@@ -88,7 +88,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     channel = websocket.query_params.get("channel", "blockchain")
     logger.info("WebSocket connected to channel: %s", channel)
     try:
-        async with broadcast.subscribe(channel) as subscriber:
+        async with broadcast.subscribe(channel) as subscriber:  # type: ignore[attr-defined]
             async for message in subscriber:
                 await websocket.send_text(message)
     except Exception as e:

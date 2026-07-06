@@ -9,8 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..deps import get_db, get_miner_id  # type: ignore
-from ...models import Miner, ServiceConfig, ServiceType  # type: ignore
+from ..deps import get_db, get_miner_id
+from ...models import Miner, ServiceConfig, ServiceType
 from ..schemas import ServiceConfigCreate, ServiceConfigResponse, ServiceConfigUpdate
 
 router = APIRouter(prefix="/services", tags=["services"])

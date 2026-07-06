@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import Depends, Header
 from sqlalchemy import select
@@ -49,12 +49,12 @@ async def get_miner_from_token(
         result = await session.execute(select(Miner).where(Miner.api_key_hash == key_hash))
         miner = result.scalars().first()
         if miner is not None:
-            return miner
+            return cast(Miner, miner)
     # Fallback: look up by configured miner_id
     result = await session.execute(select(Miner).where(Miner.miner_id == miner_id))
     miner = result.scalars().first()
     if miner is not None:
-        return miner
+        return cast(Miner, miner)
     # No miner registered yet — return a minimal stub so endpoints don't crash.
     # This allows the hardware-profile endpoint to report empty data rather
     # than 500.  Once a miner registers via the pools router, real data is used.

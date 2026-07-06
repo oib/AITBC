@@ -130,7 +130,7 @@ async def ai_list_jobs(wallet_address: str | None = None, status: str | None = N
                 stmt = stmt.where(Transaction.sender == wallet_address)
             if status:
                 stmt = stmt.where(Transaction.status == status)
-            stmt = stmt.order_by(Transaction.created_at.desc())
+            stmt = stmt.order_by(Transaction.created_at.desc())  # type: ignore[attr-defined]
             txs = session.exec(stmt).all()
 
             jobs = [_job_from_tx(tx) for tx in txs]

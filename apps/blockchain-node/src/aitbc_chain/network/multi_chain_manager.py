@@ -182,7 +182,7 @@ class MultiChainManager:
                 proposer_config = self._proposer_config(chain_id)
                 consensus = PoAProposer(
                     config=proposer_config,
-                    session_factory=lambda cid=chain_id: session_scope(cid),
+                    session_factory=lambda cid=chain_id: session_scope(cid),  # type: ignore[misc]
                 )
                 await consensus.start()
 
@@ -274,7 +274,7 @@ class MultiChainManager:
         """Get the latest block height for a chain from the database"""
         with session_scope(chain_id) as session:
             block = session.exec(
-                select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)
+                select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)  # type: ignore[attr-defined]
             ).first()
             return block.height if block else 0
 

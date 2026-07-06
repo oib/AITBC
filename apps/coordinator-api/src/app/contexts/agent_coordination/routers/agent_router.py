@@ -35,7 +35,7 @@ async def create_workflow(
     workflow_data: AgentWorkflowCreate,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> AIAgentWorkflow:  # type: ignore[arg-type]
+) -> AIAgentWorkflow:
     """Create a new AI agent workflow"""
     try:
         workflow = AIAgentWorkflow(owner_id=user["sub"], **workflow_data.dict())
@@ -56,7 +56,7 @@ async def list_workflows(
     tags: list[str] | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> list[AIAgentWorkflow]:  # type: ignore[arg-type]
+) -> list[AIAgentWorkflow]:
     """List agent workflows with filtering"""
     try:
         query = select(AIAgentWorkflow)
@@ -83,7 +83,7 @@ async def get_workflow(
     request: Request,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> AIAgentWorkflow:  # type: ignore[arg-type]
+) -> AIAgentWorkflow:
     """Get a specific agent workflow"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
@@ -107,7 +107,7 @@ async def update_workflow(
     request: Request,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> AIAgentWorkflow:  # type: ignore[arg-type]
+) -> AIAgentWorkflow:
     """Update an agent workflow"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
@@ -135,7 +135,7 @@ async def delete_workflow(
     workflow_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, str]:  # type: ignore[arg-type]
+) -> dict[str, str]:
     """Delete an agent workflow"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
@@ -161,7 +161,7 @@ async def execute_workflow(
     background_tasks: BackgroundTasks,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> AgentExecutionResponse:  # type: ignore[arg-type]
+) -> AgentExecutionResponse:
     """Execute an AI agent workflow"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
@@ -179,7 +179,7 @@ async def execute_workflow(
         from app.contexts.agent_coordination.services.orchestrator_service import CoordinatorClient
 
         coordinator_client = CoordinatorClient()
-        orchestrator = AIAgentOrchestrator(session, coordinator_client)  # type: ignore[arg-type]
+        orchestrator = AIAgentOrchestrator(session, coordinator_client)
         response = await orchestrator.execute_workflow(request, user["sub"])
         logger.info("Started agent execution: %s", response.execution_id)
         return response
@@ -195,7 +195,7 @@ async def get_execution_status(
     execution_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> AgentExecutionStatus:  # type: ignore[arg-type]
+) -> AgentExecutionStatus:
     """Get execution status"""
     try:
         from app.contexts.agent_coordination.services.orchestrator_service import AIAgentOrchestrator
@@ -205,9 +205,9 @@ async def get_execution_status(
         orchestrator = AIAgentOrchestrator(session, coordinator_client)
         status = await orchestrator.get_execution_status(execution_id)
         workflow = session.get(AIAgentWorkflow, status.workflow_id)
-        if workflow.owner_id != user["sub"]:
+        if workflow is None or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
-        return status  # type: ignore[no-any-return]
+        return status
     except HTTPException:
         raise
     except Exception as e:
@@ -223,7 +223,7 @@ async def list_executions(
     offset: int | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> list[AgentExecutionStatus]:  # type: ignore[arg-type]
+) -> list[AgentExecutionStatus]:
     """List agent executions with filtering"""
     try:
         from app.contexts.agent_coordination.domain.agent import AgentExecution
@@ -251,7 +251,7 @@ async def cancel_workflow(
     execution_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Cancel a workflow execution"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
@@ -265,7 +265,7 @@ async def cancel_workflow(
         from app.contexts.agent_coordination.services.orchestrator_service import AIAgentOrchestrator
 
         orchestrator = AIAgentOrchestrator(session, coordinator_client)
-        result = await orchestrator.cancel_execution(execution_id)
+        result = await orchestrator.cancel_execution(execution_id)  # type: ignore[attr-defined]
         logger.info("Cancelled workflow execution: %s", execution_id)
         return result  # type: ignore[no-any-return]
     except HTTPException:
@@ -282,7 +282,7 @@ async def list_workflow_executions(
     offset: int | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> list[AgentExecutionStatus]:  # type: ignore[arg-type]
+) -> list[AgentExecutionStatus]:
     """List executions for a specific workflow"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)

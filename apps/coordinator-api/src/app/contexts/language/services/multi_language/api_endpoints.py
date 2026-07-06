@@ -265,7 +265,7 @@ async def translate_batch(
 @router.post("/detect-language", response_model=LanguageDetectionResponse)
 async def detect_language(
     request: LanguageDetectionRequest, detector: Annotated[LanguageDetector, Depends(get_language_detector)]
-) -> None:
+) -> LanguageDetectionResponse:
     """
     Detect the language of given text
     """
@@ -280,7 +280,7 @@ async def detect_language(
             method=result.method.value,
             alternatives=[{"language": lang, "confidence": conf} for lang, conf in result.alternatives],
             processing_time_ms=result.processing_time_ms,
-        )  # type: ignore[return-value]
+        )
     except Exception as e:
         logger.error("Language detection error: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -289,7 +289,7 @@ async def detect_language(
 @router.post("/detect-language/batch", response_model=BatchDetectionResponse)
 async def detect_language_batch(
     request: BatchDetectionRequest, detector: Annotated[LanguageDetector, Depends(get_language_detector)]
-) -> None:
+) -> BatchDetectionResponse:
     """
     Detect languages for multiple texts in a single request
     """
@@ -312,7 +312,7 @@ async def detect_language_batch(
         processing_time = int((asyncio.get_event_loop().time() - start_time) * 1000)
         return BatchDetectionResponse(
             detections=detections, total_processed=len(request.texts), processing_time_ms=processing_time
-        )  # type: ignore[return-value]
+        )
     except Exception as e:
         logger.error("Batch language detection error: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -420,7 +420,7 @@ async def get_top_translations(
     if not cache:
         raise HTTPException(status_code=404, detail="Cache service not available")
     try:
-        top_translations = await cache.get_top_translations(limit)
+        top_translations = await cache.get_top_translations(limit or 100)
         return JSONResponse(content={"translations": top_translations})  # type: ignore[return-value]
     except Exception as e:
         logger.error("Get top translations error: %s", e)
@@ -442,12 +442,12 @@ async def optimize_cache(cache: Annotated[TranslationCache | None, Depends(get_t
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@router.exception_handler(ValueError)  # type: ignore[attr-defined, untyped-decorator]
+@router.exception_handler(ValueError)  # type: ignore[attr-defined]
 async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"error": "Validation error", "details": str(exc)})
 
 
-@router.exception_handler(Exception)  # type: ignore[attr-defined, untyped-decorator]
+@router.exception_handler(Exception)  # type: ignore[attr-defined]
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.error("Unhandled exception: %s", exc)
     return JSONResponse(status_code=500, content={"error": "Internal server error", "details": str(exc)})

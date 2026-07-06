@@ -46,6 +46,7 @@ class ResourceType(StrEnum):
     STORAGE = "storage"
     NETWORK = "network"
     CACHE = "cache"
+    GPU_MEMORY_GB = "gpu_memory_gb"
 
 
 class OptimizationTarget(StrEnum):

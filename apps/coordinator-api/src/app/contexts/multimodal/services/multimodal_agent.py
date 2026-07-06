@@ -504,8 +504,8 @@ class CrossModalAttentionProcessor:
         final_output = {
             "representation": attended_features,
             "attention_summary": attention_weights,
-            "dominant_modality": max(attention_weights, key=attention_weights.get),
-        }  # type: ignore[arg-type]
+            "dominant_modality": max(attention_weights, key=attention_weights.get),  # type: ignore[arg-type]
+        }
         return {"attention_weights": attention_weights, "attended_features": attended_features, "final_output": final_output}
 
 

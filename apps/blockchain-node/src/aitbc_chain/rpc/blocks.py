@@ -167,12 +167,12 @@ async def get_blocks_range(
             all_txs = session.exec(
                 select(Transaction).where(
                     Transaction.chain_id == chain_id,
-                    Transaction.block_height >= start,
-                    Transaction.block_height <= end,
+                    Transaction.block_height >= start,  # type: ignore[operator]
+                    Transaction.block_height <= end,  # type: ignore[operator]
                 )
             ).all()
             for tx in all_txs:
-                txs_by_height.setdefault(tx.block_height, []).append(tx)
+                txs_by_height.setdefault(tx.block_height, []).append(tx)  # type: ignore[arg-type]
         result_blocks = []
         for b in blocks:
             block_data = {
