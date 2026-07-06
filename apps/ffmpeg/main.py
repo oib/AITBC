@@ -18,6 +18,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.health_checks import create_simple_health_response  # noqa: E402
 
 configure_logging(level="INFO", service_name="ffmpeg", to_file=True)
 logger = get_logger(__name__)
@@ -49,20 +50,20 @@ async def health():
     """Health check endpoint"""
     try:
         result = subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True, timeout=5)
-        return {
-            "status": "ok",
-            "service": "ffmpeg",
-            "gpu_device": _device,
-            "hw_accel": _hw_accel,
-            "ready": result.returncode == 0,
-        }
+        return create_simple_health_response(
+            "ffmpeg",
+            status="ok",
+            gpu_device=_device,
+            hw_accel=_hw_accel,
+            ready=result.returncode == 0,
+        )
     except Exception as e:
-        return {
-            "status": "error",
-            "service": "ffmpeg",
-            "error": str(e),
-            "ready": False,
-        }
+        return create_simple_health_response(
+            "ffmpeg",
+            status="error",
+            error=str(e),
+            ready=False,
+        )
 
 
 @app.get("/capabilities")

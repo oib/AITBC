@@ -10,6 +10,7 @@ from aitbc.middleware import setup_cors
 from fastapi.responses import JSONResponse
 
 from aitbc.aitbc_logging import configure_logging, get_logger
+from aitbc.health_checks import create_simple_health_response
 from aitbc.async_tasks import create_task_with_logging
 from aitbc.network import SharedHttpClient
 
@@ -92,7 +93,7 @@ setup_cors(app, allow_origins=settings.cors_origins)
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint"""
-    return {"status": "healthy", "service": "edge-api", "version": "0.1.0"}
+    return create_simple_health_response("edge-api", version="0.1.0")
 
 
 @app.get("/ready")
