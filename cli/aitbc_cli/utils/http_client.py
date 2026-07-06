@@ -1,76 +1,14 @@
-"""Simple HTTP client wrapper for AITBC CLI (replaces missing aitbc package)"""
+"""HTTP client wrapper for AITBC CLI.
 
-from typing import Any
+Re-exports the canonical ``AITBCHTTPClient`` and ``NetworkError`` from
+``aitbc.network`` (consolidated in v0.10.4).  Keeps CLI-specific
+``get_logger`` and ``KEYSTORE_DIR`` for backward compatibility with
+the ~50 CLI command files that import from this module.
+"""
 
-import httpx
-
-
-class NetworkError(Exception):
-    """Network error for AITBC operations"""
-
-    pass
-
-
-class AITBCHTTPClient:
-    """Simple HTTP client for AITBC blockchain RPC"""
-
-    def __init__(self, base_url: str = "http://localhost:8202", timeout: int = 30):
-        self.base_url = base_url.rstrip("/")
-        self.timeout = timeout
-        self.client = httpx.Client(timeout=timeout, follow_redirects=True)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-
-    def __del__(self):
-        if hasattr(self, "client") and self.client is not None:
-            import warnings
-
-            warnings.warn(f"{self.__class__.__name__} was not properly closed", stacklevel=2)
-
-    def get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        """GET request to blockchain RPC"""
-        try:
-            response = self.client.get(f"{self.base_url}{path}", params=params)
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPError as e:
-            raise NetworkError(f"HTTP error: {e}") from e
-
-    def post(
-        self,
-        path: str,
-        json: dict[str, Any] | None = None,
-        json_data: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """POST request to blockchain RPC.
-
-        Accepts the request body via either ``json`` (preferred, matches the
-        httpx/aitbc.network convention used across the CLI commands) or the
-        legacy ``json_data`` alias.
-        """
-        payload = json if json is not None else json_data
-        try:
-            response = self.client.post(f"{self.base_url}{path}", json=payload)
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPError as e:
-            raise NetworkError(f"HTTP error: {e}") from e
-
-    def close(self):
-        """Close the HTTP client"""
-        self.client.close()
-
-
-def get_logger(name: str):
-    """Simple logger wrapper"""
-    import logging
-
-    return logging.getLogger(name)
-
+from aitbc.aitbc_logging import get_logger  # noqa: F401 — re-export
+from aitbc.exceptions import NetworkError  # noqa: F401 — re-export
+from aitbc.network.client import AITBCHTTPClient  # noqa: F401 — re-export
 
 # Constants
 KEYSTORE_DIR = "/var/lib/aitbc/keystore"

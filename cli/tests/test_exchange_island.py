@@ -20,7 +20,7 @@ def mock_credentials_file(tmp_path):
         "credentials": {
             "genesis_block_hash": "0x1234567890abcdef",
             "genesis_address": "0xabcdef1234567890",
-            "rpc_endpoint": "http://localhost:8006",
+            "rpc_endpoint": "http://localhost:8202",
             "p2p_port": 8001,
         },
         "members": [],

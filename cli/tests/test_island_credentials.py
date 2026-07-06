@@ -29,7 +29,7 @@ def mock_credentials_file(tmp_path):
         "credentials": {
             "genesis_block_hash": "0x1234567890abcdef",
             "genesis_address": "0xabcdef1234567890",
-            "rpc_endpoint": "http://localhost:8006",
+            "rpc_endpoint": "http://localhost:8202",
             "p2p_port": 8001,
         },
         "joined_at": "2024-01-01T00:00:00",
@@ -113,7 +113,7 @@ def test_get_rpc_endpoint(mock_credentials_file):
     """Test getting RPC endpoint from credentials"""
     rpc_endpoint = get_rpc_endpoint()
 
-    assert rpc_endpoint == "http://localhost:8006"
+    assert rpc_endpoint == "http://localhost:8202"
 
 
 def test_get_chain_id(mock_credentials_file):
