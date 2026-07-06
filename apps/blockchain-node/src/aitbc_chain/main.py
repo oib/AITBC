@@ -497,8 +497,8 @@ class BlockchainNode:
                     for chain_id in chains:
                         try:
                             sync = ChainSync(
-                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),
-                                chain_id=chain_id,  # type: ignore[misc,arg-type]
+                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),  # type: ignore[misc,arg-type]
+                                chain_id=chain_id,
                             )
                             result = await sync.sync_state_from(source_url)
                             if result.get("synced", 0) > 0:
@@ -518,8 +518,8 @@ class BlockchainNode:
                     for chain_id in chains:
                         try:
                             sync = ChainSync(
-                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),
-                                chain_id=chain_id,  # type: ignore[misc,arg-type]
+                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),  # type: ignore[misc,arg-type]
+                                chain_id=chain_id,
                             )
                             local_status = sync.get_sync_status()
                             local_height = local_status.get("head_height", 0)
@@ -555,8 +555,8 @@ class BlockchainNode:
                     for chain_id in chains:
                         try:
                             sync = ChainSync(
-                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),
-                                chain_id=chain_id,  # type: ignore[misc,arg-type]
+                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),  # type: ignore[misc,arg-type]
+                                chain_id=chain_id,
                             )
                             imported = await sync.bulk_import_from(source_url)
                             if imported > 0:
