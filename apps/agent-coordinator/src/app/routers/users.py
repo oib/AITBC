@@ -3,10 +3,8 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.auth import Permission, Role, get_current_user, permission_manager, require_role
 from aitbc.rate_limiting import rate_limit
-
-from ..auth.middleware import get_current_user, require_role
-from ..auth.permissions import Permission, Role, permission_manager
 
 logger = get_logger(__name__)
 router = APIRouter()

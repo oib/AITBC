@@ -35,9 +35,9 @@ def _authenticate_websocket(websocket: WebSocket, token: str | None) -> bool:
 
     # JWT validation via auth subsystem
     try:
-        from ..auth.jwt_handler import jwt_handler
+        from aitbc.auth import get_jwt_handler
 
-        validation = jwt_handler.validate_token(token)
+        validation = get_jwt_handler().validate_token(token)
         if validation.get("valid"):
             return True
     except Exception as e:
