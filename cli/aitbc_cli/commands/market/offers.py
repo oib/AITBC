@@ -98,9 +98,9 @@ def list_offers(ctx, provider: str | None, status: str | None, service_type: str
             result = http_client.get("/rpc/transactions", params={"limit": 500})
             if result and not isinstance(result, dict):
                 # Filter by payload action since hub doesn't store type field
-                tx_list = [
+                tx_list = [  # type: ignore[unreachable]
                     tx
-                    for tx in result  # type: ignore[unreachable]
+                    for tx in result
                     if isinstance(tx.get("payload"), dict)
                     and tx["payload"].get("action") in ("offer", "bid", "cancel", "accept", "software_offer")
                 ]
