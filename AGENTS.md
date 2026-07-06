@@ -2,9 +2,9 @@
 
 This file is the source of truth for project conventions, verification commands, and per-agent task plans. Agent-specific plans live at `docs/releases/<version>/AGENTS.md`; this root file holds the stable conventions and the **current** in-flight plan.
 
-**Current in-flight plan**: [v0.10.9](docs/releases/v0.10.9/AGENTS.md) — Dead Code Elimination & Status Drift Cleanup (delete ~2,500 lines of dead test-only modules from aitbc/, fix documentation/status drift, clean up stale port references, migrate auth shims, remove deprecated constants) — 🚧 in progress
+**Current in-flight plan**: [v0.10.6](docs/releases/v0.10.6/AGENTS.md) — Dead Code Elimination, Decimal Migration Completion & Duplicate Consolidation (delete ~1,570 lines of never-integrated infrastructure modules, complete Decimal migration for remaining float-based financial fields, fix blocking I/O and N+1 queries, consolidate remaining duplicates) — 🚧 in progress
 
-**Previous**: [v0.10.8](docs/releases/v0.10.8/AGENTS.md) — Config Consolidation & Dead Retry Helper Cleanup (resolve config.py vs hierarchical_config.py package shadowing, consolidate simple health endpoints, delete 3 unused retry helpers) — ✅ complete
+**Previous**: [v0.10.9](docs/releases/v0.10.9/change.log) — Dead Code Elimination & Status Drift Cleanup (delete ~2,500 lines of dead test-only modules from aitbc/, fix documentation/status drift, clean up stale port references, migrate auth shims, remove deprecated constants) — ✅ complete
 
 ## Project Layout
 
@@ -131,7 +131,7 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.10.6** — Dead Code Elimination, Decimal Migration Completion & Duplicate Consolidation (delete 7 dead `aitbc/` modules ~1,570 lines, complete Decimal migration for wallet/trading/marketplace/pool-hub, fix blocking I/O + mempool N+1 + missing indexes, consolidate circuit breakers/address validation/config classes/health endpoints, sweep stale port 8006): <ref_file file="/opt/aitbc/docs/releases/v0.10.6/change.log" /> 🚧 in progress
 - **v0.10.7** — Dead Code Elimination (coordinator-api + agent-management) & Duplicate Consolidation (delete ~5,800 lines of dead code, deprecate agent-management, consolidate blockchain RPC clients, CLI error handling, DB init, config classes, security utils, health endpoints, CORS setup): <ref_file file="/opt/aitbc/docs/releases/v0.10.7/change.log" /> ✅ complete
 - **v0.10.8** — Config Consolidation & Dead Retry Helper Cleanup (resolve config.py vs hierarchical_config.py package shadowing, consolidate simple health endpoints, delete 3 unused retry helpers): <ref_file file="/opt/aitbc/docs/releases/v0.10.8/change.log" /> ✅ complete
-- **v0.10.9** — Dead Code Elimination & Status Drift Cleanup (delete ~2,500 lines of dead test-only modules from aitbc/, fix documentation/status drift, clean up stale port references, migrate auth shims, remove deprecated constants): <ref_file file="/opt/aitbc/docs/releases/v0.10.9/change.log" /> 🚧 in progress
+- **v0.10.9** — Dead Code Elimination & Status Drift Cleanup (delete ~2,500 lines of dead test-only modules from aitbc/, fix documentation/status drift, clean up stale port references, migrate auth shims, remove deprecated constants): <ref_file file="/opt/aitbc/docs/releases/v0.10.9/change.log" /> ✅ complete
 
 ### Post-v1 Vision (not fit until after v1.0.0)
 - **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
