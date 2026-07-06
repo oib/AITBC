@@ -1,8 +1,9 @@
-"""Governance service configuration (v0.7.3 §B1).
+"""Governance service configuration (v0.7.3 §B1, v0.10.7 §B5).
 
-Provides a ``pydantic_settings.BaseSettings`` subclass with blockchain
-integration fields (RPC URL, chain_id) and governance voting parameters
-(voting period, quorum, approval threshold, timelock, snapshot delay).
+Subclasses ``aitbc_shared.core.config.ServiceSettings`` to inherit common
+service fields (service_name, app_env, debug, log_level, database, api_prefix,
+enable_metrics, enable_health_check) while adding blockchain integration fields
+and governance voting parameters.
 
 All fields are env-var overridable with the ``GOVERNANCE_`` prefix.
 """
@@ -12,16 +13,19 @@ from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from functools import lru_cache
 
+from aitbc_shared.core.config import ServiceSettings
+
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
 
 
-class Settings(BaseSettings):
+class Settings(ServiceSettings):
     """Configuration for the AITBC Governance Service."""
 
-    model_config = SettingsConfigDict(env_prefix="governance_", env_file=".env", case_sensitive=False)
+    model_config = SettingsConfigDict(env_prefix="governance_", env_file=".env", case_sensitive=False, extra="allow")
 
-    # Service bind
+    # Service bind (kept for backward compat with GOVERNANCE_BIND_HOST/PORT env vars;
+    # ServiceSettings also provides app_host/app_port)
     bind_host: str = Field(default="0.0.0.0")
     bind_port: int = Field(default=8105)
 

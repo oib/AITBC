@@ -1,91 +1,48 @@
-"""Blockchain RPC client for the trading service (v0.8.0 §B3).
+"""Blockchain RPC client for the trading service (v0.8.0 §B3, v0.10.7 §B2).
 
-Provides an async HTTP client wrapping the blockchain node's RPC API
-for chain health queries, block height, and account balance lookups.
-Used by the chain discovery service (B4) to monitor registered chains.
+Thin wrapper around the shared ``aitbc.blockchain.rpc_client.BlockchainClient``
+that adds resilient error handling for chain discovery monitoring (returns 0
+on transient failures instead of raising).
 """
 
 from __future__ import annotations
-from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 import logging
-from typing import Any, cast
+from typing import Any
 
-import httpx
+from aitbc.blockchain.rpc_client import BlockchainClient as BaseBlockchainClient
 
 logger = logging.getLogger(__name__)
 
 
-class BlockchainClient:
+class BlockchainClient(BaseBlockchainClient):
     """Async blockchain RPC client for trading service operations.
 
-    Uses a shared ``httpx.AsyncClient`` instance to avoid per-request
-    TCP+TLS handshake overhead. The client is lazily created on first
-    use and must be closed via ``aclose()`` during service shutdown.
+    Extends the shared ``aitbc.blockchain.rpc_client.BlockchainClient`` with
+    resilient error handling suitable for chain discovery monitoring:
+    ``get_block_height`` and ``get_chain_health`` return safe defaults
+    (0 / empty) on transient failures instead of raising.
     """
 
-    def __init__(self, rpc_url: str = BLOCKCHAIN_RPC_URL, timeout: float = 10.0) -> None:
-        self._rpc_url = rpc_url.rstrip("/")
-        self._timeout = timeout
-        self._client: httpx.AsyncClient | None = None
-
-    def _ensure_client(self) -> httpx.AsyncClient:
-        """Lazily create the shared HTTP client."""
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=self._timeout)
-        return self._client
-
-    async def aclose(self) -> None:
-        """Close the shared HTTP client. Call during service shutdown."""
-        if self._client is not None and not self._client.is_closed:
-            await self._client.aclose()
-            self._client = None
-
-    @property
-    def rpc_url(self) -> str:
-        return self._rpc_url
-
-    async def get_chain_health(self, chain_id: str | None = None) -> dict[str, Any]:
-        """Get chain health metrics.
-
-        Calls GET /rpc/info which returns comprehensive blockchain info.
-        """
-        params: dict[str, Any] = {}
-        if chain_id:
-            params["chain_id"] = chain_id
-        client = self._ensure_client()
-        resp = await client.get(f"{self._rpc_url}/rpc/info", params=params)
-        resp.raise_for_status()
-        return cast(dict[str, Any], resp.json())
-
     async def get_block_height(self, chain_id: str | None = None) -> int:
-        """Get the current block height for a chain."""
-        params: dict[str, Any] = {}
-        if chain_id:
-            params["chain_id"] = chain_id
+        """Get the current block height for a chain.
+
+        Returns 0 on transient failures (used by chain discovery which
+        must not crash when a chain is temporarily unreachable).
+        """
         try:
-            client = self._ensure_client()
-            resp = await client.get(f"{self._rpc_url}/rpc/height", params=params)
-            resp.raise_for_status()
-            data = cast(dict[str, Any], resp.json())
-            return int(data.get("height", 0))
+            return await super().get_block_height(chain_id)
         except Exception as e:
             logger.warning("Failed to get block height: %s", e)
             return 0
 
-    async def get_account_balance(self, address: str, chain_id: str | None = None) -> int:
-        """Get the on-chain balance for an address."""
-        params: dict[str, Any] = {}
-        if chain_id:
-            params["chain_id"] = chain_id
+    async def get_chain_health(self, chain_id: str | None = None) -> dict[str, Any]:
+        """Get chain health metrics.
+
+        Returns an empty dict on transient failures.
+        """
         try:
-            client = self._ensure_client()
-            resp = await client.get(f"{self._rpc_url}/rpc/account/{address}", params=params)
-            if resp.status_code == 404:
-                return 0
-            resp.raise_for_status()
-            data = cast(dict[str, Any], resp.json())
-            return int(data.get("balance", 0))
+            return await super().get_chain_health(chain_id)
         except Exception as e:
-            logger.warning("Failed to get balance for %s: %s", address, e)
-            return 0
+            logger.warning("Failed to get chain health: %s", e)
+            return {}

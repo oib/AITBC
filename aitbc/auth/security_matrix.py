@@ -97,8 +97,6 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/routers/marketplace_enhanced": AuthLevel.ANY,
     "/routers/marketplace_enhanced_simple": AuthLevel.ANY,
     "/routers/marketplace_enhanced_health": AuthLevel.NONE,
-    # Agent management (admin only)
-    "/routers/agent-management": AuthLevel.ADMIN,
 }
 
 

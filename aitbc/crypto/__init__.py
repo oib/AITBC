@@ -23,7 +23,6 @@ from .crypto import (
     verify_signature,
 )
 from .hashing import generate_hmac, verify_hmac
-from .password import hash_password, verify_password
 from .payment_escrow import EscrowEntry, EscrowStatus, PaymentEscrow
 from .secrets import (
     SecretManager,
@@ -73,8 +72,6 @@ __all__ = [
     # Token functions
     "generate_token",
     "get_secret_manager",
-    # Password functions
-    "hash_password",
     "keccak256_hash",
     "recover_signer",
     "sha256_hash",
@@ -83,6 +80,5 @@ __all__ = [
     "validate_ethereum_address",
     "validate_token_format",
     "verify_hmac",
-    "verify_password",
     "verify_signature",
 ]

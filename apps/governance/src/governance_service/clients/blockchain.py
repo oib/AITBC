@@ -1,13 +1,9 @@
-"""Blockchain RPC client for the governance service (v0.7.3 §B2).
+"""Blockchain RPC client for the governance service (v0.7.3 §B2, v0.10.7 §B2).
 
-Provides an async HTTP client wrapping the blockchain node's RPC API
-for governance operations:
-- Query account balance (GET /rpc/account/{address}) — for voting power snapshots
-- Submit transactions (POST /rpc/transaction) — for GOVERNANCE_* txs
-- Get block height (GET /rpc/height) — for snapshot block determination
-
-Uses httpx.AsyncClient directly, following the same pattern as
-``aitbc.marketplace.blockchain_rpc.BlockchainRPCClient``.
+Extends the shared ``aitbc.blockchain.rpc_client.BlockchainClient`` with
+governance-specific operations:
+- Voting power queries (alias for get_balance)
+- Governance transaction signing and submission (secp256k1 / Ethereum-style)
 
 Governance transaction signing uses secp256k1 (Ethereum-style) over the
 canonical JSON of the signed fields, matching the blockchain node's
@@ -15,13 +11,12 @@ verifier (see ``aitbc.crypto.transaction_service``).
 """
 
 from __future__ import annotations
-from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 import json
 import logging
-from typing import Any, cast
+from typing import Any
 
-import httpx
+from aitbc.blockchain.rpc_client import BlockchainClient as BaseBlockchainClient
 
 logger = logging.getLogger(__name__)
 
@@ -39,65 +34,12 @@ def _canonical_signing_message(tx: dict[str, Any]) -> bytes:
     return json.dumps(signed, sort_keys=True, separators=(",", ":")).encode()
 
 
-class BlockchainClient:
+class BlockchainClient(BaseBlockchainClient):
     """Async blockchain RPC client for governance operations.
 
-    Wraps httpx.AsyncClient with chain_id-aware methods for balance
-    queries, transaction submission, and block height queries.
+    Extends the shared ``BlockchainClient`` with governance transaction
+    signing (secp256k1) and voting power queries.
     """
-
-    def __init__(self, rpc_url: str = BLOCKCHAIN_RPC_URL, timeout: float = 10.0) -> None:
-        self._rpc_url = rpc_url.rstrip("/")
-        self._timeout = timeout
-
-    @property
-    def rpc_url(self) -> str:
-        """Base RPC URL (no trailing slash)."""
-        return self._rpc_url
-
-    async def get_balance(self, address: str, chain_id: str | None = None) -> float:
-        """Get the on-chain balance for an address.
-
-        Calls GET /rpc/account/{address}. Returns 0.0 if the account
-        is not found (new accounts have zero balance).
-        """
-        params: dict[str, Any] = {}
-        if chain_id:
-            params["chain_id"] = chain_id
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.get(f"{self._rpc_url}/rpc/account/{address}", params=params)
-            if resp.status_code == 404:
-                return 0.0
-            resp.raise_for_status()
-            data = cast(dict[str, Any], resp.json())
-        return float(data.get("balance", 0.0))
-
-    async def get_block_height(self, chain_id: str | None = None) -> int:
-        """Get the current block height.
-
-        Calls GET /rpc/height. Returns 0 if the chain is empty or unreachable.
-        """
-        params: dict[str, Any] = {}
-        if chain_id:
-            params["chain_id"] = chain_id
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.get(f"{self._rpc_url}/rpc/height", params=params)
-            resp.raise_for_status()
-            data = cast(dict[str, Any], resp.json())
-        return int(data.get("height", 0))
-
-    async def submit_transaction(self, tx_data: dict[str, Any]) -> dict[str, Any]:
-        """Submit a transaction to the blockchain.
-
-        The tx_data must include ``chain_id``. Calls POST /rpc/transaction.
-        Returns the blockchain response dict (includes tx_hash, block_height, status).
-        """
-        if not tx_data.get("chain_id"):
-            raise ValueError("tx_data must include 'chain_id'")
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(f"{self._rpc_url}/rpc/transaction", json=tx_data)
-            resp.raise_for_status()
-            return cast(dict[str, Any], resp.json())
 
     async def get_voting_power(self, address: str, chain_id: str | None = None) -> float:
         """Get on-chain voting power (balance) for an address.
@@ -164,20 +106,3 @@ class BlockchainClient:
         tx["signature"] = signature.to_bytes().hex()
 
         return await self.submit_transaction(tx)
-
-    async def _get_nonce(self, address: str, chain_id: str | None = None) -> int:
-        """Get the current nonce for an address."""
-        params: dict[str, Any] = {}
-        if chain_id:
-            params["chain_id"] = chain_id
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                resp = await client.get(f"{self._rpc_url}/rpc/account/{address}", params=params)
-                if resp.status_code == 404:
-                    return 0
-                resp.raise_for_status()
-                data = cast(dict[str, Any], resp.json())
-            return int(data.get("nonce", 0))
-        except Exception as e:
-            logger.warning("Failed to get nonce for %s: %s — defaulting to 0", address, e)
-            return 0
