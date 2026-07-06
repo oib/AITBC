@@ -21,9 +21,11 @@ from ...cross_chain.services.multi_chain_transaction_manager import ChainTransac
 # this integration service depends on its SQLModel-based API (initialize_bridge) which
 # BridgeClientAdapter does not yet provide. Migrate callers when feasible.
 from ...cross_chain.services.cross_chain.bridge_enhanced import (
+    CrossChainBridgeService,
+)
+from ...cross_chain.services.cross_chain.bridge_types import (
     BridgeProtocol,
     BridgeSecurityLevel,
-    CrossChainBridgeService,
 )
 from ..domain.global_marketplace import GlobalMarketplaceOffer
 from ..services.global_marketplace import GlobalMarketplaceService, RegionManager
