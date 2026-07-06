@@ -175,23 +175,6 @@ class NodeInfo(BaseModel):
     network_out_mb: float = Field(default=0.0, description="Network out MB/s")
 
 
-class GenesisAccount(BaseModel):
-    """Genesis account configuration"""
-
-    address: str = Field(..., description="Account address")
-    balance: str = Field(..., description="Account balance in wei")
-    type: str = Field(default="regular", description="Account type")
-
-
-class GenesisContract(BaseModel):
-    """Genesis contract configuration"""
-
-    name: str = Field(..., description="Contract name")
-    address: str = Field(..., description="Contract address")
-    bytecode: str = Field(..., description="Contract bytecode")
-    abi: dict[str, Any] = Field(..., description="Contract ABI")
-
-
 class GenesisBlock(BaseModel):
     """Genesis block configuration"""
 

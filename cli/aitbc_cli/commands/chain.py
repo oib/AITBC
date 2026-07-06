@@ -78,7 +78,9 @@ def list(ctx, chain_type, show_private, sort, island, node_url):
         # Get chains
         chains = asyncio.run(
             chain_manager.list_chains(
-                chain_type=ChainType(chain_type) if chain_type != "all" else None, include_private=show_private, sort_by=sort
+                chain_type=ChainType(chain_type) if chain_type != "all" else None,  # type: ignore[arg-type]
+                include_private=show_private,
+                sort_by=sort,
             )
         )
 
@@ -254,7 +256,7 @@ def info(ctx, chain_id, detailed, metrics):
 def create(ctx, config_file, node, dry_run):
     """Create a new chain from configuration file"""
     try:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         from ..models.chain import ChainConfig
 
@@ -282,7 +284,7 @@ def create(ctx, config_file, node, dry_run):
             return
 
         # Create chain
-        chain_id = chain_manager.create_chain(chain_config, node)
+        chain_id = chain_manager.create_chain(chain_config, node)  # type: ignore[arg-type]
 
         success("Chain created successfully!")
         result = {
@@ -409,7 +411,9 @@ def migrate(ctx, chain_id, from_node, to_node, dry_run, verify):
         config = load_multichain_config()
         chain_manager = ChainManager(config)
 
-        migration_result = chain_manager.migrate_chain(chain_id, from_node, to_node, dry_run)
+        import asyncio
+
+        migration_result = asyncio.run(chain_manager.migrate_chain(chain_id, from_node, to_node, dry_run))
 
         if dry_run:
             plan_info = {
@@ -564,7 +568,7 @@ def monitor(ctx, chain_id, realtime, export, interval):
                         live.update(generate_monitor_layout())
                         time.sleep(interval)
                 except KeyboardInterrupt:
-                    console.click.echo("\n[yellow]Monitoring stopped by user[/yellow]")
+                    console.print("\n[yellow]Monitoring stopped by user[/yellow]")
         else:
             # Single snapshot
             import asyncio

@@ -6,7 +6,7 @@ import json
 import os
 
 import click
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from ..config import get_config
 from ..utils import error, success

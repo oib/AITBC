@@ -4,6 +4,7 @@ import json
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -12,6 +13,7 @@ from ...utils import error, output, success
 from ...utils.http_client import AITBCHTTPClient
 from aitbc.utils import ait_to_seconds, format_ait
 from . import _get_wallet_password, _load_wallet, _save_wallet, get_wallet_client, wallet
+import yaml  # type: ignore[import-untyped]
 
 
 @wallet.command()
@@ -66,7 +68,7 @@ def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
         password = _get_wallet_password(name)
 
     # Save wallet
-    _save_wallet(wallet_path, wallet_data, password)
+    _save_wallet(wallet_path, wallet_data, password if password else None)
 
     success(f"Wallet '{name}' created successfully")
     output(
@@ -112,8 +114,6 @@ def list(ctx):
 
             output(json.dumps(wallets, indent=2))
         elif output_format == "yaml":
-            import yaml
-
             output(yaml.dump(wallets, default_flow_style=False))
         else:
             # Table format
@@ -139,11 +139,9 @@ def switch(ctx, name: str):
 
     # Update config
     config_file = Path.home() / ".aitbc" / "config.yaml"
-    config = {}
+    config: dict[str, Any] = {}
 
     if config_file.exists():
-        import yaml
-
         with open(config_file) as f:
             config = yaml.safe_load(f) or {}
 
@@ -426,15 +424,15 @@ def earn(ctx, amount: float, job_id: str, desc: str | None):
     password = None
     if wallet_data.get("encrypted"):
         password = _get_wallet_password(wallet_name)
-    _save_wallet(wallet_path, wallet_data, password)
+    _save_wallet(wallet_path, wallet_data, password if password else None)
 
     success(f"Earnings added: {amount} AITBC")
     output(
         {
             "wallet": wallet_name,
-            "amount": format_ait(amount),
+            "amount": format_ait(int(amount)),
             "job_id": job_id,
-            "new_balance": format_ait(wallet_data["balance"]),
+            "new_balance": format_ait(int(wallet_data["balance"])),
         },
         ctx.obj.get("output_format", "table"),
     )
@@ -476,15 +474,15 @@ def spend(ctx, amount: float, description: str):
     password = None
     if wallet_data.get("encrypted"):
         password = _get_wallet_password(wallet_name)
-    _save_wallet(wallet_path, wallet_data, password)
+    _save_wallet(wallet_path, wallet_data, password if password else None)
 
     success(f"Spent: {amount} AITBC")
     output(
         {
             "wallet": wallet_name,
-            "amount": format_ait(amount),
+            "amount": format_ait(int(amount)),
             "description": description,
-            "new_balance": format_ait(wallet_data["balance"]),
+            "new_balance": format_ait(int(wallet_data["balance"])),
         },
         ctx.obj.get("output_format", "table"),
     )

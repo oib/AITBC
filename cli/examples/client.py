@@ -31,7 +31,7 @@ class AITBCClient:
 
             if response.status_code == 201:
                 job = response.json()
-                return job["job_id"]
+                return job["job_id"]  # type: ignore[no-any-return]
             else:
                 print(f"❌ Error submitting job: {response.status_code}")
                 print(f"   Response: {response.text}")
@@ -48,7 +48,7 @@ class AITBCClient:
 
             if response.status_code == 200:
                 transactions = response.json()
-                return transactions.get("items", [])[:limit]
+                return transactions.get("items", [])[:limit]  # type: ignore[no-any-return]  # type: ignore[no-any-return]
             else:
                 print(f"❌ Error listing transactions: {response.status_code}")
                 return None
@@ -58,7 +58,7 @@ class AITBCClient:
 
     def list_receipts(self, limit: int = 10, job_id: str | None = None) -> list | None:
         """List recent receipts"""
-        params = {"limit": limit}
+        params: dict[str, int | str] = {"limit": limit}
         if job_id:
             params["job_id"] = job_id
         try:
@@ -66,7 +66,7 @@ class AITBCClient:
 
             if response.status_code == 200:
                 receipts = response.json()
-                return receipts.get("items", [])[:limit]
+                return receipts.get("items", [])[:limit]  # type: ignore[no-any-return]  # type: ignore[no-any-return]
             else:
                 print(f"❌ Error listing receipts: {response.status_code}")
                 return None
@@ -80,7 +80,7 @@ class AITBCClient:
             response = self.client.get(f"{self.coordinator_url}/v1/jobs/{job_id}", headers={"X-Api-Key": self.api_key})
 
             if response.status_code == 200:
-                return response.json()
+                return response.json()  # type: ignore[no-any-return]
             else:
                 print(f"❌ Error getting status: {response.status_code}")
                 return None
@@ -96,7 +96,7 @@ class AITBCClient:
 
             if response.status_code == 200:
                 blocks = response.json()
-                return blocks["items"][:limit]
+                return blocks["items"][:limit]  # type: ignore[no-any-return]
             else:
                 print(f"❌ Error listing blocks: {response.status_code}")
                 return None
@@ -224,7 +224,7 @@ def main():
         if not receipts:
             print("   No receipts found")
         else:
-            status_counts = {}
+            status_counts: dict[str, int] = {}
             total_units = 0.0
             unit_type = None
             for receipt in receipts:

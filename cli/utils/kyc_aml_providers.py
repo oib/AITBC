@@ -51,7 +51,7 @@ class KYCRequest:
     user_id: str
     provider: KYCProvider
     customer_data: dict[str, Any]
-    documents: list[dict[str, Any]] = None
+    documents: list[dict[str, Any]] | None = None
     verification_level: str = "standard"
 
 

@@ -30,7 +30,7 @@ class AITBCHTTPClient:
         try:
             response = self.client.get(f"{self.base_url}{path}", params=params, timeout=self.timeout)
             response.raise_for_status()
-            return response.json()
+            return response.json()  # type: ignore[no-any-return]
         except requests.RequestException as e:
             raise NetworkError(f"HTTP error: {e}") from e
 
@@ -39,7 +39,7 @@ class AITBCHTTPClient:
         try:
             response = self.client.post(f"{self.base_url}{path}", json=json_data, timeout=self.timeout)
             response.raise_for_status()
-            return response.json()
+            return response.json()  # type: ignore[no-any-return]
         except requests.RequestException as e:
             raise NetworkError(f"HTTP error: {e}") from e
 
