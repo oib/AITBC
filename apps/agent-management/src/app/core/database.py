@@ -1,4 +1,10 @@
-"""Shared database utilities for AITBC services."""
+"""Shared database utilities for AITBC services.
+
+Delegates engine creation to ``aitbc_shared`` where possible.
+Keeps a local ``get_sessionmaker`` that uses ``SQLModelSession``
+so that ``.exec()`` is available on sessions (shared-core's version
+uses the default SQLAlchemy ``Session`` class).
+"""
 
 from collections.abc import Generator
 
