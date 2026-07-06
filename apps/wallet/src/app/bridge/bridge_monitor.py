@@ -3,12 +3,11 @@ ETH-AIT Bridge Monitor
 Polls Ethereum RPC for incoming ETH transactions to the bridge wallet address.
 """
 
+import asyncio
 import os
-import threading
-import time
 from typing import Any
 
-import requests
+from aitbc.network import SharedHttpClient
 
 from .bridge_db import get_deposit_by_tx_hash, init_db, insert_deposit
 from .price_api import calculate_ait_amount
@@ -20,7 +19,7 @@ POLL_INTERVAL = int(os.getenv("BRIDGE_POLL_INTERVAL", "30"))  # seconds
 BRIDGE_ENABLED = os.getenv("BRIDGE_ENABLED", "false").lower() == "true"
 
 
-def get_eth_transactions(address: str) -> list[dict[str, Any]]:
+async def get_eth_transactions(address: str) -> list[dict[str, Any]]:
     """
     Fetch recent transactions for an Ethereum address using RPC.
     Returns list of transaction objects.
@@ -32,7 +31,7 @@ def get_eth_transactions(address: str) -> list[dict[str, Any]]:
 
         payload = {"jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": ["latest", False], "id": 1}
 
-        response = requests.post(ETH_RPC_URL, json=payload, timeout=10)
+        response = await SharedHttpClient.post(ETH_RPC_URL, json=payload, timeout=10.0)
         response.raise_for_status()
 
         block_data = response.json()
@@ -53,7 +52,7 @@ def get_eth_transactions(address: str) -> list[dict[str, Any]]:
         return []
 
 
-def process_transaction(tx: dict[str, Any]) -> bool:
+async def process_transaction(tx: dict[str, Any]) -> bool:
     """
     Process a single ETH transaction and record it as a deposit.
     Returns True if deposit was recorded, False if already exists.
@@ -75,7 +74,7 @@ def process_transaction(tx: dict[str, Any]) -> bool:
         return False
 
     # Calculate AIT amount
-    amount_ait = calculate_ait_amount(amount_eth)
+    amount_ait = await calculate_ait_amount(amount_eth)
     if amount_ait is None:
         print(f"Failed to calculate AIT amount for tx {tx_hash}")
         return False
@@ -93,7 +92,7 @@ def process_transaction(tx: dict[str, Any]) -> bool:
         return False
 
 
-def monitor_loop() -> None:
+async def monitor_loop() -> None:
     """
     Main monitoring loop that polls for new transactions.
     """
@@ -112,31 +111,43 @@ def monitor_loop() -> None:
 
     while True:
         try:
-            transactions = get_eth_transactions(ETH_WALLET_ADDRESS)
+            transactions = await get_eth_transactions(ETH_WALLET_ADDRESS)
 
             for tx in transactions:
-                process_transaction(tx)
+                await process_transaction(tx)
 
         except Exception as e:
             print(f"Error in monitor loop: {e}")
 
-        time.sleep(POLL_INTERVAL)
+        await asyncio.sleep(POLL_INTERVAL)
 
 
-def start_monitoring() -> threading.Thread | None:
+def start_monitoring() -> asyncio.Task[None] | None:
     """
-    Start the bridge monitoring in a background thread.
+    Start the bridge monitoring as an asyncio task.
+
+    Returns the task if bridge monitoring is enabled, None otherwise.
+    The caller is responsible for running an event loop.
     """
     if not BRIDGE_ENABLED:
         return None
 
-    monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
-    monitor_thread.start()
-    return monitor_thread
+    try:
+        task = asyncio.create_task(monitor_loop())
+        return task
+    except RuntimeError:
+        # No event loop running — fall back to running in a thread
+        import threading
+
+        def _run_sync() -> None:
+            asyncio.run(monitor_loop())
+
+        monitor_thread = threading.Thread(target=_run_sync, daemon=True)
+        monitor_thread.start()
+        return None
 
 
 if __name__ == "__main__":
     # For testing
     print("Testing bridge monitor...")
-    start_monitoring()
-    time.sleep(60)  # Run for 1 minute
+    asyncio.run(monitor_loop())
