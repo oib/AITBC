@@ -286,51 +286,34 @@ class TestSha256Hash:
 
 
 class TestValidateEthereumAddress:
-    """Test validate_ethereum_address function"""
+    """Test validate_ethereum_address function (delegates to aitbc.utils.validation.validate_address)"""
 
-    def test_validate_address_missing_dependency(self):
-        with patch.dict("sys.modules", {"eth_utils": None}):
-            with pytest.raises(ImportError, match="eth-utils is required"):
-                crypto.validate_ethereum_address("0xABC")
+    def test_validate_address_valid_checksum(self):
+        # A valid EIP-55 checksum address
+        result = crypto.validate_ethereum_address("0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed")
+        assert result is True
 
-    def test_validate_address_valid(self):
-        with patch.dict("sys.modules", {"eth_utils": Mock()}):
-            from eth_utils import is_address, is_checksum_address
-
-            is_address.return_value = True
-            is_checksum_address.return_value = True
-
-            result = crypto.validate_ethereum_address("0xABC")
-            assert result is True
+    def test_validate_address_valid_lowercase_not_checksum(self):
+        # All-lowercase 0x address is not checksummed — should fail checksum check
+        result = crypto.validate_ethereum_address("0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed")
+        assert result is False
 
     def test_validate_address_invalid_format(self):
-        with patch.dict("sys.modules", {"eth_utils": Mock()}):
-            from eth_utils import is_address, is_checksum_address
+        result = crypto.validate_ethereum_address("invalid")
+        assert result is False
 
-            is_address.return_value = False
-            is_checksum_address.return_value = False
+    def test_validate_address_too_short(self):
+        result = crypto.validate_ethereum_address("0xABC")
+        assert result is False
 
-            result = crypto.validate_ethereum_address("invalid")
-            assert result is False
+    def test_validate_address_empty(self):
+        result = crypto.validate_ethereum_address("")
+        assert result is False
 
-    def test_validate_address_invalid_checksum(self):
-        with patch.dict("sys.modules", {"eth_utils": Mock()}):
-            from eth_utils import is_address, is_checksum_address
-
-            is_address.return_value = True
-            is_checksum_address.return_value = False
-
-            result = crypto.validate_ethereum_address("0xABC")
-            assert result is False
-
-    def test_validate_address_exception(self):
-        with patch.dict("sys.modules", {"eth_utils": Mock()}):
-            from eth_utils import is_address
-
-            is_address.side_effect = Exception("Validation error")
-
-            result = crypto.validate_ethereum_address("0xABC")
-            assert result is False
+    def test_validate_address_legacy_prefix(self):
+        # Legacy ait1/aitbc1 prefix addresses are accepted
+        result = crypto.validate_ethereum_address("ait1abc123")
+        assert result is True
 
 
 # ============================================================================
