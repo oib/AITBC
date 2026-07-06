@@ -84,7 +84,10 @@ class IslandManager:
         """Start island manager"""
         self.running = True
         logger.info("Starting island manager for node %s", self.local_node_id)
-        tasks = [create_task_with_logging(self._bridge_request_monitor(), name="island_bridge_request_monitor"), create_task_with_logging(self._island_health_check(), name="island_health_check")]
+        tasks = [
+            create_task_with_logging(self._bridge_request_monitor(), name="island_bridge_request_monitor"),
+            create_task_with_logging(self._island_health_check(), name="island_health_check"),
+        ]
         try:
             await asyncio.gather(*tasks)
         except Exception as e:
