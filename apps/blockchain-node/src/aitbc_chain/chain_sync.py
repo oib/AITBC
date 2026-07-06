@@ -27,7 +27,7 @@ class ChainSyncService:
         self,
         redis_url: str,
         node_id: str,
-        rpc_port: int = 8006,
+        rpc_port: int = 8202,
         leader_host: str | None = None,
         source_host: str = "127.0.0.1",
         source_port: int | None = None,
@@ -234,7 +234,7 @@ class ChainSyncService:
 async def run_chain_sync(
     redis_url: str,
     node_id: str,
-    rpc_port: int = 8006,
+    rpc_port: int = 8202,
     leader_host: str | None = None,
     source_host: str = "127.0.0.1",
     source_port: int | None = None,
@@ -263,7 +263,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="AITBC Chain Synchronization Service")
     parser.add_argument("--redis", default="redis://localhost:6379", help="Redis URL")
     parser.add_argument("--node-id", required=True, help="Node identifier")
-    parser.add_argument("--rpc-port", type=int, default=8006, help="RPC port")
+    parser.add_argument("--rpc-port", type=int, default=8202, help="RPC port")
     parser.add_argument("--leader-host", help="Leader node host (for followers)")
     parser.add_argument("--source-host", default="127.0.0.1", help="Host to poll for head/blocks")
     parser.add_argument("--source-port", type=int, help="Port to poll for head/blocks")

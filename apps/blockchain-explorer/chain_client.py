@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 from aitbc.utils import format_ait
 
 from validation import validate_chain_id
@@ -36,7 +37,7 @@ __all__ = [
 # Configuration - Multi-chain support
 chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 BLOCKCHAIN_RPC_URLS = {
-    chain_id: "http://localhost:8202",
+    chain_id: BLOCKCHAIN_RPC_URL,
     "ait-mainnet": "http://aitbc.keisanki.net:8082",
 }
 DEFAULT_CHAIN = chain_id

@@ -4,6 +4,7 @@ Provides create/release/refund/get endpoints backed by EscrowManager and Escrow 
 """
 
 from __future__ import annotations
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 import hashlib
 import os
@@ -20,7 +21,7 @@ from ..database import session_scope
 from ..logger import get_logger
 from ..models import Escrow
 
-_HUB_RPC_URL = os.getenv("HUB_RPC_URL", "http://localhost:8202")
+_HUB_RPC_URL = os.getenv("HUB_RPC_URL", BLOCKCHAIN_RPC_URL)
 _CHAIN_ID = os.getenv("CHAIN_ID", os.getenv("SUPPORTED_CHAINS", "ait-hub.aitbc.bubuit.net"))
 _NODE_WALLET = os.getenv("NODE_WALLET_ADDRESS", os.getenv("GENESIS_WALLET_ADDRESS", ""))
 _logger = get_logger(__name__)
