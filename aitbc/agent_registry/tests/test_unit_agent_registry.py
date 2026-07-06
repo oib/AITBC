@@ -1,7 +1,7 @@
 """Unit tests for agent registry service"""
 
 import pytest
-from app import Agent, AgentRegistration, app  # type: ignore[import-not-found]
+from app import Agent, AgentRegistration, app
 
 
 @pytest.mark.unit

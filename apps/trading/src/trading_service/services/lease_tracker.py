@@ -184,8 +184,8 @@ class OfferLeaseTracker:
                 return bool(result)
             except Exception as e:
                 logger.warning("Redis revoke failed for %s, using in-memory: %s", node_id, e)
-                return node_id in self._mem_leases.pop(node_id, None)  # type: ignore[return-value]
-        return node_id in self._mem_leases.pop(node_id, None)  # type: ignore[return-value]
+                return self._mem_leases.pop(node_id, None) is not None
+        return self._mem_leases.pop(node_id, None) is not None
 
     async def get_lease_expiry(self, node_id: str) -> float:
         """Get the current lease expiry for a subscriber.

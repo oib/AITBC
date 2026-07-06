@@ -4,6 +4,7 @@ import sqlite3
 from collections import defaultdict, deque
 from datetime import datetime
 from pathlib import Path
+from typing import TypedDict
 
 from sqlmodel import Session, select
 
@@ -124,16 +125,26 @@ class ExplorerService:
     def list_addresses(self, *, limit: int = 50, offset: int = 0) -> AddressListResponse:
         statement = select(Job).order_by(Job.requested_at.desc())  # type: ignore[attr-defined]
         jobs = self.session.execute(statement.offset(offset).limit(limit)).all()
-        address_map: dict[str, dict[str, object]] = defaultdict(
-            lambda: {
-                "address": "",
-                "balance": 0.0,
-                "tx_count": 0,
-                "last_active": datetime.min,
-                "recent_transactions": deque(maxlen=5),
-                "earned": 0.0,
-                "spent": 0.0,
-            }
+
+        class _AddrEntry(TypedDict):
+            address: str
+            balance: float
+            tx_count: int
+            last_active: datetime
+            recent_transactions: deque[str]
+            earned: float
+            spent: float
+
+        address_map: dict[str, _AddrEntry] = defaultdict(
+            lambda: _AddrEntry(
+                address="",
+                balance=0.0,
+                tx_count=0,
+                last_active=datetime.min,
+                recent_transactions=deque(maxlen=5),
+                earned=0.0,
+                spent=0.0,
+            )
         )
 
         def _ensure_dt(val: object) -> datetime:
@@ -152,14 +163,14 @@ class ExplorerService:
                 return
             entry = address_map[address]
             entry["address"] = address
-            entry["tx_count"] = int(entry["tx_count"]) + 1  # type: ignore[call-overload]
+            entry["tx_count"] = entry["tx_count"] + 1
             when_dt = _ensure_dt(when)
             if when_dt > _ensure_dt(entry["last_active"]):
                 entry["last_active"] = when_dt
-            entry["earned"] = float(entry["earned"]) + earned  # type: ignore[arg-type]
-            entry["spent"] = float(entry["spent"]) + spent  # type: ignore[arg-type]
-            entry["balance"] = float(entry["earned"]) - float(entry["spent"])  # type: ignore[arg-type]
-            recent: deque[str] = entry["recent_transactions"]  # type: ignore[assignment]
+            entry["earned"] = entry["earned"] + earned
+            entry["spent"] = entry["spent"] + spent
+            entry["balance"] = entry["earned"] - entry["spent"]
+            recent: deque[str] = entry["recent_transactions"]
             recent.appendleft(tx_id)
 
         for job in jobs:
@@ -173,18 +184,18 @@ class ExplorerService:
                         pass
             touch(job.assigned_miner_id, job.id, job.requested_at, earned=price)
             touch(job.client_id, job.id, job.requested_at, spent=price)
-        sorted_addresses = sorted(address_map.values(), key=lambda entry: entry["last_active"], reverse=True)  # type: ignore[arg-type, return-value]
+        sorted_addresses = sorted(address_map.values(), key=lambda entry: entry["last_active"], reverse=True)
         sliced = sorted_addresses[offset : offset + limit]
         items = [
             AddressSummary(
                 address=entry["address"],
-                balance=f"{float(entry['balance']):.6f}",
-                txCount=int(entry["tx_count"]),
+                balance=f"{entry['balance']:.6f}",
+                txCount=entry["tx_count"],
                 lastActive=entry["last_active"],
                 recentTransactions=list(entry["recent_transactions"]),
             )
             for entry in sliced
-        ]  # type: ignore[call-overload, arg-type]
+        ]
         next_offset: int | None = offset + len(sliced) if len(sliced) == limit else None
         return AddressListResponse(items=items, next_offset=next_offset)
 

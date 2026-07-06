@@ -339,6 +339,7 @@ scripts/deployment/helm/values/prod.yaml
 # ===================
 .coverage.*
 coverage.xml
+coverage.json
 *.cover
 .hypothesis/
 

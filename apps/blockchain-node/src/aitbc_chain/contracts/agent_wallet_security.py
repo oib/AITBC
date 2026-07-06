@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from eth_utils import to_checksum_address  # type: ignore[attr-defined]
+from eth_utils import to_checksum_address
 
 from .guardian_contract import (
     AGGRESSIVE_CONFIG,

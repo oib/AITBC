@@ -83,7 +83,7 @@ async def create_developer_profile(
     try:
         profile = await service.create_developer_profile(
             user_id=request.user_id, username=request.username, bio=request.bio, skills=request.skills
-        )  # type: ignore[arg-type]
+        )
         return profile
     except Exception as e:
         logger.error("Error creating developer profile: %s", e)

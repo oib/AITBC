@@ -72,7 +72,7 @@ class MarketplaceMixin:
             offers = [self._marketplace_offer_row(row) for row in cursor.fetchall()]
         finally:
             conn.close()
-        self.send_json_response(offers)
+        self.send_json_response(offers)  # type: ignore[attr-defined]
 
     def handle_marketplace_offer(self, path):
         offer_id = urllib.parse.unquote(path.rsplit("/", 1)[-1])
@@ -91,13 +91,13 @@ class MarketplaceMixin:
         finally:
             conn.close()
         if row:
-            self.send_json_response(self._marketplace_offer_row(row))
+            self.send_json_response(self._marketplace_offer_row(row))  # type: ignore[attr-defined]
         else:
-            self.send_error(404, "Offer not found")
+            self.send_error(404, "Offer not found")  # type: ignore[attr-defined]
 
     def handle_marketplace_create_offer(self):
         try:
-            data = self._read_json_body()
+            data = self._read_json_body()  # type: ignore[attr-defined]
             item = data.get("item") or data.get("item_type") or "service"
             item_type = data.get("item_type") or item
             # B2: Use Decimal for price (stored as TEXT)
@@ -136,14 +136,14 @@ class MarketplaceMixin:
             finally:
                 conn.close()
             offer["order_id"] = order_id
-            self.send_json_response(offer, status=201)
+            self.send_json_response(offer, status=201)  # type: ignore[attr-defined]
         except Exception as e:
-            self.send_json_response({"success": False, "error": str(e)}, status=400)
+            self.send_json_response({"success": False, "error": str(e)}, status=400)  # type: ignore[attr-defined]
 
     def handle_marketplace_book_offer(self, path):
         try:
             offer_id = urllib.parse.unquote(path[len("/v1/marketplace/offers/") : -len("/book")])
-            data = self._read_json_body()
+            data = self._read_json_body()  # type: ignore[attr-defined]
             wallet = data.get("wallet")
             conn = sqlite3.connect(get_db_path())
             try:
@@ -180,9 +180,9 @@ class MarketplaceMixin:
                 order = self._marketplace_order_row(cursor.fetchone())
             finally:
                 conn.close()
-            self.send_json_response({"success": True, "order": order, "order_id": order_id}, status=201)
+            self.send_json_response({"success": True, "order": order, "order_id": order_id}, status=201)  # type: ignore[attr-defined]
         except Exception as e:
-            self.send_json_response({"success": False, "error": str(e)}, status=400)
+            self.send_json_response({"success": False, "error": str(e)}, status=400)  # type: ignore[attr-defined]
 
     def handle_marketplace_orders(self, parsed):
         query = urllib.parse.parse_qs(parsed.query)
@@ -209,7 +209,7 @@ class MarketplaceMixin:
             orders = [self._marketplace_order_row(row) for row in cursor.fetchall()]
         finally:
             conn.close()
-        self.send_json_response({"orders": orders})
+        self.send_json_response({"orders": orders})  # type: ignore[attr-defined]
 
     def handle_marketplace_delete_order(self, path):
         order_id = urllib.parse.unquote(path.rsplit("/", 1)[-1])
@@ -221,7 +221,7 @@ class MarketplaceMixin:
             deleted = cursor.rowcount
         finally:
             conn.close()
-        self.send_json_response({"success": True, "order_id": order_id, "deleted": deleted})
+        self.send_json_response({"success": True, "order_id": order_id, "deleted": deleted})  # type: ignore[attr-defined]
 
     def handle_marketplace_delete_offer(self, path):
         offer_id = urllib.parse.unquote(path.rsplit("/", 1)[-1])
@@ -233,4 +233,4 @@ class MarketplaceMixin:
             deleted = cursor.rowcount
         finally:
             conn.close()
-        self.send_json_response({"success": True, "offer_id": offer_id, "deleted": deleted})
+        self.send_json_response({"success": True, "offer_id": offer_id, "deleted": deleted})  # type: ignore[attr-defined]

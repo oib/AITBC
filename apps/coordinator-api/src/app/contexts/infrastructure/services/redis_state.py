@@ -145,18 +145,18 @@ class RedisStateManager:
     async def hget(self, namespace: str, key: str) -> dict[str, Any] | None:
         """Get a hash field."""
         if self._redis:
-            raw: str | None = await self._redis.hget(self._ns_key(namespace), key)  # type: ignore[no-any-return]
+            raw: str | None = await self._redis.hget(self._ns_key(namespace), key)
             return json.loads(raw) if raw else None
         else:
-            return self._memory.get(namespace, {}).get(key)
+            return self._memory.get(namespace, {}).get(key)  # type: ignore[no-any-return]
 
     async def hgetall(self, namespace: str) -> dict[str, dict[str, Any]]:
         """Get all hash fields."""
         if self._redis:
-            raw: dict[str, str] = await self._redis.hgetall(self._ns_key(namespace))  # type: ignore[no-any-return]
+            raw: dict[str, str] = await self._redis.hgetall(self._ns_key(namespace))
             return {k: json.loads(v) for k, v in raw.items()}
         else:
-            return self._memory.get(namespace, {}).copy()
+            return self._memory.get(namespace, {}).copy()  # type: ignore[no-any-return]
 
     async def hdel(self, namespace: str, key: str) -> None:
         """Delete a hash field and invalidate related cache."""
@@ -174,14 +174,14 @@ class RedisStateManager:
     async def incr(self, namespace: str, key: str = "counter") -> int:
         """Increment a counter."""
         if self._redis:
-            result: int = await self._redis.incr(self._key(namespace, key))  # type: ignore[no-any-return]
+            result: int = await self._redis.incr(self._key(namespace, key))
             return result
         else:
             mem_key = f"{namespace}:{key}"
             current = self._memory.get(mem_key, 0)
             current += 1
             self._memory[mem_key] = current
-            return current
+            return int(current)
 
     # ------------------------------------------------------------------
     # List operations (for message queues)

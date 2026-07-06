@@ -80,7 +80,7 @@ class QuotaEnforcementService:
         if self.redis:
             current = self.redis.get(cache_key)
             if current:
-                self.redis.incrbyfloat(cache_key, quantity)
+                self.redis.incrbyfloat(cache_key, float(quantity))
                 self.redis.expire(cache_key, self._cache_ttl)
         self.db.commit()
         self.logger.info("Consumed quota: tenant=%s, resource=%s, quantity=%s", tenant_id, resource_type, quantity)
@@ -108,7 +108,7 @@ class QuotaEnforcementService:
             if self.redis:
                 current = self.redis.get(cache_key)
                 if current:
-                    self.redis.incrbyfloat(cache_key, -quantity)
+                    self.redis.incrbyfloat(cache_key, float(-quantity))
                     self.redis.expire(cache_key, self._cache_ttl)
             self.db.commit()
             self.logger.info("Released quota: tenant=%s, resource=%s, quantity=%s", tenant_id, resource_type, quantity)

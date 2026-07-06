@@ -1,6 +1,6 @@
 """IPFS domain models."""
 
-from app.contexts.ipfs.domain.decentralized_memory import (  # type: ignore
+from app.contexts.ipfs.domain.decentralized_memory import (
     AgentMemoryNode,
     MemoryType,
     StorageStatus,

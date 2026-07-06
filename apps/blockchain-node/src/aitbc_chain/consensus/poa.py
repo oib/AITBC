@@ -260,7 +260,7 @@ class PoAProposer:
                 existing_accounts = session.exec(
                     select(Account).where(
                         Account.chain_id == self._config.chain_id,
-                        Account.address.in_(unique_addresses),
+                        Account.address.in_(unique_addresses),  # type: ignore[attr-defined]
                     )
                 ).all()
                 account_map = {acc.address: acc for acc in existing_accounts}
@@ -271,11 +271,11 @@ class PoAProposer:
                 existing_tx_rows = session.execute(
                     select(Transaction.tx_hash, Transaction.block_height).where(
                         Transaction.chain_id == self._config.chain_id,
-                        Transaction.tx_hash.in_([tx.tx_hash for tx in pending_txs]),
+                        Transaction.tx_hash.in_([tx.tx_hash for tx in pending_txs]),  # type: ignore[attr-defined]
                     )
                 ).all()
                 existing_tx_map = {row[0]: row[1] for row in existing_tx_rows}
-            processed_txs = []
+            processed_txs: list[Any] = []
             changed_addresses: set[str] = set()  # tracks accounts modified during the tx loop
             # Feature flag: parallel tx validation (v0.6.1). Default off for safety.
             use_parallel = getattr(settings, "parallel_tx_validation", False) and len(pending_txs) > 1

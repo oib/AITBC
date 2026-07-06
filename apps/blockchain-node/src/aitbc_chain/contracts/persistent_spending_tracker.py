@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from eth_utils import to_checksum_address  # type: ignore[attr-defined]
+from eth_utils import to_checksum_address
 from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, String, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker

@@ -23,7 +23,7 @@ class BaseHandler(BaseHTTPRequestHandler):
         """
         url = f"{RPC_BASE_URL}{path}"
         with urlopen(url, timeout=RPC_TIMEOUT) as response:
-            return json.loads(response.read().decode())
+            return json.loads(response.read().decode())  # type: ignore[no-any-return]
 
     def _require_api_key(self) -> bool:
         """Check X-Api-Key header against EXCHANGE_API_KEY env var.
