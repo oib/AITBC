@@ -4,6 +4,7 @@ Manages hardware+software bundle marketplace operations
 """
 
 import os
+from aitbc.constants import BLOCKCHAIN_RPC_URL as _DEFAULT_RPC_URL
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
@@ -16,7 +17,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", _DEFAULT_RPC_URL)
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.middleware import (  # noqa: E402
     ErrorHandlerMiddleware,
