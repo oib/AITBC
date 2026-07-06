@@ -26,7 +26,7 @@ class DualModeWalletAdapter:
         self.wallet_dir.mkdir(parents=True, exist_ok=True)
 
         if use_daemon and config:
-            self.daemon_client = WalletDaemonClient(config)
+            self.daemon_client: WalletDaemonClient | None = WalletDaemonClient(config)
         else:
             self.daemon_client = None
 
@@ -58,6 +58,7 @@ class DualModeWalletAdapter:
                 error("Wallet daemon is not available")
                 raise Exception("Daemon unavailable")
 
+            assert self.daemon_client is not None
             wallet_info = self.daemon_client.create_wallet(wallet_name, password, metadata)
 
             success(f"Created daemon wallet: {wallet_name}")
@@ -106,8 +107,7 @@ class DualModeWalletAdapter:
         }
 
         # Save wallet
-        save_password = password if password else None
-        _save_wallet(wallet_path, wallet_data, save_password)
+        _save_wallet(wallet_path, wallet_data, password if password else None)
 
         success(f"Created file wallet: {wallet_name}")
         return {
@@ -133,6 +133,7 @@ class DualModeWalletAdapter:
                 error("Wallet daemon is not available")
                 return []
 
+            assert self.daemon_client is not None
             wallets = self.daemon_client.list_wallets()
             return [
                 {
@@ -188,6 +189,7 @@ class DualModeWalletAdapter:
             if not self.is_daemon_available():
                 return None
 
+            assert self.daemon_client is not None
             wallet_info = self.daemon_client.get_wallet_info(wallet_name)
             if wallet_info:
                 return {
@@ -243,6 +245,7 @@ class DualModeWalletAdapter:
             if not self.is_daemon_available():
                 return None
 
+            assert self.daemon_client is not None
             balance_info = self.daemon_client.get_wallet_balance(wallet_name)
             if balance_info:
                 return balance_info.balance
@@ -255,7 +258,9 @@ class DualModeWalletAdapter:
         """Get wallet balance using file-based storage"""
         wallet_info = self._get_wallet_info_file(wallet_name)
         if wallet_info:
-            return wallet_info.get("balance", 0.0)
+            balance = wallet_info.get("balance", 0.0)
+            if isinstance(balance, int | float):
+                return float(balance)
         return None
 
     def send_transaction(
@@ -276,6 +281,7 @@ class DualModeWalletAdapter:
                 error("Wallet daemon is not available")
                 raise Exception("Daemon unavailable")
 
+            assert self.daemon_client is not None
             result = self.daemon_client.send_transaction(wallet_name, password, to_address, amount, description)
 
             success(f"Sent {amount} AITBC to {to_address} via daemon")
@@ -301,7 +307,7 @@ class DualModeWalletAdapter:
         import httpx
 
         from ..commands.wallet import _load_wallet, _save_wallet
-        from .utils import error, success
+        from aitbc_cli.utils import error, success
 
         wallet_path = self.wallet_dir / f"{wallet_name}.json"
 
@@ -372,11 +378,10 @@ class DualModeWalletAdapter:
         wallet_data["balance"] = chain_balance - amount
 
         # Save wallet - CRITICAL SECURITY FIX: Always use password if wallet is encrypted
-        save_password = password if wallet_data.get("encrypted") else None
-        if wallet_data.get("encrypted") and not save_password:
+        if wallet_data.get("encrypted") and not password:
             error("❌ CRITICAL: Cannot save encrypted wallet without password")
             raise Exception("Password required for encrypted wallet")
-        _save_wallet(wallet_path, wallet_data, save_password)
+        _save_wallet(wallet_path, wallet_data, password if wallet_data.get("encrypted") else None)
 
         success(f"Submitted transaction {tx_hash} to send {amount} AITBC to {to_address}")
         return {
@@ -402,6 +407,7 @@ class DualModeWalletAdapter:
             if not self.is_daemon_available():
                 return False
 
+            assert self.daemon_client is not None
             return self.daemon_client.delete_wallet(wallet_name, password)
         except Exception as e:
             error(f"Failed to delete daemon wallet: {str(e)}")
@@ -432,6 +438,7 @@ class DualModeWalletAdapter:
             return []
 
         try:
+            assert self.daemon_client is not None
             chains = self.daemon_client.list_chains()
             return [
                 {
@@ -459,6 +466,7 @@ class DualModeWalletAdapter:
             return None
 
         try:
+            assert self.daemon_client is not None
             chain = self.daemon_client.create_chain(chain_id, name, coordinator_url, coordinator_api_key, metadata)
             return {
                 "chain_id": chain.chain_id,
@@ -483,6 +491,7 @@ class DualModeWalletAdapter:
             return None
 
         try:
+            assert self.daemon_client is not None
             wallet = self.daemon_client.create_wallet_in_chain(chain_id, wallet_name, password, metadata)
             return {
                 "mode": "daemon",
@@ -505,6 +514,7 @@ class DualModeWalletAdapter:
             return []
 
         try:
+            assert self.daemon_client is not None
             wallets = self.daemon_client.list_wallets_in_chain(chain_id)
             return [
                 {
@@ -529,6 +539,7 @@ class DualModeWalletAdapter:
             return None
 
         try:
+            assert self.daemon_client is not None
             wallet = self.daemon_client.get_wallet_info_in_chain(chain_id, wallet_name)
             if wallet:
                 return {
@@ -552,6 +563,7 @@ class DualModeWalletAdapter:
             return None
 
         try:
+            assert self.daemon_client is not None
             balance = self.daemon_client.get_wallet_balance_in_chain(chain_id, wallet_name)
             return balance.balance if balance else None
         except Exception as e:
@@ -565,6 +577,7 @@ class DualModeWalletAdapter:
             return False
 
         try:
+            assert self.daemon_client is not None
             return self.daemon_client.unlock_wallet_in_chain(chain_id, wallet_name, password)
         except Exception as e:
             error(f"Failed to unlock wallet in chain {chain_id}: {str(e)}")
@@ -577,6 +590,7 @@ class DualModeWalletAdapter:
             return None
 
         try:
+            assert self.daemon_client is not None
             return self.daemon_client.sign_message_in_chain(chain_id, wallet_name, password, message)
         except Exception as e:
             error(f"Failed to sign message in chain {chain_id}: {str(e)}")
@@ -591,6 +605,7 @@ class DualModeWalletAdapter:
             return None
 
         try:
+            assert self.daemon_client is not None
             result = self.daemon_client.migrate_wallet(source_chain_id, target_chain_id, wallet_name, password, new_password)
             if result:
                 return {
@@ -620,6 +635,7 @@ class DualModeWalletAdapter:
             return {"status": "disabled", "message": "Chain status requires daemon mode"}
 
         try:
+            assert self.daemon_client is not None
             return self.daemon_client.get_chain_status()
         except Exception as e:
             error(f"Failed to get chain status: {str(e)}")

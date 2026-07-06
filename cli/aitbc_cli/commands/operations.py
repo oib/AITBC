@@ -5,6 +5,7 @@ General operations commands for AITBC CLI (marketplace, AI, agents)
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 import click
 from cryptography.hazmat.primitives import serialization
@@ -23,14 +24,14 @@ DEFAULT_WALLET_DIR = Path.home() / ".aitbc" / "wallets"
 DEFAULT_KEYSTORE_DIR = Path.home() / ".aitbc" / "wallets"
 
 
-def _load_wallet(wallet_path: Path, wallet_name: str) -> dict:
+def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
     """Load wallet and decrypt private key if needed"""
     with open(wallet_path) as f:
-        wallet_data = json.load(f)
+        wallet_data: dict[str, Any] = json.load(f)
 
     # Decrypt private key if encrypted
     if wallet_data.get("encrypted") and "private_key" in wallet_data:
-        from ..utils.wallet import decrypt_value
+        from ..utils import decrypt_value
 
         password = _get_wallet_password(wallet_name)
         try:
@@ -110,7 +111,7 @@ def purchase(listing_id: str, quantity: int, wallet: str | None):
         password = os.environ.get("AITBC_WALLET_PASSWORD") or click.prompt("Wallet password", hide_input=True)
 
         # Get listing details from marketplace
-        marketplace_url = config.get("marketplace_url", "http://localhost:8101")
+        marketplace_url = getattr(config, "marketplace_url", "http://localhost:8101")
         listing_response = httpx.get(f"{marketplace_url}/v1/marketplace/listings/{listing_id}")
 
         if listing_response.status_code != 200:
@@ -126,7 +127,7 @@ def purchase(listing_id: str, quantity: int, wallet: str | None):
             return
 
         # Unlock wallet via wallet daemon
-        wallet_daemon_url = config.get("wallet_daemon_url", "http://localhost:8105")
+        wallet_daemon_url = getattr(config, "wallet_daemon_url", "http://localhost:8105")
         unlock_response = httpx.post(
             f"{wallet_daemon_url}/v1/chains/ait-hub/wallets/{wallet}/unlock", json={"password": password}
         )
@@ -152,7 +153,7 @@ def purchase(listing_id: str, quantity: int, wallet: str | None):
         tx_hash = signed_tx.get("transaction_hash")
 
         # Submit transaction to blockchain
-        blockchain_rpc_url = config.get("blockchain_rpc_url", "http://localhost:8202")
+        blockchain_rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
         submit_response = httpx.post(f"{blockchain_rpc_url}/rpc/transactions/marketplace", json=signed_tx)
 
         if submit_response.status_code != 200:

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import click
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from ...config import get_config
 from ...utils import error, output, success
@@ -102,7 +102,7 @@ def _get_wallet_password(wallet_name: str) -> str:
         return password
 
 
-def _save_wallet(wallet_path: Path, wallet_data: dict[str, Any], password: str = None):
+def _save_wallet(wallet_path: Path, wallet_data: dict[str, Any], password: str | None = None):
     """Save wallet with encrypted private key"""
     # Encrypt private key if provided
     if password and "private_key" in wallet_data:
@@ -117,7 +117,7 @@ def _save_wallet(wallet_path: Path, wallet_data: dict[str, Any], password: str =
 def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
     """Load wallet and decrypt private key if needed"""
     with open(wallet_path) as f:
-        wallet_data = json.load(f)
+        wallet_data: dict[str, Any] = json.load(f)
 
     # Decrypt private key if encrypted
     if wallet_data.get("encrypted") and "private_key" in wallet_data:

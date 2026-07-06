@@ -5,11 +5,12 @@ Provides functions to load and validate island credentials from the local filesy
 
 import json
 from pathlib import Path
+from typing import Any
 
 CREDENTIALS_PATH = "/var/lib/aitbc/island_credentials.json"
 
 
-def load_island_credentials() -> dict:
+def load_island_credentials() -> dict[str, Any]:
     """
     Load island credentials from the local filesystem
 
@@ -29,7 +30,7 @@ def load_island_credentials() -> dict:
         )
 
     with open(credentials_path) as f:
-        credentials = json.load(f)
+        credentials: dict[str, Any] = json.load(f)
 
     # Validate required fields
     required_fields = ["island_id", "island_name", "island_chain_id", "credentials"]
@@ -57,7 +58,7 @@ def get_rpc_endpoint() -> str:
     if not rpc_endpoint:
         raise ValueError("RPC endpoint not found in island credentials")
 
-    return rpc_endpoint
+    return rpc_endpoint  # type: ignore[no-any-return]
 
 
 def get_chain_id() -> str:
@@ -77,7 +78,7 @@ def get_chain_id() -> str:
     if not chain_id:
         raise ValueError("Chain ID not found in island credentials")
 
-    return chain_id
+    return chain_id  # type: ignore[no-any-return]
 
 
 def get_island_id() -> str:
@@ -97,7 +98,7 @@ def get_island_id() -> str:
     if not island_id:
         raise ValueError("Island ID not found in island credentials")
 
-    return island_id
+    return island_id  # type: ignore[no-any-return]
 
 
 def get_island_name() -> str:
@@ -117,7 +118,7 @@ def get_island_name() -> str:
     if not island_name:
         raise ValueError("Island name not found in island credentials")
 
-    return island_name
+    return island_name  # type: ignore[no-any-return]
 
 
 def get_genesis_block_hash() -> str | None:
@@ -129,7 +130,7 @@ def get_genesis_block_hash() -> str | None:
     """
     try:
         credentials = load_island_credentials()
-        return credentials.get("credentials", {}).get("genesis_block_hash")
+        return credentials.get("credentials", {}).get("genesis_block_hash")  # type: ignore[no-any-return]
     except (FileNotFoundError, ValueError):
         return None
 
@@ -143,7 +144,7 @@ def get_genesis_address() -> str | None:
     """
     try:
         credentials = load_island_credentials()
-        return credentials.get("credentials", {}).get("genesis_address")
+        return credentials.get("credentials", {}).get("genesis_address")  # type: ignore[no-any-return]
     except (FileNotFoundError, ValueError):
         return None
 
@@ -172,6 +173,6 @@ def get_p2p_port() -> int | None:
     """
     try:
         credentials = load_island_credentials()
-        return credentials.get("credentials", {}).get("p2p_port")
+        return credentials.get("credentials", {}).get("p2p_port")  # type: ignore[no-any-return]
     except (FileNotFoundError, ValueError):
         return None

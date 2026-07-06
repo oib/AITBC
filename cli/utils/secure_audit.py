@@ -7,6 +7,7 @@ import json
 import secrets
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from eth_utils import keccak
 
@@ -39,10 +40,10 @@ class SecureAuditLogger:
             with open(self.integrity_file, "w") as f:
                 json.dump(integrity_data, f, indent=2)
 
-    def _get_integrity_data(self) -> dict:
+    def _get_integrity_data(self) -> dict[str, Any]:
         """Get current integrity data"""
         with open(self.integrity_file) as f:
-            return json.load(f)
+            return json.load(f)  # type: ignore[no-any-return]
 
     def _update_integrity(self, entry_hash: str):
         """Update integrity tracking"""
@@ -83,7 +84,7 @@ class SecureAuditLogger:
         entry_str = json.dumps(entry_data, sort_keys=True, separators=(",", ":"))
         return keccak(entry_str.encode()).hex()
 
-    def log(self, action: str, details: dict = None, user: str = None):
+    def log(self, action: str, details: dict[str, Any] | None = None, user: str | None = None):
         """
         Log an audit event with cryptographic integrity
 
@@ -167,7 +168,7 @@ class SecureAuditLogger:
         except Exception as e:
             return False, [f"Verification failed: {str(e)}"]
 
-    def get_logs(self, limit: int = 50, action_filter: str = None, verify: bool = True) -> list[dict]:
+    def get_logs(self, limit: int = 50, action_filter: str | None = None, verify: bool = True) -> list[dict[str, Any]]:
         """
         Read audit log entries with optional integrity verification
 
@@ -216,9 +217,9 @@ class SecureAuditLogger:
         all_entries = self.get_logs(limit=10000, verify=True)  # Always verify integrity
 
         # Action statistics
-        action_counts = {}
-        user_counts = {}
-        hourly_counts = {}
+        action_counts: dict[str, int] = {}
+        user_counts: dict[str, int] = {}
+        hourly_counts: dict[str, int] = {}
 
         for entry in all_entries:
             # Action counts
@@ -317,7 +318,7 @@ secure_audit_logger = SecureAuditLogger()
 
 
 # Convenience functions for backward compatibility
-def log_action(action: str, details: dict = None, user: str = None):
+def log_action(action: str, details: dict[str, Any] | None = None, user: str | None = None):
     """Log an action with secure audit logger"""
     secure_audit_logger.log(action, details, user)
 
@@ -327,6 +328,6 @@ def verify_audit_integrity() -> tuple[bool, list[str]]:
     return secure_audit_logger.verify_integrity()
 
 
-def get_audit_logs(limit: int = 50, action_filter: str = None) -> list[dict]:
+def get_audit_logs(limit: int = 50, action_filter: str | None = None) -> list[dict[str, Any]]:
     """Get audit logs with integrity verification"""
     return secure_audit_logger.get_logs(limit, action_filter)

@@ -54,7 +54,7 @@ class AITBCMiner:
             )
 
             if response.status_code == 200:
-                return response.json()
+                return response.json()  # type: ignore[no-any-return]
             elif response.status_code == 204:
                 return None
             else:
@@ -66,7 +66,7 @@ class AITBCMiner:
             print(f"❌ Error: {e}")
             return None
 
-    def submit_result(self, job_id: str, result: dict, metrics: dict = None) -> bool:
+    def submit_result(self, job_id: str, result: dict, metrics: dict | None = None) -> bool:
         """Submit job result"""
         payload = {"result": result}
         if metrics:
@@ -117,7 +117,7 @@ class AITBCMiner:
             print(f"❌ Heartbeat error: {e}")
             return False
 
-    def mine_continuous(self, max_jobs: int = None, simulate_work: bool = True):
+    def mine_continuous(self, max_jobs: int | None = None, simulate_work: bool = True):
         """Continuously mine jobs"""
         print("⛏️  Starting continuous mining...")
         print(f"   Miner ID: {self.miner_id}")

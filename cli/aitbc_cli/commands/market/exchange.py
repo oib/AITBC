@@ -111,17 +111,16 @@ def mint_ait(ctx, deposit_id: str):
         success(f"Deposit verified: {deposit_id}")
 
         # Transfer AIT tokens from genesis wallet (fixed supply, no minting)
-        wallet_address = config.wallet_address
-        chain_id = config.chain_id
-        genesis_wallet_address = config.get("genesis_wallet_address", "ait1db5247d03ca2e40f3995a583b2c097ab703efd4d")
+        wallet_address = getattr(config, "wallet_address", None)
+        chain_id = getattr(config, "chain_id", None)
+        genesis_wallet_address = "ait1db5247d03ca2e40f3995a583b2c097ab703efd4d"
 
         try:
             import httpx
 
             # Resolve sender address to get nonce
-            sender_response = httpx.get(
-                f"{config.get('blockchain_rpc_url', 'http://localhost:8202')}/rpc/accounts/{genesis_wallet_address}"
-            )
+            blockchain_rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
+            sender_response = httpx.get(f"{blockchain_rpc_url}/rpc/accounts/{genesis_wallet_address}")
             if sender_response.status_code != 200:
                 error(f"Failed to get genesis wallet account: {sender_response.text}")
                 raise click.Abort()
@@ -142,9 +141,7 @@ def mint_ait(ctx, deposit_id: str):
             }
 
             # Submit transaction to blockchain
-            blockchain_response = httpx.post(
-                f"{config.get('blockchain_rpc_url', 'http://localhost:8202')}/rpc/transactions/marketplace", json=tx_payload
-            )
+            blockchain_response = httpx.post(f"{blockchain_rpc_url}/rpc/transactions/marketplace", json=tx_payload)
 
             if blockchain_response.status_code != 200:
                 error(f"Failed to submit transfer transaction: {blockchain_response.text}")
@@ -208,9 +205,9 @@ def withdraw_eth(ctx, amount: float, address: str):
             from web3 import Web3
 
             # Get bridge configuration
-            _ = config.get("bridge_contract_address", "0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA")
-            eth_rpc_url = config.get("eth_rpc_url", os.environ.get("ETH_RPC_URL"))
-            bridge_private_key = config.get("bridge_private_key", os.environ.get("BRIDGE_PRIVATE_KEY"))
+            _ = getattr(config, "bridge_contract_address", "0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA")
+            eth_rpc_url = getattr(config, "eth_rpc_url", os.environ.get("ETH_RPC_URL"))
+            bridge_private_key = getattr(config, "bridge_private_key", os.environ.get("BRIDGE_PRIVATE_KEY"))
 
             if not eth_rpc_url:
                 error("ETH_RPC_URL not configured")
@@ -253,14 +250,15 @@ def withdraw_eth(ctx, amount: float, address: str):
             # Wait for confirmation
             receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
 
-            if receipt.status == 1:
+            if getattr(receipt, "status", 0) == 1:
                 success(f"Withdrew {amount} ETH to {address}")
                 info(f"Transaction hash: {tx_hash.hex()}")
 
                 # Record withdrawal in exchange service
                 try:
+                    exchange_url = getattr(config, "exchange_url", "http://localhost:8106")
                     record_response = httpx.post(
-                        f"{config.get('exchange_url', 'http://localhost:8106')}/v1/exchange/withdrawals",
+                        f"{exchange_url}/v1/exchange/withdrawals",
                         json={"amount": amount, "to_address": address, "tx_hash": tx_hash.hex(), "status": "completed"},
                     )
                     if record_response.status_code != 200:

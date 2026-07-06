@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from datetime import datetime
+from typing import Any
 
 import click
 
@@ -37,22 +38,25 @@ def run_job(ctx, offer_id: str, prompt: str, max_tokens: int, stream: bool):
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
         result = http_client.get("/rpc/transactions", params={"limit": 1000})
-        offer = None
+        offer: dict[str, Any] | None = None
         if result and not isinstance(result, dict):
             for tx in result:
                 p = tx.get("payload", {})
                 if p.get("action") == "software_offer" and p.get("offer_id") == offer_id:
                     offer = p
                     break
-        if not offer:
+
+        if offer is None:
             error(f"Software offer '{offer_id}' not found or not active on hub")
             raise click.Abort()
 
-        service_type = offer.get("service_type")
-        model = offer.get("model")
+        # At this point offer is not None
+        assert offer is not None
+        service_type = offer.get("service_type", "")
+        model = offer.get("model", "")
         price = float(offer.get("price", 0))
         price_unit = offer.get("price_unit", "per_1k_tokens")
-        provider_address = offer.get("provider_address")
+        provider_address = offer.get("provider_address", "")
 
         info(f"Offer: {service_type} — {model} at {price} AIT/{price_unit}")
         info(f"Provider: {provider_address}")
@@ -61,7 +65,7 @@ def run_job(ctx, offer_id: str, prompt: str, max_tokens: int, stream: bool):
             error(f"Service type '{service_type}' job execution not yet supported via CLI")
             raise click.Abort()
 
-        # Lock escrow upfront (estimated max cost)
+        # Lock escrow upfront (estimated max cost)  # type: ignore[unreachable]
         estimated_tokens = max_tokens
         estimated_cost = (estimated_tokens / 1000) * price
         job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
@@ -151,7 +155,7 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
         result = http_client.get("/rpc/transactions", params={"limit": 1000})
-        offer = None
+        offer: dict[str, Any] | None = None
         if result and not isinstance(result, dict):
             for tx in result:
                 p = tx.get("payload", {})
@@ -161,14 +165,15 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
                     and p.get("service_type") == "whisper"
                 ):
                     offer = p
-                    break
-        if not offer:
+                    break  # type: ignore[unreachable]
+        if offer is None:
             error(f"Whisper offer '{offer_id}' not found on hub")
             raise click.Abort()
 
+        assert offer is not None
         price = float(offer.get("price", 0))
         price_unit = offer.get("price_unit", "per_audio_min")
-        provider_address = offer.get("provider_address")
+        provider_address = offer.get("provider_address", "")
         model = offer.get("model", "base")
         # Use provider's public endpoint from offer; fall back to localhost for self-hosted
         whisper_endpoint = offer.get("endpoint", "http://localhost:8110")
@@ -340,7 +345,7 @@ def transcode_job(ctx, offer_id: str, video_url: str, resolution: str, codec: st
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
         result = http_client.get("/rpc/transactions", params={"limit": 1000})
-        offer = None
+        offer: dict[str, Any] | None = None
         if result and not isinstance(result, dict):
             for tx in result:
                 p = tx.get("payload", {})
@@ -350,14 +355,15 @@ def transcode_job(ctx, offer_id: str, video_url: str, resolution: str, codec: st
                     and p.get("service_type") == "peertube_transcoder"
                 ):
                     offer = p
-                    break
-        if not offer:
+                    break  # type: ignore[unreachable]
+        if offer is None:
             error(f"PeerTube transcoder offer '{offer_id}' not found on hub")
             raise click.Abort()
 
+        assert offer is not None  # type: ignore[unreachable]
         price = float(offer.get("price", 0))
         price_unit = offer.get("price_unit", "per_video_min")
-        provider_address = offer.get("provider_address")
+        provider_address = offer.get("provider_address", "")
         model = offer.get("model", "default")
 
         info(f"Offer: peertube_transcoder/{model} at {price} AIT/{price_unit} — provider {provider_address}")
@@ -480,20 +486,20 @@ def process_video(ctx, offer_id: str, input_file: str, format: str, codec: str, 
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
         result = http_client.get("/rpc/transactions", params={"limit": 1000})
-        offer = None
+        offer: dict[str, Any] | None = None
         if result and not isinstance(result, dict):
             for tx in result:
                 p = tx.get("payload", {})
                 if p.get("action") == "software_offer" and p.get("offer_id") == offer_id and p.get("service_type") == "ffmpeg":
                     offer = p
                     break
-        if not offer:
+        if offer is None:
             error(f"FFmpeg offer '{offer_id}' not found on hub")
             raise click.Abort()
 
         price = float(offer.get("price", 0))
         price_unit = offer.get("price_unit", "per_processing_hour")
-        provider_address = offer.get("provider_address")
+        provider_address = offer.get("provider_address", "")
         model = offer.get("model", "default")
 
         info(f"Offer: ffmpeg/{model} at {price} AIT/{price_unit} — provider {provider_address}")

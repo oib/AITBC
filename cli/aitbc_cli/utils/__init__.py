@@ -49,12 +49,12 @@ def warning(message: str, **kwargs):
     secho(message, fg="yellow", **kwargs)
 
 
-def encrypt_value(value: str, key: str = None) -> str:
+def encrypt_value(value: str, key: str | None = None) -> str:
     """Lightweight reversible encoding used for CLI compatibility."""
     return base64.b64encode(value.encode("utf-8")).decode("ascii")
 
 
-def decrypt_value(encrypted: str, key: str = None) -> str:
+def decrypt_value(encrypted: str, key: str | None = None) -> str:
     """Reverse the lightweight compatibility encoding."""
     return base64.b64decode(encrypted.encode("ascii")).decode("utf-8")
 
