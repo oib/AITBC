@@ -253,45 +253,60 @@ class TestDatabaseMempool:
 
 class TestCircuitBreaker:
     def test_starts_closed(self):
-        from aitbc_chain.consensus.poa import CircuitBreaker
+        from aitbc_chain.consensus import CircuitBreaker
+        from aitbc.exceptions import CircuitBreakerOpenError
 
         cb = CircuitBreaker(threshold=3, timeout=1)
-        assert cb.state == "closed"
-        assert cb.allow_request() is True
+        assert cb.get_state()["state"] == "closed"
+        try:
+            cb.check()
+        except CircuitBreakerOpenError:
+            raise AssertionError("check() should not raise in closed state") from None
 
     def test_opens_after_threshold(self):
-        from aitbc_chain.consensus.poa import CircuitBreaker
+        from aitbc_chain.consensus import CircuitBreaker
+        from aitbc.exceptions import CircuitBreakerOpenError
 
         cb = CircuitBreaker(threshold=3, timeout=10)
         cb.record_failure()
         cb.record_failure()
-        assert cb.state == "closed"
+        assert cb.get_state()["state"] == "closed"
         cb.record_failure()
-        assert cb.state == "open"
-        assert cb.allow_request() is False
+        assert cb.get_state()["state"] == "open"
+        with pytest.raises(CircuitBreakerOpenError):
+            cb.check()
 
     def test_half_open_after_timeout(self):
-        from aitbc_chain.consensus.poa import CircuitBreaker
+        from aitbc_chain.consensus import CircuitBreaker
 
         cb = CircuitBreaker(threshold=1, timeout=1)
         cb.record_failure()
-        assert cb.state == "open"
-        assert cb.allow_request() is False
-        # Simulate timeout by manipulating last failure time
-        cb._last_failure_time = time.time() - 2
-        assert cb.state == "half-open"
-        assert cb.allow_request() is True
+        assert cb.get_state()["state"] == "open"
+        # Wait for timeout to expire
+        time.sleep(1.1)
+        # check() transitions open → half_open and allows the probe
+        cb.check()
+        assert cb.get_state()["state"] == "half_open"
 
     def test_success_resets(self):
-        from aitbc_chain.consensus.poa import CircuitBreaker
+        from aitbc_chain.consensus import CircuitBreaker
+        from aitbc.exceptions import CircuitBreakerOpenError
 
-        cb = CircuitBreaker(threshold=2, timeout=10)
+        cb = CircuitBreaker(threshold=2, timeout=0.1)
         cb.record_failure()
         cb.record_failure()
-        assert cb.state == "open"
+        assert cb.get_state()["state"] == "open"
+        # Wait for timeout, then check() transitions to half-open
+        time.sleep(0.15)
+        cb.check()
+        assert cb.get_state()["state"] == "half_open"
+        # Record success in half-open → closes
         cb.record_success()
-        assert cb.state == "closed"
-        assert cb.allow_request() is True
+        assert cb.get_state()["state"] == "closed"
+        try:
+            cb.check()
+        except CircuitBreakerOpenError:
+            raise AssertionError("check() should not raise in closed state") from None
 
 
 class TestInitMempool:

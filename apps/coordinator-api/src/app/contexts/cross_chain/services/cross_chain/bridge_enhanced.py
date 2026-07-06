@@ -22,7 +22,6 @@ import hashlib
 import warnings
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
@@ -37,29 +36,15 @@ from .....agent_identity.wallet_adapter_enhanced import (
 )
 from ...domain.cross_chain_bridge import BridgeRequest, BridgeRequestStatus
 from ....reputation.services.reputation_engine import CrossChainReputationEngine
+from .bridge_types import BridgeProtocol, BridgeSecurityLevel
 
 # B4: HTLC contract address constant for Python-native contract fallback
 HTLC_CONTRACT_ADDRESS = "0xhtlc_contract_0000000000000000000000000000000000000"
 
 logger = get_logger(__name__)
 
-
-class BridgeProtocol(StrEnum):
-    """Bridge protocol types"""
-
-    ATOMIC_SWAP = "atomic_swap"
-    HTLC = "htlc"
-    LIQUIDITY_POOL = "liquidity_pool"
-    WRAPPED_TOKEN = "wrapped_token"
-
-
-class BridgeSecurityLevel(StrEnum):
-    """Bridge security levels"""
-
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    MAXIMUM = "maximum"
+# Re-export enums for backward compatibility
+__all__ = ["CrossChainBridgeService", "BridgeProtocol", "BridgeSecurityLevel"]
 
 
 class CrossChainBridgeService:
