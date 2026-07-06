@@ -479,9 +479,9 @@ pip install -e ".[dev]"
 # Run tests
 pytest
 
-# Run linting
-black .
-isort .
+# Run linting and formatting
+ruff check .
+ruff format .
 ```
 
 ## 📄 License

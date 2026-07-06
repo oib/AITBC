@@ -274,7 +274,7 @@ sudo -u postgres psql -c "ALTER USER aitbc_user WITH PASSWORD 'aitbc_user_passwo
 
 ## Pre-commit Hooks
 
-The repo includes `.pre-commit-config.yaml` with black, isort, flake8, mypy, bandit, and safety checks.
+The repo includes `.pre-commit-config.yaml` with ruff (linting + formatting), mypy, bandit, and safety checks.
 
 ```bash
 # Install pre-commit (included in requirements-dev.txt)
