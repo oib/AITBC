@@ -69,11 +69,15 @@ class TestSubmoduleImports:
         from aitbc.crypto import (
             SecretManager,
             derive_ethereum_address,
+            generate_hmac,
+            verify_hmac,
         )
 
         # Just verify they're importable
         assert derive_ethereum_address is not None
         assert SecretManager is not None
+        assert generate_hmac is not None
+        assert verify_hmac is not None
 
     def test_database_imports(self):
         """Test aitbc.database imports."""

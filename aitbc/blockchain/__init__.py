@@ -8,8 +8,10 @@ from aitbc.blockchain.blockchain_service import (
     BlockchainServiceFactory,
     RPCBlockchainService,
 )
+from aitbc.blockchain.rpc_client import BlockchainClient
 
 __all__ = [
+    "BlockchainClient",
     "BlockchainService",
     "BlockchainServiceFactory",
     "RPCBlockchainService",
