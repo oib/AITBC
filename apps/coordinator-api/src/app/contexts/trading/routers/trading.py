@@ -4,6 +4,7 @@ REST API for agent-to-agent trading, matching, negotiation, and settlement
 """
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated, Any
 from uuid import uuid4
 
@@ -33,7 +34,7 @@ class TradeRequestRequest(BaseModel):
     title: str = Field(..., max_length=200)
     description: str = Field(default="", max_length=1000)
     requirements: dict[str, Any] = Field(..., description="Trade requirements and specifications")
-    budget_range: dict[str, float] = Field(..., description="Budget range with min and max")
+    budget_range: dict[str, Any] = Field(..., description="Budget range with min and max")
     start_time: str | None = Field(default=None, description="Start time (ISO format)")
     end_time: str | None = Field(default=None, description="End time (ISO format)")
     duration_hours: int | None = Field(default=None, description="Duration in hours")
@@ -54,7 +55,7 @@ class TradeRequestResponse(BaseModel):
     title: str
     description: str
     requirements: dict[str, Any]
-    budget_range: dict[str, float]
+    budget_range: dict[str, Any]
     status: str
     match_count: int
     best_match_score: float
@@ -119,7 +120,7 @@ class AgreementResponse(BaseModel):
     trade_type: str
     title: str
     agreed_terms: dict[str, Any]
-    total_price: float
+    total_price: Decimal
     settlement_type: str
     status: str
     created_at: str
@@ -134,12 +135,12 @@ class SettlementResponse(BaseModel):
     settlement_id: str
     agreement_id: str
     settlement_type: str
-    total_amount: float
+    total_amount: Decimal
     currency: str
     payment_status: str
     transaction_id: str | None
-    platform_fee: float
-    net_amount_seller: float
+    platform_fee: Decimal
+    net_amount_seller: Decimal
     status: str
     initiated_at: str
     processed_at: str | None
@@ -156,7 +157,7 @@ class TradingSummaryResponse(BaseModel):
     agreements: int
     success_rate: float
     average_match_score: float
-    total_trade_volume: float
+    total_trade_volume: Decimal
     recent_activity: dict[str, Any]
 
 
