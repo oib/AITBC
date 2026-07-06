@@ -105,7 +105,7 @@ class MatchingService:
         """
         score = 1.0
         if requirements.get("max_price"):
-            price_ratio = offer.price_per_hour / requirements["max_price"]
+            price_ratio = float(offer.price_per_hour) / float(requirements["max_price"])
             score *= 1.0 - price_ratio * 0.3
         if requirements.get("capacity"):
             capacity_ratio = min(offer.capacity / requirements["capacity"], 2.0)

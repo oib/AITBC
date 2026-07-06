@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import Depends, Header
@@ -45,9 +46,7 @@ async def get_miner_from_token(
 
         api_key = authorization[7:]
         key_hash = hashlib.sha256(api_key.encode()).hexdigest()
-        result = await session.execute(
-            select(Miner).where(Miner.api_key_hash == key_hash)
-        )
+        result = await session.execute(select(Miner).where(Miner.api_key_hash == key_hash))
         miner = result.scalars().first()
         if miner is not None:
             return miner
@@ -69,7 +68,7 @@ async def get_miner_from_token(
         cpu_cores=0,
         ram_gb=0.0,
         max_parallel=1,
-        base_price=0.0,
+        base_price=Decimal("0"),
         tags={},
         capabilities=[],
     )
