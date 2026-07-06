@@ -177,14 +177,14 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Collapse agent-management services onto coordinator-api agent_coordination context (~4,800 lines) | 🟡 P2 | agent-management/services vs coordinator-api/…/agent_coordination/services | ⬜ |
-| B2 | Create shared blockchain RPC client (~100 lines) | 🟡 P2 | trading/clients/blockchain.py, governance/clients/blockchain.py → aitbc/blockchain/rpc_client.py | ⬜ |
-| B3 | Merge CLI error handling (~150 lines) | 🟡 P2 | cli/utils/error_handling.py → re-export from cli/aitbc_cli/utils/error_handling.py | ⬜ |
-| B4 | Consolidate DB init modules (~200 lines) | 🟡 P2 | agent-management/database.py, pool-hub/database.py → shared-core/database.py | ⬜ |
-| B5 | Adopt ServiceSettings across 5 services (~150 lines) | 🟡 P2 | trading, governance, marketplace, gpu, blockchain-event-bridge config.py → subclass ServiceSettings | ⬜ |
-| B6 | Consolidate security utils (~200 lines) | 🟡 P2 | coordinator-api/utils/security.py, cli/utils/security.py, wallet/security.py → aitbc/security/ | ⬜ |
-| B7 | Eliminate small copy-pastes (~100 lines) | 🟡 P2 | health endpoints, CORS setup, _to_decimal, retry helpers, GlobalMarketplaceOffer Decimal fix | ⬜ |
-| B8 | Fix GlobalMarketplaceOffer Decimal inconsistency (~30 lines) | 🟡 P2 | marketplace service (Decimal) vs coordinator-api (float) → standardize on Decimal | ⬜ |
+| B1 | Collapse agent-management services onto coordinator-api agent_coordination context (~4,800 lines) | 🟡 P2 | agent-management/services vs coordinator-api/…/agent_coordination/services | ✅ (deprecated entirely — Option A) |
+| B2 | Create shared blockchain RPC client (~100 lines) | 🟡 P2 | trading/clients/blockchain.py, governance/clients/blockchain.py → aitbc/blockchain/rpc_client.py | ✅ |
+| B3 | Merge CLI error handling (~150 lines) | 🟡 P2 | cli/utils/error_handling.py → re-export from cli/aitbc_cli/utils/error_handling.py | ✅ (deleted — zero importers) |
+| B4 | Consolidate DB init modules (~200 lines) | 🟡 P2 | agent-management/database.py, pool-hub/database.py → shared-core/database.py | ✅ (agent-mgmt deleted in B1; pool-hub kept) |
+| B5 | Adopt ServiceSettings across 5 services (~150 lines) | 🟡 P2 | trading, governance, marketplace, gpu, blockchain-event-bridge config.py → subclass ServiceSettings | ✅ (config.py vs hierarchical_config.py deferred) |
+| B6 | Consolidate security utils (~200 lines) | 🟡 P2 | coordinator-api/utils/security.py, cli/utils/security.py, wallet/security.py → aitbc/security/ | ✅ |
+| B7 | Eliminate small copy-pastes (~100 lines) | 🟡 P2 | health endpoints, CORS setup, _to_decimal, retry helpers, GlobalMarketplaceOffer Decimal fix | ✅ (to_decimal + CORS setup_cors) |
+| B8 | Fix GlobalMarketplaceOffer Decimal inconsistency (~30 lines) | 🟡 P2 | marketplace service (Decimal) vs coordinator-api (float) → standardize on Decimal | ✅ |
 
 ### Agent B — Detailed Instructions
 
