@@ -133,7 +133,7 @@ class ChainAnalytics:
 
     async def collect_all_metrics(self) -> dict[str, list[ChainMetrics]]:
         """Collect metrics for all chains across all nodes"""
-        all_metrics = {}
+        all_metrics: dict[str, list[ChainMetrics]] = {}
 
         tasks = []
         for node_id, node_config in self.config.nodes.items():
@@ -235,7 +235,7 @@ class ChainAnalytics:
                 "alerts_summary": {"total_alerts": 2, "critical_alerts": 0, "warning_alerts": 2},
             }
 
-        analysis = {
+        analysis: dict[str, Any] = {
             "total_chains": len(self.metrics_history),
             "active_chains": len([c for c in self.metrics_history.keys() if self.health_scores.get(c, 0) > 0.5]),
             "chains_by_type": defaultdict(int),
@@ -257,20 +257,26 @@ class ChainAnalytics:
 
             # Chain type analysis
             # This would need chain info, using placeholder
-            analysis["chains_by_type"]["unknown"] += 1
+            chains_by_type = analysis["chains_by_type"]
+            if isinstance(chains_by_type, dict):
+                chains_by_type["unknown"] = chains_by_type.get("unknown", 0) + 1
 
             # Performance comparison
-            analysis["performance_comparison"][chain_id] = {
-                "tps": latest.tps,
-                "block_time": latest.avg_block_time,
-                "health_score": self.health_scores.get(chain_id, 0.0),
-            }
+            perf_comp = analysis["performance_comparison"]
+            if isinstance(perf_comp, dict):
+                perf_comp[chain_id] = {
+                    "tps": latest.tps,
+                    "block_time": latest.avg_block_time,
+                    "health_score": self.health_scores.get(chain_id, 0.0),
+                }
 
             # Resource usage
-            analysis["resource_usage"]["total_memory_mb"] += latest.memory_usage_mb
-            analysis["resource_usage"]["total_disk_mb"] += latest.disk_usage_mb
-            analysis["resource_usage"]["total_clients"] += latest.client_count
-            analysis["resource_usage"]["total_agents"] += latest.agent_count
+            resource_usage = analysis["resource_usage"]
+            if isinstance(resource_usage, dict):
+                resource_usage["total_memory_mb"] += latest.memory_usage_mb
+                resource_usage["total_disk_mb"] += latest.disk_usage_mb
+                resource_usage["total_clients"] += latest.client_count
+                resource_usage["total_agents"] += latest.agent_count
 
         return analysis
 
@@ -341,7 +347,7 @@ class ChainAnalytics:
 
     def get_optimization_recommendations(self, chain_id: str) -> list[dict[str, Any]]:
         """Get optimization recommendations for a chain"""
-        recommendations = []
+        recommendations: list[dict[str, Any]] = []
 
         if chain_id not in self.metrics_history:
             return recommendations
@@ -499,7 +505,7 @@ class ChainAnalytics:
 
     def get_dashboard_data(self) -> dict[str, Any]:
         """Get data for analytics dashboard"""
-        dashboard = {
+        dashboard: dict[str, Any] = {
             "overview": self.get_cross_chain_analysis(),
             "chain_summaries": {},
             "alerts": [asdict(alert) for alert in self.alerts[-20:]],  # Last 20 alerts
@@ -509,8 +515,12 @@ class ChainAnalytics:
 
         # Chain summaries
         for chain_id in self.metrics_history.keys():
-            dashboard["chain_summaries"][chain_id] = self.get_chain_performance_summary(chain_id, 24)
-            dashboard["recommendations"][chain_id] = self.get_optimization_recommendations(chain_id)
+            chain_summaries = dashboard["chain_summaries"]
+            if isinstance(chain_summaries, dict):
+                chain_summaries[chain_id] = self.get_chain_performance_summary(chain_id, 24)
+            recommendations = dashboard["recommendations"]
+            if isinstance(recommendations, dict):
+                recommendations[chain_id] = self.get_optimization_recommendations(chain_id)
 
             # Latest predictions
             if chain_id in self.predictions:

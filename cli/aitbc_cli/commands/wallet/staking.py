@@ -267,7 +267,7 @@ def liquidity_stake(ctx, amount: float, pool: str, lock_days: int):
     password = None
     if wallet_data.get("encrypted"):
         password = _get_wallet_password(wallet_name)
-    _save_wallet(Path(wallet_path), wallet_data, password)
+    _save_wallet(Path(wallet_path), wallet_data, password if password else None)
 
     success(f"Staked {amount} AITBC into '{pool}' pool ({tier} tier, {apy}% APY)")
     output(
@@ -345,7 +345,7 @@ def liquidity_unstake(ctx, stake_id: str):
     password = None
     if wallet_data.get("encrypted"):
         password = _get_wallet_password(wallet_name)
-    _save_wallet(Path(wallet_path), wallet_data, password)
+    _save_wallet(Path(wallet_path), wallet_data, password if password else None)
 
     success(f"Withdrawn {total:.6f} AITBC (principal: {record['amount']}, rewards: {rewards:.6f})")
     output(

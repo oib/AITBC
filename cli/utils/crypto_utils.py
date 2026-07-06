@@ -88,7 +88,7 @@ def sign_challenge(challenge: str, private_key: str) -> str:
         message_hash = keccak(challenge.encode())
         signature = account.sign_message(message_hash)
 
-        return "0x" + signature.signature.hex()
+        return "0x" + signature.signature.hex()  # type: ignore[no-any-return]
 
     except Exception as e:
         raise ValueError(f"Failed to sign challenge: {e}") from e

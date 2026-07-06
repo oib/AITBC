@@ -19,7 +19,8 @@ from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
 def _get_rpc_url(ctx) -> str:
     """Get the blockchain RPC URL from context or default."""
-    return ctx.obj.get("rpc_url", "http://localhost:8202")
+    url = ctx.obj.get("rpc_url", "http://localhost:8202")
+    return str(url) if url is not None else "http://localhost:8202"
 
 
 def request_bridge_command(ctx, target_island_id):

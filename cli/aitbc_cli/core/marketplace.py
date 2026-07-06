@@ -136,7 +136,7 @@ class GlobalChainMarketplace:
         self.price_history: dict[str, list[Decimal]] = defaultdict(list)
 
         # Marketplace thresholds
-        self.thresholds = {
+        self.thresholds: dict[str, float | Decimal] = {
             "min_reputation_score": 0.5,
             "max_listing_duration_days": 30,
             "escrow_fee_percentage": 0.02,  # 2%
@@ -174,7 +174,12 @@ class GlobalChainMarketplace:
 
             # Create listing
             listing_id = str(uuid.uuid4())
-            expires_at = datetime.now() + timedelta(days=self.thresholds["max_listing_duration_days"])
+            max_duration = (
+                float(self.thresholds["max_listing_duration_days"])
+                if isinstance(self.thresholds["max_listing_duration_days"], int | float | Decimal)
+                else 30
+            )
+            expires_at = datetime.now() + timedelta(days=max_duration)
 
             listing = ChainListing(
                 listing_id=listing_id,
@@ -522,28 +527,30 @@ class GlobalChainMarketplace:
             average_price = total_volume / len(completed_transactions) if completed_transactions else Decimal("0")
 
             # Popular chain types
-            chain_types = defaultdict(int)
+            chain_types: defaultdict[str, int] = defaultdict(int)
             for listing in self.listings.values():
                 chain_types[listing.chain_type.value] += 1
 
             # Top sellers
-            seller_stats = defaultdict(lambda: {"count": 0, "volume": Decimal("0")})
+            seller_stats: defaultdict[str, dict[str, int | Decimal]] = defaultdict(
+                lambda: {"count": 0, "volume": Decimal("0")}
+            )
             for transaction in completed_transactions:
                 seller_stats[transaction.seller_id]["count"] += 1
                 seller_stats[transaction.seller_id]["volume"] += transaction.price
 
             top_sellers = [
-                {"seller_id": seller_id, "sales_count": stats["count"], "total_volume": float(stats["volume"])}
+                {"seller_id": seller_id, "sales_count": int(stats["count"]), "total_volume": stats["volume"]}
                 for seller_id, stats in seller_stats.items()
             ]
-            top_sellers.sort(key=lambda x: x["total_volume"], reverse=True)
+            top_sellers.sort(key=lambda x: Decimal(str(x["total_volume"])), reverse=True)
             top_sellers = top_sellers[:10]  # Top 10
 
             # Price trends
-            price_trends = {}
+            price_trends: dict[str, list[Decimal]] = {}
             for chain_id, prices in self.price_history.items():
                 if len(prices) >= 2:
-                    trend = (prices[-1] - prices[-2]) / prices[-2] if prices[-2] != 0 else 0
+                    trend = (prices[-1] - prices[-2]) / prices[-2] if prices[-2] != 0 else Decimal("0")
                     price_trends[chain_id] = [trend]
 
             # Market sentiment (mock calculation)
@@ -556,8 +563,8 @@ class GlobalChainMarketplace:
                 total_listings=total_listings,
                 active_listings=active_listings,
                 total_transactions=total_transactions,
-                total_volume=total_volume,
-                average_price=average_price,
+                total_volume=total_volume if isinstance(total_volume, Decimal) else Decimal(str(total_volume)),
+                average_price=average_price if isinstance(average_price, Decimal) else Decimal(str(average_price)),
                 popular_chain_types=dict(chain_types),
                 top_sellers=top_sellers,
                 price_trends=price_trends,
@@ -587,7 +594,8 @@ class GlobalChainMarketplace:
                 if t.created_at >= cutoff_time and t.status == TransactionStatus.COMPLETED
             ]
 
-            return sum(t.price for t in recent_transactions)
+            volume = sum(t.price for t in recent_transactions) if recent_transactions else Decimal("0")
+            return volume if isinstance(volume, Decimal) else Decimal(str(volume))
         except Exception as e:
             logger.error("Error calculating 24h volume: %s", e)
             return Decimal("0")
@@ -595,7 +603,9 @@ class GlobalChainMarketplace:
     async def _get_top_performing_chains(self, limit: int = 10) -> list[dict[str, Any]]:
         """Get top performing chains by volume"""
         try:
-            chain_performance = defaultdict(lambda: {"volume": Decimal("0"), "transactions": 0})
+            chain_performance: defaultdict[str, dict[str, int | Decimal]] = defaultdict(
+                lambda: {"volume": Decimal("0"), "transactions": 0}
+            )
 
             for transaction in self.transactions.values():
                 if transaction.status == TransactionStatus.COMPLETED:
@@ -603,11 +613,11 @@ class GlobalChainMarketplace:
                     chain_performance[transaction.chain_id]["transactions"] += 1
 
             top_chains = [
-                {"chain_id": chain_id, "volume": float(stats["volume"]), "transactions": stats["transactions"]}
+                {"chain_id": chain_id, "volume": float(stats["volume"]), "transactions": int(stats["transactions"])}
                 for chain_id, stats in chain_performance.items()
             ]
 
-            top_chains.sort(key=lambda x: x["volume"], reverse=True)
+            top_chains.sort(key=lambda x: float(x["volume"]), reverse=True)  # type: ignore[arg-type]
             return top_chains[:limit]
 
         except Exception as e:
@@ -636,7 +646,7 @@ class GlobalChainMarketplace:
     async def _get_chain_types_distribution(self) -> dict[str, int]:
         """Get distribution of chain types"""
         try:
-            distribution = defaultdict(int)
+            distribution: defaultdict[str, int] = defaultdict(int)
 
             for listing in self.listings.values():
                 distribution[listing.chain_type.value] += 1
