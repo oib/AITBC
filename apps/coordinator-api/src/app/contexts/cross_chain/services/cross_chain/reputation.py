@@ -7,10 +7,11 @@ import asyncio
 import json
 import time
 from collections import OrderedDict
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import Any
+from typing import Any, TypeVar
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
@@ -18,7 +19,10 @@ from aitbc.async_tasks import create_task_with_logging
 logger = get_logger(__name__)
 
 
-class TTLCache:
+_V = TypeVar("_V")
+
+
+class TTLCache[V]:
     """Simple LRU + TTL cache for bounding in-memory dict growth.
 
     Evicts entries that are either:
@@ -27,7 +31,7 @@ class TTLCache:
     """
 
     def __init__(self, maxsize: int = 10_000, ttl_seconds: float = 3600.0) -> None:
-        self._data: OrderedDict[str, tuple[Any, float]] = OrderedDict()
+        self._data: OrderedDict[str, tuple[V, float]] = OrderedDict()
         self._maxsize = maxsize
         self._ttl = ttl_seconds
 
@@ -49,7 +53,7 @@ class TTLCache:
             return False
         return True
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> V:
         val, ts = self._data[key]
         if self._is_expired(ts):
             del self._data[key]
@@ -58,7 +62,7 @@ class TTLCache:
         self._data.move_to_end(key)
         return val
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: str, value: V) -> None:
         if key in self._data:
             self._data.move_to_end(key)
         self._data[key] = (value, time.time())
@@ -69,25 +73,29 @@ class TTLCache:
     def __delitem__(self, key: str) -> None:
         del self._data[key]
 
+    def __iter__(self) -> Iterator[str]:
+        self._evict_expired()
+        return iter(list(self._data.keys()))
+
     def __len__(self) -> int:
         self._evict_expired()
         return len(self._data)
 
-    def get(self, key: str, default: Any = None) -> Any:
+    def get(self, key: str, default: V | None = None) -> V | None:
         try:
             return self[key]
         except KeyError:
             return default
 
-    def keys(self):
+    def keys(self) -> list[str]:
         self._evict_expired()
         return list(self._data.keys())
 
-    def values(self):
+    def values(self) -> list[V]:
         self._evict_expired()
         return [v for v, _ in self._data.values()]
 
-    def items(self):
+    def items(self) -> list[tuple[str, V]]:
         self._evict_expired()
         return [(k, v) for k, (v, _) in self._data.items()]
 
@@ -224,10 +232,10 @@ class CrossChainReputationService:
         # maxsize/ttl can be overridden via config.
         maxsize = config.get("reputation_cache_maxsize", 10_000)
         ttl = config.get("reputation_cache_ttl_seconds", 3600.0)
-        self.reputation_data: TTLCache = TTLCache(maxsize=maxsize, ttl_seconds=ttl)
-        self.chain_reputations: TTLCache = TTLCache(maxsize=maxsize, ttl_seconds=ttl)
-        self.reputation_stakes: TTLCache = TTLCache(maxsize=maxsize, ttl_seconds=ttl)
-        self.reputation_delegations: TTLCache = TTLCache(maxsize=maxsize, ttl_seconds=ttl)
+        self.reputation_data: TTLCache[ReputationScore] = TTLCache(maxsize=maxsize, ttl_seconds=ttl)
+        self.chain_reputations: TTLCache[dict[int, ReputationScore]] = TTLCache(maxsize=maxsize, ttl_seconds=ttl)
+        self.reputation_stakes: TTLCache[list[ReputationStake]] = TTLCache(maxsize=maxsize, ttl_seconds=ttl)
+        self.reputation_delegations: TTLCache[list[ReputationDelegation]] = TTLCache(maxsize=maxsize, ttl_seconds=ttl)
         self.cross_chain_syncs: list[CrossChainSync] = []
         self.base_score = 1000
         self.success_bonus = 100
