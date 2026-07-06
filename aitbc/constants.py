@@ -57,6 +57,9 @@ HERMES_PORT = 8103  # Deprecated: hermes service removed in v0.5.9 §8, use AGEN
 EXCHANGE_PORT = 8001
 REDIS_PORT = 6379
 
+# Default URLs (derived from ports)
+BLOCKCHAIN_RPC_URL = f"http://localhost:{BLOCKCHAIN_RPC_PORT}"
+
 # CORS origins
 DEFAULT_CORS_ORIGINS = ["http://localhost:3000", "http://localhost:8080"]
 PRODUCTION_CORS_ORIGINS = ["https://aitbc.io"]

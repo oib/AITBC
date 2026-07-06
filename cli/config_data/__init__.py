@@ -38,7 +38,7 @@ class Config:
                 if url_name == "coordinator_url":
                     self.coordinator_url = "http://localhost:8011"
                 elif url_name == "blockchain_rpc_url":
-                    self.blockchain_rpc_url = "http://localhost:8006"
+                    self.blockchain_rpc_url = "http://localhost:8202"
                 elif url_name == "wallet_url":
                     self.wallet_url = "http://localhost:8002"
 

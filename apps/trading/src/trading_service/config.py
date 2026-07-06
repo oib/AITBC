@@ -11,6 +11,7 @@ All fields are env-var overridable with the ``TRADING_`` prefix.
 """
 
 from __future__ import annotations
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from functools import lru_cache
 
@@ -28,8 +29,8 @@ class Settings(BaseSettings):
     bind_port: int = Field(default=8104)
 
     # Blockchain integration — port 8202 is the canonical blockchain RPC port
-    blockchain_rpc_url: str = Field(default="http://localhost:8202")
-    bridge_rpc_url: str = Field(default="http://localhost:8202")  # bridge is on blockchain node
+    blockchain_rpc_url: str = Field(default=BLOCKCHAIN_RPC_URL)
+    bridge_rpc_url: str = Field(default=BLOCKCHAIN_RPC_URL)  # bridge is on blockchain node
     default_chain_id: str = Field(default="ait-hub")
 
     # Inter-chain trading parameters
