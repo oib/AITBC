@@ -126,36 +126,6 @@ def async_to_sync(func: Callable) -> Callable:
     return wrapper
 
 
-async def retry_async(coro_func: Callable, max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0) -> Any:
-    """
-    Retry an async coroutine with exponential backoff.
-
-    Args:
-        coro_func: Function that returns a coroutine
-        max_attempts: Maximum retry attempts
-        delay: Initial delay in seconds
-        backoff: Multiplier for delay after each retry
-
-    Returns:
-        Result of the coroutine
-    """
-    last_exception: Exception | None = None
-    current_delay = delay
-
-    for attempt in range(max_attempts):
-        try:
-            return await coro_func()
-        except Exception as e:
-            last_exception = e
-            if attempt < max_attempts - 1:
-                await asyncio.sleep(current_delay)
-                current_delay *= backoff
-
-    if last_exception:
-        raise last_exception
-    raise RuntimeError("Retry failed without exception")
-
-
 async def wait_for_condition(
     condition: Callable[[], Coroutine[Any, Any, bool]], timeout: float = 30.0, check_interval: float = 0.5
 ) -> bool:

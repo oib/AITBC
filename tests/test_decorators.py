@@ -11,92 +11,9 @@ from aitbc.decorators.decorators import (
     async_timing,
     cache_result,
     handle_exceptions,
-    retry,
     timing,
     validate_args,
 )
-
-
-class TestRetry:
-    """Tests for retry decorator"""
-
-    def test_retry_succeeds_on_first_attempt(self):
-        """Test retry when function succeeds on first attempt"""
-
-        @retry(max_attempts=3)
-        def test_func():
-            return "success"
-
-        result = test_func()
-        assert result == "success"
-
-    def test_retry_succeeds_after_failure(self):
-        """Test retry when function succeeds after initial failure"""
-        attempts = [0]
-
-        @retry(max_attempts=3, delay=0.01)
-        def test_func():
-            attempts[0] += 1
-            if attempts[0] < 2:
-                raise ValueError("fail")
-            return "success"
-
-        result = test_func()
-        assert result == "success"
-        assert attempts[0] == 2
-
-    def test_retry_exhausts_attempts(self):
-        """Test retry when function fails after all attempts"""
-
-        @retry(max_attempts=2, delay=0.01)
-        def test_func():
-            raise ValueError("fail")
-
-        with pytest.raises(ValueError):
-            test_func()
-
-    def test_retry_with_specific_exception(self):
-        """Test retry only catches specified exceptions"""
-
-        @retry(max_attempts=2, delay=0.01, exceptions=(ValueError,))
-        def test_func():
-            raise TypeError("fail")
-
-        with pytest.raises(TypeError):
-            test_func()
-
-    def test_retry_with_backoff(self):
-        """Test retry with exponential backoff"""
-        attempts = [0]
-
-        @retry(max_attempts=3, delay=0.01, backoff=2.0)
-        def test_func():
-            attempts[0] += 1
-            raise ValueError("fail")
-
-        start_time = time.time()
-        with pytest.raises(ValueError):
-            test_func()
-        elapsed = time.time() - start_time
-
-        # Should have delays: 0.01 + 0.02 = 0.03 seconds minimum
-        assert elapsed >= 0.03
-
-    def test_retry_with_on_failure_callback(self):
-        """Test retry with on_failure callback"""
-        callback_called = [False]
-
-        def on_fail(e):
-            callback_called[0] = True
-
-        @retry(max_attempts=2, delay=0.01, on_failure=on_fail)
-        def test_func():
-            raise ValueError("fail")
-
-        with pytest.raises(ValueError):
-            test_func()
-
-        assert callback_called[0] is True
 
 
 class TestTiming:
