@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer  # noqa: E402
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.middleware import (  # noqa: E402
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
@@ -158,7 +159,7 @@ def record_failure(service_name: str) -> None:
 @app.get("/health")
 async def health() -> dict[str, str]:
     """Health check endpoint"""
-    return {"status": "healthy", "service": "api-gateway"}
+    return create_simple_health_response("api-gateway")
 
 
 @app.get("/services")
