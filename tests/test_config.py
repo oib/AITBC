@@ -20,11 +20,11 @@ class TestBaseAITBCConfig:
     def test_custom_values(self):
         """Test BaseAITBCConfig with custom values"""
         config = BaseAITBCConfig(
-            app_name="Custom App", app_version="2.0.0", environment="production", debug=True, log_level="DEBUG"
+            app_name="Custom App", app_version="2.0.0", environment="staging", debug=True, log_level="DEBUG"
         )
         assert config.app_name == "Custom App"
         assert config.app_version == "2.0.0"
-        assert config.environment == "production"
+        assert config.environment == "staging"
         assert config.debug is True
         assert config.log_level == "DEBUG"
 

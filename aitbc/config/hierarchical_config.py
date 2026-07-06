@@ -217,6 +217,17 @@ if HAS_PYDANTIC_SETTINGS:
         jwt_expiration_hours: int = Field(default=24, description="JWT token expiration in hours")
         request_timeout: int = Field(default=30, description="Request timeout in seconds")
         max_request_size: int = Field(default=10 * 1024 * 1024, description="Max request size in bytes")
+        # Fields backported from BaseAITBCConfig (v0.10.8 §B1)
+        database_max_overflow: int = Field(default=20, description="Maximum overflow connections")
+        database_pool_recycle: int = Field(default=3600, description="Connection recycle time in seconds")
+        database_pool_pre_ping: bool = Field(default=True, description="Test connections before using")
+        database_echo: bool = Field(default=False, description="Enable SQL query logging")
+        redis_url: str | None = Field(default=None, description="Redis connection URL")
+        redis_max_connections: int = Field(default=10, description="Redis max connections")
+        redis_timeout: int = Field(default=5, description="Redis timeout in seconds")
+        rate_limit_requests: int = Field(default=60, description="Rate limit requests per window")
+        rate_limit_window_seconds: int = Field(default=60, description="Rate limit window in seconds")
+        allow_origins: list[str] = Field(default_factory=list, description="CORS allowed origins")
 
         @field_validator("environment")
         @classmethod
@@ -291,6 +302,56 @@ if HAS_PYDANTIC_SETTINGS:
                 if not self.jwt_secret:
                     raise ValueError("JWT secret must be set in production")
             return self
+
+        def validate_secrets(self) -> None:
+            """Validate that all required secrets are provided."""
+            if self.environment == "production":
+                if not self.secret_key:
+                    raise ValueError("SECRET_KEY environment variable is required in production")
+                if self.secret_key == "change-me-in-production":
+                    raise ValueError("SECRET_KEY must be changed from default value")
+                if not self.jwt_secret:
+                    raise ValueError("JWT_SECRET environment variable is required in production")
+                if self.jwt_secret == "change-me-in-production":
+                    raise ValueError("JWT_SECRET must be changed from default value")
+
+        @field_validator("secret_key", "jwt_secret", mode="before")
+        @classmethod
+        def validate_secret_length(cls, v: str | None) -> str | None:
+            """Validate secret key length in production.
+
+            Only validates when a value is provided — the model_validator
+            ``validate_production_settings`` handles the 'must be set' case.
+            """
+            import os
+
+            # In non-production, pass through None/empty without error
+            if os.getenv("APP_ENV", "development") != "production":
+                return v
+            # In production, only validate if a value was actually provided
+            # (let validate_production_settings handle the missing-secret case)
+            if not v:
+                return v
+            if v.startswith("$") or v == "your_secret_here" or v == "change-me-in-production":
+                raise ValueError("Secret must be set to a secure value")
+            if len(v) < 32:
+                raise ValueError("Secret must be at least 32 characters long")
+            return v
+
+        def get_redis_cache(self):
+            """Get Redis cache instance configured from settings."""
+            from ..caching.redis_cache import get_cache
+
+            return get_cache(redis_url=self.redis_url, max_connections=self.redis_max_connections, timeout=self.redis_timeout)
+
+    class AITBCConfig(ValidatedAITBCConfig):
+        """Standard AITBC configuration with common settings.
+
+        Inherits from ValidatedAITBCConfig and can be extended with service-specific fields.
+        """
+
+        app_name: str = Field(default="AITBC Application", description="Application name")
+        port: int = Field(default=8000, description="Server port")
 
     def load_config(config_file: Path | None = None, env_file: Path | None = None) -> ValidatedAITBCConfig:
         """
