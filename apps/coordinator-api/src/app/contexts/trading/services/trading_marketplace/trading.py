@@ -5,7 +5,7 @@ Implements P2P trading, matching, negotiation, and settlement systems
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Any, TypedDict
 from uuid import uuid4
 
 from ...domain.trading import (
@@ -369,11 +369,17 @@ class NegotiationSystem:
         return sum(compatibility_scores) / len(compatibility_scores) if compatibility_scores else 50.0
 
 
+class _SettlementConfig(TypedDict):
+    requires_escrow: bool
+    processing_time: int
+    fee_rate: Decimal
+
+
 class SettlementLayer:
     """Secure settlement and escrow system"""
 
     def __init__(self) -> None:
-        self.settlement_types = {
+        self.settlement_types: dict[str, _SettlementConfig] = {
             "immediate": {"requires_escrow": False, "processing_time": 0, "fee_rate": Decimal("0.01")},
             "escrow": {"requires_escrow": True, "processing_time": 5, "fee_rate": Decimal("0.02")},
             "milestone": {"requires_escrow": True, "processing_time": 10, "fee_rate": Decimal("0.025")},

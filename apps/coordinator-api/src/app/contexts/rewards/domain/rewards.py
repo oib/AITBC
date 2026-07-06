@@ -54,21 +54,21 @@ class RewardTierConfig(SQLModel, table=True):
 
     # Threshold requirements
     min_trust_score: Decimal = Field(ge=0, le=1000)
-    min_performance_rating: Decimal = Field(ge=Decimal("1.0"), le=Decimal("5.0"))
+    min_performance_rating: Decimal = Field(ge=1.0, le=5.0)
     min_monthly_earnings: Decimal = Field(ge=0)
     min_transaction_count: int = Field(ge=0)
-    min_success_rate: Decimal = Field(ge=0, le=Decimal("100.0"))
+    min_success_rate: Decimal = Field(ge=0, le=100.0)
 
     # Reward multipliers and benefits
-    base_multiplier: Decimal = Field(default=Decimal("1.0"), ge=Decimal("1.0"))
-    performance_bonus_multiplier: Decimal = Field(default=Decimal("1.0"), ge=Decimal("1.0"))
-    loyalty_bonus_multiplier: Decimal = Field(default=Decimal("1.0"), ge=Decimal("1.0"))
-    referral_bonus_multiplier: Decimal = Field(default=Decimal("1.0"), ge=Decimal("1.0"))
+    base_multiplier: Decimal = Field(default=Decimal("1.0"), ge=1.0)
+    performance_bonus_multiplier: Decimal = Field(default=Decimal("1.0"), ge=1.0)
+    loyalty_bonus_multiplier: Decimal = Field(default=Decimal("1.0"), ge=1.0)
+    referral_bonus_multiplier: Decimal = Field(default=Decimal("1.0"), ge=1.0)
 
     # Tier benefits
     max_concurrent_jobs: int = Field(default=1)
     priority_boost: Decimal = Field(default=Decimal("1.0"))
-    fee_discount: Decimal = Field(default=Decimal("0.0"), ge=0, le=Decimal("100.0"))
+    fee_discount: Decimal = Field(default=Decimal("0.0"), ge=0, le=100.0)
     support_level: str = Field(default="basic")
 
     # Timestamps
@@ -92,7 +92,7 @@ class AgentRewardProfile(SQLModel, table=True):
 
     # Current tier and status
     current_tier: RewardTier = Field(default=RewardTier.BRONZE)
-    tier_progress: Decimal = Field(default=Decimal("0.0"), ge=0, le=Decimal("100.0"))  # Progress to next tier
+    tier_progress: Decimal = Field(default=Decimal("0.0"), ge=0, le=100.0)  # Progress to next tier
 
     # Earnings tracking
     base_earnings: Decimal = Field(default=Decimal("0.0"))
@@ -134,7 +134,7 @@ class RewardCalculation(SQLModel, table=True):
     # Calculation details
     reward_type: RewardType
     base_amount: Decimal = Field(ge=0)
-    tier_multiplier: Decimal = Field(default=Decimal("1.0"), ge=Decimal("1.0"))
+    tier_multiplier: Decimal = Field(default=Decimal("1.0"), ge=1.0)
 
     # Bonus factors
     performance_bonus: Decimal = Field(default=Decimal("0.0"))
@@ -145,12 +145,12 @@ class RewardCalculation(SQLModel, table=True):
 
     # Final calculation
     total_reward: Decimal = Field(ge=0)
-    effective_multiplier: Decimal = Field(default=Decimal("1.0"), ge=Decimal("1.0"))
+    effective_multiplier: Decimal = Field(default=Decimal("1.0"), ge=1.0)
 
     # Calculation metadata
     calculation_period: str = Field(default="daily")  # daily, weekly, monthly
     reference_date: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    trust_score_at_calculation: Decimal = Field(ge=0, le=Decimal("1000"))
+    trust_score_at_calculation: Decimal = Field(ge=0, le=1000)
     performance_metrics: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
