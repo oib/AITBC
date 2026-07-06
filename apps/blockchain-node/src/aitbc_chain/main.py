@@ -390,7 +390,7 @@ class BlockchainNode:
                 self._multi_chain_manager = create_multi_chain_manager(
                     default_chain_id=default_chain_id,
                     base_db_path=base_db_path,
-                    base_rpc_port=int(os.getenv("RPC_PORT", "8006")),
+                    base_rpc_port=int(os.getenv("RPC_PORT", "8202")),
                     base_p2p_port=int(os.getenv("P2P_PORT", "8007")),
                 )
                 # Start secondary chains (default chain is managed by main proposer logic)

@@ -100,21 +100,21 @@ class TestMultiChainManagerPortAllocator:
         with tempfile.TemporaryDirectory() as tmpdir:
             base_db = Path(tmpdir) / "chain.db"
             allocator = PortAllocator(
-                base_rpc_port=8006,
+                base_rpc_port=8202,
                 base_p2p_port=8007,
                 port_offsets="chain-a:10,chain-b:20",
             )
             mgr = MultiChainManager(
                 default_chain_id="default-chain",
                 base_db_path=base_db,
-                base_rpc_port=8006,
+                base_rpc_port=8202,
                 base_p2p_port=8007,
                 port_allocator=allocator,
             )
             # Default chain should have base ports
             default_chain = mgr.get_chain_status("default-chain")
             assert default_chain is not None
-            assert default_chain.rpc_port == 8006
+            assert default_chain.rpc_port == 8202
             assert default_chain.p2p_port == 8007
 
     def test_port_allocator_no_offsets_fallback(self):
@@ -125,18 +125,18 @@ class TestMultiChainManagerPortAllocator:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             base_db = Path(tmpdir) / "chain.db"
-            allocator = PortAllocator(base_rpc_port=8006, base_p2p_port=8007, port_offsets="")
+            allocator = PortAllocator(base_rpc_port=8202, base_p2p_port=8007, port_offsets="")
             mgr = MultiChainManager(
                 default_chain_id="default-chain",
                 base_db_path=base_db,
-                base_rpc_port=8006,
+                base_rpc_port=8202,
                 base_p2p_port=8007,
                 port_allocator=allocator,
             )
             # Without offsets, _allocate_ports uses naive incrementing
             rpc, p2p = mgr._allocate_ports("chain-x")
-            assert rpc == 8007  # base + 1
-            assert p2p == 8008  # base + 1
+            assert rpc == 8203  # base + 1
+            assert p2p == 8008  # base_p2p + 1
 
 
 class TestMultiChainManagerRetry:
@@ -153,7 +153,7 @@ class TestMultiChainManagerRetry:
             mgr = MultiChainManager(
                 default_chain_id="default-chain",
                 base_db_path=base_db,
-                base_rpc_port=8006,
+                base_rpc_port=8202,
                 base_p2p_port=8007,
             )
 
@@ -181,7 +181,7 @@ class TestMultiChainManagerRetry:
             mgr = MultiChainManager(
                 default_chain_id="default-chain",
                 base_db_path=base_db,
-                base_rpc_port=8006,
+                base_rpc_port=8202,
                 base_p2p_port=8007,
             )
 
@@ -225,7 +225,7 @@ class TestMultiChainManagerStartSecondary:
             mgr = MultiChainManager(
                 default_chain_id="default-chain",
                 base_db_path=base_db,
-                base_rpc_port=8006,
+                base_rpc_port=8202,
                 base_p2p_port=8007,
             )
             with patch.object(settings, "island_chains", ""):
@@ -244,7 +244,7 @@ class TestMultiChainManagerStartSecondary:
             mgr = MultiChainManager(
                 default_chain_id="default-chain",
                 base_db_path=base_db,
-                base_rpc_port=8006,
+                base_rpc_port=8202,
                 base_p2p_port=8007,
             )
 
@@ -282,7 +282,7 @@ class TestMultiChainManagerStop:
             mgr = MultiChainManager(
                 default_chain_id="default-chain",
                 base_db_path=base_db,
-                base_rpc_port=8006,
+                base_rpc_port=8202,
                 base_p2p_port=8007,
             )
 
@@ -577,7 +577,7 @@ class TestChainRPCEndpoints:
                 chain_type=ChainType.DEFAULT,
                 status=ChainStatus.RUNNING,
                 db_path=Path("/tmp/chain.db"),
-                rpc_port=8006,
+                rpc_port=8202,
                 p2p_port=8007,
                 started_at=1234567890.0,
             )
