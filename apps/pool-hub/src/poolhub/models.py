@@ -96,13 +96,13 @@ class MatchResult(Base):
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     request_id: Mapped[UUID] = mapped_column(ForeignKey("match_requests.id", ondelete="CASCADE"), index=True)
-    miner_id: Mapped[str] = mapped_column(String(64))
+    miner_id: Mapped[str] = mapped_column(String(64), index=True)
     score: Mapped[float] = mapped_column(Float)
     explain: Mapped[str | None] = mapped_column(Text)
     eta_ms: Mapped[int | None] = mapped_column(Integer)
     price: Mapped[float | None] = mapped_column(Float)
 
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC), index=True)
 
     request: Mapped[MatchRequest] = relationship(back_populates="results")
 
@@ -112,12 +112,12 @@ class Feedback(Base):
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     job_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    miner_id: Mapped[str] = mapped_column(ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False)
+    miner_id: Mapped[str] = mapped_column(ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False, index=True)
     outcome: Mapped[str] = mapped_column(String(32), nullable=False)
     latency_ms: Mapped[int | None] = mapped_column(Integer)
     fail_code: Mapped[str | None] = mapped_column(String(64))
     tokens_spent: Mapped[float | None] = mapped_column(Float)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC), index=True)
 
     miner: Mapped[Miner] = relationship(back_populates="feedback")
 
@@ -152,7 +152,7 @@ class SLAMetric(Base):
     __tablename__ = "sla_metrics"
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    miner_id: Mapped[str] = mapped_column(ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False)
+    miner_id: Mapped[str] = mapped_column(ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False, index=True)
     metric_type: Mapped[str] = mapped_column(String(32), nullable=False)  # uptime, response_time, completion_rate, capacity
     metric_value: Mapped[float] = mapped_column(Float, nullable=False)
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
@@ -169,14 +169,14 @@ class SLAViolation(Base):
     __tablename__ = "sla_violations"
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    miner_id: Mapped[str] = mapped_column(ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False)
+    miner_id: Mapped[str] = mapped_column(ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False, index=True)
     violation_type: Mapped[str] = mapped_column(String(32), nullable=False)
     severity: Mapped[str] = mapped_column(String(16), nullable=False)  # critical, high, medium, low
     metric_value: Mapped[float] = mapped_column(Float, nullable=False)
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
     violation_duration_ms: Mapped[int | None] = mapped_column(Integer)
     resolved_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC), index=True)
     meta_data: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
 
     miner: Mapped[Miner] = relationship(backref="sla_violations")
