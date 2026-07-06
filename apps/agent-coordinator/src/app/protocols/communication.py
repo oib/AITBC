@@ -3,7 +3,6 @@ Multi-Agent Communication Protocols for AITBC Agent Coordination
 """
 
 import asyncio
-import json
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -12,7 +11,6 @@ from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
@@ -323,78 +321,6 @@ class MessageTemplates:
         return AgentMessage(
             sender_id=sender_id, message_type=MessageType.CONSENSUS, priority=Priority.HIGH, payload=proposal_data
         )
-
-
-class WebSocketHandler:
-    """WebSocket handler for real-time agent communication"""
-
-    def __init__(self, communication_manager: CommunicationManager) -> None:
-        self.communication_manager = communication_manager
-        self.websocket_connections: dict[str, Any] = {}
-
-    async def handle_connection(self, websocket: Any, agent_id: str) -> Any:
-        """Handle WebSocket connection from agent"""
-        import websockets
-
-        self.websocket_connections[agent_id] = websocket
-        logger.info("WebSocket connection established for agent %s", agent_id)
-        try:
-            async for message in websocket:
-                data = json.loads(message)
-                agent_message = AgentMessage.from_dict(data)
-                await self.communication_manager.receive_message(agent_message)  # type: ignore
-        except websockets.exceptions.ConnectionClosed:
-            logger.info("WebSocket connection closed for agent %s", agent_id)
-        finally:
-            if agent_id in self.websocket_connections:
-                del self.websocket_connections[agent_id]
-
-    async def send_to_agent(self, agent_id: str, message: AgentMessage) -> Any:
-        """Send message to agent via WebSocket"""
-        if agent_id in self.websocket_connections:
-            websocket = self.websocket_connections[agent_id]
-            await websocket.send(json.dumps(message.to_dict()))
-            return True
-        return False
-
-    async def broadcast_message(self, message: AgentMessage) -> Any:
-        """Broadcast message to all connected agents"""
-        for websocket in self.websocket_connections.values():
-            await websocket.send(json.dumps(message.to_dict()))
-
-
-class RedisMessageBroker:
-    """Redis-based message broker for agent communication"""
-
-    def __init__(self, redis_url: str) -> None:
-        self.redis_url = redis_url
-        self.channels: dict[str, Any] = {}
-
-    async def publish_message(self, channel: str, message: AgentMessage) -> Any:
-        """Publish message to Redis channel"""
-        import redis.asyncio as redis
-
-        redis_client = redis.from_url(self.redis_url)
-        await redis_client.publish(channel, json.dumps(message.to_dict()))
-        await redis_client.aclose()
-
-    async def subscribe_to_channel(self, channel: str, handler: Callable[[Any], Any]) -> Any:
-        """Subscribe to Redis channel"""
-        import redis.asyncio as redis
-
-        redis_client = redis.from_url(self.redis_url)
-        pubsub = redis_client.pubsub()
-        await pubsub.subscribe(channel)
-        self.channels[channel] = {"pubsub": pubsub, "handler": handler}
-        create_task_with_logging(self._listen_to_channel(channel, pubsub, handler), name="listen_to_channel")
-
-    async def _listen_to_channel(self, channel: str, pubsub: Any, handler: Callable[[Any], Any]) -> Any:
-        """Listen for messages on channel"""
-        async for message in pubsub.listen():
-            if message["type"] == "message":
-                data = json.loads(message["data"])
-                agent_message = AgentMessage.from_dict(data)
-                await handler(agent_message)
 
 
 def create_protocol(protocol_type: str, agent_id: str, **kwargs: Any) -> CommunicationProtocol:

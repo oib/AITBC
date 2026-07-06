@@ -1,8 +1,9 @@
-"""Trading service configuration (v0.8.0 §B1, v0.8.1 §B1).
+"""Trading service configuration (v0.8.0 §B1, v0.8.1 §B1, v0.10.7 §B5).
 
-Provides a ``pydantic_settings.BaseSettings`` subclass with blockchain
-and bridge integration fields (RPC URLs, chain_id) and inter-chain
-trading parameters (matching, execution timeout, sync interval).
+Subclasses ``aitbc_shared.core.config.ServiceSettings`` to inherit common
+service fields (service_name, app_env, debug, log_level, database, api_prefix,
+enable_metrics, enable_health_check) while adding blockchain/bridge integration
+fields and inter-chain trading parameters.
 
 v0.8.1 additions: offer sync settings (sync_enabled, sync_interval,
 staleness thresholds, cache TTL, per-chain overrides).
@@ -15,16 +16,19 @@ from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from functools import lru_cache
 
+from aitbc_shared.core.config import ServiceSettings
+
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
 
 
-class Settings(BaseSettings):
+class Settings(ServiceSettings):
     """Configuration for the AITBC Trading Service."""
 
-    model_config = SettingsConfigDict(env_prefix="trading_", env_file=".env", case_sensitive=False)
+    model_config = SettingsConfigDict(env_prefix="trading_", env_file=".env", case_sensitive=False, extra="allow")
 
-    # Service bind
+    # Service bind (kept for backward compat with TRADING_BIND_HOST/PORT env vars;
+    # ServiceSettings also provides app_host/app_port)
     bind_host: str = Field(default="0.0.0.0")
     bind_port: int = Field(default=8104)
 

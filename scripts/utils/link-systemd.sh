@@ -100,7 +100,6 @@ get_allowed_services() {
         aitbc-marketplace
         aitbc-bridge-monitor
         aitbc-blockchain-event-bridge
-        aitbc-agent-management
         aitbc-agent-coordinator
         aitbc-blockchain-explorer
     )

@@ -125,7 +125,6 @@ get_services_for_role() {
         aitbc-marketplace
         aitbc-bridge-monitor
         aitbc-blockchain-event-bridge
-        aitbc-agent-management
         aitbc-agent-coordinator
         aitbc-blockchain-explorer
     )
