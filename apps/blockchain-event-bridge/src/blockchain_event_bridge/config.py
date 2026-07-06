@@ -2,6 +2,7 @@
 
 import os
 
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 from pydantic import ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings
 
@@ -15,7 +16,7 @@ class Settings(BaseSettings):
     bind_port: int = Field(default=8204)
 
     # Blockchain RPC
-    blockchain_rpc_url: str = Field(default="http://localhost:8202")
+    blockchain_rpc_url: str = Field(default=BLOCKCHAIN_RPC_URL)
 
     # Gossip broker
     gossip_backend: str = Field(default="memory")  # memory, broadcast, redis

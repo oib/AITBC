@@ -8,6 +8,7 @@ All fields are env-var overridable with the ``GOVERNANCE_`` prefix.
 """
 
 from __future__ import annotations
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from functools import lru_cache
 
@@ -25,7 +26,7 @@ class Settings(BaseSettings):
     bind_port: int = Field(default=8105)
 
     # Blockchain integration (v0.7.3) — port 8202 is the canonical blockchain RPC port
-    blockchain_rpc_url: str = Field(default="http://localhost:8202")
+    blockchain_rpc_url: str = Field(default=BLOCKCHAIN_RPC_URL)
     default_chain_id: str = Field(default="ait-hub")
 
     # Governance voting parameters (block-based, ~2s block time)

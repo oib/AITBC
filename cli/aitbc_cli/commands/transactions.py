@@ -11,7 +11,7 @@ import click
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from aitbc import ValidationError
-from aitbc.utils.validation import validate_address
+from aitbc.utils.validation import validate_address_strict
 
 from ..config import get_config
 from ..utils import error, success
@@ -45,7 +45,7 @@ def _send_transaction_impl(
 
     # Validate recipient address
     try:
-        validate_address(to_address)
+        validate_address_strict(to_address)
     except ValidationError as e:
         logger.error("Invalid recipient address: %s", e)
         error(f"Invalid recipient address: {e}")

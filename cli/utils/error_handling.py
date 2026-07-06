@@ -178,16 +178,17 @@ def validate_url(url: str) -> bool:
 
 def validate_address(address: str) -> bool:
     """
-    Validate Ethereum address format.
+    Validate AITBC/Ethereum address format.
+
+    Delegates to :func:`aitbc.utils.validation.validate_address` for
+    EIP-55 checksum validation and legacy address support.
 
     Args:
-        address: Ethereum address string
+        address: Address string
 
     Returns:
         True if valid, False otherwise
     """
-    import re
+    from aitbc.utils.validation import validate_address as _validate_address
 
-    # Basic Ethereum address validation (0x followed by 40 hex characters)
-    address_pattern = re.compile(r"^0x[a-fA-F0-9]{40}$")
-    return bool(address_pattern.match(address))
+    return _validate_address(address)
