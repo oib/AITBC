@@ -4,6 +4,7 @@ Provides a unified dashboard for all 6 enhanced services
 """
 
 import asyncio
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 from datetime import UTC, datetime
 from typing import Any
 
@@ -47,8 +48,8 @@ SERVICES = {
     },
     "marketplace_enhanced": {
         "name": "Enhanced Marketplace Service",
-        "port": 8006,
-        "url": "http://localhost:8006",
+        "port": 8202,
+        "url": BLOCKCHAIN_RPC_URL,
         "description": "NFT 2.0, royalties, analytics",
         "icon": "🏪",
     },

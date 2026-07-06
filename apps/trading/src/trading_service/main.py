@@ -7,6 +7,7 @@ import asyncio
 import os
 import time
 import uuid
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
@@ -352,7 +353,7 @@ async def _fetch_blocks_from_chain(limit: int | None, chain_id: str | None) -> d
     """Fetch recent blocks from the blockchain node RPC."""
     import httpx
 
-    rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+    rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
     actual_chain_id = chain_id or os.getenv("CHAIN_ID", "")
     actual_limit = min(limit or 50, 100)
 
@@ -1202,7 +1203,7 @@ from aitbc.settlement.types import SettlementConfig  # noqa: E402
 
 def _get_settlement_client() -> SettlementClient:
     """Create a SettlementClient targeting the blockchain node settlement RPC."""
-    rpc_url = os.getenv("SETTLEMENT_RPC_URL", "http://localhost:8202")
+    rpc_url = os.getenv("SETTLEMENT_RPC_URL", BLOCKCHAIN_RPC_URL)
     config = SettlementConfig(settlement_rpc_url=rpc_url)
     return SettlementClient(config)
 

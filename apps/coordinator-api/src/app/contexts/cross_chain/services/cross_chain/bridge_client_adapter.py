@@ -14,6 +14,7 @@ this adapter.
 """
 
 from __future__ import annotations
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 import logging
 from typing import Any
@@ -32,7 +33,7 @@ class BridgeClientAdapter:
 
     def __init__(
         self,
-        rpc_url: str = "http://localhost:8202",
+        rpc_url: str = BLOCKCHAIN_RPC_URL,
         chain_id: str = "ait-hub",
         timeout: int = 30,
     ) -> None:
