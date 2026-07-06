@@ -6,6 +6,7 @@ Implements intelligent bidding algorithms for GPU rental negotiations
 import asyncio
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -13,6 +14,18 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
+
+
+def _D(value: float | int | str | Decimal) -> Decimal:
+    """Convert a numeric value to Decimal for financial arithmetic."""
+    if isinstance(value, Decimal):
+        return value
+    return Decimal(str(value))
+
+
+def _serialize_decimals(data: dict[str, Any]) -> dict[str, Any]:
+    """Convert Decimal values in a dict to str for JSON serialization."""
+    return {k: str(v) if isinstance(v, Decimal) else v for k, v in data.items()}
 
 
 class BidStrategy(StrEnum):
@@ -48,9 +61,9 @@ class GPU_Tier(StrEnum):
 class MarketConditions:
     """Current market conditions"""
 
-    current_gas_price: float
+    current_gas_price: Decimal
     gpu_utilization_rate: float
-    average_hourly_price: float
+    average_hourly_price: Decimal
     price_volatility: float
     demand_level: float
     supply_level: float
@@ -69,7 +82,7 @@ class TaskRequirements:
     memory_requirement: int
     compute_intensity: float
     deadline: datetime | None
-    max_budget: float
+    max_budget: Decimal
     priority_score: float
 
 
@@ -77,20 +90,20 @@ class TaskRequirements:
 class BidParameters:
     """Parameters for bid calculation"""
 
-    base_price: float
-    urgency_multiplier: float
-    tier_multiplier: float
-    market_multiplier: float
-    competition_factor: float
-    time_factor: float
-    risk_premium: float
+    base_price: Decimal
+    urgency_multiplier: Decimal
+    tier_multiplier: Decimal
+    market_multiplier: Decimal
+    competition_factor: Decimal
+    time_factor: Decimal
+    risk_premium: Decimal
 
 
 @dataclass
 class BidResult:
     """Result of bid calculation"""
 
-    bid_price: float
+    bid_price: Decimal
     bid_strategy: BidStrategy
     confidence_score: float
     expected_wait_time: float
@@ -185,11 +198,11 @@ class BidStrategyEngine:
         volatility_trend = await self._calculate_volatility_trend()
         future_conditions = await self._predict_market_conditions(24)
         return {
-            "current_conditions": asdict(market_conditions),
+            "current_conditions": _serialize_decimals(asdict(market_conditions)),
             "price_trend": price_trend,
             "demand_trend": demand_trend,
             "volatility_trend": volatility_trend,
-            "future_prediction": asdict(future_conditions),
+            "future_prediction": _serialize_decimals(asdict(future_conditions)),
             "recommendations": await self._generate_market_recommendations(market_conditions),
             "analysis_timestamp": datetime.now(UTC).isoformat(),
         }
@@ -234,53 +247,53 @@ class BidStrategyEngine:
         """Calculate bid parameters based on strategy and conditions"""
         base_price = market_conditions.average_hourly_price
         tier_multipliers = {
-            GPU_Tier.CPU_ONLY: 0.3,
-            GPU_Tier.LOW_END_GPU: 0.6,
-            GPU_Tier.MID_RANGE_GPU: 1.0,
-            GPU_Tier.HIGH_END_GPU: 1.8,
-            GPU_Tier.PREMIUM_GPU: 3.0,
+            GPU_Tier.CPU_ONLY: Decimal("0.3"),
+            GPU_Tier.LOW_END_GPU: Decimal("0.6"),
+            GPU_Tier.MID_RANGE_GPU: Decimal("1.0"),
+            GPU_Tier.HIGH_END_GPU: Decimal("1.8"),
+            GPU_Tier.PREMIUM_GPU: Decimal("3.0"),
         }
         tier_multiplier = tier_multipliers[task_requirements.gpu_tier]
         urgency_multipliers = {
-            BidStrategy.URGENT_BID: 1.5,
-            BidStrategy.COST_OPTIMIZED: 0.8,
-            BidStrategy.BALANCED: 1.0,
-            BidStrategy.AGGRESSIVE: 1.3,
-            BidStrategy.CONSERVATIVE: 0.9,
+            BidStrategy.URGENT_BID: Decimal("1.5"),
+            BidStrategy.COST_OPTIMIZED: Decimal("0.8"),
+            BidStrategy.BALANCED: Decimal("1.0"),
+            BidStrategy.AGGRESSIVE: Decimal("1.3"),
+            BidStrategy.CONSERVATIVE: Decimal("0.9"),
         }
         urgency_multiplier = urgency_multipliers[strategy]
-        market_multiplier = 1.0
+        market_multiplier = Decimal("1.0")
         if market_conditions.demand_level > 0.8:
-            market_multiplier *= 1.2
+            market_multiplier *= Decimal("1.2")
         if market_conditions.supply_level < 0.3:
-            market_multiplier *= 1.3
+            market_multiplier *= Decimal("1.3")
         if market_conditions.price_volatility > self.volatility_threshold:
-            market_multiplier *= 1.1
-        competition_factor = market_conditions.demand_level / max(market_conditions.supply_level, 0.1)
-        time_factor = 1.0
+            market_multiplier *= Decimal("1.1")
+        competition_factor = _D(market_conditions.demand_level / max(market_conditions.supply_level, 0.1))
+        time_factor = Decimal("1.0")
         if task_requirements.deadline:
             time_remaining = (task_requirements.deadline - datetime.now(UTC)).total_seconds() / 3600
             if time_remaining < 2:
-                time_factor = 1.5
+                time_factor = Decimal("1.5")
             elif time_remaining < 6:
-                time_factor = 1.2
+                time_factor = Decimal("1.2")
             elif time_remaining < 24:
-                time_factor = 1.1
+                time_factor = Decimal("1.1")
         risk_premiums = {
-            BidStrategy.URGENT_BID: 0.2,
-            BidStrategy.COST_OPTIMIZED: 0.05,
-            BidStrategy.BALANCED: 0.1,
-            BidStrategy.AGGRESSIVE: 0.25,
-            BidStrategy.CONSERVATIVE: 0.08,
+            BidStrategy.URGENT_BID: Decimal("0.2"),
+            BidStrategy.COST_OPTIMIZED: Decimal("0.05"),
+            BidStrategy.BALANCED: Decimal("0.1"),
+            BidStrategy.AGGRESSIVE: Decimal("0.25"),
+            BidStrategy.CONSERVATIVE: Decimal("0.08"),
         }
         risk_premium = risk_premiums[strategy]
         if custom_parameters:
             if "base_price_adjustment" in custom_parameters:
-                base_price *= 1 + custom_parameters["base_price_adjustment"]
+                base_price *= Decimal(1) + _D(custom_parameters["base_price_adjustment"])
             if "tier_multiplier_adjustment" in custom_parameters:
-                tier_multiplier *= 1 + custom_parameters["tier_multiplier_adjustment"]
+                tier_multiplier *= Decimal(1) + _D(custom_parameters["tier_multiplier_adjustment"])
             if "risk_premium_adjustment" in custom_parameters:
-                risk_premium *= 1 + custom_parameters["risk_premium_adjustment"]
+                risk_premium *= Decimal(1) + _D(custom_parameters["risk_premium_adjustment"])
         return BidParameters(
             base_price=base_price,
             urgency_multiplier=urgency_multiplier,
@@ -291,28 +304,30 @@ class BidStrategyEngine:
             risk_premium=risk_premium,
         )
 
-    async def _calculate_bid_price(self, bid_params: BidParameters, task_requirements: TaskRequirements) -> float:
+    async def _calculate_bid_price(self, bid_params: BidParameters, task_requirements: TaskRequirements) -> Decimal:
         """Calculate final bid price"""
         price = bid_params.base_price
         price *= bid_params.urgency_multiplier
         price *= bid_params.tier_multiplier
         price *= bid_params.market_multiplier
-        price *= 1 + bid_params.competition_factor * 0.3
+        price *= Decimal(1) + bid_params.competition_factor * Decimal("0.3")
         price *= bid_params.time_factor
-        price *= 1 + bid_params.risk_premium
-        duration_multiplier = max(0.8, min(1.2, 1.0 - (task_requirements.estimated_duration - 1) * 0.05))
+        price *= Decimal(1) + bid_params.risk_premium
+        duration_multiplier = max(
+            Decimal("0.8"), min(Decimal("1.2"), Decimal(1) - _D((task_requirements.estimated_duration - 1) * 0.05))
+        )
         price *= duration_multiplier
-        max_hourly_rate = task_requirements.max_budget / max(task_requirements.estimated_duration, 0.1)
+        max_hourly_rate = task_requirements.max_budget / _D(max(task_requirements.estimated_duration, 0.1))
         price = min(price, max_hourly_rate)
         price = round(price, 6)
-        return max(price, 0.001)
+        return max(price, Decimal("0.001"))
 
     async def _calculate_success_probability(
-        self, bid_price: float, task_requirements: TaskRequirements, market_conditions: MarketConditions
+        self, bid_price: Decimal, task_requirements: TaskRequirements, market_conditions: MarketConditions
     ) -> float:
         """Calculate probability of bid success"""
         base_prob = 1.0 - market_conditions.demand_level
-        price_competitiveness = market_conditions.average_hourly_price / max(bid_price, 0.001)
+        price_competitiveness = float(market_conditions.average_hourly_price) / max(float(bid_price), 0.001)
         price_factor = min(1.0, price_competitiveness)
         urgency_factor = 1.0
         if task_requirements.urgency == UrgencyLevel.CRITICAL:
@@ -330,12 +345,12 @@ class BidStrategyEngine:
         return max(0.1, min(0.95, success_prob))
 
     async def _estimate_wait_time(
-        self, bid_price: float, task_requirements: TaskRequirements, market_conditions: MarketConditions
+        self, bid_price: Decimal, task_requirements: TaskRequirements, market_conditions: MarketConditions
     ) -> float:
         """Estimate wait time for resource allocation"""
         base_wait = 300
         demand_factor = market_conditions.demand_level * 600
-        price_ratio = bid_price / market_conditions.average_hourly_price
+        price_ratio = float(bid_price) / float(market_conditions.average_hourly_price)
         price_factor = max(0.5, 2.0 - price_ratio) * 300
         urgency_factor = 0
         if task_requirements.urgency == UrgencyLevel.CRITICAL:
@@ -372,13 +387,15 @@ class BidStrategyEngine:
         confidence = stability_factor * 0.3 + strategy_confidence[strategy] * 0.3 + data_factor * 0.2 + param_factor * 0.2
         return max(0.3, min(0.95, confidence))
 
-    async def _calculate_cost_efficiency(self, bid_price: float, task_requirements: TaskRequirements) -> float:
+    async def _calculate_cost_efficiency(self, bid_price: Decimal, task_requirements: TaskRequirements) -> float:
         """Calculate cost efficiency of the bid"""
         market_price = await self._get_market_price_for_tier(task_requirements.gpu_tier)
-        price_efficiency = market_price / max(bid_price, 0.001)
+        price_efficiency = float(market_price) / max(float(bid_price), 0.001)
         duration_efficiency = min(1.2, 1.0 + (task_requirements.estimated_duration - 1) * 0.05)
         compute_efficiency = task_requirements.compute_intensity
-        budget_utilization = bid_price * task_requirements.estimated_duration / max(task_requirements.max_budget, 0.001)
+        budget_utilization = (
+            float(bid_price) * task_requirements.estimated_duration / max(float(task_requirements.max_budget), 0.001)
+        )
         budget_efficiency = 1.0 - abs(budget_utilization - 0.8)
         efficiency = price_efficiency * 0.4 + duration_efficiency * 0.2 + compute_efficiency * 0.2 + budget_efficiency * 0.2
         return max(0.1, min(1.0, efficiency))
@@ -422,9 +439,9 @@ class BidStrategyEngine:
     async def _get_current_market_conditions(self) -> MarketConditions:
         """Get current market conditions"""
         return MarketConditions(
-            current_gas_price=20.0,
+            current_gas_price=Decimal("20.0"),
             gpu_utilization_rate=0.75,
-            average_hourly_price=0.05,
+            average_hourly_price=Decimal("0.05"),
             price_volatility=0.12,
             demand_level=0.68,
             supply_level=0.72,
@@ -456,8 +473,8 @@ class BidStrategyEngine:
         """Calculate price trend"""
         if len(self.market_history) < 2:
             return "insufficient_data"
-        recent_prices = [c.average_hourly_price for c in self.market_history[-24:]]
-        older_prices = [c.average_hourly_price for c in self.market_history[-48:-24]]
+        recent_prices = [float(c.average_hourly_price) for c in self.market_history[-24:]]
+        older_prices = [float(c.average_hourly_price) for c in self.market_history[-48:-24]]
         if not older_prices:
             return "insufficient_data"
         recent_avg = sum(recent_prices) / len(recent_prices)
@@ -524,9 +541,9 @@ class BidStrategyEngine:
             timestamp=datetime.now(UTC) + timedelta(hours=hours_ahead),
         )
         if price_trend == "increasing":
-            predicted.average_hourly_price *= 1.05
+            predicted.average_hourly_price *= Decimal("1.05")
         elif price_trend == "decreasing":
-            predicted.average_hourly_price *= 0.95
+            predicted.average_hourly_price *= Decimal("0.95")
         if demand_trend == "increasing":
             predicted.demand_level = min(1.0, predicted.demand_level + 0.1)
         elif demand_trend == "decreasing":
@@ -548,13 +565,13 @@ class BidStrategyEngine:
             recommendations.append("Low prices - good opportunity for cost optimization")
         return recommendations
 
-    async def _get_market_price_for_tier(self, gpu_tier: GPU_Tier) -> float:
+    async def _get_market_price_for_tier(self, gpu_tier: GPU_Tier) -> Decimal:
         """Get market price for specific GPU tier"""
         tier_prices = {
-            GPU_Tier.CPU_ONLY: 0.01,
-            GPU_Tier.LOW_END_GPU: 0.03,
-            GPU_Tier.MID_RANGE_GPU: 0.05,
-            GPU_Tier.HIGH_END_GPU: 0.09,
-            GPU_Tier.PREMIUM_GPU: 0.15,
+            GPU_Tier.CPU_ONLY: Decimal("0.01"),
+            GPU_Tier.LOW_END_GPU: Decimal("0.03"),
+            GPU_Tier.MID_RANGE_GPU: Decimal("0.05"),
+            GPU_Tier.HIGH_END_GPU: Decimal("0.09"),
+            GPU_Tier.PREMIUM_GPU: Decimal("0.15"),
         }
-        return tier_prices.get(gpu_tier, 0.05)
+        return tier_prices.get(gpu_tier, Decimal("0.05"))
