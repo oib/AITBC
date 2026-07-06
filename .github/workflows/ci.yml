@@ -37,7 +37,7 @@ jobs:
         run: pip install uv
       - name: Install project dependencies
         run: uv sync --dev
-      - run: uv run black --check .
+      - run: uv run ruff format --check .
 
   typecheck:
     name: Type Check
