@@ -41,7 +41,7 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Delete 3 dead retry helpers + update tests | 🟡 P2 | `cli/utils/__init__.py`, `aitbc/decorators/decorators.py`, `aitbc/async_helpers/async_helpers.py` + test files | ⬜ |
+| A1 | Delete 3 dead retry helpers + update tests | 🟡 P2 | `cli/utils/__init__.py`, `aitbc/decorators/decorators.py`, `aitbc/async_helpers/async_helpers.py` + test files | ✅ |
 
 ### Agent A — Detailed Instructions
 
@@ -99,8 +99,8 @@ cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m py
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Consolidate config.py into hierarchical_config.py (eliminate package shadowing) | 🟡 P2 | `aitbc/config.py`, `aitbc/config/hierarchical_config.py`, `aitbc/config/__init__.py` + 1 production importer + 5 test importers | ⬜ |
-| B2 | Add `create_simple_health_response()` helper + update 11 services | 🟡 P2 | `aitbc/health_checks.py` + 11 service `main.py` files | ⬜ |
+| B1 | Consolidate config.py into hierarchical_config.py (eliminate package shadowing) | 🟡 P2 | `aitbc/config.py`, `aitbc/config/hierarchical_config.py`, `aitbc/config/__init__.py` + 1 production importer + 5 test importers | ✅ |
+| B2 | Add `create_simple_health_response()` helper + update 11 services | 🟡 P2 | `aitbc/health_checks.py` + 11 service `main.py` files | ✅ |
 
 ### Agent B — Detailed Instructions
 
