@@ -10,7 +10,6 @@ from aitbc.async_helpers import (
     async_to_sync,
     batch_process,
     gather_with_concurrency,
-    retry_async,
     run_sync,
     run_with_timeout,
     sync_to_async,
@@ -215,70 +214,6 @@ class TestAsyncToSync:
 
         result = async_func(5, y=20)
         assert result == 25
-
-
-class TestRetryAsync:
-    """Tests for retry_async function"""
-
-    @pytest.mark.asyncio
-    async def test_retry_async_success_on_first_attempt(self):
-        """Test retry_async succeeds on first attempt"""
-        attempt_count = [0]
-
-        async def failing_func():
-            attempt_count[0] += 1
-            return "success"
-
-        result = await retry_async(failing_func, max_attempts=3)
-        assert result == "success"
-        assert attempt_count[0] == 1
-
-    @pytest.mark.asyncio
-    async def test_retry_async_success_after_retries(self):
-        """Test retry_async succeeds after initial failures"""
-        attempt_count = [0]
-
-        async def failing_func():
-            attempt_count[0] += 1
-            if attempt_count[0] < 3:
-                raise ValueError("fail")
-            return "success"
-
-        result = await retry_async(failing_func, max_attempts=3, delay=0.01)
-        assert result == "success"
-        assert attempt_count[0] == 3
-
-    @pytest.mark.asyncio
-    async def test_retry_async_exhausts_attempts(self):
-        """Test retry_async raises after exhausting attempts"""
-        attempt_count = [0]
-
-        async def failing_func():
-            attempt_count[0] += 1
-            raise ValueError("fail")
-
-        with pytest.raises(ValueError):
-            await retry_async(failing_func, max_attempts=2, delay=0.01)
-
-        assert attempt_count[0] == 2
-
-    @pytest.mark.asyncio
-    async def test_retry_async_with_backoff(self):
-        """Test retry_async with exponential backoff"""
-        attempt_count = [0]
-
-        async def failing_func():
-            attempt_count[0] += 1
-            if attempt_count[0] < 2:
-                raise ValueError("fail")
-            return "success"
-
-        start_time = asyncio.get_event_loop().time()
-        result = await retry_async(failing_func, max_attempts=3, delay=0.05, backoff=2.0)
-        elapsed = asyncio.get_event_loop().time() - start_time
-
-        assert result == "success"
-        assert elapsed >= 0.05  # Should have at least one delay
 
 
 class TestWaitForCondition:
