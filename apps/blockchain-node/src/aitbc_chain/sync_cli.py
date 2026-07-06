@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Standalone bulk sync utility for fast catch-up.
-Usage: python -m aitbc_chain.sync_cli --source http://10.1.223.40:8006 [--batch-size 100]
+Usage: python -m aitbc_chain.sync_cli --source http://10.1.223.40:8202 [--batch-size 100]
 """
 
 import argparse
