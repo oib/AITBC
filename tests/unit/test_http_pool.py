@@ -41,7 +41,7 @@ class TestSharedHttpClientLazyInit:
             mock_client.get = AsyncMock(return_value=MagicMock(status_code=200))
             mock_client_cls.return_value = mock_client
 
-            await client.get("http://localhost:8006/health")
+            await client.get("http://localhost:8202/health")
             assert SharedHttpClient._client is mock_client
             mock_client.get.assert_called_once()
 
@@ -55,8 +55,8 @@ class TestSharedHttpClientLazyInit:
             mock_client.post = AsyncMock(return_value=MagicMock(status_code=201))
             mock_client_cls.return_value = mock_client
 
-            await client.get("http://localhost:8006/a")
-            await client.post("http://localhost:8006/b", json={"x": 1})
+            await client.get("http://localhost:8202/a")
+            await client.post("http://localhost:8202/b", json={"x": 1})
 
             # Only one AsyncClient should have been created
             mock_client_cls.assert_called_once()
@@ -75,7 +75,7 @@ class TestSharedHttpClientClose:
             mock_client.aclose = AsyncMock()
             mock_client_cls.return_value = mock_client
 
-            await client.get("http://localhost:8006/health")
+            await client.get("http://localhost:8202/health")
             await SharedHttpClient.close_instance()
 
             mock_client.aclose.assert_called_once()
@@ -93,7 +93,7 @@ class TestSharedHttpClientPoolLimits:
             mock_client.get = AsyncMock(return_value=MagicMock(status_code=200))
             mock_client_cls.return_value = mock_client
 
-            await client.get("http://localhost:8006/health")
+            await client.get("http://localhost:8202/health")
 
             # Verify Limits were configured
             call_kwargs = mock_client_cls.call_args.kwargs
