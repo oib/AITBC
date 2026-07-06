@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.middleware import (
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
@@ -61,7 +62,7 @@ class HealthResponse(BaseModel):
 @app.get("/health")
 async def health() -> HealthResponse:
     """Health check endpoint"""
-    return HealthResponse(status="healthy", service="governance-service")
+    return HealthResponse(**create_simple_health_response("governance-service"))
 
 
 @app.get("/ready")

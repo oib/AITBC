@@ -245,3 +245,26 @@ def create_basic_health_check(service_name: str) -> HealthChecker:
     except ImportError:
         logger.warning("psutil not available, skipping system health checks")
     return checker
+
+
+def create_simple_health_response(
+    service_name: str,
+    version: str | None = None,
+    **extra_fields: Any,
+) -> dict[str, Any]:
+    """Create a simple health response dict (v0.10.8 §B2).
+
+    Args:
+        service_name: Name of the service.
+        version: Optional version string.
+        **extra_fields: Additional fields to include in the response.
+
+    Returns:
+        Dict with ``status``, ``service``, and any extra fields.
+    """
+    response: dict[str, Any] = {"status": "healthy", "service": service_name}
+    if version:
+        response["version"] = version
+    if extra_fields:
+        response.update(extra_fields)
+    return response
