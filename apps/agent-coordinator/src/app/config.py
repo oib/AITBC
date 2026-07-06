@@ -3,17 +3,18 @@ Configuration Management for AITBC Agent Coordinator
 """
 
 import os
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 from typing import Any
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 try:
-    from pydantic_settings import BaseSettings, SettingsConfigDict
+    from pydantic_settings import SettingsConfigDict
 except ImportError:
-    from pydantic import BaseSettings  # type: ignore
-
     SettingsConfigDict = None  # type: ignore[misc,assignment]
 from enum import StrEnum
+
+from aitbc_shared import DatabaseConfig, ServiceSettings
 
 
 def validated_cors_origins(origins: list[str]) -> list[str]:
@@ -41,7 +42,7 @@ class LogLevel(StrEnum):
     CRITICAL = "CRITICAL"
 
 
-class Settings(BaseSettings):
+class Settings(ServiceSettings):
     """Application settings"""
 
     if SettingsConfigDict is not None:
@@ -68,8 +69,15 @@ class Settings(BaseSettings):
     redis_max_connections: int = int(os.getenv("REDIS_MAX_CONNECTIONS", "10"))
     redis_timeout: int = int(os.getenv("REDIS_TIMEOUT", "5"))
 
-    # Database settings (if needed)
-    database_url: str | None = None
+    # Database settings — uses shared DatabaseConfig
+    database: DatabaseConfig = Field(
+        default_factory=lambda: DatabaseConfig(adapter="sqlite", db_filename="agent_coordinator.db")
+    )
+
+    @property
+    def database_url(self) -> str | None:
+        """Backward-compatible property: returns the effective database URL."""
+        return self.database.effective_url
 
     # Agent registry settings
     heartbeat_interval: int = 30  # seconds
@@ -121,7 +129,7 @@ class Settings(BaseSettings):
     load_balancer_cache_size: int = 1000
 
     # Blockchain integration (v0.6.5)
-    blockchain_rpc_url: str = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+    blockchain_rpc_url: str = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
     default_chain_id: str = os.getenv("DEFAULT_CHAIN_ID", "ait-hub")
     default_island_id: str = os.getenv("DEFAULT_ISLAND_ID", "")
 
