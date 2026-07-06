@@ -21,7 +21,8 @@ try:
     EMAIL_AVAILABLE = True
 except ImportError:
     EMAIL_AVAILABLE = False
-import requests
+
+import httpx
 
 logger = get_logger(__name__)
 
@@ -311,8 +312,9 @@ class NotificationManager:
                     }
                 ],
             }
-            response = requests.post(self.slack_config["webhook_url"], json=payload, timeout=10)
-            response.raise_for_status()
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(self.slack_config["webhook_url"], json=payload)
+                response.raise_for_status()
         except Exception as e:
             logger.error("Failed to send Slack notification: %s", e)
 
@@ -322,8 +324,9 @@ class NotificationManager:
         for name, config in webhook_configs.items():
             try:
                 payload = {"alert": alert.to_dict(), "message": message, "timestamp": datetime.now(UTC).isoformat()}
-                response = requests.post(config["url"], json=payload, headers=config["headers"], timeout=10)
-                response.raise_for_status()
+                async with httpx.AsyncClient(timeout=10) as client:
+                    response = await client.post(config["url"], json=payload, headers=config["headers"])
+                    response.raise_for_status()
             except Exception as e:
                 logger.error("Failed to send webhook to %s: %s", name, e)
 
@@ -490,7 +493,9 @@ class AlertManager:
         self.alerts[alert_id] = alert
         message = self._generate_alert_message(alert, metrics)
         for channel in rule.notification_channels:
-            create_task_with_logging(self.notification_manager.send_notification(channel, alert, message), name="send_notification")
+            create_task_with_logging(
+                self.notification_manager.send_notification(channel, alert, message), name="send_notification"
+            )
 
     def _find_similar_active_alert(self, rule: AlertRule) -> Alert | None:
         """Find similar active alert"""
