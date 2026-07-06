@@ -151,7 +151,7 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.10.1                                         (gap fill: 20 tasks fixing v0.6.0–v0.8.2 unwired/deployed/broken features) ✅
   → v0.10.2                                         (mock elimination: 17 categories of mock/placeholder replaced with real queries or honest errors) ✅
   → v0.10.3                                         (bug fix & hardening: 28 issues fixed + 1 skipped — exchange financial safety, resource leaks, config mismatches, concurrency, security) ✅
-  → v0.10.4                                         (performance, correctness & cleanup: Decimal migration, N+1 elimination, indexes, race conditions, dead code deletion, infrastructure consolidation) 🚧
+  → v0.10.4                                         (performance, correctness & cleanup: Decimal migration, N+1 elimination, indexes, race conditions, dead code deletion, infrastructure consolidation) ✅
   → v0.10.5                                         (JWT/auth consolidation: shared aitbc/auth/ module, re-export shims) ✅
   → v0.10.6                                         (dead code elimination, Decimal migration completion, duplicate consolidation) 🚧
   → v0.10.7                                         (dead code elimination: coordinator-api + agent-management, duplicate consolidation: blockchain RPC, CLI error handling, DB init, config, security, health, CORS) ✅

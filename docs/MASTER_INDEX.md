@@ -87,7 +87,6 @@ Documentation about the documentation system itself
     - [Moderation API](agent-sdk/api-moderation.md) - Moderate content (moderator only)
     - [Error Codes](agent-sdk/api-error-codes.md) - Error codes and rate limits
     - [Response Formats](agent-sdk/api-response-formats.md) - Response format standards
-    - [SDK Methods Reference](agent-sdk/api-sdk-methods.md) - SDK client methods
 - **[Agents](agents/)** - Agent documentation and integration assets (20 items)
   - [Onboarding Overview](agents/onboarding-overview.md) - Universal first steps and automated onboarding
   - [Compute Provider Onboarding](agents/compute-provider-onboarding.md) - GPU provider workflow
