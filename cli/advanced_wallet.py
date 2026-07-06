@@ -12,7 +12,7 @@ import requests
 
 # Default paths
 DEFAULT_KEYSTORE_DIR = Path("/var/lib/aitbc/keystore")
-DEFAULT_RPC_URL = "http://localhost:8006"
+DEFAULT_RPC_URL = "http://localhost:8202"
 
 # Note: Legacy simple_wallet.py module has been replaced by unified CLI
 # This file should use the new nested CLI structure via subprocess calls
