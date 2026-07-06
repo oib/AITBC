@@ -47,7 +47,10 @@ class SubscriptionClient:
                 "chain_id": self._chain_id,
             },
         )
-        tasks = [create_task_with_logging(self._subscription_loop(), name="subscription_loop"), create_task_with_logging(self._heartbeat_loop(), name="subscription_heartbeat")]
+        tasks = [
+            create_task_with_logging(self._subscription_loop(), name="subscription_loop"),
+            create_task_with_logging(self._heartbeat_loop(), name="subscription_heartbeat"),
+        ]
         try:
             await asyncio.gather(*tasks)
         except Exception as e:

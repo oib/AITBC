@@ -357,7 +357,9 @@ class AdvancedLearningService:
                 checkpoint_frequency=5,
             )
             self.learning_sessions[session_id] = session
-            create_task_with_logging(self._execute_federated_learning(session_id, algorithm), name="execute_federated_learning")
+            create_task_with_logging(
+                self._execute_federated_learning(session_id, algorithm), name="execute_federated_learning"
+            )
             logger.info("Federated learning setup: %s", session_id)
             return session_id
         except Exception as e:
