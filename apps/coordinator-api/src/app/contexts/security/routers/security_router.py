@@ -43,10 +43,10 @@ async def create_security_policy(
     policy_rules: dict,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> AgentSecurityPolicy:  # type: ignore[arg-type]
+) -> AgentSecurityPolicy:
     """Create a new security policy"""
     try:
-        security_manager = AgentSecurityManager(session)  # type: ignore[arg-type]
+        security_manager = AgentSecurityManager(session)
         policy = await security_manager.create_security_policy(
             name=name, description=description, security_level=security_level, policy_rules=policy_rules
         )
@@ -94,7 +94,7 @@ async def get_security_policy(
     policy_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> AgentSecurityPolicy:  # type: ignore[arg-type]
+) -> AgentSecurityPolicy:
     """Get a specific security policy"""
     try:
         policy = session.get(AgentSecurityPolicy, policy_id)
@@ -116,7 +116,7 @@ async def update_security_policy(
     policy_updates: dict,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> AgentSecurityPolicy:  # type: ignore[arg-type]
+) -> AgentSecurityPolicy:
     """Update a security policy"""
     try:
         policy = session.get(AgentSecurityPolicy, policy_id)
@@ -128,7 +128,7 @@ async def update_security_policy(
         policy.updated_at = datetime.now(UTC)
         session.commit()
         session.refresh(policy)
-        auditor = AgentAuditor(session)  # type: ignore[arg-type]
+        auditor = AgentAuditor(session)
         await auditor.log_event(
             AuditEventType.WORKFLOW_UPDATED,
             user_id=user["sub"],
@@ -152,13 +152,13 @@ async def delete_security_policy(
     policy_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, str]:  # type: ignore[arg-type]
+) -> dict[str, str]:
     """Delete a security policy"""
     try:
         policy = session.get(AgentSecurityPolicy, policy_id)
         if not policy:
             raise HTTPException(status_code=404, detail="Policy not found")
-        auditor = AgentAuditor(session)  # type: ignore[arg-type]
+        auditor = AgentAuditor(session)
         await auditor.log_event(
             AuditEventType.WORKFLOW_DELETED,
             user_id=user["sub"],
@@ -184,10 +184,10 @@ async def validate_workflow_security(
     workflow_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Validate workflow security requirements"""
     try:
-        security_manager = AgentSecurityManager(session)  # type: ignore[arg-type]
+        security_manager = AgentSecurityManager(session)
         validation_result = await security_manager.validate_workflow_security_by_id(workflow_id, user["sub"])
         return validation_result
     except ValueError as e:
@@ -217,7 +217,7 @@ async def list_audit_logs(
     offset: int | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> list[AgentAuditLog]:  # type: ignore[arg-type]
+) -> list[AgentAuditLog]:
     """List audit logs with filtering"""
     try:
         from ...agent_coordination.services.security import AgentAuditLog
@@ -240,7 +240,7 @@ async def list_audit_logs(
         if risk_score_max is not None:
             query = query.where(AgentAuditLog.risk_score <= risk_score_max)
         query = query.offset(offset).limit(limit)
-        query = query.order_by(AgentAuditLog.timestamp.desc())
+        query = query.order_by(AgentAuditLog.timestamp.desc())  # type: ignore[attr-defined]
         audit_logs = session.execute(query).all()
         return audit_logs  # type: ignore[return-value]
     except Exception as e:
@@ -255,7 +255,7 @@ async def get_audit_log(
     audit_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> AgentAuditLog:  # type: ignore[arg-type]
+) -> AgentAuditLog:
     """Get a specific audit log entry"""
     try:
         audit_log = session.get(AgentAuditLog, audit_id)
@@ -281,7 +281,7 @@ async def list_trust_scores(
     offset: int | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> list[AgentTrustScore]:  # type: ignore[arg-type]
+) -> list[AgentTrustScore]:
     """List trust scores with filtering"""
     try:
         from ...agent_coordination.services.security import AgentTrustScore
@@ -296,7 +296,7 @@ async def list_trust_scores(
         if max_score is not None:
             query = query.where(AgentTrustScore.trust_score <= max_score)
         query = query.offset(offset).limit(limit)
-        query = query.order_by(AgentTrustScore.trust_score.desc())
+        query = query.order_by(AgentTrustScore.trust_score.desc())  # type: ignore[attr-defined]
         trust_scores = session.execute(query).all()
         return trust_scores  # type: ignore[return-value]
     except Exception as e:
@@ -312,7 +312,7 @@ async def get_trust_score(
     entity_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> AgentTrustScore:  # type: ignore[arg-type]
+) -> AgentTrustScore:
     """Get trust score for specific entity"""
     try:
         from ...agent_coordination.services.security import AgentTrustScore
@@ -344,19 +344,19 @@ async def update_trust_score(
     policy_violation: bool | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> AgentTrustScore:  # type: ignore[arg-type]
+) -> AgentTrustScore:
     """Update trust score based on execution results"""
     try:
-        trust_manager = AgentTrustManager(session)  # type: ignore[arg-type]
+        trust_manager = AgentTrustManager(session)
         trust_score = await trust_manager.update_trust_score(
             entity_type=entity_type,
             entity_id=entity_id,
             execution_success=execution_success,
             execution_time=execution_time,
-            security_violation=security_violation,
-            policy_violation=policy_violation,
+            security_violation=security_violation or False,
+            policy_violation=policy_violation or False,
         )
-        auditor = AgentAuditor(session)  # type: ignore[arg-type]
+        auditor = AgentAuditor(session)
         await auditor.log_event(
             AuditEventType.EXECUTION_COMPLETED if execution_success else AuditEventType.EXECUTION_FAILED,
             user_id=user["sub"],
@@ -387,19 +387,21 @@ async def create_sandbox(
     workflow_requirements: dict | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Create sandbox environment for agent execution"""
     try:
-        sandbox_manager = AgentSandboxManager(session)  # type: ignore[arg-type]
+        sandbox_manager = AgentSandboxManager(session)
         sandbox = await sandbox_manager.create_sandbox_environment(
-            execution_id=execution_id, security_level=security_level, workflow_requirements=workflow_requirements
+            execution_id=execution_id,
+            security_level=security_level or SecurityLevel.PUBLIC,
+            workflow_requirements=workflow_requirements,
         )
-        auditor = AgentAuditor(session)  # type: ignore[arg-type]
+        auditor = AgentAuditor(session)
         await auditor.log_event(
             AuditEventType.EXECUTION_STARTED,
             execution_id=execution_id,
             user_id=user["sub"],
-            security_level=security_level,
+            security_level=security_level or SecurityLevel.PUBLIC,
             event_data={
                 "sandbox_id": sandbox.id,
                 "sandbox_type": sandbox.sandbox_type,
@@ -420,10 +422,10 @@ async def monitor_sandbox(
     execution_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Monitor sandbox execution for security violations"""
     try:
-        sandbox_manager = AgentSandboxManager(session)  # type: ignore[arg-type]
+        sandbox_manager = AgentSandboxManager(session)
         monitoring_data = await sandbox_manager.monitor_sandbox(execution_id)
         return monitoring_data
     except Exception as e:
@@ -438,12 +440,12 @@ async def cleanup_sandbox(
     execution_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Clean up sandbox environment after execution"""
     try:
-        sandbox_manager = AgentSandboxManager(session)  # type: ignore[arg-type]
+        sandbox_manager = AgentSandboxManager(session)
         success = await sandbox_manager.cleanup_sandbox(execution_id)
-        auditor = AgentAuditor(session)  # type: ignore[arg-type]
+        auditor = AgentAuditor(session)
         await auditor.log_event(
             AuditEventType.EXECUTION_COMPLETED if success else AuditEventType.EXECUTION_FAILED,
             execution_id=execution_id,
@@ -465,10 +467,10 @@ async def monitor_execution_security(
     workflow_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Monitor execution for security violations"""
     try:
-        security_manager = AgentSecurityManager(session)  # type: ignore[arg-type]
+        security_manager = AgentSecurityManager(session)
         monitoring_result = await security_manager.monitor_execution_security(execution_id, workflow_id)
         return monitoring_result
     except Exception as e:
@@ -482,16 +484,16 @@ async def get_security_dashboard(
     request: Request,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Get comprehensive security dashboard data"""
     try:
         from ...agent_coordination.services.security import AgentAuditLog, AgentSandboxConfig
 
-        recent_audits = session.execute(select(AgentAuditLog).order_by(AgentAuditLog.timestamp.desc()).limit(50)).all()
+        recent_audits = session.execute(select(AgentAuditLog).order_by(AgentAuditLog.timestamp.desc()).limit(50)).all()  # type: ignore[attr-defined]
         high_risk_events = session.execute(
             select(AgentAuditLog)
             .where(AgentAuditLog.requires_investigation)
-            .order_by(AgentAuditLog.timestamp.desc())
+            .order_by(AgentAuditLog.timestamp.desc())  # type: ignore[attr-defined]
             .limit(10)
         ).all()
         trust_scores = session.execute(select(AgentTrustScore)).all()
@@ -530,7 +532,7 @@ async def get_security_statistics(
     request: Request,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Get security statistics and metrics"""
     try:
         from ...agent_coordination.services.security import AgentTrustScore

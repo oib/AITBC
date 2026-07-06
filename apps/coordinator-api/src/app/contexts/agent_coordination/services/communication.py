@@ -12,7 +12,7 @@ from enum import StrEnum
 from typing import Any
 
 from app.contexts.cross_chain.services.cross_chain.reputation import (
-    CrossChainReputationService,  # type: ignore[import-not-found]
+    CrossChainReputationService,
 )
 
 from aitbc.aitbc_logging import get_logger
@@ -546,7 +546,7 @@ class AgentCommunicationService:
             return True
         if self.reputation_service:
             sender_reputation = await self.reputation_service.get_reputation_score(sender)
-            return sender_reputation >= self.min_reputation_score  # type: ignore[no-any-return]
+            return sender_reputation >= self.min_reputation_score
         return False
 
     async def _can_send_message(self, sender: str, recipient: str) -> bool:

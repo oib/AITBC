@@ -3,6 +3,7 @@ Staking, identity, and governance router.
 """
 
 from typing import Any
+from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -15,15 +16,15 @@ _logger = get_logger(__name__)
 router = APIRouter(tags=["staking", "identity", "governance"])
 
 # Optional imports - will be None if module not available
-cast_governance_vote = None
-create_governance_proposal = None
-get_agent_identity = None
-get_governance_proposal = None
-get_staking_info = None
-register_agent_identity = None
-stake_tokens = None
-unstake_tokens = None
-verify_agent_identity = None
+cast_governance_vote: Callable[..., Any] | None = None
+create_governance_proposal: Callable[..., Any] | None = None
+get_agent_identity: Callable[..., Any] | None = None
+get_governance_proposal: Callable[..., Any] | None = None
+get_staking_info: Callable[..., Any] | None = None
+register_agent_identity: Callable[..., Any] | None = None
+stake_tokens: Callable[..., Any] | None = None
+unstake_tokens: Callable[..., Any] | None = None
+verify_agent_identity: Callable[..., Any] | None = None
 
 try:
     from ..staking import (
@@ -47,7 +48,7 @@ async def stake_tokens_route(request: Request, stake_data: dict) -> dict[str, An
     """Stake tokens for consensus participation"""
     if stake_tokens is None:
         raise HTTPException(status_code=503, detail="Staking module not available")
-    return await stake_tokens(request, stake_data)
+    return await stake_tokens(request, stake_data)  # type: ignore[no-any-return]
 
 
 @router.post("/staking/unstake", summary="Unstake tokens")
@@ -56,7 +57,7 @@ async def unstake_tokens_route(request: Request, unstake_data: dict) -> dict[str
     """Unstake tokens after lock period expires"""
     if unstake_tokens is None:
         raise HTTPException(status_code=503, detail="Staking module not available")
-    return await unstake_tokens(request, unstake_data)
+    return await unstake_tokens(request, unstake_data)  # type: ignore[no-any-return]
 
 
 @router.get("/staking/{address}", summary="Get staking info")
@@ -65,7 +66,7 @@ async def get_staking_info_route(request: Request, address: str, chain_id: str |
     """Get staking information for an address"""
     if get_staking_info is None:
         raise HTTPException(status_code=503, detail="Staking module not available")
-    return await get_staking_info(request, address, chain_id)
+    return await get_staking_info(request, address, chain_id)  # type: ignore[no-any-return]
 
 
 @router.post("/identity/register", summary="Register agent identity")
@@ -74,7 +75,7 @@ async def register_agent_identity_route(request: Request, identity_data: dict) -
     """Register an agent identity on the blockchain"""
     if register_agent_identity is None:
         raise HTTPException(status_code=503, detail="Identity module not available")
-    return await register_agent_identity(request, identity_data)
+    return await register_agent_identity(request, identity_data)  # type: ignore[no-any-return]
 
 
 @router.get("/identity/{agent_id}", summary="Get agent identity")
@@ -83,7 +84,7 @@ async def get_agent_identity_route(request: Request, agent_id: str, chain_id: st
     """Get agent identity from blockchain"""
     if get_agent_identity is None:
         raise HTTPException(status_code=503, detail="Identity module not available")
-    return await get_agent_identity(request, agent_id, chain_id)
+    return await get_agent_identity(request, agent_id, chain_id)  # type: ignore[no-any-return]
 
 
 @router.post("/identity/verify", summary="Verify agent identity")
@@ -92,7 +93,7 @@ async def verify_agent_identity_route(request: Request, verification_data: dict)
     """Verify an agent identity on the blockchain"""
     if verify_agent_identity is None:
         raise HTTPException(status_code=503, detail="Identity module not available")
-    return await verify_agent_identity(request, verification_data)
+    return await verify_agent_identity(request, verification_data)  # type: ignore[no-any-return]
 
 
 @router.post("/governance/proposal", summary="Create governance proposal")
@@ -101,7 +102,7 @@ async def create_governance_proposal_route(request: Request, proposal_data: dict
     """Create a governance proposal on the blockchain"""
     if create_governance_proposal is None:
         raise HTTPException(status_code=503, detail="Governance module not available")
-    return await create_governance_proposal(request, proposal_data)
+    return await create_governance_proposal(request, proposal_data)  # type: ignore[no-any-return]
 
 
 @router.post("/governance/vote", summary="Cast governance vote")
@@ -110,7 +111,7 @@ async def cast_governance_vote_route(request: Request, vote_data: dict) -> dict[
     """Cast a vote on a governance proposal"""
     if cast_governance_vote is None:
         raise HTTPException(status_code=503, detail="Governance module not available")
-    return await cast_governance_vote(request, vote_data)
+    return await cast_governance_vote(request, vote_data)  # type: ignore[no-any-return]
 
 
 @router.get("/governance/proposal/{proposal_id}", summary="Get governance proposal")
@@ -119,4 +120,4 @@ async def get_governance_proposal_route(request: Request, proposal_id: str, chai
     """Get a governance proposal from the blockchain"""
     if get_governance_proposal is None:
         raise HTTPException(status_code=503, detail="Governance module not available")
-    return await get_governance_proposal(request, proposal_id, chain_id)
+    return await get_governance_proposal(request, proposal_id, chain_id)  # type: ignore[no-any-return]

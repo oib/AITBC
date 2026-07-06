@@ -470,8 +470,10 @@ class RewardEngine:
         average_reward = total_rewards / unique_agents if unique_agents > 0 else 0.0
         agent_ids = list({d.agent_id for d in distributions})
         profiles = (
-            self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id.in_(agent_ids))).scalars().all()
-        )  # type: ignore[attr-defined]
+            self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id.in_(agent_ids)))  # type: ignore[attr-defined]
+            .scalars()
+            .all()
+        )
         tier_distribution: dict[str, int] = {}
         for profile in profiles:
             tier = profile.current_tier.value

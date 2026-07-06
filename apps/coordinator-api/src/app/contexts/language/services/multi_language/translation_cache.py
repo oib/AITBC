@@ -136,14 +136,14 @@ class TranslationCache:
             stats_key = f"{cache_key}:stats"
             pipe.hset(
                 stats_key,
-                {
+                {  # type: ignore[arg-type]
                     "access_count": 1,
                     "last_accessed": cache_entry.last_accessed,
                     "created_at": cache_entry.created_at,
                     "confidence": response.confidence,
                     "provider": response.provider.value,
                 },
-            )  # type: ignore[arg-type]
+            )
             pipe.expire(stats_key, ttl)
             await pipe.execute()
             self.stats["sets"] += 1

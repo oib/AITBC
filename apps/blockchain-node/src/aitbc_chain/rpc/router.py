@@ -127,7 +127,7 @@ async def start_mining_route(
         raise HTTPException(status_code=400, detail="miner_address is required")
     if not hasattr(start_mining_route, "miners"):
         start_mining_route.miners = {}  # type: ignore[attr-defined]
-    start_mining_route.miners[miner_address] = {
+    start_mining_route.miners[miner_address] = {  # type: ignore[attr-defined]
         "address": miner_address,
         "threads": threads,
         "enabled": True,

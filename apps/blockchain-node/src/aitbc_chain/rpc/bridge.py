@@ -447,7 +447,7 @@ async def register_validator(request: Request, reg_data: dict[str, Any]) -> dict
 
         # Verify the signature proves ownership of the address
         sign_data = {"chain_id": chain_id, "address": address, "public_key": public_key, "action": "register"}
-        if not verify_request_signature(cast(str, address), signature, sign_data):
+        if not verify_request_signature(cast(str, address), signature, sign_data):  # type: ignore[arg-type]
             raise HTTPException(status_code=403, detail="Invalid validator signature")
 
         bridge.register_validator(

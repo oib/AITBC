@@ -1,6 +1,6 @@
 """Developer platform domain models."""
 
-from app.contexts.developer_platform.domain.developer_platform import (  # type: ignore
+from app.contexts.developer_platform.domain.developer_platform import (
     BountyStatus,
     BountySubmission,
     BountyTask,

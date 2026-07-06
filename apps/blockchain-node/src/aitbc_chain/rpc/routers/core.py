@@ -41,14 +41,14 @@ router = APIRouter(tags=["core"])
 @rate_limit(rate=200, per=60)
 async def get_genesis_allocations_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get genesis allocations from genesis block metadata for RPC bootstrap"""
-    return await get_genesis_allocations(request, chain_id)
+    return await get_genesis_allocations(request, chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/head", summary="Get current chain head")
 @rate_limit(rate=200, per=60)
 async def get_head_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get current chain head"""
-    return await get_head(request, chain_id)
+    return await get_head(request, chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/height", summary="Get current chain height")
@@ -63,7 +63,7 @@ async def get_height_route(request: Request, chain_id: str | None = None) -> dic
 @rate_limit(rate=200, per=60)
 async def get_block_route(request: Request, height: int, chain_id: str | None = None) -> dict[str, Any]:
     """Get block by height"""
-    return await get_block(request, height, chain_id)
+    return await get_block(request, height, chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/blocks-range", summary="Get blocks in height range")
@@ -93,7 +93,7 @@ async def get_blocks_range_route(
     else:
         start = start or 0
         end = end if end is not None else 10
-    return await get_blocks_range(request, start, end, include_tx, chain_id)
+    return await get_blocks_range(request, start, end, include_tx, chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/info", summary="Get blockchain information")
@@ -123,7 +123,7 @@ async def get_info_route(request: Request, chain_id: str | None = None) -> dict[
 @rate_limit(rate=200, per=60)
 async def get_status_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get node status - alias for /info endpoint"""
-    return await get_info_route(request, chain_id)
+    return await get_info_route(request, chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/network-info", summary="Get network information for joining")
@@ -175,14 +175,14 @@ async def get_network_info_route(request: Request) -> dict[str, Any]:
 @rate_limit(rate=50, per=60)
 async def import_block_route(request: Request, block_data: dict) -> dict[str, Any]:
     """Import a block into the blockchain"""
-    return await import_block(request, block_data)
+    return await import_block(request, block_data)  # type: ignore[no-any-return]
 
 
 @router.post("/transaction", summary="Submit transaction")
 @rate_limit(rate=50, per=60)
 async def submit_transaction_route(request: Request, tx_data: TransactionRequest) -> dict[str, Any]:
     """Submit a new transaction to the mempool"""
-    return await submit_transaction(request, tx_data)
+    return await submit_transaction(request, tx_data)  # type: ignore[no-any-return]
 
 
 @router.get("/mempool", summary="Get pending transactions")
@@ -192,14 +192,14 @@ async def get_mempool_api_route(request: Request, chain_id: str | None = None, l
     # Import locally to avoid circular dependency
     from ..transactions import get_mempool
 
-    return await get_mempool(request, chain_id, limit)
+    return await get_mempool(request, chain_id, limit)  # type: ignore[no-any-return]
 
 
 @router.post("/transactions/marketplace", summary="Submit marketplace transaction")
 @rate_limit(rate=50, per=60)
 async def submit_marketplace_transaction_route(request: Request, tx_data: dict[str, Any]) -> dict[str, Any]:
     """Submit a marketplace transaction"""
-    return await submit_marketplace_transaction(request, tx_data)
+    return await submit_marketplace_transaction(request, tx_data)  # type: ignore[no-any-return]
 
 
 @router.get("/transactions", summary="Query transactions")
@@ -215,21 +215,21 @@ async def query_transactions_route(
     chain_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Query transactions with optional filters"""
-    return await query_transactions(request, transaction_type, island_id, pair, status, order_id, limit, chain_id)
+    return await query_transactions(request, transaction_type, island_id, pair, status, order_id, limit, chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/account/{address}", summary="Get account information")
 @rate_limit(rate=200, per=60)
 async def get_account_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get account information"""
-    return await get_account(request, address, chain_id)
+    return await get_account(request, address, chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/accounts/{address}", summary="Get account information (alias)")
 @rate_limit(rate=200, per=60)
 async def get_account_alias_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get account information (alias endpoint)"""
-    return await get_account_alias(request, address, chain_id)
+    return await get_account_alias(request, address, chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/state/snapshot", summary="Get full account state snapshot")
@@ -252,63 +252,63 @@ async def get_state_delta_route(
 @rate_limit(rate=100, per=60)
 async def create_account_route(request: Request, account_data: dict) -> dict[str, Any]:
     """Create or register a new account on the blockchain"""
-    return await create_account(request, account_data)
+    return await create_account(request, account_data)  # type: ignore[no-any-return]
 
 
 @router.post("/faucet", summary="Request test tokens from faucet")
 @rate_limit(rate=10, per=3600)
 async def faucet_request_route(request: Request, faucet_data: dict) -> dict[str, Any]:
     """Request test tokens from the blockchain faucet"""
-    return await faucet_request(request, faucet_data)
+    return await faucet_request(request, faucet_data)  # type: ignore[no-any-return]
 
 
 @router.get("/balance/{address}", summary="Get detailed balance breakdown")
 @rate_limit(rate=100, per=60)
 async def get_balance_breakdown_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get detailed balance breakdown"""
-    return await get_balance_breakdown(request, address, chain_id)
+    return await get_balance_breakdown(request, address, chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/balance/{address}/reconcile", summary="Reconcile balance")
 @rate_limit(rate=20, per=60)
 async def reconcile_balance_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Reconcile account balance against all recorded operations"""
-    return await reconcile_balance(request, address, chain_id)
+    return await reconcile_balance(request, address, chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/export-chain", summary="Export full chain state")
 @rate_limit(rate=200, per=60)
 async def export_chain_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Export full chain state as JSON for manual synchronization"""
-    return await export_chain(request, chain_id)
+    return await export_chain(request, chain_id)  # type: ignore[no-any-return]
 
 
 @router.post("/import-chain", summary="Import chain state")
 @rate_limit(rate=50, per=60)
 async def import_chain_route(request: Request, import_data: dict) -> dict[str, Any]:
     """Import chain state from JSON for manual synchronization"""
-    return await import_chain(request, import_data)
+    return await import_chain(request, import_data)  # type: ignore[no-any-return]
 
 
 @router.post("/force-sync", summary="Force reorg to specified peer")
 @rate_limit(rate=50, per=60)
 async def force_sync_route(request: Request, peer_data: dict) -> dict[str, Any]:
     """Force blockchain reorganization to sync with specified peer"""
-    return await force_sync(request, peer_data)
+    return await force_sync(request, peer_data)  # type: ignore[no-any-return]
 
 
 @router.get("/sync/config", summary="Get sync optimization configuration (v0.6.2)")
 @rate_limit(rate=200, per=60)
 async def get_sync_config_route(request: Request) -> dict[str, Any]:
     """Get sync optimization configuration"""
-    return await get_sync_config(request)
+    return await get_sync_config(request)  # type: ignore[no-any-return]
 
 
 @router.post("/eth_getLogs", summary="Query smart contract event logs")
 @rate_limit(rate=200, per=60)
 async def get_logs_route(request: Request, logs_request: GetLogsRequest, chain_id: str | None = None) -> GetLogsResponse:
     """Query smart contract event logs using eth_getLogs-compatible endpoint"""
-    return await get_logs(request, logs_request, chain_id)
+    return await get_logs(request, logs_request, chain_id)  # type: ignore[no-any-return]
 
 
 @router.post("/chains/start", summary="Start a secondary chain (v0.6.4)")

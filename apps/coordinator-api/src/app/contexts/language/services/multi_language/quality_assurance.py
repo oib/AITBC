@@ -140,10 +140,10 @@ class TranslationQualityChecker:
         avg_confidence = np.mean(confidence_factors)
         return QualityScore(
             metric=QualityMetric.CONFIDENCE,
-            score=avg_confidence,
+            score=float(avg_confidence),
             weight=0.3,
             description="Confidence based on text completeness, language detection, and structure preservation",
-        )  # type: ignore[arg-type]
+        )
 
     async def _evaluate_length_ratio(
         self, source_text: str, translated_text: str, source_lang: str, target_lang: str
@@ -240,10 +240,10 @@ class TranslationQualityChecker:
         avg_consistency = np.mean(consistency_factors)
         return QualityScore(
             metric=QualityMetric.CONSISTENCY,
-            score=avg_consistency,
+            score=float(avg_consistency),
             weight=0.1,
             description="Internal consistency of translation",
-        )  # type: ignore[arg-type]
+        )
 
     def _extract_text_features(self, doc: Any) -> dict[str, Any]:
         """Extract linguistic features from spaCy document"""

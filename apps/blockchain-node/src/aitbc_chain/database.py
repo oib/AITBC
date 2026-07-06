@@ -240,8 +240,8 @@ def _migrate_existing_columns(engine: Engine) -> None:
                     continue
                 coltype = col.type.compile(engine.dialect)
                 default = ""
-                if col.default is not None and col.default.arg is not None:
-                    val = col.default.arg
+                if col.default is not None and col.default.arg is not None:  # type: ignore[attr-defined]
+                    val = col.default.arg  # type: ignore[attr-defined]
                     if isinstance(val, str):
                         default = f" DEFAULT '{val}'"
                     else:

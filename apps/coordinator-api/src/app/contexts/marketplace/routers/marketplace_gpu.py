@@ -230,7 +230,7 @@ async def buy_gpu(
             strategy=PricingStrategy.MARKET_BALANCE,
             region=gpu.region,
         )
-        current_price = dynamic_result.recommended_price
+        current_price = float(dynamic_result.recommended_price)
     except Exception:
         current_price = gpu.price_per_hour
     total_cost = request.duration_hours * current_price
@@ -377,7 +377,7 @@ async def book_gpu(
             strategy=PricingStrategy.MARKET_BALANCE,
             region=gpu.region,
         )
-        current_price = dynamic_result.recommended_price
+        current_price = float(dynamic_result.recommended_price)
     except Exception:
         current_price = gpu.price_per_hour
     total_cost = request.duration_hours * current_price
@@ -645,7 +645,7 @@ async def get_pricing(
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=f"No GPUs found for model {model}")
     static_prices = [g.price_per_hour for g in compatible]
     cheapest = min(compatible, key=lambda g: g.price_per_hour)
-    dynamic_prices = []
+    dynamic_prices: list[dict[str, Any]] = []
     for gpu in compatible:
         try:
             dynamic_result = await engine.calculate_dynamic_price(
@@ -659,9 +659,11 @@ async def get_pricing(
                 {
                     "gpu_id": gpu.id,
                     "static_price": gpu.price_per_hour,
-                    "dynamic_price": dynamic_result.recommended_price,
-                    "price_change": dynamic_result.recommended_price - gpu.price_per_hour,
-                    "price_change_percent": (dynamic_result.recommended_price - gpu.price_per_hour) / gpu.price_per_hour * 100,
+                    "dynamic_price": float(dynamic_result.recommended_price),
+                    "price_change": float(dynamic_result.recommended_price) - gpu.price_per_hour,
+                    "price_change_percent": (float(dynamic_result.recommended_price) - gpu.price_per_hour)
+                    / gpu.price_per_hour
+                    * 100,
                     "confidence": dynamic_result.confidence_score,
                     "trend": dynamic_result.price_trend.value,
                     "reasoning": dynamic_result.reasoning,
@@ -681,8 +683,8 @@ async def get_pricing(
                 }
             )
     dynamic_price_values = [dp["dynamic_price"] for dp in dynamic_prices]
-    avg_dynamic_price = sum(dynamic_price_values) / len(dynamic_price_values)  # type: ignore[arg-type]
-    best_value_gpu = min(dynamic_prices, key=lambda x: x["dynamic_price"] / x["confidence"])  # type: ignore[operator]
+    avg_dynamic_price = sum(dynamic_price_values) / len(dynamic_price_values)
+    best_value_gpu = min(dynamic_prices, key=lambda x: x["dynamic_price"] / x["confidence"])
     market_analysis = None
     try:
         regions = [gpu.region for gpu in compatible]
@@ -710,11 +712,11 @@ async def get_pricing(
             "recommended_gpu": cheapest.id,
         },
         "dynamic_pricing": {
-            "min_price": min(dynamic_price_values),  # type: ignore[type-var]
-            "max_price": max(dynamic_price_values),  # type: ignore[type-var]
+            "min_price": min(dynamic_price_values),
+            "max_price": max(dynamic_price_values),
             "average_price": avg_dynamic_price,
-            "price_volatility": statistics.stdev(dynamic_price_values) if len(dynamic_price_values) > 1 else 0,  # type: ignore[type-var]
-            "avg_confidence": sum(dp["confidence"] for dp in dynamic_prices) / len(dynamic_prices),  # type: ignore[misc]
+            "price_volatility": statistics.stdev(dynamic_price_values) if len(dynamic_price_values) > 1 else 0,
+            "avg_confidence": sum(dp["confidence"] for dp in dynamic_prices) / len(dynamic_prices),
             "recommended_gpu": best_value_gpu["gpu_id"],
             "recommended_price": best_value_gpu["dynamic_price"],
         },
@@ -723,8 +725,8 @@ async def get_pricing(
             "avg_price_change_percent": (avg_dynamic_price - sum(static_prices) / len(static_prices))
             / (sum(static_prices) / len(static_prices))
             * 100,
-            "gpus_with_price_increase": len([dp for dp in dynamic_prices if float(dp["price_change"]) > 0]),  # type: ignore[arg-type]
-            "gpus_with_price_decrease": len([dp for dp in dynamic_prices if float(dp["price_change"]) < 0]),  # type: ignore[arg-type]
+            "gpus_with_price_increase": len([dp for dp in dynamic_prices if float(dp["price_change"]) > 0]),
+            "gpus_with_price_decrease": len([dp for dp in dynamic_prices if float(dp["price_change"]) < 0]),
         },
         "individual_gpu_pricing": dynamic_prices,
         "market_analysis": market_analysis,

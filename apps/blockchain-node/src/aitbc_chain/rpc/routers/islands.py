@@ -3,6 +3,7 @@ Islands router.
 """
 
 from typing import Any
+from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
 
@@ -15,17 +16,17 @@ _logger = get_logger(__name__)
 router = APIRouter(prefix="/islands", tags=["islands"])
 
 # Optional imports - will be None if module not available
-join_island = None
-leave_island = None
-list_islands = None
-get_island = None
-request_bridge = None
-JoinIslandRequest = None
-JoinIslandResponse = None
-LeaveIslandRequest = None
-LeaveIslandResponse = None
-BridgeRequestRequest = None
-BridgeRequestResponse = None
+join_island: Callable[..., Any] | None = None
+leave_island: Callable[..., Any] | None = None
+list_islands: Callable[..., Any] | None = None
+get_island: Callable[..., Any] | None = None
+request_bridge: Callable[..., Any] | None = None
+JoinIslandRequest: Any = None
+JoinIslandResponse: Any = None
+LeaveIslandRequest: Any = None
+LeaveIslandResponse: Any = None
+BridgeRequestRequest: Any = None
+BridgeRequestResponse: Any = None
 
 try:
     from ..islands import (
@@ -67,7 +68,7 @@ async def list_islands_route() -> dict[str, Any]:
     """List all islands that the node is a member of"""
     if list_islands is None:
         raise HTTPException(status_code=503, detail="Islands module not available")
-    return await list_islands()
+    return await list_islands()  # type: ignore[no-any-return]
 
 
 @router.get("/{island_id}", summary="Get island details")
@@ -76,7 +77,7 @@ async def get_island_route(island_id: str) -> dict[str, Any]:
     """Get details of a specific island"""
     if get_island is None:
         raise HTTPException(status_code=503, detail="Islands module not available")
-    return await get_island(island_id)
+    return await get_island(island_id)  # type: ignore[no-any-return]
 
 
 @router.post("/bridge", summary="Request a bridge to another island")

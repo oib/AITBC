@@ -97,9 +97,7 @@ async def generate(request: Request, req: InferenceRequest) -> dict[str, Any]:
 
 
 @router.post("/generate/stream", summary="Generate text (streaming)")
-async def generate_stream(  # type: ignore[no-untyped-def]
-    request: Request, req: InferenceRequest
-):
+async def generate_stream(request: Request, req: InferenceRequest):
     """
     Generate text with streaming response.
 

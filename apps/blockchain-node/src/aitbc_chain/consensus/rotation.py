@@ -51,7 +51,7 @@ class ValidatorRotation:
         elif self.config.strategy == RotationStrategy.HYBRID:
             return self._rotate_hybrid()
 
-        return False
+        return False  # type: ignore[unreachable]
 
     def _rotate_round_robin(self) -> bool:
         """Round-robin rotation of validator roles"""

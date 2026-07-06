@@ -276,7 +276,7 @@ class DatabaseMempool:
                     existing_rows = session.exec(
                         select(MempoolEntry.tx_hash).where(
                             MempoolEntry.chain_id == chain_id,
-                            MempoolEntry.tx_hash.in_(tx_hashes),
+                            MempoolEntry.tx_hash.in_(tx_hashes),  # type: ignore[attr-defined]
                         )
                     ).all()
                     existing_hashes = set(existing_rows)
@@ -381,8 +381,8 @@ class DatabaseMempool:
                 if hashes_to_remove:
                     session.exec(
                         delete(MempoolEntry).where(
-                            MempoolEntry.chain_id == chain_id,
-                            MempoolEntry.tx_hash.in_(hashes_to_remove),
+                            MempoolEntry.chain_id == chain_id,  # type: ignore[arg-type]
+                            MempoolEntry.tx_hash.in_(hashes_to_remove),  # type: ignore[attr-defined]
                         )
                     )
                     session.commit()
@@ -425,8 +425,8 @@ class DatabaseMempool:
             with Session(self._engine) as session:
                 result = session.exec(
                     delete(MempoolEntry).where(
-                        MempoolEntry.chain_id == chain_id,
-                        MempoolEntry.tx_hash.in_(hashes),
+                        MempoolEntry.chain_id == chain_id,  # type: ignore[arg-type]
+                        MempoolEntry.tx_hash.in_(hashes),  # type: ignore[attr-defined]
                     )
                 )
                 session.commit()

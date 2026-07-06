@@ -1,6 +1,6 @@
 """Wallet domain models."""
 
-from app.contexts.wallet.domain.wallet import (  # type: ignore
+from app.contexts.wallet.domain.wallet import (
     AgentWallet,
     NetworkConfig,
     NetworkType,
