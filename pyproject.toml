@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aitbc"
-version = "0.10.2"
+version = "0.10.9"
 description = "AI Agent Compute Network - Main Project"
 authors = ["AITBC Team"]
 

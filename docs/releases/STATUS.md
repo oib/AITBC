@@ -1,6 +1,6 @@
 # AITBC Release Status Overview
 
-**Last updated:** 2026-06-18
+**Last updated:** 2026-07-06
 **Audit report:** [AUDIT.md](AUDIT.md)
 
 ## Release Status Table
@@ -13,23 +13,33 @@
 | v0.5.19 | Tech debt cleanup | ✅ Complete | Cross-context imports, dead pricing models, fakeredis |
 | v0.6.0 | Database & network optimization | ✅ Complete | Query indexing, connection pooling, N+1 elimination |
 | v0.6.1 | Parallel processing | ✅ Complete | Parallel tx validation, deterministic scheduling |
-| v0.6.2 | Sync & gossip optimization | 🚧 Planned | Gossip versioning, compact blocks, delta sync |
-| v0.6.3 | Multi-island node support | 🚧 Planned | |
-| v0.6.4 | Multi-chain per island | 🚧 Planned | |
+| v0.6.2 | Sync & gossip optimization | ✅ Complete | Gossip versioning, compact blocks, delta sync |
+| v0.6.3 | Multi-island node support | ✅ Complete | |
+| v0.6.4 | Multi-chain per island | ✅ Complete | MultiValidatorPoA/PBFT in THRESHOLD for security review |
 | v0.6.5 | Agent coordination service | ✅ Complete | Chain-aware task distribution, PaymentEscrow |
-| v0.6.6 | Compute marketplace | 🚧 Planned | |
-| v0.6.7 | Pool hub & mining | 🚧 Planned | |
+| v0.6.6 | Compute marketplace | ✅ Complete | |
+| v0.6.7 | Pool hub & mining | ✅ Complete | |
 | v0.7.0 | Bridge basics | ✅ Complete | Lock/unlock, RPC |
 | v0.7.1 | Bridge security | ✅ Complete | Multi-sig, signature verification, time-locks |
 | v0.7.2 | Bridge verification | ✅ Complete | Merkle proofs, block headers, finality |
 | v0.7.3 | Governance | ✅ Complete | |
 | v0.7.4 | Deferred v0.7.x items | ✅ Complete | External oracle, cross-chain governance, parameter automation |
-| v0.7.5 | Consensus activation | ⚠️ Code complete, NOT activated | MultiValidatorPoA + PBFT; soak test pending |
+| v0.7.5 | Consensus activation | ✅ Complete | MultiValidatorPoA + PBFT enabled for homebrew testing in v0.10.0 (no external audit) |
 | v0.8.0 | Inter-chain trading basics | ✅ Complete | Trade requests, matching, agreements |
 | v0.8.1 | Cross-chain offer sync (polling) | ✅ Complete | |
 | v0.8.2 | Advanced offer sync | ✅ Complete | Subscription, real-time, search index |
-| v0.9.0 | Atomic cross-chain settlement | 🚧 In Progress | B1-B5 complete; chaos testing + external audit pending |
-| v1.0.0 | Production readiness | 🚧 Planned | Requires all v0.5.16–v0.9.0 complete |
+| v0.9.0 | Atomic cross-chain settlement | ✅ Complete | A1-A6, B1-B12 complete; external security audit skipped (no budget) |
+| v0.10.0 | Runtime bug fixes & service modernization | ✅ Complete | Consensus state root, SharedHttpClient, DB migration, consensus + settlement enabled |
+| v0.10.1 | Gap fill for v0.6.0–v0.8.2 | ✅ Complete | 20 tasks: CLI endpoints, island ID, node CLI, RPC compression, feature flags |
+| v0.10.2 | Mock & placeholder elimination | ✅ Complete | 17 categories replaced with real queries or honest errors |
+| v0.10.3 | Bug fix & hardening | ✅ Complete | 28 issues: exchange financial safety, resource leaks, concurrency, security |
+| v0.10.4 | Performance, correctness & cleanup | ✅ Complete | Decimal migration, N+1 elimination, indexes, race conditions, dead code, infra consolidation |
+| v0.10.5 | JWT/auth consolidation | ✅ Complete | Shared aitbc/auth/ module; old app auth → re-export shims |
+| v0.10.6 | Dead code elimination & Decimal migration completion | 🚧 In Progress | Agent A complete; Agent B (Decimal migration, N+1, indexes, circuit breaker consolidation) incomplete |
+| v0.10.7 | Dead code elimination (coordinator-api + agent-management) | ✅ Complete | ~5,800 lines deleted; agent-management deprecated; RPC clients/CLI/DB init consolidated |
+| v0.10.8 | Config consolidation & dead retry helper cleanup | ✅ Complete | config.py vs hierarchical_config.py resolved; 3 dead retry helpers deleted |
+| v0.10.9 | Dead code elimination & status drift cleanup | 🚧 In Progress | Delete ~2,500 lines dead test-only modules; fix status drift, stale ports, auth shims |
+| v1.0.0 | Production readiness | 🚧 Planned | Requires all v0.5.16–v0.10.x complete |
 | v2.0.0 | Vision/questionable features | 🅿️ Parked | For re-evaluation after v1.0.0 |
 
 ## Security Audit Summary

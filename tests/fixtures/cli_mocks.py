@@ -253,7 +253,7 @@ def mock_config():
     config.governance_service_url = "http://localhost:8105"
     config.edge_api_host = "localhost"
     config.edge_api_port = 8103
-    config.coordinator_url = "http://localhost:8006"
+    config.coordinator_url = "http://localhost:8107"
     config.chain_id = "test-chain"
     config.api_key = "test-api-key"
     config.timeout = 30

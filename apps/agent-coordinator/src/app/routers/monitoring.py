@@ -4,10 +4,10 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.auth import get_current_user
 from aitbc.rate_limiting import rate_limit
 
 from .. import state
-from ..auth.middleware import get_current_user
 from ..monitoring.prometheus_metrics import metrics_registry, performance_monitor
 
 logger = get_logger(__name__)

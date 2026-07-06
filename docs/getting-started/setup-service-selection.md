@@ -50,7 +50,6 @@ In addition to base services, hub nodes get:
 | `aitbc-bridge-monitor` | — | ETH↔AIT bridge monitor |
 | `aitbc-blockchain-event-bridge` | 8205 | Blockchain event → service trigger bridge |
 | `aitbc-agent` | 8107 | Agent messaging (coin requests) |
-| `aitbc-agent-management` | 8204 | Agent registry API (public, followers connect) |
 | `aitbc-agent-coordinator` | 8107 | Agent coordination backend (WebSocket PING/PONG, REQUEST_COINS) |
 | `aitbc-blockchain-explorer` | 8100 | Blockchain explorer API |
 
