@@ -30,8 +30,8 @@ class WalletService:
         """Create a new wallet for an agent"""
         existing = self.session.execute(
             select(AgentWallet).where(
-                AgentWallet.agent_id == request.agent_id,
-                AgentWallet.wallet_type == request.wallet_type,
+                AgentWallet.agent_id == request.agent_id,  # type: ignore[arg-type]
+                AgentWallet.wallet_type == request.wallet_type,  # type: ignore[arg-type]
                 AgentWallet.is_active,  # type: ignore[arg-type]
             )
         ).first()
