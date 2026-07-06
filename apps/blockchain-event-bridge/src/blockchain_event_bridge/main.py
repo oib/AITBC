@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from prometheus_client import make_asgi_app
 
 from aitbc.aitbc_logging import configure_logging, get_logger
+from aitbc.health_checks import create_simple_health_response
 
 configure_logging(level="INFO", service_name="blockchain-event-bridge", to_file=True)
 
@@ -45,7 +46,10 @@ app.mount("/metrics", metrics_app)
 @app.get("/health")
 async def health_check() -> dict[str, object]:
     """Health check endpoint."""
-    return {"status": "healthy", "bridge_running": bridge_instance is not None and bridge_instance.is_running}
+    return create_simple_health_response(
+        "blockchain-event-bridge",
+        bridge_running=bridge_instance is not None and bridge_instance.is_running,
+    )
 
 
 @app.get("/")

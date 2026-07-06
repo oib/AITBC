@@ -17,6 +17,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.health_checks import create_simple_health_response  # noqa: E402
 
 configure_logging(level="INFO", service_name="whisper", to_file=True)
 logger = get_logger(__name__)
@@ -44,12 +45,13 @@ app = FastAPI(title="AITBC Whisper Service", version="1.0.0", lifespan=lifespan)
 
 @app.get("/health")
 async def health():
-    return {
-        "status": "ok",
-        "model": _model_name,
-        "device": _device,
-        "ready": _model is not None,
-    }
+    return create_simple_health_response(
+        "whisper",
+        status="ok",
+        model=_model_name,
+        device=_device,
+        ready=_model is not None,
+    )
 
 
 @app.get("/models")

@@ -9,6 +9,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from aitbc.aitbc_logging import configure_logging, get_logger
+from aitbc.health_checks import create_simple_health_response
 
 configure_logging(level="INFO", service_name="blockchain-explorer", to_file=True)
 logger = get_logger(__name__)
@@ -42,12 +43,13 @@ async def health() -> dict[str, str]:
     except Exception:
         node_status = "error"
 
-    return {
-        "status": "ok" if node_status == "ok" else "degraded",
-        "node_status": node_status,
-        "version": "2.0.0",
-        "features": "advanced_search,analytics,export,real_time",
-    }
+    return create_simple_health_response(
+        "blockchain-explorer",
+        version="2.0.0",
+        status="ok" if node_status == "ok" else "degraded",
+        node_status=node_status,
+        features="advanced_search,analytics,export,real_time",
+    )
 
 
 if __name__ == "__main__":
