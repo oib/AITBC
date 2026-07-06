@@ -200,15 +200,16 @@ def sha256_hash(data: str | bytes) -> str:
 
 
 def validate_ethereum_address(address: str) -> bool:
-    """Validate Ethereum address format and checksum"""
-    try:
-        from eth_utils import is_address, is_checksum_address
+    """Validate Ethereum address format and checksum.
 
-        return is_address(address) and is_checksum_address(address)
-    except ImportError:
-        raise ImportError("eth-utils is required for address validation. Install with: pip install eth-utils") from None
-    except Exception:
-        return False
+    Delegates to :func:`aitbc.utils.validation.validate_address` which
+    supports EIP-55 checksum validation via eth_utils (with a regex
+    fallback when eth_utils is unavailable) and legacy ait1/aitbc1
+    prefixed addresses.
+    """
+    from ..utils.validation import validate_address
+
+    return validate_address(address)
 
 
 def generate_ethereum_private_key() -> str:

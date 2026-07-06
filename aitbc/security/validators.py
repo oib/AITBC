@@ -64,7 +64,9 @@ class SecurityValidator:
         Returns:
             True if valid, False otherwise
         """
-        return bool(SecurityValidator.ETHEREUM_ADDRESS_PATTERN.match(address))
+        from ..utils.validation import validate_address
+
+        return validate_address(address)
 
     @staticmethod
     def validate_tx_hash(tx_hash: str) -> bool:

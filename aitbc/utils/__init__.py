@@ -62,6 +62,7 @@ from .time_utils import (
 from .units import SECONDS_PER_AIT, ait_to_seconds, format_ait, seconds_to_ait
 from .validation import (
     validate_address,
+    validate_address_strict,
     validate_chain_id,
     validate_email,
     validate_hash,
@@ -141,6 +142,7 @@ __all__ = [
     "to_timezone",
     # Validation
     "validate_address",
+    "validate_address_strict",
     "validate_chain_id",
     "validate_email",
     "validate_hash",
