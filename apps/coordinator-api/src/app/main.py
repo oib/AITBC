@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
+from aitbc.middleware import setup_cors
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import Counter, Histogram, generate_latest, make_asgi_app
 from prometheus_client.core import CollectorRegistry
@@ -255,12 +255,10 @@ def create_app() -> FastAPI:
     )
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
-    app.add_middleware(
-        CORSMiddleware,
+    setup_cors(
+        app,
         allow_origins=settings.allow_origins,
-        allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["*"],
     )
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(PerformanceLoggingMiddleware)

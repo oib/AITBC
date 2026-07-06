@@ -11,7 +11,7 @@ from typing import Annotated, Any
 
 import httpx
 from fastapi import BackgroundTasks, Depends, FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from aitbc.middleware import setup_cors
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field
@@ -50,13 +50,7 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8080"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+setup_cors(app, allow_origins=["http://localhost:3000", "http://localhost:8080"])
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(PerformanceLoggingMiddleware)
 app.add_middleware(RequestValidationMiddleware, max_request_size=10 * 1024 * 1024)
