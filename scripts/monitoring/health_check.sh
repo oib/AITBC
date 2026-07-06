@@ -23,12 +23,12 @@ NC='\033[0m' # No Color
 
 # Service health endpoints
 declare -A SERVICE_ENDPOINTS=(
-    ["aitbc-blockchain-rpc"]="http://localhost:8006/health"
+    ["aitbc-blockchain-rpc"]="http://localhost:8202/health"
     ["aitbc-coordinator-api"]="http://localhost:8203/health"
-    ["aitbc-exchange-api"]="http://localhost:8001/health"
-    ["aitbc-agent-coordinator"]="http://localhost:9001/health"
-    ["aitbc-marketplace"]="http://localhost:8102/health"
-    ["aitbc-wallet"]="http://localhost:8000/health"
+    ["aitbc-exchange-api"]="http://localhost:8106/health"
+    ["aitbc-agent-coordinator"]="http://localhost:8107/health"
+    ["aitbc-marketplace"]="http://localhost:8081/health"
+    ["aitbc-wallet"]="http://localhost:8108/health"
 )
 
 # Logging functions
@@ -165,7 +165,7 @@ check_system_memory() {
 
 # Check blockchain sync status
 check_blockchain_sync() {
-    local rpc_url="http://localhost:8006"
+    local rpc_url="http://localhost:8202"
 
     if ! command -v curl &> /dev/null || ! command -v jq &> /dev/null; then
         warning "curl or jq not available, skipping blockchain sync check"
