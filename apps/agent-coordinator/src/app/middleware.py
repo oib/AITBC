@@ -5,8 +5,8 @@ from fastapi import Request, Response
 from starlette.middleware.base import RequestResponseEndpoint
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.auth import security_headers
 
-from .auth.middleware import security_headers
 from .monitoring.prometheus_metrics import performance_monitor
 
 logger = get_logger(__name__)

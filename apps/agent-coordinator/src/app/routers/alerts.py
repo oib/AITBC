@@ -4,11 +4,10 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.auth import Permission, get_current_user, permission_manager
 from aitbc.rate_limiting import rate_limit
 
 from .. import state
-from ..auth.middleware import get_current_user
-from ..auth.permissions import Permission, permission_manager
 from ..monitoring.alerting import alert_manager
 from ..monitoring.prometheus_metrics import performance_monitor
 
