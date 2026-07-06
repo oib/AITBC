@@ -28,16 +28,16 @@ logger = get_logger(__name__)
 
 async def _report_health_to_coordinator() -> None:
     """Background task: periodically report health to agent-coordinator (v0.6.6)."""
-    while True:
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
+    async with httpx.AsyncClient(timeout=10) as client:
+        while True:
+            try:
                 await client.post(
                     f"{settings.agent_coordinator_url}/agents/heartbeat",
                     json={"service": "aitbc-edge", "status": "healthy", "port": settings.app_port},
                 )
-        except Exception as e:
-            logger.debug("Coordinator heartbeat failed: %s", e)
-        await asyncio.sleep(settings.agent_heartbeat_interval_seconds)
+            except Exception as e:
+                logger.debug("Coordinator heartbeat failed: %s", e)
+            await asyncio.sleep(settings.agent_heartbeat_interval_seconds)
 
 
 async def _register_edge_node_on_blockchain() -> None:
