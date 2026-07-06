@@ -7,6 +7,7 @@ Run with: TEST_ADMIN_PASSWORD=*** python scripts/generate_openapi.py
 import json
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 # Add repo root to path
@@ -22,9 +23,10 @@ from aitbc import (  # noqa: E402
     WALLET_PORT,
 )
 
-# Set required environment variables
+# Use temp directory for test database
+TMPDIR = tempfile.mkdtemp()
 os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
-os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{TMPDIR}/test.db")
 os.environ.setdefault("REDIS_URL", f"redis://localhost:{REDIS_PORT}/1")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars-long")
 os.environ.setdefault("TEST_ADMIN_PASSWORD", "test-admin-password")
@@ -110,8 +112,8 @@ def main():
 
     # Set required environment variables
     os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
-    os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
-    os.environ.setdefault("MARKETPLACE_DATABASE_URL", "sqlite+aiosqlite:///test.db")
+    os.environ.setdefault("DATABASE_URL", f"sqlite:///{TMPDIR}/test.db")
+    os.environ.setdefault("MARKETPLACE_DATABASE_URL", f"sqlite+aiosqlite:///{TMPDIR}/test.db")
     os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
     os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars-long")
     os.environ.setdefault("TEST_ADMIN_PASSWORD", "test-admin-password")
@@ -122,7 +124,7 @@ def main():
     os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
     os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
     os.environ.setdefault("MARKETPLACE_BIND_PORT", "8102")
-    os.environ.setdefault("MARKETPLACE_DATABASE_URL", "sqlite+aiosqlite:///test.db")
+    os.environ.setdefault("MARKETPLACE_DATABASE_URL", f"sqlite+aiosqlite:///{TMPDIR}/test.db")
 
     results = []
     for app_module, app_name, output_file in services:
