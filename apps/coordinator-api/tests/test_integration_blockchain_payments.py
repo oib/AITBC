@@ -43,7 +43,7 @@ class TestBlockchainPaymentsIntegration:
             "refund_transaction_hash": None,
         }
 
-        from app.auth import require_client
+        from aitbc.auth import require_client
         from app.contexts.blockchain.routers.blockchain import router as blockchain_router
         from app.contexts.payments.routers.payments import router as payments_router
         from app.storage import get_session

@@ -125,16 +125,15 @@ class Settings(BaseAITBCConfig):
     allow_origins: list[str] = Field(
         default=[
             "http://localhost:8203",  # Coordinator API
-            "http://localhost:8001",  # Exchange API
-            "http://localhost:8002",  # Blockchain Node
-            "http://localhost:8003",  # Blockchain RPC
-            "http://localhost:8010",  # Multimodal GPU
-            "http://localhost:8011",  # GPU Multimodal
-            "http://localhost:8012",  # Modality Optimization
-            "http://localhost:8013",  # Adaptive Learning
-            "http://localhost:8014",  # Marketplace Enhanced
-            "http://localhost:8015",  # agent Enhanced
-            "http://localhost:8016",  # Web UI
+            "http://localhost:8202",  # Blockchain Node RPC
+            "http://localhost:8106",  # Exchange API
+            "http://localhost:8101",  # GPU service
+            "http://localhost:8102",  # Marketplace
+            "http://localhost:8103",  # Edge
+            "http://localhost:8104",  # Trading
+            "http://localhost:8105",  # Governance
+            "http://localhost:8107",  # Agent Coordinator
+            "http://localhost:8108",  # Wallet
         ],
         description="CORS allowed origins",
     )

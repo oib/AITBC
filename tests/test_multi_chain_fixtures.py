@@ -64,7 +64,7 @@ class TestMultiChainFixture:
         """Island chain should have sync source pointing to hub."""
         island = multi_chain_setup.get("ait-island1")
         assert "ait-hub" in island.sync_sources
-        assert island.sync_sources["ait-hub"] == "http://localhost:8006"
+        assert island.sync_sources["ait-hub"] == "http://localhost:8202"
 
     def test_seed_account_function(self, multi_chain_setup) -> None:
         """seed_account should create an account in the chain's database."""
@@ -104,7 +104,7 @@ class TestSyncSourceMap:
     def test_sync_source_map_has_hub_url(self, sync_source_map) -> None:
         """Sync source map should map ait-hub to its URL."""
         assert "ait-hub" in sync_source_map
-        assert sync_source_map["ait-hub"] == "http://localhost:8006"
+        assert sync_source_map["ait-hub"] == "http://localhost:8202"
 
 
 class TestIslandRegistry:
