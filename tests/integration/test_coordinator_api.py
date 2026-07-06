@@ -5,6 +5,7 @@ Note: Some endpoints require database setup and are marked as expected to fail
 """
 
 import os
+import tempfile
 
 import pytest
 from starlette.testclient import TestClient
@@ -23,11 +24,17 @@ class TestCoordinatorAPI:
         os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
         os.environ.setdefault("COORDINATOR_API_BIND_HOST", "127.0.0.1")
         os.environ.setdefault("COORDINATOR_API_PORT", "8203")
-        os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
         os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
         os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars-long")
         os.environ.setdefault("TEST_ADMIN_PASSWORD", "test-admin-password")
         os.environ.setdefault("DEBUG", "true")
+        # Use temp directory for test database
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "test.db")
+            os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
+            from app.main import app
+
+            yield TestClient(app)
         from app.main import app
 
         return TestClient(app)
@@ -66,14 +73,17 @@ class TestCoordinatorAPIErrorHandling:
 
         sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
         os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
-        os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
         os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
         os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars-long")
         os.environ.setdefault("TEST_ADMIN_PASSWORD", "test-admin-password")
         os.environ.setdefault("DEBUG", "true")
-        from app.main import app
+        # Use temp directory for test database
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "test.db")
+            os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
+            from app.main import app
 
-        return TestClient(app)
+            yield TestClient(app)
 
     def test_nonexistent_endpoint(self, client: TestClient):
         """Test requesting nonexistent endpoint"""
@@ -96,14 +106,17 @@ class TestCoordinatorAPIPerformance:
 
         sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
         os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
-        os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
         os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
         os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars-long")
         os.environ.setdefault("TEST_ADMIN_PASSWORD", "test-admin-password")
         os.environ.setdefault("DEBUG", "true")
-        from app.main import app
+        # Use temp directory for test database
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "test.db")
+            os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
+            from app.main import app
 
-        return TestClient(app)
+            yield TestClient(app)
 
     def test_healthy_endpoints_response_times(self, client: TestClient):
         """Test API response times for healthy endpoints"""

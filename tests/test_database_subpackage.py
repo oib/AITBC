@@ -624,10 +624,10 @@ class TestDatabaseServiceFactory:
         service = DatabaseServiceFactory.create_service("sqlite", db_path=temp_db)
         assert isinstance(service, SQLiteDatabaseService)
 
-    def test_create_service_unknown_type(self):
+    def test_create_service_unknown_type(self, tmp_path):
         """Test create_service with unknown type."""
         with pytest.raises(ValueError, match="Unknown database type: unknown"):
-            DatabaseServiceFactory.create_service("unknown", db_path=Path("test.db"))
+            DatabaseServiceFactory.create_service("unknown", db_path=tmp_path / "test.db")
 
 
 class TestDatabaseServiceIntegration:
@@ -640,7 +640,7 @@ class TestDatabaseServiceIntegration:
         assert isinstance(service, SQLiteDatabaseService)
 
     @patch("aitbc.database.service.sqlite3.connect")
-    def test_full_mock_flow(self, mock_connect):
+    def test_full_mock_flow(self, mock_connect, tmp_path):
         """Test full flow with mocked connections."""
         mock_conn = Mock()
         mock_connect.return_value = mock_conn
@@ -657,7 +657,7 @@ class TestDatabaseServiceIntegration:
         ]
         mock_cursor.__enter__ = Mock(return_value=mock_cursor)
 
-        service = SQLiteDatabaseService(Path("test.db"))
+        service = SQLiteDatabaseService(tmp_path / "test.db")
         result = service.execute_query("SELECT * FROM users")
 
         assert len(result) == 2
@@ -720,23 +720,23 @@ class TestPoolingFunctions:
     """Test SQLAlchemy pooling utility functions."""
 
     @patch("aitbc.database.pooling.create_engine")
-    def test_create_pooled_engine_sqlite_static(self, mock_create_engine):
+    def test_create_pooled_engine_sqlite_static(self, mock_create_engine, tmp_path):
         """Test create_pooled_engine for SQLite with static pool."""
         mock_engine = Mock()
         mock_create_engine.return_value = mock_engine
 
-        engine = create_pooled_engine("sqlite:///test.db", use_static_pool=True)
+        engine = create_pooled_engine(f"sqlite:///{tmp_path}/test.db", use_static_pool=True)
 
         assert engine == mock_engine
         mock_create_engine.assert_called_once()
 
     @patch("aitbc.database.pooling.create_engine")
-    def test_create_pooled_engine_sqlite_queue(self, mock_create_engine):
+    def test_create_pooled_engine_sqlite_queue(self, mock_create_engine, tmp_path):
         """Test create_pooled_engine for SQLite with queue pool."""
         mock_engine = Mock()
         mock_create_engine.return_value = mock_engine
 
-        engine = create_pooled_engine("sqlite:///test.db", pool_size=5, max_overflow=10)
+        engine = create_pooled_engine(f"sqlite:///{tmp_path}/test.db", pool_size=5, max_overflow=10)
 
         assert engine == mock_engine
 
@@ -765,12 +765,12 @@ class TestPoolingFunctions:
         mock_sessionmaker.assert_called_once_with(bind=mock_engine, autoflush=False, autocommit=False)
 
     @patch("aitbc.database.pooling.create_async_engine")
-    def test_create_async_pooled_engine_sqlite(self, mock_create_async_engine):
+    def test_create_async_pooled_engine_sqlite(self, mock_create_async_engine, tmp_path):
         """Test create_async_pooled_engine for SQLite."""
         mock_engine = Mock()
         mock_create_async_engine.return_value = mock_engine
 
-        engine = create_async_pooled_engine("sqlite:///test.db")
+        engine = create_async_pooled_engine(f"sqlite:///{tmp_path}/test.db")
 
         assert engine == mock_engine
 
