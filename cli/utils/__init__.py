@@ -262,49 +262,6 @@ def warning(message: str):
     console.print(Panel(f"[yellow]{message}[/yellow]", title="⚠️"))
 
 
-def retry_with_backoff(
-    func,
-    max_retries: int = 3,
-    base_delay: float = 1.0,
-    max_delay: float = 60.0,
-    backoff_factor: float = 2.0,
-    exceptions: tuple = (Exception,),
-):
-    """
-    Retry function with exponential backoff
-
-    Args:
-        func: Function to retry
-        max_retries: Maximum number of retries
-        base_delay: Initial delay in seconds
-        max_delay: Maximum delay in seconds
-        backoff_factor: Multiplier for delay after each retry
-        exceptions: Tuple of exceptions to catch and retry on
-
-    Returns:
-        Result of function call
-    """
-    last_exception = None
-
-    for attempt in range(max_retries + 1):
-        try:
-            return func()
-        except exceptions as e:
-            last_exception = e
-
-            if attempt == max_retries:
-                error(f"Max retries ({max_retries}) exceeded. Last error: {e}")
-                raise
-
-            # Calculate delay with exponential backoff
-            delay = min(base_delay * (backoff_factor**attempt), max_delay)
-
-            warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay:.1f}s...")
-            time.sleep(delay)
-
-    raise last_exception
-
-
 def create_http_client_with_retry(
     max_retries: int = 3, base_delay: float = 1.0, max_delay: float = 60.0, timeout: float = 30.0
 ):
