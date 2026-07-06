@@ -9,7 +9,7 @@ import sys
 from typing import Any
 
 import httpx
-import yaml
+import yaml  # type: ignore[import-untyped]
 from tabulate import tabulate
 
 # Configuration
@@ -71,7 +71,7 @@ class AITBCClient:
 
             if response.status_code == 201:
                 job = response.json()
-                return job["job_id"]
+                return job["job_id"]  # type: ignore[no-any-return]
             else:
                 print(f"❌ Error submitting job: {response.status_code}")
                 print(f"   Response: {response.text}")
@@ -87,7 +87,7 @@ class AITBCClient:
             response = self.client.get(f"{self.coordinator_url}/v1/jobs/{job_id}", headers={"X-Api-Key": self.api_key})
 
             if response.status_code == 200:
-                return response.json()
+                return response.json()  # type: ignore[no-any-return]
             else:
                 print(f"❌ Error getting status: {response.status_code}")
                 return None
@@ -104,7 +104,7 @@ class AITBCClient:
             )
 
             if response.status_code == 200:
-                return response.json()
+                return response.json()  # type: ignore[no-any-return]
             else:
                 print(f"❌ Error getting blocks: {response.status_code}")
                 return None
@@ -123,7 +123,7 @@ class AITBCClient:
             )
 
             if response.status_code == 200:
-                return response.json()
+                return response.json()  # type: ignore[no-any-return]
             else:
                 print(f"❌ Error getting transactions: {response.status_code}")
                 return None
@@ -132,10 +132,10 @@ class AITBCClient:
             print(f"❌ Error: {e}")
             return None
 
-    def list_receipts(self, limit: int = 10, job_id: str = None) -> list | None:
+    def list_receipts(self, limit: int = 10, job_id: str | None = None) -> list | None:
         """List job receipts"""
         try:
-            params = {"limit": limit}
+            params: dict[str, int | str] = {"limit": limit}
             if job_id:
                 params["job_id"] = job_id
 
@@ -144,7 +144,7 @@ class AITBCClient:
             )
 
             if response.status_code == 200:
-                return response.json()
+                return response.json()  # type: ignore[no-any-return]
             else:
                 print(f"❌ Error getting receipts: {response.status_code}")
                 return None
@@ -238,13 +238,13 @@ def main():
         job_id = client.submit_job(args.type, task_data, args.ttl)
 
         if job_id:
-            result = {
+            submit_result = {
                 "status": "success",
                 "job_id": job_id,
                 "message": "Job submitted successfully",
                 "track_command": f"python3 cli/client_enhanced.py status {job_id}",
             }
-            print(OutputFormatter.format(result, args.output))
+            print(OutputFormatter.format(submit_result, args.output))
             sys.exit(0)
         else:
             sys.exit(1)
@@ -272,7 +272,7 @@ def main():
         transactions = client.list_transactions(args.tx_limit) or []
         receipts = client.list_receipts(args.receipt_limit, job_id=args.job_id) or []
 
-        result = {
+        result: dict[str, Any] = {
             "latest_block": blocks[0] if blocks else None,
             "recent_transactions": transactions,
             "recent_receipts": receipts,
@@ -290,7 +290,7 @@ def main():
             sys.exit(1)
 
     elif args.command == "receipts":
-        receipts = client.list_receipts(args.limit, args.job_id)
+        receipts = client.list_receipts(args.limit, args.job_id) or []
 
         if receipts:
             print(OutputFormatter.format(receipts, args.output))

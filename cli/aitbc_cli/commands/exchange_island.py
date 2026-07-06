@@ -260,15 +260,15 @@ def orderbook(ctx, pair: str, limit: int):
             sell_orders = []
 
             for order in transactions:
-                if order.get("side") == "buy":
+                if order.get("side") == "buy":  # type: ignore[attr-defined]
                     buy_orders.append(order)
-                elif order.get("side") == "sell":
+                elif order.get("side") == "sell":  # type: ignore[attr-defined]
                     sell_orders.append(order)
 
             # Sort buy orders by price descending (highest first)
-            buy_orders.sort(key=lambda x: x.get("max_price", 0), reverse=True)
+            buy_orders.sort(key=lambda x: x.get("max_price", 0), reverse=True)  # type: ignore[attr-defined]
             # Sort sell orders by price ascending (lowest first)
-            sell_orders.sort(key=lambda x: x.get("min_price", float("inf")))
+            sell_orders.sort(key=lambda x: x.get("min_price", float("inf")))  # type: ignore[attr-defined]
 
             if not buy_orders and not sell_orders:
                 info(f"No open orders for {pair}")
@@ -280,11 +280,11 @@ def orderbook(ctx, pair: str, limit: int):
                 for order in sell_orders[:limit]:
                     asks_data.append(
                         {
-                            "Price": f"{order.get('min_price', 0):.8f}",
-                            "Amount": f"{order.get('amount', 0):.4f} AIT",
-                            "Total": f"{order.get('min_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",
-                            "User": order.get("user_id", "")[:16] + "...",
-                            "Order": order.get("order_id", "")[:16] + "...",
+                            "Price": f"{order.get('min_price', 0):.8f}",  # type: ignore[attr-defined]
+                            "Amount": f"{order.get('amount', 0):.4f} AIT",  # type: ignore[attr-defined]
+                            "Total": f"{order.get('min_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",  # type: ignore[attr-defined]
+                            "User": order.get("user_id", "")[:16] + "...",  # type: ignore[attr-defined]
+                            "Order": order.get("order_id", "")[:16] + "...",  # type: ignore[attr-defined]
                         }
                     )
 
@@ -296,11 +296,11 @@ def orderbook(ctx, pair: str, limit: int):
                 for order in buy_orders[:limit]:
                     bids_data.append(
                         {
-                            "Price": f"{order.get('max_price', 0):.8f}",
-                            "Amount": f"{order.get('amount', 0):.4f} AIT",
-                            "Total": f"{order.get('max_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",
-                            "User": order.get("user_id", "")[:16] + "...",
-                            "Order": order.get("order_id", "")[:16] + "...",
+                            "Price": f"{order.get('max_price', 0):.8f}",  # type: ignore[attr-defined]
+                            "Amount": f"{order.get('amount', 0):.4f} AIT",  # type: ignore[attr-defined]
+                            "Total": f"{order.get('max_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",  # type: ignore[attr-defined]
+                            "User": order.get("user_id", "")[:16] + "...",  # type: ignore[attr-defined]
+                            "Order": order.get("order_id", "")[:16] + "...",  # type: ignore[attr-defined]
                         }
                     )
 
@@ -345,12 +345,12 @@ def rates(ctx):
                 orders = http_client.get("/transactions", params=params)
 
                 # Calculate rates from order book
-                buy_orders = [o for o in orders if o.get("side") == "buy"]
-                sell_orders = [o for o in orders if o.get("side") == "sell"]
+                buy_orders = [o for o in orders if o.get("side") == "buy"]  # type: ignore[attr-defined]
+                sell_orders = [o for o in orders if o.get("side") == "sell"]  # type: ignore[attr-defined]
 
                 # Get best bid and ask
-                best_bid = max([o.get("max_price", 0) for o in buy_orders]) if buy_orders else 0
-                best_ask = min([o.get("min_price", float("inf")) for o in sell_orders]) if sell_orders else 0
+                best_bid = max([o.get("max_price", 0) for o in buy_orders]) if buy_orders else 0  # type: ignore[attr-defined]
+                best_ask = min([o.get("min_price", float("inf")) for o in sell_orders]) if sell_orders else 0  # type: ignore[attr-defined]
 
                 # Calculate mid price
                 mid_price = (best_bid + best_ask) / 2 if best_bid > 0 and best_ask < float("inf") else 0
@@ -412,16 +412,16 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
             for order in orders:
                 orders_data.append(
                     {
-                        "Order ID": order.get("order_id", "")[:20] + "...",
-                        "Pair": order.get("pair"),
-                        "Side": order.get("side", "").upper(),
-                        "Amount": f"{order.get('amount', 0):.4f} AIT",
-                        "Price": f"{order.get('max_price', order.get('min_price', 0)):.8f}"
-                        if order.get("max_price") or order.get("min_price")
+                        "Order ID": order.get("order_id", "")[:20] + "...",  # type: ignore[attr-defined]
+                        "Pair": order.get("pair"),  # type: ignore[attr-defined]
+                        "Side": order.get("side", "").upper(),  # type: ignore[attr-defined]
+                        "Amount": f"{order.get('amount', 0):.4f} AIT",  # type: ignore[attr-defined]
+                        "Price": f"{order.get('max_price', order.get('min_price', 0)):.8f}"  # type: ignore[attr-defined]
+                        if order.get("max_price") or order.get("min_price")  # type: ignore[attr-defined]
                         else "Market",
-                        "Status": order.get("status"),
-                        "User": order.get("user_id", "")[:16] + "...",
-                        "Created": order.get("created_at", "")[:19],
+                        "Status": order.get("status"),  # type: ignore[attr-defined]
+                        "User": order.get("user_id", "")[:16] + "...",  # type: ignore[attr-defined]
+                        "Created": order.get("created_at", "")[:19],  # type: ignore[attr-defined]
                     }
                 )
 

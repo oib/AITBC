@@ -3,10 +3,11 @@
 import asyncio
 import json
 from pathlib import Path
+from typing import Any
 
 try:
-    from aitbc_agent import Agent, AITBCAgent, ComputeConsumer, ComputeProvider
-    from aitbc_agent.agent import AgentCapabilities  # noqa: F401
+    from aitbc_agent import Agent, AITBCAgent, ComputeConsumer, ComputeProvider  # type: ignore[import-untyped]
+    from aitbc_agent.agent import AgentCapabilities  # type: ignore[import-untyped]  # noqa: F401
 except ImportError:
     # Fallback if Agent SDK is not installed
     Agent = None
@@ -77,13 +78,13 @@ def create_agent(name: str, agent_type: str, capabilities: dict, coordinator_url
         return {"error": str(e)}
 
 
-async def register_agent(agent_id: str, coordinator_url: str = None) -> dict:
+async def register_agent(agent_id: str, coordinator_url: str | None = None) -> dict:
     """Register an agent with the coordinator"""
+    if Agent is None:
+        return {"error": "Agent SDK not available"}
     if coordinator_url is None:
         config = get_config()
         coordinator_url = config.agent_coordinator_url
-    if Agent is None:
-        return {"error": "Agent SDK not available"}
 
     try:
         # For now, return a simulated registration response
@@ -99,23 +100,23 @@ async def register_agent(agent_id: str, coordinator_url: str = None) -> dict:
         return {"error": str(e)}
 
 
-def get_agent_capabilities() -> dict:
+def get_agent_capabilities() -> dict[str, Any]:
     """Get auto-detected system capabilities for creating a provider"""
     if ComputeProvider is None:
         return {"error": "Agent SDK not available"}
 
     try:
-        return ComputeProvider.assess_capabilities()
+        return ComputeProvider.assess_capabilities()  # type: ignore[no-any-return]
     except Exception as e:
         return {"error": str(e)}
 
 
-def list_local_agents(agent_dir: Path | None = None) -> list:
+def list_local_agents(agent_dir: Path | None = None) -> list[dict[str, Any]]:
     """List locally stored agent configurations"""
     if agent_dir is None:
         agent_dir = get_agent_config_dir()
 
-    agents = []
+    agents: list[dict[str, Any]] = []
     if agent_dir.exists():
         for agent_file in agent_dir.glob("*.json"):
             try:
@@ -521,11 +522,11 @@ try:
         except Exception as e:
             abort(ctx, f"Error verifying identity: {str(e)}", from_exception=e)
 
-    @agent.command()
+    @agent.command(name="list")
     @click.option("--agent-dir", type=click.Path(), help="Agent directory path")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
-    def list(ctx, agent_dir, format):
+    def list_agents(ctx, agent_dir, format):
         """List local agents"""
         try:
             agents = list_local_agents(Path(agent_dir) if agent_dir else None)
@@ -718,7 +719,7 @@ try:
 
         try:
             http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-            params = {"limit": limit}
+            params: dict[str, str | int] = {"limit": limit}
             if status:
                 params["status"] = status
 

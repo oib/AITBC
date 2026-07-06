@@ -7,22 +7,23 @@ import argparse
 import json
 import os
 from datetime import datetime
+from typing import Any
 
 
 class AITBCWallet:
-    def __init__(self, wallet_file: str = None):
+    def __init__(self, wallet_file: str | None = None):
         if wallet_file is None:
             wallet_file = os.path.expanduser("~/.aitbc_wallet.json")
 
         self.wallet_file = wallet_file
         self.data = self._load_wallet()
 
-    def _load_wallet(self) -> dict:
+    def _load_wallet(self) -> dict[str, Any]:
         """Load wallet data from file"""
         if os.path.exists(self.wallet_file):
             try:
                 with open(self.wallet_file) as f:
-                    return json.load(f)
+                    return json.load(f)  # type: ignore[no-any-return]
             except (OSError, json.JSONDecodeError):
                 pass
 

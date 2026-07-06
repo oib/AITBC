@@ -95,10 +95,10 @@ def list(ctx, status, sender):
         click.echo("-" * 87)
 
         for req in requests:
-            click.echo(
-                f"{req.id:<20} {req.sender:<20} {format_ait(req.amount):<15} "
-                f"{req.status.value:<12} {req.created_at.strftime('%Y-%m-%d %H:%M:%S'):<20}"
-            )
+            amount_str = format_ait(req.amount) if req.amount is not None else "N/A"
+            status_str = req.status.value if req.status is not None else "N/A"
+            created_str = req.created_at.strftime("%Y-%m-%d %H:%M:%S") if req.created_at is not None else "N/A"
+            click.echo(f"{req.id:<20} {req.sender:<20} {amount_str:<15} {status_str:<12} {created_str:<20}")
 
 
 @coin_requests.command()
@@ -115,23 +115,24 @@ def approve(ctx, request_id, reason):
             return
 
         if req.status != CoinRequestStatus.PENDING:
-            click.echo(f"Request {request_id} is not pending (status: {req.status.value}).")
+            click.echo(f"Request {request_id} is not pending (status: {req.status.value if req.status else 'N/A'}).")
             return
 
         req.status = CoinRequestStatus.APPROVED
         req.approved_by = "cli"
         req.approved_at = datetime.now(UTC)
         req.rejection_reason = None
-        req.audit_log += f" | CLI approved at {datetime.now(UTC).isoformat()}"
+        audit_entry = f" | CLI approved at {datetime.now(UTC).isoformat()}"
         if reason:
-            req.audit_log += f" | Reason: {reason}"
+            audit_entry += f" | Reason: {reason}"
+        req.audit_log = (req.audit_log or "") + audit_entry
 
         click.echo(f"Request {request_id} approved successfully.")
-        click.echo(f"Amount: {format_ait(req.amount)} to {req.wallet_address}")
+        click.echo(f"Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'} to {req.wallet_address}")
 
         # Send notification to sender
-        notification_content = f"Coin request {req.id} APPROVED. Amount: {format_ait(req.amount)} to {req.wallet_address}."
-        send_agent_notification(req.sender, notification_content)
+        notification_content = f"Coin request {req.id} APPROVED. Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'} to {req.wallet_address}."
+        send_agent_notification(req.sender if req.sender else "unknown", notification_content)
 
 
 @coin_requests.command()
@@ -148,20 +149,21 @@ def reject(ctx, request_id, reason):
             return
 
         if req.status != CoinRequestStatus.PENDING:
-            click.echo(f"Request {request_id} is not pending (status: {req.status.value}).")
+            click.echo(f"Request {request_id} is not pending (status: {req.status.value if req.status else 'N/A'}).")
             return
 
         req.status = CoinRequestStatus.REJECTED
         req.approved_by = "cli"
         req.approved_at = datetime.now(UTC)
         req.rejection_reason = reason
-        req.audit_log += f" | CLI rejected at {datetime.now(UTC).isoformat()} | Reason: {reason}"
+        audit_entry = f" | CLI rejected at {datetime.now(UTC).isoformat()} | Reason: {reason}"
+        req.audit_log = (req.audit_log or "") + audit_entry
 
         click.echo(f"Request {request_id} rejected successfully.")
 
         # Send notification to sender
         notification_content = f"Coin request {req.id} REJECTED. Reason: {reason}."
-        send_agent_notification(req.sender, notification_content)
+        send_agent_notification(req.sender if req.sender else "unknown", notification_content)
 
 
 @coin_requests.command()
@@ -177,7 +179,7 @@ def execute(ctx, request_id):
             return
 
         if req.status != CoinRequestStatus.APPROVED:
-            click.echo(f"Request {request_id} is not approved (status: {req.status.value}).")
+            click.echo(f"Request {request_id} is not approved (status: {req.status.value if req.status else 'N/A'}).")
             return
 
         if req.transaction_hash:
@@ -216,11 +218,15 @@ def execute(ctx, request_id):
                     result = resp.json()
                     tx_hash = result.get("tx_hash")
                     req.transaction_hash = tx_hash
-                    req.audit_log += f" | Forwarded to hub for execution at {datetime.now(UTC).isoformat()} | Hash: {tx_hash}"
+                    audit_entry = f" | Forwarded to hub for execution at {datetime.now(UTC).isoformat()} | Hash: {tx_hash}"
+                    req.audit_log = (req.audit_log or "") + audit_entry
                     click.echo(f"Transaction submitted by hub: {tx_hash}")
-                    click.echo(f"Amount: {format_ait(req.amount)} to {req.wallet_address}")
+                    click.echo(
+                        f"Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'} to {req.wallet_address}"
+                    )
                     send_agent_notification(
-                        req.sender, f"Coin request {req.id} EXECUTED via hub. TX: {tx_hash}. Amount: {format_ait(req.amount)}."
+                        req.sender if req.sender else "unknown",
+                        f"Coin request {req.id} EXECUTED via hub. TX: {tx_hash}. Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'}.",
                     )
                 else:
                     click.echo(f"Hub execution failed: {resp.status_code} {resp.text}")
@@ -235,7 +241,7 @@ def execute(ctx, request_id):
 
         # Check balance before submission
         balance = tx_service.get_balance(tx_service.genesis_address)
-        total_required = req.amount + 36  # amount + fee
+        total_required = (req.amount or 0) + 36  # amount + fee
         if balance < total_required:
             click.echo(
                 f"Error: Insufficient balance. Required: {format_ait(total_required)}, Available: {format_ait(balance)}"
@@ -243,17 +249,21 @@ def execute(ctx, request_id):
             return
 
         click.echo(f"Executing request {request_id}...")
-        click.echo(f"Amount: {format_ait(req.amount)} to {req.wallet_address}")
+        click.echo(f"Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'} to {req.wallet_address}")
         click.echo(f"Genesis wallet balance: {format_ait(balance)}")
 
         # Generate signed transaction
+        if req.wallet_address is None or req.amount is None:
+            click.echo("Error: Missing wallet_address or amount in request")
+            return
         signed_tx = tx_service.generate_signed_transaction(to_address=req.wallet_address, amount=req.amount, fee=36)
 
         if not signed_tx:
             click.echo("Error: Failed to generate signed transaction")
             # Revert to PENDING for retry
             req.status = CoinRequestStatus.PENDING
-            req.audit_log += f" | Execution failed: could not generate signed transaction at {datetime.now(UTC).isoformat()}"
+            audit_entry = f" | Execution failed: could not generate signed transaction at {datetime.now(UTC).isoformat()}"
+            req.audit_log = (req.audit_log or "") + audit_entry
             return
 
         # Submit transaction to blockchain
@@ -268,26 +278,27 @@ def execute(ctx, request_id):
                 # Update database with transaction hash
                 req.transaction_hash = tx_hash
                 req.signed_transaction = json.dumps(signed_tx)
-                req.audit_log += f" | Transaction executed at {datetime.now(UTC).isoformat()} | Hash: {tx_hash}"
+                audit_entry = f" | Transaction executed at {datetime.now(UTC).isoformat()} | Hash: {tx_hash}"
+                req.audit_log = (req.audit_log or "") + audit_entry
 
                 click.echo(f"Transaction submitted successfully: {tx_hash}")
-                click.echo(f"Amount: {format_ait(req.amount)} to {req.wallet_address}")
+                click.echo(f"Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'} to {req.wallet_address}")
 
                 # Send notification to sender
-                notification_content = (
-                    f"Coin request {req.id} EXECUTED. Transaction hash: {tx_hash}. Amount: {format_ait(req.amount)}."
-                )
-                send_agent_notification(req.sender, notification_content)
+                notification_content = f"Coin request {req.id} EXECUTED. Transaction hash: {tx_hash}. Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'}."
+                send_agent_notification(req.sender if req.sender else "unknown", notification_content)
             else:
                 # Revert to PENDING on failure
                 req.status = CoinRequestStatus.PENDING
-                req.audit_log += f" | Execution failed: no transaction hash returned at {datetime.now(UTC).isoformat()}"
+                audit_entry = f" | Execution failed: no transaction hash returned at {datetime.now(UTC).isoformat()}"
+                req.audit_log = (req.audit_log or "") + audit_entry
                 click.echo("Error: Transaction submission failed - no hash returned")
 
         except Exception as e:
             # Revert to PENDING on failure
             req.status = CoinRequestStatus.PENDING
-            req.audit_log += f" | Execution failed: {str(e)} at {datetime.now(UTC).isoformat()}"
+            audit_entry = f" | Execution failed: {str(e)} at {datetime.now(UTC).isoformat()}"
+            req.audit_log = (req.audit_log or "") + audit_entry
             click.echo(f"Error submitting transaction: {e}")
 
 
@@ -306,9 +317,9 @@ def show(ctx, request_id):
         click.echo(f"Request ID: {req.id}")
         click.echo(f"Sender: {req.sender}")
         click.echo(f"Recipient: {req.recipient}")
-        click.echo(f"Amount: {format_ait(req.amount)}")
+        click.echo(f"Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'}")
         click.echo(f"Wallet Address: {req.wallet_address}")
-        click.echo(f"Status: {req.status.value}")
+        click.echo(f"Status: {req.status.value}")  # type: ignore[union-attr]
         click.echo(f"Approval Mode: {req.approval_mode}")
         click.echo(f"Approved By: {req.approved_by}")
         click.echo(f"Approved At: {req.approved_at}")

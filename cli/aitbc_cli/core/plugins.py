@@ -4,6 +4,7 @@ import importlib
 import importlib.util
 import json
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -37,7 +38,11 @@ def load_plugins(cli_group):
 
         try:
             spec = importlib.util.spec_from_file_location(plugin_info["name"], str(plugin_path))
+            if spec is None:
+                continue
             module = importlib.util.module_from_spec(spec)
+            if spec.loader is None:
+                continue
             spec.loader.exec_module(module)
 
             # Look for a click group or command named 'plugin_command'
@@ -57,7 +62,7 @@ def plugin():
 @click.pass_context
 def list_plugins(ctx):
     """List installed plugins"""
-    from .utils import output
+    from aitbc_cli.utils import output
 
     plugin_dir = get_plugin_dir()
     manifest_file = plugin_dir / "plugins.json"
@@ -85,7 +90,7 @@ def install(ctx, name: str, file_path: str, description: str):
     """Install a plugin from a Python file"""
     import shutil
 
-    from .utils import output, success
+    from aitbc_cli.utils import output, success
 
     plugin_dir = get_plugin_dir()
     manifest_file = plugin_dir / "plugins.json"
@@ -95,7 +100,7 @@ def install(ctx, name: str, file_path: str, description: str):
     shutil.copy2(file_path, dest)
 
     # Update manifest
-    manifest = {"plugins": []}
+    manifest: dict[str, Any] = {"plugins": []}
     if manifest_file.exists():
         with open(manifest_file) as f:
             manifest = json.load(f)
@@ -116,7 +121,7 @@ def install(ctx, name: str, file_path: str, description: str):
 @click.pass_context
 def uninstall(ctx, name: str):
     """Uninstall a plugin"""
-    from .utils import error, output, success
+    from aitbc_cli.utils import error, output, success
 
     plugin_dir = get_plugin_dir()
     manifest_file = plugin_dir / "plugins.json"
@@ -155,13 +160,13 @@ def uninstall(ctx, name: str):
 @click.pass_context
 def create(ctx, name: str, type: str, description: str, author: str):
     """Create a new plugin skeleton"""
-    from .utils import output, success
+    from aitbc_cli.utils import output, success
 
     plugin_dir = get_plugin_dir()
     plugin_file = plugin_dir / f"{name}.py"
 
     if plugin_file.exists():
-        from .utils import error
+        from aitbc_cli.utils import error
 
         error(f"Plugin '{name}' already exists")
         return
@@ -187,7 +192,7 @@ def hello():
 
     # Update manifest
     manifest_file = plugin_dir / "plugins.json"
-    manifest = {"plugins": []}
+    manifest: dict[str, Any] = {"plugins": []}
     if manifest_file.exists():
         with open(manifest_file) as f:
             manifest = json.load(f)
@@ -205,14 +210,14 @@ def hello():
 
 @plugin.command()
 @click.argument("name")
-@click.option("--output", default=".", help="Output directory")
+@click.option("--output-dir", default=".", help="Output directory")
 @click.pass_context
-def package(ctx, name: str, output: str):
+def package(ctx, name: str, output_dir: str):
     """Package a plugin for distribution"""
     import tarfile
     from pathlib import Path
 
-    from .utils import error, output, success
+    from aitbc_cli.utils import error, output, success
 
     plugin_dir = get_plugin_dir()
     manifest_file = plugin_dir / "plugins.json"
@@ -235,9 +240,9 @@ def package(ctx, name: str, output: str):
         return
 
     # Create package
-    output_dir = Path(output)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    package_file = output_dir / f"{name}.tar.gz"
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    package_file = output_path / f"{name}.tar.gz"
 
     with tarfile.open(package_file, "w:gz") as tar:
         tar.add(plugin_file, arcname=plugin_file.name)
@@ -251,7 +256,7 @@ def package(ctx, name: str, output: str):
                 "version": "1.0.0",
             }
         )
-        metadata_file = output_dir / "metadata.json"
+        metadata_file = output_path / "metadata.json"
         with open(metadata_file, "w") as f:
             f.write(metadata)
         tar.add(metadata_file, arcname="metadata.json")
@@ -267,13 +272,13 @@ def package(ctx, name: str, output: str):
 @click.pass_context
 def toggle(ctx, name: str, state: str):
     """Enable or disable a plugin"""
-    from .utils import error, output, success
+    from aitbc_cli.utils import error as cli_error, output, success
 
     plugin_dir = get_plugin_dir()
     manifest_file = plugin_dir / "plugins.json"
 
     if not manifest_file.exists():
-        error(f"Plugin '{name}' not found")
+        cli_error(f"Plugin '{name}' not found")
         return
 
     with open(manifest_file) as f:
@@ -281,7 +286,7 @@ def toggle(ctx, name: str, state: str):
 
     plugin_entry = next((p for p in manifest["plugins"] if p["name"] == name), None)
     if not plugin_entry:
-        error(f"Plugin '{name}' not found")
+        cli_error(f"Plugin '{name}' not found")
         return
 
     plugin_entry["enabled"] = state == "enable"

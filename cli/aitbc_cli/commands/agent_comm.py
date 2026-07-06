@@ -3,6 +3,7 @@
 import asyncio
 import json
 from datetime import datetime
+from typing import Any
 
 import click
 
@@ -51,9 +52,9 @@ def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, 
         )
 
         # Register agent
-        success = asyncio.run(comm.register_agent(agent_info))
+        registration_success = asyncio.run(comm.register_agent(agent_info))
 
-        if success:
+        if registration_success:
             success(f"Agent {agent_id} registered successfully!")
 
             agent_data = {
@@ -211,9 +212,9 @@ def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_ch
         )
 
         # Send message
-        success = asyncio.run(comm.send_message(message))
+        send_success = asyncio.run(comm.send_message(message))
 
-        if success:
+        if send_success:
             success(f"Message sent successfully to {receiver_id}")
 
             message_data = {
@@ -286,9 +287,9 @@ def reputation(ctx, agent_id, interaction_result, feedback):
         comm = CrossChainAgentCommunication(config)
 
         # Update reputation
-        success = asyncio.run(comm.update_reputation(agent_id, interaction_result == "success", feedback))
+        update_success = asyncio.run(comm.update_reputation(agent_id, interaction_result == "success", feedback))
 
-        if success:
+        if update_success:
             # Get updated reputation
             agent_status = asyncio.run(comm.get_agent_status(agent_id))
 
@@ -335,21 +336,30 @@ def status(ctx, agent_id, format):
             abort(ctx, f"Agent {agent_id} not found")
 
         # Format output
+        agent_info_dict = agent_status.get("agent_info")  # type: ignore[union-attr]
+        if agent_info_dict is None:
+            agent_info: dict[str, Any] = {}
+        elif isinstance(agent_info_dict, dict):
+            agent_info = agent_info_dict
+        else:
+            agent_info = {}
         status_data = [
-            {"Metric": "Agent ID", "Value": agent_status["agent_info"]["agent_id"]},
-            {"Metric": "Name", "Value": agent_status["agent_info"]["name"]},
-            {"Metric": "Chain ID", "Value": agent_status["agent_info"]["chain_id"]},
-            {"Metric": "Status", "Value": agent_status["status"]},
+            {"Metric": "Agent ID", "Value": agent_info.get("agent_id", "N/A")},
+            {"Metric": "Name", "Value": agent_info.get("name", "N/A")},
+            {"Metric": "Chain ID", "Value": agent_info.get("chain_id", "N/A")},
+            {"Metric": "Status", "Value": agent_status.get("status", "N/A") if agent_status else "N/A"},
             {
                 "Metric": "Reputation",
-                "Value": f"{agent_status['agent_info']['reputation_score']:.3f}" if agent_status.get("reputation") else "N/A",
+                "Value": f"{agent_info.get('reputation_score', 0):.3f}"
+                if agent_status and agent_status.get("reputation")
+                else "N/A",
             },
-            {"Metric": "Capabilities", "Value": ", ".join(agent_status["agent_info"]["capabilities"])},
-            {"Metric": "Message Queue Size", "Value": agent_status["message_queue_size"]},
-            {"Metric": "Active Collaborations", "Value": agent_status["active_collaborations"]},
-            {"Metric": "Last Seen", "Value": agent_status["last_seen"]},
-            {"Metric": "Endpoint", "Value": agent_status["agent_info"]["endpoint"]},
-            {"Metric": "Version", "Value": agent_status["agent_info"]["version"]},
+            {"Metric": "Capabilities", "Value": ", ".join(agent_info.get("capabilities", []))},
+            {"Metric": "Message Queue Size", "Value": agent_status.get("message_queue_size", 0) if agent_status else 0},
+            {"Metric": "Active Collaborations", "Value": agent_status.get("active_collaborations", 0) if agent_status else 0},
+            {"Metric": "Last Seen", "Value": agent_status.get("last_seen", "N/A") if agent_status else "N/A"},
+            {"Metric": "Endpoint", "Value": agent_info.get("endpoint", "N/A")},
+            {"Metric": "Version", "Value": agent_info.get("version", "N/A")},
         ]
 
         output(status_data, ctx.obj.get("output_format", format), title=f"Agent Status: {agent_id}")
@@ -467,7 +477,7 @@ def monitor(ctx, realtime, interval):
                         live.update(generate_monitor_table())
                         time.sleep(interval)
                 except KeyboardInterrupt:
-                    console.click.echo("\n[yellow]Monitoring stopped by user[/yellow]")
+                    console.print("\n[yellow]Monitoring stopped by user[/yellow]")
         else:
             # Single snapshot
             overview = asyncio.run(comm.get_network_overview())

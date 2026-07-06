@@ -12,6 +12,7 @@ Complete command-line interface for AI compute miner operations including:
 import json
 import os
 import time
+from typing import Any
 
 import click
 import requests
@@ -38,7 +39,7 @@ def register_miner(
         headers = {"X-Api-Key": api_key, "X-Miner-ID": miner_id, "Content-Type": "application/json"}
 
         # Build capabilities from arguments
-        caps = {}
+        caps: dict[str, int | float | str | list] = {}
 
         if gpu_memory:
             caps["gpu_memory"] = gpu_memory
@@ -292,7 +293,7 @@ def update_capabilities(
         headers = {"X-Api-Key": api_key, "X-Miner-ID": miner_id, "Content-Type": "application/json"}
 
         # Build capabilities from arguments
-        caps = {}
+        caps: dict[str, int | float | str | list] = {}
         if gpu_memory:
             caps["gpu_memory"] = gpu_memory
             caps["gpu_memory_gb"] = gpu_memory
@@ -490,10 +491,10 @@ def create_marketplace_offer(
 
 
 # Main function for CLI integration
-def miner_cli_dispatcher(action: str, **kwargs) -> dict | None:
+def miner_cli_dispatcher(action: str, **kwargs) -> dict[Any, Any]:
     """Main dispatcher for miner management CLI commands"""
 
-    actions = {
+    actions: dict[str, Any] = {
         "register": register_miner,
         "status": get_miner_status,
         "heartbeat": send_heartbeat,
@@ -506,7 +507,8 @@ def miner_cli_dispatcher(action: str, **kwargs) -> dict | None:
     }
 
     if action in actions:
-        return actions[action](**kwargs)
+        result = actions[action](**kwargs)
+        return result  # type: ignore[no-any-return]
     else:
         return {"action": action, "status": f"❌ Unknown action. Available: {', '.join(actions.keys())}"}
 

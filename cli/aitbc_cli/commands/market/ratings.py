@@ -121,7 +121,7 @@ def sync_ratings(ctx, remote_url: str, limit: int):
             if sync_response.get("status") == "success":
                 # Mark local ratings as synced
                 rating_ids = [r["id"] for r in unsynced_ratings]
-                mark_response = local_client.post("/v1/marketplace/ratings/mark-synced", json=rating_ids)
+                mark_response = local_client.post("/v1/marketplace/ratings/mark-synced", json={"rating_ids": rating_ids})
 
                 success(
                     f"Synced {sync_response.get('synced', 0)} new, {sync_response.get('updated', 0)} updated ratings to remote"
