@@ -41,10 +41,10 @@ cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytes
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Delete 15+ dead test-only `aitbc/` modules + orphan tests (~2,500 lines) | 🟡 P2 | 15 modules in `aitbc/` + test files | ⬜ |
-| A2 | Delete dead pool-hub health router (77 lines) | 🟡 P2 | `apps/pool-hub/src/app/routers/health.py` | ⬜ |
-| A3 | Delete cli/advanced_wallet.py (314 lines, zero importers) | 🟡 P2 | `cli/advanced_wallet.py` | ⬜ |
-| A4 | Remove deprecated HERMES_PORT constant | 🟢 P3 | `aitbc/constants.py` | ⬜ |
+| A1 | Delete 15+ dead test-only `aitbc/` modules + orphan tests (~2,500 lines) | 🟡 P2 | 15 modules in `aitbc/` + test files | ✅ |
+| A2 | Delete dead pool-hub health router (77 lines) | 🟡 P2 | `apps/pool-hub/src/app/routers/health.py` | ✅ |
+| A3 | Delete cli/advanced_wallet.py (314 lines, zero importers) | 🟡 P2 | `cli/advanced_wallet.py` | ✅ |
+| A4 | Remove deprecated HERMES_PORT constant | 🟢 P3 | `aitbc/constants.py` | ✅ |
 
 ### Agent A — Detailed Instructions
 

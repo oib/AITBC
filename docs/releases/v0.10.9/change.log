@@ -54,10 +54,10 @@ v0.10.9 is a **dead-code elimination and status-drift cleanup release**. It cont
 See [AGENTS.md](AGENTS.md) for the full task assignment and detailed instructions.
 
 ### Agent A — Dead Code Elimination (SWE 1.6)
-- [ ] A1: Delete 15+ dead test-only `aitbc/` modules + orphan tests (~2,500 lines)
-- [ ] A2: Delete dead pool-hub health router (77 lines)
-- [ ] A3: Delete cli/advanced_wallet.py (314 lines, zero importers)
-- [ ] A4: Remove deprecated HERMES_PORT constant
+- [x] A1: Delete 15+ dead test-only `aitbc/` modules + orphan tests (~2,500 lines)
+- [x] A2: Delete dead pool-hub health router (77 lines)
+- [x] A3: Delete cli/advanced_wallet.py (314 lines, zero importers)
+- [x] A4: Remove deprecated HERMES_PORT constant
 
 ### Agent B — Status Drift & Config Cleanup (GLM 5.2)
 - [ ] B1: Fix status drift — version bump, mark v0.10.4 complete, update STATUS.md
