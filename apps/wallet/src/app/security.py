@@ -1,28 +1,8 @@
 from __future__ import annotations
 
 import re
-import threading
-import time
-from collections import defaultdict, deque
 
-
-class RateLimiter:
-    def __init__(self, max_requests: int = 30, window_seconds: int = 60) -> None:
-        self._max_requests = max_requests
-        self._window_seconds = window_seconds
-        self._lock = threading.Lock()
-        self._records: dict[str, deque[float]] = defaultdict(deque)
-
-    def allow(self, key: str) -> bool:
-        now = time.monotonic()
-        with self._lock:
-            entries = self._records[key]
-            while entries and now - entries[0] > self._window_seconds:
-                entries.popleft()
-            if len(entries) >= self._max_requests:
-                return False
-            entries.append(now)
-            return True
+from aitbc.security.rate_limiter import RateLimiter  # noqa: F401 — re-export for backward compat
 
 
 def validate_password_rules(password: str) -> None:
