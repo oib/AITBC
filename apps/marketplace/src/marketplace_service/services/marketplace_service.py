@@ -563,7 +563,7 @@ class MarketplaceService:
                     self.id: str = data.get("provider", "unknown") + "-" + str(int(time.time()))
                     self.provider: str | None = data.get("provider")
                     self.capacity: float | None = data.get("capacity")
-                    self.price: float | None = data.get("price")
+                    self.price: Any = data.get("price")
                     self.status: str | None = data.get("status")
 
             bid = Bid(bid_data)

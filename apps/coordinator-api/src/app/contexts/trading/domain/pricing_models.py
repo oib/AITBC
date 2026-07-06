@@ -6,11 +6,12 @@ SQLModel definitions for pricing history, strategies, and market metrics
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import JSON, Column, Index
+from sqlalchemy import JSON, Column, Index, Numeric
 from sqlmodel import Field, SQLModel, Text
 
 
@@ -68,10 +69,10 @@ class PricingHistory(SQLModel, table=True):
     region: str = Field(default="global", index=True)
 
     # Pricing data
-    price: float = Field(index=True)
-    base_price: float
-    price_change: float | None = None  # Change from previous price
-    price_change_percent: float | None = None  # Percentage change
+    price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), index=True))
+    base_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    price_change: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8)))  # Change from previous price
+    price_change_percent: float | None = None  # Percentage change (not monetary)
 
     # Market conditions at time of pricing
     demand_level: float = Field(index=True)
@@ -84,7 +85,7 @@ class PricingHistory(SQLModel, table=True):
     # is a different (overlapping) set from PricingStrategyType, so we decouple here.
     strategy_used: str = Field(index=True)
     strategy_parameters: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    pricing_factors: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    pricing_factors: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Performance metrics
     confidence_score: float
@@ -96,7 +97,7 @@ class PricingHistory(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional context
-    competitor_prices: list[float] = Field(default_factory=list, sa_column=Column(JSON))
+    competitor_prices: list[Any] = Field(default_factory=list, sa_column=Column(JSON))
     market_sentiment: float = Field(default=0.0)
     external_factors: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
@@ -130,8 +131,8 @@ class ProviderPricingStrategy(SQLModel, table=True):
     parameters: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Constraints and limits
-    min_price: float | None = None
-    max_price: float | None = None
+    min_price: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8)))
+    max_price: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8)))
     max_change_percent: float = Field(default=0.5)
     min_change_interval: int = Field(default=300)  # seconds
     strategy_lock_period: int = Field(default=3600)  # seconds
@@ -151,7 +152,7 @@ class ProviderPricingStrategy(SQLModel, table=True):
     global_strategy: bool = Field(default=True)
 
     # Performance tracking
-    total_revenue_impact: float = Field(default=0.0)
+    total_revenue_impact: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     market_share_impact: float = Field(default=0.0)
     customer_satisfaction_impact: float = Field(default=0.0)
     strategy_effectiveness_score: float = Field(default=0.0)
@@ -188,7 +189,7 @@ class MarketMetrics(SQLModel, table=True):
     # Core market metrics
     demand_level: float = Field(index=True)
     supply_level: float = Field(index=True)
-    average_price: float = Field(index=True)
+    average_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), index=True))
     price_volatility: float = Field(index=True)
     utilization_rate: float = Field(index=True)
 
@@ -201,13 +202,15 @@ class MarketMetrics(SQLModel, table=True):
 
     # Competitive landscape
     competitor_count: int
-    average_competitor_price: float
-    price_spread: float  # Difference between highest and lowest prices
+    average_competitor_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    price_spread: Decimal = Field(
+        default=Decimal("0"), sa_column=Column(Numeric(20, 8))
+    )  # Difference between highest and lowest prices
     market_concentration: float  # HHI or similar metric
 
     # Market sentiment and activity
     market_sentiment: float = Field(default=0.0)
-    trading_volume: float
+    trading_volume: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     price_momentum: float  # Rate of price change
     liquidity_score: float
 
@@ -227,7 +230,7 @@ class MarketMetrics(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Additional metrics
-    custom_metrics: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    custom_metrics: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     external_factors: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
@@ -258,8 +261,8 @@ class PriceForecast(SQLModel, table=True):
     confidence_intervals: dict[str, list[float]] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Forecast metadata
-    average_forecast_price: float
-    price_range_forecast: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    average_forecast_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    price_range_forecast: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     trend_forecast: PriceTrend
     volatility_forecast: float
 
@@ -271,7 +274,7 @@ class PriceForecast(SQLModel, table=True):
 
     # Input data used for forecast
     input_data_summary: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    market_conditions_at_forecast: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    market_conditions_at_forecast: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
@@ -325,9 +328,9 @@ class PricingAuditLog(SQLModel, table=True):
     business_context: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Impact and outcomes
-    immediate_impact: dict[str, float] | None = Field(default_factory=dict, sa_column=Column(JSON))
-    expected_impact: dict[str, float] | None = Field(default_factory=dict, sa_column=Column(JSON))
-    actual_impact: dict[str, float] | None = Field(default_factory=dict, sa_column=Column(JSON))
+    immediate_impact: dict[str, Any] | None = Field(default_factory=dict, sa_column=Column(JSON))
+    expected_impact: dict[str, Any] | None = Field(default_factory=dict, sa_column=Column(JSON))
+    actual_impact: dict[str, Any] | None = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Compliance and approval
     compliance_flags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
@@ -359,14 +362,14 @@ class PricingSummaryView(SQLModel):
     provider_id: str
     resource_type: ResourceType
     region: str
-    current_price: float
+    current_price: Decimal
     price_trend: PriceTrend
     price_volatility: float
     utilization_rate: float
     strategy_used: PricingStrategyType
     strategy_effectiveness: float
     last_updated: datetime
-    total_revenue_7d: float
+    total_revenue_7d: Decimal
     market_share: float
 
 
@@ -379,7 +382,7 @@ class MarketHeatmapView(SQLModel):
     resource_type: ResourceType
     demand_level: float
     supply_level: float
-    average_price: float
+    average_price: Decimal
     price_volatility: float
     utilization_rate: float
     market_sentiment: float

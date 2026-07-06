@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from aitbc_shared import MarketplaceOffer
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, Numeric
 from sqlmodel import Field, SQLModel
 
 # Re-export MarketplaceOffer from aitbc_shared for compatibility
@@ -41,7 +42,7 @@ class SoftwareService(SQLModel, table=True):
     plugin_id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
     service_type: str = Field(index=True)  # ollama, whisper, ffmpeg, peertube_transcoder, cloud_ollama
     model: str = Field(default="", index=True)
-    price: float = Field(default=0.0)
+    price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     price_unit: str = Field(default="per_1k_tokens")  # per_1k_tokens, per_audio_min, per_processing_hour
     offer_id: str | None = Field(default=None, index=True)  # Live offer_id from hub
     endpoint: str = Field(default="")  # Local endpoint

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Mapping
+from decimal import Decimal
 from typing import Any, cast
 
 from redis.asyncio import Redis
@@ -32,7 +33,7 @@ class MinerRepository:
         cpu_cores: int,
         ram_gb: float,
         max_parallel: int,
-        base_price: float,
+        base_price: Decimal,
         tags: dict[str, Any],
         capabilities: list[str],
         region: str | None,
@@ -173,7 +174,7 @@ class MinerRepository:
         if status and miner.max_parallel:
             utilization = min(status.queue_len / max(miner.max_parallel, 1), 1.0)
             load_factor = 1.0 - utilization
-        price_factor = 1.0 if miner.base_price <= 0 else min(1.0, 1.0 / miner.base_price)
+        price_factor = 1.0 if miner.base_price <= 0 else min(1.0, 1.0 / float(miner.base_price))
         trust_factor = max(miner.trust_score, 0.0)
         return (
             (settings.default_score_weights.capability * 1.0)
