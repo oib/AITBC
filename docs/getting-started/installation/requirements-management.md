@@ -17,7 +17,7 @@ Essential dependencies for all AITBC services in production:
 
 Development tools, testing frameworks, and code quality utilities:
 - Testing (pytest, pytest-asyncio, pytest-mock, pytest-cov, httpx)
-- Code quality (black, flake8, mypy, pre-commit, ruff)
+- Code quality (ruff, mypy, pre-commit)
 - CLI tools (click, rich, typer, tabulate, keyring)
 - Development utilities (tqdm, ipython)
 

@@ -164,11 +164,12 @@ repos:
       - id: check-toml
       - id: check-merge-conflict
 
-  - repo: https://github.com/psf/black
-    rev: 24.3.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.0
     hooks:
-      - id: black
-        language_version: python3.13
+      - id: ruff
+        args: [--fix, --unsafe-fixes, --exit-non-zero-on-fix]
+      - id: ruff-format
 
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     rev: v0.1.15
