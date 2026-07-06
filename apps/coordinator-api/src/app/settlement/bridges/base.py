@@ -3,6 +3,7 @@ Base interfaces for cross-chain settlement bridges
 """
 
 import json
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -190,7 +191,7 @@ class BridgeMessageTooLargeError(BridgeError):
 class EthereumBridge(BridgeAdapter):
     """Ethereum settlement bridge implementation"""
 
-    def __init__(self, config: BridgeConfig, rpc_url: str = "http://localhost:8006"):
+    def __init__(self, config: BridgeConfig, rpc_url: str = BLOCKCHAIN_RPC_URL):
         super().__init__(config)
         self.rpc_url = rpc_url
         self._web3_client: Any = None

@@ -7,6 +7,7 @@ Wraps BlockchainRPCClient (from v0.6.6) with pool-hub-specific logic:
 """
 
 from __future__ import annotations
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 import logging
 from typing import Any
@@ -28,7 +29,7 @@ class PoolHubBlockchainClient:
 
     def __init__(
         self,
-        rpc_url: str = "http://localhost:8202",
+        rpc_url: str = BLOCKCHAIN_RPC_URL,
         chain_id: str = "ait-hub",
         coordinator_url: str = "http://localhost:8107",
     ) -> None:
