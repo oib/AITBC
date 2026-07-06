@@ -1,10 +1,13 @@
 from __future__ import annotations
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from functools import lru_cache
 from typing import Any
 
 from pydantic import AnyHttpUrl, BaseModel, Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
+
+from aitbc_shared import DatabaseConfig, ServiceSettings
 
 
 class ScoreWeights(BaseModel):
@@ -20,8 +23,8 @@ class ScoreWeights(BaseModel):
         return [self.capability, self.price, self.latency, self.trust, self.load]
 
 
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="poolhub_", env_file=".env", case_sensitive=False)
+class Settings(ServiceSettings):
+    model_config = SettingsConfigDict(env_prefix="poolhub_", env_file=".env", case_sensitive=False, extra="allow")
 
     app_name: str = "AITBC Pool Hub"
     bind_host: str = Field(default="127.0.0.1")
@@ -32,10 +35,30 @@ class Settings(BaseSettings):
         description="Shared secret for coordinator communication - set via POOLHUB_COORDINATOR_SHARED_SECRET env var",
     )
 
-    postgres_dsn: str = Field(default="postgresql+asyncpg://poolhub:poolhub@127.0.0.1:5432/aitbc")
-    postgres_pool_min: int = Field(default=1)
-    postgres_pool_max: int = Field(default=10)
+    # Database — uses shared DatabaseConfig with PostgreSQL adapter
+    database: DatabaseConfig = Field(
+        default_factory=lambda: DatabaseConfig(
+            adapter="postgresql",
+            url="postgresql+asyncpg://poolhub:poolhub@127.0.0.1:5432/aitbc",
+            pool_size=10,
+        )
+    )
     test_postgres_dsn: str = Field(default="postgresql+asyncpg://poolhub:poolhub@127.0.0.1:5432/aitbc_test")
+
+    @property
+    def postgres_dsn(self) -> str:
+        """Backward-compatible property: returns the database URL."""
+        return self.database.effective_url
+
+    @property
+    def postgres_pool_min(self) -> int:
+        """Backward-compatible property: returns min pool size (1)."""
+        return 1
+
+    @property
+    def postgres_pool_max(self) -> int:
+        """Backward-compatible property: returns max pool size from DatabaseConfig."""
+        return self.database.pool_size
 
     redis_url: str = Field(default="redis://127.0.0.1:6379/4")
     redis_max_connections: int = Field(default=32)
@@ -55,7 +78,7 @@ class Settings(BaseSettings):
     coordinator_api_key: str | None = Field(default=None)
 
     # Blockchain integration (v0.6.7)
-    blockchain_rpc_url: str = Field(default="http://localhost:8202")
+    blockchain_rpc_url: str = Field(default=BLOCKCHAIN_RPC_URL)
     default_chain_id: str = Field(default="ait-hub")
 
     # Agent coordinator integration (v0.6.7 — miner registration)

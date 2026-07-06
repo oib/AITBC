@@ -4,12 +4,13 @@ import os
 from pathlib import Path
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
 
-from aitbc.constants import DATA_DIR
+from aitbc.constants import BLOCKCHAIN_RPC_URL, DATA_DIR
+from aitbc_shared import DatabaseConfig, ServiceSettings
 
 
-class Settings(BaseSettings):
+class Settings(ServiceSettings):
     """Runtime configuration for the wallet daemon service."""
 
     app_name: str = Field(default="AITBC Wallet Daemon")
@@ -19,12 +20,22 @@ class Settings(BaseSettings):
     coordinator_api_key: str = Field(..., alias="COORDINATOR_API_KEY")
 
     # Blockchain RPC configuration for on-chain operations
-    blockchain_rpc_url: str = Field(default="http://localhost:8202", alias="BLOCKCHAIN_RPC_URL")
+    blockchain_rpc_url: str = Field(default=BLOCKCHAIN_RPC_URL, alias="BLOCKCHAIN_RPC_URL")
 
     rest_prefix: str = Field(default="/v1", alias="REST_PREFIX")
-    ledger_db_path: Path = Field(default=DATA_DIR / "data" / "wallet_ledger.db", alias="LEDGER_DB_PATH")
+    # Database — uses shared DatabaseConfig with SQLite adapter
+    database: DatabaseConfig = Field(default_factory=lambda: DatabaseConfig(adapter="sqlite", db_filename="wallet_ledger.db"))
     host: str = Field(default="0.0.0.0", alias="HOST")
     port: int = Field(default=8108, alias="PORT")
+
+    @property
+    def ledger_db_path(self) -> Path:
+        """Backward-compatible property: returns the ledger DB path as a Path."""
+        url = self.database.effective_url
+        # effective_url returns "sqlite:///path/to/db" — extract the path
+        if url.startswith("sqlite:///"):
+            return Path(url.removeprefix("sqlite:///"))
+        return DATA_DIR / "data" / "wallet_ledger.db"
 
     @field_validator("coordinator_api_key")
     @classmethod
