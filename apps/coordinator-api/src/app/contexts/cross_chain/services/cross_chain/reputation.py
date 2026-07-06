@@ -178,6 +178,7 @@ class CrossChainReputationService:
             ReputationTier.PLATINUM: 0.18,
             ReputationTier.DIAMOND: 0.25,
         }
+        self._lock = asyncio.Lock()
 
     async def initialize(self) -> None:
         """Initialize the cross-chain reputation service"""
@@ -221,78 +222,80 @@ class CrossChainReputationService:
         self, agent_id: str, event_type: ReputationEvent, weight: int = 1, chain_id: int | None = None
     ) -> ReputationScore:
         """Update agent reputation based on event"""
-        try:
-            if agent_id not in self.reputation_data:
-                await self.initialize_agent_reputation(agent_id)
-            reputation = self.reputation_data[agent_id]
-            old_score = reputation.score
-            score_change = await self._calculate_score_change(event_type, weight)
-            if event_type in [ReputationEvent.TASK_SUCCESS, ReputationEvent.POSITIVE_FEEDBACK]:
-                reputation.score = min(10000, reputation.score + score_change)
-                reputation.success_count += 1
-            elif event_type in [ReputationEvent.TASK_FAILURE, ReputationEvent.NEGATIVE_FEEDBACK]:
-                reputation.score = max(0, reputation.score - score_change)
-                reputation.failure_count += 1
-            elif event_type == ReputationEvent.TASK_TIMEOUT:
-                reputation.score = max(0, reputation.score - score_change // 2)
-                reputation.failure_count += 1
-            reputation.task_count += 1
-            reputation.last_updated = datetime.now(UTC)
-            reputation.tier = reputation.calculate_tier()
-            if chain_id:
-                if chain_id not in self.chain_reputations[agent_id]:
-                    self.chain_reputations[agent_id][chain_id] = reputation
-                else:
-                    self.chain_reputations[agent_id][chain_id] = reputation
-            logger.info("Updated reputation for agent %s: %s -> %s", agent_id, old_score, reputation.score)
-            return reputation
-        except Exception as e:
-            logger.error("Failed to update reputation for agent %s: %s", agent_id, e)
-            raise
+        async with self._lock:
+            try:
+                if agent_id not in self.reputation_data:
+                    await self.initialize_agent_reputation(agent_id)
+                reputation = self.reputation_data[agent_id]
+                old_score = reputation.score
+                score_change = await self._calculate_score_change(event_type, weight)
+                if event_type in [ReputationEvent.TASK_SUCCESS, ReputationEvent.POSITIVE_FEEDBACK]:
+                    reputation.score = min(10000, reputation.score + score_change)
+                    reputation.success_count += 1
+                elif event_type in [ReputationEvent.TASK_FAILURE, ReputationEvent.NEGATIVE_FEEDBACK]:
+                    reputation.score = max(0, reputation.score - score_change)
+                    reputation.failure_count += 1
+                elif event_type == ReputationEvent.TASK_TIMEOUT:
+                    reputation.score = max(0, reputation.score - score_change // 2)
+                    reputation.failure_count += 1
+                reputation.task_count += 1
+                reputation.last_updated = datetime.now(UTC)
+                reputation.tier = reputation.calculate_tier()
+                if chain_id:
+                    if chain_id not in self.chain_reputations[agent_id]:
+                        self.chain_reputations[agent_id][chain_id] = reputation
+                    else:
+                        self.chain_reputations[agent_id][chain_id] = reputation
+                logger.info("Updated reputation for agent %s: %s -> %s", agent_id, old_score, reputation.score)
+                return reputation
+            except Exception as e:
+                logger.error("Failed to update reputation for agent %s: %s", agent_id, e)
+                raise
 
     async def sync_reputation_cross_chain(self, agent_id: str, target_chain: int, signature: str) -> bool:
         """Synchronize reputation across chains"""
-        try:
-            if agent_id not in self.reputation_data:
-                raise ValueError(f"Agent {agent_id} not found")
-            reputation = self.reputation_data[agent_id]
-            time_since_sync = (datetime.now(UTC) - reputation.sync_timestamp).total_seconds()
-            if time_since_sync < self.sync_cooldown:
-                logger.warning("Sync cooldown not met for agent %s", agent_id)
-                return False
-            verification_hash = await self._verify_cross_chain_signature(agent_id, target_chain, signature)
-            sync = CrossChainSync(
-                agent_id=agent_id,
-                source_chain=reputation.chain_id,
-                target_chain=target_chain,
-                reputation_score=reputation.score,
-                sync_timestamp=datetime.now(UTC),
-                verification_hash=verification_hash,
-                is_verified=True,
-            )
-            self.cross_chain_syncs.append(sync)
-            if target_chain not in self.chain_reputations[agent_id]:
-                self.chain_reputations[agent_id][target_chain] = ReputationScore(
+        async with self._lock:
+            try:
+                if agent_id not in self.reputation_data:
+                    raise ValueError(f"Agent {agent_id} not found")
+                reputation = self.reputation_data[agent_id]
+                time_since_sync = (datetime.now(UTC) - reputation.sync_timestamp).total_seconds()
+                if time_since_sync < self.sync_cooldown:
+                    logger.warning("Sync cooldown not met for agent %s", agent_id)
+                    return False
+                verification_hash = await self._verify_cross_chain_signature(agent_id, target_chain, signature)
+                sync = CrossChainSync(
                     agent_id=agent_id,
-                    chain_id=target_chain,
-                    score=reputation.score,
-                    task_count=reputation.task_count,
-                    success_count=reputation.success_count,
-                    failure_count=reputation.failure_count,
-                    last_updated=reputation.last_updated,
+                    source_chain=reputation.chain_id,
+                    target_chain=target_chain,
+                    reputation_score=reputation.score,
                     sync_timestamp=datetime.now(UTC),
-                    is_active=True,
+                    verification_hash=verification_hash,
+                    is_verified=True,
                 )
-            else:
-                target_reputation = self.chain_reputations[agent_id][target_chain]
-                target_reputation.score = reputation.score
-                target_reputation.sync_timestamp = datetime.now(UTC)
-            reputation.sync_timestamp = datetime.now(UTC)
-            logger.info("Synced reputation for agent %s to chain %s", agent_id, target_chain)
-            return True
-        except Exception as e:
-            logger.error("Failed to sync reputation for agent %s: %s", agent_id, e)
-            raise
+                self.cross_chain_syncs.append(sync)
+                if target_chain not in self.chain_reputations[agent_id]:
+                    self.chain_reputations[agent_id][target_chain] = ReputationScore(
+                        agent_id=agent_id,
+                        chain_id=target_chain,
+                        score=reputation.score,
+                        task_count=reputation.task_count,
+                        success_count=reputation.success_count,
+                        failure_count=reputation.failure_count,
+                        last_updated=reputation.last_updated,
+                        sync_timestamp=datetime.now(UTC),
+                        is_active=True,
+                    )
+                else:
+                    target_reputation = self.chain_reputations[agent_id][target_chain]
+                    target_reputation.score = reputation.score
+                    target_reputation.sync_timestamp = datetime.now(UTC)
+                reputation.sync_timestamp = datetime.now(UTC)
+                logger.info("Synced reputation for agent %s to chain %s", agent_id, target_chain)
+                return True
+            except Exception as e:
+                logger.error("Failed to sync reputation for agent %s: %s", agent_id, e)
+                raise
 
     async def stake_reputation(self, agent_id: str, amount: int, lock_period: int) -> ReputationStake:
         """Stake reputation tokens"""
@@ -324,34 +327,35 @@ class CrossChainReputationService:
 
     async def delegate_reputation(self, delegator: str, delegate: str, amount: int) -> ReputationDelegation:
         """Delegate reputation to another agent"""
-        try:
-            if delegator not in self.reputation_data:
-                raise ValueError(f"Delegator {delegator} not found")
-            if delegate not in self.reputation_data:
-                raise ValueError(f"Delegate {delegate} not found")
-            delegator_reputation = self.reputation_data[delegator]
-            total_delegated = await self._get_total_delegated(delegator)
-            max_delegation = int(delegator_reputation.score * self.max_delegation_ratio)
-            if total_delegated + amount > max_delegation:
-                raise ValueError(f"Exceeds delegation limit: {max_delegation}")
-            delegate_reputation = self.reputation_data[delegate]
-            fee_rate = 0.02 + (1.0 - delegate_reputation.score / 10000) * 0.08
-            delegation = ReputationDelegation(
-                delegator=delegator,
-                delegate=delegate,
-                amount=amount,
-                start_time=datetime.now(UTC),
-                is_active=True,
-                fee_rate=fee_rate,
-            )
-            if delegator not in self.reputation_delegations:
-                self.reputation_delegations[delegator] = []
-            self.reputation_delegations[delegator].append(delegation)
-            logger.info("Delegated %s reputation from %s to %s", amount, delegator, delegate)
-            return delegation
-        except Exception as e:
-            logger.error("Failed to delegate reputation: %s", e)
-            raise
+        async with self._lock:
+            try:
+                if delegator not in self.reputation_data:
+                    raise ValueError(f"Delegator {delegator} not found")
+                if delegate not in self.reputation_data:
+                    raise ValueError(f"Delegate {delegate} not found")
+                delegator_reputation = self.reputation_data[delegator]
+                total_delegated = await self._get_total_delegated(delegator)
+                max_delegation = int(delegator_reputation.score * self.max_delegation_ratio)
+                if total_delegated + amount > max_delegation:
+                    raise ValueError(f"Exceeds delegation limit: {max_delegation}")
+                delegate_reputation = self.reputation_data[delegate]
+                fee_rate = 0.02 + (1.0 - delegate_reputation.score / 10000) * 0.08
+                delegation = ReputationDelegation(
+                    delegator=delegator,
+                    delegate=delegate,
+                    amount=amount,
+                    start_time=datetime.now(UTC),
+                    is_active=True,
+                    fee_rate=fee_rate,
+                )
+                if delegator not in self.reputation_delegations:
+                    self.reputation_delegations[delegator] = []
+                self.reputation_delegations[delegator].append(delegation)
+                logger.info("Delegated %s reputation from %s to %s", amount, delegator, delegate)
+                return delegation
+            except Exception as e:
+                logger.error("Failed to delegate reputation: %s", e)
+                raise
 
     async def get_reputation_score(self, agent_id: str, chain_id: int | None = None) -> int:
         """Get reputation score for agent on specific chain"""

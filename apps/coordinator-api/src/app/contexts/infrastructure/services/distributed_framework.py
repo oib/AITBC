@@ -93,6 +93,7 @@ class DistributedProcessingCoordinator:
         self.is_running = False
         self._scheduler_task: asyncio.Task[None] | None = None
         self._monitor_task: asyncio.Task[None] | None = None
+        self._lock = asyncio.Lock()
 
     async def start(self) -> None:
         """Start the coordinator background tasks"""
@@ -180,19 +181,20 @@ class DistributedProcessingCoordinator:
                     await asyncio.sleep(0.1)
                     continue
                 priority, _, task_id = await self.task_queue.get()
-                if task_id not in self.tasks:
+                async with self._lock:
+                    if task_id not in self.tasks:
+                        self.task_queue.task_done()
+                        continue
+                    task = self.tasks[task_id]
+                    if task.status != TaskStatus.PENDING and task.status != TaskStatus.RETRYING:
+                        self.task_queue.task_done()
+                        continue
+                    best_worker = self._find_best_worker(task)
+                    if best_worker:
+                        await self._assign_task(task, best_worker)
+                    else:
+                        create_task_with_logging(self._requeue_delayed(priority, task), name="requeue_delayed")
                     self.task_queue.task_done()
-                    continue
-                task = self.tasks[task_id]
-                if task.status != TaskStatus.PENDING and task.status != TaskStatus.RETRYING:
-                    self.task_queue.task_done()
-                    continue
-                best_worker = self._find_best_worker(task)
-                if best_worker:
-                    await self._assign_task(task, best_worker)
-                else:
-                    create_task_with_logging(self._requeue_delayed(priority, task), name="requeue_delayed")
-                self.task_queue.task_done()
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -241,21 +243,22 @@ class DistributedProcessingCoordinator:
 
     async def _simulate_worker_execution(self, task: DistributedTask, worker: WorkerNode) -> None:
         """Simulate the execution on the remote worker node"""
-        task.status = TaskStatus.PROCESSING
-        task.started_at = time.time()
-        try:
-            complexity = task.payload.get("complexity", 1.0)
-            base_time = 0.5
-            if worker.has_gpu and task.requires_gpu:
-                processing_time = base_time * complexity * 0.2
-            else:
-                processing_time = base_time * complexity
-            if worker.performance_score < 0.5 and time.time() % 10 < 1:
-                raise ConnectionError("Worker node network failure")
-            await asyncio.sleep(processing_time)
-            self.report_task_success(task.task_id, {"result_data": "simulated_success", "processed_by": worker.worker_id})
-        except Exception as e:
-            self.report_task_failure(task.task_id, str(e))
+        async with self._lock:
+            task.status = TaskStatus.PROCESSING
+            task.started_at = time.time()
+            try:
+                complexity = task.payload.get("complexity", 1.0)
+                base_time = 0.5
+                if worker.has_gpu and task.requires_gpu:
+                    processing_time = base_time * complexity * 0.2
+                else:
+                    processing_time = base_time * complexity
+                if worker.performance_score < 0.5 and time.time() % 10 < 1:
+                    raise ConnectionError("Worker node network failure")
+                await asyncio.sleep(processing_time)
+                self.report_task_success(task.task_id, {"result_data": "simulated_success", "processed_by": worker.worker_id})
+            except Exception as e:
+                self.report_task_failure(task.task_id, str(e))
 
     def report_task_success(self, task_id: str, result: Any) -> Any:
         """Called by a worker when a task completes successfully"""
