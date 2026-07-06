@@ -259,31 +259,44 @@ class DatabaseMempool:
         if chain_id is None:
             chain_id = settings.chain_id
 
+        # Pre-compute all tx hashes and validate fees upfront
+        tx_hashes: list[str] = []
+        for tx in transactions:
+            fee = tx.get("fee", 0)
+            if fee < self._min_fee:
+                raise ValueError(f"Fee {fee} below minimum {self._min_fee}")
+            tx_hashes.append(compute_tx_hash(tx))
+
         hashes: list[str] = []
         with self._lock:
             with Session(self._engine) as session:
-                for tx in transactions:
-                    fee = tx.get("fee", 0)
-                    if fee < self._min_fee:
-                        raise ValueError(f"Fee {fee} below minimum {self._min_fee}")
+                # Batch query: fetch all existing hashes in one query (N+1 → 1)
+                existing_hashes: set[str] = set()
+                if tx_hashes:
+                    existing_rows = session.exec(
+                        select(MempoolEntry.tx_hash).where(
+                            MempoolEntry.chain_id == chain_id,
+                            MempoolEntry.tx_hash.in_(tx_hashes),
+                        )
+                    ).all()
+                    existing_hashes = set(existing_rows)
 
-                    tx_hash = compute_tx_hash(tx)
-                    content = json.dumps(tx, sort_keys=True, separators=(",", ":"))
-                    size_bytes = len(content.encode())
+                # Fetch current count once before the loop (N+1 → 1)
+                current_count = session.exec(
+                    select(func.count()).select_from(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
+                ).one()
 
-                    # Check duplicate
-                    existing = session.exec(
-                        select(MempoolEntry).where(MempoolEntry.chain_id == chain_id, MempoolEntry.tx_hash == tx_hash)
-                    ).first()
-                    if existing:
+                for tx, tx_hash in zip(transactions, tx_hashes, strict=True):
+                    # O(1) duplicate check using the pre-fetched set
+                    if tx_hash in existing_hashes:
                         hashes.append(tx_hash)
                         continue
 
-                    # Evict if full
-                    count = session.exec(
-                        select(func.count()).select_from(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
-                    ).one()
-                    if count >= self._max_size:
+                    content = json.dumps(tx, sort_keys=True, separators=(",", ":"))
+                    size_bytes = len(content.encode())
+
+                    # Evict if full (use in-memory count, decrement on eviction)
+                    if current_count >= self._max_size:
                         to_evict = session.exec(
                             select(MempoolEntry)
                             .where(MempoolEntry.chain_id == chain_id)
@@ -292,17 +305,20 @@ class DatabaseMempool:
                         ).first()
                         if to_evict:
                             session.delete(to_evict)
+                            current_count -= 1
                             metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
 
                     entry = MempoolEntry(
                         chain_id=chain_id,
                         tx_hash=tx_hash,
                         content=content,
-                        fee=fee,
+                        fee=tx.get("fee", 0),
                         size_bytes=size_bytes,
                         received_at=time.time(),
                     )
                     session.add(entry)
+                    current_count += 1
+                    existing_hashes.add(tx_hash)
                     hashes.append(tx_hash)
                     metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
                 session.commit()
