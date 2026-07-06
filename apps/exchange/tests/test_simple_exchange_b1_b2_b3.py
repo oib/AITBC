@@ -261,8 +261,7 @@ class TestB1OrderMatchingAtomicity:
 
                 # Insert the buy order
                 cursor.execute(
-                    "INSERT INTO orders (order_type, amount, price, total, remaining, user_address) "
-                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO orders (order_type, amount, price, total, remaining, user_address) VALUES (?, ?, ?, ?, ?, ?)",
                     ("BUY", "5", "1.5", "7.5", "5", "0xbuyer"),
                 )
                 buy_order["id"] = cursor.lastrowid
@@ -317,8 +316,7 @@ class TestB1OrderMatchingAtomicity:
             conn.execute("BEGIN IMMEDIATE")
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO orders (order_type, amount, price, total, remaining, user_address) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO orders (order_type, amount, price, total, remaining, user_address) VALUES (?, ?, ?, ?, ?, ?)",
                 ("BUY", "10", "1.0", "10", "10", "0xbuyer"),
             )
             buy_order["id"] = cursor.lastrowid
@@ -431,16 +429,20 @@ class TestB2MarketplaceDecimal:
         from apps.exchange.simple_exchange.handlers.marketplace import MarketplaceMixin
 
         handler = MagicMock(spec=MarketplaceMixin)
-        handler._read_json_body = MagicMock(return_value={
-            "item": "gpu-a100",
-            "item_type": "gpu",
-            "price": 0.1,
-            "wallet": "0xtest",
-            "description": "A100 GPU",
-        })
+        handler._read_json_body = MagicMock(
+            return_value={
+                "item": "gpu-a100",
+                "item_type": "gpu",
+                "price": 0.1,
+                "wallet": "0xtest",
+                "description": "A100 GPU",
+            }
+        )
         handler.send_json_response = MagicMock()
         handler._new_marketplace_id = MarketplaceMixin._new_marketplace_id.__get__(handler, MarketplaceMixin)
-        handler.handle_marketplace_create_offer = MarketplaceMixin.handle_marketplace_create_offer.__get__(handler, MarketplaceMixin)
+        handler.handle_marketplace_create_offer = MarketplaceMixin.handle_marketplace_create_offer.__get__(
+            handler, MarketplaceMixin
+        )
 
         with patch("apps.exchange.simple_exchange.handlers.marketplace.get_db_path", return_value=temp_db):
             handler.handle_marketplace_create_offer()
