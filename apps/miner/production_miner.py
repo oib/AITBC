@@ -149,7 +149,7 @@ def check_ollama():
         return (False, [])
 
 
-def wait_for_coordinator():
+async def wait_for_coordinator():
     """Wait for coordinator to be available"""
     for i in range(MAX_RETRIES):
         try:
@@ -161,7 +161,7 @@ def wait_for_coordinator():
         except NetworkError:
             pass
         logger.info("Waiting for coordinator... (%s/%s)", i + 1, MAX_RETRIES)
-        time.sleep(RETRY_DELAY)
+        await asyncio.sleep(RETRY_DELAY)
     logger.error("Coordinator not available after max retries")
     return False
 
@@ -348,7 +348,7 @@ async def main():
         models = []
     else:
         logger.info("Ollama models available: %s", ", ".join(models))
-    if not wait_for_coordinator():
+    if not await wait_for_coordinator():
         logger.error("Coordinator not available")
         return
     session_token = register_miner()

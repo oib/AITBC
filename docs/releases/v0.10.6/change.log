@@ -1,7 +1,7 @@
 # AITBC v0.10.6 Release Notes
 
 **Date**: 2026-07-06
-**Status**: 🚧 In Progress — Dead code elimination, Decimal migration completion, duplicate consolidation
+**Status**: ✅ Complete — Dead code elimination, Decimal migration completion, duplicate consolidation
 **Scope**: Delete ~1,570 lines of never-integrated infrastructure modules, complete the Decimal migration for remaining float-based financial fields (wallet, trading, marketplace, pool-hub), fix blocking I/O and N+1 queries in hot paths, and consolidate remaining duplicates (circuit breakers, address validation, config classes, health endpoints, DB helpers).
 
 ## 🎯 Overview
@@ -65,17 +65,17 @@ See [AGENTS.md](AGENTS.md) for the full task assignment and detailed instruction
 - [x] A8: Migrate CLI `http_client.py` to use `aitbc.network.AITBCHTTPClient`
 
 ### Agent B — Complex Fixes (14 tasks)
-- [ ] B1: Migrate wallet domain models to Decimal + Alembic migration
-- [ ] B2: Migrate trading domain models financial fields to Decimal
-- [ ] B3: Migrate marketplace models to Decimal
-- [ ] B4: Migrate pool-hub remaining float fields to Decimal
-- [ ] B5: Replace sync `requests.get/post` in wallet bridge with async httpx
-- [ ] B6: Fix mempool `batch_add` N+1 (per-tx duplicate check → batch query)
-- [ ] B7: Add missing DB indexes (`MarketplaceOffer.status`, `Job.state`) + Alembic migration
-- [ ] B8: Convert sequential awaits in reputation `get_top_agents` to `asyncio.gather`
-- [ ] B9: Replace per-request `httpx.AsyncClient` in coordinator-api inference + islands_proxy + edge with shared client
-- [ ] B10: Add LRU/TTL eviction to reputation service unbounded dicts
-- [ ] B11: Replace `time.sleep` with `asyncio.sleep` in miner + bridge-monitor loops
-- [ ] B12: Consolidate circuit breaker implementations (3 copies → 1 canonical)
-- [ ] B13: Consolidate config classes — marketplace/trading/governance/gpu/agent-coordinator to subclass `ServiceSettings`
-- [ ] B14: Migrate deprecated `bridge.py`/`bridge_enhanced.py` to `BridgeClientAdapter`
+- [x] B1: Migrate wallet domain models to Decimal + Alembic migration
+- [x] B2: Migrate trading domain models financial fields to Decimal
+- [x] B3: Migrate marketplace models to Decimal
+- [x] B4: Migrate pool-hub remaining float fields to Decimal (monetary fields done; remaining floats are non-monetary metrics)
+- [x] B5: Replace sync `requests.get/post` in wallet bridge with async httpx
+- [x] B6: Fix mempool `batch_add` N+1 (per-tx duplicate check → batch query)
+- [x] B7: Add missing DB indexes (`MarketplaceOffer.status`, `Job.state`) + Alembic migration
+- [x] B8: Convert sequential awaits in reputation `get_top_agents` to `asyncio.gather`
+- [x] B9: Replace per-request `httpx.AsyncClient` in coordinator-api inference + islands_proxy + edge with shared client
+- [x] B10: Add LRU/TTL eviction to reputation service unbounded dicts
+- [x] B11: Replace `time.sleep` with `asyncio.sleep` in miner + bridge-monitor loops (miner fixed; bridge-monitor is purely sync — time.sleep correct there)
+- [x] B12: Consolidate circuit breaker implementations (3 copies → 1 canonical)
+- [x] B13: Consolidate config classes — marketplace/trading/governance/gpu/agent-coordinator to subclass `ServiceSettings`
+- [x] B14: Migrate deprecated `bridge.py`/`bridge_enhanced.py` to `BridgeClientAdapter`
