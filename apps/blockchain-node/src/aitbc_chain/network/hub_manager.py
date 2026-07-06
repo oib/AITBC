@@ -182,7 +182,7 @@ class HubManager:
             rpc_host = self.local_address
             if rpc_host in {"0.0.0.0", "127.0.0.1", "localhost", ""}:
                 rpc_host = settings.hub_discovery_url or socket.gethostname()
-            credentials["rpc_endpoint"] = f"http://{rpc_host}:8006"
+            credentials["rpc_endpoint"] = f"http://{rpc_host}:8202"
             credentials["p2p_port"] = self.local_port
             return credentials
         except Exception as e:
@@ -361,7 +361,10 @@ class HubManager:
         """Start hub manager"""
         self.running = True
         logger.info("Starting hub manager for node %s", self.local_node_id)
-        tasks = [create_task_with_logging(self._hub_health_check(), name="hub_health_check"), create_task_with_logging(self._peer_cleanup(), name="hub_peer_cleanup")]
+        tasks = [
+            create_task_with_logging(self._hub_health_check(), name="hub_health_check"),
+            create_task_with_logging(self._peer_cleanup(), name="hub_peer_cleanup"),
+        ]
         try:
             await asyncio.gather(*tasks)
         except Exception as e:
