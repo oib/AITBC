@@ -5,6 +5,7 @@ Resource quota enforcement service for multi-tenant AITBC coordinator
 import json
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 import redis
@@ -28,7 +29,7 @@ class QuotaEnforcementService:
         if self.redis is None:
             self.logger.warning("Redis client not provided - quota caching disabled, falling back to database only")
 
-    async def check_quota(self, resource_type: str, quantity: float, tenant_id: str | None = None) -> bool:
+    async def check_quota(self, resource_type: str, quantity: Decimal, tenant_id: str | None = None) -> bool:
         """Check if tenant has sufficient quota for a resource"""
         tenant_id = tenant_id or get_current_tenant_id()
         if not tenant_id:
@@ -50,7 +51,7 @@ class QuotaEnforcementService:
     async def consume_quota(
         self,
         resource_type: str,
-        quantity: float,
+        quantity: Decimal,
         resource_id: str | None = None,
         metadata: dict[str, Any] | None = None,
         tenant_id: str | None = None,
@@ -86,7 +87,7 @@ class QuotaEnforcementService:
         return usage_record
 
     async def release_quota(
-        self, resource_type: str, quantity: float, usage_record_id: str, tenant_id: str | None = None
+        self, resource_type: str, quantity: Decimal, usage_record_id: str, tenant_id: str | None = None
     ) -> None:
         """Release quota (e.g., when job completes early)"""
         tenant_id = tenant_id or get_current_tenant_id()
@@ -130,9 +131,9 @@ class QuotaEnforcementService:
             current_usage = await self._get_current_usage(tenant_id, quota.resource_type)
             usage_percent = current_usage / quota.limit_value * 100 if quota.limit_value > 0 else 0
             quota_status = {
-                "limit": float(quota.limit_value),
-                "used": float(current_usage),
-                "remaining": float(quota.limit_value - current_usage),
+                "limit": quota.limit_value,
+                "used": current_usage,
+                "remaining": (quota.limit_value - current_usage),
                 "usage_percent": round(usage_percent, 2),
                 "period": quota.period_type,
                 "period_start": quota.period_start.isoformat(),
@@ -147,7 +148,7 @@ class QuotaEnforcementService:
 
     @asynccontextmanager
     async def quota_reservation(
-        self, resource_type: str, quantity: float, timeout: int = 300, tenant_id: str | None = None
+        self, resource_type: str, quantity: Decimal, timeout: int = 300, tenant_id: str | None = None
     ) -> Any:
         """Context manager for temporary quota reservation"""
         tenant_id = tenant_id or get_current_tenant_id()
@@ -264,21 +265,21 @@ class QuotaEnforcementService:
                 "id": str(quota.id),
                 "tenant_id": str(quota.tenant_id),
                 "resource_type": quota.resource_type,
-                "limit_value": float(quota.limit_value),
-                "used_value": float(quota.used_value),
+                "limit_value": quota.limit_value,
+                "used_value": quota.used_value,
                 "period_start": quota.period_start.isoformat(),
                 "period_end": quota.period_end.isoformat(),
             }
             self.redis.setex(cache_key, self._cache_ttl, json.dumps(quota_data))
         return quota
 
-    async def _get_current_usage(self, tenant_id: str, resource_type: str) -> float:
+    async def _get_current_usage(self, tenant_id: str, resource_type: str) -> Decimal:
         """Get current usage for tenant and resource type"""
         cache_key = f"quota_usage:{tenant_id}:{resource_type}"
         if self.redis:
             cached = self.redis.get(cache_key)
             if cached:
-                return float(cached)
+                return Decimal(str(cached))
         stmt = select(func.sum(UsageRecord.quantity)).where(
             and_(
                 UsageRecord.tenant_id == tenant_id,
@@ -287,12 +288,12 @@ class QuotaEnforcementService:
             )
         )
         result = self.db.execute(stmt).scalar()
-        usage = float(result) if result else 0.0
+        usage = result if result else Decimal("0")
         if self.redis:
             self.redis.setex(cache_key, self._cache_ttl, str(usage))
         return usage
 
-    async def _update_quota_usage(self, tenant_id: str, resource_type: str, quantity: float) -> None:
+    async def _update_quota_usage(self, tenant_id: str, resource_type: str, quantity: Decimal) -> None:
         """Update quota usage in database"""
         stmt = (
             update(TenantQuota)
@@ -317,12 +318,18 @@ class QuotaEnforcementService:
         }
         return unit_map.get(resource_type, "units")
 
-    async def _get_unit_price(self, resource_type: str) -> float:
+    async def _get_unit_price(self, resource_type: str) -> Decimal:
         """Get unit price for resource type"""
-        price_map = {"gpu_hours": 0.5, "storage_gb": 0.02, "api_calls": 0.0001, "bandwidth_gb": 0.01, "compute_hours": 0.3}
-        return price_map.get(resource_type, 0.0)
+        price_map = {
+            "gpu_hours": Decimal("0.5"),
+            "storage_gb": Decimal("0.02"),
+            "api_calls": Decimal("0.0001"),
+            "bandwidth_gb": Decimal("0.01"),
+            "compute_hours": Decimal("0.3"),
+        }
+        return price_map.get(resource_type, Decimal("0"))
 
-    async def _calculate_cost(self, resource_type: str, quantity: float) -> float:
+    async def _calculate_cost(self, resource_type: str, quantity: Decimal) -> Decimal:
         """Calculate cost for resource usage"""
         unit_price = await self._get_unit_price(resource_type)
         return unit_price * quantity
@@ -335,13 +342,13 @@ class QuotaMiddleware:
         self.quota_service = quota_service
         self.logger = __import__("logging").getLogger(f"aitbc.{self.__class__.__name__}")
         self.endpoint_costs = {
-            "/jobs": {"resource": "compute_hours", "cost": 0.1},
-            "/models": {"resource": "storage_gb", "cost": 0.1},
-            "/data": {"resource": "storage_gb", "cost": 0.05},
-            "/analytics": {"resource": "api_calls", "cost": 1},
+            "/jobs": {"resource": "compute_hours", "cost": Decimal("0.1")},
+            "/models": {"resource": "storage_gb", "cost": Decimal("0.1")},
+            "/data": {"resource": "storage_gb", "cost": Decimal("0.05")},
+            "/analytics": {"resource": "api_calls", "cost": Decimal("1")},
         }
 
-    async def check_endpoint_quota(self, endpoint: str, estimated_cost: float = 0) -> None:
+    async def check_endpoint_quota(self, endpoint: str, estimated_cost: Decimal = Decimal("0")) -> None:
         """Check if endpoint call is within quota"""
         resource_config = self.endpoint_costs.get(endpoint)
         if not resource_config:
@@ -352,7 +359,7 @@ class QuotaMiddleware:
             self.logger.warning("Quota exceeded for endpoint %s: %s", endpoint, e)
             raise
 
-    async def consume_endpoint_quota(self, endpoint: str, actual_cost: float = 0) -> None:
+    async def consume_endpoint_quota(self, endpoint: str, actual_cost: Decimal = Decimal("0")) -> None:
         """Consume quota after endpoint execution"""
         resource_config = self.endpoint_costs.get(endpoint)
         if not resource_config:
