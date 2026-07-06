@@ -4,6 +4,7 @@ Implements P2P trading, matching, negotiation, and settlement systems
 """
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
@@ -41,10 +42,11 @@ class MatchingEngine:
         self.max_matches_per_request = 10
         self.match_expiry_hours = 24
 
-    def calculate_price_compatibility(self, buyer_budget: dict[str, float], seller_price: float) -> float:
+    def calculate_price_compatibility(self, buyer_budget: dict[str, Any], seller_price: float | Decimal) -> float:
         """Calculate price compatibility score (0-100)"""
-        min_budget = buyer_budget.get("min", 0)
-        max_budget = buyer_budget.get("max", float("inf"))
+        min_budget = float(buyer_budget.get("min", 0))
+        max_budget = float(buyer_budget.get("max", float("inf")))
+        seller_price = float(seller_price)
         if seller_price < min_budget:
             return 0.0
         elif seller_price > max_budget:
@@ -223,9 +225,9 @@ class NegotiationSystem:
 
     def generate_initial_offer(self, buyer_request: TradeRequest, seller_offer: dict[str, Any]) -> dict[str, Any]:
         """Generate initial negotiation offer"""
-        buyer_min = buyer_request.budget_range.get("min", 0)
-        buyer_max = buyer_request.budget_range.get("max", float("inf"))
-        seller_price = seller_offer.get("price", 0)
+        buyer_min = float(buyer_request.budget_range.get("min", 0))
+        buyer_max = float(buyer_request.budget_range.get("max", float("inf")))
+        seller_price = float(seller_offer.get("price", 0))
         if buyer_max == float("inf"):
             initial_price = (buyer_min + seller_price) / 2
         else:
@@ -331,8 +333,8 @@ class NegotiationSystem:
         strategy_config = self.strategies.get(strategy, self.strategies["balanced"])
         price_tolerance = strategy_config["price_tolerance"]
         if "price" in offer and "budget_range" in requirements:
-            budget_min = requirements["budget_range"].get("min", 0)
-            budget_max = requirements["budget_range"].get("max", float("inf"))
+            budget_min = float(requirements["budget_range"].get("min", 0))
+            budget_max = float(requirements["budget_range"].get("max", float("inf")))
             if offer["price"] < budget_min:
                 return {"should_accept": False, "reason": "price_below_minimum"}
             elif budget_max != float("inf") and offer["price"] > budget_max:
@@ -372,10 +374,10 @@ class SettlementLayer:
 
     def __init__(self) -> None:
         self.settlement_types = {
-            "immediate": {"requires_escrow": False, "processing_time": 0, "fee_rate": 0.01},
-            "escrow": {"requires_escrow": True, "processing_time": 5, "fee_rate": 0.02},
-            "milestone": {"requires_escrow": True, "processing_time": 10, "fee_rate": 0.025},
-            "subscription": {"requires_escrow": False, "processing_time": 2, "fee_rate": 0.015},
+            "immediate": {"requires_escrow": False, "processing_time": 0, "fee_rate": Decimal("0.01")},
+            "escrow": {"requires_escrow": True, "processing_time": 5, "fee_rate": Decimal("0.02")},
+            "milestone": {"requires_escrow": True, "processing_time": 10, "fee_rate": Decimal("0.025")},
+            "subscription": {"requires_escrow": False, "processing_time": 2, "fee_rate": Decimal("0.015")},
         }
         self.escrow_release_conditions = {
             "delivery_confirmed": {
@@ -408,7 +410,7 @@ class SettlementLayer:
             "processing_time_minutes": config["processing_time"],
             "fee_rate": config["fee_rate"],
             "platform_fee": agreement.total_price * config["fee_rate"],
-            "net_amount_seller": agreement.total_price * (1 - config["fee_rate"]),
+            "net_amount_seller": agreement.total_price * (Decimal("1") - config["fee_rate"]),
         }
         if config["requires_escrow"]:
             settlement["escrow_config"] = {
@@ -508,7 +510,7 @@ class P2PTradingProtocol:
         title: str,
         description: str,
         requirements: dict[str, Any],
-        budget_range: dict[str, float],
+        budget_range: dict[str, Any],
         **kwargs: Any,
     ) -> TradeRequest:
         """Create a new trade request"""

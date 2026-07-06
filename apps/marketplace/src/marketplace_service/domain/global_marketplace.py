@@ -6,11 +6,13 @@ Domain models for global marketplace operations, multi-region support, and cross
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
-from sqlmodel import JSON, Column, Field, SQLModel
+from sqlalchemy import JSON, Column, Numeric
+from sqlmodel import Field, SQLModel
 
 
 class MarketplaceStatus(StrEnum):
@@ -106,9 +108,9 @@ class GlobalMarketplaceOffer(SQLModel, table=True):
     service_type: str = Field(index=True)
     resource_specification: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
-    base_price: float = Field(default=0.0)
+    base_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     currency: str = Field(default="USD")
-    price_per_region: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    price_per_region: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     dynamic_pricing_enabled: bool = Field(default=False)
 
     total_capacity: int = Field(default=0)
@@ -123,7 +125,7 @@ class GlobalMarketplaceOffer(SQLModel, table=True):
     success_rate: float = Field(default=0.0, ge=0.0, le=1.0)
 
     supported_chains: list[int] = Field(default_factory=list, sa_column=Column(JSON))
-    cross_chain_pricing: dict[int, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    cross_chain_pricing: dict[int, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -145,18 +147,18 @@ class GlobalMarketplaceTransaction(SQLModel, table=True):
 
     service_type: str = Field(index=True)
     quantity: int = Field(default=1)
-    unit_price: float = Field(default=0.0)
-    total_amount: float = Field(default=0.0)
+    unit_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    total_amount: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     currency: str = Field(default="USD")
 
     source_chain: int | None = Field(default=None)
     target_chain: int | None = Field(default=None)
     bridge_transaction_id: str | None = Field(default=None)
-    cross_chain_fee: float = Field(default=0.0)
+    cross_chain_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
 
     source_region: str = Field(default="global")
     target_region: str = Field(default="global")
-    regional_fees: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    regional_fees: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     status: str = Field(default="pending")
     payment_status: str = Field(default="pending")

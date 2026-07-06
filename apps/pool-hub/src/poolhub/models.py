@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
@@ -12,6 +13,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
 )
@@ -47,7 +49,7 @@ class Miner(Base):
     cpu_cores: Mapped[int] = mapped_column(Integer)
     ram_gb: Mapped[float] = mapped_column(Float)
     max_parallel: Mapped[int] = mapped_column(Integer)
-    base_price: Mapped[float] = mapped_column(Float)
+    base_price: Mapped[Decimal] = mapped_column(Numeric(20, 8))
     tags: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
     capabilities: Mapped[list[str]] = mapped_column(JSON, default=list)
     trust_score: Mapped[float] = mapped_column(Float, default=0.5)
@@ -100,7 +102,7 @@ class MatchResult(Base):
     score: Mapped[float] = mapped_column(Float)
     explain: Mapped[str | None] = mapped_column(Text)
     eta_ms: Mapped[int | None] = mapped_column(Integer)
-    price: Mapped[float | None] = mapped_column(Float)
+    price: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
 
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC), index=True)
 
@@ -116,7 +118,7 @@ class Feedback(Base):
     outcome: Mapped[str] = mapped_column(String(32), nullable=False)
     latency_ms: Mapped[int | None] = mapped_column(Integer)
     fail_code: Mapped[str | None] = mapped_column(String(64))
-    tokens_spent: Mapped[float | None] = mapped_column(Float)
+    tokens_spent: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC), index=True)
 
     miner: Mapped[Miner] = relationship(back_populates="feedback")
