@@ -10,7 +10,9 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from aitbc_chain.config import ProposerConfig
-from aitbc_chain.consensus.poa import CircuitBreaker, PoAProposer
+from aitbc_chain.consensus import CircuitBreaker
+from aitbc_chain.consensus.poa import PoAProposer
+from aitbc.exceptions import CircuitBreakerOpenError
 from aitbc_chain.mempool import InMemoryMempool
 from aitbc_chain.models import Account, Block, Transaction
 from sqlalchemy import text
@@ -61,14 +63,23 @@ def mock_mempool() -> Mock:
     return mempool
 
 
+def _allow_request(breaker: CircuitBreaker) -> bool:
+    """Helper: return True if the circuit breaker allows a request."""
+    try:
+        breaker.check()
+        return True
+    except CircuitBreakerOpenError:
+        return False
+
+
 class TestCircuitBreaker:
     """Test circuit breaker functionality."""
 
     def test_initial_state(self) -> None:
         """Test circuit breaker starts in closed state."""
         breaker = CircuitBreaker(threshold=5, timeout=60)
-        assert breaker.state == "closed"
-        assert breaker.allow_request() is True
+        assert breaker.get_state()["state"] == "closed"
+        assert _allow_request(breaker) is True
 
     def test_failure_threshold_opens_circuit(self) -> None:
         """Test that exceeding failure threshold opens circuit."""
@@ -78,8 +89,8 @@ class TestCircuitBreaker:
         for _ in range(3):
             breaker.record_failure()
 
-        assert breaker.state == "open"
-        assert breaker.allow_request() is False
+        assert breaker.get_state()["state"] == "open"
+        assert _allow_request(breaker) is False
 
     def test_timeout_transitions_to_half_open(self) -> None:
         """Test that timeout transitions circuit to half-open."""
@@ -87,32 +98,40 @@ class TestCircuitBreaker:
 
         # Trigger open state
         breaker.record_failure()
-        assert breaker.state == "open"
+        assert breaker.get_state()["state"] == "open"
 
         # Wait for timeout
         import time
 
         time.sleep(0.2)
 
-        assert breaker.state == "half-open"
-        assert breaker.allow_request() is True
+        # check() transitions open → half_open on first call
+        breaker.check()
+        assert breaker.get_state()["state"] == "half_open"
 
     def test_success_resets_circuit(self) -> None:
-        """Test that success resets circuit to closed."""
-        breaker = CircuitBreaker(threshold=2, timeout=60)
+        """Test that success resets circuit to closed (from half-open)."""
+        breaker = CircuitBreaker(threshold=2, timeout=0.1)
 
         # Trigger open state
         breaker.record_failure()
         breaker.record_failure()
-        assert breaker.state == "open"
+        assert breaker.get_state()["state"] == "open"
 
-        # Record success
+        # Wait for timeout, then check() transitions to half-open
+        import time
+
+        time.sleep(0.15)
+        breaker.check()
+        assert breaker.get_state()["state"] == "half_open"
+
+        # Record success in half-open state → closes the circuit
         breaker.record_success()
-        assert breaker.state == "closed"
-        assert breaker.allow_request() is True
+        assert breaker.get_state()["state"] == "closed"
+        assert _allow_request(breaker) is True
 
     def test_half_open_allows_request(self) -> None:
-        """Test that half-open state allows requests."""
+        """Test that half-open state allows a probe request."""
         breaker = CircuitBreaker(threshold=1, timeout=0.1)
 
         # Trigger open then wait for timeout
@@ -121,8 +140,9 @@ class TestCircuitBreaker:
 
         time.sleep(0.2)
 
-        assert breaker.state == "half-open"
-        assert breaker.allow_request() is True
+        # check() transitions open → half_open and allows the probe call
+        breaker.check()
+        assert breaker.get_state()["state"] == "half_open"
 
 
 class TestPoAProposer:
