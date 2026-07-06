@@ -27,7 +27,7 @@ class BillingIntegration:
 
     def __init__(self, db: Session):
         self.db = db
-        self.coordinator_billing_url = getattr(settings, "coordinator_billing_url", "http://localhost:8011")
+        self.coordinator_billing_url = getattr(settings, "coordinator_billing_url", "http://localhost:8203")
         self.coordinator_api_key = getattr(settings, "coordinator_api_key", None)
         self.logger = get_logger(__name__)
         self.resource_type_mapping = {
@@ -61,9 +61,9 @@ class BillingIntegration:
             "tenant_id": tenant_id,
             "event_type": "usage",
             "resource_type": resource_type,
-            "quantity": float(quantity),
-            "unit_price": float(unit_price),
-            "total_amount": float(total_cost),
+            "quantity": str(quantity),
+            "unit_price": str(unit_price),
+            "total_amount": str(total_cost),
             "currency": "USD",
             "timestamp": datetime.now(UTC).isoformat(),
             "metadata": metadata or {},
@@ -94,7 +94,7 @@ class BillingIntegration:
                 result = await self.record_usage(
                     tenant_id=tenant_id,
                     resource_type=resource_type,
-                    quantity=Decimal(str(quantity)),
+                    quantity=quantity,
                     metadata={"miner_id": miner_id, "sync_type": "miner_usage"},
                 )
                 results.append(result)
@@ -107,11 +107,16 @@ class BillingIntegration:
         }
 
     async def sync_all_miners_usage(self, hours_back: int = 24) -> dict[str, Any]:
-        """Sync usage data for all miners to coordinator-api billing"""
+        """Sync usage data for all miners to coordinator-api billing.
+
+        Uses batched queries to collect all miner usage in O(1) round trips
+        instead of O(N) per-miner queries.
+        """
         end_date = datetime.now(UTC)
         start_date = end_date - timedelta(hours=hours_back)
         stmt = select(Miner)
         miners = self.db.execute(stmt).scalars().all()
+        miner_ids = [m.miner_id for m in miners]
         results: dict[str, Any] = {
             "sync_period": {"start": start_date.isoformat(), "end": end_date.isoformat()},
             "miners_processed": 0,
@@ -119,14 +124,68 @@ class BillingIntegration:
             "total_usage_records": 0,
             "details": [],
         }
-        for miner in miners:
+        if not miner_ids:
+            return results
+
+        # Batch 1: API call counts (global, not per-miner — MatchRequest has no miner_id)
+        count_stmt = select(func.count(MatchRequest.id)).where(
+            and_(MatchRequest.created_at >= start_date, MatchRequest.created_at <= end_date)
+        )
+        total_api_calls = self.db.execute(count_stmt).scalar() or 0
+        api_calls_per_miner = Decimal(str(total_api_calls)) / Decimal(str(len(miner_ids)))
+
+        # Batch 2: Match results for all miners in one query
+        result_stmt = (
+            select(MatchResult)
+            .where(
+                and_(
+                    MatchResult.miner_id.in_(miner_ids),
+                    MatchResult.created_at >= start_date,
+                    MatchResult.created_at <= end_date,
+                )
+            )
+            .where(MatchResult.eta_ms.isnot_(None))
+        )
+        all_results = self.db.execute(result_stmt).scalars().all()
+
+        # Group by miner_id and aggregate
+        compute_ms_by_miner: dict[str, int] = {}
+        for r in all_results:
+            compute_ms_by_miner[r.miner_id] = compute_ms_by_miner.get(r.miner_id, 0) + (r.eta_ms or 0)
+
+        for miner_id in miner_ids:
             try:
-                result = await self.sync_miner_usage(miner.miner_id, start_date, end_date)
-                results["details"].append(result)
+                total_compute_time_ms = compute_ms_by_miner.get(miner_id, 0)
+                compute_hours = Decimal(str(total_compute_time_ms)) / Decimal("1000") / Decimal("3600")
+                gpu_hours = compute_hours * Decimal("1.5")
+                usage_data = {
+                    "gpu_hours": gpu_hours,
+                    "api_calls": api_calls_per_miner,
+                    "compute_hours": compute_hours,
+                }
+                sync_details = []
+                for resource_type, quantity in usage_data.items():
+                    if quantity > 0:
+                        record_result = await self.record_usage(
+                            tenant_id=miner_id,
+                            resource_type=resource_type,
+                            quantity=quantity,
+                            metadata={"miner_id": miner_id, "sync_type": "batch_usage"},
+                        )
+                        sync_details.append(record_result)
+                results["details"].append(
+                    {
+                        "miner_id": miner_id,
+                        "tenant_id": miner_id,
+                        "period": {"start": start_date.isoformat(), "end": end_date.isoformat()},
+                        "usage_records": len(sync_details),
+                        "results": sync_details,
+                    }
+                )
                 results["miners_processed"] += 1
-                results["total_usage_records"] += result["usage_records"]
+                results["total_usage_records"] += len(sync_details)
             except Exception as e:
-                self.logger.error("Failed to sync usage for miner %s: %s", miner.miner_id, e)
+                self.logger.error("Failed to sync usage for miner %s: %s", miner_id, e)
                 results["miners_failed"] += 1
         self.logger.info(
             "Usage sync complete: processed=%s, failed=%s, records=%s",
@@ -136,14 +195,14 @@ class BillingIntegration:
         )
         return results
 
-    async def _collect_miner_usage(self, miner_id: str, start_date: datetime, end_date: datetime) -> dict[str, float]:
+    async def _collect_miner_usage(self, miner_id: str, start_date: datetime, end_date: datetime) -> dict[str, Decimal]:
         """Collect usage data for a miner from pool-hub"""
-        usage_data = {"gpu_hours": 0.0, "api_calls": 0.0, "compute_hours": 0.0}
+        usage_data: dict[str, Decimal] = {"gpu_hours": Decimal("0"), "api_calls": Decimal("0"), "compute_hours": Decimal("0")}
         count_stmt = select(func.count(MatchRequest.id)).where(
             and_(MatchRequest.created_at >= start_date, MatchRequest.created_at <= end_date)
         )
         api_calls = self.db.execute(count_stmt).scalar() or 0
-        usage_data["api_calls"] = float(api_calls)
+        usage_data["api_calls"] = Decimal(str(api_calls))
         result_stmt = (
             select(MatchResult)
             .where(
@@ -155,9 +214,9 @@ class BillingIntegration:
         )
         results = self.db.execute(result_stmt).scalars().all()
         total_compute_time_ms = sum(r.eta_ms for r in results if r.eta_ms)
-        compute_hours = total_compute_time_ms / 1000 / 3600 if results else 0.0
+        compute_hours = Decimal(str(total_compute_time_ms)) / Decimal("1000") / Decimal("3600") if results else Decimal("0")
         usage_data["compute_hours"] = compute_hours
-        gpu_hours = compute_hours * 1.5
+        gpu_hours = compute_hours * Decimal("1.5")
         usage_data["gpu_hours"] = gpu_hours
         return usage_data
 
