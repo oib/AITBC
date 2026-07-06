@@ -1,0 +1,568 @@
+# v0.10.6 — Agent Task Assignment
+
+**Last Updated**: 2026-07-06
+**Version**: 1.0 — Initial plan from post-v0.10.5 audit findings
+
+**Release Theme**: Dead Code Elimination, Decimal Migration Completion & Duplicate Consolidation — Delete ~1,570 lines of never-integrated infrastructure modules, complete the Decimal migration for remaining float-based financial fields (wallet, trading, marketplace, pool-hub), fix blocking I/O and N+1 queries in hot paths, and consolidate remaining duplicates (circuit breakers, address validation, config classes, health endpoints).
+
+**Goal**: Finish the cleanup and correctness work started in v0.10.3–v0.10.5. v0.10.4 migrated pool-hub billing and trading pricing/bid engines to Decimal; v0.10.6 extends that to wallet, trading domain models, marketplace, and the remaining pool-hub float fields. v0.10.5 consolidated auth; v0.10.6 consolidates the remaining infrastructure duplicates (circuit breakers, address validators, config classes, health endpoints, DB helpers) and deletes the 7 dead `aitbc/` modules that survived v0.10.4's dead-code sweep.
+
+> **Scope**: 22 tasks across 6 categories. All P0 (Decimal migration completion), P1 (performance — blocking I/O, N+1, missing indexes), P2 (duplicate consolidation — circuit breakers, address validation, config, health, DB helpers), and P3 (dead code deletion + port/URL sweep) findings from the post-v0.10.5 audit.
+
+> **Prerequisites**: [v0.10.5](../v0.10.5/change.log) (complete — JWT/auth consolidated to `aitbc/auth/`).
+
+> **Risk**: Medium-High. The Decimal migration requires DB schema migrations (Float→Numeric columns) and touches wallet/trading/marketplace/pool-hub models. Circuit breaker consolidation touches consensus-critical code. Mitigated by: (1) comprehensive test suite, (2) live testing on shop node, (3) rollback plan for schema migrations, (4) incremental task completion with verification at each step.
+
+---
+
+## Task Split Overview
+
+| Agent | Capability | Tasks | Focus |
+|-------|------------|-------|-------|
+| **Agent A** | SWE 1.6 (fast mechanical tasks) | 8 items | Dead code deletion, port/URL sweep, address validation consolidation, rate limiter/health/DB helper dedup, CLI HTTP client migration |
+| **Agent B** | GLM 5.2 (complex tasks) | 14 items | Decimal migration + DB schema migrations, blocking I/O refactoring, N+1 elimination, missing indexes, sequential await optimization, circuit breaker consolidation, config class consolidation, bridge migration |
+
+**Conflict boundary**: Agent A owns mechanical cleanup and consolidation (deletion, port updates, re-export shims). Agent B owns complex business logic, database semantics, async concurrency, and security-critical consolidation. No coordination required — tasks are independent.
+
+**Rationale**: SWE 1.6 excels at fast, mechanical code changes (deletion, extraction, refactoring, port updates). GLM 5.2 handles complex tasks requiring deeper understanding of business logic, database migrations, async patterns, and security considerations (circuit breakers, address validation semantics, config inheritance).
+
+---
+
+## Agent A — Mechanical Cleanup & Consolidation (SWE 1.6)
+
+**Scope**: Dead code deletion, infrastructure dedup, mechanical sweeps. Simple, mechanical code changes that don't require deep business logic understanding.
+
+**Working directory**: `/opt/aitbc/`
+
+**Verification command**:
+```bash
+cd /opt/aitbc && ./venv/bin/python -m ruff check . && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
+```
+
+### Tasks
+
+| # | Task | Priority | Files | Status |
+|---|------|----------|-------|--------|
+| A1 | Delete 7 dead `aitbc/` modules + orphan tests (~1,570 lines) | 🟢 P3 | `aitbc/tracing_opentelemetry.py`, `aitbc/tracing.py`, `aitbc/distributed_tracing.py`, `aitbc/blue_green_deployment.py`, `aitbc/dependency_scanner.py`, `aitbc/api_versioning.py`, `aitbc/database_service.py` + corresponding tests | ✅ | |
+| A2 | Sweep stale port 8006 references → 8202 | 🟢 P3 | `cli/config_data/__init__.py:41`, `cli/advanced_wallet.py:15`, `apps/coordinator-api/.../dao_governance_service.py:24`, `apps/coordinator-api/.../developer_platform_service.py:186`, `apps/coordinator-api/.../settlement/bridges/base.py:193` | ✅ |
+| A3 | Consolidate address validation (4-5 implementations → 1 canonical) | 🟡 P2 | `aitbc/utils/validation.py`, `aitbc/security/validators.py`, `aitbc/crypto/crypto.py`, `cli/utils/error_handling.py`, `cli/aitbc_cli/utils/error_handling.py` | ✅ |
+| A4 | Replace wallet's duplicate `RateLimiter` with `aitbc/security/rate_limiter` | 🟢 P3 | `apps/wallet/src/app/security.py` | ✅ |
+| A5 | Migrate agent-coordinator + pool-hub health endpoints to `aitbc/health_checks.py` | 🟢 P3 | `apps/agent-coordinator/src/app/routers/health.py`, `apps/pool-hub/src/app/routers/health.py` | ✅ |
+| A6 | Migrate agent-management `database.py` to use shared-core | 🟢 P3 | `apps/agent-management/src/app/core/database.py`, `apps/shared-core/src/app/core/database.py` | ✅ |
+| A7 | Replace hardcoded `localhost:8202` URLs with `aitbc.constants` or settings (30+ sites) | 🟢 P3 | `apps/trading/`, `apps/pool-hub/`, `apps/marketplace/`, `apps/wallet/`, `apps/agent-coordinator/`, `apps/blockchain-event-bridge/`, `cli/` | ✅ |
+| A8 | Migrate CLI `http_client.py` to use `aitbc.network.AITBCHTTPClient` | 🟡 P2 | `cli/aitbc_cli/utils/http_client.py` | ✅ |
+
+### Agent A — Detailed Instructions
+
+#### A1: Delete 7 dead `aitbc/` modules + orphan tests
+
+**Files** (all verified to have zero imports from `apps/`, `cli/`, `scripts/`):
+- `aitbc/tracing_opentelemetry.py` (179 lines) — zero imports anywhere
+- `aitbc/tracing.py` (274 lines) — only `tests/test_tracing.py` imports it
+- `aitbc/distributed_tracing.py` (287 lines) — only `tests/test_distributed_tracing.py` + `tests/core/test_distributed_tracing_module.py`
+- `aitbc/blue_green_deployment.py` (297 lines) — only `tests/test_blue_green_deployment.py` + `tests/core/test_blue_green_deployment_module.py`
+- `aitbc/dependency_scanner.py` (225 lines) — only `tests/test_dependency_scanner.py`
+- `aitbc/api_versioning.py` (132 lines) — only `tests/core/test_api_versioning_module.py`
+- `aitbc/database_service.py` (181 lines) — only `tests/test_database_service.py` (duplicate of `aitbc/database/service.py`)
+
+**Verification** (run before deleting):
+```bash
+# Each module should show zero imports outside its own test file
+for mod in tracing_opentelemetry tracing distributed_tracing blue_green_deployment dependency_scanner api_versioning database_service; do
+  echo "=== $mod ==="
+  grep -rln "from aitbc.$mod\|from aitbc import $mod\|aitbc\.$mod" --include="*.py" . | grep -v "aitbc/$mod.py" | grep -v "test_$mod"
+done
+# Expected: no output for any module (all are dead or test-only)
+```
+
+**Fix**: Delete all 7 modules and their corresponding test files:
+- `tests/test_tracing.py`
+- `tests/test_distributed_tracing.py`
+- `tests/core/test_distributed_tracing_module.py`
+- `tests/test_blue_green_deployment.py`
+- `tests/core/test_blue_green_deployment_module.py`
+- `tests/test_dependency_scanner.py`
+- `tests/core/test_api_versioning_module.py`
+- `tests/test_database_service.py`
+
+**Note**: Do NOT delete `aitbc/ethereum_rpc.py` (used by bridge-monitor + price oracle) or `aitbc/benchmark.py` (used by blockchain-node performance tests). These were checked and are alive.
+
+#### A2: Sweep stale port 8006 references
+
+**Files** (verified via `grep -rn "8006" --include="*.py"`):
+- `cli/config_data/__init__.py:41` — `self.blockchain_rpc_url = "http://localhost:8006"`
+- `cli/advanced_wallet.py:15` — `DEFAULT_RPC_URL = "http://localhost:8006"`
+- `apps/coordinator-api/src/app/contexts/governance/services/dao_governance_service.py:24`
+- `apps/coordinator-api/src/app/contexts/developer_platform/services/developer_platform_service.py:186`
+- `apps/coordinator-api/src/app/settlement/bridges/base.py:193`
+
+**Problem**: Port 8006 is obsolete. The blockchain RPC port is 8202 (from `aitbc/constants.py:50`).
+
+**Fix**:
+1. Replace all `8006` with `8202` in production code.
+2. For test files that assert on `8006` (e.g. `cli/tests/test_gpu_marketplace.py`, `cli/tests/test_island_credentials.py`, `cli/tests/test_exchange_island.py`), update the expected values to `8202`.
+3. The test in `apps/agent-coordinator/tests/test_v065_agent_coordination.py:659` already asserts `8006` is NOT used — keep it as a regression guard.
+4. Prefer using `aitbc.constants.BLOCKCHAIN_RPC_PORT` or settings `blockchain_rpc_url` over hardcoded URLs where feasible.
+
+#### A3: Consolidate address validation implementations
+
+**Files** (5 implementations with inconsistent semantics):
+- `aitbc/utils/validation.py:12-51` — `validate_address()` (canonical, returns bool)
+- `aitbc/security/validators.py:57-67` — `validate_ethereum_address()` (raises ValidationError)
+- `aitbc/crypto/crypto.py:202-211` — `validate_ethereum_address()` (uses eth_utils checksum)
+- `cli/utils/error_handling.py:179-193` — `validate_address()` (simple regex)
+- `cli/aitbc_cli/utils/error_handling.py:290` — another copy
+
+**Problem**: 5 address validation implementations with different APIs (some return bool, some raise, only one does proper eth_utils checksum validation). Divergent address validation is a security risk — invalid addresses could be accepted by some code paths and rejected by others.
+
+**Fix**:
+1. Standardize on `aitbc/utils/validation.py::validate_address()` as the canonical implementation.
+2. Enhance it to include eth_utils-based checksum validation (merge the best logic from `aitbc/crypto/crypto.py`).
+3. Provide two API styles: `validate_address(addr) -> bool` (non-raising) and `validate_address_strict(addr) -> str` (raises `ValidationError`, returns normalized address).
+4. Update `aitbc/security/validators.py` to re-export from canonical.
+5. Update `aitbc/crypto/crypto.py` to re-export from canonical.
+6. Update both CLI `error_handling.py` files to import from `aitbc/utils/validation`.
+7. Verify all call sites still work with the unified API.
+
+**Risk**: High — address validation is security-critical. Test thoroughly with valid/invalid/checksum addresses.
+
+#### A4: Replace wallet's duplicate `RateLimiter`
+
+**Files**: `apps/wallet/src/app/security.py` (lines 9-25, simple `RateLimiter` class)
+
+**Problem**: Wallet has its own mini `RateLimiter` duplicating `aitbc/security/rate_limiter.py`.
+
+**Fix**:
+1. Read wallet's `RateLimiter` to understand its API.
+2. Replace with `aitbc.security.rate_limiter.RateLimiter` (or the appropriate class from `aitbc/security/`).
+3. Update all wallet code that imports `RateLimiter` from `app.security`.
+4. Make `apps/wallet/src/app/security.py` re-export from `aitbc.security.rate_limiter` for backward compat, or delete the class if no external imports.
+
+#### A5: Migrate health endpoints to `aitbc/health_checks.py`
+
+**Files**:
+- `apps/agent-coordinator/src/app/routers/health.py` (47 lines, simple `/health`)
+- `apps/pool-hub/src/app/routers/health.py` (70 lines, `/health` + `/ready` + `/live`)
+
+**Problem**: Both hand-roll health endpoints instead of using the comprehensive `aitbc/health_checks.py` framework (164 lines, `HealthChecker` class with registration).
+
+**Fix**:
+1. Read `aitbc/health_checks.py` to understand the `HealthChecker` API.
+2. Refactor both routers to register their health checks with `HealthChecker` and expose the framework's endpoints.
+3. Preserve any app-specific dependency checks (pool-hub's DB/Redis readiness checks) as registered health check functions.
+4. Do NOT touch `apps/blockchain-node/src/aitbc_chain/network/health.py` — that's domain-specific peer health monitoring, not a duplicate.
+
+#### A6: Migrate agent-management `database.py` to shared-core
+
+**Files**:
+- `apps/agent-management/src/app/core/database.py` (38 lines, `get_engine`, `get_sessionmaker`, `get_db`)
+- `apps/shared-core/src/app/core/database.py` (70 lines, comprehensive sync+async)
+
+**Problem**: agent-management duplicates basic sync DB logic that shared-core already provides.
+
+**Fix**:
+1. Verify shared-core's `database.py` exports cover agent-management's needs (`get_engine`, `get_sessionmaker`, `get_db`).
+2. Replace agent-management's `database.py` with a re-export from shared-core, or delete it and update imports to point to shared-core.
+3. Update all `from app.core.database import ...` in agent-management to use shared-core.
+
+#### A7: Replace hardcoded `localhost:8202` URLs with constants/settings
+
+**Files**: 30+ occurrences across `apps/trading/`, `apps/pool-hub/`, `apps/marketplace/`, `apps/wallet/`, `apps/agent-coordinator/`, `apps/blockchain-event-bridge/`, `cli/`.
+
+**Problem**: Many services hardcode `os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")` instead of using a centralized constant or settings field.
+
+**Fix**:
+1. Find all occurrences:
+   ```bash
+   grep -rn 'localhost:8202\|"http://localhost:8202"' --include="*.py" apps cli | grep -v test
+   ```
+2. Where a service has a `settings.blockchain_rpc_url` field, use it instead of `os.getenv`.
+3. Where no settings field exists, use `aitbc.constants` to construct the URL (e.g. `f"http://localhost:{BLOCKCHAIN_RPC_PORT}"`).
+4. Leave test fixtures as-is (they legitimately need hardcoded localhost URLs for test isolation).
+
+#### A8: Migrate CLI `http_client.py` to `aitbc.network.AITBCHTTPClient`
+
+**Files**: `cli/aitbc_cli/utils/http_client.py` (76 lines, own `AITBCHTTPClient` implementation)
+
+**Problem**: CLI has its own HTTP client implementation instead of using the canonical `aitbc.network.AITBCHTTPClient` (consolidated in v0.10.4). Only 2 CLI files import from `aitbc.network` directly; the rest use the local copy.
+
+**Fix**:
+1. Compare CLI's `AITBCHTTPClient` API with `aitbc.network.AITBCHTTPClient`.
+2. If APIs match: replace `cli/aitbc_cli/utils/http_client.py` with a re-export shim from `aitbc.network`.
+3. If APIs differ: either extend `aitbc.network.AITBCHTTPClient` to cover CLI's needs, or add a thin CLI-specific wrapper that subclasses the canonical client.
+4. Verify all 48+ CLI command imports still work.
+
+---
+
+## Agent B — Complex Fixes (GLM 5.2)
+
+**Scope**: Decimal migration completion, blocking I/O refactoring, N+1 elimination, missing indexes, async optimization, circuit breaker consolidation, config class consolidation, bridge migration. Complex tasks requiring deep understanding of business logic, database semantics, and async patterns.
+
+**Working directory**: `/opt/aitbc/`
+
+**Verification command**:
+```bash
+cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
+cd /opt/aitbc/apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
+```
+
+### Tasks
+
+| # | Task | Priority | Files | Status |
+|---|------|----------|-------|--------|
+| B1 | Migrate wallet domain models to Decimal + Alembic migration | 🔴 P0 | `apps/coordinator-api/src/app/contexts/wallet/domain/wallet.py`, `apps/coordinator-api/alembic/versions/` | ⬜ |
+| B2 | Migrate trading domain models financial fields to Decimal | 🔴 P0 | `apps/coordinator-api/src/app/contexts/trading/domain/trading.py`, `apps/coordinator-api/src/app/contexts/trading/domain/pricing_models.py` | ⬜ |
+| B3 | Migrate marketplace models to Decimal | 🔴 P0 | `apps/marketplace/src/marketplace_service/domain/marketplace.py`, `packages/aitbc-shared/aitbc_shared/models/marketplace.py` | ⬜ |
+| B4 | Migrate pool-hub remaining float fields to Decimal | 🔴 P0 | `apps/pool-hub/src/poolhub/models.py` | ⬜ |
+| B5 | Replace sync `requests.get/post` in wallet bridge with async httpx | 🟠 P1 | `apps/wallet/src/app/bridge/price_api.py`, `apps/wallet/src/app/bridge/bridge_monitor.py` | ⬜ |
+| B6 | Fix mempool `batch_add` N+1 (per-tx duplicate check → batch query) | 🟠 P1 | `apps/blockchain-node/src/aitbc_chain/mempool.py` | ⬜ |
+| B7 | Add missing DB indexes (`MarketplaceOffer.status`, `Job.state`) + Alembic migration | 🟠 P1 | `packages/aitbc-shared/aitbc_shared/models/marketplace.py`, `apps/coordinator-api/src/app/contexts/infrastructure/domain/job.py`, Alembic migration | ⬜ |
+| B8 | Convert sequential awaits in reputation `get_top_agents` to `asyncio.gather` | 🟠 P1 | `apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/reputation.py` | ⬜ |
+| B9 | Replace per-request `httpx.AsyncClient` in coordinator-api inference + islands_proxy + edge with shared client | 🟠 P1 | `apps/coordinator-api/src/app/contexts/infrastructure/routers/inference.py`, `apps/coordinator-api/src/app/contexts/infrastructure/routers/islands_proxy.py`, `apps/edge/src/aitbc_edge/main.py` | ⬜ |
+| B10 | Add LRU/TTL eviction to reputation service unbounded dicts | 🟠 P1 | `apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/reputation.py` | ⬜ |
+| B11 | Replace `time.sleep` with `asyncio.sleep` in miner + bridge-monitor loops | 🟡 P2 | `apps/miner/production_miner.py`, `apps/bridge-monitor/src/bridge_monitor/main.py`, `apps/wallet/src/app/bridge/bridge_monitor.py` | ⬜ |
+| B12 | Consolidate circuit breaker implementations (3 copies → 1 canonical) | 🟡 P2 | `aitbc/network/circuit_breaker.py`, `apps/coordinator-api/src/app/utils/circuit_breaker.py`, `apps/blockchain-node/src/aitbc_chain/consensus/poa.py` | ⬜ |
+| B13 | Consolidate config classes — marketplace/trading/governance/gpu/agent-coordinator to subclass `ServiceSettings` | 🟡 P2 | `apps/marketplace/.../config.py`, `apps/trading/.../config.py`, `apps/governance/.../config.py`, `apps/gpu/.../config.py`, `apps/agent-coordinator/.../config.py`, `apps/shared-core/src/app/core/config.py` | ⬜ |
+| B14 | Migrate deprecated `bridge.py`/`bridge_enhanced.py` to `BridgeClientAdapter` | 🟡 P2 | `apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/bridge.py`, `apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/bridge_enhanced.py` | ⬜ |
+
+### Agent B — Detailed Instructions
+
+#### B1: Migrate wallet domain models to Decimal + Alembic migration
+
+**Files**:
+- `apps/coordinator-api/src/app/contexts/wallet/domain/wallet.py` (lines 80, 105, 108)
+- `apps/coordinator-api/alembic/versions/` (new migration)
+
+**Problem**: `TokenBalance.balance`, `WalletTransaction.value`, and `WalletTransaction.gas_price` are `Float` columns, causing rounding errors in wallet balances and transaction values.
+
+**Fix**:
+1. Change column types in the model:
+   ```python
+   # Before (line 80)
+   balance: float = Field(default=0.0)
+   # After
+   balance: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+
+   # Before (line 105)
+   value: float = Field(default=0.0)
+   # After
+   value: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+
+   # Before (line 108)
+   gas_price: float | None = Field(default=None)
+   # After
+   gas_price: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8)))
+   ```
+2. Update all code that does float arithmetic on these fields to use Decimal.
+3. Create Alembic migration:
+   ```bash
+   cd apps/coordinator-api && ../../venv/bin/python -m alembic revision --autogenerate -m "migrate_wallet_to_numeric"
+   ```
+4. Edit migration to use `if_not_exists=True` and include a downgrade path.
+5. Test migration on a copy of the production DB.
+
+**Note**: Per AGENTS.md, `create_all` only adds indexes to fresh DBs. For existing DBs, the Alembic migration with `if_not_exists=True` is required.
+
+#### B2: Migrate trading domain models financial fields to Decimal
+
+**Files**:
+- `apps/coordinator-api/src/app/contexts/trading/domain/trading.py` (lines 79, 189, 242, 291, 312, 313)
+- `apps/coordinator-api/src/app/contexts/trading/domain/pricing_models.py` (lines 71-74, 133-135, 189-193)
+
+**Problem**: Trading domain models still use `float` for `budget_range`, `price_range`, and other financial fields. `pricing_models.py` computes pricing using float arithmetic.
+
+**Fix**:
+1. Identify all financial fields in `trading.py` (budget_range, price_range, any price/amount/cost fields).
+2. Migrate `dict[str, float]` JSON columns to `dict[str, str]` (store Decimal as string in JSON) or use a custom JSON encoder.
+3. Migrate `pricing_models.py` float arithmetic to Decimal.
+4. Create Alembic migration if any Float columns exist in the DB.
+5. Update all service code that reads/writes these fields.
+
+**Note**: `match_score`, `confidence_level`, `*_compatibility` fields (lines 129-137) are scoring metrics (0-100 / 0-1), NOT financial values — leave these as float. Only migrate actual monetary fields.
+
+#### B3: Migrate marketplace models to Decimal
+
+**Files**:
+- `apps/marketplace/src/marketplace_service/domain/marketplace.py` (lines 44, 122)
+- `packages/aitbc-shared/aitbc_shared/models/marketplace.py` (lines 24, 34, 49)
+
+**Problem**: `MarketplaceOffer.price` (line 44) and other monetary fields are `float`. The shared `aitbc_shared/models/marketplace.py` also uses float for price fields.
+
+**Fix**:
+1. Migrate `price`, `tokens_spent`, and any other monetary fields to `Decimal` with `Numeric(20, 8)`.
+2. Leave `rating`, `avg_rating`, `health_score`, `weight` as float — these are not monetary.
+3. Create Alembic migration for the coordinator-api models.
+4. For `packages/aitbc-shared/`, update the model and ensure downstream consumers handle Decimal.
+5. Update all marketplace service code that does float arithmetic on prices.
+
+#### B4: Migrate pool-hub remaining float fields to Decimal
+
+**Files**: `apps/pool-hub/src/poolhub/models.py` (lines 45, 50, 100, 103, 119, 157, 158, 175, 176, 195)
+
+**Problem**: v0.10.4 migrated pool-hub billing, but the models still have float fields: `base_price` (line 50), `price` (line 103), `tokens_spent` (line 119), `metric_value` (line 157).
+
+**Fix**:
+1. Migrate monetary fields to Decimal: `base_price`, `price`, `tokens_spent`.
+2. Leave non-monetary float fields as float: `gpu_vram_gb`, `ram_gb`, `trust_score`, `mem_free_gb`, `uptime_pct`, `score`, `metric_value` (these are metrics/specs, not money).
+3. Create Alembic migration.
+4. Update all pool-hub service code that does float arithmetic on the migrated fields.
+
+#### B5: Replace sync `requests.get/post` in wallet bridge with async httpx
+
+**Files**:
+- `apps/wallet/src/app/bridge/price_api.py:24` — `requests.get(url, params=params, timeout=10)`
+- `apps/wallet/src/app/bridge/bridge_monitor.py:11,35` — `requests.post(ETH_RPC_URL, json=payload, timeout=10)`
+
+**Problem**: These modules are imported by async bridge routes. Using sync `requests` blocks the entire event loop during HTTP calls.
+
+**Fix**:
+1. Replace `requests.get` with `httpx.AsyncClient.get` (or the shared `SharedHttpClient` from v0.10.4).
+2. Replace `requests.post` with `httpx.AsyncClient.post`.
+3. Make the calling functions `async` if they aren't already.
+4. Update all callers to `await` the now-async functions.
+5. Use a shared client instance (from v0.10.4's `SharedHttpClient`) rather than creating per-call clients.
+
+#### B6: Fix mempool `batch_add` N+1
+
+**Files**: `apps/blockchain-node/src/aitbc_chain/mempool.py` (lines 275-277)
+
+**Problem**: `batch_add` executes one duplicate-check query per transaction:
+```python
+for tx in transactions:
+    ...
+    existing = session.exec(
+        select(MempoolEntry).where(MempoolEntry.chain_id == chain_id, MempoolEntry.tx_hash == tx_hash)
+    ).first()
+```
+With 100 transactions, this is 100 queries.
+
+**Fix**:
+1. Pre-compute all tx hashes for the batch.
+2. Fetch all existing hashes in one query:
+   ```python
+   tx_hashes = [compute_tx_hash(tx) for tx in transactions]
+   existing_hashes = set(session.exec(
+       select(MempoolEntry.tx_hash).where(
+           MempoolEntry.chain_id == chain_id,
+           MempoolEntry.tx_hash.in_(tx_hashes)
+       )
+   ).all())
+   ```
+3. Use the set for duplicate checks in the loop (O(1) lookup).
+4. Also batch the eviction count query — fetch the count once before the loop, decrement in-memory as entries are added.
+
+#### B7: Add missing DB indexes + Alembic migration
+
+**Files**:
+- `packages/aitbc-shared/aitbc_shared/models/marketplace.py:26` — `MarketplaceOffer.status` (filtered with `== "available"`, no index)
+- `packages/aitbc-shared/aitbc_shared/models/marketplace.py:51` — `MarketplaceBooking.status` (no index)
+- `apps/coordinator-api/src/app/contexts/infrastructure/domain/job.py:18` — `Job.state` (filtered in job queues, no index)
+
+**Fix**:
+1. Add `index=True` to each field:
+   ```python
+   status: str = Field(default="available", max_length=20, index=True)
+   state: str = Field(default="QUEUED", max_length=20, index=True)
+   ```
+2. Create Alembic migration with `if_not_exists=True` for existing DBs:
+   ```bash
+   cd apps/coordinator-api && ../../venv/bin/python -m alembic revision -m "add_marketplace_job_indexes"
+   ```
+3. In the migration, use `op.create_index(..., if_not_exists=True)`.
+
+#### B8: Convert sequential awaits in reputation `get_top_agents` to `asyncio.gather`
+
+**Files**: `apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/reputation.py` (lines 410-422)
+
+**Problem**: `get_top_agents` awaits `get_reputation_analytics` per agent in a loop:
+```python
+for agent_id in self.reputation_data:
+    agent_analytics = await self.get_reputation_analytics(agent_id)  # Sequential
+```
+With 1000 agents, this is sequential and slow.
+
+**Fix**:
+1. Use `asyncio.gather` with a semaphore for concurrency control:
+   ```python
+   semaphore = asyncio.Semaphore(50)
+   async def fetch(agent_id):
+       async with semaphore:
+           try:
+               return await self.get_reputation_analytics(agent_id)
+           except Exception as e:
+               logger.error("Error getting analytics for agent %s: %s", agent_id, e)
+               return None
+   results = await asyncio.gather(*[fetch(aid) for aid in self.reputation_data])
+   analytics = [r for r in results if r is not None]
+   ```
+2. Apply the chain_id filter after gathering (or pass it into `fetch` if `get_reputation_analytics` supports it).
+
+#### B9: Replace per-request `httpx.AsyncClient` with shared client
+
+**Files**:
+- `apps/coordinator-api/src/app/contexts/infrastructure/routers/inference.py` (lines 78, 110, 151, 201, 229, 250 — 6 sites)
+- `apps/coordinator-api/src/app/contexts/infrastructure/routers/islands_proxy.py:28`
+- `apps/edge/src/aitbc_edge/main.py:31,59`
+
+**Problem**: Each site creates `async with httpx.AsyncClient(timeout=...) as client:` per request, paying TCP+TLS handshake overhead (~100-300ms) every time.
+
+**Fix**:
+1. Use the `SharedHttpClient` from v0.10.4 (already established pattern).
+2. Create a shared client at app startup (in lifespan or app state) with the appropriate timeout.
+3. In each router, get the shared client from app state instead of creating a new one.
+4. For `inference.py`, the Ollama client needs `timeout=120.0` — configure this on the shared client or create a dedicated long-timeout shared client for inference.
+5. For `edge/main.py`, the heartbeat client can use the default shared client.
+
+#### B10: Add LRU/TTL eviction to reputation service unbounded dicts
+
+**Files**: `apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/reputation.py` (lines 147-151)
+
+**Problem**: These dicts grow indefinitely:
+```python
+self.reputation_data: dict[str, ReputationScore] = {}
+self.chain_reputations: dict[str, dict[int, ReputationScore]] = {}
+self.reputation_stakes: dict[str, list[ReputationStake]] = {}
+self.reputation_delegations: dict[str, list[ReputationDelegation]] = {}
+self.cross_chain_syncs: list[CrossChainSync] = []
+```
+
+**Fix**:
+1. Add a max-size limit (e.g. 10,000 agents) with LRU eviction.
+2. Use `collections.OrderedDict` with `move_to_end` on access and `popitem(last=False)` when over limit.
+3. For `cross_chain_syncs` (a list), cap at a max length and drop oldest entries.
+4. Alternatively, migrate to Redis with TTL if the service already has Redis access (check service config).
+5. Add a config setting for the max size so it's tunable.
+
+**Note**: v0.10.4 (B10-B12) already added `asyncio.Lock` to this file's race conditions. Coordinate to avoid merge conflicts — the lock and eviction changes touch the same `__init__` area.
+
+#### B11: Replace `time.sleep` with `asyncio.sleep` in miner + bridge-monitor
+
+**Files**:
+- `apps/miner/production_miner.py:163,371`
+- `apps/bridge-monitor/src/bridge_monitor/main.py:303`
+- `apps/wallet/src/app/bridge/bridge_monitor.py:123,142`
+
+**Problem**: `time.sleep` blocks the entire thread. In async contexts, this blocks the event loop.
+
+**Fix**:
+1. For functions that are already `async`, replace `time.sleep(x)` with `await asyncio.sleep(x)`.
+2. For sync functions called from an async main loop (e.g. `production_miner.py` main loop), either:
+   - Refactor the function to be `async` and use `asyncio.sleep`, OR
+   - Run the sync function in a thread executor and keep `time.sleep` (less ideal).
+3. Prefer the async refactor where feasible — these are long-running loops that benefit from async.
+4. Verify the main entry points can run the now-async loops with `asyncio.run()`.
+
+#### B12: Consolidate circuit breaker implementations (3 copies → 1)
+
+**Files**:
+- `aitbc/network/circuit_breaker.py` (92 lines, canonical base)
+- `apps/coordinator-api/src/app/utils/circuit_breaker.py` (262 lines, extended async + decorator + stats)
+- `apps/blockchain-node/src/aitbc_chain/consensus/poa.py` (lines 91-123, embedded `CircuitBreaker` class)
+
+**Problem**: 3 circuit breaker implementations. The coordinator-api version has the richest features (async support, decorator pattern, stats tracking). The blockchain-node version is a minimal embedded copy.
+
+**Fix**:
+1. Merge the async/decorator/stats features from coordinator-api into `aitbc/network/circuit_breaker.py` as the canonical implementation.
+2. Update coordinator-api to import from `aitbc.network.circuit_breaker`.
+3. Replace the embedded `CircuitBreaker` class in `poa.py` with an import from `aitbc.network.circuit_breaker`.
+4. Make `apps/coordinator-api/src/app/utils/circuit_breaker.py` a re-export shim (or delete if all imports can be updated).
+5. Verify consensus behavior is unchanged — circuit breakers in consensus are critical for liveness.
+
+**Risk**: High — circuit breakers protect consensus liveness and service resilience. Test thoroughly. Per AGENTS.md coordination protocol, `aitbc/network/circuit_breaker.py` is a shared file. Agent B goes first for `apps/` shared files; add `# WIP: Agent B` comment while editing.
+
+#### B13: Consolidate config classes to subclass `ServiceSettings`
+
+**Files**:
+- `apps/shared-core/src/app/core/config.py` (canonical `ServiceSettings`, `DatabaseConfig`)
+- `apps/marketplace/src/marketplace_service/config.py` (41 lines, standalone)
+- `apps/trading/src/trading_service/config.py` (79 lines, standalone)
+- `apps/governance/src/governance_service/config.py` (63 lines, standalone)
+- `apps/gpu/src/gpu_service/config.py` (38 lines, standalone)
+- `apps/agent-coordinator/src/app/config.py` (467 lines, standalone)
+
+**Problem**: AGENTS.md mandates: "New services should subclass these rather than redefining `DatabaseConfig`." But marketplace, trading, governance, gpu, and agent-coordinator define standalone `Settings` with duplicated fields (`redis_url`, `blockchain_rpc_url`, CORS, database config).
+
+**Fix**:
+1. Read `apps/shared-core/src/app/core/config.py` to understand `ServiceSettings` and `DatabaseConfig`.
+2. For each standalone config, refactor to subclass `ServiceSettings`:
+   ```python
+   # Before
+   class Settings(BaseSettings):
+       redis_url: str = "redis://localhost:6379"
+       blockchain_rpc_url: str = "http://localhost:8202"
+       database_url: str = "sqlite:///./marketplace.db"
+       # ... app-specific fields
+
+   # After
+   class Settings(ServiceSettings):
+       # app-specific fields only — redis_url, blockchain_rpc_url, database_* inherited
+       marketplace_fee_percent: Decimal = Decimal("0.02")
+   ```
+3. Verify env var names are preserved (or document any renames).
+4. Do NOT touch `apps/blockchain-node/src/aitbc_chain/config.py` (550 lines) — `ChainSettings` is domain-specific and justified.
+5. Test each service starts correctly with the refactored config.
+
+#### B14: Migrate deprecated `bridge.py`/`bridge_enhanced.py` to `BridgeClientAdapter`
+
+**Files**:
+- `apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/bridge.py` (deprecated v0.10.1 B16)
+- `apps/coordinator-api/src/app/contexts/cross_chain/services/cross_chain/bridge_enhanced.py` (deprecated v0.10.1 B16)
+
+**Problem**: Both files have DeprecationWarning docstrings ("superseded by BridgeClientAdapter") but are still used by routers for SQLModel persistence and ZK-proof/contract-interaction APIs.
+
+**Fix**:
+1. Read both files and the `BridgeClientAdapter` to understand the migration path.
+2. Identify which router endpoints use the deprecated bridge services.
+3. Migrate each endpoint to use `BridgeClientAdapter` for the client-side calls, keeping the SQLModel persistence layer where needed.
+4. Once all endpoints are migrated, delete or mark the deprecated files as fully obsolete.
+5. If full migration is too large for this release, document the remaining work and mark this task as partial.
+
+---
+
+## Coordination
+
+No shared-file conflicts between Agent A and Agent B in this release. Agent A touches `aitbc/utils/validation.py` (A3) and `aitbc/crypto/crypto.py` (A3); Agent B touches `aitbc/network/circuit_breaker.py` (B12). These are in different subpackages — no overlap.
+
+If any conflict arises, follow the [Coordination Protocol](../../../AGENTS.md#coordination-protocol) in the root AGENTS.md.
+
+---
+
+## Verification
+
+### Per-task verification
+After each task, the responsible agent runs:
+```bash
+cd /opt/aitbc && ./venv/bin/python -m ruff check .
+cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
+```
+
+### Release-level verification (before marking complete)
+```bash
+# Type check
+./venv/bin/python -m mypy --show-error-codes aitbc/
+
+# Lint
+./venv/bin/python -m ruff check .
+
+# Unit tests
+./venv/bin/python -m pytest tests/unit -q -o addopts=""
+
+# Integration tests
+./venv/bin/python -m pytest tests/integration -q -o addopts=""
+
+# Coordinator-api tests
+cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
+
+# Blockchain-node tests
+cd apps/blockchain-node && ../../venv/bin/python -m pytest tests -q -o addopts=""
+```
+
+### Decimal migration verification
+- New tests for Decimal precision in wallet/trading/marketplace/pool-hub
+- Verify Alembic migrations apply cleanly on a copy of the production DB
+- Verify downgrade path works
+
+### Performance verification
+- Benchmark mempool `batch_add` before/after N+1 fix
+- Benchmark reputation `get_top_agents` before/after `asyncio.gather`
+- Verify shared HTTP client reduces request latency (no per-request TCP handshake)
