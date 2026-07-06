@@ -1,0 +1,81 @@
+# AITBC v0.10.6 Release Notes
+
+**Date**: TBD
+**Status**: 🚧 In Progress — Dead code elimination, Decimal migration completion, duplicate consolidation
+**Scope**: Delete ~1,570 lines of never-integrated infrastructure modules, complete the Decimal migration for remaining float-based financial fields (wallet, trading, marketplace, pool-hub), fix blocking I/O and N+1 queries in hot paths, and consolidate remaining duplicates (circuit breakers, address validation, config classes, health endpoints, DB helpers).
+
+## 🎯 Overview
+
+v0.10.6 is a **cleanup, correctness, and consolidation release** that addresses findings from the post-v0.10.5 codebase audit. The audit identified 7 dead modules (~1,570 lines), 12 duplicate code clusters, and 10 optimization opportunities.
+
+**Key focus areas:**
+1. **Financial correctness** — Complete the Decimal migration started in v0.10.4: wallet, trading domain models, marketplace, and remaining pool-hub float fields
+2. **Performance** — Fix blocking sync HTTP in async paths, eliminate mempool N+1, add missing DB indexes, convert sequential awaits to `asyncio.gather`, replace per-request HTTP clients with shared instances
+3. **Duplicate consolidation** — Circuit breakers (3→1), address validation (5→1), config classes (subclass `ServiceSettings`), health endpoints, DB helpers, rate limiter
+4. **Dead code elimination** — Delete 7 never-integrated `aitbc/` modules + orphan tests
+5. **Cleanup** — Sweep stale port 8006 references, replace hardcoded `localhost:8202` URLs with constants/settings
+
+**Prerequisites**: [v0.10.5](../v0.10.5/change.log) (complete — JWT/auth consolidated to `aitbc/auth/`).
+
+**Risk**: Medium-High. The Decimal migration requires DB schema migrations (Float→Numeric columns) and touches wallet/trading/marketplace/pool-hub models. Circuit breaker consolidation touches consensus-critical code. Mitigated by: (1) comprehensive test suite, (2) live testing on shop node, (3) rollback plan for schema migrations, (4) incremental task completion with verification at each step.
+
+---
+
+## 📊 Summary
+
+| Category | Items | Lines Changed (est.) | Lines Deleted (est.) |
+|----------|-------|----------------------|----------------------|
+| Decimal Migration Completion | 4 | ~1,200 | 0 |
+| Performance (blocking I/O, N+1, indexes, async) | 5 | ~400 | 0 |
+| Duplicate Consolidation | 6 | ~600 | ~800 |
+| Dead Code Elimination | 1 | 0 | ~1,570 |
+| Port/URL Sweep | 2 | ~100 | 0 |
+| Bridge Migration | 1 | ~200 | ~300 |
+| Config Consolidation | 1 | ~300 | ~500 |
+| **Total** | **22** | **~2,800** | **~3,170** |
+
+---
+
+## 🧪 Testing
+
+- All existing tests must pass (`./venv/bin/python -m pytest tests/unit -q -o addopts=""`)
+- Coordinator-api tests (`cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""`)
+- Blockchain-node tests (`cd apps/blockchain-node && ../../venv/bin/python -m pytest tests -q -o addopts=""`)
+- New tests for Decimal precision in wallet/trading/marketplace/pool-hub
+- New tests for unified address validation (valid/invalid/checksum cases)
+- New tests for consolidated circuit breaker (async + decorator + stats)
+- Benchmark mempool `batch_add` before/after N+1 fix
+- Benchmark reputation `get_top_agents` before/after `asyncio.gather`
+- Verify Alembic migrations apply cleanly on a copy of the production DB
+
+---
+
+## 📝 Task Status
+
+See [AGENTS.md](AGENTS.md) for the full task assignment and detailed instructions.
+
+### Agent A — Mechanical Cleanup & Consolidation (8 tasks)
+- [x] A1: Delete 7 dead `aitbc/` modules + orphan tests (~1,570 lines)
+- [x] A2: Sweep stale port 8006 references → 8202
+- [x] A3: Consolidate address validation (5 implementations → 1 canonical)
+- [x] A4: Replace wallet's duplicate `RateLimiter` with `aitbc/security/rate_limiter`
+- [x] A5: Migrate agent-coordinator + pool-hub health endpoints to `aitbc/health_checks.py`
+- [x] A6: Migrate agent-management `database.py` to use shared-core
+- [x] A7: Replace hardcoded `localhost:8202` URLs with `aitbc.constants` or settings (30+ sites)
+- [x] A8: Migrate CLI `http_client.py` to use `aitbc.network.AITBCHTTPClient`
+
+### Agent B — Complex Fixes (14 tasks)
+- [ ] B1: Migrate wallet domain models to Decimal + Alembic migration
+- [ ] B2: Migrate trading domain models financial fields to Decimal
+- [ ] B3: Migrate marketplace models to Decimal
+- [ ] B4: Migrate pool-hub remaining float fields to Decimal
+- [ ] B5: Replace sync `requests.get/post` in wallet bridge with async httpx
+- [ ] B6: Fix mempool `batch_add` N+1 (per-tx duplicate check → batch query)
+- [ ] B7: Add missing DB indexes (`MarketplaceOffer.status`, `Job.state`) + Alembic migration
+- [ ] B8: Convert sequential awaits in reputation `get_top_agents` to `asyncio.gather`
+- [ ] B9: Replace per-request `httpx.AsyncClient` in coordinator-api inference + islands_proxy + edge with shared client
+- [ ] B10: Add LRU/TTL eviction to reputation service unbounded dicts
+- [ ] B11: Replace `time.sleep` with `asyncio.sleep` in miner + bridge-monitor loops
+- [ ] B12: Consolidate circuit breaker implementations (3 copies → 1 canonical)
+- [ ] B13: Consolidate config classes — marketplace/trading/governance/gpu/agent-coordinator to subclass `ServiceSettings`
+- [ ] B14: Migrate deprecated `bridge.py`/`bridge_enhanced.py` to `BridgeClientAdapter`
