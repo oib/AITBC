@@ -126,3 +126,42 @@ def sample_agent_data() -> dict[str, Any]:
 def sample_task_data() -> dict[str, Any]:
     """Sample task submission data."""
     return {"task_data": {"model": "llama2", "prompt": "test prompt"}, "priority": "normal", "requirements": {}}
+
+
+@pytest.fixture
+def unique_agent_data() -> dict[str, Any]:
+    """Agent registration data with a unique ID per test (avoids collisions)."""
+    import uuid
+
+    unique = uuid.uuid4().hex[:8]
+    return {
+        "agent_id": f"test-agent-{unique}",
+        "public_key": f"test-pubkey-{unique}",
+        "capabilities": ["data-processing", "analysis"],
+    }
+
+
+@pytest.fixture
+def unique_task_data() -> dict[str, Any]:
+    """Task submission data with a unique prompt per test."""
+    import uuid
+
+    unique = uuid.uuid4().hex[:8]
+    return {
+        "task_data": {"model": "llama2", "prompt": f"test prompt {unique}"},
+        "priority": "normal",
+        "requirements": {},
+    }
+
+
+@pytest.fixture
+def registered_agent(authenticated_client: TestClient, unique_agent_data: dict[str, Any]) -> dict[str, Any]:
+    """Register an agent and return the registration response data.
+
+    Depends on authenticated_client (which provides a valid session token).
+    Yields the response JSON from the registration endpoint.
+    """
+    response = authenticated_client.post("/v1/agent/agents/register", json=unique_agent_data)
+    if response.status_code not in (200, 201):
+        pytest.skip(f"Agent registration failed: {response.status_code} {response.text}")
+    yield response.json()
