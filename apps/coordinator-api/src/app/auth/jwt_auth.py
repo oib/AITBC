@@ -1,119 +1,47 @@
 """
-JWT-based authentication module for Coordinator API
+JWT-based authentication module for Coordinator API.
+
+.. deprecated::
+    This module is a backward-compatibility shim. The canonical implementation
+    lives in ``aitbc.auth.jwt``. Import from ``aitbc.auth`` directly in new code.
 """
 
-from datetime import UTC, datetime, timedelta
-from typing import Any
+import warnings
 
-import jwt
-from fastapi import HTTPException, status
+from aitbc.auth.jwt import JWTAuth as _JWTAuth
 
 from ..config import settings
 
+warnings.warn(
+    "app.auth.jwt_auth is deprecated; import from aitbc.auth instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
-class JWTAuth:
-    """JWT authentication handler"""
 
-    def __init__(self):
-        self.secret = settings.jwt_secret
-        self.algorithm = settings.jwt_algorithm
-        self.expiration_hours = settings.jwt_expiration_hours
+class JWTAuth(_JWTAuth):
+    """JWT authentication handler — delegates to aitbc.auth.jwt.JWTAuth."""
 
-    def create_token(self, payload: dict[str, Any]) -> str:
-        """
-        Create JWT token with expiration
-
-        Args:
-            payload: Claims to include in token
-
-        Returns:
-            Encoded JWT token string
-        """
-        expire = datetime.now(UTC) + timedelta(hours=self.expiration_hours)
-        to_encode = payload.copy()
-        to_encode.update({"exp": expire})
-        return jwt.encode(to_encode, self.secret, algorithm=self.algorithm)
-
-    def decode_token(self, token: str) -> dict[str, Any]:
-        """
-        Decode and validate JWT token
-
-        Args:
-            token: JWT token string
-
-        Returns:
-            Decoded token payload
-
-        Raises:
-            HTTPException: If token is invalid
-        """
-        try:
-            payload = jwt.decode(token, self.secret, algorithms=[self.algorithm])
-            return payload
-        except jwt.PyJWTError as e:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token",
-                headers={"WWW-Authenticate": "Bearer"},
-            ) from e
-
-    def verify_token(self, token: str, required_role: str | None = None) -> dict[str, Any]:
-        """
-        Verify token and optionally check role
-
-        Args:
-            token: JWT token string
-            required_role: Required role (optional)
-
-        Returns:
-            Decoded token payload
-
-        Raises:
-            HTTPException: If token is invalid or role doesn't match
-        """
-        payload = self.decode_token(token)
-        if required_role and payload.get("role") != required_role:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Role '{required_role}' required",
-            )
-        return payload
+    def __init__(self) -> None:
+        super().__init__(
+            secret=settings.jwt_secret,
+            algorithm=settings.jwt_algorithm,
+            expiration_hours=settings.jwt_expiration_hours,
+        )
 
 
 # Global JWT auth instance
 jwt_auth = JWTAuth()
 
 
-def create_access_token(user_id: str, role: str, extra_claims: dict[str, Any] | None = None) -> str:
-    """
-    Create access token for user
-
-    Args:
-        user_id: User identifier
-        role: User role (admin, client, miner)
-        extra_claims: Additional claims to include
-
-    Returns:
-        Encoded JWT token string
-    """
+def create_access_token(user_id: str, role: str, extra_claims: dict | None = None) -> str:
+    """Create access token for user."""
     payload = {"sub": user_id, "role": role}
     if extra_claims:
         payload.update(extra_claims)
     return jwt_auth.create_token(payload)
 
 
-def verify_access_token(token: str, required_role: str | None = None) -> dict[str, Any]:
-    """
-    Verify access token and return payload
-
-    Args:
-        token: JWT token string
-        required_role: Required role (optional)
-
-    Returns:
-        Decoded token payload
-
-    Raises:
-        HTTPException: If token is invalid or role doesn't match
-    """
+def verify_access_token(token: str, required_role: str | None = None) -> dict:
+    """Verify access token and return payload."""
     return jwt_auth.verify_token(token, required_role)
