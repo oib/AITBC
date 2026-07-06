@@ -235,7 +235,7 @@ async def audit_access_confidential_data(
         )
         try:
             decrypted_data = enc_service.audit_decrypt(
-                encrypted_data=encrypted_data, audit_authorization=authorization, purpose=purpose
+                encrypted_data=encrypted_data, audit_authorization=authorization, purpose=purpose or "audit"
             )
             return ConfidentialAccessResponse(
                 success=True, data=decrypted_data, access_id=f"audit-{datetime.now(UTC).timestamp()}"

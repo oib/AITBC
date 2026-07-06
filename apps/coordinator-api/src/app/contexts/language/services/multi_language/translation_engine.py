@@ -17,6 +17,7 @@ import openai  # type: ignore[import-not-found]
 from aitbc.aitbc_logging import get_logger
 
 if TYPE_CHECKING:
+    from .quality_assurance import TranslationQualityChecker
     from .translation_cache import TranslationCache
 logger = get_logger(__name__)
 
@@ -228,7 +229,7 @@ class TranslationEngine:
         self.config = config
         self.translators = self._initialize_translators()
         self.cache: TranslationCache | None = None
-        self.quality_checker = None
+        self.quality_checker: TranslationQualityChecker | None = None
 
     def _initialize_translators(self) -> dict[TranslationProvider, BaseTranslator]:
         translators = {}
@@ -260,8 +261,8 @@ class TranslationEngine:
                 if self.quality_checker:
                     quality_score = await self.quality_checker.evaluate_translation(
                         request.text, result.translated_text, request.source_language, request.target_language
-                    )  # type: ignore[unreachable]
-                    result.confidence = min(result.confidence, quality_score)
+                    )
+                    result.confidence = min(result.confidence, quality_score.overall_score)
                 if self.cache and result.confidence > 0.8:
                     await self.cache.set(cache_key, request.target_language, result, ttl=86400)  # type: ignore[call-arg, arg-type]
                 logger.info("Translation successful using %s", provider.value)

@@ -55,7 +55,7 @@ class MarketplaceHandler:
         """Synchronize marketplace state with blockchain."""
         try:
             client = await self._get_client()
-            await client.async_post("/v1/marketplace/sync", json={"transactions": transactions})
+            await client.post("/v1/marketplace/sync", json={"transactions": transactions})
             logger.info("Successfully synced %s marketplace transactions", len(transactions))
         except NetworkError as e:
             logger.error("Network error syncing marketplace state: %s", e)

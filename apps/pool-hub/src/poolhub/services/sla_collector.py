@@ -172,7 +172,7 @@ class SLACollector:
         # Batch 2: recent match results for all miners (for response time)
         match_results = (
             (
-                await self.db.execute(
+                await self.db.execute(  # type: ignore[misc]
                     select(MatchResult)
                     .where(MatchResult.miner_id.in_(miner_ids))
                     .where(MatchResult.created_at >= week_ago)
@@ -180,7 +180,7 @@ class SLACollector:
                 )
             )
             .scalars()
-            .all()  # type: ignore[misc]
+            .all()
         )
         # Group by miner_id, keep latest 100 per miner
         match_by_miner: dict[str, list[MatchResult]] = {}
@@ -192,7 +192,7 @@ class SLACollector:
         # Batch 3: recent feedback for all miners (for completion rate)
         feedback_records = (
             (
-                await self.db.execute(
+                await self.db.execute(  # type: ignore[misc]
                     select(Feedback)
                     .where(Feedback.miner_id.in_(miner_ids))
                     .where(Feedback.created_at >= week_ago)
@@ -200,7 +200,7 @@ class SLACollector:
                 )
             )
             .scalars()
-            .all()  # type: ignore[misc]
+            .all()
         )
         feedback_by_miner: dict[str, list[Feedback]] = {}
         for fb in feedback_records:

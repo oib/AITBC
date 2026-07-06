@@ -39,7 +39,7 @@ async def create_deployment_config(
     deployment_config: dict,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> AgentDeploymentConfig:  # type: ignore[arg-type]
+) -> AgentDeploymentConfig:
     """Create deployment configuration for agent workflow"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
@@ -68,7 +68,7 @@ async def list_deployment_configs(
     status: DeploymentStatus | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> list[AgentDeploymentConfig]:  # type: ignore[arg-type]
+) -> list[AgentDeploymentConfig]:
     """List deployment configurations with filtering"""
     try:
         query = select(AgentDeploymentConfig)
@@ -95,7 +95,7 @@ async def get_deployment_config(
     config_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> AgentDeploymentConfig:  # type: ignore[arg-type]
+) -> AgentDeploymentConfig:
     """Get specific deployment configuration"""
     try:
         config = session.get(AgentDeploymentConfig, config_id)
@@ -120,7 +120,7 @@ async def deploy_workflow(
     target_environment: str | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Deploy agent workflow to target environment"""
     try:
         config = session.get(AgentDeploymentConfig, config_id)
@@ -131,7 +131,7 @@ async def deploy_workflow(
             raise HTTPException(status_code=403, detail="Access denied")
         deployment_manager = AgentDeploymentManager(session)
         deployment_result = await deployment_manager.deploy_agent_workflow(
-            deployment_config_id=config_id, target_environment=target_environment
+            deployment_config_id=config_id, target_environment=target_environment or "production"
         )
         logger.info("Workflow deployed: %s to %s by %s", config_id, target_environment, user["sub"])
         return deployment_result
@@ -149,7 +149,7 @@ async def get_deployment_health(
     config_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Get health status of deployment"""
     try:
         config = session.get(AgentDeploymentConfig, config_id)
@@ -176,7 +176,7 @@ async def scale_deployment(
     target_instances: int,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Scale deployment to target number of instances"""
     try:
         config = session.get(AgentDeploymentConfig, config_id)
@@ -205,7 +205,7 @@ async def rollback_deployment(
     config_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Rollback deployment to previous version"""
     try:
         config = session.get(AgentDeploymentConfig, config_id)
@@ -234,7 +234,7 @@ async def list_deployment_instances(
     status: DeploymentStatus | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> list[AgentDeploymentInstance]:  # type: ignore[arg-type]
+) -> list[AgentDeploymentInstance]:
     """List deployment instances with filtering"""
     try:
         query = select(AgentDeploymentInstance)
@@ -265,7 +265,7 @@ async def get_deployment_instance(
     instance_id: str,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> AgentDeploymentInstance:  # type: ignore[arg-type]
+) -> AgentDeploymentInstance:
     """Get specific deployment instance"""
     try:
         instance = session.get(AgentDeploymentInstance, instance_id)
@@ -293,7 +293,7 @@ async def integrate_with_zk_system(
     verification_level: VerificationLevel | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Integrate agent execution with ZK proof system"""
     try:
         execution = session.get(AgentExecution, execution_id)
@@ -304,7 +304,7 @@ async def integrate_with_zk_system(
             raise HTTPException(status_code=403, detail="Access denied")
         integration_manager = AgentIntegrationManager(session)
         integration_result = await integration_manager.integrate_with_zk_system(
-            execution_id=execution_id, verification_level=verification_level
+            execution_id=execution_id, verification_level=verification_level or VerificationLevel.BASIC
         )
         logger.info("ZK integration completed: %s by %s", execution_id, user["sub"])
         return integration_result
@@ -323,7 +323,7 @@ async def get_deployment_metrics(
     time_range: str | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Get metrics for deployment over time range"""
     try:
         config = session.get(AgentDeploymentConfig, deployment_id)
@@ -333,7 +333,9 @@ async def get_deployment_metrics(
         if not workflow or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         monitoring_manager = AgentMonitoringManager(session)
-        metrics = await monitoring_manager.get_deployment_metrics(deployment_config_id=deployment_id, time_range=time_range)
+        metrics = await monitoring_manager.get_deployment_metrics(
+            deployment_config_id=deployment_id, time_range=time_range or "1h"
+        )
         return metrics
     except HTTPException:
         raise
@@ -351,7 +353,7 @@ async def deploy_to_production(
     integration_config: dict | None,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Deploy agent workflow to production with full integration"""
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
@@ -378,13 +380,13 @@ async def get_production_dashboard(
     request: Request,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Get comprehensive production dashboard data"""
     try:
         user_configs = session.execute(
             select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == user["sub"])
         ).all()
-        dashboard_data = {
+        dashboard_data: dict[str, Any] = {
             "total_deployments": len(user_configs),
             "active_deployments": len([c for c in user_configs if c.status == DeploymentStatus.DEPLOYED]),
             "failed_deployments": len([c for c in user_configs if c.status == DeploymentStatus.FAILED]),
@@ -411,7 +413,7 @@ async def get_production_dashboard(
                     "created_at": config.created_at.isoformat(),
                     "deployment_time": config.deployment_time.isoformat() if config.deployment_time else None,
                 }
-            )  # type: ignore[attr-defined]
+            )
         return dashboard_data
     except Exception as e:
         logger.error("Failed to get production dashboard: %s", e)
@@ -424,13 +426,13 @@ async def get_production_health(
     request: Request,
     session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
     user: AdminDep,
-) -> dict[str, Any]:  # type: ignore[arg-type]
+) -> dict[str, Any]:
     """Get overall production health status"""
     try:
         user_configs = session.execute(
             select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == user["sub"])
         ).all()
-        health_status = {
+        health_status: dict[str, Any] = {
             "overall_health": "healthy",
             "total_deployments": len(user_configs),
             "healthy_deployments": 0,
@@ -454,22 +456,22 @@ async def get_production_health(
                         "unhealthy_instances": deployment_health["unhealthy_instances"],
                         "total_instances": deployment_health["total_instances"],
                     }
-                )  # type: ignore[attr-defined]
+                )
                 health_status["total_instances"] += deployment_health["total_instances"]
                 health_status["healthy_instances"] += deployment_health["healthy_instances"]
                 health_status["unhealthy_instances"] += deployment_health["unhealthy_instances"]
                 if deployment_health["overall_health"] == "healthy":
-                    health_status["healthy_deployments"] += 1  # type: ignore[operator]
+                    health_status["healthy_deployments"] += 1
                 elif deployment_health["overall_health"] == "unhealthy":
-                    health_status["unhealthy_deployments"] += 1  # type: ignore[operator]
+                    health_status["unhealthy_deployments"] += 1
                 else:
-                    health_status["unknown_deployments"] += 1  # type: ignore[operator]
+                    health_status["unknown_deployments"] += 1
             except Exception as e:
                 logger.error("Health check failed for deployment %s: %s", config.id, e)
-                health_status["unknown_deployments"] += 1  # type: ignore[operator]
-        if health_status["unhealthy_deployments"] > 0:  # type: ignore[operator]
+                health_status["unknown_deployments"] += 1
+        if health_status["unhealthy_deployments"] > 0:
             health_status["overall_health"] = "unhealthy"
-        elif health_status["unknown_deployments"] > 0:  # type: ignore[operator]
+        elif health_status["unknown_deployments"] > 0:
             health_status["overall_health"] = "degraded"
         return health_status
     except Exception as e:
@@ -487,7 +489,7 @@ async def get_production_alerts(
 ) -> dict[str, Any]:
     """Get production alerts and notifications"""
     try:
-        alerts = alert_dispatcher.get_recent_alerts(severity=severity, limit=limit)
+        alerts = alert_dispatcher.get_recent_alerts(severity=severity, limit=limit or 50)
         return {"alerts": alerts, "total_count": len(alerts), "severity": severity, "source": "coordinator_metrics"}
     except Exception as e:
         logger.error("Failed to get production alerts: %s", e)

@@ -140,11 +140,13 @@ async def ready() -> dict[str, str]:
     """Readiness check - verifies database connectivity"""
     try:
         async with get_session() as session:
-            await session.execute("SELECT 1")
+            from sqlalchemy import text
+
+            await session.execute(text("SELECT 1"))
         return {"status": "ready", "service": "gpu-service"}
     except Exception as e:
         logger.error("Readiness check failed: %s", e)
-        return JSONResponse(status_code=503, content={"status": "not_ready", "service": "gpu-service", "error": str(e)})
+        return JSONResponse(status_code=503, content={"status": "not_ready", "service": "gpu-service", "error": str(e)})  # type: ignore[return-value]
 
 
 @app.get("/live")
@@ -184,7 +186,7 @@ async def get_gpu(gpu_id: str, session: Annotated[AsyncSession, Depends(get_sess
     from .domain.gpu_marketplace import GPURegistry
 
     try:
-        result = await session.execute(select(GPURegistry).where(GPURegistry.id == gpu_id))
+        result = await session.execute(select(GPURegistry).where(GPURegistry.id == gpu_id))  # type: ignore[arg-type]
         gpu = result.scalar_one_or_none()
         if not gpu:
             return ({"error": "GPU not found"}, 404)
@@ -215,7 +217,7 @@ async def delete_gpu(gpu_id: str, session: Annotated[AsyncSession, Depends(get_s
     from .domain.gpu_marketplace import GPURegistry
 
     try:
-        result = await session.execute(select(GPURegistry).where(GPURegistry.id == gpu_id))
+        result = await session.execute(select(GPURegistry).where(GPURegistry.id == gpu_id))  # type: ignore[arg-type]
         gpu = result.scalar_one_or_none()
         if not gpu:
             return ({"error": "GPU not found"}, 404)
@@ -235,7 +237,7 @@ async def update_gpu(gpu_id: str, gpu_data: dict[str, Any], session: Annotated[A
     from .domain.gpu_marketplace import GPURegistry
 
     try:
-        result = await session.execute(select(GPURegistry).where(GPURegistry.id == gpu_id))
+        result = await session.execute(select(GPURegistry).where(GPURegistry.id == gpu_id))  # type: ignore[arg-type]
         gpu = result.scalar_one_or_none()
         if not gpu:
             return ({"error": "GPU not found"}, 404)
@@ -275,7 +277,7 @@ async def get_consumer_gpu_profiles(
 @app.get("/v1/marketplace/edge-gpu/metrics/{gpu_id}")
 async def get_edge_gpu_metrics(gpu_id: str, limit: int | None, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]):
     """Get edge GPU metrics"""
-    return await svc.list_metrics(gpu_id=gpu_id, limit=limit)
+    return await svc.list_metrics(gpu_id=gpu_id, limit=limit if limit is not None else 100)
 
 
 @app.post("/v1/marketplace/edge-gpu/scan/{miner_id}")
@@ -487,12 +489,6 @@ async def register_gpu(gpu_data: dict[str, Any], session: Annotated[AsyncSession
             session.add(new_gpu)
             await session.commit()
         return {"gpu_id": gpu_id, "miner_id": miner_id, "status": "registered"}
-        return {
-            "status": "created" if not existing_gpu else "updated",
-            "gpu_id": gpu_id,
-            "miner_id": miner_id,
-            "message": "GPU registered successfully",
-        }
     except Exception as e:
         await session.rollback()
         logger.error("GPU registration error: %s", e)
@@ -531,7 +527,7 @@ async def miner_heartbeat(heartbeat_data: dict[str, Any], session: Annotated[Asy
 
     try:
         miner_id = heartbeat_data.get("miner_id")
-        stmt = update(GPURegistry).where(GPURegistry.miner_id == miner_id).values(status="online")
+        stmt = update(GPURegistry).where(GPURegistry.miner_id == miner_id).values(status="online")  # type: ignore[arg-type]
         await session.execute(stmt)
         await session.commit()
         return {"status": "ok"}
@@ -548,7 +544,7 @@ async def get_miner_gpus(miner_id: str, session: Annotated[AsyncSession, Depends
     from .domain.gpu_marketplace import GPURegistry
 
     try:
-        result = await session.execute(select(GPURegistry).where(GPURegistry.miner_id == miner_id))
+        result = await session.execute(select(GPURegistry).where(GPURegistry.miner_id == miner_id))  # type: ignore[arg-type]
         gpus = result.scalars().all()
         return [
             {
@@ -619,7 +615,7 @@ async def deregister_miner(miner_id: str, session: Annotated[AsyncSession, Depen
     from .domain.gpu_marketplace import GPURegistry
 
     try:
-        stmt = update(GPURegistry).where(GPURegistry.miner_id == miner_id).values(status="offline")
+        stmt = update(GPURegistry).where(GPURegistry.miner_id == miner_id).values(status="offline")  # type: ignore[arg-type]
         await session.execute(stmt)
         await session.commit()
         return {"status": "ok", "miner_id": miner_id, "message": "Miner deregistered"}

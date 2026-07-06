@@ -61,7 +61,7 @@ class ExchangeMixin:
         finally:
             conn.close()
 
-        self.send_json_response(trades)
+        self.send_json_response(trades)  # type: ignore[attr-defined]
 
     def get_orderbook(self):
         """Get order book"""
@@ -121,7 +121,7 @@ class ExchangeMixin:
         finally:
             conn.close()
 
-        self.send_json_response({"buys": buys, "sells": sells})
+        self.send_json_response({"buys": buys, "sells": sells})  # type: ignore[attr-defined]
 
     def handle_place_order(self):
         """Place a new order on the blockchain.
@@ -137,11 +137,11 @@ class ExchangeMixin:
 
         B3 fix: Database connections are closed via try/finally.
         """
-        if not self._require_api_key():
+        if not self._require_api_key():  # type: ignore[attr-defined]
             return
-        data = self._read_json_body()
+        data = self._read_json_body()  # type: ignore[attr-defined]
         if not data:
-            self.send_error(400, "Missing request body")
+            self.send_error(400, "Missing request body")  # type: ignore[attr-defined]
             return
 
         try:
@@ -151,11 +151,11 @@ class ExchangeMixin:
             user_address = data.get("user_address")
 
             if not all([order_type, amount_raw, price_raw, user_address]):
-                self.send_error(400, "Missing required fields")
+                self.send_error(400, "Missing required fields")  # type: ignore[attr-defined]
                 return
 
             if order_type not in ["BUY", "SELL"]:
-                self.send_error(400, "Invalid order type")
+                self.send_error(400, "Invalid order type")  # type: ignore[attr-defined]
                 return
 
             # B2: Convert to Decimal for exact monetary arithmetic
@@ -229,11 +229,11 @@ class ExchangeMixin:
             finally:
                 conn.close()
 
-            self.send_json_response(order)
+            self.send_json_response(order)  # type: ignore[attr-defined]
 
         except Exception as e:
             # Blockchain is down — return an honest error, not fake supply numbers
-            self.send_json_response(
+            self.send_json_response(  # type: ignore[attr-defined]
                 {
                     "error": f"Blockchain RPC unavailable: {e}",
                     "source": "error",
@@ -243,7 +243,7 @@ class ExchangeMixin:
 
     def handle_treasury_balance(self):
         """Get exchange treasury balance from blockchain"""
-        if not self._require_api_key():
+        if not self._require_api_key():  # type: ignore[attr-defined]
             return
         try:
             import json
@@ -258,7 +258,7 @@ class ExchangeMixin:
                     balance_data = json.loads(response.read().decode())
                     treasury_balance = balance_data.get("balance", 0)
 
-                self.send_json_response(
+                self.send_json_response(  # type: ignore[attr-defined]
                     {
                         "address": treasury_address,
                         "balance": str(treasury_balance),
@@ -268,7 +268,7 @@ class ExchangeMixin:
                 )
             except Exception:
                 # If blockchain query fails, show the genesis amount
-                self.send_json_response(
+                self.send_json_response(  # type: ignore[attr-defined]
                     {
                         "address": treasury_address,
                         "balance": "10000000000000",  # 10 million in smallest units
@@ -279,11 +279,11 @@ class ExchangeMixin:
                 )
 
         except Exception:
-            self.send_error(500, "Internal server error")
+            self.send_error(500, "Internal server error")  # type: ignore[attr-defined]
 
     def health_check(self):
         """Health check"""
-        self.send_json_response({"status": "ok", "timestamp": datetime.now(UTC).isoformat()})
+        self.send_json_response({"status": "ok", "timestamp": datetime.now(UTC).isoformat()})  # type: ignore[attr-defined]
 
     def handle_metrics(self):
         """Prometheus metrics endpoint"""
@@ -291,12 +291,12 @@ class ExchangeMixin:
             from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
             output = generate_latest()
-            self.send_response(200)
-            self.send_header("Content-Type", CONTENT_TYPE_LATEST)
-            self.end_headers()
-            self.wfile.write(output)
+            self.send_response(200)  # type: ignore[attr-defined]
+            self.send_header("Content-Type", CONTENT_TYPE_LATEST)  # type: ignore[attr-defined]
+            self.end_headers()  # type: ignore[attr-defined]
+            self.wfile.write(output)  # type: ignore[attr-defined]
         except Exception:
-            self.send_error(500, "Internal server error")
+            self.send_error(500, "Internal server error")  # type: ignore[attr-defined]
 
     def handle_exchange_history(self, parsed):
         """GET /v1/exchange/history — return current ETH and AIT prices for USD and EUR"""
@@ -320,7 +320,7 @@ class ExchangeMixin:
             # Calculate ETH/AIT rate
             eth_ait_rate = (eth_usd.price / ait_usd.price) if eth_usd and ait_usd else 0
 
-            self.send_json_response(
+            self.send_json_response(  # type: ignore[attr-defined]
                 {
                     "success": True,
                     "current": {
@@ -335,7 +335,7 @@ class ExchangeMixin:
                 }
             )
         except Exception as e:
-            self.send_json_response({"success": False, "error": str(e)}, status=500)
+            self.send_json_response({"success": False, "error": str(e)}, status=500)  # type: ignore[attr-defined]
 
     def handle_exchange_price_json(self):
         """GET /exchange/price.json — return AIT price in USD, EUR, and ETH equivalent"""
@@ -352,34 +352,34 @@ class ExchangeMixin:
             eth_eur = oracle.get_price("ETH", "EUR")
 
             if ait_usd or ait_eur:
-                self.send_json_response(
+                self.send_json_response(  # type: ignore[attr-defined]
                     {
                         "price_usd": ait_usd.price if ait_usd else None,
                         "price_eur": ait_eur.price if ait_eur else None,
                         "price_eth": ait_eth.price if ait_eth else None,
                         "eth_eur": eth_eur.price if eth_eur else None,
                         "currency": "USD",
-                        "timestamp": (ait_usd or ait_eur).timestamp,
-                        "source": (ait_usd or ait_eur).source,
+                        "timestamp": (ait_usd or ait_eur).timestamp,  # type: ignore[union-attr]
+                        "source": (ait_usd or ait_eur).source,  # type: ignore[union-attr]
                     }
                 )
             else:
-                self.send_json_response({"error": "Price unavailable"}, status=503)
+                self.send_json_response({"error": "Price unavailable"}, status=503)  # type: ignore[attr-defined]
         except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)
+            self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
 
     def handle_wallet_balance(self):
         """Handle wallet balance request"""
-        if not self._require_api_key():
+        if not self._require_api_key():  # type: ignore[attr-defined]
             return
         from urllib.parse import parse_qs, urlparse
 
-        parsed = urlparse(self.path)
+        parsed = urlparse(self.path)  # type: ignore[attr-defined]
         params = parse_qs(parsed.query)
         address = params.get("address", [""])[0]
 
         if not address:
-            self.send_json_response({"btc": "0.00000000", "aitbc": "0.00", "address": "unknown"})
+            self.send_json_response({"btc": "0.00000000", "aitbc": "0.00", "address": "unknown"})  # type: ignore[attr-defined]
             return
 
         try:
@@ -396,7 +396,7 @@ class ExchangeMixin:
             # In production, you'd integrate with a real Bitcoin node API
             btc_balance = "0.00000000"  # Placeholder - would query real Bitcoin network
 
-            self.send_json_response(
+            self.send_json_response(  # type: ignore[attr-defined]
                 {
                     "btc": btc_balance,
                     "aitbc": str(balance_data.get("balance", 0)),
@@ -406,7 +406,7 @@ class ExchangeMixin:
             )
         except Exception:
             # Fallback to error if blockchain is down
-            self.send_json_response(
+            self.send_json_response(  # type: ignore[attr-defined]
                 {"btc": "0.00000000", "aitbc": "0.00", "address": address, "error": "Failed to fetch balance from blockchain"}
             )
 
@@ -416,16 +416,16 @@ class ExchangeMixin:
         Requires the client to provide their wallet address in the request
         body. No mock address is generated.
         """
-        if not self._require_api_key():
+        if not self._require_api_key():  # type: ignore[attr-defined]
             return
 
-        body = self._read_json_body()
+        body = self._read_json_body()  # type: ignore[attr-defined]
         if body is None:
             return
 
         address = body.get("address")
         if not address:
-            self.send_json_response({"error": "Wallet address is required in request body"}, status=400)
+            self.send_json_response({"error": "Wallet address is required in request body"}, status=400)  # type: ignore[attr-defined]
             return
 
         # Verify the wallet exists via the wallet service
@@ -440,7 +440,7 @@ class ExchangeMixin:
                 if resp.status_code == 200:
                     wallets = resp.json().get("wallets", [])
                     if wallets:
-                        self.send_json_response(
+                        self.send_json_response(  # type: ignore[attr-defined]
                             {
                                 "address": address,
                                 "status": "connected",
@@ -448,11 +448,11 @@ class ExchangeMixin:
                             }
                         )
                     else:
-                        self.send_json_response({"error": "Wallet not found", "address": address}, status=404)
+                        self.send_json_response({"error": "Wallet not found", "address": address}, status=404)  # type: ignore[attr-defined]
                 else:
-                    self.send_json_response({"error": f"Wallet service error: {resp.status_code}"}, status=502)
+                    self.send_json_response({"error": f"Wallet service error: {resp.status_code}"}, status=502)  # type: ignore[attr-defined]
         except Exception as e:
-            self.send_json_response({"error": f"Wallet service unavailable: {e}"}, status=503)
+            self.send_json_response({"error": f"Wallet service unavailable: {e}"}, status=503)  # type: ignore[attr-defined]
 
     def _match_orders_in_txn(self, cursor, order: dict) -> None:
         """Match a new order against existing open orders within an existing transaction.

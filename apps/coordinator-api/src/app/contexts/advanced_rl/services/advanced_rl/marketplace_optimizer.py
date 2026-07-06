@@ -76,9 +76,11 @@ class MarketplaceStrategyOptimizer:
     async def deploy_strategy(self, session: Session, config_id: str, deployment_context: dict[str, Any]) -> dict[str, Any]:
         """Deploy trained strategy"""
 
-        rl_config = session.execute(
-            select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == config_id)
-        ).first()
+        rl_config = (
+            session.execute(select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == config_id))
+            .scalars()
+            .first()
+        )
 
         if not rl_config:
             raise ValueError(f"RL config {config_id} not found")
@@ -126,10 +128,10 @@ class MarketplaceStrategyOptimizer:
             multiplier = 1.0
 
         deployment_performance = {
-            "expected_return": base_performance * multiplier,
-            "risk_score": np.random.random() * 0.3,
-            "stability_score": np.random.random() * 0.7 + 0.3,
-            "adaptability_score": np.random.random() * 0.5 + 0.5,
+            "expected_return": float(base_performance * multiplier),
+            "risk_score": float(np.random.random() * 0.3),
+            "stability_score": float(np.random.random() * 0.7 + 0.3),
+            "adaptability_score": float(np.random.random() * 0.5 + 0.5),
         }
 
         return deployment_performance

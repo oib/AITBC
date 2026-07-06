@@ -19,7 +19,7 @@ from .routers.validation import router as validation_router
 try:
     from app.routers.pools import router as pools_router
 except ImportError:
-    pools_router = None
+    pools_router = None  # type: ignore[assignment]
 
 configure_logging(level="INFO")
 logger = get_logger(__name__)

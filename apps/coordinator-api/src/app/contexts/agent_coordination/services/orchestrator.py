@@ -10,7 +10,7 @@ from enum import StrEnum
 from typing import Any
 
 from app.contexts.trading.services.trading_marketplace.bid_strategy import (
-    BidResult,  # type: ignore[import-not-found]
+    BidResult,
 )
 
 from aitbc.aitbc_logging import get_logger

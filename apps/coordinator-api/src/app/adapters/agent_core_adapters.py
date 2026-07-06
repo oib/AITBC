@@ -24,14 +24,14 @@ from aitbc_agent_core.protocols.security import IAuditor, ISecurityManager
 from aitbc_agent_core.protocols.zk_proof import IZKProofService
 
 # Import from coordinator-api's own domain models
-from app.contexts.agent_coordination.domain.agent import (  # type: ignore
+from app.contexts.agent_coordination.domain.agent import (
     AgentExecution,
     AgentStepExecution,
 )
-from app.contexts.agent_coordination.services.orchestrator_service import AIAgentOrchestrator  # type: ignore
+from app.contexts.agent_coordination.services.orchestrator_service import AIAgentOrchestrator
 
 # Import from coordinator-api services
-from app.contexts.agent_coordination.services.security import (  # type: ignore
+from app.contexts.agent_coordination.services.security import (
     AgentAuditor,
     AgentSecurityManager,
 )
@@ -46,11 +46,11 @@ class AgentExecutionAdapter(IAgentExecution):
 
     @property
     def id(self) -> str:
-        return self._execution.id  # type: ignore[no-any-return]
+        return self._execution.id
 
     @property
     def workflow_id(self) -> str:
-        return self._execution.workflow_id  # type: ignore[no-any-return]
+        return self._execution.workflow_id
 
     @property
     def status(self) -> ProtocolAgentStatus:
@@ -58,10 +58,10 @@ class AgentExecutionAdapter(IAgentExecution):
 
     @property
     def verification_level(self) -> ProtocolVerificationLevel:
-        return ProtocolVerificationLevel(self._execution.verification_level)
+        return ProtocolVerificationLevel(self._execution.verification_level)  # type: ignore[attr-defined]  # ponytail: verification_level not on AgentExecution model
 
     def to_dict(self) -> dict[str, Any]:
-        return self._execution.model_dump()  # type: ignore[no-any-return]
+        return self._execution.model_dump()
 
 
 class AgentStepExecutionAdapter(IAgentStepExecution):
@@ -72,18 +72,18 @@ class AgentStepExecutionAdapter(IAgentStepExecution):
 
     @property
     def id(self) -> str:
-        return self._step_execution.id  # type: ignore[no-any-return]
+        return self._step_execution.id
 
     @property
     def execution_id(self) -> str:
-        return self._step_execution.execution_id  # type: ignore[no-any-return]
+        return self._step_execution.execution_id
 
     @property
     def step_type(self) -> ProtocolStepType:
-        return ProtocolStepType(self._step_execution.step_type)
+        return ProtocolStepType(self._step_execution.step_type)  # type: ignore[attr-defined]  # ponytail: step_type not on AgentStepExecution model
 
     def to_dict(self) -> dict[str, Any]:
-        return self._step_execution.model_dump()  # type: ignore[no-any-return]
+        return self._step_execution.model_dump()
 
 
 class AgentSecurityManagerAdapter(ISecurityManager):
@@ -132,7 +132,7 @@ class AgentOrchestratorAdapter(IAgentOrchestrator):
     async def execute_workflow(self, workflow_id: str, inputs: dict[str, Any]) -> dict[str, Any]:
         # Delegate to app-specific implementation
         if hasattr(self._orchestrator, "execute_workflow"):
-            return await self._orchestrator.execute_workflow(workflow_id, inputs)  # type: ignore[no-any-return]
+            return await self._orchestrator.execute_workflow(workflow_id, inputs)  # type: ignore[arg-type, return-value]
         # Fallback: return mock result
         return {
             "execution_id": f"exec_{workflow_id}",

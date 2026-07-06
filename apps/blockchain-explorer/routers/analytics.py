@@ -294,7 +294,7 @@ async def analytics_overview(period: str = "24h") -> dict[str, Any]:
             # Use data layer with toggle support
             data_layer = get_data_layer()
             rpc_url = BLOCKCHAIN_RPC_URLS.get(DEFAULT_CHAIN)
-            return await data_layer.get_analytics_overview(period, rpc_url)  # type: ignore[no-any-return]
+            return await data_layer.get_analytics_overview(period, rpc_url)
         else:
             # Original implementation without data layer
             rpc_url = BLOCKCHAIN_RPC_URLS.get(DEFAULT_CHAIN)

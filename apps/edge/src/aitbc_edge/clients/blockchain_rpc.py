@@ -24,7 +24,7 @@ class BlockchainRPCClient:
         """Close the HTTP client"""
         if self.client:
             await self.client.aclose()
-            self.client = None
+            self.client = None  # type: ignore[assignment]
 
     def __del__(self):
         if hasattr(self, "client") and self.client is not None:

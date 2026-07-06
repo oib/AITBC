@@ -66,7 +66,7 @@ async def get_chain_head(chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})
             if response.status_code == 200:
-                return normalize_block(response.json())  # type: ignore[no-any-return]
+                return normalize_block(response.json())
     except Exception as e:
         print(f"Error getting chain head for {chain_id}: {e}")
     return {}
@@ -219,7 +219,7 @@ async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any
                     f"{rpc_url}/rpc/blocks/{height}", params={"chain_id": chain_id, "include_tx": "false"}
                 )
                 if response.status_code == 200:
-                    return normalize_block(response.json())  # type: ignore[no-any-return]
+                    return normalize_block(response.json())
                 elif response.status_code == 404:
                     # Block not found - return empty (will be handled by caller)
                     return {}

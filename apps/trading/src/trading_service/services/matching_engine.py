@@ -59,7 +59,7 @@ class MatchingEngine:
                 InterChainTrade.dest_chain == trade.source_chain,
                 InterChainTrade.amount == trade.amount,
             )
-            .order_by(InterChainTrade.price.desc(), InterChainTrade.created_at.asc())
+            .order_by(InterChainTrade.price.desc(), InterChainTrade.created_at.asc())  # type: ignore[attr-defined]
         )
         result = await self.session.execute(match_stmt)
         candidates = list(result.scalars().all())
@@ -98,7 +98,7 @@ class MatchingEngine:
 
         Returns a list of match results for each pending trade.
         """
-        stmt = select(InterChainTrade).where(InterChainTrade.status == "pending").order_by(InterChainTrade.created_at.asc())
+        stmt = select(InterChainTrade).where(InterChainTrade.status == "pending").order_by(InterChainTrade.created_at.asc())  # type: ignore[attr-defined]
         result = await self.session.execute(stmt)
         pending = list(result.scalars().all())
 

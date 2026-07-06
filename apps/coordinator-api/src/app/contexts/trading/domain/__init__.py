@@ -1,6 +1,6 @@
 """Trading domain models."""
 
-from app.contexts.trading.domain.pricing_models import (  # type: ignore
+from app.contexts.trading.domain.pricing_models import (
     MarketHeatmapView,
     MarketMetrics,
     PriceForecast,
@@ -12,7 +12,7 @@ from app.contexts.trading.domain.pricing_models import (  # type: ignore
     ProviderPricingStrategy,
     ResourceType,
 )
-from app.contexts.trading.domain.pricing_strategies import (  # type: ignore
+from app.contexts.trading.domain.pricing_strategies import (
     PricingStrategy,
     PricingStrategyConfig,
     RiskTolerance,

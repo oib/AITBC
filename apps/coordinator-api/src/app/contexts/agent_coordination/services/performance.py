@@ -80,11 +80,11 @@ class MetaLearningEngine:
 
     async def train_meta_model(self, session: Session, model_id: str) -> dict[str, Any]:
         """Train a meta-learning model"""
-        model = session.execute(select(MetaLearningModel).where(MetaLearningModel.model_id == model_id)).first()
+        model = session.execute(select(MetaLearningModel).where(MetaLearningModel.model_id == model_id)).scalars().first()
         if not model:
             raise ValueError(f"Meta-learning model {model_id} not found")
         try:
-            training_results = await self.simulate_meta_training(model)  # type: ignore[arg-type]
+            training_results = await self.simulate_meta_training(model)
             model.meta_accuracy = training_results["accuracy"]
             model.adaptation_speed = training_results["adaptation_speed"]
             model.generalization_ability = training_results["generalization"]
@@ -152,13 +152,13 @@ class MetaLearningEngine:
         self, session: Session, model_id: str, task_data: dict[str, Any], adaptation_steps: int = 10
     ) -> dict[str, Any]:
         """Adapt meta-learning model to new task"""
-        model = session.execute(select(MetaLearningModel).where(MetaLearningModel.model_id == model_id)).first()
+        model = session.execute(select(MetaLearningModel).where(MetaLearningModel.model_id == model_id)).scalars().first()
         if not model:
             raise ValueError(f"Meta-learning model {model_id} not found")
         if model.status != "ready":
             raise ValueError(f"Model {model_id} is not ready for adaptation")
         try:
-            adaptation_results = await self.simulate_adaptation(model, task_data, adaptation_steps)  # type: ignore[arg-type]
+            adaptation_results = await self.simulate_adaptation(model, task_data, adaptation_steps)
             model.deployment_count += 1
             model.success_rate = (
                 model.success_rate * (model.deployment_count - 1) + adaptation_results["success"]
@@ -274,13 +274,13 @@ class ResourceManager:
             cpu_cores=optimized_allocation[ResourceType.CPU],
             memory_gb=optimized_allocation[ResourceType.MEMORY],
             gpu_count=optimized_allocation[ResourceType.GPU],
-            gpu_memory_gb=optimized_allocation.get("gpu_memory", 0.0),
+            gpu_memory_gb=optimized_allocation.get(ResourceType.GPU_MEMORY_GB, 0.0),
             storage_gb=optimized_allocation[ResourceType.STORAGE],
             network_bandwidth=optimized_allocation[ResourceType.NETWORK],
             optimization_target=optimization_target,
             status="allocated",
             allocated_at=datetime.now(UTC),
-        )  # type: ignore[call-overload]
+        )
         session.add(allocation)
         session.commit()
         session.refresh(allocation)
@@ -368,7 +368,7 @@ class ResourceManager:
             optimized[ResourceType.GPU] = min(
                 self.resource_constraints[ResourceType.GPU]["max"], max(optimized[ResourceType.GPU], 2.0)
             )
-            optimized[ResourceType.GPU_MEMORY_GB] = optimized[ResourceType.GPU] * 8.0  # type: ignore[attr-defined]
+            optimized[ResourceType.GPU_MEMORY_GB] = optimized[ResourceType.GPU] * 8.0
         return optimized
 
     async def optimize_for_efficiency(
@@ -691,11 +691,13 @@ class AgentPerformanceService:
         self, agent_id: str, new_metrics: dict[str, float], task_context: dict[str, Any] | None = None
     ) -> AgentPerformanceProfile:
         """Update agent performance metrics"""
-        profile = self.session.execute(
-            select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)
-        ).first()
+        profile = (
+            self.session.execute(select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id))
+            .scalars()
+            .first()
+        )
         if not profile:
-            profile = await self.create_performance_profile(agent_id, "agent", new_metrics)  # type: ignore[assignment]
+            profile = await self.create_performance_profile(agent_id, "agent", new_metrics)
         else:
             profile.performance_metrics.update(new_metrics)
             history_entry = {"timestamp": datetime.now(UTC).isoformat(), "metrics": new_metrics, "context": task_context or {}}
@@ -705,7 +707,7 @@ class AgentPerformanceService:
             profile.updated_at = datetime.now(UTC)
             profile.last_assessed = datetime.now(UTC)
             self.session.commit()
-        return profile  # type: ignore[return-value]
+        return profile
 
     def calculate_overall_score(self, metrics: dict[str, float]) -> float:
         """Calculate overall performance score"""

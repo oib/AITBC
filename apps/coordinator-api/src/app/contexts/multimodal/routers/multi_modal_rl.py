@@ -47,7 +47,7 @@ async def submit_job(request: Request, req: JobCreate, client_id: str = "default
         job_data = req.model_dump()
         job_data["client_id"] = client_id
         response = client.post(f"{ai_url}/jobs", json=job_data)
-        return response  # type: ignore[no-any-return]
+        return response
     except NetworkError as e:
         logger.error("AI service connection failed: %s", e)
         return {"error": "AI service connection failed"}
@@ -64,7 +64,7 @@ async def get_job(request: Request, job_id: str, client_id: str = "default_clien
         ai_url = get_ai_service_url()
         client = AITBCHTTPClient(timeout=10.0)
         response = client.get(f"{ai_url}/jobs/{job_id}", params={"client_id": client_id})
-        return response  # type: ignore[no-any-return]
+        return response
     except NetworkError as e:
         logger.error("AI service connection failed: %s", e)
         return {"error": "AI service connection failed"}
@@ -81,7 +81,7 @@ async def get_job_result(request: Request, job_id: str, client_id: str = "defaul
         ai_url = get_ai_service_url()
         client = AITBCHTTPClient(timeout=10.0)
         response = client.get(f"{ai_url}/jobs/{job_id}/result", params={"client_id": client_id})
-        return response  # type: ignore[no-any-return]
+        return response
     except NetworkError as e:
         logger.error("AI service connection failed: %s", e)
         return {"error": "AI service connection failed"}
@@ -97,8 +97,8 @@ async def cancel_job(request: Request, job_id: str, client_id: str = "default_cl
     try:
         ai_url = get_ai_service_url()
         client = AITBCHTTPClient(timeout=10.0)
-        response = client.post(f"{ai_url}/jobs/{job_id}/cancel", params={"client_id": client_id})
-        return response  # type: ignore[no-any-return]
+        response = client.post(f"{ai_url}/jobs/{job_id}/cancel", data={"client_id": client_id})
+        return response
     except NetworkError as e:
         logger.error("AI service connection failed: %s", e)
         return {"error": "AI service connection failed"}
@@ -120,7 +120,7 @@ async def list_jobs(
         if state:
             params["state"] = state
         response = client.get(f"{ai_url}/jobs", params=params)
-        return response  # type: ignore[no-any-return]
+        return response
     except NetworkError as e:
         logger.error("AI service connection failed: %s", e)
         return {"error": "AI service connection failed"}

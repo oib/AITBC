@@ -108,7 +108,7 @@ def require_miner_api_key(request: Request) -> dict[str, Any]:
     allowed_keys: list[str] = []
     # Try to load from config settings (coordinator-api specific)
     try:
-        from app.config import settings as config_settings  # type: ignore[import-not-found]
+        from app.config import settings as config_settings
 
         allowed_keys = config_settings.miner_api_keys
     except (ImportError, AttributeError):
