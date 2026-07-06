@@ -264,6 +264,9 @@ consider_namespace_packages = true
 minversion = "8.0"
 addopts = "-ra -q --strict-markers --strict-config --reruns 2 --reruns-delay 1"
 timeout = 60
+filterwarnings = [
+    "ignore::sqlalchemy.exc.SAWarning",
+]
 testpaths = [
     "tests/unit",
     "tests/integration",
