@@ -4,6 +4,7 @@ Test ETH-AIT bridge functionality without real ETH.
 Simulates deposits and tests the bridge flow.
 """
 
+import asyncio
 import sys
 
 # Add to path
@@ -24,7 +25,7 @@ def test_database() -> bool:
     tx_hash = "0x" + "1" * 64  # Mock transaction hash
     from_address = "0x" + "a" * 40
     amount_eth = 1.0
-    amount_ait = calculate_ait_amount(amount_eth)
+    amount_ait = asyncio.run(calculate_ait_amount(amount_eth))
 
     if amount_ait is None:
         print("✗ Failed to calculate AIT amount")
@@ -64,7 +65,7 @@ def test_price_api() -> bool:
     """Test price API."""
     print("\n=== Testing Price API ===")
 
-    rate_info = get_exchange_rate()
+    rate_info = asyncio.run(get_exchange_rate())
 
     if not rate_info["success"]:
         print(f"✗ Failed to get exchange rate: {rate_info.get('error')}")
@@ -107,7 +108,7 @@ def test_mock_deposit() -> bool:
     print(f"Mock transaction: {amount_eth} ETH from {mock_tx['from']}")
 
     # Calculate AIT
-    amount_ait = calculate_ait_amount(amount_eth)
+    amount_ait = asyncio.run(calculate_ait_amount(amount_eth))
     if amount_ait is None:
         print("✗ Failed to calculate AIT")
         return False

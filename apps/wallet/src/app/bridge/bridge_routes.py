@@ -18,7 +18,7 @@ async def get_price() -> dict[str, Any]:
     """
     Get current ETH-AIT exchange rate.
     """
-    rate_info = get_exchange_rate()
+    rate_info = await get_exchange_rate()
 
     if not rate_info["success"]:
         raise HTTPException(status_code=503, detail=rate_info["error"])
@@ -117,7 +117,7 @@ async def calculate_exchange(eth_amount: float) -> dict[str, Any]:
     if eth_amount <= 0:
         raise HTTPException(status_code=400, detail="ETH amount must be positive")
 
-    ait_amount = calculate_ait_amount(eth_amount)
+    ait_amount = await calculate_ait_amount(eth_amount)
 
     if ait_amount is None:
         raise HTTPException(status_code=503, detail="Failed to calculate exchange rate")
@@ -134,7 +134,7 @@ async def get_price_history() -> dict[str, Any]:
     from .price_api import get_exchange_rate
 
     # Get current rates
-    current_rates = get_exchange_rate()
+    current_rates = await get_exchange_rate()
 
     if not current_rates["success"]:
         return current_rates
