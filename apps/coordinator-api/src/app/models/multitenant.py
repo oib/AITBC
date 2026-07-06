@@ -4,6 +4,7 @@ Multi-tenant data models for AITBC coordinator
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum
 from typing import Any, ClassVar
 
@@ -111,8 +112,8 @@ class TenantQuota(Base):
 
     # Quota definitions
     resource_type: str = Field(max_length=100, nullable=False)  # gpu_hours, storage_gb, api_calls
-    limit_value: float = Field(nullable=False)  # Maximum allowed
-    used_value: float = Field(default=0.0, nullable=False)  # Current usage
+    limit_value: Decimal = Field(max_digits=18, decimal_places=8, nullable=False)  # Maximum allowed
+    used_value: Decimal = Field(default=Decimal("0"), max_digits=18, decimal_places=8, nullable=False)  # Current usage
 
     # Time period
     period_type: str = Field(default="monthly", max_length=50)  # daily, weekly, monthly
@@ -147,12 +148,12 @@ class UsageRecord(Base):
     # Usage details
     resource_type: str = Field(max_length=100, nullable=False)  # gpu_hours, storage_gb, api_calls
     resource_id: str | None = Field(max_length=255, nullable=True)  # Specific resource ID
-    quantity: float = Field(nullable=False)
+    quantity: Decimal = Field(max_digits=18, decimal_places=8, nullable=False)
     unit: str = Field(max_length=50, nullable=False)  # hours, gb, calls
 
     # Cost information
-    unit_price: float = Field(nullable=False)
-    total_cost: float = Field(nullable=False)
+    unit_price: Decimal = Field(max_digits=18, decimal_places=8, nullable=False)
+    total_cost: Decimal = Field(max_digits=18, decimal_places=8, nullable=False)
     currency: str = Field(default="USD", max_length=10)
 
     # Time tracking
@@ -197,9 +198,9 @@ class Invoice(Base):
     due_date: datetime | None = None
 
     # Amounts
-    subtotal: float = Field(nullable=False)
-    tax_amount: float = Field(default=0.0, nullable=False)
-    total_amount: float = Field(nullable=False)
+    subtotal: Decimal = Field(max_digits=18, decimal_places=8, nullable=False)
+    tax_amount: Decimal = Field(default=Decimal("0"), max_digits=18, decimal_places=8, nullable=False)
+    total_amount: Decimal = Field(max_digits=18, decimal_places=8, nullable=False)
     currency: str = Field(default="USD", max_length=10)
 
     # Breakdown
