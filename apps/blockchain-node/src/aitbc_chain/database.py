@@ -210,6 +210,13 @@ def session_scope(chain_id: str = "") -> Generator[Session]:
 _engine_internal = _engine
 
 
+def _is_valid_sql_identifier(name: str) -> bool:
+    """Validate that a string is a safe SQL identifier (table/column name)."""
+    if not name or len(name) > 128:
+        return False
+    return name.replace("_", "").isalnum() and name[0].isalpha()
+
+
 def _migrate_existing_columns(engine: Engine) -> None:
     """Add missing columns to existing SQLite tables.
 
@@ -221,11 +228,15 @@ def _migrate_existing_columns(engine: Engine) -> None:
     with engine.begin() as conn:
         for table_obj in SQLModel.metadata.sorted_tables:
             table_name = table_obj.name
+            if not _is_valid_sql_identifier(table_name):
+                continue
             if not inspector.has_table(table_name):
                 continue
             existing_cols = {col["name"] for col in inspector.get_columns(table_name)}
             for col in table_obj.columns:
                 if col.name in existing_cols:
+                    continue
+                if not _is_valid_sql_identifier(col.name):
                     continue
                 coltype = col.type.compile(engine.dialect)
                 default = ""

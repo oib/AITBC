@@ -23,7 +23,7 @@ def get_db_path():
     raw = os.getenv("EXCHANGE_DATABASE_URL", f"sqlite:///{DATA_DIR}/data/exchange/exchange.db")
     # Strip sqlite: prefix and any number of slashes
     if raw.startswith("sqlite:"):
-        raw = raw[len("sqlite:"):]
+        raw = raw[len("sqlite:") :]
     while raw.startswith("/"):
         raw = raw[1:]
     # Reconstruct as absolute path under DATA_DIR
@@ -94,8 +94,21 @@ _MARKETPLACE_ORDERS_SCHEMA = """
 
 def _get_column_types(cursor, table_name):
     """Return {column_name: declared_type} for a table."""
+    if not _is_valid_identifier(table_name):
+        raise ValueError(f"Invalid table name: {table_name}")
     cursor.execute(f"PRAGMA table_info({table_name})")
     return {row[1]: row[2].upper() for row in cursor.fetchall()}
+
+
+# Whitelist of allowed table names for migration operations.
+_ALLOWED_TABLES = frozenset({"trades", "orders", "marketplace_offers", "marketplace_orders"})
+
+
+def _is_valid_identifier(name: str) -> bool:
+    """Validate that a string is a safe SQL identifier (table/column name)."""
+    if not name or len(name) > 128:
+        return False
+    return name.replace("_", "").isalnum() and name[0].isalpha()
 
 
 def _migrate_real_to_text(conn, cursor, table_name, schema_sql, monetary_columns):
@@ -107,6 +120,8 @@ def _migrate_real_to_text(conn, cursor, table_name, schema_sql, monetary_columns
     3. Copy data, casting monetary columns to TEXT
     4. Drop the old table
     """
+    if table_name not in _ALLOWED_TABLES:
+        raise ValueError(f"Table '{table_name}' not in allowed list for migration")
     cols = _get_column_types(cursor, table_name)
     needs_migration = any(cols.get(col) == "REAL" for col in monetary_columns if col in cols)
     if not needs_migration:
