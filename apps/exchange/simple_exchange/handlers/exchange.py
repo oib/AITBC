@@ -10,20 +10,11 @@ import json
 import sqlite3
 import urllib.parse
 from datetime import UTC, datetime
-from decimal import Decimal
+
+from aitbc.utils.decimal import to_decimal as _to_decimal
 
 from ..db import get_db_path
 from .base import RPC_BASE_URL, RPC_TIMEOUT
-
-
-def _to_decimal(value) -> Decimal:
-    """Convert a value to Decimal, handling str/int/float safely.
-
-    Using ``str()`` first avoids the float-to-Decimal precision trap
-    (e.g., ``Decimal(0.1)`` gives ``0.1000000000000000055511151231257827...``,
-    but ``Decimal(str(0.1))`` gives ``0.1``).
-    """
-    return Decimal(str(value))
 
 
 def _row_to_order(row) -> dict:
