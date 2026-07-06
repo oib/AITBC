@@ -125,6 +125,7 @@ class LoadBalancer:
         self.total_assignments = 0
         self.successful_assignments = 0
         self.failed_assignments = 0
+        self._lock = asyncio.Lock()
 
     def set_strategy(self, strategy: LoadBalancingStrategy) -> None:
         """Set load balancing strategy"""
@@ -171,29 +172,30 @@ class LoadBalancer:
         chain_id: str | None = None,
     ) -> str | None:
         """Assign task to best available agent"""
-        try:
-            eligible_agents = await self._find_eligible_agents(task_data, requirements, chain_id=chain_id)
-            if not eligible_agents:
-                logger.warning("No eligible agents found for task assignment")
+        async with self._lock:
+            try:
+                eligible_agents = await self._find_eligible_agents(task_data, requirements, chain_id=chain_id)
+                if not eligible_agents:
+                    logger.warning("No eligible agents found for task assignment")
+                    return None
+                selected_agent = await self._select_agent(eligible_agents, task_data)
+                if not selected_agent:
+                    logger.warning("No agent selected for task assignment")
+                    return None
+                task_id = str(uuid.uuid4())
+                assignment = TaskAssignment(task_id=task_id, agent_id=selected_agent, assigned_at=datetime.now(UTC))
+                self.task_assignments[task_id] = assignment
+                self.assignment_history.append(assignment)
+                self.total_assignments += 1
+                if selected_agent not in self.agent_metrics:
+                    self.agent_metrics[selected_agent] = LoadMetrics()
+                self.agent_metrics[selected_agent].pending_tasks += 1
+                logger.info("Task %s assigned to agent %s", task_id, selected_agent)
+                return selected_agent
+            except Exception as e:
+                logger.error("Error assigning task: %s", e)
+                self.failed_assignments += 1
                 return None
-            selected_agent = await self._select_agent(eligible_agents, task_data)
-            if not selected_agent:
-                logger.warning("No agent selected for task assignment")
-                return None
-            task_id = str(uuid.uuid4())
-            assignment = TaskAssignment(task_id=task_id, agent_id=selected_agent, assigned_at=datetime.now(UTC))
-            self.task_assignments[task_id] = assignment
-            self.assignment_history.append(assignment)
-            self.total_assignments += 1
-            if selected_agent not in self.agent_metrics:
-                self.agent_metrics[selected_agent] = LoadMetrics()
-            self.agent_metrics[selected_agent].pending_tasks += 1
-            logger.info("Task %s assigned to agent %s", task_id, selected_agent)
-            return selected_agent
-        except Exception as e:
-            logger.error("Error assigning task: %s", e)
-            self.failed_assignments += 1
-            return None
 
     async def complete_task(
         self, task_id: str, success: bool, response_time: float | None = None, error_message: str | None = None
