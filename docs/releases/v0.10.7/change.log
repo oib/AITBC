@@ -1,0 +1,221 @@
+# AITBC v0.10.7 Release Notes
+
+**Date**: TBD
+**Status**: 📋 Planned — Dead Code Elimination (coordinator-api + agent-management) & Duplicate Consolidation
+**Scope**: Delete ~5,800 lines of dead code (coordinator-api never-integrated modules, dead classes, dead re-export shims), collapse agent-management services onto coordinator-api's agent_coordination context (~4,800 lines), and consolidate high-impact duplicates (blockchain RPC clients, CLI error handling, DB init, config classes, security utils, health endpoints, CORS setup).
+
+## 🎯 Overview
+
+v0.10.7 is a **dead code elimination and duplicate consolidation release** that addresses findings from a comprehensive codebase scan using vulture static analysis and targeted duplicate detection. The scan identified ~5,800 lines of dead code (entire modules, dead classes, dead re-export shims) and ~2,000 lines of duplicate code across the monorepo.
+
+**Key focus areas:**
+1. **Dead code elimination** — Delete 11 never-integrated coordinator-api modules (~4,800 lines), 1 dead CLI migration service (~313 lines), 5 dead re-export shims in `aitbc/` (~300 lines), and ~1,000 lines of dead classes inside live files
+2. **Duplicate consolidation** — Collapse agent-management services onto coordinator-api's agent_coordination context (~4,800 lines), create shared blockchain RPC client (~100 lines), merge CLI error handling (~150 lines), consolidate DB init modules (~200 lines), adopt ServiceSettings across 5 services (~150 lines), consolidate security utils (~200 lines), and eliminate small copy-pastes (health endpoints, CORS setup, Decimal helpers, retry decorators)
+3. **Decimal migration gap fix** — Fix `GlobalMarketplaceOffer` float→Decimal inconsistency between marketplace service and coordinator-api
+
+**Prerequisites**: [v0.10.6](../v0.10.6/change.log) (in progress — dead code elimination, Decimal migration completion, duplicate consolidation).
+
+**Risk**: Medium. Dead code deletion is mechanical and low-risk. Duplicate consolidation requires careful testing of the consolidated implementations. The agent-management collapse requires deciding whether to deprecate the service entirely or keep it as a thin wrapper. Mitigated by: (1) comprehensive test suite, (2) incremental task completion with verification at each step, (3) git history for rollback.
+
+---
+
+## 📊 Summary
+
+| Category | Items | Lines Changed (est.) | Lines Deleted (est.) |
+|----------|-------|----------------------|----------------------|
+| Dead Code — coordinator-api modules | 11 | 0 | ~4,800 |
+| Dead Code — CLI migration service | 1 | 0 | ~313 |
+| Dead Code — aitbc/ re-export shims | 5 | 0 | ~300 |
+| Dead Code — dead classes in live files | 6 | 0 | ~1,000 |
+| Duplicate — agent-management collapse | 7 | 0 | ~4,800 |
+| Duplicate — blockchain RPC client | 1 | ~100 | ~100 |
+| Duplicate — CLI error handling | 1 | ~50 | ~150 |
+| Duplicate — DB init modules | 3 | ~50 | ~200 |
+| Duplicate — config classes | 5 | ~100 | ~150 |
+| Duplicate — security utils | 3 | ~100 | ~200 |
+| Duplicate — small copy-pastes | 5 | ~50 | ~100 |
+| Decimal migration gap fix | 1 | ~30 | ~30 |
+| **Total** | **45** | **~480** | **~12,093** |
+
+---
+
+## 🧪 Testing
+
+- All existing tests must pass (`./venv/bin/python -m pytest tests/unit -q -o addopts=""`)
+- Coordinator-api tests (`cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""`)
+- Blockchain-node tests (`cd apps/blockchain-node && ../../venv/bin/python -m pytest tests -q -o addopts=""`)
+- Verify agent-management services still work after collapse (or confirm deprecation)
+- Verify shared blockchain RPC client works for both trading and governance
+- Verify CLI error handling consolidation doesn't break CLI commands
+- Verify DB init consolidation doesn't break agent-management/pool-hub/blockchain-node
+- Verify config class consolidation doesn't break service startup
+- Verify Decimal migration fix for GlobalMarketplaceOffer
+
+---
+
+## 📝 Task Status
+
+See [AGENTS.md](AGENTS.md) for the full task assignment and detailed instructions.
+
+### Agent A — Dead Code Elimination (SWE 1.6)
+- [ ] A1: Delete 11 dead coordinator-api modules (~4,800 lines)
+- [ ] A2: Delete dead CLI migration service (~313 lines)
+- [ ] A3: Delete 5 dead aitbc/ re-export shims (~300 lines)
+- [ ] A4: Delete dead classes in live files (~1,000 lines)
+- [ ] A5: Delete orphan tests for dead modules
+
+### Agent B — Duplicate Consolidation (GLM 5.2)
+- [ ] B1: Collapse agent-management services onto coordinator-api agent_coordination context (~4,800 lines)
+- [ ] B2: Create shared blockchain RPC client (~100 lines)
+- [ ] B3: Merge CLI error handling (~150 lines)
+- [ ] B4: Consolidate DB init modules (~200 lines)
+- [ ] B5: Adopt ServiceSettings across 5 services (~150 lines)
+- [ ] B6: Consolidate security utils (~200 lines)
+- [ ] B7: Eliminate small copy-pastes (~100 lines)
+- [ ] B8: Fix GlobalMarketplaceOffer Decimal inconsistency (~30 lines)
+
+---
+
+## 📋 Detailed Findings
+
+### Dead Code — coordinator-api modules (11 files, ~4,800 lines)
+
+Verified zero importers via grep and package `__init__.py` checks:
+
+| File | Lines | Evidence |
+|---|---|---|
+| `apps/coordinator-api/src/app/contexts/trading/services/trading_marketplace/amm.py` | 519 | `AMMService` unused; not exported by package `__init__.py` |
+| `apps/coordinator-api/src/app/contexts/agent_coordination/services/portfolio.py` | 413 | `AgentPortfolioManager` unused; no importer of module |
+| `apps/coordinator-api/src/app/contexts/reputation/services/cross_chain_aggregator.py` | 360 | only refs are docs + a deploy shell script |
+| `apps/coordinator-api/src/app/contexts/infrastructure/services/distributed_framework.py` | 360 | only ref is an unrelated string `"distributed_framework": "pytorch_lightning"` |
+| `apps/coordinator-api/src/app/repositories/confidential.py` | 337 | import in `models/__init__.py` is **commented out**; all 6 repository classes unused |
+| `apps/coordinator-api/src/app/contexts/marketplace/services/marketplace_enhanced.py` | 273 | `EnhancedMarketplaceService` unused |
+| `apps/coordinator-api/src/app/contexts/governance/services/dao_governance_service.py` | 252 | docs/README refs only |
+| `apps/coordinator-api/src/app/contexts/marketplace/services/marketplace_cache_optimizer.py` | 206 | no importers |
+| `apps/coordinator-api/src/app/contexts/marketplace/services/marketplace_scaler.py` | 204 | no importers |
+| `apps/coordinator-api/src/app/contexts/marketplace/services/marketplace_enhanced_simple.py` | 203 | only ref in `security_matrix.py` is a URL path string, not an import |
+| `apps/coordinator-api/src/app/utils/cache_management.py` | 203 | `CacheWarmer`/`CacheInvalidationStrategy` unused (a second, also-unused `CacheWarmer` lives in `utils/cache.py`) |
+
+### Dead Code — CLI migration service (1 file, ~313 lines)
+
+| File | Lines | Evidence |
+|---|---|---|
+| `cli/utils/wallet_migration_service.py` | 313 | `WalletMigrationService` only mentioned in a docs summary file |
+
+### Dead Code — aitbc/ re-export shims (5 files, ~300 lines)
+
+| File | Lines | Evidence |
+|---|---|---|
+| `aitbc/access_control.py` | ~50 | only a test + old docs import it |
+| `aitbc/crypto/password.py` | ~20 | zero importers |
+| `aitbc/security_hardening.py` | ~30 | docs only |
+| `aitbc/metrics.py` | ~157 | only `tests/test_metrics.py` |
+| `aitbc/log_utils/logging.py` | ~40 | only `tests/test_imports.py` (note: AGENTS.md documents this shim as intentional, so confirm before removing) |
+
+### Dead Code — dead classes in live files (~1,000 lines)
+
+| File | Class | Lines | Evidence |
+|---|---|---|---|
+| `apps/coordinator-api/src/app/contexts/agent_coordination/services/task_decomposition.py` | `TaskDecompositionEngine` | 446 | orchestrators import only dataclasses; engine never instantiated |
+| `apps/coordinator-api/src/app/settlement/bridges/base.py` | `EthereumBridge` | 131 | module is live, class not referenced |
+| `apps/coordinator-api/src/app/contexts/security/services/key_management.py` | `MockHSMStorage`, `HSMProviderInterface` | 107 | unused |
+| `apps/coordinator-api/src/app/contexts/analytics/services/performance_monitoring.py` | `AutoOptimizer` | 74 | unused |
+| `apps/coordinator-api/src/app/contexts/multimodal/services/modality_optimization.py` | `ModalityOptimizationManager` | 66 | unused |
+| `apps/agent-coordinator/src/app/protocols/communication.py` | `RedisMessageBroker`, `WebSocketHandler` | 68 | unused |
+
+**Note**: `models/multitenant.py` has ~190 lines of unreferenced SQLModel table models (`TenantUser`, `Invoice`, `TenantApiKey`, `TenantAuditLog`, `TenantMetric`). Deleting these changes `create_all` schema, so treat as "multitenancy feature never wired up" rather than a mechanical delete.
+
+### Duplicate — agent-management vs coordinator-api agent_coordination (7 files, ~4,800 lines)
+
+Verified by diff — five files are near-identical copies:
+
+| agent-management/services | coordinator-api/…/agent_coordination/services | diff lines |
+|---|---|---|
+| `agent_service_marketplace.py` (722) | `agent_marketplace.py` (722) | **10** |
+| `agent_communication.py` (779) | `communication.py` (781) | **20** |
+| `agent_orchestrator.py` (527) | `orchestrator.py` (525) | **29** |
+| `agent_performance_service.py` (764) | `performance.py` (765) | 75 |
+| `agent_portfolio_manager.py` (414) | `portfolio.py` (413) | 80 (both dead) |
+| `agent_security.py` (683) | `security.py` (706) | 102 |
+| `agent_integration.py` (885) | `integration.py` (879) | diverged |
+
+The routers duplicate too (`submit_service_job` = identical 70-line function in both apps), as does `adapters/agent_core_adapters.py`. Note agent-management has no systemd unit deployed (only a wrapper script), while coordinator-api is deployed — coordinator-api looks canonical.
+
+### Duplicate — blockchain RPC clients (2 files, ~100 lines)
+
+| File | Lines | Similarity |
+|---|---|---|
+| `apps/trading/src/trading_service/clients/blockchain.py` | 91 | near-identical to governance version |
+| `apps/governance/src/governance_service/clients/blockchain.py` | 183 | adds tx signing |
+
+Both implement `__init__(rpc_url, timeout)` with httpx.AsyncClient, `get_block_height(chain_id)`, `get_balance/get_account_balance(address, chain_id)`. Governance version adds transaction signing.
+
+### Duplicate — CLI error handling (2 files, ~150 lines)
+
+| File | Lines | Similarity |
+|---|---|---|
+| `cli/utils/error_handling.py` | 194 | same exception classes/decorators |
+| `cli/aitbc_cli/utils/error_handling.py` | 305 | superset with Click integration |
+
+The `aitbc_cli` version is enhanced with `abort()` function, Click integration, JSON/YAML output support.
+
+### Duplicate — DB init modules (3 files, ~200 lines)
+
+| File | Lines | Similarity |
+|---|---|---|
+| `apps/agent-management/src/app/core/database.py` | 44 | near-identical to shared-core |
+| `apps/shared-core/src/app/core/database.py` | 70 | canonical (has async support) |
+| `apps/pool-hub/src/poolhub/database.py` | 53 | async-only variant |
+
+### Duplicate — config classes (5 services, ~150 lines)
+
+Five services define their own `Settings(BaseSettings)` with similar fields (bind_host, bind_port, blockchain_rpc_url) instead of subclassing `ServiceSettings` from `aitbc_shared`:
+
+- `apps/trading/src/trading_service/config.py` (80 lines)
+- `apps/governance/src/governance_service/config.py` (64 lines)
+- `apps/marketplace/src/marketplace_service/config.py` (42 lines)
+- `apps/gpu/src/gpu_service/config.py` (16 lines)
+- `apps/blockchain-event-bridge/src/blockchain_event_bridge/config.py` (10 lines)
+
+Also: `aitbc/config.py` vs `aitbc/config/hierarchical_config.py` — two competing implementations.
+
+### Duplicate — security utils (3 files, ~200 lines)
+
+| File | Lines | Similarity |
+|---|---|---|
+| `apps/coordinator-api/src/app/utils/security.py` | 144 | InputValidator, RequestSigner, APIKeyRotator |
+| `cli/utils/security.py` | 259 | encryption, password validation, multisig |
+| `apps/wallet/src/app/security.py` | 23 | validate_password_rules, wipe_buffer |
+
+Overlapping password validation but different implementations. CLI version has comprehensive encryption (PBKDF2+Fernet). Coordinator-api version has input validation (SQL injection, XSS).
+
+### Duplicate — small copy-pastes (5 patterns, ~100 lines)
+
+- `HealthResponse` + `/health` handler copy-pasted in 6 services
+- CORS setup block in 27 files
+- `_to_decimal` duplicated in exchange handlers
+- retry helper in `cli/utils/__init__.py` vs `aitbc/decorators/`
+- `GlobalMarketplaceOffer` model diverged copies in marketplace service (uses `Decimal`) vs coordinator-api (uses `float`)
+
+### Not duplicates (verified intentional)
+
+- The 4 rate limiters (documented intentional separation)
+- `aitbc/api/` vs `api_utils.py` (re-export pattern)
+- v0.10.5 auth shims (already consolidated)
+
+---
+
+## 🔄 Dependencies
+
+- v0.10.6 must complete before v0.10.7 starts (to avoid conflicts on overlapping cleanup tasks)
+- Agent-management collapse decision required (deprecate vs keep as thin wrapper)
+- agent-coordinator auth shim migration (from v0.10.5) must complete before deleting those shims
+
+---
+
+## 📅 Timeline
+
+- **Week 1**: Dead code elimination (Agent A)
+- **Week 2**: Duplicate consolidation — high-impact (Agent B)
+- **Week 3**: Duplicate consolidation — medium-impact (Agent B)
+- **Week 4**: Verification and testing
