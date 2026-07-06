@@ -10,6 +10,7 @@ Aggregates:
 """
 
 from __future__ import annotations
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -61,7 +62,7 @@ class PortfolioService:
     def __init__(
         self,
         wallet_service_url: str = "http://localhost:8012",
-        blockchain_rpc_url: str = "http://localhost:8006",
+        blockchain_rpc_url: str = BLOCKCHAIN_RPC_URL,
         oracle_url: str = "http://localhost:8203",
         session: Any = None,
     ) -> None:

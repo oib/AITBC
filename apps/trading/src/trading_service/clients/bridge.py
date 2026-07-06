@@ -10,6 +10,7 @@ Atomic settlement (confirm + unlock with HTLC) is deferred to v0.9.0.
 """
 
 from __future__ import annotations
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 import logging
 from typing import Any
@@ -27,7 +28,7 @@ class BridgeClient:
     service.
     """
 
-    def __init__(self, bridge_rpc_url: str = "http://localhost:8202", timeout: float = 10.0) -> None:
+    def __init__(self, bridge_rpc_url: str = BLOCKCHAIN_RPC_URL, timeout: float = 10.0) -> None:
         from aitbc.trading.types import TradingConfig
 
         config = TradingConfig(bridge_rpc_url=bridge_rpc_url)

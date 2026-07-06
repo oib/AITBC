@@ -17,7 +17,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
-from aitbc.constants import KEYSTORE_DIR
+from aitbc.constants import BLOCKCHAIN_RPC_URL as _DEFAULT_RPC_URL, KEYSTORE_DIR
 from aitbc.crypto import encrypt_private_key
 
 # Add CLI utils to path
@@ -28,7 +28,7 @@ wallet_app = FastAPI(title="AITBC Wallet Daemon", debug=False)
 
 # Configuration
 KEYSTORE_PATH = KEYSTORE_DIR
-BLOCKCHAIN_RPC_URL = "http://localhost:8202"
+BLOCKCHAIN_RPC_URL = _DEFAULT_RPC_URL
 CHAIN_ID = os.getenv("CHAIN_ID", "")
 WALLET_PASSWORD = os.getenv("WALLET_IMPORT_PASSWORD", "")
 

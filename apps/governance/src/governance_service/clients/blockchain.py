@@ -15,6 +15,7 @@ verifier (see ``aitbc.crypto.transaction_service``).
 """
 
 from __future__ import annotations
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 import json
 import logging
@@ -45,7 +46,7 @@ class BlockchainClient:
     queries, transaction submission, and block height queries.
     """
 
-    def __init__(self, rpc_url: str = "http://localhost:8202", timeout: float = 10.0) -> None:
+    def __init__(self, rpc_url: str = BLOCKCHAIN_RPC_URL, timeout: float = 10.0) -> None:
         self._rpc_url = rpc_url.rstrip("/")
         self._timeout = timeout
 

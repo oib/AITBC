@@ -6,6 +6,7 @@ Used by the chain discovery service (B4) to monitor registered chains.
 """
 
 from __future__ import annotations
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 import logging
 from typing import Any, cast
@@ -23,7 +24,7 @@ class BlockchainClient:
     use and must be closed via ``aclose()`` during service shutdown.
     """
 
-    def __init__(self, rpc_url: str = "http://localhost:8202", timeout: float = 10.0) -> None:
+    def __init__(self, rpc_url: str = BLOCKCHAIN_RPC_URL, timeout: float = 10.0) -> None:
         self._rpc_url = rpc_url.rstrip("/")
         self._timeout = timeout
         self._client: httpx.AsyncClient | None = None

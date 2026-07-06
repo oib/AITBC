@@ -6,6 +6,7 @@ Includes automatic handler triggering for PING, REQUEST_COINS, etc.
 
 import json
 import os
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -358,7 +359,7 @@ def _has_received_initial_coins(sender: str) -> bool:
 def _submit_transaction(transaction: dict[str, Any]) -> dict[str, Any] | None:
     """Submit a signed transaction to the blockchain RPC."""
     try:
-        rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+        rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
         import httpx
 
         # Ensure chain_id is present in the transaction body

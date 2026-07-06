@@ -48,16 +48,16 @@ async def test_coordinator_api_handler_close():
 @pytest.mark.asyncio
 async def test_agent_daemon_handler_initialization():
     """Test agent daemon handler initialization."""
-    handler = AgentDaemonHandler("http://localhost:8006")
+    handler = AgentDaemonHandler("http://localhost:8202")
 
-    assert handler.blockchain_rpc_url == "http://localhost:8006"
+    assert handler.blockchain_rpc_url == "http://localhost:8202"
     assert handler._client is None
 
 
 @pytest.mark.asyncio
 async def test_agent_daemon_handler_handle_transaction():
     """Test agent daemon handler handling a transaction."""
-    handler = AgentDaemonHandler("http://localhost:8006")
+    handler = AgentDaemonHandler("http://localhost:8202")
 
     tx_data = {"hash": "0x123", "type": "agent_message", "to": "agent_address", "payload": {"trigger": "process"}}
 
@@ -70,7 +70,7 @@ async def test_agent_daemon_handler_handle_transaction():
 @pytest.mark.asyncio
 async def test_agent_daemon_handler_is_agent_transaction():
     """Test checking if transaction is an agent transaction."""
-    handler = AgentDaemonHandler("http://localhost:8006")
+    handler = AgentDaemonHandler("http://localhost:8202")
 
     # Agent transaction
     assert handler._is_agent_transaction({"payload": {"trigger": "test"}}) is True

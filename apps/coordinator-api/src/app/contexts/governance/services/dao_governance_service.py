@@ -6,6 +6,7 @@ Submits governance votes and treasury allocations to the blockchain node RPC.
 """
 
 from __future__ import annotations
+from aitbc.constants import BLOCKCHAIN_RPC_URL as _DEFAULT_RPC_URL
 
 import os
 from datetime import UTC, datetime, timedelta
@@ -21,7 +22,7 @@ from ..schemas.dao_governance import AllocationCreate, MemberCreate, ProposalCre
 
 logger = get_logger(__name__)
 
-BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")
+BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", _DEFAULT_RPC_URL)
 
 
 async def _submit_governance_vote_to_chain(
