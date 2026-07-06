@@ -9,54 +9,8 @@ from collections.abc import Callable
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.exceptions import AITBCError
 
 logger = get_logger(__name__)
-
-
-def retry(
-    max_attempts: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
-    exceptions: tuple[type[Exception], ...] = (Exception,),
-    on_failure: Callable[[Exception], Any] | None = None,
-):
-    """
-    Retry a function with exponential backoff.
-
-    Args:
-        max_attempts: Maximum number of retry attempts
-        delay: Initial delay between retries in seconds
-        backoff: Multiplier for delay after each retry
-        exceptions: Tuple of exception types to catch
-        on_failure: Optional callback function called on final failure
-
-    Returns:
-        Decorated function that retries on failure
-    """
-
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            last_exception = None
-            current_delay = delay
-            for attempt in range(max_attempts):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    last_exception = e
-                    if attempt < max_attempts - 1:
-                        time.sleep(current_delay)
-                        current_delay *= backoff
-                    else:
-                        if on_failure:
-                            on_failure(e)
-                        raise
-            raise last_exception if last_exception else AITBCError("Retry failed")
-
-        return wrapper
-
-    return decorator
 
 
 def timing(func: Callable) -> Callable:

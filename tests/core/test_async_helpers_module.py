@@ -7,8 +7,6 @@ import asyncio
 import importlib.util
 from pathlib import Path
 
-import pytest
-
 
 # Load module directly by file path to avoid namespace conflicts
 def load_module_from_path(module_name, file_path):
@@ -249,81 +247,6 @@ class TestAsyncToSync:
 
         result = async_func(5, multiplier=3)
         assert result == 15
-
-
-# ============================================================================
-# Retry Async Tests
-# ============================================================================
-
-
-class TestRetryAsync:
-    """Test retry_async function"""
-
-    def test_retry_async_success_first_attempt(self):
-        call_count = 0
-
-        async def coro_func():
-            nonlocal call_count
-            call_count += 1
-            return "success"
-
-        result = asyncio.run(async_helpers.retry_async(coro_func))
-        assert result == "success"
-        assert call_count == 1
-
-    def test_retry_async_success_after_retry(self):
-        call_count = 0
-
-        async def coro_func():
-            nonlocal call_count
-            call_count += 1
-            if call_count < 2:
-                raise ValueError("fail")
-            return "success"
-
-        result = asyncio.run(async_helpers.retry_async(coro_func, max_attempts=3))
-        assert result == "success"
-        assert call_count == 2
-
-    def test_retry_async_max_attempts_exceeded(self):
-        call_count = 0
-
-        async def coro_func():
-            nonlocal call_count
-            call_count += 1
-            raise ValueError("always fails")
-
-        with pytest.raises(ValueError):
-            asyncio.run(async_helpers.retry_async(coro_func, max_attempts=3))
-        assert call_count == 3
-
-    def test_retry_async_custom_delay(self):
-        call_count = 0
-
-        async def coro_func():
-            nonlocal call_count
-            call_count += 1
-            if call_count < 2:
-                raise ValueError("fail")
-            return "success"
-
-        result = asyncio.run(async_helpers.retry_async(coro_func, max_attempts=3, delay=0.01))
-        assert result == "success"
-        assert call_count == 2
-
-    def test_retry_async_custom_backoff(self):
-        call_count = 0
-
-        async def coro_func():
-            nonlocal call_count
-            call_count += 1
-            if call_count < 3:
-                raise ValueError("fail")
-            return "success"
-
-        result = asyncio.run(async_helpers.retry_async(coro_func, max_attempts=5, delay=0.01, backoff=1.5))
-        assert result == "success"
-        assert call_count == 3
 
 
 # ============================================================================
