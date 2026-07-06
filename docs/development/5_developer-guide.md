@@ -19,11 +19,23 @@ Build on the AITBC platform: SDKs, APIs, bounties, and resources for developers.
 git clone https://github.com/oib/AITBC.git
 cd aitbc
 
-# Start all services
-docker-compose up -d
+# One-command setup: creates venv, installs deps, installs pre-commit, runs checks
+./scripts/dev/setup.sh
 
-# Check status
-docker-compose ps
+# Or with service startup after setup
+./scripts/dev/setup.sh --services
+
+# Re-run checks only (no install)
+./scripts/dev/setup.sh --check
+```
+
+### Manual Setup (without the script)
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -e ".[dev]"
+pre-commit install
 ```
 
 ## Architecture Overview
