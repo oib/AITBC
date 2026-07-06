@@ -2,9 +2,9 @@
 
 This file is the source of truth for project conventions, verification commands, and per-agent task plans. Agent-specific plans live at `docs/releases/<version>/AGENTS.md`; this root file holds the stable conventions and the **current** in-flight plan.
 
-**Current in-flight plan**: [v0.10.7](docs/releases/v0.10.7/AGENTS.md) — Dead Code Elimination (coordinator-api + agent-management) & Duplicate Consolidation (delete ~5,800 lines of dead code, collapse agent-management services onto coordinator-api's agent_coordination context, consolidate blockchain RPC clients, CLI error handling, DB init, config classes, security utils, health endpoints, CORS setup) — ✅ complete, pending final commit
+**Current in-flight plan**: [v0.10.8](docs/releases/v0.10.8/AGENTS.md) — Config Consolidation & Dead Retry Helper Cleanup (resolve config.py vs hierarchical_config.py package shadowing, consolidate simple health endpoints, delete 3 unused retry helpers)
 
-**Previous**: [v0.10.6](docs/releases/v0.10.6/AGENTS.md) — Dead Code Elimination, Decimal Migration Completion & Duplicate Consolidation (delete ~1,570 lines of dead modules, complete Decimal migration for wallet/trading/marketplace/pool-hub, fix blocking I/O + N+1 + missing indexes, consolidate circuit breakers/address validation/config classes/health endpoints) — 🚧 in progress
+**Previous**: [v0.10.7](docs/releases/v0.10.7/AGENTS.md) — Dead Code Elimination (coordinator-api + agent-management) & Duplicate Consolidation (delete ~5,800 lines of dead code, deprecate agent-management, consolidate blockchain RPC clients, CLI error handling, DB init, config classes, security utils, health endpoints, CORS setup) — ✅ complete
 
 ## Project Layout
 
@@ -130,6 +130,7 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.10.5** — JWT/Auth Consolidation (shared `aitbc/auth/` module: unified JWT handler, password hashing, API keys, RBAC, FastAPI dependencies, middleware, security matrix; old app-level auth modules converted to re-export shims with deprecation warnings): <ref_file file="/opt/aitbc/docs/releases/v0.10.5/change.log" /> ✅ complete
 - **v0.10.6** — Dead Code Elimination, Decimal Migration Completion & Duplicate Consolidation (delete 7 dead `aitbc/` modules ~1,570 lines, complete Decimal migration for wallet/trading/marketplace/pool-hub, fix blocking I/O + mempool N+1 + missing indexes, consolidate circuit breakers/address validation/config classes/health endpoints, sweep stale port 8006): <ref_file file="/opt/aitbc/docs/releases/v0.10.6/change.log" /> 🚧 in progress
 - **v0.10.7** — Dead Code Elimination (coordinator-api + agent-management) & Duplicate Consolidation (delete ~5,800 lines of dead code, deprecate agent-management, consolidate blockchain RPC clients, CLI error handling, DB init, config classes, security utils, health endpoints, CORS setup): <ref_file file="/opt/aitbc/docs/releases/v0.10.7/change.log" /> ✅ complete
+- **v0.10.8** — Config Consolidation & Dead Retry Helper Cleanup (resolve config.py vs hierarchical_config.py package shadowing, consolidate simple health endpoints, delete 3 unused retry helpers): <ref_file file="/opt/aitbc/docs/releases/v0.10.8/change.log" /> 📋 planned
 
 ### Post-v1 Vision (not fit until after v1.0.0)
 - **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
@@ -153,6 +154,7 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.10.5                                         (JWT/auth consolidation: shared aitbc/auth/ module, re-export shims) ✅
   → v0.10.6                                         (dead code elimination, Decimal migration completion, duplicate consolidation) 🚧
   → v0.10.7                                         (dead code elimination: coordinator-api + agent-management, duplicate consolidation: blockchain RPC, CLI error handling, DB init, config, security, health, CORS) ✅
+  → v0.10.8                                         (config consolidation: package shadowing fix, health endpoint helper, dead retry helper cleanup) 📋
   → v1.0.0                                          (production readiness)
   → v2.0.0                                          (vision — questionable features, parked for re-evaluation)
 ```
