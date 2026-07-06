@@ -2,7 +2,7 @@ import os
 
 import uvicorn
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from aitbc.middleware import setup_cors
 
 from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.rate_limiting import RateLimitMiddleware
@@ -26,13 +26,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=validated_cors_origins(settings.cors_origins),
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    setup_cors(app, allow_origins=validated_cors_origins(settings.cors_origins))
 
     # Add rate limiting middleware
     app.add_middleware(RateLimitMiddleware, rate=100, per=60)

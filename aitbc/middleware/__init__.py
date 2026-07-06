@@ -3,6 +3,7 @@ Shared middleware for AITBC services
 """
 
 from .correlation import CorrelationIDMiddleware
+from .cors import setup_cors
 from .error_handler import ErrorHandlerMiddleware
 from .performance import PerformanceLoggingMiddleware
 from .prometheus_metrics import PrometheusMetricsMiddleware
@@ -16,4 +17,5 @@ __all__ = [
     "PrometheusMetricsMiddleware",
     "RequestIDMiddleware",
     "RequestValidationMiddleware",
+    "setup_cors",
 ]
