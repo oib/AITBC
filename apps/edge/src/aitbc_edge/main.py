@@ -5,13 +5,13 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.async_tasks import create_task_with_logging
+from aitbc.network import SharedHttpClient
 
 configure_logging(level="INFO", service_name="edge", to_file=True)
 
@@ -28,16 +28,16 @@ logger = get_logger(__name__)
 
 async def _report_health_to_coordinator() -> None:
     """Background task: periodically report health to agent-coordinator (v0.6.6)."""
-    async with httpx.AsyncClient(timeout=10) as client:
-        while True:
-            try:
-                await client.post(
-                    f"{settings.agent_coordinator_url}/agents/heartbeat",
-                    json={"service": "aitbc-edge", "status": "healthy", "port": settings.app_port},
-                )
-            except Exception as e:
-                logger.debug("Coordinator heartbeat failed: %s", e)
-            await asyncio.sleep(settings.agent_heartbeat_interval_seconds)
+    while True:
+        try:
+            await SharedHttpClient.post(
+                f"{settings.agent_coordinator_url}/agents/heartbeat",
+                json={"service": "aitbc-edge", "status": "healthy", "port": settings.app_port},
+                timeout=10.0,
+            )
+        except Exception as e:
+            logger.debug("Coordinator heartbeat failed: %s", e)
+        await asyncio.sleep(settings.agent_heartbeat_interval_seconds)
 
 
 async def _register_edge_node_on_blockchain() -> None:
@@ -56,10 +56,9 @@ async def _register_edge_node_on_blockchain() -> None:
         "registered_by": os.getenv("WALLET_ADDRESS", "edge-admin"),
     }
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(f"{rpc_url}/rpc/edge/register", json=payload)
-            resp.raise_for_status()
-            logger.info("Edge node registered on blockchain: %s", node_id)
+        resp = await SharedHttpClient.post(f"{rpc_url}/rpc/edge/register", json=payload, timeout=10.0)
+        resp.raise_for_status()
+        logger.info("Edge node registered on blockchain: %s", node_id)
     except Exception as e:
         logger.warning("Failed to register edge node on blockchain: %s", e)
 
