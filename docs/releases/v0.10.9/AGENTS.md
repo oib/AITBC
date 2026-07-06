@@ -217,8 +217,9 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes aitbc/ && ./venv/b
 | B2 | Clean up stale port 8006 references in test fixtures (~60 occurrences) | 🟡 P2 | `tests/fixtures/cli_mocks.py`, `tests/fixtures/multi_chain.py`, `tests/unit/test_http_pool.py`, `tests/unit/test_island_registry.py`, `tests/unit/test_sync_source_resolver.py` | ⬜ |
 | B3 | Update coordinator-api CORS config to use current port constants | 🟡 P2 | `apps/coordinator-api/src/app/config.py` | ⬜ |
 | B4 | Fix hardcoded wallet port 20000 in payments service | 🟡 P2 | `apps/coordinator-api/src/app/contexts/payments/services/payments.py` | ⬜ |
-| B5 | Migrate auth shim importers to `aitbc.auth` + delete deprecated shims | 🟡 P2 | 7 auth shim files + internal importers | ⬜ |
-| B6 | Remove agent-management references from documentation | 🟢 P3 | `docs/getting-started/setup-service-selection.md` | ⬜ |
+| B5 | Fix health-check.sh hardcoded ports | 🟡 P2 | `health-check.sh` | ✅ |
+| B6 | Migrate auth shim importers to `aitbc.auth` + delete deprecated shims | 🟡 P2 | 7 auth shim files + internal importers | ⬜ |
+| B7 | Remove agent-management references from documentation | 🟢 P3 | `docs/getting-started/setup-service-selection.md` | ⬜ |
 
 ### Agent B — Detailed Instructions
 
@@ -346,7 +347,50 @@ cd /opt/aitbc && grep -n "20000" apps/coordinator-api/src/app/contexts/payments/
 
 ---
 
-#### B5: Migrate auth shim importers to `aitbc.auth` + delete deprecated shims
+#### B5: Fix health-check.sh hardcoded ports
+
+**Problem**: `health-check.sh` has hardcoded outdated ports that don't match current service ports.
+
+**Current obsolete ports** (lines 26-31):
+- `8006` (Blockchain - should be 8202)
+- `8001` (Exchange - should be 8106)
+- `9001` (Agent Coordinator - should be 8107)
+- `8000` (Wallet - should be 8108)
+- `8102` (Marketplace - should be 8081)
+
+**Current constants from `aitbc/constants.py`**:
+- `BLOCKCHAIN_RPC_PORT=8202`
+- `COORDINATOR_API_PORT=8203`
+- `EXCHANGE_PORT=8001` (but exchange actually uses 8106)
+- `AGENT_COORDINATOR_PORT=8107`
+- `MARKETPLACE_PORT=8081`
+- `WALLET_PORT=8108`
+
+**Fix**:
+1. Update the SERVICE_ENDPOINTS array in `health-check.sh` to use current ports:
+```bash
+declare -A SERVICE_ENDPOINTS=(
+    ["aitbc-blockchain-rpc"]="http://localhost:8202/health"
+    ["aitbc-coordinator-api"]="http://localhost:8203/health"
+    ["aitbc-exchange-api"]="http://localhost:8106/health"
+    ["aitbc-agent-coordinator"]="http://localhost:8107/health"
+    ["aitbc-marketplace"]="http://localhost:8081/health"
+    ["aitbc-wallet"]="http://localhost:8108/health"
+)
+```
+2. Update line 168 blockchain sync check URL from `http://localhost:8006` to `http://localhost:8202`
+
+**Verification**:
+```bash
+cd /opt/aitbc && grep -n "8006\|8001\|9001\|8000" health-check.sh
+# Expected: no results (all replaced)
+```
+
+**Estimated impact**: ~8 lines changed.
+
+---
+
+#### B7: Migrate auth shim importers to `aitbc.auth` + delete deprecated shims
 
 **Problem**: Deprecated auth shims from v0.10.5 still have internal importers, causing hundreds of deprecation warnings in integration tests.
 
@@ -456,6 +500,7 @@ After completing all tasks:
 - [ ] Port 8006 references in test fixtures replaced with 8202 (~60 occurrences)
 - [ ] Coordinator-api CORS config updated to current ports
 - [ ] Payments service wallet port updated to use WALLET_PORT constant
+- [ ] health-check.sh ports updated to current constants
 - [ ] Auth shim importers migrated to `aitbc.auth`
 - [ ] Deprecated auth shim files deleted (~200 lines)
 - [ ] Agent-management references removed from documentation
