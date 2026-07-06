@@ -89,7 +89,7 @@ redis = "8.0.0"
 psutil = "7.2.2"
 tenseal = "0.3.16"
 idna = "3.18"
-hypothesis = "6.155.2"
+hypothesis = "6.156.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "9.0.3"
@@ -136,7 +136,8 @@ minimal = [
 [tool.mypy]
 python_version = "3.13"
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
-mypy_path = ["packages/aitbc-shared"]
+mypy_path = ["packages/aitbc-shared", "apps/coordinator-api/src"]
+explicit_package_bases = true
 
 # Enable stricter type checking for incremental migration
 check_untyped_defs = true
@@ -153,20 +154,12 @@ exclude = [
     "^aitbc/tracing\\.py$",
     "^aitbc/tracing_opentelemetry\\.py$",
 
-    # Exclude large legacy modules for incremental migration
-    "^aitbc/agent_bridge/",
-    "^aitbc/agent_compliance/",
-    "^aitbc/agent_protocols/",
-    "^aitbc/agent_registry/",
-    "^aitbc/agent_trading/",
-    "^aitbc/oracles/",
-    "^aitbc/training_setup/",
-
     # Exclude all apps except coordinator-api core (incremental)
     "^apps/(?!coordinator-api)",
 
     # Exclude test files
     "^tests/",
+    "^aitbc/.*tests/",
     "^cli/",
 
     # Exclude packages except aitbc-shared (incremental)
@@ -186,29 +179,6 @@ exclude = [
     "^apps/coordinator-api/demo_client_miner_workflow\\.py$",
     "^apps/coordinator-api/init_db\\.py$",
     "^apps/coordinator-api/examples/",
-
-    # Exclude large coordinator-api contexts for incremental migration
-    "^apps/coordinator-api/src/app/contexts/advanced_rl/",
-    "^apps/coordinator-api/src/app/contexts/ai_analytics/",
-    "^apps/coordinator-api/src/app/contexts/community/",
-    "^apps/coordinator-api/src/app/contexts/confidential/",
-    "^apps/coordinator-api/src/app/contexts/ecosystem/",
-    "^apps/coordinator-api/src/app/contexts/governance/",
-    "^apps/coordinator-api/src/app/contexts/agent_coordination/",
-    "^apps/coordinator-api/src/app/contexts/infrastructure/",
-    "^apps/coordinator-api/src/app/contexts/language/",
-    "^apps/coordinator-api/src/app/contexts/marketplace/",
-    "^apps/coordinator-api/src/app/contexts/multimodal/",
-    "^apps/coordinator-api/src/app/contexts/security/",
-    "^apps/coordinator-api/src/app/contexts/staking/",
-
-    # Exclude large coordinator-api services for incremental migration
-    "^apps/coordinator-api/src/app/services/agent_coordination/",
-    "^apps/coordinator-api/src/app/services/ecosystem_service\\.py$",
-    "^apps/coordinator-api/src/app/services/enterprise_integration/",
-    "^apps/coordinator-api/src/app/services/gpu_multimodal\\.py$",
-    "^apps/coordinator-api/src/app/services/multi_chain_transaction_manager\\.py$",
-    "^apps/coordinator-api/src/app/services/portfolio_service\\.py$",
 ]
 
 [[tool.mypy.overrides]]
