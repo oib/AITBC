@@ -2,7 +2,7 @@
 
 This file is the source of truth for project conventions, verification commands, and per-agent task plans. Agent-specific plans live at `docs/releases/<version>/AGENTS.md`; this root file holds the stable conventions and the **current** in-flight plan.
 
-**Current in-flight plan**: [v0.10.3](docs/releases/v0.10.3/AGENTS.md) — Bug Fix & Hardening (critical bugs, resource leaks, race conditions, configuration mismatches)
+**Current in-flight plan**: [v0.10.6](docs/releases/v0.10.6/AGENTS.md) — Dead Code Elimination, Decimal Migration Completion & Duplicate Consolidation (delete ~1,570 lines of dead modules, complete Decimal migration for wallet/trading/marketplace/pool-hub, fix blocking I/O + N+1 + missing indexes, consolidate circuit breakers/address validation/config classes/health endpoints)
 
 ## Project Layout
 
@@ -126,6 +126,7 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.10.3** — Bug Fix & Hardening (28 issues fixed + 1 skipped: exchange financial safety, resource leaks, configuration mismatches, concurrency safety, security hardening, database indexes, CLI routing, pre-existing staking router fix): <ref_file file="/opt/aitbc/docs/releases/v0.10.3/change.log" /> ✅ complete
 - **v0.10.4** — Performance, Correctness & Cleanup (24 tasks: Decimal migration for pool-hub billing + trading pricing/bid engines, N+1 query elimination, missing DB indexes, asyncio.Lock race condition fixes, ~1,000 lines dead code deletion, HTTP client/JWT/retry/config-validator consolidation): <ref_file file="/opt/aitbc/docs/releases/v0.10.4/change.log" /> 🚧 in progress
 - **v0.10.5** — JWT/Auth Consolidation (shared `aitbc/auth/` module: unified JWT handler, password hashing, API keys, RBAC, FastAPI dependencies, middleware, security matrix; old app-level auth modules converted to re-export shims with deprecation warnings): <ref_file file="/opt/aitbc/docs/releases/v0.10.5/change.log" /> ✅ complete
+- **v0.10.6** — Dead Code Elimination, Decimal Migration Completion & Duplicate Consolidation (delete 7 dead `aitbc/` modules ~1,570 lines, complete Decimal migration for wallet/trading/marketplace/pool-hub, fix blocking I/O + mempool N+1 + missing indexes, consolidate circuit breakers/address validation/config classes/health endpoints, sweep stale port 8006): <ref_file file="/opt/aitbc/docs/releases/v0.10.6/change.log" /> 🚧 in progress
 
 ### Post-v1 Vision (not fit until after v1.0.0)
 - **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
@@ -147,6 +148,7 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.10.3                                         (bug fix & hardening: 28 issues fixed + 1 skipped — exchange financial safety, resource leaks, config mismatches, concurrency, security) ✅
   → v0.10.4                                         (performance, correctness & cleanup: Decimal migration, N+1 elimination, indexes, race conditions, dead code deletion, infrastructure consolidation) 🚧
   → v0.10.5                                         (JWT/auth consolidation: shared aitbc/auth/ module, re-export shims) ✅
+  → v0.10.6                                         (dead code elimination, Decimal migration completion, duplicate consolidation) 🚧
   → v1.0.0                                          (production readiness)
   → v2.0.0                                          (vision — questionable features, parked for re-evaluation)
 ```
