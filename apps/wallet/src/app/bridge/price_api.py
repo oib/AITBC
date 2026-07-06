@@ -3,15 +3,16 @@ ETH-AIT Price API
 Fetches ETH price from CoinGecko and calculates AIT exchange rate.
 """
 
+from datetime import datetime
 from typing import Any
 
-import requests
+from aitbc.network import SharedHttpClient
 
 # Fixed AIT price in USD (for simplicity in MVP)
 AIT_USD_PRICE = 1.0  # 1 AIT = $1 USD
 
 
-def get_eth_prices() -> dict[str, float] | None:
+async def get_eth_prices() -> dict[str, float] | None:
     """
     Fetch current ETH price in USD and EUR from CoinGecko API.
     Returns None if API call fails.
@@ -21,7 +22,7 @@ def get_eth_prices() -> dict[str, float] | None:
         url = "https://api.coingecko.com/api/v3/simple/price"
         params = {"ids": "ethereum", "vs_currencies": "usd,eur"}
 
-        response = requests.get(url, params=params, timeout=10)
+        response = await SharedHttpClient.get(url, params=params, timeout=10.0)
         response.raise_for_status()
 
         data = response.json()
@@ -38,23 +39,23 @@ def get_eth_prices() -> dict[str, float] | None:
         return None
 
 
-def get_eth_price_usd() -> float | None:
+async def get_eth_price_usd() -> float | None:
     """
     Fetch current ETH price in USD from CoinGecko API.
     Returns None if API call fails.
     """
-    prices = get_eth_prices()
+    prices = await get_eth_prices()
     return prices["usd"] if prices else None
 
 
-def calculate_ait_amount(eth_amount: float, eth_price_usd: float | None = None) -> float | None:
+async def calculate_ait_amount(eth_amount: float, eth_price_usd: float | None = None) -> float | None:
     """
     Calculate AIT amount based on ETH deposited.
 
     Formula: AIT = (ETH * ETH_USD) / AIT_USD
     """
     if eth_price_usd is None:
-        eth_price_usd = get_eth_price_usd()
+        eth_price_usd = await get_eth_price_usd()
 
     if eth_price_usd is None:
         return None
@@ -62,11 +63,11 @@ def calculate_ait_amount(eth_amount: float, eth_price_usd: float | None = None) 
     return (eth_amount * eth_price_usd) / AIT_USD_PRICE
 
 
-def get_exchange_rate() -> dict[str, Any]:
+async def get_exchange_rate() -> dict[str, Any]:
     """
     Get current ETH-AIT exchange rate information for USD and EUR.
     """
-    eth_prices = get_eth_prices()
+    eth_prices = await get_eth_prices()
 
     if eth_prices is None:
         return {"success": False, "error": "Failed to fetch ETH prices"}
@@ -79,5 +80,5 @@ def get_exchange_rate() -> dict[str, Any]:
         "ait_eur": AIT_USD_PRICE * (eth_prices["eur"] / eth_prices["usd"]),  # Approximate EUR price
         "eth_ait_rate_usd": eth_prices["usd"] / AIT_USD_PRICE,
         "eth_ait_rate_eur": eth_prices["eur"] / (AIT_USD_PRICE * (eth_prices["eur"] / eth_prices["usd"])),
-        "timestamp": __import__("datetime").datetime.now().isoformat(),
+        "timestamp": datetime.now().isoformat(),
     }

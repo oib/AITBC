@@ -15,7 +15,7 @@ class Job(SQLModel, table=True):
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True, index=True)
     client_id: str = Field(index=True)
 
-    state: str = Field(default="QUEUED", max_length=20)
+    state: str = Field(default="QUEUED", max_length=20, index=True)
     payload: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
     constraints: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
 
