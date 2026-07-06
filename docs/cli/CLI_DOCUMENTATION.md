@@ -377,11 +377,9 @@ python -m pytest cli/tests/ --cov=cli --cov-report=html
 
 ### Code Style
 ```bash
-# Format code
-black cli/
-
-# Lint code
-flake8 cli/
+# Format and lint code
+ruff check cli/
+ruff format cli/
 
 # Type checking
 mypy cli/
