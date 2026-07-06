@@ -27,7 +27,7 @@ Development tools, testing frameworks, and code quality utilities.
 
 **Includes:**
 - Testing (pytest, pytest-asyncio, pytest-mock, pytest-cov, httpx)
-- Code quality (black, flake8, mypy, pre-commit, ruff)
+- Code quality (ruff, mypy, pre-commit)
 - CLI tools (click, rich, typer, tabulate, keyring)
 - Development utilities (tqdm, ipython)
 
@@ -42,7 +42,7 @@ Specialized dependency sets for specific use cases.
 **Available modules:**
 - `ai-ml.txt` - AI/ML and translation dependencies (torch, transformers, openai, google-cloud-translate, deepl, spacy, nltk)
 - `security.txt` - Security and compliance (python-jose, passlib, sentry-sdk)
-- `testing.txt` - Testing and quality (pytest, black, flake8, mypy, pre-commit)
+- `testing.txt` - Testing and quality (pytest, ruff, mypy, pre-commit)
 
 **When to use:**
 - Services requiring AI/ML capabilities

@@ -50,7 +50,7 @@ The AITBC platform consists of:
 ### Code Style
 
 - **Rust**: Use `rustfmt` and `clippy`
-- **Python**: Follow PEP 8, use `black` and `flake8`
+- **Python**: Follow PEP 8, use `ruff` (linting + formatting)
 - **TypeScript**: Use Prettier and ESLint
 - **Go**: Use `gofmt`
 
