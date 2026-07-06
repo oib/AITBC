@@ -1,6 +1,7 @@
 """Configuration for AITBC Marketplace Service (v0.6.6)."""
 
 from __future__ import annotations
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 import os
 
@@ -19,7 +20,7 @@ class Settings(BaseSettings):
         model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
 
     # Blockchain integration
-    blockchain_rpc_url: str = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+    blockchain_rpc_url: str = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
     default_chain_id: str = os.getenv("DEFAULT_CHAIN_ID", "ait-hub")
 
     # Agent coordinator integration (v0.6.6 matching → task queue)
