@@ -21,9 +21,11 @@ from app.agent_identity.wallet_adapter_enhanced import (  # type: ignore
 # get_bridge_statistics, get_liquidity_pools) which BridgeClientAdapter does not yet
 # provide. Migrate callers when feasible.
 from app.contexts.cross_chain.services.cross_chain.bridge_enhanced import (  # type: ignore
+    CrossChainBridgeService,
+)
+from app.contexts.cross_chain.services.cross_chain.bridge_types import (  # type: ignore
     BridgeProtocol,
     BridgeSecurityLevel,
-    CrossChainBridgeService,
 )
 from ..domain.chain_transaction import TransactionType
 from app.contexts.reputation.services.reputation_engine import CrossChainReputationEngine  # type: ignore
@@ -69,7 +71,7 @@ async def create_enhanced_wallet(
             identity = await identity_manager.get_identity_by_address(owner_address)
             if not identity:
                 raise HTTPException(status_code=404, detail="Identity not found for address")
-        adapter = WalletAdapterFactory.create_adapter(chain_id, "http://aitbc:8006", security_level)
+        adapter = WalletAdapterFactory.create_adapter(chain_id, "http://aitbc:8202", security_level)
         wallet_data = await adapter.create_wallet(owner_address, security_config)
         wallet_id = f"wallet_{uuid4().hex[:8]}"
         return {
@@ -242,7 +244,7 @@ async def create_bridge_request(
     """Create a cross-chain bridge request"""
     try:
         bridge_service = CrossChainBridgeService(session)
-        chain_configs = {source_chain_id: {"rpc_url": "http://aitbc:8006"}, target_chain_id: {"rpc_url": "http://aitbc1:8006"}}
+        chain_configs = {source_chain_id: {"rpc_url": "http://aitbc:8202"}, target_chain_id: {"rpc_url": "http://aitbc1:8202"}}
         await bridge_service.initialize_bridge(chain_configs)
         bridge_request = await bridge_service.create_bridge_request(
             user_address=user_address,
@@ -338,7 +340,7 @@ async def submit_transaction(
     """Submit a multi-chain transaction"""
     try:
         tx_manager = ChainTransactionManager(session)
-        chain_configs = {chain_id: {"rpc_url": "http://aitbc:8006"}}
+        chain_configs = {chain_id: {"rpc_url": "http://aitbc:8202"}}
         await tx_manager.initialize(chain_configs)
         result = await tx_manager.submit_transaction(
             user_id=user_id,
@@ -380,7 +382,7 @@ async def get_transaction_history(
     """Get transaction history with filtering"""
     try:
         tx_manager = ChainTransactionManager(session)
-        chain_configs = {1000: {"rpc_url": "http://aitbc:8006"}, 1001: {"rpc_url": "http://aitbc1:8006"}}
+        chain_configs = {1000: {"rpc_url": "http://aitbc:8202"}, 1001: {"rpc_url": "http://aitbc1:8202"}}
         await tx_manager.initialize(chain_configs)
         history = await tx_manager.get_transaction_history(
             user_id=user_id,
@@ -462,7 +464,7 @@ async def get_transaction_statistics(
     """Get transaction statistics"""
     try:
         tx_manager = ChainTransactionManager(session)
-        chain_configs = {1000: {"rpc_url": "http://aitbc:8006"}, 1001: {"rpc_url": "http://aitbc1:8006"}}
+        chain_configs = {1000: {"rpc_url": "http://aitbc:8202"}, 1001: {"rpc_url": "http://aitbc1:8202"}}
         await tx_manager.initialize(chain_configs)
         stats = await tx_manager.get_transaction_statistics(time_period_hours, chain_id)
         return stats  # type: ignore[no-any-return]
@@ -484,7 +486,7 @@ async def optimize_transaction_routing(
     """Optimize transaction routing for best performance"""
     try:
         tx_manager = ChainTransactionManager(session)
-        chain_configs = {1000: {"rpc_url": "http://aitbc:8006"}, 1001: {"rpc_url": "http://aitbc1:8006"}}
+        chain_configs = {1000: {"rpc_url": "http://aitbc:8202"}, 1001: {"rpc_url": "http://aitbc1:8202"}}
         await tx_manager.initialize(chain_configs)
         optimization = await tx_manager.optimize_transaction_routing(
             transaction_type=transaction_type, amount=amount, from_chain=from_chain, to_chain=to_chain, urgency=urgency
@@ -534,7 +536,7 @@ async def get_cross_chain_health(request: Request, session: Annotated[Session, D
         supported_chains = WalletAdapterFactory.get_supported_chains()
         bridge_service = CrossChainBridgeService(session)
         tx_manager = ChainTransactionManager(session)
-        chain_configs = {chain_id: {"rpc_url": "http://aitbc:8006"} for chain_id in [1000, 1001]}
+        chain_configs = {chain_id: {"rpc_url": "http://aitbc:8202"} for chain_id in [1000, 1001]}
         await bridge_service.initialize_bridge(chain_configs)
         await tx_manager.initialize(chain_configs)
         bridge_stats = await bridge_service.get_bridge_statistics(24)
