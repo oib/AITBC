@@ -19,6 +19,8 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from aitbc.network import SharedHttpClient
+
 router = APIRouter(prefix="/inference", tags=["inference"])
 
 # Ollama configuration
@@ -75,18 +77,17 @@ async def generate(request: Request, req: InferenceRequest) -> dict[str, Any]:
         payload["context"] = req.context
 
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload)
-            response.raise_for_status()
-            result = response.json()
-            return {
-                "success": True,
-                "response": result.get("response", ""),
-                "model": req.model,
-                "context": result.get("context"),
-                "total_duration": result.get("total_duration"),
-                "eval_count": result.get("eval_count"),
-            }
+        response = await SharedHttpClient.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload, timeout=120.0)
+        response.raise_for_status()
+        result = response.json()
+        return {
+            "success": True,
+            "response": result.get("response", ""),
+            "model": req.model,
+            "context": result.get("context"),
+            "total_duration": result.get("total_duration"),
+            "eval_count": result.get("eval_count"),
+        }
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="Ollama service not available") from None
     except httpx.HTTPStatusError as e:
@@ -107,31 +108,32 @@ async def generate_stream(  # type: ignore[no-untyped-def]
 
     async def stream_generator() -> AsyncGenerator[str]:
         try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                payload = {
-                    "model": req.model,
-                    "prompt": req.prompt,
-                    "stream": True,
-                    "options": {"temperature": req.temperature, "num_predict": req.max_tokens},
-                }
+            payload = {
+                "model": req.model,
+                "prompt": req.prompt,
+                "stream": True,
+                "options": {"temperature": req.temperature, "num_predict": req.max_tokens},
+            }
 
-                if req.system:
-                    payload["system"] = req.system
+            if req.system:
+                payload["system"] = req.system
 
-                async with client.stream("POST", f"{OLLAMA_BASE_URL}/api/generate", json=payload) as response:
-                    async for line in response.aiter_lines():
-                        if line:
-                            try:
-                                data = json.loads(line)
-                                token = data.get("response", "")
-                                if token:
-                                    yield f"data: {json.dumps({'token': token})}\n\n"
+            async with SharedHttpClient.stream(
+                "POST", f"{OLLAMA_BASE_URL}/api/generate", json=payload, timeout=120.0
+            ) as response:
+                async for line in response.aiter_lines():
+                    if line:
+                        try:
+                            data = json.loads(line)
+                            token = data.get("response", "")
+                            if token:
+                                yield f"data: {json.dumps({'token': token})}\n\n"
 
-                                if data.get("done"):
-                                    yield f"data: {json.dumps({'done': True, 'context': data.get('context')})}\n\n"
-                                    break
-                            except json.JSONDecodeError:
-                                continue
+                            if data.get("done"):
+                                yield f"data: {json.dumps({'done': True, 'context': data.get('context')})}\n\n"
+                                break
+                        except json.JSONDecodeError:
+                            continue
 
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -148,33 +150,32 @@ async def batch_generate(request: Request, req: BatchInferenceRequest) -> dict[s
     errors = []
 
     try:
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            for i, prompt in enumerate(req.prompts):
-                try:
-                    payload = {
-                        "model": req.model,
-                        "prompt": prompt,
-                        "stream": False,
-                        "options": {"temperature": req.temperature, "num_predict": req.max_tokens},
-                    }
+        for i, prompt in enumerate(req.prompts):
+            try:
+                payload = {
+                    "model": req.model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {"temperature": req.temperature, "num_predict": req.max_tokens},
+                }
 
-                    response = await client.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload)
+                response = await SharedHttpClient.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload, timeout=300.0)
 
-                    if response.status_code == 200:
-                        result = response.json()
-                        results.append(
-                            {
-                                "index": i,
-                                "prompt": prompt[:100] + "..." if len(prompt) > 100 else prompt,
-                                "response": result.get("response", ""),
-                                "success": True,
-                            }
-                        )
-                    else:
-                        errors.append({"index": i, "error": f"HTTP {response.status_code}"})
+                if response.status_code == 200:
+                    result = response.json()
+                    results.append(
+                        {
+                            "index": i,
+                            "prompt": prompt[:100] + "..." if len(prompt) > 100 else prompt,
+                            "response": result.get("response", ""),
+                            "success": True,
+                        }
+                    )
+                else:
+                    errors.append({"index": i, "error": f"HTTP {response.status_code}"})
 
-                except Exception as e:
-                    errors.append({"index": i, "error": str(e)})
+            except Exception as e:
+                errors.append({"index": i, "error": str(e)})
 
         return {
             "success": True,
@@ -198,24 +199,23 @@ async def batch_generate(request: Request, req: BatchInferenceRequest) -> dict[s
 async def list_models(request: Request) -> dict[str, Any]:
     """List all available AI models in Ollama"""
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
-            response.raise_for_status()
-            data = response.json()
-            models = data.get("models", [])
-            return {
-                "models": [
-                    {
-                        "name": m.get("name"),
-                        "size": m.get("size"),
-                        "parameter_size": m.get("details", {}).get("parameter_size"),
-                        "quantization": m.get("details", {}).get("quantization_level"),
-                        "format": m.get("details", {}).get("format"),
-                    }
-                    for m in models
-                ],
-                "count": len(models),
-            }
+        response = await SharedHttpClient.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=30.0)
+        response.raise_for_status()
+        data = response.json()
+        models = data.get("models", [])
+        return {
+            "models": [
+                {
+                    "name": m.get("name"),
+                    "size": m.get("size"),
+                    "parameter_size": m.get("details", {}).get("parameter_size"),
+                    "quantization": m.get("details", {}).get("quantization_level"),
+                    "format": m.get("details", {}).get("format"),
+                }
+                for m in models
+            ],
+            "count": len(models),
+        }
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="Ollama service not available") from None
     except Exception:
@@ -226,15 +226,14 @@ async def list_models(request: Request) -> dict[str, Any]:
 async def pull_model(request: Request, model_name: str) -> dict[str, Any]:
     """Pull a model from Ollama registry"""
     try:
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.post(f"{OLLAMA_BASE_URL}/api/pull", json={"name": model_name})
-            response.raise_for_status()
-            result = response.json()
-            return {
-                "model_name": model_name,
-                "status": result.get("status", "pulled"),
-                "completed": result.get("completed", True),
-            }
+        response = await SharedHttpClient.post(f"{OLLAMA_BASE_URL}/api/pull", json={"name": model_name}, timeout=300.0)
+        response.raise_for_status()
+        result = response.json()
+        return {
+            "model_name": model_name,
+            "status": result.get("status", "pulled"),
+            "completed": result.get("completed", True),
+        }
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="Ollama service not available") from None
     except httpx.HTTPStatusError as e:
@@ -247,9 +246,8 @@ async def pull_model(request: Request, model_name: str) -> dict[str, Any]:
 async def inference_health(request: Request) -> dict[str, Any]:
     """Check inference service health"""
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
-            ollama_available = response.status_code == 200
+        response = await SharedHttpClient.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5.0)
+        ollama_available = response.status_code == 200
     except Exception:
         ollama_available = False
     return {"status": "healthy", "ollama_available": ollama_available, "service": "inference"}

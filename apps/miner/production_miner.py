@@ -2,6 +2,7 @@
 Real GPU Miner Client for AITBC - runs on host with actual GPU
 """
 
+import asyncio
 import os
 import subprocess
 import sys
@@ -332,7 +333,7 @@ def poll_for_jobs():
         return None
 
 
-def main():
+async def main():
     """Main miner loop"""
     logger.info("Starting Real GPU Miner Client on Host...")
     gpu_info = get_gpu_info()
@@ -368,7 +369,7 @@ def main():
                 if job:
                     execute_job(job, models)
                 last_poll = current_time
-            time.sleep(1)
+            await asyncio.sleep(1)
     except KeyboardInterrupt:
         logger.info("Shutting down miner...")
     except Exception as e:
@@ -376,4 +377,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
