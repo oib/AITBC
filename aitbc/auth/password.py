@@ -38,7 +38,7 @@ class PasswordManager:
             or ``{"status": "error", "message": ...}``
         """
         try:
-            import bcrypt
+            import bcrypt  # type: ignore[import-not-found]
 
             salt = bcrypt.gensalt()
             hashed = bcrypt.hashpw(password.encode("utf-8"), salt)

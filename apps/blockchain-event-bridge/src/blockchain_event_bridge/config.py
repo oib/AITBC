@@ -1,17 +1,24 @@
-"""Configuration settings for blockchain event bridge."""
+"""Configuration settings for blockchain event bridge (v0.10.7 §B5).
+
+Subclasses ``aitbc_shared.core.config.ServiceSettings`` to inherit common
+service fields (service_name, app_env, debug, log_level, database, api_prefix,
+enable_metrics, enable_health_check) while adding blockchain event bridge
+specific fields.
+"""
 
 import os
 
 from aitbc.constants import BLOCKCHAIN_RPC_URL
+from aitbc_shared.core.config import ServiceSettings
 from pydantic import ConfigDict, Field, field_validator
-from pydantic_settings import BaseSettings
 
 
-class Settings(BaseSettings):
+class Settings(ServiceSettings):
     """Configuration settings for the blockchain event bridge."""
 
     # Service configuration
     app_name: str = "Blockchain Event Bridge"
+    # bind_host/bind_port kept for backward compat; ServiceSettings provides app_host/app_port
     bind_host: str = Field(default="127.0.0.1")
     bind_port: int = Field(default=8204)
 

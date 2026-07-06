@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
+from aitbc.middleware import setup_cors
 from fastapi.responses import JSONResponse
 
 from aitbc.aitbc_logging import configure_logging, get_logger
@@ -86,9 +86,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
-app.add_middleware(
-    CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
-)
+setup_cors(app, allow_origins=settings.cors_origins)
 
 
 @app.get("/health")
