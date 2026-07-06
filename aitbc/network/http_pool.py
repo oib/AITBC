@@ -6,6 +6,7 @@ blockchain-node reuse TCP connections instead of creating a new client
 (and new connection pool) per request.
 """
 
+import asyncio
 from typing import Any
 
 import httpx
@@ -33,6 +34,7 @@ class SharedHttpClient:
 
     _instance: "SharedHttpClient | None" = None
     _client: httpx.AsyncClient | None = None
+    _client_loop: asyncio.AbstractEventLoop | None = None
 
     def __new__(
         cls,
@@ -59,13 +61,28 @@ class SharedHttpClient:
             self._initialized = True
 
     def _get_client(self) -> httpx.AsyncClient:
-        """Lazy-init the underlying httpx.AsyncClient."""
+        """Lazy-init the underlying httpx.AsyncClient.
+
+        If the event loop has changed (e.g. in tests where each TestClient
+        fixture creates a new loop), the old client is discarded and a new
+        one is created for the current loop.
+        """
+        current_loop = asyncio.get_running_loop()
+        if SharedHttpClient._client is not None and SharedHttpClient._client_loop is not current_loop:
+            # Event loop changed — discard the old client (it's bound to a
+            # closed loop and can't be used). This happens in test suites
+            # where each TestClient fixture gets its own event loop.
+            logger.debug("SharedHttpClient: event loop changed, recreating client")
+            SharedHttpClient._client = None
+            SharedHttpClient._client_loop = None
+
         if SharedHttpClient._client is None:
             limits = httpx.Limits(
                 max_connections=self._max_connections,
                 max_keepalive_connections=self._max_keepalive,
             )
             SharedHttpClient._client = httpx.AsyncClient(timeout=self._timeout, limits=limits)
+            SharedHttpClient._client_loop = current_loop
             logger.info(
                 "SharedHttpClient initialized (max_connections=%d, max_keepalive=%d, timeout=%.1fs)",
                 self._max_connections,
@@ -100,11 +117,24 @@ class SharedHttpClient:
         return await cls()._get_client().delete(url, **kwargs)
 
     @classmethod
+    def stream(cls, method: str, url: str, **kwargs: Any) -> Any:
+        """Return an async streaming context manager from the shared client.
+
+        Usage::
+
+            async with SharedHttpClient.stream("POST", url, json=payload) as response:
+                async for line in response.aiter_lines():
+                    ...
+        """
+        return cls()._get_client().stream(method, url, **kwargs)
+
+    @classmethod
     async def close_instance(cls) -> None:
         """Close the singleton client. Call at application shutdown."""
         if cls._client is not None:
             await cls._client.aclose()
             cls._client = None
+            cls._client_loop = None
             logger.info("SharedHttpClient closed")
         cls._instance = None
 
@@ -114,3 +144,4 @@ class SharedHttpClient:
         use ``close_instance`` first if the client was initialized."""
         cls._instance = None
         cls._client = None
+        cls._client_loop = None
