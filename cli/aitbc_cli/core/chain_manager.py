@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from models.chain import (  # type: ignore[import-not-found]
+from models.chain import (
     ChainBackupResult,
     ChainConfig,
     ChainInfo,
@@ -104,12 +104,13 @@ class ChainManager:
             chain_info = self._chain_cache[chain_id]
         else:
             # Get from node
-            chain_info = await self._find_chain_on_nodes(chain_id)
-            if not chain_info:
+            found_chain_info = await self._find_chain_on_nodes(chain_id)
+            if not found_chain_info:
                 raise ChainNotFoundError(f"Chain {chain_id} not found")
 
             # Cache the result
-            self._chain_cache[chain_id] = chain_info
+            self._chain_cache[chain_id] = found_chain_info
+            chain_info = found_chain_info
 
         # Add detailed information if requested
         if detailed or metrics:
@@ -268,10 +269,14 @@ class ChainManager:
 
         # Set backup path
         if not backup_path:
-            backup_path = self.config.chains.backup_path / f"{chain_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.tar.gz"
+            backup_path_str = str(
+                self.config.chains.backup_path / f"{chain_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.tar.gz"
+            )
+        else:
+            backup_path_str = backup_path
 
         # Execute backup
-        return await self._execute_backup(chain_id, node_id, backup_path, compress, verify)
+        return await self._execute_backup(chain_id, node_id, backup_path_str, compress, verify)
 
     async def restore_chain(self, backup_file: str, node_id: str | None = None, verify: bool = False) -> ChainRestoreResult:
         """Restore a chain from backup"""
@@ -284,7 +289,7 @@ class ChainManager:
             node_id = await self._select_best_node_for_restore()
 
         # Execute restore
-        return await self._execute_restore(backup_path, node_id, verify)
+        return await self._execute_restore(backup_file, node_id, verify)
 
     # Private methods
 
@@ -303,7 +308,8 @@ class ChainManager:
 
         try:
             async with NodeClient(node_config) as client:
-                return await client.get_hosted_chains()
+                chains = await client.get_hosted_chains()
+                return chains  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("Error getting chains from node %s: %s", node_id, e)
             return []

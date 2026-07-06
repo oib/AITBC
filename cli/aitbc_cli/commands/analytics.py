@@ -162,7 +162,7 @@ def monitor(ctx, realtime, interval, chain_id):
                         live.update(generate_monitor_table())
                         time.sleep(interval)
                 except KeyboardInterrupt:
-                    console.click.echo("\n[yellow]Monitoring stopped by user[/yellow]")
+                    console.print("\n[yellow]Monitoring stopped by user[/yellow]")
         else:
             # Single snapshot
             asyncio.run(analytics.collect_all_metrics())

@@ -9,6 +9,7 @@ import asyncio
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 from aitbc import get_logger
 
@@ -81,7 +82,7 @@ class CLITranslationSecurityManager:
     def __init__(self, config_path: Path | None = None):
         self.config_path = config_path or Path.home() / ".aitbc" / "translation_security.json"
         self.policies = self._load_default_policies()
-        self.security_log = []
+        self.security_log: list[dict[str, Any]] = []
 
     def _load_default_policies(self) -> dict[SecurityLevel, SecurityPolicy]:
         """Load default security policies"""
@@ -180,7 +181,7 @@ class CLITranslationSecurityManager:
             request.security_level = self.get_command_security_level(request.command_name)
 
         policy = self.policies[request.security_level]
-        warnings = []
+        warnings: list[str] = []
 
         # Log security check
         self._log_security_check(request, policy)
@@ -320,8 +321,8 @@ class CLITranslationSecurityManager:
             return {"total_checks": 0, "message": "No security checks performed"}
 
         total_checks = len(self.security_log)
-        by_level = {}
-        by_language = {}
+        by_level: dict[str, int] = {}
+        by_language: dict[str, int] = {}
 
         for entry in self.security_log:
             level = entry["security_level"]

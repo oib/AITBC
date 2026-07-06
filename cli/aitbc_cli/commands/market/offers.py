@@ -6,6 +6,7 @@ import hashlib
 import json
 import socket
 from datetime import datetime
+from typing import Any
 
 import click
 
@@ -20,12 +21,12 @@ from . import get_chain_id, get_island_id, get_next_nonce, get_wallet_address, m
 from .escrow import _get_blockchain_rpc_url
 
 
-@market.command()
+@market.command(name="list")
 @click.option("--provider", help="Filter by provider address")
 @click.option("--status", help="Filter by status (active, inactive)")
 @click.option("--service-type", help="Filter by service type (ollama, whisper, ffmpeg, peertube_pruner)")
 @click.pass_context
-def list(ctx, provider: str | None, status: str | None, service_type: str | None):
+def list_offers(ctx, provider: str | None, status: str | None, service_type: str | None):
     """List blockchain marketplace offers and bids"""
     try:
         # Load CLI config
@@ -89,7 +90,7 @@ def list(ctx, provider: str | None, status: str | None, service_type: str | None
             logger.warning("Error querying marketplace service: %s", e)
 
         # Fallback to blockchain query (original approach)
-        transactions = None
+        transactions: list[dict[str, Any]] = []
         try:
             # Query hub directly (HTTP) for confirmed GPU_MARKETPLACE transactions
             hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
@@ -97,12 +98,13 @@ def list(ctx, provider: str | None, status: str | None, service_type: str | None
             result = http_client.get("/rpc/transactions", params={"limit": 500})
             if result and not isinstance(result, dict):
                 # Filter by payload action since hub doesn't store type field
-                transactions = [
+                tx_list = [
                     tx
-                    for tx in result
+                    for tx in result  # type: ignore[unreachable]
                     if isinstance(tx.get("payload"), dict)
                     and tx["payload"].get("action") in ("offer", "bid", "cancel", "accept", "software_offer")
                 ]
+                transactions = tx_list
                 logger.debug("Found %s GPU_MARKETPLACE transactions from hub", len(transactions))
 
             # Also check hub mempool for pending transactions
@@ -118,7 +120,7 @@ def list(ctx, provider: str | None, status: str | None, service_type: str | None
                 http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
                 result = http_client.get("/rpc/transactions", params={"transaction_type": "GPU_MARKETPLACE", "limit": 200})
                 if result and not isinstance(result, dict):
-                    transactions = result
+                    transactions = result  # type: ignore[unreachable]
             except NetworkError:
                 pass
 
@@ -127,7 +129,7 @@ def list(ctx, provider: str | None, status: str | None, service_type: str | None
             return
 
         # Format output for marketplace offers (blockchain data)
-        market_data = []
+        blockchain_data: list[dict[str, Any]] = []
         for tx in transactions:
             # Handle both mempool format (payload is dict) and mined block format (nested payload)
             if isinstance(tx, dict):
@@ -176,7 +178,7 @@ def list(ctx, provider: str | None, status: str | None, service_type: str | None
             except Exception:
                 pass  # Marketplace service not available, skip ratings
 
-            market_data.append(
+            blockchain_data.append(
                 {
                     "Offer ID": payload.get("offer_id", ""),
                     "Type": payload.get("service_type", "").upper(),
@@ -193,7 +195,7 @@ def list(ctx, provider: str | None, status: str | None, service_type: str | None
                 }
             )
 
-        output(market_data, ctx.obj.get("output_format", "table"), title="Hardware+Software Bundle Offers")
+        output(blockchain_data, ctx.obj.get("output_format", "table"), title="Hardware+Software Bundle Offers")
 
     except Exception as e:
         error(f"Error listing GPU marketplace: {str(e)}")
@@ -551,9 +553,9 @@ def offer(
 
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-        result = http_client.post("/rpc/transactions/marketplace", json=offer_data)
+        tx_result = http_client.post("/rpc/transactions/marketplace", json=offer_data)
         success("Software offer listed on marketplace!")
-        output(result, ctx.obj.get("output_format", "table"))
+        output(tx_result, ctx.obj.get("output_format", "table"))
 
         # Auto-register in marketplace service so agents can discover it
         _health_urls = {

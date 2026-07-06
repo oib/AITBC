@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from aitbc_cli.core.config import MultiChainConfig
 from aitbc_cli.models.chain import ChainType, ConsensusAlgorithm, GenesisBlock, GenesisConfig
 
@@ -115,8 +115,6 @@ class GenesisGenerator:
             errors.append("Name is required")
 
         checks["timestamp"] = isinstance(genesis_block.timestamp, datetime)
-        if not isinstance(genesis_block.timestamp, datetime):
-            errors.append("Invalid timestamp format")
 
         checks["consensus"] = bool(genesis_block.consensus)
         if not genesis_block.consensus:
@@ -128,7 +126,7 @@ class GenesisGenerator:
 
         # Validate hash
         if genesis_block.hash:
-            calculated_hash = self._calculate_genesis_hash(genesis_block, genesis_block.state_root)
+            calculated_hash = self._calculate_genesis_hash_from_block(genesis_block, genesis_block.state_root)
             checks["hash_valid"] = genesis_block.hash == calculated_hash
             if genesis_block.hash != calculated_hash:
                 errors.append("Genesis hash does not match calculated hash")
@@ -219,11 +217,11 @@ class GenesisGenerator:
 
         genesis_block = GenesisBlock(**genesis_data)
 
-        return self._calculate_genesis_hash(genesis_block, genesis_block.state_root)
+        return self._calculate_genesis_hash_from_block(genesis_block, genesis_block.state_root)
 
     def list_templates(self) -> dict[str, dict[str, Any]]:
         """List available genesis templates"""
-        templates = {}
+        templates: dict[str, dict[str, Any]] = {}
 
         if not self.templates_dir.exists():
             return templates
@@ -310,6 +308,28 @@ class GenesisGenerator:
             "consensus": genesis_config.consensus.dict(),
             "privacy": genesis_config.privacy.dict(),
             "parameters": genesis_config.parameters.dict(),
+            "state_root": state_root,
+        }
+
+        genesis_json = json.dumps(genesis_data, sort_keys=True)
+        return hashlib.sha256(genesis_json.encode()).hexdigest()
+
+    def _calculate_genesis_hash_from_block(self, genesis_block: GenesisBlock, state_root: str) -> str:
+        """Calculate genesis block hash from GenesisBlock"""
+        genesis_data = {
+            "chain_id": genesis_block.chain_id,
+            "chain_type": genesis_block.chain_type.value,
+            "purpose": genesis_block.purpose,
+            "name": genesis_block.name,
+            "timestamp": genesis_block.timestamp.isoformat(),
+            "parent_hash": genesis_block.parent_hash,
+            "gas_limit": genesis_block.gas_limit,
+            "gas_price": genesis_block.gas_price,
+            "difficulty": genesis_block.difficulty,
+            "block_time": genesis_block.block_time,
+            "consensus": genesis_block.consensus.dict(),
+            "privacy": genesis_block.privacy.dict(),
+            "parameters": genesis_block.parameters.dict(),
             "state_root": state_root,
         }
 

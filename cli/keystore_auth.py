@@ -44,7 +44,7 @@ def decrypt_private_key(keystore_data: dict[str, Any], password: str) -> str:
     return decrypted.decode()
 
 
-def load_keystore(address: str, keystore_dir: Path | str = None) -> dict[str, Any]:
+def load_keystore(address: str, keystore_dir: Path | str | None = None) -> dict[str, Any]:
     """Load keystore file for a given address."""
     if keystore_dir is None:
         keystore_dir = get_keystore_path()
@@ -55,7 +55,7 @@ def load_keystore(address: str, keystore_dir: Path | str = None) -> dict[str, An
         raise FileNotFoundError(f"Keystore not found for address: {address}")
 
     with open(keystore_file) as f:
-        return json.load(f)
+        return json.load(f)  # type: ignore[no-any-return]
 
 
 def get_private_key(address: str, password: str | None = None, password_file: str | None = None) -> str:
@@ -68,6 +68,7 @@ def get_private_key(address: str, password: str | None = None, password_file: st
     3. Password file at /var/lib/aitbc/keystore/.password
     """
     # Determine password
+    pass_password: str | None
     if password:
         pass_password = password
     else:

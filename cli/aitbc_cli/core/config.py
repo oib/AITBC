@@ -4,7 +4,7 @@ Multi-chain configuration management for AITBC CLI
 
 from pathlib import Path
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pydantic import BaseModel, Field
 
 
@@ -41,7 +41,7 @@ class MultiChainConfig(BaseModel):
 def load_multichain_config(config_path: str | None = None) -> MultiChainConfig:
     """Load multi-chain configuration from file"""
     if config_path is None:
-        config_path = Path.home() / ".aitbc" / "multichain_config.yaml"
+        config_path = str(Path.home() / ".aitbc" / "multichain_config.yaml")
 
     config_file = Path(config_path)
 
@@ -63,7 +63,7 @@ def load_multichain_config(config_path: str | None = None) -> MultiChainConfig:
 def save_multichain_config(config: MultiChainConfig, config_path: str | None = None) -> None:
     """Save multi-chain configuration to file"""
     if config_path is None:
-        config_path = Path.home() / ".aitbc" / "multichain_config.yaml"
+        config_path = str(Path.home() / ".aitbc" / "multichain_config.yaml")
 
     config_file = Path(config_path)
     config_file.parent.mkdir(parents=True, exist_ok=True)

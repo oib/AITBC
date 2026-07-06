@@ -2,7 +2,7 @@
 
 import click
 import requests
-from tabulate import tabulate
+from tabulate import tabulate  # type: ignore[import-untyped]
 
 from ..utils import error, output, success
 
