@@ -392,18 +392,18 @@ None — Agent A only deletes files, Agent B only consolidates live files. No ov
 
 After completing all tasks:
 
-- [ ] All dead modules deleted
-- [ ] All dead classes deleted
-- [ ] All orphan tests deleted
-- [ ] agent-management services collapsed or deprecated
-- [ ] Shared blockchain RPC client created and adopted
-- [ ] CLI error handling merged
-- [ ] DB init modules consolidated
-- [ ] ServiceSettings adopted across 5 services
-- [ ] Security utils consolidated
-- [ ] Small copy-pastes eliminated
-- [ ] GlobalMarketplaceOffer Decimal inconsistency fixed
-- [ ] All tests pass (`./venv/bin/python -m pytest tests/unit -q -o addopts=""`)
-- [ ] Coordinator-api tests pass (`cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""`)
-- [ ] Type check passes (`./venv/bin/python -m mypy --show-error-codes aitbc/`)
-- [ ] Lint passes (`./venv/bin/python -m ruff check .`)
+- [x] All dead modules deleted
+- [x] All dead classes deleted
+- [x] All orphan tests deleted
+- [x] agent-management services collapsed or deprecated
+- [x] Shared blockchain RPC client created and adopted
+- [x] CLI error handling merged
+- [x] DB init modules consolidated
+- [x] ServiceSettings adopted across 5 services
+- [x] Security utils consolidated
+- [x] Small copy-pastes eliminated
+- [x] GlobalMarketplaceOffer Decimal inconsistency fixed
+- [x] All tests pass (`./venv/bin/python -m pytest tests/unit -q -o addopts=""`)
+- [x] Coordinator-api tests pass (`cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""`)
+- [x] Type check passes (`./venv/bin/python -m mypy --show-error-codes aitbc/`)
+- [x] Lint passes (`./venv/bin/python -m ruff check .`)
