@@ -5,6 +5,7 @@ FastAPI application setup for Coordinator API.
 from fastapi import FastAPI
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.health_checks import create_simple_health_response
 
 logger = get_logger(__name__)
 
@@ -28,7 +29,7 @@ def create_app() -> FastAPI:
     # Health check endpoint
     @app.get("/health")
     async def health_check() -> dict[str, str]:
-        return {"status": "healthy", "service": "coordinator-api"}
+        return create_simple_health_response("coordinator-api")
 
     logger.info("FastAPI application created successfully")
     return app
