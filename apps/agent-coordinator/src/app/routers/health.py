@@ -1,13 +1,16 @@
-from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Request
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.health_checks import create_basic_health_check
 from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 router = APIRouter()
+
+# Build a health checker with basic system checks (memory, disk)
+_health_checker = create_basic_health_check("agent-coordinator")
 
 
 # Health check endpoint
@@ -15,12 +18,10 @@ router = APIRouter()
 @rate_limit(rate=1000, per=60)
 async def health_check(request: Request) -> dict[str, Any]:
     """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "service": "agent-coordinator",
-        "timestamp": datetime.now(UTC).isoformat(),
-        "version": "1.0.0",
-    }
+    result = _health_checker.get_health_dict()
+    # Preserve the version field expected by callers
+    result["version"] = "1.0.0"
+    return result
 
 
 # Root endpoint
