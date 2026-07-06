@@ -221,7 +221,7 @@ async def get_ecosystem_metrics(
     """Get time-series ecosystem metrics"""
     try:
         metrics = await ecosystem_service.get_time_series_metrics(
-            period_type=period_type,
+            period_type=period_type or "daily",
             start_date=start_date,
             end_date=end_date,
             limit=limit,  # type: ignore[arg-type]
@@ -379,10 +379,10 @@ async def export_ecosystem_data(
     """Export ecosystem data in various formats"""
     try:
         export_data = await ecosystem_service.export_data(
-            format=format,
-            period_type=period_type,
+            format=format or "json",
+            period_type=period_type or "daily",
             start_date=start_date,
-            end_date=end_date,  # type: ignore[arg-type]
+            end_date=end_date,
         )
         return {
             "format": format,
