@@ -102,8 +102,8 @@ class TestEnhancedServicesHealth:
             },
             "marketplace_enhanced": {
                 "name": "Enhanced Marketplace Service",
-                "port": 8006,
-                "url": "http://localhost:8006",
+                "port": 8202,
+                "url": "http://localhost:8202",
             },
             "agent_enhanced": {
                 "name": "agent Enhanced Service",

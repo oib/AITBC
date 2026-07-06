@@ -5,6 +5,7 @@ Service for managing the developer ecosystem, bounties, certifications, and regi
 """
 
 from __future__ import annotations
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
@@ -183,7 +184,7 @@ class DeveloperPlatformService:
 
         import httpx
 
-        rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8006")
+        rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
         payload = {
             "from": "treasury",
             "to": developer.wallet_address,

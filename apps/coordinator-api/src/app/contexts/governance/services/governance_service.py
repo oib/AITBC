@@ -9,6 +9,7 @@ Provides:
 """
 
 from __future__ import annotations
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 import hashlib
 import json
@@ -281,7 +282,7 @@ class GovernanceService:
         try:
             import httpx
 
-            blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+            blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
             response = httpx.get(f"{blockchain_rpc_url}/rpc/accounts/{address}")
             if response.status_code == 200:
                 account_data = response.json()

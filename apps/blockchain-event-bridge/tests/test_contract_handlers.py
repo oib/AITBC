@@ -8,7 +8,7 @@ from blockchain_event_bridge.action_handlers.marketplace import MarketplaceHandl
 @pytest.mark.asyncio
 async def test_agent_daemon_handle_staking_event():
     """Test agent daemon handler for staking events."""
-    handler = AgentDaemonHandler("http://localhost:8006")
+    handler = AgentDaemonHandler("http://localhost:8202")
 
     event_log = {"topics": ["StakeCreated"], "data": '{"stakeId": "123", "staker": "0xabc"}'}
 
@@ -19,7 +19,7 @@ async def test_agent_daemon_handle_staking_event():
 @pytest.mark.asyncio
 async def test_agent_daemon_handle_performance_event():
     """Test agent daemon handler for performance events."""
-    handler = AgentDaemonHandler("http://localhost:8006")
+    handler = AgentDaemonHandler("http://localhost:8202")
 
     event_log = {"topics": ["PerformanceVerified"], "data": '{"verificationId": "456", "withinSLA": true}'}
 
@@ -30,7 +30,7 @@ async def test_agent_daemon_handle_performance_event():
 @pytest.mark.asyncio
 async def test_agent_daemon_handle_bounty_event():
     """Test agent daemon handler for bounty events."""
-    handler = AgentDaemonHandler("http://localhost:8006")
+    handler = AgentDaemonHandler("http://localhost:8202")
 
     event_log = {"topics": ["BountyCreated"], "data": '{"bountyId": "789", "creator": "0xdef"}'}
 
@@ -41,7 +41,7 @@ async def test_agent_daemon_handle_bounty_event():
 @pytest.mark.asyncio
 async def test_agent_daemon_handle_bridge_event():
     """Test agent daemon handler for bridge events."""
-    handler = AgentDaemonHandler("http://localhost:8006")
+    handler = AgentDaemonHandler("http://localhost:8202")
 
     event_log = {"topics": ["BridgeInitiated"], "data": '{"requestId": "101", "sourceChain": "ethereum"}'}
 
