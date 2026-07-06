@@ -124,6 +124,7 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.10.1** — Gap Fill for v0.6.0–v0.8.2 (20 tasks: CLI endpoint paths, island ID bug, node CLI crash, HTTP RPC compression, P2P→sync wiring, feature flag activation, MultiChainManager init, edge-advertise/registration/health/payment, pool join/leave, mining RPC wired to coordinator, parameter automation, duplicate bridge removal, trading service deploy + gossip integration + lease tracker + polling fallback): <ref_file file="/opt/aitbc/docs/releases/v0.10.1/change.log" /> ✅ complete
 - **v0.10.2** — Mock & Placeholder Elimination (17 categories: smart contract RPC, AI services, exchange mock trades/wallet/order matching/supply, governance vote tx hash, agent receipts, user transactions, developer platform rejection/reward, IPFS fallback, FHE warnings, GPU optimizer warnings, miner demo-token, pool-hub categories, trading block explorer, oracle docstring, data layer mock warning, feature flag accuracy): <ref_file file="/opt/aitbc/docs/releases/v0.10.2/change.log" /> ✅ complete
 - **v0.10.3** — Bug Fix & Hardening (28 issues fixed + 1 skipped: exchange financial safety, resource leaks, configuration mismatches, concurrency safety, security hardening, database indexes, CLI routing, pre-existing staking router fix): <ref_file file="/opt/aitbc/docs/releases/v0.10.3/change.log" /> ✅ complete
+- **v0.10.4** — Performance, Correctness & Cleanup (24 tasks: Decimal migration for pool-hub billing + trading pricing/bid engines, N+1 query elimination, missing DB indexes, asyncio.Lock race condition fixes, ~1,000 lines dead code deletion, HTTP client/JWT/retry/config-validator consolidation): <ref_file file="/opt/aitbc/docs/releases/v0.10.4/change.log" /> 🚧 in progress
 
 ### Post-v1 Vision (not fit until after v1.0.0)
 - **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
@@ -143,6 +144,7 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.10.1                                         (gap fill: 20 tasks fixing v0.6.0–v0.8.2 unwired/deployed/broken features) ✅
   → v0.10.2                                         (mock elimination: 17 categories of mock/placeholder replaced with real queries or honest errors) ✅
   → v0.10.3                                         (bug fix & hardening: 28 issues fixed + 1 skipped — exchange financial safety, resource leaks, config mismatches, concurrency, security) ✅
+  → v0.10.4                                         (performance, correctness & cleanup: Decimal migration, N+1 elimination, indexes, race conditions, dead code deletion, infrastructure consolidation) 🚧
   → v1.0.0                                          (production readiness)
   → v2.0.0                                          (vision — questionable features, parked for re-evaluation)
 ```
