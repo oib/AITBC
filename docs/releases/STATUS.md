@@ -38,7 +38,7 @@
 | v0.10.6 | Dead code elimination & Decimal migration completion | 🚧 In Progress | Agent A complete; Agent B (Decimal migration, N+1, indexes, circuit breaker consolidation) incomplete |
 | v0.10.7 | Dead code elimination (coordinator-api + agent-management) | ✅ Complete | ~5,800 lines deleted; agent-management deprecated; RPC clients/CLI/DB init consolidated |
 | v0.10.8 | Config consolidation & dead retry helper cleanup | ✅ Complete | config.py vs hierarchical_config.py resolved; 3 dead retry helpers deleted |
-| v0.10.9 | Dead code elimination & status drift cleanup | 🚧 In Progress | Delete ~2,500 lines dead test-only modules; fix status drift, stale ports, auth shims |
+| v0.10.9 | Dead code elimination & status drift cleanup | ✅ Complete | ~2,900 lines deleted; status drift fixed; stale ports cleaned; auth shims migrated |
 | v1.0.0 | Production readiness | 🚧 Planned | Requires all v0.5.16–v0.10.x complete |
 | v2.0.0 | Vision/questionable features | 🅿️ Parked | For re-evaluation after v1.0.0 |
 
