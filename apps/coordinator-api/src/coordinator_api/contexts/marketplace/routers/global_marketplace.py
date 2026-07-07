@@ -56,7 +56,7 @@ async def create_global_offer(
                 raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
 
         # Get agent identity
-        agent_identity = await identity_manager.get_identity(offer_request["agent_id"])  # type: ignore[attr-defined]
+        agent_identity = await identity_manager.get_identity_by_agent_id(offer_request["agent_id"])
         if not agent_identity:
             raise HTTPException(status_code=404, detail="Agent identity not found")
 
@@ -222,7 +222,7 @@ async def create_global_transaction(
                 raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
 
         # Get buyer identity
-        buyer_identity = await identity_manager.get_identity(transaction_request["buyer_id"])  # type: ignore[attr-defined]
+        buyer_identity = await identity_manager.get_identity_by_agent_id(transaction_request["buyer_id"])
         if not buyer_identity:
             raise HTTPException(status_code=404, detail="Buyer identity not found")
 

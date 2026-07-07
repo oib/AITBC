@@ -141,7 +141,7 @@ async def get_cross_chain_mapping(
                 verified_at=m.verified_at,
                 wallet_address=m.wallet_address,
                 wallet_type=m.wallet_type,
-                chain_meta_data=m.chain_metadata,  # type: ignore[attr-defined]
+                chain_meta_data=m.chain_meta_data,
                 last_transaction=m.last_transaction,
                 transaction_count=m.transaction_count,
                 created_at=m.created_at,
