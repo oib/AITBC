@@ -250,7 +250,7 @@ class ConcreteMLProvider(FHEProvider):
             poly_modulus_degree=kwargs.get("poly_modulus_degree", 1024),
             coeff_modulus=[kwargs.get("coeff_modulus", 15)],
             scale=1.0,
-            public_key=b"concrete_context_placeholder",
+            public_key=b"",  # ponytail: unreachable — self.available is always False on Py3.13
             private_key=None,
             provider_specific={"p": kwargs.get("p", 15), "compilation_required": True},
         )
