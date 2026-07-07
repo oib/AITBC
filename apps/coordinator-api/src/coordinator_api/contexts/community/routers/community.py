@@ -119,7 +119,7 @@ async def publish_solution(
     """Publish a new third-party agent solution to the marketplace"""
     service = ThirdPartySolutionService(session)  # type: ignore[arg-type]
     try:
-        solution = await service.publish_solution(request.developer_id, request.dict(exclude={"developer_id"}))
+        solution = await service.publish_solution(request.developer_id, request.model_dump(exclude={"developer_id"}))
         return solution
     except Exception as e:
         logger.error("Error publishing solution: %s", e)
@@ -166,7 +166,7 @@ async def propose_innovation_lab(
     """Propose a new agent innovation lab or research program"""
     service = InnovationLabService(session)  # type: ignore[arg-type]
     try:
-        lab = await service.propose_lab(researcher_id, request.dict())
+        lab = await service.propose_lab(researcher_id, request.model_dump())
         return lab
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -217,7 +217,7 @@ async def create_community_post(
     """Create a new post in the community forum"""
     service = CommunityPlatformService(session)  # type: ignore[arg-type]
     try:
-        post = await service.create_post(author_id, request.dict())
+        post = await service.create_post(author_id, request.model_dump())
         return post
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -258,7 +258,7 @@ async def create_hackathon(
     """Create a new agent innovation hackathon (requires high reputation)"""
     service = CommunityPlatformService(session)  # type: ignore[arg-type]
     try:
-        hackathon = await service.create_hackathon(organizer_id, request.dict())
+        hackathon = await service.create_hackathon(organizer_id, request.model_dump())
         return hackathon
     except ValueError as e:
         raise HTTPException(status_code=403, detail=str(e)) from e

@@ -605,7 +605,7 @@ class AgentSecurityManager:
             user_id="system",
             security_level=SecurityLevel.INTERNAL,
             event_data={"policy_name": name, "policy_id": policy.id},
-            new_state={"policy": policy.dict()},
+            new_state={"policy": policy.model_dump()},
         )
         return policy
 

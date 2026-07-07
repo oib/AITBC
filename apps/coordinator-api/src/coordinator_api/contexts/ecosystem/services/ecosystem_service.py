@@ -41,7 +41,9 @@ class EcosystemService:
                 func.count(func.distinct(Bounty.winner_address)).label("unique_earners"),
                 func.avg(Bounty.reward_amount).label("average_earnings"),
             ).where(and_(Bounty.status == BountyStatus.COMPLETED, Bounty.creation_time >= start_date))  # type: ignore[arg-type]
-            earnings_result = self.session.execute(earnings_stmt).scalars().first()
+            earnings_result = self.session.execute(
+                earnings_stmt
+            ).first()  # ponytail: multi-column select, .first() returns Row with labeled columns
             total_earnings = earnings_result.total_earnings or Decimal("0")  # type: ignore[union-attr]
             unique_earners = earnings_result.unique_earners or 0  # type: ignore[union-attr]
             average_earnings = earnings_result.average_earnings or 0.0  # type: ignore[union-attr]
@@ -130,9 +132,7 @@ class EcosystemService:
                 .order_by(func.count(BountySubmission.submission_id).desc())  # type: ignore[arg-type]
                 .limit(10)
             )
-            top_agents_result = self.session.execute(
-                top_agents_stmt
-            ).all()  # ponytail: multi-column select, .all() returns Row objects
+            top_agents_result = self.session.execute(top_agents_stmt).scalars().all()
             top_utilized_agents = [
                 {
                     "agent_wallet": row.submitter_address,
@@ -147,9 +147,7 @@ class EcosystemService:
                 .where(AgentMetrics.last_update_time >= start_date)
                 .group_by(AgentMetrics.current_tier)
             )
-            performance_result = self.session.execute(
-                performance_stmt
-            ).all()  # ponytail: multi-column select, .all() returns Row objects
+            performance_result = self.session.execute(performance_stmt).scalars().all()
             performance_distribution = {row.current_tier.value: row.count for row in performance_result}
             return {
                 "total_agents": total_agents,
@@ -238,9 +236,7 @@ class EcosystemService:
                 .order_by(func.sum(AgentStake.amount).desc())
                 .limit(10)
             )
-            top_pools_result = self.session.execute(
-                top_pools_stmt
-            ).all()  # ponytail: multi-column select, .all() returns Row objects
+            top_pools_result = self.session.execute(top_pools_stmt).scalars().all()
             top_staking_pools = [
                 {
                     "agent_wallet": row.agent_wallet,
@@ -256,7 +252,7 @@ class EcosystemService:
                 .where(AgentStake.start_time >= start_date)
                 .group_by(AgentStake.agent_tier)
             )
-            tier_result = self.session.execute(tier_stmt).all()  # ponytail: multi-column select, .all() returns Row objects
+            tier_result = self.session.execute(tier_stmt).scalars().all()
             tier_distribution = {row.agent_tier.value: row.count for row in tier_result}
             return {
                 "total_staked": total_staked,
@@ -306,18 +302,14 @@ class EcosystemService:
                 .where(and_(Bounty.creation_time >= start_date, Bounty.category.isnot(None), Bounty.category != ""))  # type: ignore[arg-type, union-attr]
                 .group_by(Bounty.category)
             )
-            category_result = self.session.execute(
-                category_stmt
-            ).all()  # ponytail: multi-column select, .all() returns Row objects
+            category_result = self.session.execute(category_stmt).scalars().all()
             category_distribution = {row.category: row.count for row in category_result}
             difficulty_stmt = (
                 select(Bounty.difficulty, func.count(Bounty.bounty_id).label("count"))  # type: ignore[arg-type, call-overload]
                 .where(and_(Bounty.creation_time >= start_date, Bounty.difficulty.isnot(None), Bounty.difficulty != ""))  # type: ignore[arg-type, union-attr]
                 .group_by(Bounty.difficulty)
             )
-            difficulty_result = self.session.execute(
-                difficulty_stmt
-            ).all()  # ponytail: multi-column select, .all() returns Row objects
+            difficulty_result = self.session.execute(difficulty_stmt).scalars().all()
             difficulty_distribution = {row.difficulty: row.count for row in difficulty_result}
             return {
                 "active_bounties": active_bounties,

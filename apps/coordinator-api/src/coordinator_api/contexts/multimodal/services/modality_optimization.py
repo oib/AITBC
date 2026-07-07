@@ -140,7 +140,7 @@ class TextOptimizer(ModalityOptimizer):
                 "token_count": len(minimal_tokens),
                 "char_count": len(compressed_text),
                 "embedding_dim": len(embedding),
-                "compression_ratio": len(text) / len(compressed_text),
+                "compression_ratio": len(text) / len(compressed_text) if compressed_text else 0.0,
             },
         }
 
@@ -222,12 +222,13 @@ class TextOptimizer(ModalityOptimizer):
 
     def _extract_rich_features(self, text: str) -> dict[str, Any]:
         """Extract rich text features"""
+        words = text.split()
         return {
             "length": len(text),
-            "word_count": len(text.split()),
+            "word_count": len(words),
             "sentence_count": text.count(".") + text.count("!") + text.count("?"),
-            "avg_word_length": sum(len(word) for word in text.split()) / len(text.split()),
-            "punctuation_ratio": sum(1 for c in text if not c.isalnum()) / len(text),
+            "avg_word_length": sum(len(word) for word in words) / len(words) if words else 0.0,
+            "punctuation_ratio": sum(1 for c in text if not c.isalnum()) / len(text) if text else 0.0,
             "complexity_score": min(1.0, len(text) / 1000),
         }
 

@@ -26,7 +26,7 @@ class JobService:
             client_id=client_id,
             state="QUEUED",
             payload=req.payload,
-            constraints=req.constraints.dict() if hasattr(req.constraints, "dict") else req.constraints,
+            constraints=req.constraints.model_dump() if hasattr(req.constraints, "model_dump") else req.constraints,
             ttl_seconds=ttl,
             requested_at=now,
             expires_at=now + timedelta(seconds=ttl),
