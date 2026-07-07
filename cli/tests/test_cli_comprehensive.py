@@ -115,14 +115,12 @@ class TestResourceCommand:
     def test_resource_help(self):
         result = run_cli("resource", "--help")
         assert result.returncode == 0
-        assert "status" in result.stdout
         assert "allocate" in result.stdout
+        assert "optimize" in result.stdout
 
-    def test_resource_status(self):
-        # `resource status` queries coordinator-api; without a running service
-        # it returns a network error (exit 1), not a crash
-        result = run_cli("resource", "status")
-        assert result.returncode in (0, 1)
+    def test_resource_allocate_requires_agent_id(self):
+        result = run_cli("resource", "allocate", "--cpu-cores", "2")
+        assert result.returncode != 0
 
 
 class TestIntegrationScenarios:
