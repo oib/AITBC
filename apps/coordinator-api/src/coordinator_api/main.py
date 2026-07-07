@@ -45,6 +45,7 @@ from .database_async import close_async_db
 from .exceptions import AITBCError, ErrorResponse
 from .routers import (
     admin,
+    agent_performance,
     agent_router,
     client,
     developer_platform,
@@ -458,6 +459,7 @@ def create_app() -> FastAPI:
     app.include_router(blockchain, prefix="/v1")
     app.include_router(edge_gpu, prefix="/v1")
     app.include_router(multi_modal_rl, prefix="/v1")
+    app.include_router(agent_performance, prefix="/v1")
 
     # Log optional routers summary
     if optional_routers:

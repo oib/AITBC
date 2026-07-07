@@ -124,8 +124,17 @@ class NodeClient:
                     )
                 return result
             else:
+                if not self._dev_mocks_enabled:
+                    raise Exception(f"Health request failed: {response.status_code}")
+                logger.warning(
+                    "[DEV_MODE] Using mock chains for %s (health endpoint returned %s)", self.config.id, response.status_code
+                )
                 return self._get_mock_chains()
-        except Exception:
+        except Exception as e:
+            if not self._dev_mocks_enabled:
+                logger.error("Failed to get hosted chains for %s: %s", self.config.id, e)
+                raise
+            logger.warning("[DEV_MODE] Using mock chains for %s: %s", self.config.id, e)
             return self._get_mock_chains()
 
     async def get_chain_info(self, chain_id: str) -> ChainInfo | None:
@@ -171,7 +180,10 @@ class NodeClient:
                         }
                     )
             return None
-        except Exception:
+        except Exception as e:
+            if not self._dev_mocks_enabled:
+                logger.error("Failed to get chain info for %s on %s: %s", chain_id, self.config.id, e)
+                raise
             # Fallback to pure mock
             chains = self._get_mock_chains()
             for chain in chains:
@@ -190,7 +202,10 @@ class NodeClient:
                 return data["chain_id"]  # type: ignore[no-any-return]
             else:
                 raise Exception(f"Chain creation failed: {response.status_code}")
-        except Exception:
+        except Exception as e:
+            if not self._dev_mocks_enabled:
+                logger.error("Chain creation failed on node %s: %s", self.config.id, e)
+                raise
             # Mock chain creation for development
             chain_id = genesis_block.get("chain_id", f"MOCK-CHAIN-{hash(str(genesis_block)) % 10000}")
             logger.info("Mock created chain %s on node %s", chain_id, self.config.id)
@@ -205,7 +220,10 @@ class NodeClient:
                 return True
             else:
                 raise Exception(f"Chain deletion failed: {response.status_code}")
-        except Exception:
+        except Exception as e:
+            if not self._dev_mocks_enabled:
+                logger.error("Chain deletion failed on node %s: %s", self.config.id, e)
+                raise
             # Mock chain deletion for development
             logger.info("Mock deleted chain %s from node %s", chain_id, self.config.id)
             return True
@@ -219,7 +237,10 @@ class NodeClient:
                 return response.json()  # type: ignore[no-any-return]
             else:
                 raise Exception(f"Chain stats request failed: {response.status_code}")
-        except Exception:
+        except Exception as e:
+            if not self._dev_mocks_enabled:
+                logger.error("Chain stats request failed for %s on %s: %s", chain_id, self.config.id, e)
+                raise
             # Return mock stats for development
             return self._get_mock_chain_stats(chain_id)
 
@@ -234,7 +255,10 @@ class NodeClient:
                 return response.json()  # type: ignore[no-any-return]
             else:
                 raise Exception(f"Chain backup failed: {response.status_code}")
-        except Exception:
+        except Exception as e:
+            if not self._dev_mocks_enabled:
+                logger.error("Chain backup failed for %s on %s: %s", chain_id, self.config.id, e)
+                raise
             # Mock backup for development
             backup_info = {
                 "chain_id": chain_id,
@@ -257,7 +281,10 @@ class NodeClient:
                 return response.json()  # type: ignore[no-any-return]
             else:
                 raise Exception(f"Chain restore failed: {response.status_code}")
-        except Exception:
+        except Exception as e:
+            if not self._dev_mocks_enabled:
+                logger.error("Chain restore failed on %s: %s", self.config.id, e)
+                raise
             # Mock restore for development
             restore_info = {
                 "chain_id": chain_id or "RESTORED-MOCK-CHAIN",
