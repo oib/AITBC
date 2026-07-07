@@ -108,30 +108,50 @@ def check_secrets() -> bool:
 
 
 def check_migrations() -> bool:
-    """Check if database migrations are applied."""
-    try:
-        result = subprocess.run(
-            ["/opt/aitbc/venv/bin/alembic", "current"],
-            cwd="/opt/aitbc/apps/coordinator-api",
-            capture_output=True,
-            text=True,
-        )
-        # Alembic not configured is acceptable for initial deployment
-        if "script_location" in result.stderr or "script_location" in result.stdout:
-            print("⚠️  Database migrations: Alembic not configured (acceptable for initial deployment)")
-            return True
-        if result.returncode == 0:
-            print(f"✅ Database migrations: {result.stdout.strip()}")
-            return True
-        else:
-            print(f"❌ Database migrations: FAILED - {result.stderr}")
-            return False
-    except FileNotFoundError:
-        print("⚠️  Database migrations: Alembic not found (acceptable for initial deployment)")
+    """Check if database migrations are applied for every app with alembic configured.
+
+    Discovers ``apps/*/alembic.ini`` and runs ``alembic current`` in each. An app
+    is at-head only if the command exits 0 and the output contains ``(head)``.
+    Apps without alembic.ini are skipped (create_all handles their schema).
+    """
+    apps_dir = Path("/opt/aitbc/apps")
+    alembic_apps = sorted(p.parent for p in apps_dir.glob("*/alembic.ini"))
+    if not alembic_apps:
+        print("⚠️  Database migrations: no apps with alembic.ini found")
         return True
-    except Exception as e:
-        print(f"❌ Database migrations check: ERROR - {e}")
-        return False
+
+    all_ok = True
+    for app_dir in alembic_apps:
+        app_name = app_dir.name
+        try:
+            result = subprocess.run(
+                ["/opt/aitbc/venv/bin/alembic", "current"],
+                cwd=str(app_dir),
+                capture_output=True,
+                text=True,
+            )
+            combined = result.stdout + result.stderr
+            if result.returncode == 0 and "(head)" in combined:
+                # Extract the revision line (skip INFO lines)
+                rev = next(
+                    (ln.strip() for ln in result.stdout.splitlines() if ln.strip() and not ln.startswith("INFO")),
+                    "at head",
+                )
+                print(f"✅ Migrations [{app_name}]: {rev}")
+            elif result.returncode == 0:
+                print(f"⚠️  Migrations [{app_name}]: behind head — {result.stdout.strip()}")
+                all_ok = False
+            else:
+                print(f"❌ Migrations [{app_name}]: FAILED - {combined.strip()}")
+                all_ok = False
+        except FileNotFoundError:
+            print(f"⚠️  Migrations [{app_name}]: alembic not found in venv")
+            all_ok = False
+        except Exception as e:
+            print(f"❌ Migrations [{app_name}]: ERROR - {e}")
+            all_ok = False
+
+    return all_ok
 
 
 def main() -> int:
