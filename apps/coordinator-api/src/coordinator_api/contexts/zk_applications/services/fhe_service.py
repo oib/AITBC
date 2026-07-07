@@ -243,17 +243,7 @@ class ConcreteMLProvider(FHEProvider):
 
     def generate_context(self, scheme: str, **kwargs: Any) -> FHEContext:
         """Generate Concrete ML context"""
-        if not self.available:
-            raise RuntimeError("Concrete ML provider is not available")
-        return FHEContext(
-            scheme="concrete",
-            poly_modulus_degree=kwargs.get("poly_modulus_degree", 1024),
-            coeff_modulus=[kwargs.get("coeff_modulus", 15)],
-            scale=1.0,
-            public_key=b"",  # ponytail: unreachable — self.available is always False on Py3.13
-            private_key=None,
-            provider_specific={"p": kwargs.get("p", 15), "compilation_required": True},
-        )
+        raise RuntimeError("Concrete ML provider is not available on Python 3.13+")
 
     def encrypt(self, data: np.ndarray, context: FHEContext) -> EncryptedData:
         """Encrypt using Concrete ML"""
