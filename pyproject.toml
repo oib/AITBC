@@ -212,7 +212,7 @@ exclude = [
     "^apps/shared-domain/src/app/",
     "^apps/wallet/src/app/",
 
-    # Exclude template files (Jinja2 syntax, not valid Python)
+    # Exclude template files (Jinja2/YAML data, not valid Python)
     "^cli/templates/",
 
     # Exclude compatibility shim (shadows real aitbc/ package, causes mypy ambiguity)
@@ -270,7 +270,7 @@ ignore_missing_imports = true
 [tool.ruff]
 line-length = 127
 target-version = "py313"
-extend-exclude = ["cli/templates/handler_template.py", "tests/cli/command_test_template.py", "scripts/**/*.sh", "contracts/"]
+extend-exclude = ["tests/cli/command_test_template.py", "scripts/**/*.sh", "contracts/"]
 
 [tool.ruff.lint]
 select = [
@@ -301,7 +301,6 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "tests/*" = ["B011"]
-"cli/templates/handler_template.py" = ["ALL"]
 "tests/cli/command_test_template.py" = ["ALL"]
 
 [tool.pydocstyle]
