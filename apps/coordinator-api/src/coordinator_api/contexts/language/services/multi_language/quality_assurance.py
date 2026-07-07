@@ -89,7 +89,7 @@ class TranslationQualityChecker:
         """Comprehensive quality assessment of translation"""
         start_time = asyncio.get_event_loop().time()
         scores = []
-        confidence_score = await self._evaluate_confidence(translated_text, source_lang, target_lang)  # type: ignore[call-arg]
+        confidence_score = await self._evaluate_confidence(translated_text, source_text, source_lang, target_lang)
         scores.append(confidence_score)
         length_score = await self._evaluate_length_ratio(source_text, translated_text, source_lang, target_lang)
         scores.append(length_score)

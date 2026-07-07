@@ -131,7 +131,7 @@ async def get_cross_chain_mapping(
     try:
         mappings = await manager.registry.get_all_cross_chain_mappings(agent_id)
         return [
-            CrossChainMappingResponse(  # type: ignore[call-arg]
+            CrossChainMappingResponse(
                 id=m.id,
                 agent_id=m.agent_id,
                 chain_id=m.chain_id,
@@ -141,7 +141,7 @@ async def get_cross_chain_mapping(
                 verified_at=m.verified_at,
                 wallet_address=m.wallet_address,
                 wallet_type=m.wallet_type,
-                chain_metadata=m.chain_metadata,  # type: ignore[attr-defined]
+                chain_meta_data=m.chain_metadata,  # type: ignore[attr-defined]
                 last_transaction=m.last_transaction,
                 transaction_count=m.transaction_count,
                 created_at=m.created_at,

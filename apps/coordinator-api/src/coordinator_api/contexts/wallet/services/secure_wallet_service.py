@@ -234,8 +234,7 @@ class SecureWalletService:
         transaction = WalletTransaction(
             wallet_id=wallet_id,
             to_address=request.to_address,
-            amount=request.value,
-            token_address="0x0000000000000000000000000000000000000000",  # Default to native token
+            value=request.value,
             chain_id=request.chain_id,
             data=request.data or "",
             status=TransactionStatus.PENDING,
@@ -255,8 +254,7 @@ class SecureWalletService:
                 chain_id=request.chain_id,
                 data=request.data or "",
             )
-            transaction.signed_data = signed_tx
-            transaction.status = TransactionStatus.SIGNED  # type: ignore[attr-defined]
+            transaction.status = TransactionStatus.SIGNED
             transaction.updated_at = datetime.now(UTC)
             self.session.commit()
             tx_hash = await self.contract_service.submit_transaction(signed_tx)
