@@ -78,7 +78,7 @@ class ExplorerService:
                 return BlockListResponse(items=[], next_offset=None)
         except Exception as e:
             logger.warning("Failed to fetch blocks from RPC: %s, falling back to fake data", e)
-            statement = select(Job).order_by(Job.requested_at.desc())  # type: ignore[attr-defined]
+            statement = select(Job).order_by(Job.requested_at.desc())
             jobs = self.session.execute(statement.offset(offset).limit(limit)).all()
             for index, job in enumerate(jobs):
                 height = _DEFAULT_HEIGHT_BASE + offset + index
@@ -90,7 +90,7 @@ class ExplorerService:
             return BlockListResponse(items=items, next_offset=next_offset)
 
     def list_transactions(self, *, limit: int = 50, offset: int = 0) -> TransactionListResponse:
-        statement = select(Job).order_by(Job.requested_at.desc()).offset(offset).limit(limit)  # type: ignore[attr-defined]
+        statement = select(Job).order_by(Job.requested_at.desc()).offset(offset).limit(limit)
         jobs = self.session.execute(statement).all()
         items: list[TransactionSummary] = []
         for index, job in enumerate(jobs):
@@ -123,7 +123,7 @@ class ExplorerService:
         return TransactionListResponse(items=items, next_offset=next_offset)
 
     def list_addresses(self, *, limit: int = 50, offset: int = 0) -> AddressListResponse:
-        statement = select(Job).order_by(Job.requested_at.desc())  # type: ignore[attr-defined]
+        statement = select(Job).order_by(Job.requested_at.desc())
         jobs = self.session.execute(statement.offset(offset).limit(limit)).all()
 
         class _AddrEntry(TypedDict):
@@ -200,7 +200,7 @@ class ExplorerService:
         return AddressListResponse(items=items, next_offset=next_offset)
 
     def list_receipts(self, *, job_id: str | None = None, limit: int = 50, offset: int = 0) -> ReceiptListResponse:
-        statement = select(JobReceipt).order_by(JobReceipt.created_at.desc())  # type: ignore[attr-defined]
+        statement = select(JobReceipt).order_by(JobReceipt.created_at.desc())
         if job_id:
             statement = statement.where(JobReceipt.job_id == job_id)
         rows = self.session.execute(statement.offset(offset).limit(limit)).all()
@@ -248,7 +248,7 @@ class ExplorerService:
                     return {"error": "Transaction not found", "hash": tx_hash}
                 return {"error": f"Failed to fetch transaction: {str(e)}", "hash": tx_hash}
         except Exception as e:
-            logger.warning("Failed to fetch transaction from RPC", tx_hash=tx_hash, error=str(e))  # type: ignore[call-arg]
+            logger.warning("Failed to fetch transaction from RPC tx_hash=%s error=%s", tx_hash, str(e))
             return {"error": f"Failed to fetch transaction: {str(e)}", "hash": tx_hash}
 
     def get_block_by_hash(self, block_hash: str) -> dict:
@@ -290,7 +290,7 @@ class ExplorerService:
 
             return {"error": "Block not found", "hash": block_hash}
         except Exception as e:
-            logger.warning("Failed to fetch block by hash from database", block_hash=block_hash, error=str(e))  # type: ignore[call-arg]
+            logger.warning("Failed to fetch block by hash from database block_hash=%s error=%s", block_hash, str(e))
             return {"error": f"Failed to fetch block: {str(e)}", "hash": block_hash}
 
     def get_transaction_by_hash(self, tx_hash: str) -> dict:
@@ -334,5 +334,5 @@ class ExplorerService:
 
             return {"error": "Transaction not found", "tx_hash": tx_hash}
         except Exception as e:
-            logger.warning("Failed to fetch transaction by hash from database", tx_hash=tx_hash, error=str(e))  # type: ignore[call-arg]
+            logger.warning("Failed to fetch transaction by hash from database tx_hash=%s error=%s", tx_hash, str(e))
             return {"error": f"Failed to fetch transaction: {str(e)}", "tx_hash": tx_hash}
