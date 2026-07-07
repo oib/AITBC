@@ -187,18 +187,20 @@ async def create_stake(
 ) -> StakeResponse:
     """Create a new stake on an agent wallet"""
     try:
-        logger.info("Creating stake: %s AITBC on %s by %s", request.amount, request.agent_wallet, current_user["address"])  # type: ignore[attr-defined]
-        agent_metrics = await staking_service.get_agent_metrics(request.agent_wallet)  # type: ignore[attr-defined]
+        logger.info(
+            "Creating stake: %s AITBC on %s by %s", stake_request.amount, stake_request.agent_wallet, current_user["address"]
+        )
+        agent_metrics = await staking_service.get_agent_metrics(stake_request.agent_wallet)
         if not agent_metrics:
             raise HTTPException(status_code=404, detail="Agent not supported for staking")
-        stake = await staking_service.create_stake(staker_address=current_user["address"], **request.dict())  # type: ignore[attr-defined]
+        stake = await staking_service.create_stake(staker_address=current_user["address"], **stake_request.model_dump())
         background_tasks.add_task(
             blockchain_service.create_stake_contract,
             stake.stake_id,
-            request.agent_wallet,  # type: ignore[attr-defined]
-            request.amount,  # type: ignore[attr-defined]
-            request.lock_period,  # type: ignore[attr-defined]
-            request.auto_compound,  # type: ignore[attr-defined]
+            stake_request.agent_wallet,
+            stake_request.amount,
+            stake_request.lock_period,
+            stake_request.auto_compound,
         )
         return StakeResponse.from_orm(stake)  # type: ignore[pydantic-orm]
     except HTTPException:
@@ -281,8 +283,10 @@ async def add_to_stake(
             raise HTTPException(status_code=403, detail="Not authorized to modify this stake")
         if stake.status != StakeStatus.ACTIVE:
             raise HTTPException(status_code=400, detail="Stake is not active")
-        updated_stake = await staking_service.add_to_stake(stake_id=stake_id, additional_amount=request.additional_amount)  # type: ignore[attr-defined]
-        background_tasks.add_task(blockchain_service.add_to_stake, stake_id, request.additional_amount)  # type: ignore[attr-defined]
+        updated_stake = await staking_service.add_to_stake(
+            stake_id=stake_id, additional_amount=Decimal(str(stake_request.additional_amount))
+        )
+        background_tasks.add_task(blockchain_service.add_to_stake, stake_id, stake_request.additional_amount)
         return StakeResponse.from_orm(updated_stake)  # type: ignore[pydantic-orm]
     except HTTPException:
         raise
@@ -314,7 +318,7 @@ async def unbond_stake(
         if datetime.now(UTC) < stake.end_time:
             raise HTTPException(status_code=400, detail="Lock period has not ended")
         await staking_service.unbond_stake(stake_id)
-        background_tasks.add_task(blockchain_service.unbond_stake, stake_id)  # type: ignore[attr-defined]
+        background_tasks.add_task(blockchain_service.unbond_stake, stake_id)
         return {"message": "Unbonding initiated successfully"}
     except HTTPException:
         raise
@@ -344,7 +348,7 @@ async def complete_unbonding(
         if stake.status != StakeStatus.UNBONDING:
             raise HTTPException(status_code=400, detail="Stake is not unbonding")
         result = await staking_service.complete_unbonding(stake_id)
-        background_tasks.add_task(blockchain_service.complete_unbonding, stake_id)  # type: ignore[attr-defined]
+        background_tasks.add_task(blockchain_service.complete_unbonding, stake_id)
         return {
             "message": "Unbonding completed successfully",
             "total_amount": result["total_amount"],
@@ -473,12 +477,12 @@ async def update_agent_performance(
     try:
         if not current_user.get("is_oracle", False):
             raise HTTPException(status_code=403, detail="Not authorized to update performance")
-        await staking_service.update_agent_performance(agent_wallet=agent_wallet, **request.dict())  # type: ignore[attr-defined]
+        await staking_service.update_agent_performance(agent_wallet=agent_wallet, **performance_request.model_dump())
         background_tasks.add_task(
             blockchain_service.update_agent_performance,
             agent_wallet,
-            request.accuracy,  # type: ignore[attr-defined]
-            request.successful,  # type: ignore[attr-defined]
+            performance_request.accuracy,
+            performance_request.successful,
         )
         return {"message": "Agent performance updated successfully"}
     except HTTPException:
@@ -506,10 +510,10 @@ async def distribute_agent_earnings(
             raise HTTPException(status_code=403, detail="Not authorized to distribute earnings")
         result = await staking_service.distribute_earnings(
             agent_wallet=agent_wallet,
-            total_earnings=request.total_earnings,  # type: ignore[attr-defined]
-            distribution_data=request.distribution_data,  # type: ignore[attr-defined]
+            total_earnings=Decimal(str(earnings_request.total_earnings)),
+            distribution_data=earnings_request.distribution_data,
         )
-        background_tasks.add_task(blockchain_service.distribute_earnings, agent_wallet, request.total_earnings)  # type: ignore[attr-defined]
+        background_tasks.add_task(blockchain_service.distribute_earnings, agent_wallet, earnings_request.total_earnings)
         return {
             "message": "Earnings distributed successfully",
             "total_distributed": result["total_distributed"],
@@ -696,7 +700,7 @@ async def claim_staking_rewards(
         if total_rewards <= 0:
             raise HTTPException(status_code=400, detail="No rewards to claim")
         result = await staking_service.claim_rewards(stake_ids)
-        background_tasks.add_task(blockchain_service.claim_rewards, stake_ids)  # type: ignore[attr-defined]
+        background_tasks.add_task(blockchain_service.claim_rewards, stake_ids)
         return {
             "message": "Rewards claimed successfully",
             "total_rewards": total_rewards,
