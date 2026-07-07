@@ -132,4 +132,4 @@ if __name__ == "__main__":
     masked_info = info.copy()
     if "config" in masked_info and "rpc_password" in masked_info["config"]:  # type: ignore[attr-defined]
         masked_info["config"]["rpc_password"] = "***"  # type: ignore[index]
-    logger.info("Bitcoin wallet info", wallet_info=masked_info)  # type: ignore[call-arg]
+    logger.info("Bitcoin wallet info: %s", masked_info)

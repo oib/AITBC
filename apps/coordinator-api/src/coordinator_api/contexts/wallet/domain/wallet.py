@@ -87,6 +87,7 @@ class TokenBalance(SQLModel, table=True):
 
 class TransactionStatus(StrEnum):
     PENDING = "pending"
+    SIGNED = "signed"
     SUBMITTED = "submitted"
     CONFIRMED = "confirmed"
     FAILED = "failed"
