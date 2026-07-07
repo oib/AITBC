@@ -38,7 +38,7 @@ async def create_workflow(
 ) -> AIAgentWorkflow:
     """Create a new AI agent workflow"""
     try:
-        workflow = AIAgentWorkflow(owner_id=user["sub"], **workflow_data.dict())
+        workflow = AIAgentWorkflow(owner_id=user["sub"], **workflow_data.model_dump())
         session.add(workflow)
         session.commit()
         session.refresh(workflow)
@@ -115,7 +115,7 @@ async def update_workflow(
             raise HTTPException(status_code=404, detail="Workflow not found")
         if workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
-        update_data = workflow_data.dict(exclude_unset=True)
+        update_data = workflow_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(workflow, field, value)
         workflow.updated_at = datetime.now(UTC)
