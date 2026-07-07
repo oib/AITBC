@@ -76,7 +76,7 @@ class AgentStateManager:
     async def get_workflow_steps(self, workflow_id: str) -> list[AgentStep]:
         """Get all steps for a workflow"""
         stmt = select(AgentStep).where(AgentStep.workflow_id == workflow_id).order_by(AgentStep.step_order)  # type: ignore[arg-type]
-        return self.session.execute(stmt).all()  # type: ignore[return-value]
+        return self.session.execute(stmt).scalars().all()  # type: ignore[return-value]
 
     async def create_step_execution(self, execution_id: str, step_id: str) -> AgentStepExecution:
         """Create a step execution record"""

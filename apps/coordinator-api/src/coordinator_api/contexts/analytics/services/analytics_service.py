@@ -136,7 +136,7 @@ class AnalyticsService:
         if segment_by:
             stmt = stmt.where(MarketMetric.category == segment_by)
         stmt = stmt.group_by(MarketMetric.category)
-        rows = self.session.execute(stmt).all()
+        rows = self.session.execute(stmt).all()  # ponytail: multi-column select, .all() returns Row objects
         total = sum(r.count for r in rows) or 1  # type: ignore
         segments = []
         for r in rows:

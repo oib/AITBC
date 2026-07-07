@@ -300,11 +300,15 @@ class AgentTrustManager:
         policy_violation: bool = False,
     ) -> AgentTrustScore:
         """Update trust score based on execution results"""
-        trust_score_row = self.session.scalars(
-            select(AgentTrustScore).where(
-                (AgentTrustScore.entity_type == entity_type) & (AgentTrustScore.entity_id == entity_id)
+        trust_score_row = (
+            self.session.scalars(
+                select(AgentTrustScore).where(
+                    (AgentTrustScore.entity_type == entity_type) & (AgentTrustScore.entity_id == entity_id)
+                )
             )
-        ).first()
+            .scalars()
+            .first()
+        )
         if trust_score_row is None:
             trust_score = AgentTrustScore(entity_type=entity_type, entity_id=entity_id)
             self.session.add(trust_score)
@@ -538,9 +542,11 @@ class AgentSandboxManager:
         4. File system monitoring (inotify, auditd)
         Currently returning placeholder monitoring data.
         """
-        sandbox = self.session.execute(
-            select(AgentSandboxConfig).where(AgentSandboxConfig.id == f"sandbox_{execution_id}")
-        ).first()
+        sandbox = (
+            self.session.execute(select(AgentSandboxConfig).where(AgentSandboxConfig.id == f"sandbox_{execution_id}"))
+            .scalars()
+            .first()
+        )
         if not sandbox:
             raise ValueError(f"Sandbox not found for execution {execution_id}")
         monitoring_data = {
@@ -560,9 +566,11 @@ class AgentSandboxManager:
     async def cleanup_sandbox(self, execution_id: str) -> bool:
         """Clean up sandbox environment after execution"""
         try:
-            sandbox = self.session.execute(
-                select(AgentSandboxConfig).where(AgentSandboxConfig.id == f"sandbox_{execution_id}")
-            ).first()
+            sandbox = (
+                self.session.execute(select(AgentSandboxConfig).where(AgentSandboxConfig.id == f"sandbox_{execution_id}"))
+                .scalars()
+                .first()
+            )
             if sandbox:
                 sandbox.is_active = False
                 sandbox.updated_at = datetime.now(UTC)

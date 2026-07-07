@@ -205,12 +205,12 @@ async def get_tier_progress(
 ) -> TierProgressResponse:
     """Get tier progress information for an agent"""
     try:
-        profile = session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).first()
+        profile = session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).scalars().first()
         if not profile:
             raise HTTPException(status_code=404, detail="Reward profile not found")
         from ...reputation.services.reputation_service import AgentReputation
 
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         trust_score = reputation.trust_score if reputation else 500.0
         current_tier = profile.current_tier
         next_tier = None
@@ -327,7 +327,7 @@ async def get_reward_leaderboard(
         query = select(AgentRewardProfile).where(AgentRewardProfile.last_activity >= start_date)
         if tier:
             query = query.where(AgentRewardProfile.current_tier == tier)
-        profiles = session.execute(query.order_by(desc(AgentRewardProfile.total_earnings)).limit(limit)).all()  # type: ignore[arg-type]
+        profiles = session.execute(query.order_by(desc(AgentRewardProfile.total_earnings)).limit(limit)).scalars().all()  # type: ignore[arg-type]
         leaderboard = []
         for rank, profile in enumerate(profiles, 1):
             leaderboard.append(
@@ -355,7 +355,7 @@ async def get_reward_tiers(request: Request, session: Annotated[Session, Depends
     try:
         from ..domain.rewards import RewardTierConfig
 
-        tier_configs = session.execute(select(RewardTierConfig).where(RewardTierConfig.is_active)).all()
+        tier_configs = session.execute(select(RewardTierConfig).where(RewardTierConfig.is_active)).scalars().all()
         tiers = []
         for config in tier_configs:
             tiers.append(
