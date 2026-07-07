@@ -492,6 +492,16 @@ class EcosystemService:
             logger.error("Failed to calculate growth indicators: %s", e)
             return {}
 
+    async def get_growth_indicators(self, period: str = "monthly") -> dict[str, Any]:
+        """Get ecosystem growth indicators with trend and growth rate."""
+        indicators = await self._calculate_growth_indicators(period)
+        avg_growth = sum(indicators.values()) / len(indicators) if indicators else 0.0
+        return {
+            **indicators,
+            "trend": "up" if avg_growth > 0 else "stable",
+            "growth_rate": avg_growth,
+        }
+
     async def get_top_performers(
         self, category: str = "all", period: str = "monthly", limit: int = 50
     ) -> list[dict[str, Any]]:
