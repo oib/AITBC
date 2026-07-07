@@ -5,7 +5,7 @@ Tests for disputes router (dispute resolution)
 import pytest
 from fastapi.testclient import TestClient
 
-from app.contexts.governance.services.dispute_resolution import init_dispute_service
+from coordinator_api.contexts.governance.services.dispute_resolution import init_dispute_service
 
 
 @pytest.fixture(autouse=True)

@@ -24,7 +24,7 @@ The ResourceMatcher service provides intelligent resource matching with ML-based
 ## Usage Example
 
 ```python
-from app.contexts.marketplace.services.resource_matcher import ResourceMatcher
+from coordinator_api.contexts.marketplace.services.resource_matcher import ResourceMatcher
 
 matcher = ResourceMatcher(session)
 

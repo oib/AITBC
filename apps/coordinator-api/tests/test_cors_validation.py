@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 def test_cors_localhost_allowed_in_dev():
     """Test that localhost origins are allowed in development"""
-    from app.config import Settings
+    from coordinator_api.config import Settings
 
     with patch.dict("os.environ", {"ENVIRONMENT": "development"}):
         settings = Settings(allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"])
@@ -17,7 +17,7 @@ def test_cors_localhost_allowed_in_dev():
 
 def test_cors_localhost_blocked_in_production():
     """Test that localhost origins are blocked in production"""
-    from app.config import Settings
+    from coordinator_api.config import Settings
 
     with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
         with pytest.raises(ValidationError) as exc_info:
@@ -35,7 +35,7 @@ def test_cors_localhost_blocked_in_production():
 
 def test_cors_production_origins_allowed():
     """Test that non-localhost origins are allowed in production"""
-    from app.config import Settings
+    from coordinator_api.config import Settings
 
     with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
         settings = Settings(

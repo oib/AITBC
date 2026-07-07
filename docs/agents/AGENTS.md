@@ -294,7 +294,7 @@ Old environment variable names are still supported with fallback chains:
 import os
 
 uvicorn.run(
-    "app.main:app",
+    "coordinator_api.main:app",
     host=settings.host,
     port=settings.port,
     reload=os.getenv("UVICORN_RELOAD", "false").lower() in ("true", "1", "yes"),

@@ -45,15 +45,15 @@ sys.path.insert(0, 'src')
 
 try:
     # Test domain models
-    from app.domain.reputation import AgentReputation, ReputationLevel
+    from coordinator_api.domain.reputation import AgentReputation, ReputationLevel
     print('✅ Base reputation models imported')
 
     # Test core engine
-    from app.reputation.engine import CrossChainReputationEngine
+    from coordinator_api.reputation.engine import CrossChainReputationEngine
     print('✅ Reputation engine imported')
 
     # Test aggregator
-    from app.reputation.aggregator import CrossChainReputationAggregator
+    from coordinator_api.reputation.aggregator import CrossChainReputationAggregator
     print('✅ Reputation aggregator imported')
 
     # Test model creation
@@ -176,9 +176,9 @@ python3 -c "
 import sys
 sys.path.insert(0, 'src')
 try:
-    from app.domain.reputation import AgentReputation, ReputationLevel
-    from app.reputation.engine import CrossChainReputationEngine
-    from app.reputation.aggregator import CrossChainReputationAggregator
+    from coordinator_api.domain.reputation import AgentReputation, ReputationLevel
+    from coordinator_api.reputation.engine import CrossChainReputationEngine
+    from coordinator_api.reputation.aggregator import CrossChainReputationAggregator
     print('✅ All core components imported successfully')
 except Exception as e:
     print(f'❌ Core component import failed: {e}')
@@ -269,7 +269,7 @@ if [[ $? -eq 0 ]]; then
     echo ""
     echo "🚀 Next Steps:"
     echo "   1. Apply database migration: alembic upgrade head"
-    echo "   2. Start API server: uvicorn src.app.main:app --reload"
+    echo "   2. Start API server: uvicorn src.coordinator_api.main:app --reload"
     echo "   3. Test API endpoints: curl http://localhost:8011/v1/reputation/health"
     echo "   4. Monitor performance and logs"
     echo ""

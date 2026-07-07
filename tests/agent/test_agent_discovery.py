@@ -7,7 +7,7 @@ import asyncio
 from datetime import UTC, datetime
 
 import pytest
-from app.routing.agent_discovery import (
+from agent_app.routing.agent_discovery import (
     AgentDiscoveryService,
     AgentInfo,
     AgentRegistry,

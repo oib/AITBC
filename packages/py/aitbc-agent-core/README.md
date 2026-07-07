@@ -37,7 +37,7 @@ Each app implements protocols for its domain models and services:
 ```python
 # Example adapter for agent-management
 from aitbc_agent_core.protocols import ISecurityManager
-from app.services.agent_security import AgentSecurityManager
+from agent_app.services.agent_security import AgentSecurityManager
 
 class AgentSecurityManagerAdapter(ISecurityManager):
     def __init__(self, manager: AgentSecurityManager):

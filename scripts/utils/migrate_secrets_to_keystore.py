@@ -11,7 +11,7 @@ from secrets import token_bytes
 # Add wallet service to path
 sys.path.insert(0, "/opt/aitbc/apps/wallet/src")
 
-from app.crypto.encryption import EncryptionSuite
+from wallet_app.crypto.encryption import EncryptionSuite
 
 
 def encrypt_secret(plaintext: str, encryption_password: str) -> bytes:

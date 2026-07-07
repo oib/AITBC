@@ -4,7 +4,7 @@ Tests for priority queues, TTL, and dead letter queue handling
 """
 
 import pytest
-from app.protocols.communication import Priority
+from agent_app.protocols.communication import Priority
 
 
 class TestPriorityEnum:

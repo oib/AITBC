@@ -8,8 +8,8 @@ import sys
 from unittest.mock import patch
 
 import pytest
-from app.utils.alerting import AlertDispatcher
-from app.utils.metrics import MetricsCollector, build_live_metrics_payload
+from coordinator_api.utils.alerting import AlertDispatcher
+from coordinator_api.utils.metrics import MetricsCollector, build_live_metrics_payload
 
 
 def _record_api_request(collector: MetricsCollector, error: bool = False, response_time_ms: float = 0.0) -> None:

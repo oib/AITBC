@@ -24,11 +24,11 @@ pytestmark = pytest.mark.skipif(
 
 # Clear any cached 'app' modules from other test suites to avoid import conflicts
 for mod_name in list(sys.modules.keys()):
-    if mod_name == "app" or mod_name.startswith("app."):
+    if mod_name == "coordinator_api" or mod_name.startswith("coordinator_api."):
         del sys.modules[mod_name]
 
 try:
-    from app.workflow.orchestrator import (
+    from coordinator_api.workflow.orchestrator import (
         StepStatus,
         WorkflowDefinition,
         WorkflowExecution,

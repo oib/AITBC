@@ -47,7 +47,7 @@ cp .env.agent-identity.example .env.agent-identity
 ### **4. API Server Testing** (Required)
 ```bash
 # Start the development server
-uvicorn src.app.main:app --reload --host 0.0.0.0 --port 8203
+uvicorn src.coordinator_api.main:app --reload --host 0.0.0.0 --port 8203
 
 # Test the API endpoints
 curl -X GET "http://localhost:8203/v1/agent-identity/chains/supported"

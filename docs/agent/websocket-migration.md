@@ -354,7 +354,7 @@ curl http://localhost:8000/v1/agent/ws/status
 ### Custom Handlers
 ```python
 # Register custom handlers
-from app.contexts.agent.routers.agent_websocket import message_listener
+from coordinator_api.contexts.agent.routers.agent_websocket import message_listener
 
 async def custom_handler(message: dict[str, Any]) -> dict[str, Any]:
     # Custom logic
@@ -366,7 +366,7 @@ message_listener.register_handler("CUSTOM", custom_handler)
 ### Message Encryption
 ```python
 # Add encryption to WebSocket messages
-from app.agent_coordinator.encryption.message_encryption import encrypt_message
+from coordinator_api.agent_coordinator.encryption.message_encryption import encrypt_message
 
 encrypted = encrypt_message(message)
 await websocket.send(encrypted)

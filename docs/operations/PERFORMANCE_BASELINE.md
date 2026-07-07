@@ -55,7 +55,7 @@ Run load tests locally:
 # Start coordinator API
 cd apps/coordinator-api
 source /opt/aitbc/venv/bin/activate
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn coordinator_api.main:app --host 127.0.0.1 --port 8000
 
 # In another terminal, run load tests
 cd tests/load
@@ -423,7 +423,7 @@ systemctl status aitbc-coordinator-api
 memory_peak=$(systemctl show aitbc-coordinator-api --property=MemoryPeak)
 
 # Check for memory leaks
-valgrind --leak-check=full python -m app.main
+valgrind --leak-check=full python -m coordinator_api.main
 
 # Profile memory usage
 python -m memory_profiler app.main

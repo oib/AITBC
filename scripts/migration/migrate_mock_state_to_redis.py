@@ -19,8 +19,8 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from app.config import settings
-from app.services.redis_state import RedisStateManager
+from coordinator_api.config import settings
+from coordinator_api.services.redis_state import RedisStateManager
 
 
 async def migrate_training_state(dry_run: bool = False) -> int:

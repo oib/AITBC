@@ -6,8 +6,8 @@ Tests for message types, routing, filtering, and message handling
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from app.protocols.communication import AgentMessage, MessageType, Priority
-from app.protocols.message_types import (
+from agent_app.protocols.communication import AgentMessage, MessageType, Priority
+from agent_app.protocols.message_types import (
     ConsensusMessage,
     CoordinationMessage,
     DiscoveryMessage,

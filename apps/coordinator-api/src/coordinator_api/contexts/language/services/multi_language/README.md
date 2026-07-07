@@ -251,7 +251,7 @@ pytest test_multi_language.py --cov=. --cov-report=html
 
 ### Basic Translation
 ```python
-from app.services.multi_language import initialize_multi_language_service
+from coordinator_api.services.multi_language import initialize_multi_language_service
 
 # Initialize service
 service = await initialize_multi_language_service()
