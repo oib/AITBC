@@ -56,7 +56,7 @@ async def create_cross_chain_marketplace_offer(
 ) -> dict[str, Any]:
     """Create a cross-chain enabled marketplace offer"""
     try:
-        identity = await identity_manager.get_identity(agent_id)  # type: ignore[attr-defined]
+        identity = await identity_manager.get_agent_identity_summary(agent_id)
         if not identity:
             raise HTTPException(status_code=404, detail="Agent identity not found")
         offer = await integration_service.create_cross_chain_marketplace_offer(
@@ -191,7 +191,7 @@ async def execute_cross_chain_transaction(
 ) -> dict[str, Any]:
     """Execute a cross-chain marketplace transaction"""
     try:
-        identity = await identity_manager.get_identity(buyer_id)  # type: ignore[attr-defined]
+        identity = await identity_manager.get_agent_identity_summary(buyer_id)
         if not identity:
             raise HTTPException(status_code=404, detail="Buyer identity not found")
         transaction = await integration_service.execute_cross_chain_transaction(

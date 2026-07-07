@@ -4,7 +4,7 @@ REST API for analytics, insights, reporting, and dashboards
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Any, cast
+from typing import Annotated, Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -24,7 +24,7 @@ from ..domain.analytics import (
     MarketMetric,
     ReportType,
 )
-from ...agent_coordination.services.agent_marketplace import AgentServiceMarketplace
+from ..services.analytics_service import AnalyticsService
 from ....storage import get_session
 
 logger = get_logger(__name__)
@@ -128,9 +128,9 @@ async def collect_market_data(
     session: Annotated[Session, Depends(get_session)],
 ) -> AnalyticsSummaryResponse:
     """Collect market data for analytics"""
-    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
+    analytics_service = AnalyticsService(session)
     try:
-        result = await analytics_service.collect_market_data(period_type)  # type: ignore[attr-defined]
+        result = await analytics_service.collect_market_data(period_type)
         return AnalyticsSummaryResponse(**result)
     except Exception as e:
         logger.error("Error collecting market data: %s", str(e))
@@ -148,9 +148,9 @@ async def get_market_insights(
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get market insights and analysis"""
-    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
+    analytics_service = AnalyticsService(session)
     try:
-        result = await analytics_service.generate_insights(time_period)  # type: ignore[attr-defined]
+        result = await analytics_service.generate_insights(time_period)
         if insight_type or impact_level:
             filtered_insights = {}
             for type_name, insights in result["insight_groups"].items():
@@ -163,7 +163,7 @@ async def get_market_insights(
                     filtered_insights[type_name] = filtered[:limit]
             result["insight_groups"] = filtered_insights
             result["total_insights"] = sum(len(insights) for insights in filtered_insights.values())
-        return result  # type: ignore[no-any-return]
+        return result
     except Exception as e:
         logger.error("Error getting market insights: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -217,9 +217,9 @@ async def get_market_metrics(
 @rate_limit(rate=200, per=60)
 async def get_market_overview(request: Request, session: Annotated[Session, Depends(get_session)]) -> MarketOverviewResponse:
     """Get comprehensive market overview"""
-    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
+    analytics_service = AnalyticsService(session)
     try:
-        overview = await analytics_service.get_market_overview()  # type: ignore[attr-defined]
+        overview = await analytics_service.get_market_overview()
         return MarketOverviewResponse(**overview)
     except Exception as e:
         logger.error("Error getting market overview: %s", str(e))
@@ -422,10 +422,10 @@ async def get_market_trends(
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get market trends analysis"""
-    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
+    analytics_service = AnalyticsService(session)
     try:
-        trends = await analytics_service.analyze_market_trends(time_period=time_period, metric_categories=metric_categories)  # type: ignore[attr-defined]
-        return cast(dict[str, Any], trends)
+        trends = await analytics_service.analyze_market_trends(time_period=time_period, metric_categories=metric_categories)
+        return trends
     except Exception as e:
         logger.error("Error getting market trends: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -440,10 +440,10 @@ async def get_market_segments(
     session: Annotated[Session, Depends(get_session)],
 ) -> list[dict[str, Any]]:
     """Get market segment analysis"""
-    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
+    analytics_service = AnalyticsService(session)
     try:
-        segments = await analytics_service.analyze_market_segments(segment_by=segment_by, min_market_share=min_market_share)  # type: ignore[attr-defined]
-        return cast(list[dict[str, Any]], segments)
+        segments = await analytics_service.analyze_market_segments(segment_by=segment_by, min_market_share=min_market_share)
+        return segments
     except Exception as e:
         logger.error("Error getting market segments: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -458,10 +458,10 @@ async def get_competitor_analysis(
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get competitive analysis"""
-    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
+    analytics_service = AnalyticsService(session)
     try:
-        analysis = await analytics_service.analyze_competitors(competitor_ids=competitor_ids, analysis_depth=analysis_depth)  # type: ignore[attr-defined]
-        return cast(dict[str, Any], analysis)
+        analysis = await analytics_service.analyze_competitors(competitor_ids=competitor_ids, analysis_depth=analysis_depth)
+        return analysis
     except Exception as e:
         logger.error("Error getting competitor analysis: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -477,14 +477,14 @@ async def get_metric_forecast(
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get metric forecast"""
-    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
+    analytics_service = AnalyticsService(session)
     try:
-        forecast = await analytics_service.forecast_metric(  # type: ignore[attr-defined]
+        forecast = await analytics_service.forecast_metric(
             metric_name=metric_name,
             forecast_periods=forecast_periods,
             confidence_interval=confidence_interval,
         )
-        return cast(dict[str, Any], forecast)
+        return forecast
     except Exception as e:
         logger.error("Error getting metric forecast: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -499,10 +499,10 @@ async def get_active_alerts(
     session: Annotated[Session, Depends(get_session)],
 ) -> list[dict[str, Any]]:
     """Get active market alerts"""
-    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
+    analytics_service = AnalyticsService(session)
     try:
-        alerts = await analytics_service.get_active_alerts(severity=severity, category=category)  # type: ignore[attr-defined]
-        return cast(list[dict[str, Any]], alerts)
+        alerts = await analytics_service.get_active_alerts(severity=severity, category=category)
+        return alerts
     except Exception as e:
         logger.error("Error getting active alerts: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -517,10 +517,10 @@ async def acknowledge_alert(
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Acknowledge market alert"""
-    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
+    analytics_service = AnalyticsService(session)
     try:
-        result = await analytics_service.acknowledge_alert(alert_id=alert_id, acknowledged_by=acknowledged_by)  # type: ignore[attr-defined]
-        return cast(dict[str, Any], result)
+        result = await analytics_service.acknowledge_alert(alert_id=alert_id, acknowledged_by=acknowledged_by)
+        return result
     except Exception as e:
         logger.error("Error acknowledging alert: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -535,10 +535,10 @@ async def get_performance_benchmarks(
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get performance benchmarks"""
-    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
+    analytics_service = AnalyticsService(session)
     try:
-        benchmarks = await analytics_service.get_performance_benchmarks(benchmark_type=benchmark_type, time_period=time_period)  # type: ignore[attr-defined]
-        return cast(dict[str, Any], benchmarks)
+        benchmarks = await analytics_service.get_performance_benchmarks(benchmark_type=benchmark_type, time_period=time_period)
+        return benchmarks
     except Exception as e:
         logger.error("Error getting performance benchmarks: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -553,10 +553,10 @@ async def get_custom_queries(
     session: Annotated[Session, Depends(get_session)],
 ) -> list[dict[str, Any]]:
     """Get saved custom queries"""
-    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
+    analytics_service = AnalyticsService(session)
     try:
-        queries = await analytics_service.get_custom_queries(query_type=query_type, created_by=created_by)  # type: ignore[attr-defined]
-        return cast(list[dict[str, Any]], queries)
+        queries = await analytics_service.get_custom_queries(query_type=query_type, created_by=created_by)
+        return queries
     except Exception as e:
         logger.error("Error getting custom queries: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -572,12 +572,12 @@ async def create_custom_query(
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Create custom analytics query"""
-    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
+    analytics_service = AnalyticsService(session)
     try:
-        query = await analytics_service.create_custom_query(  # type: ignore[attr-defined]
+        query = await analytics_service.create_custom_query(
             query_name=query_name, query_definition=query_definition, query_type=query_type
         )
-        return cast(dict[str, Any], query)
+        return query
     except Exception as e:
         logger.error("Error creating custom query: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -592,10 +592,10 @@ async def execute_custom_query(
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Execute custom analytics query"""
-    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
+    analytics_service = AnalyticsService(session)
     try:
-        result = await analytics_service.execute_custom_query(query_id=query_id, parameters=parameters or {})  # type: ignore[attr-defined]
-        return cast(dict[str, Any], result)
+        result = await analytics_service.execute_custom_query(query_id=query_id, parameters=parameters or {})
+        return result
     except Exception as e:
         logger.error("Error executing custom query: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -611,12 +611,12 @@ async def export_analytics_data(
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Export analytics data"""
-    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
+    analytics_service = AnalyticsService(session)
     try:
-        export_result = await analytics_service.export_analytics_data(  # type: ignore[attr-defined]
+        export_result = await analytics_service.export_analytics_data(
             export_format=export_format, data_types=data_types, date_range=date_range
         )
-        return cast(dict[str, Any], export_result)
+        return export_result
     except Exception as e:
         logger.error("Error exporting analytics data: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
@@ -630,10 +630,10 @@ async def get_realtime_metrics(
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Get real-time market metrics"""
-    analytics_service = AgentServiceMarketplace(session)  # type: ignore[arg-type]
+    analytics_service = AnalyticsService(session)
     try:
-        metrics = await analytics_service.get_realtime_metrics(metric_names=metric_names)  # type: ignore[attr-defined]
-        return cast(dict[str, Any], metrics)
+        metrics = await analytics_service.get_realtime_metrics(metric_names=metric_names)
+        return metrics
     except Exception as e:
         logger.error("Error getting realtime metrics: %s", str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e
