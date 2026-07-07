@@ -1,9 +1,9 @@
-"""
-Resource management commands for AITBC CLI
-"""
+"""Resource management commands for AITBC CLI.
 
-import json
-import time
+Wired to the coordinator-api ``/v1/agent-performance`` endpoints:
+- ``allocate`` → POST /v1/agent-performance/resources/allocate
+- ``optimize`` → POST /v1/agent-performance/optimize
+"""
 
 import click
 
@@ -14,178 +14,139 @@ from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
 
+_OPTIMIZATION_TARGETS = ["speed", "accuracy", "efficiency", "cost", "scalability", "reliability"]
+_PERFORMANCE_METRICS = [
+    "accuracy",
+    "precision",
+    "recall",
+    "f1_score",
+    "latency",
+    "throughput",
+    "resource_efficiency",
+    "cost_efficiency",
+    "adaptation_speed",
+    "generalization",
+]
+
+
+def _client() -> AITBCHTTPClient:
+    config = get_config()
+    return AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=30)
+
 
 @click.group()
 def resource():
-    """Resource management commands (EXPERIMENTAL - use --mock for testing)"""
+    """Manage agent resource allocations via coordinator-api"""
     pass
 
 
 @resource.command()
-@click.option("--resource-type", required=True, help="Type of resource (gpu, cpu, storage)")
-@click.option("--quantity", type=int, required=True, help="Quantity of resources")
-@click.option("--priority", type=click.Choice(["low", "medium", "high"]), default="medium", help="Allocation priority")
-@click.option("--mock", is_flag=True, help="Use mock data for experimental command")
-def allocate(resource_type: str, quantity: int, priority: str, mock: bool):
-    """Allocate resources (EXPERIMENTAL)"""
-    if not mock:
-        abort(
-            None,
-            "[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing. To proceed with mock data, run: aitbc resource allocate --mock",
-        )
+@click.option("--agent-id", required=True, help="Agent ID to allocate resources for")
+@click.option("--cpu-cores", type=float, help="Requested CPU cores")
+@click.option("--memory-gb", type=float, help="Requested memory (GB)")
+@click.option("--gpu-count", type=float, help="Requested GPU count")
+@click.option("--gpu-memory-gb", type=float, help="Requested GPU memory (GB)")
+@click.option("--storage-gb", type=float, help="Requested storage (GB)")
+@click.option("--network-bandwidth", type=float, help="Requested network bandwidth (Mbps)")
+@click.option(
+    "--optimization-target",
+    type=click.Choice(_OPTIMIZATION_TARGETS),
+    default="efficiency",
+    help="Optimization target for allocation",
+)
+@click.option("--priority", type=click.Choice(["low", "normal", "high", "critical"]), default="normal", help="Priority level")
+@click.pass_context
+def allocate(
+    ctx,
+    agent_id: str,
+    cpu_cores: float | None,
+    memory_gb: float | None,
+    gpu_count: float | None,
+    gpu_memory_gb: float | None,
+    storage_gb: float | None,
+    network_bandwidth: float | None,
+    optimization_target: str,
+    priority: str,
+):
+    """Allocate resources for an agent task via coordinator-api"""
+    task_requirements: dict[str, float] = {}
+    for key, val in [
+        ("cpu_cores", cpu_cores),
+        ("memory_gb", memory_gb),
+        ("gpu_count", gpu_count),
+        ("gpu_memory_gb", gpu_memory_gb),
+        ("storage_gb", storage_gb),
+        ("network_bandwidth", network_bandwidth),
+    ]:
+        if val is not None:
+            task_requirements[key] = val
+    if not task_requirements:
+        abort(ctx, "At least one resource requirement must be specified (e.g. --cpu-cores, --gpu-count)")
 
-    success(f"Allocate {quantity} {resource_type} with {priority} priority")
-    click.echo(json.dumps({"allocation_id": f"alloc_{int(time.time())}", "status": "Allocated (mock)", "cost_per_hour": 25}))
-
-
-@resource.command()
-@click.option("--resource-id", help="Specific resource ID")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
-@click.option("--mock", is_flag=True, help="Use mock data for experimental command")
-def list(resource_id: str | None, format: str, mock: bool):
-    """List allocated resources (EXPERIMENTAL)"""
-    if not mock:
-        abort(
-            None,
-            "[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing. To proceed with mock data, run: aitbc resource list --mock",
-        )
-
-    success("Allocated resources:")
-    resources_data = [
-        {"type": "gpu", "allocated": 4, "available": 8, "efficiency": "78.5%"},
-        {"type": "cpu", "allocated": "45.2%", "available": "54.8%", "efficiency": "82.1%"},
-        {"type": "storage", "allocated": "45GB", "available": "55GB", "efficiency": "90.0%"},
-    ]
-
-    if format == "json":
-        click.echo(json.dumps(resources_data, indent=2))
-    else:
-        for res in resources_data:
-            assert isinstance(res, dict), "Resource entry must be a dict"
-            click.echo(
-                f"  - {res['type'].upper()}: {res['allocated']} allocated, {res['available']} available ({res['efficiency']})"
-            )
-    return 0
-
-
-@resource.command()
-@click.argument("resource_id")
-@click.option("--mock", is_flag=True, help="Use mock data for experimental command")
-def release(resource_id: str, mock: bool):
-    """Release allocated resources (EXPERIMENTAL)"""
-    if not mock:
-        abort(
-            None,
-            "[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing. To proceed with mock data, run: aitbc resource release --mock",
-        )
-
-    success(f"Release resource {resource_id}")
-    click.echo(json.dumps({"resource_id": resource_id, "status": "Released (mock)"}))
-
-
-@resource.command()
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
-@click.option("--mock", is_flag=True, help="Use mock data for experimental command")
-def utilization(format: str, mock: bool):
-    """Get resource utilization metrics (EXPERIMENTAL)"""
-    if not mock:
-        abort(
-            None,
-            "[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing. To proceed with mock data, run: aitbc resource utilization --mock",
-        )
-
-    success("Resource utilization:")
-    metrics = {
-        "cpu_utilization": "45.2%",
-        "memory_usage": "2.1GB / 8GB (26%)",
-        "storage_available": "45GB / 100GB",
-        "network_bandwidth": "120Mbps / 1Gbps",
-        "active_agents": 3,
-        "resource_efficiency": "78.5%",
+    payload = {
+        "agent_id": agent_id,
+        "task_requirements": task_requirements,
+        "optimization_target": optimization_target,
+        "priority_level": priority,
     }
-
-    if format == "json":
-        click.echo(json.dumps(metrics, indent=2))
-    else:
-        for key, value in metrics.items():
-            click.echo(f"  {key}: {value}")
-    return 0
-
-
-@resource.command()
-@click.option("--target", default="all", help="Optimization target (all, cpu, gpu, memory)")
-@click.option("--agent-id", help="Specific agent ID")
-@click.option("--mock", is_flag=True, help="Use mock data for experimental command")
-def optimize(target: str, agent_id: str | None, mock: bool):
-    """Optimize resource allocation (EXPERIMENTAL)"""
-    if not mock:
-        abort(
-            None,
-            "[EXPERIMENTAL] This command uses placeholder logic. Use --mock for testing. To proceed with mock data, run: aitbc resource optimize --mock",
-        )
-
-    success(f"Optimize resources for target: {target}")
-    if agent_id:
-        click.echo(f"Agent: {agent_id}")
-    # TODO: Implement actual optimization logic
-    click.echo(
-        json.dumps(
-            {
-                "status": "mock",
-                "optimization_score": None,
-                "improvement": None,
-                "note": "Real optimization logic not yet implemented",
-            }
-        )
-    )
-    return 0
-
-
-@resource.command()
-@click.option("--resource-id", help="Specific resource ID to check")
-@click.pass_context
-def status(ctx, resource_id: str | None):
-    """Get resource allocation status from coordinator-api"""
-    config = get_config()
-
     try:
-        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-
-        if resource_id:
-            status_data = http_client.get(f"/api/v1/resources/{resource_id}/status")
-        else:
-            status_data = http_client.get("/api/v1/resources/status")
-
-        success("Resource Status:")
-        output(status_data, ctx.obj.get("output_format", "table"))
-    except NetworkError as e:
-        error(f"Network error: {e}")
-        ctx.exit(1)
-    except Exception as e:
-        error(f"Error fetching resource status: {e}")
-        ctx.exit(1)
-
-
-@resource.command()
-@click.argument("resource_id")
-@click.option("--force", is_flag=True, help="Force deallocation without confirmation")
-@click.pass_context
-def deallocate(ctx, resource_id: str, force: bool):
-    """Deallocate resources via coordinator-api"""
-    config = get_config()
-
-    if not force:
-        if not click.confirm(f"Are you sure you want to deallocate resource {resource_id}?"):
-            return
-
-    try:
-        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-        result = http_client.post(f"/api/v1/resources/{resource_id}/deallocate")
-        success(f"Resource {resource_id} deallocated successfully")
+        result = _client().post("/v1/agent-performance/resources/allocate", json=payload)
+        success(f"Allocated resources for agent {agent_id} (allocation_id: {result.get('allocation_id', 'N/A')})")
         output(result, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
         error(f"Network error: {e}")
         ctx.exit(1)
     except Exception as e:
-        error(f"Error deallocating resource: {e}")
+        error(f"Allocation failed: {e}")
+        ctx.exit(1)
+
+
+@resource.command()
+@click.option("--agent-id", required=True, help="Agent ID to optimize")
+@click.option(
+    "--target-metric",
+    type=click.Choice(_PERFORMANCE_METRICS),
+    required=True,
+    help="Performance metric to optimize",
+)
+@click.option("--optimization-type", default="comprehensive", help="Optimization type (comprehensive, targeted, etc.)")
+@click.option("--current-accuracy", type=float, help="Current accuracy (0-1)")
+@click.option("--current-latency", type=float, help="Current latency (ms)")
+@click.option("--current-throughput", type=float, help="Current throughput (req/s)")
+@click.pass_context
+def optimize(
+    ctx,
+    agent_id: str,
+    target_metric: str,
+    optimization_type: str,
+    current_accuracy: float | None,
+    current_latency: float | None,
+    current_throughput: float | None,
+):
+    """Optimize agent performance via coordinator-api"""
+    current_performance: dict[str, float] = {}
+    if current_accuracy is not None:
+        current_performance["accuracy"] = current_accuracy
+    if current_latency is not None:
+        current_performance["latency"] = current_latency
+    if current_throughput is not None:
+        current_performance["throughput"] = current_throughput
+    if not current_performance:
+        abort(ctx, "At least one current performance metric must be specified (e.g. --current-accuracy)")
+
+    payload = {
+        "agent_id": agent_id,
+        "target_metric": target_metric,
+        "current_performance": current_performance,
+        "optimization_type": optimization_type,
+    }
+    try:
+        result = _client().post("/v1/agent-performance/optimize", json=payload)
+        success(f"Optimization started for agent {agent_id} (optimization_id: {result.get('optimization_id', 'N/A')})")
+        output(result, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+        ctx.exit(1)
+    except Exception as e:
+        error(f"Optimization failed: {e}")
         ctx.exit(1)
