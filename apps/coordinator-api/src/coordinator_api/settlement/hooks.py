@@ -180,24 +180,26 @@ class SettlementHook:
         return int(datetime.now(UTC).timestamp() * 1000) + random.randint(0, 9999)
 
     async def _sign_settlement_message(self, job: Job) -> str:
-        """Sign the settlement message"""
-        try:
-            from cryptography.hazmat.backends import default_backend
-            from cryptography.hazmat.primitives import hashes
+        """Sign the settlement message with secp256k1 (canonical-JSON + keccak256).
 
-            private_key_hex = os.environ.get("SETTLEMENT_PRIVATE_KEY")
-            if not private_key_hex:
-                logger.warning("SETTLEMENT_PRIVATE_KEY not set, using placeholder signature")
-                return "0x" + "0" * 40
-            message = f"{job.job_id}:{job.cross_chain_amount}:{job.cross_chain_target_address}"  # type: ignore[attr-defined]  # ponytail: fields not on model
-            message_hash = hashes.Hash(hashes.SHA256(), default_backend())
-            message_hash.update(message.encode())
-            digest = message_hash.finalize()
-            signature = "0x" + digest.hex()[:40]
-            return signature
-        except Exception as e:
-            logger.warning("Failed to sign settlement message: %s", e)
-            return "0x" + "0" * 40
+        Raises ValueError if SETTLEMENT_PRIVATE_KEY is unset — a settlement must not
+        proceed with a fake signature. The caller (_initiate_settlement) catches this
+        and marks the job FAILED via _handle_settlement_error.
+        """
+        from aitbc.crypto.consensus_signing import sign_consensus_message
+
+        private_key_hex = os.environ.get("SETTLEMENT_PRIVATE_KEY")
+        if not private_key_hex:
+            raise ValueError(
+                "SETTLEMENT_PRIVATE_KEY not set — cannot sign settlement message. "
+                "Set a secp256k1 private key hex to enable cross-chain settlement."
+            )
+        message = {
+            "job_id": str(job.id),
+            "amount": str(job.cross_chain_amount),  # type: ignore[attr-defined]  # ponytail: field not on model
+            "target_address": str(job.cross_chain_target_address),  # type: ignore[attr-defined]  # ponytail: field not on model
+        }
+        return sign_consensus_message(message, private_key_hex)
 
     async def _handle_settlement_error(self, job: Job, error: Exception) -> None:
         """Handle settlement errors"""
