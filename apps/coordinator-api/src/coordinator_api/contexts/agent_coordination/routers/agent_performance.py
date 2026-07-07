@@ -371,7 +371,7 @@ async def create_capability(
     """Create agent capability"""
     performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
     try:
-        capability = await performance_service.create_capability(  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        capability = await performance_service.create_capability(
             session=session,
             agent_id=capability_request.agent_id,
             capability_name=capability_request.capability_name,
@@ -388,7 +388,7 @@ async def create_capability(
             domain_area=capability.domain_area,
             skill_level=capability.skill_level,
             proficiency_score=capability.proficiency_score,
-            specialization_areas=capability.specialization_areas,
+            specialization_areas=capability.specializations,
             status=capability.status,
             created_at=capability.created_at.isoformat(),
         )
@@ -405,7 +405,7 @@ async def list_agent_capabilities(
     """List all capabilities for an agent"""
     performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
     try:
-        capabilities = await performance_service.list_capabilities(agent_id)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        capabilities = await performance_service.list_capabilities(agent_id)
         return [
             CapabilityResponse(
                 capability_id=cap.capability_id,
@@ -415,7 +415,7 @@ async def list_agent_capabilities(
                 domain_area=cap.domain_area,
                 skill_level=cap.skill_level,
                 proficiency_score=cap.proficiency_score,
-                specialization_areas=cap.specialization_areas,
+                specialization_areas=cap.specializations,
                 status=cap.status,
                 created_at=cap.created_at.isoformat(),
             )
@@ -434,8 +434,8 @@ async def get_performance_analytics(
     """Get performance analytics for an agent"""
     performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
     try:
-        analytics = await performance_service.get_performance_analytics(agent_id, period_days)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
-        return analytics  # type: ignore[no-any-return]
+        analytics = await performance_service.get_performance_analytics(agent_id, period_days)
+        return analytics
     except Exception as e:
         logger.error("Error getting performance analytics for agent %s: %s", agent_id, str(e))
         raise HTTPException(status_code=500, detail="Internal server error") from e

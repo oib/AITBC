@@ -55,8 +55,8 @@ async def init_governance_profile(
     """Initialize a governance profile for a user"""
     service = GovernanceService(session)
     try:
-        profile = await service.get_or_create_profile(request.user_id, request.initial_voting_power)  # type: ignore[attr-defined]
-        return profile  # type: ignore[no-any-return]
+        profile = await service.get_or_create_profile(request.user_id, request.initial_voting_power)
+        return profile
     except Exception as e:
         logger.error("Error creating governance profile: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -70,8 +70,8 @@ async def delegate_voting_power(
     """Delegate your voting power to another DAO member"""
     service = GovernanceService(session)
     try:
-        profile = await service.delegate_votes(profile_id, request.delegatee_id)  # type: ignore[attr-defined]
-        return profile  # type: ignore[no-any-return]
+        profile = await service.delegate_votes(profile_id, request.delegatee_id)
+        return profile
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
@@ -89,8 +89,8 @@ async def create_proposal(
     """Submit a new governance proposal to the DAO"""
     service = GovernanceService(session)
     try:
-        proposal = await service.create_proposal(proposer_id, proposal_request.dict())  # type: ignore[misc, call-arg, arg-type]  # ponytail: router awaits sync service, signature mismatch not yet implemented
-        return proposal  # type: ignore[no-any-return]
+        proposal = await service.create_governance_proposal(proposer_id, proposal_request.dict())
+        return proposal
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -109,10 +109,10 @@ async def cast_vote(
     """Cast a vote on an active proposal"""
     service = GovernanceService(session)
     try:
-        vote = await service.cast_vote(  # type: ignore[misc, call-arg]  # ponytail: router awaits sync service, signature mismatch not yet implemented
+        vote = await service.cast_governance_vote(
             proposal_id=proposal_id, voter_id=voter_id, vote_type=vote_request.vote_type, reason=vote_request.reason
         )
-        return vote  # type: ignore[no-any-return]
+        return vote
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -125,8 +125,8 @@ async def process_proposal(request: Request, proposal_id: str, session: Annotate
     """Manually trigger the lifecycle check of a proposal (e.g., tally votes when time ends)"""
     service = GovernanceService(session)
     try:
-        proposal = await service.process_proposal_lifecycle(proposal_id)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
-        return proposal  # type: ignore[no-any-return]
+        proposal = await service.process_proposal_lifecycle(proposal_id)
+        return proposal
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
@@ -144,8 +144,8 @@ async def execute_proposal(
     """Execute the payload of a succeeded proposal"""
     service = GovernanceService(session)
     try:
-        proposal = await service.execute_proposal(proposal_id, executor_id)  # type: ignore[misc]  # ponytail: router awaits sync service
-        return proposal  # type: ignore[no-any-return]
+        proposal = await service.execute_governance_proposal(proposal_id, executor_id)
+        return proposal
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -162,7 +162,7 @@ async def generate_transparency_report(
     """Generate a governance analytics and transparency report"""
     service = GovernanceService(session)
     try:
-        report = await service.generate_transparency_report(period)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
-        return report  # type: ignore[no-any-return]
+        report = await service.generate_transparency_report(period)
+        return report
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
