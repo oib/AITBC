@@ -92,16 +92,18 @@ class BadgeSystem:
         context: dict[str, Any] | None = None,
     ) -> tuple[bool, AgentBadge | None, str]:
         """Award a badge to an agent"""
-        badge = session.execute(select(AchievementBadge).where(AchievementBadge.badge_id == badge_id)).first()
+        badge = session.execute(select(AchievementBadge).where(AchievementBadge.badge_id == badge_id)).scalars().first()
         if not badge:
             return (False, None, "Badge not found")
         if not badge.is_active:
             return (False, None, "Badge is not active")
         if badge.is_limited and badge.current_awards >= badge.max_awards:
             return (False, None, "Badge has reached maximum awards")
-        existing_badge = session.execute(
-            select(AgentBadge).where(and_(AgentBadge.agent_id == agent_id, AgentBadge.badge_id == badge_id))
-        ).first()
+        existing_badge = (
+            session.execute(select(AgentBadge).where(and_(AgentBadge.agent_id == agent_id, AgentBadge.badge_id == badge_id)))
+            .scalars()
+            .first()
+        )
         if existing_badge:
             return (False, None, "Agent already has this badge")
         eligibility_result = await self.verify_badge_eligibility(session, agent_id, badge)  # type: ignore[arg-type]
@@ -174,17 +176,28 @@ class BadgeSystem:
     async def check_and_award_automatic_badges(self, session: Session, agent_id: str) -> list[dict[str, Any]]:
         """Check and award automatic badges for an agent"""
         awarded_badges = []
-        automatic_badges = session.execute(
-            select(AchievementBadge).where(
-                and_(AchievementBadge.is_active, AchievementBadge.badge_type.in_([BadgeType.ACHIEVEMENT, BadgeType.MILESTONE]))  # type: ignore[attr-defined]
+        automatic_badges = (
+            session.execute(
+                select(AchievementBadge).where(
+                    and_(
+                        AchievementBadge.is_active,
+                        AchievementBadge.badge_type.in_([BadgeType.ACHIEVEMENT, BadgeType.MILESTONE]),
+                    )  # type: ignore[attr-defined]
+                )
             )
-        ).all()
+            .scalars()
+            .all()
+        )
         for badge in automatic_badges:
             eligibility_result = await self.verify_badge_eligibility(session, agent_id, badge)  # type: ignore[arg-type]
             if eligibility_result["eligible"]:
-                existing = session.execute(
-                    select(AgentBadge).where(and_(AgentBadge.agent_id == agent_id, AgentBadge.badge_id == badge.badge_id))
-                ).first()
+                existing = (
+                    session.execute(
+                        select(AgentBadge).where(and_(AgentBadge.agent_id == agent_id, AgentBadge.badge_id == badge.badge_id))
+                    )
+                    .scalars()
+                    .first()
+                )
                 if not existing:
                     success, agent_badge, message = await self.award_badge(
                         session, agent_id, badge.badge_id, "system", "Automatic badge award", eligibility_result.get("context")

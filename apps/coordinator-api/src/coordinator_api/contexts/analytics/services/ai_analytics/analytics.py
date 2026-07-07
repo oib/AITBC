@@ -313,17 +313,21 @@ class AnalyticsEngine:
     ) -> list[MarketInsight]:
         """Generate market insights from collected metrics"""
         insights = []
-        metrics = session.execute(
-            select(MarketMetric)
-            .where(
-                and_(
-                    MarketMetric.period_type == period_type,
-                    MarketMetric.period_start >= start_time,
-                    MarketMetric.period_end <= end_time,
+        metrics = (
+            session.execute(
+                select(MarketMetric)
+                .where(
+                    and_(
+                        MarketMetric.period_type == period_type,
+                        MarketMetric.period_start >= start_time,
+                        MarketMetric.period_end <= end_time,
+                    )
                 )
+                .order_by(desc(MarketMetric.recorded_at))  # type: ignore[arg-type]
             )
-            .order_by(desc(MarketMetric.recorded_at))  # type: ignore[arg-type]
-        ).all()
+            .scalars()
+            .all()
+        )
         trend_insights = await self.analyze_trends(metrics, session)  # type: ignore[arg-type]
         insights.extend(trend_insights)
         anomaly_insights = await self.detect_anomalies(metrics, session)  # type: ignore[arg-type]
@@ -787,29 +791,41 @@ class MarketplaceAnalytics:
         """Get comprehensive market overview"""
         end_time = datetime.now(UTC)
         start_time = end_time - timedelta(days=1)
-        metrics = self.session.execute(
-            select(MarketMetric)
-            .where(
-                and_(
-                    MarketMetric.period_type == AnalyticsPeriod.DAILY,
-                    MarketMetric.period_start >= start_time,
-                    MarketMetric.period_end <= end_time,
+        metrics = (
+            self.session.execute(
+                select(MarketMetric)
+                .where(
+                    and_(
+                        MarketMetric.period_type == AnalyticsPeriod.DAILY,
+                        MarketMetric.period_start >= start_time,
+                        MarketMetric.period_end <= end_time,
+                    )
                 )
+                .order_by(desc(MarketMetric.recorded_at))  # type: ignore[arg-type]
             )
-            .order_by(desc(MarketMetric.recorded_at))  # type: ignore[arg-type]
-        ).all()
-        recent_insights = self.session.execute(
-            select(MarketInsight)
-            .where(MarketInsight.created_at >= start_time)
-            .order_by(desc(MarketInsight.created_at))  # type: ignore[arg-type]
-            .limit(10)
-        ).all()
-        active_alerts = self.session.execute(
-            select(AnalyticsAlert)
-            .where(and_(AnalyticsAlert.status == "active", AnalyticsAlert.created_at >= start_time))
-            .order_by(desc(AnalyticsAlert.created_at))  # type: ignore[arg-type]
-            .limit(5)
-        ).all()
+            .scalars()
+            .all()
+        )
+        recent_insights = (
+            self.session.execute(
+                select(MarketInsight)
+                .where(MarketInsight.created_at >= start_time)
+                .order_by(desc(MarketInsight.created_at))  # type: ignore[arg-type]
+                .limit(10)
+            )
+            .scalars()
+            .all()
+        )
+        active_alerts = (
+            self.session.execute(
+                select(AnalyticsAlert)
+                .where(and_(AnalyticsAlert.status == "active", AnalyticsAlert.created_at >= start_time))
+                .order_by(desc(AnalyticsAlert.created_at))  # type: ignore[arg-type]
+                .limit(5)
+            )
+            .scalars()
+            .all()
+        )
         return {
             "timestamp": datetime.now(UTC).isoformat(),
             "period": "last_24_hours",

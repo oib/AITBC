@@ -367,7 +367,7 @@ class MultiModalFusionEngine:
 
     async def fuse_modalities(self, session: Session, fusion_id: str, input_data: dict[str, Any]) -> dict[str, Any]:
         """Fuse multiple modalities using trained fusion model"""
-        fusion_model = session.execute(select(FusionModel).where(FusionModel.fusion_id == fusion_id)).first()
+        fusion_model = session.execute(select(FusionModel).where(FusionModel.fusion_id == fusion_id)).scalars().first()
         if not fusion_model:
             raise ValueError(f"Fusion model {fusion_id} not found")
         if fusion_model.status != "ready":

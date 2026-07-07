@@ -49,7 +49,7 @@ class TestPartnershipManager:
             created_at=datetime.now(UTC),
         )
 
-        mock_session_instance.execute.return_value.first.return_value = mock_reputation
+        mock_session_instance.execute.return_value.scalars.return_value.first.return_value = mock_reputation
 
         result = await manager.check_technical_capability(mock_session_instance, "agent123")
 
@@ -85,7 +85,7 @@ class TestPartnershipManager:
             created_at=datetime.now(UTC),
         )
 
-        mock_session_instance.execute.return_value.first.return_value = mock_reputation
+        mock_session_instance.execute.return_value.scalars.return_value.first.return_value = mock_reputation
 
         result = await manager.check_service_quality(mock_session_instance, "agent123")
 
@@ -181,7 +181,7 @@ class TestPartnershipManager:
         # apply_for_partnership calls session.execute(...).first() twice:
         #   1. program lookup -> mock_program
         #   2. reputation lookup (via check_technical_capability -> get_reputation_dto) -> mock_reputation
-        mock_session_instance.execute.return_value.first.side_effect = [mock_program, mock_reputation]
+        mock_session_instance.execute.return_value.scalars.return_value.first.side_effect = [mock_program, mock_reputation]
 
         # Mock partnership
         mock_partnership = AgentPartnership(
