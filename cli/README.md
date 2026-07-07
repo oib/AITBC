@@ -91,7 +91,7 @@ The CLI exposes 50+ top-level command groups registered in `aitbc_cli/core/main.
 | `bridge` | Blockchain event bridge | (bridge ops) |
 | `messaging` | Messaging system & forum | (messaging ops) |
 | `workflow` | Workflow automation | (workflow ops) |
-| `resource` | Resource management (EXPERIMENTAL) | (resource ops) |
+| `resource` | Agent resource allocation | (allocate, optimize) |
 | `operations` | General operations | (ops) |
 | `pool-hub` | Pool hub SLA & billing | (pool-hub ops) |
 | `contract` | Smart contract operations | (contract ops) |
