@@ -27,7 +27,7 @@ def _get_client(url: str | None = None) -> AITBCHTTPClient:
     """Create an HTTP client for the trading service."""
     import os
 
-    base_url = url or os.getenv("TRADING_SERVICE_URL", TRADING_SERVICE_URL)
+    base_url = url or os.getenv("TRADING_SERVICE_URL") or TRADING_SERVICE_URL
     return AITBCHTTPClient(base_url=base_url, timeout=30)
 
 
@@ -335,7 +335,7 @@ def watch(ctx, chain_id, service_type, min_price, max_price, region, gpu_model, 
     from aitbc.trading.subscription_client import OfferSubscriptionClient
     from aitbc.trading.subscription_types import OfferSubscription
 
-    rpc_url = _get_client()._base_url
+    rpc_url = _get_client().base_url
 
     async def _watch() -> None:
         sub = OfferSubscription(
@@ -449,9 +449,7 @@ def lock_escrow_cmd(ctx, trade_id, node_url, timeout, format):
                 # Look up the trade via the trading service to get chain/sender/recipient/amount
                 http_client = _get_client()
                 trade = http_client.get(f"/v1/trading/inter-chain/{trade_id}")
-                if not isinstance(trade, dict):
-                    error(f"Trade {trade_id} not found")
-                    return
+                assert isinstance(trade, dict), f"Trade {trade_id} not found"
                 return await client.create_escrow(
                     trade_id=trade_id,
                     source_chain=trade.get("source_chain", ""),
@@ -488,9 +486,7 @@ def settle_cmd(ctx, trade_id, secret, node_url, format):
             # Look up the trade's escrow_id via the trading service
             http_client = _get_client()
             trade = http_client.get(f"/v1/trading/inter-chain/{trade_id}")
-            if not isinstance(trade, dict):
-                error(f"Trade {trade_id} not found")
-                return None
+            assert isinstance(trade, dict), f"Trade {trade_id} not found"
             escrow_id = trade.get("escrow_id")
             if not escrow_id:
                 error(f"Trade {trade_id} has no escrow — lock escrow first")
@@ -524,9 +520,7 @@ def settlement_status_cmd(ctx, trade_id, node_url, format):
             # Look up the trade's escrow_id via the trading service
             http_client = _get_client()
             trade = http_client.get(f"/v1/trading/inter-chain/{trade_id}")
-            if not isinstance(trade, dict):
-                error(f"Trade {trade_id} not found")
-                return None
+            assert isinstance(trade, dict), f"Trade {trade_id} not found"
             escrow_id = trade.get("escrow_id")
             if not escrow_id:
                 return {
@@ -570,13 +564,9 @@ def refund_cmd(ctx, trade_id, node_url, format):
             # Look up the trade's escrow_id via the trading service
             http_client = _get_client()
             trade = http_client.get(f"/v1/trading/inter-chain/{trade_id}")
-            if not isinstance(trade, dict):
-                error(f"Trade {trade_id} not found")
-                return None
+            assert isinstance(trade, dict), f"Trade {trade_id} not found"
             escrow_id = trade.get("escrow_id")
-            if not escrow_id:
-                error(f"Trade {trade_id} has no escrow — lock escrow first")
-                return None
+            assert escrow_id, f"Trade {trade_id} has no escrow — lock escrow first"
             async with SettlementClient(config) as client:
                 return await client.refund(escrow_id)
 

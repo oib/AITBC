@@ -51,7 +51,8 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5) -> str:
 
         if supported_chains:
             # Return the first supported chain (typically the primary chain)
-            return supported_chains[0]
+            first_chain = supported_chains[0] if isinstance(supported_chains, list) and supported_chains else ""
+            return str(first_chain)
     except NetworkError:
         pass
     except Exception:

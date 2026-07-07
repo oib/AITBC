@@ -8,13 +8,9 @@ from pathlib import Path
 
 import click
 
-try:
-    from aitbc_cli.config import get_config  # noqa: F401
-    from aitbc_cli.utils import error, output, success, warning
-    from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError, get_logger  # noqa: F401
-except ImportError:
-    from ..utils import error, output, success, warning
-    from ..utils.http_client import get_logger
+from aitbc_cli.config import get_config  # noqa: F401
+from aitbc_cli.utils import error, output, success, warning
+from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError, get_logger  # noqa: F401
 
 logger = get_logger(__name__)
 

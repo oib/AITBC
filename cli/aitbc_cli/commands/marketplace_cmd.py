@@ -163,9 +163,9 @@ def complete(ctx, transaction_id, transaction_hash):
         marketplace = GlobalChainMarketplace(config)
 
         # Complete transaction
-        success = asyncio.run(marketplace.complete_transaction(transaction_id, transaction_hash))
+        completed = asyncio.run(marketplace.complete_transaction(transaction_id, transaction_hash))
 
-        if success:
+        if completed:
             success(f"Transaction {transaction_id} completed successfully!")
 
             transaction_data = {
@@ -268,6 +268,7 @@ def economy(ctx, chain_id, format):
             abort(ctx, f"No economic data available for chain {chain_id}")
 
         # Format output
+        assert economy is not None  # for type checker
         economy_data = [
             {"Metric": "Chain ID", "Value": economy.chain_id},
             {"Metric": "Total Value Locked", "Value": f"{economy.total_value_locked} ETH"},
@@ -462,7 +463,7 @@ def monitor(ctx, realtime, interval):
                         live.update(generate_monitor_table())
                         time.sleep(interval)
                 except KeyboardInterrupt:
-                    console.click.echo("\n[yellow]Monitoring stopped by user[/yellow]")
+                    console.print("\n[yellow]Monitoring stopped by user[/yellow]")
         else:
             # Single snapshot
             overview = asyncio.run(marketplace.get_marketplace_overview())
@@ -527,7 +528,7 @@ def bids(ctx, market: str | None, limit: int):
 
     try:
         http_client = AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=10)
-        params = {"limit": limit}
+        params: dict[str, str | int] = {"limit": limit}
         if market:
             params["market"] = market
 
@@ -571,7 +572,7 @@ def asks(ctx, market: str | None, limit: int):
 
     try:
         http_client = AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=10)
-        params = {"limit": limit}
+        params: dict[str, str | int] = {"limit": limit}
         if market:
             params["market"] = market
 

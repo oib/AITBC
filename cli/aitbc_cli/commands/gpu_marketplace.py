@@ -122,7 +122,7 @@ def update(ctx, gpu_id: str, pricing: str | None, status: str | None):
 
 @gpu.command()
 @click.pass_context
-def list(ctx):
+def list_gpus_cmd(ctx):
     """List local registered GPUs (no island credentials required)"""
     try:
         # Load CLI config
@@ -131,7 +131,9 @@ def list(ctx):
         # Query GPU service for registered GPUs
         try:
             http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
-            transactions = http_client.get("/v1/transactions")
+            response = http_client.get("/v1/transactions")
+            # Response is a dict with 'gpus' key
+            transactions = response.get("gpus", [])
 
             if not transactions:
                 info("No registered GPUs found")
@@ -140,6 +142,8 @@ def list(ctx):
             # Format output for GPU registry data
             gpu_data = []
             for gpu in transactions:
+                if not isinstance(gpu, dict):
+                    continue
                 gpu_data.append(
                     {
                         "GPU ID": gpu.get("id"),
