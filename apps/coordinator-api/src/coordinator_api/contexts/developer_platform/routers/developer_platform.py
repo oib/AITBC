@@ -13,6 +13,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ..domain.developer_platform import (
     BountyStatus,
+    BountyTask,
     CertificationLevel,
     DeveloperCertification,
     DeveloperProfile,
@@ -309,21 +310,24 @@ async def get_my_submissions(
     try:
         submissions = await dev_service.get_my_submissions(developer_id)
 
-        return [
-            {
-                "id": sub.id,
-                "bounty_id": sub.bounty_id,
-                "bounty_title": sub.bounty.title,  # type: ignore[attr-defined]
-                "reward_amount": sub.bounty.reward_amount,  # type: ignore[attr-defined]
-                "github_pr_url": sub.github_pr_url,
-                "submission_notes": sub.submission_notes,
-                "is_approved": sub.is_approved,
-                "review_notes": sub.review_notes,
-                "submitted_at": sub.submitted_at.isoformat(),
-                "reviewed_at": sub.reviewed_at.isoformat() if sub.reviewed_at else None,
-            }
-            for sub in submissions[(offset or 0) : (offset or 0) + (limit or 100)]
-        ]
+        result = []
+        for sub in submissions[(offset or 0) : (offset or 0) + (limit or 100)]:
+            bounty = session.get(BountyTask, sub.bounty_id)
+            result.append(
+                {
+                    "id": sub.id,
+                    "bounty_id": sub.bounty_id,
+                    "bounty_title": bounty.title if bounty else None,
+                    "reward_amount": bounty.reward_amount if bounty else None,
+                    "github_pr_url": sub.github_pr_url,
+                    "submission_notes": sub.submission_notes,
+                    "is_approved": sub.is_approved,
+                    "review_notes": sub.review_notes,
+                    "submitted_at": sub.submitted_at.isoformat(),
+                    "reviewed_at": sub.reviewed_at.isoformat() if sub.reviewed_at else None,
+                }
+            )
+        return result
 
     except Exception:
         raise HTTPException(status_code=500, detail="Error getting submissions") from None
@@ -345,12 +349,14 @@ async def review_bounty_submission(
     try:
         if approved:
             submission = await dev_service.approve_submission(submission_id, reviewer_address, review_notes)
+            developer = session.get(DeveloperProfile, submission.developer_id)
+            bounty = session.get(BountyTask, submission.bounty_id)
             return {
                 "success": True,
                 "submission_id": submission.id,
                 "bounty_id": submission.bounty_id,
-                "developer_address": submission.developer.wallet_address,  # type: ignore[attr-defined]
-                "reward_amount": submission.bounty.reward_amount,  # type: ignore[attr-defined]
+                "developer_address": developer.wallet_address if developer else None,
+                "reward_amount": bounty.reward_amount if bounty else None,
                 "is_approved": submission.is_approved,
                 "tx_hash_reward": submission.tx_hash_reward,
                 "reviewed_at": submission.reviewed_at.isoformat(),  # type: ignore[union-attr]
@@ -358,11 +364,12 @@ async def review_bounty_submission(
             }
         else:
             submission = await dev_service.reject_submission(submission_id, reviewer_address, review_notes)
+            developer = session.get(DeveloperProfile, submission.developer_id)
             return {
                 "success": True,
                 "submission_id": submission.id,
                 "bounty_id": submission.bounty_id,
-                "developer_address": submission.developer.wallet_address,  # type: ignore[attr-defined]
+                "developer_address": developer.wallet_address if developer else None,
                 "is_approved": submission.is_approved,
                 "reviewed_at": submission.reviewed_at.isoformat(),  # type: ignore[union-attr]
                 "message": "Submission rejected and bounty reopened",
@@ -413,7 +420,7 @@ async def grant_certification(
             "level": request.level.value,
             "issued_by": request.issued_by,
             "ipfs_credential_cid": request.ipfs_credential_cid,
-            "granted_at": certification.granted_at.isoformat(),  # type: ignore[attr-defined]
+            "granted_at": certification.issued_at.isoformat(),
             "message": "Certification granted successfully",
         }
 
@@ -449,7 +456,7 @@ async def get_developer_certifications(
                 "level": cert.level.value,
                 "issued_by": cert.issued_by,
                 "ipfs_credential_cid": cert.ipfs_credential_cid,
-                "granted_at": cert.granted_at.isoformat(),
+                "granted_at": cert.issued_at.isoformat(),
                 "is_verified": True,
             }
             for cert in certifications
@@ -479,7 +486,7 @@ async def verify_certification(
             "level": certification.level.value,
             "developer_id": certification.developer_id,
             "issued_by": certification.issued_by,
-            "granted_at": certification.granted_at.isoformat(),  # type: ignore[attr-defined]
+            "granted_at": certification.issued_at.isoformat(),
             "is_valid": True,
             "verification_timestamp": datetime.now(UTC).isoformat(),
         }
@@ -550,10 +557,10 @@ async def create_regional_hub(
             "success": True,
             "hub_id": hub.id,
             "name": hub.name,
-            "region": hub.region,  # type: ignore[attr-defined]
+            "region": hub.region_code,
             "description": hub.description,
-            "manager_address": hub.manager_address,  # type: ignore[attr-defined]
-            "is_active": hub.is_active,  # type: ignore[attr-defined]
+            "manager_address": hub.lead_wallet_address,
+            "is_active": True,
             "created_at": hub.created_at.isoformat(),
             "message": "Regional hub created successfully",
         }
@@ -578,11 +585,11 @@ async def get_regional_hubs(
             {
                 "id": hub.id,
                 "name": hub.name,
-                "region": hub.region,  # type: ignore[attr-defined]
+                "region": hub.region_code,
                 "description": hub.description,
-                "manager_address": hub.manager_address,  # type: ignore[attr-defined]
+                "manager_address": hub.lead_wallet_address,
                 "developer_count": 0,  # Would be calculated from hub membership
-                "is_active": hub.is_active,  # type: ignore[attr-defined]
+                "is_active": True,
                 "created_at": hub.created_at.isoformat(),
             }
             for hub in hubs
@@ -786,21 +793,21 @@ async def get_platform_overview(
 
         # Get developer statistics with fallback
         try:
-            total_developers = session.execute(select(DeveloperProfile)).count()  # type: ignore[attr-defined]
-            active_developers = session.execute(select(DeveloperProfile).where(DeveloperProfile.is_active)).count()  # type: ignore[attr-defined]
+            total_developers = len(session.execute(select(DeveloperProfile)).all())
+            active_developers = len(session.execute(select(DeveloperProfile).where(DeveloperProfile.is_active)).all())
         except Exception:
             total_developers = 1250
             active_developers = 890
 
         # Get certification statistics with fallback
         try:
-            total_certifications = session.execute(select(DeveloperCertification)).count()  # type: ignore[attr-defined]
+            total_certifications = len(session.execute(select(DeveloperCertification)).all())
         except Exception:
             total_certifications = 320
 
         # Get regional hub statistics with fallback
         try:
-            total_hubs = session.execute(select(RegionalHub)).count()  # type: ignore[attr-defined]
+            total_hubs = len(session.execute(select(RegionalHub)).all())
         except Exception:
             total_hubs = 8
 

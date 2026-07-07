@@ -499,11 +499,11 @@ async def get_security_dashboard(
         trust_scores = session.execute(select(AgentTrustScore)).all()
         avg_trust_score = sum(ts.trust_score for ts in trust_scores) / len(trust_scores) if trust_scores else 0
         active_sandboxes = session.execute(select(AgentSandboxConfig).where(AgentSandboxConfig.is_active)).all()
-        total_audits = session.execute(select(AgentAuditLog)).count()  # type: ignore[attr-defined]
-        high_risk_count = session.execute(select(AgentAuditLog).where(AgentAuditLog.requires_investigation)).count()  # type: ignore[attr-defined]
-        security_violations = session.execute(
-            select(AgentAuditLog).where(AgentAuditLog.event_type == AuditEventType.SECURITY_VIOLATION)
-        ).count()  # type: ignore[attr-defined]
+        total_audits = len(session.execute(select(AgentAuditLog)).all())
+        high_risk_count = len(session.execute(select(AgentAuditLog).where(AgentAuditLog.requires_investigation)).all())
+        security_violations = len(
+            session.execute(select(AgentAuditLog).where(AgentAuditLog.event_type == AuditEventType.SECURITY_VIOLATION)).all()
+        )
         return {
             "recent_audits": recent_audits,
             "high_risk_events": high_risk_events,
@@ -537,10 +537,10 @@ async def get_security_statistics(
     try:
         from ...agent_coordination.services.security import AgentTrustScore
 
-        total_audits = session.execute(select(AgentAuditLog)).count()  # type: ignore[attr-defined]
+        total_audits = len(session.execute(select(AgentAuditLog)).all())
         event_type_counts = {}
         for event_type in AuditEventType:
-            count = session.execute(select(AgentAuditLog).where(AgentAuditLog.event_type == event_type)).count()  # type: ignore[attr-defined]
+            count = len(session.execute(select(AgentAuditLog).where(AgentAuditLog.event_type == event_type)).all())
             event_type_counts[event_type.value] = count
         risk_score_distribution = {"low": 0, "medium": 0, "high": 0, "critical": 0}
         all_audits = session.execute(select(AgentAuditLog)).all()
