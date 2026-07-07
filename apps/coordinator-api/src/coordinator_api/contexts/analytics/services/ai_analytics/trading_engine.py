@@ -93,7 +93,7 @@ class BacktestResult:
     win_rate: float
     total_trades: int
     profitable_trades: int
-    trades: list[dict[str, Any]] = field(default_factory=dict)  # type: ignore[arg-type]
+    trades: list[dict[str, Any]] = field(default_factory=list)
 
 
 class AITradingStrategy(ABC):

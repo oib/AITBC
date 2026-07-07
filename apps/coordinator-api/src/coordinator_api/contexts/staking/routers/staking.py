@@ -5,7 +5,7 @@ REST API for AI agent staking system with reputation-based yield farming
 
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Annotated, Any, cast
+from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -15,6 +15,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ..domain.staking import PerformanceTier, StakeStatus
+from ...infrastructure.domain.user import Wallet
 from ...infrastructure.routers.users import get_current_user as _get_current_user
 from ....storage import get_session
 from ...blockchain.services.blockchain import BlockchainService
@@ -24,21 +25,21 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
-def create_get_current_user_optional(session: Annotated[Session, Depends(get_session)]) -> Any:
-    async def get_current_user_optional(request: Request | None = None) -> dict[str, Any]:
-        """Optional authentication that returns default test user if no token provided"""
-        try:
-            if not request:
-                return {"address": "test_user_address", "is_oracle": False, "is_admin": False}
-            token = request.headers.get("Authorization", "").replace("Bearer ", "")
-            return cast(dict[str, Any], await _get_current_user(session, token, request))
-        except Exception:
+async def get_current_user_optional(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+    """Optional auth — returns default test user if no token or auth fails."""
+    try:
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        if not token:
             return {"address": "test_user_address", "is_oracle": False, "is_admin": False}
-
-    return get_current_user_optional
-
-
-get_current_user_optional = create_get_current_user_optional
+        user_dict = await _get_current_user(session, request, token)
+        wallet = session.query(Wallet).filter(Wallet.user_id == user_dict["user_id"]).first()
+        return {
+            "address": wallet.address if wallet else "test_user_address",
+            "is_oracle": False,
+            "is_admin": False,
+        }
+    except Exception:
+        return {"address": "test_user_address", "is_oracle": False, "is_admin": False}
 
 
 class StakeCreateRequest(BaseModel):
