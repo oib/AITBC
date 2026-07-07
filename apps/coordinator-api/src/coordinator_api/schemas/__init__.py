@@ -176,11 +176,11 @@ class TransactionHistory(BaseModel):
 
 
 class ExchangePaymentRequest(BaseModel):
-    """Request for Bitcoin exchange payment"""
+    """Request for ETH exchange payment"""
 
     user_id: str = Field(..., min_length=1, max_length=128, description="User identifier")
     aitbc_amount: float = Field(..., gt=0, le=1_000_000, description="AITBC amount to exchange")
-    btc_amount: float = Field(..., gt=0, le=100, description="BTC amount to receive")
+    eth_amount: float = Field(..., gt=0, le=10000, description="ETH amount to receive")
 
     @field_validator("user_id")
     @classmethod
@@ -198,21 +198,21 @@ class ExchangePaymentRequest(BaseModel):
             raise ValueError("Minimum AITBC amount is 0.01")
         return round(v, 8)
 
-    @field_validator("btc_amount")
+    @field_validator("eth_amount")
     @classmethod
-    def validate_btc_amount(cls, v: float) -> float:
-        """Validate BTC amount"""
+    def validate_eth_amount(cls, v: float) -> float:
+        """Validate ETH amount"""
         if v < 0.0001:
-            raise ValueError("Minimum BTC amount is 0.0001")
+            raise ValueError("Minimum ETH amount is 0.0001")
         return round(v, 8)
 
     @model_validator(mode="after")
     def validate_exchange_ratio(self) -> ExchangePaymentRequest:
         """Validate that the exchange ratio is reasonable"""
-        if self.aitbc_amount > 0 and self.btc_amount > 0:
-            ratio = self.aitbc_amount / self.btc_amount
-            # AITBC/BTC ratio should be reasonable (e.g., 100,000 AITBC = 1 BTC)
-            if ratio < 1000 or ratio > 1000000:
+        if self.aitbc_amount > 0 and self.eth_amount > 0:
+            ratio = self.aitbc_amount / self.eth_amount
+            # AITBC/ETH ratio should be reasonable (e.g., 1,000 AITBC = 1 ETH)
+            if ratio < 10 or ratio > 100000:
                 raise ValueError("Exchange ratio is outside reasonable bounds")
         return self
 
@@ -221,7 +221,7 @@ class ExchangePaymentResponse(BaseModel):
     payment_id: str
     user_id: str
     aitbc_amount: float
-    btc_amount: float
+    eth_amount: float
     payment_address: str
     status: str
     created_at: int
@@ -229,8 +229,8 @@ class ExchangePaymentResponse(BaseModel):
 
 
 class ExchangeRatesResponse(BaseModel):
-    btc_to_aitbc: float
-    aitbc_to_btc: float
+    eth_to_aitbc: float
+    aitbc_to_eth: float
     fee_percent: float
 
 
@@ -238,7 +238,7 @@ class PaymentStatusResponse(BaseModel):
     payment_id: str
     user_id: str
     aitbc_amount: float
-    btc_amount: float
+    eth_amount: float
     payment_address: str
     status: str
     created_at: int
@@ -252,28 +252,9 @@ class MarketStatsResponse(BaseModel):
     price: float
     price_change_24h: float
     daily_volume: float
-    daily_volume_btc: float
+    daily_volume_eth: float
     total_payments: int
     pending_payments: int
-
-
-class WalletBalanceResponse(BaseModel):
-    address: str
-    balance: float
-    unconfirmed_balance: float
-    total_received: float
-    total_sent: float
-
-
-class WalletInfoResponse(BaseModel):
-    address: str
-    balance: float
-    unconfirmed_balance: float
-    total_received: float
-    total_sent: float
-    transactions: list[dict[str, Any]]
-    network: str
-    block_height: int
 
 
 class JobCreate(BaseModel):
