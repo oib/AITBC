@@ -24,7 +24,7 @@ async def list_service_configs(
     stmt = select(ServiceConfig).where(ServiceConfig.miner_id == miner_id)
     configs = db.execute(stmt).scalars().all()
 
-    return [ServiceConfigResponse.from_orm(config) for config in configs]
+    return [ServiceConfigResponse.model_validate(config) for config in configs]
 
 
 @router.get("/{service_type}", response_model=ServiceConfigResponse)
@@ -48,7 +48,7 @@ async def get_service_config(
             updated_at=datetime.now(UTC),
         )
 
-    return ServiceConfigResponse.from_orm(config)
+    return ServiceConfigResponse.model_validate(config)
 
 
 @router.post("/{service_type}", response_model=ServiceConfigResponse)
@@ -92,7 +92,7 @@ async def create_or_update_service_config(
         db.commit()
         db.refresh(config)
 
-    return ServiceConfigResponse.from_orm(config)
+    return ServiceConfigResponse.model_validate(config)
 
 
 @router.patch("/{service_type}", response_model=ServiceConfigResponse)
@@ -124,7 +124,7 @@ async def patch_service_config(
     db.commit()
     db.refresh(config)
 
-    return ServiceConfigResponse.from_orm(config)
+    return ServiceConfigResponse.model_validate(config)
 
 
 @router.delete("/{service_type}")
