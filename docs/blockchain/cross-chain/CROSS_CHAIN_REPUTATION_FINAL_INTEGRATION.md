@@ -145,7 +145,7 @@ alembic upgrade head
 ### **Step 3: Start API Server**
 ```bash
 # Start the coordinator API with new reputation endpoints
-uvicorn src.app.main:app --reload --host 0.0.0.0 --port 8203
+uvicorn src.coordinator_api.main:app --reload --host 0.0.0.0 --port 8203
 ```
 
 ### **Step 4: Test Endpoints**

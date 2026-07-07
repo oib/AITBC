@@ -39,8 +39,8 @@ sys.modules["aitbc_crypto"].generate_viewing_key = mock_generate_viewing_key
 
 try:
     from aitbc_crypto import decrypt_data, encrypt_data, generate_viewing_key
-    from app.models.confidential import ConfidentialTransaction, ViewingKey
-    from app.services.confidential_service import ConfidentialTransactionService
+    from coordinator_api.models.confidential import ConfidentialTransaction, ViewingKey
+    from coordinator_api.services.confidential_service import ConfidentialTransactionService
 
     CONFIDENTIAL_AVAILABLE = True
 except ImportError as e:

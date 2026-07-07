@@ -68,8 +68,13 @@ def test_agent_coordinator_wrapper_bootstrap(monkeypatch) -> None:
         captured["file"] = file
         captured["args"] = list(args)
 
+    def fake_execvpe(file: str, args: list[str], env: dict) -> None:
+        captured["file"] = file
+        captured["args"] = list(args)
+
     with monkeypatch.context() as m:
         m.setattr(os, "execvp", fake_execvp)
+        m.setattr(os, "execvpe", fake_execvpe)
         m.setattr(aitbc.utils.paths, "ensure_dir", lambda path: path)
         m.setenv("AITBC_ENV_FILE", "placeholder")
         m.setenv("AITBC_NODE_ENV_FILE", "placeholder")
@@ -78,14 +83,13 @@ def test_agent_coordinator_wrapper_bootstrap(monkeypatch) -> None:
         m.setenv("LOG_DIR", "placeholder")
 
         runpy.run_path(
-            str(REPO_ROOT / "scripts" / "wrappers" / "aitbc-agent-coordinator-wrapper.py"),
+            str(REPO_ROOT / "scripts" / "services" / "agent-coordinator-wrapper.py"),
             run_name="__main__",
         )
 
         assert captured["file"] == "/opt/aitbc/venv/bin/python"
         assert captured["args"][0] == "/opt/aitbc/venv/bin/python"
         assert captured["args"][1] == "-m"
-        assert captured["args"][2] == "uvicorn"
-        assert captured["args"][3] == "app.main:app"
+        assert captured["args"][2] == "agent_app.main"
         assert os.environ["AITBC_ENV_FILE"] == str(ENV_FILE)
         assert os.environ["AITBC_NODE_ENV_FILE"] == str(NODE_ENV_FILE)

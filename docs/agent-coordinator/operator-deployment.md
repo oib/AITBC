@@ -50,7 +50,7 @@ systemctl enable aitbc-agent-coordinator.service
 
 **Key configuration parameters:**
 - `PYTHONPATH=apps/agent-coordinator/src` - Python module path
-- `uvicorn app.main:app` - FastAPI application entry point
+- `uvicorn agent_app.main:app` - FastAPI application entry point
 - `--host 0.0.0.0` - Bind to all interfaces
 - `--port 9001` - Service port
 

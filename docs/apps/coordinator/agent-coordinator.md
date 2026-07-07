@@ -61,7 +61,7 @@ API_KEY=your-api-key
 
 ### Running the Service
 ```bash
-.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8203
+.venv/bin/uvicorn agent_app.main:app --host 0.0.0.0 --port 8203
 ```
 
 ## Developer Guide

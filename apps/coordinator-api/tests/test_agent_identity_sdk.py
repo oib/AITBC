@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import pytest
-from app.agent_identity.sdk.client import AgentIdentityClient
+from coordinator_api.agent_identity.sdk.client import AgentIdentityClient
 
 
 def _make_mock_response(status: int = 200, json_data: dict | None = None) -> AsyncMock:
@@ -29,11 +29,11 @@ def _make_mock_response(status: int = 200, json_data: dict | None = None) -> Asy
     return mock_response
 
 
-from app.agent_identity.sdk.exceptions import (
+from coordinator_api.agent_identity.sdk.exceptions import (
     APIError,
     AuthenticationError,
 )
-from app.agent_identity.sdk.models import (
+from coordinator_api.agent_identity.sdk.models import (
     AgentIdentity,
     AgentWallet,
     ChainType,
@@ -400,7 +400,7 @@ class TestConvenienceFunctions:
     @pytest.mark.asyncio
     async def test_create_identity_with_wallets_success(self):
         """Test create_identity_with_wallets convenience function"""
-        from app.agent_identity.sdk.client import create_identity_with_wallets
+        from coordinator_api.agent_identity.sdk.client import create_identity_with_wallets
 
         # Mock client
         client = AsyncMock(spec=AgentIdentityClient)
@@ -425,7 +425,7 @@ class TestConvenienceFunctions:
     @pytest.mark.asyncio
     async def test_verify_identity_on_all_chains_success(self):
         """Test verify_identity_on_all_chains convenience function"""
-        from app.agent_identity.sdk.client import verify_identity_on_all_chains
+        from coordinator_api.agent_identity.sdk.client import verify_identity_on_all_chains
 
         # Mock client
         client = AsyncMock(spec=AgentIdentityClient)

@@ -74,7 +74,7 @@ jobs:
           export PYTHONPATH="apps/coordinator-api/src:$PYTHONPATH"
 
           echo "Ensuring default port 8011 is available..."
-          pkill -f "uvicorn app.main:app" 2>/dev/null || true
+          pkill -f "uvicorn coordinator_api.main:app" 2>/dev/null || true
           if command -v lsof >/dev/null 2>&1; then
             pids=$(lsof -tiTCP:8011 -sTCP:LISTEN || true)
             if [ -n "$pids" ]; then
@@ -90,7 +90,7 @@ jobs:
           fi
 
           # Start agent coordinator in background
-          nohup env PYTHONUNBUFFERED=1 venv/bin/uvicorn app.main:app \
+          nohup env PYTHONUNBUFFERED=1 venv/bin/uvicorn coordinator_api.main:app \
             --host 0.0.0.0 \
             --port 8011 \
             --log-level info \
@@ -151,6 +151,6 @@ jobs:
             kill $(cat /tmp/coordinator-api.pid) 2>/dev/null || true
             rm -f /tmp/coordinator-api.pid
           fi
-          pkill -f "uvicorn app.main:app" 2>/dev/null || true
+          pkill -f "uvicorn coordinator_api.main:app" 2>/dev/null || true
           redis-cli shutdown 2>/dev/null || true
           rm -rf "${{ env.WORKSPACE }}"

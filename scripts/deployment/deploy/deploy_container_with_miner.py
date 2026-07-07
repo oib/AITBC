@@ -73,7 +73,7 @@ source venv/bin/activate
 echo "Starting Coordinator API..."
 cd apps/coordinator-api
 source ../../venv/bin/activate
-python -m uvicorn src.app.main:app --host 0.0.0.0 --port 8203 &
+python -m uvicorn src.coordinator_api.main:app --host 0.0.0.0 --port 8203 &
 COORD_PID=$!
 
 # Start blockchain node

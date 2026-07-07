@@ -27,7 +27,7 @@ The MarketAnalytics service provides real-time market metrics, trend analysis, a
 ## Usage Example
 
 ```python
-from app.contexts.marketplace.services.market_analytics import MarketAnalytics
+from coordinator_api.contexts.marketplace.services.market_analytics import MarketAnalytics
 
 analytics = MarketAnalytics(session)
 

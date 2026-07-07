@@ -50,7 +50,7 @@ High-traffic services have been configured with multiple Uvicorn workers to hand
 
 **Command:**
 ```bash
-/opt/aitbc/venv/bin/python -m uvicorn app.main:app \
+/opt/aitbc/venv/bin/python -m uvicorn coordinator_api.main:app \
   --host 127.0.0.1 \
   --port 8203 \
   --workers 4 \

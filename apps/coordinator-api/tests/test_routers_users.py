@@ -29,8 +29,8 @@ def _override_db_session(client):
     database file. The override is installed after the shared ``client`` fixture
     is built and removed on teardown.
     """
-    from app.main import app
-    from app.storage.db import get_session
+    from coordinator_api.main import app
+    from coordinator_api.storage.db import get_session
 
     engine = create_engine(
         "sqlite:///:memory:",

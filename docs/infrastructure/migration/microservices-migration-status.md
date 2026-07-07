@@ -491,7 +491,7 @@ All internal microservices should bind to `127.0.0.1` (localhost only):
 
 ```python
 # Example systemd service configuration
-ExecStart=/opt/aitbc/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8101
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn coordinator_api.main:app --host 127.0.0.1 --port 8101
 ```
 
 API Gateway should bind to `0.0.0.0` to accept external connections:

@@ -31,7 +31,7 @@ class TestWalletAPI:
         os.environ.setdefault("WALLET_DIR", "/tmp/test_wallet")
         os.environ.setdefault("KEYSTORE_PASSWORD", "test-password")
         os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
-        from app.main import app
+        from coordinator_api.main import app
 
         return TestClient(app)
 
@@ -104,7 +104,7 @@ class TestWalletErrorHandling:
         os.environ.setdefault("WALLET_DIR", "/tmp/test_wallet")
         os.environ.setdefault("KEYSTORE_PASSWORD", "test-password")
         os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
-        from app.main import app
+        from coordinator_api.main import app
 
         return TestClient(app)
 
@@ -145,7 +145,7 @@ class TestWalletPerformance:
         os.environ.setdefault("WALLET_DIR", "/tmp/test_wallet")
         os.environ.setdefault("KEYSTORE_PASSWORD", "test-password")
         os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
-        from app.main import app
+        from coordinator_api.main import app
 
         return TestClient(app)
 

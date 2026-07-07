@@ -32,10 +32,10 @@ class TestCoordinatorAPI:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
             os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
-            from app.main import app
+            from coordinator_api.main import app
 
             yield TestClient(app)
-        from app.main import app
+        from coordinator_api.main import app
 
         return TestClient(app)
 
@@ -81,7 +81,7 @@ class TestCoordinatorAPIErrorHandling:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
             os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
-            from app.main import app
+            from coordinator_api.main import app
 
             yield TestClient(app)
 
@@ -114,7 +114,7 @@ class TestCoordinatorAPIPerformance:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
             os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
-            from app.main import app
+            from coordinator_api.main import app
 
             yield TestClient(app)
 

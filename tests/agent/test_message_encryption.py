@@ -6,7 +6,7 @@ Tests for RSA/AES-GCM encryption, key exchange, and digital signatures
 from datetime import UTC, datetime
 
 import pytest
-from app.encryption.message_encryption import (
+from agent_app.encryption.message_encryption import (
     AgentKeyPair,
     EncryptedMessage,
     MessageEncryptor,
@@ -228,7 +228,7 @@ class TestMessageEncryption:
         # Don't generate sender key
 
         # Manually create encrypted message (simulating external sender)
-        from app.encryption.message_encryption import EncryptedMessage
+        from agent_app.encryption.message_encryption import EncryptedMessage
 
         encrypted_msg = EncryptedMessage(
             ciphertext=b"test", session_key=b"test", nonce=b"test", signature=b"test", sender_id=sender_id

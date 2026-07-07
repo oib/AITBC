@@ -21,7 +21,7 @@ API_DOCS_DIR.mkdir(exist_ok=True)
 APPS = [
     {
         "name": "coordinator-api",
-        "module": "apps.coordinator_api.src.app.main:app",
+        "module": "apps.coordinator_api.src.coordinator_api.main:app",
         "output": "coordinator-api-openapi.json",
     },
     {
@@ -36,7 +36,7 @@ APPS = [
     },
     {
         "name": "wallet",
-        "module": "apps.wallet.src.app.main:app",
+        "module": "apps.wallet.src.wallet_app.main:app",
         "output": "wallet-openapi.json",
     },
 ]

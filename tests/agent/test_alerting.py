@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 
-from app.monitoring.alerting import (
+from agent_app.monitoring.alerting import (
     Alert,
     AlertRule,
     AlertSeverity,
