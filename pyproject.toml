@@ -215,6 +215,9 @@ exclude = [
     # Exclude template files (Jinja2 syntax, not valid Python)
     "^cli/templates/",
 
+    # Exclude compatibility shim (shadows real aitbc/ package, causes mypy ambiguity)
+    "^cli/aitbc/",
+
     # Exclude packages except aitbc-shared (incremental)
     "^packages/(?!aitbc-shared)",
 

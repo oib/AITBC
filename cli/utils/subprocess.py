@@ -24,7 +24,7 @@ def run_subprocess(
     except subprocess.CalledProcessError as e:
         error(f"Command failed with exit code {e.returncode}")
         if capture_output and getattr(e, "stderr", None):
-            logger.info(e.stderr, file=sys.stderr)
+            sys.stderr.write(str(e.stderr) + "\n")
         if check:
             sys.exit(e.returncode)
         return getattr(e, "stdout", None) if capture_output else None
