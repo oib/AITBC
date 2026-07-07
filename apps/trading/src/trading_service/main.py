@@ -269,8 +269,8 @@ async def get_transactions(
     try:
         transactions = []
         if action == "request" or not action:
-            result = await session.execute(select(TradeRequest))
-            requests = result.scalars().all()
+            req_result = await session.execute(select(TradeRequest))
+            requests = list(req_result.scalars().all())
             transactions.extend(
                 [
                     {
@@ -286,8 +286,8 @@ async def get_transactions(
                 ]
             )
         if action == "match" or not action:
-            result = await session.execute(select(TradeMatch))
-            matches = result.scalars().all()
+            match_result = await session.execute(select(TradeMatch))
+            matches = list(match_result.scalars().all())
             transactions.extend(
                 [
                     {
@@ -303,14 +303,14 @@ async def get_transactions(
                 ]
             )
         if action == "agreement" or not action:
-            result = await session.execute(select(TradeAgreement))
-            agreements = result.scalars().all()
+            agree_result = await session.execute(select(TradeAgreement))
+            agreements = list(agree_result.scalars().all())
             transactions.extend(
                 [
                     {
                         "agreement_id": a.agreement_id,
                         "action": "agreement",
-                        "match_id": a.match_id,
+                        "match_id": getattr(a, "match_id", None),
                         "status": a.status,
                         "island_id": getattr(a, "island_id", None),
                         "created_at": a.created_at.isoformat() if a.created_at else None,
