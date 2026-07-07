@@ -105,7 +105,6 @@ class MockDataGenerator:
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         """Generate mock transaction data"""
-        # ponytail: inlined from deleted aitbc.testing.MockFactory/TestDataGenerator
         transactions = []
         for _ in range(limit):
             tx = {
@@ -124,7 +123,6 @@ class MockDataGenerator:
         self, validator: str | None = None, min_tx: int | None = None, limit: int = 50
     ) -> list[dict[str, Any]]:
         """Generate mock block data"""
-        # ponytail: inlined from deleted aitbc.testing.MockFactory
         blocks = []
         for i in range(limit):
             blocks.append(

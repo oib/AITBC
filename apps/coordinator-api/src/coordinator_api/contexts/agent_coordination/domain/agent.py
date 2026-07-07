@@ -125,6 +125,7 @@ class AgentExecution(SQLModel, table=True):
     final_result: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
     execution_receipt: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
     verification_proof: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    verification_level: VerificationLevel = Field(default=VerificationLevel.BASIC)
 
     # Error handling
     error_message: str | None = Field(default=None)
@@ -157,6 +158,7 @@ class AgentStepExecution(SQLModel, table=True):
 
     # Execution state
     status: AgentStatus = Field(default=AgentStatus.PENDING, index=True)
+    step_type: StepType = Field(default=StepType.INFERENCE)
 
     # Step-specific data
     input_data: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))

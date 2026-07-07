@@ -20,10 +20,49 @@ ADDRESS_PATTERN = re.compile(r"^[a-zA-Z0-9]{20,50}$")
 
 
 class BlockchainService:
-    """Stub blockchain service for staking router compatibility"""
+    """Blockchain service for staking router — fires background RPC calls to the chain node."""
 
     def __init__(self) -> None:
-        pass
+        self.rpc_url = BLOCKCHAIN_RPC
+
+    async def create_stake_contract(
+        self,
+        stake_id: str,
+        agent_wallet: str,
+        amount: float,
+        lock_period: int,
+        auto_compound: bool,
+    ) -> None:
+        """Record a stake on-chain (background task, best-effort)."""
+        client = AITBCHTTPClient(timeout=10.0)
+        try:
+            client.post(
+                f"{self.rpc_url}/staking/stake",
+                json={
+                    "stake_id": stake_id,
+                    "agent_wallet": agent_wallet,
+                    "amount": amount,
+                    "lock_period": lock_period,
+                    "auto_compound": auto_compound,
+                },
+                headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
+            )
+            logger.info("Stake contract created on-chain for %s", stake_id)
+        except NetworkError as e:
+            logger.error("Failed to create stake contract on-chain for %s: %s", stake_id, e)
+
+    async def update_agent_performance(self, agent_wallet: str, accuracy: float, successful: bool) -> None:
+        """Record agent performance update on-chain (background task, best-effort)."""
+        client = AITBCHTTPClient(timeout=10.0)
+        try:
+            client.post(
+                f"{self.rpc_url}/staking/performance",
+                json={"agent_wallet": agent_wallet, "accuracy": accuracy, "successful": successful},
+                headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
+            )
+            logger.info("Agent performance updated on-chain for %s", agent_wallet)
+        except NetworkError as e:
+            logger.error("Failed to update agent performance on-chain for %s: %s", agent_wallet, e)
 
 
 def validate_address(address: str) -> bool:
