@@ -200,7 +200,7 @@ async def create_bounty(
         logger.info("Creating bounty: %s by user %s", bounty_request.title, user["sub"])
         bounty = await bounty_service.create_bounty(creator_id=user["sub"], **bounty_request.dict())
         background_tasks.add_task(
-            blockchain_service.deploy_bounty_contract,  # type: ignore[attr-defined]
+            blockchain_service.deploy_bounty_contract,
             bounty.bounty_id,
             bounty.reward_amount,
             bounty.tier,
@@ -289,7 +289,7 @@ async def submit_bounty_solution(
             bounty_id=bounty_id, submitter_address=user["sub"], **submission_request.dict()
         )
         background_tasks.add_task(
-            blockchain_service.submit_bounty_solution,  # type: ignore[attr-defined]
+            blockchain_service.submit_bounty_solution,
             bounty_id,
             submission.submission_id,
             submission_request.zk_proof,
@@ -355,7 +355,7 @@ async def verify_bounty_submission(
             verification_notes=verification_request.verification_notes,
         )
         background_tasks.add_task(
-            blockchain_service.verify_submission,  # type: ignore[attr-defined]
+            blockchain_service.verify_submission,
             bounty_id,
             verification_request.submission_id,
             verification_request.verified,
@@ -388,7 +388,7 @@ async def dispute_bounty_submission(
             dispute_reason=dispute_request.dispute_reason,
         )
         background_tasks.add_task(
-            blockchain_service.dispute_submission,  # type: ignore[attr-defined]
+            blockchain_service.dispute_submission,
             bounty_id,
             dispute_request.submission_id,
             user["sub"],
@@ -502,7 +502,7 @@ async def expire_bounty(
         if datetime.now(UTC) <= bounty.deadline:
             raise HTTPException(status_code=400, detail="Bounty deadline has not passed")
         await bounty_service.expire_bounty(bounty_id)
-        background_tasks.add_task(blockchain_service.expire_bounty, bounty_id)  # type: ignore[attr-defined]
+        background_tasks.add_task(blockchain_service.expire_bounty, bounty_id)
         return {"message": "Bounty expired successfully"}
     except HTTPException:
         raise
