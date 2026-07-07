@@ -145,17 +145,22 @@ mypy_path = [
     "apps/ai-engine/src",
     "apps/api-gateway/src",
     "apps/blockchain-event-bridge/src",
+    "apps/blockchain-explorer",
     "apps/blockchain-node/src",
     "apps/bridge-monitor/src",
     "apps/edge/src",
+    "apps/ffmpeg",
     "apps/governance/src",
     "apps/gpu/src",
     "apps/marketplace/src",
+    "apps/miner",
     "apps/pool-hub/src",
     "apps/shared-core/src",
     "apps/shared-domain/src",
     "apps/trading/src",
     "apps/wallet/src",
+    "apps/whisper",
+    "apps/zk-circuits",
     "cli",
 ]
 explicit_package_bases = true
@@ -168,14 +173,9 @@ warn_redundant_casts = true
 warn_unreachable = true
 strict_optional = true
 
-# Expanded scope: aitbc/ + all apps/ src dirs.
-# Apps using a conflicting `app` package name are excluded (resolved via mypy_path + explicit_package_bases).
-# cli/ is on mypy_path for import resolution but excluded from checking (Phase 5 follow-up).
+# Expanded scope: aitbc/ + all apps (src/ and flat-layout) + publishable packages.
+# Flat-layout apps are on mypy_path with explicit_package_bases for import resolution.
 exclude = [
-    # Exclude modules with known missing dependencies (opentelemetry)
-    "^aitbc/tracing\\.py$",
-    "^aitbc/tracing_opentelemetry\\.py$",
-
     # Exclude test files
     "^tests/",
     "^aitbc/.*tests/",
@@ -184,12 +184,6 @@ exclude = [
     "^apps/.*/migrations/",
     "^apps/.*/alembic/",
     "^apps/.*/scripts/",
-    "^apps/archive/",
-
-    # Exclude flat-script apps (no src/ package layout; utility scripts, not worth annotating)
-    "^apps/blockchain-explorer/",
-    "^apps/miner/",
-    "^apps/zk-circuits/",
 
     # Exclude top-level app scripts (genesis/init helpers in app root, not src/)
     "^apps/blockchain-node/(create_|init_).*\\.py$",
@@ -200,17 +194,6 @@ exclude = [
 
     # Exclude operational scripts under apps/ (not production source)
     "^apps/.*/scripts/",
-
-    # Exclude flat-layout apps not on mypy_path (no src/ package root)
-    "^apps/blockchain-explorer/",
-    "^apps/miner/",
-
-    # Exclude apps whose src uses a conflicting `app` package name (coordinator-api owns `app`)
-    "^apps/agent-coordinator/src/app/",
-    "^apps/pool-hub/src/app/",
-    "^apps/shared-core/src/app/",
-    "^apps/shared-domain/src/app/",
-    "^apps/wallet/src/app/",
 
     # Exclude template files (Jinja2/YAML data, not valid Python)
     "^cli/templates/",
@@ -227,9 +210,6 @@ exclude = [
     "^scripts/",
     "^dev/",
     "^docs/",
-    "^apps/coordinator-api/integration_test\\.py$",
-    "^apps/coordinator-api/demo_client_miner_workflow\\.py$",
-    "^apps/coordinator-api/init_db\\.py$",
 ]
 
 [[tool.mypy.overrides]]
