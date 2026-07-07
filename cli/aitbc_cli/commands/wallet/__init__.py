@@ -129,18 +129,24 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
         priv = wallet_data["private_key"]
         if isinstance(priv, str):
             # Legacy no-op "encryption": key was stored as plaintext with encrypted=True.
-            # ponytail: ceiling — silently trusting plaintext; upgrade path is re-save with a password.
-            error(
-                "WARNING: wallet was saved with broken no-op encryption (private key stored as plaintext). "
-                "Re-run a save command with --password to re-encrypt with PBKDF2+Fernet."
-            )
-            return wallet_data
-        password = _get_wallet_password(wallet_name)
-        try:
-            wallet_data["private_key"] = decrypt_value(priv, password)
-        except Exception:
-            error("Invalid password for wallet")
-            raise click.Abort() from None
+            # Re-encrypt with a real password and save back to disk before returning.
+            password = _get_wallet_password(wallet_name)
+            wallet_data["private_key"] = encrypt_value(priv, password)
+            try:
+                with open(wallet_path, "w") as f:
+                    json.dump(wallet_data, f, indent=2)
+            except OSError as e:
+                error("Failed to re-save wallet with encryption: %s", e)
+                raise click.Abort() from e
+            click.echo("Re-encrypted legacy wallet with PBKDF2+Fernet.")
+            wallet_data["private_key"] = priv  # return plaintext for in-memory use
+        else:
+            password = _get_wallet_password(wallet_name)
+            try:
+                wallet_data["private_key"] = decrypt_value(priv, password)
+            except Exception:
+                error("Invalid password for wallet")
+                raise click.Abort() from None
 
     return wallet_data
 

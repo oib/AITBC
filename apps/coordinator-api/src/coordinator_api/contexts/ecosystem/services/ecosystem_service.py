@@ -431,6 +431,53 @@ class EcosystemService:
             logger.error("Failed to calculate health score: %s", e)
             return 50.0
 
+    async def get_health_score_detailed(self, period_type: str = "daily") -> dict[str, Any]:
+        """Fetch metrics, calculate health score, and return a detailed dict for the health-score endpoint."""
+        try:
+            developer_earnings = await self.get_developer_earnings(period_type)
+            agent_utilization = await self.get_agent_utilization(period_type)
+            treasury_allocation = await self.get_treasury_allocation(period_type)
+            staking_metrics = await self.get_staking_metrics(period_type)
+            bounty_analytics = await self.get_bounty_analytics(period_type)
+            score = await self.calculate_health_score(
+                {
+                    "developer_earnings": developer_earnings,
+                    "agent_utilization": agent_utilization,
+                    "treasury_allocation": treasury_allocation,
+                    "staking_metrics": staking_metrics,
+                    "bounty_analytics": bounty_analytics,
+                }
+            )
+            recommendations: list[str] = []
+            if score < 50:
+                recommendations.append(
+                    "Ecosystem health is below 50 — review staking participation and bounty completion rates"
+                )
+            if bounty_analytics.get("completion_rate", 0) < 30:
+                recommendations.append("Bounty completion rate is low — consider increasing rewards or reducing difficulty")
+            if staking_metrics.get("total_staked", 0) < 1000:
+                recommendations.append("Total staked is low — consider increasing staking incentives")
+            return {
+                "score": score,
+                "components": {
+                    "developer_earnings": developer_earnings,
+                    "agent_utilization": agent_utilization,
+                    "treasury_allocation": treasury_allocation,
+                    "staking_metrics": staking_metrics,
+                    "bounty_analytics": bounty_analytics,
+                },
+                "recommendations": recommendations,
+                "last_updated": datetime.now(UTC).isoformat(),
+            }
+        except Exception as e:
+            logger.error("Failed to get detailed health score: %s", e)
+            return {
+                "score": 50.0,
+                "components": {},
+                "recommendations": ["Unable to calculate detailed health score"],
+                "last_updated": datetime.now(UTC).isoformat(),
+            }
+
     async def _calculate_growth_indicators(self, period: str) -> dict[str, float]:
         """Calculate growth indicators"""
         try:

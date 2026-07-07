@@ -58,7 +58,7 @@ class AgentExecutionAdapter(IAgentExecution):
 
     @property
     def verification_level(self) -> ProtocolVerificationLevel:
-        return ProtocolVerificationLevel(self._execution.verification_level)  # type: ignore[attr-defined]  # ponytail: verification_level not on AgentExecution model
+        return ProtocolVerificationLevel(self._execution.verification_level)
 
     def to_dict(self) -> dict[str, Any]:
         return self._execution.model_dump()
@@ -80,7 +80,7 @@ class AgentStepExecutionAdapter(IAgentStepExecution):
 
     @property
     def step_type(self) -> ProtocolStepType:
-        return ProtocolStepType(self._step_execution.step_type)  # type: ignore[attr-defined]  # ponytail: step_type not on AgentStepExecution model
+        return ProtocolStepType(self._step_execution.step_type)
 
     def to_dict(self) -> dict[str, Any]:
         return self._step_execution.model_dump()
