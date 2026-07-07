@@ -1,6 +1,6 @@
 """Tests for coordinator-api utility functions"""
 
-from app.routers.users import create_session_token, verify_session_token
+from coordinator_api.routers.users import create_session_token, verify_session_token
 
 
 class TestUserSessionTokens:
@@ -21,7 +21,7 @@ class TestUserSessionTokens:
 
 class TestRegistry:
     def test_create_service_registry(self):
-        from app.routers.registry import create_service_registry
+        from coordinator_api.routers.registry import create_service_registry
 
         registry = create_service_registry()
         assert registry is not None
@@ -29,12 +29,12 @@ class TestRegistry:
 
 class TestMetrics:
     def test_get_metrics(self):
-        from app.utils.metrics import get_metrics
+        from coordinator_api.utils.metrics import get_metrics
 
         metrics = get_metrics()
         assert isinstance(metrics, dict)
 
     def test_reset_metrics(self):
-        from app.utils.metrics import reset_metrics
+        from coordinator_api.utils.metrics import reset_metrics
 
         reset_metrics()

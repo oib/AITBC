@@ -37,7 +37,7 @@ def wallet_client():
     from fastapi.testclient import TestClient
 
     try:
-        from app.main import app
+        from coordinator_api.main import app
 
         return TestClient(app)
     except ImportError:
@@ -60,7 +60,7 @@ def marketplace_client():
     from fastapi.testclient import TestClient
 
     try:
-        from app.main import app
+        from coordinator_api.main import app
 
         return TestClient(app)
     except ImportError:

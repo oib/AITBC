@@ -3,8 +3,8 @@
 from datetime import UTC, datetime
 
 import pytest
-from app.routing.agent_discovery import AgentRegistry
-from app.routing.load_balancer import (
+from agent_app.routing.agent_discovery import AgentRegistry
+from agent_app.routing.load_balancer import (
     AgentWeight,
     LoadBalancer,
     LoadBalancingStrategy,

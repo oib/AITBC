@@ -21,9 +21,9 @@ def test_agent_coordinator_cors_rejects_wildcard():
     os.environ["SECRET_KEY"] = "test_secret_key_for_testing_extra_long"
 
     try:
-        from app.config import validated_cors_origins
+        from coordinator_api.config import validated_cors_origins
     except ImportError:
-        pytest.skip("app.config import conflict in full suite")
+        pytest.skip("coordinator_api.config import conflict in full suite")
 
     with pytest.raises(ValueError, match="Wildcard CORS origins are not allowed"):
         validated_cors_origins(["*"])
@@ -43,9 +43,9 @@ def test_agent_coordinator_cors_accepts_localhost():
     os.environ["SECRET_KEY"] = "test_secret_key_for_testing_extra_long"
 
     try:
-        from app.config import validated_cors_origins
+        from coordinator_api.config import validated_cors_origins
     except ImportError:
-        pytest.skip("app.config import conflict in full suite")
+        pytest.skip("coordinator_api.config import conflict in full suite")
 
     origins = [
         "http://localhost:8001",
@@ -118,7 +118,7 @@ def test_no_wildcard_cors_in_coordinator_api_apps():
     coordinator_src = repo_root / "apps" / "coordinator-api" / "src"
 
     files_to_check = [
-        coordinator_src / "app" / "contexts" / "agent_coordination" / "routers" / "agent_performance.py",
+        coordinator_src / "coordinator_api" / "contexts" / "agent_coordination" / "routers" / "agent_performance.py",
     ]
 
     wildcard_pattern = re.compile(r'allow_origins\s*=\s*\["\*"\]')

@@ -10,11 +10,11 @@ import pytest
 
 # Clear cached 'app' modules to avoid conflicts with agent-coordinator tests
 for mod_name in list(sys.modules.keys()):
-    if mod_name == "app" or mod_name.startswith("app."):
+    if mod_name == "coordinator_api" or mod_name.startswith("coordinator_api."):
         del sys.modules[mod_name]
 
-from app.contexts.staking.services.staking_service import StakingService  # noqa: E402
-from app.domain.bounty import AgentMetrics, PerformanceTier, StakeStatus  # noqa: E402
+from coordinator_api.contexts.staking.services.staking_service import StakingService  # noqa: E402
+from coordinator_api.contexts.staking.domain.staking import AgentMetrics, PerformanceTier, StakeStatus  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 from sqlmodel import SQLModel  # noqa: E402

@@ -9,8 +9,8 @@ sys.path.insert(0, "/home/oib/windsurf/aitbc/apps/coordinator-api/src")
 
 from datetime import UTC, datetime, timedelta
 
-from app.database import create_db_and_tables, engine
-from app.domain.gpu_marketplace import GPUBooking, GPURegistry
+from coordinator_api.database import create_db_and_tables, engine
+from coordinator_api.domain.gpu_marketplace import GPUBooking, GPURegistry
 from sqlmodel import Session, select
 
 

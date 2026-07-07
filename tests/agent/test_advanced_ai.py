@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from app.ai.advanced_ai import (
+from agent_app.ai.advanced_ai import (
     AdvancedAIIntegration,
     MLModel,
     NeuralNetwork,

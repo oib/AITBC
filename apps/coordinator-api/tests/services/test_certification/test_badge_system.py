@@ -14,7 +14,7 @@ class TestBadgeSystem:
 
     def test_badge_system_initialization(self):
         """Test badge system initialization"""
-        from app.contexts.certification.services.certification.badge_system import BadgeSystem
+        from coordinator_api.contexts.certification.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
 
@@ -25,8 +25,8 @@ class TestBadgeSystem:
 
     def test_get_metric_value(self):
         """Test getting metric value from reputation"""
-        from app.contexts.reputation.domain.reputation import AgentReputation
-        from app.contexts.certification.services.certification.badge_system import BadgeSystem
+        from coordinator_api.contexts.reputation.domain.reputation import AgentReputation
+        from coordinator_api.contexts.certification.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
 
@@ -54,11 +54,11 @@ class TestBadgeSystem:
         assert jobs_completed == 45.0
         assert trust_score == 750.0
 
-    @patch("app.contexts.certification.services.certification.badge_system.Session")
+    @patch("coordinator_api.contexts.certification.services.certification.badge_system.Session")
     async def test_create_badge(self, mock_session):
         """Test badge creation"""
-        from app.contexts.certification.domain.certification import AchievementBadge, BadgeType
-        from app.contexts.certification.services.certification.badge_system import BadgeSystem
+        from coordinator_api.contexts.certification.domain.certification import AchievementBadge, BadgeType
+        from coordinator_api.contexts.certification.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
         mock_session_instance = MagicMock()
@@ -98,12 +98,12 @@ class TestBadgeSystem:
         assert result.badge_id is not None
         assert result.badge_name == "Test Badge"
 
-    @patch("app.contexts.certification.services.certification.badge_system.Session")
+    @patch("coordinator_api.contexts.certification.services.certification.badge_system.Session")
     async def test_verify_badge_eligibility(self, mock_session):
         """Test badge eligibility verification"""
-        from app.contexts.certification.domain.certification import AchievementBadge, BadgeType
-        from app.contexts.reputation.domain.reputation import AgentReputation
-        from app.contexts.certification.services.certification.badge_system import BadgeSystem
+        from coordinator_api.contexts.certification.domain.certification import AchievementBadge, BadgeType
+        from coordinator_api.contexts.reputation.domain.reputation import AgentReputation
+        from coordinator_api.contexts.certification.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
         mock_session_instance = MagicMock()
@@ -155,11 +155,11 @@ class TestBadgeSystem:
         assert "metrics" in result
         assert "evidence" in result
 
-    @patch("app.contexts.certification.services.certification.badge_system.Session")
+    @patch("coordinator_api.contexts.certification.services.certification.badge_system.Session")
     async def test_award_badge(self, mock_session):
         """Test badge awarding"""
-        from app.contexts.certification.domain.certification import AchievementBadge, AgentBadge, BadgeType
-        from app.contexts.certification.services.certification.badge_system import BadgeSystem
+        from coordinator_api.contexts.certification.domain.certification import AchievementBadge, AgentBadge, BadgeType
+        from coordinator_api.contexts.certification.services.certification.badge_system import BadgeSystem
 
         system = BadgeSystem()
         mock_session_instance = MagicMock()
@@ -197,7 +197,7 @@ class TestBadgeSystem:
         )
 
         # Mock reputation with enough jobs completed to satisfy eligibility
-        from app.contexts.reputation.domain.reputation import AgentReputation
+        from coordinator_api.contexts.reputation.domain.reputation import AgentReputation
 
         mock_reputation = AgentReputation(
             agent_id="agent123",

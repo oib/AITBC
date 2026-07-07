@@ -15,7 +15,7 @@ class TestHealthEndpoints:
         # This test verifies the health endpoints are accessible
         # without requiring full database setup
 
-        with patch("app.main.create_app") as mock_create_app:
+        with patch("coordinator_api.main.create_app") as mock_create_app:
             mock_app = Mock()
             mock_app.get.return_value = Mock(status_code=200)
             mock_create_app.return_value = mock_app
@@ -29,7 +29,7 @@ class TestConfigurationValidation:
 
     def test_api_key_validation_logic(self):
         """Test API key validation logic directly"""
-        from app.config import Settings
+        from coordinator_api.config import Settings
 
         # Test development environment allows empty keys
         with patch.dict("os.environ", {"APP_ENV": "development"}):
@@ -39,7 +39,7 @@ class TestConfigurationValidation:
 
     def test_production_validation_logic(self):
         """Test production validation logic"""
-        from app.config import Settings
+        from coordinator_api.config import Settings
 
         # Test production requires API keys
         with patch.dict("os.environ", {"APP_ENV": "production"}):
@@ -53,7 +53,7 @@ class TestConfigurationValidation:
 
     def test_secret_length_validation(self):
         """Test secret validation in production requires secrets to be set"""
-        from app.config import Settings
+        from coordinator_api.config import Settings
 
         # In production, secrets (secret_key/jwt_secret) must be set.
         # With defaults (secret_key=None, jwt_secret=""), production validation raises.
@@ -164,7 +164,7 @@ class TestServiceLogic:
     def test_job_service_import(self):
         """Test JobService can be imported"""
         try:
-            from app.contexts.infrastructure.services.jobs import JobService
+            from coordinator_api.contexts.infrastructure.services.jobs import JobService
 
             assert JobService is not None
         except ImportError as e:
@@ -173,7 +173,7 @@ class TestServiceLogic:
     def test_miner_service_import(self):
         """Test MinerService can be imported"""
         try:
-            from app.contexts.infrastructure.services.miners import MinerService
+            from coordinator_api.contexts.infrastructure.services.miners import MinerService
 
             assert MinerService is not None
         except ImportError as e:

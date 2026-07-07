@@ -4,7 +4,7 @@ Tests for Counter, Gauge, Histogram, MetricsRegistry, and PerformanceMonitor
 """
 
 import pytest
-from app.monitoring.prometheus_metrics import (
+from agent_app.monitoring.prometheus_metrics import (
     Counter,
     Gauge,
     Histogram,
