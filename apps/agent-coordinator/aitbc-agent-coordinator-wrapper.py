@@ -29,7 +29,7 @@ logger.info("Starting agent-coordinator service")
 exec_cmd = [
     sys.executable,
     "-m",
-    "app.main",
+    "agent_app.main",
 ]
 
 logger.info(f"Executing: {' '.join(exec_cmd)}")

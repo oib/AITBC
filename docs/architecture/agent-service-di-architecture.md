@@ -251,9 +251,9 @@ Adapters for agent-management app to implement aitbc-agent-core protocols.
 
 from sqlmodel import Session
 
-from app.domain.agent import AgentExecution, AgentStepExecution, VerificationLevel, AgentStatus
-from app.services.agent_security import AgentSecurityManager, AgentAuditor
-from app.services.agent_service import AIAgentOrchestrator
+from coordinator_api.domain.agent import AgentExecution, AgentStepExecution, VerificationLevel, AgentStatus
+from coordinator_api.services.agent_security import AgentSecurityManager, AgentAuditor
+from coordinator_api.services.agent_service import AIAgentOrchestrator
 
 from aitbc_agent_core.protocols.domain import IAgentExecution, IAgentStepExecution
 from aitbc_agent_core.protocols.security import ISecurityManager, IAuditor
@@ -320,9 +320,9 @@ Create `apps/coordinator-api/src/app/adapters/agent_core_adapters.py`:
 Adapters for coordinator-api app to implement aitbc-agent-core protocols.
 """
 
-from app.domain.agent import AgentExecution, AgentStepExecution
-from app.services.agent_coordination.security import AgentSecurityManager
-from app.services.agent_coordination.agent_service import AIAgentOrchestrator
+from coordinator_api.domain.agent import AgentExecution, AgentStepExecution
+from coordinator_api.services.agent_coordination.security import AgentSecurityManager
+from coordinator_api.services.agent_coordination.agent_service import AIAgentOrchestrator
 
 # Similar adapter implementations as agent-management
 # but using coordinator-api's domain models and services

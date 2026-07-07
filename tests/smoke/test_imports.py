@@ -28,13 +28,13 @@ PRODUCTION_MODULES = [
 ]
 
 COORDINATOR_MODULES = [
-    "app.config",
-    "app.auth.jwt_auth",
-    "app.auth.dependencies",
-    "app.auth.security_matrix",
-    "app.core.lifecycle",
-    "app.core.middleware",
-    "app.storage.db",
+    "coordinator_api.config",
+    "coordinator_api.auth.jwt_auth",
+    "coordinator_api.auth.dependencies",
+    "coordinator_api.auth.security_matrix",
+    "coordinator_api.core.lifecycle",
+    "coordinator_api.core.middleware",
+    "coordinator_api.storage.db",
 ]
 
 BLOCKCHAIN_MODULES = [

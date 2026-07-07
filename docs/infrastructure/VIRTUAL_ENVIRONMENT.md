@@ -91,7 +91,7 @@ ExecStart=/opt/aitbc/venv/bin/python service_script.py
 
 # Run development servers
 cd /opt/aitbc/apps/coordinator-api
-uvicorn app.main:app --reload
+uvicorn coordinator_api.main:app --reload
 
 # Run tests
 pytest tests/

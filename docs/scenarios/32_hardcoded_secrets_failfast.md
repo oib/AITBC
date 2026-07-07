@@ -64,7 +64,7 @@ A production deployment must not start with missing or default secrets (`change-
 ```bash
 cd /opt/aitbc && APP_ENV=production ENVIRONMENT=production \
   PYTHONPATH=apps/agent-coordinator/src ./venv/bin/python -c "
-from app.config import Settings
+from coordinator_api.config import Settings
 try:
     s = Settings()
     print(f'FAIL: should have raised — secret_key={s.secret_key!r}')
@@ -84,7 +84,7 @@ PASS: ValidationError: secret_key required in production
 cd /opt/aitbc && APP_ENV=production ENVIRONMENT=production \
   SECRET_KEY='default_secret_key_change_in_production' \
   PYTHONPATH=apps/agent-coordinator/src ./venv/bin/python -c "
-from app.config import Settings
+from coordinator_api.config import Settings
 try:
     s = Settings()
     print(f'FAIL: should have raised — secret_key={s.secret_key!r}')
@@ -109,7 +109,7 @@ cd /opt/aitbc && APP_ENV=production ENVIRONMENT=production \
   ALLOW_ORIGINS='["https://app.aitbc.bubuit.net"]' \
   SECRET_KEY='a_proper_secret_key_for_production_use' \
   PYTHONPATH=apps/coordinator-api/src ./venv/bin/python -c "
-from app.config import Settings
+from coordinator_api.config import Settings
 try:
     s = Settings()
     print(f'FAIL: should have raised — jwt_secret={s.jwt_secret!r}')
@@ -139,7 +139,7 @@ cd /opt/aitbc && APP_ENV=production ENVIRONMENT=production \
   SECRET_KEY='a_proper_secret_key_for_production_use' \
   JWT_SECRET='change-me-in-production' \
   PYTHONPATH=apps/coordinator-api/src ./venv/bin/python -c "
-from app.config import Settings
+from coordinator_api.config import Settings
 try:
     s = Settings()
     print(f'FAIL: should have raised — jwt_secret={s.jwt_secret!r}')
@@ -169,7 +169,7 @@ cd /opt/aitbc && APP_ENV=production ENVIRONMENT=production \
   SECRET_KEY='a_proper_secret_key_for_production_use' \
   JWT_SECRET='short' \
   PYTHONPATH=apps/coordinator-api/src ./venv/bin/python -c "
-from app.config import Settings
+from coordinator_api.config import Settings
 try:
     s = Settings()
     print(f'FAIL: should have raised — jwt_secret={s.jwt_secret!r}')
@@ -199,7 +199,7 @@ cd /opt/aitbc && APP_ENV=production ENVIRONMENT=production \
   SECRET_KEY='a_proper_secret_key_for_production_use' \
   JWT_SECRET='a_proper_jwt_secret_for_production_use_123' \
   PYTHONPATH=apps/coordinator-api/src ./venv/bin/python -c "
-from app.config import Settings
+from coordinator_api.config import Settings
 s = Settings()
 print(f'PASS: Settings accepted with proper secrets — jwt_secret len={len(s.jwt_secret)}, secret_key set: {bool(s.secret_key)}')
 "
@@ -265,7 +265,7 @@ After completing this scenario, you should be able to:
 ```bash
 # A4: agent-coordinator missing secret_key
 cd /opt/aitbc && APP_ENV=production PYTHONPATH=apps/agent-coordinator/src ./venv/bin/python -c "
-from app.config import Settings
+from coordinator_api.config import Settings
 try: Settings()
 except Exception: print('PASS: A4 missing secret rejected')
 "
@@ -279,7 +279,7 @@ APP_ENV=production JWT_SECRET='change-me-in-production' \
   ADMIN_API_KEYS='["test-key-3-1234567890"]' \
   ALLOW_ORIGINS='["https://app.aitbc.bubuit.net"]' \
   PYTHONPATH=apps/coordinator-api/src ./venv/bin/python -c "
-from app.config import Settings
+from coordinator_api.config import Settings
 try: Settings()
 except Exception as e:
     assert 'jwt' in str(e).lower()

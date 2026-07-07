@@ -6,8 +6,8 @@ Reusable fixtures for service and integration tests to avoid duplication
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from app.domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
-from app.services.staking_service import StakingService
+from coordinator_api.domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
+from coordinator_api.services.staking_service import StakingService
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel

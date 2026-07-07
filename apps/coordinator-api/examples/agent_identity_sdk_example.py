@@ -17,8 +17,8 @@ from datetime import UTC, datetime
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from app.agent_identity.sdk.client import AgentIdentityClient
-from app.agent_identity.sdk.models import VerificationType
+from coordinator_api.agent_identity.sdk.client import AgentIdentityClient
+from coordinator_api.agent_identity.sdk.models import VerificationType
 
 
 async def basic_identity_example():

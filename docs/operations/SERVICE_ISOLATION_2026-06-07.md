@@ -200,7 +200,7 @@ aitbc-p+  149746  /opt/aitbc/venv/bin/python main.py (whisper)
 # Internal services (aitbc-internal)
 aitbc-i+  147618  /opt/aitbc/venv/bin/python -m uvicorn agent_service.main:app
 aitbc-i+  147619  /opt/aitbc/venv/bin/python -m marketplace_service.main
-aitbc-i+  147621  /opt/aitbc/venv/bin/python -m uvicorn app.main:app (agent-coordinator)
+aitbc-i+  147621  /opt/aitbc/venv/bin/python -m uvicorn agent_app.main:app (agent-coordinator)
 
 # Blockchain services (aitbc-blockchain)
 aitbc-b+  149847  /opt/aitbc/venv/bin/python -m aitbc_chain.main
@@ -209,7 +209,7 @@ aitbc-b+  149850  /opt/aitbc/venv/bin/python -m uvicorn aitbc_chain.app:app
 
 # Specialized services
 aitbc-g+  143624  /opt/aitbc/venv/bin/python -m gpu_service.main
-aitbc-w+  145313  /opt/aitbc/venv/bin/python -m uvicorn app.main:app (wallet)
+aitbc-w+  145313  /opt/aitbc/venv/bin/python -m uvicorn wallet_app.main:app (wallet)
 ```
 
 ### Health Check Verification

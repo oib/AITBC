@@ -46,7 +46,7 @@ The DynamicPricingEngine has been extended with four new pricing strategies in a
 ## Usage Example
 
 ```python
-from app.contexts.trading.services.trading_marketplace.dynamic_pricing import DynamicPricingEngine, PricingStrategy
+from coordinator_api.contexts.trading.services.trading_marketplace.dynamic_pricing import DynamicPricingEngine, PricingStrategy
 
 # Initialize engine
 engine = DynamicPricingEngine({

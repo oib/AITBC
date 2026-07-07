@@ -67,7 +67,7 @@ A client submits a job with a payment amount and an invalid currency. The paymen
 JWT_SECRET=$(grep JWT_SECRET /etc/aitbc/aitbc-coordinator-api.env | cut -d= -f2)
 
 cd /opt/aitbc && JWT_SECRET="$JWT_SECRET" PYTHONPATH=apps/coordinator-api/src ./venv/bin/python -c "
-from app.auth.jwt_auth import create_access_token
+from coordinator_api.auth.jwt_auth import create_access_token
 token = create_access_token('test-user-b12', 'client', {'wallet_address': '0x5e2D7C7A4F8E9B1C3d5A2e8F4c6b8a0D2e4f6A8C'})
 print(token)
 "

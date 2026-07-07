@@ -22,7 +22,7 @@ async def test_request_id_propagation_to_outbound_calls():
 @pytest.mark.asyncio
 async def test_request_id_middleware_sets_context():
     """Test that request ID middleware sets context correctly"""
-    from app.main import app
+    from coordinator_api.main import app
     from fastapi.testclient import TestClient
 
     client = TestClient(app)
@@ -56,7 +56,7 @@ async def test_request_id_propagating_client():
 @pytest.mark.asyncio
 async def test_request_id_generation_when_missing():
     """Test that request ID is generated when not provided"""
-    from app.main import app
+    from coordinator_api.main import app
     from fastapi.testclient import TestClient
 
     client = TestClient(app)

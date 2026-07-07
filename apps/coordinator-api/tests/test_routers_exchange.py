@@ -13,7 +13,7 @@ def exchange_client(client, monkeypatch):
     request event loop, so it hangs the client and causes test timeouts. We
     replace it with a no-op so payment creation returns immediately.
     """
-    from app.contexts.infrastructure.routers import exchange as exchange_router
+    from coordinator_api.contexts.infrastructure.routers import exchange as exchange_router
 
     async def _noop_monitor(_payment_id: str) -> None:
         return None

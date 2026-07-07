@@ -13,7 +13,7 @@ class TestAdvancedReinforcementLearningEngine:
 
     def test_engine_initialization(self):
         """Test engine initialization"""
-        from app.contexts.advanced_rl.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
+        from coordinator_api.contexts.advanced_rl.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
 
         engine = AdvancedReinforcementLearningEngine()
 
@@ -23,11 +23,11 @@ class TestAdvancedReinforcementLearningEngine:
         assert len(engine.rl_algorithms) > 0
 
     @pytest.mark.skip(reason="torch operations too slow for CI")
-    @patch("app.contexts.advanced_rl.services.advanced_rl.engine.Session")
+    @patch("coordinator_api.contexts.advanced_rl.services.advanced_rl.engine.Session")
     async def test_proximal_policy_optimization(self, mock_session):
         """Test PPO training"""
-        from app.contexts.advanced_rl.domain import ReinforcementLearningConfig
-        from app.contexts.advanced_rl.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
+        from coordinator_api.contexts.advanced_rl.domain import ReinforcementLearningConfig
+        from coordinator_api.contexts.advanced_rl.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
 
         engine = AdvancedReinforcementLearningEngine()
 
@@ -44,11 +44,11 @@ class TestAdvancedReinforcementLearningEngine:
         assert "episode_rewards" in result
 
     @pytest.mark.skip(reason="torch operations too slow for CI")
-    @patch("app.contexts.advanced_rl.services.advanced_rl.engine.Session")
+    @patch("coordinator_api.contexts.advanced_rl.services.advanced_rl.engine.Session")
     async def test_soft_actor_critic(self, mock_session):
         """Test SAC training"""
-        from app.contexts.advanced_rl.domain import ReinforcementLearningConfig
-        from app.contexts.advanced_rl.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
+        from coordinator_api.contexts.advanced_rl.domain import ReinforcementLearningConfig
+        from coordinator_api.contexts.advanced_rl.services.advanced_rl.engine import AdvancedReinforcementLearningEngine
 
         engine = AdvancedReinforcementLearningEngine()
 

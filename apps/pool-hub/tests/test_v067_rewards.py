@@ -228,7 +228,7 @@ class TestMinerInfoFields:
     """Test MinerInfo dataclass has v0.6.7 fields."""
 
     def test_miner_info_has_chain_id(self):
-        from app.registry.miner_registry import MinerInfo
+        from poolhub_legacy.registry.miner_registry import MinerInfo
 
         # Check the dataclass field exists
         import dataclasses
@@ -237,7 +237,7 @@ class TestMinerInfoFields:
         assert "chain_id" in fields
 
     def test_miner_info_has_wallet_address(self):
-        from app.registry.miner_registry import MinerInfo
+        from poolhub_legacy.registry.miner_registry import MinerInfo
 
         import dataclasses
 
@@ -245,7 +245,7 @@ class TestMinerInfoFields:
         assert "wallet_address" in fields
 
     def test_miner_info_chain_id_default(self):
-        from app.registry.miner_registry import MinerInfo
+        from poolhub_legacy.registry.miner_registry import MinerInfo
 
         miner = MinerInfo(
             miner_id="m1",

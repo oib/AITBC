@@ -17,15 +17,15 @@ The following 4 core services are exported by default in `__all__`:
 
 ### Importing Core Services (in __all__)
 ```python
-from app.services import JobService, MinerService, MarketplaceService, ExplorerService
+from coordinator_api.services import JobService, MinerService, MarketplaceService, ExplorerService
 ```
 
 ### Importing Other Services (not in __all__)
 Import directly from their module:
 ```python
-from app.services.blockchain import BlockchainService
-from app.services.agent_service import AgentService
-from app.services.analytics_service import AnalyticsService
+from coordinator_api.services.blockchain import BlockchainService
+from coordinator_api.services.agent_service import AgentService
+from coordinator_api.services.analytics_service import AnalyticsService
 ```
 
 ## Adding a New Service to Public API

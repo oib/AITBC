@@ -17,7 +17,7 @@ def coordinator_client():
 
     try:
         # Import the coordinator app specifically
-        from app.main import app as coordinator_app
+        from coordinator_api.main import app as coordinator_app
 
         print("✅ Using real coordinator API client")
         return TestClient(coordinator_app)

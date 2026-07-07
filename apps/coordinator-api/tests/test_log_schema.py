@@ -27,7 +27,7 @@ def test_log_schema_enforcement():
     """Test that log lines contain required keys when LOG_FORMAT=json."""
     # Mock environment to enable JSON logging
     with patch.dict("os.environ", {"LOG_FORMAT": "json"}):
-        from app.main import app
+        from coordinator_api.main import app
         from fastapi.testclient import TestClient
 
         client = TestClient(app)
@@ -48,7 +48,7 @@ def test_log_schema_required_keys():
     sample_log = {
         "timestamp": "2026-06-19T12:57:46.603297+00:00Z",
         "level": "INFO",
-        "logger": "app.main",
+        "logger": "coordinator_api.main",
         "message": "Coordinator API is ready to serve requests",
         "module": "main",
         "function": "lifespan",
@@ -103,9 +103,7 @@ def test_request_log_schema():
 def test_log_parsing():
     """Test that JSON log lines can be parsed as valid JSON."""
     # Sample log line as it would appear in journalctl
-    log_line = (
-        '{"timestamp": "2026-06-19T12:57:46.603297+00:00Z", "level": "INFO", "logger": "app.main", "message": "Test message"}'
-    )
+    log_line = '{"timestamp": "2026-06-19T12:57:46.603297+00:00Z", "level": "INFO", "logger": "coordinator_api.main", "message": "Test message"}'
 
     # Parse as JSON
     parsed_log = json.loads(log_line)

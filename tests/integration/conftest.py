@@ -28,7 +28,7 @@ def _reset_coordinator_modules() -> None:
     importing the coordinator app gives each test a clean registry.
     """
     for mod_name in list(sys.modules.keys()):
-        if mod_name == "app" or mod_name.startswith("app."):
+        if mod_name == "coordinator_api" or mod_name.startswith("coordinator_api."):
             del sys.modules[mod_name]
         elif mod_name == "aitbc_chain" or mod_name.startswith("aitbc_chain."):
             del sys.modules[mod_name]
@@ -48,10 +48,10 @@ _reset_coordinator_modules()
 _skip_reason: str | None = None
 
 try:
-    from app.main import create_app
+    from coordinator_api.main import create_app
 except Exception as _e:
     create_app = None  # type: ignore[assignment]
-    _skip_reason = f"agent-coordinator app import conflict: {_e}"
+    _skip_reason = f"coordinator-api import conflict: {_e}"
 
 
 @pytest.fixture(autouse=True)
@@ -70,7 +70,7 @@ def coordinator_client() -> Generator[TestClient]:
     # other apps (e.g., aitbc_chain.base_models.Transaction) that may have
     # been imported by earlier tests in the same session.
     _reset_coordinator_modules()
-    from app.main import create_app as _create_app
+    from coordinator_api.main import create_app as _create_app
 
     app = _create_app()
     with TestClient(app) as client:

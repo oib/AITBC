@@ -99,7 +99,7 @@ For localhost-only services, consider adding additional security:
 # Example for coordinator-api
 [Service]
 # Existing localhost binding
-ExecStart=/opt/aitbc/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8203
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn coordinator_api.main:app --host 127.0.0.1 --port 8203
 
 # Additional defense-in-depth (optional)
 # IPDeny=any  # Deny all external IP connections

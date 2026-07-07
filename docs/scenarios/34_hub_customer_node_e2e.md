@@ -195,7 +195,7 @@ On the **customer node** (or via SSH tunnel):
 # Generate a JWT token on the hub (or use a customer-node token if auth is federated)
 # For testing, generate on the hub and copy the token:
 HUB_TOKEN=$(ssh hub.aitbc.bubuit.net 'cd /opt/aitbc && JWT_SECRET=$(grep JWT_SECRET /etc/aitbc/aitbc-coordinator-api.env | cut -d= -f2) PYTHONPATH=apps/coordinator-api/src ./venv/bin/python -c "
-from app.auth.jwt_auth import create_access_token
+from coordinator_api.auth.jwt_auth import create_access_token
 print(create_access_token(\"customer-node-user\", \"client\", {\"wallet_address\": \"0xCustomer1\"}))
 "')
 

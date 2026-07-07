@@ -14,12 +14,12 @@ from fastapi.testclient import TestClient
 class TestAgentMarketplaceIntegration:
     """Test integration between agent and marketplace services"""
 
-    @patch("app.contexts.marketplace.routers.marketplace.MarketplaceService")
+    @patch("coordinator_api.contexts.marketplace.routers.marketplace.MarketplaceService")
     def test_agent_registers_in_marketplace(self, mock_marketplace_service_cls):
         """Test that an agent-provided offer appears in the marketplace"""
-        from app.contexts.marketplace.routers.marketplace import router as marketplace_router
-        from app.schemas import MarketplaceOfferView
-        from app.storage import get_session
+        from coordinator_api.contexts.marketplace.routers.marketplace import router as marketplace_router
+        from coordinator_api.schemas import MarketplaceOfferView
+        from coordinator_api.storage import get_session
 
         mock_service = Mock()
         mock_marketplace_service_cls.return_value = mock_service
