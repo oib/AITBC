@@ -23,13 +23,13 @@ def exchange_client(client, monkeypatch):
 
 
 def test_create_payment(exchange_client):
-    """Test creating a Bitcoin payment request."""
+    """Test creating an ETH payment request."""
     response = exchange_client.post(
         "/v1/exchange/create-payment",
         json={
             "user_id": "test-user-123",
             "aitbc_amount": 10000.0,
-            "btc_amount": 0.1,
+            "eth_amount": 10.0,
         },
     )
     assert response.status_code == 200
@@ -52,14 +52,14 @@ def test_create_payment_invalid_amount(exchange_client):
         json={
             "user_id": "test-user-123",
             "aitbc_amount": -100,
-            "btc_amount": 0.1,
+            "eth_amount": 10.0,
         },
     )
     assert response.status_code == 422
 
 
 def test_create_payment_amount_mismatch(exchange_client):
-    """Test payment creation with a BTC amount that does not match the
+    """Test payment creation with an ETH amount that does not match the
     configured exchange rate. This exercises the handler-level 400 path.
     """
     response = exchange_client.post(
@@ -67,7 +67,7 @@ def test_create_payment_amount_mismatch(exchange_client):
         json={
             "user_id": "test-user-123",
             "aitbc_amount": 10000.0,
-            "btc_amount": 0.5,  # expected 0.1 at 100k AITBC/BTC
+            "eth_amount": 50.0,  # expected 10.0 at 1000 AITBC/ETH
         },
     )
     assert response.status_code == 400
@@ -82,7 +82,7 @@ def test_get_payment_status(exchange_client):
         json={
             "user_id": "test-user-123",
             "aitbc_amount": 10000.0,
-            "btc_amount": 0.1,
+            "eth_amount": 10.0,
         },
     )
     payment_id = create_resp.json()["payment_id"]
@@ -110,7 +110,7 @@ def test_confirm_payment(exchange_client):
         json={
             "user_id": "test-user-123",
             "aitbc_amount": 10000.0,
-            "btc_amount": 0.1,
+            "eth_amount": 10.0,
         },
     )
     payment_id = create_resp.json()["payment_id"]
@@ -128,8 +128,8 @@ def test_get_exchange_rates(exchange_client):
     response = exchange_client.get("/v1/exchange/rates")
     assert response.status_code == 200
     data = response.json()
-    assert "btc_to_aitbc" in data
-    assert "aitbc_to_btc" in data
+    assert "eth_to_aitbc" in data
+    assert "aitbc_to_eth" in data
     assert data["fee_percent"] == 0.5
 
 
