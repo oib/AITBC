@@ -37,7 +37,7 @@ class SettlementHook:
 
     async def on_job_failed(self, job: Job, error: Exception) -> None:
         """Called when a job fails"""
-        if job.cross_chain_payment_id:  # type: ignore[attr-defined]  # ponytail: field not on model
+        if job.cross_chain_payment_id:
             try:
                 await self._refund_cross_chain_payment(job)
             except Exception as e:
@@ -105,11 +105,11 @@ class SettlementHook:
 
     async def _requires_cross_chain_settlement(self, job: Job) -> bool:
         """Check if job requires cross-chain settlement"""
-        if job.target_chain and job.target_chain != await self._get_current_chain_id():  # type: ignore[attr-defined]  # ponytail: field not on model
+        if job.target_chain and job.target_chain != await self._get_current_chain_id():
             return True
-        if job.requires_cross_chain_settlement:  # type: ignore[attr-defined]  # ponytail: field not on model
+        if job.requires_cross_chain_settlement:
             return True
-        if job.payment_chain and job.payment_chain != await self._get_current_chain_id():  # type: ignore[attr-defined]  # ponytail: field not on model
+        if job.payment_chain and job.payment_chain != await self._get_current_chain_id():
             return True
         return False
 
@@ -117,9 +117,9 @@ class SettlementHook:
         """Initiate cross-chain settlement for a job"""
         try:
             message = await self._create_settlement_message(job)
-            bridge_name = job.preferred_bridge or await self.bridge_manager.get_optimal_bridge(  # type: ignore[attr-defined]  # ponytail: field not on model
+            bridge_name = job.preferred_bridge or await self.bridge_manager.get_optimal_bridge(
                 message,
-                priority=job.settlement_priority or "cost",  # type: ignore[attr-defined]  # ponytail: field not on model
+                priority=job.settlement_priority or "cost",
             )
             result = await self.bridge_manager.settle_cross_chain(message, bridge_name=bridge_name)
             job.cross_chain_settlement_id = result.message_id
@@ -138,25 +138,25 @@ class SettlementHook:
         proof_data: dict[str, Any] = {}
         zk_proof = None
         if job.receipt:
-            receipt_hash = job.receipt.hash  # type: ignore[attr-defined]  # ponytail: receipt is dict[str, Any]
-            proof_data = job.receipt.proof or {}  # type: ignore[attr-defined]  # ponytail: receipt is dict[str, Any]
+            receipt_hash = job.receipt.get("hash", "")
+            proof_data = job.receipt.get("proof") or {}
             if options and options.get("use_zk_proof"):
-                zk_proof = job.receipt.payload.get("zk_proof")  # type: ignore[attr-defined]  # ponytail: receipt is dict[str, Any]
+                zk_proof = job.receipt.get("payload", {}).get("zk_proof")
                 if not zk_proof:
                     logger.warning("ZK proof requested but not found in receipt for job %s", job.id)
         signature = await self._sign_settlement_message(job)
         return SettlementMessage(
             source_chain_id=source_chain_id,
-            target_chain_id=job.target_chain or source_chain_id,  # type: ignore[attr-defined]  # ponytail: field not on model
+            target_chain_id=job.target_chain or source_chain_id,
             job_id=job.id,
             receipt_hash=receipt_hash,
             proof_data=proof_data,
             zk_proof=zk_proof,
-            payment_amount=job.payment_amount or 0,  # type: ignore[attr-defined]  # ponytail: field not on model
-            payment_token=job.payment_token or "AITBC",  # type: ignore[attr-defined]  # ponytail: field not on model
+            payment_amount=job.payment_amount or 0,
+            payment_token=job.payment_token or "AITBC",
             nonce=await self._generate_nonce(),
             signature=signature,
-            gas_limit=job.settlement_gas_limit,  # type: ignore[attr-defined]  # ponytail: field not on model
+            gas_limit=job.settlement_gas_limit,
             privacy_level=options.get("privacy_level") if options else None,
         )
 
@@ -196,8 +196,8 @@ class SettlementHook:
             )
         message = {
             "job_id": str(job.id),
-            "amount": str(job.cross_chain_amount),  # type: ignore[attr-defined]  # ponytail: field not on model
-            "target_address": str(job.cross_chain_target_address),  # type: ignore[attr-defined]  # ponytail: field not on model
+            "amount": str(job.cross_chain_amount),
+            "target_address": str(job.cross_chain_target_address),
         }
         return sign_consensus_message(message, private_key_hex)
 
@@ -210,10 +210,10 @@ class SettlementHook:
 
     async def _refund_cross_chain_payment(self, job: Job) -> None:
         """Refund a cross-chain payment if possible"""
-        if not job.cross_chain_payment_id:  # type: ignore[attr-defined]  # ponytail: field not on model
+        if not job.cross_chain_payment_id:
             return
         try:
-            result = await self.bridge_manager.refund_failed_settlement(job.cross_chain_payment_id)  # type: ignore[attr-defined]  # ponytail: field not on model
+            result = await self.bridge_manager.refund_failed_settlement(job.cross_chain_payment_id)
             job.cross_chain_refund_id = result.message_id
             job.cross_chain_refund_status = result.status.value
             await job.save()  # type: ignore[attr-defined]

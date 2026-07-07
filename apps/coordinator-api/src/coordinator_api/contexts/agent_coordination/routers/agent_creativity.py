@@ -82,7 +82,7 @@ async def create_creative_capability(
     """Initialize a new creative capability for an agent"""
     engine = CreativityEnhancementEngine()
     try:
-        capability = await engine.create_creative_capability(  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        capability = await engine.create_creative_capability(
             session=session,
             agent_id=request.agent_id,
             creative_domain=request.creative_domain,
@@ -90,7 +90,19 @@ async def create_creative_capability(
             generation_models=request.generation_models,
             initial_score=request.initial_score,
         )
-        return capability  # type: ignore[no-any-return]
+        return CreativeCapabilityResponse(
+            capability_id=capability.capability_id,
+            agent_id=capability.agent_id,
+            creative_domain=capability.creative_domain,
+            capability_type=capability.capability_type,
+            originality_score=capability.originality_score,
+            novelty_score=capability.novelty_score,
+            aesthetic_quality=capability.aesthetic_quality,
+            coherence_score=capability.coherence_score,
+            style_variety=capability.style_variety,
+            creative_specializations=capability.creative_specializations,
+            status=capability.status,
+        )
     except Exception as e:
         logger.error("Error creating creative capability: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -103,10 +115,10 @@ async def enhance_creativity(
     """Enhance a specific creative capability using specified algorithm"""
     engine = CreativityEnhancementEngine()
     try:
-        result = await engine.enhance_creativity(  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        result = await engine.enhance_creativity(
             session=session, capability_id=capability_id, algorithm=request.algorithm, training_cycles=request.training_cycles
         )
-        return result  # type: ignore[no-any-return]
+        return result
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
@@ -121,13 +133,13 @@ async def evaluate_creation(
     """Evaluate a creative output and update agent capability metrics"""
     engine = CreativityEnhancementEngine()
     try:
-        result = await engine.evaluate_creation(  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        result = await engine.evaluate_creation(
             session=session,
             capability_id=capability_id,
             creation_data=request.creation_data,
             expert_feedback=request.expert_feedback,
         )
-        return result  # type: ignore[no-any-return]
+        return result
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
@@ -140,14 +152,14 @@ async def generate_ideas(request: IdeationRequest) -> dict[str, Any]:
     """Generate innovative ideas using specialized ideation algorithms"""
     ideation_engine = IdeationAlgorithm()
     try:
-        result = await ideation_engine.generate_ideas(  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        result = await ideation_engine.generate_ideas(
             problem_statement=request.problem_statement,
             domain=request.domain,
             technique=request.technique,
             num_ideas=request.num_ideas,
             constraints=request.constraints,
         )
-        return result  # type: ignore[no-any-return]
+        return result
     except Exception as e:
         logger.error("Error generating ideas: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -160,14 +172,14 @@ async def synthesize_cross_domain(
     """Synthesize concepts from multiple domains to create novel outputs"""
     integrator = CrossDomainCreativeIntegrator()
     try:
-        result = await integrator.generate_cross_domain_synthesis(  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        result = await integrator.generate_cross_domain_synthesis(
             session=session,
             agent_id=request.agent_id,
             primary_domain=request.primary_domain,
             secondary_domains=request.secondary_domains,
             synthesis_goal=request.synthesis_goal,
         )
-        return result  # type: ignore[no-any-return]
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:

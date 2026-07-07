@@ -42,7 +42,7 @@ async def create_regional_council(
     """Create a regional governance council"""
 
     try:
-        council = await governance_service.create_regional_council(  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        council = await governance_service.create_regional_council(
             region, council_name, jurisdiction, council_members, budget_allocation
         )
 
@@ -67,7 +67,7 @@ async def get_regional_councils(
     """Get regional governance councils"""
 
     try:
-        councils = await governance_service.get_regional_councils(region)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        councils = await governance_service.get_regional_councils(region)
         return councils  # type: ignore[no-any-return]
 
     except Exception as e:
@@ -90,7 +90,7 @@ async def create_regional_proposal(
     """Create a proposal for a specific regional council"""
 
     try:
-        proposal = await governance_service.create_regional_proposal(  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        proposal = await governance_service.create_regional_proposal(
             council_id, title, description, proposal_type, amount_requested, proposer_address
         )
 
@@ -114,7 +114,7 @@ async def vote_on_regional_proposal(
     """Vote on a regional proposal"""
 
     try:
-        vote = await governance_service.vote_on_regional_proposal(proposal_id, voter_address, vote_type, voting_power)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        vote = await governance_service.vote_on_regional_proposal(proposal_id, voter_address, vote_type, voting_power)
 
         return {"success": True, "vote": vote, "message": f"Vote cast successfully on proposal {proposal_id}"}
 
@@ -134,7 +134,7 @@ async def get_treasury_balance(
     """Get treasury balance for global or specific region"""
 
     try:
-        balance = await governance_service.get_treasury_balance(region)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        balance = await governance_service.get_treasury_balance(region)
         return balance  # type: ignore[no-any-return]
 
     except Exception as e:
@@ -156,7 +156,7 @@ async def allocate_treasury_funds(
     """Allocate treasury funds to a regional council or project"""
 
     try:
-        allocation = await governance_service.allocate_treasury_funds(  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        allocation = await governance_service.allocate_treasury_funds(
             council_id, amount, purpose, recipient_address, approver_address
         )
 
@@ -179,7 +179,7 @@ async def get_treasury_transactions(
     """Get treasury transaction history"""
 
     try:
-        transactions = await governance_service.get_treasury_transactions(limit or 100, offset or 0, region)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        transactions = await governance_service.get_treasury_transactions(limit or 100, offset or 0, region)
         return transactions  # type: ignore[no-any-return]
 
     except Exception as e:
@@ -201,7 +201,7 @@ async def create_staking_pool(
     """Create a staking pool for an agent developer"""
 
     try:
-        pool = await governance_service.create_staking_pool(pool_name, developer_address, base_apy, reputation_multiplier)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        pool = await governance_service.create_staking_pool(pool_name, developer_address, base_apy, reputation_multiplier)
 
         return {"success": True, "pool": pool, "message": f"Staking pool '{pool_name}' created successfully"}
 
@@ -220,7 +220,7 @@ async def get_developer_staking_pools(
     """Get staking pools for a specific developer or all pools"""
 
     try:
-        pools = await governance_service.get_developer_staking_pools(developer_address)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        pools = await governance_service.get_developer_staking_pools(developer_address)
         return pools  # type: ignore[no-any-return]
 
     except Exception as e:
@@ -241,7 +241,7 @@ async def calculate_staking_rewards(
     """Calculate staking rewards for a specific position"""
 
     try:
-        rewards = await governance_service.calculate_staking_rewards(pool_id, staker_address, amount, duration_days)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        rewards = await governance_service.calculate_staking_rewards(pool_id, staker_address, amount, duration_days)
         return rewards  # type: ignore[no-any-return]
 
     except Exception as e:
@@ -259,7 +259,7 @@ async def distribute_staking_rewards(
     """Distribute rewards to all stakers in a pool"""
 
     try:
-        distribution = await governance_service.distribute_staking_rewards(pool_id)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        distribution = await governance_service.distribute_staking_rewards(pool_id)
 
         return {
             "success": True,
@@ -283,7 +283,7 @@ async def get_governance_analytics(
     """Get comprehensive governance analytics"""
 
     try:
-        analytics = await governance_service.get_governance_analytics(time_period_days or 30)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        analytics = await governance_service.get_governance_analytics(time_period_days or 30)
         return analytics  # type: ignore[no-any-return]
 
     except Exception as e:
@@ -301,7 +301,7 @@ async def get_regional_governance_health(
     """Get health metrics for a specific region's governance"""
 
     try:
-        health = await governance_service.get_regional_governance_health(region)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        health = await governance_service.get_regional_governance_health(region)
         return health  # type: ignore[no-any-return]
 
     except Exception as e:
@@ -321,7 +321,7 @@ async def create_governance_profile(
     """Create or get a governance profile"""
 
     try:
-        profile = await governance_service.get_or_create_profile(user_id, initial_voting_power or 0.0)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        profile = await governance_service.get_or_create_profile(user_id, initial_voting_power or 0.0)
 
         return {
             "success": True,
@@ -351,7 +351,7 @@ async def delegate_votes(
     """Delegate voting power from one profile to another"""
 
     try:
-        delegator = await governance_service.delegate_votes(delegator_id, delegatee_id)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        delegator = await governance_service.delegate_votes(delegator_id, delegatee_id)
 
         return {
             "success": True,
@@ -377,7 +377,7 @@ async def get_governance_profile(
     """Get governance profile by user ID"""
 
     try:
-        profile = await governance_service.get_or_create_profile(user_id)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        profile = await governance_service.get_or_create_profile(user_id)
 
         return {
             "profile_id": profile.profile_id,
@@ -519,7 +519,7 @@ async def get_governance_system_health(
 
         # Get basic metrics
         # Last 7 days
-        analytics = await governance_service.get_governance_analytics(7)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        analytics = await governance_service.get_governance_analytics(7)
 
         health_data = {
             "status": overall_status,
@@ -551,13 +551,13 @@ async def get_governance_platform_status(
 
     try:
         # Get analytics for overview
-        analytics = await governance_service.get_governance_analytics(30)  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        analytics = await governance_service.get_governance_analytics(30)
 
         # Get regional councils
-        councils = await governance_service.get_regional_councils()  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        councils = await governance_service.get_regional_councils()
 
         # Get treasury balance
-        treasury = await governance_service.get_treasury_balance()  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+        treasury = await governance_service.get_treasury_balance()
 
         status_data = {
             "platform": "AITBC Enhanced Governance",
