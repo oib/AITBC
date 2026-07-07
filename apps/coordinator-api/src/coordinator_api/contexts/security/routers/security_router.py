@@ -495,7 +495,7 @@ async def get_security_dashboard(
 
         recent_audits = (
             session.execute(select(AgentAuditLog).order_by(AgentAuditLog.timestamp.desc()).limit(50)).scalars().all()
-        )  # type: ignore[attr-defined]
+        )
         high_risk_events = (
             session.execute(
                 select(AgentAuditLog)

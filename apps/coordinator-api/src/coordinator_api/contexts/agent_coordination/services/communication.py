@@ -345,7 +345,7 @@ class AgentCommunicationService:
                 raise PermissionError("Not message recipient")
             if message.status != MessageStatus.DELIVERED:
                 raise ValueError("Message not delivered")
-            if message.read:  # type: ignore[attr-defined]
+            if message.read_timestamp:  # ponytail: was message.read (non-existent field)
                 raise ValueError("Message already read")
             message.status = MessageStatus.READ
             message.read_timestamp = datetime.now(UTC)
