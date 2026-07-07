@@ -2,10 +2,11 @@
 Settlement router for cross-chain settlements
 """
 
-import asyncio
+from datetime import UTC, datetime
 from typing import Any
 
 from coordinator_api.settlement.manager import BridgeManager
+from coordinator_api.settlement.storage import InMemorySettlementStorage
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel, Field
 
@@ -16,6 +17,14 @@ from ....auth import MinerDep  # NEW: JWT auth (miners handle settlements)
 # from ....auth import get_api_key  # OLD: API key auth (deprecated)
 
 router = APIRouter(prefix="/settlement", tags=["settlement"])
+
+# ponytail: ceiling — module-level in-memory storage; lost on restart.
+# Upgrade path: inject SettlementStorage with an asyncpg pool via FastAPI Depends.
+_settlement_storage = InMemorySettlementStorage()
+
+
+def _get_bridge_manager() -> BridgeManager:
+    return BridgeManager(_settlement_storage)
 
 
 class CrossChainSettlementRequest(BaseModel):
@@ -50,28 +59,25 @@ async def initiate_cross_chain_settlement(
 ) -> CrossChainSettlementResponse:
     """Initiate a cross-chain settlement"""
     try:
-        # Initialize settlement manager
-        manager = BridgeManager()  # type: ignore[call-arg]  # ponytail: missing storage arg
+        manager = _get_bridge_manager()
 
-        # Create settlement
-        settlement_id = await manager.create_settlement(  # type: ignore[attr-defined]  # ponytail: method not on BridgeManager
-            source_chain_id=request.source_chain_id,  # type: ignore[attr-defined]
-            target_chain_id=request.target_chain_id,  # type: ignore[attr-defined]
-            amount=request.amount,  # type: ignore[attr-defined]
-            asset_type=request.asset_type,  # type: ignore[attr-defined]
-            recipient_address=request.recipient_address,  # type: ignore[attr-defined]
-            gas_limit=request.gas_limit,  # type: ignore[attr-defined]
-            gas_price=request.gas_price,  # type: ignore[attr-defined]
+        settlement_id = await manager.create_settlement(
+            source_chain_id=settlement_request.source_chain_id,
+            target_chain_id=settlement_request.target_chain_id,
+            amount=settlement_request.amount,
+            asset_type=settlement_request.asset_type,
+            recipient_address=settlement_request.recipient_address,
+            gas_limit=settlement_request.gas_limit,
+            gas_price=settlement_request.gas_price,
         )
 
-        # Add background task to process settlement
-        background_tasks.add_task(manager.process_settlement, settlement_id, user["sub"])  # type: ignore[attr-defined]  # ponytail: method not on BridgeManager
+        background_tasks.add_task(manager.process_settlement, settlement_id, user["sub"])
 
         return CrossChainSettlementResponse(
             settlement_id=settlement_id,
             status="pending",
             estimated_completion="~5 minutes",
-            created_at=asyncio.get_event_loop().time(),
+            created_at=datetime.now(UTC).isoformat(),
         )
 
     except (ValueError, KeyError, AttributeError) as e:
@@ -87,8 +93,8 @@ async def get_settlement_status(
 ) -> dict[str, Any]:
     """Get settlement status"""
     try:
-        manager = BridgeManager()  # type: ignore[call-arg]  # ponytail: missing storage arg
-        settlement = await manager.get_settlement(settlement_id)  # type: ignore[attr-defined]  # ponytail: method not on BridgeManager
+        manager = _get_bridge_manager()
+        settlement = await manager.get_settlement(settlement_id)
 
         if not settlement:
             raise HTTPException(status_code=404, detail="Settlement not found")
@@ -118,8 +124,8 @@ async def list_settlements(
 ) -> dict[str, Any]:
     """List settlements with pagination"""
     try:
-        manager = BridgeManager()  # type: ignore[call-arg]  # ponytail: missing storage arg
-        settlements = await manager.list_settlements(api_key=user["sub"], limit=limit, offset=offset)  # type: ignore[attr-defined]  # ponytail: method not on BridgeManager
+        manager = _get_bridge_manager()
+        settlements = await manager.list_settlements(api_key=user["sub"], limit=limit, offset=offset)
 
         return {"settlements": settlements, "total": len(settlements), "limit": limit, "offset": offset}
 
@@ -136,8 +142,8 @@ async def cancel_settlement(
 ) -> dict[str, str]:
     """Cancel a pending settlement"""
     try:
-        manager = BridgeManager()  # type: ignore[call-arg]  # ponytail: missing storage arg
-        success = await manager.cancel_settlement(settlement_id, user["sub"])  # type: ignore[attr-defined]  # ponytail: method not on BridgeManager
+        manager = _get_bridge_manager()
+        success = await manager.cancel_settlement(settlement_id, user["sub"])
 
         if not success:
             raise HTTPException(status_code=400, detail="Cannot cancel settlement")

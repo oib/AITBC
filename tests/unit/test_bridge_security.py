@@ -506,84 +506,84 @@ def test_validator_registry_register_replaces_existing() -> None:
 
 @pytest.mark.asyncio
 async def test_bridge_client_register_validator() -> None:
-    client = BridgeClient(BridgeConfig(rpc_url=RPC_URL))
-    resp = _mock_response(200, {"status": "registered", "address": "0xVal1"})
-    mock_http = _mock_async_client(resp)
-    client._client = mock_http
+    async with BridgeClient(BridgeConfig(rpc_url=RPC_URL)) as client:
+        resp = _mock_response(200, {"status": "registered", "address": "0xVal1"})
+        mock_http = _mock_async_client(resp)
+        client._client = mock_http
 
-    result = await client.register_validator(
-        chain_id="ait-hub",
-        address="0xVal1",
-        public_key="0xpub1",
-        signature="0xsig1",
-    )
-    assert result["status"] == "registered"
-    mock_http.post.assert_awaited_once()
-    call = mock_http.post.await_args
-    assert call.args[0] == "/bridge/validators/register"
-    assert call.kwargs["json"]["chain_id"] == "ait-hub"
-    assert call.kwargs["json"]["address"] == "0xVal1"
-    assert call.kwargs["json"]["public_key"] == "0xpub1"
-    assert call.kwargs["json"]["signature"] == "0xsig1"
+        result = await client.register_validator(
+            chain_id="ait-hub",
+            address="0xVal1",
+            public_key="0xpub1",
+            signature="0xsig1",
+        )
+        assert result["status"] == "registered"
+        mock_http.post.assert_awaited_once()
+        call = mock_http.post.await_args
+        assert call.args[0] == "/bridge/validators/register"
+        assert call.kwargs["json"]["chain_id"] == "ait-hub"
+        assert call.kwargs["json"]["address"] == "0xVal1"
+        assert call.kwargs["json"]["public_key"] == "0xpub1"
+        assert call.kwargs["json"]["signature"] == "0xsig1"
 
 
 @pytest.mark.asyncio
 async def test_bridge_client_get_validator_set() -> None:
-    client = BridgeClient(BridgeConfig(rpc_url=RPC_URL))
-    resp = _mock_response(
-        200,
-        {
-            "chain_id": "ait-hub",
-            "epoch": 1,
-            "threshold": 3,
-            "total": 5,
-            "validators": [{"address": "0xA"}, {"address": "0xB"}],
-        },
-    )
-    mock_http = _mock_async_client(resp)
-    client._client = mock_http
+    async with BridgeClient(BridgeConfig(rpc_url=RPC_URL)) as client:
+        resp = _mock_response(
+            200,
+            {
+                "chain_id": "ait-hub",
+                "epoch": 1,
+                "threshold": 3,
+                "total": 5,
+                "validators": [{"address": "0xA"}, {"address": "0xB"}],
+            },
+        )
+        mock_http = _mock_async_client(resp)
+        client._client = mock_http
 
-    result = await client.get_validator_set("ait-hub")
-    assert result["chain_id"] == "ait-hub"
-    assert result["epoch"] == 1
-    mock_http.get.assert_awaited_once()
-    call = mock_http.get.await_args
-    assert call.args[0] == "/bridge/validators/ait-hub"
+        result = await client.get_validator_set("ait-hub")
+        assert result["chain_id"] == "ait-hub"
+        assert result["epoch"] == 1
+        mock_http.get.assert_awaited_once()
+        call = mock_http.get.await_args
+        assert call.args[0] == "/bridge/validators/ait-hub"
 
 
 @pytest.mark.asyncio
 async def test_bridge_client_get_validator_set_with_epoch() -> None:
-    client = BridgeClient(BridgeConfig(rpc_url=RPC_URL))
-    resp = _mock_response(200, {"chain_id": "ait-hub", "epoch": 2})
-    mock_http = _mock_async_client(resp)
-    client._client = mock_http
+    async with BridgeClient(BridgeConfig(rpc_url=RPC_URL)) as client:
+        resp = _mock_response(200, {"chain_id": "ait-hub", "epoch": 2})
+        mock_http = _mock_async_client(resp)
+        client._client = mock_http
 
-    await client.get_validator_set("ait-hub", epoch=2)
-    call = mock_http.get.await_args
-    assert call.kwargs["params"] == {"epoch": 2}
+        await client.get_validator_set("ait-hub", epoch=2)
+        call = mock_http.get.await_args
+        assert call.kwargs["params"] == {"epoch": 2}
 
 
 @pytest.mark.asyncio
 async def test_bridge_client_security_status() -> None:
-    client = BridgeClient(BridgeConfig(rpc_url=RPC_URL))
-    resp = _mock_response(
-        200,
-        {
-            "multisig_enabled": True,
-            "threshold": 3,
-            "total_validators": 5,
-            "active_validators": 4,
-        },
-    )
-    mock_http = _mock_async_client(resp)
-    client._client = mock_http
+    async with BridgeClient(BridgeConfig(rpc_url=RPC_URL)) as client:
+        resp = _mock_response(
+            200,
+            {
+                "multisig_enabled": True,
+                "threshold": 3,
+                "total_validators": 5,
+                "active_validators": 4,
+            },
+        )
+        mock_http = _mock_async_client(resp)
+        client._client = mock_http
 
-    result = await client.security_status()
-    assert result["multisig_enabled"] is True
-    assert result["threshold"] == 3
-    mock_http.get.assert_awaited_once()
-    call = mock_http.get.await_args
-    assert call.args[0] == "/bridge/security/status"
+        result = await client.security_status()
+        assert result["multisig_enabled"] is True
+        assert result["threshold"] == 3
+        mock_http.get.assert_awaited_once()
+        call = mock_http.get.await_args
+        assert call.args[0] == "/bridge/security/status"
 
 
 # ---------------------------------------------------------------------------
