@@ -531,15 +531,18 @@ async def test_ai_trading_engine() -> None:
     logger.info("Testing AI Trading Engine")
     await initialize_ai_engine()
     success = await train_strategies("BTC/USDT", 30)
-    logger.info("Training completed", success=success)  # type: ignore[call-arg]
+    logger.info("Training completed: success=%s", success)
     signals = await generate_trading_signals("BTC/USDT")
-    logger.info("Generated trading signals", signal_count=len(signals))  # type: ignore[call-arg]
+    logger.info("Generated trading signals: %d signals", len(signals))
     for signal in signals:
         logger.info(
-            "Trading signal", strategy=signal["strategy"], signal_type=signal["signal_type"], confidence=signal["confidence"]
-        )  # type: ignore[call-arg]  # type: ignore[call-arg]
+            "Trading signal strategy=%s type=%s confidence=%s",
+            signal["strategy"],
+            signal["signal_type"],
+            signal["confidence"],
+        )
     status = get_engine_status()
-    logger.info("Engine status", status=status)  # type: ignore[call-arg]  # type: ignore[call-arg]
+    logger.info("Engine status: %s", status)
     logger.info("AI Trading Engine test complete")
 
 

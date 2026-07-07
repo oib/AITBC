@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
@@ -63,6 +63,8 @@ class BountyCreateRequest(BaseModel):
 
 
 class BountyResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     bounty_id: str
     title: str
     description: str
@@ -102,6 +104,8 @@ class BountySubmissionRequest(BaseModel):
 
 
 class BountySubmissionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     submission_id: str
     bounty_id: str
     submitter_address: str
@@ -152,6 +156,8 @@ class BountyFilterRequest(BaseModel):
 
 
 class BountyStatsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     total_bounties: int
     active_bounties: int
     completed_bounties: int
@@ -200,7 +206,7 @@ async def create_bounty(
             bounty.tier,
             bounty.deadline,
         )
-        return BountyResponse.from_orm(bounty)  # type: ignore[pydantic-orm]
+        return BountyResponse.model_validate(bounty)
     except Exception as e:
         logger.error("Failed to create bounty: %s", e)
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -230,7 +236,7 @@ async def get_bounties(
             page=filters.page,
             limit=filters.limit,
         )
-        return [BountyResponse.from_orm(bounty) for bounty in bounties]  # type: ignore[pydantic-orm]
+        return [BountyResponse.model_validate(bounty) for bounty in bounties]
     except Exception as e:
         logger.error("Failed to get bounties: %s", e)
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -249,7 +255,7 @@ async def get_bounty(
         bounty = await bounty_service.get_bounty(bounty_id)
         if not bounty:
             raise HTTPException(status_code=404, detail="Bounty not found")
-        return BountyResponse.from_orm(bounty)  # type: ignore[pydantic-orm]
+        return BountyResponse.model_validate(bounty)
     except HTTPException:
         raise
     except Exception as e:
@@ -291,7 +297,7 @@ async def submit_bounty_solution(
             submission_request.accuracy,
             submission_request.response_time,
         )
-        return BountySubmissionResponse.from_orm(submission)  # type: ignore[pydantic-orm]
+        return BountySubmissionResponse.model_validate(submission)
     except HTTPException:
         raise
     except Exception as e:
@@ -317,7 +323,7 @@ async def get_bounty_submissions(
             if not user.get("role") == "admin":
                 raise HTTPException(status_code=403, detail="Not authorized to view submissions")
         submissions = await bounty_service.get_bounty_submissions(bounty_id)
-        return [BountySubmissionResponse.from_orm(sub) for sub in submissions]  # type: ignore[pydantic-orm]
+        return [BountySubmissionResponse.model_validate(sub) for sub in submissions]
     except HTTPException:
         raise
     except Exception as e:
@@ -410,7 +416,7 @@ async def get_my_created_bounties(
         bounties = await bounty_service.get_user_created_bounties(
             user_address=user["sub"], status=status, page=page or 1, limit=limit or 20
         )
-        return [BountyResponse.from_orm(bounty) for bounty in bounties]  # type: ignore[pydantic-orm]
+        return [BountyResponse.model_validate(bounty) for bounty in bounties]
     except Exception as e:
         logger.error("Failed to get user created bounties: %s", e)
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -432,7 +438,7 @@ async def get_my_submissions(
         submissions = await bounty_service.get_user_submissions(
             user_address=user["sub"], status=status, page=page or 1, limit=limit or 20
         )
-        return [BountySubmissionResponse.from_orm(sub) for sub in submissions]  # type: ignore[pydantic-orm]
+        return [BountySubmissionResponse.model_validate(sub) for sub in submissions]
     except Exception as e:
         logger.error("Failed to get user submissions: %s", e)
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -467,7 +473,7 @@ async def get_bounty_stats(
     """Get bounty statistics"""
     try:
         stats = await bounty_service.get_bounty_stats(period=period or "weekly")
-        return BountyStatsResponse.from_orm(stats)  # type: ignore[pydantic-orm]
+        return BountyStatsResponse.model_validate(stats)
     except Exception as e:
         logger.error("Failed to get bounty stats: %s", e)
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -551,7 +557,7 @@ async def search_bounties(
     """Search bounties by text"""
     try:
         bounties = await bounty_service.search_bounties(query=query or "", page=page or 1, limit=limit or 20)
-        return [BountyResponse.from_orm(bounty) for bounty in bounties]  # type: ignore[pydantic-orm]
+        return [BountyResponse.model_validate(bounty) for bounty in bounties]
     except Exception as e:
         logger.error("Failed to search bounties: %s", e)
         raise HTTPException(status_code=400, detail=str(e)) from e
