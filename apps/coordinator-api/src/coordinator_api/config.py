@@ -173,7 +173,7 @@ class Settings(BaseAITBCConfig):
     mempool_backend: str = Field(default="database", description="Mempool backend (database, memory)")
 
     # Blockchain RPC
-    blockchain_rpc_url: str = Field(default="http://localhost:8082", description="Blockchain RPC URL")
+    blockchain_rpc_url: str = Field(default="http://localhost:8202", description="Blockchain RPC URL")
 
     @field_validator("blockchain_rpc_url")
     @classmethod

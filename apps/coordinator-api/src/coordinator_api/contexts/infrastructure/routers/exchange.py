@@ -129,7 +129,7 @@ async def confirm_payment(request: Request, payment_id: str, tx_hash: str) -> di
     try:
         from ...blockchain.services.blockchain import mint_tokens
 
-        mint_tokens(payment["user_id"], payment["aitbc_amount"])  # type: ignore[unused-coroutine]
+        await mint_tokens(payment["user_id"], payment["aitbc_amount"])
     except Exception as e:
         logger.error("Error minting tokens: %s", e)
         # In production, handle this error properly
