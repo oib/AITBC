@@ -14,11 +14,14 @@ OUTPUT=$(./venv/bin/python -m mypy \
   apps/edge \
   apps/wallet \
   apps/agent-coordinator \
-  apps/agent \
   apps/marketplace \
   apps/api-gateway \
   apps/blockchain-event-bridge \
   apps/blockchain-explorer \
+  apps/ffmpeg \
+  apps/miner \
+  apps/whisper \
+  apps/zk-circuits \
   2>&1 || true)
 
 # Filter only errors and warnings, exclude summary lines
