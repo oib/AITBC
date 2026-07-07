@@ -241,12 +241,12 @@ async def get_ecosystem_health_score(
 ) -> dict[str, Any]:
     """Get overall ecosystem health score"""
     try:
-        health_score = await ecosystem_service.calculate_health_score()  # type: ignore[call-arg]
+        health_score = await ecosystem_service.get_health_score_detailed()
         return {
-            "health_score": health_score["score"],  # type: ignore[index]  # ponytail: router expects dict, service returns float
-            "components": health_score["components"],  # type: ignore[index]
-            "recommendations": health_score["recommendations"],  # type: ignore[index]
-            "last_updated": health_score["last_updated"],  # type: ignore[index]
+            "health_score": health_score["score"],
+            "components": health_score["components"],
+            "recommendations": health_score["recommendations"],
+            "last_updated": health_score["last_updated"],
         }
     except Exception as e:
         logger.error("Failed to get health score: %s", e)
