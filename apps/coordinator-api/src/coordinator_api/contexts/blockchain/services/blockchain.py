@@ -131,6 +131,98 @@ class BlockchainService:
         except NetworkError as e:
             logger.error("Failed to claim rewards on-chain: %s", e)
 
+    async def deploy_bounty_contract(self, bounty_id: str, reward_amount: float | Any, tier: Any, deadline: Any) -> None:
+        """Deploy a bounty contract on-chain (background task, best-effort)."""
+        client = AITBCHTTPClient(timeout=10.0)
+        try:
+            client.post(
+                f"{self.rpc_url}/bounty/deploy",
+                json={
+                    "bounty_id": bounty_id,
+                    "reward_amount": reward_amount,
+                    "tier": str(tier),
+                    "deadline": deadline.isoformat() if hasattr(deadline, "isoformat") else str(deadline),
+                },
+                headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
+            )
+            logger.info("Bounty contract deployed on-chain for %s", bounty_id)
+        except NetworkError as e:
+            logger.error("Failed to deploy bounty contract %s on-chain: %s", bounty_id, e)
+
+    async def submit_bounty_solution(
+        self,
+        bounty_id: str,
+        submission_id: str,
+        zk_proof: dict[str, Any] | None,
+        performance_hash: str,
+        accuracy: float,
+        response_time: int | None,
+    ) -> None:
+        """Submit a bounty solution on-chain (background task, best-effort)."""
+        client = AITBCHTTPClient(timeout=10.0)
+        try:
+            client.post(
+                f"{self.rpc_url}/bounty/{bounty_id}/submit",
+                json={
+                    "submission_id": submission_id,
+                    "zk_proof": zk_proof,
+                    "performance_hash": performance_hash,
+                    "accuracy": accuracy,
+                    "response_time": response_time,
+                },
+                headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
+            )
+            logger.info("Bounty solution submitted on-chain for %s/%s", bounty_id, submission_id)
+        except NetworkError as e:
+            logger.error("Failed to submit bounty solution %s on-chain: %s", submission_id, e)
+
+    async def verify_submission(self, bounty_id: str, submission_id: str, verified: bool, verifier_address: str) -> None:
+        """Verify a bounty submission on-chain (background task, best-effort)."""
+        client = AITBCHTTPClient(timeout=10.0)
+        try:
+            client.post(
+                f"{self.rpc_url}/bounty/{bounty_id}/verify",
+                json={
+                    "submission_id": submission_id,
+                    "verified": verified,
+                    "verifier_address": verifier_address,
+                },
+                headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
+            )
+            logger.info("Bounty submission verified on-chain for %s/%s", bounty_id, submission_id)
+        except NetworkError as e:
+            logger.error("Failed to verify submission %s on-chain: %s", submission_id, e)
+
+    async def dispute_submission(self, bounty_id: str, submission_id: str, disputer_address: str, dispute_reason: str) -> None:
+        """Record a submission dispute on-chain (background task, best-effort)."""
+        client = AITBCHTTPClient(timeout=10.0)
+        try:
+            client.post(
+                f"{self.rpc_url}/bounty/{bounty_id}/dispute",
+                json={
+                    "submission_id": submission_id,
+                    "disputer_address": disputer_address,
+                    "dispute_reason": dispute_reason,
+                },
+                headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
+            )
+            logger.info("Bounty submission disputed on-chain for %s/%s", bounty_id, submission_id)
+        except NetworkError as e:
+            logger.error("Failed to dispute submission %s on-chain: %s", submission_id, e)
+
+    async def expire_bounty(self, bounty_id: str) -> None:
+        """Expire a bounty on-chain (background task, best-effort)."""
+        client = AITBCHTTPClient(timeout=10.0)
+        try:
+            client.post(
+                f"{self.rpc_url}/bounty/{bounty_id}/expire",
+                json={"bounty_id": bounty_id},
+                headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
+            )
+            logger.info("Bounty expired on-chain for %s", bounty_id)
+        except NetworkError as e:
+            logger.error("Failed to expire bounty %s on-chain: %s", bounty_id, e)
+
 
 def validate_address(address: str) -> bool:
     """Validate that address is safe to use in URL construction"""
