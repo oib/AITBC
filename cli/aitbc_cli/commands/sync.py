@@ -109,6 +109,8 @@ def _format_status_table(
 @click.pass_context
 def status(ctx, node_url, chain_id):
     """Show synchronization status (current block, peer count, sync progress)."""
+    from typing import Any
+
     client = AITBCHTTPClient(base_url=node_url)
     try:
         # Query current chain head
@@ -119,7 +121,7 @@ def status(ctx, node_url, chain_id):
         network_info = client.get("/rpc/network-info")
 
         # Query sync configuration (v0.6.2)
-        sync_config = client.get("/rpc/sync/config")
+        sync_config: dict[str, Any] | None = client.get("/rpc/sync/config")
     except NetworkError as e:
         abort(ctx, f"Cannot connect to node at {node_url}", from_exception=e)
     finally:

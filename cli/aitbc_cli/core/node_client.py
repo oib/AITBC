@@ -176,7 +176,7 @@ class NodeClient:
             chains = self._get_mock_chains()
             for chain in chains:
                 if chain.id == chain_id:
-                    return chain  # type: ignore[no-any-return]
+                    return chain
             return None
 
     async def create_chain(self, genesis_block: dict[str, Any]) -> str:

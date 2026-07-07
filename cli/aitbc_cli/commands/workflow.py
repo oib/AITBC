@@ -4,6 +4,7 @@ Workflow commands for AITBC CLI
 
 import json
 import os
+from typing import Any
 
 import click
 import yaml  # type: ignore[import-untyped]
@@ -37,7 +38,7 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
             return
 
         # Load config if provided
-        workflow_config = {}
+        workflow_config: dict[str, Any] = {}
         if config:
             with open(config) as f:
                 workflow_config = yaml.safe_load(f) or {}

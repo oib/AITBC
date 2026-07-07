@@ -2,10 +2,7 @@
 Trading-related exchange commands.
 """
 
-try:
-    from aitbc_cli.utils import error, output, success
-except ImportError:
-    from ..utils import error, output, success
+from aitbc_cli.utils import error, output, success
 
 
 def register_command(ctx, name: str, api_key: str, api_secret: str | None, sandbox: bool):

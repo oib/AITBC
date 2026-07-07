@@ -3,18 +3,19 @@ Main node management commands for AITBC.
 """
 
 import asyncio
+from typing import Any
 
 import click
 
 try:
-    from ..core.config import (
+    from aitbc_cli.core.config import (
         add_node_config,
         get_default_node_config,
         load_multichain_config,
         remove_node_config,
         save_multichain_config,
     )
-    from ..core.node_client import NodeClient
+    from aitbc_cli.core.node_client import NodeClient
     from aitbc_cli.utils import error, info, output, success
 except ImportError:
     from aitbc_cli.core.config import (
@@ -27,7 +28,7 @@ except ImportError:
     from aitbc_cli.core.node_client import NodeClient
     from aitbc_cli.utils import error, output, success
 
-    def info(message):
+    def info(message: str, **kwargs: Any):
         click.echo(message)
 
 
@@ -40,7 +41,7 @@ def node():
 @node.command()
 @click.argument("node_id")
 @click.pass_context
-def info(ctx, node_id):
+def node_info(ctx, node_id):
     """Get detailed node information"""
     try:
         config = load_multichain_config()

@@ -51,7 +51,7 @@ def latest_blocks(limit: int, offset: int, chain_id: str | None):
     """Get latest blocks"""
     try:
         client = get_explorer_client()
-        params = {"limit": limit, "offset": offset}
+        params: dict[str, str | int | None] = {"limit": limit, "offset": offset}
         if chain_id:
             params["chain_id"] = chain_id
 
@@ -74,7 +74,7 @@ def non_empty_blocks(limit: int, offset: int, chain_id: str | None):
     """Get non-empty blocks (blocks with transactions)"""
     try:
         client = get_explorer_client()
-        params = {"limit": limit, "offset": offset}
+        params: dict[str, str | int | None] = {"limit": limit, "offset": offset}
         if chain_id:
             params["chain_id"] = chain_id
 
@@ -291,7 +291,7 @@ def top_addresses(limit: int, chain_id: str | None):
     """Get top addresses by transaction count and volume"""
     try:
         client = get_explorer_client()
-        params = {"limit": limit}
+        params: dict[str, str | int] = {"limit": limit}
         if chain_id:
             params["chain_id"] = chain_id
 

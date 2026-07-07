@@ -37,15 +37,15 @@ class AuthManager:
         else:
             warning(f"Credential '{name}' not found for environment '{environment}'")
 
-    def list_credentials(self, environment: str = None) -> dict[str, str]:
+    def list_credentials(self, environment: str | None = None) -> dict[str, str]:
         envs = [environment] if environment else ["default", "dev", "staging", "prod"]
         names = ["client", "miner", "admin"]
-        credentials = []
+        credentials: dict[str, str] = {}
 
         for env in envs:
             for name in names:
                 if self._store.get((env, name)):
-                    credentials.append(f"{name}@{env}")
+                    credentials[f"{name}@{env}"] = "******"
 
         return credentials
 
