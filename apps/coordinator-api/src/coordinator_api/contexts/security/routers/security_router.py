@@ -134,7 +134,7 @@ async def update_security_policy(
             user_id=user["sub"],
             security_level=policy.security_level,
             event_data={"policy_id": policy_id, "updates": policy_updates},
-            new_state={"policy": policy.dict()},
+            new_state={"policy": policy.model_dump()},
         )
         logger.info("Security policy updated: %s by %s", policy_id, user["sub"])
         return policy
@@ -164,7 +164,7 @@ async def delete_security_policy(
             user_id=user["sub"],
             security_level=policy.security_level,
             event_data={"policy_id": policy_id, "policy_name": policy.name},
-            previous_state={"policy": policy.dict()},
+            previous_state={"policy": policy.model_dump()},
         )
         session.delete(policy)
         session.commit()
