@@ -25,26 +25,31 @@ def get_wallet_client() -> AITBCHTTPClient:
     return AITBCHTTPClient(base_url=config.wallet_daemon_url, timeout=30)
 
 
-def encrypt_value(value: str, password: str) -> str:
-    """Simple encryption for wallet data
+def encrypt_value(value: str, password: str) -> dict[str, Any]:
+    """Encrypt wallet data using PBKDF2 + Fernet (delegates to aitbc.security.encryption).
 
-    NOTE: This is a simple placeholder implementation that doesn't actually encrypt.
-    Wallet daemon mode handles encryption server-side, so client-side encryption is not needed.
-    For production use with direct wallet file access, upgrade to proper encryption (e.g., cryptography.fernet).
+    Returns a dict with encrypted_data, salt, algorithm, iterations, version.
+    The daemon handles encryption server-side, but direct wallet file access needs real encryption.
     """
-    # For now, return the value as-is since daemon mode doesn't need this
-    return value
+    from aitbc.security.encryption import encrypt_value as _encrypt
+
+    return _encrypt(value, password)
 
 
-def decrypt_value(encrypted: str, password: str) -> str:
-    """Simple decryption for wallet data
+def decrypt_value(encrypted: dict[str, Any] | str, password: str) -> str:
+    """Decrypt wallet data (delegates to aitbc.security.encryption).
 
-    NOTE: This is a simple placeholder implementation that doesn't actually decrypt.
-    Wallet daemon mode handles encryption server-side, so client-side decryption is not needed.
-    For production use with direct wallet file access, upgrade to proper encryption (e.g., cryptography.fernet).
+    A bare str means a legacy wallet that was "encrypted" with the old no-op placeholder
+    (plaintext stored with encrypted=True). We surface that loudly rather than silently lying.
     """
-    # For now, return the value as-is since daemon mode doesn't need this
-    return encrypted
+    if isinstance(encrypted, str):
+        raise ValueError(
+            "Legacy wallet stored private key as plaintext despite encrypted=True (old no-op encryption). "
+            "The key is readable; load it once to re-save with real encryption, or recreate the wallet."
+        )
+    from aitbc.security.encryption import decrypt_value as _decrypt
+
+    return _decrypt(encrypted, password)
 
 
 def _get_wallet_password(wallet_name: str) -> str:
@@ -121,9 +126,18 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
 
     # Decrypt private key if encrypted
     if wallet_data.get("encrypted") and "private_key" in wallet_data:
+        priv = wallet_data["private_key"]
+        if isinstance(priv, str):
+            # Legacy no-op "encryption": key was stored as plaintext with encrypted=True.
+            # ponytail: ceiling — silently trusting plaintext; upgrade path is re-save with a password.
+            error(
+                "WARNING: wallet was saved with broken no-op encryption (private key stored as plaintext). "
+                "Re-run a save command with --password to re-encrypt with PBKDF2+Fernet."
+            )
+            return wallet_data
         password = _get_wallet_password(wallet_name)
         try:
-            wallet_data["private_key"] = decrypt_value(wallet_data["private_key"], password)
+            wallet_data["private_key"] = decrypt_value(priv, password)
         except Exception:
             error("Invalid password for wallet")
             raise click.Abort() from None

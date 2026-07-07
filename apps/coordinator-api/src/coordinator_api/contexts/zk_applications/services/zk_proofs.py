@@ -272,8 +272,22 @@ class ZKProofService:
             os.unlink(inputs_file)
 
     async def _get_circuit_hash(self) -> str:
-        """Get hash of current circuit for verification"""
-        return "placeholder_hash"
+        """Get hash of current circuit for verification.
+
+        Hashes the zkey (proving key) of the first available circuit — the same
+        circuit _generate_proof uses — so the proof's circuit_hash identifies the
+        exact circuit version, not a placeholder.
+        """
+        import hashlib
+
+        if not self.available_circuits:
+            return ""
+        zkey_path = list(self.available_circuits.values())[0]["zkey_path"]
+        h = hashlib.sha256()
+        with open(zkey_path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()
 
     def is_enabled(self) -> bool:
         """Check if ZK proof generation is available"""
