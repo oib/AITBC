@@ -18,7 +18,7 @@ def run_subprocess(
         result = subprocess.run(cmd, check=check, capture_output=capture_output, text=True, shell=False, **kwargs)
 
         if capture_output:
-            return result.stdout.strip()
+            return result.stdout.strip()  # type: ignore[no-any-return]
         return result
 
     except subprocess.CalledProcessError as e:

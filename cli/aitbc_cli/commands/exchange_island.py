@@ -253,22 +253,26 @@ def orderbook(ctx, pair: str, limit: int):
             }
 
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-            transactions = http_client.get("/transactions", params=params)
+            response = http_client.get("/transactions", params=params)
+            # Response is a dict with 'transactions' key
+            transactions = response.get("transactions", [])
 
             # Separate buy and sell orders
             buy_orders = []
             sell_orders = []
 
             for order in transactions:
-                if order.get("side") == "buy":  # type: ignore[attr-defined]
+                if not isinstance(order, dict):
+                    continue
+                if order.get("side") == "buy":
                     buy_orders.append(order)
-                elif order.get("side") == "sell":  # type: ignore[attr-defined]
+                elif order.get("side") == "sell":
                     sell_orders.append(order)
 
             # Sort buy orders by price descending (highest first)
-            buy_orders.sort(key=lambda x: x.get("max_price", 0), reverse=True)  # type: ignore[attr-defined]
+            buy_orders.sort(key=lambda x: x.get("max_price", 0), reverse=True)
             # Sort sell orders by price ascending (lowest first)
-            sell_orders.sort(key=lambda x: x.get("min_price", float("inf")))  # type: ignore[attr-defined]
+            sell_orders.sort(key=lambda x: x.get("min_price", float("inf")))
 
             if not buy_orders and not sell_orders:
                 info(f"No open orders for {pair}")
@@ -280,11 +284,11 @@ def orderbook(ctx, pair: str, limit: int):
                 for order in sell_orders[:limit]:
                     asks_data.append(
                         {
-                            "Price": f"{order.get('min_price', 0):.8f}",  # type: ignore[attr-defined]
-                            "Amount": f"{order.get('amount', 0):.4f} AIT",  # type: ignore[attr-defined]
-                            "Total": f"{order.get('min_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",  # type: ignore[attr-defined]
-                            "User": order.get("user_id", "")[:16] + "...",  # type: ignore[attr-defined]
-                            "Order": order.get("order_id", "")[:16] + "...",  # type: ignore[attr-defined]
+                            "Price": f"{order.get('min_price', 0):.8f}",
+                            "Amount": f"{order.get('amount', 0):.4f} AIT",
+                            "Total": f"{order.get('min_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",
+                            "User": order.get("user_id", "")[:16] + "...",
+                            "Order": order.get("order_id", "")[:16] + "...",
                         }
                     )
 
@@ -296,11 +300,11 @@ def orderbook(ctx, pair: str, limit: int):
                 for order in buy_orders[:limit]:
                     bids_data.append(
                         {
-                            "Price": f"{order.get('max_price', 0):.8f}",  # type: ignore[attr-defined]
-                            "Amount": f"{order.get('amount', 0):.4f} AIT",  # type: ignore[attr-defined]
-                            "Total": f"{order.get('max_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",  # type: ignore[attr-defined]
-                            "User": order.get("user_id", "")[:16] + "...",  # type: ignore[attr-defined]
-                            "Order": order.get("order_id", "")[:16] + "...",  # type: ignore[attr-defined]
+                            "Price": f"{order.get('max_price', 0):.8f}",
+                            "Amount": f"{order.get('amount', 0):.4f} AIT",
+                            "Total": f"{order.get('max_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",
+                            "User": order.get("user_id", "")[:16] + "...",
+                            "Order": order.get("order_id", "")[:16] + "...",
                         }
                     )
 

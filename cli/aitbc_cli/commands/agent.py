@@ -97,7 +97,7 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
             error(f"No address field in wallet file {wallet_file}")
             return None
         success(f"Using wallet '{wallet_name}': {address}")
-        return address
+        return str(address)
     except (json.JSONDecodeError, OSError) as e:
         error(f"Failed to read wallet file {wallet_file}: {e}")
         return None

@@ -201,13 +201,13 @@ def list_gpus(architecture: str | None, edge_optimized: bool, min_memory_gb: int
     """List available GPUs"""
     try:
         client = get_edge_client()
-        params = {}
+        params: dict[str, str | int | bool] = {}
         if architecture:
             params["architecture"] = architecture
         if edge_optimized:
-            params["edge_optimized"] = edge_optimized
+            params["edge_optimized"] = str(edge_optimized)
         if min_memory_gb:
-            params["min_memory_gb"] = min_memory_gb
+            params["min_memory_gb"] = str(min_memory_gb)
 
         response = client.get("/v1/gpu/", params=params)
         response.raise_for_status()
@@ -515,7 +515,7 @@ def list_metrics(gpu_id: str | None, limit: int):
     """List edge metrics"""
     try:
         client = get_edge_client()
-        params = {"limit": limit}
+        params: dict[str, str | int | None] = {"limit": limit}
         if gpu_id:
             params["gpu_id"] = gpu_id
 

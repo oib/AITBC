@@ -28,7 +28,7 @@ def _get_client(url: str | None = None) -> AITBCHTTPClient:
     """Create an HTTP client for the governance service."""
     import os
 
-    base_url = url or os.getenv("GOVERNANCE_SERVICE_URL", GOVERNANCE_SERVICE_URL)
+    base_url: str = url or os.getenv("GOVERNANCE_SERVICE_URL") or GOVERNANCE_SERVICE_URL
     return AITBCHTTPClient(base_url=base_url, timeout=30)
 
 

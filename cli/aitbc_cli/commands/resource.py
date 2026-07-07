@@ -51,16 +51,17 @@ def list(resource_id: str | None, format: str, mock: bool):
         )
 
     success("Allocated resources:")
-    resources = [
+    resources_data = [
         {"type": "gpu", "allocated": 4, "available": 8, "efficiency": "78.5%"},
         {"type": "cpu", "allocated": "45.2%", "available": "54.8%", "efficiency": "82.1%"},
         {"type": "storage", "allocated": "45GB", "available": "55GB", "efficiency": "90.0%"},
     ]
 
     if format == "json":
-        click.echo(json.dumps(resources, indent=2))
+        click.echo(json.dumps(resources_data, indent=2))
     else:
-        for res in resources:
+        for res in resources_data:
+            assert isinstance(res, dict), "Resource entry must be a dict"
             click.echo(
                 f"  - {res['type'].upper()}: {res['allocated']} allocated, {res['available']} available ({res['efficiency']})"
             )
