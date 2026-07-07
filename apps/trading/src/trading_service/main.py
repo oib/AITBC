@@ -279,7 +279,7 @@ async def get_transactions(
                         "buyer_agent_id": r.buyer_agent_id,
                         "trade_type": r.trade_type,
                         "status": r.status,
-                        "island_id": r.island_id,  # type: ignore[attr-defined]
+                        "island_id": getattr(r, "island_id", None),
                         "created_at": r.created_at.isoformat() if r.created_at else None,
                     }
                     for r in requests
@@ -291,12 +291,12 @@ async def get_transactions(
             transactions.extend(
                 [
                     {
-                        "match_id": m.match_id,  # type: ignore[attr-defined]
+                        "match_id": m.match_id,
                         "action": "match",
                         "request_id": m.request_id,
-                        "seller_agent_id": m.seller_agent_id,  # type: ignore[attr-defined]
+                        "seller_agent_id": m.seller_agent_id,
                         "status": m.status,
-                        "island_id": m.island_id,  # type: ignore[attr-defined]
+                        "island_id": getattr(m, "island_id", None),
                         "created_at": m.created_at.isoformat() if m.created_at else None,
                     }
                     for m in matches
@@ -308,11 +308,11 @@ async def get_transactions(
             transactions.extend(
                 [
                     {
-                        "agreement_id": a.agreement_id,  # type: ignore[attr-defined]
+                        "agreement_id": a.agreement_id,
                         "action": "agreement",
-                        "match_id": a.match_id,  # type: ignore[attr-defined]
+                        "match_id": a.match_id,
                         "status": a.status,
-                        "island_id": a.island_id,  # type: ignore[attr-defined]
+                        "island_id": getattr(a, "island_id", None),
                         "created_at": a.created_at.isoformat() if a.created_at else None,
                     }
                     for a in agreements
