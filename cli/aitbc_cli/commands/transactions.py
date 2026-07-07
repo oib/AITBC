@@ -57,12 +57,6 @@ def _send_transaction_impl(
         error("Amount must be positive")
         return None
 
-    # Ensure keystore_dir is a Path object
-    if keystore_dir is None:
-        keystore_dir = DEFAULT_KEYSTORE_DIR
-    if isinstance(keystore_dir, str):
-        keystore_dir = Path(keystore_dir)
-
     # Get sender wallet info
     sender_keystore = keystore_dir / f"{from_wallet}.json"
     if not sender_keystore.exists():
@@ -225,6 +219,10 @@ def send(
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
 
+    if password is None:
+        error("Password is required for transaction")
+        return
+
     tx_hash = _send_transaction_impl(from_wallet, to_address, amount, fee, password, rpc_url=rpc_url)
     if tx_hash:
         success(f"Transaction sent: {tx_hash}")
@@ -325,6 +323,10 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
 
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
+
+    if password is None:
+        error("Password is required for batch transactions")
+        return
 
     with open(transactions_file) as f:
         transactions_data = json.load(f)

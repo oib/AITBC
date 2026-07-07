@@ -14,7 +14,7 @@ sys.path.insert(0, "/opt/aitbc/cli")
 from utils import error
 
 if TYPE_CHECKING:
-    from aitbc_cli.core.config import Config
+    from aitbc_cli.config import CLIConfig as Config
 
 
 @dataclass
@@ -199,7 +199,7 @@ class WalletDaemonClient:
                 response = client.post(f"/v1/wallets/{wallet_id}/sign", json=payload)
                 if response.status_code == 200:
                     data = response.json()
-                    return data["signature_base64"]
+                    return data["signature_base64"]  # type: ignore[no-any-return]
                 else:
                     error(f"Failed to sign message: {response.text}")
                     raise Exception(f"HTTP {response.status_code}: {response.text}")
@@ -217,7 +217,7 @@ class WalletDaemonClient:
 
                 response = client.post(f"/v1/wallets/{wallet_id}/send", json=payload)
                 if response.status_code == 201:
-                    return response.json()
+                    return response.json()  # type: ignore[no-any-return]
                 else:
                     error(f"Failed to send transaction: {response.text}")
                     raise Exception(f"HTTP {response.status_code}: {response.text}")
@@ -231,7 +231,7 @@ class WalletDaemonClient:
             with self._get_http_client() as client:
                 payload = {"password": password}
                 response = client.post(f"/v1/wallets/{wallet_id}/unlock", json=payload)
-                return response.status_code == 200
+                return response.status_code == 200  # type: ignore[no-any-return]
         except Exception:
             return False
 
@@ -240,7 +240,7 @@ class WalletDaemonClient:
         try:
             with self._get_http_client() as client:
                 response = client.post(f"/v1/wallets/{wallet_id}/lock")
-                return response.status_code == 200
+                return response.status_code == 200  # type: ignore[no-any-return]
         except Exception:
             return False
 
@@ -250,7 +250,7 @@ class WalletDaemonClient:
             with self._get_http_client() as client:
                 payload = {"password": password}
                 response = client.delete(f"/v1/wallets/{wallet_id}", json=payload)
-                return response.status_code == 200
+                return response.status_code == 200  # type: ignore[no-any-return]
         except Exception:
             return False
 
@@ -262,7 +262,7 @@ class WalletDaemonClient:
 
                 response = client.post("/rpc", json=payload)
                 if response.status_code == 200:
-                    return response.json()
+                    return response.json()  # type: ignore[no-any-return]
                 else:
                     error(f"JSON-RPC call failed: {response.text}")
                     raise Exception(f"HTTP {response.status_code}: {response.text}")
@@ -405,10 +405,10 @@ class WalletDaemonClient:
     def unlock_wallet_in_chain(self, chain_id: str, wallet_id: str, password: str) -> bool:
         """Unlock a wallet in a specific chain"""
         try:
-            with self._get_http_client() as client:
-                payload = {"password": password}
-                response = client.post(f"/v1/chains/{chain_id}/wallets/{wallet_id}/unlock", json=payload)
-                return response.status_code == 200
+            client = self._get_http_client()
+            payload = {"password": password}
+            response = client.post(f"/v1/chains/{chain_id}/wallets/{wallet_id}/unlock", json=payload)
+            return response.status_code == 200  # type: ignore[attr-defined, no-any-return]
         except Exception:
             return False
 
@@ -421,7 +421,7 @@ class WalletDaemonClient:
                 response = client.post(f"/v1/chains/{chain_id}/wallets/{wallet_id}/sign", json=payload)
                 if response.status_code == 200:
                     data = response.json()
-                    return data.get("signature_base64")
+                    return data.get("signature_base64")  # type: ignore[no-any-return]  # type: ignore[no-any-return]
                 else:
                     return None
         except Exception:

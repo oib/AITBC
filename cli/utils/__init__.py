@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 try:
     from tabulate import tabulate
 except ImportError:
-    tabulate = None
+    tabulate = None  # type: ignore[assignment]
 
 
 console = Console()

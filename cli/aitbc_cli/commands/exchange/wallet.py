@@ -2,10 +2,7 @@
 Wallet-related exchange commands.
 """
 
-try:
-    from aitbc_cli.utils import error, output, success
-except ImportError:
-    from ..utils import error, output, success
+from aitbc_cli.utils import error, output, success
 
 
 def balance_command(ctx):
