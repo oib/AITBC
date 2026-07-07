@@ -64,11 +64,11 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAI
                 }
 
         # Fallback to RPC method
-        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id or DEFAULT_CHAIN, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{rpc_url}/rpc/tx/{hash}", params={"chain_id": chain_id})
+            response = await client.get(f"{rpc_url}/rpc/tx/{hash}", params={"chain_id": chain_id or DEFAULT_CHAIN})
             if response.status_code == 200:
-                return response.json()
+                return response.json()  # type: ignore[no-any-return]
 
         return {}
     except Exception as e:
