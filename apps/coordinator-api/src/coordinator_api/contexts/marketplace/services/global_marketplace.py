@@ -94,7 +94,7 @@ class GlobalMarketplaceService:
             if region and region != "global":
                 stmt = stmt.where(GlobalMarketplaceOffer.regions_available.contains([region]))  # type: ignore[attr-defined]
             stmt = stmt.order_by(desc(GlobalMarketplaceOffer.created_at)).offset(offset).limit(limit)  # type: ignore[arg-type]
-            offers = self.session.execute(stmt).all()
+            offers = self.session.execute(stmt).scalars().all()
             current_time = datetime.now(UTC)
             valid_offers = []
             for offer in offers:
@@ -111,7 +111,7 @@ class GlobalMarketplaceService:
         """Create a global marketplace transaction"""
         try:
             stmt = select(GlobalMarketplaceOffer).where(GlobalMarketplaceOffer.id == request.offer_id)
-            offer = self.session.execute(stmt).first()
+            offer = self.session.execute(stmt).scalars().first()
             if not offer:
                 raise ValueError("Offer not found")
             if offer.available_capacity < request.quantity:
@@ -176,7 +176,7 @@ class GlobalMarketplaceService:
             if status:
                 stmt = stmt.where(GlobalMarketplaceTransaction.status == status)
             stmt = stmt.order_by(desc(GlobalMarketplaceTransaction.created_at)).offset(offset).limit(limit)  # type: ignore[arg-type]
-            transactions = self.session.execute(stmt).all()
+            transactions = self.session.execute(stmt).scalars().all()
             return transactions  # type: ignore[return-value]
         except Exception as e:
             logger.error("Error getting global transactions: %s", e)
@@ -191,7 +191,7 @@ class GlobalMarketplaceService:
                 GlobalMarketplaceAnalytics.period_end <= request.end_date,
                 GlobalMarketplaceAnalytics.region == request.region,
             )
-            existing_analytics = self.session.execute(stmt).first()
+            existing_analytics = self.session.execute(stmt).scalars().first()
             if existing_analytics:
                 return existing_analytics  # type: ignore[return-value]
             analytics = await self._generate_analytics(request)
@@ -210,7 +210,7 @@ class GlobalMarketplaceService:
         )
         if request.region != "global":
             stmt = stmt.where(GlobalMarketplaceOffer.regions_available.contains([request.region]))  # type: ignore[attr-defined]
-        offers = self.session.execute(stmt).all()
+        offers = self.session.execute(stmt).scalars().all()
         stmt = select(GlobalMarketplaceTransaction).where(
             GlobalMarketplaceTransaction.created_at >= request.start_date,
             GlobalMarketplaceTransaction.created_at <= request.end_date,
@@ -220,7 +220,7 @@ class GlobalMarketplaceService:
                 (GlobalMarketplaceTransaction.source_region == request.region)
                 | (GlobalMarketplaceTransaction.target_region == request.region)
             )
-        transactions = self.session.execute(stmt).all()
+        transactions = self.session.execute(stmt).scalars().all()
         total_offers = len(offers)
         total_transactions = len(transactions)
         total_volume = sum(tx.total_amount for tx in transactions)
@@ -252,14 +252,14 @@ class GlobalMarketplaceService:
     async def _get_active_regions(self) -> list[MarketplaceRegion]:
         """Get all active marketplace regions"""
         stmt = select(MarketplaceRegion).where(MarketplaceRegion.status == RegionStatus.ACTIVE)
-        regions = self.session.execute(stmt).all()
+        regions = self.session.execute(stmt).scalars().all()
         return regions  # type: ignore[return-value]
 
     async def get_region_health(self, region_code: str) -> dict[str, Any]:
         """Get health status for a specific region"""
         try:
             stmt = select(MarketplaceRegion).where(MarketplaceRegion.region_code == region_code)
-            region = self.session.execute(stmt).first()
+            region = self.session.execute(stmt).scalars().first()
             if not region:
                 return {"status": "not_found"}
             health_score = region.health_score
@@ -286,7 +286,7 @@ class GlobalMarketplaceService:
                 .where(GlobalMarketplaceAnalytics.region == region, GlobalMarketplaceAnalytics.created_at >= cutoff_time)
                 .order_by(desc(GlobalMarketplaceAnalytics.created_at))  # type: ignore[arg-type]
             )
-            analytics = self.session.execute(stmt).first()
+            analytics = self.session.execute(stmt).scalars().first()
             if analytics:
                 return {
                     "total_transactions": analytics.total_transactions,
@@ -337,7 +337,7 @@ class RegionManager:
         """Update region health metrics"""
         try:
             stmt = select(MarketplaceRegion).where(MarketplaceRegion.region_code == region_code)
-            region = self.session.execute(stmt).first()
+            region = self.session.execute(stmt).scalars().first()
             if not region:
                 raise ValueError(f"Region {region_code} not found")
             region.health_score = health_metrics.get("health_score", 1.0)
@@ -368,7 +368,7 @@ class RegionManager:
                 .where(MarketplaceRegion.status == RegionStatus.ACTIVE)
                 .order_by(desc(MarketplaceRegion.priority_weight))  # type: ignore[arg-type]
             )
-            regions = self.session.execute(stmt).all()
+            regions = self.session.execute(stmt).scalars().all()
             if not regions:
                 raise ValueError("No active regions available")
             if user_location:

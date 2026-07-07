@@ -53,9 +53,13 @@ class MarketplaceStrategyOptimizer:
         await asyncio.sleep(1)  # Simulate training time
 
         # Get trained agent performance
-        trained_config = session.execute(
-            select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == rl_config.config_id)
-        ).first()
+        trained_config = (
+            session.execute(
+                select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == rl_config.config_id)
+            )
+            .scalars()
+            .first()
+        )
 
         if trained_config and trained_config.status == "ready":
             return {
@@ -141,9 +145,11 @@ class MarketplaceStrategyOptimizer:
     ) -> dict[str, Any]:
         """Evaluate deployed strategy performance"""
 
-        rl_config = session.execute(
-            select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == config_id)
-        ).first()
+        rl_config = (
+            session.execute(select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == config_id))
+            .scalars()
+            .first()
+        )
 
         if not rl_config:
             raise ValueError(f"RL config {config_id} not found")

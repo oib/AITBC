@@ -445,9 +445,11 @@ async def get_developer_certifications(
         if not profile:
             raise HTTPException(status_code=404, detail="Developer profile not found")
 
-        certifications = session.execute(
-            select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id)
-        ).all()
+        certifications = (
+            session.execute(select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id))
+            .scalars()
+            .all()
+        )
 
         return [
             {
@@ -794,7 +796,9 @@ async def get_platform_overview(
         # Get developer statistics with fallback
         try:
             total_developers = len(session.execute(select(DeveloperProfile)).all())
-            active_developers = len(session.execute(select(DeveloperProfile).where(DeveloperProfile.is_active)).all())
+            active_developers = len(
+                session.execute(select(DeveloperProfile).where(DeveloperProfile.is_active)).scalars().all()
+            )
         except Exception:
             total_developers = 1250
             active_developers = 890

@@ -28,13 +28,17 @@ class WalletService:
 
     async def create_wallet(self, request: WalletCreate) -> AgentWallet:
         """Create a new wallet for an agent"""
-        existing = self.session.execute(
-            select(AgentWallet).where(
-                AgentWallet.agent_id == request.agent_id,  # type: ignore[arg-type]
-                AgentWallet.wallet_type == request.wallet_type,  # type: ignore[arg-type]
-                AgentWallet.is_active,  # type: ignore[arg-type]
+        existing = (
+            self.session.execute(
+                select(AgentWallet).where(
+                    AgentWallet.agent_id == request.agent_id,  # type: ignore[arg-type]
+                    AgentWallet.wallet_type == request.wallet_type,  # type: ignore[arg-type]
+                    AgentWallet.is_active,  # type: ignore[arg-type]
+                )
             )
-        ).first()
+            .scalars()
+            .first()
+        )
         if existing:
             raise ValueError(f"Agent {request.agent_id} already has an active {request.wallet_type} wallet")
         try:
@@ -75,23 +79,31 @@ class WalletService:
 
     async def get_wallet_by_agent(self, agent_id: str) -> list[AgentWallet]:
         """Retrieve all active wallets for an agent"""
-        return self.session.execute(select(AgentWallet).where(AgentWallet.agent_id == agent_id, AgentWallet.is_active)).all()  # type: ignore[arg-type, return-value]
+        return (
+            self.session.execute(select(AgentWallet).where(AgentWallet.agent_id == agent_id, AgentWallet.is_active))
+            .scalars()
+            .all()
+        )  # type: ignore[arg-type, return-value]
 
     async def get_balances(self, wallet_id: int) -> list[TokenBalance]:
         """Get all tracked balances for a wallet"""
-        return self.session.execute(select(TokenBalance).where(TokenBalance.wallet_id == wallet_id)).all()  # type: ignore[arg-type, return-value]
+        return self.session.execute(select(TokenBalance).where(TokenBalance.wallet_id == wallet_id)).scalars().all()  # type: ignore[arg-type, return-value]
 
     async def update_balance(self, wallet_id: int, chain_id: int, token_address: str, balance: Decimal) -> TokenBalance:
         """Update a specific token balance for a wallet"""
-        record = self.session.execute(
-            select(TokenBalance).where(
-                and_(
-                    TokenBalance.wallet_id == wallet_id,
-                    TokenBalance.chain_id == chain_id,
-                    TokenBalance.token_address == token_address,
+        record = (
+            self.session.execute(
+                select(TokenBalance).where(
+                    and_(
+                        TokenBalance.wallet_id == wallet_id,
+                        TokenBalance.chain_id == chain_id,
+                        TokenBalance.token_address == token_address,
+                    )
                 )
             )
-        ).first()
+            .scalars()
+            .first()
+        )
         if record:
             record.balance = balance
         else:

@@ -48,11 +48,15 @@ class RewardCalculator:
 
     def calculate_tier_multiplier(self, trust_score: float, session: Session) -> float:
         """Calculate reward multiplier based on agent's tier"""
-        tier_config = session.execute(
-            select(RewardTierConfig)
-            .where(and_(RewardTierConfig.min_trust_score <= trust_score, RewardTierConfig.is_active))
-            .order_by(desc(RewardTierConfig.min_trust_score))  # type: ignore[arg-type]
-        ).first()
+        tier_config = (
+            session.execute(
+                select(RewardTierConfig)
+                .where(and_(RewardTierConfig.min_trust_score <= trust_score, RewardTierConfig.is_active))
+                .order_by(desc(RewardTierConfig.min_trust_score))  # type: ignore[arg-type]
+            )
+            .scalars()
+            .first()
+        )
         if tier_config:
             return tier_config.base_multiplier  # type: ignore[no-any-return]
         elif trust_score >= 900:
@@ -93,7 +97,9 @@ class RewardCalculator:
 
     def calculate_loyalty_bonus(self, agent_id: str, session: Session) -> float:
         """Calculate loyalty bonus based on agent history"""
-        reward_profile = session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).first()
+        reward_profile = (
+            session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).scalars().first()
+        )
         if not reward_profile:
             return 0.0
         bonus = 0.0
@@ -127,11 +133,15 @@ class RewardCalculator:
 
     def calculate_milestone_bonus(self, agent_id: str, session: Session) -> float:
         """Calculate milestone achievement bonus"""
-        milestones = session.execute(
-            select(RewardMilestone).where(
-                and_(RewardMilestone.agent_id == agent_id, RewardMilestone.is_completed, not RewardMilestone.is_claimed)
+        milestones = (
+            session.execute(
+                select(RewardMilestone).where(
+                    and_(RewardMilestone.agent_id == agent_id, RewardMilestone.is_completed, not RewardMilestone.is_claimed)
+                )
             )
-        ).all()
+            .scalars()
+            .all()
+        )
         total_bonus = 0.0
         for milestone in milestones:
             total_bonus += milestone.reward_amount
@@ -143,7 +153,7 @@ class RewardCalculator:
         self, agent_id: str, base_amount: float, performance_metrics: dict[str, Any], session: Session
     ) -> dict[str, Any]:
         """Calculate total reward with all bonuses and multipliers"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         trust_score = reputation.trust_score if reputation else 500.0
         tier_multiplier = self.calculate_tier_multiplier(trust_score, session)
         performance_bonus = self.calculate_performance_bonus(performance_metrics, session)
@@ -174,7 +184,9 @@ class RewardEngine:
 
     async def create_reward_profile(self, agent_id: str) -> AgentRewardProfile:
         """Create a new reward profile for an agent"""
-        existing = self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).first()
+        existing = (
+            self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).scalars().first()
+        )
         if existing:
             return existing  # type: ignore[return-value]
         profile = AgentRewardProfile(
@@ -254,7 +266,9 @@ class RewardEngine:
 
     async def process_reward_distribution(self, distribution_id: str) -> RewardDistribution:
         """Process a reward distribution"""
-        distribution = self.session.execute(select(RewardDistribution).where(RewardDistribution.id == distribution_id)).first()
+        distribution = (
+            self.session.execute(select(RewardDistribution).where(RewardDistribution.id == distribution_id)).scalars().first()
+        )
         if not distribution:
             raise ValueError(f"Distribution {distribution_id} not found")
         if distribution.status != RewardStatus.PENDING:
@@ -282,7 +296,9 @@ class RewardEngine:
 
     async def update_agent_reward_profile(self, agent_id: str, reward_calculation: dict[str, Any]) -> None:
         """Update agent reward profile after reward distribution"""
-        profile = self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).first()
+        profile = (
+            self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).scalars().first()
+        )
         if not profile:
             return
         profile.base_earnings += reward_calculation["base_amount"]
@@ -302,10 +318,14 @@ class RewardEngine:
 
     async def check_and_update_tier(self, agent_id: str) -> None:
         """Check and update agent's reward tier"""
-        reputation = self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = (
+            self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
+        )
         if not reputation:
             return
-        profile = self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).first()
+        profile = (
+            self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).scalars().first()
+        )
         if not profile:
             return
         new_tier = self.determine_reward_tier(reputation.trust_score)
@@ -356,31 +376,41 @@ class RewardEngine:
 
     async def get_reward_summary(self, agent_id: str) -> dict[str, Any]:
         """Get comprehensive reward summary for an agent"""
-        profile = self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).first()
+        profile = (
+            self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).scalars().first()
+        )
         if not profile:
             return {"error": "Reward profile not found"}
-        recent_calculations = self.session.execute(
-            select(RewardCalculation)
-            .where(
-                and_(
-                    RewardCalculation.agent_id == agent_id,
-                    RewardCalculation.calculated_at >= datetime.now(UTC) - timedelta(days=30),
+        recent_calculations = (
+            self.session.execute(
+                select(RewardCalculation)
+                .where(
+                    and_(
+                        RewardCalculation.agent_id == agent_id,
+                        RewardCalculation.calculated_at >= datetime.now(UTC) - timedelta(days=30),
+                    )
                 )
+                .order_by(desc(RewardCalculation.calculated_at))  # type: ignore[arg-type]
+                .limit(10)
             )
-            .order_by(desc(RewardCalculation.calculated_at))  # type: ignore[arg-type]
-            .limit(10)
-        ).all()
-        recent_distributions = self.session.execute(
-            select(RewardDistribution)
-            .where(
-                and_(
-                    RewardDistribution.agent_id == agent_id,
-                    RewardDistribution.created_at >= datetime.now(UTC) - timedelta(days=30),
+            .scalars()
+            .all()
+        )
+        recent_distributions = (
+            self.session.execute(
+                select(RewardDistribution)
+                .where(
+                    and_(
+                        RewardDistribution.agent_id == agent_id,
+                        RewardDistribution.created_at >= datetime.now(UTC) - timedelta(days=30),
+                    )
                 )
+                .order_by(desc(RewardDistribution.created_at))  # type: ignore[arg-type]
+                .limit(10)
             )
-            .order_by(desc(RewardDistribution.created_at))  # type: ignore[arg-type]
-            .limit(10)
-        ).all()
+            .scalars()
+            .all()
+        )
         return {
             "agent_id": agent_id,
             "current_tier": profile.current_tier.value,
@@ -413,17 +443,21 @@ class RewardEngine:
 
     async def batch_process_pending_rewards(self, limit: int = 100) -> dict[str, Any]:
         """Process pending reward distributions in batch"""
-        pending_distributions = self.session.execute(
-            select(RewardDistribution)
-            .where(
-                and_(
-                    RewardDistribution.status == RewardStatus.PENDING,
-                    RewardDistribution.scheduled_at <= datetime.now(UTC),  # type: ignore[operator]
+        pending_distributions = (
+            self.session.execute(
+                select(RewardDistribution)
+                .where(
+                    and_(
+                        RewardDistribution.status == RewardStatus.PENDING,
+                        RewardDistribution.scheduled_at <= datetime.now(UTC),  # type: ignore[operator]
+                    )
                 )
+                .order_by(asc(RewardDistribution.priority), asc(RewardDistribution.created_at))  # type: ignore[arg-type]
+                .limit(limit)
             )
-            .order_by(asc(RewardDistribution.priority), asc(RewardDistribution.created_at))  # type: ignore[arg-type]
-            .limit(limit)
-        ).all()
+            .scalars()
+            .all()
+        )
         processed = 0
         failed = 0
         for distribution in pending_distributions:

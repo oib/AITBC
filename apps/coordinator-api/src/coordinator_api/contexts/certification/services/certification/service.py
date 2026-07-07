@@ -33,16 +33,22 @@ class CertificationAndPartnershipService:
         """Get comprehensive certification summary for an agent"""
 
         # Get certifications
-        certifications = self.session.execute(select(AgentCertification).where(AgentCertification.agent_id == agent_id)).all()
+        certifications = (
+            self.session.execute(select(AgentCertification).where(AgentCertification.agent_id == agent_id)).scalars().all()
+        )
 
         # Get partnerships
-        partnerships = self.session.execute(select(AgentPartnership).where(AgentPartnership.agent_id == agent_id)).all()
+        partnerships = (
+            self.session.execute(select(AgentPartnership).where(AgentPartnership.agent_id == agent_id)).scalars().all()
+        )
 
         # Get badges
-        badges = self.session.execute(select(AgentBadge).where(AgentBadge.agent_id == agent_id)).all()
+        badges = self.session.execute(select(AgentBadge).where(AgentBadge.agent_id == agent_id)).scalars().all()
 
         # Get verification records
-        verifications = self.session.execute(select(VerificationRecord).where(VerificationRecord.agent_id == agent_id)).all()
+        verifications = (
+            self.session.execute(select(VerificationRecord).where(VerificationRecord.agent_id == agent_id)).scalars().all()
+        )
 
         return {
             "agent_id": agent_id,
@@ -105,6 +111,6 @@ class CertificationAndPartnershipService:
     def get_badge_point_value(self, badge_id: str) -> int:
         """Get point value for a badge"""
 
-        badge = self.session.execute(select(AchievementBadge).where(AchievementBadge.badge_id == badge_id)).first()
+        badge = self.session.execute(select(AchievementBadge).where(AchievementBadge.badge_id == badge_id)).scalars().first()
 
         return badge.point_value if badge else 0

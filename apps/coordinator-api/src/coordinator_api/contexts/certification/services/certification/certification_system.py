@@ -160,16 +160,20 @@ class CertificationSystem:
                 "score": 0.0,
                 "details": {},
             }
-        certification = session.execute(
-            select(AgentCertification).where(
-                and_(
-                    AgentCertification.agent_id == agent_id,
-                    AgentCertification.certification_level == target_level,
-                    AgentCertification.status == CertificationStatus.ACTIVE,
-                    AgentCertification.expires_at > datetime.now(UTC),  # type: ignore[operator]
+        certification = (
+            session.execute(
+                select(AgentCertification).where(
+                    and_(
+                        AgentCertification.agent_id == agent_id,
+                        AgentCertification.certification_level == target_level,
+                        AgentCertification.status == CertificationStatus.ACTIVE,
+                        AgentCertification.expires_at > datetime.now(UTC),  # type: ignore[operator]
+                    )
                 )
             )
-        ).first()
+            .scalars()
+            .first()
+        )
         if certification:
             return {
                 "passed": True,
@@ -335,11 +339,15 @@ class CertificationSystem:
 
     async def verify_compliance(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Verify agent compliance with regulations"""
-        certifications = session.execute(
-            select(AgentCertification).where(
-                and_(AgentCertification.agent_id == agent_id, AgentCertification.status == CertificationStatus.ACTIVE)
+        certifications = (
+            session.execute(
+                select(AgentCertification).where(
+                    and_(AgentCertification.agent_id == agent_id, AgentCertification.status == CertificationStatus.ACTIVE)
+                )
             )
-        ).all()
+            .scalars()
+            .all()
+        )
         if certifications:
             return {
                 "passed": True,
@@ -423,9 +431,11 @@ class CertificationSystem:
 
     async def renew_certification(self, session: Session, certification_id: str, renewed_by: str) -> tuple[bool, str | None]:
         """Renew an existing certification"""
-        certification = session.execute(
-            select(AgentCertification).where(AgentCertification.certification_id == certification_id)
-        ).first()
+        certification = (
+            session.execute(select(AgentCertification).where(AgentCertification.certification_id == certification_id))
+            .scalars()
+            .first()
+        )
         if not certification:
             return (False, "Certification not found")
         if certification.status != CertificationStatus.ACTIVE:

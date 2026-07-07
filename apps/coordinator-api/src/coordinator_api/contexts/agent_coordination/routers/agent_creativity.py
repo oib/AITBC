@@ -193,7 +193,9 @@ async def list_agent_creative_capabilities(
 ) -> list[CreativeCapability]:
     """List all creative capabilities for a specific agent"""
     try:
-        capabilities = session.execute(select(CreativeCapability).where(CreativeCapability.agent_id == agent_id)).all()
+        capabilities = (
+            session.execute(select(CreativeCapability).where(CreativeCapability.agent_id == agent_id)).scalars().all()
+        )
         return capabilities  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error fetching creative capabilities: %s", e)

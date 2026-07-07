@@ -41,7 +41,7 @@ class TrustScoreCalculator:
         """Calculate performance-based trust score component"""
         cutoff_date = datetime.now(UTC) - time_window
         select(func.count()).where(and_(AgentReputation.agent_id == agent_id, AgentReputation.updated_at >= cutoff_date))
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if not reputation:
             return 500.0
         base_score = reputation.performance_rating / 5.0 * 1000
@@ -57,7 +57,7 @@ class TrustScoreCalculator:
         self, agent_id: str, session: Session, time_window: timedelta = timedelta(days=30)
     ) -> float:
         """Calculate reliability-based trust score component"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if not reputation:
             return 500.0
         base_score = reputation.reliability_score * 10
@@ -80,7 +80,7 @@ class TrustScoreCalculator:
                 CommunityFeedback.moderation_status == "approved",
             )
         )
-        feedbacks = session.execute(feedback_query).all()
+        feedbacks = session.execute(feedback_query).scalars().all()
         if not feedbacks:
             return 500.0
         total_weight = 0.0
@@ -103,7 +103,7 @@ class TrustScoreCalculator:
 
     def calculate_security_score(self, agent_id: str, session: Session, time_window: timedelta = timedelta(days=180)) -> float:
         """Calculate security-based trust score component"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if not reputation:
             return 500.0
         base_score = 800.0
@@ -118,7 +118,7 @@ class TrustScoreCalculator:
 
     def calculate_economic_score(self, agent_id: str, session: Session, time_window: timedelta = timedelta(days=30)) -> float:
         """Calculate economic-based trust score component"""
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if not reputation:
             return 500.0
         if reputation.total_earnings > 0 and reputation.transaction_count > 0:
@@ -148,7 +148,7 @@ class TrustScoreCalculator:
             + security_score * self.weights[TrustScoreCategory.SECURITY]
             + economic_score * self.weights[TrustScoreCategory.ECONOMIC]
         )
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if reputation and reputation.trust_score > 0:
             final_score = weighted_score * 0.7 + reputation.trust_score * 0.3
         else:
@@ -186,7 +186,7 @@ class ReputationService:
         This is the canonical read path for cross-context consumers that need
         reputation data (certification, rewards, etc.).
         """
-        return self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()  # type: ignore[return-value]
+        return self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()  # type: ignore[return-value]
 
     def get_reputation_dto(self, agent_id: str) -> ReputationDTO | None:
         """Return a :class:`ReputationDTO` projection for ``agent_id``.
@@ -203,7 +203,7 @@ class ReputationService:
 
     async def create_reputation_profile(self, agent_id: str) -> AgentReputation:
         """Create a new reputation profile for an agent"""
-        existing = self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        existing = self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if existing:
             return existing  # type: ignore[return-value]
         reputation = AgentReputation(
@@ -327,11 +327,15 @@ class ReputationService:
 
     async def _update_community_rating(self, agent_id: str) -> None:
         """Update agent's community rating based on feedback"""
-        feedbacks = self.session.execute(
-            select(CommunityFeedback).where(
-                and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == "approved")
+        feedbacks = (
+            self.session.execute(
+                select(CommunityFeedback).where(
+                    and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == "approved")
+                )
             )
-        ).all()
+            .scalars()
+            .all()
+        )
         if not feedbacks:
             return
         total_weight = 0.0
@@ -343,7 +347,9 @@ class ReputationService:
             total_weight += weight
         if total_weight > 0:
             avg_rating = weighted_sum / total_weight
-            reputation = self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+            reputation = (
+                self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
+            )
             if reputation:
                 reputation.community_rating = avg_rating
                 reputation.updated_at = datetime.now(UTC)
@@ -351,25 +357,36 @@ class ReputationService:
 
     async def get_reputation_summary(self, agent_id: str) -> dict[str, Any]:
         """Get comprehensive reputation summary for an agent"""
-        reputation = self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = (
+            self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
+        )
         if not reputation:
             return {"error": "Reputation profile not found"}
-        recent_events = self.session.execute(
-            select(ReputationEvent)
-            .where(
-                and_(
-                    ReputationEvent.agent_id == agent_id, ReputationEvent.occurred_at >= datetime.now(UTC) - timedelta(days=30)
+        recent_events = (
+            self.session.execute(
+                select(ReputationEvent)
+                .where(
+                    and_(
+                        ReputationEvent.agent_id == agent_id,
+                        ReputationEvent.occurred_at >= datetime.now(UTC) - timedelta(days=30),
+                    )
                 )
+                .order_by(desc(ReputationEvent.occurred_at))
+                .limit(10)
             )
-            .order_by(desc(ReputationEvent.occurred_at))
-            .limit(10)
-        ).all()
-        recent_feedback = self.session.execute(
-            select(CommunityFeedback)
-            .where(and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == "approved"))
-            .order_by(desc(CommunityFeedback.created_at))
-            .limit(5)
-        ).all()
+            .scalars()
+            .all()
+        )
+        recent_feedback = (
+            self.session.execute(
+                select(CommunityFeedback)
+                .where(and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == "approved"))
+                .order_by(desc(CommunityFeedback.created_at))
+                .limit(5)
+            )
+            .scalars()
+            .all()
+        )
         return {
             "agent_id": agent_id,
             "trust_score": reputation.trust_score,
@@ -413,7 +430,7 @@ class ReputationService:
         query = select(AgentReputation).order_by(getattr(AgentReputation, category).desc()).limit(limit)
         if region:
             query = query.where(AgentReputation.geographic_region == region)
-        reputations = self.session.execute(query).all()
+        reputations = self.session.execute(query).scalars().all()
         leaderboard = []
         for rank, reputation in enumerate(reputations, 1):
             leaderboard.append(
