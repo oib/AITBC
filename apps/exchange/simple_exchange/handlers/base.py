@@ -8,7 +8,7 @@ from urllib.request import urlopen
 MAX_BODY_BYTES = 2 * 1024 * 1024  # 2 MB
 RPC_TIMEOUT = 10  # seconds
 
-RPC_BASE_URL = os.getenv("BLOCKCHAIN_RPC_BASE_URL", "http://localhost:9080").rstrip("/")
+RPC_BASE_URL = os.getenv("BLOCKCHAIN_RPC_BASE_URL", "http://localhost:8202").rstrip("/")
 if not RPC_BASE_URL.startswith(("http://", "https://")):
     raise RuntimeError(f"BLOCKCHAIN_RPC_BASE_URL must start with http:// or https://, got: {RPC_BASE_URL}")
 

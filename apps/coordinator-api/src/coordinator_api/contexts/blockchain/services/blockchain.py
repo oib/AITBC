@@ -13,7 +13,9 @@ from ....config import settings
 
 logger = get_logger(__name__)
 
-BLOCKCHAIN_RPC = "http://127.0.0.1:9080/rpc"
+# Blockchain node RPC — default to the canonical port 8202 (see apps/blockchain-node/src/aitbc_chain/main.py).
+# Overridable via settings.blockchain_rpc_url.
+BLOCKCHAIN_RPC = settings.blockchain_rpc_url
 
 # Basic validation for blockchain addresses (alphanumeric, common prefixes)
 ADDRESS_PATTERN = re.compile(r"^[a-zA-Z0-9]{20,50}$")
@@ -63,6 +65,71 @@ class BlockchainService:
             logger.info("Agent performance updated on-chain for %s", agent_wallet)
         except NetworkError as e:
             logger.error("Failed to update agent performance on-chain for %s: %s", agent_wallet, e)
+
+    async def add_to_stake(self, stake_id: str, additional_amount: float) -> None:
+        """Add tokens to an existing stake on-chain (background task, best-effort)."""
+        client = AITBCHTTPClient(timeout=10.0)
+        try:
+            client.post(
+                f"{self.rpc_url}/staking/stake/{stake_id}/add",
+                json={"stake_id": stake_id, "additional_amount": additional_amount},
+                headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
+            )
+            logger.info("Added %s to stake %s on-chain", additional_amount, stake_id)
+        except NetworkError as e:
+            logger.error("Failed to add to stake %s on-chain: %s", stake_id, e)
+
+    async def unbond_stake(self, stake_id: str) -> None:
+        """Initiate unbonding for a stake on-chain (background task, best-effort)."""
+        client = AITBCHTTPClient(timeout=10.0)
+        try:
+            client.post(
+                f"{self.rpc_url}/staking/stake/{stake_id}/unbond",
+                json={"stake_id": stake_id},
+                headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
+            )
+            logger.info("Unbonding initiated for stake %s on-chain", stake_id)
+        except NetworkError as e:
+            logger.error("Failed to unbond stake %s on-chain: %s", stake_id, e)
+
+    async def complete_unbonding(self, stake_id: str) -> None:
+        """Complete unbonding for a stake on-chain (background task, best-effort)."""
+        client = AITBCHTTPClient(timeout=10.0)
+        try:
+            client.post(
+                f"{self.rpc_url}/staking/stake/{stake_id}/complete",
+                json={"stake_id": stake_id},
+                headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
+            )
+            logger.info("Unbonding completed for stake %s on-chain", stake_id)
+        except NetworkError as e:
+            logger.error("Failed to complete unbonding for stake %s on-chain: %s", stake_id, e)
+
+    async def distribute_earnings(self, agent_wallet: str, total_earnings: float) -> None:
+        """Distribute agent earnings to stakers on-chain (background task, best-effort)."""
+        client = AITBCHTTPClient(timeout=10.0)
+        try:
+            client.post(
+                f"{self.rpc_url}/staking/agents/{agent_wallet}/distribute",
+                json={"agent_wallet": agent_wallet, "total_earnings": total_earnings},
+                headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
+            )
+            logger.info("Distributed %s earnings for agent %s on-chain", total_earnings, agent_wallet)
+        except NetworkError as e:
+            logger.error("Failed to distribute earnings for agent %s on-chain: %s", agent_wallet, e)
+
+    async def claim_rewards(self, stake_ids: list[str]) -> None:
+        """Claim accumulated rewards for multiple stakes on-chain (background task, best-effort)."""
+        client = AITBCHTTPClient(timeout=10.0)
+        try:
+            client.post(
+                f"{self.rpc_url}/staking/claim-rewards",
+                json={"stake_ids": stake_ids},
+                headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
+            )
+            logger.info("Claimed rewards for %d stakes on-chain", len(stake_ids))
+        except NetworkError as e:
+            logger.error("Failed to claim rewards on-chain: %s", e)
 
 
 def validate_address(address: str) -> bool:
