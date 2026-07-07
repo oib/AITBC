@@ -263,7 +263,7 @@ async def get_growth_indicators(
 ) -> dict[str, Any]:
     """Get ecosystem growth indicators"""
     try:
-        growth_data = await ecosystem_service.get_growth_indicators(period=period)  # type: ignore[attr-defined]
+        growth_data = await ecosystem_service.get_growth_indicators(period=period or "monthly")
         return {
             "period": period,
             "indicators": growth_data,

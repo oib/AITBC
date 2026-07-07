@@ -11,6 +11,7 @@ from aitbc.aitbc_logging import get_logger
 
 from ..config import settings
 from ..contexts.infrastructure.domain import Job
+from ..storage.db import session_scope
 from .bridges.base import BridgeStatus, SettlementMessage, SettlementResult
 from .manager import BridgeManager
 
@@ -47,19 +48,20 @@ class SettlementHook:
         self, job_id: str, target_chain_id: int, bridge_name: str | None = None, options: dict[str, Any] | None = None
     ) -> SettlementResult:
         """Manually initiate cross-chain settlement for a job"""
-        job = await Job.get(job_id)  # type: ignore[attr-defined]
-        if not job:
-            raise ValueError(f"Job {job_id} not found")
-        if not job.completed:
-            raise ValueError(f"Job {job_id} is not completed")
-        if target_chain_id:
-            job.target_chain = target_chain_id
-        message = await self._create_settlement_message(job, options)
-        result = await self.bridge_manager.settle_cross_chain(message, bridge_name=bridge_name)
-        job.cross_chain_settlement_id = result.message_id
-        job.cross_chain_bridge = bridge_name or self.bridge_manager.default_adapter
-        await job.save()
-        return result
+        with session_scope() as session:
+            job = session.get(Job, job_id)
+            if not job:
+                raise ValueError(f"Job {job_id} not found")
+            if not job.completed:
+                raise ValueError(f"Job {job_id} is not completed")
+            if target_chain_id:
+                job.target_chain = target_chain_id
+            message = await self._create_settlement_message(job, options)
+            result = await self.bridge_manager.settle_cross_chain(message, bridge_name=bridge_name)
+            job.cross_chain_settlement_id = result.message_id
+            job.cross_chain_bridge = bridge_name or self.bridge_manager.default_adapter
+            session.commit()
+            return result
 
     async def get_settlement_status(self, settlement_id: str) -> SettlementResult:
         """Get status of a cross-chain settlement"""
@@ -69,21 +71,22 @@ class SettlementHook:
         self, job_id: str, target_chain_id: int, bridge_name: str | None = None
     ) -> dict[str, Any]:
         """Estimate cost for cross-chain settlement"""
-        job = await Job.get(job_id)  # type: ignore[attr-defined]
-        if not job:
-            raise ValueError(f"Job {job_id} not found")
-        message = SettlementMessage(
-            source_chain_id=await self._get_current_chain_id(),
-            target_chain_id=target_chain_id,
-            job_id=job.id,
-            receipt_hash=job.receipt.hash if job.receipt else "",
-            proof_data=job.receipt.proof if job.receipt else {},
-            payment_amount=job.payment_amount or 0,
-            payment_token=job.payment_token or "AITBC",
-            nonce=await self._generate_nonce(),
-            signature="",
-        )
-        return await self.bridge_manager.estimate_settlement_cost(message, bridge_name=bridge_name)
+        with session_scope() as session:
+            job = session.get(Job, job_id)
+            if not job:
+                raise ValueError(f"Job {job_id} not found")
+            message = SettlementMessage(
+                source_chain_id=await self._get_current_chain_id(),
+                target_chain_id=target_chain_id,
+                job_id=job.id,
+                receipt_hash=job.receipt.hash if job.receipt else "",
+                proof_data=job.receipt.proof if job.receipt else {},
+                payment_amount=job.payment_amount or 0,
+                payment_token=job.payment_token or "AITBC",
+                nonce=await self._generate_nonce(),
+                signature="",
+            )
+            return await self.bridge_manager.estimate_settlement_cost(message, bridge_name=bridge_name)
 
     async def list_supported_bridges(self) -> dict[str, Any]:
         """List all supported bridges and their capabilities"""
@@ -102,6 +105,12 @@ class SettlementHook:
         """Disable settlement hooks"""
         self._enabled = False
         logger.info("Settlement hooks disabled")
+
+    async def _save_job(self, job: Job) -> None:
+        """Persist job changes via a fresh session (the job may have been loaded elsewhere)."""
+        with session_scope() as session:
+            session.merge(job)
+            session.commit()
 
     async def _requires_cross_chain_settlement(self, job: Job) -> bool:
         """Check if job requires cross-chain settlement"""
@@ -125,7 +134,7 @@ class SettlementHook:
             job.cross_chain_settlement_id = result.message_id
             job.cross_chain_bridge = bridge_name
             job.cross_chain_settlement_status = result.status.value
-            await job.save()  # type: ignore[attr-defined]
+            await self._save_job(job)
             logger.info("Initiated cross-chain settlement for job %s: %s", job.id, result.message_id)
         except Exception as e:
             logger.error("Failed to initiate settlement for job %s: %s", job.id, e)
@@ -205,7 +214,7 @@ class SettlementHook:
         """Handle settlement errors"""
         job.cross_chain_settlement_error = str(error)
         job.cross_chain_settlement_status = BridgeStatus.FAILED.value
-        await job.save()  # type: ignore[attr-defined]
+        await self._save_job(job)
         await self._notify_settlement_failure(job, error)
 
     async def _refund_cross_chain_payment(self, job: Job) -> None:
@@ -216,7 +225,7 @@ class SettlementHook:
             result = await self.bridge_manager.refund_failed_settlement(job.cross_chain_payment_id)
             job.cross_chain_refund_id = result.message_id
             job.cross_chain_refund_status = result.status.value
-            await job.save()  # type: ignore[attr-defined]
+            await self._save_job(job)
         except Exception as e:
             logger.error("Failed to refund cross-chain payment for %s: %s", job.id, e)
 
