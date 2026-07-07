@@ -193,7 +193,7 @@ async def create_stake(
             raise HTTPException(status_code=404, detail="Agent not supported for staking")
         stake = await staking_service.create_stake(staker_address=current_user["address"], **request.dict())  # type: ignore[attr-defined]
         background_tasks.add_task(
-            blockchain_service.create_stake_contract,  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+            blockchain_service.create_stake_contract,
             stake.stake_id,
             request.agent_wallet,  # type: ignore[attr-defined]
             request.amount,  # type: ignore[attr-defined]
@@ -475,7 +475,7 @@ async def update_agent_performance(
             raise HTTPException(status_code=403, detail="Not authorized to update performance")
         await staking_service.update_agent_performance(agent_wallet=agent_wallet, **request.dict())  # type: ignore[attr-defined]
         background_tasks.add_task(
-            blockchain_service.update_agent_performance,  # type: ignore[attr-defined]  # ponytail: method not yet implemented
+            blockchain_service.update_agent_performance,
             agent_wallet,
             request.accuracy,  # type: ignore[attr-defined]
             request.successful,  # type: ignore[attr-defined]
