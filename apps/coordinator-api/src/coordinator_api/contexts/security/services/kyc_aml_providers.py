@@ -367,11 +367,11 @@ async def test_kyc_aml_integration() -> None:
     logger.info("Testing KYC/AML Integration")
     customer_data = {"first_name": "John", "last_name": "Doe", "email": "john.doe@example.com", "date_of_birth": "1990-01-01"}
     kyc_result = await submit_kyc_verification("user123", "chainalysis", customer_data)
-    logger.info("KYC Submitted", result=kyc_result)  # type: ignore[call-arg]
+    logger.info("KYC Submitted: %s", kyc_result)
     kyc_status = await check_kyc_status(kyc_result["request_id"], "chainalysis")
-    logger.info("KYC Status", status=kyc_status)  # type: ignore[call-arg]
+    logger.info("KYC Status: %s", kyc_status)
     aml_result = await perform_aml_screening("user123", customer_data)
-    logger.info("AML Screening", result=aml_result)  # type: ignore[call-arg]  # type: ignore[call-arg]
+    logger.info("AML Screening: %s", aml_result)
     logger.info("KYC/AML integration test complete")
 
 
