@@ -321,7 +321,7 @@ class MultiChainWalletAdapter:
         wallet = result.scalars().first()
         if not wallet:
             raise ValueError(f"Wallet not found for agent {agent_id} on chain {chain_id}")
-        update_data = request.dict(exclude_unset=True)
+        update_data = request.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             if hasattr(wallet, field):
                 setattr(wallet, field, value)

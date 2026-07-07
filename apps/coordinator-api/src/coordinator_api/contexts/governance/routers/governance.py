@@ -89,7 +89,7 @@ async def create_proposal(
     """Submit a new governance proposal to the DAO"""
     service = GovernanceService(session)
     try:
-        proposal = await service.create_governance_proposal(proposer_id, proposal_request.dict())
+        proposal = await service.create_governance_proposal(proposer_id, proposal_request.model_dump())
         return proposal
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
