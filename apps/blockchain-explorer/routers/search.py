@@ -33,9 +33,9 @@ async def search_transactions(
             data_layer = get_data_layer()
             rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id if chain_id else DEFAULT_CHAIN, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
             result = await data_layer.get_transactions(
-                address, amount_min, amount_max, tx_type, since, until, limit, offset, chain_id, rpc_url
+                address, amount_min, amount_max, tx_type, since, until, limit, offset, chain_id or "", rpc_url
             )
-            return result if isinstance(result, dict) else {"transactions": result}
+            return result if isinstance(result, dict) else {"transactions": result}  # type: ignore[unreachable]
         else:
             # Original implementation without data layer
             # Build query parameters
@@ -91,8 +91,8 @@ async def search_blocks(
             # Use data layer with toggle support
             data_layer = get_data_layer()
             rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id if chain_id else DEFAULT_CHAIN, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
-            result = await data_layer.get_blocks(validator, since, until, min_tx, limit, offset, chain_id, rpc_url)
-            return result if isinstance(result, dict) else {"blocks": result}
+            result = await data_layer.get_blocks(validator, since, until, min_tx, limit, offset, chain_id or "", rpc_url)
+            return result if isinstance(result, dict) else {"blocks": result}  # type: ignore[unreachable]
         else:
             # Original implementation without data layer
             params: dict[str, str | int] = {}
