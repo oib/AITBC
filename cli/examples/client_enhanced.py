@@ -26,7 +26,7 @@ class OutputFormatter:
         if format_type == "json":
             return json.dumps(data, indent=2, default=str)
         elif format_type == "yaml":
-            return yaml.dump(data, default_flow_style=False, sort_keys=False)
+            return yaml.dump(data, default_flow_style=False, sort_keys=False)  # type: ignore[no-any-return]
         elif format_type == "table":
             return OutputFormatter._format_table(data)
         else:
@@ -38,7 +38,7 @@ class OutputFormatter:
         if isinstance(data, dict):
             # Simple key-value table
             rows = [[k, v] for k, v in data.items()]
-            return tabulate(rows, headers=["Key", "Value"], tablefmt="grid")
+            return str(tabulate(rows, headers=["Key", "Value"], tablefmt="grid"))
         elif isinstance(data, list) and data:
             if all(isinstance(item, dict) for item in data):
                 # Table from list of dicts

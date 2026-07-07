@@ -33,7 +33,7 @@ class AuthManager:
             warning(f"Failed to retrieve credential: {e}")
             return None
 
-    def delete_credential(self, name: str, environment: str = "default"):
+    def delete_credential(self, name: str, environment: str | None = "default"):
         """Delete an API key"""
         try:
             key = f"{environment}_{name}"
@@ -42,11 +42,11 @@ class AuthManager:
         except Exception as e:
             error(f"Failed to delete credential: {e}")
 
-    def list_credentials(self, environment: str | None = None) -> list[str]:
+    def list_credentials(self, environment: str | None = None) -> dict[str, str]:
         """List all stored credentials (without showing the actual keys)"""
         # Note: keyring doesn't provide a direct way to list all keys
         # This is a simplified version that checks for common credential names
-        credentials = []
+        credentials: dict[str, str] = {}
         envs = [environment] if environment else ["default", "dev", "staging", "prod"]
         names = ["client", "miner", "admin"]
 
@@ -54,7 +54,7 @@ class AuthManager:
             for name in names:
                 _ = f"{env}_{name}"
                 if self.get_credential(name, env):
-                    credentials.append(f"{name}@{env}")
+                    credentials[f"{name}@{env}"] = "******"
 
         return credentials
 

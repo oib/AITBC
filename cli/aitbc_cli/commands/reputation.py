@@ -149,7 +149,7 @@ def leaderboard(category: str, limit: int, region: str, format: str):
         if region:
             params["region"] = region
 
-        response = requests.get(f"{api_url}/reputation/leaderboard", params=params, timeout=10)
+        response = requests.get(f"{api_url}/reputation/leaderboard", params=params, timeout=10)  # type: ignore[arg-type]
 
         if response.status_code == 200:
             data = response.json()

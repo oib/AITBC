@@ -8,8 +8,8 @@ import time
 import click
 
 try:
-    from ..core.config import load_multichain_config
-    from ..core.node_client import NodeClient
+    from aitbc_cli.core.config import load_multichain_config
+    from aitbc_cli.core.node_client import NodeClient
     from aitbc_cli.utils import error, output
 except ImportError:
     from aitbc_cli.core.config import load_multichain_config
@@ -82,7 +82,7 @@ def monitor_command(ctx, node_id, realtime, interval):
                         live.update(generate_monitor_layout())
                         time.sleep(interval)
                 except KeyboardInterrupt:
-                    console.click.echo("\n[yellow]Monitoring stopped by user[/yellow]")
+                    console.print("\n[yellow]Monitoring stopped by user[/yellow]")
         else:
             # Single snapshot
             node_info = asyncio.run(get_node_stats())
