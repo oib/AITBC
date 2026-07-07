@@ -4,6 +4,7 @@ import json
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import click
 from rich.console import Console
@@ -87,7 +88,7 @@ def metrics(ctx, period: str, export_path: str | None):
     seconds = value * multipliers.get(unit, 3600)
     since = datetime.now() - timedelta(seconds=seconds)
 
-    metrics_data = {
+    metrics_data: dict[str, Any] = {
         "period": period,
         "since": since.isoformat(),
         "collected_at": datetime.now().isoformat(),
@@ -97,46 +98,39 @@ def metrics(ctx, period: str, export_path: str | None):
     }
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         # Coordinator metrics
         try:
-            resp = http_client.get(f"{config.agent_coordinator_url}/status", headers={"X-Api-Key": config.api_key or ""})
-            if resp.status_code == 200:
-                metrics_data["coordinator"] = resp.json()
-                metrics_data["coordinator"]["status"] = "online"
-            else:
-                metrics_data["coordinator"]["status"] = f"error_{resp.status_code}"
+            coordinator_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
+            coordinator_data = coordinator_client.get("/status", headers={"X-Api-Key": config.api_key or ""})
+            coordinator_data["status"] = "online"
+            metrics_data["coordinator"] = coordinator_data
         except Exception:
-            metrics_data["coordinator"]["status"] = "offline"
+            metrics_data["coordinator"] = {"status": "offline"}
 
         # Job metrics
         try:
-            resp = http_client.get(
-                f"{config.agent_coordinator_url}/v1/jobs", headers={"X-Api-Key": config.api_key or ""}, params={"limit": 100}
-            )
-            if resp.status_code == 200:
-                jobs = resp.json()
-                if isinstance(jobs, list):
-                    metrics_data["jobs"] = {
-                        "total": len(jobs),
-                        "completed": sum(1 for j in jobs if j.get("status") == "completed"),
-                        "pending": sum(1 for j in jobs if j.get("status") == "pending"),
-                        "failed": sum(1 for j in jobs if j.get("status") == "failed"),
-                    }
+            coordinator_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
+            jobs: Any = coordinator_client.get("/v1/jobs", headers={"X-Api-Key": config.api_key or ""}, params={"limit": 100})
+            if isinstance(jobs, list):
+                metrics_data["jobs"] = {
+                    "total": len(jobs),
+                    "completed": sum(1 for j in jobs if j.get("status") == "completed"),
+                    "pending": sum(1 for j in jobs if j.get("status") == "pending"),
+                    "failed": sum(1 for j in jobs if j.get("status") == "failed"),
+                }
         except Exception:
             metrics_data["jobs"] = {"error": "unavailable"}
 
         # Miner metrics
         try:
-            resp = http_client.get(f"{config.agent_coordinator_url}/v1/miners", headers={"X-Api-Key": config.api_key or ""})
-            if resp.status_code == 200:
-                miners = resp.json()
-                if isinstance(miners, list):
-                    metrics_data["miners"] = {
-                        "total": len(miners),
-                        "online": sum(1 for m in miners if m.get("status") == "ONLINE"),
-                        "offline": sum(1 for m in miners if m.get("status") != "ONLINE"),
-                    }
+            coordinator_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
+            miners: Any = coordinator_client.get("/v1/miners", headers={"X-Api-Key": config.api_key or ""})
+            if isinstance(miners, list):
+                metrics_data["miners"] = {
+                    "total": len(miners),
+                    "online": sum(1 for m in miners if m.get("status") == "ONLINE"),
+                    "offline": sum(1 for m in miners if m.get("status") != "ONLINE"),
+                }
         except Exception:
             metrics_data["miners"] = {"error": "unavailable"}
 
@@ -165,13 +159,13 @@ def metrics(ctx, period: str, export_path: str | None):
 @click.pass_context
 def alerts(ctx, action: str, name: str | None, alert_type: str | None, threshold: float | None, webhook: str | None):
     """Configure monitoring alerts"""
-    config = ctx.obj["config"]
+    ctx.obj["config"]
     alerts_dir = Path.home() / ".aitbc" / "alerts"
     alerts_dir.mkdir(parents=True, exist_ok=True)
     alerts_file = alerts_dir / "alerts.json"
 
     # Load existing alerts
-    existing = []
+    existing: list[dict[str, Any]] = []
     if alerts_file.exists():
         with open(alerts_file) as f:
             existing = json.load(f)
@@ -213,15 +207,16 @@ def alerts(ctx, action: str, name: str | None, alert_type: str | None, threshold
         if not name:
             error("Alert name required (--name)")
             return
-        alert = next((a for a in existing if a["name"] == name), None)
+        alert = next((a for a in existing if a["name"] == name), None)  # type: ignore[arg-type]
         if not alert:
             error(f"Alert '{name}' not found")
             return
-        if alert.get("webhook"):
+        webhook_url = alert.get("webhook")
+        if webhook_url and isinstance(webhook_url, str):
             try:
-                http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
+                http_client = AITBCHTTPClient(base_url=webhook_url, timeout=10)
                 resp = http_client.post(
-                    alert["webhook"],
+                    "",
                     json={
                         "alert": name,
                         "type": alert["type"],
@@ -229,7 +224,7 @@ def alerts(ctx, action: str, name: str | None, alert_type: str | None, threshold
                         "timestamp": datetime.now().isoformat(),
                     },
                 )
-                output({"status": "sent", "response_code": resp.status_code}, ctx.obj["output_format"])
+                output({"status": "sent", "response": resp}, ctx.obj["output_format"])
             except Exception as e:
                 error(f"Webhook test failed: {e}")
         else:
@@ -252,22 +247,18 @@ def history(ctx, period: str):
     analysis = {"period": period, "since": since.isoformat(), "analyzed_at": datetime.now().isoformat(), "summary": {}}
 
     try:
-        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
+        coordinator_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
         try:
-            resp = http_client.get(
-                f"{config.agent_coordinator_url}/v1/jobs", headers={"X-Api-Key": config.api_key or ""}, params={"limit": 500}
-            )
-            if resp.status_code == 200:
-                jobs = resp.json()
-                if isinstance(jobs, list):
-                    completed = [j for j in jobs if j.get("status") == "completed"]
-                    failed = [j for j in jobs if j.get("status") == "failed"]
-                    analysis["summary"] = {
-                        "total_jobs": len(jobs),
-                        "completed": len(completed),
-                        "failed": len(failed),
-                        "success_rate": f"{len(completed) / max(1, len(jobs)) * 100:.1f}%",
-                    }
+            jobs: Any = coordinator_client.get("/v1/jobs", headers={"X-Api-Key": config.api_key or ""}, params={"limit": 500})
+            if isinstance(jobs, list):
+                completed = [j for j in jobs if j.get("status") == "completed"]
+                failed = [j for j in jobs if j.get("status") == "failed"]
+                analysis["summary"] = {
+                    "total_jobs": len(jobs),
+                    "completed": len(completed),
+                    "failed": len(failed),
+                    "success_rate": f"{len(completed) / max(1, len(jobs)) * 100:.1f}%",
+                }
         except Exception:
             analysis["summary"] = {"error": "Could not fetch job data"}
 
@@ -285,7 +276,7 @@ def history(ctx, period: str):
 @click.pass_context
 def webhooks(ctx, action: str, name: str | None, url: str | None, events: str | None):
     """Manage webhook notifications"""
-    config = ctx.obj["config"]
+    ctx.obj["config"]
     webhooks_dir = Path.home() / ".aitbc" / "webhooks"
     webhooks_dir.mkdir(parents=True, exist_ok=True)
     webhooks_file = webhooks_dir / "webhooks.json"
@@ -335,20 +326,24 @@ def webhooks(ctx, action: str, name: str | None, url: str | None, events: str | 
         if not wh:
             error(f"Webhook '{name}' not found")
             return
-        try:
-            http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
-            resp = http_client.post(
-                wh["url"],
-                json={
-                    "event": "test",
-                    "source": "aitbc-cli",
-                    "message": "Test webhook notification",
-                    "timestamp": datetime.now().isoformat(),
-                },
-            )
-            output({"status": "sent", "response_code": resp.status_code}, ctx.obj["output_format"])
-        except Exception as e:
-            error(f"Webhook test failed: {e}")
+        webhook_url = wh.get("url")
+        if webhook_url and isinstance(webhook_url, str):
+            try:
+                http_client = AITBCHTTPClient(base_url=webhook_url, timeout=10)
+                resp = http_client.post(
+                    "",
+                    json={
+                        "event": "test",
+                        "source": "aitbc-cli",
+                        "message": "Test webhook notification",
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                )
+                output({"status": "sent", "response": resp}, ctx.obj["output_format"])
+            except Exception as e:
+                error(f"Webhook test failed: {e}")
+        else:
+            error(f"Webhook '{name}' has no valid URL")
 
 
 CAMPAIGNS_DIR = Path.home() / ".aitbc" / "campaigns"
