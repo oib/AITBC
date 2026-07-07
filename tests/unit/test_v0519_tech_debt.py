@@ -111,7 +111,7 @@ def test_reputation_service_get_dto_returns_none_for_missing_agent():
 
     session = MagicMock()
     # Simulate a query that returns no row
-    session.execute.return_value.first.return_value = None
+    session.execute.return_value.scalars.return_value.first.return_value = None
     svc = ReputationService(session)
     assert svc.get_reputation_dto("no-such-agent") is None
 
@@ -130,7 +130,7 @@ def test_reputation_service_get_dto_returns_dto_for_existing_agent():
         reputation_level=ReputationLevel.ADVANCED,
     )
     session = MagicMock()
-    session.execute.return_value.first.return_value = rep
+    session.execute.return_value.scalars.return_value.first.return_value = rep
     svc = ReputationService(session)
     dto = svc.get_reputation_dto("agent-1")
     assert isinstance(dto, ReputationDTO)

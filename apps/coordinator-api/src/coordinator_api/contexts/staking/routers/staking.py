@@ -10,6 +10,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
+from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -32,7 +33,7 @@ async def get_current_user_optional(request: Request, session: Annotated[Session
         if not token:
             return {"address": "test_user_address", "is_oracle": False, "is_admin": False}
         user_dict = await _get_current_user(session, request, token)
-        wallet = session.query(Wallet).filter(Wallet.user_id == user_dict["user_id"]).first()
+        wallet = session.execute(select(Wallet).where(Wallet.user_id == user_dict["user_id"])).scalars().first()
         return {
             "address": wallet.address if wallet else "test_user_address",
             "is_oracle": False,

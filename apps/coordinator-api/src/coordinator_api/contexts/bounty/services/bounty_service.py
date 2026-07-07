@@ -320,7 +320,7 @@ class BountyService:
                 .order_by(desc(func.sum(Bounty.reward_amount)))
                 .limit(limit)
             )
-            result = self.session.execute(stmt).all()  # type: ignore[union-attr]
+            result = self.session.execute(stmt).all()  # ponytail: multi-column select, .all() returns Row objects
             leaderboard: list[dict[str, Any]] = []
             for row in result:
                 leaderboard.append(
@@ -371,7 +371,7 @@ class BountyService:
                 .where(Bounty.creation_time >= start_date)
                 .group_by(Bounty.tier)
             )
-            tier_result = self.session.execute(tier_stmt).all()  # type: ignore[union-attr]
+            tier_result = self.session.execute(tier_stmt).all()  # ponytail: multi-column select, .all() returns Row objects
             tier_distribution = {row.tier.value: row.count for row in tier_result}
             expired_stmt = select(func.count(Bounty.bounty_id)).where(  # type: ignore[arg-type]
                 and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.EXPIRED)  # type: ignore[arg-type]

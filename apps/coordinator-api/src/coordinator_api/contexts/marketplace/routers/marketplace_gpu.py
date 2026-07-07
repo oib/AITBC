@@ -192,9 +192,11 @@ async def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_s
     gpu = _get_gpu_or_404(session, gpu_id)
     result = _gpu_to_dict(gpu)
     if gpu.status == "booked":
-        booking = session.execute(
-            select(GPUBooking).where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active").limit(1)
-        ).first()
+        booking = (
+            session.execute(select(GPUBooking).where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active").limit(1))
+            .scalars()
+            .first()
+        )
         if booking:
             result["current_booking"] = {
                 "booking_id": booking.id,
@@ -415,9 +417,11 @@ async def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_sessi
     gpu = _get_gpu_or_404(session, gpu_id)
     if gpu.status != "booked":
         return {"status": "already_available", "gpu_id": gpu_id, "message": f"GPU {gpu_id} is already available"}
-    booking = session.execute(
-        select(GPUBooking).where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active").limit(1)
-    ).first()
+    booking = (
+        session.execute(select(GPUBooking).where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active").limit(1))
+        .scalars()
+        .first()
+    )
     refund = 0.0
     if booking:
         try:

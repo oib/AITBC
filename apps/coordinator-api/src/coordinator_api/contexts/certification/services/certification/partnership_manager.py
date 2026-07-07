@@ -111,7 +111,9 @@ class PartnershipManager:
         self, session: Session, agent_id: str, program_id: str, application_data: dict[str, Any]
     ) -> tuple[bool, AgentPartnership | None, list[str]]:
         """Apply for partnership program"""
-        program = session.execute(select(PartnershipProgram).where(PartnershipProgram.program_id == program_id)).first()
+        program = (
+            session.execute(select(PartnershipProgram).where(PartnershipProgram.program_id == program_id)).scalars().first()
+        )
         if not program:
             return (False, None, ["Partnership program not found"])
         if program.status != "active":

@@ -91,15 +91,21 @@ class ExternalProviderService:
         provider = self.session.scalars(select(ExternalProvider).where(ExternalProvider.id == provider_id)).first()
         if not provider:
             raise ValueError(f"Provider {provider_id} not found")
-        existing_mapping = self.session.scalars(
-            select(ProviderMapping).where(
-                ProviderMapping.provider_id == provider_id, ProviderMapping.external_resource_id == external_resource_id
+        existing_mapping = (
+            self.session.scalars(
+                select(ProviderMapping).where(
+                    ProviderMapping.provider_id == provider_id, ProviderMapping.external_resource_id == external_resource_id
+                )
             )
-        ).first()
+            .scalars()
+            .first()
+        )
         if existing_mapping:
-            internal_gpu = self.session.scalars(
-                select(GPURegistry).where(GPURegistry.id == existing_mapping.internal_resource_id)
-            ).first()
+            internal_gpu = (
+                self.session.scalars(select(GPURegistry).where(GPURegistry.id == existing_mapping.internal_resource_id))
+                .scalars()
+                .first()
+            )
             if internal_gpu:
                 return internal_gpu
         internal_gpu = GPURegistry(
@@ -125,9 +131,13 @@ class ExternalProviderService:
 
     def get_sync_status(self, provider_id: str) -> SyncStatus | None:
         """Check sync status for a provider."""
-        sync_status = self.session.scalars(
-            select(SyncStatus).where(SyncStatus.provider_id == provider_id).order_by(desc(SyncStatus.started_at))
-        ).first()
+        sync_status = (
+            self.session.scalars(
+                select(SyncStatus).where(SyncStatus.provider_id == provider_id).order_by(desc(SyncStatus.started_at))
+            )
+            .scalars()
+            .first()
+        )
         return sync_status
 
     def _fetch_aws_resources(self, provider: ExternalProvider) -> list[dict[str, Any]]:

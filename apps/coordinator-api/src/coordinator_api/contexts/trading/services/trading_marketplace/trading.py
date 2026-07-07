@@ -654,20 +654,32 @@ class P2PTradingProtocol:
 
     async def get_trading_summary(self, agent_id: str) -> dict[str, Any]:
         """Get comprehensive trading summary for an agent"""
-        requests = self.session.execute(select(TradeRequest).where(TradeRequest.buyer_agent_id == agent_id)).all()
-        matches = self.session.execute(
-            select(TradeMatch).where(or_(TradeMatch.buyer_agent_id == agent_id, TradeMatch.seller_agent_id == agent_id))
-        ).all()
-        negotiations = self.session.execute(
-            select(TradeNegotiation).where(
-                or_(TradeNegotiation.buyer_agent_id == agent_id, TradeNegotiation.seller_agent_id == agent_id)
+        requests = self.session.execute(select(TradeRequest).where(TradeRequest.buyer_agent_id == agent_id)).scalars().all()
+        matches = (
+            self.session.execute(
+                select(TradeMatch).where(or_(TradeMatch.buyer_agent_id == agent_id, TradeMatch.seller_agent_id == agent_id))
             )
-        ).all()
-        agreements = self.session.execute(
-            select(TradeAgreement).where(
-                or_(TradeAgreement.buyer_agent_id == agent_id, TradeAgreement.seller_agent_id == agent_id)
+            .scalars()
+            .all()
+        )
+        negotiations = (
+            self.session.execute(
+                select(TradeNegotiation).where(
+                    or_(TradeNegotiation.buyer_agent_id == agent_id, TradeNegotiation.seller_agent_id == agent_id)
+                )
             )
-        ).all()
+            .scalars()
+            .all()
+        )
+        agreements = (
+            self.session.execute(
+                select(TradeAgreement).where(
+                    or_(TradeAgreement.buyer_agent_id == agent_id, TradeAgreement.seller_agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
         return {
             "agent_id": agent_id,
             "trade_requests": len(requests),
