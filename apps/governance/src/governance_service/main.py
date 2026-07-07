@@ -192,7 +192,7 @@ async def execute_proposal(
     proposal = await svc.get_proposal(proposal_id)
     if not proposal:
         return ({"error": "Proposal not found"}, 404)
-    if proposal.get("status") != "passed":  # type: ignore[attr-defined]
+    if proposal.status != "passed":
         return ({"error": "Proposal must be in 'passed' status to execute"}, 400)
     try:
         execution_result = {
@@ -313,15 +313,15 @@ async def get_transactions(
                 ]
             )
         if action == "vote" or not action:
-            result = await session.execute(select(Vote))
-            votes = result.scalars().all()
+            vote_result = await session.execute(select(Vote))
+            votes = list(vote_result.scalars().all())
             transactions.extend(
                 [
                     {
-                        "id": v.vote_id,  # type: ignore[attr-defined]
+                        "id": v.vote_id,
                         "action": "vote",
                         "proposal_id": v.proposal_id,
-                        "vote_type": v.vote_type,  # type: ignore[attr-defined]
+                        "vote_type": v.vote_type,
                         "created_at": v.created_at.isoformat() if v.created_at else None,
                     }
                     for v in votes
@@ -452,17 +452,17 @@ async def propagate_proposal(
             payload = {
                 "type": "GOVERNANCE_PROPOSE",
                 "proposal_id": proposal_id,
-                "proposer": proposal.get("proposer_id", ""),  # type: ignore[attr-defined]
-                "title": proposal.get("title", ""),  # type: ignore[attr-defined]
-                "description": proposal.get("description", ""),  # type: ignore[attr-defined]
-                "proposal_type": proposal.get("proposal_type", "parameter_change"),  # type: ignore[attr-defined]
-                "parameters": proposal.get("parameters", {}),  # type: ignore[attr-defined]
+                "proposer": proposal.proposer_id,
+                "title": proposal.title,
+                "description": proposal.description,
+                "proposal_type": proposal.proposal_type,
+                "parameters": proposal.proposal_value,
                 "chain_id": chain_id,
             }
             tx_data = {
                 "chain_id": chain_id,
-                "from": proposal.get("proposer_id", "genesis"),  # type: ignore[attr-defined]
-                "to": proposal.get("proposer_id", "genesis"),  # type: ignore[attr-defined]
+                "from": proposal.proposer_id,
+                "to": proposal.proposer_id,
                 "amount": 0,
                 "type": "GOVERNANCE_PROPOSE",
                 "payload": payload,
@@ -529,16 +529,14 @@ async def execute_cross_chain(
     proposal = await svc.get_proposal(proposal_id)
     if not proposal:
         return JSONResponse(status_code=404, content={"error": "Proposal not found"})  # type: ignore[return-value]
-    if proposal.get("status") not in ("passed", "executed"):  # type: ignore[attr-defined]
+    if proposal.status not in ("passed", "executed"):
         return JSONResponse(  # type: ignore[return-value]
             status_code=400,
-            content={
-                "error": f"Proposal must be in 'passed' status to execute cross-chain (current: {proposal.get('status')})"  # type: ignore[attr-defined]
-            },
+            content={"error": f"Proposal must be in 'passed' status to execute cross-chain (current: {proposal.status})"},
         )
 
     # Determine target chains from proposal metadata or default to hub chain
-    parameters = proposal.get("parameters", {})  # type: ignore[attr-defined]
+    parameters = proposal.proposal_value
     target_chains = parameters.get("target_chains", [settings.default_chain_id])
 
     executed_on: list[str] = []
@@ -550,13 +548,13 @@ async def execute_cross_chain(
             payload = {
                 "type": "GOVERNANCE_EXECUTE",
                 "proposal_id": proposal_id,
-                "executor": proposal.get("proposer_id", "genesis"),  # type: ignore[attr-defined]
+                "executor": proposal.proposer_id,
                 "chain_id": chain_id,
             }
             tx_data = {
                 "chain_id": chain_id,
-                "from": proposal.get("proposer_id", "genesis"),  # type: ignore[attr-defined]
-                "to": proposal.get("proposer_id", "genesis"),  # type: ignore[attr-defined]
+                "from": proposal.proposer_id,
+                "to": proposal.proposer_id,
                 "amount": 0,
                 "type": "GOVERNANCE_EXECUTE",
                 "payload": payload,

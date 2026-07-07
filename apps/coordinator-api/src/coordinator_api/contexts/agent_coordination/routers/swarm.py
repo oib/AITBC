@@ -121,10 +121,10 @@ if settings.debug:
 
         return {  # type: ignore[return-value]
             "swarm_id": f"swarm_{uuid.uuid4().hex[:16]}",
-            "role": request.role,  # type: ignore[attr-defined]
-            "capability": request.capability,  # type: ignore[attr-defined]
-            "priority": request.priority,  # type: ignore[attr-defined]
-            "region": request.region,  # type: ignore[attr-defined]
+            "role": request_data.role,
+            "capability": request_data.capability,
+            "priority": request_data.priority,
+            "region": request_data.region,
             "status": "joined",
         }
 
@@ -136,10 +136,10 @@ if settings.debug:
 
         return {  # type: ignore[return-value]
             "task_id": f"task_{uuid.uuid4().hex[:16]}",
-            "task": request.task,  # type: ignore[attr-defined]
-            "collaborators": request.collaborators,  # type: ignore[attr-defined]
-            "strategy": request.strategy,  # type: ignore[attr-defined]
-            "timeout_seconds": request.timeout_seconds,  # type: ignore[attr-defined]
+            "task": request_data.task,
+            "collaborators": request_data.collaborators,
+            "strategy": request_data.strategy,
+            "timeout_seconds": request_data.timeout_seconds,
             "status": "coordinating",
         }
 
