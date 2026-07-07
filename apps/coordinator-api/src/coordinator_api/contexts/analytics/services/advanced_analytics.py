@@ -474,9 +474,9 @@ async def test_advanced_analytics() -> None:
     logger.info("Analytics monitoring started")
     await asyncio.sleep(5)
     dashboard = get_dashboard_data("BTC/USDT")
-    logger.info("Dashboard data retrieved", field_count=len(dashboard))  # type: ignore[call-arg]
+    logger.info("Dashboard data retrieved: %d fields", len(dashboard))
     summary = get_analytics_summary()
-    logger.info("Analytics summary", summary=summary)  # type: ignore[call-arg]  # type: ignore[call-arg]
+    logger.info("Analytics summary: %s", summary)
     await stop_analytics_monitoring()
     logger.info("Analytics monitoring stopped")
     logger.info("Advanced Analytics test complete")

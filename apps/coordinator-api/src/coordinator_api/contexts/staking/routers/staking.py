@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
@@ -58,6 +58,8 @@ class StakeCreateRequest(BaseModel):
 
 
 class StakeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     stake_id: str
     staker_address: str
     agent_wallet: str
@@ -91,6 +93,8 @@ class StakeCompleteRequest(BaseModel):
 
 
 class AgentMetricsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     agent_wallet: str
     total_staked: float
     staker_count: int
@@ -113,6 +117,8 @@ class AgentMetricsResponse(BaseModel):
 
 
 class StakingPoolResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     agent_wallet: str
     total_staked: float
     total_rewards: float
@@ -141,6 +147,8 @@ class StakingFilterRequest(BaseModel):
 
 
 class StakingStatsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     total_staked: float
     total_stakers: int
     active_stakes: int
@@ -202,7 +210,7 @@ async def create_stake(
             stake_request.lock_period,
             stake_request.auto_compound,
         )
-        return StakeResponse.from_orm(stake)  # type: ignore[pydantic-orm]
+        return StakeResponse.model_validate(stake)
     except HTTPException:
         raise
     except Exception as e:
@@ -226,7 +234,7 @@ async def get_stake(
             raise HTTPException(status_code=404, detail="Stake not found")
         if stake.staker_address != current_user["address"]:
             raise HTTPException(status_code=403, detail="Not authorized to view this stake")
-        return StakeResponse.from_orm(stake)  # type: ignore[pydantic-orm]
+        return StakeResponse.model_validate(stake)
     except HTTPException:
         raise
     except Exception as e:
@@ -256,7 +264,7 @@ async def get_stakes(
             page=filters.page,
             limit=filters.limit,
         )
-        return [StakeResponse.from_orm(stake) for stake in stakes]  # type: ignore[pydantic-orm]
+        return [StakeResponse.model_validate(stake) for stake in stakes]
     except Exception as e:
         logger.error("Failed to get stakes: %s", e)
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -287,7 +295,7 @@ async def add_to_stake(
             stake_id=stake_id, additional_amount=Decimal(str(stake_request.additional_amount))
         )
         background_tasks.add_task(blockchain_service.add_to_stake, stake_id, stake_request.additional_amount)
-        return StakeResponse.from_orm(updated_stake)  # type: ignore[pydantic-orm]
+        return StakeResponse.model_validate(updated_stake)
     except HTTPException:
         raise
     except Exception as e:
@@ -407,7 +415,7 @@ async def get_agent_metrics(
         metrics = await staking_service.get_agent_metrics(agent_wallet)
         if not metrics:
             raise HTTPException(status_code=404, detail="Agent not found")
-        return AgentMetricsResponse.from_orm(metrics)  # type: ignore[pydantic-orm]
+        return AgentMetricsResponse.model_validate(metrics)
     except HTTPException:
         raise
     except Exception as e:
@@ -428,7 +436,7 @@ async def get_staking_pool(
         pool = await staking_service.get_staking_pool(agent_wallet)
         if not pool:
             raise HTTPException(status_code=404, detail="Staking pool not found")
-        return StakingPoolResponse.from_orm(pool)  # type: ignore[pydantic-orm]
+        return StakingPoolResponse.model_validate(pool)
     except HTTPException:
         raise
     except Exception as e:
@@ -559,7 +567,7 @@ async def get_staking_stats(
     """Get staking system statistics"""
     try:
         stats = await staking_service.get_staking_stats(period=period)  # type: ignore[arg-type]
-        return StakingStatsResponse.from_orm(stats)  # type: ignore[pydantic-orm]
+        return StakingStatsResponse.model_validate(stats)
     except Exception as e:
         logger.error("Failed to get staking stats: %s", e)
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -652,7 +660,7 @@ async def get_my_staking_positions(
             page=effective_page,
             limit=effective_limit,
         )
-        return [StakeResponse.from_orm(stake) for stake in stakes]  # type: ignore[pydantic-orm]
+        return [StakeResponse.model_validate(stake) for stake in stakes]
     except Exception as e:
         logger.error("Failed to get staking positions: %s", e)
         raise HTTPException(status_code=400, detail=str(e)) from e
