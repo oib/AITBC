@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 from logging.config import fileConfig
+from pathlib import Path
 
 from alembic import context
-from poolhub.models import Base
+
+# Add src directory to sys.path for module imports (matches governance/trading env.py)
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from poolhub.models import Base  # noqa: E402
 from sqlalchemy.ext.asyncio import create_async_engine
 
 config = context.config
