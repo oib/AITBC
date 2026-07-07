@@ -5,7 +5,9 @@ Bridge manager for cross-chain settlements
 import asyncio
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import Any
+from uuid import uuid4
 
 from aitbc.async_tasks import create_task_with_logging
 
@@ -240,6 +242,100 @@ class BridgeManager:
                 "config": asdict(adapter.config),
             }
         return info
+
+    async def create_settlement(
+        self,
+        *,
+        source_chain_id: str,
+        target_chain_id: str,
+        amount: float,
+        asset_type: str,
+        recipient_address: str,
+        gas_limit: int | None = None,
+        gas_price: float | None = None,
+    ) -> str:
+        """Create a pending settlement record and return its ID.
+
+        The actual cross-chain transfer is performed by ``process_settlement``.
+        """
+        settlement_id = uuid4().hex
+        await self.storage.store_settlement_record(
+            settlement_id=settlement_id,
+            source_chain_id=source_chain_id,
+            target_chain_id=target_chain_id,
+            amount=amount,
+            asset_type=asset_type,
+            recipient_address=recipient_address,
+            gas_limit=gas_limit,
+            gas_price=gas_price,
+        )
+        return settlement_id
+
+    async def process_settlement(self, settlement_id: str, user_id: str) -> None:
+        """Execute the cross-chain transfer for a previously created settlement.
+
+        Called as a background task.  If no bridges are configured the settlement
+        is marked FAILED so the caller can see the error instead of hanging in
+        PENDING forever.
+        """
+        record = await self.storage.get_settlement(settlement_id)
+        if not record:
+            return
+        if not self._initialized or not self.adapters:
+            await self.storage.update_settlement(
+                settlement_id, status=BridgeStatus.FAILED, error_message="No bridges configured"
+            )
+            return
+        message = SettlementMessage(
+            source_chain_id=int(record["source_chain_id"]),
+            target_chain_id=int(record["target_chain_id"]),
+            job_id="",
+            receipt_hash="",
+            proof_data={},
+            payment_amount=int(record["payment_amount"]),
+            payment_token=record.get("payment_token", "AITBC"),
+            nonce=0,
+            signature="",
+            gas_limit=record.get("gas_limit"),
+        )
+        try:
+            result = await self.settle_cross_chain(message)
+            await self.storage.update_settlement(
+                settlement_id,
+                status=result.status,
+                transaction_hash=result.transaction_hash,
+                completed_at=result.completed_at,
+            )
+        except Exception as e:
+            await self.storage.update_settlement(settlement_id, status=BridgeStatus.FAILED, error_message=str(e))
+
+    async def get_settlement(self, settlement_id: str) -> SimpleNamespace | None:
+        """Get a settlement by ID, wrapped for attribute access."""
+        record = await self.storage.get_settlement(settlement_id)
+        if not record:
+            return None
+        return SimpleNamespace(
+            id=record.get("message_id") or settlement_id,
+            status=record.get("status", "pending"),
+            tx_hash=record.get("transaction_hash"),
+            created_at=record.get("created_at"),
+            completed_at=record.get("completed_at"),
+            error_message=record.get("error_message"),
+        )
+
+    async def list_settlements(self, *, api_key: str, limit: int, offset: int) -> list[dict[str, Any]]:
+        """List settlements with pagination."""
+        return await self.storage.list_settlements(limit=limit, offset=offset)
+
+    async def cancel_settlement(self, settlement_id: str, user_id: str) -> bool:
+        """Cancel a pending settlement. Returns False if not found or already finalised."""
+        record = await self.storage.get_settlement(settlement_id)
+        if not record:
+            return False
+        if record.get("status") in [BridgeStatus.COMPLETED.value, BridgeStatus.FAILED.value]:
+            return False
+        await self.storage.update_settlement(settlement_id, status=BridgeStatus.FAILED, error_message="Cancelled by user")
+        return True
 
     async def _monitor_settlement(self, message_id: str) -> None:
         """Monitor settlement until completion"""

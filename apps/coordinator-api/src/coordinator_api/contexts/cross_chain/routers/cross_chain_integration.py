@@ -10,7 +10,6 @@ from uuid import uuid4
 from coordinator_api.agent_identity.manager import AgentIdentityManager
 from coordinator_api.agent_identity.wallet_adapter_enhanced import (
     SecurityLevel,
-    TransactionStatus,
     WalletAdapterFactory,
     WalletStatus,
 )
@@ -27,7 +26,7 @@ from coordinator_api.contexts.cross_chain.services.cross_chain.bridge_types impo
     BridgeProtocol,
     BridgeSecurityLevel,
 )
-from ..domain.chain_transaction import TransactionType
+from ..domain.chain_transaction import TransactionStatus, TransactionType
 from coordinator_api.contexts.reputation.services.reputation_engine import CrossChainReputationEngine
 from coordinator_api.contexts.cross_chain.services.multi_chain_transaction_manager import (
     ChainTransactionManager,
@@ -61,17 +60,17 @@ async def create_enhanced_wallet(
     owner_address: str,
     chain_id: int,
     security_config: dict[str, Any],
-    security_level: SecurityLevel | None,
     session: Annotated[Session, Depends(get_session)],
     identity_manager: Annotated[AgentIdentityManager, Depends(get_agent_identity_manager)],
+    security_level: SecurityLevel = SecurityLevel.MEDIUM,
 ) -> dict[str, Any]:
     """Create an enhanced multi-chain wallet"""
     try:
         if not owner_address.startswith("0x"):
-            identity = await identity_manager.get_identity_by_address(owner_address)  # type: ignore[attr-defined]  # ponytail: method not on AgentIdentityManager
+            identity = await identity_manager.get_identity_by_owner(owner_address)
             if not identity:
                 raise HTTPException(status_code=404, detail="Identity not found for address")
-        adapter = WalletAdapterFactory.create_adapter(chain_id, "http://aitbc:8202", security_level)  # type: ignore[arg-type]  # ponytail: SecurityLevel | None vs SecurityLevel
+        adapter = WalletAdapterFactory.create_adapter(chain_id, "http://aitbc:8202", security_level)
         wallet_data = await adapter.create_wallet(owner_address, security_config)
         wallet_id = f"wallet_{uuid4().hex[:8]}"
         return {
@@ -103,7 +102,9 @@ async def get_wallet_balance(
     try:
         if not rpc_url:
             raise HTTPException(status_code=400, detail="rpc_url parameter is required")
-        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)  # type: ignore[arg-type]  # ponytail: int | None vs int
+        if chain_id is None:
+            raise HTTPException(status_code=400, detail="chain_id parameter is required")
+        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)
         if not await adapter.validate_address(wallet_address):
             raise HTTPException(status_code=400, detail="Invalid wallet address")
         balance_data = await adapter.get_balance(wallet_address, token_address)
@@ -131,7 +132,9 @@ async def execute_wallet_transaction(
     try:
         if not rpc_url:
             raise HTTPException(status_code=400, detail="rpc_url parameter is required")
-        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)  # type: ignore[arg-type]  # ponytail: int | None vs int
+        if chain_id is None:
+            raise HTTPException(status_code=400, detail="chain_id parameter is required")
+        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)
         if not await adapter.validate_address(wallet_address) or not await adapter.validate_address(to_address):
             raise HTTPException(status_code=400, detail="Invalid addresses provided")
         transaction_data = await adapter.execute_transaction(
@@ -155,8 +158,8 @@ async def get_wallet_transaction_history(
     wallet_address: str,
     session: Annotated[Session, Depends(get_session)],
     chain_id: int | None = None,
-    limit: int | None = None,
-    offset: int | None = None,
+    limit: int = 100,
+    offset: int = 0,
     from_block: int | None = None,
     to_block: int | None = None,
     rpc_url: str | None = None,
@@ -165,10 +168,12 @@ async def get_wallet_transaction_history(
     try:
         if not rpc_url:
             raise HTTPException(status_code=400, detail="rpc_url parameter is required")
-        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)  # type: ignore[arg-type]  # ponytail: int | None vs int
+        if chain_id is None:
+            raise HTTPException(status_code=400, detail="chain_id parameter is required")
+        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)
         if not await adapter.validate_address(wallet_address):
             raise HTTPException(status_code=400, detail="Invalid wallet address")
-        transactions = await adapter.get_transaction_history(wallet_address, limit, offset, from_block, to_block)  # type: ignore[arg-type]  # ponytail: int | None vs int
+        transactions = await adapter.get_transaction_history(wallet_address, limit, offset, from_block, to_block)
         return transactions
     except Exception:
         raise HTTPException(status_code=500, detail="Error getting transaction history") from None
@@ -191,9 +196,11 @@ async def sign_message(
             raise HTTPException(status_code=400, detail="rpc_url parameter is required")
         if not private_key:
             raise HTTPException(status_code=400, detail="private_key parameter is required")
-        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)  # type: ignore[arg-type]  # ponytail: int | None vs int
+        if chain_id is None:
+            raise HTTPException(status_code=400, detail="chain_id parameter is required")
+        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)
         signature_data = await adapter.secure_sign_message(message, private_key)
-        return signature_data  # type: ignore[return-value]  # ponytail: str vs dict[str, Any]
+        return {"signature": signature_data, "message": message, "chain_id": chain_id}
     except Exception:
         raise HTTPException(status_code=500, detail="Error signing message") from None
 
@@ -213,7 +220,9 @@ async def verify_signature(
     try:
         if not rpc_url:
             raise HTTPException(status_code=400, detail="rpc_url parameter is required")
-        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)  # type: ignore[arg-type]  # ponytail: int | None vs int
+        if chain_id is None:
+            raise HTTPException(status_code=400, detail="chain_id parameter is required")
+        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)
         is_valid = await adapter.verify_signature(message, signature, address)
         return {
             "valid": is_valid,
@@ -238,24 +247,28 @@ async def create_bridge_request(
     token_address: str | None = None,
     target_address: str | None = None,
     protocol: BridgeProtocol | None = None,
-    security_level: BridgeSecurityLevel | None = None,
-    deadline_minutes: int | None = None,
+    security_level: BridgeSecurityLevel = BridgeSecurityLevel.MEDIUM,
+    deadline_minutes: int = 30,
 ) -> dict[str, Any]:
     """Create a cross-chain bridge request"""
     try:
+        if source_chain_id is None or target_chain_id is None:
+            raise HTTPException(status_code=400, detail="source_chain_id and target_chain_id are required")
+        if amount is None:
+            raise HTTPException(status_code=400, detail="amount is required")
         bridge_service = CrossChainBridgeService(session)
         chain_configs = {source_chain_id: {"rpc_url": "http://aitbc:8202"}, target_chain_id: {"rpc_url": "http://aitbc1:8202"}}
-        await bridge_service.initialize_bridge(chain_configs)  # type: ignore[arg-type]  # ponytail: dict[int | None, ...] vs dict[int, ...]
+        await bridge_service.initialize_bridge(chain_configs)
         bridge_request = await bridge_service.create_bridge_request(
             user_address=user_address,
-            source_chain_id=source_chain_id,  # type: ignore[arg-type]  # ponytail: int | None vs int
-            target_chain_id=target_chain_id,  # type: ignore[arg-type]  # ponytail: int | None vs int
-            amount=amount,  # type: ignore[arg-type]  # ponytail: float | None vs Decimal | float | str
+            source_chain_id=source_chain_id,
+            target_chain_id=target_chain_id,
+            amount=amount,
             token_address=token_address,
             target_address=target_address,
             protocol=protocol,
-            security_level=security_level,  # type: ignore[arg-type]  # ponytail: BridgeSecurityLevel | None vs BridgeSecurityLevel
-            deadline_minutes=deadline_minutes,  # type: ignore[arg-type]  # ponytail: int | None vs int
+            security_level=security_level,
+            deadline_minutes=deadline_minutes,
         )
         return bridge_request
     except Exception:
@@ -293,12 +306,12 @@ async def cancel_bridge_request(
 @router.get("/bridge/statistics", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
 async def get_bridge_statistics(
-    request: Request, time_period_hours: int | None, session: Annotated[Session, Depends(get_session)]
+    request: Request, session: Annotated[Session, Depends(get_session)], time_period_hours: int = 24
 ) -> dict[str, Any]:
     """Get bridge statistics"""
     try:
         bridge_service = CrossChainBridgeService(session)
-        stats = await bridge_service.get_bridge_statistics(time_period_hours)  # type: ignore[arg-type]  # ponytail: int | None vs int
+        stats = await bridge_service.get_bridge_statistics(time_period_hours)
         return stats
     except Exception:
         raise HTTPException(status_code=500, detail="Error getting bridge statistics") from None
@@ -326,16 +339,16 @@ async def submit_transaction(
     from_address: str,
     to_address: str,
     amount: float,
-    token_address: str | None,
-    data: dict[str, Any] | None,
-    priority: TransactionPriority | None,
-    routing_strategy: RoutingStrategy | None,
-    gas_limit: int | None,
-    gas_price: int | None,
-    max_fee_per_gas: int | None,
-    deadline_minutes: int | None,
-    metadata: dict[str, Any] | None,
     session: Annotated[Session, Depends(get_session)],
+    token_address: str | None = None,
+    data: dict[str, Any] | None = None,
+    priority: TransactionPriority = TransactionPriority.MEDIUM,
+    routing_strategy: RoutingStrategy | None = None,
+    gas_limit: int | None = None,
+    gas_price: int | None = None,
+    max_fee_per_gas: int | None = None,
+    deadline_minutes: int = 30,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Submit a multi-chain transaction"""
     try:
@@ -351,12 +364,12 @@ async def submit_transaction(
             amount=amount,
             token_address=token_address,
             data=data,
-            priority=priority,  # type: ignore[arg-type]  # ponytail: TransactionPriority | None vs TransactionPriority
+            priority=priority,
             routing_strategy=routing_strategy,
             gas_limit=gas_limit,
             gas_price=gas_price,
             max_fee_per_gas=max_fee_per_gas,
-            deadline_minutes=deadline_minutes,  # type: ignore[arg-type]  # ponytail: int | None vs int
+            deadline_minutes=deadline_minutes,
             metadata=metadata,
         )
         return result
@@ -368,16 +381,16 @@ async def submit_transaction(
 @rate_limit(rate=200, per=60)
 async def get_transaction_history(
     request: Request,
-    user_id: str | None,
-    chain_id: int | None,
-    transaction_type: TransactionType | None,
-    status: TransactionStatus | None,
-    priority: TransactionPriority | None,
-    limit: int | None,
-    offset: int | None,
-    from_date: datetime | None,
-    to_date: datetime | None,
     session: Annotated[Session, Depends(get_session)],
+    user_id: str | None = None,
+    chain_id: int | None = None,
+    transaction_type: TransactionType | None = None,
+    status: TransactionStatus | None = None,
+    priority: TransactionPriority | None = None,
+    limit: int = 100,
+    offset: int = 0,
+    from_date: datetime | None = None,
+    to_date: datetime | None = None,
 ) -> list[dict[str, Any]]:
     """Get transaction history with filtering"""
     try:
@@ -388,10 +401,10 @@ async def get_transaction_history(
             user_id=user_id,
             chain_id=chain_id,
             transaction_type=transaction_type,
-            status=status,  # type: ignore[arg-type]  # ponytail: agent_identity TransactionStatus vs cross_chain TransactionStatus
+            status=status,
             priority=priority,
-            limit=limit,  # type: ignore[arg-type]  # ponytail: int | None vs int
-            offset=offset,  # type: ignore[arg-type]  # ponytail: int | None vs int
+            limit=limit,
+            offset=offset,
             from_date=from_date,
             to_date=to_date,
         )
@@ -457,16 +470,16 @@ async def get_transaction_history(
 @rate_limit(rate=200, per=60)
 async def get_transaction_statistics(
     request: Request,
-    time_period_hours: int | None,
     chain_id: int | None,
     session: Annotated[Session, Depends(get_session)],
+    time_period_hours: int = 24,
 ) -> dict[str, Any]:
     """Get transaction statistics"""
     try:
         tx_manager = ChainTransactionManager(session)
         chain_configs = {1000: {"rpc_url": "http://aitbc:8202"}, 1001: {"rpc_url": "http://aitbc1:8202"}}
         await tx_manager.initialize(chain_configs)
-        stats = await tx_manager.get_transaction_statistics(time_period_hours, chain_id)  # type: ignore[arg-type]  # ponytail: int | None vs int
+        stats = await tx_manager.get_transaction_statistics(time_period_hours, chain_id)
         return stats
     except Exception:
         raise HTTPException(status_code=500, detail="Error getting transaction statistics") from None
@@ -479,9 +492,9 @@ async def optimize_transaction_routing(
     transaction_type: TransactionType,
     amount: float,
     from_chain: int,
-    to_chain: int | None,
-    urgency: TransactionPriority | None,
     session: Annotated[Session, Depends(get_session)],
+    to_chain: int | None = None,
+    urgency: TransactionPriority = TransactionPriority.MEDIUM,
 ) -> dict[str, Any]:
     """Optimize transaction routing for best performance"""
     try:
@@ -493,7 +506,7 @@ async def optimize_transaction_routing(
             amount=amount,
             from_chain=from_chain,
             to_chain=to_chain,
-            urgency=urgency,  # type: ignore[arg-type]  # ponytail: TransactionPriority | None vs TransactionPriority
+            urgency=urgency,
         )
         return optimization
     except Exception:

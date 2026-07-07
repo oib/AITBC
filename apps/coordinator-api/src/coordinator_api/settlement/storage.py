@@ -228,6 +228,63 @@ class SettlementStorage:
         result = await self.db.execute(query, days)
         return int(result.split()[-1])  # Return number of deleted rows
 
+    async def store_settlement_record(
+        self,
+        *,
+        settlement_id: str,
+        source_chain_id: str,
+        target_chain_id: str,
+        amount: float,
+        asset_type: str,
+        recipient_address: str,
+        gas_limit: int | None = None,
+        gas_price: float | None = None,
+    ) -> None:
+        """Store a new settlement record from router-level params"""
+        query = """
+        INSERT INTO settlements (
+            message_id, job_id, source_chain_id, target_chain_id,
+            receipt_hash, proof_data, payment_amount, payment_token,
+            nonce, signature, bridge_name, status, created_at
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+        )
+        """
+        await self.db.execute(
+            query,
+            (
+                settlement_id,
+                "",
+                source_chain_id,
+                target_chain_id,
+                "",
+                json.dumps({}),
+                amount,
+                asset_type,
+                0,
+                "",
+                "",
+                BridgeStatus.PENDING.value,
+                datetime.now(UTC),
+            ),
+        )
+
+    async def list_settlements(self, *, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
+        """List settlements with pagination"""
+        query = """
+        SELECT * FROM settlements
+        ORDER BY created_at DESC
+        LIMIT $1 OFFSET $2
+        """
+        results = await self.db.fetch(query, limit, offset)
+        settlements = []
+        for result in results:
+            settlement = dict(result)
+            if settlement.get("proof_data"):
+                settlement["proof_data"] = json.loads(settlement["proof_data"])
+            settlements.append(settlement)
+        return settlements
+
 
 # In-memory implementation for testing
 class InMemorySettlementStorage(SettlementStorage):
@@ -355,3 +412,41 @@ class InMemorySettlementStorage(SettlementStorage):
                 del self.settlements[msg_id]
 
             return len(to_delete)
+
+    async def store_settlement_record(
+        self,
+        *,
+        settlement_id: str,
+        source_chain_id: str,
+        target_chain_id: str,
+        amount: float,
+        asset_type: str,
+        recipient_address: str,
+        gas_limit: int | None = None,
+        gas_price: float | None = None,
+    ) -> None:
+        async with self._lock:
+            self.settlements[settlement_id] = {
+                "message_id": settlement_id,
+                "job_id": "",
+                "source_chain_id": source_chain_id,
+                "target_chain_id": target_chain_id,
+                "receipt_hash": "",
+                "proof_data": {},
+                "payment_amount": amount,
+                "payment_token": asset_type,
+                "nonce": 0,
+                "signature": "",
+                "bridge_name": "",
+                "status": BridgeStatus.PENDING.value,
+                "created_at": datetime.now(UTC),
+                "updated_at": datetime.now(UTC),
+                "recipient_address": recipient_address,
+                "gas_limit": gas_limit,
+                "gas_price": gas_price,
+            }
+
+    async def list_settlements(self, *, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
+        async with self._lock:
+            all_settlements = sorted(self.settlements.values(), key=lambda s: s.get("created_at", datetime.min), reverse=True)
+            return all_settlements[offset : offset + limit]
