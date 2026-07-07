@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from app.routers.ai import router
+from agent_app.routers.ai import router
 
 
 class TestAIRouter:
@@ -12,7 +12,7 @@ class TestAIRouter:
     @pytest.mark.asyncio
     async def test_record_learning_experience_success(self):
         """Test successful learning experience recording"""
-        from app.ai.realtime_learning import learning_system
+        from agent_app.ai.realtime_learning import learning_system
 
         learning_system.record_experience = AsyncMock(return_value={"status": "success", "experience_id": "exp-1"})
 
@@ -30,7 +30,7 @@ class TestAIRouter:
     @pytest.mark.asyncio
     async def test_record_learning_experience_error(self):
         """Test learning experience recording with error"""
-        from app.ai.realtime_learning import learning_system
+        from agent_app.ai.realtime_learning import learning_system
 
         learning_system.record_experience = AsyncMock(side_effect=Exception("Test error"))
 
@@ -47,7 +47,7 @@ class TestAIRouter:
     @pytest.mark.asyncio
     async def test_get_learning_statistics_success(self):
         """Test successful learning statistics retrieval"""
-        from app.ai.realtime_learning import learning_system
+        from agent_app.ai.realtime_learning import learning_system
 
         learning_system.get_learning_statistics = AsyncMock(return_value={"total_experiences": 100, "avg_reward": 0.95})
 
@@ -64,7 +64,7 @@ class TestAIRouter:
     @pytest.mark.asyncio
     async def test_predict_performance_success(self):
         """Test successful performance prediction"""
-        from app.ai.realtime_learning import learning_system
+        from agent_app.ai.realtime_learning import learning_system
 
         learning_system.predict_performance = AsyncMock(return_value={"predicted_performance": 0.92})
 
@@ -82,7 +82,7 @@ class TestAIRouter:
     @pytest.mark.asyncio
     async def test_recommend_action_success(self):
         """Test successful action recommendation"""
-        from app.ai.realtime_learning import learning_system
+        from agent_app.ai.realtime_learning import learning_system
 
         learning_system.recommend_action = AsyncMock(return_value={"recommended_action": "process_data", "confidence": 0.95})
 

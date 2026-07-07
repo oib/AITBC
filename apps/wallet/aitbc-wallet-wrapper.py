@@ -36,7 +36,7 @@ exec_cmd = [
     "/opt/aitbc/venv/bin/python",
     "-m",
     "uvicorn",
-    "app.main:app",
+    "wallet_app.main:app",
     "--host",
     bind_host,
     "--port",

@@ -4,7 +4,7 @@ version = "v0.2.3"
 description = "AITBC Coordinator API service"
 authors = ["AITBC Team"]
 packages = [
-    { include = "app", from = "src" }
+    { include = "coordinator_api", from = "src" }
 ]
 
 [tool.poetry.dependencies]

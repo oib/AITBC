@@ -1,6 +1,6 @@
 """Tests for apps.coordinator-api endpoints"""
 
-from app.main import app
+from coordinator_api.main import app
 from fastapi.testclient import TestClient
 
 client = TestClient(app)

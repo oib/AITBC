@@ -149,7 +149,7 @@ See [GPU Issues](../../troubleshooting/gpu-issues.md) for GPU detection and CUDA
 
 1. Create a virtual environment in `apps/coordinator-api/.venv`.
 2. Install dependencies listed in `pyproject.toml` once added.
-3. Run the FastAPI app via `uvicorn app.main:app --reload`.
+3. Run the FastAPI app via `uvicorn coordinator_api.main:app --reload`.
 
 ## Configuration
 

@@ -60,7 +60,7 @@ jobs:
           AITBC_REPO_DIR="$REPO" \
           DATA_DIR=/var/lib/aitbc/data \
           LOG_DIR=/var/log/aitbc \
-            "$VENV/bin/python" -m uvicorn app.main:app \
+            "$VENV/bin/python" -m uvicorn coordinator_api.main:app \
               --host 127.0.0.1 --port 8011 \
               --app-dir "$REPO/apps/coordinator-api/src" \
               --log-level warning &

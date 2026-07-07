@@ -76,7 +76,7 @@ curl -s http://localhost:8203/v1/marketplace/orders
 ```bash
 cd /opt/aitbc && PYTHONPATH=apps/coordinator-api/src ./venv/bin/python -c "
 import inspect
-from app.contexts.marketplace.routers.marketplace_gpu import list_orders
+from coordinator_api.contexts.marketplace.routers.marketplace_gpu import list_orders
 source = inspect.getsource(list_orders)
 if 'gpu_map' in source and 'in(' in source:
     print('PASS: B14 fix deployed — batch-fetch with WHERE IN is present in list_orders()')
@@ -165,7 +165,7 @@ After completing this scenario, you should be able to:
 # Verify batch-fetch in running code
 cd /opt/aitbc && PYTHONPATH=apps/coordinator-api/src ./venv/bin/python -c "
 import inspect
-from app.contexts.marketplace.routers.marketplace_gpu import list_orders
+from coordinator_api.contexts.marketplace.routers.marketplace_gpu import list_orders
 source = inspect.getsource(list_orders)
 assert 'gpu_map' in source, 'FAIL: no batch-fetch'
 assert '.in_(' in source or 'in_(' in source, 'FAIL: no WHERE IN'

@@ -9,7 +9,7 @@ import pytest
 def test_coordinator_app_imports():
     """Test that we can import the coordinator app"""
     try:
-        from app.main import app
+        from coordinator_api.main import app
 
         assert app is not None
         assert hasattr(app, "title")
@@ -22,7 +22,7 @@ def test_coordinator_app_imports():
 def test_coordinator_health_check():
     """Test the health check endpoint with proper imports"""
     try:
-        from app.main import app
+        from coordinator_api.main import app
         from fastapi.testclient import TestClient
 
         client = TestClient(app)
@@ -39,7 +39,7 @@ def test_coordinator_health_check():
 def test_job_endpoint_structure():
     """Test that the job endpoints exist"""
     try:
-        from app.main import app
+        from coordinator_api.main import app
         from fastapi.testclient import TestClient
 
         client = TestClient(app)
@@ -62,7 +62,7 @@ def test_job_endpoint_structure():
 def test_miner_endpoint_structure():
     """Test that the miner endpoints exist"""
     try:
-        from app.main import app
+        from coordinator_api.main import app
         from fastapi.testclient import TestClient
 
         client = TestClient(app)
@@ -85,7 +85,7 @@ def test_miner_endpoint_structure():
 def test_api_key_validation():
     """Test API key validation works correctly"""
     try:
-        from app.main import app
+        from coordinator_api.main import app
         from fastapi.testclient import TestClient
 
         client = TestClient(app)
@@ -125,8 +125,8 @@ def test_import_structure():
 def test_job_schema_validation():
     """Test that the job schema works as expected"""
     try:
-        from app.schemas import JobCreate
-        from app.types import Constraints
+        from coordinator_api.schemas import JobCreate
+        from coordinator_api.types import Constraints
 
         # Valid job creation data
         job_data = {"payload": {"job_type": "ai_inference", "parameters": {"model": "gpt-4"}}, "ttl_seconds": 900}

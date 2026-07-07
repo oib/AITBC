@@ -9,7 +9,7 @@ echo ""
 # Check if coordinator API is running
 if ! curl -s http://localhost:8203/api/health > /dev/null 2>&1; then
     echo "Error: Coordinator API is not running at http://localhost:8203"
-    echo "Start it with: cd /opt/aitbc/apps/coordinator-api && uvicorn app.main:app --host 127.0.0.1 --port 8203"
+    echo "Start it with: cd /opt/aitbc/apps/coordinator-api && uvicorn coordinator_api.main:app --host 127.0.0.1 --port 8203"
     exit 1
 fi
 

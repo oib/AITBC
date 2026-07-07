@@ -6,7 +6,7 @@ Imports fixtures from dedicated fixture files for better organization
 import sys
 from pathlib import Path
 
-# Add coordinator-api src to path for tests that import app.main
+# Add coordinator-api src to path for tests that import coordinator_api.main
 _COORD_SRC = str(Path(__file__).resolve().parent.parent / "apps" / "coordinator-api" / "src")
 if _COORD_SRC not in sys.path:
     sys.path.insert(0, _COORD_SRC)

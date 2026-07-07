@@ -1,6 +1,6 @@
 """Tests for WebSocket agent streaming module"""
 
-from app.websocket.agent_stream import ConnectionManager
+from agent_app.websocket.agent_stream import ConnectionManager
 
 
 class TestConnectionManager:

@@ -24,7 +24,7 @@ The ExternalProviderService enables integration with external GPU providers (AWS
 ## Usage Example
 
 ```python
-from app.contexts.marketplace.services.external_providers import ExternalProviderService
+from coordinator_api.contexts.marketplace.services.external_providers import ExternalProviderService
 
 service = ExternalProviderService(session)
 

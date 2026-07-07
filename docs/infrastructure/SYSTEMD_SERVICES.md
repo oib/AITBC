@@ -223,7 +223,7 @@ python3 -c "import sys; print(sys.path)"
 
 # Test manual startup
 cd /opt/aitbc/apps/coordinator-api
-PYTHONPATH=/opt/aitbc/apps/coordinator-api/src python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8203
+PYTHONPATH=/opt/aitbc/apps/coordinator-api/src python3 -m uvicorn coordinator_api.main:app --host 0.0.0.0 --port 8203
 ```
 
 #### Blockchain Node

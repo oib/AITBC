@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, "/home/oib/windsurf/aitbc/apps/coordinator-api/src")
 
-from app.domain.gpu_marketplace import GPURegistry
+from coordinator_api.domain.gpu_marketplace import GPURegistry
 from sqlalchemy import create_engine
 from sqlmodel import Session, select
 

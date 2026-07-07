@@ -57,7 +57,7 @@ import os
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from app.storage import init_db
+from coordinator_api.storage import init_db
 
 if __name__ == "__main__":
     try:

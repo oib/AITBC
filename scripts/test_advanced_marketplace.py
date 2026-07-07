@@ -18,7 +18,7 @@ sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
 
 
 # Import models
-from app.contexts.marketplace.domain.gpu_marketplace import (
+from coordinator_api.contexts.marketplace.domain.gpu_marketplace import (
     AnalyticsEvent,
     ExternalProvider,
     MarketMetrics,
@@ -31,14 +31,14 @@ from app.contexts.marketplace.domain.gpu_marketplace import (
     TrendData,
     UserProfile,
 )
-from app.contexts.marketplace.services.external_providers import ExternalProviderService
-from app.contexts.marketplace.services.market_analytics import MarketAnalytics
-from app.contexts.marketplace.services.marketplace import MarketplaceService
-from app.contexts.marketplace.services.plugin_manager import get_plugin_manager
-from app.contexts.marketplace.services.resource_matcher import ResourceMatcher
+from coordinator_api.contexts.marketplace.services.external_providers import ExternalProviderService
+from coordinator_api.contexts.marketplace.services.market_analytics import MarketAnalytics
+from coordinator_api.contexts.marketplace.services.marketplace import MarketplaceService
+from coordinator_api.contexts.marketplace.services.plugin_manager import get_plugin_manager
+from coordinator_api.contexts.marketplace.services.resource_matcher import ResourceMatcher
 
 # Import services
-from app.contexts.trading.services.trading_marketplace.dynamic_pricing import (
+from coordinator_api.contexts.trading.services.trading_marketplace.dynamic_pricing import (
     DynamicPricingEngine,
     PricingStrategy,
 )

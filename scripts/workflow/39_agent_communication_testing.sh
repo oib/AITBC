@@ -211,7 +211,7 @@ from datetime import datetime
 sys.path.append('/opt/aitbc/apps/coordinator-api/src')
 
 try:
-    from app.agent_identity.sdk.communication import AgentCommunicationClient
+    from coordinator_api.agent_identity.sdk.communication import AgentCommunicationClient
 
     async def test_communication():
         """Test agent communication functionality"""

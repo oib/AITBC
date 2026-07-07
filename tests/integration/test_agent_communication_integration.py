@@ -17,7 +17,7 @@ class TestMessageEncryption:
     @pytest.mark.asyncio
     async def test_key_pair_generation(self):
         """Test RSA key pair generation"""
-        from app.encryption import get_encryptor
+        from agent_app.encryption import get_encryptor
 
         encryptor = get_encryptor()
         key_pair = encryptor.generate_key_pair("test_agent_001")
@@ -30,7 +30,7 @@ class TestMessageEncryption:
     @pytest.mark.asyncio
     async def test_message_encryption_decryption(self):
         """Test end-to-end message encryption and decryption"""
-        from app.encryption import get_encryptor
+        from agent_app.encryption import get_encryptor
 
         encryptor = get_encryptor()
 
@@ -55,7 +55,7 @@ class TestMessageEncryption:
     @pytest.mark.asyncio
     async def test_signature_verification(self):
         """Test message signature verification"""
-        from app.encryption import get_encryptor
+        from agent_app.encryption import get_encryptor
 
         encryptor = get_encryptor()
 
@@ -78,7 +78,7 @@ class TestWorkflowOrchestration:
     @pytest.mark.asyncio
     async def test_workflow_creation(self):
         """Test workflow definition creation"""
-        from app.workflow import get_orchestrator
+        from agent_app.workflow import get_orchestrator
 
         orchestrator = get_orchestrator()
         await orchestrator.start()
@@ -104,7 +104,7 @@ class TestWorkflowOrchestration:
     @pytest.mark.asyncio
     async def test_workflow_execution(self):
         """Test workflow execution"""
-        from app.workflow import WorkflowStatus, get_orchestrator
+        from agent_app.workflow import WorkflowStatus, get_orchestrator
 
         orchestrator = get_orchestrator()
         await orchestrator.start()
@@ -150,7 +150,7 @@ class TestWorkflowOrchestration:
     @pytest.mark.asyncio
     async def test_workflow_cancellation(self):
         """Test workflow cancellation"""
-        from app.workflow import WorkflowStatus, get_orchestrator
+        from agent_app.workflow import WorkflowStatus, get_orchestrator
 
         orchestrator = get_orchestrator()
         await orchestrator.start()
@@ -177,7 +177,7 @@ class TestAgentDiscovery:
     @pytest.mark.asyncio
     async def test_agent_registration_and_discovery(self):
         """Test agent registration and discovery by capability"""
-        from app.routing.agent_discovery import AgentInfo, AgentRegistry, AgentStatus, AgentType
+        from agent_app.routing.agent_discovery import AgentInfo, AgentRegistry, AgentStatus, AgentType
 
         registry = AgentRegistry()
         await registry.start()
@@ -229,7 +229,13 @@ class TestMessageProtocols:
     @pytest.mark.asyncio
     async def test_request_response_pattern(self):
         """Test request/response message pattern"""
-        from app.protocols.communication import AgentMessage, CommunicationManager, MessageType, Priority, create_protocol
+        from agent_app.protocols.communication import (
+            AgentMessage,
+            CommunicationManager,
+            MessageType,
+            Priority,
+            create_protocol,
+        )
 
         comm_manager = CommunicationManager("agent_001")
         protocol = create_protocol("peer_to_peer", "agent_001")
@@ -250,7 +256,7 @@ class TestMessageProtocols:
     @pytest.mark.asyncio
     async def test_broadcast_protocol(self):
         """Test broadcast message protocol"""
-        from app.protocols.communication import BroadcastProtocol
+        from agent_app.protocols.communication import BroadcastProtocol
 
         broadcast = BroadcastProtocol("agent_001", "global")
 
@@ -268,7 +274,7 @@ class TestMessageProtocols:
     @pytest.mark.asyncio
     async def test_message_ttl(self):
         """Test message TTL and expiry"""
-        from app.protocols.communication import AgentMessage, MessageType, Priority
+        from agent_app.protocols.communication import AgentMessage, MessageType, Priority
 
         # Create message with short TTL
         message = AgentMessage(
@@ -296,7 +302,7 @@ class TestMessagePriorityQueue:
     @pytest.mark.asyncio
     async def test_priority_levels(self):
         """Test message priority levels"""
-        from app.protocols.communication import Priority
+        from agent_app.protocols.communication import Priority
 
         # Test priority ordering
         priorities = [Priority.LOW, Priority.NORMAL, Priority.HIGH, Priority.CRITICAL]
@@ -304,7 +310,7 @@ class TestMessagePriorityQueue:
         # Create messages with different priorities
         messages = []
         for i, priority in enumerate(priorities):
-            from app.protocols.communication import AgentMessage, MessageType
+            from agent_app.protocols.communication import AgentMessage, MessageType
 
             msg = AgentMessage(
                 sender_id=f"agent_{i}",

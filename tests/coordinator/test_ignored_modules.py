@@ -33,7 +33,7 @@ def _load_module(module_name: str, rel_path: str):
 
 
 # Load prometheus_metrics module
-_pm = _load_module("prometheus_metrics", "app/monitoring/prometheus_metrics.py")
+_pm = _load_module("prometheus_metrics", "agent_app/monitoring/prometheus_metrics.py")
 Counter = _pm.Counter
 Gauge = _pm.Gauge
 Histogram = _pm.Histogram
@@ -42,14 +42,14 @@ MetricsRegistry = _pm.MetricsRegistry
 PerformanceMonitor = _pm.PerformanceMonitor
 
 # Load message_encryption module
-_enc = _load_module("message_encryption", "app/encryption/message_encryption.py")
+_enc = _load_module("message_encryption", "agent_app/encryption/message_encryption.py")
 AgentKeyPair = _enc.AgentKeyPair
 EncryptedMessage = _enc.EncryptedMessage
 MessageEncryptor = _enc.MessageEncryptor
 get_encryptor = _enc.get_encryptor
 
 # Load alerting module
-_alert = _load_module("alerting", "app/monitoring/alerting.py")
+_alert = _load_module("alerting", "agent_app/monitoring/alerting.py")
 Alert = _alert.Alert
 AlertManager = _alert.AlertManager
 AlertRule = _alert.AlertRule
@@ -60,7 +60,7 @@ NotificationManager = _alert.NotificationManager
 SLAMonitor = _alert.SLAMonitor
 
 # Load message_storage module
-_storage = _load_module("message_storage", "app/storage/message_storage.py")
+_storage = _load_module("message_storage", "agent_app/storage/message_storage.py")
 MessageStorage = _storage.MessageStorage
 PeerStorage = _storage.PeerStorage
 
