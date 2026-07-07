@@ -491,79 +491,79 @@ def test_check_finality_exact_threshold() -> None:
 
 @pytest.mark.asyncio
 async def test_bridge_client_get_block_header() -> None:
-    client = BridgeClient(BridgeConfig(rpc_url=RPC_URL))
-    resp = _mock_response(
-        200,
-        {
-            "chain_id": "ait-hub",
-            "height": 100,
-            "hash": "0xblockhash",
-            "state_root": "0xroot",
-            "proposer": "0xProposer",
-            "signature": "0xsig",
-            "finality_confirmed": True,
-            "confirmation_count": 6,
-        },
-    )
-    mock_http = _mock_async_client(resp)
-    client._client = mock_http
+    async with BridgeClient(BridgeConfig(rpc_url=RPC_URL)) as client:
+        resp = _mock_response(
+            200,
+            {
+                "chain_id": "ait-hub",
+                "height": 100,
+                "hash": "0xblockhash",
+                "state_root": "0xroot",
+                "proposer": "0xProposer",
+                "signature": "0xsig",
+                "finality_confirmed": True,
+                "confirmation_count": 6,
+            },
+        )
+        mock_http = _mock_async_client(resp)
+        client._client = mock_http
 
-    result = await client.get_block_header("ait-hub", 100)
-    assert result["chain_id"] == "ait-hub"
-    assert result["height"] == 100
-    assert result["state_root"] == "0xroot"
-    mock_http.get.assert_awaited_once()
-    call = mock_http.get.await_args
-    assert call.args[0] == "/bridge/block-headers/ait-hub/100"
+        result = await client.get_block_header("ait-hub", 100)
+        assert result["chain_id"] == "ait-hub"
+        assert result["height"] == 100
+        assert result["state_root"] == "0xroot"
+        mock_http.get.assert_awaited_once()
+        call = mock_http.get.await_args
+        assert call.args[0] == "/bridge/block-headers/ait-hub/100"
 
 
 @pytest.mark.asyncio
 async def test_bridge_client_store_block_header() -> None:
-    client = BridgeClient(BridgeConfig(rpc_url=RPC_URL))
-    resp = _mock_response(200, {"status": "stored", "height": 100})
-    mock_http = _mock_async_client(resp)
-    client._client = mock_http
+    async with BridgeClient(BridgeConfig(rpc_url=RPC_URL)) as client:
+        resp = _mock_response(200, {"status": "stored", "height": 100})
+        mock_http = _mock_async_client(resp)
+        client._client = mock_http
 
-    header_data = {
-        "chain_id": "ait-hub",
-        "height": 100,
-        "hash": "0xblockhash",
-        "parent_hash": "0xparent",
-        "proposer": "0xProposer",
-        "state_root": "0xroot",
-        "signature": "0xsig",
-    }
-    result = await client.store_block_header(header_data)
-    assert result["status"] == "stored"
-    mock_http.post.assert_awaited_once()
-    call = mock_http.post.await_args
-    assert call.args[0] == "/bridge/block-headers"
-    assert call.kwargs["json"]["chain_id"] == "ait-hub"
-    assert call.kwargs["json"]["signature"] == "0xsig"
+        header_data = {
+            "chain_id": "ait-hub",
+            "height": 100,
+            "hash": "0xblockhash",
+            "parent_hash": "0xparent",
+            "proposer": "0xProposer",
+            "state_root": "0xroot",
+            "signature": "0xsig",
+        }
+        result = await client.store_block_header(header_data)
+        assert result["status"] == "stored"
+        mock_http.post.assert_awaited_once()
+        call = mock_http.post.await_args
+        assert call.args[0] == "/bridge/block-headers"
+        assert call.kwargs["json"]["chain_id"] == "ait-hub"
+        assert call.kwargs["json"]["signature"] == "0xsig"
 
 
 @pytest.mark.asyncio
 async def test_bridge_client_oracle_status() -> None:
-    client = BridgeClient(BridgeConfig(rpc_url=RPC_URL))
-    resp = _mock_response(
-        200,
-        {
-            "verification_mode": "in_process",
-            "finality_blocks": 6,
-            "min_confirmations": 3,
-            "validator_sets": {"ait-hub": {"epoch": 1, "validators": 5}},
-            "block_headers_stored": {"ait-hub": 42},
-        },
-    )
-    mock_http = _mock_async_client(resp)
-    client._client = mock_http
+    async with BridgeClient(BridgeConfig(rpc_url=RPC_URL)) as client:
+        resp = _mock_response(
+            200,
+            {
+                "verification_mode": "in_process",
+                "finality_blocks": 6,
+                "min_confirmations": 3,
+                "validator_sets": {"ait-hub": {"epoch": 1, "validators": 5}},
+                "block_headers_stored": {"ait-hub": 42},
+            },
+        )
+        mock_http = _mock_async_client(resp)
+        client._client = mock_http
 
-    result = await client.oracle_status()
-    assert result["verification_mode"] == "in_process"
-    assert result["finality_blocks"] == 6
-    mock_http.get.assert_awaited_once()
-    call = mock_http.get.await_args
-    assert call.args[0] == "/bridge/oracle/status"
+        result = await client.oracle_status()
+        assert result["verification_mode"] == "in_process"
+        assert result["finality_blocks"] == 6
+        mock_http.get.assert_awaited_once()
+        call = mock_http.get.await_args
+        assert call.args[0] == "/bridge/oracle/status"
 
 
 # ---------------------------------------------------------------------------

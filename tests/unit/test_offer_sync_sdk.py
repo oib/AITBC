@@ -380,11 +380,12 @@ class TestOfferSyncClientInit:
         assert client.rpc_url == "http://trading:8104"
         assert client._timeout == 60
 
-    def test_ensure_client_creates_lazy(self) -> None:
-        client = OfferSyncClient()
-        c = client._ensure_client()
-        assert c is not None
-        assert client._client is not None
+    @pytest.mark.asyncio
+    async def test_ensure_client_creates_lazy(self) -> None:
+        async with OfferSyncClient() as client:
+            c = client._ensure_client()
+            assert c is not None
+            assert client._client is not None
 
 
 class TestOfferSyncClientAsync:

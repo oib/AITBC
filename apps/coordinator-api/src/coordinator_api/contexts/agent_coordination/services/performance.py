@@ -13,6 +13,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
 
 from coordinator_api.contexts.agent_coordination.domain.agent_performance import (
+    AgentCapability,
     AgentPerformanceProfile,
     LearningStrategy,
     MetaLearningModel,
@@ -764,4 +765,60 @@ class AgentPerformanceService:
             "ranking_position": profile.ranking_position,
             "percentile_rank": profile.percentile_rank,
             "last_assessed": profile.last_assessed.isoformat() if profile.last_assessed else None,
+        }
+
+    async def create_capability(
+        self,
+        *,
+        session: Session,
+        agent_id: str,
+        capability_name: str,
+        capability_type: str,
+        domain_area: str,
+        skill_level: float,
+        specialization_areas: list[str],
+    ) -> AgentCapability:
+        """Create an agent capability record."""
+        capability_id = f"cap_{uuid4().hex[:8]}"
+        capability = AgentCapability(
+            capability_id=capability_id,
+            agent_id=agent_id,
+            capability_name=capability_name,
+            capability_type=capability_type,
+            domain_area=domain_area,
+            skill_level=skill_level,
+            proficiency_score=min(skill_level / 10.0, 1.0),
+            specializations=specialization_areas,
+        )
+        session.add(capability)
+        session.commit()
+        session.refresh(capability)
+        logger.info("Created capability %s for agent %s", capability_id, agent_id)
+        return capability
+
+    async def list_capabilities(self, agent_id: str) -> list[AgentCapability]:
+        """List all capabilities for an agent."""
+        return list(self.session.execute(select(AgentCapability).where(AgentCapability.agent_id == agent_id)).scalars().all())
+
+    async def get_performance_analytics(self, agent_id: str, period_days: int = 30) -> dict[str, Any]:
+        """Get performance analytics for an agent over a time period."""
+        profile = (
+            self.session.execute(select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id))
+            .scalars()
+            .first()
+        )
+        capabilities = (
+            self.session.execute(select(AgentCapability).where(AgentCapability.agent_id == agent_id)).scalars().all()
+        )
+        return {
+            "agent_id": agent_id,
+            "period_days": period_days,
+            "overall_score": profile.overall_score if profile else 0.0,
+            "performance_metrics": profile.performance_metrics if profile else {},
+            "improvement_trends": profile.improvement_trends if profile else {},
+            "capability_count": len(capabilities),
+            "top_capabilities": [
+                {"name": c.capability_name, "skill_level": c.skill_level, "proficiency": c.proficiency_score}
+                for c in sorted(capabilities, key=lambda x: x.skill_level, reverse=True)[:5]
+            ],
         }
