@@ -41,7 +41,7 @@ class EcosystemService:
                 func.count(func.distinct(Bounty.winner_address)).label("unique_earners"),
                 func.avg(Bounty.reward_amount).label("average_earnings"),
             ).where(and_(Bounty.status == BountyStatus.COMPLETED, Bounty.creation_time >= start_date))  # type: ignore[arg-type]
-            earnings_result = self.session.execute(earnings_stmt).first()
+            earnings_result = self.session.execute(earnings_stmt).scalars().first()
             total_earnings = earnings_result.total_earnings or Decimal("0")  # type: ignore[union-attr]
             unique_earners = earnings_result.unique_earners or 0  # type: ignore[union-attr]
             average_earnings = earnings_result.average_earnings or 0.0  # type: ignore[union-attr]
@@ -62,7 +62,9 @@ class EcosystemService:
                 .order_by(func.sum(Bounty.reward_amount).desc())
                 .limit(10)
             )
-            top_earners_result = self.session.execute(top_earners_stmt).all()
+            top_earners_result = self.session.execute(
+                top_earners_stmt
+            ).all()  # ponytail: multi-column select, .all() returns Row objects with labeled columns
             top_earners = [
                 {
                     "address": row.winner_address,
@@ -109,7 +111,7 @@ class EcosystemService:
                 func.sum(AgentMetrics.total_submissions).label("total_submissions"),
                 func.avg(AgentMetrics.average_accuracy).label("avg_accuracy"),
             ).where(AgentMetrics.last_update_time >= start_date)  # type: ignore[arg-type]
-            agents_result = self.session.execute(agents_stmt).first()
+            agents_result = self.session.execute(agents_stmt).scalars().first()
             total_agents = agents_result.total_agents or 0  # type: ignore[union-attr]
             average_accuracy = agents_result.avg_accuracy or 0.0  # type: ignore[union-attr]
             active_agents_stmt = select(func.count(func.distinct(BountySubmission.submitter_address))).where(
@@ -128,7 +130,9 @@ class EcosystemService:
                 .order_by(func.count(BountySubmission.submission_id).desc())  # type: ignore[arg-type]
                 .limit(10)
             )
-            top_agents_result = self.session.execute(top_agents_stmt).all()
+            top_agents_result = self.session.execute(
+                top_agents_stmt
+            ).all()  # ponytail: multi-column select, .all() returns Row objects
             top_utilized_agents = [
                 {
                     "agent_wallet": row.submitter_address,
@@ -143,7 +147,9 @@ class EcosystemService:
                 .where(AgentMetrics.last_update_time >= start_date)
                 .group_by(AgentMetrics.current_tier)
             )
-            performance_result = self.session.execute(performance_stmt).all()
+            performance_result = self.session.execute(
+                performance_stmt
+            ).all()  # ponytail: multi-column select, .all() returns Row objects
             performance_distribution = {row.current_tier.value: row.count for row in performance_result}
             return {
                 "total_agents": total_agents,
@@ -212,7 +218,7 @@ class EcosystemService:
                 func.count(func.distinct(AgentStake.staker_address)).label("total_stakers"),
                 func.avg(AgentStake.current_apy).label("avg_apy"),
             ).where(AgentStake.start_time >= start_date)  # type: ignore[arg-type]
-            staking_result = self.session.execute(staking_stmt).first()
+            staking_result = self.session.execute(staking_stmt).scalars().first()
             total_staked = staking_result.total_staked or 0.0  # type: ignore[union-attr]
             total_stakers = staking_result.total_stakers or 0  # type: ignore[union-attr]
             average_apy = staking_result.avg_apy or 0.0  # type: ignore[union-attr]
@@ -232,7 +238,9 @@ class EcosystemService:
                 .order_by(func.sum(AgentStake.amount).desc())
                 .limit(10)
             )
-            top_pools_result = self.session.execute(top_pools_stmt).all()
+            top_pools_result = self.session.execute(
+                top_pools_stmt
+            ).all()  # ponytail: multi-column select, .all() returns Row objects
             top_staking_pools = [
                 {
                     "agent_wallet": row.agent_wallet,
@@ -248,7 +256,7 @@ class EcosystemService:
                 .where(AgentStake.start_time >= start_date)
                 .group_by(AgentStake.agent_tier)
             )
-            tier_result = self.session.execute(tier_stmt).all()
+            tier_result = self.session.execute(tier_stmt).all()  # ponytail: multi-column select, .all() returns Row objects
             tier_distribution = {row.agent_tier.value: row.count for row in tier_result}
             return {
                 "total_staked": total_staked,
@@ -279,7 +287,7 @@ class EcosystemService:
                 .filter(Bounty.status == BountyStatus.ACTIVE)
                 .label("active_bounties"),
             ).where(Bounty.creation_time >= start_date)  # type: ignore[arg-type]
-            bounty_result = self.session.execute(bounty_stmt).first()
+            bounty_result = self.session.execute(bounty_stmt).scalars().first()
             total_bounties = bounty_result.total_bounties or 0  # type: ignore[union-attr]
             active_bounties = bounty_result.active_bounties or 0  # type: ignore[union-attr]
             completed_stmt = select(func.count(Bounty.bounty_id)).where(  # type: ignore[arg-type]
@@ -290,7 +298,7 @@ class EcosystemService:
             reward_stmt = select(
                 func.avg(Bounty.reward_amount).label("avg_reward"), func.sum(Bounty.reward_amount).label("total_volume")
             ).where(Bounty.creation_time >= start_date)  # type: ignore[arg-type]
-            reward_result = self.session.execute(reward_stmt).first()
+            reward_result = self.session.execute(reward_stmt).scalars().first()
             average_reward = reward_result.avg_reward or 0.0  # type: ignore[union-attr]
             total_volume = reward_result.total_volume or 0.0  # type: ignore[union-attr]
             category_stmt = (
@@ -298,14 +306,18 @@ class EcosystemService:
                 .where(and_(Bounty.creation_time >= start_date, Bounty.category.isnot(None), Bounty.category != ""))  # type: ignore[arg-type, union-attr]
                 .group_by(Bounty.category)
             )
-            category_result = self.session.execute(category_stmt).all()
+            category_result = self.session.execute(
+                category_stmt
+            ).all()  # ponytail: multi-column select, .all() returns Row objects
             category_distribution = {row.category: row.count for row in category_result}
             difficulty_stmt = (
                 select(Bounty.difficulty, func.count(Bounty.bounty_id).label("count"))  # type: ignore[arg-type, call-overload]
                 .where(and_(Bounty.creation_time >= start_date, Bounty.difficulty.isnot(None), Bounty.difficulty != ""))  # type: ignore[arg-type, union-attr]
                 .group_by(Bounty.difficulty)
             )
-            difficulty_result = self.session.execute(difficulty_stmt).all()
+            difficulty_result = self.session.execute(
+                difficulty_stmt
+            ).all()  # ponytail: multi-column select, .all() returns Row objects
             difficulty_distribution = {row.difficulty: row.count for row in difficulty_result}
             return {
                 "active_bounties": active_bounties,

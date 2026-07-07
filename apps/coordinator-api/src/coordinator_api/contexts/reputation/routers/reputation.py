@@ -294,7 +294,7 @@ async def get_reputation_metrics(
 ) -> ReputationMetricsResponse:
     """Get overall reputation system metrics"""
     try:
-        reputations = session.execute(select(AgentReputation)).all()
+        reputations = session.execute(select(AgentReputation)).scalars().all()
         if not reputations:
             return ReputationMetricsResponse(
                 total_agents=0, average_trust_score=0.0, level_distribution={}, top_regions=[], recent_activity={}
@@ -314,9 +314,13 @@ async def get_reputation_metrics(
             for region, count in sorted(region_counts.items(), key=lambda x: x[1], reverse=True)[:10]
         ]
         recent_cutoff = datetime.now(UTC) - timedelta(days=1)
-        recent_events = session.execute(
-            select(func.count(ReputationEvent.id)).where(ReputationEvent.occurred_at >= recent_cutoff)  # type: ignore[arg-type]
-        ).first()
+        recent_events = (
+            session.execute(
+                select(func.count(ReputationEvent.id)).where(ReputationEvent.occurred_at >= recent_cutoff)  # type: ignore[arg-type]
+            )
+            .scalars()
+            .first()
+        )
         recent_activity = {
             "events_last_24h": recent_events[0] if recent_events else 0,
             "active_agents": len([r for r in reputations if r.last_activity and r.last_activity >= recent_cutoff]),
@@ -340,12 +344,16 @@ async def get_agent_feedback(
 ) -> list[FeedbackResponse]:
     """Get community feedback for an agent"""
     try:
-        feedbacks = session.execute(
-            select(CommunityFeedback)
-            .where(and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == "approved"))  # type: ignore[arg-type]
-            .order_by(desc(CommunityFeedback.created_at))  # type: ignore[arg-type]
-            .limit(limit)
-        ).all()
+        feedbacks = (
+            session.execute(
+                select(CommunityFeedback)
+                .where(and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == "approved"))  # type: ignore[arg-type]
+                .order_by(desc(CommunityFeedback.created_at))  # type: ignore[arg-type]
+                .limit(limit)
+            )
+            .scalars()
+            .all()
+        )
         return [
             FeedbackResponse(
                 id=feedback.id,
@@ -375,12 +383,16 @@ async def get_reputation_events(
 ) -> list[dict[str, Any]]:
     """Get reputation change events for an agent"""
     try:
-        events = session.execute(
-            select(ReputationEvent)
-            .where(ReputationEvent.agent_id == agent_id)
-            .order_by(desc(ReputationEvent.occurred_at))  # type: ignore[arg-type]
-            .limit(limit)
-        ).all()
+        events = (
+            session.execute(
+                select(ReputationEvent)
+                .where(ReputationEvent.agent_id == agent_id)
+                .order_by(desc(ReputationEvent.occurred_at))  # type: ignore[arg-type]
+                .limit(limit)
+            )
+            .scalars()
+            .all()
+        )
         return [
             {
                 "id": event.id,
@@ -408,7 +420,7 @@ async def update_specialization(
 ) -> dict[str, Any]:
     """Update agent specialization tags"""
     try:
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if not reputation:
             raise HTTPException(status_code=404, detail="Reputation profile not found")
         reputation.specialization_tags = specialization_tags
@@ -435,7 +447,7 @@ async def update_region(
 ) -> dict[str, Any]:
     """Update agent geographic region"""
     try:
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if not reputation:
             raise HTTPException(status_code=404, detail="Reputation profile not found")
         reputation.geographic_region = region
@@ -465,7 +477,7 @@ async def get_cross_chain_reputation(
 ) -> dict[str, Any]:
     """Get cross-chain reputation data for an agent"""
     try:
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if not reputation:
             raise HTTPException(status_code=404, detail="Reputation profile not found")
         return {
@@ -507,7 +519,7 @@ async def sync_cross_chain_reputation(
 ) -> dict[str, Any]:
     """Synchronize reputation across chains for an agent"""
     try:
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if not reputation:
             raise HTTPException(status_code=404, detail="Reputation profile not found")
         return {
@@ -536,12 +548,16 @@ async def get_cross_chain_leaderboard(
     """Get cross-chain reputation leaderboard"""
     try:
         effective_min_score = (min_score or 0.0) * 1000
-        reputations = session.execute(
-            select(AgentReputation)
-            .where(AgentReputation.trust_score >= effective_min_score)
-            .order_by(desc(AgentReputation.trust_score))  # type: ignore[arg-type]
-            .limit(limit)
-        ).all()
+        reputations = (
+            session.execute(
+                select(AgentReputation)
+                .where(AgentReputation.trust_score >= effective_min_score)
+                .order_by(desc(AgentReputation.trust_score))  # type: ignore[arg-type]
+                .limit(limit)
+            )
+            .scalars()
+            .all()
+        )
         agents = []
         for rep in reputations:
             agents.append(
@@ -587,7 +603,7 @@ async def submit_cross_chain_event(
             if field not in event_data:
                 raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
         agent_id = event_data["agent_id"]
-        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).first()
+        reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if not reputation:
             raise HTTPException(status_code=404, detail="Reputation profile not found")
         impact = event_data["impact_score"]
@@ -634,7 +650,7 @@ async def get_cross_chain_analytics(
     try:
         total_agents = session.execute(select(func.count(AgentReputation.id))).scalar() or 0  # type: ignore[arg-type]
         avg_reputation = session.execute(select(func.avg(AgentReputation.trust_score))).scalar() or 0.0
-        reputations = session.execute(select(AgentReputation)).all()
+        reputations = session.execute(select(AgentReputation)).scalars().all()
         distribution = {"master": 0, "expert": 0, "advanced": 0, "intermediate": 0, "beginner": 0}
         score_ranges = {"0.0-0.2": 0, "0.2-0.4": 0, "0.4-0.6": 0, "0.6-0.8": 0, "0.8-1.0": 0}
         for rep in reputations:

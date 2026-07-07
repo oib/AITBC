@@ -189,7 +189,7 @@ async def get_market_metrics(
             query = query.where(MarketMetric.category == category)
         if geographic_region:
             query = query.where(MarketMetric.geographic_region == geographic_region)
-        metrics = session.execute(query.order_by(desc(MarketMetric.recorded_at)).limit(limit)).all()  # type: ignore[arg-type]
+        metrics = session.execute(query.order_by(desc(MarketMetric.recorded_at)).limit(limit)).scalars().all()  # type: ignore[arg-type]
         return [
             MetricResponse(
                 metric_name=metric.metric_name,

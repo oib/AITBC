@@ -63,7 +63,7 @@ class ResourceMatcher:
     def get_recommendations(self, user_id: str, limit: int = 10) -> list[dict[str, Any]]:
         """Get ML-based recommendations for a user."""
         try:
-            profile = self.session.execute(select(UserProfile).where(UserProfile.user_id == user_id)).first()
+            profile = self.session.execute(select(UserProfile).where(UserProfile.user_id == user_id)).scalars().first()
             if not profile:
                 return self._get_popular_gpus(limit)
             filters = {"gpu_memory_min": profile.min_memory_gb, "price_max": profile.price_range_max}
@@ -80,13 +80,15 @@ class ResourceMatcher:
     def generate_embeddings(self, resource_id: str) -> list[float]:
         """Generate vector embeddings for a resource."""
         try:
-            gpu = self.session.execute(select(GPURegistry).where(GPURegistry.id == resource_id)).first()
+            gpu = self.session.execute(select(GPURegistry).where(GPURegistry.id == resource_id)).scalars().first()
             if not gpu:
                 return []
             embedding = self._create_simple_embedding(gpu)  # type: ignore[arg-type]
-            existing = self.session.execute(
-                select(ResourceEmbedding).where(ResourceEmbedding.resource_id == resource_id)
-            ).first()
+            existing = (
+                self.session.execute(select(ResourceEmbedding).where(ResourceEmbedding.resource_id == resource_id))
+                .scalars()
+                .first()
+            )
             if existing:
                 existing.embedding = embedding
                 existing.updated_at = datetime.now(UTC)
@@ -102,9 +104,11 @@ class ResourceMatcher:
     def find_similar_resources(self, resource_id: str, limit: int = 5) -> list[dict[str, Any]]:
         """Find similar resources using embedding similarity."""
         try:
-            target_embedding = self.session.execute(
-                select(ResourceEmbedding).where(ResourceEmbedding.resource_id == resource_id)
-            ).first()
+            target_embedding = (
+                self.session.execute(select(ResourceEmbedding).where(ResourceEmbedding.resource_id == resource_id))
+                .scalars()
+                .first()
+            )
             if not target_embedding:
                 return []
             embeddings = self.session.execute(select(ResourceEmbedding)).scalars().all()
@@ -154,8 +158,8 @@ class ResourceMatcher:
             if gpu.average_rating:
                 rating_score = gpu.average_rating / 5.0
                 score += rating_score * 0.3
-            if gpu.capacity:  # type: ignore[attr-defined]
-                capacity_score = gpu.capacity / 100.0  # type: ignore[attr-defined]
+            if gpu.memory_gb:  # ponytail: was gpu.capacity (non-existent), using memory_gb as capacity proxy
+                capacity_score = min(gpu.memory_gb / 100.0, 1.0)
                 score += capacity_score * 0.2
             if gpu.status == "available":
                 score += 0.2

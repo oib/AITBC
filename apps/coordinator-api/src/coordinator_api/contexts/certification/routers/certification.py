@@ -221,7 +221,7 @@ async def get_agent_certifications(
         query = select(AgentCertification).where(AgentCertification.agent_id == agent_id)
         if status:
             query = query.where(AgentCertification.status == CertificationStatus(status))
-        certifications = session.execute(query.order_by(desc(AgentCertification.issued_at))).all()  # type: ignore[arg-type]
+        certifications = session.execute(query.order_by(desc(AgentCertification.issued_at))).scalars().all()  # type: ignore[arg-type]
         return [
             CertificationResponse(
                 certification_id=cert.certification_id,
@@ -331,7 +331,7 @@ async def get_agent_partnerships(
             query = query.where(AgentPartnership.status == status)
         if partnership_type:
             query = query.where(AgentPartnership.partnership_type == PartnershipType(partnership_type))
-        partnerships = session.execute(query.order_by(desc(AgentPartnership.applied_at))).all()  # type: ignore[arg-type]
+        partnerships = session.execute(query.order_by(desc(AgentPartnership.applied_at))).scalars().all()  # type: ignore[arg-type]
         return [
             PartnershipResponse(
                 partnership_id=partner.partnership_id,
@@ -369,7 +369,7 @@ async def list_partnership_programs(
             query = query.where(PartnershipProgram.program_type == PartnershipType(partnership_type))
         if status:
             query = query.where(PartnershipProgram.status == status)
-        programs = session.execute(query.order_by(desc(PartnershipProgram.created_at)).limit(limit)).all()  # type: ignore[arg-type]
+        programs = session.execute(query.order_by(desc(PartnershipProgram.created_at)).limit(limit)).scalars().all()  # type: ignore[arg-type]
         return [
             {
                 "program_id": program.program_id,
@@ -489,9 +489,9 @@ async def get_agent_badges(
             query = query.join(AchievementBadge).where(AchievementBadge.category == category)
         if featured_only:
             query = query.where(AgentBadge.is_featured)
-        agent_badges = session.execute(query.order_by(desc(AgentBadge.awarded_at)).limit(limit)).all()  # type: ignore[arg-type]
+        agent_badges = session.execute(query.order_by(desc(AgentBadge.awarded_at)).limit(limit)).scalars().all()  # type: ignore[arg-type]
         badge_ids = [ab.badge_id for ab in agent_badges]
-        badges = session.execute(select(AchievementBadge).where(AchievementBadge.badge_id.in_(badge_ids))).all()  # type: ignore[attr-defined]
+        badges = session.execute(select(AchievementBadge).where(AchievementBadge.badge_id.in_(badge_ids))).scalars().all()  # type: ignore[attr-defined]
         badge_map = {badge.badge_id: badge for badge in badges}
         return [
             BadgeResponse(
@@ -536,7 +536,7 @@ async def list_available_badges(
             query = query.where(AchievementBadge.rarity == rarity)
         if active_only:
             query = query.where(AchievementBadge.is_active)
-        badges = session.execute(query.order_by(desc(AchievementBadge.created_at)).limit(limit)).all()  # type: ignore[arg-type]
+        badges = session.execute(query.order_by(desc(AchievementBadge.created_at)).limit(limit)).scalars().all()  # type: ignore[arg-type]
         return [
             {
                 "badge_id": badge.badge_id,
@@ -613,7 +613,7 @@ async def get_verification_records(
             query = query.where(VerificationRecord.verification_type == VerificationType(verification_type))
         if status:
             query = query.where(VerificationRecord.status == status)
-        verifications = session.execute(query.order_by(VerificationRecord.requested_at.desc()).limit(limit)).all()  # type: ignore[attr-defined]
+        verifications = session.execute(query.order_by(VerificationRecord.requested_at.desc()).limit(limit)).scalars().all()  # type: ignore[attr-defined]
         return [
             {
                 "verification_id": verification.verification_id,
@@ -675,9 +675,13 @@ async def get_certification_requirements(
             query = query.where(CertificationRequirement.certification_level == CertificationLevel(level))
         if verification_type:
             query = query.where(CertificationRequirement.verification_type == VerificationType(verification_type))  # type: ignore[attr-defined]
-        requirements = session.execute(
-            query.order_by(CertificationRequirement.certification_level, CertificationRequirement.requirement_name)
-        ).all()
+        requirements = (
+            session.execute(
+                query.order_by(CertificationRequirement.certification_level, CertificationRequirement.requirement_name)
+            )
+            .scalars()
+            .all()
+        )
         return [
             {
                 "id": requirement.id,
@@ -717,7 +721,9 @@ async def get_certification_leaderboard(
             query = select(AgentCertification).where(AgentCertification.status == CertificationStatus.ACTIVE)
         else:
             query = select(AgentCertification).where(AgentCertification.status == CertificationStatus.ACTIVE)
-        certifications = session.execute(query.order_by(desc(AgentCertification.issued_at)).limit((limit or 100) * 2)).all()  # type: ignore[arg-type]
+        certifications = (
+            session.execute(query.order_by(desc(AgentCertification.issued_at)).limit((limit or 100) * 2)).scalars().all()
+        )  # type: ignore[arg-type]
         agent_scores = {}
         for cert in certifications:
             if cert.agent_id not in agent_scores:

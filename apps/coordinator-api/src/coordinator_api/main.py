@@ -144,7 +144,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             session = next(session_gen)
             try:
                 test_query = select(Job).limit(1)
-                session.execute(test_query).first()
+                session.execute(test_query).scalars().first()
             finally:
                 session.close()
             logger.info("Database warmup completed successfully")
