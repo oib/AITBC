@@ -446,15 +446,20 @@ class ChainTransactionManager:
     async def _update_transaction_status_v2(self, transaction_id: str) -> None:
         """Update transaction status from blockchain"""
         try:
-            transaction = await self._find_transaction(transaction_id)  # type: ignore[attr-defined]
-            if not transaction or not transaction["transaction_hash"]:
+            transaction = (
+                self.session.execute(select(ChainTransaction).where(ChainTransaction.id == transaction_id)).scalars().first()
+            )
+            if not transaction or not transaction.transaction_hash:
                 return
-            adapter = self.wallet_adapters[transaction["chain_id"]]
-            tx_status = await adapter.get_transaction_status(transaction["transaction_hash"])
+            adapter = self.wallet_adapters[transaction.chain_id]
+            tx_status = await adapter.get_transaction_status(transaction.transaction_hash)
             if tx_status.get("status") == TransactionStatus.COMPLETED.value:
-                transaction["status"] = TransactionStatus.COMPLETED.value
-                transaction["confirmations"] = await self._get_transaction_confirmations_v2(transaction)
-                transaction["updated_at"] = datetime.now(UTC)
+                transaction.status = TransactionStatus.COMPLETED
+                transaction.confirmations = await self._get_transaction_confirmations(
+                    transaction.chain_id, transaction.transaction_hash
+                )  # type: ignore[no-any-return]
+                transaction.updated_at = datetime.now(UTC)
+                self.session.commit()
         except Exception as e:
             logger.error("Error updating transaction status: %s", e)
 

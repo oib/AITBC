@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from fastapi import HTTPException
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
@@ -41,11 +41,9 @@ class DeveloperPlatformService:
         self.session = session
 
     async def register_developer(self, request: DeveloperCreate) -> DeveloperProfile:
-        existing = (
-            self.session.execute(select(DeveloperProfile).where(DeveloperProfile.wallet_address == request.wallet_address))
-            .scalars()
-            .first()
-        )
+        existing = self.session.execute(
+            select(DeveloperProfile).where(DeveloperProfile.wallet_address == request.wallet_address)
+        ).first()
         if existing:
             raise HTTPException(status_code=400, detail="Developer profile already exists for this wallet")
         profile = DeveloperProfile(
@@ -211,11 +209,7 @@ class DeveloperPlatformService:
 
     async def get_developer_profile(self, wallet_address: str) -> DeveloperProfile | None:
         """Get developer profile by wallet address"""
-        return (
-            self.session.execute(select(DeveloperProfile).where(DeveloperProfile.wallet_address == wallet_address))
-            .scalars()
-            .first()
-        )  # type: ignore[return-value]
+        return self.session.execute(select(DeveloperProfile).where(DeveloperProfile.wallet_address == wallet_address)).first()  # type: ignore[return-value]
 
     async def update_developer_profile(self, wallet_address: str, updates: dict) -> DeveloperProfile:
         """Update developer profile"""
@@ -250,18 +244,12 @@ class DeveloperPlatformService:
         profile = await self.get_developer_profile(wallet_address)
         if not profile:
             raise HTTPException(status_code=404, detail="Developer profile not found")
-        completed_bounties = (
-            self.session.execute(
-                select(BountySubmission).where(BountySubmission.developer_id == profile.id, BountySubmission.is_approved)
-            )
-            .scalars()
-            .all()
-        )
-        certifications = (
-            self.session.execute(select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id))
-            .scalars()
-            .all()
-        )
+        completed_bounties = self.session.execute(
+            select(BountySubmission).where(BountySubmission.developer_id == profile.id, BountySubmission.is_approved)
+        ).all()
+        certifications = self.session.execute(
+            select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id)
+        ).all()
         return {
             "wallet_address": profile.wallet_address,
             "reputation_score": profile.reputation_score,
@@ -279,16 +267,19 @@ class DeveloperPlatformService:
         query = select(BountyTask)
         if status:
             query = query.where(BountyTask.status == status)
-        return self.session.execute(query.order_by(desc(BountyTask.created_at)).offset(offset).limit(limit)).scalars().all()  # type: ignore[arg-type, return-value]
+        return self.session.execute(query.order_by(desc(BountyTask.created_at)).offset(offset).limit(limit)).all()  # type: ignore[arg-type, return-value]
 
     async def get_bounty_details(self, bounty_id: str) -> BountyTask | None:
         """Get detailed bounty information"""
         bounty = self.session.get(BountyTask, bounty_id)
         if not bounty:
             raise HTTPException(status_code=404, detail="Bounty not found")
-        submissions_count = self.session.execute(
-            select(BountySubmission).where(BountySubmission.bounty_id == bounty_id)
-        ).count()  # type: ignore[attr-defined]
+        submissions_count = (
+            self.session.execute(
+                select(func.count()).select_from(BountySubmission).where(BountySubmission.bounty_id == bounty_id)
+            ).scalar()
+            or 0
+        )
         return {**bounty.__dict__, "submissions_count": submissions_count}  # type: ignore[return-value]
 
     async def get_my_submissions(self, developer_id: str) -> list[BountySubmission]:
@@ -322,7 +313,7 @@ class DeveloperPlatformService:
         hub = self.session.get(RegionalHub, hub_id)
         if not hub:
             raise HTTPException(status_code=404, detail="Regional hub not found")
-        return self.session.execute(select(DeveloperProfile).where(DeveloperProfile.is_active)).scalars().all()  # type: ignore[return-value]
+        return self.session.execute(select(DeveloperProfile).where(DeveloperProfile.is_active)).all()  # type: ignore[return-value]
 
     async def stake_on_developer(self, staker_address: str, developer_address: str, amount: float) -> dict:
         """Stake AITBC tokens on a developer"""
@@ -396,11 +387,19 @@ class DeveloperPlatformService:
 
     async def get_bounty_statistics(self) -> dict:
         """Get comprehensive bounty statistics"""
-        total_bounties = self.session.execute(select(BountyTask)).count()  # type: ignore[attr-defined]
-        open_bounties = self.session.execute(select(BountyTask).where(BountyTask.status == BountyStatus.OPEN)).count()  # type: ignore[attr-defined]
-        completed_bounties = self.session.execute(
-            select(BountyTask).where(BountyTask.status == BountyStatus.COMPLETED)
-        ).count()  # type: ignore[attr-defined]
+        total_bounties = self.session.execute(select(func.count()).select_from(BountyTask)).scalar() or 0
+        open_bounties = (
+            self.session.execute(
+                select(func.count()).select_from(BountyTask).where(BountyTask.status == BountyStatus.OPEN)
+            ).scalar()
+            or 0
+        )
+        completed_bounties = (
+            self.session.execute(
+                select(func.count()).select_from(BountyTask).where(BountyTask.status == BountyStatus.COMPLETED)
+            ).scalar()
+            or 0
+        )
         total_rewards = (
             self.session.execute(select(BountyTask).where(BountyTask.status == BountyStatus.COMPLETED)).scalars().all()
         )
