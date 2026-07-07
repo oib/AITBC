@@ -1,7 +1,7 @@
 """Unit tests for middleware module."""
 
 import pytest
-from app.core.middleware import setup_middleware
+from coordinator_api.core.middleware import setup_middleware
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 

@@ -27,7 +27,7 @@ The PluginManager provides a production-ready plugin system for marketplace exte
 ## Usage Example
 
 ```python
-from app.contexts.marketplace.services.plugin_manager import get_plugin_manager
+from coordinator_api.contexts.marketplace.services.plugin_manager import get_plugin_manager
 
 # Get plugin manager
 plugin_manager = get_plugin_manager()

@@ -12,11 +12,11 @@ from sqlalchemy.orm import sessionmaker
 
 # Clear cached 'app' modules to avoid conflicts with agent-coordinator tests
 for mod_name in list(sys.modules.keys()):
-    if mod_name == "app" or mod_name.startswith("app."):
+    if mod_name == "coordinator_api" or mod_name.startswith("coordinator_api."):
         del sys.modules[mod_name]
 
-from app.contexts.staking.services.staking_service import StakingService  # noqa: E402
-from app.domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool  # noqa: E402
+from coordinator_api.contexts.staking.services.staking_service import StakingService  # noqa: E402
+from coordinator_api.contexts.staking.domain.staking import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool  # noqa: E402
 
 # Skip staking tests in full suite due to SQLite index conflicts with coordinator tests
 # Run separately with: pytest tests/services/test_staking_service.py
@@ -34,7 +34,7 @@ def db_session():
 
     # Only create tables needed for staking tests
     # Import and create only the bounty-related tables
-    from app.domain.bounty import AgentMetrics, StakingPool
+    from coordinator_api.domain.bounty import AgentMetrics, StakingPool
 
     # Create only the tables we need
     AgentMetrics.metadata.create_all(engine)

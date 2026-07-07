@@ -102,7 +102,7 @@ aitbc blockchain status
 | Problem | Fix |
 |---------|-----|
 | Port in use | `lsof -i :8203` then `kill` the PID |
-| DB corrupt | `rm -f data/coordinator.db && python -m app.storage init` |
+| DB corrupt | `rm -f data/coordinator.db && python -m coordinator_api.storage init` |
 | Module not found | Ensure venv is active: `source .venv/bin/activate` |
 
 ## Next Steps

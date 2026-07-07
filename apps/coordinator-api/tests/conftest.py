@@ -29,7 +29,7 @@ def db_session():
 @pytest.fixture(scope="function")
 def client():
     """Create a TestClient for API testing."""
-    from app.main import app
+    from coordinator_api.main import app
     from fastapi.testclient import TestClient
 
     return TestClient(app)

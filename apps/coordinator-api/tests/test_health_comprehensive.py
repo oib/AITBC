@@ -33,7 +33,7 @@ class TestInternalHealthEndpoints:
         # This test verifies the health endpoints are accessible
         # without requiring full database setup
 
-        with patch("app.main.create_app") as mock_create_app:
+        with patch("coordinator_api.main.create_app") as mock_create_app:
             mock_app = Mock()
             mock_app.router.routes.__len__ = Mock(return_value=10)
             mock_app.title = "AITBC Coordinator API"
@@ -41,7 +41,7 @@ class TestInternalHealthEndpoints:
             mock_create_app.return_value = mock_app
 
             # Import and test the health endpoint logic
-            from app.main import create_app
+            from coordinator_api.main import create_app
 
             app = create_app()
 

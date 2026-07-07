@@ -13,7 +13,7 @@ sys.path.insert(0, "/opt/aitbc/apps/wallet/src")
 
 from secrets import token_bytes
 
-from app.crypto.encryption import EncryptionSuite
+from wallet_app.crypto.encryption import EncryptionSuite
 
 
 def main():

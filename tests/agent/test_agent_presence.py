@@ -6,7 +6,7 @@ Tests for agent presence, heartbeat, and status monitoring
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from app.routing.agent_discovery import AgentInfo, AgentStatus, AgentType
+from agent_app.routing.agent_discovery import AgentInfo, AgentStatus, AgentType
 
 
 class TestAgentPresence:

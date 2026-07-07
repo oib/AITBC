@@ -13,8 +13,8 @@ from fastapi.testclient import TestClient
 class TestBlockchainPaymentsIntegration:
     """Test integration between blockchain and payment services"""
 
-    @patch("app.contexts.payments.routers.payments.PaymentService")
-    @patch("app.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
+    @patch("coordinator_api.contexts.payments.routers.payments.PaymentService")
+    @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
     def test_payment_recorded_on_blockchain(self, mock_blockchain_client, mock_payment_service_cls):
         """Test that a payment is recorded and the blockchain is accessible"""
         # Blockchain mock
@@ -44,9 +44,9 @@ class TestBlockchainPaymentsIntegration:
         }
 
         from aitbc.auth import require_client
-        from app.contexts.blockchain.routers.blockchain import router as blockchain_router
-        from app.contexts.payments.routers.payments import router as payments_router
-        from app.storage import get_session
+        from coordinator_api.contexts.blockchain.routers.blockchain import router as blockchain_router
+        from coordinator_api.contexts.payments.routers.payments import router as payments_router
+        from coordinator_api.storage import get_session
 
         app = FastAPI()
         app.include_router(blockchain_router, prefix="/v1")

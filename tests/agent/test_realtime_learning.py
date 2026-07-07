@@ -3,7 +3,7 @@
 from collections import deque
 from datetime import UTC, datetime, timedelta
 
-from app.ai.realtime_learning import (
+from agent_app.ai.realtime_learning import (
     LearningExperience,
     PredictiveModel,
     RealTimeLearningSystem,

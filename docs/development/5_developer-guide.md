@@ -217,7 +217,7 @@ async def create_feature(
 
 import pytest
 from fastapi.testclient import TestClient
-from src.app.main import app
+from src.coordinator_api.main import app
 
 client = TestClient(app)
 

@@ -3,8 +3,16 @@ API Endpoint Tests
 Tests for agent messaging API endpoints
 """
 
+import sys
+from pathlib import Path
+
+# Add agent-coordinator src to path for agent_app.routers.messages
+_AGENT_SRC = str(Path(__file__).resolve().parents[2] / "apps" / "agent-coordinator" / "src")
+if _AGENT_SRC not in sys.path:
+    sys.path.insert(0, _AGENT_SRC)
+
 import pytest
-from app.routers.messages import SendMessageRequest, SubscribeRequest
+from agent_app.routers.messages import SendMessageRequest, SubscribeRequest
 
 
 class TestSendMessageRequest:
