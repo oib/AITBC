@@ -147,7 +147,7 @@ class TestBadgeSystem:
             created_at=datetime.now(UTC),
         )
 
-        mock_session_instance.execute.return_value.first.return_value = mock_reputation
+        mock_session_instance.execute.return_value.scalars.return_value.first.return_value = mock_reputation
 
         result = await system.verify_badge_eligibility(mock_session_instance, "agent123", mock_badge)
 
@@ -221,7 +221,7 @@ class TestBadgeSystem:
         #   1. badge lookup -> mock_badge
         #   2. existing-agent-badge check -> None
         #   3. reputation lookup (via verify_badge_eligibility) -> mock_reputation
-        mock_session_instance.execute.return_value.first.side_effect = [mock_badge, None, mock_reputation]
+        mock_session_instance.execute.return_value.scalars.return_value.first.side_effect = [mock_badge, None, mock_reputation]
         mock_session_instance.add.return_value = None
         mock_session_instance.commit.return_value = None
         mock_session_instance.refresh.return_value = mock_agent_badge

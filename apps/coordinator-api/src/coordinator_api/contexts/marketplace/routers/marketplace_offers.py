@@ -27,7 +27,7 @@ async def sync_offers(
     created_offers = []
     offer_objects = []
     for miner in miners:
-        existing = session.execute(select(MarketplaceOffer).where(MarketplaceOffer.provider == miner.id)).first()
+        existing = session.execute(select(MarketplaceOffer).where(MarketplaceOffer.provider == miner.id)).scalars().first()
         if not existing:
             capabilities = miner.capabilities or {}
             offer = MarketplaceOffer(

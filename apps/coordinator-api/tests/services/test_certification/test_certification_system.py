@@ -78,7 +78,7 @@ class TestCertificationSystem:
             created_at=datetime.now(UTC),
         )
 
-        mock_session_instance.execute.return_value.first.return_value = mock_reputation
+        mock_session_instance.execute.return_value.scalars.return_value.first.return_value = mock_reputation
 
         result = await system.verify_identity(mock_session_instance, "agent123")
 
@@ -113,7 +113,7 @@ class TestCertificationSystem:
             created_at=datetime.now(UTC),
         )
 
-        mock_session_instance.execute.return_value.first.return_value = mock_reputation
+        mock_session_instance.execute.return_value.scalars.return_value.first.return_value = mock_reputation
 
         result = await system.verify_performance(mock_session_instance, "agent123")
 
@@ -145,7 +145,7 @@ class TestCertificationSystem:
             created_at=datetime.now(UTC),
         )
 
-        mock_session_instance.execute.return_value.first.return_value = mock_reputation
+        mock_session_instance.execute.return_value.scalars.return_value.first.return_value = mock_reputation
 
         # Mock certification creation
         AgentCertification(

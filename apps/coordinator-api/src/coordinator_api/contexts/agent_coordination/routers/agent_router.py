@@ -69,7 +69,7 @@ async def list_workflows(
         if tags:
             for tag in tags:
                 query = query.where(AIAgentWorkflow.tags.contains([tag]))  # type: ignore[attr-defined]
-        workflows = session.execute(query).all()
+        workflows = session.execute(query).scalars().all()
         return workflows  # type: ignore[return-value]
     except Exception as e:
         logger.error("Failed to list workflows: %s", e)
@@ -236,7 +236,7 @@ async def list_executions(
             query = query.where(AgentExecution.workflow_id == workflow_id)
         if status:
             query = query.where(AgentExecution.status == status)
-        executions = session.execute(query.offset(offset).limit(limit)).all()
+        executions = session.execute(query.offset(offset).limit(limit)).scalars().all()
         return executions  # type: ignore[return-value]
     except HTTPException:
         raise
@@ -293,7 +293,7 @@ async def list_workflow_executions(
         from coordinator_api.contexts.agent_coordination.domain.agent import AgentExecution
 
         query = select(AgentExecution).where(AgentExecution.workflow_id == workflow_id)
-        executions = session.execute(query.offset(offset).limit(limit)).all()
+        executions = session.execute(query.offset(offset).limit(limit)).scalars().all()
         return executions  # type: ignore[return-value]
     except HTTPException:
         raise

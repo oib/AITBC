@@ -76,7 +76,7 @@ async def list_deployment_configs(
             query = query.where(AgentDeploymentConfig.workflow_id == workflow_id)
         if status:
             query = query.where(AgentDeploymentConfig.status == status)
-        configs = session.execute(query).all()
+        configs = session.execute(query).scalars().all()
         user_configs = []
         for config in configs:
             workflow = session.get(AIAgentWorkflow, config.workflow_id)
@@ -244,7 +244,7 @@ async def list_deployment_instances(
             query = query.where(AgentDeploymentInstance.environment == environment)
         if status:
             query = query.where(AgentDeploymentInstance.status == status)
-        instances = session.execute(query).all()
+        instances = session.execute(query).scalars().all()
         user_instances = []
         for instance in instances:
             config = session.get(AgentDeploymentConfig, instance.deployment_id)
@@ -383,9 +383,11 @@ async def get_production_dashboard(
 ) -> dict[str, Any]:
     """Get comprehensive production dashboard data"""
     try:
-        user_configs = session.execute(
-            select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == user["sub"])
-        ).all()
+        user_configs = (
+            session.execute(select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == user["sub"]))
+            .scalars()
+            .all()
+        )
         dashboard_data: dict[str, Any] = {
             "total_deployments": len(user_configs),
             "active_deployments": len([c for c in user_configs if c.status == DeploymentStatus.DEPLOYED]),
@@ -393,9 +395,11 @@ async def get_production_dashboard(
             "deployments": [],
         }
         for config in user_configs:
-            instances = session.execute(
-                select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == config.id)
-            ).all()
+            instances = (
+                session.execute(select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == config.id))
+                .scalars()
+                .all()
+            )
             try:
                 monitoring_manager = AgentMonitoringManager(session)
                 metrics = await monitoring_manager.get_deployment_metrics(config.id)
@@ -429,9 +433,11 @@ async def get_production_health(
 ) -> dict[str, Any]:
     """Get overall production health status"""
     try:
-        user_configs = session.execute(
-            select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == user["sub"])
-        ).all()
+        user_configs = (
+            session.execute(select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == user["sub"]))
+            .scalars()
+            .all()
+        )
         health_status: dict[str, Any] = {
             "overall_health": "healthy",
             "total_deployments": len(user_configs),

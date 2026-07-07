@@ -741,9 +741,11 @@ class AgentPerformanceService:
 
     async def get_comprehensive_profile(self, agent_id: str) -> dict[str, Any]:
         """Get comprehensive agent performance profile"""
-        profile = self.session.execute(
-            select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)
-        ).first()
+        profile = (
+            self.session.execute(select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id))
+            .scalars()
+            .first()
+        )
         if not profile:
             return {"error": "Profile not found"}
         return {

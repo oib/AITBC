@@ -416,7 +416,9 @@ class StakingService:
                 .where(AgentStake.start_time >= start_date)
                 .group_by(AgentStake.agent_tier)
             )
-            tier_result = self.session.execute(tier_stmt).all()
+            tier_result = self.session.execute(
+                tier_stmt
+            ).all()  # ponytail: multi-column select, .all() returns Row objects with both columns
             tier_distribution = {row.agent_tier.value: row.count for row in tier_result}
             return {
                 "total_staked": total_staked,
@@ -474,7 +476,7 @@ class StakingService:
                     .order_by(func.avg(AgentStake.current_apy).desc())
                     .limit(limit)
                 )
-            result = self.session.execute(stmt).all()
+            result = self.session.execute(stmt).all()  # ponytail: multi-column select, .all() returns Row objects
             leaderboard: list[dict[str, Any]] = []
             for row in result:
                 leaderboard.append({"agent_wallet": row.agent_wallet, "rank": len(leaderboard) + 1, **row._asdict()})

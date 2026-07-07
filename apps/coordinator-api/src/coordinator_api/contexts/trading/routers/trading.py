@@ -222,7 +222,7 @@ async def get_trade_request(
 ) -> TradeRequestResponse:
     """Get trade request details"""
     try:
-        trade_request = session.execute(select(TradeRequest).where(TradeRequest.request_id == request_id)).first()
+        trade_request = session.execute(select(TradeRequest).where(TradeRequest.request_id == request_id)).scalars().first()
         if not trade_request:
             raise HTTPException(status_code=404, detail="Trade request not found")
         return TradeRequestResponse(
@@ -269,9 +269,13 @@ async def get_trade_matches(
 ) -> list[TradeMatchResponse]:
     """Get trade matches for a request"""
     try:
-        matches = session.execute(
-            select(TradeMatch).where(TradeMatch.request_id == request_id).order_by(desc(TradeMatch.match_score))  # type: ignore[arg-type]
-        ).all()
+        matches = (
+            session.execute(
+                select(TradeMatch).where(TradeMatch.request_id == request_id).order_by(desc(TradeMatch.match_score))  # type: ignore[arg-type]
+            )
+            .scalars()
+            .all()
+        )
         return [
             TradeMatchResponse(
                 match_id=match.match_id,
@@ -337,9 +341,11 @@ async def get_negotiation(
 ) -> NegotiationResponse:
     """Get negotiation details"""
     try:
-        negotiation = session.execute(
-            select(TradeNegotiation).where(TradeNegotiation.negotiation_id == negotiation_id)
-        ).first()
+        negotiation = (
+            session.execute(select(TradeNegotiation).where(TradeNegotiation.negotiation_id == negotiation_id))
+            .scalars()
+            .first()
+        )
         if not negotiation:
             raise HTTPException(status_code=404, detail="Negotiation not found")
         return NegotiationResponse(
@@ -370,7 +376,7 @@ async def get_trade_match(
 ) -> TradeMatchResponse:
     """Get trade match details"""
     try:
-        match = session.execute(select(TradeMatch).where(TradeMatch.match_id == match_id)).first()
+        match = session.execute(select(TradeMatch).where(TradeMatch.match_id == match_id)).scalars().first()
         if not match:
             raise HTTPException(status_code=404, detail="Trade match not found")
         return TradeMatchResponse(
@@ -432,7 +438,7 @@ async def list_trade_requests(
             query = query.where(TradeRequest.trade_type == trade_type)
         if status:
             query = query.where(TradeRequest.status == status)
-        requests = session.execute(query.order_by(desc(TradeRequest.created_at)).limit(limit)).all()  # type: ignore[arg-type]
+        requests = session.execute(query.order_by(desc(TradeRequest.created_at)).limit(limit)).scalars().all()  # type: ignore[arg-type]
         return [
             TradeRequestResponse(
                 request_id=request.request_id,
@@ -475,7 +481,7 @@ async def list_trade_matches(
             query = query.where(TradeMatch.match_score >= min_score)
         if status:
             query = query.where(TradeMatch.status == status)
-        matches = session.execute(query.order_by(desc(TradeMatch.match_score)).limit(limit)).all()  # type: ignore[arg-type]
+        matches = session.execute(query.order_by(desc(TradeMatch.match_score)).limit(limit)).scalars().all()  # type: ignore[arg-type]
         return [
             TradeMatchResponse(
                 match_id=match.match_id,
@@ -521,7 +527,7 @@ async def list_negotiations(
             query = query.where(TradeNegotiation.status == status)
         if strategy:
             query = query.where(TradeNegotiation.negotiation_strategy == strategy)
-        negotiations = session.execute(query.order_by(desc(TradeNegotiation.created_at)).limit(limit)).all()  # type: ignore[arg-type]
+        negotiations = session.execute(query.order_by(desc(TradeNegotiation.created_at)).limit(limit)).scalars().all()  # type: ignore[arg-type]
         return [
             NegotiationResponse(
                 negotiation_id=negotiation.negotiation_id,

@@ -55,7 +55,7 @@ async def init_governance_profile(
     """Initialize a governance profile for a user"""
     service = GovernanceService(session)
     try:
-        profile = await service.get_or_create_profile(request.user_id, request.initial_voting_power)
+        profile = await service.get_or_create_profile(profile_request.user_id, profile_request.initial_voting_power)
         return profile
     except Exception as e:
         logger.error("Error creating governance profile: %s", e)

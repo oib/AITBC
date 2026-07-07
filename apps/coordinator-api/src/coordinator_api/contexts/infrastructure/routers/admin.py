@@ -151,7 +151,7 @@ async def list_jobs(
 ) -> dict[str, list[dict]]:
     from ...infrastructure.domain import Job
 
-    jobs = session.execute(select(Job).order_by(desc(Job.requested_at)).limit(100)).all()  # type: ignore[arg-type]
+    jobs = session.execute(select(Job).order_by(desc(Job.requested_at)).limit(100)).scalars().all()  # type: ignore[arg-type]
     return {
         "items": [
             {

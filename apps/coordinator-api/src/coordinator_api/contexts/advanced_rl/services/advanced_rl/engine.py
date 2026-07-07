@@ -380,9 +380,11 @@ class AdvancedReinforcementLearningEngine:
 
     async def train_rl_agent(self, session: Session, config_id: str) -> dict[str, Any]:
         """Train RL agent"""
-        rl_config = session.execute(
-            select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == config_id)
-        ).first()
+        rl_config = (
+            session.execute(select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == config_id))
+            .scalars()
+            .first()
+        )
         if not rl_config:
             raise ValueError(f"RL config {config_id} not found")
         try:
