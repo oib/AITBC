@@ -71,7 +71,7 @@ The CLI registers 50+ top-level command groups in `aitbc_cli/core/main.py`. Run 
 
 ### Mining & Resources
 - `mining` — mining operations (start, stop, status, list)
-- `resource` — resource management (EXPERIMENTAL)
+- `resource` — agent resource allocation (allocate, optimize)
 - `operations` — general operations
 - `performance` — performance monitoring and optimization
 
