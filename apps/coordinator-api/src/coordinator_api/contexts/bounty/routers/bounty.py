@@ -198,7 +198,7 @@ async def create_bounty(
     """Create a new bounty"""
     try:
         logger.info("Creating bounty: %s by user %s", bounty_request.title, user["sub"])
-        bounty = await bounty_service.create_bounty(creator_id=user["sub"], **bounty_request.dict())
+        bounty = await bounty_service.create_bounty(creator_id=user["sub"], **bounty_request.model_dump())
         background_tasks.add_task(
             blockchain_service.deploy_bounty_contract,
             bounty.bounty_id,
@@ -286,7 +286,7 @@ async def submit_bounty_solution(
         if datetime.now(UTC) > bounty.deadline:
             raise HTTPException(status_code=400, detail="Bounty deadline has passed")
         submission = await bounty_service.create_submission(
-            bounty_id=bounty_id, submitter_address=user["sub"], **submission_request.dict()
+            bounty_id=bounty_id, submitter_address=user["sub"], **submission_request.model_dump()
         )
         background_tasks.add_task(
             blockchain_service.submit_bounty_solution,

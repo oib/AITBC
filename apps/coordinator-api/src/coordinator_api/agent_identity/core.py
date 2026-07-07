@@ -78,7 +78,7 @@ class AgentIdentityCore:
         identity = await self.get_identity(identity_id)
         if not identity:
             raise ValueError(f"Identity not found: {identity_id}")
-        update_data = request.dict(exclude_unset=True)
+        update_data = request.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             if hasattr(identity, field):
                 setattr(identity, field, value)
@@ -202,7 +202,7 @@ class AgentIdentityCore:
         mapping = await self.get_cross_chain_mapping(identity_id, chain_id)
         if not mapping:
             raise ValueError(f"Cross-chain mapping not found for chain {chain_id}")
-        update_data = request.dict(exclude_unset=True)
+        update_data = request.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             if hasattr(mapping, field):
                 if field in ["chain_address", "wallet_address"] and value:
