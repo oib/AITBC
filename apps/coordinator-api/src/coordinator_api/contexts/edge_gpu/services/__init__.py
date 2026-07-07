@@ -1,5 +1,5 @@
 """Edge GPU services."""
 
-from .edge_gpu_service import edge_gpu_service  # type: ignore[attr-defined]
+from .edge_gpu_service import EdgeGPUService
 
-__all__ = ["edge_gpu_service"]
+__all__ = ["EdgeGPUService"]
