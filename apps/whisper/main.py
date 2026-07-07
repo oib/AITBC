@@ -31,7 +31,7 @@ _compute_type = os.getenv("WHISPER_COMPUTE_TYPE", "float16")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _model
-    from faster_whisper import WhisperModel
+    from faster_whisper import WhisperModel  # type: ignore[import-untyped]
 
     print(f"Loading Whisper model '{_model_name}' on {_device} ({_compute_type})...")
     _model = WhisperModel(_model_name, device=_device, compute_type=_compute_type)

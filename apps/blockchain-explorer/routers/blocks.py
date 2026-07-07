@@ -204,11 +204,11 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
             conn.close()
 
         # Fallback to RPC method
-        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id or DEFAULT_CHAIN, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
 
         # Get current head to determine height range
         async with httpx.AsyncClient() as client:
-            head_response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})
+            head_response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id or DEFAULT_CHAIN})
             if head_response.status_code == 200:
                 head = head_response.json()
                 current_hash = head.get("hash", "")

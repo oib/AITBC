@@ -17,7 +17,7 @@ from .routers.validation import router as validation_router
 
 # Pool management router (from legacy app structure — uses MinerRegistry)
 try:
-    from app.routers.pools import router as pools_router
+    from poolhub_legacy.routers.pools import router as pools_router
 except ImportError:
     pools_router = None  # type: ignore[assignment]
 

@@ -30,8 +30,8 @@ coordinator_client = AITBCHTTPClient(
 # for the rotated log file (requires LOG_DIR env var, set in the unit file).
 configure_logging(level="INFO", service_name="miner", to_file=True)
 logger = get_logger(__name__)
-sys.stdout.reconfigure(line_buffering=True)
-sys.stderr.reconfigure(line_buffering=True)
+sys.stdout.reconfigure(line_buffering=True)  # type: ignore[union-attr]
+sys.stderr.reconfigure(line_buffering=True)  # type: ignore[union-attr]
 ARCH_MAP = {
     "4090": "ada_lovelace",
     "4080": "ada_lovelace",
@@ -356,8 +356,8 @@ async def main():
         logger.error("Failed to register, exiting")
         return
     logger.info("Miner registered successfully, starting main loop...")
-    last_heartbeat = 0
-    last_poll = 0
+    last_heartbeat = 0.0
+    last_poll = 0.0
     try:
         while True:
             current_time = time.time()
