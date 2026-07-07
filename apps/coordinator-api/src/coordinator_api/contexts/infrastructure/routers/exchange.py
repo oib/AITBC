@@ -1,7 +1,8 @@
 """
-Bitcoin Exchange Router for AITBC
+ETH Exchange Router for AITBC
 
 v0.5.1: Payment state migrated from module-global dict to RedisStateManager.
+v1.0.0: Converted from Bitcoin to ETH (AITBC only supports ETH + native AIT coins).
 """
 
 import time
@@ -15,15 +16,12 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ...wallet.services.bitcoin_wallet import get_wallet_balance, get_wallet_info
 from ....schemas import (
     ExchangePaymentRequest,
     ExchangePaymentResponse,
     ExchangeRatesResponse,
     MarketStatsResponse,
     PaymentStatusResponse,
-    WalletBalanceResponse,
-    WalletInfoResponse,
 )
 from ....utils.cache import cached, get_cache_config
 
@@ -35,12 +33,12 @@ router = APIRouter(tags=["exchange"])
 _state = RedisStateManager.get_instance_sync()
 _NAMESPACE = "exchange"
 
-# Bitcoin configuration
-BITCOIN_CONFIG: dict[str, Any] = {
+# ETH configuration
+ETH_CONFIG: dict[str, Any] = {
     "testnet": True,
-    "main_address": "tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",  # Testnet address
-    "exchange_rate": 100000,  # 1 BTC = 100,000 AITBC
-    "min_confirmations": 1,
+    "main_address": "0x0000000000000000000000000000000000000000",  # ponytail: replace with real treasury address
+    "exchange_rate": 1000,  # 1 ETH = 1,000 AITBC
+    "min_confirmations": 12,
     "payment_timeout": 3600,  # 1 hour
 }
 
@@ -50,17 +48,17 @@ BITCOIN_CONFIG: dict[str, Any] = {
 async def create_payment(
     request: Request, payment_request: ExchangePaymentRequest, background_tasks: BackgroundTasks
 ) -> dict[str, Any]:
-    """Create a new Bitcoin payment request"""
+    """Create a new ETH payment request"""
 
     # Validate request
-    if payment_request.aitbc_amount <= 0 or payment_request.btc_amount <= 0:
+    if payment_request.aitbc_amount <= 0 or payment_request.eth_amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
 
-    # Calculate expected BTC amount
-    expected_btc = payment_request.aitbc_amount / BITCOIN_CONFIG["exchange_rate"]
+    # Calculate expected ETH amount
+    expected_eth = payment_request.aitbc_amount / ETH_CONFIG["exchange_rate"]
 
     # Allow small difference for rounding
-    if abs(payment_request.btc_amount - expected_btc) > 0.00000001:
+    if abs(payment_request.eth_amount - expected_eth) > 0.00000001:
         raise HTTPException(status_code=400, detail="Amount mismatch")
 
     # Create payment record
@@ -69,11 +67,11 @@ async def create_payment(
         "payment_id": payment_id,
         "user_id": payment_request.user_id,
         "aitbc_amount": payment_request.aitbc_amount,
-        "btc_amount": payment_request.btc_amount,
-        "payment_address": BITCOIN_CONFIG["main_address"],
+        "eth_amount": payment_request.eth_amount,
+        "payment_address": ETH_CONFIG["main_address"],
         "status": "pending",
         "created_at": int(time.time()),
-        "expires_at": int(time.time()) + BITCOIN_CONFIG["payment_timeout"],
+        "expires_at": int(time.time()) + ETH_CONFIG["payment_timeout"],
         "confirmations": 0,
         "tx_hash": None,
     }
@@ -143,8 +141,8 @@ async def get_exchange_rates(request: Request) -> ExchangeRatesResponse:
     """Get current exchange rates"""
 
     return ExchangeRatesResponse(
-        btc_to_aitbc=BITCOIN_CONFIG["exchange_rate"],
-        aitbc_to_btc=1.0 / BITCOIN_CONFIG["exchange_rate"],
+        eth_to_aitbc=ETH_CONFIG["exchange_rate"],
+        aitbc_to_eth=1.0 / ETH_CONFIG["exchange_rate"],
         fee_percent=0.5,
     )
 
@@ -166,39 +164,17 @@ async def get_market_stats(request: Request) -> MarketStatsResponse:
             daily_volume += payment["aitbc_amount"]
 
     # Calculate price change (simulated)
-    base_price = 1.0 / BITCOIN_CONFIG["exchange_rate"]
+    base_price = 1.0 / ETH_CONFIG["exchange_rate"]
     price_change_percent = 5.2  # Simulated +5.2%
 
     return MarketStatsResponse(
         price=base_price,
         price_change_24h=price_change_percent,
         daily_volume=daily_volume,
-        daily_volume_btc=daily_volume / BITCOIN_CONFIG["exchange_rate"],
+        daily_volume_eth=daily_volume / ETH_CONFIG["exchange_rate"],
         total_payments=len([p for p in all_payments if p["status"] == "confirmed"]),
         pending_payments=len([p for p in all_payments if p["status"] == "pending"]),
     )
-
-
-@router.get("/exchange/wallet/balance", response_model=WalletBalanceResponse)
-@rate_limit(rate=200, per=60)
-async def get_wallet_balance_api(request: Request) -> WalletBalanceResponse:
-    """Get Bitcoin wallet balance"""
-    try:
-        balance_data = get_wallet_balance()
-        return WalletBalanceResponse(**balance_data)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
-
-
-@router.get("/exchange/wallet/info", response_model=WalletInfoResponse)
-@rate_limit(rate=200, per=60)
-async def get_wallet_info_api(request: Request) -> WalletInfoResponse:
-    """Get comprehensive wallet information"""
-    try:
-        wallet_data = get_wallet_info()
-        return WalletInfoResponse(**wallet_data)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 async def monitor_payment(payment_id: str) -> None:
