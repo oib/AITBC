@@ -717,6 +717,8 @@ class AgentServiceMarketplace:
                 for guild in self.guilds.values():
                     total_reputation = 0
                     active_members = 0
+                    # ponytail: N+1 query risk - if _get_agent_reputation is implemented with DB queries,
+                    # this should batch fetch all member reputations in one query instead of one per member
                     for member_id, _member_data in guild.members.items():
                         member_reputation = await self._get_agent_reputation(member_id)
                         total_reputation += member_reputation

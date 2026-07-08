@@ -1,8 +1,8 @@
 # AITBC v0.10.11 Release Notes
 
 **Date**: 2026-07-07
-**Status**: ✅ Complete — Bug Fixes & Code Quality Continuation
-**Scope**: Complete stub implementations, Pydantic v2 migration, SQLAlchemy pattern standardization, type safety improvements, and concurrency safety.
+**Status**: ✅ Complete — Bug Fixes & Code Quality Continuation + Phase 2 Bug Hunt
+**Scope**: Complete stub implementations, Pydantic v2 migration, SQLAlchemy pattern standardization, type safety improvements, concurrency safety, and Phase 2 critical/high-priority security and performance fixes.
 
 ## 🎯 Overview
 
@@ -35,6 +35,8 @@ v0.10.11 is a **bug fixes and code quality continuation release**. It builds on 
 | Analytics service implementation | 1 | ✅ Complete | New AnalyticsService for marketplace analytics |
 | Blockchain service expansion | 2 | ✅ Complete | Staking and bounty on-chain operation methods |
 | Code formatting | 1 | ✅ Complete | Consistent line wrapping and formatting |
+| Phase 2 Bug Hunt - Critical fixes | 3 | ✅ Complete | Dependency upgrades, secure nonce generation |
+| Phase 2 Bug Hunt - High priority fixes | 7 | ✅ Complete | Performance indexes, auth, async I/O, connection limits |
 
 ---
 
@@ -60,6 +62,18 @@ v0.10.11 is a **bug fixes and code quality continuation release**. It builds on 
 - [x] Add row locking for concurrency safety
 - [x] Implement AnalyticsService for marketplace analytics
 - [x] Expand blockchain service with staking/bounty methods
+
+### Phase 2 Bug Hunt — Security & Performance Fixes
+- [x] Upgrade cryptography to 48.0.1 (CRITICAL - GHSA-537c-gmf6-5ccf)
+- [x] Upgrade aiohttp to 3.14.1 (CRITICAL - CVE-2026-54274, CVE-2026-54273)
+- [x] Fix insecure nonce generation in settlement (CRITICAL - use secrets module)
+- [x] Fix blocking HTTP calls in async functions (HIGH - 2 instances)
+- [x] Add missing database indexes (HIGH - 4 indexes + migration)
+- [x] Fix hardcoded blockchain RPC URLs (HIGH - 6 instances)
+- [x] Add authentication to GPU marketplace registration (HIGH)
+- [x] Fix information disclosure via stack traces (HIGH)
+- [x] Document N+1 query in agent marketplace (HIGH - stub, no fix needed)
+- [x] Add connection pool limits to HTTP clients (HIGH - 3 instances)
 
 ---
 

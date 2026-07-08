@@ -13,6 +13,7 @@ from sqlmodel import col, func, select
 
 from aitbc.aitbc_logging import get_logger
 
+from ....auth import MinerDep
 from ....validators import validate_ethereum_address
 
 from ...trading.services.market_data_collector import MarketDataCollector
@@ -133,7 +134,11 @@ def _get_gpu_or_404(session: Session, gpu_id: str) -> GPURegistry:
 
 
 @router.post("/marketplace/gpu/register")
-async def register_gpu(request: dict[str, Any], session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+async def register_gpu(
+    request: dict[str, Any],
+    session: Annotated[Session, Depends(get_session)],
+    user: MinerDep,
+) -> dict[str, Any]:
     """Register a GPU in the marketplace."""
     gpu_specs = request.get("gpu", {})
     import uuid
