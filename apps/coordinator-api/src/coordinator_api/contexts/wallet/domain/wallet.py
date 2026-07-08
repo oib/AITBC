@@ -4,8 +4,6 @@ Multi-Chain Wallet Integration Domain Models
 Domain models for managing agent wallets across multiple blockchain networks.
 """
 
-# type: ignore[no-any-return]  # Pydantic field_validator type inference issue
-
 from __future__ import annotations
 
 from datetime import UTC, datetime
