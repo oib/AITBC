@@ -382,7 +382,8 @@ class BidStrategyEngine:
             BidStrategy.URGENT_BID: 0.7,
             BidStrategy.AGGRESSIVE: 0.6,
         }
-        data_factor = min(1.0, len(self.market_history) / 24)
+        async with self._lock:
+            data_factor = min(1.0, len(self.market_history) / 24)
         param_factor = 1.0
         if bid_params.urgency_multiplier > 2.0 or bid_params.tier_multiplier > 3.0:
             param_factor = 0.8
@@ -474,63 +475,67 @@ class BidStrategyEngine:
 
     async def _calculate_price_trend(self) -> str:
         """Calculate price trend"""
-        if len(self.market_history) < 2:
-            return "insufficient_data"
-        recent_prices = [float(c.average_hourly_price) for c in self.market_history[-24:]]
-        older_prices = [float(c.average_hourly_price) for c in self.market_history[-48:-24]]
-        if not older_prices:
-            return "insufficient_data"
-        recent_avg = sum(recent_prices) / len(recent_prices)
-        older_avg = sum(older_prices) / len(older_prices)
-        change = (recent_avg - older_avg) / older_avg
-        if change > 0.05:
-            return "increasing"
-        elif change < -0.05:
-            return "decreasing"
-        else:
-            return "stable"
+        async with self._lock:
+            if len(self.market_history) < 2:
+                return "insufficient_data"
+            recent_prices = [float(c.average_hourly_price) for c in self.market_history[-24:]]
+            older_prices = [float(c.average_hourly_price) for c in self.market_history[-48:-24]]
+            if not older_prices:
+                return "insufficient_data"
+            recent_avg = sum(recent_prices) / len(recent_prices)
+            older_avg = sum(older_prices) / len(older_prices)
+            change = (recent_avg - older_avg) / older_avg
+            if change > 0.05:
+                return "increasing"
+            elif change < -0.05:
+                return "decreasing"
+            else:
+                return "stable"
 
     async def _calculate_demand_trend(self) -> str:
         """Calculate demand trend"""
-        if len(self.market_history) < 2:
-            return "insufficient_data"
-        recent_demand = [c.demand_level for c in self.market_history[-24:]]
-        older_demand = [c.demand_level for c in self.market_history[-48:-24]]
-        if not older_demand:
-            return "insufficient_data"
-        recent_avg = sum(recent_demand) / len(recent_demand)
-        older_avg = sum(older_demand) / len(older_demand)
-        change = recent_avg - older_avg
-        if change > 0.1:
-            return "increasing"
-        elif change < -0.1:
-            return "decreasing"
-        else:
-            return "stable"
+        async with self._lock:
+            if len(self.market_history) < 2:
+                return "insufficient_data"
+            recent_demand = [c.demand_level for c in self.market_history[-24:]]
+            older_demand = [c.demand_level for c in self.market_history[-48:-24]]
+            if not older_demand:
+                return "insufficient_data"
+            recent_avg = sum(recent_demand) / len(recent_demand)
+            older_avg = sum(older_demand) / len(older_demand)
+            change = recent_avg - older_avg
+            if change > 0.1:
+                return "increasing"
+            elif change < -0.1:
+                return "decreasing"
+            else:
+                return "stable"
 
     async def _calculate_volatility_trend(self) -> str:
         """Calculate volatility trend"""
-        if len(self.market_history) < 2:
-            return "insufficient_data"
-        recent_vol = [c.price_volatility for c in self.market_history[-24:]]
-        older_vol = [c.price_volatility for c in self.market_history[-48:-24]]
-        if not older_vol:
-            return "insufficient_data"
-        recent_avg = sum(recent_vol) / len(recent_vol)
-        older_avg = sum(older_vol) / len(older_vol)
-        change = recent_avg - older_avg
-        if change > 0.05:
-            return "increasing"
-        elif change < -0.05:
-            return "decreasing"
-        else:
-            return "stable"
+        async with self._lock:
+            if len(self.market_history) < 2:
+                return "insufficient_data"
+            recent_vol = [c.price_volatility for c in self.market_history[-24:]]
+            older_vol = [c.price_volatility for c in self.market_history[-48:-24]]
+            if not older_vol:
+                return "insufficient_data"
+            recent_avg = sum(recent_vol) / len(recent_vol)
+            older_avg = sum(older_vol) / len(older_vol)
+            change = recent_avg - older_avg
+            if change > 0.05:
+                return "increasing"
+            elif change < -0.05:
+                return "decreasing"
+            else:
+                return "stable"
 
     async def _predict_market_conditions(self, hours_ahead: int) -> MarketConditions:
         """Predict future market conditions"""
-        if len(self.market_history) < 24:
+        async with self._lock:
+            has_sufficient_history = len(self.market_history) >= 24
+        if not has_sufficient_history:
             return await self._get_current_market_conditions()
-        self.market_history[-24:]
         price_trend = await self._calculate_price_trend()
         demand_trend = await self._calculate_demand_trend()
         current = await self._get_current_market_conditions()

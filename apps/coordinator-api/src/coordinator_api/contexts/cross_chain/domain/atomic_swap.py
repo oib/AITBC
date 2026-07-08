@@ -46,6 +46,18 @@ class AtomicSwapOrder(SQLModel, table=True):
     target_token: str = Field(max_length=42)  # "native" or ERC20 address
     target_amount: float = Field(gt=0)
 
+    @field_validator("initiator_agent_id", "participant_agent_id")
+    @classmethod
+    def validate_agent_id_field(cls, v: str) -> str:
+        return validate_agent_id(v)
+
+    @field_validator("initiator_address", "participant_address", "source_token", "target_token")
+    @classmethod
+    def validate_address_field(cls, v: str) -> str:
+        if v == "native":
+            return v
+        return validate_ethereum_address(v)
+
     # Cryptographic elements
     hashlock: str = Field(index=True)  # sha256 hash of the secret
     secret: str | None = Field(default=None)  # The secret (revealed upon completion)
@@ -65,23 +77,6 @@ class AtomicSwapOrder(SQLModel, table=True):
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-    @field_validator("initiator_agent_id", "participant_agent_id")
-    @classmethod
-    def validate_agent_id_field(cls, v: str) -> str:
-        return validate_agent_id(v)
-
-    @field_validator("initiator_address", "participant_address")
-    @classmethod
-    def validate_address_field(cls, v: str) -> str:
-        return validate_ethereum_address(v)
-
-    @field_validator("source_token", "target_token")
-    @classmethod
-    def validate_token_address(cls, v: str) -> str:
-        if v.lower() == "native":
-            return v
-        return validate_ethereum_address(v)
 
 
 __all__ = ["AtomicSwapOrder", "SwapStatus"]

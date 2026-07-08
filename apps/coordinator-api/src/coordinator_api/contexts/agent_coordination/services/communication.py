@@ -231,8 +231,9 @@ class AgentCommunicationService:
     async def remove_contact(self, agent_id: str, contact_id: str) -> bool:
         """Remove contact from agent's contact list"""
         try:
-            if agent_id in self.contact_lists and contact_id in self.contact_lists[agent_id]:
-                del self.contact_lists[agent_id][contact_id]
+            async with self._lock:
+                if agent_id in self.contact_lists and contact_id in self.contact_lists[agent_id]:
+                    del self.contact_lists[agent_id][contact_id]
             logger.info("Removed contact %s for agent %s", contact_id, agent_id)
             return True
         except Exception as e:
@@ -328,13 +329,14 @@ class AgentCommunicationService:
     async def deliver_message(self, message_id: str) -> bool:
         """Mark message as delivered"""
         try:
-            if message_id not in self.messages:
-                raise ValueError(f"Message {message_id} not found")
-            message = self.messages[message_id]
-            if message.status != MessageStatus.PENDING:
-                raise ValueError(f"Message {message_id} not pending")
-            message.status = MessageStatus.DELIVERED
-            message.delivery_timestamp = datetime.now(UTC)
+            async with self._lock:
+                if message_id not in self.messages:
+                    raise ValueError(f"Message {message_id} not found")
+                message = self.messages[message_id]
+                if message.status != MessageStatus.PENDING:
+                    raise ValueError(f"Message {message_id} not pending")
+                message.status = MessageStatus.DELIVERED
+                message.delivery_timestamp = datetime.now(UTC)
             await self._update_message_stats(message.sender, message.recipient, "delivered")
             logger.info("Message delivered: %s", message_id)
             return True
@@ -449,7 +451,8 @@ class AgentCommunicationService:
                 is_active=True,
                 creator=creator,
             )
-            self.message_templates[template_id] = template
+            async with self._lock:
+                self.message_templates[template_id] = template
             logger.info("Template created: %s", template_id)
             return template_id
         except Exception as e:
@@ -459,11 +462,12 @@ class AgentCommunicationService:
     async def use_template(self, template_id: str, sender: str, recipient: str, variables: dict[str, str]) -> str:
         """Use a message template to send a message"""
         try:
-            if template_id not in self.message_templates:
-                raise ValueError(f"Template {template_id} not found")
-            template = self.message_templates[template_id]
-            if not template.is_active:
-                raise ValueError(f"Template {template_id} not active")
+            async with self._lock:
+                if template_id not in self.message_templates:
+                    raise ValueError(f"Template {template_id} not found")
+                template = self.message_templates[template_id]
+                if not template.is_active:
+                    raise ValueError(f"Template {template_id} not active")
             content = template.content_template
             for var, value in variables.items():
                 if var in template.variables:
@@ -475,7 +479,8 @@ class AgentCommunicationService:
                 content=content,
                 metadata={"template_id": template_id},
             )
-            template.usage_count += 1
+            async with self._lock:
+                template.usage_count += 1
             logger.info("Template used: %s -> %s", template_id, message_id)
             return message_id
         except Exception as e:
@@ -487,15 +492,16 @@ class AgentCommunicationService:
     ) -> list[Message]:
         """Get messages for an agent"""
         try:
-            if agent_id not in self.agent_messages:
-                return []
-            message_ids = self.agent_messages[agent_id]
-            filtered_messages = []
-            for message_id in message_ids:
-                if message_id in self.messages:
-                    message = self.messages[message_id]
-                    if status is None or message.status == status:
-                        filtered_messages.append(message)
+            async with self._lock:
+                if agent_id not in self.agent_messages:
+                    return []
+                message_ids = self.agent_messages[agent_id]
+                filtered_messages = []
+                for message_id in message_ids:
+                    if message_id in self.messages:
+                        message = self.messages[message_id]
+                        if status is None or message.status == status:
+                            filtered_messages.append(message)
             filtered_messages.sort(key=lambda x: x.timestamp, reverse=True)
             return filtered_messages[offset : offset + limit]
         except Exception as e:
@@ -505,14 +511,15 @@ class AgentCommunicationService:
     async def get_unread_messages(self, agent_id: str) -> list[Message]:
         """Get unread messages for an agent"""
         try:
-            if agent_id not in self.agent_messages:
-                return []
-            unread_messages = []
-            for message_id in self.agent_messages[agent_id]:
-                if message_id in self.messages:
-                    message = self.messages[message_id]
-                    if message.recipient == agent_id and message.status == MessageStatus.DELIVERED:
-                        unread_messages.append(message)
+            async with self._lock:
+                if agent_id not in self.agent_messages:
+                    return []
+                unread_messages = []
+                for message_id in self.agent_messages[agent_id]:
+                    if message_id in self.messages:
+                        message = self.messages[message_id]
+                        if message.recipient == agent_id and message.status == MessageStatus.DELIVERED:
+                            unread_messages.append(message)
             return unread_messages
         except Exception as e:
             logger.error("Failed to get unread messages for %s: %s", agent_id, e)
@@ -629,40 +636,45 @@ class AgentCommunicationService:
 
     async def _get_or_create_channel(self, agent1: str, agent2: str, channel_type: ChannelType) -> str:
         """Get or create communication channel"""
-        if agent1 in self.agent_channels:
-            for channel_id in self.agent_channels[agent1]:
-                if channel_id in self.channels:
-                    channel = self.channels[channel_id]
-                    if channel.is_active and (
-                        channel.agent1 == agent1
-                        and channel.agent2 == agent2
-                        or (channel.agent1 == agent2 and channel.agent2 == agent1)
-                    ):
-                        return channel_id
+        async with self._lock:
+            if agent1 in self.agent_channels:
+                for channel_id in self.agent_channels[agent1]:
+                    if channel_id in self.channels:
+                        channel = self.channels[channel_id]
+                        if channel.is_active and (
+                            channel.agent1 == agent1
+                            and channel.agent2 == agent2
+                            or (channel.agent1 == agent2 and channel.agent2 == agent1)
+                        ):
+                            return channel_id
         return await self.create_channel(agent1, agent2, channel_type)
 
     async def _update_message_stats(self, sender: str, recipient: str, action: str) -> None:
         """Update message statistics"""
-        if action == "sent":
-            if sender in self.communication_stats:
-                self.communication_stats[sender].total_messages += 1
-                self.communication_stats[sender].messages_sent += 1
-                self.communication_stats[sender].last_activity = datetime.now(UTC)
-        elif action == "delivered":
-            if recipient in self.communication_stats:
-                self.communication_stats[recipient].total_messages += 1
-                self.communication_stats[recipient].messages_received += 1
-                self.communication_stats[recipient].last_activity = datetime.now(UTC)
-        elif action == "read":
-            if recipient in self.communication_stats:
-                self.communication_stats[recipient].last_activity = datetime.now(UTC)
+        async with self._lock:
+            if action == "sent":
+                if sender in self.communication_stats:
+                    self.communication_stats[sender].total_messages += 1
+                    self.communication_stats[sender].messages_sent += 1
+                    self.communication_stats[sender].last_activity = datetime.now(UTC)
+            elif action == "delivered":
+                if recipient in self.communication_stats:
+                    self.communication_stats[recipient].total_messages += 1
+                    self.communication_stats[recipient].messages_received += 1
+                    self.communication_stats[recipient].last_activity = datetime.now(UTC)
+            elif action == "read":
+                if recipient in self.communication_stats:
+                    self.communication_stats[recipient].last_activity = datetime.now(UTC)
 
     async def _process_message_queue(self) -> None:
         """Process message queue for delivery"""
         while True:
             try:
-                if self.message_queue:
-                    message = self.message_queue.pop(0)
+                message = None
+                async with self._lock:
+                    if self.message_queue:
+                        message = self.message_queue.pop(0)
+                if message:
                     await asyncio.sleep(0.1)
                     await self.deliver_message(message.id)
                 await asyncio.sleep(1)
@@ -676,14 +688,15 @@ class AgentCommunicationService:
             try:
                 current_time = datetime.now(UTC)
                 expired_messages = []
-                for message_id, message in self.messages.items():
-                    if message.expires_at and current_time > message.expires_at:
-                        expired_messages.append(message_id)
-                for message_id in expired_messages:
-                    del self.messages[message_id]
-                    for _agent_id, message_ids in self.agent_messages.items():
-                        if message_id in message_ids:
-                            message_ids.remove(message_id)
+                async with self._lock:
+                    for message_id, message in self.messages.items():
+                        if message.expires_at and current_time > message.expires_at:
+                            expired_messages.append(message_id)
+                    for message_id in expired_messages:
+                        del self.messages[message_id]
+                        for _agent_id, message_ids in self.agent_messages.items():
+                            if message_id in message_ids:
+                                message_ids.remove(message_id)
                 if expired_messages:
                     logger.info("Cleaned up %s expired messages", len(expired_messages))
                 await asyncio.sleep(3600)
@@ -697,20 +710,23 @@ class AgentCommunicationService:
             try:
                 current_time = datetime.now(UTC)
                 inactive_channels = []
-                for channel_id, channel in self.channels.items():
-                    if channel.is_active and current_time > channel.last_activity + timedelta(seconds=self.channel_timeout):
-                        inactive_channels.append(channel_id)
-                for channel_id in inactive_channels:
-                    channel = self.channels[channel_id]
-                    channel.is_active = False
-                    if channel.agent1 in self.communication_stats:
-                        self.communication_stats[channel.agent1].active_channels = max(
-                            0, self.communication_stats[channel.agent1].active_channels - 1
-                        )
-                    if channel.agent2 in self.communication_stats:
-                        self.communication_stats[channel.agent2].active_channels = max(
-                            0, self.communication_stats[channel.agent2].active_channels - 1
-                        )
+                async with self._lock:
+                    for channel_id, channel in self.channels.items():
+                        if channel.is_active and current_time > channel.last_activity + timedelta(
+                            seconds=self.channel_timeout
+                        ):
+                            inactive_channels.append(channel_id)
+                    for channel_id in inactive_channels:
+                        channel = self.channels[channel_id]
+                        channel.is_active = False
+                        if channel.agent1 in self.communication_stats:
+                            self.communication_stats[channel.agent1].active_channels = max(
+                                0, self.communication_stats[channel.agent1].active_channels - 1
+                            )
+                        if channel.agent2 in self.communication_stats:
+                            self.communication_stats[channel.agent2].active_channels = max(
+                                0, self.communication_stats[channel.agent2].active_channels - 1
+                            )
                 if inactive_channels:
                     logger.info("Cleaned up %s inactive channels", len(inactive_channels))
                 await asyncio.sleep(3600)
