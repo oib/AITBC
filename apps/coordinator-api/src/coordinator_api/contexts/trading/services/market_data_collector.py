@@ -106,12 +106,14 @@ class MarketDataCollector:
     async def get_aggregated_data(self, resource_type: str, region: str = "global") -> AggregatedMarketData | None:
         """Get aggregated market data for a resource type and region"""
         key = f"{resource_type}_{region}"
-        return self.aggregated_data.get(key)
+        async with self._lock:
+            return self.aggregated_data.get(key)
 
     async def get_recent_data(self, source: DataSource, minutes: int = 60) -> list[MarketDataPoint]:
         """Get recent data from a specific source"""
         cutoff_time = datetime.now(UTC) - timedelta(minutes=minutes)
-        return [point for point in self.raw_data if point.source == source and point.timestamp >= cutoff_time]
+        async with self._lock:
+            return [point for point in self.raw_data if point.source == source and point.timestamp >= cutoff_time]
 
     async def _collect_data_source(self, source: DataSource) -> None:
         """Collect data from a specific source"""
@@ -337,11 +339,12 @@ class MarketDataCollector:
         """Aggregate data for a specific resource type and region"""
         try:
             cutoff_time = datetime.now(UTC) - timedelta(minutes=30)
-            relevant_data = [
-                point
-                for point in self.raw_data
-                if point.resource_type == resource_type and point.region == region and (point.timestamp >= cutoff_time)
-            ]
+            async with self._lock:
+                relevant_data = [
+                    point
+                    for point in self.raw_data
+                    if point.resource_type == resource_type and point.region == region and (point.timestamp >= cutoff_time)
+                ]
             if not relevant_data:
                 return None
             source_data: dict[str, list[Any]] = {}

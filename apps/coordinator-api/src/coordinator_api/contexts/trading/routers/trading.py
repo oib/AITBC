@@ -98,6 +98,13 @@ class NegotiationRequest(BaseModel):
     initiator: str = Field(..., description="negotiation initiator: buyer or seller")
     strategy: str = Field(default="balanced", description="negotiation strategy")
 
+    @field_validator("initiator")
+    @classmethod
+    def validate_initiator(cls, v: str) -> str:
+        if v not in ("buyer", "seller"):
+            raise ValueError("initiator must be either 'buyer' or 'seller'")
+        return v
+
 
 class NegotiationResponse(BaseModel):
     """Response model for negotiation"""

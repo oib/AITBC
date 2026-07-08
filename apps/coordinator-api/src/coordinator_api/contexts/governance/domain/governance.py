@@ -63,8 +63,8 @@ class Proposal(SQLModel, table=True):
     proposal_id: str = Field(primary_key=True, default_factory=lambda: f"prop_{uuid.uuid4().hex[:8]}")
     proposer_id: str = Field(foreign_key="governance_profiles.profile_id")
 
-    title: str
-    description: str
+    title: str = Field(max_length=200)
+    description: str = Field(max_length=255)
     category: str = Field(default="general")  # parameters, funding, protocol, marketplace
 
     execution_payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
