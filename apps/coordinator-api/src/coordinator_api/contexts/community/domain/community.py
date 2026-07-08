@@ -73,8 +73,8 @@ class AgentSolution(SQLModel, table=True):
     solution_id: str = Field(primary_key=True, default_factory=lambda: f"sol_{uuid.uuid4().hex[:8]}")
     developer_id: str = Field(foreign_key="developer_profiles.developer_id")
 
-    title: str
-    description: str
+    title: str = Field(max_length=200)
+    description: str = Field(max_length=255)
     version: str = Field(default="1.0.0")
 
     capabilities: list[str] = Field(default_factory=list, sa_column=Column(JSON))
@@ -102,8 +102,8 @@ class InnovationLab(SQLModel, table=True):
     __tablename__ = "innovation_labs"
 
     lab_id: str = Field(primary_key=True, default_factory=lambda: f"lab_{uuid.uuid4().hex[:8]}")
-    title: str
-    description: str
+    title: str = Field(max_length=200)
+    description: str = Field(max_length=255)
     research_area: str
 
     lead_researcher_id: str = Field(foreign_key="developer_profiles.developer_id")
@@ -128,7 +128,7 @@ class CommunityPost(SQLModel, table=True):
     post_id: str = Field(primary_key=True, default_factory=lambda: f"post_{uuid.uuid4().hex[:8]}")
     author_id: str = Field(foreign_key="developer_profiles.developer_id")
 
-    title: str
+    title: str = Field(max_length=200)
     content: str
     category: str = Field(default="discussion")  # discussion, question, showcase, tutorial
     tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
@@ -149,8 +149,8 @@ class Hackathon(SQLModel, table=True):
     __tablename__ = "hackathons"
 
     hackathon_id: str = Field(primary_key=True, default_factory=lambda: f"hack_{uuid.uuid4().hex[:8]}")
-    title: str
-    description: str
+    title: str = Field(max_length=200)
+    description: str = Field(max_length=255)
     theme: str
 
     sponsor: str = Field(default="AITBC Foundation")

@@ -221,35 +221,45 @@ class AgentOrchestrator:
 
     async def cancel_task(self, task_id: str) -> bool:
         """Cancel task orchestration"""
-        if task_id not in self.active_plans:
-            return False
-        plan = self.active_plans[task_id]
-        for assignment in plan.agent_assignments:
-            if assignment.status in [SubTaskStatus.PENDING, SubTaskStatus.IN_PROGRESS]:
-                assignment.status = SubTaskStatus.CANCELLED
-                await self._release_agent_resources(assignment.agent_id, assignment.sub_task_id)
-        self.failed_plans.append(plan)
-        del self.active_plans[task_id]
+        plan = None
+        async with self._lock:
+            if task_id not in self.active_plans:
+                return False
+            plan = self.active_plans[task_id]
+            for assignment in plan.agent_assignments:
+                if assignment.status in [SubTaskStatus.PENDING, SubTaskStatus.IN_PROGRESS]:
+                    assignment.status = SubTaskStatus.CANCELLED
+            self.failed_plans.append(plan)
+            del self.active_plans[task_id]
+        # Release resources outside the lock to avoid deadlock
+        if plan:
+            for assignment in plan.agent_assignments:
+                if assignment.status == SubTaskStatus.CANCELLED:
+                    await self._release_agent_resources(assignment.agent_id, assignment.sub_task_id)
         logger.info("Task %s cancelled", task_id)
         return True
 
     async def retry_failed_sub_tasks(self, task_id: str) -> list[str]:
         """Retry failed sub-tasks"""
-        if task_id not in self.active_plans:
-            return []
-        plan = self.active_plans[task_id]
-        retried_tasks = []
-        for assignment in plan.agent_assignments:
-            if assignment.status == SubTaskStatus.FAILED and assignment.retry_count < self.retry_limit:
-                assignment.status = SubTaskStatus.PENDING
-                assignment.started_at = None
-                assignment.completed_at = None
-                assignment.error_message = None
-                assignment.retry_count += 1
-                await self._release_agent_resources(assignment.agent_id, assignment.sub_task_id)
-                await self._assign_sub_task(assignment.sub_task_id, plan)
-                retried_tasks.append(assignment.sub_task_id)
-                logger.info("Retrying sub-task %s (attempt %s)", assignment.sub_task_id, assignment.retry_count + 1)
+        async with self._lock:
+            if task_id not in self.active_plans:
+                return []
+            plan = self.active_plans[task_id]
+            retried_tasks = []
+            for assignment in plan.agent_assignments:
+                if assignment.status == SubTaskStatus.FAILED and assignment.retry_count < self.retry_limit:
+                    assignment.status = SubTaskStatus.PENDING
+                    assignment.started_at = None
+                    assignment.completed_at = None
+                    assignment.error_message = None
+                    assignment.retry_count += 1
+                    retried_tasks.append(assignment.sub_task_id)
+        # Release resources and reassign outside the lock
+        for sub_task_id in retried_tasks:
+            assignment = next(a for a in plan.agent_assignments if a.sub_task_id == sub_task_id)
+            await self._release_agent_resources(assignment.agent_id, assignment.sub_task_id)
+            await self._assign_sub_task(assignment.sub_task_id, plan)
+            logger.info("Retrying sub-task %s (attempt %s)", assignment.sub_task_id, assignment.retry_count + 1)
         return retried_tasks
 
     async def register_agent(self, capability: AgentCapability) -> None:
@@ -380,9 +390,10 @@ class AgentOrchestrator:
             expected_duration=requirements.estimated_duration,
         )
         allocations.append(memory_allocation)
-        if agent_id not in self.resource_allocations:
-            self.resource_allocations[agent_id] = []
-        self.resource_allocations[agent_id].extend(allocations)
+        async with self._lock:
+            if agent_id not in self.resource_allocations:
+                self.resource_allocations[agent_id] = []
+            self.resource_allocations[agent_id].extend(allocations)
 
     async def _release_agent_resources(self, agent_id: str, sub_task_id: str) -> None:
         """Release resources from agent"""
@@ -402,20 +413,20 @@ class AgentOrchestrator:
             try:
                 completed_tasks = []
                 failed_tasks = []
-                for task_id, plan in list(self.active_plans.items()):
-                    all_completed = all(a.status == SubTaskStatus.COMPLETED for a in plan.agent_assignments)
-                    any_failed = any(a.status == SubTaskStatus.FAILED for a in plan.agent_assignments)
-                    if all_completed:
-                        completed_tasks.append(task_id)
-                    elif any_failed:
-                        all_failed_exhausted = all(
-                            a.status == SubTaskStatus.FAILED and a.retry_count >= self.retry_limit
-                            for a in plan.agent_assignments
-                            if a.status == SubTaskStatus.FAILED
-                        )
-                        if all_failed_exhausted:
-                            failed_tasks.append(task_id)
                 async with self._lock:
+                    for task_id, plan in list(self.active_plans.items()):
+                        all_completed = all(a.status == SubTaskStatus.COMPLETED for a in plan.agent_assignments)
+                        any_failed = any(a.status == SubTaskStatus.FAILED for a in plan.agent_assignments)
+                        if all_completed:
+                            completed_tasks.append(task_id)
+                        elif any_failed:
+                            all_failed_exhausted = all(
+                                a.status == SubTaskStatus.FAILED and a.retry_count >= self.retry_limit
+                                for a in plan.agent_assignments
+                                if a.status == SubTaskStatus.FAILED
+                            )
+                            if all_failed_exhausted:
+                                failed_tasks.append(task_id)
                     for task_id in completed_tasks:
                         plan = self.active_plans[task_id]
                         self.completed_plans.append(plan)

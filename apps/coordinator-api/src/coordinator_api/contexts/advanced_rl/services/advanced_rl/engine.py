@@ -271,22 +271,24 @@ class AdvancedReinforcementLearningEngine:
     async def load_trained_agent(self, agent_id: str, algorithm: str) -> nn.Module | None:
         """Load a trained agent model"""
         model_key = f"{agent_id}_{algorithm}"
-        if model_key in self.agents:
-            state_dim = len(self.state_spaces["market_state"]) + len(self.state_spaces["agent_state"])
-            action_dim = len(self.action_spaces["pricing"])
-            if algorithm == "ppo":
-                agent = PPOAgent(state_dim, action_dim)
-            elif algorithm == "sac":
-                agent = SACAgent(state_dim, action_dim)  # type: ignore[assignment]
-            elif algorithm == "rainbow_dqn":
-                agent = RainbowDQNAgent(state_dim, action_dim)  # type: ignore[assignment]
-            else:
+        async with self._lock:
+            if model_key not in self.agents:
                 return None
-            agent.load_state_dict(self.agents[model_key])
-            agent.to(self.device)
-            agent.eval()
-            return agent
-        return None
+            state_dict = self.agents[model_key]
+        state_dim = len(self.state_spaces["market_state"]) + len(self.state_spaces["agent_state"])
+        action_dim = len(self.action_spaces["pricing"])
+        if algorithm == "ppo":
+            agent = PPOAgent(state_dim, action_dim)
+        elif algorithm == "sac":
+            agent = SACAgent(state_dim, action_dim)  # type: ignore[assignment]
+        elif algorithm == "rainbow_dqn":
+            agent = RainbowDQNAgent(state_dim, action_dim)  # type: ignore[assignment]
+        else:
+            return None
+        agent.load_state_dict(state_dict)
+        agent.to(self.device)
+        agent.eval()
+        return agent
 
     async def get_agent_action(self, agent: nn.Module, state: list[float], algorithm: str) -> int | np.ndarray:
         """Get action from trained agent"""
