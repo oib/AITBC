@@ -65,6 +65,48 @@ v0.10.11 is a **bug fixes and code quality continuation release**. It builds on 
 
 ## 📋 Detailed Findings
 
+### Pre-release Work (Dead Code Elimination & Package Restructuring)
+
+**Dead Code Elimination**: Eliminated dead code and renamed app/ packages:
+- Removed dead code from flat-layout apps
+- Renamed app/ packages to improve structure
+- Expanded mypy coverage to flat-layout apps
+
+**Stale Reference Updates**: Fixed stale references after app/ package rename:
+- Updated imports and references throughout the codebase
+- Ensured consistency after package restructuring
+
+### Commits Since v0.10.10
+
+**Base commit**: `1d40513fa feat(v0.10.10): expand mypy coverage to agent-sdk packages (0 errors / 1510 files)`
+
+**v0.10.11 commits** (21 commits total):
+
+**Pre-release work** (5 commits):
+1. `67015267b` fix: apply code formatting improvements across coordinator-api
+2. `c0fbd01e2` fix: wire CLI resource commands to real API, fail closed on node mock fallbacks
+3. `b6f517a85` fix: replace placeholder implementations with real crypto/hashing in 5 files
+4. `d49053c59` fix: update stale references after app/ package rename (3fc1333fe)
+5. `3fc1333fe` chore: eliminate dead code, rename app/ packages, expand mypy to flat-layout apps
+
+**Core v0.10.11 work** (16 commits):
+6. `84fbe7911` fix: complete stub implementations and fix type issues
+7. `6dd726bb8` fix: complete blockchain service integration and fix settlement hooks
+8. `bc4fd753b` fix: migrate to pydantic v2 and fix logger calls across coordinator-api
+9. `74ee7bc52` fix: fix type errors and refactor auth helper in staking router
+10. `2006d9b12` fix: add blockchain service methods for bounty operations
+11. `b72076a11` fix: migrate pool-hub services router to pydantic v2 and clean up trading service type ignores
+12. `5c8f0af5c` fix: rename shadowed result variables and add match_id fallback in trading service
+13. `1f8cc96b0` fix: migrate exchange router from Bitcoin to ETH and remove bitcoin_wallet module
+14. `5923a750c` fix: wire analytics service and fix domain model attribute access across routers
+15. `3432f7569` fix: standardize SQLAlchemy query patterns across coordinator-api
+16. `435bd250c` fix: correct method calls, field names, and SQLAlchemy patterns
+17. `198e57fef` fix: migrate to pydantic v2 model_dump and fix division by zero
+18. `249e72a2f` fix: remove redundant .scalars() calls, fix import type ignores, and correct method access
+19. `a1fd6d091` fix: add row locking with for_update to prevent race conditions
+20. `f6793245c` docs(v0.10.11): create release v0.10.11 - bug fixes & code quality continuation
+21. `2c31cb3c1` docs(v0.10.11): add bug hunt phase 1 documentation
+
 ### Stub Implementation Completion
 
 **CLI Resource Commands**: Wired CLI resource commands to real API instead of mock implementations. Added fail-closed behavior for node mock fallbacks to prevent silent failures.
