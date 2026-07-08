@@ -2,7 +2,9 @@
 
 This file is the source of truth for project conventions, verification commands, and per-agent task plans. Agent-specific plans live at `docs/releases/<version>/AGENTS.md`; this root file holds the stable conventions and the **current** in-flight plan.
 
-**Current in-flight plan**: None — all releases through v0.10.10 are complete. Next: v1.0.0 production readiness.
+**Current in-flight plan**: None — all releases through v0.10.11 are complete. Next: v1.0.0 production readiness.
+
+**Previous**: [v0.10.11](docs/releases/v0.10.11/change.log) — Bug Fixes & Code Quality Continuation (complete stub implementations, Pydantic v2 migration, SQLAlchemy pattern standardization, type safety improvements, and concurrency safety) — ✅ complete
 
 **Previous**: [v0.10.10](docs/releases/v0.10.10/change.log) — Code Quality & Testing Roadmap (expand mypy coverage to 851 files, raise coverage gate, add property-based tests, add performance regression tests, pin dependencies, add local dev script, add integration fixtures) — ✅ complete
 
