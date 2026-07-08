@@ -301,9 +301,9 @@ class AgentTrustManager:
     ) -> AgentTrustScore:
         """Update trust score based on execution results"""
         trust_score_row = self.session.scalars(
-            select(AgentTrustScore).where(
-                (AgentTrustScore.entity_type == entity_type) & (AgentTrustScore.entity_id == entity_id)
-            )
+            select(AgentTrustScore)
+            .where((AgentTrustScore.entity_type == entity_type) & (AgentTrustScore.entity_id == entity_id))
+            .with_for_update()
         ).first()
         if trust_score_row is None:
             trust_score = AgentTrustScore(entity_type=entity_type, entity_id=entity_id)
