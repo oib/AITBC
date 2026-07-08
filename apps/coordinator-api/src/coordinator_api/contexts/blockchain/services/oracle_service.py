@@ -251,6 +251,7 @@ class OracleService:
     def __init__(self) -> None:
         self.feed = AggregatedPriceFeed()
         self._subscribers: list[Callable] = []
+        self._lock = asyncio.Lock()
         self._running = False
         self._update_task: asyncio.Task | None = None
 
@@ -296,21 +297,25 @@ class OracleService:
     def set_price(self, pair: str, price: float, confidence: float = 1.0, source: str = "manual") -> dict[str, Any]:
         """Set price manually (admin function)"""
         data = self.feed.set_manual_price(pair, price, confidence)
-        for callback in self._subscribers:
+        # Copy-on-read to avoid race condition during iteration
+        subscribers_copy = list(self._subscribers)
+        for callback in subscribers_copy:
             try:
                 create_task_with_logging(callback(data), name="oracle_callback")
             except Exception as e:
                 logger.warning("Price subscriber error: %s", e)
         return data.to_dict()
 
-    def subscribe(self, callback: Callable[..., Any]) -> None:
+    async def subscribe(self, callback: Callable[..., Any]) -> None:
         """Subscribe to price updates"""
-        self._subscribers.append(callback)
+        async with self._lock:
+            self._subscribers.append(callback)
 
-    def unsubscribe(self, callback: Callable[..., Any]) -> None:
+    async def unsubscribe(self, callback: Callable[..., Any]) -> None:
         """Unsubscribe from price updates"""
-        if callback in self._subscribers:
-            self._subscribers.remove(callback)
+        async with self._lock:
+            if callback in self._subscribers:
+                self._subscribers.remove(callback)
 
 
 _oracle_service: OracleService | None = None

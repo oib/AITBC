@@ -71,6 +71,7 @@ class MarketDataCollector:
         self.data_callbacks: dict[DataSource, list[Callable]] = {}
         self.raw_data: list[MarketDataPoint] = []
         self.aggregated_data: dict[str, AggregatedMarketData] = {}
+        self._lock = asyncio.Lock()
         self.websocket_connections: dict[str, WebSocketServerProtocol] = {}
         self.collection_intervals = {
             DataSource.GPU_METRICS: 60,
@@ -298,9 +299,10 @@ class MarketDataCollector:
 
     async def _add_data_point(self, data_point: MarketDataPoint) -> None:
         """Add a data point and notify callbacks"""
-        self.raw_data.append(data_point)
-        if len(self.raw_data) > self.max_raw_data_points:
-            self.raw_data = self.raw_data[-self.max_raw_data_points :]
+        async with self._lock:
+            self.raw_data.append(data_point)
+            if len(self.raw_data) > self.max_raw_data_points:
+                self.raw_data = self.raw_data[-self.max_raw_data_points :]
         if data_point.source in self.data_callbacks:
             for callback in self.data_callbacks[data_point.source]:
                 try:
@@ -328,7 +330,8 @@ class MarketDataCollector:
                 aggregated = await self._aggregate_for_resource_region(resource_type, region)
                 if aggregated:
                     key = f"{resource_type}_{region}"
-                    self.aggregated_data[key] = aggregated
+                    async with self._lock:
+                        self.aggregated_data[key] = aggregated
 
     async def _aggregate_for_resource_region(self, resource_type: str, region: str) -> AggregatedMarketData | None:
         """Aggregate data for a specific resource type and region"""
@@ -483,10 +486,11 @@ class MarketDataCollector:
         while True:
             try:
                 cutoff_time = datetime.now(UTC) - self.max_data_age
-                self.raw_data = [point for point in self.raw_data if point.timestamp >= cutoff_time]
-                for key in list(self.aggregated_data.keys()):
-                    if self.aggregated_data[key].timestamp < cutoff_time:
-                        del self.aggregated_data[key]
+                async with self._lock:
+                    self.raw_data = [point for point in self.raw_data if point.timestamp >= cutoff_time]
+                    for key in list(self.aggregated_data.keys()):
+                        if self.aggregated_data[key].timestamp < cutoff_time:
+                            del self.aggregated_data[key]
                 await asyncio.sleep(3600)
             except Exception as e:
                 logger.error("Error cleaning up old data: %s", e)

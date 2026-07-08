@@ -7,11 +7,13 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from sqlmodel import col, func, select
 
 from aitbc.aitbc_logging import get_logger
+
+from ....validators import validate_ethereum_address
 
 from ...trading.services.market_data_collector import MarketDataCollector
 from ....storage.db import get_session
@@ -91,9 +93,14 @@ class GPUSellRequest(BaseModel):
 class PaymentRequest(BaseModel):
     from_wallet: str
     to_wallet: str
-    amount: float
+    amount: float = Field(gt=0)
     booking_id: str | None = None
     task_id: str | None = None
+
+    @field_validator("from_wallet", "to_wallet")
+    @classmethod
+    def validate_wallet_address(cls, v: str) -> str:
+        return validate_ethereum_address(v)
 
 
 class GPUReviewRequest(BaseModel):

@@ -3,6 +3,7 @@ Advanced Reinforcement Learning Engine
 Main engine class for RL-based marketplace strategies and agent optimization
 """
 
+import asyncio
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -29,6 +30,7 @@ class AdvancedReinforcementLearningEngine:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.agents: dict[str, Any] = {}
         self.training_histories: dict[str, Any] = {}
+        self._lock = asyncio.Lock()
         self.rl_algorithms = {
             "ppo": self.proximal_policy_optimization,
             "sac": self.soft_actor_critic,
@@ -126,7 +128,8 @@ class AdvancedReinforcementLearningEngine:
                 training_history["entropy_losses"].append(entropy_loss.item())
             training_history["episode_rewards"].append(episode_reward)
             if episode % config.save_frequency == 0:
-                self.agents[f"{config.agent_id}_ppo"] = agent.state_dict()
+                async with self._lock:
+                    self.agents[f"{config.agent_id}_ppo"] = agent.state_dict()
         return {
             "algorithm": "ppo",
             "training_history": training_history,
@@ -167,7 +170,8 @@ class AdvancedReinforcementLearningEngine:
                     break
             training_history["episode_rewards"].append(episode_reward)
             if episode % config.save_frequency == 0:
-                self.agents[f"{config.agent_id}_sac"] = agent.state_dict()
+                async with self._lock:
+                    self.agents[f"{config.agent_id}_sac"] = agent.state_dict()
         return {
             "algorithm": "sac",
             "training_history": training_history,
@@ -199,7 +203,8 @@ class AdvancedReinforcementLearningEngine:
                     break
             training_history["episode_rewards"].append(episode_reward)
             if episode % config.save_frequency == 0:
-                self.agents[f"{config.agent_id}_rainbow_dqn"] = agent.state_dict()
+                async with self._lock:
+                    self.agents[f"{config.agent_id}_rainbow_dqn"] = agent.state_dict()
         return {
             "algorithm": "rainbow_dqn",
             "training_history": training_history,

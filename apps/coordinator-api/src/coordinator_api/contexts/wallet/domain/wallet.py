@@ -4,14 +4,19 @@ Multi-Chain Wallet Integration Domain Models
 Domain models for managing agent wallets across multiple blockchain networks.
 """
 
+# type: ignore[no-any-return]  # Pydantic field_validator type inference issue
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 
+from pydantic import field_validator
 from sqlalchemy import JSON, Column, Numeric
 from sqlmodel import Field, SQLModel
+
+from coordinator_api.validators import validate_ethereum_address, validate_url
 
 
 class WalletType(StrEnum):
@@ -34,8 +39,8 @@ class AgentWallet(SQLModel, table=True):
     __tablename__ = "agent_wallet"
 
     id: int | None = Field(default=None, primary_key=True)
-    agent_id: str = Field(index=True)
-    address: str = Field(index=True)
+    agent_id: str = Field(index=True, max_length=128)
+    address: str = Field(index=True, max_length=42)
     public_key: str = Field()
     wallet_type: WalletType = Field(default=WalletType.EOA, index=True)
     is_active: bool = Field(default=True)
@@ -44,6 +49,11 @@ class AgentWallet(SQLModel, table=True):
     meta_data: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("address")
+    @classmethod
+    def validate_address_field(cls, v: str) -> str:
+        return validate_ethereum_address(v)
 
     # Relationships
     # DISABLED:     balances: List["TokenBalance"] = Relationship(back_populates="wallet")
@@ -67,6 +77,11 @@ class NetworkConfig(SQLModel, table=True):
     is_testnet: bool = Field(default=False, index=True)
     is_active: bool = Field(default=True)
 
+    @field_validator("rpc_url", "ws_url", "explorer_url")
+    @classmethod
+    def validate_url_field(cls, v: str | None) -> str | None:
+        return validate_url(v)
+
 
 class TokenBalance(SQLModel, table=True):
     """Tracks token balances for agent wallets across networks"""
@@ -76,10 +91,17 @@ class TokenBalance(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     wallet_id: int = Field(foreign_key="agent_wallet.id", index=True)
     chain_id: int = Field(foreign_key="wallet_network_config.chain_id", index=True)
-    token_address: str = Field(index=True)  # "native" for native currency
+    token_address: str = Field(index=True, max_length=42)  # "native" for native currency
     token_symbol: str = Field()
     balance: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     last_updated: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("token_address")
+    @classmethod
+    def validate_token_address(cls, v: str) -> str:
+        if v.lower() == "native":
+            return v
+        return validate_ethereum_address(v)
 
     # Relationships
     # DISABLED:     wallet: AgentWallet = Relationship(back_populates="balances")
@@ -103,7 +125,7 @@ class WalletTransaction(SQLModel, table=True):
     wallet_id: int = Field(foreign_key="agent_wallet.id", index=True)
     chain_id: int = Field(foreign_key="wallet_network_config.chain_id", index=True)
     tx_hash: str | None = Field(default=None, index=True)
-    to_address: str = Field(index=True)
+    to_address: str = Field(index=True, max_length=42)
     value: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     data: str | None = Field(default=None)
     gas_limit: int | None = Field(default=None)
@@ -113,6 +135,11 @@ class WalletTransaction(SQLModel, table=True):
     error_message: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("to_address")
+    @classmethod
+    def validate_to_address(cls, v: str) -> str:
+        return validate_ethereum_address(v)
 
     # Relationships
     # DISABLED:     wallet: AgentWallet = Relationship(back_populates="transactions")
