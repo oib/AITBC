@@ -184,48 +184,39 @@ class AggregatedPriceFeed:
 
     async def _fetch_from_api(self, pair: str) -> PriceData | None:
         """Fetch price from external API (CoinGecko)"""
+        coin_map = {
+            "BTC/USD": "bitcoin",
+            "ETH/USD": "ethereum",
+            "LINK/USD": "chainlink",
+            "USDC/USD": "usd-coin",
+            "USDT/USD": "tether",
+            "DAI/USD": "dai",
+        }
+        coin_id = coin_map.get(pair)
+        if not coin_id:
+            return None
         try:
-            coin_map = {
-                "BTC/USD": "bitcoin",
-                "ETH/USD": "ethereum",
-                "LINK/USD": "chainlink",
-                "USDC/USD": "usd-coin",
-                "USDT/USD": "tether",
-                "DAI/USD": "dai",
-            }
-            coin_id = coin_map.get(pair)
-            if not coin_id:
+            url = "https://api.coingecko.com/api/v3/simple/price"
+            params = {"ids": coin_id, "vs_currencies": "usd", "include_24hr_change": "true"}
+            response = await self._client.get(url, params=params, timeout=10)
+            if response.status_code != 200:
+                logger.warning("CoinGecko API returned %s", response.status_code)
                 return None
-            try:
-                import httpx
-
-                url = "https://api.coingecko.com/api/v3/simple/price"
-                params = {"ids": coin_id, "vs_currencies": "usd", "include_24hr_change": "true"}
-                response = httpx.get(url, params=params, timeout=10)
-                if response.status_code != 200:
-                    logger.warning("CoinGecko API returned %s", response.status_code)
-                    return None
-                data = response.json()
-                if coin_id not in data:
-                    logger.warning("CoinGecko response missing %s", coin_id)
-                    return None
-                price_data = data[coin_id]
-                price = price_data.get("usd")
-                price_data.get("usd_24h_change", 0.0)
-                if price is None:
-                    logger.warning("CoinGecko response missing price for %s", coin_id)
-                    return None
-                return PriceData(
-                    pair=pair, price=price, source=PriceSource.aggregated, timestamp=datetime.now(UTC), confidence=0.9
-                )
-            except httpx.TimeoutException:
-                logger.warning("CoinGecko API timeout for %s", pair)
+            data = response.json()
+            if coin_id not in data:
+                logger.warning("CoinGecko response missing %s", coin_id)
                 return None
-            except Exception as e:
-                logger.warning("CoinGecko API error for %s: %s", pair, e)
+            price_data = data[coin_id]
+            price = price_data.get("usd")
+            price_data.get("usd_24h_change", 0.0)
+            if price is None:
+                logger.warning("CoinGecko response missing price for %s", coin_id)
                 return None
+            return PriceData(
+                pair=pair, price=price, source=PriceSource.aggregated, timestamp=datetime.now(UTC), confidence=0.9
+            )
         except Exception as e:
-            logger.warning("API fetch failed for %s: %s", pair, e)
+            logger.warning("CoinGecko API error for %s: %s", pair, e)
             return None
 
     def set_manual_price(self, pair: str, price: float, confidence: float = 1.0) -> PriceData:

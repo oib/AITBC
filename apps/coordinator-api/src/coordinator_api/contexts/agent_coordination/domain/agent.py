@@ -65,7 +65,7 @@ class AIAgentWorkflow(SQLModel, table=True):
     # Metadata
     tags: str = Field(default="")  # JSON string of tags
     version: str = Field(default="1.0.0")
-    is_public: bool = Field(default=False)
+    is_public: bool = Field(default=False, index=True)
 
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

@@ -15,6 +15,7 @@ from enum import StrEnum
 from typing import Any
 
 from pydantic import field_validator
+from sqlalchemy import Index
 from sqlmodel import JSON, Column, Field, SQLModel
 
 from coordinator_api.validators import validate_agent_id, validate_ethereum_address, validate_positive_decimal
@@ -48,7 +49,7 @@ class Bounty(SQLModel, table=True):
     """AI agent bounty with ZK-proof verification requirements"""
 
     __tablename__ = "bounties"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (Index("idx_bounty_status_deadline", "status", "deadline"), {"extend_existing": True})
 
     bounty_id: str = Field(primary_key=True, default_factory=lambda: f"bounty_{uuid.uuid4().hex[:8]}")
     title: str = Field(index=True)

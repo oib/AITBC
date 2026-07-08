@@ -103,7 +103,8 @@ class RealKYCProvider:
 
     async def __aenter__(self) -> None:
         """Async context manager entry"""
-        self.session = aiohttp.ClientSession()
+        connector = aiohttp.TCPConnector(limit=100, limit_per_host=10)
+        self.session = aiohttp.ClientSession(connector=connector)
         return self  # type: ignore[return-value]
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -261,7 +262,8 @@ class RealAMLProvider:
 
     async def __aenter__(self) -> None:
         """Async context manager entry"""
-        self.session = aiohttp.ClientSession()
+        connector = aiohttp.TCPConnector(limit=100, limit_per_host=10)
+        self.session = aiohttp.ClientSession(connector=connector)
         return self  # type: ignore[return-value]
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
