@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-import networkx as nx  # type: ignore
+import networkx as nx
 
 from aitbc.aitbc_logging import get_logger
 
