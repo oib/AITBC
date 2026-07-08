@@ -41,6 +41,7 @@ v0.10.11 is a **bug fixes and code quality continuation release**. It builds on 
 | Phase 2 Bug Hunt - Low priority fixes | 3 | ✅ Complete | List index bounds, SDK URLs, random in mock data |
 | Phase 3 Bug Hunt - Async race conditions | 11 | ✅ Complete | asyncio.Lock protection for 11 services |
 | Phase 3 Bug Hunt - Input validation | 4 | ✅ Complete | Cross-chain, bounty/staking, router requests, user/community/governance |
+| Phase 3.5 Bug Hunt - Mypy type inference | 1 | ✅ Complete | Added py.typed marker to validators module |
 
 ---
 
@@ -438,7 +439,29 @@ All medium and low priority issues from Phase 2 have been addressed:
 
 **Total Phase 3 Fixes**: 15 (11 async race conditions + 4 input validation areas)
 
-**Combined Phase 1-3 Summary**: 36 fixes total
+---
+
+## 🔒 Phase 3.5 Bug Hunt — Mypy Type Inference Fix
+
+### Fix Applied
+
+**File**: `src/coordinator_api/validators/py.typed` (new file)
+- Added empty `py.typed` marker file to the validators module
+- This tells mypy that the module is typed and should be analyzed for type correctness
+
+**Files Modified**:
+- `src/coordinator_api/contexts/agent_identity/domain/agent_identity.py` - Removed file-level and method-level `# type: ignore[no-any-return]` comments (16 instances)
+- `src/coordinator_api/contexts/wallet/domain/wallet.py` - Removed file-level and method-level `# type: ignore[no-any-return]` comments (4 instances)
+- `src/coordinator_api/validators/__init__.py` - Removed duplicate `@classmethod` decorator on ValidatorMixin.strip_strings
+
+**Verification**:
+- Mypy: ✅ Success - no issues found in 2 source files
+- Pytest: ✅ 260 passed, 14 skipped, 3 warnings in 10.88s
+- Files modified: 4
+
+**Total Phase 3.5 Fixes**: 1 (mypy type inference)
+
+**Combined Phase 1-3.5 Summary**: 37 fixes total
 
 ---
 

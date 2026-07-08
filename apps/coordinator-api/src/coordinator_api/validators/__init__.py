@@ -65,7 +65,6 @@ def validate_positive_decimal(v: float) -> float:
 class ValidatorMixin:
     """Mixin class to add common validators to models."""
 
-    @classmethod
     @field_validator("*", mode="before")
     @classmethod
     def strip_strings(cls, v: Any) -> Any:
