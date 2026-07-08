@@ -45,7 +45,7 @@ class OfferSearchService:
         try:
             if self._backend == "meilisearch":
                 try:
-                    import meilisearch  # type: ignore[import-not-found]
+                    import meilisearch
 
                     self._client = meilisearch.Client(self._backend_url)
                     # Ensure index exists
