@@ -1,6 +1,7 @@
 """Island service for Edge API Service"""
 
 import os
+import socket
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -12,10 +13,9 @@ from ..storage import get_session
 logger = get_logger(__name__)
 
 # Node identity for bridge request attribution.
-# Defaults to HOSTNAME (set by container runtime) or "edge-api" as fallback.
-NODE_ID = os.getenv("EDGE_NODE_ID", os.getenv("HOSTNAME", "edge-api"))
-if NODE_ID == "edge-api":
-    logger.warning("EDGE_NODE_ID not set; using default identity 'edge-api'")
+# Same derivation as main._register_edge_node_on_blockchain so the node has
+# one consistent identity across all code paths.
+NODE_ID = os.getenv("EDGE_NODE_ID", os.getenv("NODE_ID", f"edge-{socket.gethostname()}"))
 
 
 class IslandService:
