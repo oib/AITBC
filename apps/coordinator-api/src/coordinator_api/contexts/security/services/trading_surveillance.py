@@ -382,18 +382,21 @@ class TradingSurveillance:
         except Exception as e:
             logger.error("❌ Concentrated trading detection error: %s", e)
 
-    def get_active_alerts(self, level: AlertLevel | None = None) -> list[TradingAlert]:
+    async def get_active_alerts(self, level: AlertLevel | None = None) -> list[TradingAlert]:
         """Get active alerts, optionally filtered by level"""
-        alerts = [alert for alert in self.alerts if alert.status == "active"]
+        async with self._lock:
+            alerts = [alert for alert in self.alerts if alert.status == "active"]
         if level:
             alerts = [alert for alert in alerts if alert.alert_level == level]
         return sorted(alerts, key=lambda x: x.timestamp, reverse=True)
 
-    def get_alert_summary(self) -> dict[str, Any]:
+    async def get_alert_summary(self) -> dict[str, Any]:
         """Get summary of all alerts"""
-        active_alerts = [alert for alert in self.alerts if alert.status == "active"]
+        async with self._lock:
+            active_alerts = [alert for alert in self.alerts if alert.status == "active"]
+            total_alerts = len(self.alerts)
         summary = {
-            "total_alerts": len(self.alerts),
+            "total_alerts": total_alerts,
             "active_alerts": len(active_alerts),
             "by_level": {
                 "critical": len([a for a in active_alerts if a.alert_level == AlertLevel.CRITICAL]),

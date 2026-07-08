@@ -294,11 +294,12 @@ class AgentServiceMarketplace:
     ) -> ServiceRequest:
         """Request a service"""
         try:
-            if service_id not in self.services:
-                raise ValueError(f"Service not found: {service_id}")
-            service = self.services[service_id]
-            if service.status != ServiceStatus.ACTIVE:
-                raise ValueError("Service not active")
+            async with self._lock:
+                if service_id not in self.services:
+                    raise ValueError(f"Service not found: {service_id}")
+                service = self.services[service_id]
+                if service.status != ServiceStatus.ACTIVE:
+                    raise ValueError("Service not active")
             if budget < service.base_price:
                 raise ValueError(f"Budget below service price: {service.base_price}")
             if deadline <= datetime.now(UTC):
@@ -332,23 +333,25 @@ class AgentServiceMarketplace:
     async def accept_request(self, request_id: str, agent_id: str) -> bool:
         """Accept a service request"""
         try:
-            if request_id not in self.service_requests:
-                raise ValueError(f"Request not found: {request_id}")
-            request = self.service_requests[request_id]
-            service = self.services[request.service_id]
-            if request.status != RequestStatus.PENDING:
-                raise ValueError("Request not pending")
-            if request.assigned_agent:
-                raise ValueError("Request already assigned")
-            if service.agent_id != agent_id:
-                raise ValueError("Not service provider")
-            if datetime.now(UTC) > request.deadline:
-                raise ValueError("Request expired")
-            request.status = RequestStatus.ACCEPTED
-            request.assigned_agent = agent_id
-            request.accepted_at = datetime.now(UTC)
+            async with self._lock:
+                if request_id not in self.service_requests:
+                    raise ValueError(f"Request not found: {request_id}")
+                request = self.service_requests[request_id]
+                service = self.services[request.service_id]
+                if request.status != RequestStatus.PENDING:
+                    raise ValueError("Request not pending")
+                if request.assigned_agent:
+                    raise ValueError("Request already assigned")
+                if service.agent_id != agent_id:
+                    raise ValueError("Not service provider")
+                if datetime.now(UTC) > request.deadline:
+                    raise ValueError("Request expired")
+                request.status = RequestStatus.ACCEPTED
+                request.assigned_agent = agent_id
+                request.accepted_at = datetime.now(UTC)
             final_price = await self._calculate_dynamic_price(request.service_id, request.budget)
-            request.payment = final_price
+            async with self._lock:
+                request.payment = final_price
             logger.info("Request accepted: %s by agent %s", request_id, agent_id)
             return True
         except Exception as e:
@@ -358,23 +361,23 @@ class AgentServiceMarketplace:
     async def complete_request(self, request_id: str, agent_id: str, results: dict[str, Any]) -> bool:
         """Complete a service request"""
         try:
-            if request_id not in self.service_requests:
-                raise ValueError(f"Request not found: {request_id}")
-            request = self.service_requests[request_id]
-            service = self.services[request.service_id]
-            if request.status != RequestStatus.ACCEPTED:
-                raise ValueError("Request not accepted")
-            if request.assigned_agent != agent_id:
-                raise ValueError("Not assigned agent")
-            if datetime.now(UTC) > request.deadline:
-                raise ValueError("Request expired")
-            request.status = RequestStatus.COMPLETED
-            request.completed_at = datetime.now(UTC)
-            request.results_hash = hashlib.sha256(json.dumps(results, sort_keys=True).encode()).hexdigest()
-            payment = request.payment
-            fee = payment * self.marketplace_fee
-            agent_payment = payment - fee
             async with self._lock:
+                if request_id not in self.service_requests:
+                    raise ValueError(f"Request not found: {request_id}")
+                request = self.service_requests[request_id]
+                service = self.services[request.service_id]
+                if request.status != RequestStatus.ACCEPTED:
+                    raise ValueError("Request not accepted")
+                if request.assigned_agent != agent_id:
+                    raise ValueError("Not assigned agent")
+                if datetime.now(UTC) > request.deadline:
+                    raise ValueError("Request expired")
+                request.status = RequestStatus.COMPLETED
+                request.completed_at = datetime.now(UTC)
+                request.results_hash = hashlib.sha256(json.dumps(results, sort_keys=True).encode()).hexdigest()
+                payment = request.payment
+                fee = payment * self.marketplace_fee
+                agent_payment = payment - fee
                 service.total_earnings += agent_payment
                 service.completed_jobs += 1
                 service.last_updated = datetime.now(UTC)
@@ -543,12 +546,13 @@ class AgentServiceMarketplace:
     async def get_agent_services(self, agent_id: str) -> list[Service]:
         """Get all services for an agent"""
         try:
-            if agent_id not in self.agent_services:
-                return []
-            services = []
-            for service_id in self.agent_services[agent_id]:
-                if service_id in self.services:
-                    services.append(self.services[service_id])
+            async with self._lock:
+                if agent_id not in self.agent_services:
+                    return []
+                services = []
+                for service_id in self.agent_services[agent_id]:
+                    if service_id in self.services:
+                        services.append(self.services[service_id])
             return services
         except Exception as e:
             logger.error("Failed to get agent services: %s", e)
@@ -557,12 +561,13 @@ class AgentServiceMarketplace:
     async def get_client_requests(self, client_id: str) -> list[ServiceRequest]:
         """Get all requests for a client"""
         try:
-            if client_id not in self.client_requests:
-                return []
-            requests = []
-            for request_id in self.client_requests[client_id]:
-                if request_id in self.service_requests:
-                    requests.append(self.service_requests[request_id])
+            async with self._lock:
+                if client_id not in self.client_requests:
+                    return []
+                requests = []
+                for request_id in self.client_requests[client_id]:
+                    if request_id in self.service_requests:
+                        requests.append(self.service_requests[request_id])
             return requests
         except Exception as e:
             logger.error("Failed to get client requests: %s", e)
@@ -609,17 +614,20 @@ class AgentServiceMarketplace:
 
     async def _calculate_dynamic_price(self, service_id: str, budget: float) -> float:
         """Calculate dynamic price based on demand and reputation"""
-        service = self.services[service_id]
-        dynamic_price = service.base_price
-        reputation_multiplier = 1.0 + service.reputation / 10000 * 0.5
-        dynamic_price *= reputation_multiplier
-        demand_multiplier = 1.0
-        if service.completed_jobs > 10:
-            demand_multiplier = 1.0 + service.completed_jobs / 100 * 0.5
-        dynamic_price *= demand_multiplier
-        rating_multiplier = 1.0 + service.average_rating / 5 * 0.3
-        dynamic_price *= rating_multiplier
-        return min(dynamic_price, budget)
+        async with self._lock:
+            if service_id not in self.services:
+                return budget
+            service = self.services[service_id]
+            dynamic_price = service.base_price
+            reputation_multiplier = 1.0 + service.reputation / 10000 * 0.5
+            dynamic_price *= reputation_multiplier
+            demand_multiplier = 1.0
+            if service.completed_jobs > 10:
+                demand_multiplier = 1.0 + service.completed_jobs / 100 * 0.5
+            dynamic_price *= demand_multiplier
+            rating_multiplier = 1.0 + service.average_rating / 5 * 0.3
+            dynamic_price *= rating_multiplier
+            return min(dynamic_price, budget)
 
     async def _calculate_reputation_change(self, rating: int, current_reputation: int) -> int:
         """Calculate reputation change based on rating"""

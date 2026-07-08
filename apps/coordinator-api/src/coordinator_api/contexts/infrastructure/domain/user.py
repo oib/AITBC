@@ -4,8 +4,11 @@ User domain models for AITBC
 
 from datetime import UTC, datetime
 
+from pydantic import field_validator
 from sqlalchemy import JSON
 from sqlmodel import Column, Field, SQLModel
+
+from ....validators import validate_email
 
 
 class User(SQLModel, table=True):
@@ -15,12 +18,17 @@ class User(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: str = Field(primary_key=True)
-    email: str = Field(unique=True, index=True)
+    email: str = Field(unique=True, index=True, max_length=255)
     username: str = Field(unique=True, index=True)
     status: str = Field(default="active", max_length=20)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_login: datetime | None = None
+
+    @field_validator("email")
+    @classmethod
+    def validate_email_field(cls, v: str) -> str:
+        return validate_email(v)
 
     # Relationships
     # DISABLED:     wallets: List["Wallet"] = Relationship(back_populates="user")
