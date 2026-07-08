@@ -300,15 +300,11 @@ class AgentTrustManager:
         policy_violation: bool = False,
     ) -> AgentTrustScore:
         """Update trust score based on execution results"""
-        trust_score_row = (
-            self.session.scalars(
-                select(AgentTrustScore).where(
-                    (AgentTrustScore.entity_type == entity_type) & (AgentTrustScore.entity_id == entity_id)
-                )
+        trust_score_row = self.session.scalars(
+            select(AgentTrustScore).where(
+                (AgentTrustScore.entity_type == entity_type) & (AgentTrustScore.entity_id == entity_id)
             )
-            .scalars()
-            .first()
-        )
+        ).first()
         if trust_score_row is None:
             trust_score = AgentTrustScore(entity_type=entity_type, entity_id=entity_id)
             self.session.add(trust_score)

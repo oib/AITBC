@@ -391,7 +391,7 @@ async def get_agent_milestones(
         from ..domain.rewards import RewardMilestone
 
         query = select(RewardMilestone).where(RewardMilestone.agent_id == agent_id)
-        if not include_completed:
+        if include_completed is False:
             query = query.where(RewardMilestone.is_completed == False)  # noqa: E712
         milestones = session.execute(query.order_by(desc(RewardMilestone.created_at))).scalars().all()  # type: ignore[arg-type]
         return [

@@ -144,11 +144,9 @@ class AgentIntegrationManager:
             execution = self.session.scalars(select(AgentExecution).where(AgentExecution.id == execution_id)).first()
             if not execution:
                 raise ValueError(f"Execution not found: {execution_id}")
-            step_executions = (
-                self.session.scalars(select(AgentStepExecution).where(AgentStepExecution.execution_id == execution_id))
-                .scalars()
-                .all()
-            )
+            step_executions = self.session.scalars(
+                select(AgentStepExecution).where(AgentStepExecution.execution_id == execution_id)
+            ).all()
             integration_result: dict[str, Any] = {
                 "execution_id": execution_id,
                 "integration_status": "in_progress",
@@ -394,13 +392,9 @@ class AgentDeploymentManager:
             config = self.session.get(AgentDeploymentConfig, deployment_config_id)
             if not config:
                 raise ValueError(f"Deployment config not found: {deployment_config_id}")
-            instances = (
-                self.session.scalars(
-                    select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
-                )
-                .scalars()
-                .all()
-            )
+            instances = self.session.scalars(
+                select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
+            ).all()
             health_result: dict[str, Any] = {
                 "deployment_id": deployment_config_id,
                 "total_instances": len(instances),
@@ -525,13 +519,9 @@ class AgentDeploymentManager:
             config = self.session.get(AgentDeploymentConfig, deployment_config_id)
             if not config:
                 raise ValueError(f"Deployment config not found: {deployment_config_id}")
-            current_instances = (
-                self.session.scalars(
-                    select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
-                )
-                .scalars()
-                .all()
-            )
+            current_instances = self.session.scalars(
+                select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
+            ).all()
             current_count = len(current_instances)
             scaling_result: dict[str, Any] = {
                 "deployment_id": deployment_config_id,
@@ -603,13 +593,9 @@ class AgentDeploymentManager:
                 "rolled_back_instances": [],
                 "rollback_errors": [],
             }
-            current_instances = (
-                self.session.scalars(
-                    select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
-                )
-                .scalars()
-                .all()
-            )
+            current_instances = self.session.scalars(
+                select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
+            ).all()
             for instance in current_instances:
                 try:
                     if getattr(config, "previous_version", None):
@@ -662,13 +648,9 @@ class AgentMonitoringManager:
             config = self.session.get(AgentDeploymentConfig, deployment_config_id)
             if not config:
                 raise ValueError(f"Deployment config not found: {deployment_config_id}")
-            instances = (
-                self.session.scalars(
-                    select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
-                )
-                .scalars()
-                .all()
-            )
+            instances = self.session.scalars(
+                select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
+            ).all()
             metrics: dict[str, Any] = {
                 "deployment_id": deployment_config_id,
                 "time_range": time_range,

@@ -34,7 +34,7 @@ class CrossChainReputationEngine:
             )
             if not hasattr(AgentReputation, "chain_id"):
                 stmt = select(AgentReputation).where(AgentReputation.agent_id == agent_id)
-            reputation = self.session.exec(stmt).scalars().first()
+            reputation = self.session.exec(stmt).first()
             if reputation:
                 score = await self._update_reputation_from_transaction(reputation, transaction_data)
             else:
@@ -59,7 +59,7 @@ class CrossChainReputationEngine:
         """Aggregate reputation scores across all chains for an agent"""
         try:
             stmt = select(AgentReputation).where(AgentReputation.agent_id == agent_id)
-            reputations = self.session.exec(stmt).scalars().all()
+            reputations = self.session.exec(stmt).all()
             if not reputations:
                 return {}
             chain_configs = {}
@@ -104,7 +104,7 @@ class CrossChainReputationEngine:
             )
             if not hasattr(AgentReputation, "chain_id"):
                 stmt = select(AgentReputation).where(AgentReputation.agent_id == agent_id)
-            reputation = self.session.exec(stmt).scalars().first()
+            reputation = self.session.exec(stmt).first()
             if not reputation:
                 config = await self._get_chain_config(chain_id)
                 base_score = config.base_reputation_bonus if config else 0.0
@@ -149,7 +149,7 @@ class CrossChainReputationEngine:
                 .where(ReputationEvent.agent_id == agent_id, ReputationEvent.occurred_at >= cutoff_date)
                 .order_by(desc(ReputationEvent.occurred_at))  # type: ignore[arg-type]
             )
-            events = self.session.exec(stmt).scalars().all()
+            events = self.session.exec(stmt).all()
             scores = []
             for event in events:
                 if event.trust_score_after is not None:
@@ -169,7 +169,7 @@ class CrossChainReputationEngine:
                 .order_by(desc(ReputationEvent.occurred_at))  # type: ignore[arg-type]
                 .limit(10)
             )
-            events = self.session.exec(stmt).scalars().all()
+            events = self.session.exec(stmt).all()
             if len(events) < 2:
                 return anomalies
             for i in range(len(events) - 1):
@@ -228,7 +228,7 @@ class CrossChainReputationEngine:
         stmt = select(CrossChainReputationConfig).where(
             CrossChainReputationConfig.chain_id == chain_id, CrossChainReputationConfig.is_active
         )
-        config = self.session.exec(stmt).scalars().first()
+        config = self.session.exec(stmt).first()
         if not config:
             config = CrossChainReputationConfig(
                 chain_id=chain_id,
@@ -261,7 +261,7 @@ class CrossChainReputationEngine:
                 score_range = 0.0
                 consistency_score = 1.0
             stmt = select(CrossChainReputationAggregation).where(CrossChainReputationAggregation.agent_id == agent_id)
-            aggregation = self.session.exec(stmt).scalars().first()
+            aggregation = self.session.exec(stmt).first()
             if aggregation:
                 aggregation.aggregated_score = avg_score
                 aggregation.chain_scores = chain_scores
@@ -307,7 +307,7 @@ class CrossChainReputationEngine:
         """Get comprehensive reputation summary for an agent"""
         try:
             stmt = select(AgentReputation).where(AgentReputation.agent_id == agent_id)
-            reputation = self.session.exec(stmt).scalars().first()
+            reputation = self.session.exec(stmt).first()
             if not reputation:
                 return {
                     "agent_id": agent_id,
@@ -318,7 +318,7 @@ class CrossChainReputationEngine:
                     "cross_chain": {"aggregated_score": 0.0, "chain_count": 0, "active_chains": [], "consistency_score": 1.0},
                 }
             stmt = select(CrossChainReputationAggregation).where(CrossChainReputationAggregation.agent_id == agent_id)  # type: ignore[assignment]
-            aggregation = self.session.exec(stmt).scalars().first()
+            aggregation = self.session.exec(stmt).first()
             trend = await self.get_reputation_trend(agent_id, 30)
             anomalies = await self.detect_reputation_anomalies(agent_id)
             return {

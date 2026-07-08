@@ -322,7 +322,7 @@ async def get_reputation_metrics(
             .first()
         )
         recent_activity = {
-            "events_last_24h": recent_events[0] if recent_events else 0,
+            "events_last_24h": recent_events if recent_events else 0,
             "active_agents": len([r for r in reputations if r.last_activity and r.last_activity >= recent_cutoff]),
         }
         return ReputationMetricsResponse(

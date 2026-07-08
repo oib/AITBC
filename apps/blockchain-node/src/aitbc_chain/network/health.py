@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 
-import ping3  # type: ignore
+import ping3
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
