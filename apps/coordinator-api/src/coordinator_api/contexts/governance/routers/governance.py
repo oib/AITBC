@@ -70,7 +70,7 @@ async def delegate_voting_power(
     """Delegate your voting power to another DAO member"""
     service = GovernanceService(session)
     try:
-        profile = await service.delegate_votes(profile_id, request.delegatee_id)
+        profile = await service.delegate_votes(profile_id, delegation_request.delegatee_id)
         return profile
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
