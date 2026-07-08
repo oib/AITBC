@@ -134,6 +134,7 @@ class AgentOrchestrator:
         self.assignment_timeout = config.get("assignment_timeout", 300)
         self.monitoring_interval = config.get("monitoring_interval", 30)
         self.retry_limit = config.get("retry_limit", 3)
+        self._lock = asyncio.Lock()
 
     async def initialize(self) -> None:
         """Initialize the orchestrator"""
@@ -153,19 +154,22 @@ class AgentOrchestrator:
         """Orchestrate execution of a decomposed task"""
         try:
             logger.info("Orchestrating task %s with %s sub-tasks", task_id, len(decomposition.sub_tasks))
-            if len(self.active_plans) >= self.max_concurrent_plans:
-                raise Exception("Orchestrator at maximum capacity")
-            self.status = OrchestratorStatus.PLANNING
+            async with self._lock:
+                if len(self.active_plans) >= self.max_concurrent_plans:
+                    raise Exception("Orchestrator at maximum capacity")
+                self.status = OrchestratorStatus.PLANNING
             plan = await self._create_orchestration_plan(task_id, decomposition, budget_limit, deadline)
             await self._execute_assignments(plan)
-            self.active_plans[task_id] = plan
-            self.status = OrchestratorStatus.MONITORING
-            self.orchestration_metrics["total_tasks"] += 1
+            async with self._lock:
+                self.active_plans[task_id] = plan
+                self.status = OrchestratorStatus.MONITORING
+                self.orchestration_metrics["total_tasks"] += 1
             logger.info("Task %s orchestration plan created and started", task_id)
             return plan
         except Exception as e:
             logger.error("Failed to orchestrate task %s: %s", task_id, e)
-            self.status = OrchestratorStatus.FAILED
+            async with self._lock:
+                self.status = OrchestratorStatus.FAILED
             raise
 
     async def get_task_status(self, task_id: str) -> dict[str, Any]:
@@ -250,15 +254,17 @@ class AgentOrchestrator:
 
     async def register_agent(self, capability: AgentCapability) -> None:
         """Register a new agent"""
-        self.agent_capabilities[capability.agent_id] = capability
-        self.agent_status[capability.agent_id] = AgentStatus.AVAILABLE
+        async with self._lock:
+            self.agent_capabilities[capability.agent_id] = capability
+            self.agent_status[capability.agent_id] = AgentStatus.AVAILABLE
         logger.info("Registered agent %s", capability.agent_id)
 
     async def update_agent_status(self, agent_id: str, status: AgentStatus) -> None:
         """Update agent status"""
-        if agent_id in self.agent_status:
-            self.agent_status[agent_id] = status
-            logger.info("Updated agent %s status to %s", agent_id, status)
+        async with self._lock:
+            if agent_id in self.agent_status:
+                self.agent_status[agent_id] = status
+        logger.info("Updated agent %s status to %s", agent_id, status)
 
     async def get_available_agents(self, task_type: str, gpu_tier: GPU_Tier) -> list[AgentCapability]:
         """Get available agents for task"""
@@ -332,8 +338,9 @@ class AgentOrchestrator:
         assignment = next(a for a in plan.agent_assignments if a.sub_task_id == sub_task_id)
         assignment.agent_id = best_agent.agent_id
         assignment.status = SubTaskStatus.ASSIGNED
-        self.agent_capabilities[best_agent.agent_id].current_load += 1
-        self.agent_status[best_agent.agent_id] = AgentStatus.BUSY
+        async with self._lock:
+            self.agent_capabilities[best_agent.agent_id].current_load += 1
+            self.agent_status[best_agent.agent_id] = AgentStatus.BUSY
         await self._allocate_resources(best_agent.agent_id, sub_task_id, sub_task.requirements)
         logger.info("Assigned sub-task %s to agent %s", sub_task_id, best_agent.agent_id)
 
@@ -379,14 +386,15 @@ class AgentOrchestrator:
 
     async def _release_agent_resources(self, agent_id: str, sub_task_id: str) -> None:
         """Release resources from agent"""
-        if agent_id in self.resource_allocations:
-            self.resource_allocations[agent_id] = [
-                alloc for alloc in self.resource_allocations[agent_id] if alloc.sub_task_id != sub_task_id
-            ]
-        if agent_id in self.agent_capabilities:
-            self.agent_capabilities[agent_id].current_load = max(0, self.agent_capabilities[agent_id].current_load - 1)
-            if self.agent_capabilities[agent_id].current_load == 0:
-                self.agent_status[agent_id] = AgentStatus.AVAILABLE
+        async with self._lock:
+            if agent_id in self.resource_allocations:
+                self.resource_allocations[agent_id] = [
+                    alloc for alloc in self.resource_allocations[agent_id] if alloc.sub_task_id != sub_task_id
+                ]
+            if agent_id in self.agent_capabilities:
+                self.agent_capabilities[agent_id].current_load = max(0, self.agent_capabilities[agent_id].current_load - 1)
+                if self.agent_capabilities[agent_id].current_load == 0:
+                    self.agent_status[agent_id] = AgentStatus.AVAILABLE
 
     async def _monitor_executions(self) -> None:
         """Monitor active executions"""
@@ -407,18 +415,19 @@ class AgentOrchestrator:
                         )
                         if all_failed_exhausted:
                             failed_tasks.append(task_id)
-                for task_id in completed_tasks:
-                    plan = self.active_plans[task_id]
-                    self.completed_plans.append(plan)
-                    del self.active_plans[task_id]
-                    self.orchestration_metrics["successful_tasks"] += 1
-                    logger.info("Task %s completed successfully", task_id)
-                for task_id in failed_tasks:
-                    plan = self.active_plans[task_id]
-                    self.failed_plans.append(plan)
-                    del self.active_plans[task_id]
-                    self.orchestration_metrics["failed_tasks"] += 1
-                    logger.info("Task %s failed", task_id)
+                async with self._lock:
+                    for task_id in completed_tasks:
+                        plan = self.active_plans[task_id]
+                        self.completed_plans.append(plan)
+                        del self.active_plans[task_id]
+                        self.orchestration_metrics["successful_tasks"] += 1
+                        logger.info("Task %s completed successfully", task_id)
+                    for task_id in failed_tasks:
+                        plan = self.active_plans[task_id]
+                        self.failed_plans.append(plan)
+                        del self.active_plans[task_id]
+                        self.orchestration_metrics["failed_tasks"] += 1
+                        logger.info("Task %s failed", task_id)
                 await self._update_resource_utilization()
                 await asyncio.sleep(self.monitoring_interval)
             except Exception as e:

@@ -18,6 +18,7 @@ from ..domain.bounty import BountyStatus, BountyTier, SubmissionStatus
 from ..services.bounty_service import BountyService
 from ....storage import get_session
 from ...blockchain.services.blockchain import BlockchainService
+from ....validators import validate_ethereum_address
 
 logger = get_logger(__name__)
 
@@ -132,6 +133,11 @@ class BountyVerificationRequest(BaseModel):
     verified: bool
     verifier_address: str
     verification_notes: str | None = Field(default=None)
+
+    @field_validator("verifier_address")
+    @classmethod
+    def validate_verifier_address(cls, v: str) -> str:
+        return validate_ethereum_address(v)
 
 
 class BountyDisputeRequest(BaseModel):

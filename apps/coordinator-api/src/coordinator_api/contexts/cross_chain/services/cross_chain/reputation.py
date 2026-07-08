@@ -623,7 +623,8 @@ class CrossChainReputationService:
 
     async def get_cross_chain_sync_status(self, agent_id: str) -> list[CrossChainSync]:
         """Get cross-chain sync status for agent"""
-        return [sync for sync in self.cross_chain_syncs if sync.agent_id == agent_id]
+        async with self._lock:
+            return [sync for sync in self.cross_chain_syncs if sync.agent_id == agent_id]
 
     async def get_reputation_history(self, agent_id: str, days: int = 30) -> list[dict[str, Any]]:
         """Get reputation history for agent"""

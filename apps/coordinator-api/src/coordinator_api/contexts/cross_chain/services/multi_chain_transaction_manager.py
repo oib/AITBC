@@ -56,6 +56,7 @@ class ChainTransactionManager:
             "average_processing_time": 0.0,
             "chain_performance": defaultdict(dict),
         }
+        self._lock = asyncio.Lock()
         self._processing_tasks: list[asyncio.Task] = []
         self._monitoring_task: asyncio.Task | None = None
 
@@ -68,14 +69,15 @@ class ChainTransactionManager:
                     rpc_url=config["rpc_url"],
                     security_level=SecurityLevel(config.get("security_level", "medium")),
                 )
-                self.wallet_adapters[chain_id] = adapter
-                self.metrics["chain_performance"][chain_id] = {
-                    "total_transactions": 0,
-                    "success_rate": 0.0,
-                    "average_gas_price": 0.0,
-                    "average_confirmation_time": 0.0,
-                    "last_updated": datetime.now(UTC),
-                }
+                async with self._lock:
+                    self.wallet_adapters[chain_id] = adapter
+                    self.metrics["chain_performance"][chain_id] = {
+                        "total_transactions": 0,
+                        "success_rate": 0.0,
+                        "average_gas_price": 0.0,
+                        "average_confirmation_time": 0.0,
+                        "last_updated": datetime.now(UTC),
+                    }
             self.bridge_service = CrossChainBridgeService(self.session)
             await self.bridge_service.initialize_bridge(chain_configs)
             logger.info("Initialized transaction manager for %s chains", len(chain_configs))

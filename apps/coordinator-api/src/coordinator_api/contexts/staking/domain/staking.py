@@ -13,7 +13,10 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
+from pydantic import field_validator
 from sqlmodel import JSON, Column, Field, SQLModel
+
+from coordinator_api.validators import validate_ethereum_address, validate_positive_decimal
 
 
 class StakeStatus(StrEnum):
@@ -38,11 +41,11 @@ class AgentStake(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     stake_id: str = Field(primary_key=True, default_factory=lambda: f"stake_{uuid.uuid4().hex[:8]}")
-    staker_address: str = Field(index=True)
-    agent_wallet: str = Field(index=True)
+    staker_address: str = Field(index=True, max_length=42)
+    agent_wallet: str = Field(index=True, max_length=42)
 
     # Stake details
-    amount: Decimal = Field(index=True)
+    amount: Decimal = Field(index=True, gt=0, le=Decimal("360000000.0"))
     lock_period: int = Field(default=30)  # days
     start_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
     end_time: datetime
@@ -68,6 +71,16 @@ class AgentStake(SQLModel, table=True):
     # Metadata
     stake_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
+    @field_validator("staker_address", "agent_wallet")
+    @classmethod
+    def validate_address_field(cls, v: str) -> str:
+        return validate_ethereum_address(v)
+
+    @field_validator("amount")
+    @classmethod
+    def validate_amount_field(cls, v: Decimal) -> Decimal:
+        return validate_positive_decimal(v)
+
 
 class AgentMetrics(SQLModel, table=True):
     """Performance metrics for AI agents"""
@@ -75,7 +88,7 @@ class AgentMetrics(SQLModel, table=True):
     __tablename__ = "agent_metrics"
     __table_args__ = {"extend_existing": True}
 
-    agent_wallet: str = Field(primary_key=True, index=True)
+    agent_wallet: str = Field(primary_key=True, index=True, max_length=42)
 
     # Staking metrics
     total_staked: Decimal = Field(default=Decimal("0.0"))
@@ -112,6 +125,11 @@ class AgentMetrics(SQLModel, table=True):
     # Relationships
     # DISABLED:     stakes: List[AgentStake] = Relationship(back_populates="agent_metrics")
 
+    @field_validator("agent_wallet")
+    @classmethod
+    def validate_agent_wallet(cls, v: str) -> str:
+        return validate_ethereum_address(v)
+
 
 class StakingPool(SQLModel, table=True):
     """Staking pool for an agent"""
@@ -119,7 +137,7 @@ class StakingPool(SQLModel, table=True):
     __tablename__ = "staking_pools"
     __table_args__ = {"extend_existing": True}
 
-    agent_wallet: str = Field(primary_key=True, index=True)
+    agent_wallet: str = Field(primary_key=True, index=True, max_length=42)
 
     # Pool metrics
     total_staked: Decimal = Field(default=Decimal("0.0"))
@@ -135,7 +153,7 @@ class StakingPool(SQLModel, table=True):
     distribution_frequency: int = Field(default=1)  # days
 
     # Pool configuration
-    min_stake_amount: Decimal = Field(default=Decimal("360000.0"))
+    min_stake_amount: Decimal = Field(default=Decimal("360000.0"), gt=0)
     max_stake_amount: Decimal = Field(default=Decimal("360000000.0"))
     auto_compound_enabled: bool = Field(default=False)
 
@@ -145,6 +163,11 @@ class StakingPool(SQLModel, table=True):
 
     # Metadata
     pool_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
+    @field_validator("agent_wallet")
+    @classmethod
+    def validate_agent_wallet(cls, v: str) -> str:
+        return validate_ethereum_address(v)
 
 
 __all__ = [
