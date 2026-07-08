@@ -218,5 +218,15 @@ settings = Settings()
 if os.getenv("TEST_MODE") == "true":
     settings.test_mode = True
 
+
+def validate_critical_environment_variables() -> None:
+    """Validate critical environment variables at startup."""
+    # ponytail: minimal validation for critical variables not in Pydantic settings
+    # SETTLEMENT_PRIVATE_KEY is used in settlement/hooks.py but not in config.py
+    if _is_production():
+        if not os.getenv("SETTLEMENT_PRIVATE_KEY"):
+            raise ValueError("SETTLEMENT_PRIVATE_KEY must be set in production")
+
+
 # Note: Secret validation moved to application startup (create_app() or main entry point)
 # to allow importing config without production .env files during testing
