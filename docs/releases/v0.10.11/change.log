@@ -1,0 +1,219 @@
+# AITBC v0.10.11 Release Notes
+
+**Date**: 2026-07-07
+**Status**: ✅ Complete — Bug Fixes & Code Quality Continuation
+**Scope**: Complete stub implementations, Pydantic v2 migration, SQLAlchemy pattern standardization, type safety improvements, and concurrency safety.
+
+## 🎯 Overview
+
+v0.10.11 is a **bug fixes and code quality continuation release**. It builds on the testing and type-safety foundations established in v0.10.10, focusing on completing stub implementations, migrating to Pydantic v2, standardizing SQLAlchemy patterns, and adding concurrency safety.
+
+**Key focus areas:**
+1. **Stub implementation completion** — Replace placeholder implementations with real crypto/hashing, wire CLI resource commands to real API
+2. **Pydantic v2 migration** — Replace deprecated `.dict()` with `.model_dump()`, add `ConfigDict(from_attributes=True)`
+3. **SQLAlchemy pattern standardization** — Standardize query patterns across coordinator-api, add row locking for concurrency safety
+4. **Type safety improvements** — Fix type errors, remove redundant `.scalars()` calls, fix import type ignores
+5. **Method/field name corrections** — Fix incorrect method calls, field names, and attribute access patterns
+6. **Analytics service implementation** — Create dedicated AnalyticsService for marketplace analytics
+7. **Blockchain service expansion** — Add staking and bounty on-chain operation methods
+
+**Prerequisites**: [v0.10.10](../v0.10.10/change.log) (✅ complete — Code Quality & Testing Roadmap).
+
+**Risk**: Low. This release focuses on bug fixes and code quality improvements with no breaking changes. All changes are backward-compatible.
+
+---
+
+## 📊 Summary
+
+| Category | Items | Status | Notes |
+|----------|-------|--------|-------|
+| Stub implementation completion | 2 | ✅ Complete | CLI resource commands, crypto/hashing in 5 files |
+| Pydantic v2 migration | 2 | ✅ Complete | .dict() → .model_dump(), ConfigDict additions |
+| SQLAlchemy pattern standardization | 2 | ✅ Complete | Query patterns, row locking with for_update |
+| Type safety improvements | 3 | ✅ Complete | Type errors, redundant .scalars(), import type ignores |
+| Method/field name corrections | 2 | ✅ Complete | Method calls, field names, attribute access |
+| Analytics service implementation | 1 | ✅ Complete | New AnalyticsService for marketplace analytics |
+| Blockchain service expansion | 2 | ✅ Complete | Staking and bounty on-chain operation methods |
+| Code formatting | 1 | ✅ Complete | Consistent line wrapping and formatting |
+
+---
+
+## 🧪 Testing
+
+- All existing tests must pass (`./venv/bin/python -m pytest tests/unit -q -o addopts=""`)
+- Integration tests pass (`./venv/bin/python -m pytest tests/integration -q -o addopts=""`)
+- Type check passes (`./venv/bin/python -m mypy --show-error-codes aitbc/`)
+- Lint passes (`./venv/bin/python -m ruff check .`)
+- No new test files added in this release (focus on bug fixes)
+
+---
+
+## 📝 Task Status
+
+### Agent A — Type Safety & Shared Core
+- [x] Complete stub implementations (CLI resource commands, crypto/hashing)
+- [x] Migrate to Pydantic v2 patterns (.dict() → .model_dump())
+- [x] Standardize SQLAlchemy query patterns
+
+### Agent B — Infrastructure & Apps
+- [x] Fix method calls and field names across routers
+- [x] Add row locking for concurrency safety
+- [x] Implement AnalyticsService for marketplace analytics
+- [x] Expand blockchain service with staking/bounty methods
+
+---
+
+## 📋 Detailed Findings
+
+### Stub Implementation Completion
+
+**CLI Resource Commands**: Wired CLI resource commands to real API instead of mock implementations. Added fail-closed behavior for node mock fallbacks to prevent silent failures.
+
+**Crypto/Hashing**: Replaced placeholder implementations with real crypto/hashing in 5 files:
+- Real cryptographic signing/verification
+- Proper hash function implementations
+- Secure key derivation
+
+### Pydantic v2 Migration
+
+**Deprecated Method Replacement**: Replaced deprecated `.dict()` with `.model_dump()` across:
+- Agent identity core and wallet adapter
+- Agent coordination routers and services
+- Bounty routers
+- Community routers
+- Governance routers
+- Infrastructure services
+- Security routers
+
+**ConfigDict Addition**: Added `ConfigDict(from_attributes=True)` to Pydantic response models in:
+- Bounty routers (BountyResponse, BountySubmissionResponse, BountyStatsResponse)
+- Staking routers (StakeResponse, AgentMetricsResponse, StakingPoolResponse, StakingStatsResponse)
+
+### SQLAlchemy Pattern Standardization
+
+**Query Pattern Standardization**: Standardized SQLAlchemy query patterns across 49 files in coordinator-api:
+- Added `.scalars()` before `.all()`/`.first()` for single-model selects
+- Replaced legacy `.query()` with `.execute(select(...)).scalars()` pattern
+- Added ponytail comments for multi-column selects where `.all()` returns Row objects
+- Updated test mocks to match new `.scalars()` pattern
+
+**Row Locking**: Added `.with_for_update()` for concurrency safety:
+- Security service trust score queries (prevent concurrent update conflicts)
+- Bounty service get_bounty queries (prevent concurrent submission race conditions)
+
+### Type Safety Improvements
+
+**Type Error Fixes**: Fixed type errors in:
+- BacktestResult.trades default_factory (dict → list)
+- Agent execution models (added missing verification_level and step_type fields)
+- Wallet service (fixed field names amount → value)
+
+**Redundant .scalars() Removal**: Removed duplicate `.scalars()` calls in:
+- Agent coordination services (integration, deployment, monitoring)
+- External providers service
+- Reputation engine
+
+**Import Type Ignores**: Removed unnecessary type: ignore comments for available imports:
+- bcrypt, yaml, zstandard, pytz, sqlcipher3, broadcaster, ping3, networkx, jaeger, meilisearch
+
+### Method/Field Name Corrections
+
+**Method Call Fixes**:
+- Agent router: cancel_workflow → update_execution_status
+- Communication service: message.read → message.read_timestamp
+- Agent identity: chain_metadata → chain_meta_data
+- Global marketplace: get_identity → get_identity_by_agent_id
+
+**Field Name Fixes**:
+- Developer platform: Fixed SQLAlchemy query patterns
+- Governance service: Fixed domain model attribute access
+- Staking router: Fixed parameter names
+
+### Analytics Service Implementation
+
+**New AnalyticsService**: Created dedicated AnalyticsService for marketplace analytics operations:
+- Data collection and insights generation
+- Market trends and segment analysis
+- Competitor analysis and metric forecasting
+- Active alerts and custom query management
+- Real-time metrics and data export
+
+**Router Wiring**: Wired analytics router to use AnalyticsService instead of AgentServiceMarketplace.
+
+### Blockchain Service Expansion
+
+**Staking Methods**: Added 5 new blockchain service methods for staking operations:
+- add_to_stake
+- unbond_stake
+- complete_unbonding
+- distribute_earnings
+- claim_rewards
+
+**Bounty Methods**: Added 5 new blockchain service methods for bounty operations:
+- deploy_bounty_contract
+- submit_bounty_solution
+- verify_submission
+- dispute_submission
+- expire_bounty
+
+**Router Integration**: Wired staking and bounty routers to call blockchain service methods for on-chain operations.
+
+### Code Formatting
+
+**Consistent Formatting**: Applied code formatting improvements across coordinator-api:
+- Consistent line wrapping and formatting in agent coordination services
+- Consistent line wrapping and formatting in governance services
+- Consistent line wrapping and formatting in settlement modules
+- Updated test files for bridge security, verification, and offer sync SDK
+
+---
+
+## 🔍 Files Changed
+
+**Core Library (aitbc/)**:
+- `aitbc/auth/password.py` — Removed type: ignore for bcrypt import
+- `aitbc/config/hierarchical_config.py` — Removed type: ignore for yaml import
+- `aitbc/network/compression.py` — Removed type: ignore for zstandard import
+- `aitbc/utils/time_utils.py` — Removed type: ignore for pytz import
+
+**Coordinator API (apps/coordinator-api/)**:
+- 49 files with SQLAlchemy pattern standardization
+- 12 files with Pydantic v2 migration
+- 8 files with method/field name corrections
+- 2 files with row locking additions
+- 1 new AnalyticsService file
+- Blockchain service expansion (staking + bounty methods)
+
+**Blockchain Node (apps/blockchain-node/)**:
+- `database.py` — Removed type: ignore for sqlcipher3 import
+- `gossip/broker.py` — Removed type: ignore for broadcaster import
+- `network/health.py` — Removed type: ignore for ping3 import
+- `network/topology.py` — Removed type: ignore for networkx import
+- `observability/exporters.py` — Removed type: ignore for jaeger import
+
+**Trading Service (apps/trading/)**:
+- `offer_search_service.py` — Removed type: ignore for meilisearch import
+
+**Tests**:
+- Updated test mocks to match new SQLAlchemy patterns
+- Updated certification tests for new .scalars() pattern
+
+---
+
+## 🚀 Next Steps
+
+After v0.10.11, the next release should focus on:
+1. **v1.0.0 production readiness** — Finalize remaining production readiness tasks
+2. **Performance optimization** — Continue performance improvements based on the regression test suite added in v0.10.10
+3. **Documentation** — Update API documentation to reflect Pydantic v2 changes
+4. **Monitoring** — Enhance monitoring and alerting based on the new analytics service
+
+---
+
+## 📝 Notes
+
+- All changes are backward-compatible
+- No breaking changes introduced
+- All pre-commit hooks pass successfully
+- Type checking coverage maintained at v0.10.10 levels (0 errors / 859 files)
+- Coverage gate maintained at v0.10.10 levels (46%)

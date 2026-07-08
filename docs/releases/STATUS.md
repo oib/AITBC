@@ -1,6 +1,6 @@
 # AITBC Release Status Overview
 
-**Last updated:** 2026-07-06
+**Last updated:** 2026-07-07
 **Audit report:** [AUDIT.md](AUDIT.md)
 
 ## Release Status Table
@@ -40,6 +40,7 @@
 | v0.10.8 | Config consolidation & dead retry helper cleanup | ✅ Complete | config.py vs hierarchical_config.py resolved; 3 dead retry helpers deleted |
 | v0.10.9 | Dead code elimination & status drift cleanup | ✅ Complete | ~2,900 lines deleted; status drift fixed; stale ports cleaned; auth shims migrated |
 | v0.10.10 | Code quality & testing roadmap | ✅ Complete | mypy coverage expanded to 851 files (0 errors), coverage gate 46%, property-based tests, perf regression, dep pinning, dev script, integration fixtures |
+| v0.10.11 | Bug fixes & code quality continuation | ✅ Complete | Stub implementations, Pydantic v2 migration, SQLAlchemy patterns, type safety, concurrency safety |
 | v1.0.0 | Production readiness | 🚧 Planned | Requires all v0.5.16–v0.10.x complete |
 | v2.0.0 | Vision/questionable features | 🅿️ Parked | For re-evaluation after v1.0.0 |
 
