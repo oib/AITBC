@@ -71,7 +71,7 @@ def get_engine(chain_id: str = "") -> Engine:
         if encryption_enabled:
             # Use SQLCipher with encryption key
             try:
-                import sqlcipher3 as sqlite3  # type: ignore[import-not-found]
+                import sqlcipher3 as sqlite3
             except ImportError:
                 raise RuntimeError(
                     "SQLCipher encryption enabled but sqlcipher3-binary not installed. Run: pip install sqlcipher3-binary"

@@ -281,8 +281,10 @@ class MultiChainWalletAdapter:
         self, agent_id: str, chain_id: int, to_address: str, amount: Decimal, data: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Execute a transaction from agent wallet"""
-        stmt = select(AgentWallet).where(
-            AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active
+        stmt = (
+            select(AgentWallet)
+            .where(AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active)
+            .with_for_update()
         )
         result = self.session.execute(stmt)
         wallet = result.scalars().first()

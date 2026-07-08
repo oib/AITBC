@@ -190,7 +190,7 @@ def format_time_in(dt: datetime) -> str:
 def to_timezone(dt: datetime, tz_name: str) -> datetime:
     """Convert datetime to specific timezone"""
     try:
-        import pytz  # type: ignore
+        import pytz
 
         tz = pytz.timezone(tz_name)
         if dt.tzinfo is None:
