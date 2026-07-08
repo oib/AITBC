@@ -42,10 +42,15 @@ async def _report_health_to_coordinator() -> None:
 
 
 async def _register_edge_node_on_blockchain() -> None:
-    """Register this edge node on the blockchain on startup (v0.6.6)."""
+    """Register this edge node on the blockchain on startup (v0.6.6).
+
+    Retries with backoff because the blockchain node may still be starting
+    when the edge service comes up (systemd starts both in parallel).
+    The /rpc/edge/register endpoint is idempotent (upsert), so retries are safe.
+    """
     import socket
 
-    node_id = os.getenv("NODE_ID", f"edge-{socket.gethostname()}")
+    node_id = os.getenv("EDGE_NODE_ID", os.getenv("NODE_ID", f"edge-{socket.gethostname()}"))
     rpc_url = f"http://{settings.blockchain_rpc_host}:{settings.blockchain_rpc_port}"
     payload = {
         "node_id": node_id,
@@ -56,12 +61,23 @@ async def _register_edge_node_on_blockchain() -> None:
         "capabilities": [],
         "registered_by": os.getenv("WALLET_ADDRESS", "edge-admin"),
     }
-    try:
-        resp = await SharedHttpClient.post(f"{rpc_url}/rpc/edge/register", json=payload, timeout=10.0)
-        resp.raise_for_status()
-        logger.info("Edge node registered on blockchain: %s", node_id)
-    except Exception as e:
-        logger.warning("Failed to register edge node on blockchain: %s", e)
+    # ponytail: 5 attempts × 3s = up to 15s of patience for the blockchain node
+    # to finish starting. Ceiling: if the blockchain node takes >15s to accept
+    # connections, registration fails until next edge restart. Upgrade path:
+    # a systemd After=aitbc-blockchain-node.service ordering unit.
+    max_attempts = 5
+    for attempt in range(1, max_attempts + 1):
+        try:
+            resp = await SharedHttpClient.post(f"{rpc_url}/rpc/edge/register", json=payload, timeout=10.0)
+            resp.raise_for_status()
+            logger.info("Edge node registered on blockchain: %s", node_id)
+            return
+        except Exception as e:
+            if attempt < max_attempts:
+                logger.debug("Edge registration attempt %d/%d failed: %s", attempt, max_attempts, e)
+                await asyncio.sleep(3)
+            else:
+                logger.warning("Failed to register edge node on blockchain after %d attempts: %s", max_attempts, e)
 
 
 @asynccontextmanager
