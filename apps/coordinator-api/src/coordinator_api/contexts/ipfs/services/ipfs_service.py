@@ -68,7 +68,7 @@ class IPFSClient:
         self.gateway_url = gateway_url.rstrip("/")
         self.pinning_service = pinning_service
         self.pinning_key = pinning_key
-        self._client = httpx.AsyncClient(timeout=60.0)
+        self._client = httpx.AsyncClient(timeout=60.0, limits=httpx.Limits(max_connections=100, max_keepalive_connections=20))
         self._available: bool | None = None
 
     async def check_availability(self) -> bool:
