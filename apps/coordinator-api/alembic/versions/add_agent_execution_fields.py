@@ -12,6 +12,7 @@ Create Date: 2026-07-07 00:00:02.000000
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision = "add_agent_execution_fields"
@@ -20,15 +21,22 @@ branch_labels = None
 depends_on = None
 
 
+def _has_column(table: str, column: str) -> bool:
+    bind = op.get_bind()
+    return column in {c["name"] for c in inspect(bind).get_columns(table)}
+
+
 def upgrade() -> None:
-    op.add_column(
-        "agent_executions",
-        sa.Column("verification_level", sa.String(20), nullable=False, server_default="basic"),
-    )
-    op.add_column(
-        "agent_step_executions",
-        sa.Column("step_type", sa.String(20), nullable=False, server_default="inference"),
-    )
+    if not _has_column("agent_executions", "verification_level"):
+        op.add_column(
+            "agent_executions",
+            sa.Column("verification_level", sa.String(20), nullable=False, server_default="basic"),
+        )
+    if not _has_column("agent_step_executions", "step_type"):
+        op.add_column(
+            "agent_step_executions",
+            sa.Column("step_type", sa.String(20), nullable=False, server_default="inference"),
+        )
 
 
 def downgrade() -> None:
