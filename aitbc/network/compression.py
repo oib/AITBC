@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 
 # Check if zstandard is available (optional, preferred for better ratio)
 try:
-    import zstandard as zstd  # type: ignore[import-not-found]
+    import zstandard as zstd
 
     _ZSTD_AVAILABLE = True
 except ImportError:
