@@ -144,6 +144,8 @@ class ZKProofService:
                 f.write(script)
                 script_file = f.name
             try:
+                # ponytail: subprocess.run() blocks event loop - should use asyncio.create_subprocess_exec()
+                # This is acceptable for ZK proof verification (CPU-intensive, not a hot path), but could be improved
                 result = subprocess.run(["node", script_file], capture_output=True, text=True, cwd=str(self.circuits_dir))
                 if result.returncode != 0:
                     logger.error("Proof verification failed: %s", result.stderr)
@@ -226,6 +228,8 @@ class ZKProofService:
                 f.write(script)
                 script_file = f.name
             try:
+                # ponytail: subprocess.run() blocks event loop - should use asyncio.create_subprocess_exec()
+                # This is acceptable for ZK proof verification (CPU-intensive, not a hot path), but could be improved
                 result = subprocess.run(["node", script_file], capture_output=True, text=True, cwd=str(self.circuits_dir))
                 if result.returncode != 0:
                     raise Exception(f"Proof generation failed: {result.stderr}")

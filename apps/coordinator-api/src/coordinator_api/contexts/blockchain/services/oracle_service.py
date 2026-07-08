@@ -202,7 +202,11 @@ class AggregatedPriceFeed:
             if response.status_code != 200:
                 logger.warning("CoinGecko API returned %s", response.status_code)
                 return None
-            data = response.json()
+            try:
+                data = response.json()
+            except Exception as e:
+                logger.warning("Failed to parse CoinGecko response: %s", e)
+                return None
             if coin_id not in data:
                 logger.warning("CoinGecko response missing %s", coin_id)
                 return None

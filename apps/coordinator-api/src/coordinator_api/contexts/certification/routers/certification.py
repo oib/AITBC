@@ -320,18 +320,21 @@ async def apply_for_partnership(
 async def get_agent_partnerships(
     request: Request,
     agent_id: str,
-    status: str | None,
-    partnership_type: str | None,
     session: Annotated[Session, Depends(get_session)],
+    status: str | None = None,
+    partnership_type: str | None = None,
+    limit: int = 50,
 ) -> list[PartnershipResponse]:
     """Get partnerships for an agent"""
     try:
+        # Enforce maximum limit to prevent unbounded queries
+        limit = min(limit or 50, 500)
         query = select(AgentPartnership).where(AgentPartnership.agent_id == agent_id)
         if status:
             query = query.where(AgentPartnership.status == status)
         if partnership_type:
             query = query.where(AgentPartnership.partnership_type == PartnershipType(partnership_type))
-        partnerships = session.execute(query.order_by(desc(AgentPartnership.applied_at))).scalars().all()  # type: ignore[arg-type]
+        partnerships = session.execute(query.order_by(desc(AgentPartnership.applied_at)).limit(limit)).scalars().all()  # type: ignore[arg-type]
         return [
             PartnershipResponse(
                 partnership_id=partner.partnership_id,
@@ -364,6 +367,8 @@ async def list_partnership_programs(
 ) -> list[dict[str, Any]]:
     """List available partnership programs"""
     try:
+        # Enforce maximum limit to prevent unbounded queries
+        limit = min(limit or 50, 500)
         query = select(PartnershipProgram)
         if partnership_type:
             query = query.where(PartnershipProgram.program_type == PartnershipType(partnership_type))

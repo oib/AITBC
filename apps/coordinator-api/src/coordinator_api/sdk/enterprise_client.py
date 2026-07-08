@@ -148,7 +148,11 @@ class EnterpriseClient:
         }
         async with self.session.post(url, json=data) as response:
             if response.status == 200:
-                auth_data = await response.json()
+                try:
+                    auth_data = await response.json()
+                except Exception as e:
+                    error_text = await response.text()
+                    raise Exception(f"Failed to parse auth response: {e}") from e
                 self.access_token = auth_data["access_token"]
                 self.refresh_token = auth_data.get("refresh_token")
                 self.token_expires_at = datetime.now(UTC) + timedelta(seconds=auth_data["expires_in"])

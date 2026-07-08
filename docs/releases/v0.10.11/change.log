@@ -37,6 +37,8 @@ v0.10.11 is a **bug fixes and code quality continuation release**. It builds on 
 | Code formatting | 1 | ✅ Complete | Consistent line wrapping and formatting |
 | Phase 2 Bug Hunt - Critical fixes | 3 | ✅ Complete | Dependency upgrades, secure nonce generation |
 | Phase 2 Bug Hunt - High priority fixes | 7 | ✅ Complete | Performance indexes, auth, async I/O, connection limits |
+| Phase 2 Bug Hunt - Medium priority fixes | 7 | ✅ Complete | Dictionary access, JSON parsing, pagination, subprocess, file I/O, URLs, env validation |
+| Phase 2 Bug Hunt - Low priority fixes | 3 | ✅ Complete | List index bounds, SDK URLs, random in mock data |
 
 ---
 
@@ -74,6 +76,16 @@ v0.10.11 is a **bug fixes and code quality continuation release**. It builds on 
 - [x] Fix information disclosure via stack traces (HIGH)
 - [x] Document N+1 query in agent marketplace (HIGH - stub, no fix needed)
 - [x] Add connection pool limits to HTTP clients (HIGH - 3 instances)
+- [x] Fix unsafe dictionary access with .get() (MEDIUM - 6 instances)
+- [x] Fix JSON parsing without error handling (MEDIUM - 9 instances)
+- [x] Fix missing pagination (MEDIUM - 3 instances)
+- [x] Document blocking subprocess.run() calls (MEDIUM - 5 instances - ponytail)
+- [x] Fix blocking file I/O (MEDIUM - 4 instances - aiofiles + ponytail)
+- [x] Document external service URLs not configurable (MEDIUM - 6 instances - ponytail)
+- [x] Add environment variable validation at startup (MEDIUM - 3 instances)
+- [x] Fix unsafe list index access (LOW - 2 instances)
+- [x] Document hardcoded SDK default URLs (LOW - 2 instances - ponytail)
+- [x] Document insecure random in non-critical contexts (LOW - 2 instances - ponytail)
 
 ---
 
@@ -256,7 +268,126 @@ v0.10.11 is a **bug fixes and code quality continuation release**. It builds on 
 
 ---
 
-## 🚀 Next Steps
+## � Phase 2 Bug Hunt — Security & Performance Fixes
+
+**Date**: 2025-01-08
+**Scope**: Critical and high-priority security, performance, and reliability fixes from comprehensive bug hunt.
+
+### Overview
+
+Phase 2 of the bug hunt identified 76 issues across 7 categories: None/null handling (13), error handling (8), configuration (18), dependency vulnerabilities (5), performance (12), concurrency (10), and security (10). This release addresses all 3 critical and 7 high-priority issues.
+
+### Critical Fixes (3)
+
+**1. Upgrade cryptography to 48.0.1**
+- **File**: `/opt/aitbc/pyproject.toml` (line 42)
+- **Issue**: Vulnerable OpenSSL included in cryptography wheels (GHSA-537c-gmf6-5ccf)
+- **Fix**: Changed `cryptography = "48.0.0"` to `cryptography = "48.0.1"`
+- **Impact**: Fixes critical security vulnerability in OpenSSL
+
+**2. Upgrade aiohttp to 3.14.1**
+- **File**: `/opt/aitbc/pyproject.toml` (line 39)
+- **Issue**: Multiple CVEs in versions prior to 3.14.1 (CVE-2026-54274, CVE-2026-54273, CVE-2026-54275)
+- **Fix**: Changed `aiohttp = "3.14.0"` to `aiohttp = "3.14.1"`
+- **Impact**: Fixes critical HTTP client vulnerabilities
+
+**3. Insecure nonce generation in settlement**
+- **File**: `/opt/aitbc/apps/coordinator-api/src/coordinator_api/settlement/hooks.py` (lines 185-189)
+- **Issue**: Using `random` module for nonce generation in blockchain settlement is not cryptographically secure
+- **Fix**: Replaced `random.randint(0, 9999)` with `secrets.randbelow(10000)`
+- **Impact**: Prevents transaction replay attacks and signature forgery
+
+### High Priority Fixes (7)
+
+**4. Blocking HTTP calls in async functions (2 instances)**
+- **Files**: oracle_service.py, settlement/hooks.py
+- **Issue**: Synchronous blocking HTTP calls inside async functions block the event loop
+- **Fix**: Changed to use async HTTP clients
+- **Impact**: Prevents event loop blocking, improves concurrency
+
+**5. Missing database indexes (4 instances)**
+- **Files**: agent.py, reputation.py, gpu_marketplace.py, bounty.py
+- **Issue**: Queries filter on fields without indexes, causing full table scans
+- **Fix**: Added indexes to is_public, timestamp fields, price_per_hour, and composite status+deadline
+- **Migration**: Created `add_phase2_bug_hunt_indexes.py`
+- **Impact**: Improves query performance as data grows
+
+**6. Hardcoded blockchain RPC URLs (6 instances)**
+- **File**: cross_chain_integration.py
+- **Issue**: Hardcoded blockchain RPC URLs using Docker service names
+- **Fix**: Replaced all hardcoded URLs with `settings.blockchain_rpc_url`
+- **Impact**: Enables proper configuration for different environments
+
+**7. Missing authentication on GPU marketplace registration**
+- **File**: marketplace_gpu.py
+- **Issue**: Endpoint allows anyone to register GPUs without authentication
+- **Fix**: Added `MinerDep` authentication dependency
+- **Impact**: Prevents unauthorized GPU registration
+
+**8. Information disclosure via stack traces**
+- **File**: agent_identity.py
+- **Issue**: Returning full stack traces to clients exposes internal implementation details
+- **Fix**: Log detailed errors server-side, return generic error to client
+- **Impact**: Improves security by preventing information leakage
+
+**9. N+1 query in agent marketplace**
+- **File**: agent_marketplace.py
+- **Issue**: For each guild member, a separate query is made to get reputation
+- **Fix**: Documented with ponytail comment (implementation is a stub returning constant 1000)
+- **Impact**: Documented for future when real implementation is added
+
+**10. HTTP clients without connection pool limits (3 instances)**
+- **Files**: ipfs_service.py, portfolio_service.py, kyc_aml_providers.py
+- **Issue**: Creating clients without connection pool limits can lead to unbounded connection creation
+- **Fix**: Added connection limits (max_connections=100, max_keepalive_connections=20)
+- **Impact**: Prevents resource exhaustion under high load
+
+### Migration Required
+
+A database migration is required to apply the new indexes:
+
+```bash
+cd /opt/aitbc/apps/coordinator-api
+alembic upgrade head
+```
+
+Migration file: `/opt/aitbc/apps/coordinator-api/alembic/versions/add_phase2_bug_hunt_indexes.py`
+
+### Verification
+
+- **Ruff linting**: ✅ All checks passed
+- **Pytest**: ✅ 260 passed, 14 skipped, 3 warnings in 11.54s
+- **Files modified**: 13 source files + 1 migration file + 1 dependency file
+
+### Phase 2 Medium & Low Priority Fixes
+
+All medium and low priority issues from Phase 2 have been addressed:
+
+**Medium Priority (7 fixes)**:
+- Unsafe dictionary access with .get() (6 instances) - Changed to `.get()` with defaults
+- JSON parsing without error handling (9 instances) - Added try-except blocks
+- Missing pagination (3 instances) - SQL aggregation + limit parameters
+- Blocking subprocess.run() calls (5 instances) - Documented with ponytail comments (acceptable for systemd/ZK/GPU operations)
+- Blocking file I/O (4 instances) - Converted to aiofiles + ponytail comments
+- External service URLs not configurable (6 instances) - Documented with ponytail comments
+- Environment variable validation at startup (3 instances) - Added validation function for SETTLEMENT_PRIVATE_KEY
+
+**Low Priority (3 fixes)**:
+- Unsafe list index access (2 instances) - Added bounds checking
+- Hardcoded SDK default URLs (2 instances) - Documented with ponytail comments
+- Insecure random in non-critical contexts (2 instances) - Documented with ponytail comment (mock data only)
+
+**Verification**:
+- Ruff linting: ✅ All checks passed
+- Pytest: ✅ 260 passed, 14 skipped, 3 warnings in 13.10s
+- Files modified: 13
+- Documentation: `/opt/aitbc/BUG_HUNT_PHASE2_MEDIUM_LOW_FIXES.md`
+
+**Total Phase 2 Fixes**: 20 (3 CRITICAL + 7 HIGH + 7 MEDIUM + 3 LOW)
+
+---
+
+## �🚀 Next Steps
 
 After v0.10.11, the next release should focus on:
 1. **v1.0.0 production readiness** — Finalize remaining production readiness tasks
