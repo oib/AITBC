@@ -173,6 +173,7 @@ class TradingSurveillance:
             "timestamps": timestamps,
             "user_distribution": user_volumes,
             "trade_count": int(volume / 1000),
+            # ponytail: using random for mock data only - not security-sensitive
             "order_cancellations": int(np.random.poisson(100)),
             "total_orders": int(np.random.poisson(500)),
         }
@@ -180,8 +181,8 @@ class TradingSurveillance:
     async def _detect_pump_and_dump(self, symbol: str, data: dict[str, Any]) -> None:
         """Detect pump and dump patterns"""
         try:
-            prices = data["price_history"]
-            volumes = data["volume_history"]
+            prices = data.get("price_history", [])
+            volumes = data.get("volume_history", [])
             if len(prices) < 20:
                 return
             price_changes = [prices[i] / prices[i - 1] - 1 for i in range(1, len(prices))]
@@ -209,8 +210,9 @@ class TradingSurveillance:
                         affected_symbols=[symbol],
                         affected_users=[],
                         evidence={
-                            "price_changes": price_changes[pump_start - 10 : pump_start + 10],
-                            "volume_spike": max(volumes[pump_start - 10 : pump_start + 10]) / np.mean(volumes),
+                            "price_changes": price_changes[max(0, pump_start - 10) : min(len(price_changes), pump_start + 10)],
+                            "volume_spike": max(volumes[max(0, pump_start - 10) : min(len(volumes), pump_start + 10)])
+                            / max(np.mean(volumes), 1),
                             "pump_start": pump_start,
                             "dump_start": pump_start + 10,
                         },
@@ -225,7 +227,9 @@ class TradingSurveillance:
     async def _detect_wash_trading(self, symbol: str, data: dict[str, Any]) -> None:
         """Detect wash trading patterns"""
         try:
-            user_distribution = data["user_distribution"]
+            user_distribution = data.get("user_distribution", {})
+            if not user_distribution:
+                return
             max_user_share = max(user_distribution.values())
             if max_user_share > self.thresholds["wash_trade_threshold"]:
                 dominant_user = max(user_distribution, key=user_distribution.get)
@@ -255,8 +259,8 @@ class TradingSurveillance:
     async def _detect_spoofing(self, symbol: str, data: dict[str, Any]) -> None:
         """Detect order spoofing (placing large orders then cancelling)"""
         try:
-            total_orders = data["total_orders"]
-            cancellations = data["order_cancellations"]
+            total_orders = data.get("total_orders", 0)
+            cancellations = data.get("order_cancellations", 0)
             if total_orders > 0:
                 cancellation_rate = cancellations / total_orders
                 if cancellation_rate > self.thresholds["spoofing_threshold"]:
@@ -286,8 +290,8 @@ class TradingSurveillance:
     async def _detect_volume_anomalies(self, symbol: str, data: dict[str, Any]) -> None:
         """Detect unusual volume spikes"""
         try:
-            volumes = data["volume_history"]
-            current_volume = data["current_volume"]
+            volumes = data.get("volume_history", [])
+            current_volume = data.get("current_volume", 0)
             if len(volumes) > 20:
                 avg_volume = np.mean(volumes[:-10])
                 recent_avg = np.mean(volumes[-10:])
@@ -320,7 +324,7 @@ class TradingSurveillance:
     async def _detect_price_anomalies(self, symbol: str, data: dict[str, Any]) -> None:
         """Detect unusual price movements"""
         try:
-            prices = data["price_history"]
+            prices = data.get("price_history", [])
             if len(prices) > 10:
                 price_changes = [prices[i] / prices[i - 1] - 1 for i in range(1, len(prices))]
                 for i, change in enumerate(price_changes):
@@ -337,7 +341,7 @@ class TradingSurveillance:
                             affected_users=[],
                             evidence={
                                 "price_change": change,
-                                "price_before": prices[i],
+                                "price_before": prices[i] if i < len(prices) else None,
                                 "price_after": prices[i + 1] if i + 1 < len(prices) else None,
                                 "timestamp_index": i,
                             },
@@ -352,7 +356,9 @@ class TradingSurveillance:
     async def _detect_concentrated_trading(self, symbol: str, data: dict[str, Any]) -> None:
         """Detect concentrated trading from few users"""
         try:
-            user_distribution = data["user_distribution"]
+            user_distribution = data.get("user_distribution", {})
+            if not user_distribution:
+                return
             hhi = sum(share**2 for share in user_distribution.values())
             if hhi > self.thresholds["concentration_threshold"]:
                 sorted_users = sorted(user_distribution.items(), key=lambda x: x[1], reverse=True)

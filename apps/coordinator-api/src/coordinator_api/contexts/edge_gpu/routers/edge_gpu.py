@@ -46,6 +46,8 @@ def run_nvidia_smi(args: list[str]) -> str:
             return ""
 
     try:
+        # ponytail: subprocess.run() blocks event loop - should use asyncio.create_subprocess_exec
+        # This is acceptable for GPU queries (not a hot path), but could be improved
         result = subprocess.run(["nvidia-smi"] + args, capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
             return result.stdout

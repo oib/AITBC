@@ -176,7 +176,11 @@ class SettlementHook:
         try:
             response = await self._http_client.get(f"{settings.blockchain_rpc_url}/rpc/chain")
             if response.status_code == 200:
-                chain_data = response.json()
+                try:
+                    chain_data = response.json()
+                except Exception as e:
+                    logger.warning("Failed to parse chain data: %s", e)
+                    return 1
                 return chain_data.get("chain_id", 1)  # type: ignore[no-any-return]
         except Exception as e:
             logger.warning("Failed to get chain ID: %s", e)
