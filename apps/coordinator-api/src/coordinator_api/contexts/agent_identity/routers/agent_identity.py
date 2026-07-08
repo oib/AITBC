@@ -6,6 +6,8 @@ REST API endpoints for agent identity management and cross-chain operations
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
+from aitbc.aitbc_logging import get_logger
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlmodel import Session
@@ -20,6 +22,7 @@ from ..domain.agent_identity import (
 )
 
 router = APIRouter(prefix="/agent-identity", tags=["Agent Identity"])
+logger = get_logger(__name__)
 
 
 def get_identity_manager(session: Annotated[Session, Depends(get_session)]) -> AgentIdentityManager:
@@ -48,8 +51,8 @@ async def create_agent_identity(
     except Exception as e:
         import traceback
 
-        error_detail = f"Failed to create agent identity: {str(e)}\n{traceback.format_exc()}"
-        raise HTTPException(status_code=400, detail=error_detail) from e
+        logger.error("Failed to create agent identity: %s\n%s", str(e), traceback.format_exc())
+        raise HTTPException(status_code=400, detail="Failed to create agent identity") from e
 
 
 @router.get("/identities/{agent_id}", response_model=dict[str, Any])

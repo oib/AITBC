@@ -22,7 +22,7 @@ class GPURegistry(SQLModel, table=True):
     memory_gb: int = Field(default=0)
     cuda_version: str = Field(default="")
     region: str = Field(default="", index=True)
-    price_per_hour: float = Field(default=0.0)
+    price_per_hour: float = Field(default=0.0, index=True)
     status: str = Field(default="available", index=True)  # available, booked, offline
     capabilities: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     average_rating: float = Field(default=0.0)

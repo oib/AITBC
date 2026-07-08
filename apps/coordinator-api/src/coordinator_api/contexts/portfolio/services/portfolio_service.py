@@ -70,7 +70,9 @@ class PortfolioService:
         self.blockchain_rpc_url = blockchain_rpc_url
         self.oracle_url = oracle_url
         self.session = session
-        self._http_client = httpx.AsyncClient(timeout=30.0)
+        self._http_client = httpx.AsyncClient(
+            timeout=30.0, limits=httpx.Limits(max_connections=100, max_keepalive_connections=20)
+        )
 
     async def get_portfolio(self, user_id: str | None = None, wallet_addresses: list[str] | None = None) -> dict[str, Any]:
         """
