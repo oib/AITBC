@@ -3,8 +3,6 @@ Agent Identity Domain Models for Cross-Chain Agent Identity Management
 Implements SQLModel definitions for unified agent identity across multiple blockchains
 """
 
-# type: ignore[no-any-return]  # Pydantic field_validator type inference issue
-
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
