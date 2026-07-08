@@ -120,6 +120,7 @@ class BidStrategyEngine:
         self.config = config
         self.market_history: list[MarketConditions] = []
         self.bid_history: list[BidResult] = []
+        self._lock = asyncio.Lock()
         self.agent_preferences: dict[str, dict[str, Any]] = {}
         self.strategy_weights = {
             BidStrategy.URGENT_BID: 0.25,
@@ -170,7 +171,8 @@ class BidStrategyEngine:
                 reasoning=reasoning,
                 bid_parameters=bid_params,
             )
-            self.bid_history.append(bid_result)
+            async with self._lock:
+                self.bid_history.append(bid_result)
             logger.info("Calculated bid for task %s: %s AITBC/hour", task_requirements.task_id, bid_price)
             return bid_result
         except Exception as e:
@@ -461,9 +463,10 @@ class BidStrategyEngine:
         while True:
             try:
                 conditions = await self._get_current_market_conditions()
-                self.market_history.append(conditions)
-                if len(self.market_history) > self.price_history_days * 24:
-                    self.market_history = self.market_history[-(self.price_history_days * 24) :]
+                async with self._lock:
+                    self.market_history.append(conditions)
+                    if len(self.market_history) > self.price_history_days * 24:
+                        self.market_history = self.market_history[-(self.price_history_days * 24) :]
                 await asyncio.sleep(300)
             except Exception as e:
                 logger.error("Error monitoring market conditions: %s", e)

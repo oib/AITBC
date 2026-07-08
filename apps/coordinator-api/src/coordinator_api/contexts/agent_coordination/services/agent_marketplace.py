@@ -189,6 +189,7 @@ class AgentServiceMarketplace:
         self.agent_guilds: dict[str, str] = {}
         self.services_by_type: dict[str, list[str]] = {}
         self.guilds_by_category: dict[str, list[str]] = {}
+        self._lock = asyncio.Lock()
         self.marketplace_fee = 0.025
         self.min_service_price = 0.001
         self.max_service_price = 1000.0
@@ -264,15 +265,16 @@ class AgentServiceMarketplace:
                     "sunday": False,
                 },
             )
-            self.services[service_id] = service
-            if agent_id not in self.agent_services:
-                self.agent_services[agent_id] = []
-            self.agent_services[agent_id].append(service_id)
-            if service_type.value not in self.services_by_type:
-                self.services_by_type[service_type.value] = []
-            self.services_by_type[service_type.value].append(service_id)
-            if service_type.value in self.categories:
-                self.categories[service_type.value].service_count += 1
+            async with self._lock:
+                self.services[service_id] = service
+                if agent_id not in self.agent_services:
+                    self.agent_services[agent_id] = []
+                self.agent_services[agent_id].append(service_id)
+                if service_type.value not in self.services_by_type:
+                    self.services_by_type[service_type.value] = []
+                self.services_by_type[service_type.value].append(service_id)
+                if service_type.value in self.categories:
+                    self.categories[service_type.value].service_count += 1
             logger.info("Service listed: %s by agent %s", service_id, agent_id)
             return service
         except Exception as e:
@@ -316,10 +318,11 @@ class AgentServiceMarketplace:
                 complexity=complexity,
                 confidentiality=confidentiality,
             )
-            self.service_requests[request_id] = request
-            if client_id not in self.client_requests:
-                self.client_requests[client_id] = []
-            self.client_requests[client_id].append(request_id)
+            async with self._lock:
+                self.service_requests[request_id] = request
+                if client_id not in self.client_requests:
+                    self.client_requests[client_id] = []
+                self.client_requests[client_id].append(request_id)
             logger.info("Service requested: %s for service %s", request_id, service_id)
             return request
         except Exception as e:
@@ -371,14 +374,15 @@ class AgentServiceMarketplace:
             payment = request.payment
             fee = payment * self.marketplace_fee
             agent_payment = payment - fee
-            service.total_earnings += agent_payment
-            service.completed_jobs += 1
-            service.last_updated = datetime.now(UTC)
-            if service.service_type.value in self.categories:
-                self.categories[service.service_type.value].total_volume += payment
-            if service.guild_id and service.guild_id in self.guilds:
-                guild = self.guilds[service.guild_id]
-                guild.total_earnings += agent_payment
+            async with self._lock:
+                service.total_earnings += agent_payment
+                service.completed_jobs += 1
+                service.last_updated = datetime.now(UTC)
+                if service.service_type.value in self.categories:
+                    self.categories[service.service_type.value].total_volume += payment
+                if service.guild_id and service.guild_id in self.guilds:
+                    guild = self.guilds[service.guild_id]
+                    guild.total_earnings += agent_payment
             logger.info("Request completed: %s with payment %s", request_id, agent_payment)
             return True
         except Exception as e:
@@ -402,9 +406,10 @@ class AgentServiceMarketplace:
                 raise ValueError("Rating period expired")
             request.rating = rating
             request.review = review
-            total_rating = service.average_rating * service.rating_count + rating
-            service.rating_count += 1
-            service.average_rating = total_rating / service.rating_count
+            async with self._lock:
+                total_rating = service.average_rating * service.rating_count + rating
+                service.rating_count += 1
+                service.average_rating = total_rating / service.rating_count
             reputation_change = await self._calculate_reputation_change(rating, service.reputation)
             await self._update_agent_reputation(service.agent_id, reputation_change)
             logger.info("Service rated: %s with rating %s", request_id, rating)
@@ -453,11 +458,12 @@ class AgentServiceMarketplace:
                 "role": "founder",
                 "contributions": 0,
             }
-            self.guilds[guild_id] = guild
-            if service_category.value not in self.guilds_by_category:
-                self.guilds_by_category[service_category.value] = []
-            self.guilds_by_category[service_category.value].append(guild_id)
-            self.agent_guilds[founder_id] = guild_id
+            async with self._lock:
+                self.guilds[guild_id] = guild
+                if service_category.value not in self.guilds_by_category:
+                    self.guilds_by_category[service_category.value] = []
+                self.guilds_by_category[service_category.value].append(guild_id)
+                self.agent_guilds[founder_id] = guild_id
             logger.info("Guild created: %s by %s", guild_id, founder_id)
             return guild
         except Exception as e:
@@ -477,14 +483,15 @@ class AgentServiceMarketplace:
             agent_reputation = await self._get_agent_reputation(agent_id)
             if agent_reputation < guild.reputation // 2:
                 raise ValueError("Insufficient reputation")
-            guild.members[agent_id] = {
-                "joined_at": datetime.now(UTC),
-                "reputation": agent_reputation,
-                "role": "member",
-                "contributions": 0,
-            }
-            guild.member_count += 1
-            self.agent_guilds[agent_id] = guild_id
+            async with self._lock:
+                guild.members[agent_id] = {
+                    "joined_at": datetime.now(UTC),
+                    "reputation": agent_reputation,
+                    "role": "member",
+                    "contributions": 0,
+                }
+                guild.member_count += 1
+                self.agent_guilds[agent_id] = guild_id
             logger.info("Agent %s joined guild %s", agent_id, guild_id)
             return True
         except Exception as e:

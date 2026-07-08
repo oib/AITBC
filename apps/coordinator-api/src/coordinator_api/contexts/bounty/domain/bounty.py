@@ -14,7 +14,10 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
+from pydantic import field_validator
 from sqlmodel import JSON, Column, Field, SQLModel
+
+from coordinator_api.validators import validate_agent_id, validate_ethereum_address, validate_positive_decimal
 
 
 class BountyStatus(StrEnum):
@@ -50,8 +53,8 @@ class Bounty(SQLModel, table=True):
     bounty_id: str = Field(primary_key=True, default_factory=lambda: f"bounty_{uuid.uuid4().hex[:8]}")
     title: str = Field(index=True)
     description: str = Field(index=True)
-    reward_amount: Decimal = Field(index=True)
-    creator_id: str = Field(index=True)
+    reward_amount: Decimal = Field(index=True, gt=0, le=Decimal("1000000.0"))
+    creator_id: str = Field(index=True, max_length=128)
     tier: BountyTier = Field(default=BountyTier.BRONZE)
     status: BountyStatus = Field(default=BountyStatus.CREATED, index=True)
 
@@ -74,7 +77,7 @@ class Bounty(SQLModel, table=True):
 
     # Winner information
     winning_submission_id: str | None = Field(default=None)
-    winner_address: str | None = Field(default=None)
+    winner_address: str | None = Field(default=None, max_length=42)
 
     # Fees
     creation_fee: Decimal = Field(default=Decimal("0.0"))
@@ -89,6 +92,23 @@ class Bounty(SQLModel, table=True):
     # Relationships
     # DISABLED:     submissions: List["BountySubmission"] = Relationship(back_populates="bounty")
 
+    @field_validator("creator_id")
+    @classmethod
+    def validate_creator_id(cls, v: str) -> str:
+        return validate_agent_id(v)
+
+    @field_validator("winner_address")
+    @classmethod
+    def validate_winner_address(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        return validate_ethereum_address(v)
+
+    @field_validator("reward_amount")
+    @classmethod
+    def validate_reward_amount(cls, v: Decimal) -> Decimal:
+        return validate_positive_decimal(v)
+
 
 class BountySubmission(SQLModel, table=True):
     """Submission for a bounty with ZK-proof and performance metrics"""
@@ -98,7 +118,7 @@ class BountySubmission(SQLModel, table=True):
 
     submission_id: str = Field(primary_key=True, default_factory=lambda: f"sub_{uuid.uuid4().hex[:8]}")
     bounty_id: str = Field(foreign_key="bounties.bounty_id", index=True)
-    submitter_address: str = Field(index=True)
+    submitter_address: str = Field(index=True, max_length=42)
 
     # Performance metrics
     accuracy: Decimal = Field(index=True)
@@ -113,7 +133,7 @@ class BountySubmission(SQLModel, table=True):
     # Status and verification
     status: SubmissionStatus = Field(default=SubmissionStatus.PENDING, index=True)
     verification_time: datetime | None = Field(default=None)
-    verifier_address: str | None = Field(default=None)
+    verifier_address: str | None = Field(default=None, max_length=42)
 
     # Dispute information
     dispute_reason: str | None = Field(default=None)
@@ -129,6 +149,13 @@ class BountySubmission(SQLModel, table=True):
 
     # Relationships
     # DISABLED:     bounty: Bounty = Relationship(back_populates="submissions")
+
+    @field_validator("submitter_address", "verifier_address")
+    @classmethod
+    def validate_address_field(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        return validate_ethereum_address(v)
 
 
 class BountyIntegration(SQLModel, table=True):
