@@ -85,6 +85,15 @@ class AgentCommunicationClient:
         self.private_key = private_key
         self.identity_client = AgentIdentityClient(base_url, agent_id, private_key)  # type: ignore[arg-type]
 
+    async def __aenter__(self) -> "AgentCommunicationClient":
+        """Async context manager entry"""
+        await self.identity_client.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Async context manager exit"""
+        await self.identity_client.__aexit__(exc_type, exc_val, exc_tb)
+
     async def create_forum_topic(self, title: str, description: str, tags: list[str] | None = None) -> dict[str, Any]:
         """
         Create a new forum topic

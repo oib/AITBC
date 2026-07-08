@@ -3,6 +3,7 @@ Performance Monitoring and Analytics Service - Phase 5.2
 Real-time performance tracking and optimization recommendations
 """
 
+import asyncio
 import json
 from collections import defaultdict, deque
 from dataclasses import dataclass
@@ -64,6 +65,7 @@ class PerformanceMonitor:
         self.metrics_history: dict[str, Any] = defaultdict(lambda: deque(maxlen=3600))
         self.system_resources: deque = deque(maxlen=60)
         self.model_performance: dict[str, Any] = defaultdict(lambda: deque(maxlen=1000))
+        self._lock = asyncio.Lock()
         self.alert_thresholds = self._initialize_thresholds()
         self.performance_baseline: dict[str, Any] = {}
         self.optimization_recommendations: list = []
@@ -107,7 +109,8 @@ class PerformanceMonitor:
             network_io_recv_mb_s=network_io_recv_mb_s,
             network_io_sent_mb_s=network_io_sent_mb_s,
         )
-        self.system_resources.append({"timestamp": datetime.now(UTC), "data": system_resource})
+        async with self._lock:
+            self.system_resources.append({"timestamp": datetime.now(UTC), "data": system_resource})
         return system_resource
 
     async def record_model_performance(
@@ -130,7 +133,8 @@ class PerformanceMonitor:
             memory_usage_mb=memory_usage_mb,
             gpu_utilization=gpu_utilization,
         )
-        self.model_performance[model_id].append({"timestamp": datetime.now(UTC), "data": performance})
+        async with self._lock:
+            self.model_performance[model_id].append({"timestamp": datetime.now(UTC), "data": performance})
         await self._check_model_alerts(model_id, performance)
 
     async def _check_model_alerts(self, model_id: str, performance: AIModelPerformance) -> None:

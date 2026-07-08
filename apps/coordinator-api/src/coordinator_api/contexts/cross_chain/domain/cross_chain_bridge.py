@@ -10,8 +10,11 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
 
+from pydantic import field_validator
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
+
+from coordinator_api.validators import validate_ethereum_address, validate_positive_decimal, validate_url
 
 
 class BridgeRequestStatus(StrEnum):
@@ -56,15 +59,15 @@ class BridgeRequest(SQLModel, table=True):
     __tablename__ = "bridge_request"
 
     id: int | None = Field(default=None, primary_key=True)
-    contract_request_id: str = Field(index=True)  # Contract request ID
-    sender_address: str = Field(index=True)
-    recipient_address: str = Field(index=True)
-    source_token: str = Field(index=True)  # Source token address
-    target_token: str = Field(index=True)  # Target token address
+    contract_request_id: str = Field(index=True)
+    sender_address: str = Field(index=True, max_length=42)
+    recipient_address: str = Field(index=True, max_length=42)
+    source_token: str = Field(index=True, max_length=42)  # Source token address
+    target_token: str = Field(index=True, max_length=42)  # Target token address
     source_chain_id: int = Field(index=True)
     target_chain_id: int = Field(index=True)
-    amount: Decimal = Field(default=Decimal("0.0"))
-    bridge_fee: Decimal = Field(default=Decimal("0.0"))
+    amount: Decimal = Field(default=Decimal("0.0"), gt=0)
+    bridge_fee: Decimal = Field(default=Decimal("0.0"), ge=0)
     total_amount: Decimal = Field(default=Decimal("0.0"))  # Amount including fee
     exchange_rate: Decimal = Field(default=Decimal("1.0"))  # Exchange rate between tokens
     status: BridgeRequestStatus = Field(default=BridgeRequestStatus.PENDING, index=True)
@@ -83,6 +86,16 @@ class BridgeRequest(SQLModel, table=True):
     resolved_at: datetime | None = Field(default=None)
     expires_at: datetime = Field(default_factory=lambda: datetime.now(UTC) + timedelta(hours=24))
 
+    @field_validator("sender_address", "recipient_address", "source_token", "target_token")
+    @classmethod
+    def validate_address_field(cls, v: str) -> str:
+        return validate_ethereum_address(v)
+
+    @field_validator("amount")
+    @classmethod
+    def validate_amount_field(cls, v: Decimal) -> Decimal:
+        return validate_positive_decimal(v)
+
     # Relationships
     # transactions: List["BridgeTransaction"] = Relationship(back_populates="bridge_request")
     # disputes: List["BridgeDispute"] = Relationship(back_populates="bridge_request")
@@ -94,22 +107,29 @@ class SupportedToken(SQLModel, table=True):
     __tablename__ = "supported_token"
 
     id: int | None = Field(default=None, primary_key=True)
-    token_address: str = Field(index=True)
+    token_address: str = Field(index=True, max_length=42)
     token_symbol: str = Field(index=True)
     token_name: str = Field(default="")
     decimals: int = Field(default=18)
-    bridge_limit: Decimal = Field(default=Decimal("3600000000.0"))  # Maximum bridge amount (1M AIT = 3.6B seconds)
-    fee_percentage: Decimal = Field(default=Decimal("0.5"))  # Bridge fee percentage
-    min_amount: Decimal = Field(default=Decimal("0.01"))  # Minimum bridge amount
-    max_amount: Decimal = Field(default=Decimal("3600000000.0"))  # Maximum bridge amount (1M AIT = 3.6B seconds)
+    bridge_limit: Decimal = Field(default=Decimal("3600000000.0"), gt=0)  # Maximum bridge amount (1M AIT = 3.6B seconds)
+    fee_percentage: Decimal = Field(default=Decimal("0.5"), ge=0)  # Bridge fee percentage
+    min_amount: Decimal = Field(default=Decimal("0.01"), gt=0)  # Minimum bridge amount
+    max_amount: Decimal = Field(default=Decimal("3600000000.0"), gt=0)  # Maximum bridge amount (1M AIT = 3.6B seconds)
     requires_whitelist: bool = Field(default=False)
     is_active: bool = Field(default=True, index=True)
     is_wrapped: bool = Field(default=False)  # Whether it's a wrapped token
-    original_token: str | None = Field(default=None)  # Original token address for wrapped tokens
+    original_token: str | None = Field(default=None, max_length=42)  # Original token address for wrapped tokens
     supported_chains: list[int] = Field(default_factory=list, sa_column=Column(JSON))
     bridge_contracts: dict[int, str] = Field(default_factory=dict, sa_column=Column(JSON))  # Chain ID -> Contract address
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("token_address", "original_token")
+    @classmethod
+    def validate_token_address(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        return validate_ethereum_address(v)
 
 
 class ChainConfig(SQLModel, table=True):
@@ -123,7 +143,7 @@ class ChainConfig(SQLModel, table=True):
     chain_type: ChainType = Field(index=True)
     rpc_url: str = Field(default="")
     block_explorer_url: str = Field(default="")
-    bridge_contract_address: str = Field(default="")
+    bridge_contract_address: str = Field(default="", max_length=42)
     native_token: str = Field(default="")
     native_token_symbol: str = Field(default="")
     block_time: int = Field(default=12)  # Average block time in seconds
@@ -139,6 +159,20 @@ class ChainConfig(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+    @field_validator("rpc_url", "block_explorer_url")
+    @classmethod
+    def validate_url_field(cls, v: str) -> str:
+        if not v:
+            return v
+        return validate_url(v)
+
+    @field_validator("bridge_contract_address")
+    @classmethod
+    def validate_contract_address(cls, v: str) -> str:
+        if not v:
+            return v
+        return validate_ethereum_address(v)
+
 
 class Validator(SQLModel, table=True):
     """Bridge validator for cross-chain confirmations"""
@@ -146,7 +180,7 @@ class Validator(SQLModel, table=True):
     __tablename__ = "validator"
 
     id: int | None = Field(default=None, primary_key=True)
-    validator_address: str = Field(index=True)
+    validator_address: str = Field(index=True, max_length=42)
     validator_name: str = Field(default="")
     weight: int = Field(default=1)  # Validator weight
     commission_rate: Decimal = Field(default=Decimal("0.0"))  # Commission rate
@@ -165,6 +199,11 @@ class Validator(SQLModel, table=True):
     val_meta_data: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("validator_address")
+    @classmethod
+    def validate_validator_address(cls, v: str) -> str:
+        return validate_ethereum_address(v)
 
     # Relationships
     # transactions: List["BridgeTransaction"] = Relationship(back_populates="validator")

@@ -10,7 +10,10 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import uuid4
 
+from pydantic import field_validator
 from sqlmodel import Field, SQLModel
+
+from coordinator_api.validators import validate_agent_id, validate_ethereum_address
 
 
 class SwapStatus(StrEnum):
@@ -30,18 +33,18 @@ class AtomicSwapOrder(SQLModel, table=True):
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
 
     # Initiator details (Party A)
-    initiator_agent_id: str = Field(index=True)
-    initiator_address: str = Field()
+    initiator_agent_id: str = Field(index=True, max_length=128)
+    initiator_address: str = Field(max_length=42)
     source_chain_id: int = Field(index=True)
-    source_token: str = Field()  # "native" or ERC20 address
-    source_amount: float = Field()
+    source_token: str = Field(max_length=42)  # "native" or ERC20 address
+    source_amount: float = Field(gt=0)
 
     # Participant details (Party B)
-    participant_agent_id: str = Field(index=True)
-    participant_address: str = Field()
+    participant_agent_id: str = Field(index=True, max_length=128)
+    participant_address: str = Field(max_length=42)
     target_chain_id: int = Field(index=True)
-    target_token: str = Field()  # "native" or ERC20 address
-    target_amount: float = Field()
+    target_token: str = Field(max_length=42)  # "native" or ERC20 address
+    target_amount: float = Field(gt=0)
 
     # Cryptographic elements
     hashlock: str = Field(index=True)  # sha256 hash of the secret
@@ -62,6 +65,23 @@ class AtomicSwapOrder(SQLModel, table=True):
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("initiator_agent_id", "participant_agent_id")
+    @classmethod
+    def validate_agent_id_field(cls, v: str) -> str:
+        return validate_agent_id(v)
+
+    @field_validator("initiator_address", "participant_address")
+    @classmethod
+    def validate_address_field(cls, v: str) -> str:
+        return validate_ethereum_address(v)
+
+    @field_validator("source_token", "target_token")
+    @classmethod
+    def validate_token_address(cls, v: str) -> str:
+        if v.lower() == "native":
+            return v
+        return validate_ethereum_address(v)
 
 
 __all__ = ["AtomicSwapOrder", "SwapStatus"]
