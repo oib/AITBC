@@ -77,9 +77,9 @@ class AgentReputation(SQLModel, table=True):
     chain_scores: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    last_activity: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+    last_activity: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
 
     # Additional metadata
     reputation_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))

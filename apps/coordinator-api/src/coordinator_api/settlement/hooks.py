@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.http_client import RequestIDPropagatingClient
 
 from ..config import settings
 from ..contexts.infrastructure.domain import Job
@@ -24,6 +25,7 @@ class SettlementHook:
     def __init__(self, bridge_manager: BridgeManager):
         self.bridge_manager = bridge_manager
         self._enabled = True
+        self._http_client = RequestIDPropagatingClient(timeout=30.0)
 
     async def on_job_completed(self, job: Job) -> None:
         """Called when a job completes successfully"""
@@ -172,9 +174,7 @@ class SettlementHook:
     async def _get_current_chain_id(self) -> int:
         """Get the current blockchain chain ID"""
         try:
-            import httpx
-
-            response = httpx.get(f"{settings.blockchain_rpc_url}/rpc/chain")
+            response = await self._http_client.get(f"{settings.blockchain_rpc_url}/rpc/chain")
             if response.status_code == 200:
                 chain_data = response.json()
                 return chain_data.get("chain_id", 1)  # type: ignore[no-any-return]
@@ -184,9 +184,9 @@ class SettlementHook:
 
     async def _generate_nonce(self) -> int:
         """Generate a unique nonce for settlement"""
-        import random
+        import secrets
 
-        return int(datetime.now(UTC).timestamp() * 1000) + random.randint(0, 9999)
+        return int(datetime.now(UTC).timestamp() * 1000) + secrets.randbelow(10000)
 
     async def _sign_settlement_message(self, job: Job) -> str:
         """Sign the settlement message with secp256k1 (canonical-JSON + keccak256).
