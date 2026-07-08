@@ -148,7 +148,13 @@ class BountyService:
     ) -> BountySubmission:
         """Create a bounty submission"""
         try:
-            bounty = await self.get_bounty(bounty_id)
+            bounty = (
+                self.session.execute(
+                    select(Bounty).where(Bounty.bounty_id == bounty_id).with_for_update()  # type: ignore[arg-type, union-attr]
+                )
+                .scalars()
+                .first()
+            )
             if not bounty:
                 raise ValueError("Bounty not found")
             if bounty.status != BountyStatus.ACTIVE:
