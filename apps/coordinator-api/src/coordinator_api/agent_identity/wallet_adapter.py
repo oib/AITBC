@@ -23,6 +23,7 @@ class WalletAdapter(ABC):
     """Abstract base class for blockchain-specific wallet adapters"""
 
     def __init__(self, chain_id: int, chain_type: ChainType, rpc_url: str):
+        # ponytail: rpc_url has no default - caller must provide for production use
         self.chain_id = chain_id
         self.chain_type = chain_type
         self.rpc_url = rpc_url

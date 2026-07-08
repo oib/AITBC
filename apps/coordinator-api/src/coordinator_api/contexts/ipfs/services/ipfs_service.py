@@ -58,7 +58,7 @@ class IPFSClient:
 
     def __init__(
         self,
-        api_url: str = "http://localhost:5001",
+        api_url: str = "http://localhost:5001",  # ponytail: default is local dev, override in production
         gateway_url: str = "https://ipfs.io",
         pinning_service: str | None = None,
         pinning_key: str | None = None,
