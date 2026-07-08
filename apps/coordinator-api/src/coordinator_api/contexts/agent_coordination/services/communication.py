@@ -158,6 +158,7 @@ class AgentCommunicationService:
         self.blocked_lists: dict[str, dict[str, bool]] = {}
         self.message_queue: list[Message] = []
         self.delivery_attempts: dict[str, int] = {}
+        self._lock = asyncio.Lock()
         self._initialize_default_templates()
 
     def set_reputation_service(self, reputation_service: CrossChainReputationService) -> None:
@@ -176,18 +177,19 @@ class AgentCommunicationService:
     async def authorize_agent(self, agent_id: str) -> bool:
         """Authorize an agent to use the communication system"""
         try:
-            self.authorized_agents[agent_id] = True
-            if agent_id not in self.communication_stats:
-                self.communication_stats[agent_id] = CommunicationStats(
-                    total_messages=0,
-                    total_earnings=0.0,
-                    messages_sent=0,
-                    messages_received=0,
-                    active_channels=0,
-                    last_activity=datetime.now(UTC),
-                    average_response_time=0.0,
-                    delivery_rate=0.0,
-                )
+            async with self._lock:
+                self.authorized_agents[agent_id] = True
+                if agent_id not in self.communication_stats:
+                    self.communication_stats[agent_id] = CommunicationStats(
+                        total_messages=0,
+                        total_earnings=0.0,
+                        messages_sent=0,
+                        messages_received=0,
+                        active_channels=0,
+                        last_activity=datetime.now(UTC),
+                        average_response_time=0.0,
+                        delivery_rate=0.0,
+                    )
             logger.info("Authorized agent: %s", agent_id)
             return True
         except Exception as e:
@@ -197,13 +199,14 @@ class AgentCommunicationService:
     async def revoke_agent(self, agent_id: str) -> bool:
         """Revoke agent authorization"""
         try:
-            self.authorized_agents[agent_id] = False
-            if agent_id in self.agent_messages:
-                del self.agent_messages[agent_id]
-            if agent_id in self.agent_channels:
-                del self.agent_channels[agent_id]
-            if agent_id in self.communication_stats:
-                del self.communication_stats[agent_id]
+            async with self._lock:
+                self.authorized_agents[agent_id] = False
+                if agent_id in self.agent_messages:
+                    del self.agent_messages[agent_id]
+                if agent_id in self.agent_channels:
+                    del self.agent_channels[agent_id]
+                if agent_id in self.communication_stats:
+                    del self.communication_stats[agent_id]
             logger.info("Revoked authorization for agent: %s", agent_id)
             return True
         except Exception as e:
@@ -213,11 +216,12 @@ class AgentCommunicationService:
     async def add_contact(self, agent_id: str, contact_id: str) -> bool:
         """Add contact to agent's contact list"""
         try:
-            if agent_id not in self.contact_lists:
-                self.contact_lists[agent_id] = {}
-            self.contact_lists[agent_id][contact_id] = True
-            if agent_id in self.blocked_lists and contact_id in self.blocked_lists[agent_id]:
-                del self.blocked_lists[agent_id][contact_id]
+            async with self._lock:
+                if agent_id not in self.contact_lists:
+                    self.contact_lists[agent_id] = {}
+                self.contact_lists[agent_id][contact_id] = True
+                if agent_id in self.blocked_lists and contact_id in self.blocked_lists[agent_id]:
+                    del self.blocked_lists[agent_id][contact_id]
             logger.info("Added contact %s for agent %s", contact_id, agent_id)
             return True
         except Exception as e:
@@ -238,11 +242,12 @@ class AgentCommunicationService:
     async def block_agent(self, agent_id: str, blocked_id: str) -> bool:
         """Block an agent"""
         try:
-            if agent_id not in self.blocked_lists:
-                self.blocked_lists[agent_id] = {}
-            self.blocked_lists[agent_id][blocked_id] = True
-            if agent_id in self.contact_lists and blocked_id in self.contact_lists[agent_id]:
-                del self.contact_lists[agent_id][blocked_id]
+            async with self._lock:
+                if agent_id not in self.blocked_lists:
+                    self.blocked_lists[agent_id] = {}
+                self.blocked_lists[agent_id][blocked_id] = True
+                if agent_id in self.contact_lists and blocked_id in self.contact_lists[agent_id]:
+                    del self.contact_lists[agent_id][blocked_id]
             logger.info("Blocked agent %s for agent %s", blocked_id, agent_id)
             return True
         except Exception as e:
@@ -252,8 +257,9 @@ class AgentCommunicationService:
     async def unblock_agent(self, agent_id: str, blocked_id: str) -> bool:
         """Unblock an agent"""
         try:
-            if agent_id in self.blocked_lists and blocked_id in self.blocked_lists[agent_id]:
-                del self.blocked_lists[agent_id][blocked_id]
+            async with self._lock:
+                if agent_id in self.blocked_lists and blocked_id in self.blocked_lists[agent_id]:
+                    del self.blocked_lists[agent_id][blocked_id]
             logger.info("Unblocked agent %s for agent %s", blocked_id, agent_id)
             return True
         except Exception as e:
@@ -302,16 +308,17 @@ class AgentCommunicationService:
                 reply_to=reply_to,
                 thread_id=thread_id,
             )
-            self.messages[message_id] = message
-            if sender not in self.agent_messages:
-                self.agent_messages[sender] = []
-            if recipient not in self.agent_messages:
-                self.agent_messages[recipient] = []
-            self.agent_messages[sender].append(message_id)
-            self.agent_messages[recipient].append(message_id)
+            async with self._lock:
+                self.messages[message_id] = message
+                if sender not in self.agent_messages:
+                    self.agent_messages[sender] = []
+                if recipient not in self.agent_messages:
+                    self.agent_messages[recipient] = []
+                self.agent_messages[sender].append(message_id)
+                self.agent_messages[recipient].append(message_id)
+                self.message_queue.append(message)
             await self._update_message_stats(sender, recipient, "sent")
             await self._get_or_create_channel(sender, recipient, ChannelType.DIRECT)
-            self.message_queue.append(message)
             logger.info("Message sent from %s to %s: %s", sender, recipient, message_id)
             return message_id
         except Exception as e:
@@ -400,15 +407,18 @@ class AgentCommunicationService:
                 participants=[agent1, agent2],
                 encryption_enabled=encryption_enabled,
             )
-            self.channels[channel_id] = channel
-            if agent1 not in self.agent_channels:
-                self.agent_channels[agent1] = []
-            if agent2 not in self.agent_channels:
-                self.agent_channels[agent2] = []
-            self.agent_channels[agent1].append(channel_id)
-            self.agent_channels[agent2].append(channel_id)
-            self.communication_stats[agent1].active_channels += 1
-            self.communication_stats[agent2].active_channels += 1
+            async with self._lock:
+                self.channels[channel_id] = channel
+                if agent1 not in self.agent_channels:
+                    self.agent_channels[agent1] = []
+                if agent2 not in self.agent_channels:
+                    self.agent_channels[agent2] = []
+                self.agent_channels[agent1].append(channel_id)
+                self.agent_channels[agent2].append(channel_id)
+                if agent1 in self.communication_stats:
+                    self.communication_stats[agent1].active_channels += 1
+                if agent2 in self.communication_stats:
+                    self.communication_stats[agent2].active_channels += 1
             logger.info("Channel created: %s between %s and %s", channel_id, agent1, agent2)
             return channel_id
         except Exception as e:

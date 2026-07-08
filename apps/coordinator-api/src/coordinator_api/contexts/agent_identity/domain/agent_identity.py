@@ -3,13 +3,18 @@ Agent Identity Domain Models for Cross-Chain Agent Identity Management
 Implements SQLModel definitions for unified agent identity across multiple blockchains
 """
 
+# type: ignore[no-any-return]  # Pydantic field_validator type inference issue
+
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
+from pydantic import field_validator
 from sqlalchemy import Index
 from sqlmodel import JSON, Column, Field, SQLModel
+
+from coordinator_api.validators import validate_agent_id, validate_ethereum_address
 
 
 class IdentityStatus(StrEnum):
@@ -51,8 +56,8 @@ class AgentIdentity(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"identity_{uuid4().hex[:8]}", primary_key=True)
-    agent_id: str = Field(index=True, unique=True)  # Links to AIAgentWorkflow.id
-    owner_address: str = Field(index=True)
+    agent_id: str = Field(index=True, unique=True, max_length=128)  # Links to AIAgentWorkflow.id
+    owner_address: str = Field(index=True, max_length=42)
 
     # Identity metadata
     display_name: str = Field(max_length=100, default="")
@@ -84,6 +89,16 @@ class AgentIdentity(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+    @field_validator("agent_id")
+    @classmethod
+    def validate_agent_id_field(cls, v: str) -> str:
+        return validate_agent_id(v)
+
+    @field_validator("owner_address")
+    @classmethod
+    def validate_owner_address(cls, v: str) -> str:
+        return validate_ethereum_address(v)
+
 
 class CrossChainMapping(SQLModel, table=True):
     """Mapping of agent identity across different blockchains"""
@@ -97,10 +112,10 @@ class CrossChainMapping(SQLModel, table=True):
     )
 
     id: str = Field(default_factory=lambda: f"mapping_{uuid4().hex[:8]}", primary_key=True)
-    agent_id: str = Field(index=True)
+    agent_id: str = Field(index=True, max_length=128)
     chain_id: int = Field(index=True)
     chain_type: ChainType = Field(default=ChainType.ETHEREUM)
-    chain_address: str = Field(index=True)
+    chain_address: str = Field(index=True, max_length=42)
 
     # Verification and status
     is_verified: bool = Field(default=False)
@@ -108,7 +123,7 @@ class CrossChainMapping(SQLModel, table=True):
     verification_proof: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
 
     # Wallet information
-    wallet_address: str | None = Field(default=None)
+    wallet_address: str | None = Field(default=None, max_length=42)
     wallet_type: str = Field(default="agent-wallet")  # agent-wallet, external-wallet, etc.
 
     # Chain-specific metadata
@@ -122,6 +137,18 @@ class CrossChainMapping(SQLModel, table=True):
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("agent_id")
+    @classmethod
+    def validate_agent_id_field(cls, v: str) -> str:
+        return validate_agent_id(v)
+
+    @field_validator("chain_address", "wallet_address")
+    @classmethod
+    def validate_chain_address(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        return validate_ethereum_address(v)
 
 
 class IdentityVerification(SQLModel, table=True):
@@ -138,12 +165,12 @@ class IdentityVerification(SQLModel, table=True):
     )
 
     id: str = Field(default_factory=lambda: f"verify_{uuid4().hex[:8]}", primary_key=True)
-    agent_id: str = Field(index=True)
+    agent_id: str = Field(index=True, max_length=128)
     chain_id: int = Field(index=True)
 
     # Verification details
     verification_type: VerificationType
-    verifier_address: str = Field(index=True)  # Who performed the verification
+    verifier_address: str = Field(index=True, max_length=42)  # Who performed the verification
     proof_hash: str = Field(index=True)
     proof_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
@@ -163,6 +190,16 @@ class IdentityVerification(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+    @field_validator("agent_id")
+    @classmethod
+    def validate_agent_id_field(cls, v: str) -> str:
+        return validate_agent_id(v)
+
+    @field_validator("verifier_address")
+    @classmethod
+    def validate_verifier_address(cls, v: str) -> str:
+        return validate_ethereum_address(v)
+
 
 class AgentWallet(SQLModel, table=True):
     """Agent wallet information for cross-chain operations"""
@@ -176,18 +213,18 @@ class AgentWallet(SQLModel, table=True):
     )
 
     id: str = Field(default_factory=lambda: f"wallet_{uuid4().hex[:8]}", primary_key=True)
-    agent_id: str = Field(index=True)
+    agent_id: str = Field(index=True, max_length=128)
     chain_id: int = Field(index=True)
-    chain_address: str = Field(index=True)
+    chain_address: str = Field(index=True, max_length=42)
 
     # Wallet details
     wallet_type: str = Field(default="agent-wallet")
-    contract_address: str | None = Field(default=None)
+    contract_address: str | None = Field(default=None, max_length=42)
 
     # Financial information
-    balance: float = Field(default=0.0)
-    spending_limit: float = Field(default=0.0)
-    total_spent: float = Field(default=0.0)
+    balance: float = Field(default=0.0, ge=0)
+    spending_limit: float = Field(default=0.0, ge=0)
+    total_spent: float = Field(default=0.0, ge=0)
 
     # Status and permissions
     is_active: bool = Field(default=True)
@@ -206,6 +243,18 @@ class AgentWallet(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+    @field_validator("agent_id")
+    @classmethod
+    def validate_agent_id_field(cls, v: str) -> str:
+        return validate_agent_id(v)
+
+    @field_validator("chain_address", "contract_address")
+    @classmethod
+    def validate_chain_address(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        return validate_ethereum_address(v)
+
 
 # Request/Response Models for API
 class AgentIdentityCreate(SQLModel):
@@ -220,6 +269,16 @@ class AgentIdentityCreate(SQLModel):
     primary_chain: int = Field(default=1)
     meta_data: dict[str, Any] = Field(default_factory=dict)
     tags: list[str] = Field(default_factory=list)
+
+    @field_validator("agent_id")
+    @classmethod
+    def validate_agent_id_field(cls, v: str) -> str:
+        return validate_agent_id(v)
+
+    @field_validator("owner_address")
+    @classmethod
+    def validate_owner_address(cls, v: str) -> str:
+        return validate_ethereum_address(v)
 
 
 class AgentIdentityUpdate(SQLModel):
@@ -247,6 +306,18 @@ class CrossChainMappingCreate(SQLModel):
     wallet_address: str | None = Field(default=None)
     wallet_type: str = Field(default="agent-wallet")
     chain_meta_data: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("agent_id")
+    @classmethod
+    def validate_agent_id_field(cls, v: str) -> str:
+        return validate_agent_id(v)
+
+    @field_validator("chain_address", "wallet_address")
+    @classmethod
+    def validate_chain_address(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        return validate_ethereum_address(v)
 
 
 class CrossChainMappingUpdate(SQLModel):

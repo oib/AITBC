@@ -88,6 +88,7 @@ class TradingSurveillance:
     def __init__(self) -> None:
         self.alerts: list[TradingAlert] = []
         self.patterns: list[TradingPattern] = []
+        self._lock = asyncio.Lock()
         self.monitoring_symbols: dict[str, bool] = {}
         self.thresholds = {
             "volume_spike_multiplier": 3.0,
@@ -215,7 +216,8 @@ class TradingSurveillance:
                         },
                         risk_score=0.8,
                     )
-                    self.alerts.append(alert)
+                    async with self._lock:
+                        self.alerts.append(alert)
                     logger.warning("🚨 Pump and dump detected: %s (confidence: %s)", symbol, confidence)
         except Exception as e:
             logger.error("❌ Pump and dump detection error: %s", e)
@@ -244,7 +246,8 @@ class TradingSurveillance:
                     },
                     risk_score=0.75,
                 )
-                self.alerts.append(alert)
+                async with self._lock:
+                    self.alerts.append(alert)
                 logger.warning("🚨 Wash trading detected: %s (user share: %s)", symbol, max_user_share)
         except Exception as e:
             logger.error("❌ Wash trading detection error: %s", e)
@@ -274,7 +277,8 @@ class TradingSurveillance:
                         },
                         risk_score=0.6,
                     )
-                    self.alerts.append(alert)
+                    async with self._lock:
+                        self.alerts.append(alert)
                     logger.warning("🚨 Spoofing detected: %s (cancellation rate: %s)", symbol, cancellation_rate)
         except Exception as e:
             logger.error("❌ Spoofing detection error: %s", e)
@@ -307,7 +311,8 @@ class TradingSurveillance:
                         },
                         risk_score=0.5,
                     )
-                    self.alerts.append(alert)
+                    async with self._lock:
+                        self.alerts.append(alert)
                     logger.warning("🚨 Volume spike detected: %s (multiplier: %s)", symbol, volume_multiplier)
         except Exception as e:
             logger.error("❌ Volume anomaly detection error: %s", e)
@@ -338,7 +343,8 @@ class TradingSurveillance:
                             },
                             risk_score=0.4,
                         )
-                        self.alerts.append(alert)
+                        async with self._lock:
+                            self.alerts.append(alert)
                         logger.warning("🚨 Price anomaly detected: %s (change: %s)", symbol, change)
         except Exception as e:
             logger.error("❌ Price anomaly detection error: %s", e)
@@ -364,7 +370,8 @@ class TradingSurveillance:
                     evidence={"hhi": hhi, "top_users": top_users, "total_users": len(user_distribution)},
                     risk_score=0.5,
                 )
-                self.alerts.append(alert)
+                async with self._lock:
+                    self.alerts.append(alert)
                 logger.warning("🚨 Concentrated trading detected: %s (HHI: %s)", symbol, hhi)
         except Exception as e:
             logger.error("❌ Concentrated trading detection error: %s", e)
