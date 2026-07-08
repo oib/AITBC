@@ -289,11 +289,12 @@ class OracleService:
         prices = await self.feed.get_all_prices()
         return {pair: data.to_dict() for pair, data in prices.items()}
 
-    def set_price(self, pair: str, price: float, confidence: float = 1.0, source: str = "manual") -> dict[str, Any]:
+    async def set_price(self, pair: str, price: float, confidence: float = 1.0, source: str = "manual") -> dict[str, Any]:
         """Set price manually (admin function)"""
         data = self.feed.set_manual_price(pair, price, confidence)
         # Copy-on-read to avoid race condition during iteration
-        subscribers_copy = list(self._subscribers)
+        async with self._lock:
+            subscribers_copy = list(self._subscribers)
         for callback in subscribers_copy:
             try:
                 create_task_with_logging(callback(data), name="oracle_callback")

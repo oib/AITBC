@@ -105,9 +105,10 @@ class ChainTransactionManager:
     ) -> dict[str, Any]:
         """Submit a multi-chain transaction"""
         try:
-            if chain_id not in self.wallet_adapters:
-                raise ValueError(f"Unsupported chain ID: {chain_id}")
-            adapter = self.wallet_adapters[chain_id]
+            async with self._lock:
+                if chain_id not in self.wallet_adapters:
+                    raise ValueError(f"Unsupported chain ID: {chain_id}")
+                adapter = self.wallet_adapters[chain_id]
             if not await adapter.validate_address(from_address) or not await adapter.validate_address(to_address):
                 raise ValueError("Invalid addresses provided")
             reputation_summary = await self.reputation_engine.get_agent_reputation_summary(user_id)
@@ -342,10 +343,13 @@ class ChainTransactionManager:
         """Optimize transaction routing for best performance"""
         try:
             routing_options = []
-            for chain_id in self.wallet_adapters.keys():
+            async with self._lock:
+                chain_ids = list(self.wallet_adapters.keys())
+                chain_metrics_snapshot = {cid: self.metrics["chain_performance"][cid] for cid in chain_ids}
+            for chain_id in chain_ids:
                 if to_chain and chain_id != to_chain:
                     continue
-                chain_metrics = self.metrics["chain_performance"][chain_id]
+                chain_metrics = chain_metrics_snapshot[chain_id]
                 score = await self._calculate_routing_score(chain_id, transaction_type, amount, urgency, chain_metrics)
                 routing_options.append(
                     {
@@ -453,7 +457,8 @@ class ChainTransactionManager:
             )
             if not transaction or not transaction.transaction_hash:
                 return
-            adapter = self.wallet_adapters[transaction.chain_id]
+            async with self._lock:
+                adapter = self.wallet_adapters[transaction.chain_id]
             tx_status = await adapter.get_transaction_status(transaction.transaction_hash)
             if tx_status.get("status") == TransactionStatus.COMPLETED.value:
                 transaction.status = TransactionStatus.COMPLETED
@@ -468,7 +473,8 @@ class ChainTransactionManager:
     async def _get_transaction_confirmations_v2(self, transaction: dict[str, Any]) -> int:
         """Get transaction confirmations"""
         try:
-            self.wallet_adapters[transaction["chain_id"]]
+            async with self._lock:
+                self.wallet_adapters[transaction["chain_id"]]
             return await self._get_transaction_confirmations(transaction["chain_id"], transaction["transaction_hash"])  # type: ignore[no-any-return, attr-defined]
         except Exception:
             return transaction.get("confirmations", 0)  # type: ignore[no-any-return]
@@ -476,7 +482,8 @@ class ChainTransactionManager:
     async def _estimate_processing_time_v2(self, transaction: dict[str, Any]) -> float:
         """Estimate transaction processing time"""
         try:
-            chain_metrics = self.metrics["chain_performance"][transaction["chain_id"]]
+            async with self._lock:
+                chain_metrics = self.metrics["chain_performance"][transaction["chain_id"]]
             base_time = chain_metrics.get("average_confirmation_time", 120)
             priority_multiplier = {
                 TransactionPriority.CRITICAL.value: 0.5,
