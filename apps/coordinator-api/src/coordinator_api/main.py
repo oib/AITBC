@@ -31,7 +31,7 @@ else:
     except ImportError:
         RateLimitExceeded = Exception  # type: ignore[assignment, misc]
 
-from .config import settings
+from .config import settings, validate_critical_environment_variables
 from .contexts.agent_identity.routers import agent_identity
 from .contexts.blockchain.routers import blockchain
 from .contexts.cross_chain.routers.cross_chain_integration import router as cross_chain
@@ -229,6 +229,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    # Validate critical environment variables at startup
+    validate_critical_environment_variables()
+
     limiter = Limiter(key_func=get_remote_address)
 
     # Disable docs and redoc in production

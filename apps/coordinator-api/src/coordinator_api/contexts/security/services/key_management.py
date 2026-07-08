@@ -9,6 +9,8 @@ import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import aiofiles
+
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 
@@ -266,8 +268,8 @@ class FileKeyStorage(KeyStorageBackend):
         try:
             file_path = os.path.join(self.storage_path, f"{key_pair.participant_id}.json")
             private_path = os.path.join(self.storage_path, f"{key_pair.participant_id}.priv")
-            with open(private_path, "wb") as f:
-                f.write(key_pair.private_key)
+            async with aiofiles.open(private_path, "wb") as f:
+                await f.write(key_pair.private_key)
             metadata = {
                 "participant_id": key_pair.participant_id,
                 "public_key": base64.b64encode(key_pair.public_key).decode(),
@@ -275,8 +277,8 @@ class FileKeyStorage(KeyStorageBackend):
                 "created_at": key_pair.created_at.isoformat(),
                 "version": key_pair.version,
             }
-            with open(file_path, "w") as f:
-                json.dump(metadata, f)
+            async with aiofiles.open(file_path, "w") as f:
+                await f.write(json.dumps(metadata))
             return True
         except Exception as e:
             logger.error("Failed to store key pair: %s", e)
@@ -284,7 +286,26 @@ class FileKeyStorage(KeyStorageBackend):
 
     async def get_key_pair(self, participant_id: str) -> KeyPair | None:
         """Get key pair from file"""
-        return self.get_key_pair_sync(participant_id)
+        try:
+            file_path = os.path.join(self.storage_path, f"{participant_id}.json")
+            private_path = os.path.join(self.storage_path, f"{participant_id}.priv")
+            if not os.path.exists(file_path) or not os.path.exists(private_path):
+                return None
+            async with aiofiles.open(file_path) as f:
+                metadata = json.loads(await f.read())
+            async with aiofiles.open(private_path, "rb") as f:
+                private_key = await f.read()
+            return KeyPair(
+                participant_id=metadata["participant_id"],
+                private_key=private_key,
+                public_key=base64.b64decode(metadata["public_key"]),
+                algorithm=metadata["algorithm"],
+                created_at=datetime.fromisoformat(metadata["created_at"]),
+                version=metadata["version"],
+            )
+        except Exception as e:
+            logger.error("Failed to get key pair: %s", e)
+            return None
 
     def get_key_pair_sync(self, participant_id: str) -> KeyPair | None:
         """Synchronous get key pair"""
@@ -314,8 +335,8 @@ class FileKeyStorage(KeyStorageBackend):
         audit_path = os.path.join(self.storage_path, "audit.json")
         audit_priv_path = os.path.join(self.storage_path, "audit.priv")
         try:
-            with open(audit_priv_path, "wb") as f:
-                f.write(key_pair.private_key)
+            async with aiofiles.open(audit_priv_path, "wb") as f:
+                await f.write(key_pair.private_key)
             metadata = {
                 "participant_id": "audit",
                 "public_key": base64.b64encode(key_pair.public_key).decode(),
@@ -323,8 +344,8 @@ class FileKeyStorage(KeyStorageBackend):
                 "created_at": key_pair.created_at.isoformat(),
                 "version": key_pair.version,
             }
-            with open(audit_path, "w") as f:
-                json.dump(metadata, f)
+            async with aiofiles.open(audit_path, "w") as f:
+                await f.write(json.dumps(metadata))
             return True
         except Exception as e:
             logger.error("Failed to store audit key: %s", e)
@@ -336,6 +357,7 @@ class FileKeyStorage(KeyStorageBackend):
 
     async def list_participants(self) -> list[str]:
         """List all participants"""
+        # ponytail: os.listdir blocks event loop - acceptable for small directories
         participants = []
         for file in os.listdir(self.storage_path):
             if file.endswith(".json") and file != "audit.json":
@@ -345,6 +367,7 @@ class FileKeyStorage(KeyStorageBackend):
 
     async def revoke_keys(self, participant_id: str, reason: str) -> bool:
         """Revoke keys by deleting files"""
+        # ponytail: os.rename blocks event loop - acceptable for key revocation (rare operation)
         try:
             file_path = os.path.join(self.storage_path, f"{participant_id}.json")
             private_path = os.path.join(self.storage_path, f"{participant_id}.priv")

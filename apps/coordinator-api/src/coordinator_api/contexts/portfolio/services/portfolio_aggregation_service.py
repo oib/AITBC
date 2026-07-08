@@ -18,6 +18,8 @@ class PortfolioAggregationService:
     """Service to aggregate portfolio data from multiple AITBC services"""
 
     def __init__(self) -> None:
+        # ponytail: service URLs should be configurable via settings for production
+        # Currently hardcoded for local development
         self.wallet_service_url = "http://localhost:8003"
         self.exchange_service_url = "http://localhost:8203"
         self.marketplace_service_url = "http://localhost:8102"
@@ -65,7 +67,11 @@ class PortfolioAggregationService:
         try:
             response = await self.http_client.get(f"{self.wallet_service_url}/wallets")
             if response.status_code == 200:
-                data = response.json()
+                try:
+                    data = response.json()
+                except Exception as e:
+                    logger.warning("Failed to parse wallet data: %s", e)
+                    return {"wallets": [], "total_wallets": 0, "total_balance": 0, "error": str(e)}
                 wallets = data.get("items", [])
                 if agent_address:
                     wallets = [
@@ -85,7 +91,11 @@ class PortfolioAggregationService:
         try:
             response = await self.http_client.get(f"{self.exchange_service_url}/exchange/rates")
             if response.status_code == 200:
-                return dict(response.json())
+                try:
+                    return dict(response.json())
+                except Exception as e:
+                    logger.warning("Failed to parse exchange rates: %s", e)
+                    return {"rates": {}, "error": str(e)}
             else:
                 logger.warning("Exchange service returned status %s", response.status_code)
                 return {"rates": {}, "error": "Exchange service unavailable"}
@@ -98,7 +108,11 @@ class PortfolioAggregationService:
         try:
             response = await self.http_client.get(f"{self.marketplace_service_url}/marketplace/analytics?period_type=daily")
             if response.status_code == 200:
-                data = response.json()
+                try:
+                    data = response.json()
+                except Exception as e:
+                    logger.warning("Failed to parse marketplace stats: %s", e)
+                    return {"offers": 0, "bids": 0, "capacity": 0, "error": str(e)}
                 return {
                     "offers": data.get("total_offers", 0),
                     "bids": data.get("total_bids", 0),
@@ -120,7 +134,11 @@ class PortfolioAggregationService:
                 url += f"?agent_address={agent_address}"
             response = await self.http_client.get(url)
             if response.status_code == 200:
-                return dict(response.json())
+                try:
+                    return dict(response.json())
+                except Exception as e:
+                    logger.warning("Failed to parse trading analytics: %s", e)
+                    return {"trades": [], "analytics": {}, "error": str(e)}
             else:
                 logger.warning("Trading service returned status %s", response.status_code)
                 return {"trades": [], "analytics": {}, "error": "Trading service unavailable"}

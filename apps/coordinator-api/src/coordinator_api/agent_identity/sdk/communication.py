@@ -76,10 +76,11 @@ class AgentCommunicationClient:
         Initialize the communication client
 
         Args:
-            base_url: Base URL for the coordinator API
+            base_url: Base URL for the coordinator API (caller must provide)
             agent_id: Agent identifier
             private_key: Agent's private key for signing messages
         """
+        # ponytail: base_url has no default - caller must provide for production use
         self.base_url = base_url
         self.agent_id = agent_id
         self.private_key = private_key

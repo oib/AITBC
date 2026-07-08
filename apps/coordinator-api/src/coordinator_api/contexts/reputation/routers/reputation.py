@@ -8,9 +8,9 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, desc
+from sqlalchemy import and_, desc, func
 from sqlalchemy.orm import Session
-from sqlmodel import func, select
+from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -294,25 +294,28 @@ async def get_reputation_metrics(
 ) -> ReputationMetricsResponse:
     """Get overall reputation system metrics"""
     try:
-        reputations = session.execute(select(AgentReputation)).scalars().all()
-        if not reputations:
+        # Use SQL aggregation instead of loading all data into memory
+        total_agents = session.execute(select(func.count(AgentReputation.id))).scalar() or 0
+        if total_agents == 0:
             return ReputationMetricsResponse(
                 total_agents=0, average_trust_score=0.0, level_distribution={}, top_regions=[], recent_activity={}
             )
-        total_agents = len(reputations)
-        average_trust_score = sum(r.trust_score for r in reputations) / total_agents
-        level_counts: dict[str, int] = {}
-        for reputation in reputations:
-            level = reputation.reputation_level.value
-            level_counts[level] = level_counts.get(level, 0) + 1
-        region_counts: dict[str, int] = {}
-        for reputation in reputations:
-            region = reputation.geographic_region or "Unknown"
-            region_counts[region] = region_counts.get(region, 0) + 1
-        top_regions = [
-            {"region": region, "count": count}
-            for region, count in sorted(region_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-        ]
+        average_trust_score = session.execute(select(func.avg(AgentReputation.trust_score))).scalar() or 0.0
+
+        # Get level distribution using SQL GROUP BY
+        level_results = session.execute(
+            select(AgentReputation.reputation_level, func.count(AgentReputation.id)).group_by(AgentReputation.reputation_level)
+        ).all()
+        level_counts = {level.value: count for level, count in level_results}
+
+        # Get top regions with a limit
+        region_results = session.execute(
+            select(func.coalesce(AgentReputation.geographic_region, "Unknown"), func.count(AgentReputation.id))
+            .group_by(func.coalesce(AgentReputation.geographic_region, "Unknown"))
+            .order_by(func.count(AgentReputation.id).desc())
+            .limit(10)
+        ).all()
+        top_regions = [{"region": region, "count": count} for region, count in region_results]
         recent_cutoff = datetime.now(UTC) - timedelta(days=1)
         recent_events = (
             session.execute(
@@ -321,9 +324,14 @@ async def get_reputation_metrics(
             .scalars()
             .first()
         )
+        active_agents = (
+            session.execute(select(func.count(AgentReputation.id)).where(AgentReputation.last_activity >= recent_cutoff))
+            .scalars()
+            .first()
+        )
         recent_activity = {
             "events_last_24h": recent_events if recent_events else 0,
-            "active_agents": len([r for r in reputations if r.last_activity and r.last_activity >= recent_cutoff]),
+            "active_agents": active_agents if active_agents else 0,
         }
         return ReputationMetricsResponse(
             total_agents=total_agents,
