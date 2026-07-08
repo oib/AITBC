@@ -9,7 +9,7 @@ from typing import Annotated, Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 from sqlmodel import select
@@ -20,6 +20,7 @@ from aitbc.rate_limiting import rate_limit
 from ..domain.trading import TradeMatch, TradeNegotiation, TradeRequest, TradeType
 from ....storage import get_session
 from ..services.trading_marketplace.trading import P2PTradingProtocol
+from ....validators import validate_agent_id
 
 logger = get_logger(__name__)
 
@@ -44,6 +45,11 @@ class TradeRequestRequest(BaseModel):
     service_level_required: str = Field(default="standard", description="Service level required")
     tags: list[str] = Field(default_factory=list, description="Trade tags")
     expires_at: str | None = Field(default=None, description="Expiration time (ISO format)")
+
+    @field_validator("buyer_agent_id")
+    @classmethod
+    def validate_buyer_agent_id(cls, v: str) -> str:
+        return validate_agent_id(v)
 
 
 class TradeRequestResponse(BaseModel):
