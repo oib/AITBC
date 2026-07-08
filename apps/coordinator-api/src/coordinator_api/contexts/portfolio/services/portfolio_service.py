@@ -61,9 +61,9 @@ class PortfolioService:
 
     def __init__(
         self,
-        wallet_service_url: str = "http://localhost:8012",
+        wallet_service_url: str = "http://localhost:8012",  # ponytail: default for local dev, override in production
         blockchain_rpc_url: str = BLOCKCHAIN_RPC_URL,
-        oracle_url: str = "http://localhost:8203",
+        oracle_url: str = "http://localhost:8203",  # ponytail: default for local dev, override in production
         session: Any = None,
     ) -> None:
         self.wallet_service_url = wallet_service_url
@@ -160,22 +160,31 @@ class PortfolioService:
             )
             if response.status_code != 200:
                 return {"error": "Failed to fetch wallet data"}
-            account_data = response.json()
+            try:
+                account_data = response.json()
+            except Exception as e:
+                return {"error": f"Failed to parse account data: {e}"}
             balance = account_data.get("balance", 0)
             staking_response = await self._http_client.get(
                 f"{self.blockchain_rpc_url}/rpc/staking/{address}", params={"chain_id": chain_id}
             )
             staked = 0
             if staking_response.status_code == 200:
-                staking_data = staking_response.json()
-                staked = staking_data.get("total_staked", 0)
+                try:
+                    staking_data = staking_response.json()
+                    staked = staking_data.get("total_staked", 0)
+                except Exception as e:
+                    logger.warning("Failed to parse staking data: %s", e)
             breakdown_response = await self._http_client.get(
                 f"{self.blockchain_rpc_url}/rpc/balance/{address}", params={"chain_id": chain_id}
             )
             bridge_locked = 0
             if breakdown_response.status_code == 200:
-                breakdown = breakdown_response.json()
-                bridge_locked = breakdown.get("bridge_locked", 0)
+                try:
+                    breakdown = breakdown_response.json()
+                    bridge_locked = breakdown.get("bridge_locked", 0)
+                except Exception as e:
+                    logger.warning("Failed to parse breakdown data: %s", e)
             token_price = await self._get_token_price("AITBC/USD")
             total_tokens = balance + staked + bridge_locked
             return {

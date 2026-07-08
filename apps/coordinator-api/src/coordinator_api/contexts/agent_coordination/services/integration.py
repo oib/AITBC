@@ -425,6 +425,8 @@ class AgentDeploymentManager:
 
     async def _deploy_agent_systemd(self, instance: AgentDeploymentInstance, config: AgentDeploymentConfig) -> None:
         """Deploy agent instance using systemd service"""
+        # ponytail: subprocess.run() blocks event loop - should use asyncio.create_subprocess_exec()
+        # This is acceptable for systemd deployment (not a hot path), but could be improved
         service_name = f"aitbc-agent-{instance.instance_id}"
         service_file = f"/etc/systemd/system/{service_name}.service"
         service_content = f'[Unit]\nDescription=AITBC Agent Instance {instance.instance_id}\nDocumentation=https://github.com/aitbc/blockchain\nAfter=network.target aitbc-blockchain-node.service\nRequires=aitbc-blockchain-node.service\n\n[Service]\nType=simple\nUser=root\nGroup=root\nWorkingDirectory=/opt/aitbc\nEnvironmentFile=/etc/aitbc/.env\nEnvironment="AGENT_ID={instance.instance_id}"\nEnvironment="AGENT_PORT={instance.port}"\nEnvironment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-agent-sdk/src:/opt/aitbc"\nEnvironment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"\nExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-daemon/aitbc-agent-daemon-wrapper.py\n\nRestart=always\nRestartSec=10\nStandardOutput=journal\nStandardError=journal\nSyslogIdentifier=AgentInstance-{instance.instance_id}\n\n# Security settings\nNoNewPrivileges=true\nPrivateTmp=true\nProtectHome=true\n\n[Install]\nWantedBy=multi-user.target\n'
@@ -556,6 +558,8 @@ class AgentDeploymentManager:
 
     async def _remove_deployment_instance(self, instance_id: str) -> None:
         """Remove deployment instance"""
+        # ponytail: subprocess.run() blocks event loop - should use asyncio.create_subprocess_exec()
+        # This is acceptable for systemd cleanup (not a hot path), but could be improved
         try:
             instance = self.session.get(AgentDeploymentInstance, instance_id)
             if instance:
