@@ -1,7 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
+from ....validators import validate_ethereum_address
 from ..domain.developer_platform import CertificationLevel
 
 
@@ -10,6 +11,11 @@ class DeveloperCreate(BaseModel):
     github_handle: str | None = None
     email: str | None = None
     skills: list[str] = []
+
+    @field_validator("wallet_address")
+    @classmethod
+    def validate_wallet_address(cls, v: str) -> str:
+        return validate_ethereum_address(v)
 
 
 class BountyCreate(BaseModel):

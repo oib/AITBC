@@ -234,6 +234,13 @@ class BridgeTransaction(SQLModel, table=True):
     confirmed_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
 
+    @field_validator("validator_address")
+    @classmethod
+    def validate_validator_address(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        return validate_ethereum_address(v)
+
     # Relationships
     # bridge_request: BridgeRequest = Relationship(back_populates="transactions")
     # validator: Optional[Validator] = Relationship(back_populates="transactions")

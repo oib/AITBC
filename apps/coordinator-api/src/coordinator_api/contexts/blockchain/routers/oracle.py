@@ -86,7 +86,7 @@ async def set_price(request: Request, req: SetPriceRequest) -> dict[str, Any]:
         # For now, allow any authenticated request
 
         oracle = get_oracle_service()
-        result = oracle.set_price(pair=req.pair, price=req.price, confidence=req.confidence, source=req.source)
+        result = await oracle.set_price(pair=req.pair, price=req.price, confidence=req.confidence, source=req.source)
 
         return {"success": True, **result}
 
