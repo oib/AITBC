@@ -4,6 +4,7 @@ import os
 import sys
 from collections.abc import Generator
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from sqlmodel import SQLModel
@@ -18,6 +19,20 @@ collect_ignore = ["test_staking_lifecycle.py"]
 # docs are available. Must be set before importing the coordinator app.
 os.environ.setdefault("DEBUG", "true")
 
+# Use a shared file-backed SQLite database for the coordinator app so that
+# repeated ``init_db`` calls can rely on ``checkfirst`` and skip existing tables.
+os.environ.setdefault("URL", "sqlite:////tmp/aitbc_test_coordinator.db")
+
+
+async def _noop_sleep(*_args: object, **_kwargs: object) -> None:
+    """No-op replacement for ``asyncio.sleep`` to bound test shutdown time."""
+    return None
+
+
+async def _noop_async() -> None:
+    """No-op async helper used to skip redundant DB setup."""
+    return None
+
 
 def _reset_coordinator_modules() -> None:
     """Clear cached coordinator app modules and SQLModel metadata tables.
@@ -25,13 +40,17 @@ def _reset_coordinator_modules() -> None:
     Several integration tests import other AITBC apps that also use SQLModel.
     Those apps share the global SQLModel metadata, so model classes with the
     same name (e.g., Transaction) can conflict. Resetting the metadata before
-    importing the coordinator app gives each test a clean registry.
+    importing the coordinator app gives the session a clean registry.
     """
     for mod_name in list(sys.modules.keys()):
         if mod_name == "coordinator_api" or mod_name.startswith("coordinator_api."):
             del sys.modules[mod_name]
         elif mod_name == "aitbc_chain" or mod_name.startswith("aitbc_chain."):
             del sys.modules[mod_name]
+    # Ensure any pending SQLModel mappers (e.g., from aitbc_chain) are fully
+    # configured before we clear the metadata, so the coordinator models can be
+    # re-registered cleanly in a fresh registry without ambiguous path errors.
+    SQLModel._sa_registry.configure()
     SQLModel.metadata.clear()
     # Clear Prometheus registry to avoid duplicate metric errors on re-import
     try:
@@ -61,20 +80,44 @@ def skip_if_app_unavailable() -> None:
         pytest.skip(_skip_reason)
 
 
-@pytest.fixture
+def _reset_coordinator_state() -> None:
+    """Clear in-memory Redis fallback state between tests."""
+    try:
+        from coordinator_api.contexts.infrastructure.services.redis_state import RedisStateManager
+
+        RedisStateManager.get_instance_sync()._memory.clear()
+    except Exception:
+        pass
+
+
+@pytest.fixture(scope="session")
 def coordinator_client() -> Generator[TestClient]:
-    """Create a test client for coordinator API with Redis storage."""
+    """Create a session-scoped test client for the coordinator API.
+
+    The app is imported once for the whole integration session. The graceful
+    shutdown sleep and async DB initialization are patched to keep fixture
+    teardown bounded. In-memory Redis fallback state is cleared per test by
+    the ``reset_coordinator_state`` fixture.
+    """
     os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
 
-    # Reset modules to clear any conflicting SQLModel registrations from
-    # other apps (e.g., aitbc_chain.base_models.Transaction) that may have
-    # been imported by earlier tests in the same session.
-    _reset_coordinator_modules()
     from coordinator_api.main import create_app as _create_app
+    import coordinator_api.storage.db as _db
 
     app = _create_app()
-    with TestClient(app) as client:
-        yield client
+    with patch("asyncio.sleep", _noop_sleep), patch.object(_db, "init_async_db", _noop_async):
+        with TestClient(app) as client:
+            yield client
+
+
+@pytest.fixture(autouse=True)
+def reset_coordinator_state(coordinator_client: TestClient) -> Generator[None]:
+    """Reset in-memory coordinator state before each test."""
+    _reset_coordinator_state()
+    coordinator_client.headers.pop("Authorization", None)
+    yield
+    _reset_coordinator_state()
+    coordinator_client.headers.pop("Authorization", None)
 
 
 @pytest.fixture
@@ -107,9 +150,9 @@ def authenticated_client(coordinator_client: TestClient) -> Generator[TestClient
     if not token:
         pytest.skip("No session token returned for integration test user")
 
-    # Re-use the same coordinator_client (already has the app running)
     coordinator_client.headers.update({"Authorization": f"Bearer {token}"})
     yield coordinator_client
+    coordinator_client.headers.pop("Authorization", None)
 
 
 @pytest.fixture
