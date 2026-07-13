@@ -24,15 +24,16 @@ class RedisCache:
 
             self._client = redis.from_url(redis_url or "redis://localhost:6379/0")
             self._client.ping()
-        except Exception:
+        except Exception as e:
+            logger.warning("Redis connection failed, falling back to in-memory cache: %s", e)
             self._client = None
 
     def get(self, key: str) -> Any | None:
         if self._client:
             try:
                 return self._client.get(key)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Redis GET failed for key %s: %s", key, e)
         return self._data.get(key)
 
     def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
@@ -40,8 +41,8 @@ class RedisCache:
             try:
                 self._client.setex(key, ttl or self._default_ttl, value)
                 return True
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Redis SET failed for key %s: %s", key, e)
         self._data[key] = value
         return True
 
@@ -49,8 +50,8 @@ class RedisCache:
         if self._client:
             try:
                 return bool(self._client.delete(key))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Redis DELETE failed for key %s: %s", key, e)
         return key in self._data and (self._data.pop(key, None) is not None or True)
 
     def is_available(self) -> bool:

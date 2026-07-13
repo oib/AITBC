@@ -105,7 +105,8 @@ class DatabaseConnection:
         if not self._connection:
             self.connect()
         conn = self._connection
-        assert conn is not None  # set by connect()
+        if conn is None:
+            raise DatabaseError("Database connection not established")
         cursor = conn.cursor()
         try:
             yield cursor
