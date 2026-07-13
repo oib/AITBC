@@ -51,7 +51,8 @@ def run_job(ctx: click.Context, offer_id: str, prompt: str, max_tokens: int, str
             raise click.Abort()
 
         # At this point offer is not None
-        assert offer is not None
+        if offer is None:
+            raise click.Abort()
         service_type = offer.get("service_type", "")
         model = offer.get("model", "")
         price = float(offer.get("price", 0))
@@ -170,7 +171,8 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
             error(f"Whisper offer '{offer_id}' not found on hub")
             raise click.Abort()
 
-        assert offer is not None
+        if offer is None:
+            raise click.Abort()
         price = float(offer.get("price", 0))
         price_unit = offer.get("price_unit", "per_audio_min")
         provider_address = offer.get("provider_address", "")
@@ -205,6 +207,7 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
             )
             duration_seconds = float(probe.stdout.strip() or 0)
         except Exception:
+            logger.debug("ffprobe duration probe failed", exc_info=True)
             pass
         duration_minutes = duration_seconds / 60
         estimated_cost = duration_minutes * price if price_unit == "per_audio_min" else price
@@ -360,7 +363,8 @@ def transcode_job(ctx, offer_id: str, video_url: str, resolution: str, codec: st
             error(f"PeerTube transcoder offer '{offer_id}' not found on hub")
             raise click.Abort()
 
-        assert offer is not None
+        if offer is None:
+            raise click.Abort()
         price = float(offer.get("price", 0))
         price_unit = offer.get("price_unit", "per_video_min")
         provider_address = offer.get("provider_address", "")

@@ -6,7 +6,9 @@ import click
 
 from ..utils import output
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+
+logger = get_logger(__name__)
 
 
 def get_default_node_id() -> str | None:
@@ -21,6 +23,7 @@ def get_default_node_id() -> str | None:
                     if line.startswith("NODE_ID="):
                         return line.split("=", 1)[1].strip()
         except Exception:
+            logger.debug("Failed to read /etc/aitbc/node.env", exc_info=True)
             pass
     # Fallback to environment variable
     return os.getenv("NODE_ID")
@@ -40,6 +43,7 @@ def get_default_chain_id() -> str | None:
                         chains = line.split("=", 1)[1].strip()
                         return chains.split(",")[0].strip()
         except Exception:
+            logger.debug("Failed to read /etc/aitbc/node.env", exc_info=True)
             pass
     # Fallback to environment variable
     return os.getenv("SUPPORTED_CHAINS")

@@ -39,7 +39,8 @@ class NodeClient:
 
     async def _authenticate(self):
         """Authenticate with the node"""
-        assert self._client is not None, "Client not initialized"
+        if self._client is None:
+            raise RuntimeError("Client not initialized")
         try:
             # For now, we'll use a simple authentication
             # In production, this would use proper authentication
@@ -57,7 +58,8 @@ class NodeClient:
 
     async def get_node_info(self) -> dict[str, Any]:
         """Get node information"""
-        assert self._client is not None, "Client not initialized"
+        if self._client is None:
+            raise RuntimeError("Client not initialized")
         try:
             response = await self._client.get(f"{self.config.endpoint}/api/node/info")
             if response.status_code == 200:
@@ -78,7 +80,8 @@ class NodeClient:
 
     async def get_hosted_chains(self) -> list[ChainInfo]:
         """Get all chains hosted by this node"""
-        assert self._client is not None, "Client not initialized"
+        if self._client is None:
+            raise RuntimeError("Client not initialized")
         try:
             health_url = f"{self.config.endpoint}/health"
             if "/rpc" in self.config.endpoint:
@@ -102,6 +105,7 @@ class NodeClient:
                             head_data = head_resp.json()
                             block_height = head_data.get("height", 0)
                     except Exception:
+                        logger.debug("Head endpoint unavailable for chain %s", cid, exc_info=True)
                         pass
 
                     result.append(
@@ -139,7 +143,8 @@ class NodeClient:
 
     async def get_chain_info(self, chain_id: str) -> ChainInfo | None:
         """Get specific chain information"""
-        assert self._client is not None, "Client not initialized"
+        if self._client is None:
+            raise RuntimeError("Client not initialized")
         try:
             # Re-use the health endpoint logic
             health_url = f"{self.config.endpoint}/health"
@@ -161,6 +166,7 @@ class NodeClient:
                             head_data = head_resp.json()
                             block_height = head_data.get("height", 0)
                     except Exception:
+                        logger.debug("Head endpoint unavailable for chain %s", chain_id, exc_info=True)
                         pass
 
                     return self._parse_chain_info(
@@ -213,7 +219,8 @@ class NodeClient:
 
     async def delete_chain(self, chain_id: str) -> bool:
         """Delete a chain from this node"""
-        assert self._client is not None, "Client not initialized"
+        if self._client is None:
+            raise RuntimeError("Client not initialized")
         try:
             response = await self._client.delete(f"{self.config.endpoint}/api/chains/{chain_id}")
             if response.status_code == 200:
@@ -230,7 +237,8 @@ class NodeClient:
 
     async def get_chain_stats(self, chain_id: str) -> dict[str, Any]:
         """Get chain statistics"""
-        assert self._client is not None, "Client not initialized"
+        if self._client is None:
+            raise RuntimeError("Client not initialized")
         try:
             response = await self._client.get(f"{self.config.endpoint}/api/chains/{chain_id}/stats")
             if response.status_code == 200:
@@ -246,7 +254,8 @@ class NodeClient:
 
     async def backup_chain(self, chain_id: str, backup_path: str) -> dict[str, Any]:
         """Backup a chain"""
-        assert self._client is not None, "Client not initialized"
+        if self._client is None:
+            raise RuntimeError("Client not initialized")
         try:
             response = await self._client.post(
                 f"{self.config.endpoint}/api/chains/{chain_id}/backup", json={"backup_path": backup_path}
@@ -272,7 +281,8 @@ class NodeClient:
 
     async def restore_chain(self, backup_file: str, chain_id: str | None = None) -> dict[str, Any]:
         """Restore a chain from backup"""
-        assert self._client is not None, "Client not initialized"
+        if self._client is None:
+            raise RuntimeError("Client not initialized")
         try:
             response = await self._client.post(
                 f"{self.config.endpoint}/api/chains/restore", json={"backup_file": backup_file, "chain_id": chain_id}

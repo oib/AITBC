@@ -8,7 +8,9 @@ import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from .http_client import AITBCHTTPClient, NetworkError
+from .http_client import AITBCHTTPClient, NetworkError, get_logger
+
+logger = get_logger(__name__)
 
 sys.path.insert(0, "/opt/aitbc/cli")
 from utils import error
@@ -83,8 +85,10 @@ class WalletDaemonClient:
             client.get("/health")
             return True
         except NetworkError:
+            logger.warning("Wallet daemon is unavailable (network error)", exc_info=True)
             return False
         except Exception:
+            logger.warning("Wallet daemon is unavailable", exc_info=True)
             return False
 
     def get_status(self) -> dict[str, Any]:
@@ -93,8 +97,10 @@ class WalletDaemonClient:
             client = self._get_http_client()
             return client.get("/health")
         except NetworkError as e:
+            logger.warning("Wallet daemon status unavailable: %s", e, exc_info=True)
             return {"status": "unavailable", "error": str(e)}
         except Exception as e:
+            logger.warning("Wallet daemon status error: %s", e, exc_info=True)
             return {"status": "error", "error": str(e)}
 
     def create_wallet(self, wallet_id: str, password: str, metadata: dict[str, Any] | None = None) -> WalletInfo:
@@ -233,6 +239,7 @@ class WalletDaemonClient:
                 response = client.post(f"/v1/wallets/{wallet_id}/unlock", json=payload)
                 return response.status_code == 200  # type: ignore[no-any-return]
         except Exception:
+            logger.warning("Wallet unlock failed", exc_info=True)
             return False
 
     def lock_wallet(self, wallet_id: str) -> bool:
@@ -242,6 +249,7 @@ class WalletDaemonClient:
                 response = client.post(f"/v1/wallets/{wallet_id}/lock")
                 return response.status_code == 200  # type: ignore[no-any-return]
         except Exception:
+            logger.warning("Wallet lock failed", exc_info=True)
             return False
 
     def delete_wallet(self, wallet_id: str, password: str) -> bool:
@@ -252,6 +260,7 @@ class WalletDaemonClient:
                 response = client.delete(f"/v1/wallets/{wallet_id}", json=payload)
                 return response.status_code == 200  # type: ignore[no-any-return]
         except Exception:
+            logger.warning("Wallet delete failed", exc_info=True)
             return False
 
     def jsonrpc_call(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -410,6 +419,7 @@ class WalletDaemonClient:
             response = client.post(f"/v1/chains/{chain_id}/wallets/{wallet_id}/unlock", json=payload)
             return response.status_code == 200  # type: ignore[attr-defined, no-any-return]
         except Exception:
+            logger.warning("Wallet unlock in chain failed", exc_info=True)
             return False
 
     def sign_message_in_chain(self, chain_id: str, wallet_id: str, password: str, message: bytes) -> str | None:
@@ -425,6 +435,7 @@ class WalletDaemonClient:
                 else:
                     return None
         except Exception:
+            logger.warning("Sign message in chain failed", exc_info=True)
             return None
 
     def get_wallet_balance_in_chain(self, chain_id: str, wallet_id: str) -> WalletBalance | None:

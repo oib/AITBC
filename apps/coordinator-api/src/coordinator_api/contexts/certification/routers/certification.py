@@ -165,7 +165,8 @@ async def certify_agent(
         )
         if not success:
             raise HTTPException(status_code=400, detail=f"Certification failed: {'; '.join(errors)}")
-        assert certification is not None
+        if certification is None:
+            raise HTTPException(status_code=500, detail="Certification creation did not return a certification")
         return CertificationResponse(
             certification_id=certification.certification_id,
             agent_id=certification.agent_id,
@@ -294,7 +295,8 @@ async def apply_for_partnership(
         )
         if not success:
             raise HTTPException(status_code=400, detail=f"Application failed: {'; '.join(errors)}")
-        assert partnership is not None
+        if partnership is None:
+            raise HTTPException(status_code=500, detail="Partnership creation did not return a partnership")
         return PartnershipResponse(
             partnership_id=partnership.partnership_id,
             agent_id=partnership.agent_id,

@@ -36,7 +36,8 @@ class MessageStorage:
 
     async def store_message(self, message_id: str, message_data: dict[str, Any]) -> bool:
         """Store a message in Redis"""
-        assert self.redis is not None, "Redis not connected"
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
         try:
             await self.redis.hset(f"message:{message_id}", mapping=message_data)  # type: ignore[arg-type]
             sender_id = message_data.get("sender")
@@ -60,7 +61,8 @@ class MessageStorage:
 
     async def get_message_count(self) -> int:
         """Get total count of messages"""
-        assert self.redis is not None, "Redis not connected"
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
         try:
             return await self.redis.zcard("messages:timestamp")
         except Exception as e:
@@ -69,7 +71,8 @@ class MessageStorage:
 
     async def get_message(self, message_id: str) -> dict[str, Any] | None:
         """Retrieve a specific message by ID"""
-        assert self.redis is not None, "Redis not connected"
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
         try:
             message_data: dict[str, Any] = await self.redis.hgetall(f"message:{message_id}")  # type: ignore[assignment]
             if message_data:
@@ -83,7 +86,8 @@ class MessageStorage:
 
     async def get_messages_by_sender(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent"""
-        assert self.redis is not None, "Redis not connected"
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
         try:
             raw_ids = await self.redis.smembers(f"messages:sender:{sender_id}")
             message_ids: list[str] = [str(m) for m in raw_ids]
@@ -100,7 +104,8 @@ class MessageStorage:
 
     async def get_messages_by_receiver(self, receiver_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
         """Get messages received by a specific agent"""
-        assert self.redis is not None, "Redis not connected"
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
         try:
             raw_ids = await self.redis.smembers(f"messages:receiver:{receiver_id}")
             message_ids: list[str] = [str(m) for m in raw_ids]
@@ -117,7 +122,8 @@ class MessageStorage:
 
     async def get_all_messages(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
         """Get all messages with pagination"""
-        assert self.redis is not None, "Redis not connected"
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
         try:
             message_ids_raw = await self.redis.zrevrange("messages:timestamp", offset, offset + limit - 1)
             message_ids: list[str] = [str(m) for m in message_ids_raw]
@@ -133,7 +139,8 @@ class MessageStorage:
 
     async def delete_message(self, message_id: str) -> bool:
         """Delete a specific message"""
-        assert self.redis is not None, "Redis not connected"
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
         try:
             message_data = await self.get_message(message_id)
             if not message_data:
@@ -178,7 +185,8 @@ class PeerStorage:
 
     async def add_peer(self, agent_id: str, peer_id: str, metadata: dict[str, Any] | None = None) -> bool:
         """Add a peer connection for an agent"""
-        assert self.redis is not None, "Redis not connected"
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
         try:
             await self.redis.sadd(f"peers:{agent_id}", peer_id)
             if metadata:
@@ -191,7 +199,8 @@ class PeerStorage:
 
     async def remove_peer(self, agent_id: str, peer_id: str) -> bool:
         """Remove a peer connection for an agent"""
-        assert self.redis is not None, "Redis not connected"
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
         try:
             await self.redis.srem(f"peers:{agent_id}", peer_id)
             await self.redis.delete(f"peer_connection:{agent_id}:{peer_id}")
@@ -203,7 +212,8 @@ class PeerStorage:
 
     async def get_agent_peers(self, agent_id: str) -> list[str]:
         """Get all peers for a specific agent"""
-        assert self.redis is not None, "Redis not connected"
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
         try:
             peer_ids_raw = await self.redis.smembers(f"peers:{agent_id}")
             return [str(m) for m in peer_ids_raw]
@@ -213,7 +223,8 @@ class PeerStorage:
 
     async def get_peer_metadata(self, agent_id: str, peer_id: str) -> dict[str, Any] | None:
         """Get metadata for a specific peer connection"""
-        assert self.redis is not None, "Redis not connected"
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
         try:
             metadata_raw: dict[str, Any] = await self.redis.hgetall(f"peer_connection:{agent_id}:{peer_id}")  # type: ignore[assignment]
             return metadata_raw if metadata_raw else None
@@ -223,7 +234,8 @@ class PeerStorage:
 
     async def get_all_peer_connections(self) -> dict[str, list[str]]:
         """Get all peer connections in the system"""
-        assert self.redis is not None, "Redis not connected"
+        if self.redis is None:
+            raise RuntimeError("Redis not connected")
         try:
             peer_keys = await self.redis.keys("peers:*")
             connections = {}

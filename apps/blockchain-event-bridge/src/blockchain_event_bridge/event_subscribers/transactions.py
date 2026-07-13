@@ -64,7 +64,8 @@ class TransactionEventSubscriber:
             return
         while self._running:
             try:
-                assert self._subscription is not None
+                if self._subscription is None:
+                    raise RuntimeError("Subscription not initialized")
                 tx_data = await self._subscription.get()
                 event_queue_size.labels(topic="transactions").set(self._subscription.queue.qsize())
                 logger.info("Received transaction event: hash=%s", tx_data.get("hash"))

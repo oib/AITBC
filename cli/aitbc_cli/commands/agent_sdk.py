@@ -75,6 +75,7 @@ def create_agent(name: str, agent_type: str, capabilities: dict, coordinator_url
             "config_file": str(config_file),
         }
     except Exception as e:
+        logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
 
 
@@ -97,6 +98,7 @@ async def register_agent(agent_id: str, coordinator_url: str | None = None) -> d
             "message": "Agent registered successfully (simulated)",
         }
     except Exception as e:
+        logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
 
 
@@ -108,6 +110,7 @@ def get_agent_capabilities() -> dict[str, Any]:
     try:
         return ComputeProvider.assess_capabilities()  # type: ignore[no-any-return]
     except Exception as e:
+        logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
 
 
@@ -124,6 +127,7 @@ def list_local_agents(agent_dir: Path | None = None) -> list[dict[str, Any]]:
                     agent_data = json.load(f)
                 agents.append({"name": agent_file.stem, "file": str(agent_file), **agent_data})
             except Exception:
+                logger.debug("Failed to load agent config %s", agent_file, exc_info=True)
                 pass
 
     return agents
@@ -168,6 +172,7 @@ def set_agent_config(name: str, key: str, value: str) -> dict:
 
         return {"success": True, "name": name, "key": key, "value": parsed_value}
     except Exception as e:
+        logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
 
 
@@ -190,6 +195,7 @@ def get_agent_config(name: str, key: str | None = None) -> dict:
         else:
             return {"success": True, "name": name, "config": config}
     except Exception as e:
+        logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
 
 
@@ -219,6 +225,7 @@ def validate_agent_config(name: str) -> dict:
 
         return {"valid": True, "name": name, "message": "Configuration is valid"}
     except Exception as e:
+        logger.warning("Agent config validation failed: %s", e, exc_info=True)
         return {"valid": False, "error": str(e)}
 
 
@@ -245,6 +252,7 @@ def import_agent_config(file_path: str, name: str | None = None) -> dict:
 
         return {"success": True, "name": agent_name, "config_file": str(config_file), "imported_from": file_path}
     except Exception as e:
+        logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
 
 
@@ -268,6 +276,7 @@ def export_agent_config(name: str, output_path: str) -> dict:
 
         return {"success": True, "name": name, "exported_to": output_path}
     except Exception as e:
+        logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
 
 
@@ -968,4 +977,5 @@ try:
 
 except ImportError:
     # Click not available, commands will be added programmatically
+    logger.debug("Click not available, agent SDK commands will be added programmatically", exc_info=True)
     pass

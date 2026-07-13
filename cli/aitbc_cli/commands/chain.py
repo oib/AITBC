@@ -8,7 +8,9 @@ from ..core.config import load_multichain_config
 from ..models.chain import ChainType
 from ..utils import error, output, success
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+
+logger = get_logger(__name__)
 
 
 @click.group()
@@ -560,6 +562,7 @@ def monitor(ctx, chain_id, realtime, export, interval):
 
                     return layout
                 except Exception as e:
+                    logger.warning("Error getting chain info: %s", e, exc_info=True)
                     return f"Error getting chain info: {e}"
 
             with Live(generate_monitor_layout(), refresh_per_second=1) as live:
