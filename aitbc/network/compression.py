@@ -54,7 +54,7 @@ def compress(data: bytes | str, algorithm: str = "gzip") -> bytes:
     elif algorithm == "zstd":
         if not _ZSTD_AVAILABLE:
             raise ValueError("zstd requested but 'zstandard' package is not installed")
-        return zstd.compress(data)  # type: ignore[no-any-return]
+        return zstd.compress(data)
     else:
         raise ValueError(f"Unknown compression algorithm: {algorithm}")
 
@@ -79,7 +79,7 @@ def decompress(data: bytes, algorithm: str = "gzip") -> bytes:
     elif algorithm == "zstd":
         if not _ZSTD_AVAILABLE:
             raise ValueError("zstd requested but 'zstandard' package is not installed")
-        return zstd.decompress(data)  # type: ignore[no-any-return]
+        return zstd.decompress(data)
     else:
         raise ValueError(f"Unknown compression algorithm: {algorithm}")
 
