@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 import click
-import yaml  # type: ignore[import-untyped]
+import yaml
 from dotenv import load_dotenv
 
 

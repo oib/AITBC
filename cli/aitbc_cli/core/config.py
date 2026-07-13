@@ -4,7 +4,7 @@ Multi-chain configuration management for AITBC CLI
 
 from pathlib import Path
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from pydantic import BaseModel, Field
 
 
