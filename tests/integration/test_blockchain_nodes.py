@@ -9,6 +9,9 @@ import time
 from typing import Any
 
 import httpx
+import pytest
+
+pytestmark = [pytest.mark.external, pytest.mark.blockchain]
 
 # Configuration
 NODES = {
