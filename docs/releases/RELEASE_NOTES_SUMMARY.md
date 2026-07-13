@@ -189,17 +189,26 @@ Cross-chain bridge, governance, and atomic settlement features.
 | v0.8.0 | Inter-Chain Trading Basics | - | ✅ Complete |
 | v0.8.1 | Cross-Chain Offer Sync | - | ✅ Complete |
 | v0.8.2 | Advanced Offer Sync | - | ✅ Complete |
+| v0.9.0 | Atomic Cross-Chain Settlement | - | ✅ Complete |
+| v0.10.0 | Runtime Bug Fixes & Service Modernization | - | ✅ Complete |
+| v0.10.1 | Gap Fill for v0.6.0–v0.8.2 | - | ✅ Complete |
+| v0.10.2 | Mock & Placeholder Elimination | - | ✅ Complete |
+| v0.10.3 | Bug Fix & Hardening | - | ✅ Complete |
+| v0.10.4 | Performance, Correctness & Cleanup | - | ✅ Complete |
+| v0.10.5 | JWT/Auth Consolidation | - | ✅ Complete |
+| v0.10.6 | Dead Code Elimination & Decimal Migration Completion | - | ✅ Complete |
+| v0.10.7 | Dead Code Elimination (coordinator-api + agent-management) | - | ✅ Complete |
+| v0.10.8 | Config Consolidation & Dead Retry Helper Cleanup | - | ✅ Complete |
+| v0.10.9 | Dead Code Elimination & Status Drift Cleanup | - | ✅ Complete |
+| v0.10.10 | Code Quality & Testing Roadmap | - | ✅ Complete |
+| v0.10.11 | Bug Fixes & Code Quality Continuation | - | ✅ Complete |
 
 ### Planned Releases
 
 | Version | Theme | Status |
 |---------|-------|--------|
-| v0.6.2 | Sync & Gossip Optimization | 🚧 Planned |
-| v0.6.3 | Multi-Island Node Support | 🚧 Planned |
-| v0.6.4 | Multi-Chain Per Island | 🚧 Planned |
-| v0.6.6 | Compute Marketplace | 🚧 Planned |
-| v0.6.7 | Pool Hub & Mining | 🚧 Planned |
-| v0.9.0 | Atomic Cross-Chain Settlement | 🚧 In Progress |
+| v0.10.12 | Quality Hardening | � In Progress |
+| v1.0.0 | Production Readiness | 🚧 Planned |
 
 ### Future Vision (Post-v1.0)
 
