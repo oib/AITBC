@@ -11,11 +11,9 @@ Targets the four biggest coverage gaps:
 import importlib.util
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-pytestmark = pytest.mark.asyncio
 
 SRC_ROOT = Path("/opt/aitbc/apps/agent-coordinator/src")
 
@@ -448,10 +446,14 @@ class TestNotificationManager:
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
-        with patch("requests.post") as mock_post:
-            mock_post.return_value.raise_for_status = lambda: None
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.raise_for_status = lambda: None
+        mock_client.post.return_value = mock_response
+        with patch("httpx.AsyncClient", return_value=mock_client):
             await nm._send_slack(alert, "msg")
-            assert mock_post.called
+            assert mock_client.post.called
 
     @pytest.mark.asyncio
     async def test_send_webhook(self):
@@ -468,10 +470,14 @@ class TestNotificationManager:
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
-        with patch("requests.post") as mock_post:
-            mock_post.return_value.raise_for_status = lambda: None
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.raise_for_status = lambda: None
+        mock_client.post.return_value = mock_response
+        with patch("httpx.AsyncClient", return_value=mock_client):
             await nm._send_webhook(alert, "msg")
-            assert mock_post.called
+            assert mock_client.post.called
 
 
 class TestAlertManager:
