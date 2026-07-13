@@ -2,7 +2,7 @@
 
 This file is the source of truth for project conventions, verification commands, and per-agent task plans. Agent-specific plans live at `docs/releases/<version>/AGENTS.md`; this root file holds the stable conventions and the **current** in-flight plan.
 
-**Current in-flight plan**: None — all releases through v0.10.11 are complete. Next: v1.0.0 production readiness.
+**Current in-flight plan**: [v0.10.12](docs/releases/v0.10.12/change.log) — Quality Hardening (mypy completeness, test suite repair, production assert removal, and dependency/version cleanup) — 🔄 in progress
 
 **Previous**: [v0.10.11](docs/releases/v0.10.11/change.log) — Bug Fixes & Code Quality Continuation (complete stub implementations, Pydantic v2 migration, SQLAlchemy pattern standardization, type safety improvements, and concurrency safety) — ✅ complete
 
@@ -135,6 +135,8 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.10.8** — Config Consolidation & Dead Retry Helper Cleanup (resolve config.py vs hierarchical_config.py package shadowing, consolidate simple health endpoints, delete 3 unused retry helpers): <ref_file file="/opt/aitbc/docs/releases/v0.10.8/change.log" /> ✅ complete
 - **v0.10.9** — Dead Code Elimination & Status Drift Cleanup (delete ~2,500 lines of dead test-only modules from aitbc/, fix documentation/status drift, clean up stale port references, migrate auth shims, remove deprecated constants): <ref_file file="/opt/aitbc/docs/releases/v0.10.9/change.log" /> ✅ complete
 - **v0.10.10** — Code Quality & Testing Roadmap (expand mypy coverage to 851 files, raise coverage gate, add property-based tests, add performance regression tests, pin dependencies, add local dev script, add integration fixtures): <ref_file file="/opt/aitbc/docs/releases/v0.10.10/change.log" /> ✅ complete
+- **v0.10.11** — Bug Fixes & Code Quality Continuation (complete stub implementations, Pydantic v2 migration, SQLAlchemy pattern standardization, type safety improvements, concurrency safety): <ref_file file="/opt/aitbc/docs/releases/v0.10.11/change.log" /> ✅ complete
+- **v0.10.12** — Quality Hardening (mypy completeness, test suite repair, production assert removal, and dependency/version cleanup): <ref_file file="/opt/aitbc/docs/releases/v0.10.12/change.log" /> 🔄 in progress
 
 ### Post-v1 Vision (not fit until after v1.0.0)
 - **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
@@ -161,6 +163,8 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.10.8                                         (config consolidation: package shadowing fix, health endpoint helper, dead retry helper cleanup) ✅
   → v0.10.9                                         (dead code elimination & status drift cleanup: ~2,500 lines dead test-only aitbc/ modules, stale port cleanup, auth shim migration) ✅
   → v0.10.10                                        (code quality & testing roadmap: mypy coverage expansion to 851 files, coverage gate, property-based tests, perf regression, dep pinning, dev script, integration fixtures) ✅
+  → v0.10.11                                        (bug fixes & code quality continuation: stub completion, Pydantic v2, SQLAlchemy standardization, concurrency safety) ✅
+  → v0.10.12                                        (quality hardening: mypy completeness, test suite repair, production assert removal, dependency/version cleanup) 🔄
   → v1.0.0                                          (production readiness)
   → v2.0.0                                          (vision — questionable features, parked for re-evaluation)
 ```
