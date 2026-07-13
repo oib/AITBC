@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from aitbc_agent import Agent, AITBCAgent, ComputeConsumer, ComputeProvider  # type: ignore[import-untyped]
-    from aitbc_agent.agent import AgentCapabilities  # type: ignore[import-untyped]  # noqa: F401
+    from aitbc_agent import Agent, AITBCAgent, ComputeConsumer, ComputeProvider
+    from aitbc_agent.agent import AgentCapabilities  # noqa: F401
 except ImportError:
     # Fallback if Agent SDK is not installed
     Agent = None

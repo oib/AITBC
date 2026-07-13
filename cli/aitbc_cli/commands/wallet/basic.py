@@ -13,7 +13,7 @@ from ...utils import error, output, success
 from ...utils.http_client import AITBCHTTPClient
 from aitbc.utils import ait_to_seconds, format_ait
 from . import _get_wallet_password, _load_wallet, _save_wallet, get_wallet_client, wallet
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 
 @wallet.command()

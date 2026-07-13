@@ -9,7 +9,7 @@ import sys
 from typing import Any
 
 import httpx
-import yaml  # type: ignore[import-untyped]
+import yaml
 from tabulate import tabulate
 
 # Configuration

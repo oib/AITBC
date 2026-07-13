@@ -63,7 +63,7 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
             config_file = Path.home() / ".aitbc" / "config.yaml"
             if config_file.exists():
                 try:
-                    import yaml  # type: ignore[import-untyped]
+                    import yaml
 
                     with open(config_file) as f:
                         config = yaml.safe_load(f)
