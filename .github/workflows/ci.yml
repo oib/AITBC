@@ -19,11 +19,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install uv
-        run: pip install uv
+      - name: Install poetry
+        run: pip install poetry
       - name: Install project dependencies
-        run: uv sync --dev
-      - run: uv run ruff check .
+        run: poetry install
+      - run: poetry run ruff check .
 
   format:
     name: Format Check
@@ -33,11 +33,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install uv
-        run: pip install uv
+      - name: Install poetry
+        run: pip install poetry
       - name: Install project dependencies
-        run: uv sync --dev
-      - run: uv run ruff format --check .
+        run: poetry install
+      - run: poetry run ruff format --check .
 
   typecheck:
     name: Type Check
@@ -47,11 +47,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install uv
-        run: pip install uv
+      - name: Install poetry
+        run: pip install poetry
       - name: Install project dependencies
-        run: uv sync --dev
-      - run: uv run mypy aitbc/ cli/ --ignore-missing-imports
+        run: poetry install
+      - run: poetry run mypy aitbc/ cli/ --ignore-missing-imports
 
   typecheck-new-modules:
     name: Type Check New Modules
@@ -61,22 +61,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install uv
-        run: pip install uv
+      - name: Install poetry
+        run: pip install poetry
       - name: Install project dependencies
-        run: uv sync --dev
+        run: poetry install
       - name: Type check Redis state manager
         run: |
           cd apps/coordinator-api
-          uv run mypy src/app/services/redis_state.py --ignore-missing-imports
+          poetry --project=../.. run mypy src/app/services/redis_state.py --ignore-missing-imports
       - name: Type check new config paths
         run: |
           cd apps/coordinator-api
-          uv run mypy src/app/config.py --ignore-missing-imports
+          poetry --project=../.. run mypy src/app/config.py --ignore-missing-imports
       - name: Type check router changes
         run: |
           cd apps/coordinator-api
-          uv run mypy src/app/routers/training.py --ignore-missing-imports
+          poetry --project=../.. run mypy src/app/routers/training.py --ignore-missing-imports
 
   test:
     name: Test
@@ -87,10 +87,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install uv
-        run: pip install uv
+      - name: Install poetry
+        run: pip install poetry
       - name: Install project dependencies
-        run: uv sync --dev
+        run: poetry install
       - name: Install pytest-rerunfailures for flaky test detection
         run: pip install pytest-rerunfailures
       - name: Run tests with coverage gate and flaky test detection
@@ -100,12 +100,12 @@ jobs:
           # 50k+ lines spanning 50+ modules. Reaching 80% requires systematic
           # test expansion for complex subsystems (GPU, trading, RL, etc.).
           # See docs/releases/v0.5.1/change.log for coverage expansion plan.
-          uv run pytest apps/coordinator-api/tests/ --cov=apps/coordinator-api/src --cov-report=xml --cov-report=term --cov-fail-under=25 --reruns 2 --reruns-delay 1
+          poetry run pytest apps/coordinator-api/tests/ --cov=apps/coordinator-api/src --cov-report=xml --cov-report=term --cov-fail-under=25 --reruns 2 --reruns-delay 1
       - name: Run shared-core coverage gate
         run: |
           # Coverage gate: 46% threshold (aitbc/ shared core baseline)
           # Prevents coverage regression on the shared library.
-          uv run pytest tests/unit -q -o addopts="" --cov=aitbc --cov-report=term --cov-fail-under=46
+          poetry run pytest tests/unit -q -o addopts="" --cov=aitbc --cov-report=term --cov-fail-under=46
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -124,13 +124,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install uv
-        run: pip install uv
+      - name: Install poetry
+        run: pip install poetry
       - name: Install project dependencies
-        run: uv sync --dev
+        run: poetry install
       - run: pip install bandit semgrep trufflehog
-      - run: uv run bandit -r aitbc/ apps/ cli/ -f json -o bandit-report.json
-      - run: uv run semgrep --config=auto aitbc/ apps/ cli/ --json --output=semgrep-report.json
+      - run: poetry run bandit -r aitbc/ apps/ cli/ -f json -o bandit-report.json
+      - run: poetry run semgrep --config=auto aitbc/ apps/ cli/ --json --output=semgrep-report.json
       - run: trufflehog git --json --output trufflehog-report.json .
       - name: Check for secrets in code
         run: |
@@ -162,15 +162,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install uv
-        run: pip install uv
+      - name: Install poetry
+        run: pip install poetry
       - name: Install project dependencies
-        run: uv sync --dev
-      - run: pip install openapi-spec-validator
+        run: poetry install
+      - run: poetry run python -m pip install openapi-spec-validator
       - name: Validate coordinator-api OpenAPI spec
         run: |
           cd apps/coordinator-api
-          uv run python -c "
+          poetry --project=../.. run python -c "
           import sys
           sys.path.insert(0, 'src')
           from coordinator_api.main import create_app
@@ -223,14 +223,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install uv
-        run: pip install uv
+      - name: Install poetry
+        run: pip install poetry
       - name: Install project dependencies
-        run: uv sync --dev
+        run: poetry install
       - name: Start coordinator API for testing
         run: |
           cd apps/coordinator-api
-          uv run python -c "
+          poetry run python -c "
           import sys
           sys.path.insert(0, 'src')
           from coordinator_api.main import create_app
@@ -252,7 +252,7 @@ jobs:
       - name: Run load tests
         run: |
           cd tests/load
-          uv run locust -f test_coordinator_api.py --headless --users 100 --spawn-rate 10 --run-time 60s --host http://127.0.0.1:8000 --html load-test-report.html --json load-test-stats.json
+          poetry run locust -f test_coordinator_api.py --headless --users 100 --spawn-rate 10 --run-time 60s --host http://127.0.0.1:8000 --html load-test-report.html --json load-test-stats.json
       - name: Upload load test report
         uses: actions/upload-artifact@v4
         if: always()
