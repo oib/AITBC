@@ -7,10 +7,13 @@ import asyncio
 import os
 from typing import Any
 
+from aitbc.aitbc_logging import get_logger
 from aitbc.network import SharedHttpClient
 
 from .bridge_db import get_deposit_by_tx_hash, init_db, insert_deposit
 from .price_api import calculate_ait_amount
+
+logger = get_logger(__name__)
 
 # Configuration
 ETH_RPC_URL = os.getenv("ETH_RPC_URL", "https://eth.llamarpc.com")
@@ -48,7 +51,7 @@ async def get_eth_transactions(address: str) -> list[dict[str, Any]]:
 
         return relevant_txs
     except Exception as e:
-        print(f"Error fetching ETH transactions: {e}")
+        logger.error("Error fetching ETH transactions: %s", e)
         return []
 
 
@@ -76,19 +79,19 @@ async def process_transaction(tx: dict[str, Any]) -> bool:
     # Calculate AIT amount
     amount_ait = await calculate_ait_amount(amount_eth)
     if amount_ait is None:
-        print(f"Failed to calculate AIT amount for tx {tx_hash}")
+        logger.error("Failed to calculate AIT amount for tx %s", tx_hash)
         return False
 
     # Record deposit
     try:
         deposit_id = insert_deposit(tx_hash, from_address, amount_eth, amount_ait)
-        print(f"Recorded deposit {deposit_id}: {amount_eth} ETH → {amount_ait} AIT (tx: {tx_hash})")
+        logger.info("Recorded deposit %s: %s ETH → %s AIT (tx: %s)", deposit_id, amount_eth, amount_ait, tx_hash)
         return True
     except ValueError as e:
-        print(f"Deposit already exists: {e}")
+        logger.warning("Deposit already exists: %s", e)
         return False
     except Exception as e:
-        print(f"Error recording deposit: {e}")
+        logger.error("Error recording deposit: %s", e)
         return False
 
 
@@ -97,15 +100,15 @@ async def monitor_loop() -> None:
     Main monitoring loop that polls for new transactions.
     """
     if not BRIDGE_ENABLED:
-        print("Bridge monitoring disabled (BRIDGE_ENABLED=false)")
+        logger.info("Bridge monitoring disabled (BRIDGE_ENABLED=false)")
         return
 
     if not ETH_WALLET_ADDRESS:
-        print("Bridge monitoring disabled (ETH_WALLET_ADDRESS not set)")
+        logger.info("Bridge monitoring disabled (ETH_WALLET_ADDRESS not set)")
         return
 
-    print(f"Starting bridge monitor for address {ETH_WALLET_ADDRESS}")
-    print(f"Polling interval: {POLL_INTERVAL}s")
+    logger.info("Starting bridge monitor for address %s", ETH_WALLET_ADDRESS)
+    logger.info("Polling interval: %ss", POLL_INTERVAL)
 
     init_db()
 
@@ -117,7 +120,7 @@ async def monitor_loop() -> None:
                 await process_transaction(tx)
 
         except Exception as e:
-            print(f"Error in monitor loop: {e}")
+            logger.error("Error in monitor loop: %s", e)
 
         await asyncio.sleep(POLL_INTERVAL)
 
@@ -137,6 +140,7 @@ def start_monitoring() -> asyncio.Task[None] | None:
         return task
     except RuntimeError:
         # No event loop running — fall back to running in a thread
+        logger.debug("No event loop running; starting bridge monitor in a thread", exc_info=True)
         import threading
 
         def _run_sync() -> None:
@@ -149,5 +153,5 @@ def start_monitoring() -> asyncio.Task[None] | None:
 
 if __name__ == "__main__":
     # For testing
-    print("Testing bridge monitor...")
+    logger.info("Testing bridge monitor...")
     asyncio.run(monitor_loop())

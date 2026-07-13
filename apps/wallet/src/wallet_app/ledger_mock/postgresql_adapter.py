@@ -32,7 +32,8 @@ class PostgreSQLLedgerAdapter:
     def create_wallet(self, wallet_id: str, public_key: str, metadata: dict[str, Any] | None = None) -> bool:
         """Create a new wallet"""
         try:
-            assert self.connection is not None
+            if self.connection is None:
+                raise RuntimeError("Database connection not initialized")
             cursor = cast(extensions.cursor, self.connection.cursor(cursor_factory=RealDictCursor))
             cursor.execute(
                 "\n                    INSERT INTO wallets (wallet_id, public_key, metadata)\n                    VALUES (%s, %s, %s)\n                    ON CONFLICT (wallet_id) DO UPDATE\n                    SET public_key = EXCLUDED.public_key,\n                        metadata = EXCLUDED.metadata,\n                        updated_at = NOW()\n                ",
@@ -51,7 +52,8 @@ class PostgreSQLLedgerAdapter:
     def get_wallet(self, wallet_id: str) -> dict[str, Any] | None:
         """Get wallet information"""
         try:
-            assert self.connection is not None
+            if self.connection is None:
+                raise RuntimeError("Database connection not initialized")
             cursor = cast(extensions.cursor, self.connection.cursor(cursor_factory=RealDictCursor))
             cursor.execute(
                 "\n                    SELECT wallet_id, public_key, metadata, created_at, updated_at\n                    FROM wallets\n                    WHERE wallet_id = %s\n                ",
@@ -69,7 +71,8 @@ class PostgreSQLLedgerAdapter:
     def list_wallets(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
         """List all wallets"""
         try:
-            assert self.connection is not None
+            if self.connection is None:
+                raise RuntimeError("Database connection not initialized")
             cursor = cast(extensions.cursor, self.connection.cursor(cursor_factory=RealDictCursor))
             cursor.execute(
                 "\n                    SELECT wallet_id, public_key, metadata, created_at, updated_at\n                    FROM wallets\n                    ORDER BY created_at DESC\n                    LIMIT %s OFFSET %s\n                ",
@@ -85,7 +88,8 @@ class PostgreSQLLedgerAdapter:
     def add_wallet_event(self, wallet_id: str, event_type: str, payload: dict[str, Any]) -> bool:
         """Add an event to the wallet"""
         try:
-            assert self.connection is not None
+            if self.connection is None:
+                raise RuntimeError("Database connection not initialized")
             cursor = cast(extensions.cursor, self.connection.cursor(cursor_factory=RealDictCursor))
             cursor.execute(
                 "\n                    INSERT INTO wallet_events (wallet_id, event_type, payload)\n                    VALUES (%s, %s, %s)\n                ",
@@ -104,7 +108,8 @@ class PostgreSQLLedgerAdapter:
     def get_wallet_events(self, wallet_id: str, limit: int = 100) -> list[dict[str, Any]]:
         """Get events for a wallet"""
         try:
-            assert self.connection is not None
+            if self.connection is None:
+                raise RuntimeError("Database connection not initialized")
             cursor = cast(extensions.cursor, self.connection.cursor(cursor_factory=RealDictCursor))
             cursor.execute(
                 "\n                    SELECT id, event_type, payload, created_at\n                    FROM wallet_events\n                    WHERE wallet_id = %s\n                    ORDER BY created_at DESC\n                    LIMIT %s\n                ",
@@ -120,7 +125,8 @@ class PostgreSQLLedgerAdapter:
     def update_wallet_metadata(self, wallet_id: str, metadata: dict[str, Any]) -> bool:
         """Update wallet metadata"""
         try:
-            assert self.connection is not None
+            if self.connection is None:
+                raise RuntimeError("Database connection not initialized")
             cursor = cast(extensions.cursor, self.connection.cursor(cursor_factory=RealDictCursor))
             cursor.execute(
                 "\n                    UPDATE wallets\n                    SET metadata = %s, updated_at = NOW()\n                    WHERE wallet_id = %s\n                ",
@@ -139,7 +145,8 @@ class PostgreSQLLedgerAdapter:
     def delete_wallet(self, wallet_id: str) -> bool:
         """Delete a wallet and all its events"""
         try:
-            assert self.connection is not None
+            if self.connection is None:
+                raise RuntimeError("Database connection not initialized")
             cursor = cast(extensions.cursor, self.connection.cursor(cursor_factory=RealDictCursor))
             cursor.execute(
                 "\n                    DELETE FROM wallets\n                    WHERE wallet_id = %s\n                ",
@@ -158,7 +165,8 @@ class PostgreSQLLedgerAdapter:
     def get_wallet_stats(self) -> dict[str, Any]:
         """Get wallet statistics"""
         try:
-            assert self.connection is not None
+            if self.connection is None:
+                raise RuntimeError("Database connection not initialized")
             cursor = cast(extensions.cursor, self.connection.cursor(cursor_factory=RealDictCursor))
             cursor.execute("SELECT COUNT(*) as total_wallets FROM wallets")
             wallets_result = cast(dict[str, Any] | None, cursor.fetchone())

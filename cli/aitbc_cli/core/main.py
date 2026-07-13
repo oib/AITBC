@@ -6,6 +6,7 @@ Canonical invocation: `aitbc` (installed via /opt/aitbc/venv/bin/aitbc)
 """
 
 import click
+from aitbc_cli.utils.http_client import get_logger
 from aitbc_cli.commands.account import account
 from aitbc_cli.commands.agent_sdk import agent
 from aitbc_cli.commands.ai import ai
@@ -61,6 +62,8 @@ from aitbc_cli.commands.workflow import workflow
 
 # Force CLI version for user-facing output
 __version__ = "0.10.12"
+
+logger = get_logger(__name__)
 
 
 @click.command(name="list")
@@ -178,9 +181,11 @@ def main(argv=None):
         return cli.main(args=argv, prog_name="aitbc", standalone_mode=False)
     except CLIError as e:
         # Error already printed by abort(); just exit with the proper code
+        logger.debug("CLI error: %s", e, exc_info=True)
         return e.exit_code
     except click.Abort:
         # Legacy bare click.Abort() — error message already printed, no traceback
+        logger.debug("CLI aborted", exc_info=True)
         return 1
     except click.exceptions.NoArgsIsHelpError as e:
         # Show help message and exit cleanly

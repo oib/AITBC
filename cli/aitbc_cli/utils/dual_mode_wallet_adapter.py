@@ -58,7 +58,8 @@ class DualModeWalletAdapter:
                 error("Wallet daemon is not available")
                 raise Exception("Daemon unavailable")
 
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             wallet_info = self.daemon_client.create_wallet(wallet_name, password, metadata)
 
             success(f"Created daemon wallet: {wallet_name}")
@@ -133,7 +134,8 @@ class DualModeWalletAdapter:
                 error("Wallet daemon is not available")
                 return []
 
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             wallets = self.daemon_client.list_wallets()
             return [
                 {
@@ -189,7 +191,8 @@ class DualModeWalletAdapter:
             if not self.is_daemon_available():
                 return None
 
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             wallet_info = self.daemon_client.get_wallet_info(wallet_name)
             if wallet_info:
                 return {
@@ -245,7 +248,8 @@ class DualModeWalletAdapter:
             if not self.is_daemon_available():
                 return None
 
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             balance_info = self.daemon_client.get_wallet_balance(wallet_name)
             if balance_info:
                 return balance_info.balance
@@ -281,7 +285,8 @@ class DualModeWalletAdapter:
                 error("Wallet daemon is not available")
                 raise Exception("Daemon unavailable")
 
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             result = self.daemon_client.send_transaction(wallet_name, password, to_address, amount, description)
 
             success(f"Sent {amount} AITBC to {to_address} via daemon")
@@ -407,7 +412,8 @@ class DualModeWalletAdapter:
             if not self.is_daemon_available():
                 return False
 
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             return self.daemon_client.delete_wallet(wallet_name, password)
         except Exception as e:
             error(f"Failed to delete daemon wallet: {str(e)}")
@@ -438,7 +444,8 @@ class DualModeWalletAdapter:
             return []
 
         try:
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             chains = self.daemon_client.list_chains()
             return [
                 {
@@ -466,7 +473,8 @@ class DualModeWalletAdapter:
             return None
 
         try:
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             chain = self.daemon_client.create_chain(chain_id, name, coordinator_url, coordinator_api_key, metadata)
             return {
                 "chain_id": chain.chain_id,
@@ -491,7 +499,8 @@ class DualModeWalletAdapter:
             return None
 
         try:
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             wallet = self.daemon_client.create_wallet_in_chain(chain_id, wallet_name, password, metadata)
             return {
                 "mode": "daemon",
@@ -514,7 +523,8 @@ class DualModeWalletAdapter:
             return []
 
         try:
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             wallets = self.daemon_client.list_wallets_in_chain(chain_id)
             return [
                 {
@@ -539,7 +549,8 @@ class DualModeWalletAdapter:
             return None
 
         try:
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             wallet = self.daemon_client.get_wallet_info_in_chain(chain_id, wallet_name)
             if wallet:
                 return {
@@ -563,7 +574,8 @@ class DualModeWalletAdapter:
             return None
 
         try:
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             balance = self.daemon_client.get_wallet_balance_in_chain(chain_id, wallet_name)
             return balance.balance if balance else None
         except Exception as e:
@@ -577,7 +589,8 @@ class DualModeWalletAdapter:
             return False
 
         try:
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             return self.daemon_client.unlock_wallet_in_chain(chain_id, wallet_name, password)
         except Exception as e:
             error(f"Failed to unlock wallet in chain {chain_id}: {str(e)}")
@@ -590,7 +603,8 @@ class DualModeWalletAdapter:
             return None
 
         try:
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             return self.daemon_client.sign_message_in_chain(chain_id, wallet_name, password, message)
         except Exception as e:
             error(f"Failed to sign message in chain {chain_id}: {str(e)}")
@@ -605,7 +619,8 @@ class DualModeWalletAdapter:
             return None
 
         try:
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             result = self.daemon_client.migrate_wallet(source_chain_id, target_chain_id, wallet_name, password, new_password)
             if result:
                 return {
@@ -635,7 +650,8 @@ class DualModeWalletAdapter:
             return {"status": "disabled", "message": "Chain status requires daemon mode"}
 
         try:
-            assert self.daemon_client is not None
+            if self.daemon_client is None:
+                raise RuntimeError("Daemon client not initialized")
             return self.daemon_client.get_chain_status()
         except Exception as e:
             error(f"Failed to get chain status: {str(e)}")

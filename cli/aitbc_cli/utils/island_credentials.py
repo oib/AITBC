@@ -7,6 +7,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .http_client import get_logger
+
+logger = get_logger(__name__)
+
 CREDENTIALS_PATH = "/var/lib/aitbc/island_credentials.json"
 
 
@@ -132,6 +136,7 @@ def get_genesis_block_hash() -> str | None:
         credentials = load_island_credentials()
         return credentials.get("credentials", {}).get("genesis_block_hash")  # type: ignore[no-any-return]
     except (FileNotFoundError, ValueError):
+        logger.debug("Island credentials missing for genesis block hash", exc_info=True)
         return None
 
 
@@ -146,6 +151,7 @@ def get_genesis_address() -> str | None:
         credentials = load_island_credentials()
         return credentials.get("credentials", {}).get("genesis_address")  # type: ignore[no-any-return]
     except (FileNotFoundError, ValueError):
+        logger.debug("Island credentials missing for genesis address", exc_info=True)
         return None
 
 
@@ -161,6 +167,7 @@ def validate_credentials() -> bool:
         # Check for essential fields
         return all(key in credentials for key in ["island_id", "island_name", "island_chain_id", "credentials"])
     except (FileNotFoundError, json.JSONDecodeError, ValueError):
+        logger.debug("Island credentials invalid or missing", exc_info=True)
         return False
 
 
@@ -175,4 +182,5 @@ def get_p2p_port() -> int | None:
         credentials = load_island_credentials()
         return credentials.get("credentials", {}).get("p2p_port")  # type: ignore[no-any-return]
     except (FileNotFoundError, ValueError):
+        logger.debug("Island credentials missing for p2p_port", exc_info=True)
         return None
