@@ -1,3 +1,4 @@
 from aitbc_chain.config import settings
 
-print(settings.db_path)
+if __name__ == "__main__":
+    print(settings.db_path)

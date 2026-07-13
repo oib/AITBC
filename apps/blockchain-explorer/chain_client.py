@@ -67,15 +67,15 @@ async def get_chain_head(chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
             response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})
             if response.status_code == 200:
                 return normalize_block(response.json())
-    except Exception as e:
-        print(f"Error getting chain head for {chain_id}: {e}")
+    except Exception:
+        logger.exception("Error getting chain head for %s", chain_id)
     return {}
 
 
 async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
     """Get transaction by hash from specified chain using direct DB lookup"""
     if not validate_chain_id(chain_id):
-        print("Invalid chain_id format")
+        logger.warning("Invalid chain_id format")
         return {}
     try:
         import sqlite3
@@ -128,15 +128,15 @@ async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> dict[s
             response = await client.get(f"{rpc_url}/rpc/tx/{tx_hash}", params={"chain_id": chain_id})
             if response.status_code == 200:
                 return response.json()  # type: ignore[no-any-return]
-    except Exception as e:
-        print(f"Error getting transaction {tx_hash} for {chain_id}: {e}")
+    except Exception:
+        logger.exception("Error getting transaction %s for %s", tx_hash, chain_id)
     return {}
 
 
 async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
     """Get a specific block by height from specified chain using real blockchain DB"""
     if not validate_chain_id(chain_id):
-        print("Invalid chain_id format")
+        logger.warning("Invalid chain_id format")
         return {}
     try:
         # First try blockchain database for direct lookup
@@ -223,8 +223,8 @@ async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any
                 elif response.status_code == 404:
                     # Block not found - return empty (will be handled by caller)
                     return {}
-    except Exception as e:
-        print(f"Error getting block {height} for {chain_id}: {e}")
+    except Exception:
+        logger.exception("Error getting block %s for %s", height, chain_id)
     return {}
 
 
@@ -334,6 +334,6 @@ async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN, offs
                         blocks.reverse()
                         return blocks
             return []
-    except Exception as e:
-        print(f"Error getting latest blocks: {e}")
+    except Exception:
+        logger.exception("Error getting latest blocks")
         return []

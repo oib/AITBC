@@ -154,8 +154,8 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts=""
 | B3 | Repair `tests/coordinator` Slack/webhook tests and asyncio markers | 🟡 P1 | `tests/coordinator/test_ignored_modules.py` | ✅ complete |
 | B4 | Fix dependency/version drift and choose a canonical lock strategy | 🟡 P1 | `pyproject.toml`, `requirements.txt`, `uv.lock`, `poetry.lock`, `aitbc/_version.py`, `cli/...`, `apps/coordinator-api/pyproject.toml` | ✅ complete |
 | B5 | Repair the Alembic migration graph | 🔴 P0 | `apps/coordinator-api/alembic/versions/...`, `alembic.ini`, `env.py` | ✅ complete |
-| B6 | Harden `tests/integration` isolation and external-service gating | 🟡 P1 | `tests/integration/conftest.py`, `tests/integration/test_blockchain_nodes.py`, `pyproject.toml` markers | planned |
-| B7 | Add CI parity gates for strict `mypy`, version sources, and `assert`/`print` | 🟡 P1 | `.github/workflows/ci.yml`, `pyproject.toml`, `scripts/` | planned |
+| B6 | Harden `tests/integration` isolation and external-service gating | 🟡 P1 | `tests/integration/conftest.py`, `tests/integration/test_blockchain_nodes.py`, `pyproject.toml` markers | ✅ complete |
+| B7 | Add CI parity gates for strict `mypy`, version sources, and `assert`/`print` | 🟡 P1 | `.github/workflows/ci.yml`, `pyproject.toml`, `scripts/` | ✅ complete |
 
 ### Agent B — Detailed Instructions
 
@@ -383,9 +383,9 @@ cd /opt/aitbc && ./venv/bin/python scripts/check_version_consistency.py
 | 2026-07-13 | — | Resolved: A2 scope excludes `aitbc/agent_bridge/src/integration_layer.py`; B2 owns it | documented |
 | 2026-07-13 | A | Expanded A3 inventory of silent exceptions in `aitbc/crypto/`, `aitbc/caching/`, `aitbc/crypto/tokens.py` | planned |
 | 2026-07-13 | B | B1: `cli/` mypy fixes | ✅ complete |
-| 2026-07-13 | B | B2: `assert`/`print`/silent-exception cleanup in `apps/`, `cli/`, `aitbc/agent_bridge/` | pending |
-| 2026-07-13 | B | B6: Integration test isolation, markers, and runtime budget | pending |
-| 2026-07-13 | B | B7: CI parity gates for strict mypy, version consistency, assert/print checks | pending |
+| 2026-07-13 | B | B2: `assert`/`print`/silent-exception cleanup in `apps/`, `cli/`, `aitbc/agent_bridge/` | ✅ complete |
+| 2026-07-13 | B | B6: Integration test isolation, markers, and runtime budget | ✅ complete |
+| 2026-07-13 | B | B7: CI parity gates for strict mypy, version consistency, assert/print checks | ✅ complete |
 
 ---
 

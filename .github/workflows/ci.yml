@@ -52,6 +52,8 @@ jobs:
       - name: Install project dependencies
         run: poetry install
       - run: poetry run mypy aitbc/ cli/ --ignore-missing-imports
+      - name: Strict shared-core type check
+        run: poetry run mypy --show-error-codes aitbc/
 
   typecheck-new-modules:
     name: Type Check New Modules
@@ -106,6 +108,10 @@ jobs:
           # Coverage gate: 46% threshold (aitbc/ shared core baseline)
           # Prevents coverage regression on the shared library.
           poetry run pytest tests/unit -q -o addopts="" --cov=aitbc --cov-report=term --cov-fail-under=46
+      - name: Run coordinator tests
+        run: poetry run pytest tests/coordinator -q -o addopts=""
+      - name: Run integration tests (excluding external services)
+        run: poetry run pytest tests/integration -q -o addopts="" -m "not external"
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -113,6 +119,23 @@ jobs:
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
+
+  quality-gates:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install poetry
+        run: pip install poetry
+      - name: Install project dependencies
+        run: poetry install
+      - name: Check production assert and print
+        run: poetry run python scripts/check_no_assert_print.py
+      - name: Check version consistency
+        run: poetry run python scripts/check_version_consistency.py
 
   security:
     name: Security Scan

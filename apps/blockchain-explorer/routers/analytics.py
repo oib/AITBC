@@ -76,8 +76,8 @@ async def api_activity_timeline(
             )
 
         return {"labels": labels, "datasets": datasets}
-    except Exception as e:
-        print(f"Error getting activity timeline: {e}")
+    except Exception:
+        logger.exception("Error getting activity timeline")
         return {"labels": [], "datasets": []}
 
 
@@ -145,8 +145,8 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
             "unique_providers": unique_providers,
             "total_transactions": total_transactions,
         }
-    except Exception as e:
-        print(f"Error getting network stats: {e}")
+    except Exception:
+        logger.exception("Error getting network stats")
         return {"total_ait": 0, "active_offers": 0, "unique_nodes": 0, "unique_providers": 0, "total_transactions": 0}
 
 
@@ -198,8 +198,8 @@ async def api_top_addresses(
 
         conn.close()
         return {"addresses": addresses}
-    except Exception as e:
-        print(f"Error getting top addresses: {e}")
+    except Exception:
+        logger.exception("Error getting top addresses")
         return {"addresses": []}
 
 
@@ -281,8 +281,8 @@ async def api_provider_reputation(provider_id: str, chain_id: str | None = DEFAU
             "days_active": days_active,
             "total_volume": round(total_volume, 2),
         }
-    except Exception as e:
-        print(f"Error getting provider reputation: {e}")
+    except Exception:
+        logger.exception("Error getting provider reputation: %s", provider_id)
         return {"provider_id": provider_id, "score": 0, "level": "New", "transactions": 0, "days_active": 0}
 
 
