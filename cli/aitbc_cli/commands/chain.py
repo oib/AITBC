@@ -256,7 +256,7 @@ def info(ctx, chain_id, detailed, metrics):
 def create(ctx, config_file, node, dry_run):
     """Create a new chain from configuration file"""
     try:
-        import yaml  # type: ignore[import-untyped]
+        import yaml
 
         from ..models.chain import ChainConfig
 
