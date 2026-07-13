@@ -25,7 +25,7 @@ v0.10.12 is a **quality hardening release**. It addresses the gaps left after th
 | Category | Items | Status | Notes |
 |----------|-------|--------|-------|
 | Mypy aitbc/ missing imports/stubs | 4 | ✅ complete | `mypy` overrides added for `pytz`, `bcrypt`, `zstandard`, `yaml` |
-| CLI type-check cleanup | 16 | 🔄 planned | `unused-ignore` and `error(...)` call-arg |
+| CLI type-check cleanup | 16 | ✅ complete | `unused-ignore` and `error(...)` call-arg |
 | Production `assert` removal | 30+ | ✅ partial | `aitbc/database/connection.py` fixed; `aitbc/agent_bridge/` left for Agent B |
 | Silent exception handling cleanup | 7 | ✅ complete | `aitbc/utils/time_utils.py`, `caching/redis_cache.py`, `crypto/tokens.py` |
 | `tests/coordinator` failure repair | 2 | 🔄 planned | `requests.post` → `httpx` mock update |
@@ -67,7 +67,7 @@ cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 - [x] Add focused unit tests for low-coverage `aitbc/` modules
 
 ### Agent B — Infrastructure & Apps
-- [ ] Fix `mypy` errors in `cli/`
+- [x] Fix `mypy` errors in `cli/`
 - [ ] Remove `assert`/`print` from `apps/` and `cli/` production source
 - [ ] Repair `tests/coordinator` failures and `tests/integration` hang
 - [ ] Fix dependency/version drift in `pyproject.toml`/`requirements.txt`/`uv.lock`
