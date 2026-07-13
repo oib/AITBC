@@ -536,6 +536,7 @@ class CrossChainAgentCommunication:
                     if source_chain in chain_ids and target_chain in chain_ids:
                         bridge_nodes.append(node_id)
             except Exception:
+                logger.debug("Node %s unavailable for bridge routing", node_id, exc_info=True)
                 continue
 
         return bridge_nodes

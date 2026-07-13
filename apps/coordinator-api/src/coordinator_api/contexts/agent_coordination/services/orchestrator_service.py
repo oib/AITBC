@@ -61,7 +61,8 @@ class AgentStateManager:
         self.session.execute(stmt)
         self.session.commit()
         execution = self.session.get(AgentExecution, execution_id)
-        assert execution is not None
+        if execution is None:
+            raise ValueError(f"Execution {execution_id} not found after update")
         logger.info("Updated execution %s status to %s", execution_id, status)
         return execution
 
@@ -96,7 +97,8 @@ class AgentStateManager:
         self.session.execute(stmt)
         self.session.commit()
         step_execution = self.session.get(AgentStepExecution, step_execution_id)
-        assert step_execution is not None
+        if step_execution is None:
+            raise ValueError(f"Step execution {step_execution_id} not found after update")
         return step_execution
 
 

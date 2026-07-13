@@ -11,10 +11,14 @@ try:
     from aitbc_cli.core.config import load_multichain_config
     from aitbc_cli.core.node_client import NodeClient
     from aitbc_cli.utils import error, output
+    from aitbc_cli.utils.http_client import get_logger
 except ImportError:
     from aitbc_cli.core.config import load_multichain_config
     from aitbc_cli.core.node_client import NodeClient
     from aitbc_cli.utils import error, output
+    from aitbc_cli.utils.http_client import get_logger
+
+logger = get_logger(__name__)
 
 
 def monitor_command(ctx, node_id, realtime, interval):
@@ -74,6 +78,7 @@ def monitor_command(ctx, node_id, realtime, interval):
 
                     return layout
                 except Exception as e:
+                    logger.warning("Error getting node stats: %s", e, exc_info=True)
                     return f"Error getting node stats: {e}"
 
             with Live(generate_monitor_layout(), refresh_per_second=1) as live:

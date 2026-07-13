@@ -150,7 +150,8 @@ class TenSEALProvider(FHEProvider):
         """Generate TenSEAL context"""
         if not self.available:
             raise RuntimeError("TenSEAL provider is not available")
-        assert self.ts is not None
+        if self.ts is None:
+            raise RuntimeError("TenSEAL not initialized")
         if scheme.lower() == "ckks":
             context = self.ts.context(
                 self.ts.SCHEME_TYPE.CKKS,
@@ -181,7 +182,8 @@ class TenSEALProvider(FHEProvider):
         """Encrypt data using TenSEAL"""
         if not self.available:
             raise RuntimeError("TenSEAL provider is not available")
-        assert self.ts is not None
+        if self.ts is None:
+            raise RuntimeError("TenSEAL not initialized")
         ts_context = self.ts.context_from(context.public_key)
         if context.scheme.lower() == "ckks":
             encrypted_tensor = self.ts.ckks_vector(ts_context, data.flatten())
@@ -195,7 +197,8 @@ class TenSEALProvider(FHEProvider):
         """Decrypt TenSEAL data"""
         if not self.available:
             raise RuntimeError("TenSEAL provider is not available")
-        assert self.ts is not None
+        if self.ts is None:
+            raise RuntimeError("TenSEAL not initialized")
         ts_context = self.ts.context_from(encrypted_data.context.public_key)
         if encrypted_data.context.scheme.lower() == "ckks":
             encrypted_tensor = self.ts.ckks_vector_from(ts_context, encrypted_data.ciphertext)
@@ -210,7 +213,8 @@ class TenSEALProvider(FHEProvider):
         """Perform basic encrypted inference"""
         if not self.available:
             raise RuntimeError("TenSEAL provider is not available")
-        assert self.ts is not None
+        if self.ts is None:
+            raise RuntimeError("TenSEAL not initialized")
         ts_context = self.ts.context_from(encrypted_input.context.public_key)
         encrypted_tensor = self.ts.ckks_vector_from(ts_context, encrypted_input.ciphertext)
         weights = model.get("weights")
@@ -249,7 +253,8 @@ class ConcreteMLProvider(FHEProvider):
         """Encrypt using Concrete ML"""
         if not self.available:
             raise RuntimeError("Concrete ML provider is not available")
-        assert self.cnp is not None
+        if self.cnp is None:
+            raise RuntimeError("Concrete ML not initialized")
         p = context.provider_specific.get("p", 15) if context.provider_specific else 15
         encrypted_data = self.cnp.encrypt(data, p=p)
         return EncryptedData(ciphertext=str(encrypted_data).encode(), context=context, shape=data.shape, dtype=str(data.dtype))

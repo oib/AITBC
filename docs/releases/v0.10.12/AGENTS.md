@@ -150,7 +150,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts=""
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
 | B1 | Fix `mypy` errors in `cli/` | 🔴 P0 | `cli/aitbc_cli/...` | ✅ complete |
-| B2 | Remove `assert`/`print`/silent exceptions from `apps/`, `cli/`, and `aitbc/agent_bridge/` production source | 🔴 P0 | `apps/*/src/...`, `cli/aitbc_cli/...`, `aitbc/agent_bridge/src/integration_layer.py` | planned |
+| B2 | Remove `assert`/`print`/silent exceptions from `apps/`, `cli/`, and `aitbc/agent_bridge/` production source | 🔴 P0 | `apps/*/src/...`, `cli/aitbc_cli/...`, `aitbc/agent_bridge/src/integration_layer.py` | ✅ complete |
 | B3 | Repair `tests/coordinator` Slack/webhook tests and asyncio markers | 🟡 P1 | `tests/coordinator/test_ignored_modules.py` | ✅ complete |
 | B4 | Fix dependency/version drift and choose a canonical lock strategy | 🟡 P1 | `pyproject.toml`, `requirements.txt`, `uv.lock`, `poetry.lock`, `aitbc/_version.py`, `cli/...`, `apps/coordinator-api/pyproject.toml` | ✅ complete |
 | B5 | Repair the Alembic migration graph | 🔴 P0 | `apps/coordinator-api/alembic/versions/...`, `alembic.ini`, `env.py` | ✅ complete |
