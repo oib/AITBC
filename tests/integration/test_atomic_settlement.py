@@ -7,6 +7,8 @@ model registry conflicts when run alongside other app tests.
 
 from __future__ import annotations
 
+import sys
+
 from unittest.mock import AsyncMock
 
 import pytest
@@ -208,6 +210,11 @@ class TestProofChain:
 
 
 class TestSettlementCoordinator:
+    pytestmark = [
+        pytest.mark.skipif("aitbc_chain" not in sys.modules, reason="aitbc_chain not loaded in isolated integration run"),
+        pytest.mark.blockchain,
+    ]
+
     @pytest.mark.asyncio
     async def test_coordinator_happy_path(self):
         """Coordinator runs full lifecycle: create -> lock -> verify -> execute -> settle."""
@@ -319,6 +326,11 @@ class TestSettlementCoordinator:
 
 
 class TestNoFundsStuck:
+    pytestmark = [
+        pytest.mark.skipif("aitbc_chain" not in sys.modules, reason="aitbc_chain not loaded in isolated integration run"),
+        pytest.mark.blockchain,
+    ]
+
     @pytest.mark.asyncio
     async def test_coordinator_failure_does_not_leave_funds_stuck(self):
         """On failure, refund is attempted — no funds stuck."""

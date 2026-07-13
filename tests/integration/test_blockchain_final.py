@@ -4,6 +4,9 @@ Final test and summary for blockchain nodes
 """
 
 import httpx
+import pytest
+
+pytestmark = pytest.mark.blockchain
 
 # Node URLs
 NODES = {

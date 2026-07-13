@@ -5,6 +5,9 @@ and demonstrate how to configure them for networking
 """
 
 import httpx
+import pytest
+
+pytestmark = pytest.mark.blockchain
 
 # Node URLs
 NODES = {
