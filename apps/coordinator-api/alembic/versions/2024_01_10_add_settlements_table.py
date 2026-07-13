@@ -27,7 +27,7 @@ def upgrade():
         sa.Column("source_chain_id", sa.Integer(), nullable=False),
         sa.Column("target_chain_id", sa.Integer(), nullable=False),
         sa.Column("receipt_hash", sa.String(length=66), nullable=True),
-        sa.Column("proof_data", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("proof_data", sa.JSON().with_variant(postgresql.JSONB(astext_type=sa.Text()), "postgresql"), nullable=True),
         sa.Column("payment_amount", sa.Numeric(precision=36, scale=18), nullable=True),
         sa.Column("payment_token", sa.String(length=42), nullable=True),
         sa.Column("nonce", sa.BigInteger(), nullable=False),
@@ -43,29 +43,26 @@ def upgrade():
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("message_id"),
+        sa.ForeignKeyConstraint(["job_id"], ["job.id"], ondelete="CASCADE"),
+        if_not_exists=True,
     )
 
     # Create indexes
-    op.create_index("ix_settlements_job_id", "settlements", ["job_id"])
-    op.create_index("ix_settlements_status", "settlements", ["status"])
-    op.create_index("ix_settlements_bridge_name", "settlements", ["bridge_name"])
-    op.create_index("ix_settlements_created_at", "settlements", ["created_at"])
-    op.create_index("ix_settlements_message_id", "settlements", ["message_id"])
-
-    # Add foreign key constraint for jobs table
-    op.create_foreign_key("fk_settlements_job_id", "settlements", "jobs", ["job_id"], ["id"], ondelete="CASCADE")
+    op.create_index("ix_settlements_job_id", "settlements", ["job_id"], if_not_exists=True)
+    op.create_index("ix_settlements_status", "settlements", ["status"], if_not_exists=True)
+    op.create_index("ix_settlements_bridge_name", "settlements", ["bridge_name"], if_not_exists=True)
+    op.create_index("ix_settlements_created_at", "settlements", ["created_at"], if_not_exists=True)
+    op.create_index("ix_settlements_message_id", "settlements", ["message_id"], if_not_exists=True)
 
 
 def downgrade():
-    # Drop foreign key
-    op.drop_constraint("fk_settlements_job_id", "settlements", type_="foreignkey")
-
-    # Drop indexes
-    op.drop_index("ix_settlements_message_id", table_name="settlements")
-    op.drop_index("ix_settlements_created_at", table_name="settlements")
-    op.drop_index("ix_settlements_bridge_name", table_name="settlements")
-    op.drop_index("ix_settlements_status", table_name="settlements")
-    op.drop_index("ix_settlements_job_id", table_name="settlements")
+    # Drop indexes (the table and its FK are dropped together, so the explicit
+    # drop_constraint is omitted for SQLite compatibility)
+    op.drop_index("ix_settlements_message_id", table_name="settlements", if_exists=True)
+    op.drop_index("ix_settlements_created_at", table_name="settlements", if_exists=True)
+    op.drop_index("ix_settlements_bridge_name", table_name="settlements", if_exists=True)
+    op.drop_index("ix_settlements_status", table_name="settlements", if_exists=True)
+    op.drop_index("ix_settlements_job_id", table_name="settlements", if_exists=True)
 
     # Drop table
-    op.drop_table("settlements")
+    op.drop_table("settlements", if_exists=True)
