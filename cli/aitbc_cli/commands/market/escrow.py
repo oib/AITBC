@@ -81,12 +81,14 @@ def escrow_release(ctx, job_id: str):
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
             result = http_client.post(f"/rpc/escrow/{job_id}/release", json={})
         except Exception:
+            logger.debug("Escrow request failed", exc_info=True)
             pass
         if not result:
             try:
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
                 result = http_client.post(f"/rpc/escrow/{job_id}/release", json={})
             except Exception:
+                logger.debug("Escrow request failed", exc_info=True)
                 pass
         if result:
             success(f"Escrow released for job {job_id}")
@@ -113,12 +115,14 @@ def escrow_refund(ctx, job_id: str, reason: str):
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
             result = http_client.post(f"/rpc/escrow/{job_id}/refund", json={"reason": reason})
         except Exception:
+            logger.debug("Escrow request failed", exc_info=True)
             pass
         if not result:
             try:
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
                 result = http_client.post(f"/rpc/escrow/{job_id}/refund", json={"reason": reason})
             except Exception:
+                logger.debug("Escrow request failed", exc_info=True)
                 pass
         if result:
             success(f"Escrow refunded for job {job_id}")
@@ -144,12 +148,14 @@ def escrow_status(ctx, job_id: str):
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
             result = http_client.get(f"/rpc/escrow/{job_id}")
         except Exception:
+            logger.debug("Escrow request failed", exc_info=True)
             pass
         if not result:
             try:
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
                 result = http_client.get(f"/rpc/escrow/{job_id}")
             except Exception:
+                logger.debug("Escrow request failed", exc_info=True)
                 pass
         if result:
             output(result, ctx.obj.get("output_format", "table"), title=f"Escrow: {job_id}")

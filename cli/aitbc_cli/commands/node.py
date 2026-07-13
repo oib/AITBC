@@ -21,6 +21,7 @@ try:
     )
     from ..core.node_client import NodeClient
     from ..utils.output import error, info, output, success, warning  # noqa: F401
+    from ..utils.http_client import get_logger
 except ImportError:
     from aitbc_cli.core.config import (
         add_node_config,
@@ -29,6 +30,7 @@ except ImportError:
         remove_node_config,
     )
     from aitbc_cli.core.node_client import NodeClient
+    from aitbc_cli.utils.http_client import get_logger
     from utils import error, output, success
 
     def info(message):
@@ -37,6 +39,8 @@ except ImportError:
 
 import uuid
 from ..utils.error_handling import abort
+
+logger = get_logger(__name__)
 
 
 @click.group()
@@ -343,6 +347,7 @@ def monitor(ctx, node_id, realtime, interval):
 
                     return layout
                 except Exception as e:
+                    logger.warning("Error getting node stats: %s", e, exc_info=True)
                     return f"Error getting node stats: {e}"
 
             with Live(generate_monitor_layout(), refresh_per_second=1) as live:
@@ -400,6 +405,7 @@ def test(ctx, node_id):
                         "chains_count": len(chains),
                     }
             except Exception as e:
+                logger.warning("Node connection test failed: %s", e, exc_info=True)
                 return {"connected": False, "error": str(e)}
 
         result = asyncio.run(test_node())

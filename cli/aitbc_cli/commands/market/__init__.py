@@ -51,6 +51,7 @@ def get_chain_id() -> str:
         if chain_id:
             return str(chain_id)
     except (FileNotFoundError, ValueError):
+        logger.debug("Island credentials not available for chain_id", exc_info=True)
         pass
     # Fall back to hub discovery URL config
     config = get_config()

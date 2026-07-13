@@ -122,6 +122,7 @@ def list_offers(ctx, provider: str | None, status: str | None, service_type: str
                 if result and not isinstance(result, dict):
                     transactions = result  # type: ignore[unreachable]
             except NetworkError:
+                logger.debug("Local blockchain RPC unavailable for transactions", exc_info=True)
                 pass
 
         if not transactions:
@@ -140,6 +141,7 @@ def list_offers(ctx, provider: str | None, status: str | None, service_type: str
                         try:
                             payload = json.loads(payload)
                         except json.JSONDecodeError:
+                            logger.debug("Failed to parse transaction payload JSON", exc_info=True)
                             continue
                 elif "action" in tx:
                     # Direct format (mempool or simplified)
@@ -176,6 +178,7 @@ def list_offers(ctx, provider: str | None, status: str | None, service_type: str
                         if rating_count > 0:
                             rating_display = f"⭐ {avg_rating:.1f} ({rating_count})"
             except Exception:
+                logger.debug("Marketplace service not available, skip ratings", exc_info=True)
                 pass  # Marketplace service not available, skip ratings
 
             blockchain_data.append(
@@ -272,6 +275,7 @@ def status(ctx, order_id: str):
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
             tx_result = http_client.get(f"/rpc/transactions/marketplace/{order_id}")
         except Exception:
+            logger.debug("Offer lookup request failed", exc_info=True)
             pass
 
         if not tx_result:
@@ -279,6 +283,7 @@ def status(ctx, order_id: str):
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
                 tx_result = http_client.get(f"/rpc/transactions/marketplace/{order_id}")
             except Exception:
+                logger.debug("Hub offer lookup request failed", exc_info=True)
                 pass
 
         # Query escrow state from blockchain node
@@ -287,6 +292,7 @@ def status(ctx, order_id: str):
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
             escrow_result = http_client.get(f"/rpc/escrow/{order_id}")
         except Exception:
+            logger.debug("Offer lookup request failed", exc_info=True)
             pass
 
         if not escrow_result:
@@ -294,6 +300,7 @@ def status(ctx, order_id: str):
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
                 escrow_result = http_client.get(f"/rpc/escrow/{order_id}")
             except Exception:
+                logger.debug("Hub offer lookup request failed", exc_info=True)
                 pass
 
         combined: dict = {}
@@ -592,6 +599,7 @@ def offer(
                 f"Software service registered in marketplace (plugin-id: {service_type}-{model_or_variant.replace(':', '-')})"
             )
         except Exception:
+            logger.debug("Offer lookup request failed", exc_info=True)
             pass  # Non-fatal — marketplace service may not be running
 
     except Exception as e:

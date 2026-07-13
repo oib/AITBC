@@ -59,7 +59,8 @@ class BlockEventSubscriber:
             return
         while self._running:
             try:
-                assert self._subscription is not None
+                if self._subscription is None:
+                    raise RuntimeError("Subscription not initialized")
                 block_data = await self._subscription.get()
                 event_queue_size.labels(topic="blocks").set(self._subscription.queue.qsize())
                 logger.info("Received block event: height=%s", block_data.get("height"))

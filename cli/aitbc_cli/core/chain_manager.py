@@ -128,6 +128,7 @@ class ChainManager:
             await self.get_chain_info(chain_id)
             raise ChainAlreadyExistsError(f"Chain {chain_id} already exists")
         except ChainNotFoundError:
+            logger.debug("Chain %s does not exist; safe to create", chain_id, exc_info=True)
             pass  # Chain doesn't exist, which is good
 
         # Select node if not specified
@@ -323,6 +324,7 @@ class ChainManager:
                     if chain.id == chain_id:
                         return chain
             except Exception:
+                logger.debug("Node %s unavailable for chain lookup", node_id, exc_info=True)
                 continue
         return None
 
@@ -390,6 +392,7 @@ class ChainManager:
                 if any(chain.id == chain_id for chain in chains):
                     hosting_nodes.append(node_id)
             except Exception:
+                logger.debug("Node %s unavailable for chain lookup", node_id, exc_info=True)
                 continue
         return hosting_nodes
 
