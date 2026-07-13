@@ -60,7 +60,7 @@ from aitbc_cli.commands.wallet import wallet
 from aitbc_cli.commands.workflow import workflow
 
 # Force CLI version for user-facing output
-__version__ = "2.1.0"
+__version__ = "0.10.12"
 
 
 @click.command(name="list")
