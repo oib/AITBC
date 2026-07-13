@@ -9,6 +9,10 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
+from aitbc.aitbc_logging import get_logger
+
+logger = get_logger(__name__)
+
 
 def generate_token(length: int = 32, prefix: str = "") -> str:
     """Generate a secure random token"""
@@ -153,7 +157,8 @@ class APIKeyManager:
             try:
                 with open(self.storage_path) as f:
                     self.keys = json.load(f)
-            except Exception:
+            except (OSError, json.JSONDecodeError) as e:
+                logger.warning("Failed to load token keys from %s: %s", self.storage_path, e)
                 self.keys = {}
 
     def _save_keys(self):
@@ -162,8 +167,8 @@ class APIKeyManager:
             try:
                 with open(self.storage_path, "w") as f:
                     json.dump(self.keys, f)
-            except Exception:
-                pass
+            except OSError as e:
+                logger.warning("Failed to save token keys to %s: %s", self.storage_path, e)
 
     def items(self):
         """Return key items"""

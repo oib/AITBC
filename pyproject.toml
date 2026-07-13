@@ -212,6 +212,17 @@ exclude = [
     "^docs/",
 ]
 
+# Optional third-party imports in aitbc/ that are not always installed or do not have stubs.
+# Once the corresponding runtime package or stubs are pinned, these overrides can be removed.
+[[tool.mypy.overrides]]
+module = [
+    "pytz",
+    "yaml",
+    "bcrypt",
+    "zstandard",
+]
+ignore_missing_imports = true
+
 [[tool.mypy.overrides]]
 module = [
     "aitbc.*",
