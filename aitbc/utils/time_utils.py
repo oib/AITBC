@@ -8,6 +8,10 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from aitbc.aitbc_logging import get_logger
+
+logger = get_logger(__name__)
+
 
 def get_utc_now() -> datetime:
     """Get current UTC datetime"""
@@ -288,8 +292,8 @@ def retry_until_deadline(func: Callable[[], bool], deadline: datetime, interval:
             result = func()
             if result:
                 return True
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("retry_until_deadline: function failed, retrying: %s", e)
         time.sleep(interval)
     return False
 

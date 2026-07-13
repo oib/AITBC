@@ -3,8 +3,8 @@
 **Level**: All Levels
 **Prerequisites**: None
 **Estimated Time**: 5-15 minutes
-**Last Updated**: June 30, 2026
-**Version**: 2.0
+**Last Updated**: July 13, 2026
+**Version**: 2.1
 
 ## 🧭 **Navigation Path:**
 **🏠 [Documentation Home](../README.md)** → **📋 Releases** → *You are here*
@@ -28,6 +28,8 @@ Read the release notes newest-first:
 ### Current Releases (v0.5.x+)
 - **[v2.0.0](v2.0.0/change.log)** - Vision/Questionable Features — Parked for Re-Evaluation
 - **[v1.0.0](v1.0.0/change.log)** - Production Readiness
+- **[v0.10.12](v0.10.12/change.log)** - Quality Hardening (mypy completeness, test suite repair, production assert removal, dependency/version cleanup) 🔄
+- **[v0.10.11](v0.10.11/change.log)** - Bug Fixes & Code Quality Continuation (stub completion, Pydantic v2, SQLAlchemy standardization, concurrency safety) ✅
 - **[v0.10.10](v0.10.10/change.log)** - Code Quality & Testing Roadmap (mypy coverage, coverage gate, property-based tests, perf regression, dep pinning, dev script, integration fixtures) ✅
 - **[v0.10.9](v0.10.9/change.log)** - Dead Code Elimination & Status Drift Cleanup
 - **[v0.9.0](v0.9.0/change.log)** - Atomic Cross-Chain Settlement
