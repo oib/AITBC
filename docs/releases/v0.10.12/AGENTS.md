@@ -152,7 +152,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts=""
 | B1 | Fix `mypy` errors in `cli/` | 🔴 P0 | `cli/aitbc_cli/...` | ✅ complete |
 | B2 | Remove `assert`/`print`/silent exceptions from `apps/`, `cli/`, and `aitbc/agent_bridge/` production source | 🔴 P0 | `apps/*/src/...`, `cli/aitbc_cli/...`, `aitbc/agent_bridge/src/integration_layer.py` | planned |
 | B3 | Repair `tests/coordinator` and `tests/integration` | 🟡 P1 | `tests/coordinator/test_ignored_modules.py`, `tests/integration/` | planned |
-| B4 | Fix dependency/version drift and choose a canonical lock strategy | 🟡 P1 | `pyproject.toml`, `requirements.txt`, `uv.lock`, `poetry.lock`, `aitbc/_version.py`, `cli/...`, `apps/coordinator-api/pyproject.toml` | planned |
+| B4 | Fix dependency/version drift and choose a canonical lock strategy | 🟡 P1 | `pyproject.toml`, `requirements.txt`, `uv.lock`, `poetry.lock`, `aitbc/_version.py`, `cli/...`, `apps/coordinator-api/pyproject.toml` | ✅ complete |
 | B5 | Repair the Alembic migration graph | 🔴 P0 | `apps/coordinator-api/alembic/versions/...`, `alembic.ini`, `env.py` | ✅ complete |
 | B6 | Harden `tests/integration` isolation and external-service gating | 🟡 P1 | `tests/integration/conftest.py`, `tests/integration/test_blockchain_nodes.py`, `pyproject.toml` markers | planned |
 | B7 | Add CI parity gates for strict `mypy`, version sources, and `assert`/`print` | 🟡 P1 | `.github/workflows/ci.yml`, `pyproject.toml`, `scripts/` | planned |
@@ -373,13 +373,13 @@ cd /opt/aitbc && ./venv/bin/python scripts/check_version_consistency.py
 
 | Date | Agent | File / Request | Status |
 |------|-------|----------------|--------|
-| 2026-07-13 | B | `pyproject.toml` dependency updates for A1/B4 | started |
-| 2026-07-13 | B | B5: Alembic migration graph reconciliation and regression tests | started |
+| 2026-07-13 | B | `pyproject.toml` dependency updates for A1/B4 | ✅ complete |
+| 2026-07-13 | B | B5: Alembic migration graph reconciliation and regression tests | ✅ complete |
 | 2026-07-13 | A | A1: Added `mypy` overrides for `pytz`, `bcrypt`, `zstandard`, `yaml` in `pyproject.toml` | ✅ complete |
 | 2026-07-13 | A | A2: `assert` removal in `aitbc/` (excluding `agent_bridge`) | ✅ complete |
 | 2026-07-13 | A | A3: Silent-exception cleanup in `aitbc/` | ✅ complete |
 | 2026-07-13 | A | A4: Coverage expansion for `aitbc/alerting.py`, `health_checks.py`, `time_utils.py` | ✅ complete |
-| 2026-07-13 | B | `uv.lock` regeneration | blocked on pyproject changes |
+| 2026-07-13 | B | Decided `poetry` as canonical resolver; regenerated `poetry.lock` and removed `uv.lock` | ✅ complete |
 | 2026-07-13 | — | Resolved: A2 scope excludes `aitbc/agent_bridge/src/integration_layer.py`; B2 owns it | documented |
 | 2026-07-13 | A | Expanded A3 inventory of silent exceptions in `aitbc/crypto/`, `aitbc/caching/`, `aitbc/crypto/tokens.py` | planned |
 | 2026-07-13 | B | B1: `cli/` mypy fixes | ✅ complete |

@@ -26,7 +26,7 @@ def read_requirements():
 
 setup(
     name="aitbc-cli",
-    version="0.1.0",
+    version="0.10.12",
     author="AITBC Team",
     author_email="team@aitbc.net",
     description="AITBC Command Line Interface Tools",

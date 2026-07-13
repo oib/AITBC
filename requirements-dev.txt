@@ -29,5 +29,11 @@ keyring>=23.0.0
 tqdm>=4.66.0
 ipython>=8.0.0
 
+# Type stubs
+# ponytail: types-PyYAML and types-pytz are needed by mypy; the exact versions are
+# maintained by Poetry (canonical resolver), so use a broad pin here.
+types-PyYAML>=6.0
+types-pytz>=2025.1
+
 # Authentication
 PyJWT[crypto]>=2.8.0
