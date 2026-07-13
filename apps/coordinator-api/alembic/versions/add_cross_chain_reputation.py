@@ -38,9 +38,10 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("chain_id"),
+        if_not_exists=True,
     )
-    op.create_index("idx_chain_reputation_config_chain", "cross_chain_reputation_configs", ["chain_id"])
-    op.create_index("idx_chain_reputation_config_active", "cross_chain_reputation_configs", ["is_active"])
+    op.create_index("idx_chain_reputation_config_chain", "cross_chain_reputation_configs", ["chain_id"], if_not_exists=True)
+    op.create_index("idx_chain_reputation_config_active", "cross_chain_reputation_configs", ["is_active"], if_not_exists=True)
 
     # Create cross_chain_reputation_aggregations table
     op.create_table(
@@ -62,11 +63,16 @@ def upgrade() -> None:
         sa.Column("last_updated", sa.DateTime(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
-    op.create_index("idx_cross_chain_agg_agent", "cross_chain_reputation_aggregations", ["agent_id"])
-    op.create_index("idx_cross_chain_agg_score", "cross_chain_reputation_aggregations", ["aggregated_score"])
-    op.create_index("idx_cross_chain_agg_updated", "cross_chain_reputation_aggregations", ["last_updated"])
-    op.create_index("idx_cross_chain_agg_status", "cross_chain_reputation_aggregations", ["verification_status"])
+    op.create_index("idx_cross_chain_agg_agent", "cross_chain_reputation_aggregations", ["agent_id"], if_not_exists=True)
+    op.create_index(
+        "idx_cross_chain_agg_score", "cross_chain_reputation_aggregations", ["aggregated_score"], if_not_exists=True
+    )
+    op.create_index("idx_cross_chain_agg_updated", "cross_chain_reputation_aggregations", ["last_updated"], if_not_exists=True)
+    op.create_index(
+        "idx_cross_chain_agg_status", "cross_chain_reputation_aggregations", ["verification_status"], if_not_exists=True
+    )
 
     # Create cross_chain_reputation_events table
     op.create_table(
@@ -87,11 +93,17 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("processed_at", sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
-    op.create_index("idx_cross_chain_event_agent", "cross_chain_reputation_events", ["agent_id"])
-    op.create_index("idx_cross_chain_event_chains", "cross_chain_reputation_events", ["source_chain_id", "target_chain_id"])
-    op.create_index("idx_cross_chain_event_type", "cross_chain_reputation_events", ["event_type"])
-    op.create_index("idx_cross_chain_event_created", "cross_chain_reputation_events", ["created_at"])
+    op.create_index("idx_cross_chain_event_agent", "cross_chain_reputation_events", ["agent_id"], if_not_exists=True)
+    op.create_index(
+        "idx_cross_chain_event_chains",
+        "cross_chain_reputation_events",
+        ["source_chain_id", "target_chain_id"],
+        if_not_exists=True,
+    )
+    op.create_index("idx_cross_chain_event_type", "cross_chain_reputation_events", ["event_type"], if_not_exists=True)
+    op.create_index("idx_cross_chain_event_created", "cross_chain_reputation_events", ["created_at"], if_not_exists=True)
 
     # Create reputation_metrics table
     op.create_table(
@@ -113,16 +125,17 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
-    op.create_index("idx_reputation_metrics_chain_date", "reputation_metrics", ["chain_id", "metric_date"])
-    op.create_index("idx_reputation_metrics_date", "reputation_metrics", ["metric_date"])
+    op.create_index("idx_reputation_metrics_chain_date", "reputation_metrics", ["chain_id", "metric_date"], if_not_exists=True)
+    op.create_index("idx_reputation_metrics_date", "reputation_metrics", ["metric_date"], if_not_exists=True)
 
 
 def downgrade() -> None:
     """Drop cross-chain reputation system tables"""
 
     # Drop tables in reverse order
-    op.drop_table("reputation_metrics")
-    op.drop_table("cross_chain_reputation_events")
-    op.drop_table("cross_chain_reputation_aggregations")
-    op.drop_table("cross_chain_reputation_configs")
+    op.drop_table("reputation_metrics", if_exists=True)
+    op.drop_table("cross_chain_reputation_events", if_exists=True)
+    op.drop_table("cross_chain_reputation_aggregations", if_exists=True)
+    op.drop_table("cross_chain_reputation_configs", if_exists=True)

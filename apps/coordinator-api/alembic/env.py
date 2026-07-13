@@ -15,6 +15,7 @@ Usage::
 
 from __future__ import annotations
 
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -37,7 +38,8 @@ except Exception:  # pragma: no cover - defensive; metadata is optional for upgr
 config = context.config
 
 # Resolve the database URL from the app settings (honours .env / ENVIRONMENT).
-config.set_main_option("sqlalchemy.url", app_settings.database.effective_url)
+# Allow a direct DATABASE_URL override so CI and local tests can target a temp DB.
+config.set_main_option("sqlalchemy.url", os.environ.get("DATABASE_URL", app_settings.database.effective_url))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

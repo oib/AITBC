@@ -11,7 +11,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "add_dynamic_pricing_tables"
-down_revision = "initial_migration"
+down_revision = "2024_01_10_add_settlements_table"
 branch_labels = None
 depends_on = None
 
@@ -67,11 +67,14 @@ def upgrade() -> None:
         sa.Column("price_reasoning", sa.JSON(), nullable=True),
         sa.Column("audit_log", sa.JSON(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
-        sa.Index("idx_pricing_history_resource_timestamp", "resource_id", "timestamp"),
-        sa.Index("idx_pricing_history_type_region", "resource_type", "region"),
-        sa.Index("idx_pricing_history_timestamp", "timestamp"),
-        sa.Index("idx_pricing_history_provider", "provider_id"),
+        if_not_exists=True,
     )
+    op.create_index(
+        "idx_pricing_history_resource_timestamp", "pricing_history", ["resource_id", "timestamp"], if_not_exists=True
+    )
+    op.create_index("idx_pricing_history_type_region", "pricing_history", ["resource_type", "region"], if_not_exists=True)
+    op.create_index("idx_pricing_history_timestamp", "pricing_history", ["timestamp"], if_not_exists=True)
+    op.create_index("idx_pricing_history_provider", "pricing_history", ["provider_id"], if_not_exists=True)
 
     # Create provider_pricing_strategies table
     op.create_table(
@@ -126,10 +129,13 @@ def upgrade() -> None:
         sa.Column("updated_by", sa.String(), nullable=True),
         sa.Column("version", sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
-        sa.Index("idx_provider_strategies_provider", "provider_id"),
-        sa.Index("idx_provider_strategies_type", "strategy_type"),
-        sa.Index("idx_provider_strategies_active", "is_active"),
-        sa.Index("idx_provider_strategies_resource", "resource_type", "provider_id"),
+        if_not_exists=True,
+    )
+    op.create_index("idx_provider_strategies_provider", "provider_pricing_strategies", ["provider_id"], if_not_exists=True)
+    op.create_index("idx_provider_strategies_type", "provider_pricing_strategies", ["strategy_type"], if_not_exists=True)
+    op.create_index("idx_provider_strategies_active", "provider_pricing_strategies", ["is_active"], if_not_exists=True)
+    op.create_index(
+        "idx_provider_strategies_resource", "provider_pricing_strategies", ["resource_type", "provider_id"], if_not_exists=True
     )
 
     # Create market_metrics table
@@ -170,11 +176,14 @@ def upgrade() -> None:
         sa.Column("custom_metrics", sa.JSON(), nullable=True),
         sa.Column("external_factors", sa.JSON(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
-        sa.Index("idx_market_metrics_region_type", "region", "resource_type"),
-        sa.Index("idx_market_metrics_timestamp", "timestamp"),
-        sa.Index("idx_market_metrics_demand", "demand_level"),
-        sa.Index("idx_market_metrics_supply", "supply_level"),
-        sa.Index("idx_market_metrics_composite", "region", "resource_type", "timestamp"),
+        if_not_exists=True,
+    )
+    op.create_index("idx_market_metrics_region_type", "market_metrics", ["region", "resource_type"], if_not_exists=True)
+    op.create_index("idx_market_metrics_timestamp", "market_metrics", ["timestamp"], if_not_exists=True)
+    op.create_index("idx_market_metrics_demand", "market_metrics", ["demand_level"], if_not_exists=True)
+    op.create_index("idx_market_metrics_supply", "market_metrics", ["supply_level"], if_not_exists=True)
+    op.create_index(
+        "idx_market_metrics_composite", "market_metrics", ["region", "resource_type", "timestamp"], if_not_exists=True
     )
 
     # Create price_forecasts table
@@ -228,11 +237,12 @@ def upgrade() -> None:
         sa.Column("outcome", sa.String(), nullable=True),
         sa.Column("lessons_learned", sa.JSON(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
-        sa.Index("idx_price_forecasts_resource", "resource_id"),
-        sa.Index("idx_price_forecasts_target", "target_timestamp"),
-        sa.Index("idx_price_forecasts_created", "created_at"),
-        sa.Index("idx_price_forecasts_horizon", "forecast_horizon_hours"),
+        if_not_exists=True,
     )
+    op.create_index("idx_price_forecasts_resource", "price_forecasts", ["resource_id"], if_not_exists=True)
+    op.create_index("idx_price_forecasts_target", "price_forecasts", ["target_timestamp"], if_not_exists=True)
+    op.create_index("idx_price_forecasts_created", "price_forecasts", ["created_at"], if_not_exists=True)
+    op.create_index("idx_price_forecasts_horizon", "price_forecasts", ["forecast_horizon_hours"], if_not_exists=True)
 
     # Create pricing_optimizations table
     op.create_table(
@@ -306,11 +316,12 @@ def upgrade() -> None:
         sa.Column("reviewed_by", sa.String(), nullable=True),
         sa.Column("approved_by", sa.String(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
-        sa.Index("idx_pricing_opt_provider", "provider_id"),
-        sa.Index("idx_pricing_opt_experiment", "experiment_id"),
-        sa.Index("idx_pricing_opt_status", "status"),
-        sa.Index("idx_pricing_opt_created", "created_at"),
+        if_not_exists=True,
     )
+    op.create_index("idx_pricing_opt_provider", "pricing_optimizations", ["provider_id"], if_not_exists=True)
+    op.create_index("idx_pricing_opt_experiment", "pricing_optimizations", ["experiment_id"], if_not_exists=True)
+    op.create_index("idx_pricing_opt_status", "pricing_optimizations", ["status"], if_not_exists=True)
+    op.create_index("idx_pricing_opt_created", "pricing_optimizations", ["created_at"], if_not_exists=True)
 
     # Create pricing_alerts table
     op.create_table(
@@ -349,12 +360,13 @@ def upgrade() -> None:
         sa.Column("notification_channels", sa.JSON(), nullable=True),
         sa.Column("escalation_level", sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
-        sa.Index("idx_pricing_alerts_provider", "provider_id"),
-        sa.Index("idx_pricing_alerts_type", "alert_type"),
-        sa.Index("idx_pricing_alerts_status", "status"),
-        sa.Index("idx_pricing_alerts_severity", "severity"),
-        sa.Index("idx_pricing_alerts_created", "created_at"),
+        if_not_exists=True,
     )
+    op.create_index("idx_pricing_alerts_provider", "pricing_alerts", ["provider_id"], if_not_exists=True)
+    op.create_index("idx_pricing_alerts_type", "pricing_alerts", ["alert_type"], if_not_exists=True)
+    op.create_index("idx_pricing_alerts_status", "pricing_alerts", ["status"], if_not_exists=True)
+    op.create_index("idx_pricing_alerts_severity", "pricing_alerts", ["severity"], if_not_exists=True)
+    op.create_index("idx_pricing_alerts_created", "pricing_alerts", ["created_at"], if_not_exists=True)
 
     # Create pricing_rules table
     op.create_table(
@@ -391,11 +403,12 @@ def upgrade() -> None:
         sa.Column("version", sa.Integer(), nullable=False),
         sa.Column("change_log", sa.JSON(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
-        sa.Index("idx_pricing_rules_provider", "provider_id"),
-        sa.Index("idx_pricing_rules_strategy", "strategy_id"),
-        sa.Index("idx_pricing_rules_active", "is_active"),
-        sa.Index("idx_pricing_rules_priority", "priority"),
+        if_not_exists=True,
     )
+    op.create_index("idx_pricing_rules_provider", "pricing_rules", ["provider_id"], if_not_exists=True)
+    op.create_index("idx_pricing_rules_strategy", "pricing_rules", ["strategy_id"], if_not_exists=True)
+    op.create_index("idx_pricing_rules_active", "pricing_rules", ["is_active"], if_not_exists=True)
+    op.create_index("idx_pricing_rules_priority", "pricing_rules", ["priority"], if_not_exists=True)
 
     # Create pricing_audit_log table
     op.create_table(
@@ -429,28 +442,30 @@ def upgrade() -> None:
         sa.Column("metadata", sa.JSON(), nullable=True),
         sa.Column("tags", sa.JSON(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
-        sa.Index("idx_pricing_audit_provider", "provider_id"),
-        sa.Index("idx_pricing_audit_resource", "resource_id"),
-        sa.Index("idx_pricing_audit_action", "action_type"),
-        sa.Index("idx_pricing_audit_timestamp", "timestamp"),
-        sa.Index("idx_pricing_audit_user", "user_id"),
+        if_not_exists=True,
     )
+    op.create_index("idx_pricing_audit_provider", "pricing_audit_log", ["provider_id"], if_not_exists=True)
+    op.create_index("idx_pricing_audit_resource", "pricing_audit_log", ["resource_id"], if_not_exists=True)
+    op.create_index("idx_pricing_audit_action", "pricing_audit_log", ["action_type"], if_not_exists=True)
+    op.create_index("idx_pricing_audit_timestamp", "pricing_audit_log", ["timestamp"], if_not_exists=True)
+    op.create_index("idx_pricing_audit_user", "pricing_audit_log", ["user_id"], if_not_exists=True)
 
 
 def downgrade() -> None:
     """Drop dynamic pricing tables"""
 
     # Drop tables in reverse order of creation
-    op.drop_table("pricing_audit_log")
-    op.drop_table("pricing_rules")
-    op.drop_table("pricing_alerts")
-    op.drop_table("pricing_optimizations")
-    op.drop_table("price_forecasts")
-    op.drop_table("market_metrics")
-    op.drop_table("provider_pricing_strategies")
-    op.drop_table("pricing_history")
+    op.drop_table("pricing_audit_log", if_exists=True)
+    op.drop_table("pricing_rules", if_exists=True)
+    op.drop_table("pricing_alerts", if_exists=True)
+    op.drop_table("pricing_optimizations", if_exists=True)
+    op.drop_table("price_forecasts", if_exists=True)
+    op.drop_table("market_metrics", if_exists=True)
+    op.drop_table("provider_pricing_strategies", if_exists=True)
+    op.drop_table("pricing_history", if_exists=True)
 
-    # Drop enums
-    op.execute("DROP TYPE IF EXISTS pricetrend")
-    op.execute("DROP TYPE IF EXISTS pricingstrategytype")
-    op.execute("DROP TYPE IF EXISTS resourcetype")
+    # Drop enums (PostgreSQL only; SQLite does not support user-defined types)
+    if op.get_bind().dialect.name != "sqlite":
+        op.execute("DROP TYPE IF EXISTS pricetrend")
+        op.execute("DROP TYPE IF EXISTS pricingstrategytype")
+        op.execute("DROP TYPE IF EXISTS resourcetype")

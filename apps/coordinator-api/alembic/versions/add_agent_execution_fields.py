@@ -10,18 +10,20 @@ Create Date: 2026-07-07 00:00:02.000000
 
 """
 
-from alembic import op
+from alembic import context, op
 import sqlalchemy as sa
 from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision = "add_agent_execution_fields"
-down_revision = "add_job_cross_chain_columns"
+down_revision = "add_marketplace_job_indexes"
 branch_labels = None
 depends_on = None
 
 
 def _has_column(table: str, column: str) -> bool:
+    if context.is_offline_mode():
+        return False
     bind = op.get_bind()
     return column in {c["name"] for c in inspect(bind).get_columns(table)}
 
