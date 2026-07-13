@@ -14,7 +14,7 @@ Create Date: 2024-01-05 00:00:00.000000
 
 # revision identifiers, used by Alembic.
 revision = "2024_01_05_add_receipts_table"
-down_revision = None
+down_revision = "initial_migration"
 branch_labels = None
 depends_on = None
 
