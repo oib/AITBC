@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import click
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from ...config import get_config
 from ...utils import error, output, success
@@ -136,7 +136,7 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
                 with open(wallet_path, "w") as f:
                     json.dump(wallet_data, f, indent=2)
             except OSError as e:
-                error("Failed to re-save wallet with encryption: %s", e)
+                error(f"Failed to re-save wallet with encryption: {e}")
                 raise click.Abort() from e
             click.echo("Re-encrypted legacy wallet with PBKDF2+Fernet.")
             wallet_data["private_key"] = priv  # return plaintext for in-memory use

@@ -74,7 +74,7 @@ def get_config(config_file: str | None = None) -> CLIConfig:
     if config_file:
         config_path = Path(config_file)
         if config_path.exists():
-            import yaml  # type: ignore[import-untyped]
+            import yaml
 
             with open(config_path) as f:
                 config_data = yaml.safe_load(f) or {}

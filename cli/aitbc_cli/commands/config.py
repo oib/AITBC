@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 import click
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from ..config import get_config
 from ..utils import error, output, success

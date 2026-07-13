@@ -7,7 +7,7 @@ import os
 from typing import Any
 
 import click
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from ..config import get_config
 from ..utils import error, success
