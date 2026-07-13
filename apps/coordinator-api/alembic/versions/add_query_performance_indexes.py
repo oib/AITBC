@@ -104,6 +104,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Drop the query performance indexes."""
     for index_name, _table_name, _columns in _COMPOSITE_INDEXES:
-        op.drop_index(index_name, table_name=_table_name)
+        op.drop_index(index_name, table_name=_table_name, if_exists=True)
     for index_name, _table_name, _columns in _SINGLE_COLUMN_INDEXES:
-        op.drop_index(index_name, table_name=_table_name)
+        op.drop_index(index_name, table_name=_table_name, if_exists=True)

@@ -45,10 +45,11 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("region_code"),
+        if_not_exists=True,
     )
-    op.create_index("idx_marketplace_region_code", "marketplace_regions", ["region_code"])
-    op.create_index("idx_marketplace_region_status", "marketplace_regions", ["status"])
-    op.create_index("idx_marketplace_region_health", "marketplace_regions", ["health_score"])
+    op.create_index("idx_marketplace_region_code", "marketplace_regions", ["region_code"], if_not_exists=True)
+    op.create_index("idx_marketplace_region_status", "marketplace_regions", ["status"], if_not_exists=True)
+    op.create_index("idx_marketplace_region_health", "marketplace_regions", ["health_score"], if_not_exists=True)
 
     # Create global_marketplace_configs table
     op.create_table(
@@ -69,9 +70,10 @@ def upgrade() -> None:
         sa.Column("last_modified_by", sa.String(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("config_key"),
+        if_not_exists=True,
     )
-    op.create_index("idx_global_config_key", "global_marketplace_configs", ["config_key"])
-    op.create_index("idx_global_config_category", "global_marketplace_configs", ["category"])
+    op.create_index("idx_global_config_key", "global_marketplace_configs", ["config_key"], if_not_exists=True)
+    op.create_index("idx_global_config_category", "global_marketplace_configs", ["category"], if_not_exists=True)
 
     # Create global_marketplace_offers table
     op.create_table(
@@ -99,11 +101,12 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.Column("expires_at", sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
-    op.create_index("idx_global_offer_agent", "global_marketplace_offers", ["agent_id"])
-    op.create_index("idx_global_offer_service", "global_marketplace_offers", ["service_type"])
-    op.create_index("idx_global_offer_status", "global_marketplace_offers", ["global_status"])
-    op.create_index("idx_global_offer_created", "global_marketplace_offers", ["created_at"])
+    op.create_index("idx_global_offer_agent", "global_marketplace_offers", ["agent_id"], if_not_exists=True)
+    op.create_index("idx_global_offer_service", "global_marketplace_offers", ["service_type"], if_not_exists=True)
+    op.create_index("idx_global_offer_status", "global_marketplace_offers", ["global_status"], if_not_exists=True)
+    op.create_index("idx_global_offer_created", "global_marketplace_offers", ["created_at"], if_not_exists=True)
 
     # Create global_marketplace_transactions table
     op.create_table(
@@ -134,13 +137,16 @@ def upgrade() -> None:
         sa.Column("completed_at", sa.DateTime(), nullable=True),
         sa.Column("metadata", sa.JSON(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
-    op.create_index("idx_global_tx_buyer", "global_marketplace_transactions", ["buyer_id"])
-    op.create_index("idx_global_tx_seller", "global_marketplace_transactions", ["seller_id"])
-    op.create_index("idx_global_tx_offer", "global_marketplace_transactions", ["offer_id"])
-    op.create_index("idx_global_tx_status", "global_marketplace_transactions", ["status"])
-    op.create_index("idx_global_tx_created", "global_marketplace_transactions", ["created_at"])
-    op.create_index("idx_global_tx_chain", "global_marketplace_transactions", ["source_chain", "target_chain"])
+    op.create_index("idx_global_tx_buyer", "global_marketplace_transactions", ["buyer_id"], if_not_exists=True)
+    op.create_index("idx_global_tx_seller", "global_marketplace_transactions", ["seller_id"], if_not_exists=True)
+    op.create_index("idx_global_tx_offer", "global_marketplace_transactions", ["offer_id"], if_not_exists=True)
+    op.create_index("idx_global_tx_status", "global_marketplace_transactions", ["status"], if_not_exists=True)
+    op.create_index("idx_global_tx_created", "global_marketplace_transactions", ["created_at"], if_not_exists=True)
+    op.create_index(
+        "idx_global_tx_chain", "global_marketplace_transactions", ["source_chain", "target_chain"], if_not_exists=True
+    )
 
     # Create global_marketplace_analytics table
     op.create_table(
@@ -169,10 +175,13 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
-    op.create_index("idx_global_analytics_period", "global_marketplace_analytics", ["period_type", "period_start"])
-    op.create_index("idx_global_analytics_region", "global_marketplace_analytics", ["region"])
-    op.create_index("idx_global_analytics_created", "global_marketplace_analytics", ["created_at"])
+    op.create_index(
+        "idx_global_analytics_period", "global_marketplace_analytics", ["period_type", "period_start"], if_not_exists=True
+    )
+    op.create_index("idx_global_analytics_region", "global_marketplace_analytics", ["region"], if_not_exists=True)
+    op.create_index("idx_global_analytics_created", "global_marketplace_analytics", ["created_at"], if_not_exists=True)
 
     # Create global_marketplace_governance table
     op.create_table(
@@ -197,30 +206,42 @@ def upgrade() -> None:
         sa.Column("effective_from", sa.DateTime(), nullable=False),
         sa.Column("expires_at", sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
-    op.create_index("idx_global_gov_rule_type", "global_marketplace_governance", ["rule_type"])
-    op.create_index("idx_global_gov_active", "global_marketplace_governance", ["is_active"])
-    op.create_index("idx_global_gov_effective", "global_marketplace_governance", ["effective_from", "expires_at"])
+    op.create_index("idx_global_gov_rule_type", "global_marketplace_governance", ["rule_type"], if_not_exists=True)
+    op.create_index("idx_global_gov_active", "global_marketplace_governance", ["is_active"], if_not_exists=True)
+    op.create_index(
+        "idx_global_gov_effective", "global_marketplace_governance", ["effective_from", "expires_at"], if_not_exists=True
+    )
 
     # Insert default regions
     op.execute("""
-        INSERT INTO marketplace_regions (id, region_code, region_name, geographic_area, base_currency, timezone, language, load_factor, max_concurrent_requests, priority_weight, status, health_score, api_endpoint, websocket_endpoint, created_at, updated_at)
+        INSERT INTO marketplace_regions (
+            id, region_code, region_name, geographic_area, base_currency, timezone, language,
+            load_factor, max_concurrent_requests, priority_weight, status, health_score,
+            last_health_check, api_endpoint, websocket_endpoint, blockchain_rpc_endpoints,
+            average_response_time, request_rate, error_rate, created_at, updated_at
+        )
         VALUES
-        ('region_us_east_1', 'us-east-1', 'US East (N. Virginia)', 'north_america', 'USD', 'UTC', 'en', 1.0, 1000, 1.0, 'active', 1.0, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NOW(), NOW()),
-        ('region_us_west_1', 'us-west-1', 'US West (N. California)', 'north_america', 'USD', 'UTC', 'en', 1.0, 1000, 1.0, 'active', 1.0, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NOW(), NOW()),
-        ('region_eu_west_1', 'eu-west-1', 'EU West (Ireland)', 'europe', 'EUR', 'UTC', 'en', 1.0, 1000, 1.0, 'active', 1.0, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NOW(), NOW()),
-        ('region_ap_south_1', 'ap-south-1', 'AP South (Mumbai)', 'asia_pacific', 'USD', 'UTC', 'en', 1.0, 1000, 1.0, 'active', 1.0, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NOW(), NOW())
+        ('region_us_east_1', 'us-east-1', 'US East (N. Virginia)', 'north_america', 'USD', 'UTC', 'en', 1.0, 1000, 1.0, 'active', 1.0, NULL, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NULL, 0.0, 0.0, 0.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+        ('region_us_west_1', 'us-west-1', 'US West (N. California)', 'north_america', 'USD', 'UTC', 'en', 1.0, 1000, 1.0, 'active', 1.0, NULL, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NULL, 0.0, 0.0, 0.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+        ('region_eu_west_1', 'eu-west-1', 'EU West (Ireland)', 'europe', 'EUR', 'UTC', 'en', 1.0, 1000, 1.0, 'active', 1.0, NULL, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NULL, 0.0, 0.0, 0.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+        ('region_ap_south_1', 'ap-south-1', 'AP South (Mumbai)', 'asia_pacific', 'USD', 'UTC', 'en', 1.0, 1000, 1.0, 'active', 1.0, NULL, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NULL, 0.0, 0.0, 0.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     """)
 
     # Insert default global marketplace configurations
     op.execute("""
-        INSERT INTO global_marketplace_configs (id, config_key, config_value, config_type, description, category, is_public, created_at, updated_at)
+        INSERT INTO global_marketplace_configs (
+            id, config_key, config_value, config_type, description, category,
+            is_public, is_encrypted, min_value, max_value, allowed_values,
+            created_at, updated_at, last_modified_by
+        )
         VALUES
-        ('config_global_enabled', 'global_enabled', 'true', 'boolean', 'Enable global marketplace functionality', 'general', true, NOW(), NOW()),
-        ('config_max_regions_per_offer', 'max_regions_per_offer', '10', 'number', 'Maximum number of regions per offer', 'limits', false, NOW(), NOW()),
-        ('config_default_currency', 'default_currency', 'USD', 'string', 'Default currency for global marketplace', 'general', true, NOW(), NOW()),
-        ('config_cross_chain_enabled', 'cross_chain_enabled', 'true', 'boolean', 'Enable cross-chain transactions', 'cross_chain', true, NOW(), NOW()),
-        ('config_min_reputation_global', 'min_reputation_global', '500', 'number', 'Minimum reputation for global marketplace', 'reputation', false, NOW(), NOW())
+        ('config_global_enabled', 'global_enabled', 'true', 'boolean', 'Enable global marketplace functionality', 'general', true, false, NULL, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+        ('config_max_regions_per_offer', 'max_regions_per_offer', '10', 'number', 'Maximum number of regions per offer', 'limits', false, false, NULL, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+        ('config_default_currency', 'default_currency', 'USD', 'string', 'Default currency for global marketplace', 'general', true, false, NULL, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+        ('config_cross_chain_enabled', 'cross_chain_enabled', 'true', 'boolean', 'Enable cross-chain transactions', 'cross_chain', true, false, NULL, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+        ('config_min_reputation_global', 'min_reputation_global', '500', 'number', 'Minimum reputation for global marketplace', 'reputation', false, false, NULL, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL)
     """)
 
 
@@ -228,9 +249,9 @@ def downgrade() -> None:
     """Drop global marketplace tables"""
 
     # Drop tables in reverse order
-    op.drop_table("global_marketplace_governance")
-    op.drop_table("global_marketplace_analytics")
-    op.drop_table("global_marketplace_transactions")
-    op.drop_table("global_marketplace_offers")
-    op.drop_table("global_marketplace_configs")
-    op.drop_table("marketplace_regions")
+    op.drop_table("global_marketplace_governance", if_exists=True)
+    op.drop_table("global_marketplace_analytics", if_exists=True)
+    op.drop_table("global_marketplace_transactions", if_exists=True)
+    op.drop_table("global_marketplace_offers", if_exists=True)
+    op.drop_table("global_marketplace_configs", if_exists=True)
+    op.drop_table("marketplace_regions", if_exists=True)

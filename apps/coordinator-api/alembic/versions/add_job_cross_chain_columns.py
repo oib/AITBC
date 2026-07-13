@@ -10,13 +10,13 @@ Create Date: 2026-07-07 00:00:01.000000
 
 """
 
-from alembic import op
+from alembic import context, op
 import sqlalchemy as sa
 from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision = "add_job_cross_chain_columns"
-down_revision = "add_marketplace_job_indexes"
+down_revision = "migrate_usage_records_to_numeric"
 branch_labels = None
 depends_on = None
 
@@ -47,16 +47,20 @@ _COLUMNS: list[tuple[str, sa.types.TypeEngine, bool]] = [
 def upgrade() -> None:
     # Guard with inspect() so the migration is idempotent: existing DBs that
     # were built via create_all may already have some of these columns.
-    bind = op.get_bind()
-    existing_cols = {c["name"] for c in inspect(bind).get_columns("job")}
-    existing_indexes = {i["name"] for i in inspect(bind).get_indexes("job")}
+    if context.is_offline_mode():
+        existing_cols: set[str] = set()
+        existing_indexes: set[str] = set()
+    else:
+        bind = op.get_bind()
+        existing_cols = {c["name"] for c in inspect(bind).get_columns("job")}
+        existing_indexes = {i["name"] for i in inspect(bind).get_indexes("job")}
     for col_name, col_type, has_index in _COLUMNS:
         if col_name not in existing_cols:
             op.add_column("job", sa.Column(col_name, col_type, nullable=True))
         if has_index:
             idx_name = f"ix_job_{col_name}"
             if idx_name not in existing_indexes:
-                op.create_index(idx_name, "job", [col_name])
+                op.create_index(idx_name, "job", [col_name], if_not_exists=True)
 
 
 def downgrade() -> None:
