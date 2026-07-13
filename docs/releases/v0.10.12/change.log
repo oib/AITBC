@@ -30,7 +30,7 @@ v0.10.12 is a **quality hardening release**. It addresses the gaps left after th
 | Silent exception handling cleanup | 7 | ✅ complete | `aitbc/utils/time_utils.py`, `caching/redis_cache.py`, `crypto/tokens.py` |
 | `tests/coordinator` failure repair | 2 | 🔄 planned | `requests.post` → `httpx` mock update |
 | `tests/integration` hang repair | 1 | 🔄 planned | Quarantine external-service tests |
-| Dependency/version drift | 5 | 🔄 planned | `bcrypt`, `zstandard`, `types-pytz`, `uv.lock`, version strings |
+| Dependency/version drift | 5 | ✅ complete | `bcrypt`, `zstandard`, `types-pytz`, `uv.lock` removed, `poetry` canonical, version strings aligned |
 | Coverage expansion | 3 | ✅ complete | `aitbc/alerting`, `health_checks`, `utils/time_utils` |
 
 ---
@@ -70,7 +70,7 @@ cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 - [x] Fix `mypy` errors in `cli/`
 - [ ] Remove `assert`/`print` from `apps/` and `cli/` production source
 - [ ] Repair `tests/coordinator` failures and `tests/integration` hang
-- [ ] Fix dependency/version drift in `pyproject.toml`/`requirements.txt`/`uv.lock`
+- [x] Fix dependency/version drift in `pyproject.toml`/`requirements.txt`/`uv.lock`
 
 ---
 
