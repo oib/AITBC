@@ -34,11 +34,11 @@ async def lifespan(app: FastAPI):
     try:
         result = subprocess.run(["ffmpeg", "-hwaccels"], capture_output=True, text=True, timeout=5)
         if _hw_accel not in result.stdout:
-            print(f"Warning: {_hw_accel} hardware acceleration not available in FFmpeg")
+            logger.warning(f"{_hw_accel} hardware acceleration not available in FFmpeg")
         else:
-            print(f"FFmpeg service ready with {_hw_accel} hardware acceleration")
+            logger.info(f"FFmpeg service ready with {_hw_accel} hardware acceleration")
     except Exception as e:
-        print(f"Warning: FFmpeg not available: {e}")
+        logger.warning(f"FFmpeg not available: {e}")
     yield
 
 

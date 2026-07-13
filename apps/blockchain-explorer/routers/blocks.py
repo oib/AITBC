@@ -119,8 +119,8 @@ async def api_non_empty_blocks(
 
         conn.close()
         return {"blocks": blocks}
-    except Exception as e:
-        print(f"Error getting non-empty blocks: {e}")
+    except Exception:
+        logger.exception("Error getting non-empty blocks")
         return {"blocks": []}
 
 
@@ -234,8 +234,8 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
                                 return normalize_block(block)
 
         return {}
-    except Exception as e:
-        print(f"Error getting block by hash {hash}: {e}")
+    except Exception:
+        logger.exception("Error getting block by hash %s", hash)
         return {}
 
 
@@ -289,8 +289,8 @@ async def api_blocks_by_address(
 
         conn.close()
         return {"blocks": blocks}
-    except Exception as e:
-        print(f"Error getting blocks for address {address}: {e}")
+    except Exception:
+        logger.exception("Error getting blocks for address %s", address)
         return {"blocks": []}
 
 
@@ -345,8 +345,8 @@ async def api_block(height: int, chain_id: str | None = DEFAULT_CHAIN) -> dict[s
             block_data["transactions"] = transactions
         else:
             block_data["transactions"] = []
-    except Exception as e:
-        print(f"Error getting transactions for block {height}: {e}")
+    except Exception:
+        logger.exception("Error getting transactions for block %s", height)
         block_data["transactions"] = []
 
     return block_data

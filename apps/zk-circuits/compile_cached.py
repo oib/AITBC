@@ -11,7 +11,10 @@ import sys
 import time
 from pathlib import Path
 
+from aitbc.aitbc_logging import configure_logging, get_logger
 from zk_cache import ZKCircuitCache
+
+logger = get_logger(__name__)
 
 
 def compile_circuit_cached(circuit_file: str, output_dir: str | None = None, use_cache: bool = True) -> dict:
@@ -50,12 +53,12 @@ def compile_circuit_cached(circuit_file: str, output_dir: str | None = None, use
     if use_cache:
         cached_result = cache.get_cached_artifacts(circuit_path, output_path)
         if cached_result:
-            print(f"✅ Cache hit for {circuit_file} - skipping compilation")
+            logger.info(f"✅ Cache hit for {circuit_file} - skipping compilation")
             result["cache_hit"] = True
             result["compilation_time"] = cached_result.get("compilation_time", 0.0)
             return result
 
-    print(f"🔧 Compiling {circuit_file}...")
+    logger.info(f"🔧 Compiling {circuit_file}...")
 
     # Create output directory
     output_path.mkdir(parents=True, exist_ok=True)
@@ -75,10 +78,10 @@ def compile_circuit_cached(circuit_file: str, output_dir: str | None = None, use
 
         result["cached"] = True
         result["compilation_time"] = compilation_time
-        print(f"✅ Compiled successfully in {compilation_time:.3f}s")
+        logger.info(f"✅ Compiled successfully in {compilation_time:.3f}s")
         return result
     except subprocess.CalledProcessError as e:
-        print(f"❌ Compilation failed: {e}")
+        logger.error("❌ Compilation failed: %s", e)
         result["error"] = str(e)
         result["cached"] = False
 
@@ -100,10 +103,10 @@ def main():
     if args.stats:
         cache = ZKCircuitCache()
         stats = cache.get_cache_stats()
-        print("Cache Statistics:")
-        print(f"  Entries: {stats['entries']}")
-        print(f"  Total Size: {stats['total_size_mb']:.2f} MB")
-        print(f"  Cache Directory: {stats['cache_dir']}")
+        logger.info("Cache Statistics:")
+        logger.info(f"  Entries: {stats['entries']}")
+        logger.info(f"  Total Size: {stats['total_size_mb']:.2f} MB")
+        logger.info(f"  Cache Directory: {stats['cache_dir']}")
         return
 
     # Compile circuit
@@ -111,13 +114,14 @@ def main():
 
     if result.get("cached") or result.get("cache_hit"):
         if result.get("cache_hit"):
-            print("🎯 Used cached compilation")
+            logger.info("🎯 Used cached compilation")
         else:
-            print(f"✅ Compiled successfully in {result['compilation_time']:.3f}s")
+            logger.info(f"✅ Compiled successfully in {result['compilation_time']:.3f}s")
     else:
-        print("❌ Compilation failed")
+        logger.error("❌ Compilation failed")
         sys.exit(1)
 
 
 if __name__ == "__main__":
+    configure_logging(level="INFO")
     main()

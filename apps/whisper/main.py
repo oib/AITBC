@@ -33,9 +33,9 @@ async def lifespan(app: FastAPI):
     global _model
     from faster_whisper import WhisperModel  # type: ignore[import-untyped]
 
-    print(f"Loading Whisper model '{_model_name}' on {_device} ({_compute_type})...")
+    logger.info(f"Loading Whisper model '{_model_name}' on {_device} ({_compute_type})...")
     _model = WhisperModel(_model_name, device=_device, compute_type=_compute_type)
-    print("Whisper model ready.")
+    logger.info("Whisper model ready.")
     yield
     _model = None
 
