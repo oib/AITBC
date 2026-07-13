@@ -334,7 +334,8 @@ class GossipBroker:
 
         async def _drain() -> None:
             batch_size = settings.gossip_message_batch_size
-            assert self._priority_queue is not None
+            if self._priority_queue is None:
+                raise RuntimeError("Priority queue not initialized")
             while True:
                 try:
                     messages: list[PrioritizedMessage] = self._priority_queue.get_batch(max_count=batch_size)

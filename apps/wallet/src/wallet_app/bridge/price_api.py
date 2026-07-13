@@ -6,7 +6,10 @@ Fetches ETH price from CoinGecko and calculates AIT exchange rate.
 from datetime import datetime
 from typing import Any
 
+from aitbc.aitbc_logging import get_logger
 from aitbc.network import SharedHttpClient
+
+logger = get_logger(__name__)
 
 # Fixed AIT price in USD (for simplicity in MVP)
 AIT_USD_PRICE = 1.0  # 1 AIT = $1 USD
@@ -35,7 +38,7 @@ async def get_eth_prices() -> dict[str, float] | None:
 
         return None
     except Exception as e:
-        print(f"Error fetching ETH prices: {e}")
+        logger.error("Failed to fetch ETH prices: %s", e)
         return None
 
 

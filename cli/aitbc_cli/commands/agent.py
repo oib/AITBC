@@ -69,6 +69,7 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
                         config = yaml.safe_load(f)
                         wallet_name = config.get("active_wallet") if isinstance(config, dict) else None
                 except Exception:
+                    logger.debug("Failed to read active_wallet from config.yaml", exc_info=True)
                     pass
 
     if wallet_name:
