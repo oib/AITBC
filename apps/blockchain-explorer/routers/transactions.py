@@ -71,8 +71,8 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAI
                 return response.json()  # type: ignore[no-any-return]
 
         return {}
-    except Exception as e:
-        print(f"Error getting transaction by hash {hash}: {e}")
+    except Exception:
+        logger.exception("Error getting transaction by hash %s", hash)
         return {}
 
 
@@ -131,8 +131,8 @@ async def api_search_transactions(
             return {"transactions": transactions}
 
         return {"transactions": []}
-    except Exception as e:
-        print(f"Error searching transactions for address {address}: {e}")
+    except Exception:
+        logger.exception("Error searching transactions for address %s", address)
         return {"transactions": []}
 
 
