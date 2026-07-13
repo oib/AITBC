@@ -11,9 +11,12 @@ from datetime import datetime
 from typing import Any
 
 import yaml
+from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc_chain.database import init_db, session_scope
 from aitbc_chain.models import Account, Block, Transaction
 from sqlmodel import select
+
+logger = get_logger(__name__)
 
 
 def compute_block_hash(height: int, parent_hash: str, timestamp: datetime, chain_id: str) -> str:
@@ -24,17 +27,17 @@ def compute_block_hash(height: int, parent_hash: str, timestamp: datetime, chain
 
 def create_genesis_accounts(session, accounts: list[dict[str, Any]], chain_id: str):
     """Create genesis accounts"""
-    print(f"🏦 Creating {len(accounts)} genesis accounts...")
+    logger.info(f"🏦 Creating {len(accounts)} genesis accounts...")
 
     for account in accounts:
         db_account = Account(address=account["address"], balance=int(account["balance"]), chain_id=chain_id)
         session.add(db_account)
-        print(f"  ✅ Created account: {account['address']} ({account['balance']} AITBC)")
+        logger.info(f"  ✅ Created account: {account['address']} ({account['balance']} AITBC)")
 
 
 def create_genesis_contracts(session, contracts: list[dict[str, Any]], chain_id: str):
     """Create genesis contracts"""
-    print(f"📜 Deploying {len(contracts)} genesis contracts...")
+    logger.info(f"📜 Deploying {len(contracts)} genesis contracts...")
 
     for contract in contracts:
         # Create contract deployment transaction
@@ -46,19 +49,19 @@ def create_genesis_contracts(session, contracts: list[dict[str, Any]], chain_id:
             payload={"type": "contract_deployment", "contract_name": contract["name"], "code": contract.get("code", "0x")},
         )
         session.add(deployment_tx)
-        print(f"  ✅ Deployed contract: {contract['name']} at {contract['address']}")
+        logger.info(f"  ✅ Deployed contract: {contract['name']} at {contract['address']}")
 
 
 def create_enhanced_genesis(config_path: str = None):
     """Create enhanced genesis block with new features"""
-    print("🌟 Creating Enhanced Genesis Block with New Features")
-    print("=" * 60)
+    logger.info("🌟 Creating Enhanced Genesis Block with New Features")
+    logger.info("=" * 60)
 
     # Load configuration
     if config_path and os.path.exists(config_path):
         with open(config_path) as f:
             config = yaml.safe_load(f)
-        print(f"📋 Loaded configuration from {config_path}")
+        logger.info(f"📋 Loaded configuration from {config_path}")
     else:
         # Default enhanced configuration
         config = {
@@ -101,11 +104,11 @@ def create_enhanced_genesis(config_path: str = None):
     genesis = config["genesis"]
     chain_id = genesis["chain_id"]
 
-    print(f"🔗 Chain ID: {chain_id}")
-    print(f"🏷️  Chain Type: {genesis['chain_type']}")
-    print(f"🎯 Purpose: {genesis['purpose']}")
-    print(f"⚡ Features: {', '.join([k for k, v in genesis.get('features', {}).items() if v])}")
-    print()
+    logger.info(f"🔗 Chain ID: {chain_id}")
+    logger.info(f"🏷️  Chain Type: {genesis['chain_type']}")
+    logger.info(f"🎯 Purpose: {genesis['purpose']}")
+    logger.info(f"⚡ Features: {', '.join([k for k, v in genesis.get('features', {}).items() if v])}")
+    logger.info("")
 
     # Initialize database
     init_db()
@@ -115,8 +118,8 @@ def create_enhanced_genesis(config_path: str = None):
         existing = session.exec(select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)).first()
 
         if existing:
-            print(f"⚠️  Genesis block already exists for chain {chain_id}: #{existing.height}")
-            print("🔄 Use --force to overwrite existing genesis")
+            logger.info(f"⚠️  Genesis block already exists for chain {chain_id}: #{existing.height}")
+            logger.info("🔄 Use --force to overwrite existing genesis")
             return existing
 
         # Create genesis block
@@ -164,15 +167,15 @@ def create_enhanced_genesis(config_path: str = None):
 
         session.commit()
 
-        print("✅ Enhanced Genesis Block Created Successfully!")
-        print(f"🔗 Chain ID: {chain_id}")
-        print(f"📦 Block Height: #{genesis_block.height}")
-        print(f"🔐 Block Hash: {genesis_block.hash}")
-        print(f"👤 Proposer: {genesis_block.proposer}")
-        print(f"🕐 Timestamp: {genesis_block.timestamp}")
-        print(f"📝 Accounts Created: {len(genesis.get('accounts', []))}")
-        print(f"📜 Contracts Deployed: {len(genesis.get('contracts', []))}")
-        print(f"⚡ Features Enabled: {len([k for k, v in genesis.get('features', {}).items() if v])}")
+        logger.info("✅ Enhanced Genesis Block Created Successfully!")
+        logger.info(f"🔗 Chain ID: {chain_id}")
+        logger.info(f"📦 Block Height: #{genesis_block.height}")
+        logger.info(f"🔐 Block Hash: {genesis_block.hash}")
+        logger.info(f"👤 Proposer: {genesis_block.proposer}")
+        logger.info(f"🕐 Timestamp: {genesis_block.timestamp}")
+        logger.info(f"📝 Accounts Created: {len(genesis.get('accounts', []))}")
+        logger.info(f"📜 Contracts Deployed: {len(genesis.get('contracts', []))}")
+        logger.info(f"⚡ Features Enabled: {len([k for k, v in genesis.get('features', {}).items() if v])}")
 
         return genesis_block
 
@@ -190,23 +193,24 @@ def main():
 
     try:
         if args.force:
-            print("🔄 Force mode enabled - clearing existing blockchain data")
+            logger.info("🔄 Force mode enabled - clearing existing blockchain data")
             # Here you could add logic to clear existing data
 
         genesis_block = create_enhanced_genesis(args.config)
 
         if genesis_block:
-            print("\n🎉 Enhanced genesis block creation completed!")
-            print("\n🔗 Next Steps:")
-            print("1. Start blockchain services: systemctl start aitbc-blockchain-node")
-            print("2. Verify genesis: curl http://localhost:8005/rpc/head")
-            print("3. Check accounts: curl http://localhost:8005/rpc/accounts")
-            print("4. Test enhanced features: curl http://localhost:8010/health")
+            logger.info("\n🎉 Enhanced genesis block creation completed!")
+            logger.info("\n🔗 Next Steps:")
+            logger.info("1. Start blockchain services: systemctl start aitbc-blockchain-node")
+            logger.info("2. Verify genesis: curl http://localhost:8005/rpc/head")
+            logger.info("3. Check accounts: curl http://localhost:8005/rpc/accounts")
+            logger.info("4. Test enhanced features: curl http://localhost:8010/health")
 
-    except Exception as e:
-        print(f"❌ Error creating enhanced genesis block: {e}")
+    except Exception:
+        logger.exception("❌ Error creating enhanced genesis block")
         sys.exit(1)
 
 
 if __name__ == "__main__":
+    configure_logging(level="INFO")
     main()

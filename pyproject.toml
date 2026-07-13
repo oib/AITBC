@@ -292,6 +292,7 @@ filterwarnings = [
 testpaths = [
     "tests/unit",
     "tests/integration",
+    "tests/coordinator",
     "tests/e2e",
     "tests/security",
     "apps/blockchain-node/tests",
