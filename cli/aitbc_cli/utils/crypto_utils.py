@@ -9,6 +9,10 @@ import secrets
 from eth_account import Account
 from eth_utils import keccak, to_checksum_address
 
+from .http_client import get_logger
+
+logger = get_logger(__name__)
+
 
 def create_signature_challenge(tx_data: dict, nonce: str) -> str:
     """
@@ -65,6 +69,7 @@ def verify_signature(challenge: str, signature: str, signer_address: str) -> boo
         return to_checksum_address(recovered_address) == to_checksum_address(signer_address)
 
     except Exception:
+        logger.warning("Signature verification failed", exc_info=True)
         return False
 
 
@@ -136,6 +141,7 @@ def validate_multisig_transaction(tx_data: dict) -> tuple[bool, str]:
         if amount <= 0:
             return False, "Amount must be positive"
     except Exception:
+        logger.warning("Invalid amount format for transaction: %s", tx_data.get("amount"), exc_info=True)
         return False, "Invalid amount format"
 
     return True, ""

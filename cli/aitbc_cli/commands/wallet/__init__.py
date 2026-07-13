@@ -62,6 +62,7 @@ def _get_wallet_password(wallet_name: str) -> str:
         if password:
             return password
     except Exception:
+        logger.debug("Keyring operation failed", exc_info=True)
         pass
 
     # Check if we're in a TTY environment
@@ -102,6 +103,7 @@ def _get_wallet_password(wallet_name: str) -> str:
 
             keyring.set_password("aitbc-wallet", wallet_name, password)
         except Exception:
+            logger.debug("Keyring operation failed", exc_info=True)
             pass
 
         return password

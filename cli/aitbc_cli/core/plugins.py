@@ -8,6 +8,10 @@ from typing import Any
 
 import click
 
+from ..utils.http_client import get_logger
+
+logger = get_logger(__name__)
+
 PLUGIN_DIR = Path.home() / ".aitbc" / "plugins"
 
 
@@ -49,6 +53,7 @@ def load_plugins(cli_group):
             if hasattr(module, "plugin_command"):
                 cli_group.add_command(module.plugin_command)
         except Exception:
+            logger.debug("Skipping broken plugin %s", plugin_info.get("name"), exc_info=True)
             pass  # Skip broken plugins silently
 
 

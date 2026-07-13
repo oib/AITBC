@@ -268,7 +268,8 @@ def economy(ctx, chain_id, format):
             abort(ctx, f"No economic data available for chain {chain_id}")
 
         # Format output
-        assert economy is not None  # for type checker
+        if economy is None:
+            raise ValueError("No economic data available")
         economy_data = [
             {"Metric": "Chain ID", "Value": economy.chain_id},
             {"Metric": "Total Value Locked", "Value": f"{economy.total_value_locked} ETH"},
@@ -455,6 +456,7 @@ def monitor(ctx, realtime, interval):
 
                     return table
                 except Exception as e:
+                    logger.warning("Error getting marketplace data: %s", e, exc_info=True)
                     return f"Error getting marketplace data: {e}"
 
             with Live(generate_monitor_table(), refresh_per_second=1) as live:

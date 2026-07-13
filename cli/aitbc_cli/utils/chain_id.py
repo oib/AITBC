@@ -4,7 +4,9 @@ This module provides functions for auto-detecting and validating chain IDs
 from blockchain nodes, supporting multichain operations.
 """
 
-from .http_client import AITBCHTTPClient, NetworkError
+from .http_client import AITBCHTTPClient, NetworkError, get_logger
+
+logger = get_logger(__name__)
 
 
 def get_default_chain_id() -> str:
@@ -54,8 +56,10 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5) -> str:
             first_chain = supported_chains[0] if isinstance(supported_chains, list) and supported_chains else ""
             return str(first_chain)
     except NetworkError:
+        logger.debug("Network error detecting chain ID from health", exc_info=True)
         pass
     except Exception:
+        logger.debug("Chain ID detection from health failed", exc_info=True)
         pass
 
     # Fallback to environment variable if detection fails

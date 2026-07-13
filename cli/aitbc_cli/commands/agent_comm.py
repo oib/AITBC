@@ -11,6 +11,9 @@ from ..core.agent_communication import AgentInfo, AgentMessage, AgentStatus, Cro
 from ..core.config import load_multichain_config
 from ..utils import error, output, success
 from ..utils.error_handling import abort
+from ..utils.http_client import get_logger
+
+logger = get_logger(__name__)
 
 
 @click.group()
@@ -469,6 +472,7 @@ def monitor(ctx, realtime, interval):
 
                     return table
                 except Exception as e:
+                    logger.warning("Error getting network data: %s", e, exc_info=True)
                     return f"Error getting network data: {e}"
 
             with Live(generate_monitor_table(), refresh_per_second=1) as live:

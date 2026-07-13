@@ -37,7 +37,8 @@ class AITBCServiceIntegration:
     async def get_blockchain_info(self) -> dict[str, Any]:
         """Get blockchain information"""
         try:
-            assert self.session is not None
+            if self.session is None:
+                raise RuntimeError("Session not initialized")
             async with self.session.get(f"{self.service_endpoints['blockchain_rpc']}/health") as response:
                 return dict(await response.json())
         except Exception as e:
@@ -47,7 +48,8 @@ class AITBCServiceIntegration:
     async def get_exchange_status(self) -> dict[str, Any]:
         """Get exchange service status"""
         try:
-            assert self.session is not None
+            if self.session is None:
+                raise RuntimeError("Session not initialized")
             async with self.session.get(f"{self.service_endpoints['exchange_service']}/api/health") as response:
                 return dict(await response.json())
         except Exception as e:
@@ -57,7 +59,8 @@ class AITBCServiceIntegration:
     async def get_coordinator_status(self) -> dict[str, Any]:
         """Get coordinator API status"""
         try:
-            assert self.session is not None
+            if self.session is None:
+                raise RuntimeError("Session not initialized")
             async with self.session.get(f"{self.service_endpoints['coordinator_api']}/health") as response:
                 return dict(await response.json())
         except Exception as e:
@@ -67,7 +70,8 @@ class AITBCServiceIntegration:
     async def submit_transaction(self, transaction_data: dict[str, Any]) -> dict[str, Any]:
         """Submit transaction to blockchain"""
         try:
-            assert self.session is not None
+            if self.session is None:
+                raise RuntimeError("Session not initialized")
             async with self.session.post(
                 f"{self.service_endpoints['blockchain_rpc']}/rpc/submit", json=transaction_data
             ) as response:
@@ -79,7 +83,8 @@ class AITBCServiceIntegration:
     async def get_market_data(self, symbol: str = "AITBC/BTC") -> dict[str, Any]:
         """Get market data from exchange"""
         try:
-            assert self.session is not None
+            if self.session is None:
+                raise RuntimeError("Session not initialized")
             async with self.session.get(f"{self.service_endpoints['exchange_service']}/api/market/{symbol}") as response:
                 return dict(await response.json())
         except Exception as e:
@@ -89,7 +94,8 @@ class AITBCServiceIntegration:
     async def register_agent_with_coordinator(self, agent_data: dict[str, Any]) -> dict[str, Any]:
         """Register agent with coordinator"""
         try:
-            assert self.session is not None
+            if self.session is None:
+                raise RuntimeError("Session not initialized")
             async with self.session.post(
                 f"{self.service_endpoints['agent_registry']}/api/agents/register", json=agent_data
             ) as response:
