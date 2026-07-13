@@ -17,6 +17,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
+from aitbc.aitbc_logging import get_logger
 from aitbc.constants import BLOCKCHAIN_RPC_URL as _DEFAULT_RPC_URL, KEYSTORE_DIR
 from aitbc.crypto import encrypt_private_key
 
@@ -25,6 +26,7 @@ sys.path.insert(0, "/opt/aitbc/cli")
 
 # Create FastAPI app
 wallet_app = FastAPI(title="AITBC Wallet Daemon", debug=False)
+logger = get_logger(__name__)
 
 # Configuration
 KEYSTORE_PATH = KEYSTORE_DIR
@@ -39,7 +41,7 @@ def _encrypt_if_password(private_key: str) -> tuple[str, bool]:
         try:
             return encrypt_private_key(private_key, WALLET_PASSWORD), True
         except Exception as e:
-            print(f"Warning: failed to encrypt private key: {e}")
+            logger.warning("failed to encrypt private key: %s", e)
     return private_key, False
 
 
@@ -106,7 +108,7 @@ def get_wallet_list() -> list[dict[str, Any]]:
                         }
                     )
             except Exception as e:
-                print(f"Error reading wallet {wallet_file}: {e}")
+                logger.error("Error reading wallet %s: %s", wallet_file, e)
     return wallets
 
 

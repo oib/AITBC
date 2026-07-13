@@ -6,8 +6,11 @@ Simple script to create genesis block
 import hashlib
 from datetime import UTC, datetime
 
+from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc_chain.database import init_db, session_scope
 from aitbc_chain.models import Block
+
+logger = get_logger(__name__)
 
 
 def compute_block_hash(height: int, parent_hash: str, timestamp: datetime) -> str:
@@ -18,7 +21,7 @@ def compute_block_hash(height: int, parent_hash: str, timestamp: datetime) -> st
 
 def create_genesis():
     """Create the genesis block"""
-    print("Creating genesis block...")
+    logger.info("Creating genesis block...")
 
     # Initialize database
     init_db()
@@ -27,7 +30,7 @@ def create_genesis():
     with session_scope() as session:
         existing = session.exec(select(Block).order_by(Block.height.desc()).limit(1)).first()
         if existing:
-            print(f"Genesis block already exists: #{existing.height}")
+            logger.info(f"Genesis block already exists: #{existing.height}")
             return
 
         # Create genesis block
@@ -44,13 +47,14 @@ def create_genesis():
         )
         session.add(genesis)
         session.commit()
-        print(f"Genesis block created: #{genesis.height}")
-        print(f"Hash: {genesis.hash}")
-        print(f"Proposer: {genesis.proposer}")
-        print(f"Timestamp: {genesis.timestamp}")
+        logger.info(f"Genesis block created: #{genesis.height}")
+        logger.info(f"Hash: {genesis.hash}")
+        logger.info(f"Proposer: {genesis.proposer}")
+        logger.info(f"Timestamp: {genesis.timestamp}")
 
 
 if __name__ == "__main__":
     from sqlmodel import select
 
+    configure_logging(level="INFO")
     create_genesis()
