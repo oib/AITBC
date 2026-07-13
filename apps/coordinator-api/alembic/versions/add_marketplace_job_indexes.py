@@ -17,7 +17,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "add_marketplace_job_indexes"
-down_revision = "migrate_marketplace_to_numeric"
+down_revision = "add_job_cross_chain_columns"
 branch_labels = None
 depends_on = None
 

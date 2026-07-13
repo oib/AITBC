@@ -1,10 +1,10 @@
 """Add context prefixes to table names
 
 Revision ID: 001_context_prefixes
-Revises:
+Revises: add_phase2_bug_hunt_indexes
 Create Date: 2026-05-12
 
-This migration renames tables to use context-specific prefixes:
+This revision was intended to rename tables to use context-specific prefixes:
 - marketplaceoffer -> marketplace_offer
 - marketplacebid -> marketplace_bid
 - job_payments -> payments_job_payment
@@ -13,40 +13,25 @@ This migration renames tables to use context-specific prefixes:
 - cross_chain_mappings -> agent_identity_cross_chain_mapping
 - identity_verifications -> agent_identity_verification
 
-"""
+These renames are not applied because the current SQLModel definitions still use
+the original table names. The revision is preserved as a no-op so the migration
+graph remains linear and `alembic upgrade head` is well-defined.
 
-from alembic import op
+"""
 
 # revision identifiers, used by Alembic.
 revision = "001_context_prefixes"
-down_revision = None
+down_revision = "add_phase2_bug_hunt_indexes"
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
-    # Marketplace context table renames
-    op.rename_table("marketplaceoffer", "marketplace_offer")
-    op.rename_table("marketplacebid", "marketplace_bid")
-
-    # Payments context table renames
-    op.rename_table("job_payments", "payments_job_payment")
-    op.rename_table("payment_escrows", "payments_escrow")
-
-    # Agent Identity context table renames
-    op.rename_table("agent_identities", "agent_identity_identity")
-    op.rename_table("cross_chain_mappings", "agent_identity_cross_chain_mapping")
-    op.rename_table("identity_verifications", "agent_identity_verification")
+    # ponytail: no-op. The table renames are intentionally skipped because the
+    # current model definitions still use the original table names.
+    pass
 
 
 def downgrade() -> None:
-    # Reverse the renames
-    op.rename_table("marketplace_offer", "marketplaceoffer")
-    op.rename_table("marketplace_bid", "marketplacebid")
-
-    op.rename_table("payments_job_payment", "job_payments")
-    op.rename_table("payments_escrow", "payment_escrows")
-
-    op.rename_table("agent_identity_identity", "agent_identities")
-    op.rename_table("agent_identity_cross_chain_mapping", "cross_chain_mappings")
-    op.rename_table("agent_identity_verification", "identity_verifications")
+    # ponytail: no-op. See upgrade() above.
+    pass
