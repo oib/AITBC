@@ -1,7 +1,7 @@
 # v0.10.12 — Agent Task Assignment
 
 **Last Updated**: 2026-07-13
-**Version**: 1.1 — Quality Hardening (mypy, tests, production asserts, dependencies, migration graph, integration isolation)
+**Version**: 1.2 — Quality Hardening (mypy, tests, production asserts, dependencies, migration graph, integration isolation)
 
 **Release Theme**: Post-v0.10.11 hardening — make `mypy` pass for `aitbc/`, clean `cli/` type ignores, repair `tests/coordinator` and `tests/integration`, remove production `assert` and silent-exception patterns, repair the Alembic migration graph, and fix dependency/version drift.
 
@@ -149,7 +149,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/integration -q -o addopts=""
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Fix `mypy` errors in `cli/` | 🔴 P0 | `cli/aitbc_cli/...` | planned |
+| B1 | Fix `mypy` errors in `cli/` | 🔴 P0 | `cli/aitbc_cli/...` | ✅ complete |
 | B2 | Remove `assert`/`print`/silent exceptions from `apps/`, `cli/`, and `aitbc/agent_bridge/` production source | 🔴 P0 | `apps/*/src/...`, `cli/aitbc_cli/...`, `aitbc/agent_bridge/src/integration_layer.py` | planned |
 | B3 | Repair `tests/coordinator` and `tests/integration` | 🟡 P1 | `tests/coordinator/test_ignored_modules.py`, `tests/integration/` | planned |
 | B4 | Fix dependency/version drift and choose a canonical lock strategy | 🟡 P1 | `pyproject.toml`, `requirements.txt`, `uv.lock`, `poetry.lock`, `aitbc/_version.py`, `cli/...`, `apps/coordinator-api/pyproject.toml` | planned |
@@ -382,7 +382,7 @@ cd /opt/aitbc && ./venv/bin/python scripts/check_version_consistency.py
 | 2026-07-13 | B | `uv.lock` regeneration | blocked on pyproject changes |
 | 2026-07-13 | — | Resolved: A2 scope excludes `aitbc/agent_bridge/src/integration_layer.py`; B2 owns it | documented |
 | 2026-07-13 | A | Expanded A3 inventory of silent exceptions in `aitbc/crypto/`, `aitbc/caching/`, `aitbc/crypto/tokens.py` | planned |
-| 2026-07-13 | B | B1: `cli/` mypy fixes | pending |
+| 2026-07-13 | B | B1: `cli/` mypy fixes | ✅ complete |
 | 2026-07-13 | B | B2: `assert`/`print`/silent-exception cleanup in `apps/`, `cli/`, `aitbc/agent_bridge/` | pending |
 | 2026-07-13 | B | B6: Integration test isolation, markers, and runtime budget | pending |
 | 2026-07-13 | B | B7: CI parity gates for strict mypy, version consistency, assert/print checks | pending |

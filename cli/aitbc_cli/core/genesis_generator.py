@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from aitbc_cli.core.config import MultiChainConfig
 from aitbc_cli.models.chain import ChainType, ConsensusAlgorithm, GenesisBlock, GenesisConfig
 
