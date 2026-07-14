@@ -325,6 +325,26 @@ async def buy_gpu(
         logger.info("Successfully created job %s and payment %s for GPU purchase %s", job.id, payment.id, booking_id)
     except Exception as e:
         logger.error("Failed to create job/payment for GPU purchase: %s", e)
+
+    # ponytail: payment failure rolls back booking and GPU; job is cancelled
+    # if payment never succeeded, so we don't return a fake "purchased" status.
+    if payment_status in ("failed", "skipped") or job_id is None:
+        if job_id is not None:
+            from ....contexts.infrastructure.domain import Job
+
+            job = session.get(Job, job_id)
+            if job and job.state in ("QUEUED", "RUNNING"):
+                job.state = "CANCELED"
+                job.error = "Payment failed"
+                session.add(job)
+        session.delete(booking)
+        gpu.status = "available"
+        session.commit()
+        raise HTTPException(
+            status_code=http_status.HTTP_402_PAYMENT_REQUIRED,
+            detail=f"Payment failed: {payment_status}",
+        )
+
     return {
         "purchase_id": booking_id,
         "gpu_id": request.gpu_id,
@@ -495,15 +515,54 @@ async def submit_ollama_task(request: OllamaTaskRequest, session: Annotated[Sess
 
 @router.post("/payments/send")
 async def send_payment(request: PaymentRequest, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
-    """Stub payment endpoint (hook for blockchain processor)."""
+    """Record a real payment for a task or booking and return its actual status."""
     if request.amount <= 0:
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="Amount must be greater than zero")
-    tx_id = f"tx_{uuid4().hex[:10]}"
-    processed_at = datetime.now(UTC).isoformat() + "Z"
+    if not request.task_id and not request.booking_id:
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="task_id or booking_id is required")
+
+    from ....contexts.payments.services.payments import PaymentService
+    from ....schemas import JobPaymentCreate
+
+    payment_service = PaymentService(session)
+    payment_create = JobPaymentCreate(
+        job_id=request.task_id or request.booking_id or f"manual_{uuid4().hex[:8]}",
+        amount=request.amount,
+        currency="AITBC",
+        payment_method="aitbc_token",
+        escrow_timeout_seconds=3600,
+    )
+    try:
+        payment = await payment_service.create_payment(
+            job_id=payment_create.job_id,
+            payment_data=payment_create,
+        )
+    except Exception as e:
+        logger.error("Payment failed for task %s: %s", request.task_id or request.booking_id, e)
+        raise HTTPException(
+            status_code=http_status.HTTP_402_PAYMENT_REQUIRED,
+            detail=f"Payment failed: {e}",
+        ) from e
+
+    if payment.status in ("failed", "skipped"):
+        raise HTTPException(
+            status_code=http_status.HTTP_402_PAYMENT_REQUIRED,
+            detail=f"Payment failed with status {payment.status}",
+        )
+
+    payment.meta_data = {
+        "from_wallet": request.from_wallet,
+        "to_wallet": request.to_wallet,
+        "booking_id": request.booking_id,
+        "task_id": request.task_id,
+    }
+    session.add(payment)
+    session.commit()
+
     return {
-        "tx_id": tx_id,
-        "status": "processed",
-        "processed_at": processed_at,
+        "tx_id": payment.id,
+        "status": payment.status,
+        "processed_at": payment.created_at.isoformat() + "Z",
         "from": request.from_wallet,
         "to": request.to_wallet,
         "amount": request.amount,
