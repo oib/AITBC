@@ -84,16 +84,14 @@ class StakingService:
             self.session.rollback()
             raise
 
-    async def get_stake(self, stake_id: str) -> AgentStake:
+    async def get_stake(self, stake_id: str) -> AgentStake | None:
         """Get stake by ID"""
         try:
             stmt = select(AgentStake).where(AgentStake.stake_id == stake_id)  # type: ignore[arg-type]
             result = self.session.execute(stmt).scalar_one_or_none()
             if not result:
-                raise ValueError("Stake not found")
+                return None
             return self._normalize_stake_datetimes(result)
-        except ValueError:
-            raise
         except Exception as e:
             logger.error("Failed to get stake %s: %s", stake_id, e)
             raise
