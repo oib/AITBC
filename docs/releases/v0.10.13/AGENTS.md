@@ -120,7 +120,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/security -q -o addopts=""
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
 | B1 | Credential hygiene in scripts | 🔴 P0 | `scripts/utils/workspace-manager.sh`, `scripts/utils/claim-task.py`, `scripts/monitoring/monitor-prs.py` | ✅ |
-| B2 | Install `AuthMiddleware` and protect financial/admin routes | 🔴 P0 | `apps/coordinator-api/src/coordinator_api/main.py`, `aitbc/auth/middleware.py`, `apps/coordinator-api/src/coordinator_api/contexts/*/routers/oracle.py`, `cross_chain_integration.py`, `marketplace_gpu.py`, `admin.py` | 🚧 |
+| B2 | Install `AuthMiddleware` and protect financial/admin routes | 🔴 P0 | `apps/coordinator-api/src/coordinator_api/main.py`, `aitbc/auth/middleware.py`, `apps/coordinator-api/src/coordinator_api/contexts/*/routers/oracle.py`, `cross_chain_integration.py`, `marketplace_gpu.py`, `admin.py` | ✅ |
 | B3 | Require signatures on marketplace transactions | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py`, `apps/blockchain-node/src/aitbc_chain/rpc/utils.py`, `apps/blockchain-node/src/aitbc_chain/state/state_transition.py` | ✅ |
 | B4 | Fix fake marketplace payment paths | 🔴 P0 | `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace_gpu.py` | ✅ |
 | B5 | Fix wallet adapters | 🔴 P0 | `apps/coordinator-api/src/coordinator_api/agent_identity/wallet_adapter_enhanced.py` | ✅ |
