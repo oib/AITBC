@@ -38,6 +38,8 @@ from coordinator_api.storage.db import get_session
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session
 
+from ....auth import AdminDep, AuthDep
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
@@ -63,6 +65,7 @@ async def create_enhanced_wallet(
     security_config: dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
     identity_manager: Annotated[AgentIdentityManager, Depends(get_agent_identity_manager)],
+    user: AuthDep,
     security_level: SecurityLevel = SecurityLevel.MEDIUM,
 ) -> dict[str, Any]:
     """Create an enhanced multi-chain wallet"""
@@ -122,6 +125,7 @@ async def execute_wallet_transaction(
     to_address: str,
     amount: float,
     session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
     chain_id: int | None = None,
     token_address: str | None = None,
     data: dict[str, Any] | None = None,
@@ -187,6 +191,7 @@ async def sign_message(
     wallet_address: str,
     message: str,
     session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
     chain_id: int | None = None,
     private_key: str | None = None,
     rpc_url: str | None = None,
@@ -242,6 +247,7 @@ async def create_bridge_request(
     request: Request,
     user_address: str,
     session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
     source_chain_id: int | None = None,
     target_chain_id: int | None = None,
     amount: float | None = None,
@@ -296,7 +302,11 @@ async def get_bridge_request_status(
 @router.post("/bridge/request/{bridge_request_id}/cancel", response_model=dict[str, Any])
 @rate_limit(rate=20, per=60)
 async def cancel_bridge_request(
-    request: Request, bridge_request_id: str, reason: str, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    bridge_request_id: str,
+    reason: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Cancel a bridge request"""
     try:
@@ -344,6 +354,7 @@ async def submit_transaction(
     to_address: str,
     amount: float,
     session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
     token_address: str | None = None,
     data: dict[str, Any] | None = None,
     priority: TransactionPriority = TransactionPriority.MEDIUM,
@@ -497,6 +508,7 @@ async def optimize_transaction_routing(
     amount: float,
     from_chain: int,
     session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
     to_chain: int | None = None,
     urgency: TransactionPriority = TransactionPriority.MEDIUM,
 ) -> dict[str, Any]:
@@ -652,7 +664,11 @@ async def get_bridge_whitelist(request: Request, session: Annotated[Session, Dep
 @router.post("/bridge/whitelist/add", response_model=dict[str, Any])
 @rate_limit(rate=50, per=60)
 async def add_bridge_whitelist_entry(
-    request: Request, source_chain_id: int, target_chain_id: int, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    source_chain_id: int,
+    target_chain_id: int,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminDep,
 ) -> dict[str, Any]:
     """Add a cross-chain transfer pair to the bridge whitelist"""
     try:
