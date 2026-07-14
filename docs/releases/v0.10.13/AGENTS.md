@@ -119,20 +119,20 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/security -q -o addopts=""
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| B1 | Credential hygiene in scripts | 🔴 P0 | `scripts/utils/workspace-manager.sh`, `scripts/utils/claim-task.py`, `scripts/monitoring/monitor-prs.py` | 🚧 |
+| B1 | Credential hygiene in scripts | 🔴 P0 | `scripts/utils/workspace-manager.sh`, `scripts/utils/claim-task.py`, `scripts/monitoring/monitor-prs.py` | ✅ |
 | B2 | Install `AuthMiddleware` and protect financial/admin routes | 🔴 P0 | `apps/coordinator-api/src/coordinator_api/main.py`, `aitbc/auth/middleware.py`, `apps/coordinator-api/src/coordinator_api/contexts/*/routers/oracle.py`, `cross_chain_integration.py`, `marketplace_gpu.py`, `admin.py` | 🚧 |
-| B3 | Require signatures on marketplace transactions | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py`, `apps/blockchain-node/src/aitbc_chain/rpc/utils.py`, `apps/blockchain-node/src/aitbc_chain/state/state_transition.py` | 🚧 |
-| B4 | Fix fake marketplace payment paths | 🔴 P0 | `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace_gpu.py` | 🚧 |
-| B5 | Fix wallet adapters | 🔴 P0 | `apps/coordinator-api/src/coordinator_api/agent_identity/wallet_adapter_enhanced.py` | 🚧 |
-| B6 | Replace or disable insecure FHE | 🔴 P0 | `apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/fhe_enhanced.py`, `apps/coordinator-api/src/coordinator_api/contexts/zk_applications/routers/fhe.py` | 🚧 |
+| B3 | Require signatures on marketplace transactions | 🔴 P0 | `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py`, `apps/blockchain-node/src/aitbc_chain/rpc/utils.py`, `apps/blockchain-node/src/aitbc_chain/state/state_transition.py` | ✅ |
+| B4 | Fix fake marketplace payment paths | 🔴 P0 | `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace_gpu.py` | ✅ |
+| B5 | Fix wallet adapters | 🔴 P0 | `apps/coordinator-api/src/coordinator_api/agent_identity/wallet_adapter_enhanced.py` | ✅ |
+| B6 | Replace or disable insecure FHE | 🔴 P0 | `apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/fhe_enhanced.py`, `apps/coordinator-api/src/coordinator_api/contexts/zk_applications/routers/fhe.py` | ✅ |
 | B7 | Verify audit authorization token signatures | 🟡 P1 | `apps/coordinator-api/src/coordinator_api/contexts/security/services/key_management.py` | 🚧 |
 | B8 | Restrict file permissions for keys and DBs | 🟡 P1 | `apps/coordinator-api/src/coordinator_api/contexts/security/services/key_management.py`, `apps/coordinator-api/src/coordinator_api/contexts/confidential/routers/confidential.py`, `apps/blockchain-node/src/aitbc_chain/database.py` | 🚧 |
 | B9 | Fix staking anonymous auth fallback | 🟡 P1 | `apps/coordinator-api/src/coordinator_api/contexts/staking/routers/staking.py` | 🚧 |
 | B10 | Fix multi-tenant quota models | 🟡 P1 | `apps/coordinator-api/src/coordinator_api/models/multitenant.py`, `apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py` | 🚧 |
 | B11 | Fix governance state persistence | 🟡 P1 | `apps/coordinator-api/src/coordinator_api/contexts/governance/services/governance_service.py`, `apps/coordinator-api/src/coordinator_api/contexts/governance/routers/governance_enhanced.py` | 🚧 |
 | B12 | Expand CI/test path coverage | 🟡 P1 | `pyproject.toml`, `.github/workflows/ci.yml`, `.gitea/workflows/*` | 🚧 |
-| B13 | Remove duplicate broken CLI setup | 🟡 P1 | `cli/setup/setup.py` | 🚧 |
-| B14 | Fix `validate_query()` case-sensitivity | 🟡 P1 | `apps/blockchain-node/tests/security/test_database_security.py` | 🚧 |
+| B13 | Remove duplicate broken CLI setup | 🟡 P1 | `cli/setup/setup.py` | ✅ |
+| B14 | Fix `validate_query()` case-sensitivity | 🟡 P1 | `apps/blockchain-node/tests/security/test_database_security.py` | ✅ |
 
 ### Agent B — Detailed Instructions
 
