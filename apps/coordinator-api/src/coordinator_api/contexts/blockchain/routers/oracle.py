@@ -14,6 +14,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
+from ....auth import AdminDep
 from ..services.oracle_service import get_oracle_service
 
 router = APIRouter(prefix="/oracle", tags=["oracle"])
@@ -75,16 +76,13 @@ async def get_all_prices(request: Request) -> dict[str, Any]:
 
 
 @router.post("/price", summary="Set price (admin)")
-async def set_price(request: Request, req: SetPriceRequest) -> dict[str, Any]:
+async def set_price(request: Request, req: SetPriceRequest, user: AdminDep) -> dict[str, Any]:
     """
     Set price for a trading pair (admin function).
 
     This overrides automated price feeds.
     """
     try:
-        # In production, verify admin API key
-        # For now, allow any authenticated request
-
         oracle = get_oracle_service()
         result = await oracle.set_price(pair=req.pair, price=req.price, confidence=req.confidence, source=req.source)
 
