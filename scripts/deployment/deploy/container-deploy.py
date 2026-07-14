@@ -28,8 +28,12 @@ def deploy_to_container():
 
     # Stop local services
     print("\n📋 Stopping local services...")
-    subprocess.run("sudo systemctl stop aitbc-exchange aitbc-marketplace aitbc-trading aitbc-wallet 2>/dev/null || true", shell=True)
-    subprocess.run("sudo systemctl stop aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p 2>/dev/null || true", shell=True)
+    subprocess.run(
+        "sudo systemctl stop aitbc-exchange aitbc-marketplace aitbc-trading aitbc-wallet 2>/dev/null || true", shell=True
+    )
+    subprocess.run(
+        "sudo systemctl stop aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p 2>/dev/null || true", shell=True
+    )
 
     # Copy project to container
     print("\n📁 Copying project to container...")
@@ -44,7 +48,9 @@ def deploy_to_container():
     print("\n📦 Installing dependencies...")
     run_command("cd /opt/aitbc/apps/coordinator-api && source ../../venv/bin/activate && pip install -e .", container)
     run_command("cd /opt/aitbc/apps/blockchain-node && source ../../venv/bin/activate && pip install -e .", container)
-    run_command("cd /opt/aitbc && source venv/bin/activate && pip install -e apps/marketplace apps/trading apps/wallet", container)
+    run_command(
+        "cd /opt/aitbc && source venv/bin/activate && pip install -e apps/marketplace apps/trading apps/wallet", container
+    )
 
     # Install systemd service files from the repo
     print("\n⚙️ Installing systemd services...")

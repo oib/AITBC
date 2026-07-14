@@ -2,7 +2,7 @@
 
 This file is the source of truth for project conventions, verification commands, and per-agent task plans. Agent-specific plans live at `docs/releases/<version>/AGENTS.md`; this root file holds the stable conventions and the **current** in-flight plan.
 
-**Current in-flight plan**: [v0.10.13](docs/releases/v0.10.13/change.log) — Security & Correctness Hardening (credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) — 🚧 in progress
+**Current in-flight plan**: [v0.10.13](docs/releases/v0.10.13/change.log) — Security & Correctness Hardening (credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) — ✅ complete
 
 **Previous**: [v0.10.12](docs/releases/v0.10.12/change.log) — Quality Hardening (mypy completeness, test suite repair, production assert removal, and dependency/version cleanup) — ✅ complete
 **Previous**: [v0.10.11](docs/releases/v0.10.11/change.log) — Bug Fixes & Code Quality Continuation (complete stub implementations, Pydantic v2 migration, SQLAlchemy pattern standardization, type safety improvements, and concurrency safety) — ✅ complete
