@@ -110,3 +110,31 @@ jobs:
           venv/bin/python -m coverage xml
 
           echo "✅ Python tests completed with coverage"
+
+      - name: Run additional pytest suites
+        run: |
+          cd /opt/aitbc
+
+          export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD/apps/blockchain-node/src:$PWD/apps/wallet/src:$PWD/packages/py/aitbc-crypto/src:$PWD/packages/py/aitbc-sdk/src:$PWD/packages/py/aitbc-agent-sdk/src:$PWD/cli:$PWD:$PYTHONPATH"
+
+          # ponytail: tests/cli/services/security/production and
+          # apps/blockchain-node/tests run in separate pytest invocations
+          # because the blockchain-node and coordinator-api both define a
+          # SQLModel `Transaction(table=True)` class; loading both in the
+          # same process corrupts the shared SQLAlchemy declarative registry.
+          venv/bin/python -m pytest \
+            tests/cli \
+            tests/services \
+            tests/security \
+            tests/production \
+            -c /dev/null --rootdir "$PWD" --import-mode=importlib \
+            --tb=short -q --timeout=30 \
+            -o asyncio_mode=auto
+
+          venv/bin/python -m pytest \
+            apps/blockchain-node/tests \
+            -c /dev/null --rootdir "$PWD" --import-mode=importlib \
+            --tb=short -q --timeout=30 \
+            -o asyncio_mode=auto
+
+          echo "✅ Additional pytest suites completed"
