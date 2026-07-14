@@ -69,8 +69,8 @@ class PricingHistory(SQLModel, table=True):
     region: str = Field(default="global", index=True)
 
     # Pricing data
-    price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), index=True))
-    base_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False, index=True))
+    base_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
     price_change: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8)))  # Change from previous price
     price_change_percent: float | None = None  # Percentage change (not monetary)
 
@@ -152,7 +152,7 @@ class ProviderPricingStrategy(SQLModel, table=True):
     global_strategy: bool = Field(default=True)
 
     # Performance tracking
-    total_revenue_impact: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    total_revenue_impact: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
     market_share_impact: float = Field(default=0.0)
     customer_satisfaction_impact: float = Field(default=0.0)
     strategy_effectiveness_score: float = Field(default=0.0)
@@ -189,7 +189,7 @@ class MarketMetrics(SQLModel, table=True):
     # Core market metrics
     demand_level: float = Field(index=True)
     supply_level: float = Field(index=True)
-    average_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), index=True))
+    average_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False, index=True))
     price_volatility: float = Field(index=True)
     utilization_rate: float = Field(index=True)
 
@@ -202,15 +202,15 @@ class MarketMetrics(SQLModel, table=True):
 
     # Competitive landscape
     competitor_count: int
-    average_competitor_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    average_competitor_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
     price_spread: Decimal = Field(
-        default=Decimal("0"), sa_column=Column(Numeric(20, 8))
+        default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False)
     )  # Difference between highest and lowest prices
     market_concentration: float  # HHI or similar metric
 
     # Market sentiment and activity
     market_sentiment: float = Field(default=0.0)
-    trading_volume: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    trading_volume: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
     price_momentum: float  # Rate of price change
     liquidity_score: float
 
@@ -261,7 +261,7 @@ class PriceForecast(SQLModel, table=True):
     confidence_intervals: dict[str, list[float]] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Forecast metadata
-    average_forecast_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    average_forecast_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
     price_range_forecast: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     trend_forecast: PriceTrend
     volatility_forecast: float
