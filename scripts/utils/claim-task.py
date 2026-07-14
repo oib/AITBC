@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 
 REPO_DIR = "/opt/aitbc"
 STATE_FILE = "/opt/aitbc/.claim-state.json"
-GITEA_TOKEN = os.getenv("GITEA_TOKEN") or "ffce3b62d583b761238ae00839dce7718acaad85"
+GITEA_TOKEN = os.getenv("GITEA_TOKEN")
 API_BASE = os.getenv("GITEA_API_BASE", "http://gitea.bubuit.net:3000/api/v1")
 MY_AGENT = os.getenv("AGENT_NAME", "aitbc1")
 ISSUE_LABELS = ["security", "bug", "feature", "refactor", "task"]  # priority order
@@ -118,6 +118,10 @@ def create_work_branch(issue_number, title):
 
 
 def main():
+    if not GITEA_TOKEN:
+        print("[ERROR] GITEA_TOKEN not set; aborting.")
+        return
+
     now = datetime.now(UTC)
     print(f"[{now.isoformat()}Z] Claim task cycle starting...")
 
