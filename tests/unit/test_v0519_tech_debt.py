@@ -229,11 +229,24 @@ def test_alembic_migration_drops_unused_tables(tmp_path: Path) -> None:
     # ponytail: run the real Alembic lifecycle to catch graph/orphan-temp-table issues
     subprocess.run(alembic + ["upgrade", "head"], cwd=COORD_ALEMBIC, env=env, capture_output=True, text=True, check=True)
     current = subprocess.run(alembic + ["current"], cwd=COORD_ALEMBIC, env=env, capture_output=True, text=True, check=True)
-    assert "001_context_prefixes" in (current.stdout + current.stderr), current.stdout + current.stderr
+    assert "021f508dbce7" in (current.stdout + current.stderr), current.stdout + current.stderr
+
+    # ponytail: SQLModel.metadata and the migration graph must agree
+    subprocess.run(alembic + ["check"], cwd=COORD_ALEMBIC, env=env, capture_output=True, text=True, check=True)
 
     with sqlite3.connect(str(db_path)) as conn:
         tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert {"pricing_optimizations", "pricing_alerts", "pricing_rules", "price_forecast"}.isdisjoint(tables)
+    assert {
+        "pricing_optimizations",
+        "pricing_alerts",
+        "pricing_rules",
+        "price_forecast",
+        "regional_council",
+        "regional_proposal",
+        "staking_pool",
+        "staking_position",
+        "settlements",
+    }.isdisjoint(tables)
 
     subprocess.run(alembic + ["downgrade", "base"], cwd=COORD_ALEMBIC, env=env, capture_output=True, text=True, check=True)
     subprocess.run(
