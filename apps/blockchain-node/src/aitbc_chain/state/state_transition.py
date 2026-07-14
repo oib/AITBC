@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 
 from ..logger import get_logger
 from ..models import Account, Receipt, Transaction
+from ..rpc.utils import verify_transaction_signature
 from .gpu_resources import GPUAllocation, GPURegistration
 
 try:
@@ -70,6 +71,10 @@ class StateTransition:
             logger.warning("Replay attack detected: Transaction %s already processed", tx_hash)
             return (False, f"Transaction {tx_hash} already processed (replay attack)")
         sender_addr = tx_data.get("from")
+        signature = tx_data.get("signature")
+        if signature and sender_addr:
+            if not verify_transaction_signature(tx_data, signature, sender_addr):
+                return (False, f"Invalid signature for transaction {tx_hash}")
         sender_account = session.get(Account, (chain_id, sender_addr))
         if not sender_account:
             return (False, f"Sender account not found: {sender_addr}")
