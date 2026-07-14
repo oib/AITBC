@@ -1,7 +1,7 @@
 # AITBC v0.10.12 Release Notes
 
 **Date**: 2026-07-13
-**Status**: 🔄 In Progress — Agent A complete, Agent B pending
+**Status**: ✅ Complete — Agent A and Agent B tasks finished; all verification gates pass
 **Scope**: Post-v0.10.11 hardening — mypy completeness for `aitbc/` and `cli/`, test-suite repair for `tests/coordinator` and `tests/integration`, removal of production `assert` and silent-exception patterns, and dependency/version cleanup.
 
 ## 🎯 Overview
@@ -26,10 +26,11 @@ v0.10.12 is a **quality hardening release**. It addresses the gaps left after th
 |----------|-------|--------|-------|
 | Mypy aitbc/ missing imports/stubs | 4 | ✅ complete | `mypy` overrides added for `pytz`, `bcrypt`, `zstandard`, `yaml` |
 | CLI type-check cleanup | 16 | ✅ complete | `unused-ignore` and `error(...)` call-arg |
-| Production `assert` removal | 30+ | ✅ partial | `aitbc/database/connection.py` fixed; `aitbc/agent_bridge/` left for Agent B |
-| Silent exception handling cleanup | 7 | ✅ complete | `aitbc/utils/time_utils.py`, `caching/redis_cache.py`, `crypto/tokens.py` |
-| `tests/coordinator` failure repair | 2 | 🔄 planned | `requests.post` → `httpx` mock update |
-| `tests/integration` hang repair | 1 | 🔄 planned | Quarantine external-service tests |
+| Production `assert` removal | 30+ | ✅ complete | `aitbc/`, `apps/`, `cli/`, and `aitbc/agent_bridge/` production source cleaned |
+| Silent exception handling cleanup | 7 | ✅ complete | `aitbc/utils/time_utils.py`, `caching/redis_cache.py`, `crypto/tokens.py` and `cli/aitbc_cli/` |
+| `tests/coordinator` failure repair | 2 | ✅ complete | `requests.post` → `httpx` mock update |
+| `tests/integration` hang repair | 1 | ✅ complete | External-service tests quarantined with markers; runtime reduced to ~2s |
+| CI parity gates | 2 | ✅ complete | `scripts/check_no_assert_print.py` and `scripts/check_version_consistency.py` wired into CI |
 | Dependency/version drift | 5 | ✅ complete | `bcrypt`, `zstandard`, `types-pytz`, `uv.lock` removed, `poetry` canonical, version strings aligned |
 | Coverage expansion | 3 | ✅ complete | `aitbc/alerting`, `health_checks`, `utils/time_utils` |
 
@@ -53,7 +54,11 @@ cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 
 # Repaired suites
 ./venv/bin/python -m pytest tests/coordinator -q -o addopts=""
-./venv/bin/python -m pytest tests/integration -q -o addopts=""
+./venv/bin/python -m pytest tests/integration -q -o addopts="" -m "not external"
+
+# Quality gates
+./venv/bin/python scripts/check_no_assert_print.py
+./venv/bin/python scripts/check_version_consistency.py
 ```
 
 ---
@@ -68,8 +73,8 @@ cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 
 ### Agent B — Infrastructure & Apps
 - [x] Fix `mypy` errors in `cli/`
-- [ ] Remove `assert`/`print` from `apps/` and `cli/` production source
-- [ ] Repair `tests/coordinator` failures and `tests/integration` hang
+- [x] Remove `assert`/`print` from `apps/` and `cli/` production source
+- [x] Repair `tests/coordinator` failures and `tests/integration` hang
 - [x] Fix dependency/version drift in `pyproject.toml`/`requirements.txt`/`uv.lock`
 
 ---
