@@ -14,7 +14,7 @@ from enum import StrEnum
 from typing import Any, cast
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.crypto.crypto import derive_ethereum_address, encrypt_private_key, sign_transaction_hash, verify_signature
+from aitbc.crypto.crypto import derive_ethereum_address, encrypt_private_key
 from aitbc.network import AITBCHTTPClient, Web3Client
 
 from ..contexts.agent_identity.domain.agent_identity import ChainType
@@ -85,6 +85,7 @@ class EnhancedWalletAdapter(ABC):
         data: dict[str, Any] | None = None,
         gas_limit: int | None = None,
         gas_price: int | None = None,
+        private_key: str | None = None,
     ) -> dict[str, Any]:
         """Execute a transaction with enhanced security"""
         pass
@@ -223,11 +224,15 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
         data: dict[str, Any] | None = None,
         gas_limit: int | None = None,
         gas_price: int | None = None,
+        private_key: str | None = None,
     ) -> dict[str, Any]:
         """Execute an Ethereum transaction with enhanced security"""
         try:
             if not await self.validate_address(from_address) or not await self.validate_address(to_address):
                 raise ValueError("Invalid addresses provided")
+            private_key = private_key or (data.get("private_key") if data else None)
+            if not private_key:
+                raise ValueError("Private key is required to sign the transaction")
             if token_address:
                 amount_wei = int(float(amount) * 10**18)
                 transaction_data = await self._create_erc20_transfer(from_address, to_address, token_address, amount_wei)
@@ -249,7 +254,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
                     "chainId": self.chain_id,
                 }
             )
-            signed_tx = await self._sign_transaction(transaction_data, from_address)
+            signed_tx = await self._sign_transaction(transaction_data, private_key)
             tx_hash = await self._send_raw_transaction(signed_tx)
             result = {
                 "transaction_hash": tx_hash,
@@ -452,20 +457,24 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
             logger.error("Failed to get nonce: %s", e)
             raise
 
-    async def _sign_transaction(self, transaction_data: dict[str, Any], from_address: str) -> str:
-        """Sign transaction"""
+    async def _sign_transaction(self, transaction_data: dict[str, Any], private_key: str) -> str:
+        """Sign transaction with the provided private key."""
         try:
             from eth_account import Account
 
-            if from_address.startswith("0x"):
-                from_address = from_address[2:]
-            account = Account.from_key(from_address)
+            if private_key.startswith("0x"):
+                private_key = private_key[2:]
+            account = Account.from_key(private_key)
+            nonce = transaction_data.get("nonce", 0)
+            gas_price = transaction_data.get("gasPrice", 0)
+            gas = transaction_data.get("gas", 0)
+            value = transaction_data.get("value", "0x0")
             tx_dict = {
-                "nonce": int(transaction_data.get("nonce", 0), 16),
-                "gasPrice": int(transaction_data.get("gasPrice", 0), 16),
-                "gas": int(transaction_data.get("gas", 0), 16),
+                "nonce": int(nonce, 16) if isinstance(nonce, str) else int(nonce),
+                "gasPrice": int(gas_price, 16) if isinstance(gas_price, str) else int(gas_price),
+                "gas": int(gas, 16) if isinstance(gas, str) else int(gas),
                 "to": transaction_data.get("to"),
-                "value": int(transaction_data.get("value", "0x0"), 16),
+                "value": int(value, 16) if isinstance(value, str) else int(value),
                 "data": transaction_data.get("data", "0x"),
                 "chainId": transaction_data.get("chainId", 1),
             }
@@ -525,15 +534,25 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
     async def _sign_hash(self, message_hash: str, private_key: str) -> str:
         """Sign a hash with private key"""
         try:
-            return sign_transaction_hash(message_hash, private_key)
+            from eth_account import Account
+
+            hash_bytes = bytes.fromhex(message_hash.removeprefix("0x"))
+            account = Account.from_key(private_key)
+            signed = account.unsafe_sign_hash(hash_bytes)
+            return str(signed.signature.hex())
         except Exception as e:
             logger.error("Failed to sign hash: %s", e)
             raise
 
     async def _verify_signature(self, message_hash: str, signature: str, address: str) -> bool:
-        """Verify a signature"""
+        """Verify a signature by recovering the signer's address from the hash."""
         try:
-            return verify_signature(message_hash, signature, address)
+            from eth_account import Account
+
+            hash_bytes = bytes.fromhex(message_hash.removeprefix("0x"))
+            sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
+            recovered = Account._recover_hash(hash_bytes, signature=sig_bytes)
+            return str(recovered).lower() == address.lower()
         except Exception as e:
             logger.error("Failed to verify signature: %s", e)
             return False
@@ -649,6 +668,7 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
         data: dict[str, Any] | None = None,
         gas_limit: int | None = None,
         gas_price: int | None = None,
+        private_key: str | None = None,
     ) -> dict[str, Any]:
         """Execute an AITBC transaction using native RPC"""
         try:
@@ -758,17 +778,24 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
 
     async def _sign_hash(self, message_hash: str, private_key: str) -> str:
         try:
-            import hashlib
+            from eth_account import Account
 
-            signature = hashlib.sha256(f"{message_hash}{private_key}".encode()).hexdigest()
-            return f"0x{signature}"
+            hash_bytes = bytes.fromhex(message_hash.removeprefix("0x"))
+            account = Account.from_key(private_key)
+            signed = account.unsafe_sign_hash(hash_bytes)
+            return str(signed.signature.hex())
         except Exception as e:
             logger.error("Failed to sign hash: %s", e)
             raise
 
     async def _verify_signature(self, message_hash: str, signature: str, address: str) -> bool:
         try:
-            return bool(signature and len(signature) == 66 and signature.startswith("0x"))
+            from eth_account import Account
+
+            hash_bytes = bytes.fromhex(message_hash.removeprefix("0x"))
+            sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
+            recovered = Account._recover_hash(hash_bytes, signature=sig_bytes)
+            return str(recovered).lower() == address.lower()
         except Exception as e:
             logger.error("Failed to verify signature: %s", e)
             return False
@@ -839,7 +866,10 @@ class WalletAdapterFactory:
         adapter_class = chain_adapters.get(chain_id)
         if not adapter_class:
             raise ValueError(f"Unsupported chain ID: {chain_id}")
-        return adapter_class(rpc_url, security_level)  # type: ignore[no-any-return]
+        # AITBC adapters take rpc_url first; EVM adapters take chain_id first.
+        if chain_id in (1000, 1001):
+            return adapter_class(rpc_url, security_level)  # type: ignore[no-any-return]
+        return adapter_class(chain_id, rpc_url, security_level)  # type: ignore[no-any-return]
 
     @staticmethod
     def get_supported_chains() -> list[int]:
