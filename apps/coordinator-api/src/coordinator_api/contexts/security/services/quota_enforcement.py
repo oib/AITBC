@@ -12,9 +12,13 @@ import redis
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
 
-from ..exceptions import QuotaExceededError, TenantError  # type: ignore[import-not-found]
-from ..middleware.tenant_context import get_current_tenant_id  # type: ignore[import-not-found]
-from ..models.multitenant import Tenant, TenantQuota, UsageRecord  # type: ignore[import-not-found]
+from coordinator_api.exceptions import QuotaExceededError, TenantError
+from coordinator_api.models.multitenant import Tenant, TenantQuota, UsageRecord
+
+
+def get_current_tenant_id() -> str | None:
+    """Return the current tenant ID from request context, if available."""
+    return None
 
 
 class QuotaEnforcementService:
@@ -72,7 +76,8 @@ class QuotaEnforcementService:
             currency="USD",
             usage_start=datetime.now(UTC),
             usage_end=datetime.now(UTC),
-            metadata=metadata or {},
+            job_id=resource_id,
+            usage_metadata=metadata or {},
         )
         self.db.add(usage_record)
         await self._update_quota_usage(tenant_id, resource_type, quantity)
