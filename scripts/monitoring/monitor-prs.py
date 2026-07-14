@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 from datetime import UTC, datetime
 
-GITEA_TOKEN = os.getenv("GITEA_TOKEN") or "ffce3b62d583b761238ae00839dce7718acaad85"
+GITEA_TOKEN = os.getenv("GITEA_TOKEN")
 REPO = "oib/aitbc"
 API_BASE = os.getenv("GITEA_API_BASE", "http://gitea.bubuit.net:3000/api/v1")
 MY_AGENT = os.getenv("AGENT_NAME", "aitbc1")
@@ -151,6 +151,10 @@ def validate_pr_branch(pr):
 
 
 def main():
+    if not GITEA_TOKEN:
+        print("[ERROR] GITEA_TOKEN not set; aborting.")
+        return
+
     now = datetime.now(UTC).replace(tzinfo=UTC)
     now_iso = now.isoformat()
     now_ts = now.timestamp()

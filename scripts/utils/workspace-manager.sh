@@ -7,7 +7,6 @@ set -euo pipefail
 # Configuration
 WORKSPACE_BASE="/var/lib/aitbc-workspaces"
 REPO_URL="http://10.0.3.107:3000/oib/aitbc.git"
-GITEA_TOKEN="${GITEA_TOKEN:-b8fbb3e7e6cecf3a01f8a242fc652631c6dfd010}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -74,7 +73,6 @@ setup_workspace() {
     ls -la | head -10
 
     # Set git config for CI
-    git config --global http.sslVerify false
     git config --global http.postBuffer 1048576000
 
     return 0
