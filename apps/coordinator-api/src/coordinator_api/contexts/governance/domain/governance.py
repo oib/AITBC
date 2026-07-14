@@ -55,6 +55,20 @@ class GovernanceProfile(SQLModel, table=True):
     last_voted_at: datetime | None = None
 
 
+class RegionalCouncil(SQLModel, table=True):
+    """A regional governance council for multi-jurisdictional DAO operations"""
+
+    __tablename__ = "regional_councils"
+
+    council_id: str = Field(primary_key=True, default_factory=lambda: f"council_{uuid.uuid4().hex[:8]}")
+    region: str = Field(index=True)
+    council_name: str = Field(max_length=200)
+    jurisdiction: str = Field(max_length=200)
+    members: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    budget_allocation: float = Field(default=0.0)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 class Proposal(SQLModel, table=True):
     """A governance proposal submitted to the DAO"""
 
@@ -62,6 +76,7 @@ class Proposal(SQLModel, table=True):
 
     proposal_id: str = Field(primary_key=True, default_factory=lambda: f"prop_{uuid.uuid4().hex[:8]}")
     proposer_id: str = Field(foreign_key="governance_profiles.profile_id")
+    council_id: str | None = Field(default=None, index=True)
 
     title: str = Field(max_length=200)
     description: str = Field(max_length=255)

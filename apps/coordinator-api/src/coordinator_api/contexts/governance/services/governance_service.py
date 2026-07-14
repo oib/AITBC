@@ -496,19 +496,48 @@ class GovernanceService:
     async def create_regional_council(
         self, region: str, council_name: str, jurisdiction: str, council_members: list[str], budget_allocation: float
     ) -> dict[str, Any]:
-        council_id = f"council_{uuid4().hex[:8]}"
+        from ..domain.governance import RegionalCouncil
+
+        council = RegionalCouncil(
+            region=region,
+            council_name=council_name,
+            jurisdiction=jurisdiction,
+            members=council_members,
+            budget_allocation=budget_allocation,
+        )
+        self._session_factory.add(council)
+        self._session_factory.commit()
+        self._session_factory.refresh(council)
         return {
-            "council_id": council_id,
-            "region": region,
-            "council_name": council_name,
-            "jurisdiction": jurisdiction,
-            "members": council_members,
-            "budget_allocation": budget_allocation,
-            "created_at": datetime.now(UTC).isoformat(),
+            "council_id": council.council_id,
+            "region": council.region,
+            "council_name": council.council_name,
+            "jurisdiction": council.jurisdiction,
+            "members": council.members,
+            "budget_allocation": council.budget_allocation,
+            "created_at": council.created_at.isoformat(),
         }
 
     async def get_regional_councils(self, region: str | None = None) -> list[dict[str, Any]]:
-        return []
+        from ..domain.governance import RegionalCouncil
+        from sqlmodel import select as sm_select
+
+        stmt = sm_select(RegionalCouncil)
+        if region:
+            stmt = stmt.where(RegionalCouncil.region == region)
+        rows = self._session_factory.execute(stmt).scalars().all()
+        return [
+            {
+                "council_id": c.council_id,
+                "region": c.region,
+                "council_name": c.council_name,
+                "jurisdiction": c.jurisdiction,
+                "members": c.members,
+                "budget_allocation": c.budget_allocation,
+                "created_at": c.created_at.isoformat(),
+            }
+            for c in rows
+        ]
 
     async def create_regional_proposal(
         self,
@@ -519,28 +548,77 @@ class GovernanceService:
         amount_requested: float,
         proposer_address: str,
     ) -> dict[str, Any]:
+        from ..domain.governance import Proposal as DomainProposal, ProposalStatus, RegionalCouncil
+        from sqlmodel import select as sm_select
+
+        council = self._session_factory.execute(
+            sm_select(RegionalCouncil).where(RegionalCouncil.council_id == council_id)
+        ).scalar_one_or_none()
+        if not council:
+            raise ValueError(f"Council {council_id} not found")
+        proposer = await self.get_or_create_profile(proposer_address)
         proposal_id = f"rprop_{uuid4().hex[:8]}"
+        now = datetime.now(UTC)
+        proposal = DomainProposal(
+            proposal_id=proposal_id,
+            proposer_id=proposer.profile_id,
+            council_id=council_id,
+            title=title,
+            description=description,
+            category=proposal_type,
+            execution_payload={"amount_requested": amount_requested},
+            status=ProposalStatus.ACTIVE,
+            voting_starts=now,
+            voting_ends=now + timedelta(days=7),
+        )
+        self._session_factory.add(proposal)
+        self._session_factory.commit()
+        self._session_factory.refresh(proposal)
         return {
-            "proposal_id": proposal_id,
-            "council_id": council_id,
-            "title": title,
-            "description": description,
-            "proposal_type": proposal_type,
+            "proposal_id": proposal.proposal_id,
+            "council_id": proposal.council_id,
+            "title": proposal.title,
+            "description": proposal.description,
+            "proposal_type": proposal.category,
             "amount_requested": amount_requested,
             "proposer_address": proposer_address,
-            "status": "pending",
-            "created_at": datetime.now(UTC).isoformat(),
+            "status": proposal.status.value,
+            "created_at": proposal.created_at.isoformat(),
         }
 
     async def vote_on_regional_proposal(
         self, proposal_id: str, voter_address: str, vote_type: Any, voting_power: float
     ) -> dict[str, Any]:
+        from ..domain.governance import Proposal as DomainProposal, Vote as DomainVote, VoteType
+        from sqlmodel import select as sm_select
+
+        proposal = self._session_factory.execute(
+            sm_select(DomainProposal).where(DomainProposal.proposal_id == proposal_id)
+        ).scalar_one_or_none()
+        if not proposal:
+            raise ValueError(f"Proposal {proposal_id} not found")
+        voter = await self.get_or_create_profile(voter_address)
+        vote = DomainVote(
+            proposal_id=proposal_id,
+            voter_id=voter.profile_id,
+            vote_type=vote_type,
+            voting_power_used=voting_power,
+        )
+        self._session_factory.add(vote)
+        if vote_type == VoteType.FOR:
+            proposal.votes_for += voting_power
+        elif vote_type == VoteType.AGAINST:
+            proposal.votes_against += voting_power
+        else:
+            proposal.votes_abstain += voting_power
+        self._session_factory.commit()
+        self._session_factory.refresh(vote)
         return {
             "proposal_id": proposal_id,
             "voter_address": voter_address,
             "vote_type": str(vote_type),
             "voting_power": voting_power,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": vote.created_at.isoformat(),
         }
 
     async def get_treasury_balance(self, region: str | None = None) -> dict[str, Any]:
@@ -610,13 +688,36 @@ class GovernanceService:
         }
 
     async def get_governance_analytics(self, time_period_days: int = 30) -> dict[str, Any]:
+        from ..domain.governance import Proposal as DomainProposal, ProposalStatus, RegionalCouncil, Vote as DomainVote
+        from sqlmodel import func, select as sm_select
+
+        total = self._session_factory.execute(sm_select(func.count(DomainProposal.proposal_id))).scalar() or 0
+        active = (
+            self._session_factory.execute(
+                sm_select(func.count(DomainProposal.proposal_id)).where(DomainProposal.status == ProposalStatus.ACTIVE)
+            ).scalar()
+            or 0
+        )
+        passed = (
+            self._session_factory.execute(
+                sm_select(func.count(DomainProposal.proposal_id)).where(DomainProposal.status == ProposalStatus.SUCCEEDED)
+            ).scalar()
+            or 0
+        )
+        total_votes = self._session_factory.execute(sm_select(func.count(DomainVote.vote_id))).scalar() or 0
+        total_councils = self._session_factory.execute(sm_select(func.count(RegionalCouncil.council_id))).scalar() or 0
         return {
             "time_period_days": time_period_days,
-            "total_proposals": len(self._proposals),
-            "active_proposals": len([p for p in self._proposals.values() if p.status == ProposalStatus.active]),
-            "passed_proposals": len([p for p in self._proposals.values() if p.status == ProposalStatus.passed]),
-            "total_votes": sum(len(v) for v in self._votes.values()),
-            "participation_rate": 0.0,
+            "proposals": {
+                "total": total,
+                "still_active": active,
+                "passed": passed,
+                "total_votes": total_votes,
+                "participation_rate": 0.0,
+            },
+            "regional_councils": {"total_councils": total_councils, "regions": 0},
+            "treasury": {"total_allocations": 0.0, "total_balance": 0.0},
+            "staking": {"active_pools": 0, "total_staked": 0.0},
         }
 
     async def get_regional_governance_health(self, region: str) -> dict[str, Any]:

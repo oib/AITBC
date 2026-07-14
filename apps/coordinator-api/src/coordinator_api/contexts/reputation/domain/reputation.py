@@ -10,6 +10,8 @@ from uuid import uuid4
 
 from sqlmodel import JSON, Column, Field, SQLModel
 
+from ...agent_coordination.domain.agent import AIAgentWorkflow  # noqa: F401
+
 if TYPE_CHECKING:
     from aitbc_shared.models import ReputationDTO
 
