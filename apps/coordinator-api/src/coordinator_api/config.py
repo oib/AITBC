@@ -11,7 +11,7 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from aitbc.config import BaseAITBCConfig
-from aitbc.constants import LOG_DIR
+from aitbc.constants import LOG_DIR, REPO_DIR
 from aitbc_shared import DatabaseConfig as BaseDatabaseConfig
 
 
@@ -58,6 +58,7 @@ class Settings(BaseAITBCConfig):
     port: int = Field(default=8203, description="Server port")
     environment: str = Field(default="development", description="Environment")
     audit_log_dir: str = Field(default=str(LOG_DIR / "audit"), description="Audit log directory")
+    key_storage_dir: str = Field(default=str(REPO_DIR / "data" / "keys"), description="Key storage directory")
 
     # Database
     database: DatabaseConfig = Field(default_factory=DatabaseConfig, description="Database configuration")

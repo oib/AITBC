@@ -12,6 +12,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ....auth import get_api_key
+from ....config import settings
 from ....schemas import (
     AccessLogQuery,
     AccessLogResponse,
@@ -40,11 +41,9 @@ def get_encryption_service() -> EncryptionService:
     """Get encryption service instance"""
     global encryption_service
     if encryption_service is None:
-        import tempfile
-
         from ....contexts.security.services.key_management import FileKeyStorage
 
-        key_storage = FileKeyStorage(tempfile.gettempdir() + "/aitbc_keys")
+        key_storage = FileKeyStorage(settings.key_storage_dir)
         key_manager = KeyManager(key_storage)
         encryption_service = EncryptionService(key_manager)  # type: ignore[arg-type]
     return encryption_service
@@ -54,11 +53,9 @@ def get_key_manager() -> KeyManager:
     """Get key manager instance"""
     global key_manager
     if key_manager is None:
-        import tempfile
-
         from ....contexts.security.services.key_management import FileKeyStorage
 
-        key_storage = FileKeyStorage(tempfile.gettempdir() + "/aitbc_keys")
+        key_storage = FileKeyStorage(settings.key_storage_dir)
         key_manager = KeyManager(key_storage)
     return key_manager
 
