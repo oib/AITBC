@@ -6,7 +6,7 @@ set -euo pipefail
 
 # Configuration
 WORKSPACE_BASE="/var/lib/aitbc-workspaces"
-REPO_URL="http://10.0.3.107:3000/oib/aitbc.git"
+REPO_URL="${REPO_URL:-}"  # ponytail: caller must set the repo URL; no default prevents accidental clones
 
 # Colors for output
 RED='\033[0;31m'
@@ -46,6 +46,11 @@ ensure_workspace_base() {
 setup_workspace() {
     local workspace_type="$1"
     local workspace_dir="$WORKSPACE_BASE/$workspace_type"
+
+    if [[ -z "$REPO_URL" ]]; then
+        log_error "REPO_URL is not set; aborting."
+        return 1
+    fi
 
     log_info "=== Setting up $workspace_type workspace ==="
 

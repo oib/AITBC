@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Create a structured issue via Gitea API.
-Requires GITEA_TOKEN in environment or /opt/aitbc/.gitea_token.sh.
+Requires GITEA_TOKEN in environment or /opt/aitbc/.gitea_token.
 """
 
 import json
@@ -10,14 +10,15 @@ import subprocess
 import sys
 
 
-def get_token():
-    token_file = "/opt/aitbc/.gitea_token.sh"
+def get_token() -> str:
+    token = os.getenv("GITEA_TOKEN")
+    if token:
+        return token
+    token_file = "/opt/aitbc/.gitea_token"
     if os.path.exists(token_file):
         with open(token_file) as f:
-            for line in f:
-                if line.strip().startswith("GITEA_TOKEN="):
-                    return line.strip().split("=", 1)[1].strip()
-    return os.getenv("GITEA_TOKEN", "")
+            return f.read().strip()
+    raise RuntimeError("GITEA_TOKEN not set and /opt/aitbc/.gitea_token not found; aborting.")
 
 
 GITEA_TOKEN = get_token()
