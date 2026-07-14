@@ -1,7 +1,7 @@
 # AITBC Release Notes Summary
 
-**Last Updated**: 2026-06-30
-**Version**: 1.0
+**Last Updated**: 2026-07-14
+**Version**: 1.1
 
 This document provides a user-friendly summary of AITBC releases, organized by major themes and tracks. For detailed release notes and agent task assignments, see the individual version directories.
 
@@ -207,7 +207,8 @@ Cross-chain bridge, governance, and atomic settlement features.
 
 | Version | Theme | Status |
 |---------|-------|--------|
-| v0.10.12 | Quality Hardening | � In Progress |
+| v0.10.12 | Quality Hardening | ✅ Complete |
+| v0.10.13 | Security & Correctness Hardening | 🚧 In Progress |
 | v1.0.0 | Production Readiness | 🚧 Planned |
 
 ### Future Vision (Post-v1.0)
