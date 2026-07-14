@@ -208,7 +208,7 @@ Cross-chain bridge, governance, and atomic settlement features.
 | Version | Theme | Status |
 |---------|-------|--------|
 | v0.10.12 | Quality Hardening | ✅ Complete |
-| v0.10.13 | Security & Correctness Hardening | 🚧 In Progress |
+| v0.10.13 | Security & Correctness Hardening | ✅ Complete |
 | v1.0.0 | Production Readiness | 🚧 Planned |
 
 ### Future Vision (Post-v1.0)

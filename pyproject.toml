@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aitbc"
-version = "0.10.12"
+version = "0.10.13"
 description = "AI Agent Compute Network - Main Project"
 authors = ["AITBC Team"]
 
@@ -295,6 +295,9 @@ testpaths = [
     "tests/coordinator",
     "tests/e2e",
     "tests/security",
+    "tests/cli",
+    "tests/services",
+    "tests/production",
     "apps/blockchain-node/tests",
 ]
 markers = [

@@ -112,6 +112,16 @@ jobs:
         run: poetry run pytest tests/coordinator -q -o addopts=""
       - name: Run integration tests (excluding external services)
         run: poetry run pytest tests/integration -q -o addopts="" -m "not external"
+      - name: Run security tests
+        run: poetry run pytest tests/security -q -o addopts=""
+      - name: Run CLI tests
+        run: poetry run pytest tests/cli -q -o addopts=""
+      - name: Run services tests
+        run: poetry run pytest tests/services -q -o addopts=""
+      - name: Run production tests
+        run: poetry run pytest tests/production -q -o addopts=""
+      - name: Run blockchain-node tests
+        run: poetry run pytest apps/blockchain-node/tests -q -o addopts=""
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
