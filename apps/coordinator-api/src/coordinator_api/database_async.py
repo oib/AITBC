@@ -1,6 +1,7 @@
 """Async database module with connection pooling for Coordinator API."""
 
 from typing import Any
+from urllib.parse import urlparse
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -21,20 +22,14 @@ def _build_async_url(url: str) -> str:
         sqlite:///path.db -> sqlite+aiosqlite:///path.db
         postgresql://user:pass@host/db -> postgresql+asyncpg://user:pass@host/db
     """
-    if "?" in url:
-        base, params = url.split("?", 1)
-        if base.startswith("sqlite:"):
-            return f"{base}+aiosqlite://?{params}"
-        elif base.startswith("postgresql:"):
-            return f"{base}+asyncpg://?{params}"
-        else:
-            return f"{base}+aiosqlite://?{params}"
-    elif url.startswith("sqlite:"):
-        return url.replace("sqlite:", "sqlite+aiosqlite:")
-    elif url.startswith("postgresql:"):
-        return url.replace("postgresql:", "postgresql+asyncpg:")
-    else:
-        return url.replace(":", "+aiosqlite:")
+    parsed = urlparse(url)
+    if "+" in parsed.scheme:
+        return url
+    if parsed.scheme == "sqlite":
+        return url.replace("sqlite:", "sqlite+aiosqlite:", 1)
+    if parsed.scheme == "postgresql":
+        return url.replace("postgresql:", "postgresql+asyncpg:", 1)
+    raise ValueError(f"Unsupported async database URL: {url}")
 
 
 def init_async_db() -> None:
