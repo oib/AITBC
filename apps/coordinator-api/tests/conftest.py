@@ -19,9 +19,11 @@ os.environ["JWT_SECRET"] = "test-secret-32-characters-for-tests"
 @pytest.fixture(scope="function")
 def db_session():
     """Create a fresh database session for each test."""
+    from coordinator_api.contexts.governance.domain.governance import RegionalCouncil  # noqa: F401
     from sqlmodel import Session, SQLModel, create_engine
 
     engine = create_engine("sqlite:///:memory:", echo=False)
+    print("DB_SESSION METADATA TABLES:", list(SQLModel.metadata.tables.keys()))
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         yield session
