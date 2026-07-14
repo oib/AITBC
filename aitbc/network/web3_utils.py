@@ -7,7 +7,7 @@ from typing import Any, cast
 
 try:
     from web3 import Web3
-    from web3.middleware import geth_poa_middleware  # type: ignore[attr-defined]
+    from web3.middleware.proof_of_authority import ExtraDataToPOAMiddleware as geth_poa_middleware
     from web3.types import HexStr, TxParams
 
     WEB3_AVAILABLE = True
