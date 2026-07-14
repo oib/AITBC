@@ -13,7 +13,7 @@ from sqlmodel import col, func, select
 
 from aitbc.aitbc_logging import get_logger
 
-from ....auth import MinerDep
+from ....auth import AuthDep, MinerDep
 from ....validators import validate_ethereum_address
 
 from ...trading.services.market_data_collector import MarketDataCollector
@@ -225,6 +225,7 @@ async def buy_gpu(
     request: GPUBuyRequest,
     session: Annotated[Session, Depends(get_session)],
     engine: Annotated[DynamicPricingEngine, Depends(get_pricing_engine)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Buy GPU compute from marketplace with blockchain payment and AI job scheduling."""
     gpu = _get_gpu_or_404(session, request.gpu_id)
@@ -363,7 +364,9 @@ async def buy_gpu(
 
 
 @router.post("/marketplace/gpu/sell")
-async def sell_gpu(request: GPUSellRequest, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+async def sell_gpu(
+    request: GPUSellRequest, session: Annotated[Session, Depends(get_session)], user: AuthDep
+) -> dict[str, Any]:
     """List GPU for sale on marketplace with specified price."""
     gpu = _get_gpu_or_404(session, request.gpu_id)
     gpu.price_per_hour = request.listing_price
@@ -386,6 +389,7 @@ async def book_gpu(
     request: GPUBookRequest,
     session: Annotated[Session, Depends(get_session)],
     engine: Annotated[DynamicPricingEngine, Depends(get_pricing_engine)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Book a GPU with dynamic pricing."""
     gpu = _get_gpu_or_404(session, gpu_id)
@@ -444,7 +448,7 @@ async def book_gpu(
 
 
 @router.post("/marketplace/gpu/{gpu_id}/release")
-async def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+async def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_session)], user: AuthDep) -> dict[str, Any]:
     """Release a booked GPU."""
     gpu = _get_gpu_or_404(session, gpu_id)
     if gpu.status != "booked":
@@ -469,7 +473,10 @@ async def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_sessi
 
 @router.post("/marketplace/gpu/{gpu_id}/confirm")
 async def confirm_gpu_booking(
-    gpu_id: str, request: GPUConfirmRequest, session: Annotated[Session, Depends(get_session)]
+    gpu_id: str,
+    request: GPUConfirmRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Confirm a booking (client ACK)."""
     gpu = _get_gpu_or_404(session, gpu_id)
@@ -514,7 +521,9 @@ async def submit_ollama_task(request: OllamaTaskRequest, session: Annotated[Sess
 
 
 @router.post("/payments/send")
-async def send_payment(request: PaymentRequest, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+async def send_payment(
+    request: PaymentRequest, session: Annotated[Session, Depends(get_session)], user: AuthDep
+) -> dict[str, Any]:
     """Record a real payment for a task or booking and return its actual status."""
     if request.amount <= 0:
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="Amount must be greater than zero")
@@ -575,6 +584,7 @@ async def send_payment(request: PaymentRequest, session: Annotated[Session, Depe
 async def delete_gpu(
     gpu_id: str,
     session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
     force: bool = Query(default=False, description="Force delete even if GPU is booked"),
 ) -> dict[str, Any]:
     """Delete (unregister) a GPU from the marketplace."""
