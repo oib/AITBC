@@ -130,7 +130,7 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/security -q -o addopts=""
 | B9 | Fix staking anonymous auth fallback | 🟡 P1 | `apps/coordinator-api/src/coordinator_api/contexts/staking/routers/staking.py` | ✅ |
 | B10 | Fix multi-tenant quota models | 🟡 P1 | `apps/coordinator-api/src/coordinator_api/models/multitenant.py`, `apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py` | ✅ |
 | B11 | Fix governance state persistence | 🟡 P1 | `apps/coordinator-api/src/coordinator_api/contexts/governance/services/governance_service.py`, `apps/coordinator-api/src/coordinator_api/contexts/governance/routers/governance_enhanced.py` | ✅ |
-| B12 | Expand CI/test path coverage | 🟡 P1 | `pyproject.toml`, `.github/workflows/ci.yml`, `.gitea/workflows/*` | 🚧 |
+| B12 | Expand CI/test path coverage | 🟡 P1 | `pyproject.toml`, `.github/workflows/ci.yml`, `.gitea/workflows/*` | ✅ |
 | B13 | Remove duplicate broken CLI setup | 🟡 P1 | `cli/setup/setup.py` | ✅ |
 | B14 | Fix `validate_query()` case-sensitivity | 🟡 P1 | `apps/blockchain-node/tests/security/test_database_security.py` | ✅ |
 
@@ -252,5 +252,5 @@ Pending implementation. Acceptance criteria:
 - [ ] Private key and DB files created with owner-only permissions.
 - [ ] Web3 7.x import works and Ethereum adapters initialize.
 - [ ] `alembic check` passes on a fresh upgraded database.
-- [ ] CLI/security/services/production suites run in CI without unexpected skips.
-- [ ] All version strings consistent and `v0.10.13` tag applied after verification.
+- [x] CLI/security/services/production suites run in CI without unexpected skips.
+- [x] All version strings consistent and `v0.10.13` tag applied after verification.
