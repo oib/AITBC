@@ -5,6 +5,7 @@ Tests system performance under load and validates scalability
 """
 
 import asyncio
+import os
 import statistics
 import sys
 import time
@@ -15,7 +16,9 @@ import aiohttp
 class ScalabilityValidator:
     def __init__(self, base_url="https://aitbc.bubuit.net/api/v1"):
         self.base_url = base_url
-        self.api_key = "test_key_16_characters"
+        self.api_key = os.environ.get("AITBC_API_KEY")
+        if not self.api_key:
+            raise RuntimeError("AITBC_API_KEY not set; aborting.")
         self.results = []
 
     async def measure_endpoint_performance(self, session, endpoint, method="GET", **kwargs):
