@@ -430,9 +430,9 @@ def earn(ctx, amount: float, job_id: str, desc: str | None):
     output(
         {
             "wallet": wallet_name,
-            "amount": format_ait(int(amount)),
+            "amount": format_ait(amount),
             "job_id": job_id,
-            "new_balance": format_ait(int(wallet_data["balance"])),
+            "new_balance": format_ait(wallet_data["balance"]),
         },
         ctx.obj.get("output_format", "table"),
     )
@@ -480,9 +480,9 @@ def spend(ctx, amount: float, description: str):
     output(
         {
             "wallet": wallet_name,
-            "amount": format_ait(int(amount)),
+            "amount": format_ait(amount),
             "description": description,
-            "new_balance": format_ait(int(wallet_data["balance"])),
+            "new_balance": format_ait(wallet_data["balance"]),
         },
         ctx.obj.get("output_format", "table"),
     )
