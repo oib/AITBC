@@ -85,37 +85,15 @@ class BFVProvider:
     """
 
     def __init__(self, session: Any = None) -> None:
-        self.available = True
+        self.available = False
         self.contexts: dict[str, BFVContext] = {}
         self._next_context_id = 0
         self.session = session
-        logger.info("BFV FHE provider initialized")
+        logger.info("BFV FHE provider initialized in disabled state")
 
     def generate_context(self, scheme: str = "bfv", poly_modulus_degree: int = 4096, **kwargs: Any) -> dict[str, Any]:
         """Generate new FHE encryption context"""
-        try:
-            if scheme not in ["bfv", "ckks", "simplified"]:
-                scheme = "bfv"
-            context = BFVContext.generate(
-                poly_modulus_degree=poly_modulus_degree, plain_modulus=kwargs.get("plain_modulus", 1032193)
-            )
-            context_id = f"ctx_{self._next_context_id}"
-            self._next_context_id += 1
-            self.contexts[context_id] = context
-            logger.info("Generated FHE context: %s (degree=%s)", context_id, poly_modulus_degree)
-            return {
-                "context_id": context_id,
-                "scheme": scheme,
-                "poly_modulus_degree": poly_modulus_degree,
-                "plain_modulus": context.plain_modulus,
-                "coeff_modulus_bits": 60,
-                "scale": context.scale,
-                "public_key_hash": hash(context.public_key.tobytes()) % 10000,
-                "status": "ready",
-            }
-        except Exception as e:
-            logger.error("Failed to generate FHE context: %s", e)
-            raise
+        raise NotImplementedError("Insecure BFV implementation is disabled; use a vetted FHE library")
 
     def encrypt(self, data: np.ndarray | list[float], context_id: str, **kwargs: Any) -> EncryptedVector:
         """

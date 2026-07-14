@@ -1,20 +1,17 @@
 """
 FHE Router - Fully Homomorphic Encryption API endpoints
 
-Provides REST API for:
-- FHE context generation
-- Data encryption/decryption
-- Homomorphic operations
-- Encrypted inference
+ponytail: The BFV implementation in fhe_enhanced.py is not cryptographically
+secure. All operational FHE endpoints are disabled and return 501 until a
+vetted library (TenSEAL / Microsoft SEAL) is integrated.
 """
 
 from typing import Any
 
-import numpy as np
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from ..services.fhe_enhanced import get_fhe_provider
+from ....auth import AuthDep
 
 router = APIRouter(prefix="/fhe", tags=["fhe"])
 
@@ -58,137 +55,55 @@ class InferenceRequest(BaseModel):
     model: dict[str, Any]
 
 
+_FHE_DISABLED = HTTPException(
+    status_code=status.HTTP_501_NOT_IMPLEMENTED,
+    detail="FHE service is disabled; use a vetted FHE library",
+)
+
+
 @router.post("/context/generate", summary="Generate FHE context")
-async def generate_context(request: Request, req: GenerateContextRequest) -> dict[str, Any]:
+async def generate_context(req: GenerateContextRequest, current_user: AuthDep) -> dict[str, Any]:
     """Generate a new FHE encryption context with keys"""
-    try:
-        provider = get_fhe_provider()
-        result = provider.generate_context(
-            scheme=req.scheme, poly_modulus_degree=req.poly_modulus_degree, plain_modulus=req.plain_modulus
-        )
-        return {"success": True, **result}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate context: {str(e)}"
-        ) from e
+    raise _FHE_DISABLED
 
 
 @router.post("/encrypt", summary="Encrypt data")
-async def encrypt_data(request: Request, req: EncryptRequest) -> dict[str, Any]:
+async def encrypt_data(req: EncryptRequest, current_user: AuthDep) -> dict[str, Any]:
     """Encrypt plaintext data using FHE"""
-    try:
-        provider = get_fhe_provider()
-        encrypted = provider.encrypt(data=np.array(req.data), context_id=req.context_id)
-        return {
-            "success": True,
-            "encrypted_data": encrypted.serialize(),
-            "shape": encrypted.shape,
-            "context_id": encrypted.context_id,
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Encryption failed: {str(e)}") from e
+    raise _FHE_DISABLED
 
 
 @router.post("/decrypt", summary="Decrypt data")
-async def decrypt_data(request: Request, req: DecryptRequest) -> dict[str, Any]:
+async def decrypt_data(req: DecryptRequest, current_user: AuthDep) -> dict[str, Any]:
     """Decrypt FHE-encrypted data"""
-    try:
-        from ..services.fhe_enhanced import EncryptedVector
-
-        provider = get_fhe_provider()
-        encrypted = EncryptedVector.deserialize(req.encrypted_data)
-        decrypted = provider.decrypt(encrypted)
-
-        return {"success": True, "data": decrypted.tolist(), "shape": list(decrypted.shape), "dtype": str(decrypted.dtype)}
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Decryption failed: {str(e)}") from e
+    raise _FHE_DISABLED
 
 
 @router.post("/add", summary="Homomorphic addition")
-async def homomorphic_add(request: Request, req: HomomorphicOpRequest) -> dict[str, Any]:
-    """
-    Perform homomorphic addition.
-
-    Either E(a) + E(b) or E(a) + plaintext
-    """
-    try:
-        from ..services.fhe_enhanced import EncryptedVector
-
-        provider = get_fhe_provider()
-        encrypted_a = EncryptedVector.deserialize(req.encrypted_a)
-
-        if req.encrypted_b:
-            # Ciphertext + Ciphertext
-            encrypted_b = EncryptedVector.deserialize(req.encrypted_b)
-            result = provider.add_cipher_cipher(encrypted_a, encrypted_b)
-        elif req.plain_data:
-            # Ciphertext + Plaintext
-            result = provider.add_cipher_plain(encrypted_a, np.array(req.plain_data))
-        else:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Either encrypted_b or plain_data required")
-
-        return {"success": True, "result": result.serialize(), "operation": "add"}
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Operation failed: {str(e)}") from e
+async def homomorphic_add(req: HomomorphicOpRequest, current_user: AuthDep) -> dict[str, Any]:
+    """Perform homomorphic addition."""
+    raise _FHE_DISABLED
 
 
 @router.post("/multiply-scalar", summary="Homomorphic scalar multiplication")
-async def homomorphic_multiply(request: Request, req: HomomorphicOpRequest) -> dict[str, Any]:
+async def homomorphic_multiply(req: HomomorphicOpRequest, current_user: AuthDep) -> dict[str, Any]:
     """Perform homomorphic multiplication by scalar: E(a) * s = E(a*s)"""
-    try:
-        from ..services.fhe_enhanced import EncryptedVector
-
-        if req.scalar is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="scalar required")
-
-        provider = get_fhe_provider()
-        encrypted = EncryptedVector.deserialize(req.encrypted_a)
-        result = provider.multiply_cipher_scalar(encrypted, req.scalar)
-
-        return {"success": True, "result": result.serialize(), "operation": "multiply_scalar", "scalar": req.scalar}
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Operation failed: {str(e)}") from e
+    raise _FHE_DISABLED
 
 
 @router.post("/inference", summary="Encrypted inference")
-async def encrypted_inference(request: Request, req: InferenceRequest) -> dict[str, Any]:
+async def encrypted_inference(req: InferenceRequest, current_user: AuthDep) -> dict[str, Any]:
     """Perform ML inference on encrypted data"""
-    try:
-        from ..services.fhe_enhanced import EncryptedVector
-
-        provider = get_fhe_provider()
-        encrypted_input = EncryptedVector.deserialize(req.encrypted_input)
-
-        result = provider.encrypted_inference(req.model, encrypted_input)
-
-        return {"success": True, "encrypted_output": result.serialize(), "model_type": req.model.get("type", "unknown")}
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Inference failed: {str(e)}") from e
+    raise _FHE_DISABLED
 
 
 @router.get("/context/{context_id}", summary="Get context info")
-async def get_context_info(request: Request, context_id: str) -> dict[str, Any]:
+async def get_context_info(context_id: str, current_user: AuthDep) -> dict[str, Any]:
     """Get information about an FHE context"""
-    try:
-        provider = get_fhe_provider()
-        return provider.get_context_info(context_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get context info: {str(e)}"
-        ) from e
+    raise _FHE_DISABLED
 
 
 @router.get("/health", summary="Health check")
-async def fhe_health(request: Request) -> dict[str, Any]:
+async def fhe_health() -> dict[str, Any]:
     """Check FHE service health"""
-    return {"status": "healthy", "fhe_available": True, "service": "fhe"}
+    return {"status": "disabled", "fhe_available": False, "service": "fhe"}
