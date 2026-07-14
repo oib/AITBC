@@ -8,7 +8,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, ClassVar
 
-from sqlalchemy import Index
+from sqlalchemy import Column, Index, JSON
 from sqlalchemy.orm import relationship
 from sqlmodel import Field
 from sqlmodel import SQLModel as Base
@@ -24,7 +24,7 @@ class TenantStatus(Enum):
     TRIAL = "trial"
 
 
-class Tenant(Base):
+class Tenant(Base, table=True):
     """Tenant model for multi-tenancy"""
 
     __tablename__ = "tenants"
@@ -46,8 +46,8 @@ class Tenant(Base):
     billing_email: str | None = Field(max_length=255, nullable=True)
 
     # Configuration
-    settings: dict[str, Any] = Field(default_factory=dict)
-    features: dict[str, Any] = Field(default_factory=dict)
+    settings: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    features: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
     created_at: datetime | None = Field(default_factory=datetime.now)
@@ -61,10 +61,10 @@ class Tenant(Base):
     usage_records: ClassVar = relationship("UsageRecord", back_populates="tenant", cascade="all, delete-orphan")
 
     # Indexes
-    __table_args__ = (Index("idx_tenant_status", "status"), Index("idx_tenant_plan", "plan"), {"schema": "aitbc"})
+    __table_args__ = (Index("idx_tenant_status", "status"), Index("idx_tenant_plan", "plan"))
 
 
-class TenantUser(Base):
+class TenantUser(Base, table=True):
     """Association between users and tenants"""
 
     __tablename__ = "tenant_users"
@@ -73,12 +73,12 @@ class TenantUser(Base):
     id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
 
     # Foreign keys
-    tenant_id: uuid.UUID = Field(foreign_key="aitbc.tenants.id", nullable=False)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", nullable=False)
     user_id: str = Field(max_length=255, nullable=False)  # User ID from auth system
 
     # Role and permissions
     role: str = Field(default="member", max_length=50)
-    permissions: list[str] = Field(default_factory=list)
+    permissions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Status
     is_active: bool = Field(default=True)
@@ -86,7 +86,7 @@ class TenantUser(Base):
     joined_at: datetime | None = None
 
     # Metadata
-    user_metadata: dict[str, Any] | None = None
+    user_metadata: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
 
     # Relationships
     tenant: ClassVar = relationship("Tenant", back_populates="users")
@@ -95,11 +95,10 @@ class TenantUser(Base):
     __table_args__ = (
         Index("idx_tenant_user", "tenant_id", "user_id"),
         Index("idx_user_tenants", "user_id"),
-        {"schema": "aitbc"},
     )
 
 
-class TenantQuota(Base):
+class TenantQuota(Base, table=True):
     """Resource quotas for tenants"""
 
     __tablename__ = "tenant_quotas"
@@ -108,7 +107,7 @@ class TenantQuota(Base):
     id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
 
     # Foreign key
-    tenant_id: uuid.UUID = Field(foreign_key="aitbc.tenants.id", nullable=False)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", nullable=False)
 
     # Quota definitions
     resource_type: str = Field(max_length=100, nullable=False)  # gpu_hours, storage_gb, api_calls
@@ -130,11 +129,10 @@ class TenantQuota(Base):
     __table_args__ = (
         Index("idx_tenant_quota", "tenant_id", "resource_type", "period_start"),
         Index("idx_quota_period", "period_start", "period_end"),
-        {"schema": "aitbc"},
     )
 
 
-class UsageRecord(Base):
+class UsageRecord(Base, table=True):
     """Usage tracking records for billing"""
 
     __tablename__ = "usage_records"
@@ -143,7 +141,7 @@ class UsageRecord(Base):
     id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
 
     # Foreign key
-    tenant_id: uuid.UUID = Field(foreign_key="aitbc.tenants.id", nullable=False)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", nullable=False)
 
     # Usage details
     resource_type: str = Field(max_length=100, nullable=False)  # gpu_hours, storage_gb, api_calls
@@ -163,7 +161,7 @@ class UsageRecord(Base):
 
     # Metadata
     job_id: str | None = Field(max_length=255, nullable=True)  # Associated job if applicable
-    usage_metadata: dict[str, Any] | None = None
+    usage_metadata: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
 
     # Relationships
     tenant: ClassVar = relationship("Tenant", back_populates="usage_records")
@@ -173,11 +171,10 @@ class UsageRecord(Base):
         Index("idx_tenant_usage", "tenant_id", "usage_start"),
         Index("idx_usage_type", "resource_type", "usage_start"),
         Index("idx_usage_job", "job_id"),
-        {"schema": "aitbc"},
     )
 
 
-class Invoice(Base):
+class Invoice(Base, table=True):
     """Billing invoices for tenants"""
 
     __tablename__ = "invoices"
@@ -186,7 +183,7 @@ class Invoice(Base):
     id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
 
     # Foreign key
-    tenant_id: uuid.UUID = Field(foreign_key="aitbc.tenants.id", nullable=False)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", nullable=False)
 
     # Invoice details
     invoice_number: str = Field(max_length=100, unique=True, nullable=False)
@@ -204,7 +201,7 @@ class Invoice(Base):
     currency: str = Field(default="USD", max_length=10)
 
     # Breakdown
-    line_items: list[dict[str, Any]] = Field(default_factory=list)
+    line_items: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Payment
     paid_at: datetime | None = None
@@ -215,18 +212,17 @@ class Invoice(Base):
     updated_at: datetime | None = Field(default_factory=datetime.now)
 
     # Metadata
-    invoice_metadata: dict[str, Any] | None = None
+    invoice_metadata: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
 
     # Indexes
     __table_args__ = (
         Index("idx_invoice_tenant", "tenant_id", "period_start"),
         Index("idx_invoice_status", "status"),
         Index("idx_invoice_due", "due_date"),
-        {"schema": "aitbc"},
     )
 
 
-class TenantApiKey(Base):
+class TenantApiKey(Base, table=True):
     """API keys for tenant authentication"""
 
     __tablename__ = "tenant_api_keys"
@@ -235,7 +231,7 @@ class TenantApiKey(Base):
     id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
 
     # Foreign key
-    tenant_id: uuid.UUID = Field(foreign_key="aitbc.tenants.id", nullable=False)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", nullable=False)
 
     # Key details
     key_id: str = Field(max_length=100, unique=True, nullable=False)
@@ -243,9 +239,9 @@ class TenantApiKey(Base):
     key_prefix: str = Field(max_length=20, nullable=False)  # First few characters for identification
 
     # Permissions and restrictions
-    permissions: list[str] = Field(default_factory=list)
+    permissions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     rate_limit: int | None = None  # Requests per minute
-    allowed_ips: list[str] | None = None  # IP whitelist
+    allowed_ips: list[str] | None = Field(default=None, sa_column=Column(JSON))  # IP whitelist
 
     # Status
     is_active: bool = Field(default=True)
@@ -265,11 +261,10 @@ class TenantApiKey(Base):
     __table_args__ = (
         Index("idx_api_key_tenant", "tenant_id", "is_active"),
         Index("idx_api_key_hash", "key_hash"),
-        {"schema": "aitbc"},
     )
 
 
-class TenantAuditLog(Base):
+class TenantAuditLog(Base, table=True):
     """Audit logs for tenant activities"""
 
     __tablename__ = "tenant_audit_logs"
@@ -278,7 +273,7 @@ class TenantAuditLog(Base):
     id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
 
     # Foreign key
-    tenant_id: uuid.UUID = Field(foreign_key="aitbc.tenants.id", nullable=False)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", nullable=False)
 
     # Event details
     event_type: str = Field(max_length=100, nullable=False)
@@ -291,9 +286,9 @@ class TenantAuditLog(Base):
     resource_id: str | None = Field(max_length=255, nullable=True)
 
     # Event data
-    old_values: dict[str, Any] | None = None
-    new_values: dict[str, Any] | None = None
-    event_metadata: dict[str, Any] | None = None
+    old_values: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    new_values: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    event_metadata: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
 
     # Request context
     ip_address: str | None = Field(max_length=45, nullable=True)
@@ -308,11 +303,10 @@ class TenantAuditLog(Base):
         Index("idx_audit_tenant", "tenant_id", "created_at"),
         Index("idx_audit_actor", "actor_id", "event_type"),
         Index("idx_audit_resource", "resource_type", "resource_id"),
-        {"schema": "aitbc"},
     )
 
 
-class TenantMetric(Base):
+class TenantMetric(Base, table=True):
     """Tenant-specific metrics and monitoring data"""
 
     __tablename__ = "tenant_metrics"
@@ -321,7 +315,7 @@ class TenantMetric(Base):
     id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
 
     # Foreign key
-    tenant_id: uuid.UUID = Field(foreign_key="aitbc.tenants.id", nullable=False)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", nullable=False)
 
     # Metric details
     metric_name: str = Field(max_length=100, nullable=False)
@@ -332,7 +326,7 @@ class TenantMetric(Base):
     unit: str | None = Field(max_length=50, nullable=True)
 
     # Dimensions
-    dimensions: dict[str, Any] = Field(default_factory=dict)
+    dimensions: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Time
     timestamp: datetime | None = None
@@ -341,5 +335,4 @@ class TenantMetric(Base):
     __table_args__ = (
         Index("idx_metric_tenant", "tenant_id", "metric_name", "timestamp"),
         Index("idx_metric_time", "timestamp"),
-        {"schema": "aitbc"},
     )
