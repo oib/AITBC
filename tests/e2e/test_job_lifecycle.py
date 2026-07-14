@@ -3,7 +3,16 @@ End-to-End Test for Job Lifecycle
 Tests complete job submission and processing workflow
 """
 
+import httpx
 import pytest
+
+
+def _skip_if_unreachable(url: str, timeout: float = 2.0) -> None:
+    """Skip the test if the service at ``url`` is not reachable."""
+    try:
+        httpx.get(url, timeout=timeout)
+    except httpx.NetworkError:
+        pytest.skip(f"Service at {url} is not reachable")
 
 
 @pytest.mark.e2e
@@ -102,6 +111,7 @@ class TestBlockchainIntegration:
     @pytest.fixture(autouse=True)
     def setup(self, http_client, blockchain_url, service_health_check):
         """Setup for blockchain E2E tests"""
+        _skip_if_unreachable(f"{blockchain_url}/v1/health")
         self.http_client = http_client
         self.blockchain_url = blockchain_url
 
@@ -128,6 +138,7 @@ class TestMarketplaceIntegration:
     @pytest.fixture(autouse=True)
     def setup(self, http_client, marketplace_url, service_health_check):
         """Setup for marketplace E2E tests"""
+        _skip_if_unreachable(f"{marketplace_url}/v1/health")
         self.http_client = http_client
         self.marketplace_url = marketplace_url
 
