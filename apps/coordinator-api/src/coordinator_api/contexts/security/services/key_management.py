@@ -4,6 +4,7 @@ Key management service for confidential transactions
 
 import asyncio
 import base64
+import hmac
 import json
 import os
 from datetime import UTC, datetime, timedelta
@@ -16,6 +17,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X
 
 from aitbc.aitbc_logging import get_logger
 
+from ....config import settings
 from ....schemas import KeyPair, KeyRotationLog
 
 logger = get_logger(__name__)
@@ -131,7 +133,14 @@ class KeyManager:
             if datetime.now(UTC) > expires_at:
                 return False
             required_fields = ["issuer", "subject", "expires_at", "signature"]
-            return all(field in auth_json for field in required_fields)
+            if not all(field in auth_json for field in required_fields):
+                return False
+            secret = settings.hmac_secret or settings.jwt_secret
+            if not secret:
+                return False
+            signature = auth_json.pop("signature")
+            expected = hmac.new(secret.encode(), json.dumps(auth_json, sort_keys=True).encode(), "sha256").hexdigest()
+            return hmac.compare_digest(signature, expected)
         except Exception as e:
             logger.error("Failed to verify audit authorization: %s", e)
             return False
@@ -149,9 +158,14 @@ class KeyManager:
                 "purpose": purpose,
                 "created_at": datetime.now(UTC).isoformat(),
                 "expires_at": (datetime.now(UTC) + timedelta(hours=expires_in_hours)).isoformat(),
-                "signature": "placeholder",
             }
-            auth_json = json.dumps(payload)
+            secret = settings.hmac_secret or settings.jwt_secret
+            if not secret:
+                raise KeyManagementError("Audit signing secret not configured")
+            payload["signature"] = hmac.new(
+                secret.encode(), json.dumps(payload, sort_keys=True).encode(), "sha256"
+            ).hexdigest()
+            auth_json = json.dumps(payload, sort_keys=True)
             return base64.b64encode(auth_json.encode()).decode()
         except Exception as e:
             logger.error("Failed to create audit authorization: %s", e)
@@ -261,7 +275,8 @@ class FileKeyStorage(KeyStorageBackend):
 
     def __init__(self, storage_path: str):
         self.storage_path = storage_path
-        os.makedirs(storage_path, exist_ok=True)
+        os.makedirs(storage_path, mode=0o700, exist_ok=True)
+        os.chmod(storage_path, 0o700)
 
     async def store_key_pair(self, key_pair: KeyPair) -> bool:
         """Store key pair to file"""
@@ -270,6 +285,7 @@ class FileKeyStorage(KeyStorageBackend):
             private_path = os.path.join(self.storage_path, f"{key_pair.participant_id}.priv")
             async with aiofiles.open(private_path, "wb") as f:
                 await f.write(key_pair.private_key)
+            os.chmod(private_path, 0o600)
             metadata = {
                 "participant_id": key_pair.participant_id,
                 "public_key": base64.b64encode(key_pair.public_key).decode(),
@@ -337,6 +353,7 @@ class FileKeyStorage(KeyStorageBackend):
         try:
             async with aiofiles.open(audit_priv_path, "wb") as f:
                 await f.write(key_pair.private_key)
+            os.chmod(audit_priv_path, 0o600)
             metadata = {
                 "participant_id": "audit",
                 "public_key": base64.b64encode(key_pair.public_key).decode(),
