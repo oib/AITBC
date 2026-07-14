@@ -241,7 +241,7 @@ class TradeAgreement(SQLModel, table=True):
     service_level_agreement: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Pricing and payment
-    total_price: Decimal = Field(default=Decimal("0"), ge=0, sa_column=Column(Numeric(20, 8)))
+    total_price: Decimal = Field(default=Decimal("0"), ge=0, sa_column=Column(Numeric(20, 8), nullable=False))
     currency: str = Field(default="AITBC")
     payment_schedule: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     settlement_type: SettlementType
@@ -290,7 +290,7 @@ class TradeSettlement(SQLModel, table=True):
 
     # Settlement details
     settlement_type: SettlementType
-    total_amount: Decimal = Field(default=Decimal("0"), ge=0, sa_column=Column(Numeric(20, 8)))
+    total_amount: Decimal = Field(default=Decimal("0"), ge=0, sa_column=Column(Numeric(20, 8), nullable=False))
     currency: str = Field(default="AITBC")
 
     # Payment processing
@@ -309,10 +309,10 @@ class TradeSettlement(SQLModel, table=True):
     completed_milestones: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Fees and deductions
-    platform_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
-    processing_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
-    gas_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
-    net_amount_seller: Decimal = Field(default=Decimal("0"), ge=0, sa_column=Column(Numeric(20, 8)))
+    platform_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
+    processing_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
+    gas_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
+    net_amount_seller: Decimal = Field(default=Decimal("0"), ge=0, sa_column=Column(Numeric(20, 8), nullable=False))
 
     # Status and timestamps
     status: TradeStatus = Field(default=TradeStatus.SETTLING)
@@ -396,9 +396,9 @@ class TradingAnalytics(SQLModel, table=True):
     cancelled_trades: int = Field(default=0)
 
     # Financial metrics
-    total_trade_volume: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
-    average_trade_value: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
-    total_platform_fees: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    total_trade_volume: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
+    average_trade_value: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
+    total_platform_fees: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
 
     # Trade type distribution
     trade_type_distribution: dict[str, int] = Field(default_factory=dict, sa_column=Column(JSON))

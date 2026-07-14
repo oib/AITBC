@@ -119,7 +119,7 @@ class GlobalMarketplaceOffer(SQLModel, table=True):
     resource_specification: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Pricing (multi-currency support) — Decimal for exact monetary arithmetic (v0.10.7 §B8)
-    base_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    base_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
     currency: str = Field(default="USD")
     price_per_region: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     dynamic_pricing_enabled: bool = Field(default=False)
@@ -165,15 +165,15 @@ class GlobalMarketplaceTransaction(SQLModel, table=True):
     # Transaction details — Decimal for exact monetary arithmetic (v0.10.7 §B8)
     service_type: str = Field(index=True)
     quantity: int = Field(default=1)
-    unit_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
-    total_amount: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    unit_price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
+    total_amount: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
     currency: str = Field(default="USD")
 
     # Cross-chain information
     source_chain: int | None = Field(default=None)
     target_chain: int | None = Field(default=None)
     bridge_transaction_id: str | None = Field(default=None)
-    cross_chain_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    cross_chain_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
 
     # Regional information
     source_region: str = Field(default="global")
