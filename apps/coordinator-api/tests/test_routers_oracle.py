@@ -10,10 +10,14 @@ from fastapi.testclient import TestClient
 class TestOracleRouter:
     """Test oracle router endpoints"""
 
-    def test_get_price(self, client: TestClient):
+    def test_get_price(self, client: TestClient, admin_token: str):
         """Test getting asset price"""
         # Set a price first so it's available
-        client.post("/v1/oracle/price", json={"pair": "ETH", "price": 3000.0, "source": "manual"})
+        client.post(
+            "/v1/oracle/price",
+            json={"pair": "ETH", "price": 3000.0, "source": "manual"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
 
         response = client.get("/v1/oracle/price/ETH")
         assert response.status_code == 200
@@ -23,10 +27,14 @@ class TestOracleRouter:
         assert "timestamp" in data
         assert data["source"] == "manual"
 
-    def test_get_price_btc(self, client: TestClient):
+    def test_get_price_btc(self, client: TestClient, admin_token: str):
         """Test getting BTC price"""
         # Set a price first
-        client.post("/v1/oracle/price", json={"pair": "BTC", "price": 60000.0, "source": "manual"})
+        client.post(
+            "/v1/oracle/price",
+            json={"pair": "BTC", "price": 60000.0, "source": "manual"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
 
         response = client.get("/v1/oracle/price/BTC")
         assert response.status_code == 200
@@ -34,10 +42,14 @@ class TestOracleRouter:
         assert data["pair"] == "BTC"
         assert "price" in data
 
-    def test_get_price_aic_token(self, client: TestClient):
+    def test_get_price_aic_token(self, client: TestClient, admin_token: str):
         """Test getting AIC token price"""
         # Set a price first
-        client.post("/v1/oracle/price", json={"pair": "AIC", "price": 1.5, "source": "manual"})
+        client.post(
+            "/v1/oracle/price",
+            json={"pair": "AIC", "price": 1.5, "source": "manual"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
 
         response = client.get("/v1/oracle/price/AIC")
         assert response.status_code == 200
@@ -45,11 +57,20 @@ class TestOracleRouter:
         assert data["pair"] == "AIC"
         assert "price" in data
 
-    def test_set_price(self, client: TestClient):
+    def test_set_price(self, client: TestClient, admin_token: str):
         """Test setting price (admin function)"""
         price_data = {"pair": "TEST", "price": 123.45, "source": "manual"}
 
+        # Unauthenticated requests are rejected
         response = client.post("/v1/oracle/price", json=price_data)
+        assert response.status_code == 401
+
+        # Admin can set
+        response = client.post(
+            "/v1/oracle/price",
+            json=price_data,
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
@@ -77,10 +98,14 @@ class TestOracleRouter:
 class TestOracleIntegration:
     """Integration tests for oracle feeds"""
 
-    def test_price_update_and_retrieval(self, client: TestClient):
+    def test_price_update_and_retrieval(self, client: TestClient, admin_token: str):
         """Test setting price and then retrieving it"""
         # Set a custom price
-        client.post("/v1/oracle/price", json={"pair": "CUSTOM", "price": 999.99, "source": "test"})
+        client.post(
+            "/v1/oracle/price",
+            json={"pair": "CUSTOM", "price": 999.99, "source": "test"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
 
         # Retrieve it
         response = client.get("/v1/oracle/price/CUSTOM")
