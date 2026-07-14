@@ -187,4 +187,5 @@ def normalize_transaction_data(tx_data: dict[str, Any], chain_id: str) -> dict[s
         "fee": fee,
         "nonce": nonce,
         "payload": payload,
+        "signature": tx_data.get("signature"),
     }
