@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import stat
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
@@ -276,29 +275,6 @@ def init_db(chain_id: str = "") -> None:
 
     # Add missing columns to existing tables (create_all only creates new tables)
     _migrate_existing_columns(engine)
-
-    # Set permissive file permissions on database file to handle filesystem restrictions
-    if db_path.exists():
-        try:
-            os.chmod(
-                db_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH
-            )  # Read/write for all
-        except OSError:
-            # Ignore permission errors (e.g., read-only filesystem in containers)
-            pass
-        # Also set permissions on WAL files if they exist
-        wal_shm = db_path.with_suffix(".db-shm")
-        wal_wal = db_path.with_suffix(".db-wal")
-        if wal_shm.exists():
-            try:
-                os.chmod(wal_shm, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)
-            except OSError:
-                pass
-        if wal_wal.exists():
-            try:
-                os.chmod(wal_wal, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)
-            except OSError:
-                pass
 
 
 def shutdown_db(chain_id: str = "") -> None:
