@@ -152,16 +152,16 @@ class DatabaseOperationValidator:
     def validate_query(self, query: str) -> bool:
         """Validate that the query doesn't contain dangerous patterns"""
         dangerous_patterns = [
-            "DROP TABLE",
-            "DROP DATABASE",
-            "TRUNCATE",
-            "ALTER TABLE",
-            "DELETE FROM account",
-            "UPDATE account SET balance",
+            "drop table",
+            "drop database",
+            "truncate",
+            "alter table",
+            "delete from account",
+            "update account set balance",
         ]
-        query_upper = query.upper()
+        query_lower = query.lower()
         for pattern in dangerous_patterns:
-            if pattern in query_upper:
+            if pattern in query_lower:
                 return False
         return True
 
