@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from importlib import import_module
 
-__version__ = "0.10.12"
+__version__ = "0.10.13"
 __author__ = "AITBC Team"
 __email__ = "andreas.fleckl@bubuit.net"
 

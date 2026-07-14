@@ -131,8 +131,7 @@ jobs:
           venv/bin/python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/production/ \
             -v \
             --tb=short \
-            --timeout=30 \
-            -k "not test_error_handling"
+            --timeout=30
 
           echo "✅ Production tests completed"
 
