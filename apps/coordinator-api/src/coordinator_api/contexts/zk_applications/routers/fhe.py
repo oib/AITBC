@@ -104,6 +104,6 @@ async def get_context_info(context_id: str, current_user: AuthDep) -> dict[str, 
 
 
 @router.get("/health", summary="Health check")
-async def fhe_health() -> dict[str, Any]:
+async def fhe_health(current_user: AuthDep) -> dict[str, Any]:
     """Check FHE service health"""
     return {"status": "disabled", "fhe_available": False, "service": "fhe"}

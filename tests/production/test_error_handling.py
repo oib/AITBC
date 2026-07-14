@@ -107,7 +107,10 @@ class TestDatabasePerformanceOptimizations:
         """Test database has connection pooling configured"""
         import os
 
-        db_file = "/opt/aitbc/apps/coordinator-api/src/app/database.py"
+        # ponytail: original legacy path (src/app/database.py) no longer exists
+        db_file = "/opt/aitbc/apps/coordinator-api/src/coordinator_api/database_async.py"
+        if not os.path.exists(db_file):
+            db_file = "/opt/aitbc/apps/coordinator-api/src/coordinator_api/storage/db.py"
         assert os.path.exists(db_file)
 
         with open(db_file) as f:
@@ -125,7 +128,8 @@ class TestCachePerformanceOptimizations:
         """Test cache has memory management configured"""
         import os
 
-        cache_file = "/opt/aitbc/apps/coordinator-api/src/app/utils/cache.py"
+        # ponytail: original legacy path (src/app/utils/cache.py) no longer exists
+        cache_file = "/opt/aitbc/apps/coordinator-api/src/coordinator_api/utils/cache.py"
         assert os.path.exists(cache_file)
 
         with open(cache_file) as f:

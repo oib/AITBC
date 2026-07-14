@@ -36,6 +36,7 @@ class NetworkError(CLIError):
 
     def __init__(self, message: str):
         super().__init__(message, exit_code=2)
+        self.message = f"Network error: {message}"
 
 
 class ConfigurationError(CLIError):
@@ -43,6 +44,7 @@ class ConfigurationError(CLIError):
 
     def __init__(self, message: str):
         super().__init__(message, exit_code=3)
+        self.message = f"Configuration error: {message}"
 
 
 class ValidationError(CLIError):
@@ -50,16 +52,18 @@ class ValidationError(CLIError):
 
     def __init__(self, message: str):
         super().__init__(message, exit_code=4)
+        self.message = f"Validation error: {message}"
 
 
 class APIError(CLIError):
     """API-related errors (exit 5)"""
 
     def __init__(self, message: str, status_code: int | None = None):
-        msg = message
+        msg = f"API error: {message}"
         if status_code:
             msg += f" (HTTP {status_code})"
         super().__init__(msg, exit_code=5)
+        self.message = msg
 
 
 # ---------------------------------------------------------------------------
@@ -291,8 +295,9 @@ def validate_address(address: str) -> bool:
     """
     Validate AITBC/Ethereum address format.
 
-    Delegates to :func:`aitbc.utils.validation.validate_address` for
-    EIP-55 checksum validation and legacy address support.
+    Matches an 0x-prefixed hex address (20 bytes) or a legacy ``ait1/aitbc1``
+    address. Checksummed validation is handled by the stricter
+    :func:`aitbc.utils.validation.validate_address` when needed.
 
     Args:
         address: Address string
@@ -300,6 +305,17 @@ def validate_address(address: str) -> bool:
     Returns:
         True if valid, False otherwise
     """
-    from aitbc.utils.validation import validate_address as _validate_address
+    if not address:
+        return False
+    if address.startswith("0x"):
+        try:
+            from eth_utils import is_address
 
-    return _validate_address(address)
+            return bool(is_address(address))
+        except Exception:
+            import re
+
+            return bool(re.match(r"^0x[0-9a-fA-F]{40}$", address))
+    import re
+
+    return bool(re.match(r"^ait(bc)?1[a-z0-9]+$", address))

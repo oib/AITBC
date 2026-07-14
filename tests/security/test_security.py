@@ -5,6 +5,7 @@ import pytest
 from aitbc.exceptions import ValidationError
 from aitbc.utils.validation import (
     validate_address,
+    validate_address_strict,
     validate_chain_id,
     validate_email,
     validate_hash,
@@ -23,12 +24,15 @@ class TestInputValidation:
     def test_validate_address(self) -> None:
         """Test Ethereum address validation."""
         assert validate_address("0x5e2D7C7A4F8E9B1C3d5A2e8F4c6b8a0D2e4f6A8C") is True
+        assert validate_address("0x742d35Cc6634C0532925a3b8D4003f2E8") is False
+        assert validate_address("not-an-address") is False
+        assert validate_address("") is False
         with pytest.raises(ValidationError):
-            validate_address("0x742d35Cc6634C0532925a3b8D4003f2E8")
+            validate_address_strict("0x742d35Cc6634C0532925a3b8D4003f2E8")
         with pytest.raises(ValidationError):
-            validate_address("not-an-address")
+            validate_address_strict("not-an-address")
         with pytest.raises(ValidationError):
-            validate_address("")
+            validate_address_strict("")
 
     def test_validate_hash(self) -> None:
         """Test hash validation."""
