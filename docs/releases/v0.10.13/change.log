@@ -1,7 +1,7 @@
 # AITBC v0.10.13 Release Notes
 
 **Date**: TBD
-**Status**: 🚧 In Progress — release plan created; implementation pending
+**Status**: 🚧 In Progress — Agent A complete; Agent B pending
 **Scope**: Security, correctness, and trust-boundary hardening based on the post-v0.10.12 deep audit.
 
 ## 🎯 Overview
@@ -34,10 +34,10 @@ v0.10.13 is a **security and correctness hardening release**. It addresses the h
 | FHE security | 2 | 🚧 planned | replace/disable BFV, add auth |
 | Audit token integrity | 1 | 🚧 planned | verify signature instead of base64 JSON |
 | File/DB permissions | 3 | 🚧 planned | `FileKeyStorage`, confidential keys, blockchain DB |
-| Web3 7.x compatibility | 1 | 🚧 planned | `geth_poa_middleware` import path |
-| Async DB URL conversion | 1 | 🚧 planned | query parameter handling, scheme validation |
+| Web3 7.x compatibility | 1 | ✅ complete | `geth_poa_middleware` import path |
+| Async DB URL conversion | 1 | ✅ complete | query parameter handling, scheme validation |
 | Quota/governance/staking correctness | 4 | 🚧 planned | quota ORM, governance persistence, staking auth fallback, database security test |
-| Alembic/migration integrity | 2 | 🚧 planned | reconcile metadata, add `alembic check` |
+| Alembic/migration integrity | 2 | ✅ complete | reconcile metadata, add `alembic check` |
 | CI/test coverage | 3 | 🚧 planned | CLI, security, services, production suites |
 
 ---
@@ -76,9 +76,9 @@ cd apps/coordinator-api && PYTHONPATH=src DATABASE_URL=sqlite:///tmp/alembic_che
 ## 📝 Task Status
 
 ### Agent A — Type Safety & Shared Core
-- [ ] A1: Fix Web3 7.x `geth_poa_middleware` import in `aitbc/network/web3_utils.py`
-- [ ] A2: Reconcile `SQLModel.metadata` with the Alembic migration graph
-- [ ] A3: Fix `database_async.py` async URL conversion for query parameters and unsupported schemes
+- [x] A1: Fix Web3 7.x `geth_poa_middleware` import in `aitbc/network/web3_utils.py`
+- [x] A2: Reconcile `SQLModel.metadata` with the Alembic migration graph
+- [x] A3: Fix `database_async.py` async URL conversion for query parameters and unsupported schemes
 
 ### Agent B — Infrastructure & Apps
 - [ ] B1: Remove hardcoded credentials and insecure TLS fallbacks from `scripts/`

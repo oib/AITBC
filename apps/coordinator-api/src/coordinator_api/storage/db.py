@@ -10,11 +10,9 @@ from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager, contextmanager
 
 from sqlalchemy import Engine, create_engine
-from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import QueuePool
-from sqlmodel import SQLModel
 
 from aitbc.aitbc_logging import get_logger
 
@@ -55,7 +53,11 @@ def get_engine() -> Engine:
 
 
 def init_db() -> Engine:
-    """Initialize database tables and ensure data directory exists."""
+    """Initialize database engine and ensure the SQLite data directory exists.
+
+    ponytail: schema management is Alembic's job. Do not call create_all() here;
+    it can create unmanaged schema objects that drift from the migration graph.
+    """
     engine = get_engine()
     if "sqlite" in str(engine.url):
         db_path = engine.url.database
@@ -66,16 +68,6 @@ def init_db() -> Engine:
                 db_path = db_path[2:]
             data_dir = Path(db_path).parent
             data_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        SQLModel.metadata.create_all(engine)
-    except OperationalError as e:
-        if "already exists" in str(e):
-            logger.warning("Index already exists during create_all (non-fatal): %s", e)
-        else:
-            raise
-    except Exception as e:
-        logger.error("Unexpected error during create_all: %s", e)
-        raise
     return engine
 
 
@@ -130,16 +122,11 @@ async def get_async_session() -> AsyncSession:
 
 
 async def init_async_db() -> None:
-    """Initialize async database tables."""
+    """Initialize async database engine.
+
+    ponytail: schema management is Alembic's job. Do not call create_all() here;
+    it can create unmanaged schema objects that drift from the migration graph.
+    """
     engine = await get_async_engine()
-    try:
-        async with engine.begin() as conn:
-            await conn.run_sync(SQLModel.metadata.create_all)
-    except OperationalError as e:
-        if "already exists" in str(e):
-            logger.warning("Index already exists during async create_all (non-fatal): %s", e)
-        else:
-            raise
-    except Exception as e:
-        logger.error("Unexpected error during async create_all: %s", e)
-        raise
+    # Just ensure the engine is created; schema is managed by Alembic.
+    _ = engine

@@ -41,9 +41,9 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 
 | # | Task | Priority | Files | Status |
 |---|------|----------|-------|--------|
-| A1 | Fix Web3 7.x `geth_poa_middleware` import | 🔴 P0 | `aitbc/network/web3_utils.py` | 🚧 |
-| A2 | Reconcile `SQLModel.metadata` with the Alembic migration graph | 🟡 P1 | `apps/coordinator-api/src/coordinator_api/storage/db.py`, `apps/coordinator-api/src/coordinator_api/main.py`, `apps/coordinator-api/alembic/versions/`, `apps/coordinator-api/src/coordinator_api/models/` | 🚧 |
-| A3 | Fix `database_async.py` async URL conversion | 🟡 P1 | `apps/coordinator-api/src/coordinator_api/database_async.py` | 🚧 |
+| A1 | Fix Web3 7.x `geth_poa_middleware` import | 🔴 P0 | `aitbc/network/web3_utils.py` | ✅ |
+| A2 | Reconcile `SQLModel.metadata` with the Alembic migration graph | 🟡 P1 | `apps/coordinator-api/src/coordinator_api/storage/db.py`, `apps/coordinator-api/alembic/versions/`, `apps/coordinator-api/src/coordinator_api/contexts/*/domain/*.py`, `tests/unit/test_v0519_tech_debt.py` | ✅ |
+| A3 | Fix `database_async.py` async URL conversion | 🟡 P1 | `apps/coordinator-api/src/coordinator_api/database_async.py` | ✅ |
 
 ### Agent A — Detailed Instructions
 
@@ -58,21 +58,21 @@ cd /opt/aitbc && ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 
 **Verification**:
 ```bash
-cd /opt/aitbc && ./venv/bin/python -c "from aitbc.network.web3_utils import get_web3; print('ok')"
-cd /opt/aitbc && ./venv/bin/python -c "from coordinator_api.agent_identity.wallet_adapter_enhanced import WalletAdapterFactory; print(WalletAdapterFactory.create_adapter('ethereum'))"
+cd /opt/aitbc && ./venv/bin/python -c "from aitbc.network.web3_utils import create_web3_client; print('ok')"
 ```
 
 ---
 
 #### A2: Reconcile `SQLModel.metadata` with the Alembic migration graph
 
-**Problem**: `alembic check` reports hundreds of missing tables/indexes relative to `SQLModel.metadata`. The coordinator calls `metadata.create_all()` on startup, which can create unmanaged schema objects.
+**Problem**: `alembic check` reported hundreds of missing tables/indexes relative to `SQLModel.metadata`. The coordinator called `metadata.create_all()` on startup, which could create unmanaged schema objects.
 
 **Fix**:
-- Stop unconditional `SQLModel.metadata.create_all()` on startup; use Alembic `upgrade head`.
-- Compare `SQLModel.metadata` against a fresh `alembic upgrade head` database. Add missing tables/indexes with `if_not_exists=True` or remove stale `SQLModel` declarations.
-- Coordinate with Agent B on `apps/coordinator-api` models/migrations.
-- Update `tests/unit/test_v0519_tech_debt.py` to run `alembic check`.
+- Stop unconditional `SQLModel.metadata.create_all()` on startup in `storage/db.py` and `init_async_db`; schema is managed by Alembic `upgrade head`.
+- Add `alembic/script.py.mako` so autogenerate can find the template.
+- Fix domain model `sa_column` declarations so `Numeric(20, 8)` monetary columns with `Decimal` defaults are `nullable=False`, matching the existing migration graph.
+- Generate `alembic/versions/021f508dbce7_reconcile_schema.py` to drop stale tables (`regional_council`, `regional_proposal`, `staking_pool`, `staking_position`, `settlements`) and stale indexes left by earlier migrations.
+- Update `tests/unit/test_v0519_tech_debt.py` to assert the new head revision and run `alembic check`.
 
 **Verification**:
 ```bash
