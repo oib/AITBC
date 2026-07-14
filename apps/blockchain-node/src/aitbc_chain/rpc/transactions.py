@@ -150,8 +150,20 @@ async def submit_marketplace_transaction(request: Request, tx_data: dict[str, An
         chain_id_arg = tx_data.get("chain_id") or ""
         chain_id = get_chain_id(chain_id_arg)
 
+        # Verify transaction signature before normalization
+        signature = tx_data.get("signature") or tx_data.get("sig")
+        sender = tx_data.get("from")
+        if not signature:
+            raise HTTPException(status_code=403, detail="Signature required")
+        if not sender:
+            raise HTTPException(status_code=400, detail="Sender required")
+        tx_for_verify = {k: v for k, v in tx_data.items() if k not in ("signature", "sig")}
+        tx_for_verify["signature"] = signature
+        if not verify_transaction_signature(tx_for_verify, signature, sender):
+            raise HTTPException(status_code=403, detail="Invalid transaction signature")
+
         # Normalize transaction data
-        tx_data_dict = normalize_transaction_data(tx_data, chain_id)
+        tx_data_dict = normalize_transaction_data(tx_for_verify, chain_id)
 
         # For GPU registration, use GPU_REGISTER transaction type
         if tx_data_dict.get("type") == "GPU_REGISTER":
