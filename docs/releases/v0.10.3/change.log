@@ -304,4 +304,3 @@ cd /opt/aitbc && ./venv/bin/python -m pytest apps/exchange/tests/ -q -o addopts=
 | `deployment/deploy/deploy-production.sh` | Edited `apps/trade-exchange/index.prod.html` and `apps/marketplace-ui/index.html` (both removed) |
 
 **Verification**: All updated scripts pass `bash -n` syntax check and `python3 -c "import ast; ast.parse(...)"`. Ruff clean for Python scripts.
-
