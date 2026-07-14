@@ -10,6 +10,10 @@ Covers:
 from __future__ import annotations
 
 import ast
+import os
+import sqlite3
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -20,6 +24,10 @@ import pytest
 
 COORD_SRC = Path(__file__).resolve().parent.parent.parent / "apps" / "coordinator-api" / "src"
 CERT_DIR = COORD_SRC / "coordinator_api" / "contexts" / "certification" / "services" / "certification"
+
+REPO_ROOT = COORD_SRC.parent.parent.parent
+COORD_ALEMBIC = REPO_ROOT / "apps" / "coordinator-api"
+ALEMBIC_BIN = Path(sys.executable).with_name("alembic")
 
 
 def test_reputation_dto_is_serialisable_dataclass():
@@ -200,8 +208,8 @@ def test_dynamic_pricing_imports_pricing_audit_log():
     assert "PricingAuditLog(" in source
 
 
-def test_alembic_migration_drops_unused_tables():
-    """The drop_unused_pricing_tables migration exists and drops the right tables."""
+def test_alembic_migration_drops_unused_tables(tmp_path: Path) -> None:
+    """The drop_unused_pricing_tables migration exists and the full Alembic graph upgrades/downgrades cleanly."""
     migration = COORD_SRC.parent / "alembic" / "versions" / "drop_unused_pricing_tables.py"
     assert migration.exists(), "drop_unused_pricing_tables migration not found"
     source = migration.read_text()
@@ -209,6 +217,28 @@ def test_alembic_migration_drops_unused_tables():
     assert "pricing_alerts" in source
     assert "pricing_rules" in source
     assert "price_forecast" in source  # singular marketplace leftover
+
+    db_path = tmp_path / "coordinator.db"
+    db_url = f"sqlite:///{db_path}"
+    env = os.environ.copy()
+    env["DATABASE_URL"] = db_url
+    env["PYTHONPATH"] = f"{COORD_ALEMBIC / 'src'}{os.pathsep}{REPO_ROOT}"
+
+    alembic = [str(ALEMBIC_BIN)]
+
+    # ponytail: run the real Alembic lifecycle to catch graph/orphan-temp-table issues
+    subprocess.run(alembic + ["upgrade", "head"], cwd=COORD_ALEMBIC, env=env, capture_output=True, text=True, check=True)
+    current = subprocess.run(alembic + ["current"], cwd=COORD_ALEMBIC, env=env, capture_output=True, text=True, check=True)
+    assert "001_context_prefixes" in (current.stdout + current.stderr), current.stdout + current.stderr
+
+    with sqlite3.connect(str(db_path)) as conn:
+        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert {"pricing_optimizations", "pricing_alerts", "pricing_rules", "price_forecast"}.isdisjoint(tables)
+
+    subprocess.run(alembic + ["downgrade", "base"], cwd=COORD_ALEMBIC, env=env, capture_output=True, text=True, check=True)
+    subprocess.run(
+        alembic + ["upgrade", "heads", "--sql"], cwd=COORD_ALEMBIC, env=env, capture_output=True, text=True, check=True
+    )
 
 
 # ---------------------------------------------------------------------------
