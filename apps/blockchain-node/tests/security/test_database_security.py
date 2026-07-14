@@ -47,24 +47,8 @@ class TestDatabaseSecurity:
         assert not validator.validate_operation("drop")
         assert not validator.validate_operation("truncate")
 
-    @pytest.mark.xfail(
-        reason="Source bug: validate_query uppercases query but not patterns "
-        "(case-sensitive mismatch). Not a test issue — fix in production code.",
-        strict=True,
-    )
     def test_operation_validator_dangerous_queries(self):
-        """Test that operation validator blocks dangerous queries.
-
-        REGRESSION NOTE (v0.5.18): This test exposes a real bug in
-        DatabaseOperationValidator.validate_query — the method uppercases the
-        query (query_upper = query.upper()) but does NOT uppercase the
-        dangerous_patterns list. So "DELETE FROM account" → "DELETE FROM ACCOUNT"
-        does not match the pattern "DELETE FROM account" (case-sensitive).
-        The test is NOT weakened — the assertion is correct. The source bug
-        should be fixed in a future release (uppercase the patterns too).
-        Marked xfail(strict=True) so it will fail the suite if the bug is
-        "fixed" without updating this test.
-        """
+        """Test that operation validator blocks dangerous queries."""
         validator = DatabaseOperationValidator()
 
         # Dangerous patterns should be blocked
