@@ -52,6 +52,7 @@ from .routers import (
     edge_gpu,
     exchange,
     explorer,
+    governance,
     governance_enhanced,
     inference,
     islands_proxy,
@@ -388,14 +389,8 @@ def create_app() -> FastAPI:
 
     # More optional routers
     try:
-        from .contexts.governance.routers.governance_flat import router as governance_router
-
-        app.include_router(governance_router, prefix="/v1")
+        app.include_router(governance, prefix="/v1")
         optional_routers.append("governance")
-        from .contexts.governance.services.governance_service import init_governance_service
-        from .storage.db import get_session
-
-        init_governance_service(get_session)
     except Exception as e:
         logger.warning("Failed to include governance router: %s", e)
 

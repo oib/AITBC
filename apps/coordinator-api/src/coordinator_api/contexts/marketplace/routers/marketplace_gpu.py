@@ -502,22 +502,21 @@ async def confirm_gpu_booking(
 
 
 @router.post("/tasks/ollama")
-async def submit_ollama_task(request: OllamaTaskRequest, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
-    """Stub Ollama task submission endpoint."""
-    gpu = _get_gpu_or_404(session, request.gpu_id)
-    if gpu.status != "booked":
-        raise HTTPException(status_code=http_status.HTTP_409_CONFLICT, detail=f"GPU {request.gpu_id} is not booked")
-    task_id = f"task_{uuid4().hex[:10]}"
-    submitted_at = datetime.now(UTC).isoformat() + "Z"
-    return {
-        "task_id": task_id,
-        "status": "submitted",
-        "submitted_at": submitted_at,
-        "gpu_id": request.gpu_id,
-        "model": request.model,
-        "prompt": request.prompt,
-        "parameters": request.parameters,
-    }
+async def submit_ollama_task(
+    request: OllamaTaskRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
+) -> dict[str, Any]:
+    """Ollama task submission endpoint.
+
+    ponytail: real queue/job dispatch is not implemented; returns 501 until
+    a persistent task queue and Ollama worker integration are wired.
+    """
+    _get_gpu_or_404(session, request.gpu_id)
+    raise HTTPException(
+        status_code=http_status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Ollama task dispatch is not implemented",
+    )
 
 
 @router.post("/payments/send")

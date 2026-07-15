@@ -4,7 +4,7 @@ Services router for specific GPU workloads
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
 from aitbc.rate_limiting import rate_limit
@@ -18,7 +18,6 @@ from ....models.services import (
     LLMModel,
     LLMRequest,
     SDModel,
-    ServiceRequest,
     ServiceResponse,
     ServiceType,
     StableDiffusionRequest,
@@ -27,93 +26,11 @@ from ....models.services import (
     WhisperTask,
 )
 from ....schemas import JobCreate
-
-# from ..models.registry import ServiceRegistry, service_registry
 from ....services import JobService
 from ....storage import get_session
 
 
-# Placeholder for service_registry - to be properly imported when module structure is fixed
-class MockServiceRegistry:
-    def get_service(self, service_type: str) -> Any:
-        return None
-
-
-service_registry = MockServiceRegistry()
-
 router = APIRouter(tags=["services"])
-
-
-@router.post(
-    "/services/{service_type}",
-    response_model=ServiceResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Submit a service-specific job",
-    deprecated=True,
-)
-@rate_limit(rate=20, per=60)
-async def submit_service_job(
-    request: Request,
-    service_type: ServiceType,
-    request_data: dict[str, Any],
-    session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
-    user_agent: str = Header(None),
-) -> ServiceResponse:
-    """Submit a job for a specific service type
-
-    DEPRECATED: Use /v1/registry/services/{service_id} endpoint instead.
-    This endpoint will be removed in version 2.0.
-    """
-
-    # Add deprecation warning header
-    from fastapi import Response
-
-    response = Response()
-    response.headers["X-Deprecated"] = "true"
-    response.headers["X-Deprecation-Message"] = "Use /v1/registry/services/{service_id} instead"
-
-    # Check if service exists in registry
-    service = service_registry.get_service(service_type.value)
-    if not service:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Service {service_type} not found")
-
-    # Validate request against service schema
-    validation_result = await validate_service_request(service_type.value, request_data)
-    if not validation_result["valid"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid request: {', '.join(validation_result['errors'])}"
-        )
-
-    # Create service request wrapper
-    service_request = ServiceRequest(service_type=service_type, request_data=request_data)
-
-    # Validate and parse service-specific request
-    try:
-        typed_request = service_request.get_service_request()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid request for {service_type}: {str(e)}"
-        ) from e
-
-    # Get constraints from service request
-    constraints = typed_request.get_constraints()
-
-    # Create job with service-specific payload
-    job_payload = {
-        "service_type": service_type.value,
-        "service_request": request_data,
-    }
-
-    job_create = JobCreate(payload=job_payload, constraints=constraints, ttl_seconds=900)  # Default 15 minutes
-
-    # Submit job
-    service = JobService(session)
-    job = service.create_job(user["sub"], job_create)
-
-    return ServiceResponse(
-        job_id=job.job_id, service_type=service_type, status=job.state.value, estimated_completion=job.expires_at.isoformat()
-    )
 
 
 # Whisper endpoints
@@ -463,96 +380,3 @@ async def list_services(request: Request) -> dict[str, Any]:
             },
         ]
     }
-
-
-@router.get("/services/{service_type}/schema", summary="Get service request schema", deprecated=True)
-@rate_limit(rate=200, per=60)
-async def get_service_schema(request: Request, service_type: ServiceType) -> dict[str, Any]:
-    """Get the JSON schema for a specific service type
-
-    DEPRECATED: Use /v1/registry/services/{service_id}/schema instead.
-    This endpoint will be removed in version 2.0.
-    """
-    # Get service from registry
-    service = service_registry.get_service(service_type.value)
-    if not service:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Service {service_type} not found")
-
-    # Build schema from service definition
-    properties: dict[str, Any] = {}
-    required: list[str] = []
-
-    for param in service.input_parameters:
-        prop = {"type": param.type.value, "description": param.description}
-
-        if param.default is not None:
-            prop["default"] = param.default
-        if param.min_value is not None:
-            prop["minimum"] = param.min_value
-        if param.max_value is not None:
-            prop["maximum"] = param.max_value
-        if param.options:
-            prop["enum"] = param.options
-        if param.validation:
-            prop.update(param.validation)
-
-        properties[param.name] = prop
-        if param.required:
-            required.append(param.name)
-
-    schema = {"type": "object", "properties": properties, "required": required}
-
-    return {"service_type": service_type.value, "schema": schema}
-
-
-async def validate_service_request(service_id: str, request_data: dict[str, Any]) -> dict[str, Any]:
-    """Validate a service request against the service schema"""
-    service = service_registry.get_service(service_id)
-    if not service:
-        return {"valid": False, "errors": [f"Service {service_id} not found"]}
-
-    validation_result: dict[str, Any] = {"valid": True, "errors": [], "warnings": []}
-
-    # Check required parameters
-    provided_params = set(request_data.keys())
-    required_params = {p.name for p in service.input_parameters if p.required}
-    missing_params = required_params - provided_params
-
-    if missing_params:
-        validation_result["valid"] = False
-        validation_result["errors"].extend([f"Missing required parameter: {param}" for param in missing_params])
-
-    # Validate parameter types and constraints
-    for param in service.input_parameters:
-        if param.name in request_data:
-            value = request_data[param.name]
-
-            # Type validation (simplified)
-            if param.type == "integer" and not isinstance(value, int):
-                validation_result["valid"] = False
-                validation_result["errors"].append(f"Parameter {param.name} must be an integer")
-            elif param.type == "float" and not isinstance(value, int | float):
-                validation_result["valid"] = False
-                validation_result["errors"].append(f"Parameter {param.name} must be a number")
-            elif param.type == "boolean" and not isinstance(value, bool):
-                validation_result["valid"] = False
-                validation_result["errors"].append(f"Parameter {param.name} must be a boolean")
-            elif param.type == "array" and not isinstance(value, list):
-                validation_result["valid"] = False
-                validation_result["errors"].append(f"Parameter {param.name} must be an array")
-
-            # Value constraints
-            if param.min_value is not None and value < param.min_value:
-                validation_result["valid"] = False
-                validation_result["errors"].append(f"Parameter {param.name} must be >= {param.min_value}")
-
-            if param.max_value is not None and value > param.max_value:
-                validation_result["valid"] = False
-                validation_result["errors"].append(f"Parameter {param.name} must be <= {param.max_value}")
-
-            # Enum options
-            if param.options and value not in param.options:
-                validation_result["valid"] = False
-                validation_result["errors"].append(f"Parameter {param.name} must be one of: {', '.join(param.options)}")
-
-    return validation_result

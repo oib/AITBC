@@ -190,6 +190,7 @@ class Settings(BaseAITBCConfig):
     # Feature Flags
     debug: bool = Field(default=False, description="Debug mode for development features")
     enable_mock_swarm: bool = Field(default=False, description="Enable mock swarm endpoints")
+    enable_orchestration_simulation: bool = Field(default=False, description="Enable simulated AI agent workflow execution")
 
     @field_validator("debug", "enable_mock_swarm", mode="before")
     @classmethod
@@ -205,7 +206,7 @@ class Settings(BaseAITBCConfig):
                 return False
         return bool(v)
 
-    @field_validator("enable_mock_swarm")
+    @field_validator("enable_mock_swarm", "enable_orchestration_simulation")
     @classmethod
     def validate_mock_flags(cls, v: bool) -> bool:
         if v and _is_production():
