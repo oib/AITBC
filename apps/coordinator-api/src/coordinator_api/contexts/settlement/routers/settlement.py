@@ -1,30 +1,21 @@
 """
 Settlement router for cross-chain settlements
+
+ponytail: All settlement endpoints are disabled and return 501 until a real
+bridge initialization, signature verification, provider configuration, and
+persistence layer are implemented.
 """
 
-from datetime import UTC, datetime
 from typing import Any
 
-from coordinator_api.settlement.manager import BridgeManager
-from coordinator_api.settlement.storage import InMemorySettlementStorage
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from aitbc.rate_limiting import rate_limit
 
-from ....auth import MinerDep  # NEW: JWT auth (miners handle settlements)
-
-# from ....auth import get_api_key  # OLD: API key auth (deprecated)
+from ....auth import MinerDep
 
 router = APIRouter(prefix="/settlement", tags=["settlement"])
-
-# ponytail: ceiling — module-level in-memory storage; lost on restart.
-# Upgrade path: inject SettlementStorage with an asyncpg pool via FastAPI Depends.
-_settlement_storage = InMemorySettlementStorage()
-
-
-def _get_bridge_manager() -> BridgeManager:
-    return BridgeManager(_settlement_storage)
 
 
 class CrossChainSettlementRequest(BaseModel):
@@ -54,34 +45,13 @@ class CrossChainSettlementResponse(BaseModel):
 async def initiate_cross_chain_settlement(
     request: Request,
     settlement_request: CrossChainSettlementRequest,
-    background_tasks: BackgroundTasks,
     user: MinerDep,
 ) -> CrossChainSettlementResponse:
     """Initiate a cross-chain settlement"""
-    try:
-        manager = _get_bridge_manager()
-
-        settlement_id = await manager.create_settlement(
-            source_chain_id=settlement_request.source_chain_id,
-            target_chain_id=settlement_request.target_chain_id,
-            amount=settlement_request.amount,
-            asset_type=settlement_request.asset_type,
-            recipient_address=settlement_request.recipient_address,
-            gas_limit=settlement_request.gas_limit,
-            gas_price=settlement_request.gas_price,
-        )
-
-        background_tasks.add_task(manager.process_settlement, settlement_id, user["sub"])
-
-        return CrossChainSettlementResponse(
-            settlement_id=settlement_id,
-            status="pending",
-            estimated_completion="~5 minutes",
-            created_at=datetime.now(UTC).isoformat(),
-        )
-
-    except (ValueError, KeyError, AttributeError) as e:
-        raise HTTPException(status_code=500, detail=f"Settlement failed: {str(e)}") from e
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Settlement is not implemented",
+    )
 
 
 @router.get("/cross-chain/{settlement_id}")
@@ -92,26 +62,10 @@ async def get_settlement_status(
     user: MinerDep,
 ) -> dict[str, Any]:
     """Get settlement status"""
-    try:
-        manager = _get_bridge_manager()
-        settlement = await manager.get_settlement(settlement_id)
-
-        if not settlement:
-            raise HTTPException(status_code=404, detail="Settlement not found")
-
-        return {
-            "settlement_id": settlement.id,
-            "status": settlement.status,
-            "transaction_hash": settlement.tx_hash,
-            "created_at": settlement.created_at,
-            "completed_at": settlement.completed_at,
-            "error_message": settlement.error_message,
-        }
-
-    except HTTPException:
-        raise
-    except (ValueError, KeyError, AttributeError) as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get settlement: {str(e)}") from e
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Settlement is not implemented",
+    )
 
 
 @router.get("/cross-chain")
@@ -123,14 +77,10 @@ async def list_settlements(
     offset: int = 0,
 ) -> dict[str, Any]:
     """List settlements with pagination"""
-    try:
-        manager = _get_bridge_manager()
-        settlements = await manager.list_settlements(api_key=user["sub"], limit=limit, offset=offset)
-
-        return {"settlements": settlements, "total": len(settlements), "limit": limit, "offset": offset}
-
-    except (ValueError, KeyError, AttributeError) as e:
-        raise HTTPException(status_code=500, detail=f"Failed to list settlements: {str(e)}") from e
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Settlement is not implemented",
+    )
 
 
 @router.delete("/cross-chain/{settlement_id}")
@@ -141,51 +91,7 @@ async def cancel_settlement(
     user: MinerDep,
 ) -> dict[str, str]:
     """Cancel a pending settlement"""
-    try:
-        manager = _get_bridge_manager()
-        success = await manager.cancel_settlement(settlement_id, user["sub"])
-
-        if not success:
-            raise HTTPException(status_code=400, detail="Cannot cancel settlement")
-
-        return {"message": "Settlement cancelled successfully"}
-
-    except HTTPException:
-        raise
-    except (ValueError, KeyError, AttributeError) as e:
-        raise HTTPException(status_code=500, detail=f"Failed to cancel settlement: {str(e)}") from e
-
-
-# ============================================================================
-# MIGRATION NOTES: API Key to JWT Auth
-# ============================================================================
-#
-# Migration completed: 2025-01-XX
-#
-# Changes made:
-# 1. Import change:
-#    OLD: from ....auth import get_api_key
-#    NEW: from ....auth import MinerDep
-#
-# 2. Dependency changes (4 endpoints):
-#    - initiate_cross_chain_settlement: api_key -> user: MinerDep
-#    - get_settlement_status: api_key -> user: MinerDep
-#    - list_settlements: api_key -> user: MinerDep
-#    - cancel_settlement: api_key -> user: MinerDep
-#
-# 3. API key references updated:
-#    - background_tasks.add_task(..., user["sub"])
-#    - manager.list_settlements(api_key=user["sub"], ...)
-#    - manager.cancel_settlement(..., user["sub"])
-#
-# 4. JWT benefits:
-#    - user["sub"]: Miner user ID
-#    - user["role"]: Role verification (miner)
-#    - user["exp"]: Token expiration
-#    - Centralized auth via security matrix
-#
-# 5. Client code change:
-#    OLD: headers = {"X-Api-Key": "your-api-key"}
-#    NEW: headers = {"Authorization": f"Bearer {token}"}
-#
-# ============================================================================
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Settlement is not implemented",
+    )

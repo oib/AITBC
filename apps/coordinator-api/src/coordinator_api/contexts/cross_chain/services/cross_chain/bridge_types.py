@@ -1,9 +1,8 @@
 """Bridge protocol and security level enums.
 
 These enums are used by the cross-chain integration router and the
-deprecated ``CrossChainBridgeService`` (``bridge_enhanced.py``).  They
-are extracted here so that new code can import them without pulling in
-the deprecated service class.
+``BridgeClientAdapter``.  They are extracted here so that code can import
+them without pulling in the adapter implementation.
 """
 
 from __future__ import annotations

@@ -17,10 +17,7 @@ from aitbc.aitbc_logging import get_logger
 
 from ....agent_identity.wallet_adapter_enhanced import EnhancedWalletAdapter, SecurityLevel, WalletAdapterFactory
 
-# B16: CrossChainBridgeService is deprecated; see bridge_client_adapter.py. Kept because
-# this manager depends on its SQLModel-based API (initialize_bridge) which
-# BridgeClientAdapter does not yet provide. Migrate callers when feasible.
-from .cross_chain.bridge_enhanced import CrossChainBridgeService
+from .cross_chain.bridge_client_adapter import BridgeClientAdapter
 from ..domain.chain_transaction import (
     ChainTransaction,
     RoutingStrategy,
@@ -39,7 +36,7 @@ class ChainTransactionManager:
     def __init__(self, session: Session):
         self.session = session
         self.wallet_adapters: dict[int, EnhancedWalletAdapter] = {}
-        self.bridge_service: CrossChainBridgeService | None = None
+        self.bridge_service: BridgeClientAdapter | None = None
         self.reputation_engine: CrossChainReputationEngine = CrossChainReputationEngine(session)
         self.routing_config: dict[str, Any] = {
             "default_strategy": RoutingStrategy.BALANCED,
@@ -78,7 +75,7 @@ class ChainTransactionManager:
                         "average_confirmation_time": 0.0,
                         "last_updated": datetime.now(UTC),
                     }
-            self.bridge_service = CrossChainBridgeService(self.session)
+            self.bridge_service = BridgeClientAdapter(session=self.session)
             await self.bridge_service.initialize_bridge(chain_configs)
             logger.info("Initialized transaction manager for %s chains", len(chain_configs))
         except Exception as e:
@@ -395,7 +392,21 @@ class ChainTransactionManager:
 
     async def _update_transaction_status(self, transaction_id: str) -> None:
         """Update transaction status from blockchain"""
-        pass
+        try:
+            transaction = (
+                self.session.execute(select(ChainTransaction).where(ChainTransaction.id == transaction_id)).scalars().first()
+            )
+            if not transaction or not transaction.transaction_hash:
+                return
+            async with self._lock:
+                adapter = self.wallet_adapters[transaction.chain_id]
+            tx_status = await adapter.get_transaction_status(transaction.transaction_hash)
+            if tx_status.get("status") == TransactionStatus.COMPLETED.value:
+                transaction.status = TransactionStatus.COMPLETED
+                transaction.updated_at = datetime.now(UTC)
+                self.session.commit()
+        except Exception as e:
+            logger.error("Error updating transaction status: %s", e)
 
     async def _estimate_processing_time(self, transaction: ChainTransaction) -> float:
         """Estimate transaction processing time in seconds"""
@@ -448,36 +459,6 @@ class ChainTransactionManager:
                     logger.warning("Stuck transaction detected: %s", tx.id)
         except Exception as e:
             logger.error("Error checking stuck transactions: %s", e)
-
-    async def _update_transaction_status_v2(self, transaction_id: str) -> None:
-        """Update transaction status from blockchain"""
-        try:
-            transaction = (
-                self.session.execute(select(ChainTransaction).where(ChainTransaction.id == transaction_id)).scalars().first()
-            )
-            if not transaction or not transaction.transaction_hash:
-                return
-            async with self._lock:
-                adapter = self.wallet_adapters[transaction.chain_id]
-            tx_status = await adapter.get_transaction_status(transaction.transaction_hash)
-            if tx_status.get("status") == TransactionStatus.COMPLETED.value:
-                transaction.status = TransactionStatus.COMPLETED
-                transaction.confirmations = await self._get_transaction_confirmations(
-                    transaction.chain_id, transaction.transaction_hash
-                )  # type: ignore[no-any-return]
-                transaction.updated_at = datetime.now(UTC)
-                self.session.commit()
-        except Exception as e:
-            logger.error("Error updating transaction status: %s", e)
-
-    async def _get_transaction_confirmations_v2(self, transaction: dict[str, Any]) -> int:
-        """Get transaction confirmations"""
-        try:
-            async with self._lock:
-                self.wallet_adapters[transaction["chain_id"]]
-            return await self._get_transaction_confirmations(transaction["chain_id"], transaction["transaction_hash"])  # type: ignore[no-any-return, attr-defined]
-        except Exception:
-            return transaction.get("confirmations", 0)  # type: ignore[no-any-return]
 
     async def _estimate_processing_time_v2(self, transaction: dict[str, Any]) -> float:
         """Estimate transaction processing time"""
