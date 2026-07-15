@@ -76,9 +76,18 @@ class KeyManager:
                 reason="scheduled_rotation",
             )
             await self.storage.log_rotation(rotation_log)
-            await self._reencrypt_transactions(participant_id, current_key, new_key_pair)
+            try:
+                await self._reencrypt_transactions(participant_id, current_key, new_key_pair)
+            except Exception:
+                # Roll back key version if re-encryption fails
+                new_key_pair.version = current_key.version
+                await self.storage.store_key_pair(new_key_pair)
+                self._key_cache.pop(participant_id, None)
+                raise
             logger.info("Rotated keys for participant: %s", participant_id)
             return new_key_pair
+        except KeyManagementError:
+            raise
         except Exception as e:
             logger.error("Failed to rotate keys for %s: %s", participant_id, e)
             raise KeyManagementError(f"Key rotation failed: {e}") from e
@@ -225,9 +234,13 @@ class KeyManager:
         return self._audit_key is None
 
     async def _reencrypt_transactions(self, participant_id: str, old_key_pair: KeyPair, new_key_pair: KeyPair) -> None:
-        """Re-encrypt active transactions with new key"""
-        logger.info("Would re-encrypt transactions for %s", participant_id)
-        pass
+        """Re-encrypt active transactions with new key
+
+        ponytail: re-encryption requires a persistence layer for confidential
+        transactions. Until that is wired and tested, the route returns 501.
+        """
+        logger.warning("Re-encryption not implemented for %s", participant_id)
+        raise NotImplementedError("Key rotation re-encryption is not implemented")
 
 
 class KeyStorageBackend:

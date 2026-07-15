@@ -728,18 +728,3 @@ class GovernanceService:
             "pending_proposals": 0,
             "voter_participation": 0.0,
         }
-
-
-_governance_service: GovernanceService | None = None
-
-
-def init_governance_service(session_factory: Any) -> GovernanceService:
-    """Initialize global governance service"""
-    global _governance_service
-    _governance_service = GovernanceService(session_factory)
-    return _governance_service
-
-
-def get_governance_service() -> GovernanceService | None:
-    """Get global governance service"""
-    return _governance_service
