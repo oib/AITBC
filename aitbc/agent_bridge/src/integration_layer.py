@@ -10,6 +10,8 @@ from typing import Any
 
 import aiohttp
 
+from aitbc.constants import AGENT_COORDINATOR_PORT
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,7 +24,7 @@ class AITBCServiceIntegration:
             "blockchain_rpc": "http://localhost:8202",
             "exchange_service": "http://localhost:8001",
             "marketplace": "http://localhost:8002",
-            "agent_registry": "http://localhost:8013",
+            "agent_coordinator": f"http://localhost:{AGENT_COORDINATOR_PORT}",
         }
         self.session: aiohttp.ClientSession | None = None
 
@@ -92,16 +94,16 @@ class AITBCServiceIntegration:
             return {"error": str(e), "status": "failed"}
 
     async def register_agent_with_coordinator(self, agent_data: dict[str, Any]) -> dict[str, Any]:
-        """Register agent with coordinator"""
+        """Register agent with agent coordinator"""
         try:
             if self.session is None:
                 raise RuntimeError("Session not initialized")
             async with self.session.post(
-                f"{self.service_endpoints['agent_registry']}/api/agents/register", json=agent_data
+                f"{self.service_endpoints['agent_coordinator']}/agents/register", json=agent_data
             ) as response:
                 return dict(await response.json())
         except Exception as e:
-            logger.exception("Service call failed: agent_registry (register_agent)")
+            logger.exception("Service call failed: agent_coordinator (register_agent)")
             return {"error": str(e), "status": "failed"}
 
 

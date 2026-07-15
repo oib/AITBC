@@ -7,7 +7,7 @@ import tempfile
 from unittest.mock import Mock, patch
 
 import pytest
-from aitbc.utils import format_ait
+from aitbc.utils import ait_to_seconds, format_ait
 from aitbc_cli.commands.wallet import wallet
 from click.testing import CliRunner
 
@@ -214,7 +214,7 @@ class TestWalletCommands:
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
         # Balance is now displayed as AIT (seconds / 3600)
-        assert data["new_balance"] == format_ait(125.5)  # 100 + 25.5
+        assert data["new_balance"] == format_ait(ait_to_seconds(125.5))  # 100 + 25.5
         assert data["job_id"] == "job_456"
 
         # Verify wallet file updated (raw seconds value stored)
@@ -233,7 +233,7 @@ class TestWalletCommands:
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
-        assert data["new_balance"] == format_ait(70.0)  # 100 - 30
+        assert data["new_balance"] == format_ait(ait_to_seconds(70.0))  # 100 - 30
         assert data["description"] == "GPU rental"
 
     def test_spend_insufficient_balance(self, runner, temp_wallet, mock_config):

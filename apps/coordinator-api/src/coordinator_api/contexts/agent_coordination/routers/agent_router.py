@@ -13,6 +13,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ....auth import AdminDep
+from ....config import settings
 from ..domain.agent import (
     AgentExecutionRequest,
     AgentExecutionResponse,
@@ -163,6 +164,10 @@ async def execute_workflow(
     user: AdminDep,
 ) -> AgentExecutionResponse:
     """Execute an AI agent workflow"""
+    if not settings.enable_orchestration_simulation:
+        raise HTTPException(
+            status_code=501, detail="Orchestration simulation is disabled; workflow execution is not production-ready"
+        )
     try:
         workflow = session.get(AIAgentWorkflow, workflow_id)
         if not workflow:

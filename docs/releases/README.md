@@ -28,7 +28,8 @@ Read the release notes newest-first:
 ### Current Releases (v0.5.x+)
 - **[v2.0.0](v2.0.0/change.log)** - Vision/Questionable Features — Parked for Re-Evaluation
 - **[v1.0.0](v1.0.0/change.log)** - Production Readiness
-- **[v0.10.13](v0.10.13/change.log)** - Security & Correctness Hardening (credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) 🚧
+- **[v0.10.14](v0.10.14/change.log)** - Legacy Code & Stub Elimination (shadow packages, legacy routers, fake implementations, duplicate stacks) ✅ complete in progress
+- **[v0.10.13](v0.10.13/change.log)** - Security & Correctness Hardening (credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) ✅
 - **[v0.10.12](v0.10.12/change.log)** - Quality Hardening (mypy completeness, test suite repair, production assert removal, dependency/version cleanup) ✅
 - **[v0.10.11](v0.10.11/change.log)** - Bug Fixes & Code Quality Continuation (stub completion, Pydantic v2, SQLAlchemy standardization, concurrency safety) ✅
 - **[v0.10.10](v0.10.10/change.log)** - Code Quality & Testing Roadmap (mypy coverage, coverage gate, property-based tests, perf regression, dep pinning, dev script, integration fixtures) ✅

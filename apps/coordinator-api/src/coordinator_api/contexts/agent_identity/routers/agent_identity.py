@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
-from ....agent_identity.manager import AgentIdentityManager
+from ..services.manager import AgentIdentityManager
 from ....storage.db import get_session
 from ..domain.agent_identity import (
     AgentWallet,

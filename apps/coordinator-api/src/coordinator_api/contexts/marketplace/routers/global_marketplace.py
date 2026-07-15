@@ -9,7 +9,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlmodel import Session, func, select
 
-from ....agent_identity.manager import AgentIdentityManager
+from coordinator_api.contexts.agent_identity.services.manager import AgentIdentityManager
 from ....storage.db import get_session
 from ..domain.global_marketplace import (
     GlobalMarketplaceConfig,
