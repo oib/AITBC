@@ -4,7 +4,7 @@ version = "v0.2.3"
 description = "AITBC Pool Hub Service"
 authors = ["AITBC Team <team@aitbc.dev>"]
 readme = "README.md"
-packages = [{include = "poolhub", from = "src"}, {include = "poolhub_legacy", from = "src"}]
+packages = [{include = "poolhub", from = "src"}]
 
 [tool.poetry.dependencies]
 python = ">=3.13.5,<3.14.1 || >3.14.1,<3.15"

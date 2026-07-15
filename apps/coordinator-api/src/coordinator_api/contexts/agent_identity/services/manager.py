@@ -4,25 +4,251 @@ High-level manager for agent identity operations and cross-chain management
 """
 
 from datetime import UTC, datetime
-from typing import Any
+from decimal import Decimal
+from typing import Any, ClassVar
 from uuid import uuid4
 
-from sqlmodel import Session
+import secrets
+
+from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 
-from ..contexts.agent_identity.domain.agent_identity import (
+from coordinator_api.agent_identity.core import AgentIdentityCore
+from coordinator_api.agent_identity.registry import CrossChainRegistry
+from coordinator_api.agent_identity.wallet_adapter_enhanced import (
+    EnhancedWalletAdapter,
+    SecurityLevel,
+    WalletAdapterFactory,
+)
+from coordinator_api.config import settings
+from ..domain.agent_identity import (
+    AgentIdentity,
     AgentIdentityCreate,
     AgentIdentityUpdate,
+    AgentWallet,
     AgentWalletUpdate,
+    ChainType,
     IdentityStatus,
     VerificationType,
 )
-from .core import AgentIdentityCore
-from .registry import CrossChainRegistry
-from .wallet_adapter import MultiChainWalletAdapter
 
 logger = get_logger(__name__)
+
+
+class AgentWalletManager:
+    """Manages agent wallets using the enhanced wallet adapter with real RPC calls."""
+
+    _chain_types: ClassVar[dict[int, ChainType]] = {
+        1: ChainType.ETHEREUM,
+        137: ChainType.POLYGON,
+        56: ChainType.BSC,
+        42161: ChainType.ARBITRUM,
+        10: ChainType.OPTIMISM,
+        43114: ChainType.AVALANCHE,
+        1000: ChainType.AITBC,
+        1001: ChainType.AITBC,
+    }
+
+    def __init__(self, session: Session):
+        self.session = session
+        self.rpc_url = settings.blockchain_rpc_url
+
+    def _get_adapter(self, chain_id: int) -> EnhancedWalletAdapter:
+        return WalletAdapterFactory.create_adapter(chain_id, self.rpc_url, SecurityLevel.MEDIUM)
+
+    @staticmethod
+    def _security_config() -> dict[str, Any]:
+        return {"password": secrets.token_hex(32), "encryption_password": secrets.token_hex(32)}
+
+    async def create_agent_wallet(self, agent_id: str, chain_id: int, owner_address: str) -> AgentWallet:
+        """Create an agent wallet on a specific blockchain."""
+        adapter = self._get_adapter(chain_id)
+        wallet_data = await adapter.create_wallet(owner_address, self._security_config())
+        wallet = AgentWallet(
+            agent_id=agent_id,
+            chain_id=chain_id,
+            chain_address=wallet_data["address"],
+            wallet_type="agent-wallet",
+            contract_address=wallet_data.get("contract_address"),
+            is_active=True,
+        )
+        self.session.add(wallet)
+        self.session.commit()
+        self.session.refresh(wallet)
+        logger.info("Created agent wallet %s for agent %s on chain %s", wallet.id, agent_id, chain_id)
+        return wallet
+
+    async def get_wallet_balance(self, agent_id: str, chain_id: int) -> Decimal:
+        """Get wallet balance for an agent on a specific chain."""
+        stmt = select(AgentWallet).where(
+            AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active
+        )
+        result = self.session.execute(stmt)
+        wallet = result.scalars().first()
+        if not wallet:
+            raise ValueError(f"Active wallet not found for agent {agent_id} on chain {chain_id}")
+        adapter = self._get_adapter(chain_id)
+        balance_data = await adapter.get_balance(wallet.chain_address)
+        balance = balance_data["eth_balance"] if "eth_balance" in balance_data else balance_data.get("balance", 0.0)
+        wallet.balance = float(balance)
+        self.session.commit()
+        return Decimal(str(balance))
+
+    async def execute_wallet_transaction(
+        self,
+        agent_id: str,
+        chain_id: int,
+        to_address: str,
+        amount: Decimal,
+        data: dict[str, Any] | None = None,
+        private_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Execute a transaction from an agent wallet."""
+        stmt = (
+            select(AgentWallet)
+            .where(AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active)
+            .with_for_update()
+        )
+        result = self.session.execute(stmt)
+        wallet = result.scalars().first()
+        if not wallet:
+            raise ValueError(f"Active wallet not found for agent {agent_id} on chain {chain_id}")
+        if wallet.spending_limit > 0 and wallet.total_spent + float(amount) > wallet.spending_limit:
+            raise ValueError("Transaction amount exceeds spending limit")
+        adapter = self._get_adapter(chain_id)
+        tx_result = await adapter.execute_transaction(
+            wallet.chain_address, to_address, amount, data=data, private_key=private_key
+        )
+        wallet.total_spent += float(amount)
+        wallet.last_transaction = datetime.now(UTC)
+        wallet.transaction_count += 1
+        self.session.commit()
+        logger.info("Executed wallet transaction: %s", tx_result["transaction_hash"])
+        return tx_result
+
+    async def get_wallet_transaction_history(
+        self, agent_id: str, chain_id: int, limit: int = 50, offset: int = 0
+    ) -> list[dict[str, Any]]:
+        """Get transaction history for an agent wallet."""
+        stmt = select(AgentWallet).where(
+            AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active
+        )
+        result = self.session.execute(stmt)
+        wallet = result.scalars().first()
+        if not wallet:
+            raise ValueError(f"Active wallet not found for agent {agent_id} on chain {chain_id}")
+        adapter = self._get_adapter(chain_id)
+        return await adapter.get_transaction_history(wallet.chain_address, limit, offset)
+
+    async def update_agent_wallet(self, agent_id: str, chain_id: int, request: AgentWalletUpdate) -> AgentWallet:
+        """Update agent wallet settings."""
+        stmt = select(AgentWallet).where(AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id)
+        result = self.session.execute(stmt)
+        wallet = result.scalars().first()
+        if not wallet:
+            raise ValueError(f"Wallet not found for agent {agent_id} on chain {chain_id}")
+        update_data = request.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            if hasattr(wallet, field):
+                setattr(wallet, field, value)
+        wallet.updated_at = datetime.now(UTC)
+        self.session.commit()
+        self.session.refresh(wallet)
+        logger.info("Updated agent wallet: %s", wallet.id)
+        return wallet  # type: ignore[no-any-return]
+
+    async def get_all_agent_wallets(self, agent_id: str) -> list[AgentWallet]:
+        """Get all wallets for an agent across all chains."""
+        stmt = select(AgentWallet).where(AgentWallet.agent_id == agent_id)
+        result = self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def deactivate_wallet(self, agent_id: str, chain_id: int) -> bool:
+        """Deactivate an agent wallet."""
+        stmt = select(AgentWallet).where(AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id)
+        result = self.session.execute(stmt)
+        wallet = result.scalars().first()
+        if not wallet:
+            raise ValueError(f"Wallet not found for agent {agent_id} on chain {chain_id}")
+        wallet.is_active = False
+        wallet.updated_at = datetime.now(UTC)
+        self.session.commit()
+        logger.info("Deactivated agent wallet: %s", wallet.id)
+        return True
+
+    async def get_wallet_statistics(self, agent_id: str) -> dict[str, Any]:
+        """Get comprehensive wallet statistics for an agent."""
+        wallets = await self.get_all_agent_wallets(agent_id)
+        total_balance = 0.0
+        total_spent = 0.0
+        total_transactions = 0
+        active_wallets = 0
+        chain_breakdown = {}
+        for wallet in wallets:
+            try:
+                balance = await self.get_wallet_balance(agent_id, wallet.chain_id)
+                total_balance += float(balance)
+            except Exception as e:
+                logger.warning("Failed to get balance for wallet %s: %s", wallet.id, e)
+                balance = 0.0  # type: ignore[assignment]
+            total_spent += wallet.total_spent
+            total_transactions += wallet.transaction_count
+            if wallet.is_active:
+                active_wallets += 1
+            info = WalletAdapterFactory.get_chain_info(wallet.chain_id)
+            chain_name = info.get("name", f"Chain {wallet.chain_id}")
+            if chain_name not in chain_breakdown:
+                chain_breakdown[chain_name] = {"balance": 0.0, "spent": 0.0, "transactions": 0, "active": False}
+            chain_breakdown[chain_name]["balance"] += float(balance)
+            chain_breakdown[chain_name]["spent"] += wallet.total_spent
+            chain_breakdown[chain_name]["transactions"] += wallet.transaction_count
+            chain_breakdown[chain_name]["active"] = wallet.is_active
+        return {
+            "total_wallets": len(wallets),
+            "active_wallets": active_wallets,
+            "total_balance": total_balance,
+            "total_spent": total_spent,
+            "total_transactions": total_transactions,
+            "average_balance_per_wallet": total_balance / max(len(wallets), 1),
+            "chain_breakdown": chain_breakdown,
+            "supported_chains": list(chain_breakdown.keys()),
+        }
+
+    async def verify_wallet_address(self, chain_id: int, address: str) -> bool:
+        """Verify if an address is valid for a specific chain."""
+        try:
+            adapter = self._get_adapter(chain_id)
+            return await adapter.validate_address(address)
+        except Exception as e:
+            logger.error("Error verifying address %s on chain %s: %s", address, chain_id, e)
+            return False
+
+    async def sync_wallet_balances(self, agent_id: str) -> dict[str, Any]:
+        """Sync balances for all agent wallets."""
+        wallets = await self.get_all_agent_wallets(agent_id)
+        sync_results = {}
+        for wallet in wallets:
+            if not wallet.is_active:
+                continue
+            try:
+                balance = await self.get_wallet_balance(agent_id, wallet.chain_id)
+                sync_results[wallet.chain_id] = {"success": True, "balance": float(balance), "address": wallet.chain_address}
+            except Exception as e:
+                sync_results[wallet.chain_id] = {"success": False, "error": str(e), "address": wallet.chain_address}
+        return sync_results  # type: ignore[return-value]
+
+    def get_supported_chains(self) -> list[dict[str, Any]]:
+        """Get list of supported blockchains."""
+        return [
+            {
+                "chain_id": chain_id,
+                "chain_type": self._chain_types.get(chain_id, ChainType.CUSTOM),
+                "name": WalletAdapterFactory.get_chain_info(chain_id).get("name", f"Chain {chain_id}"),
+                "rpc_url": self.rpc_url,
+            }
+            for chain_id in WalletAdapterFactory.get_supported_chains()
+        ]
 
 
 class AgentIdentityManager:
@@ -32,7 +258,11 @@ class AgentIdentityManager:
         self.session = session
         self.core = AgentIdentityCore(session)
         self.registry = CrossChainRegistry(session)
-        self.wallet_adapter = MultiChainWalletAdapter(session)
+        self.wallet_adapter = AgentWalletManager(session)
+
+    async def get_identity_by_owner(self, owner_address: str) -> list[AgentIdentity]:
+        """Get all identities for an owner."""
+        return await self.core.get_identity_by_owner(owner_address)
 
     async def create_agent_identity(
         self,
@@ -58,7 +288,7 @@ class AgentIdentityManager:
         identity = await self.core.create_identity(identity_request)
         chain_mappings = {}
         for chain_id in chains:
-            chain_address = f"0x{uuid4().hex[:40]}"
+            chain_address = f"0x{secrets.token_hex(20)}"
             chain_mappings[chain_id] = chain_address
         registration_result = await self.registry.register_cross_chain_identity(
             agent_id, chain_mappings, owner_address, VerificationType.BASIC

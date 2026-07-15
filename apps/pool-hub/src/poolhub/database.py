@@ -47,6 +47,10 @@ async def get_session() -> AsyncGenerator[AsyncSession]:
         yield session
 
 
+# Alias used by routers and tests that expect the older dependency name
+get_db = get_session
+
+
 async def close_engine() -> None:
     global _engine
     if _engine is not None:
