@@ -225,38 +225,24 @@ class TestPoolHubSettings:
 
 
 class TestMinerInfoFields:
-    """Test MinerInfo dataclass has v0.6.7 fields."""
+    """Test canonical Miner model has v0.6.7 chain/wallet fields."""
 
     def test_miner_info_has_chain_id(self):
-        from poolhub_legacy.registry.miner_registry import MinerInfo
+        from poolhub.models import Miner
 
-        # Check the dataclass field exists
-        import dataclasses
-
-        fields = {f.name for f in dataclasses.fields(MinerInfo)}
-        assert "chain_id" in fields
+        assert "chain_id" in Miner.__table__.columns
 
     def test_miner_info_has_wallet_address(self):
-        from poolhub_legacy.registry.miner_registry import MinerInfo
+        from poolhub.models import Miner
 
-        import dataclasses
-
-        fields = {f.name for f in dataclasses.fields(MinerInfo)}
-        assert "wallet_address" in fields
+        assert "wallet_address" in Miner.__table__.columns
 
     def test_miner_info_chain_id_default(self):
-        from poolhub_legacy.registry.miner_registry import MinerInfo
+        from poolhub.models import Miner
 
-        miner = MinerInfo(
-            miner_id="m1",
-            pool_id="p1",
-            capabilities=["llm"],
-            gpu_info={},
-            endpoint=None,
-            max_concurrent_jobs=1,
-        )
-        assert miner.chain_id == "ait-hub"
-        assert miner.wallet_address is None
+        default = Miner.__table__.columns["chain_id"].default
+        assert default is not None and default.arg == "ait-hub"
+        assert Miner.__table__.columns["wallet_address"].nullable is True
 
 
 # ---------------------------------------------------------------------------

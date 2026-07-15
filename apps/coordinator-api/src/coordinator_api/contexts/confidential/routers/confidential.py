@@ -304,6 +304,8 @@ async def rotate_encryption_key(
             "new_version": new_key_pair.version,
             "rotated_at": new_key_pair.created_at,
         }
+    except NotImplementedError as e:
+        raise HTTPException(status_code=501, detail=str(e)) from e
     except KeyManagementError as e:
         logger.error("Key rotation failed: %s", e)
         raise HTTPException(status_code=400, detail=str(e)) from e

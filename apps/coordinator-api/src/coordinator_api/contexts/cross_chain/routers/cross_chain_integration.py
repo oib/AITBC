@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 from uuid import uuid4
 
-from coordinator_api.agent_identity.manager import AgentIdentityManager
+from coordinator_api.contexts.agent_identity.services.manager import AgentIdentityManager
 from coordinator_api.agent_identity.wallet_adapter_enhanced import (
     SecurityLevel,
     WalletAdapterFactory,
@@ -15,15 +15,8 @@ from coordinator_api.agent_identity.wallet_adapter_enhanced import (
 )
 from coordinator_api.config import settings
 
-# B16: CrossChainBridgeService is deprecated; see bridge_client_adapter.py. Kept because
-# the router endpoints depend on its SQLModel-based API (initialize_bridge,
-# create_bridge_request, get_bridge_request_status, cancel_bridge_request,
-# get_bridge_statistics, get_liquidity_pools) which BridgeClientAdapter does not yet
-# provide. Migrate callers when feasible.
-from coordinator_api.contexts.cross_chain.services.cross_chain.bridge_enhanced import (
-    CrossChainBridgeService,
-)
-from coordinator_api.contexts.cross_chain.services.cross_chain.bridge_types import (
+from coordinator_api.contexts.cross_chain.services.cross_chain.bridge_client_adapter import (
+    BridgeClientAdapter,
     BridgeProtocol,
     BridgeSecurityLevel,
 )
@@ -263,7 +256,7 @@ async def create_bridge_request(
             raise HTTPException(status_code=400, detail="source_chain_id and target_chain_id are required")
         if amount is None:
             raise HTTPException(status_code=400, detail="amount is required")
-        bridge_service = CrossChainBridgeService(session)
+        bridge_service = BridgeClientAdapter(session=session)
         chain_configs = {
             source_chain_id: {"rpc_url": settings.blockchain_rpc_url},
             target_chain_id: {"rpc_url": settings.blockchain_rpc_url},
@@ -292,7 +285,7 @@ async def get_bridge_request_status(
 ) -> dict[str, Any]:
     """Get status of a bridge request"""
     try:
-        bridge_service = CrossChainBridgeService(session)
+        bridge_service = BridgeClientAdapter(session=session)
         status = await bridge_service.get_bridge_request_status(bridge_request_id)
         return status
     except Exception:
@@ -310,7 +303,7 @@ async def cancel_bridge_request(
 ) -> dict[str, Any]:
     """Cancel a bridge request"""
     try:
-        bridge_service = CrossChainBridgeService(session)
+        bridge_service = BridgeClientAdapter(session=session)
         result = await bridge_service.cancel_bridge_request(bridge_request_id, reason)
         return result
     except Exception:
@@ -324,7 +317,7 @@ async def get_bridge_statistics(
 ) -> dict[str, Any]:
     """Get bridge statistics"""
     try:
-        bridge_service = CrossChainBridgeService(session)
+        bridge_service = BridgeClientAdapter(session=session)
         stats = await bridge_service.get_bridge_statistics(time_period_hours)
         return stats
     except Exception:
@@ -336,7 +329,7 @@ async def get_bridge_statistics(
 async def get_liquidity_pools(request: Request, session: Annotated[Session, Depends(get_session)]) -> list[dict[str, Any]]:
     """Get all liquidity pool information"""
     try:
-        bridge_service = CrossChainBridgeService(session)
+        bridge_service = BridgeClientAdapter(session=session)
         pools = await bridge_service.get_liquidity_pools()
         return pools
     except Exception:
@@ -567,7 +560,7 @@ async def get_cross_chain_health(request: Request, session: Annotated[Session, D
     """Get cross-chain integration health status"""
     try:
         supported_chains = WalletAdapterFactory.get_supported_chains()
-        bridge_service = CrossChainBridgeService(session)
+        bridge_service = BridgeClientAdapter(session=session)
         tx_manager = ChainTransactionManager(session)
         chain_configs = {chain_id: {"rpc_url": settings.blockchain_rpc_url} for chain_id in [1000, 1001]}
         await bridge_service.initialize_bridge(chain_configs)
@@ -653,7 +646,7 @@ async def get_cross_chain_config(request: Request, session: Annotated[Session, D
 async def get_bridge_whitelist(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get current bridge whitelist configuration"""
     try:
-        bridge_service = CrossChainBridgeService(session)
+        bridge_service = BridgeClientAdapter(session=session)
         whitelist = [{"source_chain_id": src, "target_chain_id": tgt} for src, tgt in bridge_service.allowed_transfers]
         return {"allowed_transfers": whitelist, "count": len(whitelist), "last_updated": datetime.now(UTC).isoformat()}
     except Exception as e:
@@ -672,7 +665,7 @@ async def add_bridge_whitelist_entry(
 ) -> dict[str, Any]:
     """Add a cross-chain transfer pair to the bridge whitelist"""
     try:
-        bridge_service = CrossChainBridgeService(session)
+        bridge_service = BridgeClientAdapter(session=session)
         await bridge_service.add_allowed_transfer(source_chain_id, target_chain_id)
         return {
             "status": "added",

@@ -17,13 +17,8 @@ from ....agent_identity.wallet_adapter_enhanced import WalletAdapterFactory
 from ...reputation.services.reputation_engine import CrossChainReputationEngine
 from ...cross_chain.services.multi_chain_transaction_manager import ChainTransactionManager
 
-# B16: CrossChainBridgeService is deprecated; see bridge_client_adapter.py. Kept because
-# this integration service depends on its SQLModel-based API (initialize_bridge) which
-# BridgeClientAdapter does not yet provide. Migrate callers when feasible.
-from ...cross_chain.services.cross_chain.bridge_enhanced import (
-    CrossChainBridgeService,
-)
-from ...cross_chain.services.cross_chain.bridge_types import (
+from ...cross_chain.services.cross_chain.bridge_client_adapter import (
+    BridgeClientAdapter,
     BridgeProtocol,
     BridgeSecurityLevel,
 )
@@ -60,7 +55,7 @@ class GlobalMarketplaceIntegrationService:
         self.session = session
         self.marketplace_service = GlobalMarketplaceService(session)
         self.region_manager = RegionManager(session)
-        self.bridge_service: CrossChainBridgeService | None = None
+        self.bridge_service: BridgeClientAdapter | None = None
         self.tx_manager: ChainTransactionManager | None = None
         self.reputation_engine = CrossChainReputationEngine(session)
         self.integration_config = {
@@ -84,7 +79,7 @@ class GlobalMarketplaceIntegrationService:
     ) -> None:
         """Initialize global marketplace integration services"""
         try:
-            self.bridge_service = CrossChainBridgeService(self.session)
+            self.bridge_service = BridgeClientAdapter(session=self.session)
             await self.bridge_service.initialize_bridge(chain_configs)
             self.tx_manager = ChainTransactionManager(self.session)
             await self.tx_manager.initialize(chain_configs)
