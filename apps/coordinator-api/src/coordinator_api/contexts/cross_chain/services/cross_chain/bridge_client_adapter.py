@@ -190,6 +190,8 @@ class BridgeClientAdapter:
                 total_amount=amount_float + total_fee,
                 status=BridgeRequestStatus.PENDING,
                 created_at=datetime.now(UTC),
+                expires_at=datetime.now(UTC) + timedelta(minutes=deadline_minutes),
+                protocol=protocol.value if protocol else BridgeProtocol.HTLC.value,
             )
             self.session.add(bridge_request)
             self.session.commit()
@@ -226,51 +228,52 @@ class BridgeClientAdapter:
             if not bridge_request:
                 raise ValueError(f"Bridge request {bridge_request_id} not found")
             transactions = []
-            if bridge_request.source_transaction_hash:
-                source_tx = await self._get_transaction_details(
-                    bridge_request.source_chain_id, bridge_request.source_transaction_hash
-                )
+            if bridge_request.lock_tx_hash:
+                source_tx = await self._get_transaction_details(bridge_request.source_chain_id, bridge_request.lock_tx_hash)
                 transactions.append(
                     {
                         "chain_id": bridge_request.source_chain_id,
-                        "transaction_hash": bridge_request.source_transaction_hash,
+                        "transaction_hash": bridge_request.lock_tx_hash,
                         "status": source_tx.get("status"),
                         "confirmations": await self._get_transaction_confirmations(
-                            bridge_request.source_chain_id, bridge_request.source_transaction_hash
+                            bridge_request.source_chain_id, bridge_request.lock_tx_hash
                         ),
                     }
                 )
-            if bridge_request.target_transaction_hash:
-                target_tx = await self._get_transaction_details(
-                    bridge_request.target_chain_id, bridge_request.target_transaction_hash
-                )
+            if bridge_request.unlock_tx_hash:
+                target_tx = await self._get_transaction_details(bridge_request.target_chain_id, bridge_request.unlock_tx_hash)
                 transactions.append(
                     {
                         "chain_id": bridge_request.target_chain_id,
-                        "transaction_hash": bridge_request.target_transaction_hash,
+                        "transaction_hash": bridge_request.unlock_tx_hash,
                         "status": target_tx.get("status"),
                         "confirmations": await self._get_transaction_confirmations(
-                            bridge_request.target_chain_id, bridge_request.target_transaction_hash
+                            bridge_request.target_chain_id, bridge_request.unlock_tx_hash
                         ),
                     }
                 )
             progress = await self._calculate_bridge_progress(bridge_request)
+            # ponytail: network_fee/total_fee derived from stored total_amount and bridge_fee
+            # to avoid duplicating columns in the bridge_request table.
+            network_fee = bridge_request.total_amount - bridge_request.amount - bridge_request.bridge_fee
+            total_fee = bridge_request.total_amount - bridge_request.amount
             return {
                 "bridge_request_id": bridge_request.id,
-                "user_address": bridge_request.user_address,
+                "sender_address": bridge_request.sender_address,
+                "recipient_address": bridge_request.recipient_address,
                 "source_chain_id": bridge_request.source_chain_id,
                 "target_chain_id": bridge_request.target_chain_id,
                 "amount": bridge_request.amount,
-                "token_address": bridge_request.token_address,
-                "target_address": bridge_request.target_address,
+                "source_token": bridge_request.source_token,
+                "target_token": bridge_request.target_token,
                 "protocol": bridge_request.protocol,
                 "status": bridge_request.status.value,
                 "progress": progress,
                 "transactions": transactions,
                 "bridge_fee": bridge_request.bridge_fee,
-                "network_fee": bridge_request.network_fee,
-                "total_fee": bridge_request.total_fee,
-                "deadline": bridge_request.deadline.isoformat(),
+                "network_fee": network_fee,
+                "total_fee": total_fee,
+                "deadline": bridge_request.expires_at.isoformat(),
                 "created_at": bridge_request.created_at.isoformat(),
                 "updated_at": bridge_request.updated_at.isoformat(),
                 "completed_at": bridge_request.completed_at.isoformat() if bridge_request.completed_at else None,
@@ -294,7 +297,7 @@ class BridgeClientAdapter:
             bridge_request.cancellation_reason = reason
             bridge_request.updated_at = datetime.now(UTC)
             self.session.commit()
-            if bridge_request.source_transaction_hash:
+            if bridge_request.lock_tx_hash or bridge_request.unlock_tx_hash:
                 await self._process_refund(bridge_request)
             logger.info("Cancelled bridge request %s: %s", bridge_request_id, reason)
             return {
@@ -621,6 +624,8 @@ class BridgeClientAdapter:
             # its SHA256 hash (the hashlock published on-chain).
             secret = generate_secret()
             secret_hash = compute_hashlock(secret)
+            bridge_request.secret_hash = secret_hash
+            self.session.commit()
 
             # Calculate timelocks (block heights). block_time_seconds=5 is the
             # default AITBC block time; current_block_height defaults to 0
@@ -786,7 +791,7 @@ class BridgeClientAdapter:
             "HTLC secret verified for bridge request %s, completing swap",
             bridge_request.id,
         )
-        bridge_request.target_transaction_hash = (
+        bridge_request.unlock_tx_hash = (
             f"0x{hashlib.sha256(f'htlc_complete_{bridge_request.id}_{secret}'.encode()).hexdigest()}"
         )
         bridge_request.status = BridgeRequestStatus.COMPLETED

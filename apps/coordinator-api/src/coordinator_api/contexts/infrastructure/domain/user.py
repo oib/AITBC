@@ -53,7 +53,7 @@ class Wallet(SQLModel, table=True):
     # DISABLED:     transactions: List["Transaction"] = Relationship(back_populates="wallet")
 
 
-class Transaction(SQLModel, table=True):
+class UserTransaction(SQLModel, table=True):
     """Transaction model"""
 
     __tablename__ = "transactions"
@@ -74,6 +74,9 @@ class Transaction(SQLModel, table=True):
     # Relationships
     # DISABLED:     user: User = Relationship(back_populates="transactions")
     # DISABLED:     wallet: Optional[Wallet] = Relationship(back_populates="transactions")
+
+
+Transaction = UserTransaction
 
 
 class UserSession(SQLModel, table=True):

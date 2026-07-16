@@ -61,11 +61,14 @@ async def create_payment(
     if abs(payment_request.eth_amount - expected_eth) > 0.00000001:
         raise HTTPException(status_code=400, detail="Amount mismatch")
 
+    # Bind payment to the authenticated user when auth is enabled
+    user_id = getattr(request.state, "user_id", None) or payment_request.user_id
+
     # Create payment record
     payment_id = str(uuid.uuid4())
     payment = {
         "payment_id": payment_id,
-        "user_id": payment_request.user_id,
+        "user_id": user_id,
         "aitbc_amount": payment_request.aitbc_amount,
         "eth_amount": payment_request.eth_amount,
         "payment_address": ETH_CONFIG["main_address"],
@@ -106,33 +109,15 @@ async def get_payment_status(request: Request, payment_id: str) -> dict[str, Any
 @router.post("/exchange/confirm-payment/{payment_id}")
 @rate_limit(rate=50, per=60)
 async def confirm_payment(request: Request, payment_id: str, tx_hash: str) -> dict[str, Any]:
-    """Confirm payment (webhook from payment processor)"""
+    """Confirm payment (webhook from payment processor).
 
-    payment = await _state.hget(_NAMESPACE, payment_id)
-    if payment is None:
-        raise HTTPException(status_code=404, detail="Payment not found")
-
-    if payment["status"] != "pending":
-        raise HTTPException(status_code=400, detail="Payment not in pending state")
-
-    # Verify transaction (in production, verify with blockchain API)
-    # For demo, we'll accept any tx_hash
-
-    payment["status"] = "confirmed"
-    payment["tx_hash"] = tx_hash
-    payment["confirmed_at"] = int(time.time())
-    await _state.hset(_NAMESPACE, payment_id, payment)
-
-    # Mint AITBC tokens to user's wallet
-    try:
-        from ...blockchain.services.blockchain import mint_tokens
-
-        await mint_tokens(payment["user_id"], payment["aitbc_amount"])
-    except Exception as e:
-        logger.error("Error minting tokens: %s", e)
-        # In production, handle this error properly
-
-    return {"status": "ok", "payment_id": payment_id, "aitbc_amount": payment["aitbc_amount"]}
+    ponytail: Disabled until real on-chain transaction verification and minting
+    are implemented. Accepting any tx_hash currently allows free minting.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Payment confirmation is disabled until on-chain transaction verification is implemented",
+    )
 
 
 @router.get("/exchange/rates", response_model=ExchangeRatesResponse)
