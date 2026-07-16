@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aitbc"
-version = "0.10.13"
+version = "0.10.14"
 description = "AI Agent Compute Network - Main Project"
 authors = ["AITBC Team"]
 
@@ -292,6 +292,7 @@ filterwarnings = [
 testpaths = [
     "tests/unit",
     "tests/integration",
+    "tests/smoke",
     "tests/coordinator",
     "tests/e2e",
     "tests/security",
@@ -314,6 +315,7 @@ markers = [
     "blockchain: marks tests that interact with blockchain nodes or aitbc_chain internals",
     "postgres: marks tests that require a PostgreSQL database",
     "redis: marks tests that require a Redis instance",
+    "smoke: marks tests that import production modules in fresh subprocesses",
 ]
 
 [tool.coverage.run]
