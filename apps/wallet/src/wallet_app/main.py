@@ -168,7 +168,8 @@ app = create_app()
 if __name__ == "__main__":
     import os
 
-    host = os.getenv("WALLET_BIND_HOST", "0.0.0.0")
-    port = int(os.getenv("WALLET_BIND_PORT", "8108"))
+    # ponytail: default host is 127.0.0.1; override via WALLET_BIND_HOST for containers
+    host = os.getenv("WALLET_BIND_HOST", settings.host)
+    port = int(os.getenv("WALLET_BIND_PORT", settings.port))
 
     uvicorn.run(app, host=host, port=port)
