@@ -11,7 +11,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 from aitbc.utils import format_ait
 
-from .deps import get_keystore, get_ledger, get_receipt_service
+from .deps import get_keystore, get_ledger, get_receipt_service, require_admin_api_key
 from .keystore.persistent_service import PersistentKeystoreService
 from .ledger_mock import SQLiteLedgerAdapter
 
@@ -332,6 +332,7 @@ async def faucet_request(
     request: Request,
     wallet_id: str,
     keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
+    _admin: Annotated[None, Depends(require_admin_api_key)],
 ) -> WalletTransactionResponse:
     """
     Request test tokens from the blockchain faucet.
@@ -339,6 +340,12 @@ async def faucet_request(
     This endpoint funds a newly created wallet with test tokens
     for development and testing purposes.
     """
+    from .settings import settings
+
+    # ponytail: Faucet is disabled by default; enable with WALLET_ENABLE_FAUCET=true
+    if not settings.enable_faucet:
+        raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Faucet is disabled")
+
     try:
         # Get wallet public key
         record = keystore.get_wallet(wallet_id)
@@ -349,8 +356,6 @@ async def faucet_request(
 
         # Call blockchain faucet
         import httpx
-
-        from .settings import settings
 
         rpc_url = settings.blockchain_rpc_url
         response = httpx.post(f"{rpc_url}/rpc/faucet", json={"address": address, "amount": 3600000000}, timeout=30.0)
