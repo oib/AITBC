@@ -3,15 +3,9 @@ JWT Handler Tests
 Tests for JWT token generation, validation, and password management
 """
 
-import sys
 from datetime import timedelta
 
 import pytest
-
-# Clear any cached 'app' modules from other test suites to avoid import conflicts
-for mod_name in list(sys.modules.keys()):
-    if mod_name == "coordinator_api" or mod_name.startswith("coordinator_api."):
-        del sys.modules[mod_name]
 
 try:
     from coordinator_api.auth.jwt_handler import (

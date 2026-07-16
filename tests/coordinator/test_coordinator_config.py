@@ -4,18 +4,12 @@ Tests for configuration management, settings, and environment-specific configs
 """
 
 import os
-import sys
 from unittest.mock import patch
 
 import pytest
 
 # Set required environment variable before importing
 os.environ.setdefault("SECRET_KEY", "test_secret_key_for_testing_that_is_at_least_32_characters")
-
-# Clear any cached 'app' modules from other test suites to avoid import conflicts
-for mod_name in list(sys.modules.keys()):
-    if mod_name == "coordinator_api" or mod_name.startswith("coordinator_api."):
-        del sys.modules[mod_name]
 
 try:
     from coordinator_api.config import (
