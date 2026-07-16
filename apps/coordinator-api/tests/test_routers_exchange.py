@@ -103,7 +103,7 @@ def test_get_payment_status_not_found(exchange_client):
 
 
 def test_confirm_payment(exchange_client):
-    """Test confirming a payment."""
+    """Test confirming a payment is disabled until on-chain verification exists."""
     # Create a payment first
     create_resp = exchange_client.post(
         "/v1/exchange/create-payment",
@@ -115,12 +115,10 @@ def test_confirm_payment(exchange_client):
     )
     payment_id = create_resp.json()["payment_id"]
 
-    # Confirm payment
+    # Confirm payment is disabled to prevent free minting
     confirm_resp = exchange_client.post(f"/v1/exchange/confirm-payment/{payment_id}?tx_hash=abc123")
-    assert confirm_resp.status_code == 200
-    data = confirm_resp.json()
-    assert data["status"] == "ok"
-    assert data["payment_id"] == payment_id
+    assert confirm_resp.status_code == 501
+    assert "disabled" in confirm_resp.json()["detail"].lower()
 
 
 def test_get_exchange_rates(exchange_client):

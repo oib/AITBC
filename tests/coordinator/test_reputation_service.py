@@ -2,28 +2,19 @@
 Tests for reputation service and trust score calculator
 """
 
-import sys
 from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
 
-# Clear any cached 'app' modules from other test suites to avoid import conflicts
-for mod_name in list(sys.modules.keys()):
-    if mod_name == "coordinator_api" or mod_name.startswith("coordinator_api."):
-        del sys.modules[mod_name]
-
-try:
-    from coordinator_api.domain.reputation import (
-        AgentReputation,
-        CommunityFeedback,
-        ReputationEvent,
-        ReputationLevel,
-        TrustScoreCalculation,
-        TrustScoreCategory,
-    )
-except Exception as _e:
-    pytestmark = pytest.mark.skip(reason=f"coordinator-api app import conflict: {_e}")
+from coordinator_api.contexts.reputation.domain.reputation import (
+    AgentReputation,
+    CommunityFeedback,
+    ReputationEvent,
+    ReputationLevel,
+    TrustScoreCalculation,
+    TrustScoreCategory,
+)
 
 
 class TestReputationModels:
