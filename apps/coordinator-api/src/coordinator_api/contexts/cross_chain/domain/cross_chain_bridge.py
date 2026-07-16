@@ -73,8 +73,8 @@ class BridgeRequest(SQLModel, table=True):
     status: BridgeRequestStatus = Field(default=BridgeRequestStatus.PENDING, index=True)
     zk_proof: str | None = Field(default=None)  # Zero-knowledge proof
     merkle_proof: str | None = Field(default=None)  # Merkle proof for completion
-    lock_tx_hash: str | None = Field(default=None, index=True)  # Lock transaction hash
-    unlock_tx_hash: str | None = Field(default=None, index=True)  # Unlock transaction hash
+    lock_tx_hash: str | None = Field(default=None, index=True)  # Lock transaction hash (source)
+    unlock_tx_hash: str | None = Field(default=None, index=True)  # Unlock transaction hash (target)
     confirmations: int = Field(default=0)  # Number of confirmations received
     required_confirmations: int = Field(default=3)  # Required confirmations
     dispute_reason: str | None = Field(default=None)
@@ -85,6 +85,12 @@ class BridgeRequest(SQLModel, table=True):
     completed_at: datetime | None = Field(default=None)
     resolved_at: datetime | None = Field(default=None)
     expires_at: datetime = Field(default_factory=lambda: datetime.now(UTC) + timedelta(hours=24))
+
+    # Runtime fields used by BridgeClientAdapter
+    protocol: str | None = Field(default=None, max_length=20)  # BridgeProtocol used for this request
+    secret_hash: str | None = Field(default=None, index=True)  # HTLC hashlock
+    cancellation_reason: str | None = Field(default=None)
+    error_message: str | None = Field(default=None)
 
     @field_validator("sender_address", "recipient_address", "source_token", "target_token")
     @classmethod
@@ -164,7 +170,7 @@ class ChainConfig(SQLModel, table=True):
     def validate_url_field(cls, v: str) -> str:
         if not v:
             return v
-        return validate_url(v)
+        return validate_url(v) or v
 
     @field_validator("bridge_contract_address")
     @classmethod

@@ -1,6 +1,7 @@
 """Shared validators for Pydantic models."""
 
 import re
+from decimal import Decimal
 from typing import Any
 from pydantic import field_validator
 
@@ -55,7 +56,7 @@ def validate_positive_amount(v: float | int) -> float:
     return float(v)
 
 
-def validate_positive_decimal(v: float) -> float:
+def validate_positive_decimal(v: Decimal) -> Decimal:
     """Validate that decimal amount is positive."""
     if v <= 0:
         raise ValueError("Amount must be positive")

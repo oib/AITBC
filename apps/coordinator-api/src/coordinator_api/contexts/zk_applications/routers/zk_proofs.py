@@ -35,7 +35,6 @@ class VerifyProofRequest(BaseModel):
     proof: dict[str, Any]
     public_signals: list[str]
     verification_key: dict[str, Any] | None = None
-    test_mode: bool = False
 
 
 class ProofResponse(BaseModel):
@@ -116,7 +115,6 @@ async def verify_proof(request: Request, req: VerifyProofRequest) -> Verificatio
             proof=req.proof,
             public_signals=req.public_signals,
             verification_key=req.verification_key,
-            test_mode=req.test_mode,
         )
 
         return VerificationResponse(

@@ -437,50 +437,15 @@ async def sign_message(
     request: dict[str, Any],
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
 ) -> dict[str, Any]:
-    """Sign a message with agent wallet"""
-    try:
-        import base64
+    """Sign a message with agent wallet.
 
-        from sqlalchemy import select
-
-        # Get wallet from database
-        stmt = select(AgentWallet).where(
-            AgentWallet.agent_id == agent_id,  # type: ignore[arg-type]
-            AgentWallet.chain_id == chain_id,  # type: ignore[arg-type]
-            AgentWallet.is_active == True,  # type: ignore[arg-type]  # noqa: E712
-        )
-        wallet = manager.session.execute(stmt).scalars().first()
-
-        if not wallet:
-            raise HTTPException(status_code=404, detail="Wallet not found")
-
-        message = request.get("message", "")
-        if not message:
-            raise HTTPException(status_code=400, detail="Message is required")
-
-        # Sign the message using proper signing mechanism
-        # In production, this would use the encrypted private key from the wallet
-        # For now, we'll generate a realistic signature based on the message and wallet address
-        import hashlib
-
-        # Create a deterministic signature based on message and wallet address
-        signature_data = f"{message}:{wallet.chain_address}:{datetime.now(UTC).timestamp()}"
-        signature_hash = hashlib.sha256(signature_data.encode()).digest()
-        signature = base64.b64encode(signature_hash).decode()
-
-        return {
-            "wallet_id": wallet.id,
-            "agent_id": agent_id,
-            "chain_id": chain_id,
-            "message": message,
-            "message_hash": hashlib.sha256(message.encode()).hexdigest(),
-            "signature": signature,
-            "signed_at": datetime.now(UTC).isoformat(),
-        }
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(status_code=500, detail="Operation failed") from None
+    ponytail: Disabled until secure encrypted-key signing is implemented.
+    The previous implementation returned a SHA-256 hash, not a valid signature.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Agent wallet signing is disabled until secure key custody is implemented",
+    )
 
 
 # Search and Discovery Endpoints

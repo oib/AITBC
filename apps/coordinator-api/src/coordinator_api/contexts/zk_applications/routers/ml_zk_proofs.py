@@ -36,16 +36,13 @@ async def prove_ml_training(request: Request, proof_request: dict[str, Any]) -> 
 
 @router.post("/verify/training")
 @rate_limit(rate=20, per=60)
-async def verify_ml_training(
-    request: Request, verification_request: dict[str, Any], test_mode: bool = False
-) -> dict[str, Any]:
+async def verify_ml_training(request: Request, verification_request: dict[str, Any]) -> dict[str, Any]:
     """Verify ZK proof for ML training"""
     try:
         verification_result = await zk_service.verify_proof(
             proof=verification_request["proof"],
             public_signals=verification_request["public_signals"],
             verification_key=verification_request["verification_key"],
-            test_mode=test_mode,
         )
 
         return {
@@ -83,16 +80,13 @@ async def prove_modular_ml(request: Request, proof_request: dict[str, Any]) -> d
 
 @router.post("/verify/inference")
 @rate_limit(rate=20, per=60)
-async def verify_ml_inference(
-    request: Request, verification_request: dict[str, Any], test_mode: bool = False
-) -> dict[str, Any]:
+async def verify_ml_inference(request: Request, verification_request: dict[str, Any]) -> dict[str, Any]:
     """Verify ZK proof for ML inference"""
     try:
         verification_result = await zk_service.verify_proof(
             proof=verification_request["proof"],
             public_signals=verification_request["public_signals"],
             verification_key=verification_request["verification_key"],
-            test_mode=test_mode,
         )
 
         return {
