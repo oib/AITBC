@@ -3,9 +3,11 @@ ETH-AIT Bridge API Routes
 REST API endpoints for bridge operations.
 """
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from wallet_app.deps import require_admin_api_key
 
 from .bridge_db import get_all_deposits, get_deposit_by_tx_hash, get_pending_deposits, update_deposit_status
 from .price_api import calculate_ait_amount, get_exchange_rate
@@ -65,7 +67,10 @@ async def get_deposit(deposit_id: str) -> dict[str, Any]:
 
 
 @router.post("/deposits/{deposit_id}/verify")
-async def verify_deposit(deposit_id: str) -> dict[str, Any]:
+async def verify_deposit(
+    deposit_id: str,
+    _admin: Annotated[None, Depends(require_admin_api_key)],
+) -> dict[str, Any]:
     """
     Verify a deposit (admin operation).
     """
@@ -86,7 +91,10 @@ async def verify_deposit(deposit_id: str) -> dict[str, Any]:
 
 
 @router.post("/deposits/{deposit_id}/complete")
-async def complete_deposit(deposit_id: str) -> dict[str, Any]:
+async def complete_deposit(
+    deposit_id: str,
+    _admin: Annotated[None, Depends(require_admin_api_key)],
+) -> dict[str, Any]:
     """
     Mark a deposit as completed after AIT minting (admin operation).
     """
