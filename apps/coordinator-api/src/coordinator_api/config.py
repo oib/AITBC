@@ -191,6 +191,7 @@ class Settings(BaseAITBCConfig):
     debug: bool = Field(default=False, description="Debug mode for development features")
     enable_mock_swarm: bool = Field(default=False, description="Enable mock swarm endpoints")
     enable_orchestration_simulation: bool = Field(default=False, description="Enable simulated AI agent workflow execution")
+    auth_enabled: bool = Field(default=True, description="Enforce route-level authentication middleware")
 
     @field_validator("debug", "enable_mock_swarm", mode="before")
     @classmethod
