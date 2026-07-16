@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import SettingsConfigDict
 
 from aitbc.constants import BLOCKCHAIN_RPC_URL, DATA_DIR
@@ -25,8 +25,13 @@ class Settings(ServiceSettings):
     rest_prefix: str = Field(default="/v1", alias="REST_PREFIX")
     # Database — uses shared DatabaseConfig with SQLite adapter
     database: DatabaseConfig = Field(default_factory=lambda: DatabaseConfig(adapter="sqlite", db_filename="wallet_ledger.db"))
-    host: str = Field(default="0.0.0.0", alias="HOST")
+    host: str = Field(default="127.0.0.1", alias="HOST")
     port: int = Field(default=8108, alias="PORT")
+
+    # Authentication / authorization
+    api_key: str | None = Field(default=None, alias="WALLET_API_KEY")
+    auth_enabled: bool = Field(default=True, alias="WALLET_AUTH_ENABLED")
+    enable_faucet: bool = Field(default=False, alias="WALLET_ENABLE_FAUCET")
 
     @property
     def ledger_db_path(self) -> Path:
@@ -52,6 +57,13 @@ class Settings(ServiceSettings):
             if env == "production":
                 raise ValueError("BLOCKCHAIN_RPC_URL cannot be localhost in production")
         return v
+
+    @model_validator(mode="after")
+    def set_api_key_default(self) -> Settings:
+        # Fallback to coordinator API key for admin endpoint authentication
+        if self.auth_enabled and self.api_key is None:
+            self.api_key = self.coordinator_api_key
+        return self
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 

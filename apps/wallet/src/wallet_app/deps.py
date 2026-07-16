@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Header, HTTPException, status
 
 from .keystore.persistent_service import PersistentKeystoreService
 from .ledger_mock import SQLiteLedgerAdapter
@@ -17,6 +17,26 @@ from .settings import Settings, settings
 
 def get_settings() -> Settings:
     return settings
+
+
+async def require_admin_api_key(
+    x_api_key: Annotated[str | None, Header()] = None,
+    config: Annotated[Settings, Depends(get_settings)] = settings,
+) -> None:
+    """Require an API key for admin/minting endpoints.
+
+    ponytail: In production, set WALLET_API_KEY (or reuse COORDINATOR_API_KEY)
+    and pass it as the X-API-Key header. The faucet is disabled by default.
+    """
+    if not config.auth_enabled:
+        return
+    if not config.api_key:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Admin API key not configured",
+        )
+    if x_api_key != config.api_key:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
 
 
 def get_receipt_service(config: Annotated[Settings, Depends(get_settings)]) -> ReceiptVerifierService:
