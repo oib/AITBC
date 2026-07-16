@@ -67,8 +67,8 @@ This release focuses on eliminating duplicate/legacy code paths and removing or 
 - Settlement endpoints return `501 Not Implemented` until proper implementation
 
 #### B4: Fix key rotation to actually re-encrypt (P1)
-- Implemented `_reencrypt_transactions()` to actually re-encrypt affected records
-- Made rotation transactional — rolls back key version if re-encryption fails
+- Disabled key rotation re-encryption path: `rotate_key` returns `501 Not Implemented` because no persistent on-chain key transaction storage exists to re-encrypt
+- Added `KeyRotationError` and transaction rollback when re-encryption is not available
 - Added proper error handling and logging
 
 #### B5: Fix transaction status duplicate method (P1)
