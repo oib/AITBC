@@ -15,6 +15,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.auth.middleware import AuthMiddleware
 from aitbc.http_client import setup_request_id_context
 from aitbc.middleware import (
     ErrorHandlerMiddleware,
@@ -269,6 +270,15 @@ def create_app() -> FastAPI:
     app.add_middleware(PerformanceLoggingMiddleware)
     app.add_middleware(PrometheusMetricsMiddleware)
     app.add_middleware(ErrorHandlerMiddleware)
+
+    # Enable route-level authentication in non-test environments.
+    if settings.auth_enabled and not settings.test_mode:
+        app.add_middleware(AuthMiddleware)
+        logger.info("Authentication middleware enabled")
+    else:
+        logger.info(
+            "Authentication middleware disabled (test_mode=%s, auth_enabled=%s)", settings.test_mode, settings.auth_enabled
+        )
 
     @app.middleware("http")
     async def request_id_context_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
