@@ -18,6 +18,10 @@ collect_ignore = ["test_staking_lifecycle.py"]
 # Enable debug mode for integration tests so legacy compatibility routes and
 # docs are available. Must be set before importing the coordinator app.
 os.environ.setdefault("DEBUG", "true")
+# Test mode disables the middleware-level auth guard so integration tests can
+# exercise route logic without an Authorization header. Endpoint dependencies
+# still enforce auth where they are declared.
+os.environ.setdefault("TEST_MODE", "true")
 
 # Use a shared file-backed SQLite database for the coordinator app so that
 # repeated ``init_db`` calls can rely on ``checkfirst`` and skip existing tables.
@@ -43,14 +47,13 @@ def _reset_coordinator_modules() -> None:
     importing the coordinator app gives the session a clean registry.
     """
     for mod_name in list(sys.modules.keys()):
-        if mod_name == "coordinator_api" or mod_name.startswith("coordinator_api."):
-            del sys.modules[mod_name]
-        elif mod_name == "aitbc_chain" or mod_name.startswith("aitbc_chain."):
+        if mod_name == "aitbc_chain" or mod_name.startswith("aitbc_chain."):
             del sys.modules[mod_name]
     # Ensure any pending SQLModel mappers (e.g., from aitbc_chain) are fully
     # configured before we clear the metadata, so the coordinator models can be
     # re-registered cleanly in a fresh registry without ambiguous path errors.
     SQLModel._sa_registry.configure()
+    SQLModel._sa_registry.dispose()
     SQLModel.metadata.clear()
     # Clear Prometheus registry to avoid duplicate metric errors on re-import
     try:
@@ -63,21 +66,6 @@ def _reset_coordinator_modules() -> None:
 
 
 _reset_coordinator_modules()
-
-_skip_reason: str | None = None
-
-try:
-    from coordinator_api.main import create_app
-except Exception as _e:
-    create_app = None  # type: ignore[assignment]
-    _skip_reason = f"coordinator-api import conflict: {_e}"
-
-
-@pytest.fixture(autouse=True)
-def skip_if_app_unavailable() -> None:
-    """Skip all tests if the app could not be imported."""
-    if _skip_reason is not None:
-        pytest.skip(_skip_reason)
 
 
 def _reset_coordinator_state() -> None:
@@ -101,8 +89,11 @@ def coordinator_client() -> Generator[TestClient]:
     """
     os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
 
-    from coordinator_api.main import create_app as _create_app
-    import coordinator_api.storage.db as _db
+    try:
+        from coordinator_api.main import create_app as _create_app
+        import coordinator_api.storage.db as _db
+    except Exception as _e:
+        pytest.skip(f"coordinator-api not available: {_e}")
 
     app = _create_app()
     with patch("asyncio.sleep", _noop_sleep), patch.object(_db, "init_async_db", _noop_async):

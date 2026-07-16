@@ -18,17 +18,15 @@ PRODUCTION_MODULES = [
     "aitbc.security.validators",
     "aitbc.security.audit",
     "aitbc.security.rate_limiter",
-    "aitbc.queues.task",
-    "aitbc.queues.scheduler",
-    "aitbc.queues.worker",
-    "aitbc.queues.decorators",
+    "aitbc.network",
+    "aitbc.http_client",
+    "aitbc.blockchain",
+    "aitbc.database",
 ]
 
 COORDINATOR_MODULES = [
     "coordinator_api.config",
-    "coordinator_api.auth.jwt_auth",
-    "coordinator_api.auth.dependencies",
-    "coordinator_api.auth.security_matrix",
+    "coordinator_api.auth",
     "coordinator_api.core.lifecycle",
     "coordinator_api.core.middleware",
     "coordinator_api.storage.db",
@@ -37,7 +35,7 @@ COORDINATOR_MODULES = [
 BLOCKCHAIN_MODULES = [
     "aitbc_chain.main",
     "aitbc_chain.consensus",
-    "aitbc_chain.sync",
+    "aitbc_chain.chain_sync",
 ]
 
 ALL_MODULES = PRODUCTION_MODULES + COORDINATOR_MODULES + BLOCKCHAIN_MODULES
