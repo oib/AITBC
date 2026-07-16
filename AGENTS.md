@@ -2,7 +2,9 @@
 
 This file is the source of truth for project conventions, verification commands, and per-agent task plans. Agent-specific plans live at `docs/releases/<version>/AGENTS.md`; this root file holds the stable conventions and the **current** in-flight plan.
 
-**Current in-flight plan**: [v0.10.14](docs/releases/v0.10.14/change.log) — Legacy Code & Stub Elimination (shadow packages, legacy routers, fake implementations, duplicate stacks) — ✅ complete
+**Current in-flight plan**: [v0.10.15](docs/releases/v0.10.15/change.log) — Release Plan Placeholder
+
+**Previous**: [v0.10.14](docs/releases/v0.10.14/change.log) — Legacy Code & Stub Elimination (shadow packages, legacy routers, fake implementations, duplicate stacks) — ✅ complete
 
 **Previous**: [v0.10.13](docs/releases/v0.10.13/change.log) — Security & Correctness Hardening (credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) — ✅ complete
 **Previous**: [v0.10.12](docs/releases/v0.10.12/change.log) — Quality Hardening (mypy completeness, test suite repair, production assert removal, and dependency/version cleanup) — ✅ complete
@@ -139,7 +141,8 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.10.10** — Code Quality & Testing Roadmap (expand mypy coverage to 851 files, raise coverage gate, add property-based tests, add performance regression tests, pin dependencies, add local dev script, add integration fixtures): <ref_file file="/opt/aitbc/docs/releases/v0.10.10/change.log" /> ✅ complete
 - **v0.10.11** — Bug Fixes & Code Quality Continuation (complete stub implementations, Pydantic v2 migration, SQLAlchemy pattern standardization, type safety improvements, concurrency safety): <ref_file file="/opt/aitbc/docs/releases/v0.10.11/change.log" /> ✅ complete
 - **v0.10.12** — Quality Hardening (mypy completeness, test suite repair, production assert removal, and dependency/version cleanup): <ref_file file="/opt/aitbc/docs/releases/v0.10.12/change.log" /> ✅ complete
-- **v0.10.13** — Security & Correctness Hardening (credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage): <ref_file file="/opt/aitbc/docs/releases/v0.10.13/change.log" /> 🚧 in progress
+- **v0.10.13** — Security & Correctness Hardening (credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage): <ref_file file="/opt/aitbc/docs/releases/v0.10.13/change.log" /> ✅ complete
+- **v0.10.14** — Legacy Code & Stub Elimination (shadow packages, legacy routers, fake implementations, duplicate stacks): <ref_file file="/opt/aitbc/docs/releases/v0.10.14/change.log" /> 🚧 in progress
 
 ### Post-v1 Vision (not fit until after v1.0.0)
 - **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
@@ -161,14 +164,15 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.10.3                                         (bug fix & hardening: 28 issues fixed + 1 skipped — exchange financial safety, resource leaks, config mismatches, concurrency, security) ✅
   → v0.10.4                                         (performance, correctness & cleanup: Decimal migration, N+1 elimination, indexes, race conditions, dead code deletion, infrastructure consolidation) ✅
   → v0.10.5                                         (JWT/auth consolidation: shared aitbc/auth/ module, re-export shims) ✅
-  → v0.10.6                                         (dead code elimination, Decimal migration completion, duplicate consolidation) 🚧
+  → v0.10.6                                         (dead code elimination, Decimal migration completion, duplicate consolidation) ✅
   → v0.10.7                                         (dead code elimination: coordinator-api + agent-management, duplicate consolidation: blockchain RPC, CLI error handling, DB init, config, security, health, CORS) ✅
   → v0.10.8                                         (config consolidation: package shadowing fix, health endpoint helper, dead retry helper cleanup) ✅
   → v0.10.9                                         (dead code elimination & status drift cleanup: ~2,500 lines dead test-only aitbc/ modules, stale port cleanup, auth shim migration) ✅
   → v0.10.10                                        (code quality & testing roadmap: mypy coverage expansion to 851 files, coverage gate, property-based tests, perf regression, dep pinning, dev script, integration fixtures) ✅
   → v0.10.11                                        (bug fixes & code quality continuation: stub completion, Pydantic v2, SQLAlchemy standardization, concurrency safety) ✅
   → v0.10.12                                        (quality hardening: mypy completeness, test suite repair, production assert removal, dependency/version cleanup) ✅
-  → v0.10.13                                        (security & correctness hardening: credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) 🚧
+  → v0.10.13                                        (security & correctness hardening: credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) ✅
+  → v0.10.14                                        (legacy code & stub elimination: shadow packages, legacy routers, fake implementations, duplicate stacks) 🚧
   → v1.0.0                                          (production readiness)
   → v2.0.0                                          (vision — questionable features, parked for re-evaluation)
 ```
