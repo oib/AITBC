@@ -7,6 +7,7 @@ Services can use this directly or define their own matrix.
 
 from __future__ import annotations
 
+import fnmatch
 from enum import Enum
 
 
@@ -23,80 +24,92 @@ class AuthLevel(Enum):
 
 # Default route security matrix (coordinator-api routes).
 # Services can override with their own matrix by passing it to get_auth_level.
+# Patterns are Unix-shell style wildcards (``*`` matches any path segment).
+# More specific patterns should be listed before broader wildcard patterns.
 ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
-    # Public routes
+    # Public infrastructure routes
     "/health": AuthLevel.NONE,
     "/docs": AuthLevel.NONE,
     "/openapi.json": AuthLevel.NONE,
     "/redoc": AuthLevel.NONE,
+    "/v1/health": AuthLevel.NONE,
+    "/v1/health/live": AuthLevel.NONE,
+    "/v1/health/ready": AuthLevel.NONE,
+    "/v1/status": AuthLevel.NONE,
+    "/v1/sync-status": AuthLevel.NONE,
+    # Public authentication routes
+    "/v1/register": AuthLevel.NONE,
+    "/v1/login": AuthLevel.NONE,
+    # Public read-only market data
+    "/v1/exchange/rates": AuthLevel.NONE,
+    "/v1/exchange/market-stats": AuthLevel.NONE,
+    # Public blockchain explorer data
+    "/v1/explorer/*": AuthLevel.NONE,
+    "/v1/blocks/*": AuthLevel.NONE,
+    "/v1/transactions/*": AuthLevel.NONE,
+    "/v1/accounts/*": AuthLevel.NONE,
+    "/v1/validators": AuthLevel.NONE,
+    "/v1/supply": AuthLevel.NONE,
+    # Public marketplace listings
+    "/v1/marketplace/offers": AuthLevel.NONE,
+    "/v1/marketplace/stats": AuthLevel.NONE,
+    "/v1/marketplace/plugins": AuthLevel.NONE,
+    "/v1/marketplace/gpu/list": AuthLevel.NONE,
+    "/v1/marketplace/orders": AuthLevel.NONE,
+    "/v1/marketplace/pricing/*": AuthLevel.NONE,
+    "/v1/marketplace/miner-offers": AuthLevel.NONE,
+    "/v1/offers": AuthLevel.NONE,
     # Admin routes
-    "/admin": AuthLevel.ADMIN,
-    "/routers/admin": AuthLevel.ADMIN,
-    "/contexts/admin/*": AuthLevel.ADMIN,
-    # Client routes
-    "/routers/client": AuthLevel.CLIENT,
-    "/contexts/certification/*": AuthLevel.CLIENT,
-    "/contexts/trading/*": AuthLevel.CLIENT,
-    "/contexts/payments/*": AuthLevel.CLIENT,
+    "/v1/admin/*": AuthLevel.ADMIN,
     # Miner routes
-    "/routers/miner": AuthLevel.MINER,
-    "/contexts/marketplace/*": AuthLevel.MINER,
-    "/contexts/settlement/*": AuthLevel.MINER,
-    # Mixed auth routes (any valid token)
-    "/contexts/agent_coordination/*": AuthLevel.ANY,
-    "/contexts/agent_identity/*": AuthLevel.ANY,
-    "/contexts/infrastructure/*": AuthLevel.ANY,
-    "/contexts/monitoring/*": AuthLevel.ANY,
-    # Analytics (admin or client)
-    "/contexts/analytics/*": AuthLevel.ADMIN_OR_CLIENT,
-    # Security (admin only)
-    "/contexts/security/*": AuthLevel.ADMIN,
-    # Governance (admin or client)
-    "/contexts/governance/*": AuthLevel.ADMIN_OR_CLIENT,
-    # Staking (admin or client)
-    "/contexts/staking/*": AuthLevel.ADMIN_OR_CLIENT,
-    # Rewards (admin or client)
-    "/contexts/rewards/*": AuthLevel.ADMIN_OR_CLIENT,
-    # Reputation (any)
-    "/contexts/reputation/*": AuthLevel.ANY,
-    # Bounty (any)
-    "/contexts/bounty/*": AuthLevel.ANY,
-    # Knowledge (any)
-    "/contexts/knowledge/*": AuthLevel.ANY,
-    # Developer platform (admin or client)
-    "/contexts/developer_platform/*": AuthLevel.ADMIN_OR_CLIENT,
-    # Ecosystem (any)
-    "/contexts/ecosystem/*": AuthLevel.ANY,
-    # Community (any)
-    "/contexts/community/*": AuthLevel.ANY,
-    # Confidential (admin only)
-    "/contexts/confidential/*": AuthLevel.ADMIN,
-    # Advanced RL (any)
-    "/contexts/advanced_rl/*": AuthLevel.ANY,
-    # Multimodal (any)
-    "/contexts/multimodal/*": AuthLevel.ANY,
-    # Cross-chain (any)
-    "/contexts/cross_chain/*": AuthLevel.ANY,
-    # Blockchain (any)
-    "/contexts/blockchain/*": AuthLevel.ANY,
-    # IPFS (any)
-    "/contexts/ipfs/*": AuthLevel.ANY,
-    # Portfolio (admin or client)
-    "/contexts/portfolio/*": AuthLevel.ADMIN_OR_CLIENT,
-    # Exchange (any)
-    "/contexts/exchange/*": AuthLevel.ANY,
-    # Explorer (any)
-    "/contexts/explorer/*": AuthLevel.ANY,
-    # Services (admin only)
-    "/routers/services": AuthLevel.ADMIN,
-    # Cache management (admin only)
-    "/routers/cache_management": AuthLevel.ADMIN,
-    # Dynamic pricing (admin or client)
-    "/routers/dynamic_pricing": AuthLevel.ADMIN_OR_CLIENT,
-    # Marketplace enhanced (any)
-    "/routers/marketplace_enhanced": AuthLevel.ANY,
-    "/routers/marketplace_enhanced_simple": AuthLevel.ANY,
-    "/routers/marketplace_enhanced_health": AuthLevel.NONE,
+    "/v1/miners/*": AuthLevel.MINER,
+    "/v1/marketplace/gpu/register": AuthLevel.MINER,
+    "/v1/marketplace/gpu/sell": AuthLevel.MINER,
+    "/v1/marketplace/gpu/*/release": AuthLevel.MINER,
+    "/v1/marketplace/gpu/*/confirm": AuthLevel.MINER,
+    "/v1/marketplace/gpu/*/delete": AuthLevel.MINER,
+    "/v1/marketplace/gpu/sync-offers": AuthLevel.MINER,
+    # Client routes
+    "/v1/marketplace/gpu/purchase": AuthLevel.CLIENT,
+    "/v1/marketplace/gpu/*/book": AuthLevel.CLIENT,
+    "/v1/marketplace/gpu/bid": AuthLevel.CLIENT,
+    "/v1/payments/send": AuthLevel.CLIENT,
+    "/v1/payments/*": AuthLevel.CLIENT,
+    "/v1/exchange/*": AuthLevel.CLIENT,
+    # Admin or client routes
+    "/v1/governance*": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/staking*": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/stake*": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/rewards*": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/developer-platform*": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/portfolio*": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/trading*": AuthLevel.ADMIN_OR_CLIENT,
+    # Any authenticated token
+    "/v1/cross-chain*": AuthLevel.ANY,
+    "/v1/agent-identity*": AuthLevel.ANY,
+    "/v1/ipfs*": AuthLevel.ANY,
+    "/v1/inference*": AuthLevel.ANY,
+    "/v1/agents*": AuthLevel.ANY,
+    "/v1/agent-performance*": AuthLevel.ANY,
+    "/v1/multi-modal-rl*": AuthLevel.ANY,
+    "/v1/edge-gpu*": AuthLevel.ANY,
+    "/v1/bounty*": AuthLevel.ANY,
+    "/v1/reputation*": AuthLevel.ANY,
+    "/v1/knowledge*": AuthLevel.ANY,
+    "/v1/services*": AuthLevel.ANY,
+    "/v1/disputes*": AuthLevel.ANY,
+    "/v1/zk*": AuthLevel.ANY,
+    "/v1/fhe*": AuthLevel.ANY,
+    "/v1/ml-zk*": AuthLevel.ANY,
+    "/v1/confidential*": AuthLevel.ANY,
+    "/v1/security*": AuthLevel.ANY,
+    "/v1/blockchain*": AuthLevel.ANY,
+    "/v1/islands*": AuthLevel.ANY,
+    "/v1/web-vitals*": AuthLevel.ANY,
+    "/v1/monitoring*": AuthLevel.ANY,
+    "/v1/users/me": AuthLevel.ANY,
+    "/v1/users/*/transactions": AuthLevel.ANY,
+    "/v1/users/*/balance": AuthLevel.ANY,
 }
 
 
@@ -116,12 +129,12 @@ def get_auth_level(path: str, matrix: dict[str, AuthLevel] | None = None) -> Aut
     if path in route_matrix:
         return route_matrix[path]
 
-    # Check prefix matches
+    # Check wildcard patterns in order
     for pattern, level in route_matrix.items():
-        if pattern.endswith("*") and path.startswith(pattern[:-1]):
+        if "*" in pattern and fnmatch.fnmatch(path, pattern):
             return level
 
-    # Default to requiring auth
+    # Default to requiring any valid authentication
     return AuthLevel.ANY
 
 

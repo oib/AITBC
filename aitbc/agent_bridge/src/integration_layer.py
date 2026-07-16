@@ -121,16 +121,22 @@ class AgentServiceBridge:
             async with self.integration as integration:
                 registration_result = await integration.register_agent_with_coordinator(
                     {
-                        "name": agent_id,
-                        "type": agent_config.get("type", "generic"),
+                        "agent_id": agent_id,
+                        "agent_type": agent_config.get("type", "generic"),
                         "capabilities": agent_config.get("capabilities", []),
+                        "services": agent_config.get("services", []),
+                        "endpoints": agent_config.get(
+                            "endpoints",
+                            {"http": agent_config.get("endpoint", f"http://localhost:{8000 + len(self.active_agents) + 10}")},
+                        ),
+                        "metadata": agent_config.get("metadata", {}),
                         "chain_id": agent_config.get("chain_id", "ait-mainnet"),
-                        "endpoint": agent_config.get("endpoint", f"http://localhost:{8000 + len(self.active_agents) + 10}"),
+                        "island_id": agent_config.get("island_id"),
                     }
                 )
 
-            # The registry returns the created agent dict on success, not a {"status": "ok"} wrapper
-            if registration_result and "id" in registration_result:
+            # The registry returns {"status": "success", "agent_id": ...} on success
+            if registration_result and registration_result.get("agent_id") == agent_id:
                 self.active_agents[agent_id] = {
                     "config": agent_config,
                     "registration": registration_result,
