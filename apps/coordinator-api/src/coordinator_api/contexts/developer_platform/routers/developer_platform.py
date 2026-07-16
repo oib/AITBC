@@ -644,34 +644,14 @@ async def stake_on_developer(
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
-    """Stake AITBC tokens on a developer"""
+    """Stake AITBC tokens on a developer.
 
-    # Validate addresses to prevent SSRF
-    import re
-
-    ADDRESS_PATTERN = re.compile(r"^[a-zA-Z0-9]{20,50}$")
-
-    def validate_address(addr: str) -> bool:
-        if not addr:
-            return False
-        if any(char in addr for char in ["/", "\\", "..", "\n", "\r", "\t"]):
-            return False
-        if addr.startswith(("http://", "https://", "ftp://")):
-            return False
-        return bool(ADDRESS_PATTERN.match(addr))
-
-    if not validate_address(staker_address) or not validate_address(developer_address):
-        raise HTTPException(status_code=400, detail="Invalid address format")
-
-    try:
-        staking_info = await dev_service.stake_on_developer(staker_address, developer_address, amount)
-
-        return staking_info
-
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(status_code=500, detail="Error staking on developer") from None
+    ponytail: Disabled until real on-chain staking is implemented.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Developer staking is disabled until on-chain staking is implemented",
+    )
 
 
 @router.get("/staking/{address}", response_model=dict[str, Any])
@@ -682,14 +662,14 @@ async def get_staking_info(
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
-    """Get staking information for an address"""
+    """Get staking information for an address.
 
-    try:
-        staking_info = await dev_service.get_staking_info(address)
-        return staking_info
-
-    except Exception:
-        raise HTTPException(status_code=500, detail="Error getting staking info") from None
+    ponytail: Disabled until staking is backed by real on-chain data.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Staking information is disabled until on-chain staking is implemented",
+    )
 
 
 @router.post("/unstake", response_model=dict[str, Any])
@@ -701,14 +681,14 @@ async def unstake_tokens(
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
-    """Unstake tokens from a developer"""
+    """Unstake tokens from a developer.
 
-    try:
-        unstake_info = await dev_service.unstake_tokens(staking_id, amount)
-        return unstake_info
-
-    except Exception:
-        raise HTTPException(status_code=500, detail="Error unstaking tokens") from None
+    ponytail: Disabled until real on-chain unstaking is implemented.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Developer unstaking is disabled until on-chain staking is implemented",
+    )
 
 
 @router.get("/rewards/{address}", response_model=dict[str, Any])
@@ -719,14 +699,14 @@ async def get_rewards(
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
-    """Get reward information for an address"""
+    """Get reward information for an address.
 
-    try:
-        rewards = await dev_service.get_rewards(address)
-        return rewards
-
-    except Exception:
-        raise HTTPException(status_code=500, detail="Error getting rewards") from None
+    ponytail: Disabled until rewards are backed by real on-chain data.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Reward information is disabled until on-chain reward distribution is implemented",
+    )
 
 
 @router.post("/claim-rewards", response_model=dict[str, Any])
@@ -737,43 +717,28 @@ async def claim_rewards(
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
-    """Claim pending rewards"""
+    """Claim pending rewards.
 
-    try:
-        claim_info = await dev_service.claim_rewards(address)
-        return claim_info
-
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(status_code=500, detail="Error claiming rewards") from None
+    ponytail: Disabled until on-chain reward claiming is implemented.
+    The current implementation mints tokens without verification.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Reward claiming is disabled until on-chain reward distribution is implemented",
+    )
 
 
 @router.get("/staking-stats", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
 async def get_staking_statistics(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
-    """Get comprehensive staking statistics"""
+    """Get comprehensive staking statistics.
 
-    try:
-        # Mock implementation - would query real staking data
-        stats = {
-            "total_staked_amount": 1000000.0,
-            "active_stakers": 500,
-            "active_developers_staked": 150,
-            "average_apy": 7.5,
-            "total_rewards_distributed": 50000.0,
-            "staking_utilization": 65.0,
-            "top_staked_developers": [
-                {"address": "0x123...", "staked_amount": 50000.0, "apy": 12.5},
-                {"address": "0x456...", "staked_amount": 35000.0, "apy": 10.0},
-                {"address": "0x789...", "staked_amount": 25000.0, "apy": 8.5},
-            ],
-        }
-
-        return stats
-
-    except Exception:
-        raise HTTPException(status_code=500, detail="Error getting staking statistics") from None
+    ponytail: Disabled until staking is backed by real on-chain data.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Staking statistics are disabled until on-chain staking is implemented",
+    )
 
 
 # Platform Analytics Endpoints

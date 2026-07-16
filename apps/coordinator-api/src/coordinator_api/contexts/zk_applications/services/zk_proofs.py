@@ -106,7 +106,6 @@ class ZKProofService:
         proof: dict[str, Any],
         public_signals: list[str],
         verification_key: dict[str, Any] | None = None,
-        test_mode: bool = False,
     ) -> dict[str, Any]:
         """Verify a ZK proof using Groth16 verification
 
@@ -114,19 +113,10 @@ class ZKProofService:
             proof: The ZK proof to verify
             public_signals: Public signals for the proof
             verification_key: Optional verification key (uses default if not provided)
-            test_mode: If True, accepts mock proofs for development/testing
         """
         try:
             if not self.enabled:
                 return {"verified": False, "error": "ZK proof service not enabled"}
-            if test_mode:
-                logger.warning("Test mode enabled: accepting mock proof without cryptographic verification - THIS IS INSECURE")
-                # Fail closed in production: only allow test_mode in non-production environments
-                from ..config import settings  # type: ignore
-
-                if settings.environment == "production":
-                    return {"verified": False, "error": "Test mode not allowed in production"}
-                return {"verified": True, "computation_correct": True, "privacy_preserved": True, "test_mode": True}
             if verification_key:
                 vkey = verification_key
             else:
