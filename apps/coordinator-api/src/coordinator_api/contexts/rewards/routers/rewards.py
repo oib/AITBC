@@ -171,31 +171,15 @@ async def create_reward_profile(
 async def calculate_and_distribute_reward(
     request: Request, reward_request: RewardRequest, session: Annotated[Session, Depends(get_session)]
 ) -> RewardResponse:
-    """Calculate and distribute reward for an agent"""
-    reward_engine = RewardEngine(session)
-    try:
-        reference_date = None
-        if reward_request.reference_date:
-            reference_date = datetime.fromisoformat(reward_request.reference_date)
-        result = await reward_engine.calculate_and_distribute_reward(
-            agent_id=reward_request.agent_id,
-            reward_type=reward_request.reward_type,
-            base_amount=reward_request.base_amount,
-            performance_metrics=reward_request.performance_metrics,
-            reference_date=reference_date,
-        )
-        return RewardResponse(
-            calculation_id=result["calculation_id"],
-            distribution_id=result["distribution_id"],
-            reward_amount=result["reward_amount"],
-            reward_type=result["reward_type"],
-            tier_multiplier=result["tier_multiplier"],
-            total_bonus=result["total_bonus"],
-            status=result["status"],
-        )
-    except Exception as e:
-        logger.error("Error calculating and distributing reward: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    """Calculate and distribute reward for an agent.
+
+    ponytail: Disabled until rewards are tied to real on-chain distribution.
+    The current implementation creates a fake transaction hash and marks it confirmed.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Reward distribution is disabled until on-chain reward distribution is implemented",
+    )
 
 
 @router.get("/tier-progress/{agent_id}", response_model=TierProgressResponse)
@@ -268,14 +252,14 @@ async def batch_process_pending_rewards(
     limit: int | None,
     session: Annotated[Session, Depends(get_session)],
 ) -> BatchProcessResponse:
-    """Process pending reward distributions in batch"""
-    reward_engine = RewardEngine(session)
-    try:
-        result = await reward_engine.batch_process_pending_rewards(limit or 100)
-        return BatchProcessResponse(processed=result["processed"], failed=result["failed"], total=result["total"])
-    except Exception as e:
-        logger.error("Error batch processing rewards: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    """Process pending reward distributions in batch.
+
+    ponytail: Disabled until batch reward distribution is backed by real on-chain payouts.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Batch reward processing is disabled until on-chain reward distribution is implemented",
+    )
 
 
 @router.get("/analytics", response_model=RewardAnalyticsResponse)
@@ -464,27 +448,11 @@ async def get_reward_distributions(
 async def simulate_reward_calculation(
     request: Request, reward_request: RewardRequest, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
-    """Simulate reward calculation without distributing"""
-    reward_engine = RewardEngine(session)
-    try:
-        await reward_engine.create_reward_profile(reward_request.agent_id)
-        reward_calculation = reward_engine.calculator.calculate_total_reward(
-            reward_request.agent_id, reward_request.base_amount, reward_request.performance_metrics, session
-        )
-        return {
-            "agent_id": reward_request.agent_id,
-            "reward_type": reward_request.reward_type.value,
-            "base_amount": reward_request.base_amount,
-            "tier_multiplier": reward_calculation["tier_multiplier"],
-            "performance_bonus": reward_calculation["performance_bonus"],
-            "loyalty_bonus": reward_calculation["loyalty_bonus"],
-            "referral_bonus": reward_calculation["referral_bonus"],
-            "milestone_bonus": reward_calculation["milestone_bonus"],
-            "effective_multiplier": reward_calculation["effective_multiplier"],
-            "total_reward": reward_calculation["total_reward"],
-            "trust_score": reward_calculation["trust_score"],
-            "simulation": True,
-        }
-    except Exception as e:
-        logger.error("Error simulating reward calculation: %s", str(e))
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    """Simulate reward calculation without distributing.
+
+    ponytail: Disabled until reward calculations are tied to real on-chain parameters.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Reward simulation is disabled until on-chain reward distribution is implemented",
+    )

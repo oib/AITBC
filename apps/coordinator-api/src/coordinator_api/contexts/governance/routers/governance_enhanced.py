@@ -153,17 +153,14 @@ async def allocate_treasury_funds(
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
-    """Allocate treasury funds to a regional council or project"""
+    """Allocate treasury funds to a regional council or project.
 
-    try:
-        allocation = await governance_service.allocate_treasury_funds(
-            council_id, amount, purpose, recipient_address, approver_address
-        )
-
-        return {"success": True, "allocation": allocation, "message": f"Treasury funds allocated successfully: {amount} AITBC"}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error allocating treasury funds: {str(e)}") from e
+    ponytail: Disabled until real on-chain treasury operations are implemented.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Treasury allocation is disabled until on-chain treasury operations are implemented",
+    )
 
 
 @router.get("/treasury/transactions", response_model=list[dict[str, Any]])
@@ -198,15 +195,14 @@ async def create_staking_pool(
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
-    """Create a staking pool for an agent developer"""
+    """Create a staking pool for an agent developer.
 
-    try:
-        pool = await governance_service.create_staking_pool(pool_name, developer_address, base_apy, reputation_multiplier)
-
-        return {"success": True, "pool": pool, "message": f"Staking pool '{pool_name}' created successfully"}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating staking pool: {str(e)}") from e
+    ponytail: Disabled until real on-chain staking pools are implemented.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Staking pool creation is disabled until on-chain staking is implemented",
+    )
 
 
 @router.get("/staking/pools", response_model=list[dict[str, Any]])
@@ -256,19 +252,14 @@ async def distribute_staking_rewards(
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
-    """Distribute rewards to all stakers in a pool"""
+    """Distribute rewards to all stakers in a pool.
 
-    try:
-        distribution = await governance_service.distribute_staking_rewards(pool_id)
-
-        return {
-            "success": True,
-            "distribution": distribution,
-            "message": f"Rewards distributed successfully for pool {pool_id}",
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error distributing staking rewards: {str(e)}") from e
+    ponytail: Disabled until real reward distribution is implemented.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Staking reward distribution is disabled until on-chain reward distribution is implemented",
+    )
 
 
 # Analytics and Monitoring Endpoints
