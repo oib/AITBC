@@ -70,7 +70,7 @@ def save_multichain_config(config: MultiChainConfig, config_path: str | None = N
 
     try:
         # Convert Path objects to strings for YAML serialization
-        config_dict = config.dict()
+        config_dict = config.model_dump()
         if "chains" in config_dict and "backup_path" in config_dict["chains"]:
             config_dict["chains"]["backup_path"] = str(config_dict["chains"]["backup_path"])
 
