@@ -294,21 +294,11 @@ class TestBridgeLockEndpoint:
 class TestBridgeConfirmEndpoint:
     """RPC /bridge/confirm signature & field validation (Bug 7)."""
 
-    @pytest.mark.skip(
-        reason="Fence check conflicts with signature verification - signature check happens before fence can be evaluated. Fence is working correctly in production (unfenced by default)."
-    )
     def test_bridge_confirm_disabled_when_fenced(self, client: TestClient) -> None:
-        """POST /bridge/confirm must return 503 when BRIDGE_RELEASE_ENABLED is false (Bug 3 fence).
-
-        v0.7.2: The fence is now unfenced by default (true). This test
-        verifies the fence still works when explicitly set to false.
-
-        NOTE: This test is skipped because signature verification happens
-        before the fence check can be evaluated. The fence is working
-        correctly in production (unfenced by default).
-        """
+        """POST /bridge/confirm must return 503 when both fence flags are false (Bug 3 fence)."""
         with (
             patch("aitbc_chain.config.settings.bridge_release_enabled", False),
+            patch("aitbc_chain.config.settings.escrow_enabled", False),
             patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()),
         ):
             response = client.post(
