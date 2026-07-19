@@ -330,7 +330,8 @@ class TestPoAProposer:
         assert block_hash.startswith("0x")
         assert len(block_hash) == 66
 
-    def test_ensure_genesis_block_existing(self, proposer: PoAProposer, test_db: Session) -> None:
+    @pytest.mark.asyncio
+    async def test_ensure_genesis_block_existing(self, proposer: PoAProposer, test_db: Session) -> None:
         """Test genesis block creation when block already exists."""
         # Create existing block
         block = Block(
@@ -346,7 +347,7 @@ class TestPoAProposer:
         test_db.commit()
 
         # Should not create duplicate
-        proposer._ensure_genesis_block()
+        await proposer._ensure_genesis_block()
         blocks = test_db.exec(select(Block).where(Block.chain_id == proposer._config.chain_id)).all()
         assert len(blocks) == 1
         assert blocks[0].hash == "0xexisting"
