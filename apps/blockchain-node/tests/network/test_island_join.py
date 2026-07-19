@@ -131,8 +131,9 @@ class TestP2PNetworkJoin:
                     b'{"type": "join_response", "members": []}',
                 ]
             )
-            mock_writer = AsyncMock()
-            mock_writer.close = AsyncMock()
+            # StreamWriter.write() and close() are sync; drain() and wait_closed() are async
+            mock_writer = MagicMock()
+            mock_writer.drain = AsyncMock()
             mock_writer.wait_closed = AsyncMock()
             mock_open.return_value = (mock_reader, mock_writer)
 
@@ -172,8 +173,8 @@ class TestP2PNetworkJoin:
             # Mock reader that times out
             mock_reader = AsyncMock()
             mock_reader.readline = AsyncMock(side_effect=TimeoutError())
-            mock_writer = AsyncMock()
-            mock_writer.close = AsyncMock()
+            mock_writer = MagicMock()
+            mock_writer.drain = AsyncMock()
             mock_writer.wait_closed = AsyncMock()
             mock_open.return_value = (mock_reader, mock_writer)
 
