@@ -185,6 +185,7 @@ class EscrowManager:
                     "description": milestone_data["description"],
                     "amount": amount,
                     "completed": False,
+                    "verified": False,
                 }
             )
         if abs(milestone_total - total_amount) > Decimal("0.01"):
@@ -249,6 +250,27 @@ class EscrowManager:
                 contract.state = EscrowState.JOB_COMPLETED
         log_info(f"Milestone {milestone_id} completed for contract: {contract_id}")
         return (True, "Milestone completed successfully")
+
+    async def verify_milestone(self, contract_id: str, milestone_id: str) -> tuple[bool, str]:
+        """Verify a completed milestone and release its payment."""
+        contract = self.escrow_contracts.get(contract_id)
+        if not contract:
+            return (False, "Contract not found")
+        milestone = None
+        for ms in contract.milestones:
+            if ms["milestone_id"] == milestone_id:
+                milestone = ms
+                break
+        if not milestone:
+            return (False, "Milestone not found")
+        if not milestone["completed"]:
+            return (False, "Milestone not completed")
+        if milestone.get("verified", False):
+            return (False, "Milestone already verified")
+        milestone["verified"] = True
+        await self._release_milestone_payment(contract_id, milestone_id)
+        log_info(f"Milestone {milestone_id} verified for contract: {contract_id}")
+        return (True, "Milestone verified successfully")
 
     async def _release_milestone_payment(self, contract_id: str, milestone_id: str) -> None:
         """Release payment for verified milestone"""
