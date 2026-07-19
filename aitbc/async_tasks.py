@@ -127,7 +127,14 @@ def create_task_with_logging(coro: Any, *, name: str) -> asyncio.Task[Any]:
     Returns:
         The created asyncio.Task.
     """
-    task = asyncio.create_task(coro, name=name)
+    try:
+        task = asyncio.create_task(coro, name=name)
+    except RuntimeError:
+        # No running event loop — close the coroutine to avoid
+        # "coroutine was never awaited" warnings. The caller is
+        # responsible for scheduling notifications in an async context.
+        coro.close()
+        raise
 
     def _log_exception(t: asyncio.Task[Any]) -> None:
         if t.cancelled():
