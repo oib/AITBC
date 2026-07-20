@@ -7,13 +7,7 @@ from datetime import timedelta
 
 import pytest
 
-try:
-    from coordinator_api.auth.jwt_handler import (
-        APIKeyManager,
-        JWTHandler,
-    )
-except Exception as _e:
-    pytestmark = pytest.mark.skip(reason=f"agent-coordinator app import conflict: {_e}")
+from aitbc.auth import APIKeyManager, JWTHandler
 
 
 class TestJWTHandler:
@@ -21,9 +15,9 @@ class TestJWTHandler:
 
     def test_jwt_handler_initialization(self):
         """Test JWT handler initialization"""
-        handler = JWTHandler("test_secret")
+        handler = JWTHandler("test_secret_key_for_testing_that_is_at_least_32_characters")
 
-        assert handler.secret_key == "test_secret"
+        assert handler.secret_key == "test_secret_key_for_testing_that_is_at_least_32_characters"
         assert handler.algorithm == "HS256"
         assert handler.token_expiry == timedelta(hours=24)
         assert handler.refresh_expiry == timedelta(days=7)
@@ -37,7 +31,7 @@ class TestJWTHandler:
 
     def test_generate_token_success(self):
         """Test successful token generation"""
-        handler = JWTHandler("test_secret")
+        handler = JWTHandler("test_secret_key_for_testing_that_is_at_least_32_characters")
         payload = {"user_id": "user123", "role": "admin"}
 
         result = handler.generate_token(payload)
@@ -49,7 +43,7 @@ class TestJWTHandler:
 
     def test_generate_token_custom_expiry(self):
         """Test token generation with custom expiry"""
-        handler = JWTHandler("test_secret")
+        handler = JWTHandler("test_secret_key_for_testing_that_is_at_least_32_characters")
         payload = {"user_id": "user123"}
         custom_expiry = timedelta(hours=1)
 
@@ -60,7 +54,7 @@ class TestJWTHandler:
 
     def test_generate_refresh_token_success(self):
         """Test successful refresh token generation"""
-        handler = JWTHandler("test_secret")
+        handler = JWTHandler("test_secret_key_for_testing_that_is_at_least_32_characters")
         payload = {"user_id": "user123"}
 
         result = handler.generate_refresh_token(payload)
@@ -71,7 +65,7 @@ class TestJWTHandler:
 
     def test_validate_token_valid(self):
         """Test validation of valid token"""
-        handler = JWTHandler("test_secret")
+        handler = JWTHandler("test_secret_key_for_testing_that_is_at_least_32_characters")
         payload = {"user_id": "user123", "role": "admin"}
         token_result = handler.generate_token(payload)
 
@@ -83,7 +77,7 @@ class TestJWTHandler:
 
     def test_validate_token_invalid(self):
         """Test validation of invalid token"""
-        handler = JWTHandler("test_secret")
+        handler = JWTHandler("test_secret_key_for_testing_that_is_at_least_32_characters")
 
         validation = handler.validate_token("invalid_token")
 
@@ -92,7 +86,7 @@ class TestJWTHandler:
 
     def test_validate_token_expired(self):
         """Test validation of expired token"""
-        handler = JWTHandler("test_secret")
+        handler = JWTHandler("test_secret_key_for_testing_that_is_at_least_32_characters")
         payload = {"user_id": "user123"}
         # Generate token with very short expiry
         token_result = handler.generate_token(payload, expires_delta=timedelta(seconds=-1))
@@ -105,7 +99,7 @@ class TestJWTHandler:
 
     def test_refresh_access_token_success(self):
         """Test successful access token refresh"""
-        handler = JWTHandler("test_secret")
+        handler = JWTHandler("test_secret_key_for_testing_that_is_at_least_32_characters")
         payload = {"user_id": "user123", "username": "testuser", "role": "admin"}
         refresh_result = handler.generate_refresh_token(payload)
 
@@ -116,7 +110,7 @@ class TestJWTHandler:
 
     def test_refresh_access_token_invalid_refresh(self):
         """Test refresh with invalid refresh token"""
-        handler = JWTHandler("test_secret")
+        handler = JWTHandler("test_secret_key_for_testing_that_is_at_least_32_characters")
 
         result = handler.refresh_access_token("invalid_refresh_token")
 
@@ -124,7 +118,7 @@ class TestJWTHandler:
 
     def test_decode_token_without_validation(self):
         """Test token decoding without validation"""
-        handler = JWTHandler("test_secret")
+        handler = JWTHandler("test_secret_key_for_testing_that_is_at_least_32_characters")
         payload = {"user_id": "user123"}
         token_result = handler.generate_token(payload)
 
