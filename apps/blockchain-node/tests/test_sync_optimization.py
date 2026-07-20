@@ -21,7 +21,10 @@ from sqlmodel import Session, SQLModel, create_engine
 def db_engine(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path}/test_sync_opt.db", echo=False)
     SQLModel.metadata.create_all(engine)
-    return engine
+    try:
+        yield engine
+    finally:
+        engine.dispose()
 
 
 @pytest.fixture
