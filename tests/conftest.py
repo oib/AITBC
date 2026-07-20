@@ -3,8 +3,15 @@ Minimal conftest for pytest discovery
 Imports fixtures from dedicated fixture files for better organization
 """
 
+import sqlite3
 import sys
+from datetime import datetime
 from pathlib import Path
+
+# Register a custom datetime adapter for sqlite3 to suppress the Python 3.12+
+# deprecation warning about the default datetime adapter. SQLAlchemy uses
+# sqlite3 under the hood for test databases.
+sqlite3.register_adapter(datetime, lambda dt: dt.isoformat())
 
 # Add coordinator-api src to path for tests that import coordinator_api.main
 _COORD_SRC = str(Path(__file__).resolve().parent.parent / "apps" / "coordinator-api" / "src")
