@@ -89,12 +89,10 @@ class TestMarketGroup:
         for expected in ["list", "cancel", "status", "match", "providers", "offer", "run", "rate", "ratings"]:
             assert expected in names, f"missing command {expected}"
         # Subgroups
-        assert "escrow" in names
         assert "exchange" in names
 
     def test_escrow_subgroup_commands(self):
-        escrow = market.commands["escrow"]
-        assert set(escrow.commands.keys()) == {"release", "refund", "status"}
+        assert set(escrow_module.escrow.commands.keys()) == {"release", "refund", "status"}
 
     def test_exchange_subgroup_commands(self):
         exchange = market.commands["exchange"]
@@ -639,7 +637,7 @@ class TestMarketEscrowCommands:
             patch.object(escrow_module, "output"),
             patch.object(escrow_module, "success") as mock_success,
         ):
-            result = runner.invoke(market, ["escrow", "release", "job-1"])
+            result = runner.invoke(escrow_module.escrow, ["release", "job-1"])
         assert result.exit_code == 0
         mock_success.assert_called_once()
 
@@ -651,7 +649,7 @@ class TestMarketEscrowCommands:
             patch.object(escrow_module, "output"),
             patch.object(escrow_module, "success") as mock_success,
         ):
-            result = runner.invoke(market, ["escrow", "release", "job-1"])
+            result = runner.invoke(escrow_module.escrow, ["release", "job-1"])
         assert result.exit_code == 0
         mock_success.assert_called_once()
 
@@ -662,7 +660,7 @@ class TestMarketEscrowCommands:
             patch.object(escrow_module, "AITBCHTTPClient", return_value=mock_client),
             patch.object(escrow_module, "error") as mock_error,
         ):
-            result = runner.invoke(market, ["escrow", "release", "job-1"])
+            result = runner.invoke(escrow_module.escrow, ["release", "job-1"])
         assert result.exit_code == 0
         mock_error.assert_called()
 
@@ -674,7 +672,7 @@ class TestMarketEscrowCommands:
             patch.object(escrow_module, "output"),
             patch.object(escrow_module, "success") as mock_success,
         ):
-            result = runner.invoke(market, ["escrow", "refund", "job-1", "--reason", "test"])
+            result = runner.invoke(escrow_module.escrow, ["refund", "job-1", "--reason", "test"])
         assert result.exit_code == 0
         mock_success.assert_called_once()
 
@@ -685,7 +683,7 @@ class TestMarketEscrowCommands:
             patch.object(escrow_module, "AITBCHTTPClient", return_value=mock_client),
             patch.object(escrow_module, "error") as mock_error,
         ):
-            result = runner.invoke(market, ["escrow", "refund", "job-1"])
+            result = runner.invoke(escrow_module.escrow, ["refund", "job-1"])
         assert result.exit_code == 0
         mock_error.assert_called()
 
@@ -696,7 +694,7 @@ class TestMarketEscrowCommands:
             patch.object(escrow_module, "AITBCHTTPClient", return_value=mock_client),
             patch.object(escrow_module, "output") as mock_output,
         ):
-            result = runner.invoke(market, ["escrow", "status", "job-1"])
+            result = runner.invoke(escrow_module.escrow, ["status", "job-1"])
         assert result.exit_code == 0
         mock_output.assert_called_once()
 
@@ -707,7 +705,7 @@ class TestMarketEscrowCommands:
             patch.object(escrow_module, "AITBCHTTPClient", return_value=mock_client),
             patch.object(escrow_module, "error") as mock_error,
         ):
-            result = runner.invoke(market, ["escrow", "status", "job-1"])
+            result = runner.invoke(escrow_module.escrow, ["status", "job-1"])
         assert result.exit_code == 0
         mock_error.assert_called()
 

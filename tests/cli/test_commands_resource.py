@@ -1,165 +1,55 @@
-"""
-Resource Commands Tests
-Tests for resource CLI commands
+"""Tests for the current agent resource CLI commands."""
 
-Converted from skipped stubs to functional tests using the shared CLI mock
-fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
-"""
-
-from unittest.mock import patch
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 
-class TestResourceCommands:
-    """Test resource command group"""
+def test_resource_group_has_current_subcommands():
+    """The resource group exposes the coordinator-backed commands."""
+    from aitbc_cli.commands.resource import resource
 
-    def test_resource_group_exists(self):
-        """Test that resource command group exists"""
-        from aitbc_cli.commands.resource import resource
+    assert set(resource.commands) == {"allocate", "optimize"}
 
-        assert resource is not None
-        assert hasattr(resource, "name")
 
-    def test_resource_group_name(self):
-        """Test resource group name"""
-        from aitbc_cli.commands.resource import resource
+def test_resource_allocate_command(runner):
+    """Resource allocation posts the requested requirements."""
+    from aitbc_cli.commands import resource as resource_module
 
-        assert resource.name == "resource"
+    client = MagicMock()
+    client.post.return_value = {"allocation_id": "alloc-1"}
+    with patch.object(resource_module, "_client", return_value=client):
+        result = runner.invoke(resource_module.resource, ["allocate", "--agent-id", "agent-1", "--cpu-cores", "2"])
 
-    def test_resource_group_has_allocate_subcommand(self):
-        """The ``allocate`` subcommand is registered on the resource group."""
-        from aitbc_cli.commands.resource import resource
+    assert result.exit_code == 0, result.output
+    client.post.assert_called_once_with(
+        "/v1/agent-performance/resources/allocate",
+        json={
+            "agent_id": "agent-1",
+            "task_requirements": {"cpu_cores": 2.0},
+            "optimization_target": "efficiency",
+            "priority_level": "normal",
+        },
+    )
 
-        assert "allocate" in resource.commands
 
-    def test_resource_group_has_list_subcommand(self):
-        """The ``list`` subcommand is registered on the resource group."""
-        from aitbc_cli.commands.resource import resource
+def test_resource_optimize_command(runner):
+    """Resource optimization posts the selected performance metric."""
+    from aitbc_cli.commands import resource as resource_module
 
-        assert "list" in resource.commands
-
-    def test_resource_group_has_release_subcommand(self):
-        """The ``release`` subcommand is registered on the resource group."""
-        from aitbc_cli.commands.resource import resource
-
-        assert "release" in resource.commands
-
-    def test_resource_group_has_utilization_subcommand(self):
-        """The ``utilization`` subcommand is registered on the resource group."""
-        from aitbc_cli.commands.resource import resource
-
-        assert "utilization" in resource.commands
-
-    def test_resource_group_has_status_subcommand(self):
-        """The ``status`` subcommand is registered on the resource group."""
-        from aitbc_cli.commands.resource import resource
-
-        assert "status" in resource.commands
-
-    def test_resource_allocate_command_mock(self, runner):
-        """``resource allocate --mock`` allocates resources with mock data."""
-        from aitbc_cli.commands.resource import resource
-
+    client = MagicMock()
+    client.post.return_value = {"optimization_id": "opt-1"}
+    with patch.object(resource_module, "_client", return_value=client):
         result = runner.invoke(
-            resource,
-            ["allocate", "--resource-type", "gpu", "--quantity", "4", "--mock"],
+            resource_module.resource,
+            ["optimize", "--agent-id", "agent-1", "--target-metric", "accuracy", "--current-accuracy", "0.9"],
         )
 
-        assert result.exit_code == 0, result.output
-        assert "alloc_" in result.output
-
-    def test_resource_allocate_command_without_mock_aborts(self, runner):
-        """``resource allocate`` without --mock aborts."""
-        from aitbc_cli.commands.resource import resource
-
-        result = runner.invoke(
-            resource,
-            ["allocate", "--resource-type", "gpu", "--quantity", "4"],
-        )
-
-        assert result.exit_code != 0
-
-    def test_resource_list_command_mock(self, runner):
-        """``resource list --mock`` lists allocated resources."""
-        from aitbc_cli.commands.resource import resource
-
-        result = runner.invoke(resource, ["list", "--mock"])
-
-        assert result.exit_code == 0, result.output
-        assert "gpu" in result.output.lower()
-
-    def test_resource_release_command_mock(self, runner):
-        """``resource release --mock`` releases a resource."""
-        from aitbc_cli.commands.resource import resource
-
-        result = runner.invoke(resource, ["release", "res-123", "--mock"])
-
-        assert result.exit_code == 0, result.output
-        assert "res-123" in result.output
-
-    def test_resource_utilization_command_mock(self, runner):
-        """``resource utilization --mock`` shows utilization metrics."""
-        from aitbc_cli.commands.resource import resource
-
-        result = runner.invoke(resource, ["utilization", "--mock"])
-
-        assert result.exit_code == 0, result.output
-        assert "cpu_utilization" in result.output
-
-    def test_resource_optimize_command_mock(self, runner):
-        """``resource optimize --mock`` runs optimization with mock data."""
-        from aitbc_cli.commands.resource import resource
-
-        result = runner.invoke(resource, ["optimize", "--mock"])
-
-        assert result.exit_code == 0, result.output
-        assert "mock" in result.output
-
-    @patch("aitbc_cli.commands.resource.get_config")
-    @patch("aitbc_cli.commands.resource.AITBCHTTPClient")
-    def test_resource_status_command(self, mock_http_class, mock_get_config, runner, mock_blockchain_rpc):
-        """``resource status`` fetches resource status from coordinator-api."""
-        mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"status": "healthy", "resources": 10}
-
-        from aitbc_cli.commands.resource import resource
-
-        result = runner.invoke(resource, ["status"])
-
-        assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once()
-
-    @patch("aitbc_cli.commands.resource.get_config")
-    @patch("aitbc_cli.commands.resource.AITBCHTTPClient")
-    def test_resource_status_with_resource_id(self, mock_http_class, mock_get_config, runner):
-        """``resource status --resource-id`` fetches a specific resource."""
-        mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"resource_id": "res-123", "status": "active"}
-
-        from aitbc_cli.commands.resource import resource
-
-        result = runner.invoke(resource, ["status", "--resource-id", "res-123"])
-
-        assert result.exit_code == 0, result.output
-        requested_path = mock_client.get.call_args[0][0]
-        assert "res-123" in requested_path
-
-    @patch("aitbc_cli.commands.resource.get_config")
-    @patch("aitbc_cli.commands.resource.AITBCHTTPClient")
-    def test_resource_deallocate_command(self, mock_http_class, mock_get_config, runner):
-        """``resource deallocate --force`` deallocates a resource."""
-        mock_client = mock_http_class.return_value
-        mock_client.post.return_value = {"status": "deallocated"}
-
-        from aitbc_cli.commands.resource import resource
-
-        result = runner.invoke(resource, ["deallocate", "res-123", "--force"])
-
-        assert result.exit_code == 0, result.output
-        mock_client.post.assert_called_once()
-        assert "res-123" in mock_client.post.call_args[0][0]
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+    assert result.exit_code == 0, result.output
+    client.post.assert_called_once_with(
+        "/v1/agent-performance/optimize",
+        json={
+            "agent_id": "agent-1",
+            "target_metric": "accuracy",
+            "current_performance": {"accuracy": 0.9},
+            "optimization_type": "comprehensive",
+        },
+    )
