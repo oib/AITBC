@@ -122,19 +122,14 @@ class InMemoryGossipBackend(GossipBackend):
         _set_queue_gauge(topic, queue.qsize())
 
         def _unsubscribe() -> None:
-            async def _remove() -> None:
-                async with self._lock:
-                    queues = self._topics.get(topic)
-                    if queues is None:
-                        return
-                    if queue in queues:
-                        queues.remove(queue)
-                        if not queues:
-                            self._topics.pop(topic, None)
-                            _clear_topic_metrics(topic)
-                        _update_subscriber_metrics(self._topics)
-
-            create_task_with_logging(_remove(), name="gossip_unsubscribe")
+            queues = self._topics.get(topic)
+            if queues is None or queue not in queues:
+                return
+            queues.remove(queue)
+            if not queues:
+                self._topics.pop(topic, None)
+                _clear_topic_metrics(topic)
+            _update_subscriber_metrics(self._topics)
 
         return TopicSubscription(topic=topic, queue=queue, _unsubscribe=_unsubscribe)
 
