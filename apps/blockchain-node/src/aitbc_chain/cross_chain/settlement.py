@@ -43,6 +43,8 @@ from aitbc.settlement.proofs import (
 )
 from aitbc.settlement.types import EscrowStatus, HTLCState, ProofType
 
+from aitbc.utils.chain_config import ChainConfigParser
+
 from ..base_models import CrossChainEscrowRecord, EscrowProofRecord
 from ..config import settings
 from ..contracts.htlc_contract import HTLCContract
@@ -51,11 +53,16 @@ from ..logger import get_logger
 
 logger = get_logger(__name__)
 
-# Block times (seconds per block) used for timelock calculation. The source
-# chain (ait-hub) has a 5s block time; destination islands use 3s. These are
-# placeholders until per-chain config is wired in (B4).
-_SOURCE_BLOCK_TIME_SECONDS = 5
-_DEST_BLOCK_TIME_SECONDS = 3
+
+def _get_chain_block_time_seconds(chain_id: str) -> int:
+    """Return the configured block time for a chain, falling back to the global default."""
+    config_str = settings.chain_configs.get(chain_id, "")
+    if config_str:
+        parsed = ChainConfigParser.parse(config_str)
+        block_time = parsed.get("block_time_seconds")
+        if isinstance(block_time, int) and block_time > 0:
+            return block_time
+    return settings.block_time_seconds
 
 
 def _escrow_to_dict(record: CrossChainEscrowRecord) -> dict:
@@ -170,7 +177,8 @@ def _simulate_block(chain_id: str, height: int) -> tuple[int, str]:
     current time so it monotonically increases; the hash is a SHA256 of the
     chain_id + height for determinism.
     """
-    block_height = height if height > 0 else int(time.time() // 5)
+    block_time = _get_chain_block_time_seconds(chain_id)
+    block_height = height if height > 0 else int(time.time() // block_time)
     block_hash = hashlib.sha256(f"{chain_id}:{block_height}".encode()).hexdigest()
     return block_height, block_hash
 
@@ -235,16 +243,18 @@ class CrossChainSettlementService:
 
         # Calculate timelocks. Use current time as a proxy for current block
         # height on each chain (height = time // block_time).
-        source_current_height = int(time.time() // _SOURCE_BLOCK_TIME_SECONDS)
+        source_block_time = _get_chain_block_time_seconds(source_chain)
+        dest_block_time = _get_chain_block_time_seconds(dest_chain)
+        source_current_height = int(time.time() // source_block_time)
         source_timelock = calculate_source_timelock(
             current_block_height=source_current_height,
             timeout_seconds=timeout_seconds,
-            block_time_seconds=_SOURCE_BLOCK_TIME_SECONDS,
+            block_time_seconds=source_block_time,
         )
         dest_timelock = calculate_dest_timelock(
             source_timelock=source_timelock,
-            source_block_time=_SOURCE_BLOCK_TIME_SECONDS,
-            dest_block_time=_DEST_BLOCK_TIME_SECONDS,
+            source_block_time=source_block_time,
+            dest_block_time=dest_block_time,
         )
 
         now = datetime.now(UTC)
