@@ -1,4 +1,4 @@
-# v0.10.15 — Monolithic Router/Module Decomposition
+# v0.10.15 — Monolithic Router/Module Decomposition & Config Wiring
 
 **Last Updated**: 2026-07-20
 **Status**: ✅ Complete
@@ -6,7 +6,8 @@
 ## Release Theme
 
 Decompose the largest monolithic routers and modules across the stack into
-focused, per-domain units while preserving public APIs and keeping tests green.
+focused, per-domain units, wire cross-chain settlement block times to per-chain
+config, and keep all tests green.
 
 ## Completed Work
 
@@ -41,6 +42,11 @@ focused, per-domain units while preserving public APIs and keeping tests green.
   - `routers/common.py` — shared dependency helpers
   - `developer_platform.py` remains a thin router aggregator
 
+- Wired cross-chain settlement block times to per-chain config:
+  - Removed hardcoded `_SOURCE_BLOCK_TIME_SECONDS=5` and `_DEST_BLOCK_TIME_SECONDS=3` from `cross_chain/settlement.py`.
+  - Added `_get_chain_block_time_seconds(chain_id)` helper using `settings.chain_configs` and `ChainConfigParser`, falling back to `settings.block_time_seconds`.
+  - Updated `HTLCContract.complete_swap`/`refund_swap` and `settlement._simulate_block` to use the same per-chain block time.
+
 - Fixed `apps/coordinator-api/src/coordinator_api/config.py` to fail fast when `DEBUG` is enabled in production.
 
 ## Remaining Work
@@ -64,7 +70,9 @@ cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes \
   apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_types.py \
   apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py \
   apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_validator.py \
-  apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_finality.py
+  apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_finality.py \
+  apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py \
+  apps/blockchain-node/src/aitbc_chain/contracts/htlc_contract.py
 
 # Type check trading affected files
 cd /opt/aitbc && ./venv/bin/python -m mypy --ignore-missing-imports \
