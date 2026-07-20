@@ -2,7 +2,7 @@
 
 This file is the source of truth for project conventions, verification commands, and per-agent task plans. Agent-specific plans live at `docs/releases/<version>/AGENTS.md`; this root file holds the stable conventions and the **current** in-flight plan.
 
-**Current in-flight plan**: [v0.10.15](docs/releases/v0.10.15/change.log) — Release Plan Placeholder
+**Current in-flight plan**: [v0.10.15](docs/releases/v0.10.15/change.log) — Monolithic File Decomposition (sync.py / bridge.py) — ✅ complete
 
 **Previous**: [v0.10.14](docs/releases/v0.10.14/change.log) — Legacy Code & Stub Elimination (shadow packages, legacy routers, fake implementations, duplicate stacks) — ✅ complete
 
