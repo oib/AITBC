@@ -24,10 +24,25 @@ from enum import StrEnum
 
 from sqlmodel import Session
 
+from aitbc.utils.chain_config import ChainConfigParser
+
 from ..base_models import Account, HTLCSwapState
+from ..config import settings
 from ..logger import get_logger
 
 logger = get_logger(__name__)
+
+
+def _get_chain_block_time_seconds(chain_id: str) -> int:
+    """Return the configured block time for a chain, falling back to the global default."""
+    config_str = settings.chain_configs.get(chain_id, "")
+    if config_str:
+        parsed = ChainConfigParser.parse(config_str)
+        block_time = parsed.get("block_time_seconds")
+        if isinstance(block_time, int) and block_time > 0:
+            return block_time
+    return settings.block_time_seconds
+
 
 # Well-known address used as the HTLC contract's escrow account. In an EVM
 # chain this would be the deployed contract address; here we use a reserved
@@ -276,7 +291,7 @@ class HTLCContract:
             raise ValueError(f"Swap is not open (status={swap_state.status})")
 
         # Check timelock (block height based)
-        current_height = int(time.time() // 5)  # approximate current block height
+        current_height = int(time.time() // _get_chain_block_time_seconds(self.chain_id))
         if current_height >= swap_state.timelock:
             raise ValueError("Swap timelock expired")
 
@@ -343,7 +358,7 @@ class HTLCContract:
             raise ValueError(f"Swap is not open (status={swap_state.status})")
 
         # Check timelock has expired
-        current_height = int(time.time() // 5)
+        current_height = int(time.time() // _get_chain_block_time_seconds(self.chain_id))
         if current_height < swap_state.timelock:
             raise ValueError("Swap timelock not yet expired")
 
