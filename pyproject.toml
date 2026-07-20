@@ -288,6 +288,9 @@ addopts = "-ra -q --strict-markers --strict-config --reruns 2 --reruns-delay 1"
 timeout = 60
 filterwarnings = [
     "ignore::sqlalchemy.exc.SAWarning",
+    "ignore:.*The default datetime adapter is deprecated.*:DeprecationWarning",
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated.*:starlette.exceptions.StarletteDeprecationWarning",
+    "ignore:websockets.legacy is deprecated.*:DeprecationWarning",
 ]
 testpaths = [
     "tests/unit",
