@@ -28,11 +28,6 @@ os.environ.setdefault("TEST_MODE", "true")
 os.environ.setdefault("URL", "sqlite:////tmp/aitbc_test_coordinator.db")
 
 
-async def _noop_sleep(*_args: object, **_kwargs: object) -> None:
-    """No-op replacement for ``asyncio.sleep`` to bound test shutdown time."""
-    return None
-
-
 async def _noop_async() -> None:
     """No-op async helper used to skip redundant DB setup."""
     return None
@@ -82,10 +77,9 @@ def _reset_coordinator_state() -> None:
 def coordinator_client() -> Generator[TestClient]:
     """Create a session-scoped test client for the coordinator API.
 
-    The app is imported once for the whole integration session. The graceful
-    shutdown sleep and async DB initialization are patched to keep fixture
-    teardown bounded. In-memory Redis fallback state is cleared per test by
-    the ``reset_coordinator_state`` fixture.
+    The app is imported once for the whole integration session. Async DB
+    initialization is patched to keep fixture setup bounded. In-memory Redis
+    fallback state is cleared per test by the ``reset_coordinator_state`` fixture.
     """
     os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
 
@@ -96,7 +90,7 @@ def coordinator_client() -> Generator[TestClient]:
         pytest.skip(f"coordinator-api not available: {_e}")
 
     app = _create_app()
-    with patch("asyncio.sleep", _noop_sleep), patch.object(_db, "init_async_db", _noop_async):
+    with patch.object(_db, "init_async_db", _noop_async):
         with TestClient(app) as client:
             yield client
 
