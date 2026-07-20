@@ -7,7 +7,7 @@ Provides environment-based adapter selection and consolidated settings.
 import os
 from typing import Any
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from aitbc.config import BaseAITBCConfig
@@ -213,6 +213,13 @@ class Settings(BaseAITBCConfig):
         if v and _is_production():
             raise ValueError("Mock endpoints cannot be enabled in production")
         return v
+
+    @model_validator(mode="after")
+    def validate_debug_not_in_production(self) -> "Settings":
+        """Fail fast if DEBUG is enabled in a production environment."""
+        if _is_production() and self.debug:
+            raise ValueError("DEBUG cannot be enabled in production")
+        return self
 
 
 settings = Settings()
