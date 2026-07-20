@@ -533,6 +533,8 @@ class TestPoAProposer:
                 blocks = verify_session.exec(select(Block).where(Block.chain_id == chain_id)).all()
                 assert len(blocks) == 0
 
+            engine.dispose()
+
 
 @pytest.mark.skip(
     reason="Incremental state root computation was removed in v0.7.1 - it produced incorrect roots by excluding unchanged accounts. Full recompute is now the only correct approach."
