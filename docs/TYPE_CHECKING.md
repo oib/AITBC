@@ -9,21 +9,41 @@ This document tracks type checking debt across the AITBC codebase. The goal is 1
 
 ## Current Status
 
-**✅ COMPLETE** - 100% MyPy compliance achieved across all applications
+**🔄 In Progress** - MyPy compliance maintained for facades; mixin modules temporarily suppressed.
 
-All 8 applications now have zero type checking errors:
-- pool-hub ✅
-- wallet ✅
-- edge ✅
-- hermes ✅
-- agent-management ✅
-- agent-coordinator ✅
-- coordinator-api ✅
-- blockchain-node ✅
+The `sync.py` and `cross_chain/bridge.py` facades pass MyPy. The extracted mixin modules use `# mypy: ignore-errors` while a typed base class for shared attributes is pending.
 
 ## Current Files with Type Ignores
 
-**None** - All files have been cleaned.
+### apps/blockchain-node/src/aitbc_chain/sync_bulk.py
+- **Reason**: Mixin depends on `ChainSync.__init__` attributes (`_client`, `_peer_tracker`, etc.) that mypy cannot see from `BulkSyncMixin`.
+- **Target Fix**: v0.10.16
+- **Action Plan**: Introduce a `SyncBase` protocol/class declaring shared attributes; remove ignore.
+
+### apps/blockchain-node/src/aitbc_chain/sync_state.py
+- **Reason**: Mixin depends on `ChainSync.__init__` attributes (`_session_factory`, `_client`, `_chain_id`, `_logger`).
+- **Target Fix**: v0.10.16
+- **Action Plan**: Inherit shared `SyncBase` once created.
+
+### apps/blockchain-node/src/aitbc_chain/sync_block_import.py
+- **Reason**: Mixin depends on `ChainSync.__init__` attributes (`_session_factory`, `_chain_id`, `_validator`, `_max_reorg_depth`) and helper methods (`_track_rejection`, `_check_and_trigger_resync`, `_reset_rejection_counter`).
+- **Target Fix**: v0.10.16
+- **Action Plan**: Inherit shared `SyncBase` once created.
+
+### apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py
+- **Reason**: Mixin depends on `CrossChainBridge.__init__` attributes (`_session_factory`, `_pending_transfers`, `_processed_proofs`) and validator/finality mixin methods.
+- **Target Fix**: v0.10.16
+- **Action Plan**: Introduce a `BridgeBase` protocol/class declaring shared attributes; remove ignore.
+
+### apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_validator.py
+- **Reason**: Mixin depends on `CrossChainBridge.__init__` attributes (`_session_factory`, `_validator_registry`, `_validator_cache_loaded`).
+- **Target Fix**: v0.10.16
+- **Action Plan**: Inherit shared `BridgeBase` once created.
+
+### apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_finality.py
+- **Reason**: Mixin depends on `CrossChainBridge.__init__` attributes (`_session_factory`) and validator mixin method `get_validator_set`.
+- **Target Fix**: v0.10.16
+- **Action Plan**: Inherit shared `BridgeBase` once created.
 
 ### Previously Fixed Files (v0.4.23)
 
