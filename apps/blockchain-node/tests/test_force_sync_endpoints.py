@@ -26,7 +26,10 @@ def isolated_engine(tmp_path, monkeypatch):
 
     # session_scope is imported into rpc.sync from ..database — patch it there.
     monkeypatch.setattr(rpc_sync, "session_scope", _session_scope)
-    return engine
+    try:
+        yield engine
+    finally:
+        engine.dispose()
 
 
 @pytest.fixture

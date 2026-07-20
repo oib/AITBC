@@ -112,6 +112,14 @@ class TestInMemoryGossipBackend:
         assert sub1.queue.empty()
         assert sub2.queue.empty()
 
+    @staticmethod
+    async def _wait_for_topic(backend: InMemoryGossipBackend, topic: str, present: bool = False) -> None:
+        """Wait for unsubscribe cleanup to propagate (up to 0.5s)."""
+        for _ in range(50):
+            await asyncio.sleep(0.01)
+            if present == (topic in backend._topics):
+                return
+
     @pytest.mark.asyncio
     async def test_unsubscribe_single_subscriber(self, backend: InMemoryGossipBackend) -> None:
         """Test unsubscribing a single subscriber."""
@@ -123,8 +131,8 @@ class TestInMemoryGossipBackend:
         # Unsubscribe
         subscription.close()
 
-        # Give time for async cleanup
-        await asyncio.sleep(0.01)
+        # Wait for async cleanup
+        await self._wait_for_topic(backend, "test_topic")
 
         # Topic should be removed when no subscribers left
         assert "test_topic" not in backend._topics
@@ -141,7 +149,7 @@ class TestInMemoryGossipBackend:
 
         # Unsubscribe one
         sub2.close()
-        await asyncio.sleep(0.01)
+        await self._wait_for_topic(backend, "test_topic", present=True)
 
         # Should still have 2 subscribers
         assert len(backend._topics["test_topic"]) == 2
@@ -150,7 +158,7 @@ class TestInMemoryGossipBackend:
 
         # Unsubscribe another
         sub1.close()
-        await asyncio.sleep(0.01)
+        await self._wait_for_topic(backend, "test_topic", present=True)
 
         # Should still have 1 subscriber
         assert len(backend._topics["test_topic"]) == 1
@@ -158,7 +166,7 @@ class TestInMemoryGossipBackend:
 
         # Unsubscribe last one
         sub3.close()
-        await asyncio.sleep(0.01)
+        await self._wait_for_topic(backend, "test_topic")
 
         # Topic should be removed
         assert "test_topic" not in backend._topics
@@ -277,7 +285,7 @@ class TestTopicSubscription:
             subscription.close()
 
         # After close, subscription should be cleaned up
-        await asyncio.sleep(0.01)
+        await TestInMemoryGossipBackend._wait_for_topic(backend, "context_test")
         assert "context_test" not in backend._topics
 
 
@@ -522,7 +530,7 @@ class TestGossipIntegration:
 
         # Remove first subscriber
         sub1.close()
-        await asyncio.sleep(0.01)
+        await TestInMemoryGossipBackend._wait_for_topic(backend, "dynamic", present=True)
 
         # Send final message
         await backend.publish("dynamic", "msg3")
