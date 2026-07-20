@@ -53,14 +53,16 @@ class TestExchangeIslandCommands:
         """``exchange-island orderbook`` displays the order book from the mocked RPC."""
         mock_creds.return_value = {"island_id": "island-test-123", "credentials": {"p2p_port": 8001}}
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = [
-            {"order_id": "ord1", "side": "buy", "amount": 10.0, "max_price": 0.001, "user_id": "user1"},
-            {"order_id": "ord2", "side": "sell", "amount": 5.0, "min_price": 0.002, "user_id": "user2"},
-        ]
+        mock_client.get.return_value = {
+            "transactions": [
+                {"order_id": "ord1", "side": "buy", "amount": 10.0, "max_price": 0.001, "user_id": "user1"},
+                {"order_id": "ord2", "side": "sell", "amount": 5.0, "min_price": 0.002, "user_id": "user2"},
+            ]
+        }
 
         from aitbc_cli.commands.exchange_island import exchange_island
 
-        result = runner.invoke(exchange_island, ["orderbook", "AIT/BTC"])
+        result = runner.invoke(exchange_island, ["orderbook", "AIT/ETH"])
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
@@ -75,11 +77,11 @@ class TestExchangeIslandCommands:
         """``exchange-island orderbook`` handles an empty order book gracefully."""
         mock_creds.return_value = {"island_id": "island-test-123", "credentials": {"p2p_port": 8001}}
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = []
+        mock_client.get.return_value = {"transactions": []}
 
         from aitbc_cli.commands.exchange_island import exchange_island
 
-        result = runner.invoke(exchange_island, ["orderbook", "AIT/BTC"])
+        result = runner.invoke(exchange_island, ["orderbook", "AIT/ETH"])
 
         assert result.exit_code == 0, result.output
 
@@ -88,7 +90,7 @@ class TestExchangeIslandCommands:
         """``exchange-island orderbook`` exits gracefully when credentials are missing."""
         from aitbc_cli.commands.exchange_island import exchange_island
 
-        result = runner.invoke(exchange_island, ["orderbook", "AIT/BTC"])
+        result = runner.invoke(exchange_island, ["orderbook", "AIT/ETH"])
 
         assert result.exit_code == 0, result.output
 

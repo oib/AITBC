@@ -42,13 +42,8 @@ class TestCrossChainCommands:
     @patch("aitbc_cli.commands.cross_chain.AITBCHTTPClient")
     def test_cross_chain_rates_command(self, mock_http_class, runner, mock_config):
         """``cross-chain rates`` returns exchange rates from the mocked RPC."""
-        # The rates command uses AITBCHTTPClient as a context manager and
-        # treats the return of client.get() as a response object with
-        # status_code and json().  Configure the mock accordingly.
-        mock_client = mock_http_class.return_value.__enter__.return_value
-        mock_response = mock_client.get.return_value
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"rates": {"chain-a-chain-b": 1.5}}
+        mock_client = mock_http_class.return_value
+        mock_client.get.return_value = {"rates": {"chain-a-chain-b": 1.5}}
 
         from aitbc_cli.commands.cross_chain import cross_chain
 
@@ -64,10 +59,8 @@ class TestCrossChainCommands:
     @patch("aitbc_cli.commands.cross_chain.AITBCHTTPClient")
     def test_cross_chain_rates_command_specific_pair(self, mock_http_class, runner, mock_config):
         """``cross-chain rates --from-chain --to-chain`` filters to a specific pair."""
-        mock_client = mock_http_class.return_value.__enter__.return_value
-        mock_response = mock_client.get.return_value
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"rates": {"chain-a-chain-b": 1.5}}
+        mock_client = mock_http_class.return_value
+        mock_client.get.return_value = {"rates": {"chain-a-chain-b": 1.5}}
 
         from aitbc_cli.commands.cross_chain import cross_chain
 
