@@ -31,7 +31,7 @@ def test_metrics_endpoint(client):
 
 def test_trading_status(client):
     """Test trading status endpoint"""
-    response = client.get("/trading/status")
+    response = client.get("/v1/trading/status")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "operational"

@@ -1,0 +1,144 @@
+"""Migrated exchange payment endpoints (compatibility layer)."""
+
+import asyncio
+import time
+import uuid
+from typing import Any
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel
+
+from aitbc.aitbc_logging import get_logger
+
+router = APIRouter(tags=["exchange"])
+logger = get_logger(__name__)
+
+BITCOIN_CONFIG: dict[str, Any] = {
+    "testnet": True,
+    "main_address": "tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+    "exchange_rate": 100000,
+    "min_confirmations": 1,
+    "payment_timeout": 3600,
+}
+payments: dict[str, dict[str, Any]] = {}
+
+
+class ExchangePaymentRequest(BaseModel):
+    """Exchange payment request schema."""
+
+    user_id: str
+    aitbc_amount: float
+    btc_amount: float
+
+
+@router.post("/v1/exchange/create-payment")
+async def create_exchange_payment(
+    payment_request: ExchangePaymentRequest, background_tasks: BackgroundTasks
+) -> dict[str, Any]:
+    """Create a new Bitcoin payment request (migrated from Coordinator API)."""
+    if payment_request.aitbc_amount <= 0 or payment_request.btc_amount <= 0:
+        raise HTTPException(status_code=400, detail="Invalid amount")
+    expected_btc = payment_request.aitbc_amount / BITCOIN_CONFIG["exchange_rate"]
+    if abs(payment_request.btc_amount - expected_btc) > 1e-08:
+        raise HTTPException(status_code=400, detail="Amount mismatch")
+    payment_id = str(uuid.uuid4())
+    payment = {
+        "payment_id": payment_id,
+        "user_id": payment_request.user_id,
+        "aitbc_amount": payment_request.aitbc_amount,
+        "btc_amount": payment_request.btc_amount,
+        "payment_address": BITCOIN_CONFIG["main_address"],
+        "status": "pending",
+        "created_at": int(time.time()),
+        "expires_at": int(time.time()) + BITCOIN_CONFIG["payment_timeout"],
+        "confirmations": 0,
+        "tx_hash": None,
+    }
+    payments[payment_id] = payment
+    background_tasks.add_task(monitor_payment, payment_id)
+    logger.info("Created exchange payment %s for user %s", payment_id, payment_request.user_id)
+    return payment
+
+
+@router.get("/v1/exchange/payment-status/{payment_id}")
+async def get_exchange_payment_status(payment_id: str) -> dict[str, Any]:
+    """Get payment status (migrated from Coordinator API)."""
+    if payment_id not in payments:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    payment = payments[payment_id]
+    if payment["status"] == "pending" and time.time() > payment["expires_at"]:
+        payment["status"] = "expired"
+    return payment
+
+
+@router.post("/v1/exchange/confirm-payment/{payment_id}")
+async def confirm_exchange_payment(payment_id: str, tx_hash: str) -> dict[str, Any]:
+    """Confirm payment (webhook from payment processor, migrated from Coordinator API)."""
+    if payment_id not in payments:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    payment = payments[payment_id]
+    if payment["status"] != "pending":
+        raise HTTPException(status_code=400, detail="Payment not in pending state")
+    payment["status"] = "confirmed"
+    payment["tx_hash"] = tx_hash
+    payment["confirmed_at"] = int(time.time())
+    try:
+        logger.info("Minting %s AITBC tokens for user %s", payment["aitbc_amount"], payment["user_id"])
+    except Exception as e:
+        logger.error("Error minting tokens: %s", e)
+    logger.info("Confirmed exchange payment %s with tx_hash %s", payment_id, tx_hash)
+    return {"status": "ok", "payment_id": payment_id, "aitbc_amount": payment["aitbc_amount"]}
+
+
+@router.get("/v1/exchange/rates")
+async def get_exchange_rates() -> dict[str, Any]:
+    """Get current exchange rates (migrated from Coordinator API)."""
+    return {
+        "btc_to_aitbc": BITCOIN_CONFIG["exchange_rate"],
+        "aitbc_to_btc": 1.0 / BITCOIN_CONFIG["exchange_rate"],
+        "fee_percent": 0.5,
+    }
+
+
+@router.get("/v1/exchange/market-stats")
+async def get_market_stats() -> dict[str, Any]:
+    """Get market statistics (migrated from Coordinator API)."""
+    current_time = int(time.time())
+    yesterday_time = current_time - 24 * 60 * 60
+    daily_volume = 0
+    for payment in payments.values():
+        if payment["status"] == "confirmed" and payment.get("confirmed_at", 0) > yesterday_time:
+            daily_volume += payment["aitbc_amount"]
+    base_price = 1.0 / BITCOIN_CONFIG["exchange_rate"]
+    price_change_percent = 5.2
+    return {
+        "price": base_price,
+        "price_change_24h": price_change_percent,
+        "daily_volume": daily_volume,
+        "daily_volume_btc": daily_volume / BITCOIN_CONFIG["exchange_rate"],
+        "total_payments": len([p for p in payments.values() if p["status"] == "confirmed"]),
+        "pending_payments": len([p for p in payments.values() if p["status"] == "pending"]),
+    }
+
+
+@router.get("/v1/exchange/wallet/balance")
+async def get_exchange_wallet_balance() -> dict[str, Any]:
+    """Get Bitcoin wallet balance (migrated from Coordinator API)."""
+    return {"balance": 0.0, "unconfirmed_balance": 0.0, "address": BITCOIN_CONFIG["main_address"]}
+
+
+@router.get("/v1/exchange/wallet/info")
+async def get_exchange_wallet_info() -> dict[str, Any]:
+    """Get comprehensive wallet information (migrated from Coordinator API)."""
+    return {"address": BITCOIN_CONFIG["main_address"], "network": "testnet", "balance": 0.0, "transactions": []}
+
+
+async def monitor_payment(payment_id: str) -> None:
+    """Monitor payment for confirmation (background task, migrated from Coordinator API)."""
+    while payment_id in payments:
+        payment = payments[payment_id]
+        if payment["status"] == "pending" and time.time() > payment["expires_at"]:
+            payment["status"] = "expired"
+            logger.info("Payment %s expired", payment_id)
+            break
+        await asyncio.sleep(30)
