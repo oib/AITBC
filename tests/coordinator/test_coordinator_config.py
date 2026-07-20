@@ -4,25 +4,27 @@ Tests for configuration management, settings, and environment-specific configs
 """
 
 import os
+import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 # Set required environment variable before importing
 os.environ.setdefault("SECRET_KEY", "test_secret_key_for_testing_that_is_at_least_32_characters")
+_AGENT_SRC = str(Path(__file__).resolve().parents[2] / "apps" / "agent-coordinator" / "src")
+if _AGENT_SRC not in sys.path:
+    sys.path.insert(0, _AGENT_SRC)
 
-try:
-    from coordinator_api.config import (
-        ConfigConstants,
-        ConfigLoader,
-        ConfigUtils,
-        Environment,
-        EnvironmentConfig,
-        LogLevel,
-        validated_cors_origins,
-    )
-except Exception as _e:
-    pytestmark = pytest.mark.skip(reason=f"agent-coordinator app import conflict: {_e}")
+from agent_app.config import (
+    ConfigConstants,
+    ConfigLoader,
+    ConfigUtils,
+    Environment,
+    EnvironmentConfig,
+    LogLevel,
+    validated_cors_origins,
+)
 
 
 class TestValidatedCorsOrigins:
@@ -113,7 +115,7 @@ class TestConfigConstants:
     def test_default_ports(self):
         """Test default ports constant"""
         assert "agent_coordinator" in ConfigConstants.DEFAULT_PORTS
-        assert ConfigConstants.DEFAULT_PORTS["agent_coordinator"] == 9001
+        assert ConfigConstants.DEFAULT_PORTS["agent_coordinator"] == 8107
         assert isinstance(ConfigConstants.DEFAULT_PORTS, dict)
 
     def test_timeouts(self):
@@ -169,7 +171,7 @@ class TestEnvironmentConfig:
 class TestConfigUtils:
     """Test ConfigUtils class"""
 
-    @patch("coordinator_api.config.settings")
+    @patch("agent_app.config.settings")
     def test_get_agent_config_coordinator(self, mock_settings):
         """Test getting coordinator agent config"""
         mock_settings.heartbeat_interval = 30
@@ -181,7 +183,7 @@ class TestConfigUtils:
         assert config["heartbeat_interval"] == 15
         assert config["enable_coordination"] is True
 
-    @patch("coordinator_api.config.settings")
+    @patch("agent_app.config.settings")
     def test_get_agent_config_worker(self, mock_settings):
         """Test getting worker agent config"""
         mock_settings.heartbeat_interval = 30
@@ -192,7 +194,7 @@ class TestConfigUtils:
         assert config["max_connections"] == 50
         assert config["enable_coordination"] is False
 
-    @patch("coordinator_api.config.settings")
+    @patch("agent_app.config.settings")
     def test_get_agent_config_unknown(self, mock_settings):
         """Test getting config for unknown agent type"""
         mock_settings.heartbeat_interval = 30
@@ -204,21 +206,21 @@ class TestConfigUtils:
         assert "heartbeat_interval" in config
         assert "max_connections" in config
 
-    @patch("coordinator_api.config.settings")
+    @patch("agent_app.config.settings")
     def test_get_service_config_agent_coordinator(self, mock_settings):
         """Test getting agent_coordinator service config"""
         mock_settings.host = "0.0.0.0"
-        mock_settings.port = 9001
+        mock_settings.port = 8107
         mock_settings.workers = 1
         mock_settings.connection_timeout = 30
         mock_settings.enable_metrics = True
 
         config = ConfigUtils.get_service_config("agent_coordinator")
 
-        assert config["port"] == 9001
+        assert config["port"] == 8107
         assert config["enable_metrics"] is True
 
-    @patch("coordinator_api.config.settings")
+    @patch("agent_app.config.settings")
     def test_get_service_config_unknown(self, mock_settings):
         """Test getting config for unknown service"""
         mock_settings.host = "0.0.0.0"
@@ -236,7 +238,7 @@ class TestConfigUtils:
 class TestConfigLoader:
     """Test ConfigLoader class"""
 
-    @patch("coordinator_api.config.settings")
+    @patch("agent_app.config.settings")
     def test_validate_config_success(self, mock_settings):
         """Test successful configuration validation"""
         mock_settings.secret_key = "test_secret"
@@ -252,27 +254,71 @@ class TestConfigLoader:
         # Should not raise
         ConfigLoader.validate_config()
 
-    @patch("coordinator_api.config.settings")
+    @patch("agent_app.config.settings")
     def test_validate_config_invalid_port(self, mock_settings):
         """Test validation with invalid port"""
-        pytest.skip("Config validation test skipped - uses global settings instance")
+        mock_settings.environment = Environment.DEVELOPMENT
+        mock_settings.secret_key = "test_secret"
+        mock_settings.port = 0
+        mock_settings.redis_url = "redis://localhost:6379/1"
+        mock_settings.heartbeat_interval = 30
+        mock_settings.max_heartbeat_age = 120
+        mock_settings.max_message_size = 1024
+        mock_settings.max_task_queue_size = 10000
+        mock_settings.default_strategy = "least_connections"
 
-    @patch("coordinator_api.config.settings")
+        with pytest.raises(ValueError, match="Port must be between"):
+            ConfigLoader.validate_config()
+
+    @patch("agent_app.config.settings")
     def test_validate_config_missing_redis_url(self, mock_settings):
         """Test validation with missing Redis URL"""
-        pytest.skip("Config validation test skipped - uses global settings instance")
+        mock_settings.environment = Environment.DEVELOPMENT
+        mock_settings.secret_key = "test_secret"
+        mock_settings.port = 8107
+        mock_settings.redis_url = ""
+        mock_settings.heartbeat_interval = 30
+        mock_settings.max_heartbeat_age = 120
+        mock_settings.max_message_size = 1024
+        mock_settings.max_task_queue_size = 10000
+        mock_settings.default_strategy = "least_connections"
 
-    @patch("coordinator_api.config.settings")
+        with pytest.raises(ValueError, match="Redis URL is required"):
+            ConfigLoader.validate_config()
+
+    @patch("agent_app.config.settings")
     def test_validate_config_invalid_heartbeat(self, mock_settings):
         """Test validation with invalid heartbeat interval"""
-        pytest.skip("Config validation test skipped - uses global settings instance")
+        mock_settings.environment = Environment.DEVELOPMENT
+        mock_settings.secret_key = "test_secret"
+        mock_settings.port = 8107
+        mock_settings.redis_url = "redis://localhost:6379/1"
+        mock_settings.heartbeat_interval = 0
+        mock_settings.max_heartbeat_age = 120
+        mock_settings.max_message_size = 1024
+        mock_settings.max_task_queue_size = 10000
+        mock_settings.default_strategy = "least_connections"
 
-    @patch("coordinator_api.config.settings")
+        with pytest.raises(ValueError, match="Heartbeat interval must be positive"):
+            ConfigLoader.validate_config()
+
+    @patch("agent_app.config.settings")
     def test_validate_config_invalid_strategy(self, mock_settings):
         """Test validation with invalid load balancing strategy"""
-        pytest.skip("Config validation test skipped - uses global settings instance")
+        mock_settings.environment = Environment.DEVELOPMENT
+        mock_settings.secret_key = "test_secret"
+        mock_settings.port = 8107
+        mock_settings.redis_url = "redis://localhost:6379/1"
+        mock_settings.heartbeat_interval = 30
+        mock_settings.max_heartbeat_age = 120
+        mock_settings.max_message_size = 1024
+        mock_settings.max_task_queue_size = 10000
+        mock_settings.default_strategy = "invalid"
 
-    @patch("coordinator_api.config.settings")
+        with pytest.raises(ValueError, match="Invalid load balancing strategy"):
+            ConfigLoader.validate_config()
+
+    @patch("agent_app.config.settings")
     def test_get_redis_config(self, mock_settings):
         """Test getting Redis configuration"""
         mock_settings.redis_url = "redis://localhost:6379/1"
@@ -286,7 +332,7 @@ class TestConfigLoader:
         assert config["timeout"] == 5
         assert config["decode_responses"] is True
 
-    @patch("coordinator_api.config.settings")
+    @patch("agent_app.config.settings")
     def test_get_logging_config(self, mock_settings):
         """Test getting logging configuration"""
         mock_settings.log_level = LogLevel.INFO

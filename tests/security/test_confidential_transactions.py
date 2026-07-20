@@ -3,7 +3,6 @@ Security tests for AITBC Confidential Transactions
 """
 
 import json
-import sys
 from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock, patch
 
@@ -13,34 +12,29 @@ from cryptography.hazmat.primitives.asymmetric import x25519
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
-# Mock missing dependencies
-sys.modules["aitbc_crypto"] = Mock()
-sys.modules["slowapi"] = Mock()
-sys.modules["slowapi.util"] = Mock()
-sys.modules["slowapi.limiter"] = Mock()
-
-
-# Mock aitbc_crypto functions
-def mock_encrypt_data(data, key):
-    return f"encrypted_{data}"
-
-
-def mock_decrypt_data(data, key):
-    return data.replace("encrypted_", "")
-
-
-def mock_generate_viewing_key():
-    return "test_viewing_key"
-
-
-sys.modules["aitbc_crypto"].encrypt_data = mock_encrypt_data
-sys.modules["aitbc_crypto"].decrypt_data = mock_decrypt_data
-sys.modules["aitbc_crypto"].generate_viewing_key = mock_generate_viewing_key
+# Mock missing dependencies — use patch.dict so we don't pollute sys.modules
+# globally (the real aitbc_crypto package is installed and used by coordinator_api).
+_mock_aitbc_crypto = Mock()
+_mock_aitbc_crypto.encrypt_data = lambda data, key: f"encrypted_{data}"
+_mock_aitbc_crypto.decrypt_data = lambda data, key: data.replace("encrypted_", "")
+_mock_aitbc_crypto.generate_viewing_key = lambda: "test_viewing_key"
+_mock_slowapi = Mock()
+_mock_slowapi_util = Mock()
+_mock_slowapi_limiter = Mock()
 
 try:
-    from aitbc_crypto import decrypt_data, encrypt_data, generate_viewing_key
-    from coordinator_api.models.confidential import ConfidentialTransaction, ViewingKey
-    from coordinator_api.services.confidential_service import ConfidentialTransactionService
+    with patch.dict(
+        "sys.modules",
+        {
+            "aitbc_crypto": _mock_aitbc_crypto,
+            "slowapi": _mock_slowapi,
+            "slowapi.util": _mock_slowapi_util,
+            "slowapi.limiter": _mock_slowapi_limiter,
+        },
+    ):
+        from aitbc_crypto import decrypt_data, encrypt_data, generate_viewing_key
+        from coordinator_api.models.confidential import ConfidentialTransaction, ViewingKey
+        from coordinator_api.services.confidential_service import ConfidentialTransactionService
 
     CONFIDENTIAL_AVAILABLE = True
 except ImportError as e:
@@ -50,6 +44,9 @@ except ImportError as e:
     ConfidentialTransactionService = Mock
     ConfidentialTransaction = Mock
     ViewingKey = Mock
+    decrypt_data = _mock_aitbc_crypto.decrypt_data
+    encrypt_data = _mock_aitbc_crypto.encrypt_data
+    generate_viewing_key = _mock_aitbc_crypto.generate_viewing_key
 
 
 @pytest.fixture
