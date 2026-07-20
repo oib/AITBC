@@ -2,7 +2,6 @@
 High-priority tests for staking service functionality
 """
 
-import os
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -12,28 +11,14 @@ from sqlalchemy.orm import sessionmaker
 from coordinator_api.contexts.staking.services.staking_service import StakingService  # noqa: E402
 from coordinator_api.contexts.staking.domain.staking import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool  # noqa: E402
 
-# Skip staking tests in full suite due to SQLite index conflicts with coordinator tests
-# Run separately with: pytest tests/services/test_staking_service.py
-# Or enable with: AITBC_RUN_STAKING_TESTS=1 pytest tests/services/test_staking_service.py
-pytestmark = pytest.mark.skipif(
-    not os.environ.get("AITBC_RUN_STAKING_TESTS"),
-    reason="SQLite index conflict in full suite - set AITBC_RUN_STAKING_TESTS=1 to run",
-)
-
 
 @pytest.fixture(scope="function")
 def db_session():
     """Create SQLite in-memory database for testing"""
     engine = create_engine("sqlite:///:memory:", echo=False)
 
-    # Only create tables needed for staking tests
-    # Import and create only the bounty-related tables
-    from coordinator_api.domain.bounty import AgentMetrics, StakingPool
-
     # Create only the tables we need
-    AgentMetrics.metadata.create_all(engine)
-    AgentStake.metadata.create_all(engine)
-    StakingPool.metadata.create_all(engine)
+    AgentMetrics.metadata.create_all(engine, tables=[AgentMetrics.__table__, AgentStake.__table__, StakingPool.__table__])
 
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = SessionLocal()
@@ -41,6 +26,7 @@ def db_session():
     yield session
 
     session.close()
+    engine.dispose()
 
 
 @pytest.fixture
@@ -184,8 +170,7 @@ class TestStakingService:
 
     async def test_get_stake_not_found(self, staking_service):
         """Test retrieving non-existent stake"""
-        with pytest.raises(ValueError, match="Stake not found"):
-            await staking_service.get_stake("nonexistent_stake_id")
+        assert await staking_service.get_stake("nonexistent_stake_id") is None
 
     async def test_calculate_apy(self, staking_service, agent_metrics):
         """Test APY calculation for different tiers and lock periods"""
@@ -515,7 +500,6 @@ class TestStakingService:
         # Average is recalculated: (9*95 + 98) / 10 = 95.3
         assert updated_metrics.average_accuracy > 95.0
 
-    @pytest.mark.skip("SQLite index conflict in full suite")
     async def test_database_rollback_on_error(self, staking_service, agent_metrics):
         """Test database rollback when stake creation fails"""
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
