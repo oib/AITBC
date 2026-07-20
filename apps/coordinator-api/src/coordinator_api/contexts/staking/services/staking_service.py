@@ -24,6 +24,10 @@ class StakingService:
         self.session = session
 
     @staticmethod
+    def _as_decimal(value: Decimal | float | int | str) -> Decimal:
+        return value if isinstance(value, Decimal) else Decimal(str(value))
+
+    @staticmethod
     def _ensure_utc_datetime(value: datetime | None) -> datetime | None:
         if value is None:
             return None
@@ -52,6 +56,7 @@ class StakingService:
     ) -> AgentStake:
         """Create a new stake on an agent wallet"""
         try:
+            amount = self._as_decimal(amount)
             agent_metrics = await self.get_agent_metrics(agent_wallet)
             if not agent_metrics:
                 raise ValueError("Agent not supported for staking")
@@ -135,6 +140,7 @@ class StakingService:
     async def add_to_stake(self, stake_id: str, additional_amount: Decimal) -> AgentStake:
         """Add more tokens to an existing stake"""
         try:
+            additional_amount = self._as_decimal(additional_amount)
             stake = await self.get_stake(stake_id)
             if not stake:
                 raise ValueError("Stake not found")
@@ -279,6 +285,9 @@ class StakingService:
     ) -> AgentMetrics:
         """Update agent performance metrics"""
         try:
+            accuracy = self._as_decimal(accuracy)
+            response_time = self._as_decimal(response_time) if response_time is not None else None
+            energy_efficiency = self._as_decimal(energy_efficiency) if energy_efficiency is not None else None
             agent_metrics = await self.get_agent_metrics(agent_wallet)
             if not agent_metrics:
                 agent_metrics = AgentMetrics(
@@ -319,6 +328,7 @@ class StakingService:
     ) -> dict[str, Any]:
         """Distribute agent earnings to stakers"""
         try:
+            total_earnings = self._as_decimal(total_earnings)
             pool = await self.get_staking_pool(agent_wallet)
             if not pool or pool.total_staked == 0:
                 raise ValueError("No stakers in pool")
