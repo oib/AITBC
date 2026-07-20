@@ -1,23 +1,90 @@
-# v0.10.15 — Release Plan Placeholder
+# v0.10.15 — Monolithic Router/Module Decomposition
 
-**Last Updated**: 2026-07-14
-**Status**: 🚧 In Progress
+**Last Updated**: 2026-07-20
+**Status**: ✅ Complete
 
 ## Release Theme
 
-Placeholder for the next patch release following v0.10.14. Scope will be
-defined as v0.10.14 work is finalized and verified.
+Decompose the largest monolithic routers and modules across the stack into
+focused, per-domain units while preserving public APIs and keeping tests green.
 
 ## Completed Work
 
-- None yet.
+- Decomposed `apps/blockchain-node/src/aitbc_chain/sync.py` (1171 lines) into:
+  - `sync_validator.py` — `ImportResult`, `ProposerSignatureValidator`
+  - `sync_bulk.py` — `BulkSyncMixin` (bulk/parallel sync + adaptive helpers)
+  - `sync_state.py` — `StateSyncMixin` (full and delta state sync)
+  - `sync_block_import.py` — `BlockImportMixin` (`import_block`, `_append_block`, fork resolution)
+  - `sync.py` — thin `ChainSync` facade with re-exports
+
+- Decomposed `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` (1141 lines) into:
+  - `bridge_types.py` — `BridgeStatus`, `BridgeTransfer`
+  - `bridge_transfer.py` — `BridgeTransferMixin` (lock/confirm/refund/batch + proof validation)
+  - `bridge_validator.py` — `BridgeValidatorMixin` (validator set + threshold/proposer signatures)
+  - `bridge_finality.py` — `BridgeFinalityMixin` (block headers, Merkle proofs, finality)
+  - `bridge.py` — thin `CrossChainBridge` facade with re-exports
+
+- Decomposed `apps/trading/src/trading_service/main.py` (1331 lines) into focused FastAPI routers:
+  - `routers/system.py`, `routers/legacy_trading.py`, `routers/transactions.py`
+  - `routers/exchange_compat.py`, `routers/inter_chain.py`, `routers/offers.py`
+  - `routers/subscriptions.py`, `routers/settlement.py`
+  - `dependencies.py` and `state.py` for shared deps/singletons
+  - `main.py` is now a thin app factory that includes the routers
+
+- Decomposed `apps/coordinator-api/src/coordinator_api/contexts/developer_platform/routers/developer_platform.py` (868 lines) into:
+  - `routers/developers.py` — profile management, leaderboard, stats
+  - `routers/bounties.py` — bounty CRUD, submissions, reviews, stats
+  - `routers/certifications.py` — grant, list, verify, types
+  - `routers/hubs.py` — regional hub management
+  - `routers/staking.py` — staking, rewards, claim endpoints
+  - `routers/analytics.py` — overview and health
+  - `routers/common.py` — shared dependency helpers
+  - `developer_platform.py` remains a thin router aggregator
+
+- Fixed `apps/coordinator-api/src/coordinator_api/config.py` to fail fast when `DEBUG` is enabled in production.
 
 ## Remaining Work
 
-- Define scope and assign tasks.
+- None. Ready for verification and release.
 
 ## Verification
 
-- TBD.
+```bash
+# Lint (whole repo)
+cd /opt/aitbc && ./venv/bin/python -m ruff check .
+
+# Type check blockchain-node affected files
+cd /opt/aitbc && ./venv/bin/python -m mypy --show-error-codes \
+  apps/blockchain-node/src/aitbc_chain/sync.py \
+  apps/blockchain-node/src/aitbc_chain/sync_validator.py \
+  apps/blockchain-node/src/aitbc_chain/sync_bulk.py \
+  apps/blockchain-node/src/aitbc_chain/sync_state.py \
+  apps/blockchain-node/src/aitbc_chain/sync_block_import.py \
+  apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py \
+  apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_types.py \
+  apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py \
+  apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_validator.py \
+  apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_finality.py
+
+# Type check trading affected files
+cd /opt/aitbc && ./venv/bin/python -m mypy --ignore-missing-imports \
+  apps/trading/src/trading_service
+
+# Type check coordinator-api developer platform affected files
+cd /opt/aitbc && ./venv/bin/python -m mypy --ignore-missing-imports \
+  apps/coordinator-api/src/coordinator_api/contexts/developer_platform
+
+# Blockchain-node tests
+cd /opt/aitbc/apps/blockchain-node && \
+  PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
+
+# Trading tests
+cd /opt/aitbc/apps/trading && \
+  PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/trading/src ../../venv/bin/python -m pytest tests -q -o addopts=""
+
+# Coordinator-api tests
+cd /opt/aitbc/apps/coordinator-api && \
+  PYTHONPATH=src ../../venv/bin/python -m pytest tests/test_main.py -q -o addopts=""
+```
 
 *Generated with [Devin](https://devin.ai)*
