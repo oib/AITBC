@@ -125,8 +125,8 @@ def test_import_structure():
 def test_job_schema_validation():
     """Test that the job schema works as expected"""
     try:
+        from coordinator_api.custom_types import Constraints
         from coordinator_api.schemas import JobCreate
-        from coordinator_api.types import Constraints
 
         # Valid job creation data
         job_data = {"payload": {"job_type": "ai_inference", "parameters": {"model": "gpt-4"}}, "ttl_seconds": 900}

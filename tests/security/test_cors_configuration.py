@@ -9,6 +9,10 @@ from pathlib import Path
 
 import pytest
 
+_AGENT_SRC = str(Path(__file__).resolve().parents[2] / "apps" / "agent-coordinator" / "src")
+if _AGENT_SRC not in sys.path:
+    sys.path.insert(0, _AGENT_SRC)
+
 
 def test_agent_coordinator_cors_rejects_wildcard():
     """Test that agent-coordinator config rejects wildcard origins"""
@@ -20,10 +24,7 @@ def test_agent_coordinator_cors_rejects_wildcard():
     # Set required secret_key to avoid validation error (must be >= 32 chars)
     os.environ["SECRET_KEY"] = "test_secret_key_for_testing_extra_long"
 
-    try:
-        from coordinator_api.config import validated_cors_origins
-    except ImportError:
-        pytest.skip("coordinator_api.config import conflict in full suite")
+    from agent_app.config import validated_cors_origins
 
     with pytest.raises(ValueError, match="Wildcard CORS origins are not allowed"):
         validated_cors_origins(["*"])
@@ -42,10 +43,7 @@ def test_agent_coordinator_cors_accepts_localhost():
     # Set required secret_key to avoid validation error (must be >= 32 chars)
     os.environ["SECRET_KEY"] = "test_secret_key_for_testing_extra_long"
 
-    try:
-        from coordinator_api.config import validated_cors_origins
-    except ImportError:
-        pytest.skip("coordinator_api.config import conflict in full suite")
+    from agent_app.config import validated_cors_origins
 
     origins = [
         "http://localhost:8001",
