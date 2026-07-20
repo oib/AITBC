@@ -8,30 +8,24 @@ Run with: pytest tests/coordinator/test_workflow_orchestrator.py -v
 Or enable with: AITBC_RUN_WORKFLOW_TESTS=1 pytest tests/coordinator/test_workflow_orchestrator.py
 """
 
-import os
+import sys
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
-# Skip workflow tests in full suite due to import conflicts with coordinator-api tests
-# Run separately with: pytest tests/coordinator/test_workflow_orchestrator.py
-# Or enable with: AITBC_RUN_WORKFLOW_TESTS=1 pytest tests/coordinator/test_workflow_orchestrator.py
-pytestmark = pytest.mark.skipif(
-    not os.environ.get("AITBC_RUN_WORKFLOW_TESTS"),
-    reason="Import conflict with coordinator-api app - set AITBC_RUN_WORKFLOW_TESTS=1 to run",
-)
+_AGENT_SRC = str(Path(__file__).resolve().parents[2] / "apps" / "agent-coordinator" / "src")
+if _AGENT_SRC not in sys.path:
+    sys.path.insert(0, _AGENT_SRC)
 
-try:
-    from coordinator_api.workflow.orchestrator import (
-        StepStatus,
-        WorkflowDefinition,
-        WorkflowExecution,
-        WorkflowOrchestrator,
-        WorkflowStatus,
-        WorkflowStep,
-    )
-except Exception as _e:
-    pytestmark = pytest.mark.skip(reason=f"agent-coordinator app import conflict: {_e}")
+from agent_app.workflow.orchestrator import (
+    StepStatus,
+    WorkflowDefinition,
+    WorkflowExecution,
+    WorkflowOrchestrator,
+    WorkflowStatus,
+    WorkflowStep,
+)
 
 
 class TestWorkflowStep:
