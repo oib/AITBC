@@ -25,6 +25,13 @@ TBD.
 
 ---
 
+## Coordination
+
+- **Agent B** decomposed `apps/blockchain-node/src/aitbc_chain/sync.py` (shared with network layer) using mixin modules; the `# WIP: Agent B` marker has been removed.
+- **Agent B** decomposed `apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py` into mixin modules.
+
+---
+
 ## Notes
 
 This is a placeholder release plan. Update this file once the next release
