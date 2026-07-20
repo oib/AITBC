@@ -77,10 +77,7 @@ class TestMonitorCommands:
     def test_monitor_metrics_command(self, mock_http_class, runner, mock_config):
         """``monitor metrics`` collects and displays system metrics."""
         mock_client = mock_http_class.return_value
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"status": "online"}
-        mock_client.get.return_value = mock_response
+        mock_client.get.return_value = {"status": "online"}
 
         from aitbc_cli.commands.monitor import monitor
 

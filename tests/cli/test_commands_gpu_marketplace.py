@@ -40,10 +40,10 @@ class TestGPUMarketplaceCommands:
         assert "register" in gpu.commands
 
     def test_gpu_group_has_list_subcommand(self):
-        """The ``list`` subcommand is registered on the gpu group."""
+        """The ``list-gpus`` subcommand is registered on the gpu group."""
         from aitbc_cli.commands.gpu_marketplace import gpu
 
-        assert "list" in gpu.commands
+        assert "list-gpus" in gpu.commands
 
     @patch("aitbc_cli.commands.gpu_marketplace.AITBCHTTPClient")
     @patch("aitbc_cli.commands.gpu_marketplace.get_config")
@@ -116,16 +116,18 @@ class TestGPUMarketplaceCommands:
     @patch("aitbc_cli.commands.gpu_marketplace.AITBCHTTPClient")
     @patch("aitbc_cli.commands.gpu_marketplace.get_config")
     def test_gpu_list_command(self, mock_get_config, mock_http_class, runner, mock_config):
-        """``gpu list`` lists registered GPUs from the mocked GPU service."""
+        """``gpu list-gpus`` lists registered GPUs from the mocked GPU service."""
         mock_get_config.return_value = mock_config
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = [
-            {"id": "gpu-0", "model": "RTX 4090", "memory_gb": 24, "price_per_hour": 0.5, "status": "active"},
-        ]
+        mock_client.get.return_value = {
+            "gpus": [
+                {"id": "gpu-0", "model": "RTX 4090", "memory_gb": 24, "price_per_hour": 0.5, "status": "active"},
+            ]
+        }
 
         from aitbc_cli.commands.gpu_marketplace import gpu
 
-        result = runner.invoke(gpu, ["list"])
+        result = runner.invoke(gpu, ["list-gpus"])
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
@@ -133,14 +135,14 @@ class TestGPUMarketplaceCommands:
     @patch("aitbc_cli.commands.gpu_marketplace.AITBCHTTPClient")
     @patch("aitbc_cli.commands.gpu_marketplace.get_config")
     def test_gpu_list_command_empty(self, mock_get_config, mock_http_class, runner, mock_config):
-        """``gpu list`` handles an empty GPU list gracefully."""
+        """``gpu list-gpus`` handles an empty GPU list gracefully."""
         mock_get_config.return_value = mock_config
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = []
+        mock_client.get.return_value = {"gpus": []}
 
         from aitbc_cli.commands.gpu_marketplace import gpu
 
-        result = runner.invoke(gpu, ["list"])
+        result = runner.invoke(gpu, ["list-gpus"])
 
         assert result.exit_code == 0, result.output
 

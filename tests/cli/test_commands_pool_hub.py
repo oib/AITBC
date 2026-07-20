@@ -51,7 +51,7 @@ class TestPoolHubCommands:
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
-        assert "/rpc/pool_hub/status" in mock_client.get.call_args[0][0]
+        assert "/api/pools/status" in mock_client.get.call_args[0][0]
 
     @patch("aitbc_cli.commands.pool_hub.AITBCHTTPClient")
     def test_pool_hub_status_falls_back_on_network_error(self, mock_http_class, runner):
@@ -79,7 +79,7 @@ class TestPoolHubCommands:
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
-        assert "/rpc/pool_hub/sla" in mock_client.get.call_args[0][0]
+        assert "/api/pools/sla" in mock_client.get.call_args[0][0]
 
     @patch("aitbc_cli.commands.pool_hub.AITBCHTTPClient")
     def test_pool_hub_sla_with_pool_id(self, mock_http_class, runner, mock_blockchain_rpc):

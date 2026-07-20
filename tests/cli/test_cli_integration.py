@@ -10,6 +10,16 @@ no longer exists and APIKeyValidator was removed. This test file needs a
 full rewrite against the new auth layer (app/auth/dependencies.py).
 """
 
-import pytest
+from click.testing import CliRunner
 
-pytest.skip("coordinator-api auth structure changed — test needs rewrite (v0.5.17 B2)", allow_module_level=True)
+
+def test_cli_help_exposes_current_command_surface():
+    """The current CLI command group remains loadable without a live API."""
+    from aitbc_cli.core.main import cli
+
+    result = CliRunner().invoke(cli, ["--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "bridge" in result.output
+    assert "workflow" in result.output
+    assert "resource" in result.output
