@@ -39,16 +39,16 @@ async def get_current_user_required(
 
 class StakeCreateRequest(BaseModel):
     agent_wallet: str = Field(..., min_length=1)
-    amount: float = Field(..., gt=0)
+    amount: Decimal = Field(..., gt=Decimal("0"))
     lock_period: int = Field(default=30, ge=1, le=365)
     auto_compound: bool = Field(default=False)
 
     @field_validator("amount")
     @classmethod
-    def validate_amount(cls, v: float) -> float:
-        if v < 360000.0:
+    def validate_amount(cls, v: Decimal) -> Decimal:
+        if v < Decimal("360000"):
             raise ValueError("Minimum stake amount is 100 AITBC (360000 seconds)")
-        if v > 360000000.0:
+        if v > Decimal("360000000"):
             raise ValueError("Maximum stake amount is 100,000 AITBC (360000000 seconds)")
         return v
 
@@ -59,25 +59,25 @@ class StakeResponse(BaseModel):
     stake_id: str
     staker_address: str
     agent_wallet: str
-    amount: float
+    amount: Decimal
     lock_period: int
     start_time: datetime
     end_time: datetime
     status: StakeStatus
-    accumulated_rewards: float
+    accumulated_rewards: Decimal
     last_reward_time: datetime
-    current_apy: float
+    current_apy: Decimal
     agent_tier: PerformanceTier
-    performance_multiplier: float
+    performance_multiplier: Decimal
     auto_compound: bool
     unbonding_time: datetime | None
-    early_unbond_penalty: float
-    lock_bonus_multiplier: float
+    early_unbond_penalty: Decimal
+    lock_bonus_multiplier: Decimal
     stake_data: dict[str, Any]
 
 
 class StakeUpdateRequest(BaseModel):
-    additional_amount: float = Field(..., gt=0)
+    additional_amount: Decimal = Field(..., gt=Decimal("0"))
 
 
 class StakeUnbondRequest(BaseModel):
@@ -92,23 +92,23 @@ class AgentMetricsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     agent_wallet: str
-    total_staked: float
+    total_staked: Decimal
     staker_count: int
-    total_rewards_distributed: float
-    average_accuracy: float
+    total_rewards_distributed: Decimal
+    average_accuracy: Decimal
     total_submissions: int
     successful_submissions: int
-    success_rate: float
+    success_rate: Decimal
     current_tier: PerformanceTier
-    tier_score: float
-    reputation_score: float
+    tier_score: Decimal
+    reputation_score: Decimal
     last_update_time: datetime
     first_submission_time: datetime | None
-    average_response_time: float | None
-    total_compute_time: float | None
-    energy_efficiency_score: float | None
-    weekly_accuracy: list[float]
-    monthly_earnings: list[float]
+    average_response_time: Decimal | None
+    total_compute_time: Decimal | None
+    energy_efficiency_score: Decimal | None
+    weekly_accuracy: list[Decimal]
+    monthly_earnings: list[Decimal]
     agent_metadata: dict[str, Any]
 
 
@@ -116,26 +116,26 @@ class StakingPoolResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     agent_wallet: str
-    total_staked: float
-    total_rewards: float
-    pool_apy: float
+    total_staked: Decimal
+    total_rewards: Decimal
+    pool_apy: Decimal
     staker_count: int
     active_stakers: list[str]
     last_distribution_time: datetime
     distribution_frequency: int
-    min_stake_amount: float
-    max_stake_amount: float
+    min_stake_amount: Decimal
+    max_stake_amount: Decimal
     auto_compound_enabled: bool
-    pool_performance_score: float
-    volatility_score: float
+    pool_performance_score: Decimal
+    volatility_score: Decimal
     pool_metadata: dict[str, Any]
 
 
 class StakingFilterRequest(BaseModel):
     agent_wallet: str | None = None
     status: StakeStatus | None = None
-    min_amount: float | None = Field(default=None, ge=0)
-    max_amount: float | None = Field(default=None, ge=0)
+    min_amount: Decimal | None = Field(default=None, ge=Decimal("0"))
+    max_amount: Decimal | None = Field(default=None, ge=Decimal("0"))
     agent_tier: PerformanceTier | None = None
     auto_compound: bool | None = None
     page: int = Field(default=1, ge=1)
@@ -145,11 +145,11 @@ class StakingFilterRequest(BaseModel):
 class StakingStatsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    total_staked: float
+    total_staked: Decimal
     total_stakers: int
     active_stakes: int
-    average_apy: float
-    total_rewards_distributed: float
+    average_apy: Decimal
+    total_rewards_distributed: Decimal
     top_agents: list[dict[str, Any]]
     tier_distribution: dict[str, int]
     lock_period_distribution: dict[str, int]
@@ -157,16 +157,16 @@ class StakingStatsResponse(BaseModel):
 
 class AgentPerformanceUpdateRequest(BaseModel):
     agent_wallet: str = Field(..., min_length=1)
-    accuracy: float = Field(..., ge=0, le=100)
+    accuracy: Decimal = Field(..., ge=0, le=100)
     successful: bool = Field(default=True)
-    response_time: float | None = Field(default=None, gt=0)
-    compute_power: float | None = Field(default=None, gt=0)
-    energy_efficiency: float | None = Field(default=None, ge=0, le=100)
+    response_time: Decimal | None = Field(default=None, gt=0)
+    compute_power: Decimal | None = Field(default=None, gt=0)
+    energy_efficiency: Decimal | None = Field(default=None, ge=0, le=100)
 
 
 class EarningsDistributionRequest(BaseModel):
     agent_wallet: str = Field(..., min_length=1)
-    total_earnings: float = Field(..., gt=0)
+    total_earnings: Decimal = Field(..., gt=Decimal("0"))
     distribution_data: dict[str, Any] = Field(default_factory=dict)
 
 

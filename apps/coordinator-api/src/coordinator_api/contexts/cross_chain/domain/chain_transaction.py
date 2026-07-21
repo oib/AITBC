@@ -7,10 +7,11 @@ Domain models for multi-chain transaction management.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, Numeric
 from sqlmodel import Field, SQLModel
 
 from coordinator_api.shared_kernel.enums import TransactionPriority
@@ -64,7 +65,7 @@ class ChainTransaction(SQLModel, table=True):
     transaction_type: TransactionType = Field(index=True)
     from_address: str = Field(index=True)
     to_address: str = Field(index=True)
-    amount: float = Field(default=0.0)
+    amount: Decimal = Field(default=Decimal("0.0"), sa_column=Column(Numeric(20, 8), nullable=False))
     token_address: str | None = Field(default=None, index=True)
     data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     priority: TransactionPriority = Field(default=TransactionPriority.MEDIUM, index=True)

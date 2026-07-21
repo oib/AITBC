@@ -5,6 +5,7 @@ Implements proper Ethereum cryptography and secure key storage
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -17,6 +18,20 @@ from aitbc.aitbc_logging import get_logger
 from ..domain.wallet import AgentWallet, TokenBalance, TransactionStatus, WalletTransaction
 from ..schemas.wallet import TransactionRequest, WalletCreate
 from .wallet_crypto import encrypt_private_key, generate_ethereum_keypair, recover_wallet, verify_keypair_consistency
+
+
+WEAK_PASSWORDS = {"password", "123456", "wallet", "default_password", "secret"}
+
+
+def _validate_password_strength(password: str) -> dict[str, Any]:
+    """Minimal password-strength check for wallet encryption."""
+    issues = []
+    if len(password) < 16:
+        issues.append("must be at least 16 characters")
+    if password.lower() in WEAK_PASSWORDS:
+        issues.append("is a known weak password")
+    return {"is_acceptable": not issues, "issues": issues}
+
 
 logger = get_logger(__name__)
 
@@ -42,9 +57,7 @@ class SecureWalletService:
         Raises:
             ValueError: If password is weak or wallet already exists
         """
-        from ..utils.security import validate_password_strength  # type: ignore[import-not-found]
-
-        password_validation = validate_password_strength(encryption_password)
+        password_validation = _validate_password_strength(encryption_password)
         if not password_validation["is_acceptable"]:
             raise ValueError(f"Password too weak: {', '.join(password_validation['issues'])}")
         existing = (
@@ -70,9 +83,8 @@ class SecureWalletService:
                 address=address,
                 public_key=public_key,
                 wallet_type=request.wallet_type,
-                metadata=request.metadata,
-                encrypted_private_key=encrypted_data,
-                encryption_version="1.0",
+                meta_data=request.metadata,
+                encrypted_private_key=json.dumps(encrypted_data),
                 created_at=datetime.now(UTC),
             )
             self.session.add(wallet)
@@ -87,13 +99,15 @@ class SecureWalletService:
 
     async def get_wallet_by_agent(self, agent_id: str) -> list[AgentWallet]:
         """Retrieve all active wallets for an agent"""
-        return (
-            self.session.execute(select(AgentWallet).where(AgentWallet.agent_id == agent_id, AgentWallet.is_active))
+        return list(
+            self.session.execute(
+                select(AgentWallet).where(AgentWallet.agent_id == agent_id, AgentWallet.is_active)  # type: ignore[arg-type]
+            )
             .scalars()
             .all()
-        )  # type: ignore[arg-type, return-value]
+        )
 
-    async def get_wallet_with_private_key(self, wallet_id: int, encryption_password: str) -> dict[str, str]:
+    async def get_wallet_with_private_key(self, wallet_id: int, encryption_password: str) -> dict[str, Any]:
         """
         Get wallet with decrypted private key (for signing operations)
 
@@ -113,9 +127,14 @@ class SecureWalletService:
         if not wallet.is_active:
             raise ValueError("Wallet is not active")
         try:
-            if not isinstance(wallet.encrypted_private_key, dict):
+            encrypted_data = (
+                json.loads(wallet.encrypted_private_key)
+                if isinstance(wallet.encrypted_private_key, str)
+                else wallet.encrypted_private_key
+            )
+            if not isinstance(encrypted_data, dict):
                 raise ValueError("Wallet uses legacy encryption format. Please migrate to secure encryption.")
-            keys = recover_wallet(wallet.encrypted_private_key, encryption_password)  # type: ignore[unreachable]
+            keys = recover_wallet(encrypted_data, encryption_password)
             return {
                 "wallet_id": wallet_id,
                 "address": wallet.address,
@@ -175,14 +194,11 @@ class SecureWalletService:
             raise ValueError("Wallet not found")
         try:
             current_keys = await self.get_wallet_with_private_key(wallet_id, old_password)
-            from ..utils.security import validate_password_strength
-
-            password_validation = validate_password_strength(new_password)
+            password_validation = _validate_password_strength(new_password)
             if not password_validation["is_acceptable"]:
                 raise ValueError(f"New password too weak: {', '.join(password_validation['issues'])}")
             new_encrypted_data = encrypt_private_key(current_keys["private_key"], new_password)
-            wallet.encrypted_private_key = new_encrypted_data  # type: ignore[assignment]
-            wallet.encryption_version = "1.0"
+            wallet.encrypted_private_key = json.dumps(new_encrypted_data)
             wallet.updated_at = datetime.now(UTC)
             self.session.commit()
             self.session.refresh(wallet)
@@ -222,11 +238,11 @@ class SecureWalletService:
                 token_address=token_address,
                 balance=balance,
                 updated_at=datetime.now(UTC),
-            )  # type: ignore[assignment]
+            )
             self.session.add(record)
         self.session.commit()
         self.session.refresh(record)
-        return record  # type: ignore[return-value]
+        return record
 
     async def create_transaction(
         self, wallet_id: int, request: TransactionRequest, encryption_password: str
@@ -318,11 +334,20 @@ class SecureWalletService:
             "created_at": wallet.created_at.isoformat() if wallet.created_at else None,
             "updated_at": wallet.updated_at.isoformat() if wallet.updated_at else None,
         }
-        if isinstance(wallet.encrypted_private_key, dict):
-            audit["encryption_secure"] = True  # type: ignore[unreachable]
-            audit["encryption_algorithm"] = wallet.encrypted_private_key.get("algorithm")
-            audit["encryption_iterations"] = wallet.encrypted_private_key.get("iterations")
-        else:
+        try:
+            encrypted_data = (
+                json.loads(wallet.encrypted_private_key)
+                if isinstance(wallet.encrypted_private_key, str)
+                else wallet.encrypted_private_key
+            )
+            if isinstance(encrypted_data, dict) and encrypted_data.get("algorithm"):
+                audit["encryption_secure"] = True
+                audit["encryption_algorithm"] = encrypted_data.get("algorithm")
+                audit["encryption_iterations"] = encrypted_data.get("iterations")
+            else:
+                audit["encryption_secure"] = False
+                audit["encryption_issues"] = ["Uses legacy or broken encryption"]
+        except Exception:
             audit["encryption_secure"] = False
             audit["encryption_issues"] = ["Uses legacy or broken encryption"]
         try:

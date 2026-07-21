@@ -106,8 +106,8 @@ class StakingService:
         user_address: str,
         status: StakeStatus | None = None,
         agent_wallet: str | None = None,
-        min_amount: float | None = None,
-        max_amount: float | None = None,
+        min_amount: Decimal | None = None,
+        max_amount: Decimal | None = None,
         agent_tier: PerformanceTier | None = None,
         auto_compound: bool | None = None,
         page: int = 1,
@@ -280,7 +280,7 @@ class StakingService:
         accuracy: Decimal,
         successful: bool,
         response_time: Decimal | None = None,
-        compute_power: float | None = None,
+        compute_power: Decimal | None = None,
         energy_efficiency: Decimal | None = None,
     ) -> AgentMetrics:
         """Update agent performance metrics"""

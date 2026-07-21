@@ -6,6 +6,7 @@ bridge initialization, signature verification, provider configuration, and
 persistence layer are implemented.
 """
 
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -23,11 +24,11 @@ class CrossChainSettlementRequest(BaseModel):
 
     source_chain_id: str = Field(..., description="Source blockchain ID")
     target_chain_id: str = Field(..., description="Target blockchain ID")
-    amount: float = Field(..., gt=0, description="Amount to settle")
+    amount: Decimal = Field(..., gt=Decimal("0"), description="Amount to settle")
     asset_type: str = Field(..., description="Asset type (e.g., 'AITBC', 'ETH')")
     recipient_address: str = Field(..., description="Recipient address on target chain")
     gas_limit: int | None = Field(None, description="Gas limit for transaction")
-    gas_price: float | None = Field(None, description="Gas price in Gwei")
+    gas_price: Decimal | None = Field(None, gt=Decimal("0"), description="Gas price in Gwei")
 
 
 class CrossChainSettlementResponse(BaseModel):
