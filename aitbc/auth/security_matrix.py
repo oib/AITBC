@@ -40,6 +40,7 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     # Public authentication routes
     "/v1/register": AuthLevel.NONE,
     "/v1/login": AuthLevel.NONE,
+    "/v1/auth/nonce": AuthLevel.NONE,
     # Public read-only market data
     "/v1/exchange/rates": AuthLevel.NONE,
     "/v1/exchange/market-stats": AuthLevel.NONE,
