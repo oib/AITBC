@@ -56,6 +56,12 @@ def _sign_proof(proof_fields: dict[str, Any], private_key_hex: str) -> str:
     return _sign_hash(private_key_hex, msg_hash)
 
 
+def _sign_request(sender_account: EthAccount, data: dict[str, Any]) -> str:
+    """Sign a request payload and return the hex signature."""
+    msg_hash = _canonical_hash(data)
+    return _sign_hash(sender_account.key.hex(), msg_hash)
+
+
 def _build_proof_fields(
     record: CrossChainTransfer, block_height: int = 10, block_hash: str = "0x" + "ab" * 32
 ) -> dict[str, Any]:
@@ -945,6 +951,49 @@ class TestBridgeVerificationRPC:
         data = response.json()
         assert data["block_headers_total"] == 1
         assert "chain-a" in data["block_headers_per_chain"]
+
+    def test_store_block_header_requires_admin_when_release_enabled(self, rpc_setup) -> None:
+        """POST /bridge/block-headers rejects unauthorized admin when release enabled."""
+        bridge, client = rpc_setup
+        with patch("aitbc_chain.config.settings.bridge_release_enabled", True):
+            response = client.post(
+                "/bridge/block-headers",
+                json={
+                    "chain_id": "chain-a",
+                    "height": 10,
+                    "hash": "0x" + "ab" * 32,
+                    "proposer": "0xproposer",
+                    "state_root": "0x" + "cd" * 32,
+                },
+            )
+        assert response.status_code == 403
+        assert "admin" in response.json()["detail"].lower()
+
+    def test_store_block_header_accepts_authorized_admin(self, rpc_setup) -> None:
+        """POST /bridge/block-headers succeeds with a valid bridge admin signature."""
+        bridge, client = rpc_setup
+        admin = EthAccount.create()
+        payload = {
+            "chain_id": "chain-a",
+            "height": 10,
+            "hash": "0x" + "ab" * 32,
+            "proposer": "0xproposer",
+            "state_root": "0x" + "cd" * 32,
+            "confirmation_count": 0,
+            "finality_confirmed": False,
+            "admin_address": admin.address.lower(),
+        }
+        admin_signature = _sign_request(admin, payload)
+        payload["admin_signature"] = admin_signature
+
+        with (
+            patch("aitbc_chain.config.settings.bridge_release_enabled", True),
+            patch("aitbc_chain.config.settings.bridge_admin_addresses", admin.address.lower()),
+        ):
+            response = client.post("/bridge/block-headers", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
 
 
 # ---------------------------------------------------------------------------
