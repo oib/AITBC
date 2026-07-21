@@ -283,6 +283,27 @@ class TestBlockHeaderStorage:
         assert status["finality_confirmed"] is True
         assert status["confirmation_count"] == 10
 
+    def test_store_block_header_ignores_tampered_finality_when_release_enabled(self, bridge: CrossChainBridge) -> None:
+        """When bridge_release_enabled, caller confirmation/finality are ignored."""
+        with patch("aitbc_chain.config.settings.bridge_release_enabled", True):
+            bridge.store_block_header(
+                {
+                    "chain_id": "chain-a",
+                    "height": 5,
+                    "hash": "0x" + "ab" * 32,
+                    "proposer": "0xproposer",
+                    "state_root": "0x" + "cd" * 32,
+                    "confirmation_count": 100,
+                    "finality_confirmed": True,
+                }
+            )
+        status = bridge.get_block_header_status("chain-a", 5)
+        assert status is not None
+        assert status["finality_confirmed"] is False
+        # With no later blocks on the chain, the derived confirmation count is 1
+        # (the header itself) for the new block.
+        assert status["confirmation_count"] == 0
+
     def test_get_block_header_status_not_found(self, bridge: CrossChainBridge) -> None:
         """get_block_header_status() returns None for missing header."""
         status = bridge.get_block_header_status("chain-a", 999)
