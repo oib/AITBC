@@ -138,8 +138,28 @@ class BridgeFinalityMixin:
             signature=header.signature,
         )
 
-        # Get validator set for membership check (optional)
-        vset = self.get_validator_set(header.chain_id)
+        # v0.10.16: Validator-set membership is required for production release
+        # paths. When bridge_release_enabled is True, a missing set is a hard
+        # failure; otherwise only signature validity is checked.
+        release_enabled = getattr(settings, "bridge_release_enabled", False)
+        try:
+            vset = self.get_validator_set(header.chain_id)
+        except Exception as e:
+            if release_enabled:
+                logger.warning(
+                    "Validator set lookup failed for chain=%s (%s) with release enabled; rejecting header",
+                    header.chain_id,
+                    e,
+                )
+                return False
+            vset = None
+
+        if release_enabled and vset is None:
+            logger.warning(
+                "No validator set registered for chain=%s and bridge_release_enabled=True; rejecting header",
+                header.chain_id,
+            )
+            return False
 
         valid, error, _recovered = validate_block_header(sdk_header, vset)
         if not valid:

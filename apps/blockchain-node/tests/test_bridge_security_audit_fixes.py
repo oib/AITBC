@@ -394,3 +394,101 @@ class TestBug4MerkleProofEnforcement:
         ):
             result = bridge._validate_proof(proof_fields, record)
         assert result is True, "Proof with valid merkle_proof must be accepted when bridge_require_merkle_proof=True"
+
+
+# ---------------------------------------------------------------------------
+# v0.10.16: Production release paths require validator-set + Merkle proof
+# ---------------------------------------------------------------------------
+
+
+class TestV01016ProductionReleasePath:
+    """When bridge_release_enabled is True, proofs must satisfy production rules."""
+
+    def test_release_enabled_rejects_missing_validator_set(
+        self, bridge: CrossChainBridge, engine, validator_accounts: list[EthAccount]
+    ) -> None:
+        """Release path rejects proof when no validator set is registered."""
+        from aitbc_chain.state.merkle_patricia_trie import MerklePatriciaTrie
+
+        _seed_sender(engine, "chain-a", "0xsender", 100000)
+        transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecip", 5000)
+        with Session(engine) as session:
+            record = session.get(CrossChainTransfer, transfer.transfer_id)
+            assert record is not None
+
+        # Build a real Merkle proof so the failure is specifically vset membership
+        lock_key = record.source_tx_hash or "0xlock"
+        lock_value = f"lock:{record.transfer_id}:{record.amount}"
+        trie = MerklePatriciaTrie()
+        trie.put(lock_key.encode(), lock_value.encode())
+        state_root = trie.get_root()
+        state_root_hex = "0x" + state_root.hex()
+        merkle_proof = trie.get_proof(lock_key.encode())
+
+        _store_block_header(
+            engine,
+            chain_id="chain-a",
+            height=10,
+            proposer="0xproposer",
+            state_root=state_root_hex,
+            signature="",
+            confirmation_count=10,
+        )
+
+        signer = EthAccount.create()
+        proof_fields = _build_proof_fields(record)
+        proof_fields["state_root"] = state_root_hex
+        proof_fields["lock_event"] = lock_value
+        proof_fields["merkle_proof"] = [p.hex() for p in merkle_proof]
+        proof_fields["proposer_signature"] = _sign_proof(
+            {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
+            signer.key.hex(),
+        )
+
+        with (
+            patch("aitbc_chain.config.settings.bridge_release_enabled", True),
+            patch("aitbc_chain.config.settings.bridge_multisig_enabled", False),
+            patch("aitbc_chain.config.settings.bridge_block_signature_required", False),
+        ):
+            result = bridge._validate_proof(proof_fields, record)
+        assert result is False, "Release path must reject proof with no validator set"
+
+    def test_release_enabled_rejects_missing_merkle_proof(
+        self, bridge: CrossChainBridge, engine, validator_accounts: list[EthAccount]
+    ) -> None:
+        """Release path rejects proof signed by a validator but with no merkle_proof."""
+        _register_validators(bridge, "chain-a", validator_accounts)
+        _seed_sender(engine, "chain-a", "0xsender", 100000)
+
+        proposer = validator_accounts[0]
+        block_hash = "0x" + "ab" * 32
+        state_root = "0x" + "cd" * 32
+        header_sig = _sign_block_header(proposer, "chain-a", 10, block_hash, state_root)
+        _store_block_header(
+            engine,
+            chain_id="chain-a",
+            height=10,
+            block_hash=block_hash,
+            proposer=proposer.address.lower(),
+            state_root=state_root,
+            signature=header_sig,
+            confirmation_count=10,
+        )
+
+        transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecip", 5000)
+        with Session(engine) as session:
+            record = session.get(CrossChainTransfer, transfer.transfer_id)
+            assert record is not None
+
+        proof_fields = _build_proof_fields(record, block_hash=block_hash)
+        proof_fields["proposer_signature"] = _sign_proof(
+            {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
+            proposer.key.hex(),
+        )
+
+        with (
+            patch("aitbc_chain.config.settings.bridge_release_enabled", True),
+            patch("aitbc_chain.config.settings.bridge_multisig_enabled", False),
+        ):
+            result = bridge._validate_proof(proof_fields, record)
+        assert result is False, "Release path must reject proof without merkle_proof"
