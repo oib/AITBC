@@ -11,7 +11,7 @@ from decimal import Decimal
 from enum import StrEnum
 
 from pydantic import field_validator
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, Numeric
 from sqlmodel import Field, SQLModel
 
 from coordinator_api.validators import validate_ethereum_address, validate_positive_decimal, validate_url
@@ -266,9 +266,9 @@ class BridgeDispute(SQLModel, table=True):
     evidence: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     resolution_action: str | None = Field(default=None)
     resolution_details: str | None = Field(default=None)
-    refund_amount: float | None = Field(default=None)
-    compensation_amount: float | None = Field(default=None)
-    penalty_amount: float | None = Field(default=None)
+    refund_amount: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8)))
+    compensation_amount: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8)))
+    penalty_amount: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8)))
     investigator_address: str | None = Field(default=None)
     investigation_notes: str | None = Field(default=None)
     is_resolved: bool = Field(default=False, index=True)
@@ -411,7 +411,7 @@ class ValidatorReward(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     validator_address: str = Field(index=True)
     bridge_request_id: int = Field(foreign_key="bridge_request.id", index=True)
-    reward_amount: float = Field(default=0.0)
+    reward_amount: Decimal = Field(default=Decimal("0.0"), sa_column=Column(Numeric(20, 8), nullable=False))
     reward_token: str = Field(index=True)
     reward_type: str = Field(index=True)  # VALIDATION_FEE, PERFORMANCE_BONUS, etc.
     reward_period: str = Field(index=True)  # Daily, weekly, monthly

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, Numeric
 from sqlmodel import Field, SQLModel
 
 
@@ -22,7 +23,7 @@ class GPURegistry(SQLModel, table=True):
     memory_gb: int = Field(default=0)
     cuda_version: str = Field(default="")
     region: str = Field(default="", index=True)
-    price_per_hour: float = Field(default=0.0, index=True)
+    price_per_hour: Decimal = Field(default=Decimal("0.0"), sa_column=Column(Numeric(20, 8), nullable=False, index=True))
     status: str = Field(default="available", index=True)  # available, booked, offline
     capabilities: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     average_rating: float = Field(default=0.0)
@@ -41,7 +42,7 @@ class GPUBooking(SQLModel, table=True):
     client_id: str = Field(default="", index=True)
     job_id: str | None = Field(default=None, index=True)
     duration_hours: float = Field(default=0.0)
-    total_cost: float = Field(default=0.0)
+    total_cost: Decimal = Field(default=Decimal("0.0"), sa_column=Column(Numeric(20, 8), nullable=False))
     status: str = Field(default="active", index=True)  # active, completed, cancelled
     start_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
     end_time: datetime | None = Field(default=None)

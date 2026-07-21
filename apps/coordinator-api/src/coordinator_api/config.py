@@ -178,6 +178,8 @@ class Settings(BaseAITBCConfig):
 
     # Blockchain RPC
     blockchain_rpc_url: str = Field(default="http://localhost:8202", description="Blockchain RPC URL")
+    # Server-side password used to encrypt agent wallets at rest. Must be set in production.
+    wallet_encryption_password: str = ""
 
     @field_validator("blockchain_rpc_url")
     @classmethod

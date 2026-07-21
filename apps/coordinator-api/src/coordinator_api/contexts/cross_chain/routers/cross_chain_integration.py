@@ -3,17 +3,20 @@ Cross-Chain Integration API Router
 REST API endpoints for enhanced multi-chain wallet adapter, cross-chain bridge service, and transaction manager
 """
 
+import ipaddress
 from datetime import UTC, datetime
-from typing import Annotated, Any
-from uuid import uuid4
+from decimal import Decimal
+from typing import Annotated, Any, cast
 
-from coordinator_api.contexts.agent_identity.services.manager import AgentIdentityManager
 from coordinator_api.agent_identity.wallet_adapter_enhanced import (
+    EnhancedWalletAdapter,
     SecurityLevel,
     WalletAdapterFactory,
-    WalletStatus,
 )
 from coordinator_api.config import settings
+from coordinator_api.contexts.wallet.domain.wallet import AgentWallet, NetworkConfig, WalletType
+from coordinator_api.contexts.wallet.schemas.wallet import WalletCreate, WalletResponse
+from coordinator_api.contexts.wallet.services.secure_wallet_service import SecureWalletService
 
 from coordinator_api.contexts.cross_chain.services.cross_chain.bridge_client_adapter import (
     BridgeClientAdapter,
@@ -29,7 +32,7 @@ from coordinator_api.contexts.cross_chain.services.multi_chain_transaction_manag
 )
 from coordinator_api.storage.db import get_session
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from ....auth import AdminDep, AuthDep
 
@@ -41,12 +44,81 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/cross-chain", tags=["Cross-Chain Integration"])
 
 
-def get_agent_identity_manager(session: Annotated[Session, Depends(get_session)]) -> AgentIdentityManager:
-    return AgentIdentityManager(session)
-
-
 def get_reputation_engine(session: Annotated[Session, Depends(get_session)]) -> CrossChainReputationEngine:
     return CrossChainReputationEngine(session)
+
+
+def _is_private_rpc_url(url: str) -> bool:
+    """Reject loopback, link-local, and RFC 1918/4193 RPC endpoints from the allowlist."""
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if host in ("localhost", "127.0.0.1", "::1"):
+        return True
+    if host.endswith(".local") or host.endswith(".internal"):
+        return True
+    try:
+        addr = ipaddress.ip_address(host)
+        return bool(addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_multicast or addr.is_reserved)
+    except ValueError:
+        return False
+
+
+def _resolve_rpc_url(session: Session, chain_id: int) -> str:
+    """Resolve the RPC URL for a chain from the server-side NetworkConfig allowlist.
+
+    Falls back to the configured ``blockchain_rpc_url`` for supported chains when no
+    allowlist entry exists.
+    """
+    config = (
+        session.execute(select(NetworkConfig).where(NetworkConfig.chain_id == chain_id, NetworkConfig.is_active))
+        .scalars()
+        .first()
+    )
+    if config:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(config.rpc_url)
+        if parsed.scheme not in ("http", "https"):
+            raise HTTPException(status_code=400, detail="Invalid RPC URL scheme in chain allowlist")
+        if _is_private_rpc_url(config.rpc_url):
+            raise HTTPException(status_code=400, detail="Private network RPC URLs are not allowed in chain allowlist")
+        return cast(str, config.rpc_url)
+    if chain_id in WalletAdapterFactory.get_supported_chains():
+        return settings.blockchain_rpc_url
+    raise HTTPException(status_code=400, detail="No RPC URL configured for chain")
+
+
+def _require_agent_wallet(session: Session, wallet_address: str, agent_id: str) -> AgentWallet:
+    """Fetch an active wallet owned by the authenticated agent."""
+    wallet = (
+        session.execute(
+            select(AgentWallet).where(
+                AgentWallet.address == wallet_address,
+                AgentWallet.agent_id == agent_id,
+                AgentWallet.is_active,
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if not wallet:
+        raise HTTPException(status_code=403, detail="Access denied to wallet")
+    assert wallet.id is not None
+    return cast(AgentWallet, wallet)
+
+
+def _wallet_service(session: Session) -> SecureWalletService:
+    """Create a secure wallet service with no external contract dependency."""
+    return SecureWalletService(session, None)
+
+
+def _create_adapter(
+    chain_id: int, rpc_url: str, security_level: SecurityLevel = SecurityLevel.MEDIUM
+) -> EnhancedWalletAdapter:
+    """Create a wallet adapter using a server-resolved RPC URL."""
+    return WalletAdapterFactory.create_adapter(chain_id, rpc_url, security_level)
 
 
 @router.post("/wallets/create", response_model=dict[str, Any])
@@ -55,34 +127,22 @@ async def create_enhanced_wallet(
     request: Request,
     owner_address: str,
     chain_id: int,
-    security_config: dict[str, Any],
+    security_config: dict[str, Any],  # noqa: ARG001
     session: Annotated[Session, Depends(get_session)],
-    identity_manager: Annotated[AgentIdentityManager, Depends(get_agent_identity_manager)],
     user: AuthDep,
-    security_level: SecurityLevel = SecurityLevel.MEDIUM,
+    security_level: SecurityLevel = SecurityLevel.MEDIUM,  # noqa: ARG001
 ) -> dict[str, Any]:
-    """Create an enhanced multi-chain wallet"""
-    try:
-        if not owner_address.startswith("0x"):
-            identity = await identity_manager.get_identity_by_owner(owner_address)
-            if not identity:
-                raise HTTPException(status_code=404, detail="Identity not found for address")
-        adapter = WalletAdapterFactory.create_adapter(chain_id, settings.blockchain_rpc_url, security_level)
-        wallet_data = await adapter.create_wallet(owner_address, security_config)
-        wallet_id = f"wallet_{uuid4().hex[:8]}"
-        return {
-            "wallet_id": wallet_id,
-            "address": wallet_data["address"],
-            "chain_id": chain_id,
-            "chain_type": wallet_data["chain_type"],
-            "owner_address": owner_address,
-            "security_level": security_level.value if security_level else None,
-            "status": WalletStatus.ACTIVE.value,
-            "created_at": wallet_data["created_at"],
-            "security_config": wallet_data["security_config"],
-        }
-    except Exception:
-        raise HTTPException(status_code=500, detail="Error creating wallet") from None
+    """Create an enhanced multi-chain wallet with encrypted key material persisted server-side."""
+    if not settings.wallet_encryption_password:
+        raise HTTPException(status_code=400, detail="Wallet encryption password is not configured")
+
+    wallet_type = WalletType.EOA
+    metadata = {"owner_address": owner_address, "chain_id": str(chain_id)}
+    wallet = await _wallet_service(session).create_wallet(
+        WalletCreate(agent_id=user["sub"], wallet_type=wallet_type, metadata=metadata),
+        settings.wallet_encryption_password,
+    )
+    return WalletResponse.model_validate(wallet).model_dump()
 
 
 @router.get("/wallets/{wallet_address}/balance", response_model=dict[str, Any])
@@ -91,21 +151,23 @@ async def get_wallet_balance(
     request: Request,
     wallet_address: str,
     session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
     chain_id: int | None = None,
     token_address: str | None = None,
-    rpc_url: str | None = None,
 ) -> dict[str, Any]:
     """Get wallet balance with multi-token support"""
     try:
-        if not rpc_url:
-            raise HTTPException(status_code=400, detail="rpc_url parameter is required")
         if chain_id is None:
             raise HTTPException(status_code=400, detail="chain_id parameter is required")
-        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)
-        if not await adapter.validate_address(wallet_address):
+        wallet = _require_agent_wallet(session, wallet_address, user["sub"])
+        rpc_url = _resolve_rpc_url(session, chain_id)
+        adapter = _create_adapter(chain_id, rpc_url)
+        if not await adapter.validate_address(wallet.address):
             raise HTTPException(status_code=400, detail="Invalid wallet address")
-        balance_data = await adapter.get_balance(wallet_address, token_address)
+        balance_data = await adapter.get_balance(wallet.address, token_address)
         return balance_data
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=500, detail="Error getting balance") from None
 
@@ -116,7 +178,7 @@ async def execute_wallet_transaction(
     request: Request,
     wallet_address: str,
     to_address: str,
-    amount: float,
+    amount: Decimal,
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
     chain_id: int | None = None,
@@ -124,27 +186,35 @@ async def execute_wallet_transaction(
     data: dict[str, Any] | None = None,
     gas_limit: int | None = None,
     gas_price: int | None = None,
-    rpc_url: str | None = None,
 ) -> dict[str, Any]:
-    """Execute a transaction from wallet"""
+    """Execute a transaction from a wallet using the server-stored encrypted private key."""
     try:
-        if not rpc_url:
-            raise HTTPException(status_code=400, detail="rpc_url parameter is required")
         if chain_id is None:
             raise HTTPException(status_code=400, detail="chain_id parameter is required")
-        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)
-        if not await adapter.validate_address(wallet_address) or not await adapter.validate_address(to_address):
+        if data and "private_key" in data:
+            raise HTTPException(status_code=400, detail="Private key must not be supplied in transaction data")
+        if not settings.wallet_encryption_password:
+            raise HTTPException(status_code=400, detail="Wallet encryption password is not configured")
+        wallet = _require_agent_wallet(session, wallet_address, user["sub"])
+        assert wallet.id is not None
+        rpc_url = _resolve_rpc_url(session, chain_id)
+        adapter = _create_adapter(chain_id, rpc_url)
+        if not await adapter.validate_address(wallet.address) or not await adapter.validate_address(to_address):
             raise HTTPException(status_code=400, detail="Invalid addresses provided")
+        keys = await _wallet_service(session).get_wallet_with_private_key(wallet.id, settings.wallet_encryption_password)
         transaction_data = await adapter.execute_transaction(
-            from_address=wallet_address,
+            from_address=wallet.address,
             to_address=to_address,
             amount=amount,
             token_address=token_address,
             data=data,
             gas_limit=gas_limit,
             gas_price=gas_price,
+            private_key=keys["private_key"],
         )
         return transaction_data
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=500, detail="Error executing transaction") from None
 
@@ -155,24 +225,26 @@ async def get_wallet_transaction_history(
     request: Request,
     wallet_address: str,
     session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
     chain_id: int | None = None,
     limit: int = 100,
     offset: int = 0,
     from_block: int | None = None,
     to_block: int | None = None,
-    rpc_url: str | None = None,
 ) -> list[dict[str, Any]]:
     """Get wallet transaction history"""
     try:
-        if not rpc_url:
-            raise HTTPException(status_code=400, detail="rpc_url parameter is required")
         if chain_id is None:
             raise HTTPException(status_code=400, detail="chain_id parameter is required")
-        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)
-        if not await adapter.validate_address(wallet_address):
+        wallet = _require_agent_wallet(session, wallet_address, user["sub"])
+        rpc_url = _resolve_rpc_url(session, chain_id)
+        adapter = _create_adapter(chain_id, rpc_url)
+        if not await adapter.validate_address(wallet.address):
             raise HTTPException(status_code=400, detail="Invalid wallet address")
-        transactions = await adapter.get_transaction_history(wallet_address, limit, offset, from_block, to_block)
+        transactions = await adapter.get_transaction_history(wallet.address, limit, offset, from_block, to_block)
         return transactions
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=500, detail="Error getting transaction history") from None
 
@@ -186,20 +258,22 @@ async def sign_message(
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
     chain_id: int | None = None,
-    private_key: str | None = None,
-    rpc_url: str | None = None,
 ) -> dict[str, Any]:
-    """Sign a message with wallet"""
+    """Sign a message with the server-stored wallet private key."""
     try:
-        if not rpc_url:
-            raise HTTPException(status_code=400, detail="rpc_url parameter is required")
-        if not private_key:
-            raise HTTPException(status_code=400, detail="private_key parameter is required")
         if chain_id is None:
             raise HTTPException(status_code=400, detail="chain_id parameter is required")
-        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)
-        signature_data = await adapter.secure_sign_message(message, private_key)
+        if not settings.wallet_encryption_password:
+            raise HTTPException(status_code=400, detail="Wallet encryption password is not configured")
+        wallet = _require_agent_wallet(session, wallet_address, user["sub"])
+        assert wallet.id is not None
+        rpc_url = _resolve_rpc_url(session, chain_id)
+        adapter = _create_adapter(chain_id, rpc_url)
+        keys = await _wallet_service(session).get_wallet_with_private_key(wallet.id, settings.wallet_encryption_password)
+        signature_data = await adapter.secure_sign_message(message, keys["private_key"])
         return {"signature": signature_data, "message": message, "chain_id": chain_id}
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=500, detail="Error signing message") from None
 
@@ -213,15 +287,13 @@ async def verify_signature(
     address: str,
     session: Annotated[Session, Depends(get_session)],
     chain_id: int | None = None,
-    rpc_url: str | None = None,
 ) -> dict[str, Any]:
     """Verify a message signature"""
     try:
-        if not rpc_url:
-            raise HTTPException(status_code=400, detail="rpc_url parameter is required")
         if chain_id is None:
             raise HTTPException(status_code=400, detail="chain_id parameter is required")
-        adapter = WalletAdapterFactory.create_adapter(chain_id, rpc_url)
+        rpc_url = _resolve_rpc_url(session, chain_id)
+        adapter = _create_adapter(chain_id, rpc_url)
         is_valid = await adapter.verify_signature(message, signature, address)
         return {
             "valid": is_valid,
@@ -230,6 +302,8 @@ async def verify_signature(
             "chain_id": chain_id,
             "verified_at": datetime.now(UTC).isoformat(),
         }
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=500, detail="Error verifying signature") from None
 

@@ -2,6 +2,7 @@
 
 import statistics
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated, Any
 from uuid import uuid4
 
@@ -57,7 +58,7 @@ class GPURegisterRequest(BaseModel):
     memory_gb: int
     cuda_version: str
     region: str
-    price_per_hour: float
+    price_per_hour: Decimal
     capabilities: list[str] = []
 
 
@@ -87,14 +88,14 @@ class GPUBuyRequest(BaseModel):
 class GPUSellRequest(BaseModel):
     seller_id: str
     gpu_id: str
-    listing_price: float
+    listing_price: Decimal
     description: str | None = ""
 
 
 class PaymentRequest(BaseModel):
     from_wallet: str
     to_wallet: str
-    amount: float = Field(gt=0)
+    amount: Decimal = Field(gt=Decimal("0"))
     booking_id: str | None = None
     task_id: str | None = None
 
@@ -148,6 +149,7 @@ async def register_gpu(
     miner_id = gpu_specs.get("miner_id") or gpu_specs.get("miner") or "default_miner"
     compute_capability = gpu_specs.get("compute_capability", "")
     cuda_version = compute_capability if compute_capability else ""
+    price_per_hour = Decimal(str(gpu_specs.get("price_per_hour", "0.05")))
     gpu_record = GPURegistry(
         id=gpu_id,
         miner_id=miner_id,
@@ -155,7 +157,7 @@ async def register_gpu(
         memory_gb=gpu_specs.get("memory_gb", 0),
         cuda_version=cuda_version,
         region="default",
-        price_per_hour=gpu_specs.get("price_per_hour", 0.05),
+        price_per_hour=price_per_hour,
         status="available",
         capabilities=[],
         average_rating=0.0,
@@ -169,7 +171,7 @@ async def register_gpu(
         "gpu_id": gpu_id,
         "status": "registered",
         "message": f"GPU {gpu_specs.get('name', 'Unknown GPU')} registered successfully",
-        "price_per_hour": gpu_specs.get("price_per_hour", 0.05),
+        "price_per_hour": price_per_hour,
     }
 
 
@@ -177,7 +179,7 @@ async def register_gpu(
 async def list_gpus(
     session: Annotated[Session, Depends(get_session)],
     available: bool | None = Query(default=None),
-    price_max: float | None = Query(default=None),
+    price_max: Decimal | None = None,
     region: str | None = Query(default=None),
     model: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
@@ -245,10 +247,11 @@ async def buy_gpu(
             strategy=PricingStrategy.MARKET_BALANCE,
             region=gpu.region,
         )
-        current_price = float(dynamic_result.recommended_price)
+        current_price = dynamic_result.recommended_price
     except Exception:
         current_price = gpu.price_per_hour
-    total_cost = request.duration_hours * current_price
+    duration_dec = Decimal(str(request.duration_hours))
+    total_cost = duration_dec * current_price
     booking_id = str(uuid4())
     booking = GPUBooking(
         id=booking_id,
@@ -291,9 +294,9 @@ async def buy_gpu(
                 gpu=gpu.model,
                 region=gpu.region,
                 min_vram_gb=gpu.memory_gb if gpu.memory_gb else None,
-                max_price=current_price * 1.1,
+                max_price=current_price * Decimal("1.1"),
             ),
-            ttl_seconds=int(request.duration_hours * 3600),
+            ttl_seconds=int(duration_dec * 3600),
             payment_amount=total_cost,
             payment_currency="AITBC",
         )
@@ -333,11 +336,11 @@ async def buy_gpu(
         if job_id is not None:
             from ....contexts.infrastructure.domain import Job
 
-            job = session.get(Job, job_id)
-            if job and job.state in ("QUEUED", "RUNNING"):
-                job.state = "CANCELED"
-                job.error = "Payment failed"
-                session.add(job)
+            existing_job = session.get(Job, job_id)
+            if existing_job and existing_job.state in ("QUEUED", "RUNNING"):
+                existing_job.state = "CANCELED"
+                existing_job.error = "Payment failed"
+                session.add(existing_job)
         session.delete(booking)
         gpu.status = "available"
         session.commit()
@@ -415,10 +418,11 @@ async def book_gpu(
             strategy=PricingStrategy.MARKET_BALANCE,
             region=gpu.region,
         )
-        current_price = float(dynamic_result.recommended_price)
+        current_price = dynamic_result.recommended_price
     except Exception:
         current_price = gpu.price_per_hour
-    total_cost = request.duration_hours * current_price
+    duration_dec = Decimal(str(request.duration_hours))
+    total_cost = duration_dec * current_price
     booking = GPUBooking(
         gpu_id=gpu_id,
         job_id=request.job_id,
@@ -458,14 +462,14 @@ async def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_sessi
         .scalars()
         .first()
     )
-    refund = 0.0
+    refund = Decimal("0")
     if booking:
         try:
-            refund = booking.total_cost * 0.5
+            refund = booking.total_cost * Decimal("0.5")
             booking.status = "cancelled"
         except AttributeError as e:
             logger.warning("Booking missing attribute: %s", e)
-            refund = 0.0
+            refund = Decimal("0")
     gpu.status = "available"
     session.commit()
     return {"status": "released", "gpu_id": gpu_id, "refund": refund, "message": f"GPU {gpu_id} released successfully"}
@@ -739,15 +743,14 @@ async def get_pricing(
                 strategy=PricingStrategy.MARKET_BALANCE,
                 region=gpu.region,
             )
+            recommended = dynamic_result.recommended_price
             dynamic_prices.append(
                 {
                     "gpu_id": gpu.id,
                     "static_price": gpu.price_per_hour,
-                    "dynamic_price": float(dynamic_result.recommended_price),
-                    "price_change": float(dynamic_result.recommended_price) - gpu.price_per_hour,
-                    "price_change_percent": (float(dynamic_result.recommended_price) - gpu.price_per_hour)
-                    / gpu.price_per_hour
-                    * 100,
+                    "dynamic_price": recommended,
+                    "price_change": recommended - gpu.price_per_hour,
+                    "price_change_percent": (recommended - gpu.price_per_hour) / gpu.price_per_hour * 100,
                     "confidence": dynamic_result.confidence_score,
                     "trend": dynamic_result.price_trend.value,
                     "reasoning": dynamic_result.reasoning,
@@ -759,8 +762,8 @@ async def get_pricing(
                     "gpu_id": gpu.id,
                     "static_price": gpu.price_per_hour,
                     "dynamic_price": gpu.price_per_hour,
-                    "price_change": 0.0,
-                    "price_change_percent": 0.0,
+                    "price_change": Decimal("0"),
+                    "price_change_percent": Decimal("0"),
                     "confidence": 0.5,
                     "trend": "unknown",
                     "reasoning": ["Dynamic pricing unavailable"],
@@ -768,7 +771,9 @@ async def get_pricing(
             )
     dynamic_price_values = [dp["dynamic_price"] for dp in dynamic_prices]
     avg_dynamic_price = sum(dynamic_price_values) / len(dynamic_price_values)
-    best_value_gpu = min(dynamic_prices, key=lambda x: x["dynamic_price"] / x["confidence"])
+    best_value_gpu = min(
+        dynamic_prices, key=lambda x: x["dynamic_price"] / Decimal(str(x["confidence"])) if x["confidence"] else Decimal("1")
+    )
     market_analysis = None
     try:
         regions = [gpu.region for gpu in compatible]
@@ -799,7 +804,9 @@ async def get_pricing(
             "min_price": min(dynamic_price_values),
             "max_price": max(dynamic_price_values),
             "average_price": avg_dynamic_price,
-            "price_volatility": statistics.stdev(dynamic_price_values) if len(dynamic_price_values) > 1 else 0,
+            "price_volatility": statistics.stdev([float(p) for p in dynamic_price_values])
+            if len(dynamic_price_values) > 1
+            else 0,
             "avg_confidence": sum(dp["confidence"] for dp in dynamic_prices) / len(dynamic_prices),
             "recommended_gpu": best_value_gpu["gpu_id"],
             "recommended_price": best_value_gpu["dynamic_price"],
@@ -809,8 +816,8 @@ async def get_pricing(
             "avg_price_change_percent": (avg_dynamic_price - sum(static_prices) / len(static_prices))
             / (sum(static_prices) / len(static_prices))
             * 100,
-            "gpus_with_price_increase": len([dp for dp in dynamic_prices if float(dp["price_change"]) > 0]),
-            "gpus_with_price_decrease": len([dp for dp in dynamic_prices if float(dp["price_change"]) < 0]),
+            "gpus_with_price_increase": len([dp for dp in dynamic_prices if dp["price_change"] > 0]),
+            "gpus_with_price_decrease": len([dp for dp in dynamic_prices if dp["price_change"] < 0]),
         },
         "individual_gpu_pricing": dynamic_prices,
         "market_analysis": market_analysis,

@@ -85,15 +85,15 @@ class AgentWalletManager:
             AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active
         )
         result = self.session.execute(stmt)
-        wallet = result.scalars().first()
-        if not wallet:
+        wallet: AgentWallet | None = result.scalars().first()
+        if wallet is None:
             raise ValueError(f"Active wallet not found for agent {agent_id} on chain {chain_id}")
         adapter = self._get_adapter(chain_id)
         balance_data = await adapter.get_balance(wallet.chain_address)
-        balance = balance_data["eth_balance"] if "eth_balance" in balance_data else balance_data.get("balance", 0.0)
-        wallet.balance = float(balance)
+        balance = balance_data["eth_balance"] if "eth_balance" in balance_data else balance_data.get("balance", Decimal("0"))
+        wallet.balance = Decimal(str(balance))
         self.session.commit()
-        return Decimal(str(balance))
+        return wallet.balance
 
     async def execute_wallet_transaction(
         self,
@@ -114,13 +114,13 @@ class AgentWalletManager:
         wallet = result.scalars().first()
         if not wallet:
             raise ValueError(f"Active wallet not found for agent {agent_id} on chain {chain_id}")
-        if wallet.spending_limit > 0 and wallet.total_spent + float(amount) > wallet.spending_limit:
+        if wallet.spending_limit > 0 and wallet.total_spent + amount > wallet.spending_limit:
             raise ValueError("Transaction amount exceeds spending limit")
         adapter = self._get_adapter(chain_id)
         tx_result = await adapter.execute_transaction(
             wallet.chain_address, to_address, amount, data=data, private_key=private_key
         )
-        wallet.total_spent += float(amount)
+        wallet.total_spent += amount
         wallet.last_transaction = datetime.now(UTC)
         wallet.transaction_count += 1
         self.session.commit()
@@ -180,18 +180,18 @@ class AgentWalletManager:
     async def get_wallet_statistics(self, agent_id: str) -> dict[str, Any]:
         """Get comprehensive wallet statistics for an agent."""
         wallets = await self.get_all_agent_wallets(agent_id)
-        total_balance = 0.0
-        total_spent = 0.0
+        total_balance = Decimal("0")
+        total_spent = Decimal("0")
         total_transactions = 0
         active_wallets = 0
-        chain_breakdown = {}
+        chain_breakdown: dict[str, dict[str, Any]] = {}
         for wallet in wallets:
             try:
                 balance = await self.get_wallet_balance(agent_id, wallet.chain_id)
-                total_balance += float(balance)
+                total_balance += balance
             except Exception as e:
                 logger.warning("Failed to get balance for wallet %s: %s", wallet.id, e)
-                balance = 0.0  # type: ignore[assignment]
+                balance = Decimal("0")
             total_spent += wallet.total_spent
             total_transactions += wallet.transaction_count
             if wallet.is_active:
@@ -199,8 +199,13 @@ class AgentWalletManager:
             info = WalletAdapterFactory.get_chain_info(wallet.chain_id)
             chain_name = info.get("name", f"Chain {wallet.chain_id}")
             if chain_name not in chain_breakdown:
-                chain_breakdown[chain_name] = {"balance": 0.0, "spent": 0.0, "transactions": 0, "active": False}
-            chain_breakdown[chain_name]["balance"] += float(balance)
+                chain_breakdown[chain_name] = {
+                    "balance": Decimal("0"),
+                    "spent": Decimal("0"),
+                    "transactions": 0,
+                    "active": False,
+                }
+            chain_breakdown[chain_name]["balance"] += balance
             chain_breakdown[chain_name]["spent"] += wallet.total_spent
             chain_breakdown[chain_name]["transactions"] += wallet.transaction_count
             chain_breakdown[chain_name]["active"] = wallet.is_active
@@ -233,7 +238,7 @@ class AgentWalletManager:
                 continue
             try:
                 balance = await self.get_wallet_balance(agent_id, wallet.chain_id)
-                sync_results[wallet.chain_id] = {"success": True, "balance": float(balance), "address": wallet.chain_address}
+                sync_results[wallet.chain_id] = {"success": True, "balance": balance, "address": wallet.chain_address}
             except Exception as e:
                 sync_results[wallet.chain_id] = {"success": False, "error": str(e), "address": wallet.chain_address}
         return sync_results  # type: ignore[return-value]
