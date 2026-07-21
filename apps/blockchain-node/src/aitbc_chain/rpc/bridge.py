@@ -10,7 +10,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ..config import settings
 from ..logger import get_logger
-from .utils import get_chain_id, verify_request_signature
+from .utils import get_chain_id, verify_admin_signature, verify_request_signature
 
 _logger = get_logger(__name__)
 
@@ -450,6 +450,15 @@ async def register_validator(request: Request, reg_data: dict[str, Any]) -> dict
         if not verify_request_signature(cast(str, address), signature, sign_data):  # type: ignore[arg-type]
             raise HTTPException(status_code=403, detail="Invalid validator signature")
 
+        # v0.10.16: Validator registration on a production release path requires
+        # an authorized bridge admin signature in addition to the validator's
+        # self-signature. Self-signing alone is not sufficient authorization.
+        if getattr(settings, "bridge_release_enabled", False):
+            admin_address = reg_data.get("admin_address")
+            admin_signature = reg_data.get("admin_signature")
+            if not verify_admin_signature(reg_data, admin_address, admin_signature):
+                raise HTTPException(status_code=403, detail="Invalid or unauthorized bridge admin signature")
+
         bridge.register_validator(
             chain_id=cast(str, chain_id),
             address=cast(str, address).lower(),
@@ -593,6 +602,14 @@ async def store_block_header(request: Request, header_data: dict[str, Any]) -> d
         for field in required:
             if field not in header_data:
                 raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+
+        # v0.10.16: Remote block-header ingestion on a production release path
+        # requires an authorized bridge admin signature.
+        if getattr(settings, "bridge_release_enabled", False):
+            admin_address = header_data.get("admin_address")
+            admin_signature = header_data.get("admin_signature")
+            if not verify_admin_signature(header_data, admin_address, admin_signature):
+                raise HTTPException(status_code=403, detail="Invalid or unauthorized bridge admin signature")
 
         header = bridge.store_block_header(header_data)
         return {
