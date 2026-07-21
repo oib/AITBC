@@ -189,3 +189,31 @@ def normalize_transaction_data(tx_data: dict[str, Any], chain_id: str) -> dict[s
         "payload": payload,
         "signature": tx_data.get("signature"),
     }
+
+
+def get_bridge_admin_addresses() -> set[str]:
+    """Return the configured bridge admin addresses as a lowercase set."""
+    return {a.strip().lower() for a in settings.bridge_admin_addresses.split(",") if a.strip()}
+
+
+def verify_admin_signature(payload: dict[str, Any], admin_address: str, admin_signature: str) -> bool:
+    """Verify that an administrative request was signed by a configured bridge admin.
+
+    The signed message is the canonical JSON of ``payload`` excluding the
+    ``admin_signature`` field. The recovered signer must match
+    ``admin_address`` and that address must appear in ``bridge_admin_addresses``.
+    """
+    if not admin_address or not admin_signature:
+        return False
+
+    admins = get_bridge_admin_addresses()
+    if not admins:
+        _logger.warning("No bridge_admin_addresses configured; rejecting admin request")
+        return False
+
+    if admin_address.lower() not in admins:
+        _logger.warning("Admin address %s is not in bridge_admin_addresses", admin_address)
+        return False
+
+    sign_payload = {k: v for k, v in payload.items() if k != "admin_signature"}
+    return verify_request_signature(admin_address, admin_signature, sign_payload)

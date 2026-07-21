@@ -427,6 +427,11 @@ class ChainSettings(BaseSettings):
     bridge_multisig_timeout: int = 3600  # seconds to collect signatures
     bridge_validator_set_grace_period: int = 7200  # seconds — old epoch valid during rotation
     bridge_block_signature_required: bool = True  # require block header signatures
+    # v0.10.16: comma-separated list of Ethereum addresses authorized to register
+    # bridge validators and ingest remote block headers. Empty means no admin is
+    # configured, so validator/header admission is denied when the release fence
+    # is enabled (fail-closed).
+    bridge_admin_addresses: str = ""
 
     # Bridge verification configuration (v0.7.2). Replaces the trivially
     # forgeable field-equality proof validation with cryptographic Merkle
