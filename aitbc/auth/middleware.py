@@ -49,8 +49,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
     """Middleware to enforce auth requirements based on route security matrix.
 
     This middleware automatically:
-    1. Extracts Bearer token from Authorization header
-    2. Verifies token validity
+    1. Extracts a Bearer token from the Authorization header, or a miner API key
+       from the X-Api-Key header
+    2. Verifies token/API-key validity
     3. Checks role requirements from security matrix
     4. Adds user info to request state
     """
@@ -63,66 +64,91 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if auth_level == AuthLevel.NONE:
             return cast(Response, await call_next(request))
 
-        # Extract token from Authorization header
         authorization = request.headers.get("Authorization")
-        if not authorization:
-            return Response(
-                status_code=401,
-                content='{"detail": "Authorization header required"}',
-                media_type="application/json",
-            )
+        if authorization and authorization.startswith("Bearer "):
+            token = authorization[7:]
+            try:
+                from .jwt import verify_access_token
 
-        if not authorization.startswith("Bearer "):
-            return Response(
-                status_code=401,
-                content='{"detail": "Invalid authorization header format"}',
-                media_type="application/json",
-            )
+                payload = verify_access_token(token)
 
-        token = authorization[7:]
+                user_role = payload.get("role")
+                if not check_role_match(auth_level, user_role):
+                    return Response(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        content='{"detail": "Forbidden"}',
+                        media_type="application/json",
+                    )
 
-        try:
-            from .jwt import verify_access_token
+                # Add user info to request state using the canonical `sub` claim,
+                # falling back to the legacy `user_id` claim for compatibility.
+                request.state.user = payload
+                request.state.user_id = payload.get("sub") or payload.get("user_id")
+                request.state.user_role = user_role
+                return cast(Response, await call_next(request))
 
-            payload = verify_access_token(token)
-
-            user_role = payload.get("role")
-            if not check_role_match(auth_level, user_role):
+            except HTTPException as exc:
+                if exc.status_code == status.HTTP_403_FORBIDDEN:
+                    return Response(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        content='{"detail": "Forbidden"}',
+                        media_type="application/json",
+                    )
                 return Response(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    content='{"detail": "Forbidden"}',
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content='{"detail": "Invalid token"}',
+                    media_type="application/json",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            except Exception as e:
+                logger.error("AuthMiddleware error: %s", e)
+                return Response(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content='{"detail": "Invalid token"}',
+                    media_type="application/json",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+        # Fallback to miner API key authentication via X-Api-Key header. This
+        # lets production miners authenticate on routes like /v1/miners/*
+        # without a pre-existing JWT.
+        if request.headers.get("X-Api-Key"):
+            try:
+                from .dependencies import require_miner_api_key
+
+                user = require_miner_api_key(request)
+                user_role = user.get("role")
+                if not check_role_match(auth_level, user_role):
+                    return Response(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        content='{"detail": "Forbidden"}',
+                        media_type="application/json",
+                    )
+
+                request.state.user = user
+                request.state.user_id = user.get("sub")
+                request.state.user_role = user_role
+                return cast(Response, await call_next(request))
+            except HTTPException:
+                return Response(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content='{"detail": "Invalid API key"}',
+                    media_type="application/json",
+                )
+            except Exception as e:
+                logger.error("AuthMiddleware API key error: %s", e)
+                return Response(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content='{"detail": "Invalid API key"}',
                     media_type="application/json",
                 )
 
-            # Add user info to request state using the canonical `sub` claim,
-            # falling back to the legacy `user_id` claim for compatibility.
-            request.state.user = payload
-            request.state.user_id = payload.get("sub") or payload.get("user_id")
-            request.state.user_role = user_role
-
-        except HTTPException as exc:
-            if exc.status_code == status.HTTP_403_FORBIDDEN:
-                return Response(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    content='{"detail": "Forbidden"}',
-                    media_type="application/json",
-                )
-            return Response(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                content='{"detail": "Invalid token"}',
-                media_type="application/json",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        except Exception as e:
-            logger.error("AuthMiddleware error: %s", e)
-            return Response(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                content='{"detail": "Invalid token"}',
-                media_type="application/json",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        return cast(Response, await call_next(request))
+        return Response(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content='{"detail": "Authentication required"}',
+            media_type="application/json",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 # ---------------------------------------------------------------------------
