@@ -1,7 +1,7 @@
 # v0.10.16 — Security & Correctness Hardening
 
 **Last Updated**: 2026-07-21
-**Version**: 1.0 — Planned
+**Version**: 1.1 — Complete
 
 **Release Theme**: Production trust-boundary hardening for the bridge,
 wallet/authentication, financial arithmetic, migrations, and deployment gates.

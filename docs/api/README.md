@@ -28,7 +28,7 @@ Most API endpoints require authentication via the `X-Api-Key` header. API keys c
 # Submit a job
 curl -X POST http://localhost:8203/v1/jobs \
   -H "Content-Type: application/json" \
-  -H "X-Api-Key: your-api-key" \
+  -H "X-Api-Key: <YOUR_API_KEY>" \
   -d '{
     "payload": {"model": "llama2", "prompt": "Hello world"},
     "ttl_seconds": 900
@@ -40,7 +40,7 @@ curl -X POST http://localhost:8203/v1/jobs \
 ```python
 import aitbc_sdk
 
-client = aitbc_sdk.Client(api_key="your-api-key", base_url="http://localhost:8203")
+client = aitbc_sdk.Client(api_key="<YOUR_API_KEY>", base_url="http://localhost:8203")
 job = client.submit_job(payload={"model": "llama2", "prompt": "Hello world"})
 ```
 
@@ -50,7 +50,7 @@ job = client.submit_job(payload={"model": "llama2", "prompt": "Hello world"})
 import { AITBCClient } from '@aitbc/aitbc-sdk';
 
 const client = new AITBCClient({
-  apiKey: 'your-api-key',
+  apiKey: '<YOUR_API_KEY>',
   baseUrl: 'http://localhost:8203'
 });
 

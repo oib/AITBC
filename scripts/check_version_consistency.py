@@ -14,7 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 def main() -> int:
     with open(PROJECT_ROOT / "pyproject.toml", "rb") as f:
-        expected = tomllib.load(f)["tool"]["poetry"]["version"]
+        expected = tomllib.load(f)["project"]["version"]
 
     errors = []
     if aitbc._version.__version__ != expected:

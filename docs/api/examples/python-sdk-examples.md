@@ -15,7 +15,7 @@ import aitbc_sdk
 
 # Initialize client
 client = aitbc_sdk.Client(
-    api_key="your-api-key",
+    api_key="<YOUR_API_KEY>",
     base_url="http://localhost:8203"
 )
 ```
@@ -250,7 +250,7 @@ for job in history:
 ```python
 # Use custom headers
 client = aitbc_sdk.Client(
-    api_key="your-api-key",
+    api_key="<YOUR_API_KEY>",
     base_url="http://localhost:8203",
     headers={"X-Custom-Header": "value"}
 )
@@ -289,7 +289,7 @@ client = aitbc_sdk.Client(
 
 ```python
 client = aitbc_sdk.Client(
-    api_key="your-api-key",
+    api_key="<YOUR_API_KEY>",
     base_url="http://localhost:8203",
     timeout=30  # 30 second timeout
 )

@@ -17,7 +17,7 @@
 ### Register Exchange
 ```bash
 # Register with exchange
-aitbc exchange register --name "Binance" --api-key <your-api-key>
+aitbc exchange register --name "Binance" --api-key <YOUR_API_KEY>
 
 # Create trading pair
 aitbc exchange create-pair AITBC/BTC

@@ -41,7 +41,7 @@ cd /opt/aitbc/apps/exchange
 ### Configuration
 Set environment variables in `.env`:
 ```bash
-DATABASE_URL=postgresql://user:pass@localhost/exchange
+DATABASE_URL=postgresql://user:<DB_PASSWORD>@localhost/exchange
 REDIS_URL=redis://localhost:6379
 BLOCKCHAIN_RPC_URL=http://localhost:8202
 CROSS_CHAIN_ENABLED=true

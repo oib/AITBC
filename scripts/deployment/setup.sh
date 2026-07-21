@@ -1022,10 +1022,6 @@ setup_venvs() {
             log "Installing development dependencies..."
             pip install -r /opt/aitbc/requirements-dev.txt || warning "Failed to install dev dependencies"
         fi
-
-        # Install critical PostgreSQL driver
-        log "Installing psycopg2 for PostgreSQL support..."
-        pip install psycopg2-binary || warning "Failed to install psycopg2-binary"
     fi
 
     # Install AITBC CLI

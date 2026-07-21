@@ -105,7 +105,8 @@ def _require_agent_wallet(session: Session, wallet_address: str, agent_id: str) 
     )
     if not wallet:
         raise HTTPException(status_code=403, detail="Access denied to wallet")
-    assert wallet.id is not None
+    if wallet.id is None:
+        raise HTTPException(status_code=500, detail="Wallet has no ID")
     return cast(AgentWallet, wallet)
 
 
@@ -196,7 +197,8 @@ async def execute_wallet_transaction(
         if not settings.wallet_encryption_password:
             raise HTTPException(status_code=400, detail="Wallet encryption password is not configured")
         wallet = _require_agent_wallet(session, wallet_address, user["sub"])
-        assert wallet.id is not None
+        if wallet.id is None:
+            raise HTTPException(status_code=500, detail="Wallet has no ID")
         rpc_url = _resolve_rpc_url(session, chain_id)
         adapter = _create_adapter(chain_id, rpc_url)
         if not await adapter.validate_address(wallet.address) or not await adapter.validate_address(to_address):
@@ -266,7 +268,8 @@ async def sign_message(
         if not settings.wallet_encryption_password:
             raise HTTPException(status_code=400, detail="Wallet encryption password is not configured")
         wallet = _require_agent_wallet(session, wallet_address, user["sub"])
-        assert wallet.id is not None
+        if wallet.id is None:
+            raise HTTPException(status_code=500, detail="Wallet has no ID")
         rpc_url = _resolve_rpc_url(session, chain_id)
         adapter = _create_adapter(chain_id, rpc_url)
         keys = await _wallet_service(session).get_wallet_with_private_key(wallet.id, settings.wallet_encryption_password)

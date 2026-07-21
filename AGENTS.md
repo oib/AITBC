@@ -2,7 +2,7 @@
 
 This file is the source of truth for project conventions, verification commands, and per-agent task plans. Agent-specific plans live at `docs/releases/<version>/AGENTS.md`; this root file holds the stable conventions and the **current** in-flight plan.
 
-**Current in-flight plan**: [v0.10.16](docs/releases/v0.10.16/change.log) — Security & Correctness Hardening (bridge trust boundaries, wallet authentication, financial exactness, migrations, and deployment gates) — planned
+**Current in-flight plan**: [v0.10.16](docs/releases/v0.10.16/change.log) — Security & Correctness Hardening (bridge trust boundaries, wallet authentication, financial exactness, migrations, and deployment gates) — ✅ complete
 
 **Previous**: [v0.10.15](docs/releases/v0.10.15/change.log) — Monolithic Router/Module Decomposition + cross-chain settlement block-time config wiring — ✅ complete
 
@@ -177,7 +177,7 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.10.13                                        (security & correctness hardening: credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) ✅
   → v0.10.14                                        (legacy code & stub elimination: shadow packages, legacy routers, fake implementations, duplicate stacks) ✅
   → v0.10.15                                        (router/module decomposition and settlement config wiring) ✅
-  → v0.10.16                                        (security & correctness hardening: bridge, wallet auth, financial exactness, migrations, CI/deployment) planned
+  → v0.10.16                                        (security & correctness hardening: bridge, wallet auth, financial exactness, migrations, CI/deployment) ✅ complete
   → v1.0.0                                          (production readiness)
   → v2.0.0                                          (vision — questionable features, parked for re-evaluation)
 ```

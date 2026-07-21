@@ -32,8 +32,8 @@ cd /opt/aitbc/apps/exchange-integration
 Set environment variables in `.env`:
 ```bash
 BLOCKCHAIN_RPC_URL=http://localhost:8202
-EXTERNAL_EXCHANGE_API_KEY=your-api-key
-WEBHOOK_SECRET=your-webhook-secret
+EXTERNAL_EXCHANGE_API_KEY=<YOUR_API_KEY>
+WEBHOOK_SECRET=<YOUR_WEBHOOK_SECRET>
 ```
 
 ### Running the Service
