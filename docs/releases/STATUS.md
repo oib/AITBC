@@ -1,6 +1,6 @@
 # AITBC Release Status Overview
 
-**Last updated:** 2026-07-14
+**Last updated:** 2026-07-21
 **Audit report:** [AUDIT.md](AUDIT.md)
 
 ## Release Status Table
@@ -44,7 +44,8 @@
 | v0.10.12 | Quality hardening | ✅ Complete | mypy completeness, test suite repair, production assert removal, dependency/version cleanup |
 | v0.10.13 | Security & correctness hardening | ✅ Complete | credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage |
 | v0.10.14 | Legacy code & stub elimination | ✅ Complete | shadow packages, legacy routers, fake implementations, duplicate stacks |
-| v0.10.15 | Release plan placeholder | 🚧 In Progress | Next patch release scope TBD |
+| v0.10.15 | Router/module decomposition & settlement config wiring | ✅ Complete | sync/bridge/trading/developer-platform decomposition; per-chain block times |
+| v0.10.16 | Security & correctness hardening | 🚧 Planned | bridge trust boundaries, wallet auth, financial exactness, migrations, CI/deployment |
 | v1.0.0 | Production readiness | 🚧 Planned | Requires all v0.5.16–v0.10.x complete |
 | v2.0.0 | Vision/questionable features | 🅿️ Parked | For re-evaluation after v1.0.0 |
 

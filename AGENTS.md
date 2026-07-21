@@ -2,7 +2,9 @@
 
 This file is the source of truth for project conventions, verification commands, and per-agent task plans. Agent-specific plans live at `docs/releases/<version>/AGENTS.md`; this root file holds the stable conventions and the **current** in-flight plan.
 
-**Current in-flight plan**: [v0.10.15](docs/releases/v0.10.15/change.log) — Monolithic Router/Module Decomposition + cross-chain settlement block-time config wiring — ✅ complete
+**Current in-flight plan**: [v0.10.16](docs/releases/v0.10.16/change.log) — Security & Correctness Hardening (bridge trust boundaries, wallet authentication, financial exactness, migrations, and deployment gates) — planned
+
+**Previous**: [v0.10.15](docs/releases/v0.10.15/change.log) — Monolithic Router/Module Decomposition + cross-chain settlement block-time config wiring — ✅ complete
 
 **Previous**: [v0.10.14](docs/releases/v0.10.14/change.log) — Legacy Code & Stub Elimination (shadow packages, legacy routers, fake implementations, duplicate stacks) — ✅ complete
 
@@ -142,7 +144,8 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.10.11** — Bug Fixes & Code Quality Continuation (complete stub implementations, Pydantic v2 migration, SQLAlchemy pattern standardization, type safety improvements, concurrency safety): <ref_file file="/opt/aitbc/docs/releases/v0.10.11/change.log" /> ✅ complete
 - **v0.10.12** — Quality Hardening (mypy completeness, test suite repair, production assert removal, and dependency/version cleanup): <ref_file file="/opt/aitbc/docs/releases/v0.10.12/change.log" /> ✅ complete
 - **v0.10.13** — Security & Correctness Hardening (credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage): <ref_file file="/opt/aitbc/docs/releases/v0.10.13/change.log" /> ✅ complete
-- **v0.10.14** — Legacy Code & Stub Elimination (shadow packages, legacy routers, fake implementations, duplicate stacks): <ref_file file="/opt/aitbc/docs/releases/v0.10.14/change.log" /> 🚧 in progress
+- **v0.10.15** — Monolithic Router/Module Decomposition + cross-chain settlement block-time config wiring: <ref_file file="/opt/aitbc/docs/releases/v0.10.15/change.log" /> ✅ complete
+- **v0.10.14** — Legacy Code & Stub Elimination (shadow packages, legacy routers, fake implementations, duplicate stacks): <ref_file file="/opt/aitbc/docs/releases/v0.10.14/change.log" /> ✅ complete
 
 ### Post-v1 Vision (not fit until after v1.0.0)
 - **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
@@ -172,7 +175,9 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.10.11                                        (bug fixes & code quality continuation: stub completion, Pydantic v2, SQLAlchemy standardization, concurrency safety) ✅
   → v0.10.12                                        (quality hardening: mypy completeness, test suite repair, production assert removal, dependency/version cleanup) ✅
   → v0.10.13                                        (security & correctness hardening: credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) ✅
-  → v0.10.14                                        (legacy code & stub elimination: shadow packages, legacy routers, fake implementations, duplicate stacks) 🚧
+  → v0.10.14                                        (legacy code & stub elimination: shadow packages, legacy routers, fake implementations, duplicate stacks) ✅
+  → v0.10.15                                        (router/module decomposition and settlement config wiring) ✅
+  → v0.10.16                                        (security & correctness hardening: bridge, wallet auth, financial exactness, migrations, CI/deployment) planned
   → v1.0.0                                          (production readiness)
   → v2.0.0                                          (vision — questionable features, parked for re-evaluation)
 ```

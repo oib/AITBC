@@ -3,8 +3,8 @@
 **Level**: All Levels
 **Prerequisites**: None
 **Estimated Time**: 5-15 minutes
-**Last Updated**: July 14, 2026
-**Version**: 2.2
+**Last Updated**: July 21, 2026
+**Version**: 2.4
 
 ## 🧭 **Navigation Path:**
 **🏠 [Documentation Home](../README.md)** → **📋 Releases** → *You are here*
@@ -28,7 +28,8 @@ Read the release notes newest-first:
 ### Current Releases (v0.5.x+)
 - **[v2.0.0](v2.0.0/change.log)** - Vision/Questionable Features — Parked for Re-Evaluation
 - **[v1.0.0](v1.0.0/change.log)** - Production Readiness
-- **[v0.10.15](v0.10.15/change.log)** - Release Plan Placeholder 🚧 in progress
+- **[v0.10.16](v0.10.16/change.log)** - Security & Correctness Hardening (bridge trust boundaries, wallet authentication, financial exactness, migrations, CI/deployment) planned
+- **[v0.10.15](v0.10.15/change.log)** - Monolithic Router/Module Decomposition & Settlement Config Wiring ✅ complete
 - **[v0.10.14](v0.10.14/change.log)** - Legacy Code & Stub Elimination (shadow packages, legacy routers, fake implementations, duplicate stacks) ✅ complete
 - **[v0.10.13](v0.10.13/change.log)** - Security & Correctness Hardening (credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) ✅
 - **[v0.10.12](v0.10.12/change.log)** - Quality Hardening (mypy completeness, test suite repair, production assert removal, dependency/version cleanup) ✅
@@ -116,6 +117,6 @@ This directory records versioned release notes, migration context, and milestone
 
 ---
 
-*Last updated: July 14, 2026*
-*Version: 2.3*
-*Status: Release index (updated to include v0.10.15 placeholder and v0.10.14 completion)*
+*Last updated: July 21, 2026*
+*Version: 2.4*
+*Status: Release index updated through v0.10.16*
