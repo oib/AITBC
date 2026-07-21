@@ -1,0 +1,105 @@
+# v0.10.16 — Security & Correctness Hardening
+
+**Last Updated**: 2026-07-21
+**Status**: Planned
+**Prerequisite**: v0.10.15 complete
+
+## Release Theme
+
+Harden the production trust boundaries around bridge release, wallet
+authentication, financial operations, database migrations, and deployment.
+This is a security and correctness release, not a product-feature release.
+
+## Motivation
+
+The post-v0.10.15 review identified several high-impact risks:
+
+- Bridge release, escrow, and multi-validator features are enabled by default
+  despite incomplete admission control and optional Merkle verification.
+- Validator registration and remote block-header ingestion are not protected by
+  an application-level authorization boundary.
+- Wallet login accepts an address without verifying the optional signature.
+- User balance and transaction routes do not enforce ownership of the requested
+  user ID.
+- Wallet APIs accept client-controlled RPC URLs, private keys, and encryption
+  configuration.
+- Monetary paths still convert floating-point values into atomic units.
+- Migrated services still call `create_all()` while deployment workflows do not
+  consistently apply Alembic migrations.
+- CI mixes lockfile-managed Poetry dependencies with broad requirements and
+  unpinned installation paths.
+- Six blockchain-node mixin modules use blanket mypy error suppression.
+
+## Planned Work
+
+Detailed ownership, file lists, coordination rules, breaking changes, and
+verification commands are in [AGENTS.md](AGENTS.md).
+
+### Shared core — Agent A
+
+- [ ] Make JWT and API-key handling fail closed with explicit configured
+  secrets, stable claims, generic errors, and secure persistence.
+- [ ] Reject unsafe wildcard CORS/rate-limit production settings.
+
+### Applications and operations — Agent B
+
+- [ ] Harden bridge/settlement defaults, validator admission, block-header
+  ingestion, Merkle verification, and finality accounting.
+- [ ] Replace wallet-address-only login with signed nonce authentication and
+  enforce object-level authorization.
+- [ ] Remove wallet RPC SSRF and client-provided private-key/encryption-secret
+  paths.
+- [ ] Migrate financial operations to `Decimal` or integer atomic units.
+- [ ] Make Alembic migrations and service readiness authoritative.
+- [ ] Unify dependency/coverage CI and repair deployment smoke tests.
+- [ ] Remove blockchain-node mixin blanket type suppressions.
+- [ ] Reconcile release, configuration, and operational documentation.
+
+## Breaking Changes
+
+- Unsigned or invalid wallet login requests will be rejected.
+- Bridge validator/header administration will require trusted authorization.
+- Missing Merkle proofs or validator membership will fail production bridge
+  verification.
+- Bridge, escrow, and consensus value-moving paths will not activate from
+  permissive defaults.
+- Arbitrary RPC URLs and request-carried private keys will be rejected.
+- Monetary fields may use decimal strings or atomic integer units instead of
+  floating-point JSON values.
+- Services may fail startup/readiness when migrations or required databases are
+  unavailable.
+
+## Verification
+
+```bash
+cd /opt/aitbc
+./venv/bin/python -m ruff check .
+./venv/bin/python -m mypy --show-error-codes aitbc/ cli/
+./venv/bin/python -m pytest tests/unit -q -o addopts=""
+./venv/bin/python -m pytest tests/security -q -o addopts=""
+./venv/bin/python -m pytest tests/integration -q -o addopts=""
+
+cd /opt/aitbc/apps/blockchain-node
+PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
+
+cd /opt/aitbc/apps/coordinator-api
+PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
+PYTHONPATH=src DATABASE_URL=sqlite:////tmp/aitbc_v01016_migration.db \
+  ../../venv/bin/python -m alembic upgrade head
+PYTHONPATH=src DATABASE_URL=sqlite:////tmp/aitbc_v01016_migration.db \
+  ../../venv/bin/python -m alembic check
+
+cd /opt/aitbc
+./venv/bin/python scripts/check_version_consistency.py
+bash scripts/ci/check-type-ignores.sh
+```
+
+## Release Gate
+
+The release must not be marked complete until bridge and wallet-auth security
+regressions pass, no production path uses default secrets or arbitrary RPC
+URLs, migration checks pass for every migrated service, the deployment smoke
+test is real rather than skipped, and the six blanket mypy suppressions are
+removed or explicitly approved for deferral.
+
+*Generated with [Devin](https://devin.ai)*

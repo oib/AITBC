@@ -8,6 +8,16 @@ import os
 from ..exceptions import ConfigurationError
 
 
+def _current_environment() -> str:
+    """Return the current environment name from common env vars."""
+    return os.getenv("ENVIRONMENT", os.getenv("APP_ENV", os.getenv("NODE_ENV", "development")))
+
+
+def is_production() -> bool:
+    """Check if the current environment is production."""
+    return _current_environment().lower() in ("production", "prod")
+
+
 def get_env_var(key: str, default: str = "") -> str:
     """
     Get an environment variable with a default value.
