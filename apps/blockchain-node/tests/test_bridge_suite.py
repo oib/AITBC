@@ -313,6 +313,21 @@ class TestBridgeConfirmEndpoint:
         assert response.status_code == 503
         assert "disabled" in response.json()["detail"].lower()
 
+    def test_bridge_confirm_disabled_by_default(self, client: TestClient) -> None:
+        """POST /bridge/confirm returns 503 with no config changes (v0.10.16 fail-closed default)."""
+        with patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=object()):
+            response = client.post(
+                "/bridge/confirm",
+                json={
+                    "transfer_id": "0xtransfer1",
+                    "proof": _base_proof(),
+                    "confirmer": "0xrecipient",
+                    "signature": "0x" + "ff" * 65,
+                },
+            )
+        assert response.status_code == 503
+        assert "disabled" in response.json()["detail"].lower()
+
     def test_bridge_confirm_without_signature_rejected(self, client: TestClient) -> None:
         """POST /bridge/confirm without a confirmer signature must return 422 (Pydantic validation)."""
         with (
@@ -477,3 +492,27 @@ class TestCrossChainContamination:
         # A different transfer record on chain B must reject chain A's proof
         record_b = _make_record(source_chain="chain-b", target_chain="chain-c")
         assert bridge._validate_proof(proof, record_b) is False
+
+
+# ---------------------------------------------------------------------------
+# v0.10.16 Fail-Closed Defaults
+# ---------------------------------------------------------------------------
+
+
+class TestBridgeFailClosedDefaults:
+    """Bridge, settlement, and consensus value-moving features are disabled by default."""
+
+    def test_bridge_release_disabled_by_default(self) -> None:
+        from aitbc_chain.config import ChainSettings
+
+        assert ChainSettings.model_fields["bridge_release_enabled"].default is False
+
+    def test_escrow_disabled_by_default(self) -> None:
+        from aitbc_chain.config import ChainSettings
+
+        assert ChainSettings.model_fields["escrow_enabled"].default is False
+
+    def test_multi_validator_consensus_disabled_by_default(self) -> None:
+        from aitbc_chain.config import ChainSettings
+
+        assert ChainSettings.model_fields["multi_validator_consensus_enabled"].default is False
