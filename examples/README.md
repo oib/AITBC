@@ -1,40 +1,43 @@
-# Stub Services
+# AITBC Examples
 
-This directory contains stub and placeholder services that are not yet fully implemented or are minimal implementations.
+This directory contains runnable examples that demonstrate how to use the AITBC platform end-to-end.
 
-## Services in this Directory
+## Available examples
 
-The following services have <10 files and are considered stubs or placeholders:
+| Example | What it shows | Run |
+|---|---|---|
+| [`gpu_inference_miner.py`](gpu_inference_miner.py) | Register a GPU-capable miner, poll for inference jobs, optionally run them through Ollama, and submit results. | `python examples/gpu_inference_miner.py --api-key $MINER_API_KEY` |
+| [`gpu_inference_client.py`](gpu_inference_client.py) | Submit an inference job to the coordinator, poll for completion, and print the result. | `python examples/gpu_inference_client.py --prompt "..."` |
 
-- **agent-service** (4 files) - Agent communication service
-- **monitor** (7 files) - Monitoring stub
-- **monitoring-service** (4 files) - Monitoring service stub
-- **plugin-service** (4 files) - Plugin service stub
-- **aitbc-ai**: AI service stub for job operations
-- **compliance-service** (9 files) - Compliance checking stub
-- **exchange-integration** (9 files) - Exchange integration stub
-- **global-ai-agents** (9 files) - Global AI agents stub
-- **global-infrastructure** (9 files) - Global infrastructure stub
-- **multi-region-load-balancer** (9 files) - Multi-region load balancer stub
-- **plugin-analytics** (9 files) - Plugin analytics stub
-- **plugin-marketplace** (9 files) - Plugin marketplace stub
-- **plugin-registry** (9 files) - Plugin registry stub
-- **plugin-security** (9 files) - Plugin security stub
-- **simple-explorer** (9 files) - Simple blockchain explorer stub
-- **trading-engine** (9 files) - Trading engine stub
+## End-to-end GPU inference demo
 
-## Purpose
+1. Start the coordinator API:
+   ```bash
+   cd apps/coordinator-api
+   PYTHONPATH=src poetry run uvicorn coordinator_api.main:app --reload
+   ```
 
-These services are placeholders for future functionality. They may be:
-- Minimal implementations for testing
-- Skeletons for future development
-- Experimental features not yet production-ready
+2. Set the shared secret:
+   ```bash
+   export JWT_SECRET="test-secret-32-characters-for-tests"
+   export MINER_API_KEY="test-miner-key-32-characters-long-xxx"
+   ```
 
-## Active Services
+3. In one terminal, start the miner:
+   ```bash
+   python examples/gpu_inference_miner.py --api-key "$MINER_API_KEY" --miner-id demo-miner
+   ```
 
-Active services with full implementations remain in the parent `apps/` directory:
-- blockchain-node, coordinator-api, exchange, marketplace, wallet, etc.
+4. In another terminal, submit a job:
+   ```bash
+   python examples/gpu_inference_client.py \
+     --jwt-secret "$JWT_SECRET" \
+     --prompt "Explain the Byzantine generals problem in one paragraph." \
+     --model llama2
+   ```
 
-## Future Work
+If [Ollama](https://ollama.com/) is running on `localhost:11434` with `llama2` pulled, the miner will execute real inference. Otherwise it returns a deterministic mock result so the demo still works.
 
-As stub services are fully implemented, they should be moved from this directory to the main `apps/` directory.
+## Legacy stubs
+
+Older stub/example packages that are not yet runnable are kept in `apps/<service>/examples/` while they are being migrated or replaced.
