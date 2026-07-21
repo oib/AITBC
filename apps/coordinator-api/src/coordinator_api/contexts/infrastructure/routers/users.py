@@ -11,7 +11,8 @@ import secrets
 import time
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from decimal import Decimal
+from typing import Annotated, Any, cast
 
 from eth_account import Account
 from eth_account.messages import encode_defunct
@@ -75,7 +76,7 @@ def _verify_wallet_signature(wallet_address: str, signature: str, nonce: str) ->
     except Exception:
         return False
 
-    return recovered.lower() == wallet_address.lower()
+    return bool(recovered.lower() == wallet_address.lower())
 
 
 async def _issue_nonce(wallet_address: str) -> str:
@@ -147,7 +148,7 @@ async def _get_current_user_payload(request: Request) -> dict[str, Any]:
     if await _is_token_revoked(token):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
-    state_payload = getattr(request.state, "user", None)
+    state_payload = cast(dict[str, Any] | None, getattr(request.state, "user", None))
     if state_payload and state_payload.get("sub"):
         return state_payload
 
@@ -221,7 +222,7 @@ async def register_user(
     session.commit()
     session.refresh(user)
 
-    wallet = Wallet(user_id=user.id, address=wallet_address.lower(), balance=0.0, created_at=datetime.now(UTC))
+    wallet = Wallet(user_id=user.id, address=wallet_address.lower(), balance=Decimal("0.0"), created_at=datetime.now(UTC))
     session.add(wallet)
     session.commit()
 
@@ -273,7 +274,7 @@ async def login_user(
         session.commit()
         session.refresh(user)
 
-        wallet = Wallet(user_id=user.id, address=wallet_address.lower(), balance=0.0, created_at=datetime.now(UTC))
+        wallet = Wallet(user_id=user.id, address=wallet_address.lower(), balance=Decimal("0.0"), created_at=datetime.now(UTC))
         session.add(wallet)
         session.commit()
 

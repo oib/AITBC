@@ -3,9 +3,10 @@ User domain models for AITBC
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from pydantic import field_validator
-from sqlalchemy import JSON
+from sqlalchemy import JSON, Numeric
 from sqlmodel import Column, Field, SQLModel
 
 from ....validators import validate_email
@@ -44,7 +45,7 @@ class Wallet(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: str = Field(foreign_key="users.id")
     address: str = Field(unique=True, index=True)
-    balance: float = Field(default=0.0, index=True)
+    balance: Decimal = Field(default=Decimal("0.0"), sa_column=Column(Numeric(20, 8), nullable=False, index=True))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -64,8 +65,8 @@ class UserTransaction(SQLModel, table=True):
     wallet_id: int | None = Field(foreign_key="wallets.id")
     type: str = Field(max_length=20)
     status: str = Field(default="pending", max_length=20, index=True)
-    amount: float = Field(index=True)
-    fee: float = Field(default=0.0)
+    amount: Decimal = Field(sa_column=Column(Numeric(20, 8), nullable=False, index=True))
+    fee: Decimal = Field(default=Decimal("0.0"), sa_column=Column(Numeric(20, 8), nullable=False))
     description: str | None = None
     tx_metadata: str | None = Field(default=None, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

@@ -18,6 +18,7 @@ from aitbc.crypto.crypto import derive_ethereum_address, encrypt_private_key
 from aitbc.network import AITBCHTTPClient, Web3Client
 
 from ..contexts.agent_identity.domain.agent_identity import ChainType
+from ..contexts.wallet.services.money import from_atomic_units, to_atomic_units, validate_positive_amount
 
 logger = get_logger(__name__)
 
@@ -80,7 +81,7 @@ class EnhancedWalletAdapter(ABC):
         self,
         from_address: str,
         to_address: str,
-        amount: Decimal | float | str,
+        amount: Decimal | int | str,
         token_address: str | None = None,
         data: dict[str, Any] | None = None,
         gas_limit: int | None = None,
@@ -100,7 +101,7 @@ class EnhancedWalletAdapter(ABC):
         self,
         from_address: str,
         to_address: str,
-        amount: Decimal | float | str,
+        amount: Decimal | int | str,
         token_address: str | None = None,
         data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -174,19 +175,15 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
             address = await self._derive_address_from_private_key(private_key)
             wallet_data = {
                 "address": address,
-                "private_key": private_key,
                 "chain_id": self.chain_id,
                 "chain_type": self.chain_type.value,
                 "owner_address": owner_address,
                 "security_level": self.security_level.value,
                 "created_at": datetime.now(UTC).isoformat(),
                 "status": WalletStatus.ACTIVE.value,
-                "security_config": security_config,
                 "nonce": 0,
                 "transaction_count": 0,
             }
-            encrypted_private_key = await self._encrypt_private_key(private_key, security_config)
-            wallet_data["encrypted_private_key"] = encrypted_private_key
             logger.info("Created Ethereum wallet %s for owner %s", address, owner_address)
             return wallet_data
         except Exception as e:
@@ -198,18 +195,26 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
         try:
             if not await self.validate_address(wallet_address):
                 raise ValueError(f"Invalid Ethereum address: {wallet_address}")
-            eth_balance_wei = await self._get_eth_balance(wallet_address)
-            eth_balance = float(Decimal(eth_balance_wei) / Decimal(10**18))
-            result = {
+            eth_balance_wei = int(await self._get_eth_balance(wallet_address))
+            eth_balance = from_atomic_units(eth_balance_wei)
+            result: dict[str, Any] = {
                 "address": wallet_address,
                 "chain_id": self.chain_id,
+                "balance_wei": eth_balance_wei,
                 "eth_balance": eth_balance,
                 "token_balances": {},
                 "last_updated": datetime.now(UTC).isoformat(),
             }
             if token_address:
                 token_balance = await self._get_token_balance(wallet_address, token_address)
-                result["token_balances"][token_address] = token_balance  # type: ignore[index]
+                token_balance_decimals = token_balance.get("decimals", 18)
+                token_balance_atomic = int(token_balance["balance"])
+                result["token_balances"][token_address] = {
+                    "balance": token_balance_atomic,
+                    "decimals": token_balance_decimals,
+                    "symbol": token_balance.get("symbol", "TOKEN"),
+                    "human_balance": from_atomic_units(token_balance_atomic, token_balance_decimals),
+                }
             return result
         except Exception as e:
             logger.error("Error getting balance for %s: %s", wallet_address, e)
@@ -219,7 +224,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
         self,
         from_address: str,
         to_address: str,
-        amount: Decimal | float | str,
+        amount: Decimal | int | str,
         token_address: str | None = None,
         data: dict[str, Any] | None = None,
         gas_limit: int | None = None,
@@ -230,14 +235,14 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
         try:
             if not await self.validate_address(from_address) or not await self.validate_address(to_address):
                 raise ValueError("Invalid addresses provided")
-            private_key = private_key or (data.get("private_key") if data else None)
+            if data and "private_key" in data:
+                raise ValueError("Private key must not be supplied in transaction data")
             if not private_key:
                 raise ValueError("Private key is required to sign the transaction")
+            amount_wei = to_atomic_units(amount)
             if token_address:
-                amount_wei = int(float(amount) * 10**18)
                 transaction_data = await self._create_erc20_transfer(from_address, to_address, token_address, amount_wei)
             else:
-                amount_wei = int(float(amount) * 10**18)
                 transaction_data = {"from": from_address, "to": to_address, "value": hex(amount_wei), "data": "0x"}
             if data:
                 transaction_data["data"] = data.get("hex", "0x")
@@ -312,17 +317,16 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
         self,
         from_address: str,
         to_address: str,
-        amount: Decimal | float | str,
+        amount: Decimal | int | str,
         token_address: str | None = None,
         data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Estimate gas for transaction"""
         try:
+            amount_wei = to_atomic_units(amount)
             if token_address:
-                amount_wei = int(float(amount) * 10**18)
                 call_data = await self._create_erc20_transfer_call_data(to_address, token_address, amount_wei)
             else:
-                amount_wei = int(float(amount) * 10**18)
                 call_data = {
                     "from": from_address,
                     "to": to_address,
@@ -330,11 +334,15 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
                     "data": data.get("hex", "0x") if data else "0x",
                 }
             gas_estimate = await self._estimate_gas_call(call_data)
+            gas_price_wei = await self._get_gas_price()
+            gas_limit = int(gas_estimate, 16)
+            estimated_cost_wei = gas_limit * gas_price_wei
             return {
-                "gas_limit": int(gas_estimate, 16),
-                "gas_price_gwei": await self._get_gas_price_gwei(),
-                "estimated_cost_eth": float(int(gas_estimate, 16) * await self._get_gas_price()) / 10**18,
-                "estimated_cost_usd": 0.0,
+                "gas_limit": gas_limit,
+                "gas_price_wei": gas_price_wei,
+                "gas_price_gwei": from_atomic_units(gas_price_wei, 9),
+                "estimated_cost_eth": from_atomic_units(estimated_cost_wei),
+                "estimated_cost_usd": Decimal("0"),
             }
         except Exception as e:
             logger.error("Error estimating gas: %s", e)
@@ -393,7 +401,9 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
     async def _encrypt_private_key(self, private_key: str, security_config: dict[str, Any]) -> str:
         """Encrypt private key with security configuration"""
         try:
-            password = security_config.get("encryption_password", "default_password")
+            password = security_config.get("encryption_password") or security_config.get("password")
+            if not password or password in ("", "default_password"):
+                raise ValueError("A non-default encryption password is required")
             return encrypt_private_key(private_key, password)
         except Exception as e:
             logger.error("Failed to encrypt private key: %s", e)
@@ -614,11 +624,9 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
             from eth_account import Account
 
             account = Account.create()
-            private_key = account.key.hex()
             address = account.address
             wallet_data = {
                 "address": address,
-                "private_key": private_key,
                 "chain_id": self.chain_id,
                 "chain_type": self.chain_type.value,
                 "aitbc_chain_id": self.aitbc_chain_id,
@@ -626,12 +634,9 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
                 "security_level": self.security_level.value,
                 "created_at": datetime.now(UTC).isoformat(),
                 "status": WalletStatus.ACTIVE.value,
-                "security_config": security_config,
                 "nonce": 0,
                 "transaction_count": 0,
             }
-            encrypted_private_key = await self._encrypt_private_key(private_key, security_config)
-            wallet_data["encrypted_private_key"] = encrypted_private_key
             logger.info("Created AITBC wallet %s for owner %s", address, owner_address)
             return wallet_data
         except Exception as e:
@@ -663,7 +668,7 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
         self,
         from_address: str,
         to_address: str,
-        amount: Decimal | float | str,
+        amount: Decimal | int | str,
         token_address: str | None = None,
         data: dict[str, Any] | None = None,
         gas_limit: int | None = None,
@@ -674,7 +679,10 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
         try:
             if not await self.validate_address(from_address) or not await self.validate_address(to_address):
                 raise ValueError("Invalid addresses provided")
-            amount_int = int(float(amount))
+            amount_dec = validate_positive_amount(amount)
+            if amount_dec != amount_dec.to_integral_value():
+                raise ValueError("AITBC amount must be a whole number of atomic units")
+            amount_int = int(amount_dec)
             transaction_data = {
                 "from": from_address,
                 "to": to_address,
@@ -728,7 +736,7 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
         self,
         from_address: str,
         to_address: str,
-        amount: Decimal | float | str,
+        amount: Decimal | int | str,
         token_address: str | None = None,
         data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -758,7 +766,10 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
 
     async def _encrypt_private_key(self, private_key: str, security_config: dict[str, Any]) -> str:
         try:
-            return encrypt_private_key(private_key, security_config.get("password", ""))
+            password = security_config.get("password")
+            if not password:
+                raise ValueError("A non-empty encryption password is required")
+            return encrypt_private_key(private_key, password)
         except Exception as e:
             logger.error("Error encrypting private key: %s", e)
             raise

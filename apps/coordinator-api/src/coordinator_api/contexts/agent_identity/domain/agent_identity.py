@@ -4,12 +4,13 @@ Implements SQLModel definitions for unified agent identity across multiple block
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
 from pydantic import field_validator
-from sqlalchemy import Index
+from sqlalchemy import Index, Numeric
 from sqlmodel import JSON, Column, Field, SQLModel
 
 from coordinator_api.validators import validate_agent_id, validate_ethereum_address
@@ -220,9 +221,9 @@ class AgentWallet(SQLModel, table=True):
     contract_address: str | None = Field(default=None, max_length=42)
 
     # Financial information
-    balance: float = Field(default=0.0, ge=0)
-    spending_limit: float = Field(default=0.0, ge=0)
-    total_spent: float = Field(default=0.0, ge=0)
+    balance: Decimal = Field(default=Decimal("0.0"), ge=0, sa_column=Column(Numeric(20, 8), nullable=False))
+    spending_limit: Decimal = Field(default=Decimal("0.0"), ge=0, sa_column=Column(Numeric(20, 8), nullable=False))
+    total_spent: Decimal = Field(default=Decimal("0.0"), ge=0, sa_column=Column(Numeric(20, 8), nullable=False))
 
     # Status and permissions
     is_active: bool = Field(default=True)
@@ -349,7 +350,7 @@ class AgentWalletCreate(SQLModel):
     chain_address: str
     wallet_type: str = Field(default="agent-wallet")
     contract_address: str | None = Field(default=None)
-    spending_limit: float = Field(default=0.0)
+    spending_limit: Decimal = Field(default=Decimal("0.0"))
     permissions: list[str] = Field(default_factory=list)
     requires_multisig: bool = Field(default=False)
     multisig_threshold: int = Field(default=1)
@@ -360,7 +361,7 @@ class AgentWalletUpdate(SQLModel):
     """Request model for updating agent wallets"""
 
     contract_address: str | None = Field(default=None)
-    spending_limit: float | None = Field(default=None)
+    spending_limit: Decimal | None = Field(default=None)
     permissions: list[str] | None = Field(default=None)
     is_active: bool | None = Field(default=None)
     requires_multisig: bool | None = Field(default=None)
@@ -422,9 +423,9 @@ class AgentWalletResponse(SQLModel):
     chain_address: str
     wallet_type: str
     contract_address: str | None
-    balance: float
-    spending_limit: float
-    total_spent: float
+    balance: Decimal
+    spending_limit: Decimal
+    total_spent: Decimal
     is_active: bool
     permissions: list[str]
     requires_multisig: bool

@@ -83,7 +83,7 @@ class ResourceMatcher:
             gpu = self.session.execute(select(GPURegistry).where(GPURegistry.id == resource_id)).scalars().first()
             if not gpu:
                 return []
-            embedding = self._create_simple_embedding(gpu)  # type: ignore[arg-type]
+            embedding = self._create_simple_embedding(gpu)
             existing = (
                 self.session.execute(select(ResourceEmbedding).where(ResourceEmbedding.resource_id == resource_id))
                 .scalars()
@@ -153,7 +153,7 @@ class ResourceMatcher:
         for gpu in gpus:
             score = 0.0
             if gpu.price_per_hour:
-                price_score = 1.0 / (1.0 + gpu.price_per_hour)
+                price_score = 1.0 / (1.0 + float(gpu.price_per_hour))
                 score += price_score * 0.3
             if gpu.average_rating:
                 rating_score = gpu.average_rating / 5.0
@@ -197,7 +197,7 @@ class ResourceMatcher:
     def _create_simple_embedding(self, gpu: GPURegistry) -> list[float]:
         """Create simple embedding based on GPU features."""
         memory_norm = min(1.0, gpu.memory_gb / 80.0)
-        price_norm = min(1.0, gpu.price_per_hour / 10.0)
+        price_norm = min(1.0, float(gpu.price_per_hour) / 10.0)
         rating_norm = gpu.average_rating / 5.0
         embedding = [
             memory_norm,

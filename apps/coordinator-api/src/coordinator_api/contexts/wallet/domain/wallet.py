@@ -91,7 +91,7 @@ class TokenBalance(SQLModel, table=True):
     chain_id: int = Field(foreign_key="wallet_network_config.chain_id", index=True)
     token_address: str = Field(index=True, max_length=42)  # "native" for native currency
     token_symbol: str = Field()
-    balance: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    balance: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
     last_updated: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @field_validator("token_address")
@@ -124,7 +124,7 @@ class WalletTransaction(SQLModel, table=True):
     chain_id: int = Field(foreign_key="wallet_network_config.chain_id", index=True)
     tx_hash: str | None = Field(default=None, index=True)
     to_address: str = Field(index=True, max_length=42)
-    value: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    value: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
     data: str | None = Field(default=None)
     gas_limit: int | None = Field(default=None)
     gas_price: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8)))

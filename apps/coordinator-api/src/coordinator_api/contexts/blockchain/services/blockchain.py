@@ -3,6 +3,7 @@ Blockchain service for AITBC token operations
 """
 
 import re
+from decimal import Decimal
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -31,7 +32,7 @@ class BlockchainService:
         self,
         stake_id: str,
         agent_wallet: str,
-        amount: float,
+        amount: Decimal,
         lock_period: int,
         auto_compound: bool,
     ) -> None:
@@ -43,7 +44,7 @@ class BlockchainService:
                 json={
                     "stake_id": stake_id,
                     "agent_wallet": agent_wallet,
-                    "amount": amount,
+                    "amount": str(amount),
                     "lock_period": lock_period,
                     "auto_compound": auto_compound,
                 },
@@ -53,26 +54,26 @@ class BlockchainService:
         except NetworkError as e:
             logger.error("Failed to create stake contract on-chain for %s: %s", stake_id, e)
 
-    async def update_agent_performance(self, agent_wallet: str, accuracy: float, successful: bool) -> None:
+    async def update_agent_performance(self, agent_wallet: str, accuracy: Decimal, successful: bool) -> None:
         """Record agent performance update on-chain (background task, best-effort)."""
         client = AITBCHTTPClient(timeout=10.0)
         try:
             client.post(
                 f"{self.rpc_url}/staking/performance",
-                json={"agent_wallet": agent_wallet, "accuracy": accuracy, "successful": successful},
+                json={"agent_wallet": agent_wallet, "accuracy": float(accuracy), "successful": successful},
                 headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
             )
             logger.info("Agent performance updated on-chain for %s", agent_wallet)
         except NetworkError as e:
             logger.error("Failed to update agent performance on-chain for %s: %s", agent_wallet, e)
 
-    async def add_to_stake(self, stake_id: str, additional_amount: float) -> None:
+    async def add_to_stake(self, stake_id: str, additional_amount: Decimal) -> None:
         """Add tokens to an existing stake on-chain (background task, best-effort)."""
         client = AITBCHTTPClient(timeout=10.0)
         try:
             client.post(
                 f"{self.rpc_url}/staking/stake/{stake_id}/add",
-                json={"stake_id": stake_id, "additional_amount": additional_amount},
+                json={"stake_id": stake_id, "additional_amount": str(additional_amount)},
                 headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
             )
             logger.info("Added %s to stake %s on-chain", additional_amount, stake_id)
@@ -105,13 +106,13 @@ class BlockchainService:
         except NetworkError as e:
             logger.error("Failed to complete unbonding for stake %s on-chain: %s", stake_id, e)
 
-    async def distribute_earnings(self, agent_wallet: str, total_earnings: float) -> None:
+    async def distribute_earnings(self, agent_wallet: str, total_earnings: Decimal) -> None:
         """Distribute agent earnings to stakers on-chain (background task, best-effort)."""
         client = AITBCHTTPClient(timeout=10.0)
         try:
             client.post(
                 f"{self.rpc_url}/staking/agents/{agent_wallet}/distribute",
-                json={"agent_wallet": agent_wallet, "total_earnings": total_earnings},
+                json={"agent_wallet": agent_wallet, "total_earnings": str(total_earnings)},
                 headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
             )
             logger.info("Distributed %s earnings for agent %s on-chain", total_earnings, agent_wallet)
