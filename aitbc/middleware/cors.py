@@ -25,6 +25,10 @@ def setup_cors(
         allow_credentials: Whether to allow credentials. Defaults to True.
         allow_methods: List of allowed HTTP methods. Defaults to all standard methods.
         allow_headers: List of allowed headers. Defaults to all headers.
+
+    Raises:
+        ValueError: If ``allow_origins`` contains ``"*"`` while ``allow_credentials``
+            is enabled, which is a security risk in browsers.
     """
     if allow_origins is None:
         allow_origins = ["*"]
@@ -32,6 +36,9 @@ def setup_cors(
         allow_methods = ["*"]
     if allow_headers is None:
         allow_headers = ["*"]
+
+    if allow_credentials and "*" in allow_origins:
+        raise ValueError("Wildcard CORS origins cannot be used with credentials enabled")
 
     app.add_middleware(
         CORSMiddleware,
