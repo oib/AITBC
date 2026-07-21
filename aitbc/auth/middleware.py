@@ -84,29 +84,42 @@ class AuthMiddleware(BaseHTTPMiddleware):
         try:
             from .jwt import verify_access_token
 
-            # Verify token
             payload = verify_access_token(token)
 
-            # Check role if required
             user_role = payload.get("role")
             if not check_role_match(auth_level, user_role):
-                required_role = auth_level.value
                 return Response(
-                    status_code=403,
-                    content=f'{{"detail": "Role \'{required_role}\' required"}}',
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content='{"detail": "Forbidden"}',
                     media_type="application/json",
                 )
 
-            # Add user info to request state
+            # Add user info to request state using the canonical `sub` claim,
+            # falling back to the legacy `user_id` claim for compatibility.
             request.state.user = payload
-            request.state.user_id = payload.get("sub")
+            request.state.user_id = payload.get("sub") or payload.get("user_id")
             request.state.user_role = user_role
 
-        except Exception as e:
+        except HTTPException as exc:
+            if exc.status_code == status.HTTP_403_FORBIDDEN:
+                return Response(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content='{"detail": "Forbidden"}',
+                    media_type="application/json",
+                )
             return Response(
-                status_code=401,
-                content=f'{{"detail": "Invalid token: {e!s}"}}',
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content='{"detail": "Invalid token"}',
                 media_type="application/json",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        except Exception as e:
+            logger.error("AuthMiddleware error: %s", e)
+            return Response(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content='{"detail": "Invalid token"}',
+                media_type="application/json",
+                headers={"WWW-Authenticate": "Bearer"},
             )
 
         return cast(Response, await call_next(request))
@@ -212,6 +225,8 @@ def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials | None,
     This is the agent-coordinator compatible version that uses the dict-style
     JWTHandler and APIKeyManager.
     """
+    import time
+
     from .api_key import api_key_manager
 
     try:
@@ -220,15 +235,23 @@ def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials | None,
             validation = get_jwt_handler().validate_token(token)
             if validation["valid"]:
                 payload = validation["payload"]
-                user_id = payload.get("user_id")
+                user_id = payload.get("user_id") or payload.get("sub")
+                if user_id is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid token",
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )
                 rate_check = rate_limiter.is_allowed(user_id, payload.get("role", "default"))
                 if not rate_check["allowed"]:
+                    retry_after = max(0, int(rate_check["reset_time"] - time.time()))
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        detail={"error": "Rate limit exceeded", "reset_time": rate_check["reset_time"]},
-                        headers={"Retry-After": str(int(rate_check["reset_time"] - rate_limiter.memory_requests[user_id][0]))},
+                        detail="Rate limit exceeded",
+                        headers={"Retry-After": str(retry_after)},
                     )
                 return {
+                    "sub": payload.get("sub") or user_id,
                     "user_id": user_id,
                     "username": payload.get("username"),
                     "role": str(payload.get("role", "default")),
@@ -244,11 +267,14 @@ def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials | None,
                 user_id = validation["user_id"]
                 rate_check = rate_limiter.is_allowed(user_id, "api_key")
                 if not rate_check["allowed"]:
+                    retry_after = max(0, int(rate_check["reset_time"] - time.time()))
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        detail={"error": "API key rate limit exceeded", "reset_time": rate_check["reset_time"]},
+                        detail="Rate limit exceeded",
+                        headers={"Retry-After": str(retry_after)},
                     )
                 return {
+                    "sub": user_id,
                     "user_id": user_id,
                     "username": f"api_user_{user_id}",
                     "role": "api",
