@@ -461,7 +461,7 @@ aitbc blockchain transactions --output csv --file transactions.csv
 aitbc blockchain blocks --output json --file blocks.json
 
 # Export to database
-aitbc blockchain export --database postgresql --connection-string "postgres://user:pass@localhost/aitbc"
+aitbc blockchain export --database postgresql --connection-string "postgres://user:<DB_PASSWORD>@localhost/aitbc"
 
 # Integrate with Elasticsearch
 aitbc blockchain export --elasticsearch --url http://localhost:9200

@@ -32,8 +32,8 @@ service = ExternalProviderService(session)
 provider = service.register_provider(
     provider_name="aws-us-east",
     provider_type="aws",
-    api_key="AKIA...",
-    api_secret="...",
+    api_key="<YOUR_AWS_API_KEY>",
+    api_secret="<YOUR_AWS_API_SECRET>",
     region="us-east-1",
     sync_interval_minutes=60
 )

@@ -33,9 +33,9 @@ cd /opt/aitbc/apps/trading-engine
 ### Configuration
 Set environment variables in `.env`:
 ```bash
-DATABASE_URL=postgresql://user:pass@localhost/trading
+DATABASE_URL=postgresql://user:<DB_PASSWORD>@localhost/trading
 REDIS_URL=redis://localhost:6379
-EXCHANGE_API_KEY=your-api-key
+EXCHANGE_API_KEY=<YOUR_API_KEY>
 RISK_LIMITS_ENABLED=true
 ```
 

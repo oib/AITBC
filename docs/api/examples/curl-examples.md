@@ -8,7 +8,7 @@ This document provides comprehensive cURL examples for interacting with the AITB
 
 ```bash
 # Set API key header
-export API_KEY="your-api-key"
+export API_KEY="<YOUR_API_KEY>"
 export BASE_URL="http://localhost:8203"
 
 # Common curl command pattern
@@ -361,7 +361,7 @@ websocat ws://localhost:8203/v1/jobs/{job_id}/ws
 
 ```bash
 # ~/.curlrc
-header = "X-Api-Key: your-api-key"
+header = "X-Api-Key: <YOUR_API_KEY>"
 header = "Content-Type: application/json"
 silent = false
 show-error = true
@@ -371,7 +371,7 @@ show-error = true
 
 ```bash
 # ~/.bashrc or ~/.zshrc
-export AITBC_API_KEY="your-api-key"
+export AITBC_API_KEY="<YOUR_API_KEY>"
 export AITBC_BASE_URL="http://localhost:8203"
 export AITBC_BLOCKCHAIN_URL="http://localhost:8202"
 ```

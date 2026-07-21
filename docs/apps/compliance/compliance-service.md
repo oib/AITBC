@@ -31,7 +31,7 @@ cd /opt/aitbc/apps/compliance-service
 ### Configuration
 Set environment variables in `.env`:
 ```bash
-DATABASE_URL=postgresql://user:pass@localhost/compliance
+DATABASE_URL=postgresql://user:<DB_PASSWORD>@localhost/compliance
 RULES_PATH=/opt/aitbc/compliance/rules
 AUDIT_LOG_ENABLED=true
 REPORT_INTERVAL=86400

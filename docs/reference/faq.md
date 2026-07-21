@@ -107,7 +107,7 @@ See the [API Reference](../api/README.md) for more details.
 ```python
 import aitbc_sdk
 
-client = aitbc_sdk.Client(api_key="your-api-key")
+client = aitbc_sdk.Client(api_key="<YOUR_API_KEY>")
 job = client.submit_job(
     payload={"model": "llama2", "prompt": "Hello world"},
     ttl_seconds=900

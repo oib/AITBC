@@ -74,7 +74,7 @@ The `DATABASE_URL` must include credentials. Without them, PostgreSQL rejects th
 
 ```bash
 # Correct (with credentials)
-DATABASE_URL=postgresql://aitbc_user:aitbc_user_password@localhost:5432/aitbc_coordinator
+DATABASE_URL=postgresql://aitbc_user:<DB_PASSWORD>@localhost:5432/aitbc_coordinator
 
 # Wrong (no credentials — causes fe_sendauth error)
 DATABASE_URL=postgresql://localhost:5432/aitbc_coordinator
@@ -90,8 +90,8 @@ sudo /opt/aitbc/scripts/deployment/setup_postgresql_databases.sh
 
 # Or manually create a single env file
 sudo tee /etc/aitbc/aitbc-coordinator-api.env << 'EOF'
-JWT_SECRET=<your-jwt-secret>
-API_KEY_HASH_SECRET=<your-api-key-hash-secret>
+JWT_SECRET=<YOUR_JWT_SECRET>
+API_KEY_HASH_SECRET=<YOUR_API_KEY_HASH_SECRET>
 DATABASE_URL=postgresql://aitbc_user:<password>@localhost:5432/aitbc_coordinator
 REDIS_URL=redis://localhost:6379/0
 EOF

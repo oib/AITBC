@@ -294,7 +294,7 @@ Base URL: `http://localhost:8203`
 
 #### Authentication
 ```http
-X-Api-Key: your-api-key
+X-Api-Key: <YOUR_API_KEY>
 ```
 
 #### Endpoints

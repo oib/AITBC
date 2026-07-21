@@ -1,7 +1,7 @@
 # v0.10.16 — Security & Correctness Hardening
 
 **Last Updated**: 2026-07-21
-**Status**: Planned
+**Status**: Complete
 **Prerequisite**: v0.10.15 complete
 
 ## Release Theme
@@ -37,23 +37,23 @@ verification commands are in [AGENTS.md](AGENTS.md).
 
 ### Shared core — Agent A
 
-- [ ] Make JWT and API-key handling fail closed with explicit configured
+- [x] Make JWT and API-key handling fail closed with explicit configured
   secrets, stable claims, generic errors, and secure persistence.
-- [ ] Reject unsafe wildcard CORS/rate-limit production settings.
+- [x] Reject unsafe wildcard CORS/rate-limit production settings.
 
 ### Applications and operations — Agent B
 
-- [ ] Harden bridge/settlement defaults, validator admission, block-header
+- [x] Harden bridge/settlement defaults, validator admission, block-header
   ingestion, Merkle verification, and finality accounting.
-- [ ] Replace wallet-address-only login with signed nonce authentication and
+- [x] Replace wallet-address-only login with signed nonce authentication and
   enforce object-level authorization.
-- [ ] Remove wallet RPC SSRF and client-provided private-key/encryption-secret
+- [x] Remove wallet RPC SSRF and client-provided private-key/encryption-secret
   paths.
-- [ ] Migrate financial operations to `Decimal` or integer atomic units.
-- [ ] Make Alembic migrations and service readiness authoritative.
-- [ ] Unify dependency/coverage CI and repair deployment smoke tests.
-- [ ] Remove blockchain-node mixin blanket type suppressions.
-- [ ] Reconcile release, configuration, and operational documentation.
+- [x] Migrate financial operations to `Decimal` or integer atomic units.
+- [x] Make Alembic migrations and service readiness authoritative.
+- [x] Unify dependency/coverage CI and repair deployment smoke tests.
+- [x] Remove blockchain-node mixin blanket type suppressions.
+- [x] Reconcile release, configuration, and operational documentation.
 
 ## Breaking Changes
 

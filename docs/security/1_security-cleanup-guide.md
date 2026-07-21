@@ -63,8 +63,8 @@
 ### Files With Hardcoded Credentials (Documentation/Examples)
 
 **Low Priority - These are examples but should be cleaned:**
-- `website/docs/coordinator-api.html` - Contains `SECRET_KEY=your-secret-key`
-- `website/docs/wallet-daemon.html` - Contains `password="password"`
+- `website/docs/coordinator-api.html` - Contains `SECRET_KEY=<YOUR_SECRET_KEY>`
+- `website/docs/wallet-daemon.html` - Contains `password="<DB_PASSWORD>"`
 - `website/docs/pool-hub.html` - Contains `POSTGRES_PASSWORD=pass`
 
 ## 🚨 IMMEDIATE ACTIONS REQUIRED
@@ -106,8 +106,8 @@ scripts/deployment/terraform/environments/secrets.tf
 
 ### 3. Replace Hardcoded Examples
 Replace documentation examples with placeholder variables:
-- `SECRET_KEY=your-secret-key` → `SECRET_KEY=${SECRET_KEY}`
-- `password="password"` → `password="${DB_PASSWORD}"`
+- `SECRET_KEY=<YOUR_SECRET_KEY>` → `SECRET_KEY=${SECRET_KEY}`
+- `password="<DB_PASSWORD>"` → `password="${DB_PASSWORD}"`
 - `POSTGRES_PASSWORD=pass` → `POSTGRES_PASSWORD=${POSTGRES_PASSWORD}`
 
 ## 🐙 GITHUB REPOSITORY SETUP
