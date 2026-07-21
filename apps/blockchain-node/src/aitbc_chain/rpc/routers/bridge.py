@@ -79,6 +79,8 @@ class ValidatorRegisterRequest(BaseModel):
     public_key: str = Field(..., min_length=1, description="Validator public key")
     signature: str = Field(..., min_length=1, description="Validator signature proving ownership")
     epoch: int = Field(default=0, ge=0, description="Epoch number (defaults to 0)")
+    admin_address: str | None = Field(default=None, description="Bridge admin address authorizing registration")
+    admin_signature: str | None = Field(default=None, description="Admin signature over the registration payload")
 
 
 class BlockHeaderRequest(BaseModel):
@@ -93,6 +95,8 @@ class BlockHeaderRequest(BaseModel):
     signature: str | None = Field(default=None, description="Block proposer signature")
     confirmation_count: int = Field(default=0, ge=0, description="Number of confirmations")
     finality_confirmed: bool = Field(default=False, description="Whether finality is confirmed")
+    admin_address: str | None = Field(default=None, description="Bridge admin address authorizing ingestion")
+    admin_signature: str | None = Field(default=None, description="Admin signature over the header payload")
 
 
 # Optional imports - will be None if module not available
