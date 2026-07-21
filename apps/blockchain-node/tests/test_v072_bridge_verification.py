@@ -808,8 +808,9 @@ class TestUnfencedReleasePath:
             signer.key.hex(),
         )
 
-        # Confirm the transfer via RPC (unfenced by default in v0.7.2)
+        # Confirm the transfer via RPC (explicitly unfenced for this test)
         with (
+            patch("aitbc_chain.config.settings.bridge_release_enabled", True),
             patch("aitbc_chain.config.settings.bridge_block_signature_required", False),
             patch("aitbc_chain.config.settings.bridge_multisig_enabled", False),
         ):
