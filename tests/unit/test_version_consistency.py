@@ -16,7 +16,7 @@ def _expected_version() -> str:
     """Read the canonical version from pyproject.toml."""
     with open(PROJECT_ROOT / "pyproject.toml", "rb") as f:
         data = tomllib.load(f)
-    return data["tool"]["poetry"]["version"]
+    return data["project"].get("version") or data["tool"]["poetry"]["version"]
 
 
 def test_package_version_matches_source() -> None:
