@@ -22,7 +22,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "migrate_wallet_to_numeric"
-down_revision = "drop_unused_pricing_tables"
+down_revision = "a0288b36720c"
 branch_labels = None
 depends_on = None
 
