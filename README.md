@@ -1,136 +1,125 @@
-# AITBC - AI Trusted Blockchain Computing Platform
+# AITBC — AI Trusted Blockchain Computing
 
 ![AITBC Logo](website/assets/AITBC.svg)
 
-A comprehensive blockchain-based marketplace for AI computing services with zero-knowledge proof verification and confidential transaction support.
+[![CI](https://github.com/oib/aitbc/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/oib/aitbc/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.13-blue)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Poetry](https://img.shields.io/badge/packaging-poetry-1a1a1a?logo=python)](https://python-poetry.org/)
 
-> **Note:** This README describes the designed capabilities of the AITBC platform. For the current operational state and deployment status, see [Blockchain Operational Features](docs/blockchain/operational-features.md).
+> **Decentralized marketplace for AI compute, powered by PoA consensus, agents, and verifiable task execution.**
 
-## Implemented Features
+AITBC lets GPU providers offer compute, AI agents discover and rent it, and clients submit inference or training jobs that are paid, executed, and settled on a multi-island blockchain network. A public hub is already running.
 
-### Blockchain Infrastructure
-- **Multi-chain support** with chain isolation
-- **PoA consensus** with configurable validators
-- **Adaptive sync** with tiered batch sizing (10K+ blocks: 500-1000 batch)
-- **Hybrid block generation** with skip empty blocks and 60s heartbeat
-- **Force sync** for manual blockchain synchronization
-- **Chain export/import** for backup and recovery
-- **State root computation** and validation
-- **Gossip network** with Redis backend
-- **NAT traversal** with STUN-based public endpoint discovery
-- **Multi-node federation** with independent islands and hub discovery
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│    Client    │────▶│ Coordinator  │◀────│    Miner     │
+│ (job submit) │     │   (dispatch) │     │(GPU provider)│
+└──────────────┘     └──────┬───────┘     └──────────────┘
+                            │
+           ┌────────────────┼────────────────┐
+           ▼                ▼                ▼
+    ┌──────────┐     ┌──────────┐     ┌──────────┐
+    │Marketplace│     │Blockchain│     │  Wallet  │
+    │  (offers) │     │(settle)  │     │ (escrow) │
+    └──────────┘     └──────────┘     └──────────┘
+```
 
-### AI & Agent Systems
-- **Agent communication** with blockchain integration
-- **AI engine** for autonomous agent operations
-- **Agent services** including registry, compliance, protocols, and trading
-- **Agent daemon** with systemd integration
-- **Cross-node agent messaging** support
+## What works today
 
-### Marketplace & Exchange
-- **GPU marketplace** for compute resources
-- **Exchange platform** with cross-chain trading
-- **Trading engine** for order matching
-- **Pool hub** for resource pooling
-- **Marketplace-blockchain payment integration**
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Blockchain node (PoA, sync, gossip, multi-island) | ✅ | MultiValidatorPoA/PBFT gated for soak testing |
+| Agent coordinator & job dispatch | ✅ | JWT + API-key auth, rate limiting |
+| GPU marketplace & offer matching | ✅ | Listing, booking, dynamic pricing, edge advertise |
+| Wallet & escrow | ✅ | Server-side encrypted wallets; HTLC settlement wired |
+| Bridge & cross-chain settlement | ✅ | Multi-sig, Merkle proofs, block-header finality |
+| CLI (`aitbc_cli`) | ✅ | 50+ command groups |
+| Public hub | ✅ | `http://hub.aitbc.bubuit.net` |
+| Test suite | 🚧 | Target 85% coverage; core green, B2–B4 tests in flight |
 
-### CLI & Tools
-- **Unified CLI** with 50+ command groups
-- **Test coverage** for CLI commands (Current: 50%, Target: 85%)
-- **Modular handler architecture** for extensibility
-- **Bridge commands** for blockchain event bridging
-- **Account management** commands
+For the full release roadmap, see [docs/releases/STATUS.md](docs/releases/STATUS.md).
 
-### Security & Monitoring
-- **JWT authentication** with role-based access control
-- **Multi-sig wallets** with time-lock support
-- **Prometheus metrics** and alerting
-- **SLA tracking** and compliance monitoring
-- **Encrypted keystores** for secure key management
+## Join the public network
 
-### Testing & CI/CD
-- **Comprehensive test suite** with 50% minimum coverage (Target: 85%)
-- **Standardized venv caching** with corruption detection
-- **Automated CI/CD** with GitHub Actions (public) and Gitea workflows (dev)
-- **Phased quality gates** (50% → 70% → 85%+)
-- **Security scanning** optimized for changed files
-- **Cross-node verification tests**
+A public AITBC island is running at **http://hub.aitbc.bubuit.net/**:
 
-### Documentation
-- **Complete documentation** with learning paths
-- **10/10 quality score** with standardized templates
-- **Master index** for quick navigation
-- **Release notes** with version history
-
-## Public Server & Network Access
-
-### Join the Public AITBC Network
-
-The public AITBC server is available at **http://hub.aitbc.bubuit.net/** with its own island and chain:
-
-- **Public Hub**: hub.aitbc.bubuit.net
-- **Island ID**: ait-public-island
-- **Chain ID**: ait-public
-- **Role**: Public hub for agent discovery and network access
-
-#### Join Instructions
-
-Agents can dynamically join the public AITBC network by:
-
-1. **Get Join Instructions**:
-   ```bash
-   curl http://hub.aitbc.bubuit.net/agent/join/ait-public.json
-   ```
-
-2. **Network Discovery**:
-   ```bash
-   curl http://hub.aitbc.bubuit.net/agent/discovery.json
-   ```
-
-3. **Available Endpoints**:
-   - `/agent/discovery.json` - Complete network topology
-   - `/agent/islands.json` - Island information and peer list
-   - `/agent/chains.json` - Chain configuration and endpoints
-   - `/agent/join/ait-public.json` - Dynamic join instructions for ait-public chain
-   - `/agent/health` - Node health status
-
-The join endpoint provides structured configuration including:
-- Environment variables (NODE_ID, ISLAND_ID, CHAIN_ID, etc.)
-- Config file examples (/etc/aitbc/blockchain.env, /etc/aitbc/node.env)
-- P2P configuration (peers, bootstrap nodes, ports)
-- RPC endpoints and network settings
-- Setup steps and documentation links
-
-#### Quick Start for New Agents
+- **Island ID**: `ait-public`
+- **Chain ID**: `ait-public`
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/oib/aitbc.git /opt/aitbc
-
-# 2. Get join instructions
+# Fetch dynamic join instructions
 curl http://hub.aitbc.bubuit.net/agent/join/ait-public.json
 
-# 3. Configure your node using the provided instructions
-# (See the join endpoint response for detailed configuration)
+# Network topology, peers, and endpoints
+curl http://hub.aitbc.bubuit.net/agent/discovery.json
+```
 
-# 4. Start your node
+Then start your node:
+
+```bash
 sudo systemctl start aitbc-blockchain-node
+```
+
+## Quick start (local)
+
+```bash
+# 1. Clone
+git clone https://github.com/oib/aitbc.git /opt/aitbc
+cd /opt/aitbc
+
+# 2. Install dependencies (Poetry)
+pip install poetry
+poetry install
+
+# 3. Run verification
+./venv/bin/python -m ruff check .
+./venv/bin/python -m mypy --show-error-codes aitbc/
+./venv/bin/python -m pytest tests/unit -q
+
+# 4. Start the coordinator API
+cd apps/coordinator-api
+PYTHONPATH=src poetry run uvicorn coordinator_api.main:app --reload
+```
+
+For detailed setup, see [docs/getting-started/SETUP.md](docs/getting-started/SETUP.md).
+
+## Run an end-to-end GPU inference job
+
+See [`examples/gpu_inference_miner.py`](examples/gpu_inference_miner.py) and [`examples/gpu_inference_client.py`](examples/gpu_inference_client.py) for a self-contained miner/client pair that uses Ollama (or a mock fallback) to execute inference jobs.
+
+```bash
+# Terminal 1 — start a GPU-capable miner
+python examples/gpu_inference_miner.py --api-key "$MINER_API_KEY" --miner-id my-miner
+
+# Terminal 2 — submit a job and poll for the result
+python examples/gpu_inference_client.py \
+  --jwt-secret "$JWT_SECRET" \
+  --coordinator http://localhost:8203 \
+  --prompt "Explain zero-knowledge proofs in one paragraph."
 ```
 
 ## Documentation
 
-### User-Facing Documentation
+- [Master Index](docs/MASTER_INDEX.md) — every doc, scenario, and reference file
+- [Documentation Home](docs/README.md) — learning paths and navigation
+- [Release Status](docs/releases/STATUS.md) — what is complete vs. in flight
+- [Setup Guide](docs/getting-started/SETUP.md) — installation and configuration
+- [API Examples](docs/api/examples/) — curl, Python SDK, and JavaScript snippets
+- [Agent SDK Examples](docs/agent-sdk/examples/) — agent identity and compute agents
 
-Users should focus on the actual documentation in `/opt/aitbc/docs/`:
+## Key features
 
-- **Core docs**: README.md, MASTER_INDEX.md
-- **Skills**: `/opt/aitbc/docs/skills/aitbc-*.md` (user-facing skills)
-- **Guides**: `/opt/aitbc/docs/guides/getting-started/`
-- **Scenarios**: `/opt/aitbc/docs/scenarios/` (practical usage examples)
-- **Reference**: `/opt/aitbc/docs/reference/`
+- **Blockchain** — PoA consensus, adaptive sync, multi-island federation, state-root validation, gossip with Redis backend.
+- **Agents** — registry, identity, cross-chain reputation, communication, job dispatch.
+- **Compute marketplace** — GPU/edge listing, offer matching, dynamic pricing, escrow-backed payments.
+- **Security** — JWT/RBAC, multi-sig wallets, encrypted keystores, Merkle-proof bridge verification, rate limiting.
+- **CLI & ops** — unified `aitbc_cli`, systemd units, Prometheus metrics, deployment scripts.
 
-### Key Documentation Links
+## Contributing
 
-- **[Master Index](docs/MASTER_INDEX.md)** - Complete catalog of all documentation files and directories
-- **[Main Documentation](docs/README.md)** - Project status, navigation guide, and learning paths
-- **[Setup Instructions](docs/getting-started/SETUP.md)** - Installation and configuration guide
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, conventions, and the PR process.
+
+## License
+
+[MIT License](LICENSE) — Copyright (c) 2025 AITBC.
