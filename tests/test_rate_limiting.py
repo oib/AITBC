@@ -283,3 +283,25 @@ class TestResetRateLimit:
         # Both should be allowed again
         assert limiter1.is_allowed("127.0.0.1")
         assert limiter2.is_allowed("127.0.0.1")
+
+
+class TestRateLimitingEnvironment:
+    """Tests for rate limiting environment behavior"""
+
+    def test_rate_limit_cannot_be_disabled_in_production(self, monkeypatch):
+        """Test that AITBC_ENABLE_RATE_LIMITING=false is ignored in production"""
+        from aitbc.rate_limiting import _is_rate_limiting_enabled
+
+        monkeypatch.setenv("AITBC_ENABLE_RATE_LIMITING", "false")
+        monkeypatch.setenv("ENVIRONMENT", "production")
+
+        assert _is_rate_limiting_enabled() is True
+
+    def test_rate_limit_disabled_in_non_production(self, monkeypatch):
+        """Test that AITBC_ENABLE_RATE_LIMITING=false disables rate limiting outside production"""
+        from aitbc.rate_limiting import _is_rate_limiting_enabled
+
+        monkeypatch.setenv("AITBC_ENABLE_RATE_LIMITING", "false")
+        monkeypatch.setenv("ENVIRONMENT", "development")
+
+        assert _is_rate_limiting_enabled() is False

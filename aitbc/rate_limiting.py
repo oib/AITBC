@@ -9,19 +9,27 @@ from collections.abc import Awaitable, Callable
 from functools import wraps
 from typing import Any
 
-from fastapi import Request, Response
+from fastapi import HTTPException, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from .aitbc_logging import get_logger
 from .security import RateLimiter
+from .utils.env import is_production
 
 logger = get_logger(__name__)
 _rate_limiters: dict[str, RateLimiter] = {}
 
-# Env gate: rate limiting is enabled by default. Set AITBC_ENABLE_RATE_LIMITING=false
-# to disable for local development or CI (e.g. when flooding endpoints in tests).
-_RATE_LIMITING_ENABLED = os.getenv("AITBC_ENABLE_RATE_LIMITING", "true").lower() in ("true", "1", "yes", "on")
+
+def _is_rate_limiting_enabled() -> bool:
+    """Return whether rate limiting should be enforced.
+
+    Production environments cannot disable rate limiting. Non-production
+    environments may set ``AITBC_ENABLE_RATE_LIMITING=false`` to bypass it.
+    """
+    if is_production():
+        return True
+    return os.getenv("AITBC_ENABLE_RATE_LIMITING", "true").lower() not in ("false", "0", "no", "off")
 
 
 def get_rate_limiter(name: str, rate: int = 100, per: int = 60) -> RateLimiter:
@@ -71,8 +79,7 @@ def rate_limit(
     Decorator for rate limiting FastAPI endpoints.
 
     Uses a token-bucket algorithm via the RateLimiter class. Rate limiting is
-    enabled by default; set AITBC_ENABLE_RATE_LIMITING=false to disable (e.g.
-    for local development or CI).
+    enabled by default and cannot be disabled in production.
     """
     from typing import ParamSpec
 
@@ -85,7 +92,7 @@ def rate_limit(
 
             @wraps(func)
             async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
-                if not _RATE_LIMITING_ENABLED:
+                if not _is_rate_limiting_enabled():
                     logger.debug("Rate limiting bypassed for %s", func.__name__)
                     return await func(*args, **kwargs)
 
@@ -93,10 +100,9 @@ def rate_limit(
                 key = _get_rate_limit_key(request, key_func)
                 if not _limiter.is_allowed(key):
                     logger.warning("Rate limit exceeded for %s on %s", key, request.url.path if request else "?", stacklevel=2)
-                    return Response(
-                        content=f'{{"detail": "{error_message}"}}',
+                    raise HTTPException(
                         status_code=429,
-                        media_type="application/json",
+                        detail=error_message,
                         headers={"Retry-After": str(per)},
                     )
                 return await func(*args, **kwargs)
@@ -106,7 +112,7 @@ def rate_limit(
 
             @wraps(func)
             def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
-                if not _RATE_LIMITING_ENABLED:
+                if not _is_rate_limiting_enabled():
                     logger.debug("Rate limiting bypassed for %s", func.__name__)
                     return func(*args, **kwargs)
 
@@ -114,10 +120,9 @@ def rate_limit(
                 key = _get_rate_limit_key(request, key_func)
                 if not _limiter.is_allowed(key):
                     logger.warning("Rate limit exceeded for %s on %s", key, request.url.path if request else "?", stacklevel=2)
-                    return Response(
-                        content=f'{{"detail": "{error_message}"}}',
+                    raise HTTPException(
                         status_code=429,
-                        media_type="application/json",
+                        detail=error_message,
                         headers={"Retry-After": str(per)},
                     )
                 return func(*args, **kwargs)
