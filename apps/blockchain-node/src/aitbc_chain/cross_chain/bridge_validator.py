@@ -168,17 +168,26 @@ class BridgeValidatorMixin:
             recovered = pub_key.to_checksum_address()
             logger.debug("Proof signed by: %s", recovered)
 
-            # Bug #3 fix: If a validator set is registered for the source chain,
-            # the recovered signer must be a member. Without this check, any
-            # holder of any Ethereum key could forge a valid proof.
+            # v0.10.16: Validator-set membership is required for production
+            # release paths. When bridge_release_enabled is True, a missing set
+            # or a non-member signature is a hard failure (fail-closed). Dev/test
+            # networks with the release fence disabled still accept any valid
+            # signature for backward compatibility.
             source_chain = proof.get("source_chain") or proof.get("chain_id")
+            release_enabled = getattr(settings, "bridge_release_enabled", False)
             if source_chain:
                 try:
                     vset = self.get_validator_set(source_chain)
                 except Exception as e:
+                    if release_enabled:
+                        logger.warning(
+                            "Validator set lookup failed for chain=%s (%s) with release enabled; rejecting proof",
+                            source_chain,
+                            e,
+                        )
+                        return False
                     # Validator set lookup may fail with mocked sessions or
-                    # transient DB issues. Treat the same as "no validator set
-                    # registered" for backward-compatible dev mode.
+                    # transient DB issues. Treat as unregistered for dev mode.
                     logger.debug(
                         "Validator set lookup failed for chain=%s (%s); treating as unregistered",
                         source_chain,
@@ -196,6 +205,12 @@ class BridgeValidatorMixin:
                             source_chain,
                         )
                         return False
+                elif release_enabled:
+                    logger.warning(
+                        "No validator set registered for chain=%s and bridge_release_enabled=True; rejecting proof",
+                        source_chain,
+                    )
+                    return False
                 else:
                     logger.debug(
                         "No validator set registered for chain=%s — accepting any valid signature (dev mode)",
