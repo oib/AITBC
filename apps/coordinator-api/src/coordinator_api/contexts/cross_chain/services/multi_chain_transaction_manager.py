@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 from aitbc.aitbc_logging import get_logger
 
 from ....agent_identity.wallet_adapter_enhanced import EnhancedWalletAdapter, SecurityLevel, WalletAdapterFactory
+from ....contexts.wallet.services.money import from_atomic_units, parse_decimal
 
 from .cross_chain.bridge_client_adapter import BridgeClientAdapter
 from ..domain.chain_transaction import (
@@ -120,7 +121,7 @@ class ChainTransactionManager:
                 transaction_type=transaction_type,
                 from_address=from_address,
                 to_address=to_address,
-                amount=float(amount),
+                amount=parse_decimal(amount),
                 token_address=token_address,
                 data=data or {},
                 priority=priority,
@@ -301,14 +302,18 @@ class ChainTransactionManager:
             avg_processing_time = 0.0
             if completed_transactions:
                 avg_processing_time = sum(tx.processing_time for tx in completed_transactions) / len(completed_transactions)
-            gas_stats = {}
+            gas_stats: dict[int, dict[str, Any]] = {}
             for tx in transactions:
                 if tx.gas_used and tx.gas_price_paid:
                     tx_chain_id = tx.chain_id
                     if tx_chain_id not in gas_stats:
-                        gas_stats[tx_chain_id] = {"total_gas_used": 0, "total_gas_cost": 0.0, "transaction_count": 0}
+                        gas_stats[tx_chain_id] = {
+                            "total_gas_used": 0,
+                            "total_gas_cost": Decimal("0"),
+                            "transaction_count": 0,
+                        }
                     gas_stats[tx_chain_id]["total_gas_used"] += tx.gas_used
-                    gas_stats[tx_chain_id]["total_gas_cost"] += tx.gas_used * tx.gas_price_paid / 10**18
+                    gas_stats[tx_chain_id]["total_gas_cost"] += from_atomic_units(tx.gas_used * tx.gas_price_paid)
                     gas_stats[tx_chain_id]["transaction_count"] += 1
             priority_distribution: dict[str, int] = defaultdict(int)
             for tx in transactions:

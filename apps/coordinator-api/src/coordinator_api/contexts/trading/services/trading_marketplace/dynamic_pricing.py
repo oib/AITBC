@@ -243,7 +243,7 @@ class DynamicPricingEngine:
         self,
         resource_id: str,
         resource_type: ResourceType,
-        base_price: float,
+        base_price: Decimal,
         strategy: PricingStrategy | None = None,
         constraints: PriceConstraints | None = None,
         region: str = "global",

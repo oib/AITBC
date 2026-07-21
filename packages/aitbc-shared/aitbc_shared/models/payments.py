@@ -5,6 +5,7 @@ Shared Payment ORM Models
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
@@ -22,7 +23,7 @@ class JobPayment(SQLModel, table=True):
     job_id: str = Field(index=True)
 
     # Payment details
-    amount: float = Field(sa_column=Column(Numeric(20, 8), nullable=False))
+    amount: Decimal = Field(sa_column=Column(Numeric(20, 8), nullable=False))
     currency: str = Field(default="AITBC", max_length=10)
     status: str = Field(default="pending", max_length=20)
     payment_method: str = Field(default="aitbc_token", max_length=20)
@@ -57,7 +58,7 @@ class PaymentEscrow(SQLModel, table=True):
     payment_id: str = Field(index=True)
 
     # Escrow details
-    amount: float = Field(sa_column=Column(Numeric(20, 8), nullable=False))
+    amount: Decimal = Field(sa_column=Column(Numeric(20, 8), nullable=False))
     currency: str = Field(default="AITBC", max_length=10)
     address: str = Field(max_length=100)
 

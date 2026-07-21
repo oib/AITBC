@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from base64 import b64decode, b64encode
 from datetime import datetime, timezone
+from decimal import Decimal
 from enum import Enum
 from typing import Any, Optional
 
@@ -16,7 +17,7 @@ class JobPaymentCreate(BaseModel):
     """Request to create a payment for a job"""
 
     job_id: str = Field(..., min_length=1, max_length=128, description="Job identifier")
-    amount: float = Field(..., gt=0, le=1_000_000, description="Payment amount in AITBC")
+    amount: Decimal = Field(..., gt=Decimal("0"), le=Decimal("1000000"), description="Payment amount in AITBC")
     currency: str = Field(default="AITBC", description="Payment currency")
     payment_method: str = Field(default="aitbc_token", description="Payment method")
     escrow_timeout_seconds: int = Field(default=3600, ge=300, le=86400, description="Escrow timeout in seconds")
@@ -243,16 +244,16 @@ class ExchangePaymentResponse(BaseModel):
 
 
 class ExchangeRatesResponse(BaseModel):
-    eth_to_aitbc: float
-    aitbc_to_eth: float
+    eth_to_aitbc: Decimal
+    aitbc_to_eth: Decimal
     fee_percent: float
 
 
 class PaymentStatusResponse(BaseModel):
     payment_id: str
     user_id: str
-    aitbc_amount: float
-    eth_amount: float
+    aitbc_amount: Decimal
+    eth_amount: Decimal
     payment_address: str
     status: str
     created_at: int
@@ -263,10 +264,10 @@ class PaymentStatusResponse(BaseModel):
 
 
 class MarketStatsResponse(BaseModel):
-    price: float
-    price_change_24h: float
-    daily_volume: float
-    daily_volume_eth: float
+    price: Decimal
+    price_change_24h: Decimal
+    daily_volume: Decimal
+    daily_volume_eth: Decimal
     total_payments: int
     pending_payments: int
 
@@ -275,7 +276,7 @@ class JobCreate(BaseModel):
     payload: dict[str, Any]
     constraints: Constraints = Field(default_factory=Constraints)
     ttl_seconds: int = 900
-    payment_amount: float | None = None  # Amount to pay for the job
+    payment_amount: Decimal | None = None  # Amount to pay for the job
     payment_currency: str = "AITBC"  # Jobs paid with AITBC tokens
 
 
