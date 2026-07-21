@@ -159,7 +159,7 @@ Expects environment variables defined in `.env` (see `docs/bootstrap/coordinator
 
 Production deployments use PostgreSQL for persistence. Configure via:
 - `DATABASE_ADAPTER=postgresql`
-- `DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/aitbc_coordinator`
+- `DATABASE_URL=postgresql+psycopg://user:<DB_PASSWORD>@localhost:5432/aitbc_coordinator`
 
 SQLite fallback is available for development or nodes without PostgreSQL.
 

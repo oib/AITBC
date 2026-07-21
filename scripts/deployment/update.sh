@@ -428,15 +428,16 @@ run_migrations() {
             success "  migrated: $svc_name"
             ((migrated++))
         else
-            warning "  migration failed for $svc_name (table may already exist from create_all, multiple heads, or DB unreachable)"
-            warning "  inspect: cd $svc_dir && PYTHONPATH=src $alembic_bin upgrade head"
+            error "  migration failed for $svc_name (multiple heads, missing baseline, or DB unreachable)"
+            error "  inspect: cd $svc_dir && PYTHONPATH=src $alembic_bin upgrade head"
             ((failed++))
         fi
     done < <(find "$AITBC_ROOT/apps" -maxdepth 3 -name "alembic.ini" 2>/dev/null | sort)
 
     log "Migrations: ${migrated} ok, ${failed} failed, ${skipped} skipped"
     if [ "$failed" -gt 0 ]; then
-        warning "Some migrations failed — services will still restart; check output above"
+        error "Migrations failed — not restarting services with an unknown schema"
+        return 1
     fi
 }
 
@@ -582,7 +583,7 @@ main() {
     enable_services
 
     if [ "$DO_MIGRATE" = "true" ]; then
-        run_migrations
+        run_migrations || exit 1
     else
         log "Skipping DB migrations (--no-migrate)"
     fi

@@ -359,10 +359,10 @@ from aitbc.database import ReadReplicaManager
 
 # Initialize with primary and replicas
 manager = ReadReplicaManager(
-    primary_url="postgresql://user:pass@primary-host/aitbc",
+    primary_url="postgresql://user:<DB_PASSWORD>@primary-host/aitbc",
     replica_urls=[
-        "postgresql://user:pass@replica1-host/aitbc",
-        "postgresql://user:pass@replica2-host/aitbc"
+        "postgresql://user:<DB_PASSWORD>@replica1-host/aitbc",
+        "postgresql://user:<DB_PASSWORD>@replica2-host/aitbc"
     ],
     read_weight=70  # 70% of reads to replicas
 )
@@ -399,7 +399,7 @@ engine = create_pooled_engine(
 
 # PostgreSQL with connection pooling
 engine = create_pooled_engine(
-    database_url="postgresql://user:pass@localhost/aitbc",
+    database_url="postgresql://user:<DB_PASSWORD>@localhost/aitbc",
     pool_size=10,
     max_overflow=20,
     pool_recycle=3600,  # Recycle connections every hour

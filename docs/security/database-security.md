@@ -23,7 +23,7 @@ ALTER SYSTEM SET ssl_key_file = '/etc/ssl/private/postgresql.key';
 
 ```python
 # Use SSL for database connections
-DATABASE_URL = "postgresql://user:pass@localhost:5432/aitbc?sslmode=require"
+DATABASE_URL = "postgresql://user:<DB_PASSWORD>@localhost:5432/aitbc?sslmode=require"
 
 # Connection pooling with SSL
 engine = create_engine(

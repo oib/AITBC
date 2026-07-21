@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Chain bulk sync strategies (sequential and parallel)."""
 
 from __future__ import annotations
@@ -14,12 +13,16 @@ from .base_models import Block
 from .config import settings
 from .logger import get_logger
 from .metrics import metrics_registry
+from .sync_base import SyncBase
 
 logger = get_logger(__name__)
 
 
-class BulkSyncMixin:
+class BulkSyncMixin(SyncBase):
     """Fetch and import blocks in bulk from remote peers."""
+
+    # ponytail: Protocol base declares the attributes the concrete ChainSync sets.
+    _last_bulk_sync_time: int
 
     async def close(self) -> None:
         """Close HTTP client."""

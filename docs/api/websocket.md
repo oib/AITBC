@@ -36,7 +36,7 @@ WebSocket connections provide real-time, bidirectional communication with the AI
 WebSocket connections require authentication via query parameters:
 
 ```
-ws://localhost:8203/v1/jobs/{job_id}/ws?api_key=your-api-key
+ws://localhost:8203/v1/jobs/{job_id}/ws?api_key=<YOUR_API_KEY>
 ```
 
 Alternatively, use the `X-Api-Key` header during the WebSocket handshake.
@@ -91,13 +91,13 @@ async def monitor_job(job_id: str, api_key: str):
             if data['state'] in ['COMPLETED', 'FAILED', 'CANCELLED', 'EXPIRED']:
                 break
 
-asyncio.run(monitor_job("job-id", "your-api-key"))
+asyncio.run(monitor_job("job-id", "<YOUR_API_KEY>"))
 ```
 
 ### Example (JavaScript)
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8203/v1/jobs/job-id/ws?api_key=your-api-key');
+const ws = new WebSocket('ws://localhost:8203/v1/jobs/job-id/ws?api_key=<YOUR_API_KEY>');
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
@@ -121,7 +121,7 @@ ws.onclose = () => {
 ### Example (cURL with websocat)
 
 ```bash
-websocat ws://localhost:8203/v1/jobs/job-id/ws?api_key=your-api-key
+websocat ws://localhost:8203/v1/jobs/job-id/ws?api_key=<YOUR_API_KEY>
 ```
 
 ## Blockchain Events WebSocket
