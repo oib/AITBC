@@ -1,6 +1,8 @@
-"""Tests for users router with Redis-backed sessions."""
+"""Tests for users router with signed-nonce wallet authentication."""
 
 import pytest
+from eth_account import Account
+from eth_account.messages import encode_defunct
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
@@ -51,29 +53,66 @@ def _override_db_session(client):
         app.dependency_overrides.pop(get_session, None)
 
 
-def test_register_user(client):
-    """Test user registration."""
-    response = client.post(
+def _sign_login(wallet_address: str, nonce: str, private_key: str) -> str:
+    """Sign the canonical AITBC login message with an Ethereum private key."""
+    message = f"Sign this message to log in to AITBC.\nWallet: {wallet_address.lower()}\nNonce: {nonce}"
+    signable = encode_defunct(text=message)
+    return Account.from_key(private_key).sign_message(signable).signature.hex()
+
+
+def _register_user(client, account: Account):
+    """Register a user with a signed nonce. Returns the register response."""
+    wallet_address = account.address.lower()
+    nonce_resp = client.post("/v1/auth/nonce", json={"wallet_address": wallet_address})
+    assert nonce_resp.status_code == 200
+    nonce = nonce_resp.json()["nonce"]
+    signature = _sign_login(wallet_address, nonce, account.key.hex())
+
+    return client.post(
         "/v1/register",
         json={
-            "email": "test@example.com",
-            "username": "testuser",
-            "wallet_address": "aitbc_test123",
+            "email": f"{wallet_address[2:10]}@example.com",
+            "username": f"user_{wallet_address[2:10]}",
+            "wallet_address": wallet_address,
+            "nonce": nonce,
+            "signature": signature,
         },
     )
+
+
+def _login_user(client, account: Account):
+    """Log in a user with a signed nonce. Returns the login response."""
+    wallet_address = account.address.lower()
+    nonce_resp = client.post("/v1/auth/nonce", json={"wallet_address": wallet_address})
+    assert nonce_resp.status_code == 200
+    nonce = nonce_resp.json()["nonce"]
+    signature = _sign_login(wallet_address, nonce, account.key.hex())
+
+    return client.post(
+        "/v1/login",
+        json={
+            "wallet_address": wallet_address,
+            "nonce": nonce,
+            "signature": signature,
+        },
+    )
+
+
+def test_register_user(client):
+    """Test user registration with a signed wallet address."""
+    account = Account.create()
+    response = _register_user(client, account)
     assert response.status_code == 200
     data = response.json()
     assert "user_id" in data
-    assert data["email"] == "test@example.com"
+    assert data["email"].endswith("@example.com")
     assert "session_token" in data
 
 
 def test_login_user(client):
-    """Test user login."""
-    response = client.post(
-        "/v1/login",
-        json={"wallet_address": "aitbc_login_test"},
-    )
+    """Test user login with a signed nonce challenge."""
+    account = Account.create()
+    response = _login_user(client, account)
     assert response.status_code == 200
     data = response.json()
     assert "user_id" in data
@@ -81,50 +120,111 @@ def test_login_user(client):
 
 
 def test_get_current_user(client):
-    """Test getting current user profile."""
-    # Register first
-    reg_resp = client.post(
-        "/v1/register",
-        json={
-            "email": "test2@example.com",
-            "username": "testuser2",
-            "wallet_address": "aitbc_test2",
-        },
-    )
+    """Test getting current user profile with a JWT session token."""
+    account = Account.create()
+    reg_resp = _register_user(client, account)
     token = reg_resp.json()["session_token"]
 
-    # Get profile
     profile_resp = client.get(f"/v1/users/me?token={token}")
     assert profile_resp.status_code == 200
     data = profile_resp.json()
-    assert data["email"] == "test2@example.com"
+    assert data["email"] == reg_resp.json()["email"]
 
 
 def test_get_current_user_invalid_token(client):
-    """Test getting profile with invalid token."""
+    """Test getting profile with an invalid or malformed token."""
     response = client.get("/v1/users/me?token=invalid-token")
     assert response.status_code == 401
     assert "Invalid or expired token" in response.json()["detail"]
 
 
 def test_logout(client):
-    """Test user logout."""
-    # Register first
-    reg_resp = client.post(
-        "/v1/register",
-        json={
-            "email": "test3@example.com",
-            "username": "testuser3",
-            "wallet_address": "aitbc_test3",
-        },
-    )
+    """Test user logout invalidates the session token."""
+    account = Account.create()
+    reg_resp = _register_user(client, account)
     token = reg_resp.json()["session_token"]
 
-    # Logout
     logout_resp = client.post(f"/v1/logout?token={token}")
     assert logout_resp.status_code == 200
     assert "Logged out successfully" in logout_resp.json()["message"]
 
-    # Verify token is invalidated
     profile_resp = client.get(f"/v1/users/me?token={token}")
     assert profile_resp.status_code == 401
+
+
+def test_forged_signature_rejected(client):
+    """A signature from a different wallet is rejected."""
+    account = Account.create()
+    attacker = Account.create()
+    wallet_address = account.address.lower()
+
+    nonce_resp = client.post("/v1/auth/nonce", json={"wallet_address": wallet_address})
+    assert nonce_resp.status_code == 200
+    nonce = nonce_resp.json()["nonce"]
+    forged_signature = _sign_login(wallet_address, nonce, attacker.key.hex())
+
+    response = client.post(
+        "/v1/login",
+        json={
+            "wallet_address": wallet_address,
+            "nonce": nonce,
+            "signature": forged_signature,
+        },
+    )
+    assert response.status_code == 401
+
+
+def test_replayed_nonce_rejected(client):
+    """A nonce cannot be used more than once."""
+    account = Account.create()
+    wallet_address = account.address.lower()
+
+    nonce_resp = client.post("/v1/auth/nonce", json={"wallet_address": wallet_address})
+    nonce = nonce_resp.json()["nonce"]
+    signature = _sign_login(wallet_address, nonce, account.key.hex())
+
+    payload = {
+        "wallet_address": wallet_address,
+        "nonce": nonce,
+        "signature": signature,
+    }
+
+    # First use succeeds
+    first = client.post("/v1/login", json=payload)
+    assert first.status_code == 200
+
+    # Replay fails
+    second = client.post("/v1/login", json=payload)
+    assert second.status_code == 401
+    assert "nonce" in second.json()["detail"].lower()
+
+
+def test_token_guessing_rejected(client):
+    """A random, syntactically plausible token is rejected."""
+    import secrets
+
+    fake_token = secrets.token_urlsafe(32)
+    response = client.get(f"/v1/users/me?token={fake_token}")
+    assert response.status_code == 401
+
+
+def test_idor_balance_access_denied(client):
+    """A user cannot read another user's balance using their own token."""
+    alice = Account.create()
+    bob = Account.create()
+
+    alice_resp = _register_user(client, alice)
+    alice_token = alice_resp.json()["session_token"]
+    alice_user_id = alice_resp.json()["user_id"]
+
+    bob_resp = _register_user(client, bob)
+    bob_user_id = bob_resp.json()["user_id"]
+
+    # Alice tries to read Bob's balance
+    response = client.get(f"/v1/users/{bob_user_id}/balance?token={alice_token}")
+    assert response.status_code == 403
+
+    # Alice can read her own balance
+    own = client.get(f"/v1/users/{alice_user_id}/balance?token={alice_token}")
+    assert own.status_code == 200
+    assert own.json()["user_id"] == alice_user_id
