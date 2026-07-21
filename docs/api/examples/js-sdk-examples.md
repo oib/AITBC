@@ -15,7 +15,7 @@ import { AITBCClient } from '@aitbc/aitbc-sdk';
 
 // Initialize client
 const client = new AITBCClient({
-  apiKey: 'your-api-key',
+  apiKey: '<YOUR_API_KEY>',
   baseUrl: 'http://localhost:8203'
 });
 ```
@@ -262,7 +262,7 @@ for (const job of history) {
 ```typescript
 // Use custom headers
 const client = new AITBCClient({
-  apiKey: 'your-api-key',
+  apiKey: '<YOUR_API_KEY>',
   baseUrl: 'http://localhost:8203',
   headers: {
     'X-Custom-Header': 'value'
@@ -301,7 +301,7 @@ const client = new AITBCClient({
 
 ```typescript
 const client = new AITBCClient({
-  apiKey: 'your-api-key',
+  apiKey: '<YOUR_API_KEY>',
   baseUrl: 'http://localhost:8203',
   timeout: 30000 // 30 second timeout
 });
@@ -319,7 +319,7 @@ function JobComponent({ jobId }: { jobId: string }) {
 
   useEffect(() => {
     const client = new AITBCClient({
-      apiKey: 'your-api-key',
+      apiKey: '<YOUR_API_KEY>',
       baseUrl: 'http://localhost:8203'
     });
 

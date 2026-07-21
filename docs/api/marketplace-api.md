@@ -502,7 +502,7 @@ from aitbc_agent import MarketplaceClient
 
 # Initialize client
 client = MarketplaceClient(
-    api_key="your-api-key",
+    api_key="<YOUR_API_KEY>",
     base_url="http://localhost:8203"
 )
 
@@ -533,7 +533,7 @@ pricing = await client.get_pricing()
 import { MarketplaceClient } from '@aitbc/agent-sdk';
 
 const client = new MarketplaceClient({
-  apiKey: 'your-api-key',
+  apiKey: '<YOUR_API_KEY>',
   baseUrl: 'http://localhost:8203'
 });
 

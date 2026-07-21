@@ -61,7 +61,7 @@ mempool:
 ```yaml
 database:
   adapter: postgresql  # or sqlite
-  url: postgresql://user:pass@localhost/aitbc_chain
+  url: postgresql://user:<DB_PASSWORD>@localhost/aitbc_chain
   pool_size: 10
   max_overflow: 20
 ```

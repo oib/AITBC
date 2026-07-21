@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Cross-chain bridge validator set management and signature verification."""
 
 from __future__ import annotations
@@ -16,12 +15,15 @@ from aitbc.bridge import ValidatorInfo, ValidatorSet
 from ..config import settings
 from ..logger import get_logger
 from ..models import BridgeValidator
+from .bridge_base import BridgeBase
 
 logger = get_logger(__name__)
 
 
-class BridgeValidatorMixin:
+class BridgeValidatorMixin(BridgeBase):
     """Validator set registration, loading, and signature verification."""
+
+    # ponytail: Protocol base declares the attributes the concrete CrossChainBridge sets.
 
     # v0.7.1: Validator set management + multi-sig threshold verification
     # ------------------------------------------------------------------

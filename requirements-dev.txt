@@ -1,39 +1,127 @@
-# AITBC Development Dependencies
-# Development tools, testing, and code quality utilities
+# Generated from poetry.lock by scripts/ci/export-requirements.sh.
+# Do not edit manually; run this script to regenerate.
 
-# Testing Framework
-pytest>=7.4.0
-pytest-asyncio>=0.21.0
-pytest-mock>=3.12.0
-pytest-cov>=4.0.0
-httpx>=0.25.0
-fakeredis>=2.36.2
-
-# Code Quality
-black>=23.9.0
-flake8>=6.1.0
-mypy>=1.6.0
-pre-commit>=3.4.0
-ruff>=0.1.0
-
-# CLI Tools
-click>=8.1.0
-rich>=13.0.0
-typer>=0.12.0
-click-completion>=0.5.2
-tabulate>=0.9.0
-colorama>=0.4.4
-keyring>=23.0.0
-
-# Development Utilities
-tqdm>=4.66.0
-ipython>=8.0.0
-
-# Type stubs
-# ponytail: types-PyYAML and types-pytz are needed by mypy; the exact versions are
-# maintained by Poetry (canonical resolver), so use a broad pin here.
-types-PyYAML>=6.0
-types-pytz>=2025.1
-
-# Authentication
-PyJWT[crypto]>=2.8.0
+annotated-doc==0.0.4 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+annotated-types==0.7.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+anyio==4.13.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+ast-serialize==0.3.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+asttokens==3.0.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+attrs==26.1.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+authlib==1.7.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+bandit==1.9.4 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+boolean-py==5.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+cachecontrol==0.14.4 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+certifi==2026.4.22 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+cffi==2.0.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15" and platform_python_implementation != "PyPy"
+cfgv==3.5.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+charset-normalizer==3.4.7 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+click==8.4.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+colorama==0.4.6 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15" and (platform_system == "Windows" or sys_platform == "win32")
+coverage==7.13.5 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+cryptography==48.0.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+cyclonedx-python-lib==11.11.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+decorator==5.3.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+defusedxml==0.7.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+detect-secrets==1.5.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+distlib==0.4.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+dparse==0.6.4 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+executing==2.2.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+fakeredis==2.36.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+filelock==3.29.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+h11==0.16.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+httpcore==1.0.9 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+httpx==0.28.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+identify==2.6.19 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+idna==3.18 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+iniconfig==2.3.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+ipython-pygments-lexers==1.1.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+ipython==9.5.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+jedi==0.20.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+jinja2==3.1.6 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+joblib==1.5.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+joserfc==1.6.5 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+jsonschema-path==0.5.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+jsonschema-specifications==2025.9.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+jsonschema==4.26.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+lazy-object-proxy==1.12.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+librt==0.13.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15" and platform_python_implementation != "PyPy"
+license-expression==30.4.4 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+markdown-it-py==4.1.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+markupsafe==3.0.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+marshmallow==4.3.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+matplotlib-inline==0.2.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+mdurl==0.1.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+msgpack==1.1.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+mypy-extensions==1.1.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+mypy==2.1.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+nltk==3.9.4 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+nodeenv==1.10.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+openapi-schema-validator==0.9.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+openapi-spec-validator==0.9.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+packageurl-python==0.17.6 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+packaging==26.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+parso==0.8.7 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pathable==0.6.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pathspec==1.1.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pexpect==4.9.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15" and sys_platform != "win32" and sys_platform != "emscripten"
+pip-api==0.0.34 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pip-audit==2.10.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pip-requirements-parser==32.0.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pip==26.1.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+platformdirs==4.9.6 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pluggy==1.6.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pre-commit==4.5.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+prompt-toolkit==3.0.52 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+ptyprocess==0.7.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15" and sys_platform != "win32" and sys_platform != "emscripten"
+pure-eval==0.2.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+py-serializable==2.1.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pycparser==3.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15" and platform_python_implementation != "PyPy" and implementation_name != "PyPy"
+pydantic-core==2.46.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pydantic-settings==2.14.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pydantic==2.13.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pygments==2.20.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pyparsing==3.3.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pytest-asyncio==1.4.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pytest-cov==7.1.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pytest-mock==3.14.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pytest-rerunfailures==16.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pytest-timeout==2.4.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pytest==9.0.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+python-discovery==1.3.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+python-dotenv==1.2.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pyyaml==6.0.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+redis==8.0.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+referencing==0.37.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+regex==2026.4.4 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+requests==2.34.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+rfc3339-validator==0.1.4 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+rich==15.0.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+rpds-py==2026.6.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+ruamel-yaml==0.19.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+ruff==0.15.17 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+safety-schemas==0.0.16 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+safety==3.7.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+shellingham==1.5.4 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+six==1.17.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+sortedcontainers==2.4.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+stack-data==0.6.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+stevedore==5.7.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+tenacity==9.1.4 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+tomli-w==1.2.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+tomli==2.4.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+tomlkit==0.14.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+tqdm==4.68.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+traitlets==5.15.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+typer==0.25.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+types-psycopg2==2.9.21.20260518 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+types-python-dateutil==2.9.0.20260518 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+types-pytz==2026.2.0.20260518 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+types-pyyaml==6.0.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+types-requests==2.33.0.20260518 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+types-setuptools==75.8.0.20250110 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+types-tabulate==0.9.0.20241207 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+typing-extensions==4.15.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+typing-inspection==0.4.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+urllib3==2.7.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+virtualenv==21.3.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+wcwidth==0.8.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"

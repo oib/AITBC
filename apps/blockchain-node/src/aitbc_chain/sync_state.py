@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Full and delta state synchronization from peers."""
 
 from __future__ import annotations
@@ -15,12 +14,15 @@ from .base_models import Account
 from .config import settings
 from .logger import get_logger
 from .state import state_root_utils
+from .sync_base import SyncBase
 
 logger = get_logger(__name__)
 
 
-class StateSyncMixin:
+class StateSyncMixin(SyncBase):
     """Pull account state snapshots and deltas from remote peers."""
+
+    # ponytail: Protocol base declares the attributes the concrete ChainSync sets.
 
     async def sync_state_from(self, source_url: str) -> dict[str, Any]:
         """Pull account state snapshot from a peer and reconcile local accounts.
