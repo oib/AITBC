@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Cross-chain bridge block header, Merkle proof, and finality verification."""
 
 from __future__ import annotations
@@ -13,12 +12,15 @@ from ..config import settings
 from ..logger import get_logger
 from ..models import BridgeBlockHeader
 from ..state.merkle_patricia_trie import MerklePatriciaTrie
+from .bridge_base import BridgeBase
 
 logger = get_logger(__name__)
 
 
-class BridgeFinalityMixin:
+class BridgeFinalityMixin(BridgeBase):
     """Remote block header storage and cryptographic finality checks."""
+
+    # ponytail: Protocol base declares the attributes the concrete CrossChainBridge sets.
 
     # v0.7.2 §B3-B6: Merkle proof, block header, finality, epoch tracking
     # ------------------------------------------------------------------

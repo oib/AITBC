@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Single block import, append, and fork resolution."""
 
 from __future__ import annotations
@@ -25,13 +24,16 @@ from .state.pure_state_transition import (
     extract_read_write_sets,
 )
 from .state.state_transition import get_state_transition
+from .sync_base import SyncBase
 from .sync_validator import ImportResult
 
 logger = get_logger(__name__)
 
 
-class BlockImportMixin:
+class BlockImportMixin(SyncBase):
     """Import a single block, append it, and resolve chain forks."""
+
+    # ponytail: Protocol base declares the attributes the concrete ChainSync sets.
 
     def import_block(
         self,

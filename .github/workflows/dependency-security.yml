@@ -4,6 +4,7 @@ on:
   push:
     branches: [main, develop]
     paths:
+      - 'poetry.lock'
       - 'requirements.txt'
       - 'requirements-*.txt'
       - 'pyproject.toml'
@@ -33,22 +34,25 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install security tools
+      - name: Install poetry
         run: |
           python -m pip install --upgrade pip
-          pip install safety bandit pip-audit
+          pip install poetry==2.4.1
+
+      - name: Install project dependencies
+        run: poetry install --no-interaction
 
       - name: Run pip-audit
         run: |
           echo "=== pip-audit Security Scan ==="
-          pip-audit -r requirements.txt --desc
-          pip-audit -r requirements.txt --format json --output pip-audit-report.json
+          poetry run pip-audit -r requirements.txt --desc
+          poetry run pip-audit -r requirements.txt --format json --output pip-audit-report.json
 
       - name: Run safety check
         run: |
           echo "=== Safety Security Scan ==="
-          safety check --file requirements.txt --json --output safety-report.json
-          safety check --file requirements.txt --output safety-report.txt
+          poetry run safety check --file requirements.txt --json --output safety-report.json
+          poetry run safety check --file requirements.txt --output safety-report.txt
 
       - name: Upload security reports
         uses: actions/upload-artifact@v4
@@ -96,9 +100,9 @@ jobs:
             ### Recommended Actions:
             1. Review the vulnerabilities above
             2. Update affected dependencies to secure versions
-            3. Run \`pip install --upgrade <package>\` to update
-            4. Test thoroughly after updates
-            5. Commit the updated requirements.txt
+            3. Run \`poetry update <package>\` to update
+            4. Regenerate requirements.txt/requirements-dev.txt with scripts/ci/export-requirements.sh
+            5. Commit the updated poetry.lock and exported requirements files
             `;
 
             github.rest.issues.create({
@@ -126,48 +130,44 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install pip-tools
+      - name: Install poetry
         run: |
           python -m pip install --upgrade pip
-          pip install pip-tools safety
+          pip install poetry==2.4.1
 
       - name: Check for outdated dependencies
         run: |
           echo "=== Checking for outdated dependencies ==="
-          pip list --outdated --format=json > outdated.json || true
-          cat outdated.json || echo "No outdated packages found"
+          poetry show --outdated --no-interaction > outdated.txt || true
+          cat outdated.txt || echo "No outdated packages found"
 
       - name: Update dependencies with safety check
         run: |
-          echo "=== Updating dependencies ==="
+          echo "=== Updating dependencies with Poetry ==="
 
-          # Create backup
-          cp requirements.txt requirements.txt.backup
+          # Update lockfile from pyproject.toml constraints
+          poetry update --no-interaction
 
-          # Update all packages
-          pip install --upgrade -r requirements.txt
+          # Regenerate pinned requirements from the resolved lockfile
+          poetry export --only main --without-hashes -o requirements.txt
+          poetry export --only dev --without-hashes -o requirements-dev.txt
 
-          # Freeze updated requirements
-          pip freeze > requirements.txt.new
-
-          # Check for security issues in updated dependencies
+          # Security check on the resolved dependency set
           echo "=== Security check on updated dependencies ==="
-          safety check --file requirements.txt.new
+          poetry run safety check --file requirements.txt
 
           # Show changes
           echo "=== Dependency Changes ==="
-          diff -u requirements.txt.backup requirements.txt.new || true
+          git diff -- poetry.lock requirements.txt requirements-dev.txt || true
 
       - name: Create PR if updates available
         id: create-pr
         run: |
-          if [ -f requirements.txt.new ] && [ ! requirements.txt.new -ef requirements.txt ]; then
-            mv requirements.txt.new requirements.txt
-
+          if [ -n "$(git status --porcelain poetry.lock requirements.txt requirements-dev.txt)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git checkout -b deps/update-$(date +%Y%m%d)
-            git add requirements.txt
+            git add poetry.lock requirements.txt requirements-dev.txt
             git commit -m "deps: update dependencies [skip ci]"
             git push origin deps/update-$(date +%Y%m%d)
 

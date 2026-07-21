@@ -1,12 +1,8 @@
 # AITBC Security & Compliance Optional Dependencies
-# Install with: pip install -r requirements-optional/security.txt
+# Pinned to the versions resolved in poetry.lock. Do not edit manually.
 
-# Authentication & Security
-python-jose[cryptography]>=3.3.0
-passlib[bcrypt]>=1.7.4
+# These packages are also present (and pinned) in ../requirements.txt.
+# This file exists for backward compatibility with install-profiles.sh.
 
-# Encryption & Cryptography (additional to core)
-cryptography>=41.0.0
-
-# Compliance & Monitoring
-sentry-sdk>=2.0.0
+cryptography==48.0.1
+sentry-sdk==2.61.1

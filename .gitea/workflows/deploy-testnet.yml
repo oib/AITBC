@@ -129,6 +129,7 @@ jobs:
         run: |
           cd /opt/aitbc
 
-          # Skip smoke tests - script doesn't exist
-          echo "⚠️  Skipping smoke tests - script not found"
-          echo "✅ Smoke tests skipped"
+          # Run post-deployment smoke tests (migrations, health, auth, contracts)
+          bash scripts/testing/run-production-smoke-tests.sh testnet
+
+          echo "Smoke tests passed"

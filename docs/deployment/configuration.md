@@ -12,15 +12,15 @@ BLOCKCHAIN_CONSENSUS_ALGORITHM=proof_of_stake
 BLOCKCHAIN_VALIDATOR_PRIVATE_KEY=0x...
 
 # /etc/aitbc/coordinator.env
-COORDINATOR_API_KEY=your-api-key
-COORDINATOR_DATABASE_URL=postgresql://user:pass@localhost:5432/aitbc
+COORDINATOR_API_KEY=<YOUR_API_KEY>
+COORDINATOR_DATABASE_URL=postgresql://user:<DB_PASSWORD>@localhost:5432/aitbc
 COORDINATOR_REDIS_URL=redis://localhost:6379
-COORDINATOR_JWT_SECRET=your-jwt-secret
+COORDINATOR_JWT_SECRET=<YOUR_JWT_SECRET>
 
 # /etc/aitbc/marketplace.env
-MARKETPLACE_DATABASE_URL=postgresql://user:pass@localhost:5432/aitbc
+MARKETPLACE_DATABASE_URL=postgresql://user:<DB_PASSWORD>@localhost:5432/aitbc
 MARKETPLACE_REDIS_URL=redis://localhost:6379
-MARKETPLACE_API_KEY=your-api-key
+MARKETPLACE_API_KEY=<YOUR_API_KEY>
 ```
 
 ## Configuration Files

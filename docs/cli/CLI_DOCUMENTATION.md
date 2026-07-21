@@ -216,7 +216,7 @@ source venv/bin/activate
 ### Environment Variables
 ```bash
 export AITBC_COORDINATOR_URL="http://localhost:8203"
-export AITBC_API_KEY="your-api-key"
+export AITBC_API_KEY="<YOUR_API_KEY>"
 export AITBC_RPC_URL="http://localhost:8202"
 ```
 

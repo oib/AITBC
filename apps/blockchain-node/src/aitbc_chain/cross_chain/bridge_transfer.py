@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Cross-chain bridge transfer lifecycle and proof validation."""
 
 from __future__ import annotations
@@ -14,13 +13,16 @@ from sqlmodel import select
 from ..config import settings
 from ..logger import get_logger
 from ..models import Account, CrossChainTransfer, Transaction
+from .bridge_base import BridgeBase
 from .bridge_types import BridgeStatus, BridgeTransfer
 
 logger = get_logger(__name__)
 
 
-class BridgeTransferMixin:
+class BridgeTransferMixin(BridgeBase):
     """Cross-chain transfer lock/confirm/refund and batch operations."""
+
+    # ponytail: Protocol base declares the attributes the concrete CrossChainBridge sets.
 
     BRIDGE_FEE_BASIS_POINTS = 10
 
