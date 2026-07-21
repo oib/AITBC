@@ -61,7 +61,7 @@ from aitbc_cli.commands.wallet import wallet
 from aitbc_cli.commands.workflow import workflow
 
 # Force CLI version for user-facing output
-__version__ = "0.10.14"
+__version__ = "0.10.16"
 
 logger = get_logger(__name__)
 

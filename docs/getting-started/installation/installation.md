@@ -65,8 +65,8 @@ Architecture: x86_64/arm64
 
 Create `apps/coordinator-api/.env`:
 ```env
-JWT_SECRET=your-secret-key
-DATABASE_URL=sqlite:///./data/coordinator.db   # or postgresql://user:pass@localhost/aitbc
+JWT_SECRET=<YOUR_JWT_SECRET>
+DATABASE_URL=sqlite:///./data/coordinator.db   # or postgresql://user:<DB_PASSWORD>@localhost/aitbc
 LOG_LEVEL=INFO
 ```
 

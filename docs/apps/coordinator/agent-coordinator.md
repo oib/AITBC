@@ -53,10 +53,10 @@ cd /opt/aitbc/apps/agent-coordinator
 ### Configuration
 Set environment variables in `.env`:
 ```bash
-DATABASE_URL=postgresql://user:pass@localhost/agent_coordinator
+DATABASE_URL=postgresql://user:<DB_PASSWORD>@localhost/agent_coordinator
 REDIS_URL=redis://localhost:6379
-JWT_SECRET_KEY=your-secret-key
-API_KEY=your-api-key
+JWT_SECRET_KEY=<YOUR_SECRET_KEY>
+API_KEY=<YOUR_API_KEY>
 ```
 
 ### Running the Service

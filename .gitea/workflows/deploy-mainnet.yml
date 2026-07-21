@@ -197,7 +197,7 @@ jobs:
           # Run smoke tests against deployed contracts on mainnet
           bash scripts/testing/run-production-smoke-tests.sh mainnet
 
-          echo "✅ Production smoke tests passed"
+          echo "Production smoke tests passed"
 
   post-deployment-monitoring:
     runs-on: debian

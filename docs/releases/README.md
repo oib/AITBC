@@ -28,7 +28,7 @@ Read the release notes newest-first:
 ### Current Releases (v0.5.x+)
 - **[v2.0.0](v2.0.0/change.log)** - Vision/Questionable Features — Parked for Re-Evaluation
 - **[v1.0.0](v1.0.0/change.log)** - Production Readiness
-- **[v0.10.16](v0.10.16/change.log)** - Security & Correctness Hardening (bridge trust boundaries, wallet authentication, financial exactness, migrations, CI/deployment) planned
+- **[v0.10.16](v0.10.16/change.log)** - Security & Correctness Hardening (bridge trust boundaries, wallet authentication, financial exactness, migrations, CI/deployment) ✅ complete
 - **[v0.10.15](v0.10.15/change.log)** - Monolithic Router/Module Decomposition & Settlement Config Wiring ✅ complete
 - **[v0.10.14](v0.10.14/change.log)** - Legacy Code & Stub Elimination (shadow packages, legacy routers, fake implementations, duplicate stacks) ✅ complete
 - **[v0.10.13](v0.10.13/change.log)** - Security & Correctness Hardening (credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) ✅

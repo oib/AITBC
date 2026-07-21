@@ -182,7 +182,7 @@ The API uses API key authentication for clients and miners, and session-based au
 ### API Keys
 
 ```http
-X-Api-Key: your-api-key-here
+X-Api-Key: <YOUR_API_KEY>
 ```
 
 ### Session Tokens
@@ -218,7 +218,7 @@ API_HOST=0.0.0.0
 API_PORT=8203
 
 # Security
-SECRET_KEY=your-secret-key
+SECRET_KEY=<YOUR_SECRET_KEY>
 API_KEYS=key1,key2,key3
 
 # Exchange

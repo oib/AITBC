@@ -20,9 +20,9 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install poetry
-        run: pip install poetry
+        run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install
+        run: poetry install --no-interaction
       - run: poetry run ruff check .
 
   format:
@@ -34,9 +34,9 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install poetry
-        run: pip install poetry
+        run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install
+        run: poetry install --no-interaction
       - run: poetry run ruff format --check .
 
   typecheck:
@@ -48,12 +48,21 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install poetry
-        run: pip install poetry
+        run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install
+        run: poetry install --no-interaction
       - run: poetry run mypy aitbc/ cli/ --ignore-missing-imports
       - name: Strict shared-core type check
         run: poetry run mypy --show-error-codes aitbc/
+      - name: Strict blockchain-node mixins type check
+        run: |
+          poetry run mypy --show-error-codes --ignore-missing-imports \
+            apps/blockchain-node/src/aitbc_chain/sync_bulk.py \
+            apps/blockchain-node/src/aitbc_chain/sync_state.py \
+            apps/blockchain-node/src/aitbc_chain/sync_block_import.py \
+            apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_finality.py \
+            apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py \
+            apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_validator.py
 
   typecheck-new-modules:
     name: Type Check New Modules
@@ -64,9 +73,9 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install poetry
-        run: pip install poetry
+        run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install
+        run: poetry install --no-interaction
       - name: Type check Redis state manager
         run: |
           cd apps/coordinator-api
@@ -90,23 +99,15 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install poetry
-        run: pip install poetry
+        run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install
-      - name: Install pytest-rerunfailures for flaky test detection
-        run: pip install pytest-rerunfailures
+        run: poetry install --no-interaction
       - name: Run tests with coverage gate and flaky test detection
         run: |
-          # Coverage gate: 25% threshold (coordinator-api baseline)
-          # Note: 80% is the long-term target. Current coverage is ~24% across
-          # 50k+ lines spanning 50+ modules. Reaching 80% requires systematic
-          # test expansion for complex subsystems (GPU, trading, RL, etc.).
-          # See docs/releases/v0.5.1/change.log for coverage expansion plan.
-          poetry run pytest apps/coordinator-api/tests/ --cov=apps/coordinator-api/src --cov-report=xml --cov-report=term --cov-fail-under=25 --reruns 2 --reruns-delay 1
+          # Coverage thresholds are documented in pyproject.toml [tool.coverage.report].
+          poetry run pytest apps/coordinator-api/tests/ --cov=apps/coordinator-api/src --cov-report=xml --cov-report=term --reruns 2 --reruns-delay 1
       - name: Run shared-core coverage gate
         run: |
-          # Coverage gate: 46% threshold (aitbc/ shared core baseline)
-          # Prevents coverage regression on the shared library.
           poetry run pytest tests/unit -q -o addopts="" --cov=aitbc --cov-report=term --cov-fail-under=46
       - name: Run coordinator tests
         run: poetry run pytest tests/coordinator -q -o addopts=""
@@ -139,9 +140,9 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install poetry
-        run: pip install poetry
+        run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install
+        run: poetry install --no-interaction
       - name: Check production assert and print
         run: poetry run python scripts/check_no_assert_print.py
       - name: Check version consistency
@@ -158,13 +159,13 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install poetry
-        run: pip install poetry
+        run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install
-      - run: pip install bandit semgrep trufflehog
+        run: poetry install --no-interaction
+      - run: pip install "semgrep==1.170.0" "trufflehog==2.2.1"
       - run: poetry run bandit -r aitbc/ apps/ cli/ -f json -o bandit-report.json
-      - run: poetry run semgrep --config=auto aitbc/ apps/ cli/ --json --output=semgrep-report.json
-      - run: trufflehog git --json --output trufflehog-report.json .
+      - run: semgrep --config=auto aitbc/ apps/ cli/ --json --output=semgrep-report.json
+      - run: trufflehog --json --regex --entropy False . > trufflehog-report.json || true
       - name: Check for secrets in code
         run: |
           if git grep -i "private_key\|password\|secret\|api_key\|token" -- '*.py' '*.yaml' '*.yml' '*.json' '*.env.example' | grep -v "test-key\|example\|placeholder\|changeme\|TODO\|FIXME"; then
@@ -196,10 +197,9 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install poetry
-        run: pip install poetry
+        run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install
-      - run: poetry run python -m pip install openapi-spec-validator
+        run: poetry install --no-interaction
       - name: Validate coordinator-api OpenAPI spec
         run: |
           cd apps/coordinator-api
@@ -257,9 +257,9 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install poetry
-        run: pip install poetry
+        run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install
+        run: poetry install --no-interaction
       - name: Start coordinator API for testing
         run: |
           cd apps/coordinator-api

@@ -39,10 +39,10 @@ Each service has its own configuration file. Configure environment variables for
 ```bash
 # Agent Bridge
 export AGENT_BRIDGE_ENDPOINT="http://localhost:8001"
-export AGENT_BRIDGE_API_KEY="your-api-key"
+export AGENT_BRIDGE_API_KEY="<YOUR_API_KEY>"
 
 # Agent Registry
-export REGISTRY_DATABASE_URL="postgresql://user:pass@localhost/agent_registry"
+export REGISTRY_DATABASE_URL="postgresql://user:<DB_PASSWORD>@localhost/agent_registry"
 ```
 
 ### Running Services

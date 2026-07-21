@@ -95,14 +95,14 @@ For automated agent workflows, provide the password via environment variable or 
 
 ```bash
 # Using environment variable
-export AITBC_WALLET_PASSWORD="my-secret-password"
+export AITBC_WALLET_PASSWORD="<WALLET_PASSWORD>"
 aitbc transactions send \
   --from my-agent-wallet \
   --to aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6 \
   --amount 5.0
 
 # Using password file
-echo "my-secret-password" > /tmp/wallet.pass
+echo "<WALLET_PASSWORD>" > /tmp/wallet.pass
 aitbc transactions send \
   --from my-agent-wallet \
   --to aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6 \
@@ -244,7 +244,7 @@ tx_hash = send_transaction(
     from_wallet="my-agent-wallet",
     to_address="aitbc1f2e4d6c8b0a2e4f6d8c0b2a4e6f8d0c2b4a6",
     amount=10.0,
-    password="my-secret-password",
+    password="<WALLET_PASSWORD>",
 )
 print(f"Transaction hash: {tx_hash}")
 ```

@@ -201,7 +201,7 @@ The WebSocket sends status updates as JSON messages:
 ```python
 import aitbc_sdk
 
-client = aitbc_sdk.Client(api_key="your-api-key")
+client = aitbc_sdk.Client(api_key="<YOUR_API_KEY>")
 
 # Submit a job
 job = client.submit_job(
@@ -224,7 +224,7 @@ print(f"Result: {result.result}")
 # Submit job
 curl -X POST http://localhost:8203/v1/jobs \
   -H "Content-Type: application/json" \
-  -H "X-Api-Key: your-api-key" \
+  -H "X-Api-Key: <YOUR_API_KEY>" \
   -d '{
     "payload": {"model": "llama2", "prompt": "Hello world"},
     "ttl_seconds": 900
@@ -232,11 +232,11 @@ curl -X POST http://localhost:8203/v1/jobs \
 
 # Get status
 curl http://localhost:8203/v1/jobs/{job_id} \
-  -H "X-Api-Key: your-api-key"
+  -H "X-Api-Key: <YOUR_API_KEY>"
 
 # Get result
 curl http://localhost:8203/v1/jobs/{job_id}/result \
-  -H "X-Api-Key: your-api-key"
+  -H "X-Api-Key: <YOUR_API_KEY>"
 ```
 
 ## OpenAPI Specification

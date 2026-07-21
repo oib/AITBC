@@ -23,7 +23,7 @@ def generate_api_key():
 
 ```bash
 # Environment variable
-export AITBC_API_KEY="your-api-key"
+export AITBC_API_KEY="<YOUR_API_KEY>"
 ```
 
 ## Key Rotation
