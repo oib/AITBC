@@ -136,11 +136,25 @@ class UserCreate(BaseModel):
     email: str
     username: str
     password: str | None = None
+    wallet_address: str
+    nonce: str
+    signature: str
 
 
 class UserLogin(BaseModel):
     wallet_address: str
-    signature: str | None = None
+    nonce: str
+    signature: str
+
+
+class UserNonceRequest(BaseModel):
+    wallet_address: str
+
+
+class UserNonceResponse(BaseModel):
+    wallet_address: str
+    nonce: str
+    expires_at: int
 
 
 class UserProfile(BaseModel):

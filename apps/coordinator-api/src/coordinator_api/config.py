@@ -108,6 +108,9 @@ class Settings(BaseAITBCConfig):
     # Security - using inherited secret_key and jwt_secret from BaseAITBCConfig
     jwt_secret: str = ""  # Override None default from base; must be set via env in production
     hmac_secret: str | None = None
+    # Comma-separated list of wallet addresses authorized as admin users.
+    # Addresses must match the canonical lower-case form used in signatures.
+    admin_wallet_addresses: str = ""
 
     @field_validator("jwt_secret")
     @classmethod
