@@ -364,6 +364,70 @@ class TestValidatorRegistration:
         # Pydantic validation rejects missing required fields (address, public_key, signature)
         assert response.status_code == 422
 
+    def test_register_validator_requires_admin_when_release_enabled(
+        self, rpc_setup, validator_accounts: list[EthAccount]
+    ) -> None:
+        """POST /bridge/validators/register rejects unauthorized admin when release enabled."""
+        bridge, client = rpc_setup
+        acct = validator_accounts[0]
+        chain_id = "chain-a"
+
+        sign_data = {
+            "chain_id": chain_id,
+            "address": acct.address.lower(),
+            "public_key": "0x" + acct.key.hex(),
+            "action": "register",
+        }
+        validator_signature = _sign_request(acct, sign_data)
+
+        with patch("aitbc_chain.config.settings.bridge_release_enabled", True):
+            response = client.post(
+                "/bridge/validators/register",
+                json={
+                    "chain_id": chain_id,
+                    "address": acct.address.lower(),
+                    "public_key": "0x" + acct.key.hex(),
+                    "signature": validator_signature,
+                },
+            )
+        assert response.status_code == 403
+        assert "admin" in response.json()["detail"].lower()
+
+    def test_register_validator_accepts_authorized_admin(self, rpc_setup, validator_accounts: list[EthAccount]) -> None:
+        """POST /bridge/validators/register succeeds with a valid bridge admin signature."""
+        bridge, client = rpc_setup
+        validator = validator_accounts[0]
+        admin = EthAccount.create()
+        chain_id = "chain-a"
+
+        validator_sign_data = {
+            "chain_id": chain_id,
+            "address": validator.address.lower(),
+            "public_key": "0x" + validator.key.hex(),
+            "action": "register",
+        }
+        validator_signature = _sign_request(validator, validator_sign_data)
+
+        payload = {
+            "chain_id": chain_id,
+            "address": validator.address.lower(),
+            "public_key": "0x" + validator.key.hex(),
+            "signature": validator_signature,
+            "epoch": 0,
+            "admin_address": admin.address.lower(),
+        }
+        admin_signature = _sign_request(admin, payload)
+        payload["admin_signature"] = admin_signature
+
+        with (
+            patch("aitbc_chain.config.settings.bridge_release_enabled", True),
+            patch("aitbc_chain.config.settings.bridge_admin_addresses", admin.address.lower()),
+        ):
+            response = client.post("/bridge/validators/register", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+
 
 # ---------------------------------------------------------------------------
 # Get Validator Set Tests (B5)
