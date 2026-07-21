@@ -466,13 +466,15 @@ class BridgeTransferMixin:
                     logger.warning("Merkle proof verification failed for height=%s", block_height)
                     return False
             else:
-                # Bug #4 fix: When bridge_require_merkle_proof is enabled,
-                # reject proofs that omit the Merkle inclusion proof. Even
-                # when disabled, log a WARNING so the bypass is visible.
-                require_merkle = getattr(settings, "bridge_require_merkle_proof", False)
+                # v0.10.16: Merkle inclusion proof is required for production
+                # release paths. When bridge_release_enabled is True, a missing
+                # merkle_proof is a hard failure; the standalone
+                # bridge_require_merkle_proof flag still allows explicit enforcement.
+                release_enabled = getattr(settings, "bridge_release_enabled", False)
+                require_merkle = release_enabled or getattr(settings, "bridge_require_merkle_proof", False)
                 if require_merkle:
                     logger.warning(
-                        "Proof has no merkle_proof and bridge_require_merkle_proof=True — rejecting (height=%s)",
+                        "Proof has no merkle_proof and release/production enforcement enabled — rejecting (height=%s)",
                         block_height,
                     )
                     return False
