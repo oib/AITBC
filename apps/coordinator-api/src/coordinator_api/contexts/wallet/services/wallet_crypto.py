@@ -11,6 +11,7 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from eth_account import Account
+from eth_keys import keys as eth_keys
 from eth_utils.address import to_checksum_address
 
 
@@ -25,7 +26,7 @@ def generate_ethereum_keypair() -> tuple[str, str, str]:
     account = Account.create()
 
     private_key = account.key.hex()
-    public_key = account._private_key.public_key.to_hex()
+    public_key = eth_keys.PrivateKey(account.key).public_key.to_hex()
     address = account.address
 
     return private_key, public_key, address
@@ -231,4 +232,8 @@ def recover_wallet(encrypted_data: dict[str, str], password: str) -> dict[str, s
     # Derive address and public key to verify
     account = Account.from_key("0x" + private_key)
 
-    return {"private_key": private_key, "public_key": account._private_key.public_key.to_hex(), "address": account.address}
+    return {
+        "private_key": private_key,
+        "public_key": eth_keys.PrivateKey(account.key).public_key.to_hex(),
+        "address": account.address,
+    }

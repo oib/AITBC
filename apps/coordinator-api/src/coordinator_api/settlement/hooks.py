@@ -12,6 +12,7 @@ from aitbc.http_client import RequestIDPropagatingClient
 
 from ..config import settings
 from ..contexts.infrastructure.domain import Job
+from ..contexts.wallet.services.money import to_atomic_units
 from ..storage.db import session_scope
 from .bridges.base import BridgeStatus, SettlementMessage, SettlementResult
 from .manager import BridgeManager
@@ -81,9 +82,9 @@ class SettlementHook:
                 source_chain_id=await self._get_current_chain_id(),
                 target_chain_id=target_chain_id,
                 job_id=job.id,
-                receipt_hash=job.receipt.hash if job.receipt else "",
-                proof_data=job.receipt.proof if job.receipt else {},
-                payment_amount=job.payment_amount or 0,
+                receipt_hash=job.receipt.get("hash", "") if job.receipt else "",
+                proof_data=job.receipt.get("proof") or {} if job.receipt else {},
+                payment_amount=to_atomic_units(job.payment_amount) if job.payment_amount else 0,
                 payment_token=job.payment_token or "AITBC",
                 nonce=await self._generate_nonce(),
                 signature="",
@@ -163,7 +164,7 @@ class SettlementHook:
             receipt_hash=receipt_hash,
             proof_data=proof_data,
             zk_proof=zk_proof,
-            payment_amount=job.payment_amount or 0,
+            payment_amount=to_atomic_units(job.payment_amount) if job.payment_amount else 0,
             payment_token=job.payment_token or "AITBC",
             nonce=await self._generate_nonce(),
             signature=signature,

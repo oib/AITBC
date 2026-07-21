@@ -32,6 +32,7 @@ from .....agent_identity.wallet_adapter_enhanced import (
     SecurityLevel,
     WalletAdapterFactory,
 )
+from .....contexts.wallet.services.money import from_atomic_units, parse_decimal
 from ....reputation.services.reputation_engine import CrossChainReputationEngine
 from ...domain.cross_chain_bridge import BridgeRequest, BridgeRequestStatus
 from .bridge_types import BridgeProtocol, BridgeSecurityLevel
@@ -159,10 +160,12 @@ class BridgeClientAdapter:
                 raise ValueError(
                     f"Cross-chain transfer from chain {source_chain_id} to {target_chain_id} is not permitted (chain isolation policy)"
                 )
-            amount_float = float(amount)
+            amount_dec = parse_decimal(amount)
             source_config = self.bridge_protocols[str(source_chain_id)]
-            if amount_float < source_config["min_amount"] or amount_float > source_config["max_amount"]:
-                raise ValueError(f"Amount must be between {source_config['min_amount']} and {source_config['max_amount']}")
+            min_amount = parse_decimal(source_config["min_amount"])
+            max_amount = parse_decimal(source_config["max_amount"])
+            if amount_dec < min_amount or amount_dec > max_amount:
+                raise ValueError(f"Amount must be between {min_amount} and {max_amount}")
             source_adapter = self.wallet_adapters[source_chain_id]
             target_adapter = self.wallet_adapters[target_chain_id]
             if not await source_adapter.validate_address(user_address):
@@ -170,8 +173,9 @@ class BridgeClientAdapter:
             target_address = target_address or user_address
             if not await target_adapter.validate_address(target_address):
                 raise ValueError(f"Invalid target address: {target_address}")
-            bridge_fee = amount_float * source_config["fee_rate"]
-            network_fee = await self._estimate_network_fee(source_chain_id, amount_float, token_address)
+            fee_rate = parse_decimal(source_config["fee_rate"])
+            bridge_fee = amount_dec * fee_rate
+            network_fee = await self._estimate_network_fee(source_chain_id, amount_dec, token_address)
             total_fee = bridge_fee + network_fee
             protocol = protocol or BridgeProtocol(source_config["protocol"])
             default_token = "0x0000000000000000000000000000000000000000"
@@ -185,9 +189,9 @@ class BridgeClientAdapter:
                 target_token=target_token,
                 source_chain_id=source_chain_id,
                 target_chain_id=target_chain_id,
-                amount=amount_float,
+                amount=amount_dec,
                 bridge_fee=bridge_fee,
-                total_amount=amount_float + total_fee,
+                total_amount=amount_dec + total_fee,
                 status=BridgeRequestStatus.PENDING,
                 created_at=datetime.now(UTC),
                 expires_at=datetime.now(UTC) + timedelta(minutes=deadline_minutes),
@@ -197,7 +201,7 @@ class BridgeClientAdapter:
             self.session.commit()
             self.session.refresh(bridge_request)
             await self._process_bridge_request(bridge_request.id)  # type: ignore[arg-type]
-            logger.info("Created bridge request %s for %s tokens", bridge_request.id, amount_float)
+            logger.info("Created bridge request %s for %s tokens", bridge_request.id, amount_dec)
             return {
                 "bridge_request_id": bridge_request.id,
                 "contract_request_id": bridge_request.contract_request_id,
@@ -799,7 +803,7 @@ class BridgeClientAdapter:
         bridge_request.updated_at = datetime.now(UTC)
         self.session.commit()
 
-    async def _estimate_network_fee(self, chain_id: int, amount: float, token_address: str | None) -> float:
+    async def _estimate_network_fee(self, chain_id: int, amount: Decimal, token_address: str | None) -> Decimal:
         """Estimate network fee for transaction"""
         try:
             adapter = self.wallet_adapters[chain_id]
@@ -810,13 +814,13 @@ class BridgeClientAdapter:
             gas_price = await adapter._get_gas_price()  # type: ignore[attr-defined]
             gas_limit = gas_estimate["gas_limit"]
             if isinstance(gas_limit, str):
-                fee_eth = int(gas_limit, 16) * gas_price / 10**18
+                gas_cost_wei = int(gas_limit, 16) * gas_price
             else:
-                fee_eth = int(gas_limit) * gas_price / 10**18
-            return fee_eth  # type: ignore[no-any-return]
+                gas_cost_wei = int(gas_limit) * gas_price
+            return from_atomic_units(gas_cost_wei)
         except Exception as e:
             logger.error("Error estimating network fee: %s", e)
-            return 0.01
+            return Decimal("0.01")
 
     async def _get_transaction_details(self, chain_id: int, transaction_hash: str) -> dict[str, Any]:
         """Get transaction details"""

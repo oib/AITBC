@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, Numeric
 from sqlmodel import Field, SQLModel
 
 
@@ -41,10 +42,10 @@ class Job(SQLModel, table=True):
     payment_chain: int | None = Field(default=None)
     preferred_bridge: str | None = Field(default=None)
     settlement_priority: str | None = Field(default=None, max_length=20)
-    payment_amount: float | None = Field(default=None)
+    payment_amount: Decimal | None = Field(default=None, sa_column=Column(Numeric(36, 18)))
     payment_token: str | None = Field(default=None, max_length=42)
     settlement_gas_limit: int | None = Field(default=None)
-    cross_chain_amount: float | None = Field(default=None)
+    cross_chain_amount: Decimal | None = Field(default=None, sa_column=Column(Numeric(36, 18)))
     cross_chain_target_address: str | None = Field(default=None)
 
     # Settlement tracking (set during/after settlement)
