@@ -7,6 +7,7 @@ Provides Bearer token extraction and role-based dependency injection.
 
 from __future__ import annotations
 
+import hmac
 import os
 from typing import Annotated, Any
 
@@ -119,7 +120,22 @@ def require_miner_api_key(request: Request) -> dict[str, Any]:
         if coord_key:
             allowed_keys = [coord_key]
 
-    if not api_key or api_key not in allowed_keys:
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key",
+        )
+
+    # ponytail: constant-time comparison across the configured key list; list
+    # length is not secret, and this avoids a short-circuit timing leak.
+    api_key_str = str(api_key)
+    valid = False
+    for allowed in allowed_keys:
+        try:
+            valid = valid | hmac.compare_digest(api_key_str, str(allowed))
+        except TypeError:
+            pass
+    if not valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key",

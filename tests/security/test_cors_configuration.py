@@ -133,3 +133,38 @@ def test_no_wildcard_cors_in_coordinator_api_apps():
         # If both wildcard and credentials are present, fail the test
         if has_wildcard and has_credentials:
             pytest.fail(f"File {file_path} contains wildcard CORS with credentials enabled")
+
+
+def test_setup_cors_rejects_wildcard_with_credentials():
+    """Test that setup_cors raises when wildcard origins are used with credentials"""
+    from fastapi import FastAPI
+
+    from aitbc.middleware.cors import setup_cors
+
+    app = FastAPI()
+    with pytest.raises(ValueError, match="Wildcard CORS origins cannot be used with credentials"):
+        setup_cors(app, allow_origins=["*"], allow_credentials=True)
+
+
+def test_setup_cors_allows_wildcard_without_credentials():
+    """Test that setup_cors permits wildcard origins when credentials are disabled"""
+    from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
+
+    from aitbc.middleware.cors import setup_cors
+
+    app = FastAPI()
+    setup_cors(app, allow_origins=["*"], allow_credentials=False)
+    assert any(m.cls is CORSMiddleware for m in app.user_middleware)
+
+
+def test_setup_cors_allows_specific_origins_with_credentials():
+    """Test that setup_cors permits specific origins with credentials enabled"""
+    from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
+
+    from aitbc.middleware.cors import setup_cors
+
+    app = FastAPI()
+    setup_cors(app, allow_origins=["http://localhost:3000"], allow_credentials=True)
+    assert any(m.cls is CORSMiddleware for m in app.user_middleware)

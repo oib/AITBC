@@ -14,7 +14,10 @@ This module provides two usage styles:
 2. **Dict style** (agent-coordinator compatible):
    Returns ``{"status": "success"|"error", ...}`` dicts. Use ``JWTHandler`` class.
 
-Both styles share the same underlying token encoding/decoding logic.
+Both styles share the same underlying token encoding/decoding logic and a single
+set of identity claims: ``sub`` (subject), ``role``, ``type`` (access/refresh),
+``iat``, and ``exp``.  The legacy ``user_id`` claim is preserved as an alias for
+backward compatibility.
 """
 
 from __future__ import annotations
@@ -28,13 +31,59 @@ import jwt
 from fastapi import HTTPException, status
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import ConfigurationError
+from aitbc.utils.env import is_production
 
 logger = get_logger(__name__)
 
 
-def _get_secret(default: str | None = None) -> str:
-    """Get JWT secret from env or return default."""
-    return os.getenv("JWT_SECRET", os.getenv("JWT_SECRET_KEY", default or _secrets.token_urlsafe(32)))
+_KNOWN_JWT_DEFAULTS = frozenset(
+    {
+        "change-me-in-production",
+        "change-this-secret-key-in-production",
+        "your_secret_here",
+        "your-secret-key-change-in-production",
+    }
+)
+
+
+class AuthenticationError(Exception):
+    """Generic authentication failure."""
+
+    pass
+
+
+def _resolve_secret() -> str:
+    """Resolve JWT secret from environment.
+
+    Production services must supply ``JWT_SECRET`` or ``JWT_SECRET_KEY``.
+    Non-production/test environments may fall back to an ephemeral secret, but a
+    warning is logged because tokens produced with it are not stable across
+    restarts.
+    """
+    value = os.getenv("JWT_SECRET") or os.getenv("JWT_SECRET_KEY") or ""
+    value = value.strip()
+
+    if not value:
+        if is_production():
+            raise ConfigurationError("JWT_SECRET environment variable is required in production")
+        value = _secrets.token_urlsafe(32)
+        logger.warning(
+            "JWT_SECRET not configured; using an ephemeral test secret. "
+            "Set JWT_SECRET to a value with at least 32 characters for stable tokens."
+        )
+        return value
+
+    _validate_secret(value)
+    return value
+
+
+def _validate_secret(value: str) -> None:
+    """Validate a supplied JWT secret meets minimum strength requirements."""
+    if value.lower() in _KNOWN_JWT_DEFAULTS:
+        raise ValueError("JWT secret must be changed from the default value")
+    if len(value) < 32:
+        raise ValueError("JWT secret must be at least 32 characters long")
 
 
 def _get_algorithm() -> str:
@@ -45,6 +94,22 @@ def _get_algorithm() -> str:
 def _get_expiry_hours() -> int:
     """Get token expiry hours from env or default."""
     return int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
+
+
+def _identity_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Normalize identity claims and add token metadata.
+
+    Ensures the canonical ``sub`` claim is present and mirrors it as ``user_id``
+    for consumers that expect the legacy claim name. Adds ``iat`` and ``type``
+    unless the caller already supplied them.
+    """
+    normalized = payload.copy()
+    sub = normalized.get("sub") or normalized.get("user_id")
+    if sub is not None:
+        normalized.setdefault("sub", sub)
+        normalized.setdefault("user_id", sub)
+    normalized.setdefault("iat", datetime.now(UTC))
+    return normalized
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +130,9 @@ class JWTAuth:
         algorithm: str | None = None,
         expiration_hours: int | None = None,
     ) -> None:
-        self.secret = secret or _get_secret()
+        self.secret = secret or _resolve_secret()
+        if secret:
+            _validate_secret(self.secret)
         self.algorithm = algorithm or _get_algorithm()
         self.expiration_hours = expiration_hours or _get_expiry_hours()
 
@@ -79,8 +146,9 @@ class JWTAuth:
             Encoded JWT token string.
         """
         expire = datetime.now(UTC) + timedelta(hours=self.expiration_hours)
-        to_encode = payload.copy()
-        to_encode.update({"exp": expire})
+        to_encode = _identity_payload(payload)
+        to_encode.setdefault("exp", expire)
+        to_encode.setdefault("type", "access")
         return jwt.encode(to_encode, self.secret, algorithm=self.algorithm)
 
     def decode_token(self, token: str) -> dict[str, Any]:
@@ -121,7 +189,8 @@ class JWTAuth:
         if required_role and payload.get("role") != required_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Role '{required_role}' required",
+                detail="Role required",
+                headers={"WWW-Authenticate": "Bearer"},
             )
         return payload
 
@@ -149,7 +218,7 @@ def create_access_token(user_id: str, role: str, extra_claims: dict[str, Any] | 
     Returns:
         Encoded JWT token string.
     """
-    payload: dict[str, Any] = {"sub": user_id, "role": role}
+    payload: dict[str, Any] = {"sub": user_id, "role": role, "type": "access"}
     if extra_claims:
         payload.update(extra_claims)
     return get_jwt_auth().create_token(payload)
@@ -185,7 +254,9 @@ class JWTHandler:
     """
 
     def __init__(self, secret_key: str | None = None) -> None:
-        self.secret_key = secret_key or _get_secret()
+        self.secret_key = secret_key or _resolve_secret()
+        if secret_key:
+            _validate_secret(self.secret_key)
         self.algorithm = _get_algorithm()
         self.token_expiry = timedelta(hours=_get_expiry_hours())
         self.refresh_expiry = timedelta(days=7)
@@ -197,23 +268,27 @@ class JWTHandler:
                 expire = datetime.now(UTC) + expires_delta
             else:
                 expire = datetime.now(UTC) + self.token_expiry
-            token_payload = {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "access"}
+            token_payload = _identity_payload(payload)
+            token_payload.setdefault("exp", expire)
+            token_payload.setdefault("type", "access")
             token = jwt.encode(token_payload, self.secret_key, algorithm=self.algorithm)
             return {"status": "success", "token": token, "expires_at": expire.isoformat(), "token_type": "Bearer"}
         except Exception as e:
             logger.error("Error generating JWT token: %s", e)
-            return {"status": "error", "message": str(e)}
+            return {"status": "error", "message": "Token generation failed"}
 
     def generate_refresh_token(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Generate refresh token for token renewal."""
         try:
             expire = datetime.now(UTC) + self.refresh_expiry
-            token_payload = {**payload, "exp": expire, "iat": datetime.now(UTC), "type": "refresh"}
+            token_payload = _identity_payload(payload)
+            token_payload.setdefault("exp", expire)
+            token_payload.setdefault("type", "refresh")
             token = jwt.encode(token_payload, self.secret_key, algorithm=self.algorithm)
             return {"status": "success", "refresh_token": token, "expires_at": expire.isoformat()}
         except Exception as e:
             logger.error("Error generating refresh token: %s", e)
-            return {"status": "error", "message": str(e)}
+            return {"status": "error", "message": "Token generation failed"}
 
     def validate_token(self, token: str) -> dict[str, Any]:
         """Validate JWT token and return payload."""
@@ -222,11 +297,11 @@ class JWTHandler:
             return {"status": "success", "valid": True, "payload": payload}
         except jwt.ExpiredSignatureError:
             return {"status": "error", "valid": False, "message": "Token has expired"}
-        except jwt.InvalidTokenError as e:
-            return {"status": "error", "valid": False, "message": f"Invalid token: {e!s}"}
+        except jwt.InvalidTokenError:
+            return {"status": "error", "valid": False, "message": "Invalid token"}
         except Exception as e:
             logger.error("Error validating token: %s", e)
-            return {"status": "error", "valid": False, "message": f"Token validation error: {e!s}"}
+            return {"status": "error", "valid": False, "message": "Token validation failed"}
 
     def refresh_access_token(self, refresh_token: str) -> dict[str, Any]:
         """Generate new access token from refresh token."""
@@ -236,7 +311,8 @@ class JWTHandler:
                 return {"status": "error", "message": "Invalid or expired refresh token"}
             payload = validation["payload"]
             user_payload = {
-                "user_id": payload.get("user_id"),
+                "sub": payload.get("sub") or payload.get("user_id"),
+                "user_id": payload.get("user_id") or payload.get("sub"),
                 "username": payload.get("username"),
                 "role": payload.get("role"),
                 "permissions": payload.get("permissions", []),
@@ -244,21 +320,20 @@ class JWTHandler:
             return self.generate_token(user_payload)
         except Exception as e:
             logger.error("Error refreshing token: %s", e)
-            return {"status": "error", "message": str(e)}
+            return {"status": "error", "message": "Token refresh failed"}
 
     def decode_token_without_validation(self, token: str) -> dict[str, Any]:
         """Decode token without expiration validation (for debugging)."""
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm], options={"verify_exp": False})
             return {"status": "success", "payload": payload}
-        except Exception as e:
-            return {"status": "error", "message": f"Error decoding token: {e!s}"}
+        except Exception:
+            return {"status": "error", "message": "Error decoding token"}
 
 
 # ---------------------------------------------------------------------------
 # Global instances (agent-coordinator compatibility)
 # ---------------------------------------------------------------------------
-
 _jwt_handler: JWTHandler | None = None
 
 
@@ -271,6 +346,7 @@ def get_jwt_handler() -> JWTHandler:
 
 
 __all__ = [
+    "AuthenticationError",
     "JWTAuth",
     "JWTHandler",
     "create_access_token",
