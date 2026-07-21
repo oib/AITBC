@@ -39,9 +39,14 @@ class BridgeFinalityMixin:
         Called by the RPC endpoint ``POST /bridge/block-headers`` or
         internally when a new block is learned from gossip/RPC.
         Updates confirmation counts for existing headers on the same chain.
+
+        v0.10.16: When bridge_release_enabled is True, confirmation_count and
+        finality_confirmed are derived from the verified chain (block height
+        and subsequent confirmations) instead of trusting caller-supplied values.
         """
         chain_id = header_data["chain_id"]
         height = header_data["height"]
+        release_enabled = getattr(settings, "bridge_release_enabled", False)
         with self._session_factory() as session:
             existing = session.exec(
                 select(BridgeBlockHeader).where(
@@ -56,10 +61,13 @@ class BridgeFinalityMixin:
                 existing.proposer = header_data.get("proposer", existing.proposer)
                 existing.state_root = header_data.get("state_root", existing.state_root)
                 existing.signature = header_data.get("signature", existing.signature)
-                if "confirmation_count" in header_data:
-                    existing.confirmation_count = int(header_data["confirmation_count"])
-                if "finality_confirmed" in header_data:
-                    existing.finality_confirmed = bool(header_data["finality_confirmed"])
+                # In production release paths, do not trust caller-supplied
+                # confirmation/finality; derive them from stored chain data.
+                if not release_enabled:
+                    if "confirmation_count" in header_data:
+                        existing.confirmation_count = int(header_data["confirmation_count"])
+                    if "finality_confirmed" in header_data:
+                        existing.finality_confirmed = bool(header_data["finality_confirmed"])
                 session.add(existing)
                 session.commit()
                 session.refresh(existing)
@@ -67,6 +75,10 @@ class BridgeFinalityMixin:
                 self._update_finality(chain_id, existing, session)
                 return existing  # type: ignore[no-any-return]
             else:
+                # New header starts with 0 confirmations in production; dev/test
+                # networks with the release fence disabled may use caller values.
+                confirmation_count = 0 if release_enabled else int(header_data.get("confirmation_count", 0))
+                finality_confirmed = False if release_enabled else bool(header_data.get("finality_confirmed", False))
                 header = BridgeBlockHeader(
                     chain_id=chain_id,
                     height=height,
@@ -75,8 +87,8 @@ class BridgeFinalityMixin:
                     proposer=header_data["proposer"],
                     state_root=header_data["state_root"],
                     signature=header_data.get("signature", ""),
-                    confirmation_count=int(header_data.get("confirmation_count", 0)),
-                    finality_confirmed=bool(header_data.get("finality_confirmed", False)),
+                    confirmation_count=confirmation_count,
+                    finality_confirmed=finality_confirmed,
                 )
                 session.add(header)
                 session.commit()
@@ -90,7 +102,8 @@ class BridgeFinalityMixin:
         """Increment confirmation counts for all earlier blocks on a chain (B5).
 
         When a new block at height H is stored, all existing blocks at
-        height < H get their confirmation_count incremented by 1.
+        height < H get their confirmation_count incremented by 1. Finality is
+        derived from the updated confirmation count rather than caller input.
         """
         earlier = session.exec(
             select(BridgeBlockHeader).where(
@@ -101,16 +114,18 @@ class BridgeFinalityMixin:
         for h in earlier:
             h.confirmation_count += 1
             session.add(h)
+            self._update_finality(chain_id, h, session, commit=False)
         if earlier:
             session.commit()
 
-    def _update_finality(self, chain_id: str, header: BridgeBlockHeader, session: Any) -> None:
+    def _update_finality(self, chain_id: str, header: BridgeBlockHeader, session: Any, commit: bool = True) -> None:
         """Update finality_confirmed flag based on confirmation count (B5)."""
         finality_blocks = getattr(settings, "bridge_finality_blocks", 6)
         if header.confirmation_count >= finality_blocks and not header.finality_confirmed:
             header.finality_confirmed = True
             session.add(header)
-            session.commit()
+            if commit:
+                session.commit()
 
     def _verify_block_header_signature(self, header: BridgeBlockHeader) -> bool:
         """Verify a block header's proposer signature (B4).
