@@ -409,11 +409,26 @@ run_migrations() {
     # Services known to have alembic.ini (scanned at runtime below for robustness)
     local migrated=0 failed=0 skipped=0
 
+    # Include repo root, service src, and local py-package src trees so Alembic
+    # env.py files can import both aitbc and the aitbc_* helper packages.
+    local packages_src
+    packages_src=$(find "$AITBC_ROOT/packages/py" -maxdepth 2 -type d -name src 2>/dev/null | tr '\n' ':')
+    packages_src="${packages_src%:}"
+
     while IFS= read -r ini; do
         local svc_dir
         svc_dir=$(dirname "$ini")
         local svc_name
         svc_name=$(basename "$svc_dir")
+        local unit_file="/etc/systemd/system/aitbc-${svc_name}.service"
+
+        # Skip services not linked for this node's role (e.g. pool-hub on hub)
+        if [ ! -e "$unit_file" ]; then
+            log "  skipping $svc_name (not linked for this role)"
+            ((skipped++))
+            continue
+        fi
+
         log "  Migrating: $svc_name (in $svc_dir)"
 
         # Load service-specific DB env vars from /etc/aitbc/<svc>.env if present
@@ -424,12 +439,15 @@ run_migrations() {
             source "$env_file" 2>/dev/null || true
         fi
 
-        if ( set -o pipefail && cd "$svc_dir" && PYTHONPATH=src "$alembic_bin" upgrade head 2>&1 | sed 's/^/    /' ); then
+        local pythonpath="/opt/aitbc:${svc_dir}/src"
+        [ -n "$packages_src" ] && pythonpath="${pythonpath}:${packages_src}"
+
+        if ( set -o pipefail && cd "$svc_dir" && PYTHONPATH="$pythonpath" "$alembic_bin" upgrade head 2>&1 | sed 's/^/    /' ); then
             success "  migrated: $svc_name"
             ((migrated++))
         else
             error "  migration failed for $svc_name (multiple heads, missing baseline, or DB unreachable)"
-            error "  inspect: cd $svc_dir && PYTHONPATH=src $alembic_bin upgrade head"
+            error "  inspect: cd $svc_dir && PYTHONPATH=$pythonpath $alembic_bin upgrade head"
             ((failed++))
         fi
     done < <(find "$AITBC_ROOT/apps" -maxdepth 3 -name "alembic.ini" 2>/dev/null | sort)

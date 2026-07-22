@@ -28,6 +28,7 @@ Read the release notes newest-first:
 ### Current Releases (v0.5.x+)
 - **[v2.0.0](v2.0.0/change.log)** - Vision/Questionable Features — Parked for Re-Evaluation
 - **[v1.0.0](v1.0.0/change.log)** - Production Readiness
+- **[v0.10.18](v0.10.18/change.log)** - Update Deployment Stabilization (market_metrics migration conflict, wallet keystore restore, update.sh/health_check.sh fixes, poetry prep) 🚧 in progress
 - **[v0.10.17](v0.10.17/change.log)** - Security & Auth Hardening (auth bypass, hardcoded defaults, feature flag defaults, pool-hub reward signing, wiring bug) ✅ complete
 - **[v0.10.16](v0.10.16/change.log)** - Security & Correctness Hardening (bridge trust boundaries, wallet authentication, financial exactness, migrations, CI/deployment) ✅ complete
 - **[v0.10.15](v0.10.15/change.log)** - Monolithic Router/Module Decomposition & Settlement Config Wiring ✅ complete
