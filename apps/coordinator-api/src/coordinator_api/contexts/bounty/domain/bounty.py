@@ -54,7 +54,7 @@ class Bounty(SQLModel, table=True):
     bounty_id: str = Field(primary_key=True, default_factory=lambda: f"bounty_{uuid.uuid4().hex[:8]}")
     title: str = Field(index=True)
     description: str = Field(index=True)
-    reward_amount: Decimal = Field(index=True, gt=0, le=Decimal("1000000.0"))
+    reward_amount: Decimal = Field(index=True, gt=0, le=Decimal("1000000.0"))  # type: ignore[call-overload]
     creator_id: str = Field(index=True, max_length=128)
     tier: BountyTier = Field(default=BountyTier.BRONZE)
     status: BountyStatus = Field(default=BountyStatus.CREATED, index=True)

@@ -328,7 +328,7 @@ async def get_trust_score(
         )
         if not trust_score:
             raise HTTPException(status_code=404, detail="Trust score not found")
-        return trust_score  # type: ignore[return-value]
+        return trust_score  # type: ignore[no-any-return]
     except HTTPException:
         raise
     except Exception as e:
@@ -494,7 +494,7 @@ async def get_security_dashboard(
         from ...agent_coordination.services.security import AgentAuditLog, AgentSandboxConfig
 
         recent_audits = (
-            session.execute(select(AgentAuditLog).order_by(AgentAuditLog.timestamp.desc()).limit(50)).scalars().all()
+            session.execute(select(AgentAuditLog).order_by(AgentAuditLog.timestamp.desc()).limit(50)).scalars().all()  # type: ignore[attr-defined]
         )
         high_risk_events = (
             session.execute(

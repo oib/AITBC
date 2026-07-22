@@ -729,8 +729,8 @@ async def get_certification_leaderboard(
         else:
             query = select(AgentCertification).where(AgentCertification.status == CertificationStatus.ACTIVE)
         certifications = (
-            session.execute(query.order_by(desc(AgentCertification.issued_at)).limit((limit or 100) * 2)).scalars().all()
-        )  # type: ignore[arg-type]
+            session.execute(query.order_by(desc(AgentCertification.issued_at)).limit((limit or 100) * 2)).scalars().all()  # type: ignore[arg-type]
+        )
         agent_scores = {}
         for cert in certifications:
             if cert.agent_id not in agent_scores:

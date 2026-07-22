@@ -463,15 +463,15 @@ def get_alerts(level: str | None = None) -> dict[str, Any]:
                 "affected_symbols": alert.affected_symbols,
                 "affected_users": alert.affected_users,
             }
-            for alert in alerts
+            for alert in alerts  # type: ignore[attr-defined]
         ],
-        "total": len(alerts),
+        "total": len(alerts),  # type: ignore[arg-type]
     }
 
 
 def get_surveillance_summary() -> dict[str, Any]:
     """Get surveillance summary"""
-    return surveillance.get_alert_summary()
+    return surveillance.get_alert_summary()  # type: ignore[return-value]
 
 
 async def test_trading_surveillance() -> None:
