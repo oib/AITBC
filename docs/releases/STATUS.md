@@ -46,6 +46,7 @@
 | v0.10.14 | Legacy code & stub elimination | ✅ Complete | shadow packages, legacy routers, fake implementations, duplicate stacks |
 | v0.10.15 | Router/module decomposition & settlement config wiring | ✅ Complete | sync/bridge/trading/developer-platform decomposition; per-chain block times |
 | v0.10.16 | Security & correctness hardening | ✅ Complete | bridge trust boundaries, wallet auth, financial exactness, migrations, CI/deployment |
+| v0.10.17 | Security & auth hardening (bugfix) | 🚧 Planned | auth bypass fix, hardcoded defaults removal, empty-password fallbacks |
 | v1.0.0 | Production readiness | 🚧 Planned | Requires all v0.5.16–v0.10.x complete |
 | v2.0.0 | Vision/questionable features | 🅿️ Parked | For re-evaluation after v1.0.0 |
 

@@ -1,0 +1,69 @@
+# v0.10.17 — Security & Auth Hardening (Bugfix)
+
+**Last Updated**: 2026-07-22 (Agent A complete)
+**Status**: In Progress — Agent A complete, Agent B pending
+**Prerequisite**: v0.10.16 complete
+
+## Release Theme
+
+Fix auth bypass, hardcoded credential defaults, and empty-password fallbacks
+found during codebase analysis. Fail-closed behavior for identity and
+monetary boundaries.
+
+## Motivation
+
+Post-v0.10.16 scan identified active security and correctness gaps:
+
+- `agent_app/routers/auth.py`: `operator` and `user` roles fall back to `""`
+  when environment variables are missing, allowing empty-string login.
+- `aitbc/training_setup/environment.py`: `password = password or "training123"`
+  introduces a hardcoded default credential.
+- Multiple `except Exception` blocks mask root-cause errors with generic 500s.
+- Wallet/auth routes lack signed nonce verification and enforce ownership
+  inconsistently.
+
+## Planned Work
+
+### Agent A — Shared Core (`aitbc/`)
+
+- [x] A1: Remove hardcoded default in `training_setup/environment.py`.
+- [x] A2: Remove empty-string password fallbacks from auth primitives (primary bypass remains in Agent B `auth.py`).
+- [x] A3: Replace `except Exception` with targeted exception handling in
+      auth middleware and JWT handlers.
+
+### Agent B — Apps (`apps/`, `cli/`)
+
+- [ ] B1: Fix `agent_app/routers/auth.py` — reject empty `operator_password`
+      and `user_password`; require non-empty secrets for all roles.
+- [ ] B2: Add nonce/signature verification to wallet login route.
+- [ ] B3: Enforce object-level authorization (`user_id` match) on balance
+      and transaction endpoints.
+- [ ] B4: Remove client-controlled RPC URL and private-key inputs from
+      cross-chain wallet adapter.
+- [ ] B5: Verify monetary paths use `Decimal` / integer atomic units,
+      not float conversions.
+
+## Breaking Changes
+
+- Empty or missing `OPERATOR_PASSWORD` / `USER_PASSWORD` will now fail
+  startup/auth rather than accepting an empty string.
+- Login without a valid signed nonce will be rejected.
+
+## Verification
+
+```bash
+cd /opt/aitbc
+./venv/bin/python -m ruff check .
+./venv/bin/python -m mypy --show-error-codes aitbc/
+./venv/bin/python -m pytest tests/unit -q -o addopts=""
+./venv/bin/python -m pytest tests/security -q -o addopts=""
+```
+
+## Release Gate
+
+- Auth routes reject empty/default passwords.
+- No hardcoded secrets in `training_setup/`.
+- Wallet login requires signed nonce.
+- All P0 security regression tests pass.
+
+*Generated with [Devin](https://devin.ai)*

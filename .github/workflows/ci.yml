@@ -22,7 +22,7 @@ jobs:
       - name: Install poetry
         run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --locked
       - run: poetry run ruff check .
 
   format:
@@ -36,7 +36,7 @@ jobs:
       - name: Install poetry
         run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --locked
       - run: poetry run ruff format --check .
 
   typecheck:
@@ -50,7 +50,7 @@ jobs:
       - name: Install poetry
         run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --locked
       - run: poetry run mypy aitbc/ cli/ --ignore-missing-imports
       - name: Strict shared-core type check
         run: poetry run mypy --show-error-codes aitbc/
@@ -75,7 +75,7 @@ jobs:
       - name: Install poetry
         run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --locked
       - name: Type check Redis state manager
         run: |
           cd apps/coordinator-api
@@ -101,7 +101,7 @@ jobs:
       - name: Install poetry
         run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --locked
       - name: Run tests with coverage gate and flaky test detection
         run: |
           # Coverage thresholds are documented in pyproject.toml [tool.coverage.report].
@@ -142,7 +142,7 @@ jobs:
       - name: Install poetry
         run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --locked
       - name: Check production assert and print
         run: poetry run python scripts/check_no_assert_print.py
       - name: Check version consistency
@@ -161,7 +161,7 @@ jobs:
       - name: Install poetry
         run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --locked
       - run: pip install "semgrep==1.170.0" "trufflehog==2.2.1"
       - run: poetry run bandit -r aitbc/ apps/ cli/ -f json -o bandit-report.json
       - run: semgrep --config=auto aitbc/ apps/ cli/ --json --output=semgrep-report.json
@@ -199,7 +199,7 @@ jobs:
       - name: Install poetry
         run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --locked
       - name: Validate coordinator-api OpenAPI spec
         run: |
           cd apps/coordinator-api
@@ -259,7 +259,7 @@ jobs:
       - name: Install poetry
         run: pip install poetry==2.4.1
       - name: Install project dependencies
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --locked
       - name: Start coordinator API for testing
         run: |
           cd apps/coordinator-api

@@ -767,8 +767,8 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
     async def _encrypt_private_key(self, private_key: str, security_config: dict[str, Any]) -> str:
         try:
             password = security_config.get("password")
-            if not password:
-                raise ValueError("A non-empty encryption password is required")
+            if not password or password in ("", "default_password"):
+                raise ValueError("A non-empty, non-default encryption password is required")
             return encrypt_private_key(private_key, password)
         except Exception as e:
             logger.error("Error encrypting private key: %s", e)

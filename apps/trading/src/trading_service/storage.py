@@ -7,7 +7,6 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlmodel import SQLModel
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import DATA_DIR
@@ -23,12 +22,13 @@ engine = create_async_engine(DATABASE_URL, echo=False)
 
 
 async def init_db() -> None:
-    """Initialize database tables"""
+    """Initialize database engine.
 
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
-
-    logger.info("Trading service database initialized")
+    Schema management is Alembic's job. Do not call create_all() here.
+    Run `alembic upgrade head` before service startup.
+    """
+    # Ensure the engine is ready; migrations must be applied externally.
+    logger.info("Trading service database engine ready (migrations managed by Alembic)")
 
 
 @asynccontextmanager
