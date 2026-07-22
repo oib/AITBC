@@ -186,7 +186,7 @@ class ReputationService:
         This is the canonical read path for cross-context consumers that need
         reputation data (certification, rewards, etc.).
         """
-        return self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()  # type: ignore[return-value]
+        return self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
 
     def get_reputation_dto(self, agent_id: str) -> ReputationDTO | None:
         """Return a :class:`ReputationDTO` projection for ``agent_id``.
@@ -205,7 +205,7 @@ class ReputationService:
         """Create a new reputation profile for an agent"""
         existing = self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if existing:
-            return existing  # type: ignore[return-value]
+            return existing  # type: ignore[no-any-return]
         reputation = AgentReputation(
             agent_id=agent_id,
             trust_score=500.0,

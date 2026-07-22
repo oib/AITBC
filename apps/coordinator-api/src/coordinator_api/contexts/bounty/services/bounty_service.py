@@ -149,8 +149,8 @@ class BountyService:
         """Create a bounty submission"""
         try:
             bounty = (
-                self.session.execute(
-                    select(Bounty).where(Bounty.bounty_id == bounty_id).with_for_update()  # type: ignore[arg-type, union-attr]
+                self.session.execute(  # type: ignore[union-attr]
+                    select(Bounty).where(Bounty.bounty_id == bounty_id).with_for_update()  # type: ignore[arg-type]
                 )
                 .scalars()
                 .first()

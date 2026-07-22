@@ -115,7 +115,7 @@ class HealthResponse(BaseModel):
 
 async def get_translation_engine() -> TranslationEngine:
     """Dependency injection for translation engine"""
-    from ..main import translation_engine  # type: ignore[import-not-found]
+    from ..main import translation_engine
 
     return translation_engine  # type: ignore[no-any-return]
 

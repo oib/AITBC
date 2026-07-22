@@ -100,7 +100,7 @@ class GlobalMarketplaceService:
             for offer in offers:
                 if offer.expires_at is None or offer.expires_at > current_time:
                     valid_offers.append(offer)
-            return valid_offers  # type: ignore[return-value]
+            return valid_offers
         except Exception as e:
             logger.error("Error getting global offers: %s", e)
             raise
@@ -193,7 +193,7 @@ class GlobalMarketplaceService:
             )
             existing_analytics = self.session.execute(stmt).scalars().first()
             if existing_analytics:
-                return existing_analytics  # type: ignore[return-value]
+                return existing_analytics  # type: ignore[no-any-return]
             analytics = await self._generate_analytics(request)
             self.session.add(analytics)
             self.session.commit()
@@ -354,7 +354,7 @@ class RegionManager:
             self.session.commit()
             self.session.refresh(region)
             logger.info("Updated health for region %s: %s", region_code, region.health_score)
-            return region  # type: ignore[return-value]
+            return region  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("Error updating region health %s: %s", region_code, e)
             self.session.rollback()
@@ -375,7 +375,7 @@ class RegionManager:
                 optimal_region = regions[0]
             else:
                 optimal_region = min(regions, key=lambda r: (r.health_score * -1, r.load_factor))
-            return optimal_region  # type: ignore[return-value]
+            return optimal_region  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("Error getting optimal region: %s", e)
             raise

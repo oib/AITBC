@@ -691,21 +691,21 @@ class GovernanceService:
         from ..domain.governance import Proposal as DomainProposal, ProposalStatus, RegionalCouncil, Vote as DomainVote
         from sqlmodel import func, select as sm_select
 
-        total = self._session_factory.execute(sm_select(func.count(DomainProposal.proposal_id))).scalar() or 0
+        total = self._session_factory.execute(sm_select(func.count(DomainProposal.proposal_id))).scalar() or 0  # type: ignore[arg-type]
         active = (
             self._session_factory.execute(
-                sm_select(func.count(DomainProposal.proposal_id)).where(DomainProposal.status == ProposalStatus.ACTIVE)
+                sm_select(func.count(DomainProposal.proposal_id)).where(DomainProposal.status == ProposalStatus.ACTIVE)  # type: ignore[arg-type]
             ).scalar()
             or 0
         )
         passed = (
             self._session_factory.execute(
-                sm_select(func.count(DomainProposal.proposal_id)).where(DomainProposal.status == ProposalStatus.SUCCEEDED)
+                sm_select(func.count(DomainProposal.proposal_id)).where(DomainProposal.status == ProposalStatus.SUCCEEDED)  # type: ignore[arg-type]
             ).scalar()
             or 0
         )
-        total_votes = self._session_factory.execute(sm_select(func.count(DomainVote.vote_id))).scalar() or 0
-        total_councils = self._session_factory.execute(sm_select(func.count(RegionalCouncil.council_id))).scalar() or 0
+        total_votes = self._session_factory.execute(sm_select(func.count(DomainVote.vote_id))).scalar() or 0  # type: ignore[arg-type]
+        total_councils = self._session_factory.execute(sm_select(func.count(RegionalCouncil.council_id))).scalar() or 0  # type: ignore[arg-type]
         return {
             "time_period_days": time_period_days,
             "proposals": {
