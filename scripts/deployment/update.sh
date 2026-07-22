@@ -470,7 +470,7 @@ restart_services() {
     # Gather currently-active aitbc services
     while read -r svc; do
         [ -n "$svc" ] && services+=("$svc")
-    done < <(systemctl list-units --type=service --state=running --no-legend 2>/dev/null | awk '/^aitbc-/{print $1}')
+    done < <(systemctl list-units --type=service --state=running --no-legend --no-pager 2>/dev/null | awk '$1 ~ /^aitbc-/{print $1}')
 
     if [ "${#services[@]}" -eq 0 ]; then
         warning "No aitbc services currently running — nothing to restart"
