@@ -2,7 +2,9 @@
 
 This file is the source of truth for project conventions, verification commands, and per-agent task plans. Agent-specific plans live at `docs/releases/<version>/AGENTS.md`; this root file holds the stable conventions and the **current** in-flight plan.
 
-**Current in-flight plan**: [v0.10.17](docs/releases/v0.10.17/change.log) — Security & Auth Hardening (Bugfix) (auth bypass, hardcoded defaults, feature flags, pool-hub reward signing, wiring bug) — ✅ complete
+**Current in-flight plan**: [v0.10.18](docs/releases/v0.10.18/change.log) — Update Deployment Stabilization (market_metrics migration conflict, wallet keystore restore, update.sh/health_check.sh fixes, poetry prep) — 🚧 in progress
+
+**Previous**: [v0.10.17](docs/releases/v0.10.17/change.log) — Security & Auth Hardening (Bugfix) (auth bypass, hardcoded defaults, feature flags, pool-hub reward signing, wiring bug) — ✅ complete
 
 **Previous**: [v0.10.15](docs/releases/v0.10.15/change.log) — Monolithic Router/Module Decomposition + cross-chain settlement block-time config wiring — ✅ complete
 

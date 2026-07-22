@@ -97,7 +97,7 @@ credentials/
 .git-credentials
 .gitea_token
 .gitea_token.sh
-keystore/
+/keystore/
 
 # ===================
 # IDE & Editor

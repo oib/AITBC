@@ -25,9 +25,9 @@ NC='\033[0m' # No Color
 declare -A SERVICE_ENDPOINTS=(
     ["aitbc-blockchain-rpc"]="http://localhost:8202/health"
     ["aitbc-coordinator-api"]="http://localhost:8203/health"
-    ["aitbc-exchange-api"]="http://localhost:8106/health"
+    ["aitbc-exchange"]="http://localhost:8106/health"
     ["aitbc-agent-coordinator"]="http://localhost:8107/health"
-    ["aitbc-marketplace"]="http://localhost:8081/health"
+    ["aitbc-marketplace"]="http://localhost:8102/health"
     ["aitbc-wallet"]="http://localhost:8108/health"
 )
 
@@ -151,9 +151,13 @@ check_disk_usage() {
 
 # Check system memory
 check_system_memory() {
-    local mem_info=$(free | grep Mem)
-    local total=$(echo $mem_info | awk '{print $2}')
-    local used=$(echo $mem_info | awk '{print $3}')
+    local mem_info=$(free | awk '/^(Mem|Speicher):/ {print $2, $3}')
+    local total=$(echo "$mem_info" | awk '{print $1}')
+    local used=$(echo "$mem_info" | awk '{print $2}')
+    if [[ -z "$total" || -z "$used" || "$total" -eq 0 ]]; then
+        warning "Could not determine system memory usage"
+        return 0
+    fi
     local percent=$((used * 100 / total))
 
     if [[ $percent -gt $ALERT_THRESHOLD_MEM ]]; then
