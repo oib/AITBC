@@ -1,15 +1,17 @@
 # v0.10.18 — Update Deployment Stabilization
 
 **Last Updated**: 2026-07-22
-**Status**: In Progress
+**Status**: Complete ✅
 **Prerequisite**: v0.10.17 complete
 
 ## Release Theme
 
 Stabilize the post-v0.10.17 update path: fix a long-standing coordinator-api
 database migration conflict, restore the wallet keystore package that was being
-ignored by `.gitignore`, harden `update.sh` and `health_check.sh`, and lay the
-groundwork for moving dependency installation from `pip` to `poetry`.
+ignored by `.gitignore`, harden `update.sh` and `health_check.sh`, reconcile the
+coordinator-api schema drift surfaced by `alembic check`, and switch dependency
+installation to a Poetry-based, profile-aware export so GPU/FHE/ML packages are
+optional.
 
 ## Motivation
 
@@ -51,8 +53,16 @@ surfaced:
   - Use correct systemd unit name `aitbc-exchange` instead of `aitbc-exchange-api`.
   - Fix system-memory parsing for localized `free` output and guard against
     division by zero.
-- [ ] B5: Switch `update.sh` dependency sync from `pip install -r requirements.txt`
-  to `poetry install --locked` and move optional GPU/FHE/ML packages to extras.
+- [x] B5: Switch `update.sh` dependency sync to Poetry.
+  - Move `torch`, `torchvision`, `pillow`, `opencv-python`, `pycuda`, and
+    `tenseal` to `[tool.poetry.extras]` (`gpu`, `fhe`, `ml`).
+  - Create `scripts/deployment/install-profiles.sh` to export and install the
+    correct `requirements-$PROFILE.txt` from `poetry.lock`.
+  - Regenerate `poetry.lock` and `requirements.txt`.
+- [x] B6: Reconcile coordinator-api schema drift.
+  - Add `render_as_batch=True` to `apps/coordinator-api/alembic/env.py`.
+  - Add Alembic migration `236edfbd9728` that drops unused legacy tables and
+    aligns column/index/types so `alembic check` is clean.
 
 ## Breaking Changes
 
@@ -67,10 +77,10 @@ surfaced:
   `/keystore/` so only a top-level keystore directory is ignored.
 
 ### `update.sh` Service Restart Gap
-- `update.sh`'s restart logic reports "No aitbc services currently running"
-  because it uses `systemctl list-units --state=running` in a non-interactive
-  context. As a workaround the full `systemctl restart 'aitbc-*'` is run after
-  `update.sh`.
+- `update.sh`'s restart logic previously reported "No aitbc services currently
+  running" because `awk` matched `^aitbc-` against `systemctl list-units` output
+  that starts with leading whitespace. Fixed by matching the first field and
+  adding `--no-pager`.
 
 ## Suggested Fix Priorities
 
@@ -80,7 +90,8 @@ surfaced:
 | P0 | `wallet_app.keystore` missing | Fixed |
 | P1 | `update.sh` PYTHONPATH / role-aware migration skip | Fixed |
 | P1 | `health_check.sh` port/service/localization bugs | Fixed |
-| P2 | `update.sh` switch to `poetry install --locked` | Tracked |
+| P2 | `update.sh` switch to Poetry profile-based install | Fixed |
+| P1 | coordinator-api schema drift (`alembic check`) | Fixed |
 
 ## Verification
 
@@ -102,6 +113,7 @@ cd /opt/aitbc
 
 - `update.sh` completes without `--no-migrate`.
 - `alembic upgrade head` passes for coordinator-api.
+- `alembic check` reports no new upgrade operations for coordinator-api.
 - `health_check.sh all` passes.
 - All AITBC systemd services are `active (running)`.
 
