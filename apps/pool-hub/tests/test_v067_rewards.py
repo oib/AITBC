@@ -76,6 +76,23 @@ class TestRewardPolicyConstants:
 class TestPoolHubBlockchainClient:
     """Test PoolHubBlockchainClient (v0.6.7)."""
 
+    @pytest.fixture
+    def signer_key(self):
+        """Return a deterministic secp256k1 key pair for reward signing tests."""
+        return {
+            "address": "0x1a642f0E3c3aF545E7AcBD38b07251B3990914F1",
+            "private_key": "0101010101010101010101010101010101010101010101010101010101010101",
+        }
+
+    @pytest.fixture
+    def signed_client(self, signer_key):
+        from poolhub.clients.blockchain import PoolHubBlockchainClient
+
+        return PoolHubBlockchainClient(
+            signer_address=signer_key["address"],
+            signer_private_key=signer_key["private_key"],
+        )
+
     def test_client_init_defaults(self):
         from poolhub.clients.blockchain import PoolHubBlockchainClient
 
@@ -102,13 +119,14 @@ class TestPoolHubBlockchainClient:
         assert client.reward_policy.current_epoch_number == 0
 
     @pytest.mark.asyncio
-    async def test_submit_reward_transaction_mock(self):
-        from poolhub.clients.blockchain import PoolHubBlockchainClient
-
-        client = PoolHubBlockchainClient()
+    async def test_submit_reward_transaction_mock(self, signed_client):
+        client = signed_client
 
         mock_response = {"tx_hash": "abc123", "status": "accepted"}
-        with patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, return_value=mock_response):
+        with (
+            patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
+            patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, return_value=mock_response),
+        ):
             result = await client.submit_reward_transaction(miner_address="0xminer1", amount=1000, job_id="job-001")
 
         assert result["tx_hash"] == "abc123"
@@ -130,16 +148,17 @@ class TestPoolHubBlockchainClient:
         assert result["gpu_id"] == "miner-1"
 
     @pytest.mark.asyncio
-    async def test_distribute_rewards_mock(self):
-        from poolhub.clients.blockchain import PoolHubBlockchainClient
-
-        client = PoolHubBlockchainClient()
+    async def test_distribute_rewards_mock(self, signed_client):
+        client = signed_client
         # Record contributions for two miners
         client.record_contribution("miner-1", score=90.0, shares=5000)
         client.record_contribution("miner-2", score=80.0, shares=3000)
 
         mock_response = {"tx_hash": "tx-abc", "status": "accepted"}
-        with patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, return_value=mock_response):
+        with (
+            patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
+            patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, return_value=mock_response),
+        ):
             payouts = await client.distribute_rewards(block_height=100)
 
         assert len(payouts) == 2
@@ -164,13 +183,14 @@ class TestPoolHubBlockchainClient:
         assert len(payouts) == 0
 
     @pytest.mark.asyncio
-    async def test_distribute_rewards_handles_errors(self):
-        from poolhub.clients.blockchain import PoolHubBlockchainClient
-
-        client = PoolHubBlockchainClient()
+    async def test_distribute_rewards_handles_errors(self, signed_client):
+        client = signed_client
         client.record_contribution("miner-1", score=90.0, shares=5000)
 
-        with patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, side_effect=Exception("Network error")):
+        with (
+            patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
+            patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, side_effect=Exception("Network error")),
+        ):
             payouts = await client.distribute_rewards(block_height=100)
 
         # Should not crash — should record the error
