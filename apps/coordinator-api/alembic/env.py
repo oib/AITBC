@@ -41,8 +41,9 @@ except Exception:  # pragma: no cover - defensive; metadata is optional for upgr
 config = context.config
 
 # Resolve the database URL from the app settings (honours .env / ENVIRONMENT).
-# Allow a direct DATABASE_URL override so CI and local tests can target a temp DB.
-config.set_main_option("sqlalchemy.url", os.environ.get("DATABASE_URL", app_settings.database.effective_url))
+# Allow DATABASE_URL or SQLITE_URL override so CI and local tests can target a temp DB.
+_db_url = os.environ.get("DATABASE_URL") or os.environ.get("SQLITE_URL") or app_settings.database.effective_url
+config.set_main_option("sqlalchemy.url", _db_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
