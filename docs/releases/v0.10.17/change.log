@@ -1,7 +1,7 @@
 # v0.10.17 — Security & Auth Hardening (Bugfix)
 
-**Last Updated**: 2026-07-22 (Agent A complete)
-**Status**: In Progress — Agent A complete, Agent B complete; remaining P0 MyPy errors tracked for separate type-safety sprint
+**Last Updated**: 2026-07-22 (release complete)
+**Status**: Complete ✅
 **Prerequisite**: v0.10.16 complete
 
 ## Release Theme
