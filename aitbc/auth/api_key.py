@@ -61,7 +61,7 @@ class APIKeyManager:
                     self.api_keys = migrated
                     self._save_keys()
                 return migrated
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, KeyError, TypeError) as e:
             logger.error("Error loading API keys: %s", e)
         return {}
 
@@ -77,7 +77,7 @@ class APIKeyManager:
             with open(self.storage_path, "w") as f:
                 json.dump(self.api_keys, f, indent=2)
             os.chmod(self.storage_path, 384)  # 0600
-        except Exception as e:
+        except (OSError, TypeError) as e:
             logger.error("Error saving API keys: %s", e)
 
     def generate_api_key(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
@@ -105,7 +105,7 @@ class APIKeyManager:
                 "permissions": permissions or [],
                 "created_at": key_data["created_at"],
             }
-        except Exception as e:
+        except (OSError, TypeError, KeyError) as e:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": "API key generation failed"}
 
@@ -145,7 +145,7 @@ class APIKeyManager:
                 "permissions": key_data["permissions"],
                 "usage_count": key_data["usage_count"],
             }
-        except Exception as e:
+        except (OSError, TypeError, KeyError) as e:
             logger.error("Error validating API key: %s", e)
             return {"status": "error", "message": "API key validation failed"}
 
@@ -164,7 +164,7 @@ class APIKeyManager:
                 return {"status": "success", "message": "API key revoked"}
             else:
                 return {"status": "error", "message": "API key not found"}
-        except Exception as e:
+        except (OSError, TypeError, KeyError) as e:
             logger.error("Error revoking API key: %s", e)
             return {"status": "error", "message": "API key revocation failed"}
 
