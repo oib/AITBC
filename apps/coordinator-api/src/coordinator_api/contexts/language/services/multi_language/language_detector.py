@@ -7,10 +7,10 @@ import asyncio
 from dataclasses import dataclass
 from enum import Enum
 
-import fasttext  # type: ignore[import-not-found]
-import langdetect  # type: ignore[import-not-found]
-from langdetect.lang_detect_exception import LangDetectException  # type: ignore[import-not-found]
-from polyglot.detect import Detector  # type: ignore[import-not-found]
+import fasttext
+import langdetect
+from langdetect.lang_detect_exception import LangDetectException
+from polyglot.detect import Detector
 
 from aitbc.aitbc_logging import get_logger
 

@@ -123,6 +123,7 @@ class BlockchainNode:
         )
         self._subscription_manager: SubscriptionManager | None = None
         self._multi_chain_manager: MultiChainManager | None = None
+        self._sync: ChainSync | None = None
 
     @staticmethod
     def _env_value(*names: str) -> str | None:
@@ -376,8 +377,10 @@ class BlockchainNode:
             if p2p_service is not None:
                 try:
                     default_chain = self._supported_chains()[0] if self._supported_chains() else settings.chain_id
-                    peer_sync = ChainSync(session_factory=lambda cid=default_chain: session_scope(cid), chain_id=default_chain)  # type: ignore[misc,arg-type]
-                    p2p_service.set_peer_capability_callback(peer_sync.register_sync_peer)
+                    self._sync = ChainSync(
+                        session_factory=lambda cid=default_chain: session_scope(cid), chain_id=default_chain
+                    )  # type: ignore[misc,arg-type]
+                    p2p_service.set_peer_capability_callback(self._sync.register_sync_peer)
                     logger.info("P2P peer capability callback wired to ChainSync peer tracker")
                 except Exception as e:
                     logger.warning("Failed to wire P2P peer capability callback: %s", e)

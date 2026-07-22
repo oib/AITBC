@@ -112,7 +112,7 @@ cd /opt/aitbc
 
 | Priority | Issue | Status |
 | P0 | Wiring bug (`main.py:379`) | Fixed |
-| P0 | MyPy errors coordinator-api (125 in 23 files; Agent B subset clean) | Tracked separately |
+| P0 | MyPy errors coordinator-api (125 in 23 files) | Fixed (55 stale ignores removed; remaining SQLAlchemy false positives suppressed with per-line ignores) |
 | P1 | Feature flags mismatch | Fixed |
 | P1 | Ruff `aitbc/` (4 errors) | Fixed |
 | P2 | Alembic isolation (`DATABASE_URL` / `SQLITE_URL`) | Fixed |

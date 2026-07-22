@@ -52,7 +52,7 @@ class DeveloperEcosystemService:
             self.session.execute(select(DeveloperProfile).where(DeveloperProfile.developer_id == developer_id))
             .scalars()
             .first()
-        )  # type: ignore[return-value]
+        )
 
     async def get_sdk_release_info(self) -> dict[str, Any]:
         """Get latest SDK information for developers"""
@@ -206,7 +206,7 @@ class InnovationLabService:
             self.session.commit()
             self.session.refresh(lab)
 
-        return lab  # type: ignore[return-value]
+        return lab  # type: ignore[no-any-return]
 
     async def fund_lab(self, lab_id: str, amount: float) -> InnovationLab:
         """Provide funding to an innovation lab"""
@@ -222,7 +222,7 @@ class InnovationLabService:
         self.session.add(lab)
         self.session.commit()
         self.session.refresh(lab)
-        return lab  # type: ignore[return-value]
+        return lab  # type: ignore[no-any-return]
 
 
 class CommunityPlatformService:
@@ -277,7 +277,7 @@ class CommunityPlatformService:
 
         self.session.commit()
         self.session.refresh(post)
-        return post  # type: ignore[return-value]
+        return post  # type: ignore[no-any-return]
 
     async def create_hackathon(self, organizer_id: str, data: dict[str, Any]) -> Hackathon:
         """Create a new agent innovation hackathon"""
@@ -323,4 +323,4 @@ class CommunityPlatformService:
             self.session.commit()
             self.session.refresh(hackathon)
 
-        return hackathon  # type: ignore[return-value]
+        return hackathon  # type: ignore[no-any-return]

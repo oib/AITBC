@@ -4,18 +4,33 @@ Wraps BlockchainRPCClient (from v0.6.6) with pool-hub-specific logic:
 - Submit reward transactions on job completion
 - Register miners on blockchain via GPU registration endpoint
 - Track reward payouts to prevent duplicates via RewardPolicy
+
+Reward transactions are signed with secp256k1 (Ethereum-style) over the
+canonical JSON of the signed fields, matching the blockchain node's verifier
+(see ``aitbc.crypto.transaction_service``).
 """
 
 from __future__ import annotations
-from aitbc.constants import BLOCKCHAIN_RPC_URL
 
+import json
 import logging
+import os
 from typing import Any
 
+from aitbc.constants import BLOCKCHAIN_RPC_URL
 from aitbc.marketplace import BlockchainRPCClient
 from aitbc.rewards import REWARD_PER_SHARE, RewardPolicy
 
 logger = logging.getLogger(__name__)
+
+# Transaction fields covered by the signature — must match the node verifier.
+_SIGNED_FIELDS = ("from", "to", "amount", "fee", "nonce", "payload", "type", "chain_id")
+
+
+def _canonical_signing_message(tx: dict[str, Any]) -> bytes:
+    """Return the exact bytes that are hashed and signed for a transaction."""
+    signed = {k: tx[k] for k in _SIGNED_FIELDS if k in tx}
+    return json.dumps(signed, sort_keys=True, separators=(",", ":")).encode()
 
 
 class PoolHubBlockchainClient:
@@ -32,11 +47,15 @@ class PoolHubBlockchainClient:
         rpc_url: str = BLOCKCHAIN_RPC_URL,
         chain_id: str = "ait-hub",
         coordinator_url: str = "http://localhost:8107",
+        signer_address: str | None = None,
+        signer_private_key: str | None = None,
     ) -> None:
         self._rpc = BlockchainRPCClient(rpc_url=rpc_url)
         self._chain_id = chain_id
         self._coordinator_url = coordinator_url
         self._reward_policy = RewardPolicy()
+        self._signer_address = signer_address or os.getenv("POOL_REWARD_ADDRESS")
+        self._signer_private_key = signer_private_key or os.getenv("POOL_REWARD_PRIVATE_KEY")
 
     @property
     def chain_id(self) -> str:
@@ -51,7 +70,7 @@ class PoolHubBlockchainClient:
         return self._rpc
 
     async def submit_reward_transaction(self, miner_address: str, amount: int, job_id: str) -> dict[str, Any]:
-        """Submit a reward transaction to the blockchain.
+        """Submit a signed reward transaction to the blockchain.
 
         Args:
             miner_address: Miner's wallet address (recipient)
@@ -60,21 +79,38 @@ class PoolHubBlockchainClient:
 
         Returns:
             Blockchain response dict with tx_hash
+
+        Raises:
+            ValueError: If reward signer key/address is not configured or mismatched.
         """
-        tx_data = {
-            "chain_id": self._chain_id,
-            "from": "genesis",  # pool operator / genesis account
+        if not self._signer_private_key or not self._signer_address:
+            raise ValueError("Reward signer not configured; set POOL_REWARD_PRIVATE_KEY and POOL_REWARD_ADDRESS")
+
+        from eth_keys import keys
+        from eth_utils import keccak
+
+        pk = keys.PrivateKey(bytes.fromhex(self._signer_private_key.removeprefix("0x")))
+        derived_address = pk.public_key.to_checksum_address()
+        if self._signer_address.lower() != derived_address.lower():
+            raise ValueError(
+                f"POOL_REWARD_ADDRESS {self._signer_address} does not match address derived from key ({derived_address})"
+            )
+
+        # Canonical tx includes the mining-reward payload; payload is part of the signed fields.
+        tx_data: dict[str, Any] = {
+            "from": self._signer_address,
             "to": miner_address,
             "amount": amount,
-            "type": "TRANSFER",
+            "fee": 36,
+            "nonce": await self._rpc.get_nonce(self._signer_address, self._chain_id),
             "payload": {"purpose": "mining_reward", "job_id": job_id},
-            "signature": "",  # will be signed by blockchain node or TransactionService
+            "type": "TRANSFER",
+            "chain_id": self._chain_id,
         }
-        # Note: In production, this would be signed by the pool operator's key
-        # using TransactionService.generate_signed_transaction(). For v0.6.7,
-        # we submit unsigned transactions (the blockchain node may reject them
-        # unless running in test mode). The signing integration is deferred to
-        # v0.7.1 (Bridge Security).
+
+        signature = pk.sign_msg_hash(keccak(_canonical_signing_message(tx_data)))
+        tx_data["signature"] = signature.to_bytes().hex()
+
         result = await self._rpc.submit_transaction(tx_data)
         logger.info("Reward tx submitted: miner=%s, amount=%d, job=%s", miner_address, amount, job_id)
         return result

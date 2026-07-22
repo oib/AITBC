@@ -11,7 +11,7 @@ from enum import StrEnum
 from typing import Any
 
 import numpy as np
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
@@ -450,7 +450,7 @@ def get_dashboard_data(symbol: str) -> dict[str, Any]:
 
 def create_analytics_alert(name: str, symbol: str, metric_type: str, condition: str, threshold: float, timeframe: str) -> str:
     """Create analytics alert"""
-    from advanced_analytics import MetricType, Timeframe  # type: ignore[import-not-found]
+    from advanced_analytics import MetricType, Timeframe
 
     return advanced_analytics.create_alert(
         name=name,

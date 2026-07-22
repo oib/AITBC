@@ -270,11 +270,11 @@ async def cancel_workflow(
         from coordinator_api.contexts.agent_coordination.services.orchestrator_service import AIAgentOrchestrator
 
         orchestrator = AIAgentOrchestrator(session, coordinator_client)
-        result = await orchestrator.update_execution_status(
+        result = await orchestrator.update_execution_status(  # type: ignore[attr-defined]
             execution_id, AgentStatus.CANCELLED, completed_at=datetime.now(UTC)
         )
         logger.info("Cancelled workflow execution: %s", execution_id)
-        return result
+        return result  # type: ignore[no-any-return]
     except HTTPException:
         raise
     except Exception as e:

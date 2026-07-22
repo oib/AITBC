@@ -188,7 +188,7 @@ class RewardEngine:
             self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).scalars().first()
         )
         if existing:
-            return existing  # type: ignore[return-value]
+            return existing  # type: ignore[no-any-return]
         profile = AgentRewardProfile(
             agent_id=agent_id,
             current_tier=RewardTier.BRONZE,
@@ -272,7 +272,7 @@ class RewardEngine:
         if not distribution:
             raise ValueError(f"Distribution {distribution_id} not found")
         if distribution.status != RewardStatus.PENDING:
-            return distribution  # type: ignore[return-value]
+            return distribution  # type: ignore[no-any-return]
         try:
             transaction_id = f"tx_{uuid4().hex[:8]}"
             transaction_hash = f"0x{uuid4().hex}"
@@ -292,7 +292,7 @@ class RewardEngine:
             self.session.commit()
             logger.error("Failed to process reward distribution %s: %s", distribution_id, str(e))
             raise
-        return distribution  # type: ignore[return-value]
+        return distribution  # type: ignore[no-any-return]
 
     async def update_agent_reward_profile(self, agent_id: str, reward_calculation: dict[str, Any]) -> None:
         """Update agent reward profile after reward distribution"""
