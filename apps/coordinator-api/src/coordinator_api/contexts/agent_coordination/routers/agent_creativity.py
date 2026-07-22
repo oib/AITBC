@@ -83,7 +83,7 @@ async def create_creative_capability(
     engine = CreativityEnhancementEngine()
     try:
         capability = await engine.create_creative_capability(
-            session=session,
+            session=session,  # type: ignore[arg-type]
             agent_id=request.agent_id,
             creative_domain=request.creative_domain,
             capability_type=request.capability_type,
@@ -116,7 +116,10 @@ async def enhance_creativity(
     engine = CreativityEnhancementEngine()
     try:
         result = await engine.enhance_creativity(
-            session=session, capability_id=capability_id, algorithm=request.algorithm, training_cycles=request.training_cycles
+            session=session,
+            capability_id=capability_id,
+            algorithm=request.algorithm,
+            training_cycles=request.training_cycles,  # type: ignore[arg-type]
         )
         return result
     except ValueError as e:
@@ -134,7 +137,7 @@ async def evaluate_creation(
     engine = CreativityEnhancementEngine()
     try:
         result = await engine.evaluate_creation(
-            session=session,
+            session=session,  # type: ignore[arg-type]
             capability_id=capability_id,
             creation_data=request.creation_data,
             expert_feedback=request.expert_feedback,
@@ -173,7 +176,7 @@ async def synthesize_cross_domain(
     integrator = CrossDomainCreativeIntegrator()
     try:
         result = await integrator.generate_cross_domain_synthesis(
-            session=session,
+            session=session,  # type: ignore[arg-type]
             agent_id=request.agent_id,
             primary_domain=request.primary_domain,
             secondary_domains=request.secondary_domains,

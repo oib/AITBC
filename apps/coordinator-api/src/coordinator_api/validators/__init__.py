@@ -1,4 +1,6 @@
 """Shared validators for Pydantic models."""
+# Note: Duplicate module name issue (validators/__init__.py) causes mypy errors.
+# Resolution: use --explicit-package-bases or adjust MYPYPATH.
 
 import re
 from decimal import Decimal

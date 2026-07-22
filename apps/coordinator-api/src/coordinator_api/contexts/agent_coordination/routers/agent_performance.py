@@ -372,7 +372,7 @@ async def create_capability(
     performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
     try:
         capability = await performance_service.create_capability(
-            session=session,
+            session=session,  # type: ignore[arg-type]
             agent_id=capability_request.agent_id,
             capability_name=capability_request.capability_name,
             capability_type=capability_request.capability_type,
@@ -389,7 +389,7 @@ async def create_capability(
             skill_level=capability.skill_level,
             proficiency_score=capability.proficiency_score,
             specialization_areas=capability.specializations,
-            status=capability.status,
+            status=capability.status,  # type: ignore[attr-defined]
             created_at=capability.created_at.isoformat(),
         )
     except Exception as e:
@@ -416,7 +416,7 @@ async def list_agent_capabilities(
                 skill_level=cap.skill_level,
                 proficiency_score=cap.proficiency_score,
                 specialization_areas=cap.specializations,
-                status=cap.status,
+                status=cap.status,  # type: ignore[attr-defined]
                 created_at=cap.created_at.isoformat(),
             )
             for cap in capabilities

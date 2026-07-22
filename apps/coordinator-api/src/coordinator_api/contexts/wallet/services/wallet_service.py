@@ -80,10 +80,10 @@ class WalletService:
     async def get_wallet_by_agent(self, agent_id: str) -> list[AgentWallet]:
         """Retrieve all active wallets for an agent"""
         return (
-            self.session.execute(select(AgentWallet).where(AgentWallet.agent_id == agent_id, AgentWallet.is_active))
+            self.session.execute(select(AgentWallet).where(AgentWallet.agent_id == agent_id, AgentWallet.is_active))  # type: ignore[arg-type,return-value]
             .scalars()
             .all()
-        )  # type: ignore[arg-type, return-value]
+        )
 
     async def get_balances(self, wallet_id: int) -> list[TokenBalance]:
         """Get all tracked balances for a wallet"""
@@ -110,11 +110,11 @@ class WalletService:
             symbol = "ETH" if token_address == "native" else "ERC20"
             record = TokenBalance(
                 wallet_id=wallet_id, chain_id=chain_id, token_address=token_address, token_symbol=symbol, balance=balance
-            )  # type: ignore[assignment]
+            )
             self.session.add(record)
         self.session.commit()
         self.session.refresh(record)
-        return record  # type: ignore[return-value]
+        return record
 
     async def submit_transaction(self, wallet_id: int, request: TransactionRequest) -> WalletTransaction:
         """Submit a transaction from a wallet"""

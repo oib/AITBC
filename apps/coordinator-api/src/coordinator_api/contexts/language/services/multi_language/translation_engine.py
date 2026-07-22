@@ -10,9 +10,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-import deepl  # type: ignore[import-not-found]
-import google.cloud.translate_v2 as translate  # type: ignore[import-untyped]
-import openai  # type: ignore[import-not-found]
+import deepl
+import google.cloud.translate_v2 as translate
+import openai
 
 from aitbc.aitbc_logging import get_logger
 

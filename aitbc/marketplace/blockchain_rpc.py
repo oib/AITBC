@@ -89,6 +89,32 @@ class BlockchainRPCClient:
             resp.raise_for_status()
             return cast(dict[str, Any], resp.json())
 
+    async def get_account(self, address: str, chain_id: str | None = None) -> dict[str, Any]:
+        """Get account info (balance, nonce) for an address.
+
+        Calls GET /rpc/account/{address} with optional chain_id.
+        Returns the account dict; missing account is returned as empty dict with zeros.
+        """
+        params: dict[str, Any] = {}
+        if chain_id:
+            params["chain_id"] = chain_id
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.get(f"{self._rpc_url}/rpc/account/{address}", params=params)
+            if resp.status_code == 404:
+                return {"balance": 0, "nonce": 0}
+            resp.raise_for_status()
+            return cast(dict[str, Any], resp.json())
+
+    async def get_nonce(self, address: str, chain_id: str | None = None) -> int:
+        """Get current nonce for an address."""
+        account = await self.get_account(address, chain_id)
+        return int(account.get("nonce", 0))
+
+    async def get_balance(self, address: str, chain_id: str | None = None) -> int:
+        """Get current balance for an address."""
+        account = await self.get_account(address, chain_id)
+        return int(account.get("balance", 0))
+
     async def submit_transaction(self, tx_data: dict[str, Any]) -> dict[str, Any]:
         """Submit a transaction to the blockchain.
 
