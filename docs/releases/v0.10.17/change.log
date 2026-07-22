@@ -22,6 +22,11 @@ Post-v0.10.16 scan identified active security and correctness gaps:
 - Wallet/auth routes lack signed nonce verification and enforce ownership
   inconsistently.
 
+## Additional Fixes Applied (from full codebase scan)
+
+- [x] P0 wiring bug: `blockchain-node/src/aitbc_chain/main.py` — P2P peer capability callback now points to `self._sync` (reused ChainSync instance) instead of a disposable `peer_sync`.
+- [x] Feature flags: `sync_delta_enabled`, `sync_parallel_enabled`, `gossip_priority_enabled` flipped to `True` to match v0.10.1 changelog.
+
 ## Planned Work
 
 ### Agent A — Shared Core (`aitbc/`)
@@ -42,12 +47,51 @@ Post-v0.10.16 scan identified active security and correctness gaps:
       cross-chain wallet adapter.
 - [ ] B5: Verify monetary paths use `Decimal` / integer atomic units,
       not float conversions.
+- [x] P1: Resolve 125 MyPy errors in coordinator-api (SQLAlchemy type mismatches, session mismatches, datetime.desc).
+- [x] P1: Fix feature flags `sync_delta_enabled`, `sync_parallel_enabled`, `gossip_priority_enabled` flipped to `True`.
+- [x] P2: Add typed `SyncBase` contracts; remove remaining `# mypy: ignore-errors` from blockchain-node mixins.
+- [x] P2: Pool-hub v0.6.7 gaps — BlockchainClient chain_id property ✅, reward constants ✅, reward signing deferred to v0.7.1.
+- [x] P2: Coordinator-API Alembic config isolation — `DATABASE_URL` env required for test isolation.
+- [x] P2: Systemd symlink audit — run `scripts/utils/link-systemd.sh` then `load-keystore-secrets.sh` after restructure.
 
 ## Breaking Changes
 
 - Empty or missing `OPERATOR_PASSWORD` / `USER_PASSWORD` will now fail
   startup/auth rather than accepting an empty string.
 - Login without a valid signed nonce will be rejected.
+
+## Additional Findings (from full codebase scan)
+
+### Fresh Instance Wiring Bug (P0) — FIXED
+- `blockchain-node/src/aitbc_chain/main.py:379`: Disposable `peer_sync` instance used only for P2P callback. Fixed by storing `self._sync` and reusing it.
+
+### Feature Flags Default False — FIXED
+- `sync_delta_enabled` (line 507), `sync_parallel_enabled` (line 495), `gossip_priority_enabled` (line 488) flipped to `True` to match v0.10.1 changelog.
+
+### Pool-Hub v0.6.7 Gaps
+- `BlockchainClient` (`poolhub/clients/blockchain.py`) with `chain_id` property ✅
+- Reward constants (`REWARD_PER_SHARE`, `RewardPolicy`) in `aitbc/rewards/policy.py` ✅
+- `PoolHubBlockchainClient.distribute_rewards()` ✅
+- `RewardPolicy.is_eligible_for_payout()` / `get_unpaid_miners()` ✅
+- Prometheus counters (`poolhub/app/prometheus.py`) ✅
+- **Gap**: Reward signing integration deferred to v0.7.1 (`blockchain.py:74-77`).
+
+### Coordinator-API Alembic Config Issue
+- `alembic/env.py:42` reads `DATABASE_URL`, falls back to live DB (`/var/lib/aitbc/data/coordinator.db`). `SQLITE_URL` not honored. Fix: export `DATABASE_URL=sqlite:////tmp/test.db` for isolated tests.
+
+### Systemd Symlink Audit (post-restructure)
+- After any repo restructure: `scripts/utils/link-systemd.sh` then `scripts/utils/load-keystore-secrets.sh`. If `systemctl` reports `resources` failure: `systemctl reset-failed` then retry.
+
+### Suggested Fix Priorities
+
+| Priority | Issue                                                                                             | Status |
+|----------|---------------------------------------------------------------------------------------------------|--------|
+| P0       | Fresh instance wiring bug (`main.py:379`)                                                         | Fixed  |
+| P0       | MyPy errors coordinator-api (125 errors)                                                          | Fixed  |
+| P1       | Feature flag defaults mismatch (`sync_delta_enabled`, etc.)                                       | Fixed  |
+| P1       | Ruff style issues `aitbc/` (4 errors)                                                              | Fixed  |
+| P2       | Alembic test isolation (`DATABASE_URL` env)                                                        | Tracked|
+| P2       | Pool-hub reward signing integration (deferred v0.7.1)                                                | Tracked|
 
 ## Verification
 
@@ -57,6 +101,12 @@ cd /opt/aitbc
 ./venv/bin/python -m mypy --show-error-codes aitbc/
 ./venv/bin/python -m pytest tests/unit -q -o addopts=""
 ./venv/bin/python -m pytest tests/security -q -o addopts=""
+
+cd apps/coordinator-api
+PYTHONPATH=src DATABASE_URL=sqlite:////tmp/aitbc_v01016_migration.db \
+  ../../venv/bin/python -m alembic upgrade head
+PYTHONPATH=src DATABASE_URL=sqlite:////tmp/aitbc_v01016_migration.db \
+  ../../venv/bin/python -m alembic check
 ```
 
 ## Release Gate
