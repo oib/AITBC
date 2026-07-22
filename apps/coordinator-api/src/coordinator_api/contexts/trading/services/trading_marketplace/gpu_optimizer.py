@@ -13,11 +13,11 @@ from uuid import uuid4
 from aitbc.aitbc_logging import get_logger
 
 try:
-    import pycuda.driver as cuda  # type: ignore[import-untyped]
+    import pycuda.driver as cuda
 
     cuda.init()
-    import pycuda.autoinit  # type: ignore[import-untyped]  # noqa: F401
-    from pycuda.compiler import SourceModule  # type: ignore[import-untyped]  # noqa: F401
+    import pycuda.autoinit  # noqa: F401
+    from pycuda.compiler import SourceModule  # noqa: F401
 
     CUDA_AVAILABLE = True
 except (ImportError, Exception) as e:

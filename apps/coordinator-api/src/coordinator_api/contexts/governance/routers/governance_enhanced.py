@@ -68,7 +68,7 @@ async def get_regional_councils(
 
     try:
         councils = await governance_service.get_regional_councils(region)
-        return councils  # type: ignore[no-any-return]
+        return councils
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting regional councils: {str(e)}") from e
@@ -135,7 +135,7 @@ async def get_treasury_balance(
 
     try:
         balance = await governance_service.get_treasury_balance(region)
-        return balance  # type: ignore[no-any-return]
+        return balance
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting treasury balance: {str(e)}") from e
@@ -177,7 +177,7 @@ async def get_treasury_transactions(
 
     try:
         transactions = await governance_service.get_treasury_transactions(limit or 100, offset or 0, region)
-        return transactions  # type: ignore[no-any-return]
+        return transactions
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting treasury transactions: {str(e)}") from e
@@ -217,7 +217,7 @@ async def get_developer_staking_pools(
 
     try:
         pools = await governance_service.get_developer_staking_pools(developer_address)
-        return pools  # type: ignore[no-any-return]
+        return pools
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting staking pools: {str(e)}") from e
@@ -238,7 +238,7 @@ async def calculate_staking_rewards(
 
     try:
         rewards = await governance_service.calculate_staking_rewards(pool_id, staker_address, amount, duration_days)
-        return rewards  # type: ignore[no-any-return]
+        return rewards
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error calculating staking rewards: {str(e)}") from e
@@ -275,7 +275,7 @@ async def get_governance_analytics(
 
     try:
         analytics = await governance_service.get_governance_analytics(time_period_days or 30)
-        return analytics  # type: ignore[no-any-return]
+        return analytics
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting governance analytics: {str(e)}") from e
@@ -293,7 +293,7 @@ async def get_regional_governance_health(
 
     try:
         health = await governance_service.get_regional_governance_health(region)
-        return health  # type: ignore[no-any-return]
+        return health
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting regional governance health: {str(e)}") from e

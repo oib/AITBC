@@ -185,9 +185,9 @@ class AnalyticsService:
         stmt = (
             select(MarketMetric)
             .where(MarketMetric.metric_name == metric_name)
-            .order_by(MarketMetric.recorded_at.desc())
+            .order_by(MarketMetric.recorded_at.desc())  # type: ignore[attr-defined]
             .limit(30)
-        )  # type: ignore
+        )
         metrics = list(self.session.execute(stmt).scalars().all())
         if not metrics:
             return {"metric_name": metric_name, "forecast": [], "confidence_interval": ci}

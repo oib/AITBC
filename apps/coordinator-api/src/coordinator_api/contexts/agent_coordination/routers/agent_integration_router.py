@@ -82,7 +82,7 @@ async def list_deployment_configs(
             workflow = session.get(AIAgentWorkflow, config.workflow_id)
             if workflow and workflow.owner_id == user["sub"]:
                 user_configs.append(config)
-        return user_configs  # type: ignore[return-value]
+        return user_configs
     except Exception as e:
         logger.error("Failed to list deployment configs: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -252,7 +252,7 @@ async def list_deployment_instances(
                 workflow = session.get(AIAgentWorkflow, config.workflow_id)
                 if workflow and workflow.owner_id == user["sub"]:
                     user_instances.append(instance)
-        return user_instances  # type: ignore[return-value]
+        return user_instances
     except Exception as e:
         logger.error("Failed to list deployment instances: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e

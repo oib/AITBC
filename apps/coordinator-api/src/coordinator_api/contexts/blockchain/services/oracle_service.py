@@ -198,7 +198,7 @@ class AggregatedPriceFeed:
         try:
             url = "https://api.coingecko.com/api/v3/simple/price"
             params = {"ids": coin_id, "vs_currencies": "usd", "include_24hr_change": "true"}
-            response = await self._client.get(url, params=params, timeout=10)
+            response = await self._client.get(url, params=params, timeout=10)  # type: ignore[attr-defined]
             if response.status_code != 200:
                 logger.warning("CoinGecko API returned %s", response.status_code)
                 return None

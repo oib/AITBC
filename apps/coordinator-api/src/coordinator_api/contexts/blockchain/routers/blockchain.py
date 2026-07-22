@@ -62,7 +62,7 @@ async def blockchain_sync_status() -> dict[str, Any]:
 async def get_block(height: int) -> dict[str, Any]:
     """Get block by height."""
     try:
-        from ..config import settings  # type: ignore[import-not-found]
+        from ..config import settings
 
         rpc_url = settings.blockchain_rpc_url.rstrip("/")
         client = AITBCHTTPClient(timeout=5.0)

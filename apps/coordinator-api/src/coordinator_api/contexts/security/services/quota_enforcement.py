@@ -100,7 +100,7 @@ class QuotaEnforcementService:
             raise TenantError("No tenant context found")
         stmt = (
             update(UsageRecord)
-            .where(and_(UsageRecord.id == usage_record_id, UsageRecord.tenant_id == tenant_id))
+            .where(UsageRecord.id == usage_record_id, UsageRecord.tenant_id == tenant_id)  # type: ignore[arg-type]
             .values(
                 quantity=UsageRecord.quantity - quantity,
                 total_cost=UsageRecord.total_cost - await self._calculate_cost(resource_type, quantity),
@@ -123,9 +123,9 @@ class QuotaEnforcementService:
         tenant_id = tenant_id or get_current_tenant_id()
         if not tenant_id:
             raise TenantError("No tenant context found")
-        stmt = select(TenantQuota).where(and_(TenantQuota.tenant_id == tenant_id, TenantQuota.is_active))
+        stmt = select(TenantQuota).where(and_(TenantQuota.tenant_id == tenant_id, TenantQuota.is_active))  # type: ignore[arg-type]
         if resource_type:
-            stmt = stmt.where(TenantQuota.resource_type == resource_type)
+            stmt = stmt.where(TenantQuota.resource_type == resource_type)  # type: ignore[arg-type]
         quotas = self.db.execute(stmt).scalars().all()
         status: dict[str, Any] = {
             "tenant_id": tenant_id,
@@ -141,8 +141,8 @@ class QuotaEnforcementService:
                 "remaining": (quota.limit_value - current_usage),
                 "usage_percent": round(usage_percent, 2),
                 "period": quota.period_type,
-                "period_start": quota.period_start.isoformat(),
-                "period_end": quota.period_end.isoformat(),
+                "period_start": quota.period_start.isoformat(),  # type: ignore[union-attr]
+                "period_end": quota.period_end.isoformat(),  # type: ignore[union-attr]
             }
             status["quotas"][quota.resource_type] = quota_status
             if usage_percent >= 100:
@@ -176,7 +176,7 @@ class QuotaEnforcementService:
     async def reset_quota_period(self, tenant_id: str, resource_type: str) -> None:
         """Reset quota for a new period"""
         stmt = select(TenantQuota).where(
-            and_(TenantQuota.tenant_id == tenant_id, TenantQuota.resource_type == resource_type, TenantQuota.is_active)
+            and_(TenantQuota.tenant_id == tenant_id, TenantQuota.resource_type == resource_type, TenantQuota.is_active)  # type: ignore[arg-type]
         )
         quota = self.db.execute(stmt).scalar_one_or_none()
         if not quota:
@@ -194,7 +194,7 @@ class QuotaEnforcementService:
             period_end = period_start + timedelta(days=1)
         quota.period_start = period_start
         quota.period_end = period_end
-        quota.used_value = 0
+        quota.used_value = 0  # type: ignore[assignment]
         self.db.commit()
         cache_key = f"quota_usage:{tenant_id}:{resource_type}"
         if self.redis:
@@ -253,18 +253,18 @@ class QuotaEnforcementService:
             if cached:
                 quota_data = json.loads(cached)
                 quota = TenantQuota(**quota_data)
-                if quota.period_end >= datetime.now(UTC):
+                if quota.period_end >= datetime.now(UTC):  # type: ignore[operator]
                     return quota
         stmt = select(TenantQuota).where(
             and_(
-                TenantQuota.tenant_id == tenant_id,
-                TenantQuota.resource_type == resource_type,
-                TenantQuota.is_active,
-                TenantQuota.period_start <= datetime.now(UTC),
-                TenantQuota.period_end >= datetime.now(UTC),
+                TenantQuota.tenant_id == tenant_id,  # type: ignore[arg-type]
+                TenantQuota.resource_type == resource_type,  # type: ignore[arg-type]
+                TenantQuota.is_active,  # type: ignore[arg-type]
+                TenantQuota.period_start <= datetime.now(UTC),  # type: ignore[arg-type,operator]
+                TenantQuota.period_end >= datetime.now(UTC),  # type: ignore[arg-type,operator]
             )
         )
-        quota = self.db.execute(stmt).scalar_one_or_none()
+        quota = self.db.execute(stmt).scalar_one_or_none()  # type: ignore[assignment]
         if quota and self.redis:
             quota_data = {
                 "id": str(quota.id),
@@ -272,8 +272,8 @@ class QuotaEnforcementService:
                 "resource_type": quota.resource_type,
                 "limit_value": quota.limit_value,
                 "used_value": quota.used_value,
-                "period_start": quota.period_start.isoformat(),
-                "period_end": quota.period_end.isoformat(),
+                "period_start": quota.period_start.isoformat(),  # type: ignore[union-attr]
+                "period_end": quota.period_end.isoformat(),  # type: ignore[union-attr]
             }
             self.redis.setex(cache_key, self._cache_ttl, json.dumps(quota_data))
         return quota
@@ -287,8 +287,8 @@ class QuotaEnforcementService:
                 return Decimal(str(cached))
         stmt = select(func.sum(UsageRecord.quantity)).where(
             and_(
-                UsageRecord.tenant_id == tenant_id,
-                UsageRecord.resource_type == resource_type,
+                UsageRecord.tenant_id == tenant_id,  # type: ignore[arg-type]
+                UsageRecord.resource_type == resource_type,  # type: ignore[arg-type]
                 UsageRecord.usage_start >= func.date_trunc("month", func.current_date()),
             )
         )
@@ -302,14 +302,14 @@ class QuotaEnforcementService:
         """Update quota usage in database"""
         stmt = (
             update(TenantQuota)
-            .where(and_(TenantQuota.tenant_id == tenant_id, TenantQuota.resource_type == resource_type, TenantQuota.is_active))
+            .where(and_(TenantQuota.tenant_id == tenant_id, TenantQuota.resource_type == resource_type, TenantQuota.is_active))  # type: ignore[arg-type]
             .values(used_value=TenantQuota.used_value + quantity)
         )
         self.db.execute(stmt)
 
     async def _get_tenant(self, tenant_id: str) -> Tenant | None:
         """Get tenant by ID"""
-        stmt = select(Tenant).where(Tenant.id == tenant_id)
+        stmt = select(Tenant).where(Tenant.id == tenant_id)  # type: ignore[arg-type]
         return self.db.execute(stmt).scalar_one_or_none()
 
     def _get_unit_for_resource(self, resource_type: str) -> str:

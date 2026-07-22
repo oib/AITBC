@@ -45,7 +45,7 @@ class AgentStake(SQLModel, table=True):
     agent_wallet: str = Field(index=True, max_length=42)
 
     # Stake details
-    amount: Decimal = Field(index=True, gt=0, le=Decimal("360000000.0"))
+    amount: Decimal = Field(index=True, gt=0, le=Decimal("360000000.0"))  # type: ignore[call-overload]
     lock_period: int = Field(default=30)  # days
     start_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
     end_time: datetime
