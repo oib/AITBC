@@ -60,7 +60,7 @@ class ReportType(StrEnum):
 class MarketMetric(SQLModel, table=True):
     """Market metrics and KPIs"""
 
-    __tablename__ = "market_metrics"
+    __tablename__ = "analytics_market_metrics"
     __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"metric_{uuid4().hex[:8]}", primary_key=True)
