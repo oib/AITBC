@@ -1,0 +1,108 @@
+# v0.10.18 — Update Deployment Stabilization
+
+**Last Updated**: 2026-07-22
+**Status**: In Progress
+**Prerequisite**: v0.10.17 complete
+
+## Release Theme
+
+Stabilize the post-v0.10.17 update path: fix a long-standing coordinator-api
+database migration conflict, restore the wallet keystore package that was being
+ignored by `.gitignore`, harden `update.sh` and `health_check.sh`, and lay the
+groundwork for moving dependency installation from `pip` to `poetry`.
+
+## Motivation
+
+After pulling v0.10.17 and restarting services, several deployment-level issues
+surfaced:
+
+- `update.sh` aborted on the coordinator-api migration because two SQLModel
+  models (`analytics.MarketMetric` and `trading.MarketMetrics`) shared the
+  table name `market_metrics`.
+- `aitbc-wallet.service` failed to start with `ModuleNotFoundError:
+  wallet_app.keystore` because `.gitignore` had a blanket `keystore/` rule that
+  hid the `wallet_app/keystore/` source package.
+- `update.sh` did not include `/opt/aitbc/packages/py/*/src` in `PYTHONPATH`
+  for Alembic, and attempted to migrate services not linked for the current
+  node role.
+- `health_check.sh` used the wrong marketplace port and an `aitbc-exchange-api`
+  systemd unit name that does not exist.
+- The system-memory check failed on non-English `free` output and could divide
+  by zero.
+
+## Planned Work
+
+### Agent B — Apps (`apps/`, `cli/`) & Operations (`scripts/`)
+
+- [x] B1: Fix coordinator-api `market_metrics` table collision.
+  - Rename analytics model table to `analytics_market_metrics`.
+  - Update `add_query_performance_indexes` to index the renamed table.
+  - Add Alembic migration `7350cc615a22` to create/rename the analytics table.
+- [x] B2: Restore `wallet_app.keystore` package.
+  - Add `persistent_service.py` and `__init__.py` to `apps/wallet/src/wallet_app/keystore/`.
+  - Update `wallet_app/api_jsonrpc.py` to import `PersistentKeystoreService`.
+  - Fix `.gitignore` from `keystore/` to `/keystore/` so source packages are no
+    longer ignored.
+- [x] B3: Harden `scripts/deployment/update.sh`.
+  - Add `/opt/aitbc` and `packages/py/*/src` to Alembic `PYTHONPATH`.
+  - Skip Alembic migrations for services not linked for the current node role.
+- [x] B4: Fix `scripts/monitoring/health_check.sh`.
+  - Correct marketplace health endpoint to `http://localhost:8102/health`.
+  - Use correct systemd unit name `aitbc-exchange` instead of `aitbc-exchange-api`.
+  - Fix system-memory parsing for localized `free` output and guard against
+    division by zero.
+- [ ] B5: Switch `update.sh` dependency sync from `pip install -r requirements.txt`
+  to `poetry install --locked` and move optional GPU/FHE/ML packages to extras.
+
+## Breaking Changes
+
+- The analytics `market_metrics` table is now `analytics_market_metrics`. Any
+  direct SQL or ad-hoc scripts referencing the old name must be updated.
+
+## Additional Findings
+
+### `.gitignore` Hiding Source Packages
+- The root `.gitignore` contained a broad `keystore/` entry that prevented
+  `apps/wallet/src/wallet_app/keystore/` from being tracked. Changed to
+  `/keystore/` so only a top-level keystore directory is ignored.
+
+### `update.sh` Service Restart Gap
+- `update.sh`'s restart logic reports "No aitbc services currently running"
+  because it uses `systemctl list-units --state=running` in a non-interactive
+  context. As a workaround the full `systemctl restart 'aitbc-*'` is run after
+  `update.sh`.
+
+## Suggested Fix Priorities
+
+| Priority | Issue | Status |
+|----------|-------|--------|
+| P0 | `market_metrics` migration conflict | Fixed |
+| P0 | `wallet_app.keystore` missing | Fixed |
+| P1 | `update.sh` PYTHONPATH / role-aware migration skip | Fixed |
+| P1 | `health_check.sh` port/service/localization bugs | Fixed |
+| P2 | `update.sh` switch to `poetry install --locked` | Tracked |
+
+## Verification
+
+```bash
+cd /opt/aitbc
+./venv/bin/python -m ruff check .
+./venv/bin/python -m mypy --show-error-codes aitbc/
+./venv/bin/python -m pytest tests/unit -q -o addopts=""
+
+# Coordinator-api migrations and health
+cd apps/coordinator-api
+PYTHONPATH="/opt/aitbc:src:$(ls -d /opt/aitbc/packages/py/*/src | tr '\n' ':')" \
+  /opt/aitbc/venv/bin/alembic upgrade head
+cd /opt/aitbc
+/opt/aitbc/scripts/monitoring/health_check.sh all
+```
+
+## Release Gate
+
+- `update.sh` completes without `--no-migrate`.
+- `alembic upgrade head` passes for coordinator-api.
+- `health_check.sh all` passes.
+- All AITBC systemd services are `active (running)`.
+
+*Generated with [Devin](https://devin.ai)*
