@@ -7,8 +7,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 
@@ -83,7 +82,7 @@ async def create_creative_capability(
     engine = CreativityEnhancementEngine()
     try:
         capability = await engine.create_creative_capability(
-            session=session,  # type: ignore[arg-type]
+            session=session,
             agent_id=request.agent_id,
             creative_domain=request.creative_domain,
             capability_type=request.capability_type,
@@ -119,7 +118,7 @@ async def enhance_creativity(
             session=session,
             capability_id=capability_id,
             algorithm=request.algorithm,
-            training_cycles=request.training_cycles,  # type: ignore[arg-type]
+            training_cycles=request.training_cycles,
         )
         return result
     except ValueError as e:
@@ -137,7 +136,7 @@ async def evaluate_creation(
     engine = CreativityEnhancementEngine()
     try:
         result = await engine.evaluate_creation(
-            session=session,  # type: ignore[arg-type]
+            session=session,
             capability_id=capability_id,
             creation_data=request.creation_data,
             expert_feedback=request.expert_feedback,
@@ -176,7 +175,7 @@ async def synthesize_cross_domain(
     integrator = CrossDomainCreativeIntegrator()
     try:
         result = await integrator.generate_cross_domain_synthesis(
-            session=session,  # type: ignore[arg-type]
+            session=session,
             agent_id=request.agent_id,
             primary_domain=request.primary_domain,
             secondary_domains=request.secondary_domains,
