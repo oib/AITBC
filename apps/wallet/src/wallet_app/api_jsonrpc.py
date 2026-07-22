@@ -6,7 +6,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends
 
 from .deps import get_keystore, get_ledger, get_receipt_service
-from .keystore.service import KeystoreService
+from .keystore.persistent_service import PersistentKeystoreService
 from .ledger_mock import SQLiteLedgerAdapter
 from .models import from_validation_result
 from .receipts.service import ReceiptVerifierService
@@ -29,7 +29,7 @@ def _response(
 def handle_jsonrpc(
     request: dict[str, Any],
     service: Annotated[ReceiptVerifierService, Depends(get_receipt_service)],
-    keystore: Annotated[KeystoreService, Depends(get_keystore)],
+    keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
     ledger: Annotated[SQLiteLedgerAdapter, Depends(get_ledger)],
 ) -> dict[str, Any]:
     method = request.get("method")
