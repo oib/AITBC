@@ -100,7 +100,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     media_type="application/json",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
-            except Exception as e:
+            except (ValueError, TypeError) as e:
                 logger.error("AuthMiddleware error: %s", e)
                 return Response(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -135,7 +135,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     content='{"detail": "Invalid API key"}',
                     media_type="application/json",
                 )
-            except Exception as e:
+            except (ValueError, TypeError) as e:
                 logger.error("AuthMiddleware API key error: %s", e)
                 return Response(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -176,7 +176,7 @@ class RateLimiter:
             self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
             self.redis_client.ping()
             logger.info("RateLimiter connected to Redis")
-        except Exception as e:
+        except (ImportError, ConnectionError, TypeError) as e:
             logger.error("Failed to connect to Redis: %s", e)
             self.redis_client = None
 

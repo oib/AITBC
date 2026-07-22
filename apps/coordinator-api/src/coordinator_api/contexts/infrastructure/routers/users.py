@@ -101,8 +101,8 @@ async def _consume_nonce(wallet_address: str, nonce: str) -> bool:
 
 
 async def _create_session(user_id: str, role: str) -> str:
-    """Create a JWT access token for a user."""
-    return create_access_token(user_id, role)
+    """Create a JWT access token for a user with a secure random session identifier."""
+    return create_access_token(user_id, role, extra_claims={"session_id": secrets.token_urlsafe(16)})
 
 
 async def _is_token_revoked(token: str) -> bool:

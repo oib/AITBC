@@ -37,11 +37,15 @@ async def login(request: Request, login_data: dict[str, str]) -> dict[str, Any]:
 
         if not admin_password:
             raise HTTPException(status_code=500, detail="ADMIN_PASSWORD environment variable not configured")
+        if not operator_password:
+            raise HTTPException(status_code=500, detail="OPERATOR_PASSWORD environment variable not configured")
+        if not user_password:
+            raise HTTPException(status_code=500, detail="USER_PASSWORD environment variable not configured")
 
         demo_users = {
             "admin": admin_password,
-            "operator": operator_password or "",
-            "user": user_password or "",
+            "operator": operator_password,
+            "user": user_password,
         }
 
         # Validate credentials
