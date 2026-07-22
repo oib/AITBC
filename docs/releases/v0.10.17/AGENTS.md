@@ -101,8 +101,8 @@ cd /opt/aitbc
 - `BlockchainClient`, reward constants, `distribute_rewards()`, eligibility logic, Prometheus counters: all present.
 - Reward signing integration deferred to v0.7.1 (`blockchain.py:74-77`).
 
-### P2 — Coordinator-API Alembic Isolation
-- `DATABASE_URL` env required; `SQLITE_URL` not honored by `env.py`.
+### P2 — Coordinator-API Alembic Isolation ✅
+- `env.py` now honors `DATABASE_URL` or `SQLITE_URL` override before falling back to `app_settings.database.effective_url`.
 
 ### P2 — Systemd Symlink Audit
 - After restructure: `scripts/utils/link-systemd.sh` → `load-keystore-secrets.sh`.
@@ -112,10 +112,10 @@ cd /opt/aitbc
 
 | Priority | Issue | Status |
 | P0 | Wiring bug (`main.py:379`) | Fixed |
-| P0 | MyPy errors coordinator-api (125) | Fixed |
+| P0 | MyPy errors coordinator-api (125 in 23 files; Agent B subset clean) | Tracked separately |
 | P1 | Feature flags mismatch | Fixed |
 | P1 | Ruff `aitbc/` (4 errors) | Fixed |
-| P2 | Alembic isolation (`DATABASE_URL`) | Tracked |
+| P2 | Alembic isolation (`DATABASE_URL` / `SQLITE_URL`) | Fixed |
 | P2 | Pool-hub reward signing (v0.7.1) | Tracked |
 
 ---

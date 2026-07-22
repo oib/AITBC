@@ -1,7 +1,7 @@
 # v0.10.17 — Security & Auth Hardening (Bugfix)
 
 **Last Updated**: 2026-07-22 (Agent A complete)
-**Status**: In Progress — Agent A complete, Agent B pending
+**Status**: In Progress — Agent A complete, Agent B complete; remaining P0 MyPy errors tracked for separate type-safety sprint
 **Prerequisite**: v0.10.16 complete
 
 ## Release Theme
@@ -38,21 +38,22 @@ Post-v0.10.16 scan identified active security and correctness gaps:
 
 ### Agent B — Apps (`apps/`, `cli/`)
 
-- [ ] B1: Fix `agent_app/routers/auth.py` — reject empty `operator_password`
+- [x] B1: Fix `agent_app/routers/auth.py` — reject empty `operator_password`
       and `user_password`; require non-empty secrets for all roles.
-- [ ] B2: Add nonce/signature verification to wallet login route.
-- [ ] B3: Enforce object-level authorization (`user_id` match) on balance
+- [x] B2: Add nonce/signature verification to wallet login route.
+- [x] B3: Enforce object-level authorization (`user_id` match) on balance
       and transaction endpoints.
-- [ ] B4: Remove client-controlled RPC URL and private-key inputs from
+- [x] B4: Remove client-controlled RPC URL and private-key inputs from
       cross-chain wallet adapter.
-- [ ] B5: Verify monetary paths use `Decimal` / integer atomic units,
+- [x] B5: Verify monetary paths use `Decimal` / integer atomic units,
       not float conversions.
-- [x] P1: Resolve 125 MyPy errors in coordinator-api (SQLAlchemy type mismatches, session mismatches, datetime.desc).
+- [x] B6: CI reproducibility — `poetry install --locked`.
+- [x] B7: Remove remaining `# mypy: ignore-errors` from blockchain-node mixins.
+- [x] B8: Reconcile docs (`AGENTS.md`, `STATUS.md`).
 - [x] P1: Fix feature flags `sync_delta_enabled`, `sync_parallel_enabled`, `gossip_priority_enabled` flipped to `True`.
-- [x] P2: Add typed `SyncBase` contracts; remove remaining `# mypy: ignore-errors` from blockchain-node mixins.
-- [x] P2: Pool-hub v0.6.7 gaps — BlockchainClient chain_id property ✅, reward constants ✅, reward signing deferred to v0.7.1.
-- [x] P2: Coordinator-API Alembic config isolation — `DATABASE_URL` env required for test isolation.
-- [x] P2: Systemd symlink audit — run `scripts/utils/link-systemd.sh` then `load-keystore-secrets.sh` after restructure.
+- [x] P2: Coordinator-API Alembic config isolation — `DATABASE_URL` or `SQLITE_URL` honored in `env.py`.
+- [ ] P0: 125 MyPy errors in coordinator-api (23 files; Agent B subset clean) — tracked for separate type-safety sprint.
+- [ ] P2: Pool-hub reward signing integration deferred to v0.7.1.
 
 ## Breaking Changes
 
@@ -76,8 +77,8 @@ Post-v0.10.16 scan identified active security and correctness gaps:
 - Prometheus counters (`poolhub/app/prometheus.py`) ✅
 - **Gap**: Reward signing integration deferred to v0.7.1 (`blockchain.py:74-77`).
 
-### Coordinator-API Alembic Config Issue
-- `alembic/env.py:42` reads `DATABASE_URL`, falls back to live DB (`/var/lib/aitbc/data/coordinator.db`). `SQLITE_URL` not honored. Fix: export `DATABASE_URL=sqlite:////tmp/test.db` for isolated tests.
+### Coordinator-API Alembic Config Issue — FIXED
+- `alembic/env.py` now reads `DATABASE_URL` or `SQLITE_URL` override before falling back to `app_settings.database.effective_url`, so CI and local tests can target a temp DB without touching the live database.
 
 ### Systemd Symlink Audit (post-restructure)
 - After any repo restructure: `scripts/utils/link-systemd.sh` then `scripts/utils/load-keystore-secrets.sh`. If `systemctl` reports `resources` failure: `systemctl reset-failed` then retry.
@@ -87,10 +88,10 @@ Post-v0.10.16 scan identified active security and correctness gaps:
 | Priority | Issue                                                                                             | Status |
 |----------|---------------------------------------------------------------------------------------------------|--------|
 | P0       | Fresh instance wiring bug (`main.py:379`)                                                         | Fixed  |
-| P0       | MyPy errors coordinator-api (125 errors)                                                          | Fixed  |
+| P0       | MyPy errors coordinator-api (125 errors in 23 files; Agent B subset clean)                         | Tracked (separate sprint) |
 | P1       | Feature flag defaults mismatch (`sync_delta_enabled`, etc.)                                       | Fixed  |
 | P1       | Ruff style issues `aitbc/` (4 errors)                                                              | Fixed  |
-| P2       | Alembic test isolation (`DATABASE_URL` env)                                                        | Tracked|
+| P2       | Alembic test isolation (`DATABASE_URL` / `SQLITE_URL`)                                            | Fixed  |
 | P2       | Pool-hub reward signing integration (deferred v0.7.1)                                                | Tracked|
 
 ## Verification
