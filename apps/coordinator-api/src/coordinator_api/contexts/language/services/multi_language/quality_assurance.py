@@ -10,11 +10,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-import nltk  # type: ignore[import-not-found]
+import nltk
 import numpy as np
-import spacy  # type: ignore[import-not-found]
-from nltk.tokenize import sent_tokenize, word_tokenize  # type: ignore[import-not-found]
-from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu  # type: ignore[import-not-found]
+import spacy
+from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu
 
 from aitbc.aitbc_logging import get_logger
 

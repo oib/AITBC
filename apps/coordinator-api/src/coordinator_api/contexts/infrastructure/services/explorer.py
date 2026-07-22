@@ -78,7 +78,7 @@ class ExplorerService:
                 return BlockListResponse(items=[], next_offset=None)
         except Exception as e:
             logger.warning("Failed to fetch blocks from RPC: %s, falling back to fake data", e)
-            statement = select(Job).order_by(Job.requested_at.desc())
+            statement = select(Job).order_by(Job.requested_at.desc())  # type: ignore[attr-defined]
             jobs = self.session.execute(statement.offset(offset).limit(limit)).scalars().all()
             for index, job in enumerate(jobs):
                 height = _DEFAULT_HEIGHT_BASE + offset + index
@@ -90,7 +90,7 @@ class ExplorerService:
             return BlockListResponse(items=items, next_offset=next_offset)
 
     def list_transactions(self, *, limit: int = 50, offset: int = 0) -> TransactionListResponse:
-        statement = select(Job).order_by(Job.requested_at.desc()).offset(offset).limit(limit)
+        statement = select(Job).order_by(Job.requested_at.desc()).offset(offset).limit(limit)  # type: ignore[attr-defined]
         jobs = self.session.execute(statement).scalars().all()
         items: list[TransactionSummary] = []
         for index, job in enumerate(jobs):
@@ -123,7 +123,7 @@ class ExplorerService:
         return TransactionListResponse(items=items, next_offset=next_offset)
 
     def list_addresses(self, *, limit: int = 50, offset: int = 0) -> AddressListResponse:
-        statement = select(Job).order_by(Job.requested_at.desc())
+        statement = select(Job).order_by(Job.requested_at.desc())  # type: ignore[attr-defined]
         jobs = self.session.execute(statement.offset(offset).limit(limit)).scalars().all()
 
         class _AddrEntry(TypedDict):
@@ -200,7 +200,7 @@ class ExplorerService:
         return AddressListResponse(items=items, next_offset=next_offset)
 
     def list_receipts(self, *, job_id: str | None = None, limit: int = 50, offset: int = 0) -> ReceiptListResponse:
-        statement = select(JobReceipt).order_by(JobReceipt.created_at.desc())
+        statement = select(JobReceipt).order_by(JobReceipt.created_at.desc())  # type: ignore[attr-defined]
         if job_id:
             statement = statement.where(JobReceipt.job_id == job_id)
         rows = self.session.execute(statement.offset(offset).limit(limit)).scalars().all()

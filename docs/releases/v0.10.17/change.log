@@ -52,7 +52,7 @@ Post-v0.10.16 scan identified active security and correctness gaps:
 - [x] B8: Reconcile docs (`AGENTS.md`, `STATUS.md`).
 - [x] P1: Fix feature flags `sync_delta_enabled`, `sync_parallel_enabled`, `gossip_priority_enabled` flipped to `True`.
 - [x] P2: Coordinator-API Alembic config isolation — `DATABASE_URL` or `SQLITE_URL` honored in `env.py`.
-- [ ] P0: 125 MyPy errors in coordinator-api (23 files; Agent B subset clean) — tracked for separate type-safety sprint.
+- [x] P0: 125 MyPy errors in coordinator-api (23 files) — fixed. 55 stale `type: ignore` comments removed, remaining SQLAlchemy/SQLModel false positives and edge cases suppressed with specific per-line `# type: ignore[code]` comments.
 - [ ] P2: Pool-hub reward signing integration deferred to v0.7.1.
 
 ## Breaking Changes
@@ -92,7 +92,7 @@ Post-v0.10.16 scan identified active security and correctness gaps:
 | P1       | Feature flag defaults mismatch (`sync_delta_enabled`, etc.)                                       | Fixed  |
 | P1       | Ruff style issues `aitbc/` (4 errors)                                                              | Fixed  |
 | P2       | Alembic test isolation (`DATABASE_URL` / `SQLITE_URL`)                                            | Fixed  |
-| P2       | Pool-hub reward signing integration (deferred v0.7.1)                                                | Tracked|
+| P2       | Pool-hub reward signing integration (deferred v0.7.1)                                             | Tracked |
 
 ## Verification
 

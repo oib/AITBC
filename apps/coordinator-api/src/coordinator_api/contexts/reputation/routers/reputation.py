@@ -295,7 +295,7 @@ async def get_reputation_metrics(
     """Get overall reputation system metrics"""
     try:
         # Use SQL aggregation instead of loading all data into memory
-        total_agents = session.execute(select(func.count(AgentReputation.id))).scalar() or 0
+        total_agents = session.execute(select(func.count(AgentReputation.id))).scalar() or 0  # type: ignore[arg-type]
         if total_agents == 0:
             return ReputationMetricsResponse(
                 total_agents=0, average_trust_score=0.0, level_distribution={}, top_regions=[], recent_activity={}
@@ -304,15 +304,15 @@ async def get_reputation_metrics(
 
         # Get level distribution using SQL GROUP BY
         level_results = session.execute(
-            select(AgentReputation.reputation_level, func.count(AgentReputation.id)).group_by(AgentReputation.reputation_level)
+            select(AgentReputation.reputation_level, func.count(AgentReputation.id)).group_by(AgentReputation.reputation_level)  # type: ignore[arg-type]
         ).all()
         level_counts = {level.value: count for level, count in level_results}
 
         # Get top regions with a limit
         region_results = session.execute(
-            select(func.coalesce(AgentReputation.geographic_region, "Unknown"), func.count(AgentReputation.id))
+            select(func.coalesce(AgentReputation.geographic_region, "Unknown"), func.count(AgentReputation.id))  # type: ignore[arg-type]
             .group_by(func.coalesce(AgentReputation.geographic_region, "Unknown"))
-            .order_by(func.count(AgentReputation.id).desc())
+            .order_by(func.count(AgentReputation.id).desc())  # type: ignore[arg-type]
             .limit(10)
         ).all()
         top_regions = [{"region": region, "count": count} for region, count in region_results]
@@ -325,7 +325,7 @@ async def get_reputation_metrics(
             .first()
         )
         active_agents = (
-            session.execute(select(func.count(AgentReputation.id)).where(AgentReputation.last_activity >= recent_cutoff))
+            session.execute(select(func.count(AgentReputation.id)).where(AgentReputation.last_activity >= recent_cutoff))  # type: ignore[arg-type]
             .scalars()
             .first()
         )

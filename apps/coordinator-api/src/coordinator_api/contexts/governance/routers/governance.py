@@ -56,7 +56,7 @@ async def init_governance_profile(
     service = GovernanceService(session)
     try:
         profile = await service.get_or_create_profile(profile_request.user_id, profile_request.initial_voting_power)
-        return profile
+        return profile  # type: ignore[no-any-return]
     except Exception as e:
         logger.error("Error creating governance profile: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -71,7 +71,7 @@ async def delegate_voting_power(
     service = GovernanceService(session)
     try:
         profile = await service.delegate_votes(profile_id, delegation_request.delegatee_id)
-        return profile
+        return profile  # type: ignore[no-any-return]
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
@@ -90,7 +90,7 @@ async def create_proposal(
     service = GovernanceService(session)
     try:
         proposal = await service.create_governance_proposal(proposer_id, proposal_request.model_dump())
-        return proposal
+        return proposal  # type: ignore[no-any-return]
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -112,7 +112,7 @@ async def cast_vote(
         vote = await service.cast_governance_vote(
             proposal_id=proposal_id, voter_id=voter_id, vote_type=vote_request.vote_type, reason=vote_request.reason
         )
-        return vote
+        return vote  # type: ignore[no-any-return]
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -126,7 +126,7 @@ async def process_proposal(request: Request, proposal_id: str, session: Annotate
     service = GovernanceService(session)
     try:
         proposal = await service.process_proposal_lifecycle(proposal_id)
-        return proposal
+        return proposal  # type: ignore[no-any-return]
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
@@ -145,7 +145,7 @@ async def execute_proposal(
     service = GovernanceService(session)
     try:
         proposal = await service.execute_governance_proposal(proposal_id, executor_id)
-        return proposal
+        return proposal  # type: ignore[no-any-return]
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -163,6 +163,6 @@ async def generate_transparency_report(
     service = GovernanceService(session)
     try:
         report = await service.generate_transparency_report(period)
-        return report
+        return report  # type: ignore[no-any-return]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e

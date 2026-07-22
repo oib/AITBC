@@ -138,7 +138,7 @@ class TenSEALProvider(FHEProvider):
         self.available = False
         self.ts: Any = None
         try:
-            import tenseal as ts  # type: ignore[import-untyped]
+            import tenseal as ts
 
             self.ts = ts
             self.available = True
