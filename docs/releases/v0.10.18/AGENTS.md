@@ -1,12 +1,12 @@
 # v0.10.18 — Update Deployment Stabilization
 
 **Last Updated**: 2026-07-22
-**Version**: 1.0 — In Progress
+**Version**: 1.1 — Complete ✅
 
 **Release Theme**: Fix the post-v0.10.17 update path: resolve the coordinator-api
 `market_metrics` migration conflict, restore the missing wallet keystore package,
-harden `update.sh` and `health_check.sh`, and prepare to switch dependency
-installation from `pip` to `poetry`.
+harden `update.sh` and `health_check.sh`, and switch dependency installation
+to a Poetry-based, profile-aware export so GPU/FHE/ML packages are optional.
 
 **Prerequisites**: v0.10.17 complete.
 
@@ -56,16 +56,20 @@ installation from `pip` to `poetry`.
   - System memory parsing: handle localized `free` output and guard against
     division by zero.
 
-### B5: Switch dependency sync to Poetry (P2) ⏳
+### B5: Switch dependency sync to Poetry (P2) ✅
 
 - File: `pyproject.toml`
-  - Move `tenseal`, `pycuda`, `nvidia-*`, `torch`, `torchvision`, and other
-    optional GPU/FHE/ML packages to `[tool.poetry.extras]`.
-- File: `scripts/deployment/update.sh`
-  - Install `poetry` and use `poetry install --locked --no-dev` (with extras
-    selected by role/hardware profile) instead of `pip install -r requirements.txt`.
+  - Move `tenseal`, `pycuda`, `torch`, `torchvision`, `pillow`, and
+    `opencv-python` to `[tool.poetry.extras]` (`gpu`, `fhe`, `ml`).
+  - Set `tool.poetry.package-mode = false`.
 - File: `poetry.lock`
-  - Regenerate after `pyproject.toml` changes.
+  - Regenerated from the updated `pyproject.toml`.
+- File: `scripts/deployment/install-profiles.sh` (new)
+  - Exports the right `requirements-$PROFILE.txt` from `poetry.lock` for the
+    detected hardware/role profile and installs it into `venv`.
+- File: `scripts/deployment/update.sh`
+  - Calls `install-profiles.sh` (no more missing-script warning).
+  - Restarts all `aitbc-*` services correctly after detecting running units.
 
 ---
 
@@ -94,12 +98,25 @@ cd /opt/aitbc
 
 ---
 
+### B6: Reconcile coordinator-api schema drift (P1) ✅
+
+- File: `apps/coordinator-api/alembic/env.py`
+  - Add `render_as_batch=True` so SQLite column alterations are emitted as
+    `batch_alter_table` blocks.
+- File: `apps/coordinator-api/alembic/versions/236edfbd9728_reconcile_schema_drift_v0_10_18.py` (new)
+  - Drop unused empty legacy tables (`fusion_models`, `edge_gpu_metrics`,
+    `consumer_gpu_profiles`, `rl_configurations`, `multi_chain_transaction`,
+    `auction_config`).
+  - Add missing columns/indexes and align `Numeric`, `JSON`, `Enum`, and
+    `String` types so `alembic check` reports no drift.
+
 ## Release Gate
 
-- [ ] `market_metrics` migration conflict resolved (`alembic upgrade head` passes).
-- [ ] `wallet_app.keystore` restored and `aitbc-wallet` starts cleanly.
-- [ ] `update.sh` runs without `--no-migrate`.
-- [ ] `health_check.sh all` passes.
-- [ ] Version bumped to `0.10.18` in `pyproject.toml` and `aitbc/_version.py`.
+- [x] `market_metrics` migration conflict resolved (`alembic upgrade head` passes).
+- [x] `wallet_app.keystore` restored and `aitbc-wallet` starts cleanly.
+- [x] `update.sh` runs without `--no-migrate`.
+- [x] `health_check.sh all` passes.
+- [x] `alembic check` reports no new upgrade operations for coordinator-api.
+- [x] Version bumped to `0.10.18` in `pyproject.toml` and `aitbc/_version.py`.
 
 *Generated with [Devin](https://devin.ai)*

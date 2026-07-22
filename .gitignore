@@ -14,8 +14,10 @@ __pycache__/
 .venv/
 */.venv/
 venv/
+venv-poetry/
 venv_staging/
 env/
+.requirements/
 *.egg-info/
 *.egg
 .eggs/
@@ -316,6 +318,7 @@ scripts/deployment/*
 !scripts/deployment/deploy.sh
 !scripts/deployment/setup.sh
 !scripts/deployment/update.sh
+!scripts/deployment/install-profiles.sh
 !scripts/deployment/validate-env.sh
 !scripts/deployment/create_aitbc_user.sh
 !scripts/deployment/unify_service_users.sh
