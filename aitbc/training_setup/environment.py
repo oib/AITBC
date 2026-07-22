@@ -233,7 +233,9 @@ class TrainingEnvironment:
     ) -> dict[str, Any]:
         """Delegate to blockchain_setup (backward compatibility)."""
         amount = faucet_amount or self.faucet_amount
-        pwd = password or "training123"
+        if not password:
+            raise ValueError("password is required for training wallet and must not be empty or default")
+        pwd = password
         return self.blockchain_setup.fund_training_wallet(wallet_name, amount, pwd)
 
     def generate_auth_token(self) -> str:
