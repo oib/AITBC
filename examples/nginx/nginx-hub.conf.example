@@ -39,6 +39,10 @@ upstream agent_coordinator {
     server 127.0.0.1:8107;
 }
 
+upstream marketplace_service {
+    server 127.0.0.1:8102;
+}
+
 upstream wallet_service {
     server 127.0.0.1:8108;
 }
@@ -176,6 +180,19 @@ server {
 
     location /c/ {
         proxy_pass http://coordinator_api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    # ── Marketplace API ───────────────────────────────────────
+
+    location /v1/marketplace/ {
+        proxy_pass http://marketplace_service/v1/marketplace/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
