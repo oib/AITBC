@@ -53,7 +53,7 @@ Post-v0.10.16 scan identified active security and correctness gaps:
 - [x] P1: Fix feature flags `sync_delta_enabled`, `sync_parallel_enabled`, `gossip_priority_enabled` flipped to `True`.
 - [x] P2: Coordinator-API Alembic config isolation — `DATABASE_URL` or `SQLITE_URL` honored in `env.py`.
 - [x] P0: 125 MyPy errors in coordinator-api (23 files) — fixed. 55 stale `type: ignore` comments removed, remaining SQLAlchemy/SQLModel false positives and edge cases suppressed with specific per-line `# type: ignore[code]` comments.
-- [ ] P2: Pool-hub reward signing integration deferred to v0.7.1.
+- [x] P2: Pool-hub reward signing integration — `PoolHubBlockchainClient.submit_reward_transaction` now signs with secp256k1 via `POOL_REWARD_PRIVATE_KEY`/`POOL_REWARD_ADDRESS` before submitting.
 
 ## Breaking Changes
 
@@ -75,7 +75,7 @@ Post-v0.10.16 scan identified active security and correctness gaps:
 - `PoolHubBlockchainClient.distribute_rewards()` ✅
 - `RewardPolicy.is_eligible_for_payout()` / `get_unpaid_miners()` ✅
 - Prometheus counters (`poolhub/app/prometheus.py`) ✅
-- **Gap**: Reward signing integration deferred to v0.7.1 (`blockchain.py:74-77`).
+- Reward signing integration ✅ — `submit_reward_transaction` now signs with pool operator secp256k1 key (`POOL_REWARD_PRIVATE_KEY` / `POOL_REWARD_ADDRESS`).
 
 ### Coordinator-API Alembic Config Issue — FIXED
 - `alembic/env.py` now reads `DATABASE_URL` or `SQLITE_URL` override before falling back to `app_settings.database.effective_url`, so CI and local tests can target a temp DB without touching the live database.
@@ -92,7 +92,7 @@ Post-v0.10.16 scan identified active security and correctness gaps:
 | P1       | Feature flag defaults mismatch (`sync_delta_enabled`, etc.)                                       | Fixed  |
 | P1       | Ruff style issues `aitbc/` (4 errors)                                                              | Fixed  |
 | P2       | Alembic test isolation (`DATABASE_URL` / `SQLITE_URL`)                                            | Fixed  |
-| P2       | Pool-hub reward signing integration (deferred v0.7.1)                                             | Tracked |
+| P2       | Pool-hub reward signing integration (now uses POOL_REWARD_PRIVATE_KEY/ADDRESS)                    | Fixed   |
 
 ## Verification
 
