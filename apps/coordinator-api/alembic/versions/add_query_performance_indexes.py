@@ -21,7 +21,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "add_query_performance_indexes"
-down_revision = "add_developer_platform"
+down_revision = "7350cc615a22"
 branch_labels = None
 depends_on = None
 
@@ -46,7 +46,7 @@ _SINGLE_COLUMN_INDEXES: list[tuple[str, str, list[str]]] = [
     ("ix_trade_negotiations_status", "trade_negotiations", ["status"]),
     ("ix_trade_negotiations_created_at", "trade_negotiations", ["created_at"]),
     # analytics
-    ("ix_market_metrics_recorded_at", "market_metrics", ["recorded_at"]),
+    ("ix_market_metrics_recorded_at", "analytics_market_metrics", ["recorded_at"]),
     ("ix_market_insights_status", "market_insights", ["status"]),
     ("ix_market_insights_created_at", "market_insights", ["created_at"]),
     ("ix_analytics_reports_status", "analytics_reports", ["status"]),
