@@ -1,7 +1,7 @@
 # v0.10.17 — Security & Auth Hardening (Bugfix)
 
-**Last Updated**: 2026-07-22 (Agent A complete)
-**Version**: 1.1 — Agent A complete; Agent B pending
+**Last Updated**: 2026-07-22 (release complete)
+**Version**: 1.2 — Complete ✅
 
 **Release Theme**: Fix auth bypass, hardcoded defaults, and empty-password
 fallbacks discovered during codebase scan.
