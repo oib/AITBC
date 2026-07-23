@@ -158,6 +158,6 @@ Mypy may report errors on valid code. Use explicit `# type: ignore` with error c
 
 ## Questions?
 
-- Check the [gap analysis notes](../reference/TYPE_SAFETY_GAP_ANALYSIS.md)
+- Check the gap analysis notes
 - Ask in #dev-python on Slack
 - Tag PRs with `type-safety` label for review

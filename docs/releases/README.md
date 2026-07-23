@@ -16,8 +16,8 @@
 ## 🎯 **See Also:**
 - **🏠 [Documentation Home](../README.md)** - Main docs entry point
 - **📚 [Master Index](../MASTER_INDEX.md)** - Full documentation catalog
-- **📖 [About Documentation](../about/README.md)** - Standards and compliance context
-- **✅ [Completed Projects](../archive/completed/README.md)** - Completion tracking and summaries
+- **📖 About Documentation** - Standards and compliance context
+- **✅ [Completed Projects](archive/README.md)** - Completion tracking and summaries
 
 ---
 
@@ -93,7 +93,7 @@ Read the release notes newest-first:
 
 ## 📊 **Topic Summary**
 
-For a comprehensive topic-based analysis of releases from v0.4.5 through v0.8.0, see the [Release Notes Topic Summary](RELEASE_NOTES_TOPIC_SUMMARY.md). This document organizes releases by major themes:
+For a comprehensive topic-based analysis of releases from v0.4.5 through v0.8.0, see the Release Notes Topic Summary. This document organizes releases by major themes:
 
 - **Marketplace & Trading Evolution** - Software marketplace, reputation systems, multi-model Ollama, hardware+software bundles, external blockchain exchange, governance integration
 - **Agent Communication & Coordination** - Structured message protocols, cross-node messaging, WebSocket migration, backend implementation

@@ -75,7 +75,7 @@ systemctl restart aitbc-agent-coordinator
 
 ## Documentation
 
-- [AGENT_MESSAGING.md](../../../agents/AGENT_MESSAGING.md) — Updated endpoints
+- AGENT_MESSAGING.md — Updated endpoints
 
 ---
 

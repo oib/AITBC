@@ -75,4 +75,4 @@ aitbc wallet change-password
 ## Next
 
 - [5_pricing-billing.md](./5_pricing-billing.md) — Cost structure and invoices
-- [CLI Guide](../0_getting_started/3_cli.md) — Full CLI reference
+- CLI Guide — Full CLI reference

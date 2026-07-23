@@ -24,13 +24,13 @@ This directory contains security best practices and guidelines for deploying and
 
 ## Additional Security Documentation
 
-- [✅ Environment Configuration Security - COMPLETED](CONFIGURATION_SECURITY_FIXED.md)
-- [✅ Helm Values Secret References - COMPLETED](HELM_VALUES_SECURITY_FIXED.md)
-- [Infrastructure Security Fixes - Critical Issues Identified](INFRASTRUCTURE_SECURITY_FIXES.md)
-- [🚀 Package Publishing Security Guide](PUBLISHING_SECURITY_GUIDE.md)
+- ✅ Environment Configuration Security - COMPLETED
+- ✅ Helm Values Secret References - COMPLETED
+- Infrastructure Security Fixes - Critical Issues Identified
+- 🚀 Package Publishing Security Guide
 - [AITBC Agent Wallet Security Model](SECURITY_AGENT_WALLET_PROTECTION.md)
 - [Critical Wallet Security Fixes - Implementation Summary](WALLET_SECURITY_FIXES_SUMMARY.md)
-- [Security Scanning Implementation - COMPLETED](security-scanning-implementation-completed.md)
+- Security Scanning Implementation - COMPLETED
 
 ## Policies
 

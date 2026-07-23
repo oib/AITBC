@@ -58,7 +58,7 @@ Update `/opt/aitbc/docs/releases/README.md` to include the new release:
 1. Add the release to the appropriate section (Current Releases or Legacy Releases)
 2. Use the correct link format:
    - For v0.5.x+: `[vX.Y.Z](vX.Y.Z/change.log)`
-   - For v0.4.x and earlier: `[vX.Y.Z](RELEASE_vX.Y.Z.md)` (if not archived)
+   - For v0.4.x and earlier: `vX.Y.Z` (if not archived)
 3. Include a brief description of the release
 4. Update the "Last Updated" date and version number
 

@@ -9,21 +9,21 @@ Overview of all components in the AITBC platform, their status, and documentatio
 
 PoA/PoS consensus with REST/WebSocket RPC, real-time gossip layer, and comprehensive observability. Production-ready with devnet tooling.
 
-[Learn More →](../8_development/1_overview.md#blockchain-node)
+[Learn More →](../development/1_overview.md#blockchain-node)
 
 ### Coordinator API
 <span class="component-status live">● Live</span>
 
 FastAPI service for job submission, miner registration, and receipt management. SQLite persistence with comprehensive endpoints.
 
-[Learn More →](../8_development/1_overview.md#coordinator-api)
+[Learn More →](../development/1_overview.md#coordinator-api)
 
 ### Marketplace Web
 <span class="component-status live">● Live</span>
 
 Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.
 
-[Learn More →](../2_clients/0_readme.md)
+[Learn More →](../blockchain/0_readme.md)
 
 ### Blockchain Explorer
 <span class="component-status live">● Live</span>
@@ -37,39 +37,39 @@ Agent-first Python FastAPI blockchain explorer with complete API and built-in HT
 
 Encrypted keystore with Argon2id + XChaCha20-Poly1305, REST/JSON-RPC APIs, and receipt verification capabilities.
 
-[Learn More →](../6_architecture/7_wallet.md)
+[Learn More →](7_wallet.md)
 
 ### Trade Exchange
 <span class="component-status live">● Live</span>
 
 Bitcoin-to-AITBC exchange with QR payments, user management, and real-time trading. Buy tokens with BTC instantly.
 
-[Learn More →](../6_architecture/6_trade-exchange.md)
+[Learn More →](6_trade-exchange.md)
 
 ### ZK Circuits Engine
 <span class="component-status live">● Live</span>
 
 Zero-knowledge proof circuits for privacy-preserving ML operations. Includes inference verification, training verification, and cryptographic proof generation using Groth16.
 
-[Learn More →](../8_development/zk-circuits.md)
+[Learn More →](../releases/v0.4.2/zk-circuits.md)
 
 ### FHE Service
 <span class="component-status live">● Live</span>
 
 Fully Homomorphic Encryption service for encrypted computation on sensitive ML data. TenSEAL integration with CKKS/BFV scheme support.
 
-[Learn More →](../8_development/fhe-service.md)
+[Learn More →](../development/fhe-service.md)
 
 ### Enhanced Edge GPU
 <span class="component-status live">● Live</span>
 
 Consumer GPU optimization with dynamic discovery, latency measurement, and edge-aware scheduling. Supports Turing, Ampere, and Ada Lovelace architectures.
 
-[Learn More →](../6_architecture/edge_gpu_setup.md)
+[Learn More →](edge_gpu_setup.md)
 
 Miner registry with scoring engine, Redis/PostgreSQL backing, and comprehensive metrics. Live matching API deployed.
 
-[Learn More →](../8_development/1_overview.md#pool-hub)
+[Learn More →](../development/1_overview.md#pool-hub)
 
 ## Architecture Overview
 

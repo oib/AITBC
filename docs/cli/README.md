@@ -15,10 +15,10 @@
 
 ## 🎯 **See Also:**
 - **📚 Docs Home**: [Documentation Home](../README.md) - Main docs landing page
-- **📖 About Docs**: [About Documentation](../about/README.md) - Template standard and audit checklist
-- **🎯 Beginner CLI**: [Beginner Documentation](../beginner/README.md) - CLI basics and user workflows
+- **📖 About Docs**: About Documentation - Template standard and audit checklist
+- **🎯 Beginner CLI**: Beginner Documentation - CLI basics and user workflows
 - **🧪 Testing Docs**: [Testing Documentation](../testing/README.md) - Validation and regression testing
-- **📋 Project Docs**: [Project Documentation](../project/README.md) - Project context
+- **📋 Project Docs**: Project Documentation - Project context
 
 ---
 
@@ -49,8 +49,8 @@ aitbc --help
 
 ### 📚 **Further Reading:**
 - [Documentation Home](../README.md) - Main docs landing page
-- [About Documentation](../about/README.md) - Template standard and audit checklist
-- [Beginner Documentation](../beginner/README.md) - CLI basics and user workflows
+- About Documentation - Template standard and audit checklist
+- Beginner Documentation - CLI basics and user workflows
 - [Testing Documentation](../testing/README.md) - Validation and regression testing
 
 ### 🆘 **Help & Support:**

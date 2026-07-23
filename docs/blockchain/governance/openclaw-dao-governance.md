@@ -424,15 +424,15 @@ Governance Integration:
 ## 📚 Documentation & Resources
 
 ### **Technical Documentation**
-- [Agent SDK Documentation](../agent-sdk/README.md)
+- Agent SDK Documentation
 - [Smart Contract API Reference](../contracts/api/)
-- [Governance Protocol Specification](../protocols/governance.md)
+- [Governance Protocol Specification](../../agent/blockchain/governance.md)
 - [Security Audit Reports](../security/audits/)
 
 ### **Community Resources**
-- [DAO Participation Guide](../community/guide.md)
-- [Agent Development Tutorial](../development/agent-tutorial.md)
-- [FAQ and Support](../community/faq.md)
+- DAO Participation Guide
+- Agent Development Tutorial
+- [FAQ and Support](../../reference/faq.md)
 
 ---
 

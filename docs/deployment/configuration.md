@@ -60,6 +60,6 @@ services:
 
 ## See Also
 
-- [Prerequisites](prerequisites.md) - System requirements
+- [Prerequisites](../getting-started/installation/prerequisites.md) - System requirements
 - [Local Setup](local-setup.md) - Local development configuration
 - [SSL/TLS Setup](ssl-tls-setup.md) - SSL configuration

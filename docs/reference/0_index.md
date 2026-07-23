@@ -15,11 +15,11 @@ Specifications, audits, and implementation records for AITBC internals.
 | 7 | [7_threat-modeling.md](./7_threat-modeling.md) | Privacy feature threat model |
 | 8 | [8_blockchain-deployment-summary.md](./8_blockchain-deployment-summary.md) | Node deployment record |
 | 9 | [9_payment-integration-complete.md](./9_payment-integration-complete.md) | Payment integration status |
-| 10 | [10_implementation-complete-summary.md](./10_implementation-complete-summary.md) | Feature completion record |
+| 10 | [10_implementation-complete-summary.md](../releases/v0.4.0/10_implementation-complete-summary.md) | Feature completion record |
 | 11–14 | `11_`–`14_` | Integration test fixes, updates, status reports |
-| 15 | [15_skipped-tests-roadmap.md](./15_skipped-tests-roadmap.md) | Skipped tests plan |
-| 16 | [16_security-audit-2026-02-13.md](./16_security-audit-2026-02-13.md) | Security audit results |
-| 17 | [17_docs-gaps.md](./17_docs-gaps.md) | Documentation gap analysis |
+| 15 | [15_skipped-tests-roadmap.md](../releases/v0.4.0/15_skipped-tests-roadmap.md) | Skipped tests plan |
+| 16 | [16_security-audit-2026-02-13.md](../releases/v0.4.0/16_security-audit-2026-02-13.md) | Security audit results |
+| 17 | [17_docs-gaps.md](../releases/v0.4.0/17_docs-gaps.md) | Documentation gap analysis |
 
 ## Related
 

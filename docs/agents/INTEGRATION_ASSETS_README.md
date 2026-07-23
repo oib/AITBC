@@ -17,7 +17,7 @@
 - **🤖 Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md) - SDK-level development guidance for agents
 - **🧩 Agent Services**: [Apps Documentation](../apps/README.md) - Runtime agent services and orchestration
 - **🤖 Agents**: [Agents](../agents/) - Learning path for agent concepts
-- **📋 Project Overview**: [Project Documentation](../project/README.md) - Project-level architecture and context
+- **📋 Project Overview**: Project Documentation - Project-level architecture and context
 
 ---
 

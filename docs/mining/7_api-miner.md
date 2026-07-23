@@ -136,6 +136,6 @@ GET /v1/miners/{miner_id}/stats
 
 ## Next
 
-- [Quick Start](./1_quick-start.md) — Get started
+- [Quick Start](../apps/clients/1_quick-start.md) — Get started
 - [Job Management](./3_job-management.md) — Job management
 - [Monitoring](./6_monitoring.md) - Monitor your miner

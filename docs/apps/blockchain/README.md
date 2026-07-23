@@ -4,7 +4,7 @@ Core blockchain infrastructure for AITBC.
 
 ## Applications
 
-- [Blockchain Node](blockchain-node.md) - Production-ready blockchain node with PoA consensus
+- Blockchain Node - Production-ready blockchain node with PoA consensus
 - [Blockchain Event Bridge](blockchain-event-bridge.md) - Event bridge for blockchain events
 - [Blockchain Explorer](blockchain-explorer.md) - Blockchain explorer and analytics
 

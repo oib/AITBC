@@ -75,7 +75,7 @@ HERMES_DB_PATH=/var/lib/aitbc/data/hermes_coin_requests.db
 
 ## Documentation
 
-- [SETUP.md](../../../getting-started/SETUP.md) — Environment configuration documentation
+- [SETUP.md](../../getting-started/SETUP.md) — Environment configuration documentation
 
 ---
 
