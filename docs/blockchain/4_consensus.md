@@ -134,6 +134,6 @@ The consensus is implemented in:
 
 ## Next
 
-- [Quick Start](./1_quick-start.md) — Get started
+- [Quick Start](../apps/clients/1_quick-start.md) — Get started
 - [Validator Operations](./5_validator.md) - Validator guide
 - [Networking](./6_networking.md) - P2P networking

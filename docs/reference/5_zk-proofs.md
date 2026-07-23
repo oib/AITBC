@@ -158,7 +158,7 @@ bool verified = verifier.verifyAndRecord(
 - [ZK Technology Comparison](#technology-comparison)
 - [Circuit Design](#zk-circuit-design)
 - [Development Guide](./5_zk-proofs.md)
-- [API Documentation](../6_architecture/3_coordinator-api.md)
+- [API Documentation](../architecture/3_coordinator-api.md)
 
 ## Conclusion
 

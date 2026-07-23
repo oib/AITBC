@@ -343,7 +343,7 @@ aitbc-chain backup → aitbc blockchain backup
 
 ## Next
 
-- [Quick Start](./1_quick-start.md) — Get started
+- [Quick Start](../apps/clients/1_quick-start.md) — Get started
 - [Configuration](./2_configuration.md) - Configure your node
 - [Consensus](./4_consensus.md) — Consensus mechanism
-- [Enhanced CLI](../23_cli/README.md) — Complete CLI reference
+- Enhanced CLI — Complete CLI reference

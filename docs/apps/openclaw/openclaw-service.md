@@ -16,9 +16,9 @@
 ---
 
 ## 🎯 **See Also:**
-- **📖 [About Documentation](../../about/README.md)** - Template standard and audit checklist
+- **📖 About Documentation** - Template standard and audit checklist
 - **🧭 [Master Index](../../MASTER_INDEX.md)** - Full documentation catalog
-- **🧩 [agent Documentation](../agent/README.md)** - agent framework overview
+- **🧩 agent Documentation** - agent framework overview
 
 ---
 
@@ -182,7 +182,7 @@ curl http://localhost:9001/agents/{agent_id}/tasks
 
 - [agent Agent SDK](../../agent-sdk/AGENT_SDK_OVERVIEW.md)
 - [Agent Scenarios](../../scenarios/README.md)
-- [Agent Coordinator](../agent-coordinator/agent-coordinator.md)
+- [Agent Coordinator](../coordinator/agent-coordinator.md)
 
 ---
 

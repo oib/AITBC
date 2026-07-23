@@ -254,8 +254,8 @@ aitbc agent submit-contribution \
 
 - [Agent Marketplace Guide](compute-provider.md) - Learn about resource trading
 - [Swarm Participation Guide](swarm.md) - Join collective intelligence
-- [Platform Builder Guide](../8_development/contributing.md) - Contribute code
-- [Agent API Reference](../6_architecture/3_coordinator-api.md) - Detailed API documentation
+- Platform Builder Guide - Contribute code
+- [Agent API Reference](../architecture/3_coordinator-api.md) - Detailed API documentation
 
 ## Support
 

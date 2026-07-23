@@ -112,7 +112,7 @@
     "/v1/marketplace/offers": {
       "get": {
         "summary": "Get Offers",
-        "description": "Get marketplace offers",
+        "description": "Get marketplace offers (v0.6.6: optional chain_id filter)",
         "operationId": "get_offers_v1_marketplace_offers_get",
         "parameters": [
           {
@@ -161,6 +161,22 @@
                 }
               ],
               "title": "Gpu Model"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
             }
           }
         ],
@@ -319,6 +335,45 @@
         }
       }
     },
+    "/v1/marketplace/match": {
+      "post": {
+        "summary": "Match Request",
+        "description": "Match a compute request to the best available GPU offer (v0.6.6).\n\nUses price-time priority matching and integrates with the agent-coordinator\ntask queue. Reserves the matched offer via OfferFSM.",
+        "operationId": "match_request_v1_marketplace_match_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Match Request V1 Marketplace Match Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/marketplace/analytics": {
       "get": {
         "summary": "Get Analytics",
@@ -328,10 +383,16 @@
           {
             "name": "period_type",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
-              "type": "string",
-              "default": "daily",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Period Type"
             }
           }
@@ -437,7 +498,7 @@
           {
             "name": "reason",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
               "anyOf": [
                 {
@@ -484,10 +545,16 @@
           {
             "name": "period",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
-              "type": "string",
-              "default": "daily",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Period"
             }
           }
@@ -1103,20 +1170,32 @@
           {
             "name": "limit",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
-              "type": "integer",
-              "default": 50,
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Limit"
             }
           },
           {
             "name": "offset",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
-              "type": "integer",
-              "default": 0,
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Offset"
             }
           }
@@ -1194,10 +1273,16 @@
           {
             "name": "limit",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
-              "type": "integer",
-              "default": 100,
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Limit"
             }
           }
@@ -1361,7 +1446,7 @@
           {
             "name": "transaction_type",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
               "anyOf": [
                 {
@@ -1377,7 +1462,7 @@
           {
             "name": "action",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
               "anyOf": [
                 {
@@ -1393,7 +1478,7 @@
           {
             "name": "status",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
               "anyOf": [
                 {
@@ -1409,7 +1494,7 @@
           {
             "name": "island_id",
             "in": "query",
-            "required": false,
+            "required": true,
             "schema": {
               "anyOf": [
                 {
@@ -1446,10 +1531,250 @@
           }
         }
       }
+    },
+    "/v1/marketplace/parameters/apply": {
+      "post": {
+        "summary": "Apply Marketplace Parameter",
+        "description": "Apply a governance-approved parameter change to the marketplace service (v0.7.4 \u00a7B4).\n\nValidates that the parameter is known and the old_value matches the\ncurrent config, then applies the new value to the running settings.",
+        "operationId": "apply_marketplace_parameter_v1_marketplace_parameters_apply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParameterChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Apply Marketplace Parameter V1 Marketplace Parameters Apply Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/marketplace/edge-advertise": {
+      "post": {
+        "summary": "Edge Advertise",
+        "description": "Register or update an edge node's GPU capabilities in the marketplace (v0.6.6).\n\nEdge nodes call this endpoint on startup to advertise their available\nGPU resources. If the node_id already exists, the record is updated.",
+        "operationId": "edge_advertise_v1_marketplace_edge_advertise_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EdgeAdvertiseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Edge Advertise V1 Marketplace Edge Advertise Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Edge Nodes",
+        "description": "List all registered edge nodes (v0.6.6).",
+        "operationId": "list_edge_nodes_v1_marketplace_edge_advertise_get",
+        "parameters": [
+          {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Region"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Edge Nodes V1 Marketplace Edge Advertise Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/marketplace/edge/{node_id}/health": {
+      "get": {
+        "summary": "Get Edge Health",
+        "description": "Get health status for a specific edge node (v0.6.6).\n\nReturns the edge node's health score, last health check time, and\nbasic capability info from the marketplace database.",
+        "operationId": "get_edge_health_v1_marketplace_edge__node_id__health_get",
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Node Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Edge Health V1 Marketplace Edge  Node Id  Health Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "EdgeAdvertiseRequest": {
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "title": "Node Id",
+            "description": "Unique edge node identifier"
+          },
+          "endpoint": {
+            "type": "string",
+            "title": "Endpoint",
+            "description": "Edge service endpoint URL",
+            "default": ""
+          },
+          "node_type": {
+            "type": "string",
+            "title": "Node Type",
+            "default": "edge"
+          },
+          "service": {
+            "type": "string",
+            "title": "Service",
+            "default": "aitbc-edge"
+          },
+          "gpu_models": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Gpu Models"
+          },
+          "gpu_count": {
+            "type": "integer",
+            "title": "Gpu Count",
+            "default": 0
+          },
+          "total_vram": {
+            "type": "integer",
+            "title": "Total Vram",
+            "default": 0
+          },
+          "region": {
+            "type": "string",
+            "title": "Region",
+            "default": ""
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capabilities"
+          },
+          "gpus": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Gpus",
+            "description": "Raw GPU profiles from edge service"
+          }
+        },
+        "type": "object",
+        "required": [
+          "node_id"
+        ],
+        "title": "EdgeAdvertiseRequest",
+        "description": "Request body for edge node advertisement (POST /v1/marketplace/edge-advertise)."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1481,6 +1806,93 @@
         ],
         "title": "HealthResponse",
         "description": "Health check response"
+      },
+      "MatchRequest": {
+        "properties": {
+          "requirements": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Requirements"
+          },
+          "max_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Price"
+          },
+          "preferred_region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Region"
+          },
+          "chain_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Id"
+          }
+        },
+        "type": "object",
+        "title": "MatchRequest",
+        "description": "Request model for marketplace matching (v0.6.6)."
+      },
+      "ParameterChangeRequest": {
+        "properties": {
+          "proposal_id": {
+            "type": "string",
+            "title": "Proposal Id",
+            "description": "Governance proposal ID that approved this change"
+          },
+          "target_service": {
+            "type": "string",
+            "title": "Target Service",
+            "description": "Service type (must be 'marketplace')",
+            "default": "marketplace"
+          },
+          "parameter_name": {
+            "type": "string",
+            "title": "Parameter Name",
+            "description": "Name of the parameter to change"
+          },
+          "old_value": {
+            "title": "Old Value",
+            "description": "Expected old value (for validation)"
+          },
+          "new_value": {
+            "title": "New Value",
+            "description": "New value to apply"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Human-readable description of the change",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "proposal_id",
+          "parameter_name",
+          "new_value"
+        ],
+        "title": "ParameterChangeRequest",
+        "description": "Request body for applying a governance-approved parameter change."
       },
       "RatingRequest": {
         "properties": {

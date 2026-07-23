@@ -108,12 +108,12 @@ curl https://aitbc.bubuit.net/api/v1/receipts?client=<your_address>
 3. Send Bitcoin to your deposit address
 4. Receive AITBC at current exchange rate (1 BTC = 100,000 AITBC)
 
-See [Bitcoin Wallet Setup](../6_architecture/6_trade-exchange.md) for detailed instructions.
+See [Bitcoin Wallet Setup](../architecture/6_trade-exchange.md) for detailed instructions.
 
 ### Via Mining
 
 Earn AITBC by providing GPU compute:
-- See [Miner Documentation](../6_architecture/4_blockchain-node.md)
+- See [Miner Documentation](../architecture/4_blockchain-node.md)
 
 ## Verifying Receipts
 
@@ -133,7 +133,7 @@ print(f"Receipt valid: {is_valid}")
 
 Receipts can be anchored on-chain for permanent proof:
 - ZK proofs enable privacy-preserving verification
-- See [ZK Applications](../5_reference/5_zk-proofs.md)
+- See [ZK Applications](../reference/5_zk-proofs.md)
 
 ## Payment Disputes
 
@@ -152,5 +152,5 @@ If you believe a payment was incorrect:
 
 ## Next Steps
 
-- [Troubleshooting](../0_getting_started/2_installation.md) - Common payment issues
-- [Getting Started](../0_getting_started/1_intro.md) - Back to basics
+- Troubleshooting - Common payment issues
+- Getting Started - Back to basics

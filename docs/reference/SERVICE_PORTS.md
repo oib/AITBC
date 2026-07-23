@@ -183,7 +183,7 @@ ss -tlnp | grep ':8101'     # GPU Service
 
 ## Related Documentation
 
-- [Setup Guide](../deployment/SETUP.md) - Installation and configuration
+- [Setup Guide](../getting-started/SETUP.md) - Installation and configuration
 - [Basic Operations Skill](../../skills/aitbc/aitbc-basic-operations.md) - CLI and service operations
 - [Troubleshooting Skill](../../skills/aitbc/aitbc-blockchain-troubleshooting.md) - Service and connectivity issues
 

@@ -261,9 +261,9 @@ Server hostname configured via include file, patched by install-nginx-node.sh sc
 
 ## 📚 Documentation
 
-- [HOWTO_WHISPER_OFFER.md](../apps/marketplace/HOWTO_WHISPER_OFFER.md)
-- [SETUP.md - Software Marketplace](../getting-started/SETUP.md#software-marketplace)
-- [SERVICE_PORTS.md](../deployment/SERVICE_PORTS.md)
+- [HOWTO_WHISPER_OFFER.md](../../apps/marketplace/HOWTO_WHISPER_OFFER.md)
+- [SETUP.md - Software Marketplace](../../getting-started/SETUP.md)
+- [SERVICE_PORTS.md](../../reference/SERVICE_PORTS.md)
 - [nginx-aitbc.conf](../deployment/nginx-aitbc.conf)
 - [install-nginx-node.sh](../scripts/setup/install-nginx-node.sh)
 

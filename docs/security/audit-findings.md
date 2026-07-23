@@ -699,6 +699,6 @@ Resolved - comprehensive rate limiting with daily limits, cooldowns, and max sta
 ## Related Documents
 
 - [Security Architecture](2_security-architecture.md)
-- [Security Best Practices](best-practices.md)
+- [Security Best Practices](../agent/blockchain/best-practices.md)
 - [Threat Model](threat-model.md)
 - [Economic Analysis](economic-analysis.md)

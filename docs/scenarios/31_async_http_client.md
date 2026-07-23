@@ -18,7 +18,7 @@ breadcrumb: Home > Scenarios > Async HTTP Client Non-Blocking
 
 - **Previous Scenario**: [Scenario 30 Secret Manager Thread Safety](./30_secret_manager_thread_safety.md)
 - **Next Scenario**: [Scenario 32 Hardcoded Secrets Fail-Fast](./32_hardcoded_secrets_failfast.md)
-- **Feature Documentation**: [HTTP Client Reference](../reference/http-client.md)
+- **Feature Documentation**: HTTP Client Reference
 
 ---
 
@@ -187,7 +187,7 @@ asyncio.run(test())
 
 ## Related Resources
 
-- [HTTP Client Reference](../reference/http-client.md)
+- HTTP Client Reference
 - [Next Scenario: Hardcoded Secrets Fail-Fast](./32_hardcoded_secrets_failfast.md)
 
 ---

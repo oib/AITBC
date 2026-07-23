@@ -25,7 +25,7 @@ Contains node-specific environment variables:
 
 Pre-configured example files are available in `/opt/aitbc/examples/` for quick setup:
 
-- **[Examples README](../../examples/README.md)** - Complete guide to all configuration examples
+- **Examples README** - Complete guide to all configuration examples
 - **[blockchain.env.open-island](../../examples/blockchain.env.open-island)** - Pre-configured for hub.aitbc.bubuit.net open island
 - **[node.env.open-island](../../examples/node.env.open-island)** - Node-specific configuration for open island
 - **[blockchain.env.example](../../examples/blockchain.env.example)** - General blockchain configuration template

@@ -110,7 +110,7 @@ curl http://localhost:8108/v1/wallet/balance
 
 ## Documentation
 
-- [SERVICE_PORTS.md](../../../deployment/SERVICE_PORTS.md) — Updated port reference
+- [SERVICE_PORTS.md](../../reference/SERVICE_PORTS.md) — Updated port reference
 
 ---
 

@@ -56,18 +56,18 @@ This section documents the AITBC infrastructure components, runtime architecture
 ## 📁 Documentation Structure
 
 ### Core Infrastructure Files
-- [Runtime Directories Guide](../RUNTIME_DIRECTORIES.md) - Standard directory structure
+- [Runtime Directories Guide](RUNTIME_DIRECTORIES.md) - Standard directory structure
 - [SystemD Services Guide](SYSTEMD_SERVICES.md) - Service management
-- [Security Hardening Guide](SECURITY_HARDENING.md) - Security best practices
+- [Security Hardening Guide](../releases/v0.4.23/SECURITY_HARDENING.md) - Security best practices
 
 ### Analysis Documents
-- [AITBC Requirements Updates](documented_AITBC_Requirements_Updates_-_Comprehensive_Summary.md)
-- [Requirements Validation System](documented_AITBC_Requirements_Validation_System_-_Implementat.md)
-- [Genesis Protection System](documented_Genesis_Protection_System_-_Technical_Implementati.md)
+- AITBC Requirements Updates
+- Requirements Validation System
+- Genesis Protection System
 
 ### Deployment Guides
 - [Codebase Update Summary](codebase-update-summary.md) - Service standardization
-- [Multimodal Services Deployment](multimodal-services-deployment.md) - GPU services
+- Multimodal Services Deployment - GPU services
 
 ## 🔒 Security Architecture
 

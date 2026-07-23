@@ -80,6 +80,6 @@ nslookup hub.aitbc.bubuit.net
 
 ## See Also
 
-- [Blockchain Setup](blockchain-setup.md)
-- [Agent Messaging](agent-messaging.md)
-- [Network Requirements](network-requirements.md)
+- [Blockchain Setup](../node/blockchain-setup.md)
+- Agent Messaging
+- Network Requirements

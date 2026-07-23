@@ -71,6 +71,6 @@ AITBC_NETWORK=testnet
 
 ## Next Steps
 
-- [API Authentication](../6_architecture/3_coordinator-api.md#authentication)
-- [Python SDK](../2_clients/1_quick-start.md)
-- [Examples](../2_clients/2_job-submission.md)
+- [API Authentication](../architecture/3_coordinator-api.md#authentication)
+- [Python SDK](../apps/clients/1_quick-start.md)
+- [Examples](../apps/clients/2_job-submission.md)

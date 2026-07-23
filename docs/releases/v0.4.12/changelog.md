@@ -327,11 +327,11 @@ If critical issues are detected during migration:
 
 ## 📚 Documentation
 
-- [GOVERNANCE_GUIDE.md](../governance/GOVERNANCE_GUIDE.md)
-- [DAO_VOTING.md](../governance/DAO_VOTING.md)
-- [TOKEN_SYSTEM.md](../governance/TOKEN_SYSTEM.md)
-- [MARKETPLACE_GOVERNANCE.md](../marketplace/MARKETPLACE_GOVERNANCE.md)
-- [CLI_GOVERNANCE.md](../cli/CLI_GOVERNANCE.md)
+- GOVERNANCE_GUIDE.md
+- DAO_VOTING.md
+- TOKEN_SYSTEM.md
+- [MARKETPLACE_GOVERNANCE.md](MARKETPLACE_GOVERNANCE.md)
+- CLI_GOVERNANCE.md
 
 ## 🚀 Dependencies
 

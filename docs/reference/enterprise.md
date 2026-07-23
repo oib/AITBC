@@ -11,7 +11,7 @@ This documentation covers enterprise-level integration and operations for AITBC.
 - Resource provisioning
 
 ## Related Documentation
-- [Enterprise AI Agent Scenario](../scenarios/40_enterprise_ai_agent.md)
+- Enterprise AI Agent Scenario
 - [Security Documentation](../security/README.md)
 
 ---

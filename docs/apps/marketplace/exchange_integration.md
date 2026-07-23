@@ -133,10 +133,10 @@ aitbc --test-mode exchange ping
 
 ## 📚 **Additional Resources**
 
-- [Trading Engine Analysis](../10_plan/01_core_planning/trading_engine_analysis.md)
-- [Oracle System Documentation](../10_plan/01_core_planning/oracle_price_discovery_analysis.md)
-- [Market Making Infrastructure](../10_plan/01_core_planning/market_making_infrastructure_analysis.md)
-- [Security Testing](../10_plan/01_core_planning/security_testing_analysis.md)
+- Trading Engine Analysis
+- Oracle System Documentation
+- Market Making Infrastructure
+- Security Testing
 
 ---
 

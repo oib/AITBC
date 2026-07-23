@@ -130,32 +130,32 @@ Get paid to contribute to AITBC! Check open bounties on GitHub.
 
 ### Documentation
 
-- [Full API Documentation](../6_architecture/3_coordinator-api.md)
-- [Architecture Guide](../6_architecture/2_components-overview.md)
-- [Protocol Specification](../6_architecture/2_components-overview.md)
-- [Security Best Practices](../9_security/1_security-cleanup-guide.md)
+- [Full API Documentation](../architecture/3_coordinator-api.md)
+- [Architecture Guide](../architecture/2_components-overview.md)
+- [Protocol Specification](../architecture/2_components-overview.md)
+- [Security Best Practices](../security/1_security-cleanup-guide.md)
 
 ### Tools & SDKs
 
-- [Python SDK](../2_clients/1_quick-start.md)
-- [JavaScript SDK](../2_clients/1_quick-start.md)
-- [Go SDK](../2_clients/1_quick-start.md)
-- [Rust SDK](../2_clients/1_quick-start.md)
-- [CLI Tools](../0_getting_started/3_cli.md)
+- [Python SDK](../apps/clients/1_quick-start.md)
+- [JavaScript SDK](../apps/clients/1_quick-start.md)
+- [Go SDK](../apps/clients/1_quick-start.md)
+- [Rust SDK](../apps/clients/1_quick-start.md)
+- CLI Tools
 
 ### Development Environment
 
-- [Docker Compose Setup](../8_development/2_setup.md)
-- [Local Testnet](../8_development/1_overview.md)
-- [Faucet for Test Tokens](../6_architecture/6_trade-exchange.md)
-- [Block Explorer](../2_clients/0_readme.md#explorer-web)
+- [Docker Compose Setup](2_setup.md)
+- [Local Testnet](1_overview.md)
+- [Faucet for Test Tokens](../architecture/6_trade-exchange.md)
+- [Block Explorer](../blockchain/0_readme.md#explorer-web)
 
 ### Learning Resources
 
-- [Video Tutorials](../2_clients/1_quick-start.md)
-- [Workshop Materials](../2_clients/2_job-submission.md)
-- [Blog Posts](../1_project/2_roadmap.md)
-- [Research Papers](../5_reference/5_zk-proofs.md)
+- [Video Tutorials](../apps/clients/1_quick-start.md)
+- [Workshop Materials](../apps/clients/2_job-submission.md)
+- Blog Posts
+- [Research Papers](../reference/5_zk-proofs.md)
 
 ## Example: Adding a New API Endpoint
 

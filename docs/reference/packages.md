@@ -14,9 +14,9 @@
 ---
 
 ## 🎯 **See Also:**
-- **📖 [About Documentation](../about/README.md)** - Template standard and audit checklist
+- **📖 About Documentation** - Template standard and audit checklist
 - **🧭 [Master Index](../MASTER_INDEX.md)** - Full documentation catalog
-- **📁 [Project Documentation](../project/README.md)** - Project-level overview
+- **📁 Project Documentation** - Project-level overview
 - **🔧 [Deployment Documentation](../deployment/README.md)** - Operational rollout guidance
 
 ---

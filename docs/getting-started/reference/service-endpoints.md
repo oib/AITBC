@@ -17,4 +17,4 @@ For authoritative port configuration, see [Service Ports Reference](../../refere
 ## See Also
 
 - [Management Commands](management-commands.md)
-- [Network Requirements](network-requirements.md)
+- Network Requirements

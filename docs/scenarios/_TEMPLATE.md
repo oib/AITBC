@@ -16,8 +16,8 @@ breadcrumb: Home > Scenarios > [Scenario Name]
 
 ## See Also
 
-- **Previous Scenario**: [Link to previous scenario](./NN_previous.md)
-- **Next Scenario**: [Link to next scenario](./NN_next.md)
+- **Previous Scenario**: Link to previous scenario
+- **Next Scenario**: Link to next scenario
 - **Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md)
 - **Feature Documentation**: [Link to relevant feature docs]
 

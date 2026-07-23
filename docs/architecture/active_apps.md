@@ -197,7 +197,7 @@ This document lists all active AITBC applications as of v0.5.0.
 **Path**: `apps/archive/peertube-transcoder`
 **Status**: archived
 **Reason**: Planned for reactivation after v0.5
-**Note**: See [DEPRECATED.md](apps/archive/peertube-transcoder/DEPRECATED.md) for details
+**Note**: See [DEPRECATED.md](../../apps/archive/peertube-transcoder/DEPRECATED.md) for details
 
 ## Summary
 

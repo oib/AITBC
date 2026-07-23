@@ -264,10 +264,10 @@ pytest /opt/aitbc/tests/integration/test_agent_communication_integration.py -v
 
 ## 📚 Documentation
 
-- [AGENT_COMMUNICATION.md](../agents/AGENT_COMMUNICATION.md) - Message protocols, encryption, discovery
-- [AGENT_WORKFLOWS.md](../agents/AGENT_WORKFLOWS.md) - Workflow orchestration guide
-- [REPUTATION_SYSTEM.md](../agents/REPUTATION_SYSTEM.md) - Reputation and rating system guide
-- [CLI Commands](../cli/README.md) - CLI usage documentation
+- [AGENT_COMMUNICATION.md](../../agents/AGENT_COMMUNICATION.md) - Message protocols, encryption, discovery
+- [AGENT_WORKFLOWS.md](../../agents/AGENT_WORKFLOWS.md) - Workflow orchestration guide
+- REPUTATION_SYSTEM.md - Reputation and rating system guide
+- CLI Commands - CLI usage documentation
 
 ## 🚀 Dependencies
 
