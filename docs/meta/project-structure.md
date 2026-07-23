@@ -33,7 +33,7 @@ The AITBC project is organized with a clean root directory containing only essen
 - **`docs/reports/`** - Implementation reports and summaries
 - **`cli/`** - Command-line interface tools
 
-For detailed structure information, see [PROJECT_STRUCTURE.md](../PROJECT_STRUCTURE.md).
+For detailed structure information, see PROJECT_STRUCTURE.md.
 
 ## Recent Improvements (March 2026)
 

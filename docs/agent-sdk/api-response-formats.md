@@ -37,4 +37,4 @@
 ## Related Topics
 
 - [Error Codes](./api-error-codes.md) - Error codes and rate limits
-- [SDK Methods Reference](./api-sdk-methods.md) - SDK client methods
+- SDK Methods Reference - SDK client methods

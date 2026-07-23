@@ -16,14 +16,14 @@
 ## 🎯 **See Also:**
 - **🏠 [Documentation Home](../README.md)** - Main docs entry point
 - **🧭 [Master Index](../MASTER_INDEX.md)** - Full documentation catalog
-- **📋 [Project Documentation](../project/README.md)** - Project context and supporting material
+- **📋 Project Documentation** - Project context and supporting material
 - **🚀 [Deployment Documentation](../deployment/README.md)** - Operational rollout guidance
 
 ---
 
 ## 📦 **Contents**
 
-- **[PORT_MAPPING_GUIDE.md](PORT_MAPPING_GUIDE.md)** - Authoritative port and endpoint mapping reference
+- **PORT_MAPPING_GUIDE.md** - Authoritative port and endpoint mapping reference
 
 ---
 

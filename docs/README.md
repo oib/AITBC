@@ -20,7 +20,7 @@
 - **📖 [Meta Documentation](meta/README.md)** - Standards, remediation notes, and audit checklist
 - **📚 [Getting Started](getting-started/)** - New user starting point with user journey paths
 - **🚀 [Blockchain Documentation](blockchain/) - Deep technical topics
-- **📁 [Project Documentation](project/README.md)** - Project-level guides and completion tracking
+- **📁 Project Documentation** - Project-level guides and completion tracking
 - **🧭 [Master Index](MASTER_INDEX.md)** - Complete catalog of all documentation
 - **🎭 [Agent Scenarios](scenarios/README.md)** - agent agent scenarios for all AITBC features
 
@@ -226,16 +226,16 @@ Files are organized with descriptive names based on their content and purpose.
 - **🏠 Main Docs**: [← Back to Overview](./README.md) (you are here)
 - **📖 Meta Docs**: [Documentation Standards](meta/README.md)
 - **✅ Compliance Audit**: [Docs Compliance Checklist](meta/DOCUMENTATION_COMPLIANCE_AUDIT.md)
-- **🎯 Quality Roadmap**: [10/10 Quality Plan](meta/DOCS_10_10_ROADMAP.md)
-- **🗂️ Archive Guide**: [Archive Organization](archive/README.md)
-- **✅ Completed Projects**: [Project Completion Tracking](archive/completed/README.md)
+- **🎯 Quality Roadmap**: 10/10 Quality Plan
+- **🗂️ Archive Guide**: Archive Organization
+- **✅ Completed Projects**: Project Completion Tracking
 - **🚀 Deployment**: [Deployment Documentation](deployment/README.md)
 - **📖 Reference**: [Reference Documentation](reference/README.md)
 - **📋 Releases**: [Release Notes](releases/README.md)
-- **📊 Reports**: [Reports Documentation](reports/README.md)
-- **📑 Summaries**: [Summaries Documentation](archive/summaries/README.md)
-- **🧵 Trail**: [Trail Documentation](archive/trail/README.md)
-- **🔄 Workflows**: [Workflows Documentation](workflows/README.md)
+- **📊 Reports**: Reports Documentation
+- **📑 Summaries**: Summaries Documentation
+- **🧵 Trail**: Trail Documentation
+- **🔄 Workflows**: Workflows Documentation
 
 ### 🔗 **External Documentation (Symlinks):**
 - **💻 CLI Technical**: [CLI Technical Docs](cli/) - CLI installation and usage notes
@@ -332,8 +332,8 @@ Files are organized with descriptive names based on their content and purpose.
 - **📖 Meta Hub**: [Documentation Standards](meta/README.md)
 - **✅ Compliance Audit**: [Docs Compliance Checklist](meta/DOCUMENTATION_COMPLIANCE_AUDIT.md)
 - **📋 Template Standard**: [Documentation Template](meta/DOCUMENTATION_TEMPLATE_STANDARD.md)
-- **🎯 Quality Roadmap**: [10/10 Quality Plan](meta/DOCS_10_10_ROADMAP.md)
-- **📊 Organization Analysis**: [Structure Assessment](meta/DOCS_ORGANIZATION_ANALYSIS.md)
+- **🎯 Quality Roadmap**: 10/10 Quality Plan
+- **📊 Organization Analysis**: Structure Assessment
 
 ### 🆘 **Help & Support:**
 - **📖 Documentation Issues**: [Report Doc Issues](https://github.com/oib/AITBC/issues)
@@ -351,7 +351,7 @@ Files are organized with descriptive names based on their content and purpose.
 Complete documentation for all AITBC applications and services
 
 **Blockchain**
-- [Blockchain Node](apps/blockchain/blockchain-node.md) - Production-ready blockchain node with hybrid PoA/PoS consensus
+- Blockchain Node - Production-ready blockchain node with hybrid PoA/PoS consensus
 - [Blockchain Event Bridge](apps/blockchain/blockchain-event-bridge.md) - Event bridge for blockchain events
 - [Blockchain Explorer](apps/blockchain/blockchain-explorer.md) - Blockchain explorer and analytics
 
@@ -386,7 +386,7 @@ Complete documentation for all AITBC applications and services
 - [Compliance Service](apps/compliance/compliance-service.md) - Compliance checking and regulatory services
 
 **Mining**
-- [Miner](apps/miner/README.md) - Mining and block validation services
+- [Miner](apps/README.md) - Mining and block validation services
 
 **Global AI**
 - [Global AI Agents](apps/global-ai/global-ai-agents.md) - Global AI agent coordination
@@ -423,11 +423,11 @@ Documentation about the documentation system itself
 |------|---------|
 | [📖 Meta Index](meta/README.md) | Overview of the documentation standards hub |
 | [✅ Compliance Audit](meta/DOCUMENTATION_COMPLIANCE_AUDIT.md) | Current remediation checklist |
-| [📊 Organization Analysis](meta/DOCS_ORGANIZATION_ANALYSIS.md) | Structure analysis and quality assessment |
-| [🎯 10/10 Roadmap](meta/DOCS_10_10_ROADMAP.md) | Path to perfect documentation quality |
-| [🗂️ Archive Structure Fix](meta/ARCHIVE_STRUCTURE_FIX.md) | Archive reorganization documentation |
-| [📚 Centralization Guide](meta/CENTRALIZED_DOCS_STRUCTURE.md) | Documentation centralization process |
-| [📋 Sorting Summary](meta/DOCUMENTATION_SORTING_SUMMARY.md) | Documentation sorting and organization |
+| 📊 Organization Analysis | Structure analysis and quality assessment |
+| 🎯 10/10 Roadmap | Path to perfect documentation quality |
+| 🗂️ Archive Structure Fix | Archive reorganization documentation |
+| 📚 Centralization Guide | Documentation centralization process |
+| 📋 Sorting Summary | Documentation sorting and organization |
 
 **🤖 [Agent SDK Documentation](agent-sdk/)**
 Complete documentation for agent agent communication
@@ -458,7 +458,7 @@ Canonical agent API spec and manifest bundle
 
 ### **🗂️ Archive & History**
 
-**📚 [Archive Documentation](archive/README.md)**
+**📚 Archive Documentation**
 156+ historical documents organized in 10 categories
 
 | Category | Files | Content |
@@ -476,7 +476,7 @@ Canonical agent API spec and manifest bundle
 
 ### **✅ Completed Projects**
 
-**📋 [Completed Projects](archive/completed/README.md)**
+**📋 Completed Projects**
 Project tracking and completion documentation (now in archive)
 
 | Category | Focus | Status |
@@ -495,23 +495,23 @@ Project tracking and completion documentation (now in archive)
 
 | Area | Description | Status |
 |------|-------------|--------|
-| [📖 Guides](guides/README.md) | Documentation authoring and usage guides | Active |
+| 📖 Guides | Documentation authoring and usage guides | Active |
 | [🔒 Security](security/README.md) | Security best practices and implementation | Active |
 | [🔧 Infrastructure](infrastructure/README.md) | System infrastructure documentation | Active |
-| [📊 Analytics](analytics/README.md) | Data analytics and AI documentation | Active |
-| [🔄 Exchange](exchange/README.md) | Exchange system documentation | Active |
+| 📊 Analytics | Data analytics and AI documentation | Active |
+| 🔄 Exchange | Exchange system documentation | Active |
 | [🛠️ Development](development/README.md) | Development workflow documentation | Active |
 | [🚀 Deployment](deployment/README.md) | Deployment guides and procedures | Active |
-| [📝 Implementation](implementation/README.md) | Implementation details and guides | Active |
-| [🔧 Maintenance](maintenance/README.md) | Maintenance procedures and guides | Active |
+| 📝 Implementation | Implementation details and guides | Active |
+| 🔧 Maintenance | Maintenance procedures and guides | Active |
 | [📜 Contracts](contracts/) | ZK verification and smart contract documentation | Active |
-| [📦 Packages](packages/README.md) | Language-specific packages and SDKs | Active |
+| 📦 Packages | Language-specific packages and SDKs | Active |
 | [📖 Reference](reference/README.md) | Compact lookup and reference docs | Active |
 | [📋 Releases](releases/README.md) | Release notes and version history | Active |
-| [📊 Reports](reports/README.md) | Status, quality, and completion reports | Active |
+| 📊 Reports | Status, quality, and completion reports | Active |
 | [🧩 agent](agent/README.md) | agent agent integration documentation | Active |
 | [🌐 Website](website/) | Rendered documentation site assets | Active |
-| [🔄 Workflows](workflows/README.md) | Documentation workflow outcomes | Active |
+| 🔄 Workflows | Documentation workflow outcomes | Active |
 
 ---
 

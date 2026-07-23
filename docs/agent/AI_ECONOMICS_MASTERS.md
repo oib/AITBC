@@ -229,9 +229,9 @@ agent agent --agent CoordinatorAgent --session-id $SESSION_ID \
 
 ## 📖 **Related Documentation**
 
-- **[AI Economics Masters Roadmap](../.windsurf/plans/AI_ECONOMICS_MASTERS_ROADMAP.md)** - Complete transformation guide
-- **[Agent Coordination Enhancement](../.windsurf/workflows/agent-coordination-enhancement.md)** - Communication patterns
-- **[Advanced AI Teaching Plan](../.windsurf/plans/ADVANCED_AI_TEACHING_PLAN.md)** - Prerequisite foundation
+- **AI Economics Masters Roadmap** - Complete transformation guide
+- **Agent Coordination Enhancement** - Communication patterns
+- **Advanced AI Teaching Plan** - Prerequisite foundation
 - **[Production Scripts](../scripts/workflow-agent/08_ai_economics_masters.sh)** - Execution scripts
 
 ## 🎉 **Achievement Status**

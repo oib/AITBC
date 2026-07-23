@@ -394,5 +394,5 @@ aitbc-chain p2p connections → aitbc blockchain peers --status connected
 
 - [Operations](./3_operations.md) — Day-to-day operations
 - [Configuration](./2_configuration.md) — Node configuration
-- [Enhanced CLI](../23_cli/README.md) — Complete CLI reference
+- Enhanced CLI — Complete CLI reference
 - [Monitoring](./7_monitoring.md) — Monitoring and alerting

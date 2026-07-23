@@ -19,7 +19,7 @@ breadcrumb: Home > Scenarios > Exchange Financial Correctness
 - **Previous Scenario**: [Scenario 32 Hardcoded Secrets Fail-Fast](./32_hardcoded_secrets_failfast.md)
 - **Next Scenario**: [Scenario 34 Hub↔Customer Node End-to-End](./34_hub_customer_node_e2e.md)
 - **Release Notes**: [v0.10.3 Change Log](../releases/v0.10.3/change.log)
-- **Feature Documentation**: [Exchange Architecture](../architecture/exchange.md)
+- **Feature Documentation**: [Exchange Architecture](../apps/exchange/exchange.md)
 
 ---
 

@@ -15,8 +15,8 @@
 
 ## 🎯 **See Also:**
 - **📋 [Template Standard](DOCUMENTATION_TEMPLATE_STANDARD.md)** - Required metadata and structure
-- **🎯 [10/10 Roadmap](DOCS_10_10_ROADMAP.md)** - Quality goals and remediation themes
-- **📊 [Organization Analysis](DOCS_ORGANIZATION_ANALYSIS.md)** - Historical structure review
+- **🎯 10/10 Roadmap** - Quality goals and remediation themes
+- **📊 Organization Analysis** - Historical structure review
 - **🏠 [Documentation Home](../README.md)** - Main docs entry point
 - **🧭 [Master Index](../MASTER_INDEX.md)** - Full documentation catalog
 

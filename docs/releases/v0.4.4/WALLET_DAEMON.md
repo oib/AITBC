@@ -86,7 +86,7 @@ GENESIS_ADDRESS=0x...
 
 ## Documentation
 
-- [WALLET_DAEMON.md](../../../wallet/WALLET_DAEMON.md) — Balance endpoint documentation
+- [WALLET_DAEMON.md](WALLET_DAEMON.md) — Balance endpoint documentation
 
 ---
 

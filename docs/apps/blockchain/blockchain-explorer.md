@@ -358,7 +358,7 @@ export LOG_LEVEL=info
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our Contributing Guide for details.
 
 ### Development Setup
 ```bash

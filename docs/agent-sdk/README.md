@@ -464,7 +464,7 @@ spec:
 
 ## 🤝 Contributing
 
-We welcome contributions to the AITBC Agent SDK! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions to the AITBC Agent SDK! Please see our Contributing Guide for details.
 
 ### Development Setup
 

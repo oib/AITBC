@@ -5,8 +5,8 @@
 
 ## Getting Help
 
-- **📖 [Documentation](docs/README.md)** - Comprehensive guides
-- **🤖 [agent Agent Documentation](docs/agent/agent_AGENT_CAPABILITIES_ADVANCED.md)** - Advanced AI agent capabilities
+- **📖 Documentation** - Comprehensive guides
+- **🤖 agent Agent Documentation** - Advanced AI agent capabilities
 - **💬 [Discord](https://discord.gg/aitbc)** - Community support
 - **🐛 [Issues](https://github.com/oib/AITBC/issues)** - Report bugs
 - **💡 [Discussions](https://github.com/oib/AITBC/discussions)** - Feature requests

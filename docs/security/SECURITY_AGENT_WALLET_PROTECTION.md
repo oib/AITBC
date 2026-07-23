@@ -310,7 +310,7 @@ metrics = {
 ## 📚 References
 
 ### Related Documentation
-- [AITBC Security Architecture](SECURITY_OVERVIEW.md)
+- AITBC Security Architecture
 - [Smart Contract Security](README.md)
 - [Agent Development Guide](../agents/INTEGRATION_ASSETS_README.md)
 

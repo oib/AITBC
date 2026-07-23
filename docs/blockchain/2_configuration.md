@@ -87,6 +87,6 @@ export AITBC_CHAIN_P2P_PORT=7070
 
 ## Next
 
-- [Quick Start](./1_quick-start.md) — Get started
+- [Quick Start](../apps/clients/1_quick-start.md) — Get started
 - [Operations](./3_operations.md) — Day-to-day ops
 - [Consensus](./4_consensus.md) — Consensus mechanism

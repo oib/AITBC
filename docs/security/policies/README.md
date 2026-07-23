@@ -18,11 +18,11 @@ and security expectations
 
 ## 🎯 **See Also:**
 
-- **🏛️ [Governance Documentation](../governance/README.md)**
+- **🏛️ [Governance Documentation](../../blockchain/governance/README.md)**
   Coordination and ownership context
-- **🔒 [Security Documentation](../security/README.md)**
+- **🔒 Security Documentation**
   Security-specific guidance
-- **📚 [About Documentation](../about/README.md)**
+- **📚 About Documentation**
   Documentation standards and audit notes
 - **🏠 [Documentation Home](../README.md)**
   Main docs entry point

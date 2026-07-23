@@ -60,7 +60,7 @@ Contributions are welcome! Please see the [contributing guidelines](https://gith
 
 ### How do I install AITBC?
 
-See the [Deployment Guide](../deployment/comprehensive-guide.md) for detailed installation instructions for various scenarios.
+See the Deployment Guide for detailed installation instructions for various scenarios.
 
 ### Can I run AITBC on Windows?
 
@@ -144,7 +144,7 @@ AITBC uses a custom blockchain optimized for GPU compute transactions. It suppor
 
 ### How do I run a blockchain node?
 
-See the [Deployment Guide](../deployment/comprehensive-guide.md#blockchain-node) for blockchain node setup instructions.
+See the Deployment Guide for blockchain node setup instructions.
 
 ### How do I sync with the blockchain?
 
@@ -163,11 +163,11 @@ If your node gets out of sync, try the following:
 2. Add bootstrap peers
 3. Reset the blockchain state (last resort)
 
-See the [Troubleshooting Guide](../troubleshooting/comprehensive-guide.md#blockchain-node-issues) for more details.
+See the Troubleshooting Guide for more details.
 
 ### How do I become a validator?
 
-Validators require staking AITBC tokens. See the [Staking Documentation](../blockchain/staking.md) for more information.
+Validators require staking AITBC tokens. See the [Staking Documentation](../agent/blockchain/staking.md) for more information.
 
 ## Mining
 
@@ -257,7 +257,7 @@ systemctl status aitbc-coordinator-api
 journalctl -u aitbc-coordinator-api -n 50
 ```
 
-See the [Troubleshooting Guide](../troubleshooting/comprehensive-guide.md) for more details.
+See the Troubleshooting Guide for more details.
 
 ### Database connection failed
 
@@ -277,7 +277,7 @@ See the [Troubleshooting Guide](../troubleshooting/comprehensive-guide.md) for m
 2. Verify job constraints can be satisfied
 3. Increase job TTL
 
-See the [Troubleshooting Guide](../troubleshooting/comprehensive-guide.md) for comprehensive troubleshooting steps.
+See the Troubleshooting Guide for comprehensive troubleshooting steps.
 
 ## Security
 
@@ -291,7 +291,7 @@ Yes, all data in transit is encrypted using TLS. Data at rest can be encrypted u
 
 ### How do I secure my installation?
 
-See the [Security Best Practices Guide](../security/best-practices.md) for comprehensive security recommendations.
+See the [Security Best Practices Guide](../agent/blockchain/best-practices.md) for comprehensive security recommendations.
 
 ### What should I do if I suspect a security breach?
 
@@ -327,14 +327,14 @@ See the [Security Best Practices Guide](../security/best-practices.md) for compr
 
 ### What are the recommended hardware specifications?
 
-See the [Deployment Guide](../deployment/comprehensive-guide.md#system-requirements) for detailed hardware recommendations.
+See the Deployment Guide for detailed hardware recommendations.
 
 ## Additional Resources
 
 - [API Reference](../api/README.md)
-- [Deployment Guide](../deployment/comprehensive-guide.md)
-- [Security Best Practices](../security/best-practices.md)
-- [Troubleshooting Guide](../troubleshooting/comprehensive-guide.md)
+- Deployment Guide
+- [Security Best Practices](../agent/blockchain/best-practices.md)
+- Troubleshooting Guide
 - [GitHub Repository](https://github.com/oib/AITBC)
 - [Community Forum](https://community.aitbc.dev/)
 

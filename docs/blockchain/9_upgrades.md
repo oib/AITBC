@@ -75,6 +75,6 @@ aitbc-chain alert --metric upgrade_available --action notify
 
 ## Next
 
-- [Quick Start](./1_quick-start.md) — Get started
+- [Quick Start](../apps/clients/1_quick-start.md) — Get started
 - [Operations](./3_operations.md) — Day-to-day ops
 - [Monitoring](./7_monitoring.md) — Monitoring
