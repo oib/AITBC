@@ -18,7 +18,7 @@ breadcrumb: Home > Scenarios > Secret Manager Thread Safety
 
 - **Previous Scenario**: [Scenario 29 Database Connection Leak](./29_database_connection_leak.md)
 - **Next Scenario**: [Scenario 31 Async HTTP Client Non-Blocking](./31_async_http_client.md)
-- **Feature Documentation**: [Crypto & Secrets Reference](../reference/crypto.md)
+- **Feature Documentation**: Crypto & Secrets Reference
 
 ---
 
@@ -188,7 +188,7 @@ print('PASS: A11 thread safety verified')
 
 ## Related Resources
 
-- [Crypto & Secrets Reference](../reference/crypto.md)
+- Crypto & Secrets Reference
 - [Next Scenario: Async HTTP Client Non-Blocking](./31_async_http_client.md)
 
 ---

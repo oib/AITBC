@@ -16,14 +16,14 @@
 ## 🎯 **See Also:**
 - **🏠 [Documentation Home](../README.md)** - Main docs landing page
 - **🧭 [Master Index](../MASTER_INDEX.md)** - Complete docs catalog
-- **📋 [Template Standard](../about/DOCUMENTATION_TEMPLATE_STANDARD.md)** - Writing standard for docs
-- **✅ [Compliance Audit](../about/DOCUMENTATION_COMPLIANCE_AUDIT.md)** - Documentation checklist
+- **📋 [Template Standard](DOCUMENTATION_TEMPLATE_STANDARD.md)** - Writing standard for docs
+- **✅ [Compliance Audit](DOCUMENTATION_COMPLIANCE_AUDIT.md)** - Documentation checklist
 
 ---
 
 ## 📦 **Contents**
 
-- **[README_DOCUMENTATION.md](README_DOCUMENTATION.md)** - Documentation authoring guide and structure notes
+- **README_DOCUMENTATION.md** - Documentation authoring guide and structure notes
 
 ---
 

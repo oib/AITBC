@@ -93,6 +93,6 @@ aitbc-chain validator missed-blocks
 
 ## Next
 
-- [Quick Start](./1_quick-start.md) — Get started
+- [Quick Start](../apps/clients/1_quick-start.md) — Get started
 - [Consensus](./4_consensus.md) — Consensus mechanism
 - [Monitoring](./7_monitoring.md) — Monitoring

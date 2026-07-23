@@ -19,12 +19,9 @@ Build on the AITBC platform: APIs, SDKs, and contribution guides.
 | 11 | [11_marketplace-backend-analysis.md](./11_marketplace-backend-analysis.md) | Marketplace internals |
 | 12 | [12_marketplace-extensions.md](./12_marketplace-extensions.md) | Build marketplace plugins |
 | 13 | [13_user-interface-guide.md](./13_user-interface-guide.md) | Trade exchange UI |
-| 14 | [14_user-management-setup.md](./14_user-management-setup.md) | User management system |
-| 15 | [15_ecosystem-initiatives.md](./15_ecosystem-initiatives.md) | Ecosystem roadmap |
-| 16 | [16_local-assets.md](./16_local-assets.md) | Local asset management |
-| 17 | [17_windsurf-testing.md](./17_windsurf-testing.md) | Testing with Windsurf |
-| 18 | [zk-circuits.md](./zk-circuits.md) | ZK proof circuits for ML |
-| 19 | [fhe-service.md](./fhe-service.md) | Fully homomorphic encryption |
+| 14 | [15_ecosystem-initiatives.md](./15_ecosystem-initiatives.md) | Ecosystem roadmap |
+| 15 | [16_local-assets.md](./16_local-assets.md) | Local asset management |
+| 16 | [fhe-service.md](./fhe-service.md) | Fully homomorphic encryption |
 
 ## Related
 

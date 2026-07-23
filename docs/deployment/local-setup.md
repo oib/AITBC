@@ -52,6 +52,6 @@ curl http://localhost:8102/health  # Marketplace
 
 ## See Also
 
-- [Prerequisites](prerequisites.md) - System requirements
+- [Prerequisites](../getting-started/installation/prerequisites.md) - System requirements
 - [Single Server](single-server.md) - Production deployment
 - [Configuration](configuration.md) - Environment configuration

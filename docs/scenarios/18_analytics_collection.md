@@ -19,7 +19,7 @@ breadcrumb: Home > Scenarios > Analytics Collection
 - **Previous Scenario**: [Scenario 17 Governance Voting](./17_governance_voting.md)
 - **Next Scenario**: [Scenario 19 Security Setup](./19_security_setup.md)
 - **Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md)
-- **Feature Documentation**: [Analytics Reference](../analytics/README.md)
+- **Feature Documentation**: Analytics Reference
 
 ---
 
@@ -368,7 +368,7 @@ aitbc analytics dashboard | python -m json.tool
 
 ## Related Resources
 
-- [Analytics Documentation](../analytics/README.md)
+- Analytics Documentation
 - [Agent SDK Quick Start](../agent-sdk/QUICK_START_GUIDE.md)
 - [Next Scenario: Security Setup](./19_security_setup.md)
 

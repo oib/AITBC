@@ -163,10 +163,10 @@ systemctl status aitbc-coordinator-api.service
 4. **Development**: Build custom tools and integrations
 
 ### Documentation
-- [Complete CLI Reference](../cli/README.md)
-- [Testing Procedures](../cli/testing.md)
-- [Permission Setup](../cli/permission-setup.md)
-- [Exchange Integration](../apps/marketplace/exchange_integration.md)
+- Complete CLI Reference
+- Testing Procedures
+- [Permission Setup](../../cli/permission-setup.md)
+- [Exchange Integration](../../apps/marketplace/exchange_integration.md)
 
 ## 🎯 **Tips and Best Practices**
 
@@ -205,4 +205,4 @@ systemctl list-units --state=running | grep aitbc
 
 **Last Updated**: May 28, 2026
 **CLI Version**: Current
-**Test Coverage**: See [ROADMAP.md](../../planning/ROADMAP.md) for current test coverage targets
+**Test Coverage**: See ROADMAP.md for current test coverage targets

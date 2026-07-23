@@ -502,8 +502,8 @@ mentorship = await builder.become_mentor({
 ## Next Steps
 
 - [Development Setup Guide](2_setup.md) - Configure your development environment
-- [API Reference](../6_architecture/3_coordinator-api.md) - Detailed technical documentation
-- [Best Practices](../9_security/1_security-cleanup-guide.md) - Guidelines for high-quality contributions
+- [API Reference](../architecture/3_coordinator-api.md) - Detailed technical documentation
+- [Best Practices](../security/1_security-cleanup-guide.md) - Guidelines for high-quality contributions
 - [Community Guidelines](3_contributing.md) - Collaboration and communication standards
 
 Ready to start building? [Set Up Development Environment →](2_setup.md)

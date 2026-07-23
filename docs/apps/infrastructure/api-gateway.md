@@ -14,9 +14,9 @@
 ---
 
 ## 🎯 **See Also:**
-- **📖 [About Documentation](../../about/README.md)** - Template standard and audit checklist
+- **📖 About Documentation** - Template standard and audit checklist
 - **🧭 [Master Index](../../MASTER_INDEX.md)** - Full documentation catalog
-- **📁 [Infrastructure Overview](./README.md)** - Infrastructure services overview
+- **📁 Infrastructure Overview** - Infrastructure services overview
 
 ---
 

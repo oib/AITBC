@@ -4,11 +4,26 @@ Extract OpenAPI specs from FastAPI applications and publish to docs/api/
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 
 # Add AITBC to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "coordinator-api" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "blockchain-node" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "marketplace" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "wallet" / "src"))
+
+# Defaults for services that require environment variables to import
+os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
+os.environ.setdefault("MARKETPLACE_DATABASE_URL", "sqlite+aiosqlite:///./test_marketplace.db")
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test_api.db")
+os.environ.setdefault("WALLET_BIND_PORT", "8108")
+os.environ.setdefault("WALLET_DIR", "/tmp/test_wallet")
+os.environ.setdefault("KEYSTORE_PASSWORD", "test-password")
+os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
+os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
 
 REPO_DIR = Path(__file__).parent.parent
 DOCS_DIR = REPO_DIR / "docs"
@@ -21,22 +36,22 @@ API_DOCS_DIR.mkdir(exist_ok=True)
 APPS = [
     {
         "name": "coordinator-api",
-        "module": "apps.coordinator_api.src.coordinator_api.main:app",
+        "module": "coordinator_api.main:app",
         "output": "coordinator-api-openapi.json",
     },
     {
         "name": "blockchain-node",
-        "module": "apps.blockchain_node.src.aitbc_chain.app:app",
+        "module": "aitbc_chain.app:app",
         "output": "blockchain-node-openapi.json",
     },
     {
         "name": "marketplace",
-        "module": "apps.marketplace.src.marketplace_service.main:app",
+        "module": "marketplace_service.main:app",
         "output": "marketplace-openapi.json",
     },
     {
         "name": "wallet",
-        "module": "apps.wallet.src.wallet_app.main:app",
+        "module": "wallet_app.main:app",
         "output": "wallet-openapi.json",
     },
 ]

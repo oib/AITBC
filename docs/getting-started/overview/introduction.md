@@ -28,7 +28,7 @@ AITBC is a comprehensive blockchain platform that combines AI-powered trading, a
 
 ## Quick Start by Use Case
 
-**Traders** → [../05_cli/README.md](../05_cli/README.md)
+**Traders** → ../05_cli/README.md
 ```bash
 # Start AI trading
 aitbc ai-trading start --strategy mean_reversion
@@ -41,7 +41,7 @@ aitbc exchange create-pair AITBC/BTC
 aitbc exchange start-trading --pair AITBC/BTC
 ```
 
-**Miners** → [../04_miners/README.md](../04_miners/README.md)
+**Miners** → ../04_miners/README.md
 ```bash
 # Mining operations
 aitbc miner start
@@ -49,7 +49,7 @@ aitbc miner status
 aitbc wallet balance
 ```
 
-**Developers** → [../05_cli/README.md](../05_cli/README.md)
+**Developers** → ../05_cli/README.md
 ```bash
 # Development and testing
 aitbc test-cli run
@@ -113,7 +113,7 @@ Tokens are chain-specific and non-transferable between chains, providing complet
 
 ## Next Steps
 
-- [CLI Documentation](../cli/README.md) — Complete command reference (50+ command groups)
+- CLI Documentation — Complete command reference (50+ command groups)
 - [Multi-Chain Operations](../blockchain/cross-chain/) — Cross-chain functionality
 - [AI Trading](../agents/) — AI-powered trading engine
 - [Security & Compliance](../security/) — Security framework and compliance

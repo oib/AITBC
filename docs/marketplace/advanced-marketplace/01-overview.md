@@ -12,7 +12,7 @@ This document describes the advanced marketplace features implemented for the AI
 ## Table of Contents
 
 1. [Advanced Pricing Strategies](./02-pricing-strategies.md)
-2. ~~[Advanced Auction Types](./03-auction-types.md)~~ ~~(DEPRECATED - file removed)~~
+2. ~~Advanced Auction Types~~ ~~(DEPRECATED - file removed)~~
 3. [ML-Based Search and Recommendations](./04-ml-search.md)
 4. [Marketplace Analytics](./05-analytics.md)
 5. [External Provider Integrations](./06-external-providers.md)

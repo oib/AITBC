@@ -309,10 +309,10 @@ curl -X POST http://localhost:8202/rpc/sync \
 
 The open island integrates with existing agent skills:
 
-- **[aitbc-basic-operations.md](../../skills/aitbc-basic-operations.md)** - Basic CLI operations
-- **[aitbc-node-coordination.md](../../skills/aitbc-node-coordination.md)** - Multi-node coordination
-- **[aitbc-ai-operations.md](../../skills/aitbc-ai-operations.md)** - AI job management
-- **[agent_cross_node_communication.md](./agent_cross_node_communication.md)** - Cross-node messaging
+- **[aitbc-basic-operations.md](../../../skills/aitbc/aitbc-basic-operations.md)** - Basic CLI operations
+- **[aitbc-node-coordination.md](../../../skills/aitbc/aitbc-node-coordination.md)** - Multi-node coordination
+- **[aitbc-ai-operations.md](../../../skills/aitbc/aitbc-ai-operations.md)** - AI job management
+- **agent_cross_node_communication.md** - Cross-node messaging
 
 Load these skills to enhance your agent agent capabilities on the open island.
 

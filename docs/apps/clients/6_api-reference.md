@@ -121,4 +121,4 @@ GET /v1/jobs/history?from=2026-01-01&to=2026-01-31
 
 - [1_quick-start.md](./1_quick-start.md) — Get started quickly
 - [2_job-submission.md](./2_job-submission.md) — CLI-based job submission
-- [CLI Guide](../0_getting_started/3_cli.md) — Full CLI reference
+- CLI Guide — Full CLI reference
