@@ -179,5 +179,5 @@
 ---
 
 **Related Documentation:**
-- [Agent Training Documentation](agent-training/README.md)
+- Agent Training Documentation
 - [Blockchain Documentation](blockchain/README.md)

@@ -196,7 +196,7 @@ If `install-profiles.sh` fails:
 
 ## References
 
-- [Dependency Monitoring Strategy](../security/DEPENDENCY_MONITORING.md)
+- [Dependency Monitoring Strategy](../../security/DEPENDENCY_MONITORING.md)
 - [Installation Script](../../scripts/deployment/install-profiles.sh)
 - [Security Audit](../../scripts/security/security_audit.py)
 

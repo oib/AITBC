@@ -18,7 +18,7 @@ breadcrumb: Home > Scenarios > Mempool Eviction Order
 
 - **Previous Scenario**: [Scenario 22 Bridge RPC Input Validation](./22_bridge_rpc_validation.md)
 - **Next Scenario**: [Scenario 24 Fire-and-Forget Task Error Logging](./24_task_error_logging.md)
-- **Feature Documentation**: [Blockchain Node Architecture](../architecture/blockchain-node.md)
+- **Feature Documentation**: Blockchain Node Architecture
 
 ---
 
@@ -175,7 +175,7 @@ print('PASS: B15 eviction order verified')
 
 ## Related Resources
 
-- [Blockchain Node Architecture](../architecture/blockchain-node.md)
+- Blockchain Node Architecture
 - [Next Scenario: Fire-and-Forget Task Error Logging](./24_task_error_logging.md)
 
 ---

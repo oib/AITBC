@@ -14,7 +14,6 @@
 ---
 
 ## 🎯 **See Also:**
-- **📋 [Project Documentation](../project/README.md)** - Project structure and workflow context
 - **🏗️ [Infrastructure Documentation](../infrastructure/README.md)** - Operational environment details
 - **🧪 [Testing Documentation](../testing/)** - Test-oriented workflow resources
 - **📚 [Master Index](../MASTER_INDEX.md)** - Full documentation catalog
@@ -23,7 +22,6 @@
 
 ## 📦 **Contents**
 
-- **[DEBUgging_SERVICES.md](DEBUgging_SERVICES.md)** - Service debugging notes and troubleshooting steps
 - **[DEV_LOGS.md](DEV_LOGS.md)** - Development log tracking
 - **[DEV_LOGS_QUICK_REFERENCE.md](DEV_LOGS_QUICK_REFERENCE.md)** - Fast reference for common dev logs
 - **[mock-data-system.md](mock-data-system.md)** - Mock data system notes and workflow
@@ -44,8 +42,7 @@ This directory collects operational development notes that help contributors:
 ## 🚀 **Next Steps**
 
 - Use `DEV_LOGS_QUICK_REFERENCE.md` for the fastest log lookup path.
-- Review `DEBUgging_SERVICES.md` when diagnosing service issues.
-- Keep development notes aligned with `../about/DOCUMENTATION_TEMPLATE_STANDARD.md`.
+- Keep development notes aligned with `../meta/DOCUMENTATION_TEMPLATE_STANDARD.md`.
 
 ---
 

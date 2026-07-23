@@ -15,9 +15,9 @@
 
 ## 🎯 **See Also:**
 - **📚 Docs Home**: [Documentation Home](../README.md) - Main docs landing page
-- **📖 About Docs**: [About Documentation](../about/README.md) - Template standard and audit checklist
+- **📖 About Docs**: About Documentation - Template standard and audit checklist
 - **👛 CLI Technical**: [CLI Documentation](../cli/README.md) - CLI entry point and usage
-- **📋 Project Docs**: [Project Documentation](../project/README.md) - Project context and structure
+- **📋 Project Docs**: Project Documentation - Project context and structure
 - **🚀 Deployment Docs**: [Deployment Documentation](../deployment/README.md) - Operational deployment context
 
 ---
@@ -293,7 +293,7 @@ All test logs are now centralized in `/var/log/aitbc/`:
 
 ### 📚 **Further Reading:**
 - [Documentation Home](../README.md) - Main docs landing page
-- [About Documentation](../about/README.md) - Template standard and audit checklist
+- About Documentation - Template standard and audit checklist
 - [CLI Technical Documentation](../cli/README.md) - CLI entry point and usage
 - [Deployment Documentation](../deployment/README.md) - Operational deployment context
 

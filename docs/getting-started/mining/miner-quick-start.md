@@ -81,6 +81,6 @@ aitbc monitor alerts --type gpu_temperature
 
 ## Next
 
-- [2_registration.md](./2_registration.md) — Advanced registration options
-- [3_job-management.md](./3_job-management.md) — Job acceptance and completion
-- [5_gpu-setup.md](./5_gpu-setup.md) — GPU driver and CUDA setup
+- [2_registration.md](../../mining/2_registration.md) — Advanced registration options
+- [3_job-management.md](../../mining/3_job-management.md) — Job acceptance and completion
+- [5_gpu-setup.md](../../mining/5_gpu-setup.md) — GPU driver and CUDA setup

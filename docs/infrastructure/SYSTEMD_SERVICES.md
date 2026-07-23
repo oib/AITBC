@@ -350,6 +350,6 @@ systemctl start aitbc-*
 ---
 
 **Related Documentation**:
-- [Runtime Directories Guide](../RUNTIME_DIRECTORIES.md)
-- [Security Hardening Guide](SECURITY_HARDENING.md)
+- [Runtime Directories Guide](RUNTIME_DIRECTORIES.md)
+- [Security Hardening Guide](../releases/v0.4.23/SECURITY_HARDENING.md)
 - [Infrastructure Overview](README.md)

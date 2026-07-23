@@ -247,7 +247,7 @@ hub3.aitbc.bubuit.net A 10.1.1.3
 
 ## Next
 
-- [Quick Start](./1_quick-start.md) — Get started
+- [Quick Start](../apps/clients/1_quick-start.md) — Get started
 - [Configuration](./2_configuration.md) - Configure your node
 - [Operations](./3_operations.md) — Day-to-day ops
 - [Multi-Chain Architecture](./7_multichain.md) - Multi-chain management

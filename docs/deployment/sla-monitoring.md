@@ -580,7 +580,7 @@ SLA violations can trigger alerts through:
 
 ## References
 
-- [Pool-Hub README](/opt/aitbc/apps/pool-hub/README.md)
-- [Coordinator-API Billing Documentation](/opt/aitbc/apps/coordinator-api/README.md)
-- [Roadmap](/opt/aitbc/docs/project/2_roadmap.md)
-- [Deployment Guide](/opt/aitbc/docs/deployment/0_index.md)
+- [Pool-Hub README](../../apps/pool-hub/README.md)
+- [Coordinator-API Billing Documentation](../../apps/coordinator-api/README.md)
+- Roadmap
+- Deployment Guide
