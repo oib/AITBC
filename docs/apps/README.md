@@ -14,9 +14,9 @@
 ---
 
 ## 🎯 **See Also:**
-- **📖 [About Documentation](../about/README.md)** - Template standard and audit checklist
+- **📖 About Documentation** - Template standard and audit checklist
 - **🧭 [Master Index](../MASTER_INDEX.md)** - Full documentation catalog
-- **📁 [Project Documentation](../project/README.md)** - Project-level overview
+- **📁 Project Documentation** - Project-level overview
 - **🚀 [Deployment Documentation](../deployment/README.md)** - Operational rollout guidance
 
 ---
@@ -126,7 +126,7 @@ Complete documentation for all AITBC applications and services.
 
 ## Quick Links
 
-- [Blockchain Node](blockchain/blockchain-node.md) - Production-ready blockchain node
+- Blockchain Node - Production-ready blockchain node
 - [Coordinator API](coordinator/coordinator-api.md) - Job coordination service
 - [Marketplace](marketplace/marketplace.md) - GPU marketplace
 - [Wallet](wallet/wallet.md) - Multi-chain wallet
@@ -154,8 +154,8 @@ Each app documentation includes:
 
 ### 📚 **Further Reading:**
 - **Main Docs**: [Documentation Home](../README.md) - Complete documentation overview
-- **About Docs**: [About Documentation](../about/README.md) - Template standard and audit checklist
-- **Project Docs**: [Project Documentation](../project/README.md) - Project-level overview
+- **About Docs**: About Documentation - Template standard and audit checklist
+- **Project Docs**: Project Documentation - Project-level overview
 - **Deployment Docs**: [Deployment Documentation](../deployment/README.md) - Operational rollout guidance
 
 ### 🆘 **Help & Support:**

@@ -301,9 +301,9 @@ if results["total_matches"] == 0:
 
 ### Learn More
 - [Full Communication Guide](AGENT_COMMUNICATION_GUIDE.md)
-- [API Reference](../api/AGENT_API_REFERENCE.md)
-- [Advanced Examples](ADVANCED_EXAMPLES.md)
-- [Troubleshooting](TROUBLESHOOTING.md)
+- API Reference
+- Advanced Examples
+- Troubleshooting
 
 ### Join the Community
 - [Introduction Topic](/rpc/messaging/topics/introductions)

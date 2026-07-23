@@ -63,7 +63,7 @@ For detailed information on each topic, see the topic-specific documents:
 - **[Logging Standardization](LOGGING_STANDARDIZATION.md)** - Migrate all 12+ services to aitbc_logging with INFO level
 - **[Observability Enhancement](OBSERVABILITY_ENHANCEMENT.md)** - Add X-Request-ID propagation for distributed tracing
 - **[CI/CD Improvements](CI_CD_IMPROVEMENTS.md)** - Integration test matrix, coverage gates (50% → 70% → 85%)
-- **[Wrapper Script Templating](WRAPPER_SCRIPT_TEMPLATING.md)** - Generate service wrappers from Jinja2 template
+- **Wrapper Script Templating** - Generate service wrappers from Jinja2 template
 - **[Security Hardening](SECURITY_HARDENING.md)** - Remove hardcoded ports, configurable via env vars
 - **[Documentation Validation](DOCUMENTATION_VALIDATION.md)** - Validate MASTER_INDEX.md links, publish OpenAPI specs
 - **[B008 Lint Refactor](B008_LINT_REFACTOR.md)** - Fix 1,105 B008 violations via LibCST transformer

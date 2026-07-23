@@ -281,12 +281,12 @@ aitbc exchange history --chain ethereum
 
 ## 📚 Documentation
 
-- [ETH_BRIDGE_GUIDE.md](../exchange/ETH_BRIDGE_GUIDE.md)
-- [BRIDGE_OPERATIONS.md](../exchange/BRIDGE_OPERATIONS.md)
-- [EXCHANGE_API.md](../exchange/EXCHANGE_API.md)
-- [CLI_EXCHANGE.md](../cli/CLI_EXCHANGE.md)
-- [WEBSITE_UPDATE.md](../website/WEBSITE_UPDATE.md)
-- [BLOCKCHAIN_EXPLORER.md](../website/BLOCKCHAIN_EXPLORER.md)
+- ETH_BRIDGE_GUIDE.md
+- BRIDGE_OPERATIONS.md
+- EXCHANGE_API.md
+- CLI_EXCHANGE.md
+- WEBSITE_UPDATE.md
+- BLOCKCHAIN_EXPLORER.md
 
 ## 🚀 Dependencies
 

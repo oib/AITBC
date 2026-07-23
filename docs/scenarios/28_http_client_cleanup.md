@@ -18,7 +18,7 @@ breadcrumb: Home > Scenarios > HTTP Client Resource Cleanup
 
 - **Previous Scenario**: [Scenario 27 CLI Commands](./27_cli_commands.md)
 - **Next Scenario**: [Scenario 29 Database Connection Leak](./29_database_connection_leak.md)
-- **Feature Documentation**: [HTTP Client Reference](../reference/http-client.md)
+- **Feature Documentation**: HTTP Client Reference
 
 ---
 
@@ -273,7 +273,7 @@ echo "FDs: $BEFORE -> $AFTER (should be equal)"
 
 ## Related Resources
 
-- [HTTP Client Reference](../reference/http-client.md)
+- HTTP Client Reference
 - [Next Scenario: Database Connection Leak](./29_database_connection_leak.md)
 
 ---

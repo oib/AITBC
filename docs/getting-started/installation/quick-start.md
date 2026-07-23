@@ -81,4 +81,4 @@ tail -f /var/lib/aitbc/logs/aitbc-*.log
 
 - [Prerequisites](prerequisites.md)
 - [Requirements Management](requirements-management.md)
-- [Blockchain Setup](blockchain-setup.md)
+- [Blockchain Setup](../node/blockchain-setup.md)

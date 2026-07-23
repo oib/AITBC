@@ -218,11 +218,11 @@ For detailed information on each topic, see the topic-specific documents:
 
 ## 📚 Documentation
 
-- [SERVICE_PORTS.md](../deployment/SERVICE_PORTS.md) — Updated port reference
-- [SETUP.md](../getting-started/SETUP.md) — Environment configuration documentation
-- [AGENT_MESSAGING.md](../agents/AGENT_MESSAGING.md) — Updated endpoints
-- [WALLET_DAEMON.md](../wallet/WALLET_DAEMON.md) — Balance endpoint documentation
-- [BLOCKCHAIN_RPC.md](../blockchain/BLOCKCHAIN_RPC.md) — Updated RPC endpoints
+- [SERVICE_PORTS.md](../../reference/SERVICE_PORTS.md) — Updated port reference
+- [SETUP.md](../../getting-started/SETUP.md) — Environment configuration documentation
+- AGENT_MESSAGING.md — Updated endpoints
+- [WALLET_DAEMON.md](WALLET_DAEMON.md) — Balance endpoint documentation
+- [BLOCKCHAIN_RPC.md](BLOCKCHAIN_RPC.md) — Updated RPC endpoints
 
 ## 🚀 Dependencies
 

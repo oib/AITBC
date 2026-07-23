@@ -18,7 +18,7 @@ breadcrumb: Home > Scenarios > Database Connection Leak Prevention
 
 - **Previous Scenario**: [Scenario 28 HTTP Client Resource Cleanup](./28_http_client_cleanup.md)
 - **Next Scenario**: [Scenario 30 Secret Manager Thread Safety](./30_secret_manager_thread_safety.md)
-- **Feature Documentation**: [Database Service Reference](../reference/database-service.md)
+- **Feature Documentation**: Database Service Reference
 
 ---
 
@@ -207,7 +207,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
 
 ## Related Resources
 
-- [Database Service Reference](../reference/database-service.md)
+- Database Service Reference
 - [Next Scenario: Secret Manager Thread Safety](./30_secret_manager_thread_safety.md)
 
 ---

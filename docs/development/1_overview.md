@@ -136,20 +136,20 @@ Choose a tutorial based on your interest:
 
 - [AI Inference Service](./12_marketplace-extensions.md)
 - [Marketplace Bot](./4_examples.md)
-- [Mining Operation](../3_miners/1_quick-start.md)
+- [Mining Operation](../apps/clients/1_quick-start.md)
 
 ## Developer Resources
 
 ### Documentation
-- [API Reference](../5_reference/0_index.md)
+- API Reference
 - [SDK Guides](4_examples.md)
 - [Examples](4_examples.md)
 - [Best Practices](5_developer-guide.md)
 
 ### Tools
-- [AITBC CLI](../0_getting_started/3_cli.md)
+- AITBC CLI
 - [IDE Plugins](15_ecosystem-initiatives.md)
-- [Testing Framework](17_windsurf-testing.md)
+- [Testing Framework](../releases/v0.4.13/17_windsurf-testing.md)
 
 ### Community
 - [Discord](https://discord.gg/aitbc)
@@ -261,9 +261,9 @@ See our [Contributing Guide](3_contributing.md) for details.
 
 ## Next Steps
 
-1. [Set up your environment](../2_setup.md)
-2. [Learn about authentication](../6_api-authentication.md)
-3. [Choose an SDK](../4_examples.md)
-4. [Build your first app](../4_examples.md)
+1. [Set up your environment](2_setup.md)
+2. [Learn about authentication](6_api-authentication.md)
+3. [Choose an SDK](4_examples.md)
+4. [Build your first app](4_examples.md)
 
 Happy building!

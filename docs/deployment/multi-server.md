@@ -89,6 +89,6 @@ apt install -y postgresql redis-server
 
 ## See Also
 
-- [Prerequisites](prerequisites.md) - System requirements
-- [Cloud Deployment](cloud-deployment.md) - Cloud-specific deployment
+- [Prerequisites](../getting-started/installation/prerequisites.md) - System requirements
+- Cloud Deployment - Cloud-specific deployment
 - [Configuration](configuration.md) - Environment configuration

@@ -576,10 +576,10 @@ Before starting services, verify:
 
 ## Related Documentation
 
-- [Adding Third Node Guide](./adding_gitea_runner_as_third_node.md) - Real-world setup example
-- [Node Deployment Guide](../infrastructure/NODE_AITBC.md) - Infrastructure setup
+- Adding Third Node Guide - Real-world setup example
+- Node Deployment Guide - Infrastructure setup
 - [Blockchain Node Schema](./node/SCHEMA.md) - Database schema reference
-- [Multi-Node Setup Core](../../.windsurf/workflows/multi-node-blockchain-setup-core.md) - Workflow guide
+- Multi-Node Setup Core - Workflow guide
 
 ---
 

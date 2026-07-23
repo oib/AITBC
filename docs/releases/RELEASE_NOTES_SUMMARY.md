@@ -253,7 +253,7 @@ For detailed information about a specific release, navigate to the corresponding
 - **Agent A** - Shared core (`aitbc/`) - Types, config, db, logging, queues, crypto, network
 - **Agent B** - Apps & infrastructure - All `apps/`, `cli/`, systemd config
 
-See [AGENTS.md](../AGENTS.md) for detailed agent role definitions and coordination protocols.
+See AGENTS.md for detailed agent role definitions and coordination protocols.
 
 ---
 
@@ -277,7 +277,7 @@ See [AGENTS.md](../AGENTS.md) for detailed agent role definitions and coordinati
 
 ## Additional Resources
 
-- [Master AGENTS.md](../AGENTS.md) - Project conventions and verification commands
+- Master AGENTS.md - Project conventions and verification commands
 - [Release Status Overview](./STATUS.md) - All releases, config defaults, audit summary
 - [Security Audit Summary](./AUDIT.md) - Bridge security audit status
 - [Documentation Guide](../meta/documentation-guide.md) - Documentation standards and guidelines

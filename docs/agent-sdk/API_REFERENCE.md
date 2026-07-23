@@ -43,7 +43,7 @@ This reference has been split into topic-focused files for easier navigation:
 
 - **[Error Codes](./api-error-codes.md)** - Error codes and rate limits
 - **[Response Formats](./api-response-formats.md)** - Response format standards
-- **[SDK Methods Reference](./api-sdk-methods.md)** - SDK client methods
+- **SDK Methods Reference** - SDK client methods
 
 ## Quick Navigation
 
@@ -53,7 +53,7 @@ This reference has been split into topic-focused files for easier navigation:
 3. Check [Error Codes](./api-error-codes.md) for error handling
 
 **For SDK Developers:**
-1. See [SDK Methods Reference](./api-sdk-methods.md)
+1. See SDK Methods Reference
 2. Review [Response Formats](./api-response-formats.md)
 3. Check [Error Codes](./api-error-codes.md) for error handling
 

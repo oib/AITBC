@@ -14,9 +14,9 @@
 ---
 
 ## 🎯 **See Also:**
-- **📋 [Policies](../policies/README.md)** - Operational policy documentation
-- **🔒 [Security Documentation](../security/README.md)** - Security-related guidance
-- **📚 [About Documentation](../about/README.md)** - Documentation standards and analysis
+- **📋 [Policies](../../security/policies/README.md)** - Operational policy documentation
+- **🔒 Security Documentation** - Security-related guidance
+- **📚 About Documentation** - Documentation standards and analysis
 - **🏠 [Documentation Home](../README.md)** - Main docs entry point
 - **🤖 [Agent Blockchain Integration - Governance](../../agent/blockchain/governance.md)** - Agent agent on-chain governance operations
 
@@ -26,7 +26,7 @@
 
 - **[CODEOWNERS](CODEOWNERS)** - Ownership and review routing
 - **[COMMUNITY_STRATEGY.md](COMMUNITY_STRATEGY.md)** - Community and contribution strategy
-- **[agent-dao-governance.md](agent-dao-governance.md)** - agent DAO governance notes
+- **agent-dao-governance.md** - agent DAO governance notes
 
 ---
 

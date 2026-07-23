@@ -13,7 +13,7 @@ This document describes the advanced marketplace features implemented for the AI
 
 - **[Overview](./advanced-marketplace/01-overview.md)** - Overview and table of contents
 - **[Pricing Strategies](./advanced-marketplace/02-pricing-strategies.md)** - TIME_BASED, REPUTATION_BASED, MULTI_FACTOR, PREDICTIVE
-- ~~**[Auction Types](./advanced-marketplace/03-auction-types.md)**~~ - ~~Dutch, sealed-bid, reverse auctions~~ (DEPRECATED - file removed)
+- ~~**Auction Types**~~ - ~~Dutch, sealed-bid, reverse auctions~~ (DEPRECATED - file removed)
 - **[ML-Based Search](./advanced-marketplace/04-ml-search.md)** - Advanced search and recommendations
 - **[Analytics](./advanced-marketplace/05-analytics.md)** - Real-time metrics and forecasting
 - **[External Providers](./advanced-marketplace/06-external-providers.md)** - AWS/GCP/Azure integrations

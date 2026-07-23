@@ -18,7 +18,7 @@ breadcrumb: Home > Scenarios > GPU Marketplace N+1 Query Fix
 
 - **Previous Scenario**: [Scenario 25 Job Submission with Payment Failure](./25_job_payment_failure.md)
 - **Next Scenario**: [Scenario 27 CLI Commands](./27_cli_commands.md)
-- **Feature Documentation**: [GPU Marketplace](../features/gpu-marketplace.md)
+- **Feature Documentation**: GPU Marketplace
 
 ---
 
@@ -180,7 +180,7 @@ curl -sf http://localhost:8203/v1/marketplace/orders > /dev/null && echo "Orders
 
 ## Related Resources
 
-- [GPU Marketplace](../features/gpu-marketplace.md)
+- GPU Marketplace
 - [Next Scenario: CLI Commands](./27_cli_commands.md)
 
 ---

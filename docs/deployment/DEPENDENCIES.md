@@ -5,7 +5,7 @@
 
 ## Overview
 
-This document lists all system-level dependencies required for deploying AITBC in production. For Python package dependencies, see [Development Dependencies](../development/DEPENDENCIES.md).
+This document lists all system-level dependencies required for deploying AITBC in production. For Python package dependencies, see [Development Dependencies](../releases/v0.4.26/DEPENDENCIES.md).
 
 ## System Requirements
 
@@ -468,7 +468,7 @@ journalctl -u redis-server -n 50
 
 ## See Also
 
-- [Development Dependencies](../development/DEPENDENCIES.md) - Python package dependencies
+- [Development Dependencies](../releases/v0.4.26/DEPENDENCIES.md) - Python package dependencies
 - [Single Server Deployment](single-server.md) - Complete deployment guide
 - [Configuration Reference](configuration.md) - Environment configuration
 - [Security Best Practices](../security/) - Security guidelines

@@ -98,7 +98,7 @@ Peer list.
 
 ## Documentation
 
-- [BLOCKCHAIN_RPC.md](../../../blockchain/BLOCKCHAIN_RPC.md) — Updated RPC endpoints
+- [BLOCKCHAIN_RPC.md](BLOCKCHAIN_RPC.md) — Updated RPC endpoints
 
 ---
 

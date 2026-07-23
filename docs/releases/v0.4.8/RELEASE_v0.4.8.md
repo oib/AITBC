@@ -188,10 +188,10 @@ location /api/v1/agent/messages/stream {
 
 ## 📚 Documentation
 
-- [LOGGING.md](../infrastructure/LOGGING.md)
-- [SECRETS_MANAGEMENT.md](../infrastructure/SECRETS_MANAGEMENT.md)
-- [SUBSCRIPTION_GUIDE.md](../blockchain/SUBSCRIPTION_GUIDE.md)
-- [WEBSOCKET_MIGRATION.md](../microservices/WEBSOCKET_MIGRATION.md)
+- LOGGING.md
+- SECRETS_MANAGEMENT.md
+- SUBSCRIPTION_GUIDE.md
+- WEBSOCKET_MIGRATION.md
 
 ## 🚀 Dependencies
 

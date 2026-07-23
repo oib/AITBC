@@ -116,6 +116,11 @@ python examples/gpu_inference_client.py \
 - **Security** — JWT/RBAC, multi-sig wallets, encrypted keystores, Merkle-proof bridge verification, rate limiting.
 - **CLI & ops** — unified `aitbc_cli`, systemd units, Prometheus metrics, deployment scripts.
 
+## Media
+
+- [Video walkthroughs on PeerTube](https://peertube.bubuit.net/c/aitbc/videos)
+- [Gemini NotebookLM companion notebook](https://notebooklm.google.com/notebook/e3ca6fea-5f40-4932-9df5-71843e61ff95)
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, conventions, and the PR process.

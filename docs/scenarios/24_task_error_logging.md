@@ -18,7 +18,7 @@ breadcrumb: Home > Scenarios > Fire-and-Forget Task Error Logging
 
 - **Previous Scenario**: [Scenario 23 Mempool Eviction Order](./23_mempool_eviction_order.md)
 - **Next Scenario**: [Scenario 25 Job Submission with Payment Failure](./25_job_payment_failure.md)
-- **Feature Documentation**: [Async Task Management](../architecture/async-tasks.md)
+- **Feature Documentation**: Async Task Management
 
 ---
 
@@ -213,7 +213,7 @@ journalctl -u aitbc-edge -n 50 --no-pager | grep -i "register" | tail -3
 
 ## Related Resources
 
-- [Async Task Management](../architecture/async-tasks.md)
+- Async Task Management
 - [Next Scenario: Job Submission with Payment Failure](./25_job_payment_failure.md)
 
 ---

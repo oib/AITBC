@@ -108,6 +108,6 @@ server {
 
 ## See Also
 
-- [Prerequisites](prerequisites.md) - System requirements
+- [Prerequisites](../getting-started/installation/prerequisites.md) - System requirements
 - [SSL/TLS Setup](ssl-tls-setup.md) - SSL configuration
 - [Configuration](configuration.md) - Environment configuration
