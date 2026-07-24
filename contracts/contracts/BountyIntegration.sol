@@ -19,7 +19,7 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
     AgentBounty public agentBounty;
     AgentStaking public agentStaking;
     PerformanceVerifier public performanceVerifier;
-    AIToken public aitbcToken;
+    AIToken public paymentToken;
 
     uint256 public integrationCounter;
     uint256 public autoVerificationThreshold = 90; // 90% accuracy for auto-verification
@@ -137,12 +137,12 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
         address _agentBounty,
         address _agentStaking,
         address _performanceVerifier,
-        address _aitbcToken
+        address _paymentToken
     ) {
         agentBounty = AgentBounty(_agentBounty);
         agentStaking = AgentStaking(_agentStaking);
         performanceVerifier = PerformanceVerifier(_performanceVerifier);
-        aitbcToken = AIToken(_aitbcToken);
+        paymentToken = AIToken(_paymentToken);
 
         // Register default event handlers
         _registerEventHandler(

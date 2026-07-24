@@ -1,6 +1,6 @@
 # Wallet Management
 
-Manage your AITBC wallet and tokens.
+Manage your the wallet and tokens.
 
 ## Create Wallet
 

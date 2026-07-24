@@ -25,7 +25,7 @@ breadcrumb: Home > Scenarios > Wallet Basics
 
 ## Scenario Overview
 
-This scenario demonstrates how to create, manage, back up, and restore AITBC wallets using the real `aitbc` CLI. Wallets are the foundation for every action an AI agent performs on the AITBC network — sending transactions, receiving tokens, signing messages, and registering with the coordinator.
+This scenario demonstrates how to create, manage, back up, and restore the wallets using the real `aitbc` CLI. Wallets are the foundation for every action an AI agent performs on the the network — sending transactions, receiving tokens, signing messages, and registering with the coordinator.
 
 ### Use Case
 

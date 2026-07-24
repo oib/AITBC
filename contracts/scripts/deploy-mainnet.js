@@ -34,9 +34,9 @@ async function main() {
         const initialSupply = ethers.parseEther("1000000000"); // 1B tokens
         const aiToken = await AIToken.deploy(initialSupply);
         await aiToken.waitForDeployment();
-        const aitbcTokenAddr = await aiToken.getAddress();
-        deployedContracts.contracts.AIToken = aitbcTokenAddr;
-        console.log(`✅ AIToken deployed: ${aitbcTokenAddr}`);
+        const paymentTokenAddr = await aiToken.getAddress();
+        deployedContracts.contracts.AIToken = paymentTokenAddr;
+        console.log(`✅ AIToken deployed: ${paymentTokenAddr}`);
 
         console.log("📦 Deploying ZKReceiptVerifier...");
         const ZKReceiptVerifier = await ethers.getContractFactory("ZKReceiptVerifier");
@@ -57,7 +57,7 @@ async function main() {
         // Deploy core contracts with correct arguments
         console.log("📦 Deploying AgentWallet...");
         const AgentWallet = await ethers.getContractFactory("AgentWallet");
-        const agentWallet = await AgentWallet.deploy(aitbcTokenAddr);
+        const agentWallet = await AgentWallet.deploy(paymentTokenAddr);
         await agentWallet.waitForDeployment();
         const agentWalletAddr = await agentWallet.getAddress();
         deployedContracts.contracts.AgentWallet = agentWalletAddr;
@@ -66,7 +66,7 @@ async function main() {
         console.log("📦 Deploying AIPowerRental...");
         const AIPowerRental = await ethers.getContractFactory("AIPowerRental");
         const aiPowerRental = await AIPowerRental.deploy(
-            aitbcTokenAddr,
+            paymentTokenAddr,
             zkVerifierAddr,
             groth16VerifierAddr
         );
@@ -90,7 +90,7 @@ async function main() {
         console.log("📦 Deploying AgentBounty...");
         const AgentBounty = await ethers.getContractFactory("AgentBounty");
         const agentBounty = await AgentBounty.deploy(
-            aitbcTokenAddr,
+            paymentTokenAddr,
             performanceVerifierAddr
         );
         await agentBounty.waitForDeployment();
@@ -103,7 +103,7 @@ async function main() {
         const dynamicPricing = await DynamicPricing.deploy(
             aiPowerRentalAddr,
             performanceVerifierAddr,
-            aitbcTokenAddr
+            paymentTokenAddr
         );
         await dynamicPricing.waitForDeployment();
         const dynamicPricingAddr = await dynamicPricing.getAddress();
@@ -113,7 +113,7 @@ async function main() {
         console.log("📦 Deploying AgentStaking...");
         const AgentStaking = await ethers.getContractFactory("AgentStaking");
         const agentStaking = await AgentStaking.deploy(
-            aitbcTokenAddr,
+            paymentTokenAddr,
             performanceVerifierAddr
         );
         await agentStaking.waitForDeployment();

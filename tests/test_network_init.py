@@ -1,6 +1,6 @@
 """
 Network Init Tests
-Tests for AITBC network package initialization
+Tests for the network package initialization
 """
 
 import pytest

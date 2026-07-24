@@ -1,6 +1,6 @@
 # Miner Documentation
 
-Provide GPU resources to the AITBC network and earn tokens.
+Provide GPU resources to the the network and earn tokens.
 
 ## Reading Order
 

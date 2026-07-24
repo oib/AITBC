@@ -316,7 +316,7 @@ class DeveloperPlatformService:
         return self.session.execute(select(DeveloperProfile).where(DeveloperProfile.is_active)).all()  # type: ignore[return-value]
 
     async def stake_on_developer(self, staker_address: str, developer_address: str, amount: float) -> dict:
-        """Stake AITBC tokens on a developer"""
+        """Stake tokens on a developer"""
         balance = get_balance(staker_address)
         if balance < amount:  # type: ignore[operator]
             raise HTTPException(status_code=400, detail="Insufficient balance for staking")

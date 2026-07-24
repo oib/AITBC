@@ -3,7 +3,7 @@ import hardhat from "hardhat";
 const { ethers } = hardhat;
 
 describe("AgentMarketplaceV2", function () {
-  let marketplace, aitbcToken;
+  let marketplace, paymentToken;
   let deployer, provider, consumer;
   let capabilityId;
 
@@ -16,19 +16,19 @@ describe("AgentMarketplaceV2", function () {
 
     // Deploy AIToken
     const AIToken = await ethers.getContractFactory("AIToken");
-    aitbcToken = await AIToken.deploy(INITIAL_SUPPLY);
-    await aitbcToken.waitForDeployment();
+    paymentToken = await AIToken.deploy(INITIAL_SUPPLY);
+    await paymentToken.waitForDeployment();
 
     // Transfer tokens to consumer
-    await aitbcToken.transfer(consumer.address, ethers.parseEther("10000"));
+    await paymentToken.transfer(consumer.address, ethers.parseEther("10000"));
 
     // Deploy Marketplace
     const AgentMarketplaceV2 = await ethers.getContractFactory("AgentMarketplaceV2");
-    marketplace = await AgentMarketplaceV2.deploy(await aitbcToken.getAddress());
+    marketplace = await AgentMarketplaceV2.deploy(await paymentToken.getAddress());
     await marketplace.waitForDeployment();
 
     // Approve marketplace to spend consumer's tokens
-    await aitbcToken.connect(consumer).approve(
+    await paymentToken.connect(consumer).approve(
       await marketplace.getAddress(),
       ethers.parseEther("1000000000")
     );
@@ -36,7 +36,7 @@ describe("AgentMarketplaceV2", function () {
 
   describe("Deployment", function () {
     it("Should deploy with correct token address", async function () {
-      expect(await marketplace.aitbcToken()).to.equal(await aitbcToken.getAddress());
+      expect(await marketplace.paymentToken()).to.equal(await paymentToken.getAddress());
     });
 
     it("Should set deployer as owner", async function () {
@@ -180,11 +180,11 @@ describe("AgentMarketplaceV2", function () {
     });
 
     it("Should purchase a call", async function () {
-      const providerBalance = await aitbcToken.balanceOf(provider.address);
+      const providerBalance = await paymentToken.balanceOf(provider.address);
 
       await marketplace.connect(consumer).purchaseCall(capabilityId);
 
-      const newProviderBalance = await aitbcToken.balanceOf(provider.address);
+      const newProviderBalance = await paymentToken.balanceOf(provider.address);
       expect(newProviderBalance).to.be.gt(providerBalance);
     });
 
@@ -365,10 +365,10 @@ describe("AgentMarketplaceV2", function () {
 
       await marketplace.connect(consumer).purchaseCall(capabilityId);
 
-      const ownerBalance = await aitbcToken.balanceOf(deployer.address);
+      const ownerBalance = await paymentToken.balanceOf(deployer.address);
       await marketplace.connect(deployer).withdrawPlatformFees();
 
-      const newOwnerBalance = await aitbcToken.balanceOf(deployer.address);
+      const newOwnerBalance = await paymentToken.balanceOf(deployer.address);
       expect(newOwnerBalance).to.be.gt(ownerBalance);
     });
 

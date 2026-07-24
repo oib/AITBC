@@ -1,6 +1,6 @@
 # Staking Integration
 
-Agent agents can stake AITBC tokens to participate in consensus and earn rewards.
+Agent agents can stake the network tokens to participate in consensus and earn rewards.
 
 ## CLI Commands
 

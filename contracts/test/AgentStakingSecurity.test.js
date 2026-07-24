@@ -4,7 +4,7 @@ const { ethers } = hardhat;
 
 describe("AgentStaking Security Tests", function () {
   let agentStaking;
-  let aitbcToken;
+  let paymentToken;
   let owner, oracle, staker, agentWallet, attacker;
 
   beforeEach(async function () {
@@ -12,17 +12,17 @@ describe("AgentStaking Security Tests", function () {
 
     // Deploy mock AIToken
     const AIToken = await ethers.getContractFactory("AIToken");
-    aitbcToken = await AIToken.deploy(ethers.parseEther("1000000"));
-    await aitbcToken.waitForDeployment();
+    paymentToken = await AIToken.deploy(ethers.parseEther("1000000"));
+    await paymentToken.waitForDeployment();
 
     // Transfer tokens to staker
-    await aitbcToken.transfer(staker.address, ethers.parseEther("10000"));
-    await aitbcToken.transfer(attacker.address, ethers.parseEther("10000"));
+    await paymentToken.transfer(staker.address, ethers.parseEther("10000"));
+    await paymentToken.transfer(attacker.address, ethers.parseEther("10000"));
 
     // Deploy AgentStaking
     const AgentStaking = await ethers.getContractFactory("AgentStaking");
     agentStaking = await AgentStaking.deploy(
-      await aitbcToken.getAddress(),
+      await paymentToken.getAddress(),
       ethers.ZeroAddress // PerformanceVerifier (not needed for these tests)
     );
     await agentStaking.waitForDeployment();
@@ -40,7 +40,7 @@ describe("AgentStaking Security Tests", function () {
   describe("SC-H-01: Slashing Mechanism", function () {
     beforeEach(async function () {
       // Stake tokens
-      await aitbcToken.connect(staker).approve(
+      await paymentToken.connect(staker).approve(
         await agentStaking.getAddress(),
         ethers.parseEther("1000")
       );
@@ -257,7 +257,7 @@ describe("AgentStaking Security Tests", function () {
         false
       );
 
-      const reporterBalanceBefore = await aitbcToken.balanceOf(attacker.address);
+      const reporterBalanceBefore = await paymentToken.balanceOf(attacker.address);
 
       await expect(
         agentStaking.connect(attacker).reportMaliciousAgent(
@@ -266,7 +266,7 @@ describe("AgentStaking Security Tests", function () {
         )
       ).to.emit(agentStaking, "MaliciousAgentReported");
 
-      const reporterBalanceAfter = await aitbcToken.balanceOf(attacker.address);
+      const reporterBalanceAfter = await paymentToken.balanceOf(attacker.address);
       expect(reporterBalanceAfter).to.be.gt(reporterBalanceBefore);
     });
 

@@ -1,4 +1,4 @@
-# Quick Start: Join the AITBC Network
+# Quick Start: Join the the network
 
 This guide shows how to set up a follower node to join the AITBC blockchain network.
 

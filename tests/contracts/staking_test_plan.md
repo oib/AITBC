@@ -321,7 +321,7 @@ Test plan for the AgentStaking smart contract (`/opt/aitbc/contracts/contracts/A
 - Malicious account (for security tests)
 
 ### Required Test Data
-- AITBC token balances (pre-funded)
+- the network token balances (pre-funded)
 - Agent performance data (accuracy, success rates)
 - Staking pool data (initial state)
 - Historical performance data

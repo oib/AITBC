@@ -23,7 +23,7 @@ async def stake_on_developer(
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
 ) -> dict[str, Any]:
-    """Stake AITBC tokens on a developer.
+    """Stake tokens on a developer.
 
     ponytail: Disabled until real on-chain staking is implemented.
     """
