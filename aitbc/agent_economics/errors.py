@@ -21,3 +21,11 @@ class PricingError(AgentEconomicsError):
 
 class OnChainActionError(AgentEconomicsError):
     """Invalid on-chain economic action payload."""
+
+
+class BondError(AgentEconomicsError):
+    """Performance bond state or operation error."""
+
+
+class SlashError(AgentEconomicsError):
+    """Slashing validation or application error."""
