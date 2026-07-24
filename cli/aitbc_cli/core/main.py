@@ -9,6 +9,7 @@ import click
 from aitbc_cli.utils.http_client import get_logger
 from aitbc_cli.commands.account import account
 from aitbc_cli.commands.agent_sdk import agent
+from aitbc_cli.commands.agent_wallet import agent_wallet
 from aitbc_cli.commands.ai import ai
 from aitbc_cli.commands.analytics import analytics  # Re-enabled - core.analytics exists
 from aitbc_cli.commands.bridge import bridge
@@ -175,6 +176,7 @@ cli.add_command(compliance)
 cli.add_command(coin_requests)
 cli.add_command(explorer)
 cli.add_command(trade)
+cli.add_command(agent_wallet, name="agent-wallet")
 
 
 def main(argv=None):
