@@ -164,6 +164,9 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 ### Product Track v0.15 (2026 roadmap)
 - **v0.15.0** — Mature Autonomous Economic Infrastructure (automated staking/rebalancing, performance bond lifecycle, provider reinvestment, risk/solvency engine, cross-chain yield, slashing appeals): <ref_file file="/opt/aitbc/docs/releases/v0.15.0/change.log" /> 🚧 planned
 
+### Product Track v0.16 (2026 roadmap)
+- **v0.16.0** — TEE-Backed Verification & Confidential Compute (attestation, enclaves, confidential messaging, ZK+TEE dual verification, confidential transactions): <ref_file file="/opt/aitbc/docs/releases/v0.16.0/change.log" /> 🚧 planned
+
 ### Post-v1 Vision (not fit until after v1.0.0)
 - **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
 
