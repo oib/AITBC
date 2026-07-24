@@ -48,7 +48,7 @@ class GrantProposal(SQLModel, table=True):
     requested_amount: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(28, 18)))
     approved_amount: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(28, 18)))
     disbursed_amount: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(28, 18)))
-    status: GrantStatus = Field(default=GrantStatus.DRAFT)
+    status: GrantStatus = Field(default=GrantStatus.DRAFT, index=True)
     votes_for: float = Field(default=0.0)
     votes_against: float = Field(default=0.0)
     votes_abstain: float = Field(default=0.0)
@@ -72,7 +72,7 @@ class GrantMilestone(SQLModel, table=True):
     title: str = Field()
     description: str = Field()
     amount: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(28, 18)))
-    status: MilestoneStatus = Field(default=MilestoneStatus.PENDING)
+    status: MilestoneStatus = Field(default=MilestoneStatus.PENDING, index=True)
     due_date: datetime | None = None
     completed_at: datetime | None = None
     evidence: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
