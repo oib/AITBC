@@ -64,9 +64,11 @@ cross-chain yield, and slashing appeals.
 ### A4: Cross-chain yield & liquidity (P2)
 
 - File: `aitbc/agent_economics/yield_venues.py` (new)
-  - Pluggable yield-venue adapters.
+  - `YieldVenue`, `YieldOpportunity`, `YieldStrategy`, `YieldVenuePosition`,
+    `YieldRegistry`, and `AbstractYieldAdapter` pluggable adapter interface.
 - File: `aitbc/agent_economics/swaps.py` (new)
-  - Cross-chain AITBC swap abstractions.
+  - `SwapRoute`, `SwapQuote`, `CrossChainSwap`, `SwapStatus`, and
+    `quote_swap` helpers for cross-chain AITBC swap abstractions.
 
 ---
 
