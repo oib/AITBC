@@ -1,0 +1,78 @@
+# v0.12.0 — OpenClaw Autonomous Economics
+
+**Last Updated**: 2026-07-24
+**Status**: Planned 🚧
+**Prerequisite**: v0.10.18 complete; v0.11.0 in-flight
+
+## Release Theme
+
+Implement the OpenClaw Autonomous Economics layer: self-managing agent wallets,
+automated staking and rebalancing, performance bonds, dynamic fee markets, and
+provider reinvestment loops. This release moves the platform from static
+settlement to autonomous economic behavior for compute and storage providers.
+
+## Motivation
+
+The multi-chain wallet and atomic swap foundation is complete. The next phase is
+to let agents act as independent economic actors: locking tokens, negotiating
+leases, rebalancing resources, and reinvesting earnings. v0.12.0 delivers the core
+primitives for autonomous budgets, revenue routing, and performance bonds.
+
+## Planned Work
+
+### Autonomous Agent Wallets & Escrow (P0)
+
+- Extend `aitbc/wallet/` with agent-owned smart contract wallet abstractions.
+- Add escrow and allowance primitives for lease, storage, and compute payments.
+- Integrate with the existing atomic swap and multi-chain settlement
+  infrastructure.
+
+### Performance Bonds & Staking (P0)
+
+- Define `PerformanceBond` and `StakeAccount` models.
+- Implement slashing conditions for missed service obligations.
+- Wire to OpenClaw DAO governance for slashing rules.
+
+### Automated Rebalancing & Reinvestment (P1)
+
+- Add rebalancing strategies for AITBC holdings across chains.
+- Implement the provider reinvestment loop: earned tokens are automatically
+  converted to additional GPU/storage capacity.
+- Define `ReinvestmentPolicy` and constraints.
+
+### Dynamic Fee Market & Pricing (P1)
+
+- Extend the Dynamic Pricing API with autonomous market-making strategies.
+- Implement bid/ask spread, demand forecasting, and surge pricing for agent
+  services.
+- Add pricing oracle integration with a dispute window.
+
+### OpenClaw DAO Economic Governance (P2)
+
+- Add token-weighted proposal types for economic parameters.
+- Implement on-chain voting for fee rates, bond thresholds, and slashing
+  penalties.
+- Wire DAO outcomes to `coordinator-api` configuration.
+
+### Economic Eventing & Audit (P2)
+
+- Emit economic events (lease, payment, slash, rebalance) to an event log.
+- Add audit trail and reconciliation helpers for agent wallets.
+
+## Breaking Changes
+
+- New economic types and on-chain primitives are expected. Concrete breaking
+  changes will be documented as the release matures.
+
+## Release Gate
+
+- [ ] Agent wallet and escrow primitives are defined and tested.
+- [ ] Performance bond and staking models compile and have unit coverage.
+- [ ] Automated rebalancing loop passes simulation tests.
+- [ ] Dynamic fee market extends the existing Dynamic Pricing API.
+- [ ] OpenClaw DAO governance proposals for economic parameters are testable.
+- [ ] `./venv/bin/python -m ruff check .` passes.
+- [ ] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
+- [ ] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.
+
+*Generated with [Devin](https://devin.ai)*
