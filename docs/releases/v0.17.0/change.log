@@ -1,0 +1,77 @@
+# v0.17.0 — Accessibility & Theme Engine
+
+**Last Updated**: 2026-07-24
+**Status**: Planned 🚧
+**Prerequisite**: v0.10.18 complete; v0.11.0 in-flight, v0.12.0–v0.16.0 planned
+
+## Release Theme
+
+Reintroduce accessibility options by implementing a theme engine that supports
+user-defined CSS variables, light/dark/high-contrast modes, reduced motion,
+and focus indicators. This release closes the UI gap created by the dark-mode
+enforcement refactor and restores user choice for users with visual or motion
+sensitivities.
+
+## Motivation
+
+The recent website refactor removed the light theme and enforced dark mode
+globally. While this simplified the UI, it introduced an accessibility gap for
+users who need lower contrast, higher contrast, or motion-reduced interfaces.
+v0.17.0 adds a robust theme system that preserves design consistency while
+allowing per-user and per-system preference.
+
+## Planned Work
+
+### Theme Engine Foundation (P0)
+
+- Implement a CSS-variable-based theme system with semantic color tokens
+  (`--color-bg-primary`, `--color-text-primary`, `--color-accent`, etc.).
+- Add `light`, `dark`, `high-contrast`, and `system` theme modes.
+- Provide a theme provider component that hydrates the initial mode from
+  `localStorage` and `prefers-color-scheme`/`prefers-contrast` media queries.
+- Ensure theme switching does not cause a flash of unstyled content (FOUC).
+
+### Accessibility Improvements (P1)
+
+- Add `prefers-reduced-motion` support across animations and transitions.
+- Improve focus indicators to meet WCAG 2.2 AA standards.
+- Add `prefers-contrast` and `prefers-color-scheme` responsive behavior.
+- Audit keyboard navigation and ARIA roles for core pages.
+
+### User Preference Persistence (P1)
+
+- Persist theme and accessibility preferences in `localStorage`.
+- Add a `/settings` or user-menu panel for mode selection.
+- Sync preferences across sessions and devices if a user identity is available.
+
+### Theme-Agnostic Component Library (P2)
+
+- Refactor existing components to consume CSS variables instead of hardcoded
+  dark colors.
+- Add theme snapshots to the visual regression test suite.
+- Document the token naming convention in `docs/ui/theming.md`.
+
+### Compliance Mapping (P2)
+
+- Map the theme engine to v0.13.0 compliance modules where accessibility is
+  a regulatory requirement (e.g., WCAG for public-sector/healthcare users).
+- Add accessibility acceptance criteria to the release gate.
+
+## Breaking Changes
+
+- UI components will move from hardcoded dark values to CSS-variable tokens.
+  Concrete breaking changes for downstream consumers will be documented as the
+  release matures.
+
+## Release Gate
+
+- [ ] Theme engine supports light, dark, high-contrast, and system modes.
+- [ ] No FOUC on initial load.
+- [ ] `prefers-reduced-motion` and `prefers-contrast` are honored.
+- [ ] Focus indicators and keyboard navigation pass WCAG 2.2 AA checks.
+- [ ] User preference persistence works across reloads.
+- [ ] Visual regression tests cover the new themes.
+- [ ] `./venv/bin/python -m ruff check .` passes (for any Python tooling).
+- [ ] Lint/tests for the UI package pass.
+
+*Generated with [Devin](https://devin.ai)*
