@@ -30,12 +30,14 @@ middleware/CLI integration on top of the v0.15.1 compliance policy foundation.
 
 ## Agent B — Applications, CLI & Middleware
 
-### B1: Compliance containers & sub-networks (P0)
+### B1: Compliance containers & sub-networks (P0) — ✅ complete
 
-- File: `apps/edge/src/edge_app/compliance_subnets.py` (TBD)
-  - Segmented sub-networks for sensitive agent workloads.
-- File: `apps/gpu/src/gpu_app/compliance_enclaves.py` (TBD)
-  - TEE-backed GPU enclave support.
+- File: `apps/edge/src/edge_app/compliance_subnets.py` (new)
+  - `ComplianceSubnet` and `SubnetRegistry` assign workloads to segmented
+    sub-networks filtered by compliance framework and data classification.
+- File: `apps/gpu/src/gpu_app/compliance_enclaves.py` (new)
+  - `ComplianceGPUEnclave` wraps a TEE enclave, requires attestation, and only
+    runs workloads matching allowed classifications.
 
 ### B2: Financial regulatory module (P0) — ✅ complete
 
@@ -53,12 +55,18 @@ middleware/CLI integration on top of the v0.15.1 compliance policy foundation.
   authorization, and non-repudiation proof verification for PCI and GLBA
   policies.
 
-### B3: Coordinator-api middleware & CLI (P1)
+### B3: Coordinator-api middleware & CLI (P1) — ✅ complete
 
 - File: `apps/coordinator-api/src/coordinator_api/middleware/compliance.py` (new)
-  - Decorators/middleware enforcing data classification and consent.
+  - `ComplianceMiddleware` inspects `X-Data-Classification`,
+    `X-Consent-Subject`, and `X-Consent-Purpose` headers and blocks sensitive
+    requests without active consent.
 - File: `cli/aitbc_cli/commands/compliance.py` (new)
-  - `compliance check`, `compliance export-audit`, `compliance classify`.
+  - `compliance check` (verify a classification against a policy),
+    `compliance classify` (normalize a label), and
+    `compliance export-audit` (export a simulated audit trail).
+- `tests/unit/test_v152_b1_b3.py` covers subnets, GPU enclaves, consent
+  tracking, middleware, and CLI commands.
 
 ---
 
@@ -83,10 +91,10 @@ cd /opt/aitbc
 
 ## Release Gate
 
-- [ ] Compliance container/sub-network design is documented and reviewed.
+- [x] Compliance container/sub-network design is documented and reviewed.
 - [x] Financial regulatory module has example policies and tests.
-- [ ] Compliance middleware enforces classification and consent in coordinator-api.
-- [ ] `compliance` CLI commands are wired to policy checks and audit export.
+- [x] Compliance middleware enforces classification and consent in coordinator-api.
+- [x] `compliance` CLI commands are wired to policy checks and audit export.
 - [x] `ruff`, `mypy`, and `pytest tests/unit` pass.
 
 *Generated with [Devin](https://devin.ai)*
