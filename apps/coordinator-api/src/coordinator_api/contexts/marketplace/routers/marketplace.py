@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 from fastapi import status as http_status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -108,3 +109,40 @@ async def list_marketplace_plugins(
         marketplace_errors_total.labels(endpoint="/marketplace/plugins", method="GET", error_type="internal").inc()
         logger.error("Error listing plugins: %s", e)
         raise HTTPException(status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to list plugins") from e
+
+
+class _CapacityUpdate(BaseModel):
+    capacity: int
+
+
+@router.post(
+    "/marketplace/providers/{provider_id}/capacity",
+    response_model=MarketplaceOfferView,
+    summary="Publish updated provider capacity",
+)
+@limiter.limit("100/minute")
+async def update_provider_capacity(
+    request: Request,
+    provider_id: str,
+    body: _CapacityUpdate,
+    session: Annotated[Session, Depends(get_session)],
+) -> MarketplaceOfferView:
+    """Publish updated provider capacity after reinvestment."""
+    marketplace_requests_total.labels(endpoint="/marketplace/providers/{provider_id}/capacity", method="POST").inc()
+    service = _get_service(session)
+    try:
+        return service.update_provider_capacity(provider_id, body.capacity)
+    except ValueError as e:
+        marketplace_errors_total.labels(
+            endpoint="/marketplace/providers/{provider_id}/capacity",
+            method="POST",
+            error_type="invalid_request",
+        ).inc()
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    except Exception:
+        marketplace_errors_total.labels(
+            endpoint="/marketplace/providers/{provider_id}/capacity",
+            method="POST",
+            error_type="internal",
+        ).inc()
+        raise

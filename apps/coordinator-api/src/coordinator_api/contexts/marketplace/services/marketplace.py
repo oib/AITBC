@@ -82,6 +82,24 @@ class MarketplaceService:
             attributes=offer.attributes,
         )
 
+    def update_provider_capacity(self, provider: str, capacity: int) -> MarketplaceOfferView:
+        """Publish updated provider capacity after reinvestment or hardware changes.
+
+        ponytail: Updates the most recent offer for the provider. If no offer
+        exists, the caller must create one first; this avoids orphan records.
+        """
+        stmt = (
+            select(MarketplaceOffer).where(MarketplaceOffer.provider == provider).order_by(MarketplaceOffer.created_at.desc())
+        )
+        offer = self.session.execute(stmt.limit(1)).scalars().first()
+        if offer is None:
+            raise ValueError(f"no marketplace offer for provider {provider}")
+        offer.capacity = capacity
+        self.session.add(offer)
+        self.session.commit()
+        self.session.refresh(offer)
+        return self._to_offer_view(offer)
+
     # Plugin hook methods
     def before_booking(self, resource_id: str, user_id: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
         """Execute before_booking plugin hooks."""
