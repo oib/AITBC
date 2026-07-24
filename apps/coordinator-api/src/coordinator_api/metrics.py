@@ -10,3 +10,12 @@ marketplace_requests_total = Counter(
 marketplace_errors_total = Counter(
     "marketplace_errors_total", "Total number of marketplace API errors", ["endpoint", "method", "error_type"]
 )
+
+# Governance/economic proposal API metrics
+governance_requests_total = Counter(
+    "governance_requests_total", "Total number of governance API requests", ["endpoint", "method"]
+)
+
+governance_errors_total = Counter(
+    "governance_errors_total", "Total number of governance API errors", ["endpoint", "method", "error_type"]
+)

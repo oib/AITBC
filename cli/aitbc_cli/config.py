@@ -37,6 +37,7 @@ class CLIConfig(BaseAITBCConfig):
     exchange_service_url: str = Field(default="http://localhost:8106/api/v1", description="Exchange Service URL")
     gpu_service_url: str = Field(default="http://localhost:8101", description="GPU Service URL")
     marketplace_service_url: str = Field(default="http://localhost:8102", description="Marketplace Service URL")
+    coordinator_api_url: str = Field(default="", description="Coordinator API URL")
     trading_service_url: str = Field(default="http://localhost:8104", description="Trading Service URL")
     governance_service_url: str = Field(default="http://localhost:8105", description="Governance Service URL")
     agent_coordinator_url: str = Field(default="http://localhost:8107", description="Agent Coordinator URL")
