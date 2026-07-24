@@ -33,3 +33,11 @@ class SlashError(AgentEconomicsError):
 
 class RebalanceError(AgentEconomicsError):
     """Rebalancing or reinvestment policy error."""
+
+
+class StakingError(AgentEconomicsError):
+    """Staking delegation or yield tracking error."""
+
+
+class PortfolioError(AgentEconomicsError):
+    """Portfolio allocation or valuation error."""
