@@ -524,5 +524,45 @@ def check_keys(ctx, strict: bool):
         ctx.exit(1)
 
 
+@config.command(name="check")
+@click.pass_context
+def check(ctx):
+    """Check configuration and environment API keys."""
+    ctx.invoke(check_keys, strict=False)
+
+
+@config.command()
+@click.argument("key")
+@click.option("--global", "global_config", is_flag=True, help="Unset from global config")
+@click.pass_context
+def unset(ctx, key: str, global_config: bool):
+    """Remove a configuration key from the config file."""
+    if global_config:
+        config_dir = Path.home() / ".config" / "aitbc"
+        config_file = config_dir / "config.yaml"
+    else:
+        config_file = Path.cwd() / ".aitbc.yaml"
+
+    if not config_file.exists():
+        output({"message": "No configuration file found"})
+        return
+
+    with open(config_file) as f:
+        config_data = yaml.safe_load(f) or {}
+
+    if key not in config_data:
+        output({"config_file": str(config_file), "key": key, "removed": False})
+        return
+
+    del config_data[key]
+
+    with open(config_file, "w") as f:
+        yaml.dump(config_data, f, default_flow_style=False)
+
+    if ctx.obj["output"] == "table":
+        success(f"Removed '{key}' from {config_file}")
+    output({"config_file": str(config_file), "key": key, "removed": True}, ctx.obj["output"])
+
+
 # Add profiles group to config
 config.add_command(profiles)
