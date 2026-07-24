@@ -16,7 +16,7 @@ mkdir -p cache
 # Contract files to compile
 contracts=(
     "contracts/AIPowerRental.sol"
-    "contracts/AITBCPaymentProcessor.sol"
+    "contracts/PaymentProcessor.sol"
     "contracts/PerformanceVerifier.sol"
     "contracts/DisputeResolution.sol"
     "contracts/EscrowService.sol"

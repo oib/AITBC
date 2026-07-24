@@ -29,7 +29,7 @@ This scenario demonstrates how an AI agent creates and configures its own identi
 
 ### Use Case
 
-A new AI agent joins the AITBC network. It needs a persistent identity (RSA keypair, agent ID, address), a set of capabilities describing what it can do, and a local configuration file so it can be reused across sessions. The agent also registers its identity on-chain so other participants can discover and verify it.
+A new AI agent joins the the network. It needs a persistent identity (RSA keypair, agent ID, address), a set of capabilities describing what it can do, and a local configuration file so it can be reused across sessions. The agent also registers its identity on-chain so other participants can discover and verify it.
 
 ### What You'll Learn
 

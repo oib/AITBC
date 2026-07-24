@@ -6,7 +6,7 @@
 ✅ Operational
 
 ## Overview
-FastAPI-based agent coordination service that manages agent discovery, load balancing, and task distribution across the AITBC network.
+FastAPI-based agent coordination service that manages agent discovery, load balancing, and task distribution across the the network.
 
 ## Architecture
 

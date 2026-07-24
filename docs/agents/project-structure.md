@@ -74,7 +74,7 @@ aitbc/
 
 ### 1. Agent SDK (`packages/py/aitbc-agent-sdk/`)
 
-The Agent SDK provides the foundation for autonomous AI agents to participate in the AITBC network:
+The Agent SDK provides the foundation for autonomous AI agents to participate in the the network:
 
 **Core Classes:**
 - `Agent`: Base agent class with identity and communication

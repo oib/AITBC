@@ -26,14 +26,14 @@ async function main() {
         console.log("AIPowerRental deployed to:", aiPowerRental.address);
 
         // 2. Deploy AITBC Payment Processor
-        console.log("\n2. Deploying AITBCPaymentProcessor...");
-        const AITBCPaymentProcessor = await ethers.getContractFactory("AITBCPaymentProcessor");
-        const paymentProcessor = await AITBCPaymentProcessor.deploy(
+        console.log("\n2. Deploying PaymentProcessor...");
+        const PaymentProcessor = await ethers.getContractFactory("PaymentProcessor");
+        const paymentProcessor = await PaymentProcessor.deploy(
             AITBC_TOKEN_ADDRESS,
             aiPowerRental.address
         );
         await paymentProcessor.deployed();
-        console.log("AITBCPaymentProcessor deployed to:", paymentProcessor.address);
+        console.log("PaymentProcessor deployed to:", paymentProcessor.address);
 
         // 3. Deploy Performance Verifier
         console.log("\n3. Deploying PerformanceVerifier...");
@@ -127,7 +127,7 @@ async function main() {
                 ZK_VERIFIER_ADDRESS,
                 GROTH16_VERIFIER_ADDRESS,
                 AIPowerRental: aiPowerRental.address,
-                AITBCPaymentProcessor: paymentProcessor.address,
+                PaymentProcessor: paymentProcessor.address,
                 PerformanceVerifier: performanceVerifier.address,
                 DisputeResolution: disputeResolution.address,
                 EscrowService: escrowService.address,
@@ -147,7 +147,7 @@ async function main() {
         console.log("Deployment info saved to deployment file");
         console.log("\nContract Addresses:");
         console.log("- AIPowerRental:", aiPowerRental.address);
-        console.log("- AITBCPaymentProcessor:", paymentProcessor.address);
+        console.log("- PaymentProcessor:", paymentProcessor.address);
         console.log("- PerformanceVerifier:", performanceVerifier.address);
         console.log("- DisputeResolution:", disputeResolution.address);
         console.log("- EscrowService:", escrowService.address);

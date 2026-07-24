@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./AIPowerRental.sol";
-import "./AITBCPaymentProcessor.sol";
+import "./PaymentProcessor.sol";
 import "./PerformanceVerifier.sol";
 
 /**
@@ -17,7 +17,7 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
 
     // State variables
     AIPowerRental public aiPowerRental;
-    AITBCPaymentProcessor public paymentProcessor;
+    PaymentProcessor public paymentProcessor;
     PerformanceVerifier public performanceVerifier;
 
     uint256 public disputeCounter;
@@ -255,7 +255,7 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         address _performanceVerifier
     ) {
         aiPowerRental = AIPowerRental(_aiPowerRental);
-        paymentProcessor = AITBCPaymentProcessor(_paymentProcessor);
+        paymentProcessor = PaymentProcessor(_paymentProcessor);
         performanceVerifier = PerformanceVerifier(_performanceVerifier);
         disputeCounter = 0;
     }

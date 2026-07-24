@@ -14,11 +14,13 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.constants import WALLET_PORT
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
+from aitbc_agent_core import get_active_brand
 
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session
 
 logger = get_logger(__name__)
+_brand = get_active_brand()
 
 
 class PaymentService:
@@ -62,7 +64,7 @@ class PaymentService:
             raise
 
     async def _create_token_escrow(self, payment: JobPayment) -> PaymentEscrow | None:
-        """Create an escrow for AITBC token payments"""
+        """Create an escrow for token payments"""
         try:
             client = AITBCHTTPClient(timeout=10.0)
             response = client.post(
@@ -89,7 +91,7 @@ class PaymentService:
             if escrow is not None:
                 self.session.add(escrow)
             self.session.commit()
-            logger.info("Created AITBC token escrow for payment %s", payment.id)
+            logger.info("Created %s escrow for payment %s", _brand.token_symbol, payment.id)
             return escrow
         except NetworkError as e:
             logger.warning("Token escrow endpoint not available: %s", e)

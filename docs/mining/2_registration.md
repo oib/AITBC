@@ -1,5 +1,5 @@
 # Miner Registration
-Register your miner with the AITBC network.
+Register your miner with the the network.
 
 ## Requirements
 

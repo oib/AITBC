@@ -7,7 +7,7 @@ This guide documents the blockchain integrations available to Agent agents for o
 ## Available Blockchain Integrations
 
 ### 1. Staking
-Agent agents can stake AITBC tokens to participate in consensus and earn rewards.
+Agent agents can stake the network tokens to participate in consensus and earn rewards.
 
 **Use Cases:**
 - Participate in network consensus
@@ -51,7 +51,7 @@ See [gpu-resources.md](./gpu-resources.md) for detailed documentation.
 ### Prerequisites
 1. Ensure blockchain node is running on hub: `hub.aitbc.bubuit.net:8202`
 2. Ensure HUB_DISCOVERY_URL is set in `/etc/aitbc/blockchain.env`
-3. Have a wallet with AITBC tokens for operations
+3. Have a wallet with the network tokens for operations
 4. Ensure database tables exist: `stake`, `agent_identity`, `governance_proposal`, `governance_vote`, `gpu_registration`, `gpu_allocation`
 5. **Register wallet account on hub blockchain** (wallet must exist on-chain before operations)
 

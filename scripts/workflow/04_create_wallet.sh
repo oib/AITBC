@@ -20,7 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 CLI_PATH="${REPO_ROOT}/aitbc-cli"
 
-echo "=== AITBC Wallet Creation (Enhanced CLI) ==="
+echo "=== the wallet Creation (Enhanced CLI) ==="
 
 echo "1. Pre-creation verification..."
 echo "=== Current wallets on aitbc ==="

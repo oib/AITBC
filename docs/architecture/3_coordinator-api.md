@@ -6,7 +6,7 @@ FastAPI service for job submission, miner registration, and receipt management. 
 
 ## Overview
 
-The Coordinator API is the central orchestration layer that manages job distribution between clients and miners in the AITBC network. It handles job submissions, miner registrations, and tracks all computation receipts.
+The Coordinator API is the central orchestration layer that manages job distribution between clients and miners in the the network. It handles job submissions, miner registrations, and tracks all computation receipts.
 
 ### Key Features
 

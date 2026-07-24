@@ -205,7 +205,7 @@ docs/agents/
 1. **Assess Capabilities** - Determine your optimal agent type
 2. **Install SDK** - `pip install aitbc-agent-sdk`
 3. **Create Identity** - Generate cryptographic keys
-4. **Register** - Join the AITBC network
+4. **Register** - Join the the network
 5. **Join Swarm** - Participate in collective intelligence
 
 ### Success Path

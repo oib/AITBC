@@ -3,7 +3,7 @@ import hardhat from "hardhat";
 const { ethers } = hardhat;
 
 describe("TreasuryManager", function () {
-  let treasuryManager, aitbcToken, contractRegistry;
+  let treasuryManager, paymentToken, contractRegistry;
   let deployer, user1, user2;
 
   const INITIAL_BALANCE = ethers.parseEther("1000000");
@@ -14,8 +14,8 @@ describe("TreasuryManager", function () {
 
     // Deploy AIToken
     const AIToken = await ethers.getContractFactory("AIToken");
-    aitbcToken = await AIToken.deploy(INITIAL_BALANCE);
-    await aitbcToken.waitForDeployment();
+    paymentToken = await AIToken.deploy(INITIAL_BALANCE);
+    await paymentToken.waitForDeployment();
 
     // Deploy ContractRegistry
     const ContractRegistry = await ethers.getContractFactory("ContractRegistry");
@@ -24,19 +24,19 @@ describe("TreasuryManager", function () {
 
     // Deploy TreasuryManager
     const TreasuryManager = await ethers.getContractFactory("TreasuryManager");
-    treasuryManager = await TreasuryManager.deploy(await aitbcToken.getAddress());
+    treasuryManager = await TreasuryManager.deploy(await paymentToken.getAddress());
     await treasuryManager.waitForDeployment();
 
     // Initialize treasury (this will register it in the registry)
     await treasuryManager.initialize(await contractRegistry.getAddress());
 
     // Transfer tokens to treasury
-    await aitbcToken.transfer(await treasuryManager.getAddress(), ethers.parseEther("100000"));
+    await paymentToken.transfer(await treasuryManager.getAddress(), ethers.parseEther("100000"));
   });
 
   describe("Deployment", function () {
     it("Should deploy with correct token address", async function () {
-      expect(await treasuryManager.treasuryToken()).to.equal(await aitbcToken.getAddress());
+      expect(await treasuryManager.treasuryToken()).to.equal(await paymentToken.getAddress());
     });
 
     it("Should set deployer as owner", async function () {
@@ -122,8 +122,8 @@ describe("TreasuryManager", function () {
   describe("Treasury Operations", function () {
     it("Should deposit funds to treasury", async function () {
       const depositAmount = ethers.parseEther("1000");
-      await aitbcToken.mint(deployer.address, depositAmount);
-      await aitbcToken.approve(await treasuryManager.getAddress(), depositAmount);
+      await paymentToken.mint(deployer.address, depositAmount);
+      await paymentToken.approve(await treasuryManager.getAddress(), depositAmount);
 
       await expect(
         treasuryManager.depositFunds(depositAmount)
@@ -132,23 +132,23 @@ describe("TreasuryManager", function () {
 
     it("Should emergency withdraw funds from treasury", async function () {
       const withdrawAmount = ethers.parseEther("1000");
-      const initialBalance = await aitbcToken.balanceOf(deployer.address);
+      const initialBalance = await paymentToken.balanceOf(deployer.address);
 
-      await treasuryManager.emergencyWithdraw(await aitbcToken.getAddress(), withdrawAmount);
+      await treasuryManager.emergencyWithdraw(await paymentToken.getAddress(), withdrawAmount);
 
-      const finalBalance = await aitbcToken.balanceOf(deployer.address);
+      const finalBalance = await paymentToken.balanceOf(deployer.address);
       expect(finalBalance - initialBalance).to.equal(withdrawAmount);
     });
 
     it("Should revert if non-owner withdraws", async function () {
       await expect(
-        treasuryManager.connect(user1).emergencyWithdraw(await aitbcToken.getAddress(), ethers.parseEther("1000"))
+        treasuryManager.connect(user1).emergencyWithdraw(await paymentToken.getAddress(), ethers.parseEther("1000"))
       ).to.be.reverted;
     });
 
     it("Should revert if insufficient balance", async function () {
       await expect(
-        treasuryManager.emergencyWithdraw(await aitbcToken.getAddress(), INITIAL_BALANCE + ethers.parseEther("1"))
+        treasuryManager.emergencyWithdraw(await paymentToken.getAddress(), INITIAL_BALANCE + ethers.parseEther("1"))
       ).to.be.reverted;
     });
   });

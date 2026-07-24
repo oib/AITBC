@@ -144,7 +144,7 @@ Monitor network activity:
 
 ### 3. Wallet Integration
 
-Connect your AITBC wallet:
+Connect your the wallet:
 
 - Browser wallet support
 - Balance display
