@@ -78,11 +78,11 @@ they can continuously upgrade GPU capacity and absorb shocks.
 - [x] Automated staking and rebalancing strategies have unit tests.
 - [x] Performance bond lifecycle (lock, top-up, release, liquidation) is
       modeled and tested.
-- [ ] Provider reinvestment loop publishes updated capacity.
+- [x] Provider reinvestment loop publishes updated capacity.
 - [x] Risk/solvency engine triggers circuit breakers under simulated stress.
-- [ ] Cross-chain yield and slashing appeal workflows are testable.
-- [ ] `./venv/bin/python -m ruff check .` passes.
-- [ ] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
-- [ ] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.
+- [x] Cross-chain yield and slashing appeal workflows are testable.
+- [x] `./venv/bin/python -m ruff check .` passes.
+- [x] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
+- [x] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.
 
 *Generated with [Devin](https://devin.ai)*
