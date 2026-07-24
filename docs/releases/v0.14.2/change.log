@@ -54,12 +54,12 @@ industry-specific reference enclaves for HIPAA and PCI workloads.
 
 ## Release Gate
 
-- [ ] ZK + TEE dual verification policy is selectable and benchmarked.
-- [ ] TEE-signed confidential transaction flow is testable end-to-end.
-- [ ] Healthcare and finance reference enclaves build and have example tests.
-- [ ] TEE CLI commands are wired to local attestation and enclave orchestration.
-- [ ] `./venv/bin/python -m ruff check .` passes.
-- [ ] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
-- [ ] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.
+- [x] ZK + TEE dual verification policy is selectable and benchmarked.
+- [x] TEE-signed confidential transaction flow is testable end-to-end.
+- [x] Healthcare and finance reference enclaves build and have example tests.
+- [x] TEE CLI commands are wired to local attestation and enclave orchestration.
+- [x] `./venv/bin/python -m ruff check .` passes.
+- [x] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
+- [x] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.
 
 *Generated with [Devin](https://devin.ai)*
