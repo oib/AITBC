@@ -1,0 +1,85 @@
+# v0.16.0 — TEE-Backed Verification & Confidential Compute
+
+**Last Updated**: 2026-07-24
+**Status**: Planned 🚧
+**Prerequisite**: v0.10.18 complete; v0.11.0 in-flight, v0.12.0–v0.15.0 planned
+
+## Release Theme
+
+Supplement ZK-proof computation integrity with Trusted Execution Environments
+(TEEs) to provide hardware-level privacy guarantees for agent-to-agent
+messaging, sensitive data processing, and confidential transactions. This
+release delivers the attestation, enclave, and confidential-compute plumbing
+required for Finance, Healthcare, and high-sensitivity agent workloads.
+
+## Motivation
+
+ZK-proofs verify the correctness of state transitions without revealing
+inputs, but they do not protect data while it is being processed. For
+medical and financial agents, TEEs such as Intel SGX provide a hardware-level
+guarantee that code and data are isolated from the host. v0.16.0 integrates
+TEEs into the AITBC stack alongside ZK-proofs, enabling end-to-end confidential
+compute from storage to execution.
+
+## Planned Work
+
+### TEE Attestation & Enclave Lifecycle (P0)
+
+- Add attestation primitives in `aitbc/tee/` (local/remote attestation quotes).
+- Implement enclave build, launch, and teardown orchestration.
+- Integrate remote attestation verification with `apps/coordinator-api`.
+- Add enclave identity and key provisioning flows.
+
+### Confidential Agent-to-Agent Messaging (P1)
+
+- Implement encrypted channels established inside TEEs for agent RPC.
+- Add key exchange that binds session keys to attested enclave identities.
+- Add replay protection and forward secrecy for TEE-backed channels.
+
+### TEE-Backed Data Processing (P1)
+
+- Extend `aitbc/compute/` with confidential execution tasks that run inside
+  enclaves.
+- Add sealed storage for enclave data at rest.
+- Integrate with the v0.11.0 decentralized memory layer for encrypted state
+  persistence.
+
+### ZK + TEE Dual Verification (P2)
+
+- Design a dual-verification mode: TEE guarantees execution privacy, ZK-proof
+  guarantees transition correctness.
+- Add policy knobs for choosing ZK-only, TEE-only, or combined verification.
+- Benchmark and document latency/cost tradeoffs.
+
+### Confidential Transactions (P2)
+
+- Add TEE-signed transaction envelopes that hide amounts and counterparties.
+- Implement enclave-side balance validation and proof-of-solvency checks.
+- Wire to `aitbc/wallet/` and `aitbc/agent_economics/` for confidential
+  payments.
+
+### Healthcare & Finance TEE Modules (P2)
+
+- Provide SGX-ready reference enclaves for PHI processing and PCI workloads.
+- Add compliance mapping to v0.13.0 HIPAA/financial regulatory modules.
+- Document audit controls for TEE attestation and key lifecycle.
+
+## Breaking Changes
+
+- New TEE attestation headers and enclave identity fields will be added to
+  agent and compute APIs. Concrete breaking changes will be documented as the
+  release matures.
+
+## Release Gate
+
+- [ ] TEE attestation primitives compile and have unit tests.
+- [ ] Enclave lifecycle orchestration is testable on a local SGX/simulator.
+- [ ] Confidential agent-to-agent messaging channel is established and
+      stress-tested.
+- [ ] TEE-backed data processing integrates with the memory layer.
+- [ ] ZK + TEE dual verification policy is selectable and benchmarked.
+- [ ] `./venv/bin/python -m ruff check .` passes.
+- [ ] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
+- [ ] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.
+
+*Generated with [Devin](https://devin.ai)*
