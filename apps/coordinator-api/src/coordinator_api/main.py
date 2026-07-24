@@ -37,6 +37,7 @@ from .contexts.agent_identity.routers import agent_identity
 from .contexts.blockchain.routers import blockchain
 from .contexts.cross_chain.routers.cross_chain_integration import router as cross_chain
 from .contexts.developer.routers.developer import router as developer_registry
+from .contexts.governance.domain.economic_proposal import EconomicParameterProposal  # noqa: F401
 from .contexts.governance.routers.grants import router as grants_router
 
 from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
