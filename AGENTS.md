@@ -2,7 +2,7 @@
 
 This file is the source of truth for project conventions, verification commands, and per-agent task plans. Agent-specific plans live at `docs/releases/<version>/AGENTS.md`; this root file holds the stable conventions and the **current** in-flight plan.
 
-**Current in-flight plan**: [v0.10.18](docs/releases/v0.10.18/change.log) — Update Deployment Stabilization (market_metrics migration conflict, wallet keystore restore, update.sh/health_check.sh fixes, poetry switch, schema-drift reconciliation) — ✅ complete
+**Current in-flight plan**: [v0.11.0](docs/releases/v0.11.0/change.log) — Phase 4 & 2026 Roadmap Foundations (OpenClaw autonomous economics, decentralized AI memory/storage, developer ecosystem & DAO grants, Phase 4 success criteria, industry-specific compliance) — 🚧 in progress
 
 **Previous**: [v0.10.17](docs/releases/v0.10.17/change.log) — Security & Auth Hardening (Bugfix) (auth bypass, hardcoded defaults, feature flags, pool-hub reward signing, wiring bug) — ✅ complete
 
@@ -148,6 +148,9 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.10.13** — Security & Correctness Hardening (credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage): <ref_file file="/opt/aitbc/docs/releases/v0.10.13/change.log" /> ✅ complete
 - **v0.10.15** — Monolithic Router/Module Decomposition + cross-chain settlement block-time config wiring: <ref_file file="/opt/aitbc/docs/releases/v0.10.15/change.log" /> ✅ complete
 - **v0.10.14** — Legacy Code & Stub Elimination (shadow packages, legacy routers, fake implementations, duplicate stacks): <ref_file file="/opt/aitbc/docs/releases/v0.10.14/change.log" /> ✅ complete
+
+### Product Track v0.11 (2026 roadmap)
+- **v0.11.0** — Phase 4 & 2026 Roadmap Foundations (OpenClaw autonomous economics, decentralized AI memory/storage, developer ecosystem & DAO grants, Phase 4 success criteria, industry-specific compliance): <ref_file file="/opt/aitbc/docs/releases/v0.11.0/change.log" /> 🚧 in progress
 
 ### Post-v1 Vision (not fit until after v1.0.0)
 - **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
