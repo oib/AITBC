@@ -11,6 +11,8 @@ Provides:
 - StakingStrategy, Delegation, YieldPosition: staking primitives
 - Portfolio: portfolio tracking
 - MarketMakerStrategy, SurgePricing, DynamicFeeMarket: dynamic pricing
+- AbstractYieldAdapter, YieldVenue, YieldStrategy, YieldOpportunity: yield venues
+- CrossChainSwap, SwapRoute, SwapQuote, quote_swap: cross-chain swaps
 """
 
 from __future__ import annotations
@@ -33,6 +35,8 @@ from .errors import (
     RevenueRouteError,
     SlashError,
     StakingError,
+    SwapError,
+    YieldVenueError,
 )
 from .models import (
     Budget,
@@ -85,8 +89,27 @@ from .slash import (
     slash_stake,
     validate_slash_event,
 )
+from .swaps import (
+    CrossChainSwap,
+    SwapQuote,
+    SwapRoute,
+    SwapStatus,
+    quote_swap,
+)
+from .yield_venues import (
+    AbstractYieldAdapter,
+    AdapterStatus,
+    YieldHarvest,
+    YieldOpportunity,
+    YieldRegistry,
+    YieldStrategy,
+    YieldVenue,
+    YieldVenuePosition,
+)
 
 __all__ = [
+    "AbstractYieldAdapter",
+    "AdapterStatus",
     "AgentEconomicsError",
     "BondError",
     "BondStatus",
@@ -94,6 +117,7 @@ __all__ = [
     "BudgetError",
     "ChainHoldings",
     "ConstraintType",
+    "CrossChainSwap",
     "Delegation",
     "DelegationStatus",
     "DemandForecast",
@@ -112,9 +136,9 @@ __all__ = [
     "Portfolio",
     "PortfolioError",
     "PricingError",
-    "ProviderOffboarding",
     "PricingStrategy",
     "PricingStrategyType",
+    "ProviderOffboarding",
     "RebalanceAction",
     "RebalanceActionType",
     "RebalanceConstraint",
@@ -134,10 +158,22 @@ __all__ = [
     "StakingError",
     "StakingStrategy",
     "SurgePricing",
+    "SwapError",
+    "SwapQuote",
+    "SwapRoute",
+    "SwapStatus",
+    "YieldHarvest",
+    "YieldOpportunity",
     "YieldPosition",
+    "YieldRegistry",
+    "YieldStrategy",
+    "YieldVenue",
+    "YieldVenueError",
+    "YieldVenuePosition",
     "compute_slash_amount",
     "liquidate_bond",
     "offboard_provider",
+    "quote_swap",
     "slash_bond",
     "slash_stake",
     "validate_slash_event",

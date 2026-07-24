@@ -72,35 +72,47 @@ cross-chain yield, and slashing appeals.
 
 ## Agent B — Applications, Marketplace & CLI
 
-### B1: Provider eligibility & bond lifecycle (P0)
+### B1: Provider eligibility & bond lifecycle (P0) — ✅ complete
 
-- File: `apps/coordinator-api/src/coordinator_api/contexts/marketplace/provider_bond.py` (new)
-  - Bond status to provider eligibility mapping.
-- File: `apps/coordinator-api/alembic/versions/` (new migration)
-  - Add `provider_bond_status` columns to provider tables.
+- File: `apps/coordinator-api/src/coordinator_api/contexts/marketplace/domain/provider_bond.py` (new)
+  - `ProviderBond` SQLModel and `ProviderBondStatus` enum; `is_provider_eligible` and `set_provider_bond_status` helpers.
+- File: `apps/coordinator-api/alembic/versions/79e94b77d6bd_add_provider_bond_and_slash_appeal_.py` (new)
+  - Creates `provider_bond` table and indexes.
+- File: `apps/coordinator-api/src/coordinator_api/main.py`
+  - Imports `ProviderBond` so `SQLModel.metadata` and `alembic check` agree.
 
-### B2: Provider reinvestment loop (P1)
+### B2: Provider reinvestment loop (P1) — ✅ complete
 
-- File: `apps/miner/src/miner_app/reinvestment.py` (new or update)
-  - Autonomous reinvestment of earned AITBC into GPU/storage capacity.
-- File: `apps/gpu/src/gpu_app/capacity_publisher.py` (TBD)
-  - Publish updated capacity after reinvestment.
+- File: `apps/miner/miner_app/reinvestment.py`
+  - Existing `ReinvestmentEngine` converts earnings to staking/capacity actions.
+- File: `apps/miner/miner_app/worker.py` (new in v0.12.0, updated)
+  - `ReinvestmentWorker` polls earnings and best-effort triggers GPU capacity publish.
+- File: `apps/gpu/src/gpu_app/capacity_publisher.py` (new)
+  - `publish_capacity` posts updated provider capacity to the coordinator marketplace API.
+- File: `apps/gpu/src/gpu_app/__init__.py` (new)
+  - Package marker for `gpu_app`.
 
-### B3: Cross-chain yield integrations (P2)
+### B3: Cross-chain yield integrations (P2) — ✅ complete
 
 - File: `apps/coordinator-api/src/coordinator_api/contexts/agent_economics/yield_adapter.py` (new)
-  - Yield-venue adapter registry and API.
+  - `YieldAdapter` abstract base, `_YieldRegistry`, `yield_registry`, and `DemoStakingAdapter`.
+- File: `apps/coordinator-api/src/coordinator_api/contexts/agent_economics/__init__.py` (new)
+  - Package marker for the `agent_economics` context.
 - File: `scripts/economics/harvest_yield.py` (new)
-  - Yield harvest and compounding runner.
+  - CLI runner for harvesting/compounding yield from registered venues (dry-run capable).
 
-### B4: Slashing appeals & governance (P2)
+### B4: Slashing appeals & governance (P2) — ✅ complete
 
 - File: `apps/coordinator-api/src/coordinator_api/contexts/governance/domain/slash_appeal.py` (new)
-  - SQLModel `SlashAppeal` and evidence workflow.
+  - SQLModel `SlashAppeal` and `SlashAppealStatus` evidence workflow.
+- File: `apps/coordinator-api/alembic/versions/79e94b77d6bd_add_provider_bond_and_slash_appeal_.py` (new)
+  - Creates `slash_appeal` table and indexes.
 - File: `cli/aitbc_cli/commands/bond.py` (new)
-  - `bond top-up`, `bond status`, `bond appeal`.
+  - `bond top-up`, `bond status`, `bond appeal` (simulated when no coordinator URL is configured).
 - File: `cli/aitbc_cli/commands/reinvest.py` (new)
-  - `reinvest policy`, `reinvest simulate`.
+  - `reinvest policy` and `reinvest simulate` using the `miner_app` engine.
+- File: `cli/aitbc_cli/core/main.py`
+  - Registers `bond` and `reinvest` command groups.
 
 ---
 
@@ -111,6 +123,13 @@ cd /opt/aitbc
 ./venv/bin/python -m ruff check .
 ./venv/bin/python -m mypy --show-error-codes aitbc/
 ./venv/bin/python -m pytest tests/unit -q -o addopts=""
+
+# Coordinator-api migrations
+cd apps/coordinator-api
+PYTHONPATH=src:/opt/aitbc DATABASE_URL=sqlite:////tmp/aitbc-v13.db \
+  /opt/aitbc/venv/bin/alembic upgrade head
+PYTHONPATH=src:/opt/aitbc DATABASE_URL=sqlite:////tmp/aitbc-v13.db \
+  /opt/aitbc/venv/bin/alembic check
 ```
 
 ## Coordination Protocol
@@ -130,9 +149,9 @@ cd /opt/aitbc
 - [x] Automated staking and rebalancing strategies have unit tests.
 - [x] Performance bond lifecycle (lock, top-up, release, liquidation) is
       modeled and tested.
-- [ ] Provider reinvestment loop publishes updated capacity.
+- [x] Provider reinvestment loop publishes updated capacity.
 - [x] Risk/solvency engine triggers circuit breakers under simulated stress.
-- [ ] Cross-chain yield and slashing appeal workflows are testable.
-- [ ] `ruff`, `mypy`, and `pytest tests/unit` pass.
+- [x] Cross-chain yield and slashing appeal workflows are testable.
+- [x] `ruff`, `mypy`, and `pytest tests/unit` pass.
 
 *Generated with [Devin](https://devin.ai)*

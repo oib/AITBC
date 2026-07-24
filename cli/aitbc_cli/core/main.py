@@ -11,6 +11,7 @@ from aitbc_cli.commands.account import account
 from aitbc_cli.commands.agent_sdk import agent
 from aitbc_cli.commands.agent_wallet import agent_wallet
 from aitbc_cli.commands.ai import ai
+from aitbc_cli.commands.bond import bond
 from aitbc_cli.commands.analytics import analytics  # Re-enabled - core.analytics exists
 from aitbc_cli.commands.bridge import bridge
 from aitbc_cli.commands.chain import chain
@@ -47,6 +48,7 @@ from aitbc_cli.commands.network import network
 from aitbc_cli.commands.operations import operations
 from aitbc_cli.commands.performance import performance
 from aitbc_cli.commands.pool_hub import pool_hub
+from aitbc_cli.commands.reinvest import reinvest
 from aitbc_cli.commands.reputation import reputation
 from aitbc_cli.commands.resource import resource
 from aitbc_cli.commands.script import script
@@ -170,6 +172,8 @@ cli.add_command(bridge)
 cli.add_command(contract)
 cli.add_command(script)
 cli.add_command(economics)
+cli.add_command(bond)
+cli.add_command(reinvest)
 cli.add_command(cluster)
 cli.add_command(security)
 cli.add_command(compliance)
