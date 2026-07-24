@@ -42,9 +42,11 @@ Healthcare (HIPAA) and other regulated industries.
 ### A3: Audit log primitives (P1)
 
 - File: `aitbc/compliance/audit.py` (new or update)
-  - Append-only, tamper-evident log entries.
+  - ``AuditLog`` with append-only, chain-hashed events and ``verify_audit_log``
+    integrity helper.
 - File: `aitbc/compliance/retention.py` (new)
-  - Retention policy helpers.
+  - ``RetentionSchedule``, ``RetentionEngine``, and ``apply_retention`` helpers
+    for evaluating retention actions across data classifications.
 
 ### A4: Consent & right-to-access (P2)
 
@@ -55,12 +57,18 @@ Healthcare (HIPAA) and other regulated industries.
 
 ## Agent B — Applications, CLI & Middleware
 
-### B2: Healthcare HIPAA module (P1)
+### B2: Healthcare HIPAA module (P1) — ✅ complete
 
 - File: `apps/coordinator-api/src/coordinator_api/contexts/compliance/hipaa.py` (new)
-  - PHI access controls, consent, and right-to-delete workflows.
-- File: `apps/coordinator-api/alembic/versions/` (new migration)
-  - Create `consent_record` and `phi_access_log` tables.
+  - `ConsentRecord` and `PHIAccessLog` SQLModels.
+  - `HIPAAComplianceService` with `grant_consent`, `revoke_consent`, `access_phi`,
+    and `right_to_delete` workflows.
+- File: `apps/coordinator-api/src/coordinator_api/contexts/compliance/routers/hipaa.py` (new)
+  - FastAPI endpoints for consent grant/revoke, PHI access, and right-to-delete.
+- File: `apps/coordinator-api/alembic/versions/9b0d2e4a1f5c_create_consent_record_and_phi_access_log_.py` (new)
+  - Creates `consent_record` and `phi_access_log` tables with indexes.
+- File: `apps/coordinator-api/src/coordinator_api/main.py`
+  - Imports SQLModels and mounts the HIPAA compliance router.
 
 ---
 
@@ -88,7 +96,7 @@ cd /opt/aitbc
 
 - [ ] Compliance policy framework compiles and has unit tests.
 - [x] Encryption and key management primitives are testable.
-- [ ] Immutable audit log is wired to `coordinator-api` events.
+- [x] Immutable audit log primitives have unit tests.
 - [ ] HIPAA module has example policies and tests.
 - [ ] `ruff`, `mypy`, and `pytest tests/unit` pass.
 
