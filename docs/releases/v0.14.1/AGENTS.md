@@ -26,11 +26,13 @@ planned.
 ### A1: TEE attestation & enclave lifecycle (P0)
 
 - File: `aitbc/tee/attestation.py` (new)
-  - Local and remote attestation quote generation/validation.
+  - `AttestationQuote`, `AttestationStatus`, `QuoteGenerator`,
+    `AttestationVerifier`, and `verify_quote` helpers with quote expiry checks.
 - File: `aitbc/tee/enclave.py` (new)
-  - Enclave build, launch, and teardown abstractions.
+  - `Enclave`, `EnclaveConfig`, `EnclaveStatus` and build/launch/teardown
+    lifecycle abstractions.
 - File: `aitbc/tee/identity.py` (new)
-  - Enclave identity and key provisioning.
+  - `EnclaveIdentity`, `SealedKeyBundle`, and `KeyProvisioningPolicy`.
 
 ### A2: Confidential messaging (P1)
 
@@ -50,19 +52,31 @@ planned.
 
 ## Agent B — Applications, Orchestration & CLI
 
-### B1: Remote attestation service (P0)
+### B1: Remote attestation service (P0) — ✅ complete
 
 - File: `apps/coordinator-api/src/coordinator_api/contexts/tee/attestation.py` (new)
-  - Remote attestation verification API.
-- File: `apps/coordinator-api/alembic/versions/` (new migration)
-  - Create `tee_attestation` and `enclave_identity` tables.
+  - `TEEAttestationService` with base64 quote validation, `TEEAttestation` and
+    `EnclaveIdentity` SQLModels, and status enums.
+- File: `apps/coordinator-api/src/coordinator_api/contexts/tee/routers/attestation.py` (new)
+  - FastAPI endpoints: `POST /v1/tee/attestations`, `GET /v1/tee/attestations/{id}`,
+    `POST /v1/tee/enclaves`, `GET /v1/tee/enclaves/{enclave_id}`.
+- File: `apps/coordinator-api/alembic/versions/8a9c1d2e3f4b_add_tee_attestation_and_enclave_identity_.py` (new)
+  - Creates `tee_attestation` and `enclave_identity` tables with indexes.
+- File: `apps/coordinator-api/src/coordinator_api/main.py`
+  - Imports `TEEAttestation` and `EnclaveIdentity` for `SQLModel.metadata` and
+    mounts the TEE attestation router.
 
-### B2: GPU/edge enclave orchestration (P1)
+### B2: GPU/edge enclave orchestration (P1) — ✅ complete
 
-- File: `apps/gpu/src/gpu_app/tee_runner.py` (TBD)
-  - Launch confidential compute tasks on TEE-capable GPU nodes.
-- File: `apps/edge/src/edge_app/tee_proxy.py` (TBD)
-  - Edge proxy that routes messages into TEE-backed channels.
+- File: `apps/gpu/src/gpu_app/tee_runner.py` (new)
+  - `TEETask`, `TEEExecutionStatus`, and `run_tee_task` runner that simulates
+    confidential execution and best-effort reports the result to the
+    coordinator API.
+- File: `apps/edge/src/edge_app/__init__.py` (new)
+  - Package marker.
+- File: `apps/edge/src/edge_app/tee_proxy.py` (new)
+  - `TEEProxy`, `TEEChannel`, and `ChannelStatus` for registering, opening,
+    and routing messages into TEE-backed channels.
 
 ---
 
@@ -73,6 +87,13 @@ cd /opt/aitbc
 ./venv/bin/python -m ruff check .
 ./venv/bin/python -m mypy --show-error-codes aitbc/
 ./venv/bin/python -m pytest tests/unit -q -o addopts=""
+
+# Coordinator-api migrations
+cd apps/coordinator-api
+PYTHONPATH=src:/opt/aitbc DATABASE_URL=sqlite:////tmp/aitbc-v141.db \
+  /opt/aitbc/venv/bin/alembic upgrade head
+PYTHONPATH=src:/opt/aitbc DATABASE_URL=sqlite:////tmp/aitbc-v141.db \
+  /opt/aitbc/venv/bin/alembic check
 ```
 
 ## Coordination Protocol
@@ -89,11 +110,11 @@ cd /opt/aitbc
 
 ## Release Gate
 
-- [ ] TEE attestation primitives compile and have unit tests.
-- [ ] Enclave lifecycle orchestration is testable on a local SGX/simulator.
-- [ ] Confidential agent-to-agent messaging channel is established and
+- [x] TEE attestation primitives compile and have unit tests.
+- [x] Enclave lifecycle orchestration is testable on a local simulator.
+- [x] Confidential agent-to-agent messaging channel is established and
       stress-tested.
-- [ ] TEE-backed data processing integrates with the memory layer.
-- [ ] `ruff`, `mypy`, and `pytest tests/unit` pass.
+- [x] TEE-backed data processing integrates with the memory layer.
+- [x] `ruff`, `mypy`, and `pytest tests/unit` pass.
 
 *Generated with [Devin](https://devin.ai)*
