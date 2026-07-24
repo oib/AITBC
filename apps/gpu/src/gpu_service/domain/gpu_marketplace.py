@@ -213,3 +213,29 @@ class GPUReview(SQLModel, table=True):
     rating: int = Field(ge=1, le=5)
     comment: str = Field(default="")
     created_at: datetime = Field(default_factory=datetime.now, nullable=False, index=True)
+
+
+class GPUJobStatus(StrEnum):
+    """Lifecycle status of a GPU job queue entry."""
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class GPUJobQueue(SQLModel, table=True):
+    """Priority queue for GPU jobs."""
+
+    __tablename__ = "gpu_job_queue"
+    __table_args__ = {"extend_existing": True}
+
+    id: str = Field(default_factory=lambda: f"jobq_{uuid4().hex[:8]}", primary_key=True)
+    gpu_id: str = Field(index=True)
+    client_id: str = Field(default="", index=True)
+    priority: int = Field(default=0, index=True)  # higher value = higher priority
+    status: GPUJobStatus = Field(default=GPUJobStatus.QUEUED)
+    payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
+    started_at: datetime | None = Field(default=None)
+    completed_at: datetime | None = Field(default=None)
