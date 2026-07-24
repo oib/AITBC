@@ -52,13 +52,13 @@ compute from storage to execution.
 
 ## Release Gate
 
-- [ ] TEE attestation primitives compile and have unit tests.
-- [ ] Enclave lifecycle orchestration is testable on a local SGX/simulator.
-- [ ] Confidential agent-to-agent messaging channel is established and
+- [x] TEE attestation primitives compile and have unit tests.
+- [x] Enclave lifecycle orchestration is testable on a local SGX/simulator.
+- [x] Confidential agent-to-agent messaging channel is established and
       stress-tested.
-- [ ] TEE-backed data processing integrates with the memory layer.
-- [ ] `./venv/bin/python -m ruff check .` passes.
-- [ ] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
-- [ ] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.
+- [x] TEE-backed data processing integrates with the memory layer.
+- [x] `./venv/bin/python -m ruff check .` passes.
+- [x] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
+- [x] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.
 
 *Generated with [Devin](https://devin.ai)*
