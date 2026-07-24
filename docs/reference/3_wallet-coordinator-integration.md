@@ -189,7 +189,7 @@ Payment events should be monitored:
 
 ## Future Enhancements
 
-1. **Multi-currency Support** - Add support for AITBC tokens
+1. **Multi-currency Support** - Add support for the network tokens
 2. **Payment Routing** - Route payments through multiple providers
 3. **Batch Payments** - Support batch release/refund operations
 4. **Payment History** - Enhanced payment tracking and reporting

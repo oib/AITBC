@@ -160,7 +160,7 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
 @click.option("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
 @click.pass_context
 def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bool, chain_id: str | None):
-    """Manage your AITBC wallets and transactions"""
+    """Manage your wallets and transactions"""
     # Ensure wallet object exists
     ctx.ensure_object(dict)
 

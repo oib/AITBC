@@ -21,7 +21,7 @@ describe("Execution Time Benchmarks", function () {
     });
   });
 
-  describe("AITBCPaymentProcessor", function () {
+  describe("PaymentProcessor", function () {
     it("Should benchmark createPayment execution time", async function () {
       // Placeholder for execution time benchmark
       // TODO: Implement actual execution time measurement

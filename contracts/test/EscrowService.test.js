@@ -3,7 +3,7 @@ import hardhat from "hardhat";
 const { ethers } = hardhat;
 
 describe.skip("EscrowService", function () {
-  let escrowService, aitbcToken, aiPowerRental, paymentProcessor;
+  let escrowService, paymentToken, aiPowerRental, paymentProcessor;
   let deployer, depositor, beneficiary, arbiter;
 
   const ESCROW_AMOUNT = ethers.parseEther("100");
@@ -14,11 +14,11 @@ describe.skip("EscrowService", function () {
 
     // Deploy AIToken
     const AIToken = await ethers.getContractFactory("AIToken");
-    aitbcToken = await AIToken.deploy(INITIAL_SUPPLY);
-    await aitbcToken.waitForDeployment();
+    paymentToken = await AIToken.deploy(INITIAL_SUPPLY);
+    await paymentToken.waitForDeployment();
 
     // Transfer tokens to depositor
-    await aitbcToken.transfer(depositor.address, ethers.parseEther("10000"));
+    await paymentToken.transfer(depositor.address, ethers.parseEther("10000"));
 
     // Deploy mock verifiers for AIPowerRental
     const ZKReceiptVerifier = await ethers.getContractFactory("ZKReceiptVerifier");
@@ -32,16 +32,16 @@ describe.skip("EscrowService", function () {
     // Deploy AIPowerRental
     const AIPowerRental = await ethers.getContractFactory("AIPowerRental");
     aiPowerRental = await AIPowerRental.deploy(
-      await aitbcToken.getAddress(),
+      await paymentToken.getAddress(),
       await zkVerifier.getAddress(),
       await groth16Verifier.getAddress()
     );
     await aiPowerRental.waitForDeployment();
 
-    // Deploy AITBCPaymentProcessor (mock)
-    const AITBCPaymentProcessor = await ethers.getContractFactory("AITBCPaymentProcessor");
-    paymentProcessor = await AITBCPaymentProcessor.deploy(
-      await aitbcToken.getAddress(),
+    // Deploy PaymentProcessor (mock)
+    const PaymentProcessor = await ethers.getContractFactory("PaymentProcessor");
+    paymentProcessor = await PaymentProcessor.deploy(
+      await paymentToken.getAddress(),
       await aiPowerRental.getAddress()
     );
     await paymentProcessor.waitForDeployment();
@@ -49,14 +49,14 @@ describe.skip("EscrowService", function () {
     // Deploy EscrowService
     const EscrowService = await ethers.getContractFactory("EscrowService");
     escrowService = await EscrowService.deploy(
-      await aitbcToken.getAddress(),
+      await paymentToken.getAddress(),
       await aiPowerRental.getAddress(),
       await paymentProcessor.getAddress()
     );
     await escrowService.waitForDeployment();
 
     // Approve escrow service to spend depositor's tokens
-    await aitbcToken.connect(depositor).approve(
+    await paymentToken.connect(depositor).approve(
       await escrowService.getAddress(),
       ethers.parseEther("1000000000")
     );
@@ -67,7 +67,7 @@ describe.skip("EscrowService", function () {
 
   describe("Deployment", function () {
     it("Should deploy with correct token address", async function () {
-      expect(await escrowService.aitbcToken()).to.equal(await aitbcToken.getAddress());
+      expect(await escrowService.paymentToken()).to.equal(await paymentToken.getAddress());
     });
 
     it("Should set deployer as owner", async function () {
@@ -198,11 +198,11 @@ describe.skip("EscrowService", function () {
     });
 
     it("Should release escrow to beneficiary", async function () {
-      const beneficiaryBalance = await aitbcToken.balanceOf(beneficiary.address);
+      const beneficiaryBalance = await paymentToken.balanceOf(beneficiary.address);
 
       await escrowService.connect(depositor).releaseEscrow(escrowId, "Service completed");
 
-      const newBeneficiaryBalance = await aitbcToken.balanceOf(beneficiary.address);
+      const newBeneficiaryBalance = await paymentToken.balanceOf(beneficiary.address);
       expect(newBeneficiaryBalance).to.be.gt(beneficiaryBalance);
     });
 
@@ -246,11 +246,11 @@ describe.skip("EscrowService", function () {
     });
 
     it("Should refund escrow to depositor", async function () {
-      const depositorBalance = await aitbcToken.balanceOf(depositor.address);
+      const depositorBalance = await paymentToken.balanceOf(depositor.address);
 
       await escrowService.connect(arbiter).refundEscrow(escrowId, "Service not provided");
 
-      const newDepositorBalance = await aitbcToken.balanceOf(depositor.address);
+      const newDepositorBalance = await paymentToken.balanceOf(depositor.address);
       expect(newDepositorBalance).to.be.gt(depositorBalance);
     });
 

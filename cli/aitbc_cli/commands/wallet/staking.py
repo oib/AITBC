@@ -1,13 +1,16 @@
-"""Staking wallet commands for AITBC CLI"""
+"""Staking wallet commands"""
 
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import click
 
+from aitbc_agent_core import get_active_brand
 from ...utils import error, output, success
 from ...utils.http_client import AITBCHTTPClient
 from . import _get_wallet_password, _load_wallet, _save_wallet, wallet
+
+_brand = get_active_brand()
 
 
 @wallet.command()
@@ -15,7 +18,7 @@ from . import _get_wallet_password, _load_wallet, _save_wallet, wallet
 @click.option("--duration", type=int, default=30, help="Staking duration in days")
 @click.pass_context
 def stake(ctx, amount: float, duration: int):
-    """Stake AITBC tokens on blockchain"""
+    """Stake tokens on blockchain"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
 
@@ -60,7 +63,7 @@ def stake(ctx, amount: float, duration: int):
         }
         result = http_client.post("/rpc/staking/stake", json=stake_data)
 
-        success(f"Staked {amount} AITBC for {duration} days")
+        success(f"Staked {amount} {_brand.token_symbol} for {duration} days")
         output(
             {
                 "wallet": wallet_name,
@@ -82,7 +85,7 @@ def stake(ctx, amount: float, duration: int):
 @click.argument("stake_id")
 @click.pass_context
 def unstake(ctx, stake_id: str):
-    """Unstake AITBC tokens from blockchain"""
+    """Unstake tokens from blockchain"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
 

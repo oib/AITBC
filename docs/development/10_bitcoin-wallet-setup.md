@@ -1,7 +1,7 @@
 # Bitcoin Wallet Integration for AITBC Trade Exchange
 
 ## Overview
-The AITBC Trade Exchange now supports Bitcoin payments for purchasing AITBC tokens. Users can send Bitcoin to a generated address and receive AITBC tokens after confirmation.
+The AITBC Trade Exchange now supports Bitcoin payments for purchasing the network tokens. Users can send Bitcoin to a generated address and receive the network tokens after confirmation.
 
 ## Current Implementation
 
@@ -58,7 +58,7 @@ BTC_TO_AITBC_RATE=100000
    - Notifies user when confirmed
 
 4. **Token Minting**
-   - Upon confirmation, AITBC tokens are minted
+   - Upon confirmation, the network tokens are minted
    - Tokens credited to user's wallet
    - Transaction recorded
 

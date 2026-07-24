@@ -29,14 +29,14 @@ async function main() {
 
     try {
         // Get existing contracts
-        let aitbcTokenAddress, paymentProcessorAddress, agentWalletAddress, aiPowerRentalAddress;
+        let paymentTokenAddress, paymentProcessorAddress, agentWalletAddress, aiPowerRentalAddress;
 
         try {
             const existingContractsFile = `deployed-contracts-${hre.network.name}.json`;
             if (fs.existsSync(existingContractsFile)) {
                 const existingContracts = JSON.parse(fs.readFileSync(existingContractsFile, 'utf8'));
-                aitbcTokenAddress = existingContracts.contracts.AITBCToken?.address;
-                paymentProcessorAddress = existingContracts.contracts.AITBCPaymentProcessor?.address;
+                paymentTokenAddress = existingContracts.contracts.AITBCToken?.address;
+                paymentProcessorAddress = existingContracts.contracts.PaymentProcessor?.address;
                 agentWalletAddress = existingContracts.contracts.AgentWallet?.address;
                 aiPowerRentalAddress = existingContracts.contracts.AIPowerRental?.address;
             }
@@ -45,35 +45,35 @@ async function main() {
         }
 
         // Deploy Mock ERC20 if needed
-        if (!aitbcTokenAddress) {
+        if (!paymentTokenAddress) {
             console.log("📦 Deploying mock AITBC token...");
             const MockERC20 = await ethers.getContractFactory("MockERC20");
-            const aitbcToken = await MockERC20.deploy(
+            const paymentToken = await MockERC20.deploy(
                 "AITBC Token",
                 "AITBC",
                 ethers.utils.parseEther("1000000")
             );
-            await aitbcToken.deployed();
-            aitbcTokenAddress = aitbcToken.address;
+            await paymentToken.deployed();
+            paymentTokenAddress = paymentToken.address;
 
             deployedContracts.contracts.AITBCToken = {
-                address: aitbcTokenAddress,
-                deploymentHash: aitbcToken.deployTransaction.hash,
-                gasUsed: (await aitbcToken.deployTransaction.wait()).gasUsed.toString()
+                address: paymentTokenAddress,
+                deploymentHash: paymentToken.deployTransaction.hash,
+                gasUsed: (await paymentToken.deployTransaction.wait()).gasUsed.toString()
             };
 
-            console.log(`✅ AITBC Token: ${aitbcTokenAddress}`);
+            console.log(`✅ AITBC Token: ${paymentTokenAddress}`);
         }
 
         // Deploy Mock Payment Processor if needed
         if (!paymentProcessorAddress) {
             console.log("📦 Deploying mock AITBC Payment Processor...");
-            const MockPaymentProcessor = await ethers.getContractFactory("AITBCPaymentProcessor");
-            const paymentProcessor = await MockPaymentProcessor.deploy(aitbcTokenAddress);
+            const MockPaymentProcessor = await ethers.getContractFactory("PaymentProcessor");
+            const paymentProcessor = await MockPaymentProcessor.deploy(paymentTokenAddress);
             await paymentProcessor.deployed();
             paymentProcessorAddress = paymentProcessor.address;
 
-            deployedContracts.contracts.AITBCPaymentProcessor = {
+            deployedContracts.contracts.PaymentProcessor = {
                 address: paymentProcessorAddress,
                 deploymentHash: paymentProcessor.deployTransaction.hash,
                 gasUsed: (await paymentProcessor.deployTransaction.wait()).gasUsed.toString()
@@ -114,7 +114,7 @@ async function main() {
         console.log("📦 Deploying AgentCollaboration contract...");
         const AgentCollaboration = await ethers.getContractFactory("AgentCollaboration");
         const agentCollaboration = await AgentCollaboration.deploy(
-            aitbcTokenAddress,
+            paymentTokenAddress,
             crossChainReputation.address,
             agentCommunication.address
         );
@@ -149,7 +149,7 @@ async function main() {
         console.log("📦 Deploying AgentMarketplaceV2 contract...");
         const AgentMarketplaceV2 = await ethers.getContractFactory("AgentMarketplaceV2");
         const agentMarketplaceV2 = await AgentMarketplaceV2.deploy(
-            aitbcTokenAddress,
+            paymentTokenAddress,
             paymentProcessorAddress,
             crossChainReputation.address,
             agentCommunication.address,

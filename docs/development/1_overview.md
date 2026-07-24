@@ -72,7 +72,7 @@ All computations generate cryptographic proofs:
 - **Attestations**: Multiple validator signatures
 
 ### Tokens & Economics
-- **AITBC Token**: Native utility token
+- **the network token**: Native utility token
 - **Job Payments**: Pay for computation
 - **Staking**: Secure the network
 - **Rewards**: Earn for providing services

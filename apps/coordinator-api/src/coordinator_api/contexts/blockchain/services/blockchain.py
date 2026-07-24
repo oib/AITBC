@@ -1,5 +1,5 @@
 """
-Blockchain service for AITBC token operations
+Blockchain service for token operations
 """
 
 import re
@@ -240,7 +240,7 @@ def validate_address(address: str) -> bool:
 
 
 async def mint_tokens(address: str, amount: float) -> dict[str, Any]:
-    """Mint AITBC tokens to an address"""
+    """Mint tokens to an address"""
 
     client = AITBCHTTPClient(timeout=10.0)
     try:
@@ -255,7 +255,7 @@ async def mint_tokens(address: str, amount: float) -> dict[str, Any]:
 
 
 def get_balance(address: str) -> float | None:
-    """Get AITBC balance for an address"""
+    """Get token balance for an address"""
 
     if not validate_address(address):
         logger.error("Invalid address format")

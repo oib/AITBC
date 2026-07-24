@@ -1,4 +1,4 @@
-# Agent Agent Listener for AITBC Network
+# Agent Agent Listener for the network
 
 **Last Updated:** 2026-06-22
 

@@ -67,52 +67,52 @@ async function main() {
         // Deploy KnowledgeGraphMarket contract
         console.log("📦 Deploying KnowledgeGraphMarket contract...");
 
-        // Get existing AITBCPaymentProcessor address or deploy a mock one
+        // Get existing PaymentProcessor address or deploy a mock one
         let paymentProcessorAddress;
-        let aitbcTokenAddress;
+        let paymentTokenAddress;
 
         try {
             // Try to get existing payment processor
             const paymentProcessorFile = `deployed-contracts-${hre.network.name}.json`;
             if (fs.existsSync(paymentProcessorFile)) {
                 const existingContracts = JSON.parse(fs.readFileSync(paymentProcessorFile, 'utf8'));
-                paymentProcessorAddress = existingContracts.contracts.AITBCPaymentProcessor?.address;
-                aitbcTokenAddress = existingContracts.contracts.AITBCToken?.address;
+                paymentProcessorAddress = existingContracts.contracts.PaymentProcessor?.address;
+                paymentTokenAddress = existingContracts.contracts.AITBCToken?.address;
             }
         } catch (error) {
             console.log("Could not load existing contracts, deploying mock ones...");
         }
 
         // Deploy mock AITBC token if needed
-        if (!aitbcTokenAddress) {
+        if (!paymentTokenAddress) {
             console.log("📦 Deploying mock AITBC token...");
             const MockERC20 = await ethers.getContractFactory("MockERC20");
-            const aitbcToken = await MockERC20.deploy(
+            const paymentToken = await MockERC20.deploy(
                 "AITBC Token",
                 "AITBC",
                 ethers.utils.parseEther("1000000")
             );
-            await aitbcToken.deployed();
-            aitbcTokenAddress = aitbcToken.address;
+            await paymentToken.deployed();
+            paymentTokenAddress = paymentToken.address;
 
             deployedContracts.contracts.AITBCToken = {
-                address: aitbcTokenAddress,
-                deploymentHash: aitbcToken.deployTransaction.hash,
-                gasUsed: (await aitbcToken.deployTransaction.wait()).gasUsed.toString()
+                address: paymentTokenAddress,
+                deploymentHash: paymentToken.deployTransaction.hash,
+                gasUsed: (await paymentToken.deployTransaction.wait()).gasUsed.toString()
             };
 
-            console.log(`✅ AITBC Token: ${aitbcTokenAddress}`);
+            console.log(`✅ AITBC Token: ${paymentTokenAddress}`);
         }
 
         // Deploy mock payment processor if needed
         if (!paymentProcessorAddress) {
             console.log("📦 Deploying mock AITBC Payment Processor...");
-            const MockPaymentProcessor = await ethers.getContractFactory("AITBCPaymentProcessor");
-            const paymentProcessor = await MockPaymentProcessor.deploy(aitbcTokenAddress);
+            const MockPaymentProcessor = await ethers.getContractFactory("PaymentProcessor");
+            const paymentProcessor = await MockPaymentProcessor.deploy(paymentTokenAddress);
             await paymentProcessor.deployed();
             paymentProcessorAddress = paymentProcessor.address;
 
-            deployedContracts.contracts.AITBCPaymentProcessor = {
+            deployedContracts.contracts.PaymentProcessor = {
                 address: paymentProcessorAddress,
                 deploymentHash: paymentProcessor.deployTransaction.hash,
                 gasUsed: (await paymentProcessor.deployTransaction.wait()).gasUsed.toString()
@@ -125,7 +125,7 @@ async function main() {
         const KnowledgeGraphMarket = await ethers.getContractFactory("KnowledgeGraphMarket");
         const knowledgeGraphMarket = await KnowledgeGraphMarket.deploy(
             paymentProcessorAddress,
-            aitbcTokenAddress
+            paymentTokenAddress
         );
         await knowledgeGraphMarket.deployed();
 
@@ -160,7 +160,7 @@ async function main() {
 VITE_AGENT_MEMORY_ADDRESS=${agentMemory.address}
 VITE_MEMORY_VERIFIER_ADDRESS=${memoryVerifier.address}
 VITE_KNOWLEDGE_GRAPH_MARKET_ADDRESS=${knowledgeGraphMarket.address}
-VITE_AITBC_TOKEN_ADDRESS=${aitbcTokenAddress}
+VITE_AITBC_TOKEN_ADDRESS=${paymentTokenAddress}
 VITE_PAYMENT_PROCESSOR_ADDRESS=${paymentProcessorAddress}
 
 # Network Configuration
@@ -192,7 +192,7 @@ VITE_MEMORY_EXPIRY_DAYS=30
         console.log(`  AgentMemory: ${agentMemory.address}`);
         console.log(`  MemoryVerifier: ${memoryVerifier.address}`);
         console.log(`  KnowledgeGraphMarket: ${knowledgeGraphMarket.address}`);
-        console.log(`  AITBC Token: ${aitbcTokenAddress}`);
+        console.log(`  AITBC Token: ${paymentTokenAddress}`);
         console.log(`  Payment Processor: ${paymentProcessorAddress}`);
         console.log("");
         console.log("🔧 Next Steps:");

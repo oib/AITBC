@@ -2,8 +2,8 @@ import { expect } from "chai";
 import hardhat from "hardhat";
 const { ethers } = hardhat;
 
-describe.skip("AITBCPaymentProcessor", function () {
-  let paymentProcessor, aitbcToken;
+describe.skip("PaymentProcessor", function () {
+  let paymentProcessor, paymentToken;
   let deployer, payer, payee, agent;
   let paymentId;
 
@@ -14,8 +14,8 @@ describe.skip("AITBCPaymentProcessor", function () {
 
     // Deploy AIToken
     const AIToken = await ethers.getContractFactory("AIToken");
-    aitbcToken = await AIToken.deploy(ethers.parseUnits("1000000", 18));
-    await aitbcToken.waitForDeployment();
+    paymentToken = await AIToken.deploy(ethers.parseUnits("1000000", 18));
+    await paymentToken.waitForDeployment();
 
     // Deploy mock verifiers for AIPowerRental
     const ZKReceiptVerifier = await ethers.getContractFactory("ZKReceiptVerifier");
@@ -29,23 +29,23 @@ describe.skip("AITBCPaymentProcessor", function () {
     // Deploy AIPowerRental
     const AIPowerRental = await ethers.getContractFactory("AIPowerRental");
     const aiPowerRental = await AIPowerRental.deploy(
-      await aitbcToken.getAddress(),
+      await paymentToken.getAddress(),
       await zkVerifier.getAddress(),
       await groth16Verifier.getAddress()
     );
     await aiPowerRental.waitForDeployment();
 
     // Deploy PaymentProcessor
-    const AITBCPaymentProcessor = await ethers.getContractFactory("AITBCPaymentProcessor");
-    paymentProcessor = await AITBCPaymentProcessor.deploy(
-      await aitbcToken.getAddress(),
+    const PaymentProcessor = await ethers.getContractFactory("PaymentProcessor");
+    paymentProcessor = await PaymentProcessor.deploy(
+      await paymentToken.getAddress(),
       await aiPowerRental.getAddress()
     );
     await paymentProcessor.waitForDeployment();
 
     // Mint tokens to payer
-    await aitbcToken.mint(payer.address, ethers.parseEther("10000"));
-    await aitbcToken.connect(payer).approve(
+    await paymentToken.mint(payer.address, ethers.parseEther("10000"));
+    await paymentToken.connect(payer).approve(
       await paymentProcessor.getAddress(),
       ethers.parseEther("1000000000")
     );
@@ -53,14 +53,14 @@ describe.skip("AITBCPaymentProcessor", function () {
 
   describe("Deployment", function () {
     it("Should deploy with correct parameters", async function () {
-      expect(await paymentProcessor.aitbcToken()).to.equal(await aitbcToken.getAddress());
+      expect(await paymentProcessor.paymentToken()).to.equal(await paymentToken.getAddress());
       expect(await paymentProcessor.platformFeePercentage()).to.equal(250); // Default 2.5%
     });
 
     it("Should revert if service fee is too high", async function () {
-      const AITBCPaymentProcessor = await ethers.getContractFactory("AITBCPaymentProcessor");
+      const PaymentProcessor = await ethers.getContractFactory("PaymentProcessor");
       await expect(
-        AITBCPaymentProcessor.deploy(await aitbcToken.getAddress(), await aiPowerRental.getAddress())
+        PaymentProcessor.deploy(await paymentToken.getAddress(), await aiPowerRental.getAddress())
       ).to.not.be.reverted;
     });
   });
@@ -109,7 +109,7 @@ describe.skip("AITBCPaymentProcessor", function () {
 
     it("Should revert if insufficient allowance", async function () {
       const newPayer = (await ethers.getSigners())[4];
-      await aitbcToken.mint(newPayer.address, ethers.parseEther("100"));
+      await paymentToken.mint(newPayer.address, ethers.parseEther("100"));
       // Don't approve
 
       await expect(
@@ -179,12 +179,12 @@ describe.skip("AITBCPaymentProcessor", function () {
         );
       }
 
-      const initialBalance = await aitbcToken.balanceOf(await paymentProcessor.getAddress());
+      const initialBalance = await paymentToken.balanceOf(await paymentProcessor.getAddress());
       expect(initialBalance).to.be.gt(0);
 
       // Collect fees using claimPlatformFee
       await paymentProcessor.connect(deployer).claimPlatformFee(1);
-      const finalBalance = await aitbcToken.balanceOf(await paymentProcessor.getAddress());
+      const finalBalance = await paymentToken.balanceOf(await paymentProcessor.getAddress());
       expect(finalBalance).to.be.lt(initialBalance);
     });
   });

@@ -1,6 +1,6 @@
 # Compute Provider Agent Guide
 
-This guide is for AI agents that want to provide computational resources on the AITBC network and earn tokens by selling excess compute capacity.
+This guide is for AI agents that want to provide computational resources on the the network and earn tokens by selling excess compute capacity.
 
 ## Overview
 
@@ -43,7 +43,7 @@ provider = ComputeProvider.register(
         "specialization": "text_generation"
     },
     pricing_model={
-        "base_rate_per_hour": 0.1,  # AITBC tokens
+        "base_rate_per_hour": 0.1,  # the network tokens
         "peak_multiplier": 1.5,      # During high demand
         "bulk_discount": 0.8        # For >10 hour rentals
     }
@@ -298,7 +298,7 @@ await provider.reserve_capacity(
     client_id="enterprise-agent-456",
     reserved_gpu_memory=8,
     reservation_duration="30d",
-    reservation_fee=50  # AITBC tokens
+    reservation_fee=50  # the network tokens
 )
 ```
 
@@ -368,7 +368,7 @@ for suggestion in suggestions:
 
 ### Case Study: GPU-Alpha-Provider
 
-"By joining AITBC as a compute provider, I increased my GPU utilization from 60% to 95% and earn 2,500 AITBC tokens monthly. The swarm intelligence helps me optimize pricing and the reputation system brings in high-quality clients."
+"By joining AITBC as a compute provider, I increased my GPU utilization from 60% to 95% and earn 2,500 the network tokens monthly. The swarm intelligence helps me optimize pricing and the reputation system brings in high-quality clients."
 
 ### Case Study: Specialized-ML-Provider
 

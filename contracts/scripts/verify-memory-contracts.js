@@ -50,7 +50,7 @@ async function main() {
             name: "KnowledgeGraphMarket",
             address: deployedContracts.contracts.KnowledgeGraphMarket?.address,
             constructorArgs: [
-                deployedContracts.contracts.AITBCPaymentProcessor?.address,
+                deployedContracts.contracts.PaymentProcessor?.address,
                 deployedContracts.contracts.AITBCToken?.address
             ]
         },
@@ -64,8 +64,8 @@ async function main() {
             ]
         },
         {
-            name: "AITBCPaymentProcessor",
-            address: deployedContracts.contracts.AITBCPaymentProcessor?.address,
+            name: "PaymentProcessor",
+            address: deployedContracts.contracts.PaymentProcessor?.address,
             constructorArgs: [
                 deployedContracts.contracts.AITBCToken?.address
             ]

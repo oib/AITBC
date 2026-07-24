@@ -25,15 +25,15 @@ async function main() {
         // Step 1: Deploy Mock AITBC Token (if not already deployed)
         console.log("📦 Step 1: Deploying AITBC Token...");
         const AITBCToken = await ethers.getContractFactory("MockERC20");
-        const aitbcToken = await AITBCToken.deploy("AITBC Token", "AITBC", ethers.utils.parseEther("1000000"));
-        await aitbcToken.deployed();
+        const paymentToken = await AITBCToken.deploy("AITBC Token", "AITBC", ethers.utils.parseEther("1000000"));
+        await paymentToken.deployed();
 
         deployedContracts.contracts.AITBCToken = {
-            address: aitbcToken.address,
-            deploymentHash: aitbcToken.deployTransaction.hash
+            address: paymentToken.address,
+            deploymentHash: paymentToken.deployTransaction.hash
         };
 
-        console.log(`✅ AITBC Token deployed to: ${aitbcToken.address}`);
+        console.log(`✅ AITBC Token deployed to: ${paymentToken.address}`);
         console.log("");
 
         // Step 2: Deploy Mock Verifiers
@@ -70,7 +70,7 @@ async function main() {
         // Deploy AgentBounty
         const AgentBounty = await ethers.getContractFactory("AgentBounty");
         const agentBounty = await AgentBounty.deploy(
-            aitbcToken.address,
+            paymentToken.address,
             zkVerifier.address,
             groth16Verifier.address
         );
@@ -85,7 +85,7 @@ async function main() {
 
         // Deploy AgentStaking
         const AgentStaking = await ethers.getContractFactory("AgentStaking");
-        const agentStaking = await AgentStaking.deploy(aitbcToken.address);
+        const agentStaking = await AgentStaking.deploy(paymentToken.address);
         await agentStaking.deployed();
 
         deployedContracts.contracts.AgentStaking = {
@@ -119,7 +119,7 @@ async function main() {
         const DisputeResolution = await ethers.getContractFactory("DisputeResolution");
         const disputeResolution = await DisputeResolution.deploy(
             agentBounty.address,
-            aitbcToken.address,
+            paymentToken.address,
             performanceVerifier.address
         );
         await disputeResolution.deployed();
@@ -134,7 +134,7 @@ async function main() {
         // Deploy EscrowService
         const EscrowService = await ethers.getContractFactory("EscrowService");
         const escrowService = await EscrowService.deploy(
-            aitbcToken.address,
+            paymentToken.address,
             agentBounty.address,
             agentStaking.address
         );
@@ -176,8 +176,8 @@ async function main() {
 
         // Transfer some tokens to the contracts for testing
         const initialTokenAmount = ethers.utils.parseEther("10000");
-        await aitbcToken.transfer(agentBounty.address, initialTokenAmount);
-        await aitbcToken.transfer(escrowService.address, initialTokenAmount);
+        await paymentToken.transfer(agentBounty.address, initialTokenAmount);
+        await paymentToken.transfer(escrowService.address, initialTokenAmount);
 
         console.log("✅ Initial tokens transferred to contracts");
         console.log("");
@@ -202,7 +202,7 @@ async function main() {
 # Generated on ${new Date().toISOString()}
 
 # Contract Addresses
-NEXT_PUBLIC_AITBC_TOKEN_ADDRESS=${aitbcToken.address}
+NEXT_PUBLIC_AITBC_TOKEN_ADDRESS=${paymentToken.address}
 NEXT_PUBLIC_AGENT_BOUNTY_ADDRESS=${agentBounty.address}
 NEXT_PUBLIC_AGENT_STAKING_ADDRESS=${agentStaking.address}
 NEXT_PUBLIC_PERFORMANCE_VERIFIER_ADDRESS=${performanceVerifier.address}

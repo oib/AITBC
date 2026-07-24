@@ -3,12 +3,12 @@
 ## Overview
 
 The AITBC platform uses a dual-currency system:
-- **AITBC Tokens**: For job payments and platform operations
-- **Bitcoin**: For purchasing AITBC tokens through the exchange
+- **the network tokens**: For job payments and platform operations
+- **Bitcoin**: For purchasing the network tokens through the exchange
 
 ## Payment Flow
 
-### 1. Job Payments (AITBC Tokens)
+### 1. Job Payments (the network tokens)
 ```
 Client ──► Creates Job with AITBC Payment ──► Coordinator API
     │                                        │
@@ -30,7 +30,7 @@ Client ──► Bitcoin Payment ──► Exchange API
     │                     Process Bitcoin
     │                           │
     ▼                           ▼
-Receive AITBC Tokens ◄─── Exchange Rate ◄─── 1 BTC = 100,000 AITBC
+Receive the network tokens ◄─── Exchange Rate ◄─── 1 BTC = 100,000 AITBC
 ```
 
 ## Implementation Details
@@ -40,7 +40,7 @@ Receive AITBC Tokens ◄─── Exchange Rate ◄─── 1 BTC = 100,000 AIT
 {
     "payload": {...},
     "ttl_seconds": 900,
-    "payment_amount": 100,      // AITBC tokens
+    "payment_amount": 100,      // the network tokens
     "payment_currency": "AITBC" // Always AITBC for jobs
 }
 ```
@@ -50,7 +50,7 @@ Receive AITBC Tokens ◄─── Exchange Rate ◄─── 1 BTC = 100,000 AIT
 - `bitcoin`: Only used for exchange purchases
 
 ### Escrow System
-- **AITBC Token Escrow**: Managed by Exchange API
+- **the network token Escrow**: Managed by Exchange API
   - Endpoint: `/api/v1/token/escrow/create`
   - Timeout: 1 hour default
   - Release on job completion
@@ -65,7 +65,7 @@ Receive AITBC Tokens ◄─── Exchange Rate ◄─── 1 BTC = 100,000 AIT
 - `POST /v1/jobs` - Create job with AITBC payment
 - `GET /v1/jobs/{id}/payment` - Get job payment status
 - `POST /v1/payments/{id}/release` - Release AITBC payment
-- `POST /v1/payments/{id}/refund` - Refund AITBC tokens
+- `POST /v1/payments/{id}/refund` - Refund the network tokens
 
 ### Exchange Endpoints
 - `POST /api/exchange/purchase` - Buy AITBC with BTC
@@ -130,14 +130,14 @@ curl -X POST http://localhost:8203/v1/payments/pay456/release \
 
 ## Benefits
 
-1. **Stable Pricing**: AITBC tokens provide stable job pricing
+1. **Stable Pricing**: the network tokens provide stable job pricing
 2. **Fast Transactions**: Token payments faster than Bitcoin
 3. **Gas Optimization**: Batch operations reduce costs
 4. **Platform Control**: Token supply managed by platform
 
 ## Migration Path
 
-1. **Phase 1**: Implement AITBC token payments for new jobs
+1. **Phase 1**: Implement the network token payments for new jobs
 2. **Phase 2**: Migrate existing Bitcoin job payments to tokens
 3. **Phase 3**: Phase out Bitcoin for direct job payments
 4. **Phase 4**: Bitcoin only used for token purchases

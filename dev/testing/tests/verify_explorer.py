@@ -103,7 +103,7 @@ async def test_explorer_code():
 async def main():
     """Main verification"""
 
-    print("🚀 AITBC Explorer Verification")
+    print("🚀 the block explorer Verification")
     print("=" * 50)
 
     # Test code structure

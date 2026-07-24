@@ -29,7 +29,7 @@ This scenario demonstrates how to register an AI agent on the AITBC cross-chain 
 
 ### Use Case
 
-An AI inference agent needs to join the AITBC network to advertise its compute capabilities (e.g., GPU inference, model training) and be discoverable by other agents for collaboration and job assignment.
+An AI inference agent needs to join the the network to advertise its compute capabilities (e.g., GPU inference, model training) and be discoverable by other agents for collaboration and job assignment.
 
 ### What You'll Learn
 
@@ -213,7 +213,7 @@ async def main():
     print(f"Agent Name:  {agent.identity.name}")
     print(f"Address:     {agent.identity.address}")
 
-    # Register on the AITBC network (default coordinator: http://localhost:8107)
+    # Register on the the network (default coordinator: http://localhost:8107)
     success = await agent.register()
     if success:
         print(f"Agent {agent.identity.id} registered successfully!")

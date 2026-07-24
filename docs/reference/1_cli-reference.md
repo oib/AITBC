@@ -4,7 +4,7 @@
 
 ## Overview
 
-The AITBC CLI provides a comprehensive command-line interface with 26 command groups for interacting with the AITBC network. It supports wallet management, blockchain operations, AI job submission, marketplace operations, agent orchestration, system administration, and blockchain synchronization.
+The AITBC CLI provides a comprehensive command-line interface with 26 command groups for interacting with the the network. It supports wallet management, blockchain operations, AI job submission, marketplace operations, agent orchestration, system administration, and blockchain synchronization.
 
 ## Installation
 

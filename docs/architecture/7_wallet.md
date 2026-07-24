@@ -1,8 +1,8 @@
 # AITBC Browser Wallet Documentation
 
-The most secure way to store, send, and receive AITBC tokens. Connect to the AITBC Trade Exchange with just one click.
+The most secure way to store, send, and receive the network tokens. Connect to the AITBC Trade Exchange with just one click.
 
-## Why Choose AITBC Wallet?
+## Why Choose the wallet?
 
 ### Bank-Grade Security
 - Your private keys never leave your device
@@ -21,7 +21,7 @@ The most secure way to store, send, and receive AITBC tokens. Connect to the AIT
 ### Install for Chrome / Edge / Brave
 
 #### Step 1: Download the Extension
-Download the AITBC Wallet extension files to your computer.
+Download the the wallet extension files to your computer.
 
 [Download Chrome Extension](/assets/aitbc-wallet.zip)
 
@@ -38,7 +38,7 @@ Toggle the "Developer mode" switch in the top right corner.
 Click "Load unpacked" and select the `aitbc-wallet` folder.
 
 #### Step 5: Start Using!
-Click the AITBC Wallet icon in your toolbar to create or import an account.
+Click the the wallet icon in your toolbar to create or import an account.
 
 ### Install for Firefox
 
@@ -51,18 +51,18 @@ Click the button below to go to the Firefox installation page.
 On the install page, click the "Add to Firefox" button to install the extension.
 
 #### Step 3: Start Using!
-The AITBC Wallet will appear in your toolbar with an orange icon. Click to create your first account!
+The the wallet will appear in your toolbar with an orange icon. Click to create your first account!
 
-## Using Your AITBC Wallet
+## Using Your the wallet
 
 ### Create a New Wallet
-1. Click the AITBC Wallet icon
+1. Click the the wallet icon
 2. Select "Create New Account"
 3. Securely save your private key
 4. Your wallet is ready!
 
 ### Import Existing Wallet
-1. Click the AITBC Wallet icon
+1. Click the the wallet icon
 2. Select "Import Private Key"
 3. Enter your private key
 4. Access your restored wallet
@@ -70,7 +70,7 @@ The AITBC Wallet will appear in your toolbar with an orange icon. Click to creat
 ### Connect to Exchange
 1. Visit [AITBC Exchange](/Exchange/)
 2. Toggle to "Real Mode"
-3. Click "Connect AITBC Wallet"
+3. Click "Connect the wallet"
 4. Approve the connection
 
 ### Send & Receive Tokens

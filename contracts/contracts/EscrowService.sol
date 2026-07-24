@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./AIPowerRental.sol";
-import "./AITBCPaymentProcessor.sol";
+import "./PaymentProcessor.sol";
 
 /**
  * @title Escrow Service
@@ -16,9 +16,9 @@ import "./AITBCPaymentProcessor.sol";
 contract EscrowService is Ownable, ReentrancyGuard, Pausable {
 
     // State variables
-    IERC20 public aitbcToken;
+    IERC20 public paymentToken;
     AIPowerRental public aiPowerRental;
-    AITBCPaymentProcessor public paymentProcessor;
+    PaymentProcessor public paymentProcessor;
 
     uint256 public escrowCounter;
     uint256 public minEscrowAmount = 1e15; // 0.001 AITBC minimum
@@ -302,12 +302,12 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     }
 
     modifier sufficientBalance(address _user, uint256 _amount) {
-        require(aitbcToken.balanceOf(_user) >= _amount, "Insufficient balance");
+        require(paymentToken.balanceOf(_user) >= _amount, "Insufficient balance");
         _;
     }
 
     modifier sufficientAllowance(address _user, uint256 _amount) {
-        require(aitbcToken.allowance(_user, address(this)) >= _amount, "Insufficient allowance");
+        require(paymentToken.allowance(_user, address(this)) >= _amount, "Insufficient allowance");
         _;
     }
 
@@ -328,13 +328,13 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
 
     // Constructor
     constructor(
-        address _aitbcToken,
+        address _paymentToken,
         address _aiPowerRental,
         address _paymentProcessor
     ) {
-        aitbcToken = IERC20(_aitbcToken);
+        paymentToken = IERC20(_paymentToken);
         aiPowerRental = AIPowerRental(_aiPowerRental);
-        paymentProcessor = AITBCPaymentProcessor(_paymentProcessor);
+        paymentProcessor = PaymentProcessor(_paymentProcessor);
         escrowCounter = 0;
     }
 
@@ -419,7 +419,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         uint256 totalAmount = _amount + platformFee;
 
         require(
-            aitbcToken.transferFrom(msg.sender, address(this), totalAmount),
+            paymentToken.transferFrom(msg.sender, address(this), totalAmount),
             "Escrow funding failed"
         );
     }
@@ -625,7 +625,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         escrow.isRefunded = true;
 
         require(
-            aitbcToken.transfer(escrow.depositor, escrow.amount),
+            paymentToken.transfer(escrow.depositor, escrow.amount),
             "Refund transfer failed"
         );
 
@@ -902,14 +902,14 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
 
         // Transfer amount to beneficiary
         require(
-            aitbcToken.transfer(escrow.beneficiary, escrow.amount),
+            paymentToken.transfer(escrow.beneficiary, escrow.amount),
             "Escrow release failed"
         );
 
         // Transfer platform fee to owner
         if (escrow.platformFee > 0) {
             require(
-                aitbcToken.transfer(owner(), escrow.platformFee),
+                paymentToken.transfer(owner(), escrow.platformFee),
                 "Platform fee transfer failed"
             );
 

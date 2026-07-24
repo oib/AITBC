@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""
-AITBC Wallet CLI Tool - Track earnings and manage wallet
-"""
+"""Wallet CLI Tool - Track earnings and manage a wallet."""
 
 import argparse
 import json
@@ -10,10 +8,10 @@ from datetime import datetime
 from typing import Any
 
 
-class AITBCWallet:
+class Wallet:
     def __init__(self, wallet_file: str | None = None):
         if wallet_file is None:
-            wallet_file = os.path.expanduser("~/.aitbc_wallet.json")
+            wallet_file = os.path.expanduser("~/.example_wallet.json")
 
         self.wallet_file = wallet_file
         self.data = self._load_wallet()
@@ -29,7 +27,7 @@ class AITBCWallet:
 
         # Create new wallet
         return {
-            "address": "aitbc1" + os.urandom(10).hex(),
+            "address": "addr1" + os.urandom(10).hex(),
             "balance": 0.0,
             "transactions": [],
             "created_at": datetime.now().isoformat(),
@@ -54,15 +52,15 @@ class AITBCWallet:
         self.data["balance"] += amount
         self.save()
 
-        print(f"💰 Added {amount} AITBC to wallet")
-        print(f"   New balance: {self.data['balance']} AITBC")
+        print(f"💰 Added {amount} tokens to wallet")
+        print(f"   New balance: {self.data['balance']} tokens")
 
     def spend(self, amount: float, description: str):
-        """Spend AITBC"""
+        """Spend tokens"""
         if self.data["balance"] < amount:
             print("❌ Insufficient balance!")
-            print(f"   Balance: {self.data['balance']} AITBC")
-            print(f"   Needed: {amount} AITBC")
+            print(f"   Balance: {self.data['balance']} tokens")
+            print(f"   Needed: {amount} tokens")
             return False
 
         transaction = {"type": "spend", "amount": -amount, "description": description, "timestamp": datetime.now().isoformat()}
@@ -71,14 +69,14 @@ class AITBCWallet:
         self.data["balance"] -= amount
         self.save()
 
-        print(f"💸 Spent {amount} AITBC")
-        print(f"   Remaining: {self.data['balance']} AITBC")
+        print(f"💸 Spent {amount} tokens")
+        print(f"   Remaining: {self.data['balance']} tokens")
         return True
 
     def show_balance(self):
         """Show wallet balance"""
         print(f"💳 Wallet Address: {self.data['address']}")
-        print(f"💰 Balance: {self.data['balance']} AITBC")
+        print(f"💰 Balance: {self.data['balance']} tokens")
         print(f"📊 Total Transactions: {len(self.data['transactions'])}")
 
     def show_history(self, limit: int = 10):
@@ -94,7 +92,7 @@ class AITBCWallet:
 
         for tx in reversed(transactions):
             symbol = "💰" if tx["type"] == "earn" else "💸"
-            print(f"{symbol} {tx['amount']:+8.2f} AITBC | {tx.get('description', 'N/A')}")
+            print(f"{symbol} {tx['amount']:+8.2f} tokens | {tx.get('description', 'N/A')}")
             print(f"    📅 {tx['timestamp']}")
             if "job_id" in tx:
                 print(f"    🆔 Job: {tx['job_id']}")
@@ -102,7 +100,7 @@ class AITBCWallet:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AITBC Wallet CLI")
+    parser = argparse.ArgumentParser(description="Wallet CLI")
     parser.add_argument("--wallet", help="Wallet file path")
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
@@ -121,7 +119,7 @@ def main():
     earn_parser.add_argument("--desc", help="Description")
 
     # Spend command
-    spend_parser = subparsers.add_parser("spend", help="Spend AITBC")
+    spend_parser = subparsers.add_parser("spend", help="Spend tokens")
     spend_parser.add_argument("amount", type=float, help="Amount to spend")
     spend_parser.add_argument("description", help="What you're spending on")
 
@@ -134,7 +132,7 @@ def main():
         parser.print_help()
         return
 
-    wallet = AITBCWallet(args.wallet)
+    wallet = Wallet(args.wallet)
 
     if args.command == "balance":
         wallet.show_balance()

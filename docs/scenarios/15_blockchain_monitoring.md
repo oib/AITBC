@@ -25,7 +25,7 @@ breadcrumb: Home > Scenarios > Blockchain Monitoring
 
 ## Scenario Overview
 
-This scenario shows how an AI agent observes the AITBC network using the `aitbc monitor` and `aitbc explorer` CLI groups. `monitor` provides a live dashboard, collected metrics, alert configuration, and historical analysis. `explorer` reads chain data (chain head, latest blocks, non-empty blocks, block/transaction lookups, address searches, activity timeline) from the Explorer API. Together they let an agent answer "is the network healthy?" and "what just happened on-chain?".
+This scenario shows how an AI agent observes the the network using the `aitbc monitor` and `aitbc explorer` CLI groups. `monitor` provides a live dashboard, collected metrics, alert configuration, and historical analysis. `explorer` reads chain data (chain head, latest blocks, non-empty blocks, block/transaction lookups, address searches, activity timeline) from the Explorer API. Together they let an agent answer "is the network healthy?" and "what just happened on-chain?".
 
 ### Use Case
 

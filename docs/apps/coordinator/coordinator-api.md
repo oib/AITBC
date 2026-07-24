@@ -2,7 +2,7 @@
 
 ## Purpose & Scope
 
-FastAPI service that accepts client compute jobs, matches miners, and tracks job lifecycle for the AITBC network.
+FastAPI service that accepts client compute jobs, matches miners, and tracks job lifecycle for the the network.
 
 ## API Versioning
 

@@ -16,7 +16,7 @@ import "./AIToken.sol";
 contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
 
     // State variables
-    IERC20 public aitbcToken;
+    IERC20 public paymentToken;
     PerformanceVerifier public performanceVerifier;
 
     uint256 public bountyCounter;
@@ -163,12 +163,12 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     }
 
     modifier sufficientBalance(uint256 _amount) {
-        require(aitbcToken.balanceOf(msg.sender) >= _amount, "Insufficient balance");
+        require(paymentToken.balanceOf(msg.sender) >= _amount, "Insufficient balance");
         _;
     }
 
-    constructor(address _aitbcToken, address _performanceVerifier) {
-        aitbcToken = IERC20(_aitbcToken);
+    constructor(address _paymentToken, address _performanceVerifier) {
+        paymentToken = IERC20(_paymentToken);
         performanceVerifier = PerformanceVerifier(_performanceVerifier);
 
         // Set tier requirements (minimum reward amounts)
@@ -234,14 +234,14 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         uint256 creationFee = (_rewardAmount * creationFeePercentage) / 10000;
         uint256 totalRequired = _rewardAmount + creationFee;
 
-        require(aitbcToken.balanceOf(msg.sender) >= totalRequired, "Insufficient total amount");
+        require(paymentToken.balanceOf(msg.sender) >= totalRequired, "Insufficient total amount");
 
         // Transfer tokens to contract
-        require(aitbcToken.transferFrom(msg.sender, address(this), totalRequired), "Transfer failed");
+        require(paymentToken.transferFrom(msg.sender, address(this), totalRequired), "Transfer failed");
 
         // Transfer creation fee to DAO treasury (owner for now)
         if (creationFee > 0) {
-            require(aitbcToken.transfer(owner(), creationFee), "Fee transfer failed");
+            require(paymentToken.transfer(owner(), creationFee), "Fee transfer failed");
             emit PlatformFeeCollected(bountyId, creationFee, owner());
         }
 
@@ -378,7 +378,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         // Collect dispute fee
         uint256 disputeFee = (bounty.rewardAmount * disputeFeePercentage) / 10000;
         if (disputeFee > 0) {
-            require(aitbcToken.transferFrom(msg.sender, address(this), disputeFee), "Dispute fee transfer failed");
+            require(paymentToken.transferFrom(msg.sender, address(this), disputeFee), "Dispute fee transfer failed");
         }
 
         emit BountyDisputed(_bountyId, _submissionId, msg.sender, _reason);
@@ -409,7 +409,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
             // Return dispute fee
             uint256 disputeFee = (bounty.rewardAmount * disputeFeePercentage) / 10000;
             if (disputeFee > 0) {
-                require(aitbcToken.transfer(msg.sender, disputeFee), "Dispute fee return failed");
+                require(paymentToken.transfer(msg.sender, disputeFee), "Dispute fee return failed");
             }
         } else {
             // Uphold the submission
@@ -432,7 +432,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
 
         // Return funds to creator
         uint256 refundAmount = bounty.rewardAmount;
-        require(aitbcToken.transfer(bounty.creator, refundAmount), "Refund transfer failed");
+        require(paymentToken.transfer(bounty.creator, refundAmount), "Refund transfer failed");
 
         // Remove from active bounties
         _removeFromActiveBounties(_bountyId);
@@ -677,12 +677,12 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
 
         // Transfer reward to winner
         if (winnerReward > 0) {
-            require(aitbcToken.transfer(submission.submitter, winnerReward), "Reward transfer failed");
+            require(paymentToken.transfer(submission.submitter, winnerReward), "Reward transfer failed");
         }
 
         // Transfer fees to treasury
         if (totalFees > 0) {
-            require(aitbcToken.transfer(owner(), totalFees), "Fee transfer failed");
+            require(paymentToken.transfer(owner(), totalFees), "Fee transfer failed");
             emit PlatformFeeCollected(_bountyId, totalFees, owner());
         }
 

@@ -7,7 +7,7 @@ import requests
 
 
 def main():
-    print("🔍 Verifying AITBC Explorer is using Live Data")
+    print("🔍 Verifying the block explorer is using Live Data")
     print("=" * 60)
 
     # Check API endpoint
