@@ -45,3 +45,11 @@ class PortfolioError(AgentEconomicsError):
 
 class LiquidationError(AgentEconomicsError):
     """Bond liquidation or provider off-boarding error."""
+
+
+class SwapError(AgentEconomicsError):
+    """Cross-chain swap validation or execution error."""
+
+
+class YieldVenueError(AgentEconomicsError):
+    """Yield venue adapter or strategy error."""
