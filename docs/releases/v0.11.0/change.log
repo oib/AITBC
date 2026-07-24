@@ -109,6 +109,7 @@ types, and documents the success criteria needed to call the phase complete.
 
 - [x] Phase 4 success criteria are defined and reviewed.
 - [x] `OpenClaw`/`agent_economics` types and spike tests pass.
+- [x] `aitbc/agent_memory` models compile and have unit tests.
 - [ ] `apps/memory/` service starts and passes a health check.
 - [ ] Developer registry and grant proposal endpoints are testable.
 - [ ] Compliance policy helpers have unit coverage.
