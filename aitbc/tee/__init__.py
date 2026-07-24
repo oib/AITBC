@@ -14,18 +14,29 @@ from .attestation import (
     QuoteGenerator,
     verify_quote,
 )
+from .benchmark import TEEBenchmark, TEEBenchmarkResult
 from .channel import ChannelState, TEEChannel, TEEMessage
 from .enclave import Enclave, EnclaveConfig, EnclaveStatus
 from .errors import TEEError
 from .identity import EnclaveIdentity, KeyProvisioningPolicy, SealedKeyBundle
 from .sealed_storage import SealedBlob, seal, unseal
 from .session import SessionState, TEESession
+from .verification import (
+    DualVerificationPolicy,
+    DualVerificationResult,
+    VerificationMode,
+    ZKProof,
+    verify_with_policy,
+    verify_with_result,
+)
 
 __all__ = [
     "AttestationQuote",
     "AttestationStatus",
     "AttestationVerifier",
     "ChannelState",
+    "DualVerificationPolicy",
+    "DualVerificationResult",
     "Enclave",
     "EnclaveConfig",
     "EnclaveIdentity",
@@ -34,12 +45,18 @@ __all__ = [
     "QuoteGenerator",
     "SealedBlob",
     "SealedKeyBundle",
+    "TEEBenchmark",
+    "TEEBenchmarkResult",
     "TEEChannel",
     "TEEError",
     "TEEMessage",
     "TEESession",
     "SessionState",
+    "VerificationMode",
+    "ZKProof",
     "seal",
     "unseal",
     "verify_quote",
+    "verify_with_policy",
+    "verify_with_result",
 ]
