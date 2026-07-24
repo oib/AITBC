@@ -7,9 +7,25 @@ from collections.abc import Callable
 from decimal import Decimal
 from typing import Any
 
-from aitbc.agent_economics import Budget
+from aitbc.agent_economics import Budget, OnChainActionType
 
 from .reinvestment import ReinvestmentEngine, ReinvestmentPolicy
+
+
+def _publish_capacity_for_agent(agent_id: str, actions: list[Any]) -> None:
+    """Best-effort capacity publish after a reinvestment action.
+
+    ponytail: If the GPU app publisher is not importable (e.g. not on PYTHONPATH)
+    the publish is skipped silently. Production should wire a real publisher.
+    """
+    try:
+        from gpu_app.capacity_publisher import publish_capacity
+    except ImportError:
+        return
+
+    capacity = sum(1 for a in actions if getattr(a, "action_type", None) == OnChainActionType.REINVEST)
+    if capacity:
+        publish_capacity(agent_id, capacity)
 
 
 class ReinvestmentWorker:
@@ -51,6 +67,7 @@ class ReinvestmentWorker:
         actions = self.engine.apply(earnings, self.agent_id)
         if actions:
             self.dispatcher(actions)
+            _publish_capacity_for_agent(self.agent_id, actions)
         return actions
 
     def run(self) -> None:
