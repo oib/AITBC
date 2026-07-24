@@ -1,46 +1,50 @@
-"""Ensure coordinator-api src is on sys.path for all tests in this directory."""
+"""Shared fixtures for coordinator-api integration tests."""
+
+from __future__ import annotations
 
 import os
-from pathlib import Path
+from collections.abc import Generator
 
 import pytest
+from sqlalchemy import StaticPool, create_engine
+from sqlmodel import Session, SQLModel
 
-# Set up test environment
-os.environ["TEST_MODE"] = "true"
-os.environ["DEBUG"] = "true"  # Enable debug mode for mock endpoints
-os.environ["ENABLE_MOCK_TRAINING"] = "true"  # Enable mock training endpoints
-project_root = Path(__file__).resolve().parent.parent.parent
-os.environ["AUDIT_LOG_DIR"] = str(project_root / "logs" / "audit")
-os.environ["TEST_DATABASE_URL"] = "sqlite:///:memory:"
-os.environ["AITBC_ENABLE_RATE_LIMITING"] = "false"  # Disable rate limiting in tests
-os.environ["JWT_SECRET"] = "test-secret-32-characters-for-tests"
+# Point the app at a throwaway DB and disable auth middleware before importing main.
+os.environ.setdefault("URL", "sqlite:////tmp/aitbc-coordinator-test.db")
+os.environ.setdefault("JWT_SECRET", "test-secret-for-coordinator-tests" * 2)
+os.environ.setdefault("TEST_MODE", "true")
+
+from coordinator_api.main import app  # noqa: E402
+from coordinator_api.storage import get_session  # noqa: E402
 
 
-@pytest.fixture(scope="function")
-def db_session():
-    """Create a fresh database session for each test."""
-    from coordinator_api.contexts.governance.domain.governance import RegionalCouncil  # noqa: F401
-    from sqlmodel import Session, SQLModel, create_engine
-
-    engine = create_engine("sqlite:///:memory:", echo=False)
-    print("DB_SESSION METADATA TABLES:", list(SQLModel.metadata.tables.keys()))
+@pytest.fixture
+def db_engine():
+    """Create a fresh in-memory SQLite engine with all tables."""
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
+    return engine
+
+
+@pytest.fixture
+def db_session(db_engine) -> Generator[Session]:
+    """Yield a database session bound to the in-memory engine."""
+    with Session(db_engine) as session:
         yield session
 
 
-@pytest.fixture(scope="function")
-def client():
-    """Create a TestClient for API testing."""
-    from coordinator_api.main import app
+@pytest.fixture
+def client(db_session):
+    """Yield a TestClient that uses the in-memory DB session."""
     from fastapi.testclient import TestClient
 
-    return TestClient(app)
+    def override_get_session() -> Generator[Session]:
+        yield db_session
 
-
-@pytest.fixture(scope="function")
-def admin_token():
-    """Create a valid admin JWT for use in tests."""
-    from coordinator_api.auth import create_access_token
-
-    return create_access_token("test-admin", "admin")
+    app.dependency_overrides[get_session] = override_get_session
+    yield TestClient(app)
+    app.dependency_overrides.pop(get_session, None)

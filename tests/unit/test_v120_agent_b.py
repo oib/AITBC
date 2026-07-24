@@ -11,6 +11,7 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import pytest
 
@@ -98,6 +99,29 @@ def test_reinvestment_engine_skips_small_earnings() -> None:
     assert engine.apply(earnings=0.5, agent_id="agent-1") == []
 
 
+def test_reinvestment_worker_dispatches_actions() -> None:
+    """The worker fetches earnings and dispatches planned actions."""
+    reinvestment = _import_module("miner_app.reinvestment")
+    worker_mod = _import_module("miner_app.worker")
+    agent_economics = __import__("aitbc.agent_economics", fromlist=["Budget"])
+    from decimal import Decimal
+
+    budget = agent_economics.Budget(budget_id="b1", agent_id="agent-1", chain_id="ait-hub", token="AITBC", total=10)
+    policy = reinvestment.ReinvestmentPolicy(staking_contract="0xSTAKE", reserve_address="0xRESERVE")
+    engine = reinvestment.ReinvestmentEngine(budget, policy)
+
+    dispatched: list[Any] = []
+    worker = worker_mod.ReinvestmentWorker(
+        engine,
+        agent_id="agent-1",
+        earnings_source=lambda: Decimal("4"),
+        dispatcher=lambda actions: dispatched.extend(actions),
+    )
+    actions = worker.run_once()
+    assert actions == dispatched
+    assert len(actions) == 2
+
+
 # ---------------------------------------------------------------------------
 # B3 — CLI extensions
 # ---------------------------------------------------------------------------
@@ -161,6 +185,25 @@ def test_economic_event_store_records_and_filters() -> None:
     agent_events = store.list(actor_id="agent-1")
     assert len(agent_events) == 2
     assert store.total_by_actor("agent-1") == Decimal("2.0")
+
+
+def test_economic_event_store_persists_to_sqlite() -> None:
+    """The event store can persist events to a database session."""
+    from sqlmodel import Session, SQLModel, create_engine
+
+    economic_events = _import_coordinator("coordinator_api.contexts.analytics.economic_events")
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        store = economic_events.EventStore(session=session)
+        event = store.record(economic_events.EconomicEventType.PAYMENT, "agent-1", Decimal("1.5"))
+        assert event.event_id.startswith("evt-")
+
+    with Session(engine) as session:
+        store = economic_events.EventStore(session=session)
+        assert len(store.list(actor_id="agent-1")) == 1
+        assert store.total_by_actor("agent-1") == Decimal("1.5")
 
 
 def test_reconcile_agent_wallets_finds_mismatch() -> None:
