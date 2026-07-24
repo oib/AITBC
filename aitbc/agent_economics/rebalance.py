@@ -1,4 +1,4 @@
-"""Rebalancing and reinvestment policy shared types for AITBC (v0.12.0 §A3).
+"""Rebalancing and reinvestment policy shared types for AITBC (v0.12.0 §A3, v0.13.0 §A1).
 
 Provides ``ReinvestmentPolicy``, ``ChainHoldings``, ``RebalanceConstraint``,
 and ``RebalanceAction`` primitives plus a simple ``Rebalancer`` helper for
@@ -34,6 +34,14 @@ class ConstraintType(StrEnum):
     MIN_LIQUIDITY = "min_liquidity"
     DIVERSIFICATION = "diversification"
     MIN_REINVEST_AMOUNT = "min_reinvest_amount"
+
+
+class RebalancingTrigger(StrEnum):
+    """When a rebalancing operation is triggered."""
+
+    THRESHOLD = "threshold"
+    SCHEDULE = "schedule"
+    OPPORTUNITY = "opportunity"
 
 
 @dataclass
@@ -87,11 +95,15 @@ class ReinvestmentPolicy:
     max_exposure_per_chain: Decimal = field(default_factory=lambda: Decimal("100"))
     trigger_threshold: Decimal = field(default_factory=lambda: Decimal("5"))
     rebalance_frequency: int = 3600  # seconds
+    trigger: RebalancingTrigger | str = RebalancingTrigger.THRESHOLD
+    schedule: str = ""  # optional cron-like expression for SCHEDULE trigger
     chain_id: str = "ait-hub"
     constraints: list[RebalanceConstraint] = field(default_factory=list)
     meta: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        if isinstance(self.trigger, str):
+            self.trigger = RebalancingTrigger(self.trigger)
         if not self.agent_id:
             raise ValueError("agent_id is required")
         if self.min_reinvest_amount < 0:
