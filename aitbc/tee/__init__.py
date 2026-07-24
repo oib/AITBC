@@ -1,0 +1,45 @@
+"""AITBC TEE (Trusted Execution Environment) shared primitives (v0.14.1).
+
+Provides attestation, enclave lifecycle, identity, sealed storage, and
+confidential messaging types consumed by the coordinator-api attestation
+service and agent runtime.
+"""
+
+from __future__ import annotations
+
+from .attestation import (
+    AttestationQuote,
+    AttestationStatus,
+    AttestationVerifier,
+    QuoteGenerator,
+    verify_quote,
+)
+from .channel import ChannelState, TEEChannel, TEEMessage
+from .enclave import Enclave, EnclaveConfig, EnclaveStatus
+from .errors import TEEError
+from .identity import EnclaveIdentity, KeyProvisioningPolicy, SealedKeyBundle
+from .sealed_storage import SealedBlob, seal, unseal
+from .session import SessionState, TEESession
+
+__all__ = [
+    "AttestationQuote",
+    "AttestationStatus",
+    "AttestationVerifier",
+    "ChannelState",
+    "Enclave",
+    "EnclaveConfig",
+    "EnclaveIdentity",
+    "EnclaveStatus",
+    "KeyProvisioningPolicy",
+    "QuoteGenerator",
+    "SealedBlob",
+    "SealedKeyBundle",
+    "TEEChannel",
+    "TEEError",
+    "TEEMessage",
+    "TEESession",
+    "SessionState",
+    "seal",
+    "unseal",
+    "verify_quote",
+]
