@@ -20,8 +20,8 @@ def load_plugin(manifest: PluginManifest, registry: PluginHookRegistry | None = 
 
     try:
         module_name, attr_name = manifest.entry_point.rsplit(":", 1)
-    except ValueError:
-        raise ValueError("entry_point must be 'module.path:callable'")  # noqa: B904
+    except ValueError:  # noqa: B904
+        raise ValueError("entry_point must be 'module.path:callable'")  # noqa: B904 from None
 
     module = importlib.import_module(module_name)
     plugin = getattr(module, attr_name)

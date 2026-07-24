@@ -113,7 +113,7 @@ def test_confidential_wallet_signs_and_verifies() -> None:
 def test_confidential_transaction_tampering_fails_verification() -> None:
     wallet = ConfidentialWallet(wallet_id="w-1", owner_id="owner-1")
     tx = wallet.send("recipient-1", "commitment-100", b"secret-key")
-    tx.amount_commitment = "tampered"
+    tx.amount_commitment = b"tampered"
     assert tx.verify() is False
 
 
