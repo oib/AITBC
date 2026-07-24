@@ -95,7 +95,7 @@ class BiometricAuthManager {
     suspend fun authenticate(): Boolean {
         return withContext(Dispatchers.IO) {
             val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                .setTitle("AITBC Wallet")
+                .setTitle("the wallet")
                 .setSubtitle("Authenticate to access wallet")
                 .setNegativeButtonText("Cancel")
                 .build()
@@ -334,7 +334,7 @@ Miner API:
 
 ### Data Flow
 ```
-Mobile App ↔ AITBC Network
+Mobile App ↔ the network
     ↓
 Wallet Daemon (Port 8015)
     ↓

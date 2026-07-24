@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 contract KnowledgeGraphMarket is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    IERC20 public aitbcToken;
+    IERC20 public paymentToken;
     uint256 public graphCounter;
     uint256 public platformFeePercentage = 250; // 2.5%
 
@@ -41,8 +41,8 @@ contract KnowledgeGraphMarket is Ownable, ReentrancyGuard {
     event GraphPurchased(uint256 indexed id, address indexed buyer, uint256 price);
     event KeyDelivered(uint256 indexed id, address indexed buyer, string encryptedKey);
 
-    constructor(address _aitbcToken) {
-        aitbcToken = IERC20(_aitbcToken);
+    constructor(address _paymentToken) {
+        paymentToken = IERC20(_paymentToken);
     }
 
     function listGraph(string calldata _cid, string calldata _metadataURI, uint256 _price) external returns (uint256) {
@@ -71,8 +71,8 @@ contract KnowledgeGraphMarket is Ownable, ReentrancyGuard {
         uint256 fee = (graph.price * platformFeePercentage) / 10000;
         uint256 creatorAmount = graph.price - fee;
 
-        aitbcToken.safeTransferFrom(msg.sender, address(this), fee); // Treasury
-        aitbcToken.safeTransferFrom(msg.sender, graph.creator, creatorAmount);
+        paymentToken.safeTransferFrom(msg.sender, address(this), fee); // Treasury
+        paymentToken.safeTransferFrom(msg.sender, graph.creator, creatorAmount);
 
         graph.totalSales++;
         hasPurchased[_id][msg.sender] = true;

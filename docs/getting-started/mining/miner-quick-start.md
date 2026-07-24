@@ -1,6 +1,6 @@
 # Miner Quick Start
 
-**5 minutes** — Register your GPU and start earning AITBC tokens with the enhanced CLI.
+**5 minutes** — Register your GPU and start earning the network tokens with the enhanced CLI.
 
 ## Prerequisites
 

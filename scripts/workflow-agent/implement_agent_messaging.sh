@@ -37,7 +37,7 @@ echo "2. Creating agent workflow for blockchain messaging..."
 cat > /tmp/blockchain_messaging_workflow.json << 'EOF'
 {
     "workflow_name": "blockchain_messaging_coordinator",
-    "description": "agent agent that coordinates blockchain messaging across multi-node AITBC network",
+    "description": "agent agent that coordinates blockchain messaging across multi-node the network",
     "version": "1.0",
     "agent_capabilities": [
         "smart_contract_interaction",

@@ -3,7 +3,7 @@ import hardhat from "hardhat";
 const { ethers } = hardhat;
 
 describe.skip("DynamicPricing", function () {
-  let dynamicPricing, aitbcToken, aiPowerRental, performanceVerifier;
+  let dynamicPricing, paymentToken, aiPowerRental, performanceVerifier;
   let deployer, provider, oracle;
 
   const BASE_PRICE = ethers.parseEther("0.01");
@@ -14,8 +14,8 @@ describe.skip("DynamicPricing", function () {
 
     // Deploy AIToken
     const AIToken = await ethers.getContractFactory("AIToken");
-    aitbcToken = await AIToken.deploy(INITIAL_SUPPLY);
-    await aitbcToken.waitForDeployment();
+    paymentToken = await AIToken.deploy(INITIAL_SUPPLY);
+    await paymentToken.waitForDeployment();
 
     // Deploy mock verifiers for AIPowerRental
     const ZKReceiptVerifier = await ethers.getContractFactory("ZKReceiptVerifier");
@@ -29,7 +29,7 @@ describe.skip("DynamicPricing", function () {
     // Deploy AIPowerRental
     const AIPowerRental = await ethers.getContractFactory("AIPowerRental");
     aiPowerRental = await AIPowerRental.deploy(
-      await aitbcToken.getAddress(),
+      await paymentToken.getAddress(),
       await zkVerifier.getAddress(),
       await groth16Verifier.getAddress()
     );
@@ -49,7 +49,7 @@ describe.skip("DynamicPricing", function () {
     dynamicPricing = await DynamicPricing.deploy(
       await aiPowerRental.getAddress(),
       await performanceVerifier.getAddress(),
-      await aitbcToken.getAddress()
+      await paymentToken.getAddress()
     );
     await dynamicPricing.waitForDeployment();
 
@@ -61,7 +61,7 @@ describe.skip("DynamicPricing", function () {
     it("Should deploy with correct addresses", async function () {
       expect(await dynamicPricing.aiPowerRental()).to.equal(await aiPowerRental.getAddress());
       expect(await dynamicPricing.performanceVerifier()).to.equal(await performanceVerifier.getAddress());
-      expect(await dynamicPricing.aitbcToken()).to.equal(await aitbcToken.getAddress());
+      expect(await dynamicPricing.paymentToken()).to.equal(await paymentToken.getAddress());
     });
 
     it("Should set deployer as owner", async function () {

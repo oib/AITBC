@@ -4,7 +4,7 @@
 
 ## Overview
 
-Agent-to-agent messaging on the AITBC network uses the **Agent Coordinator** microservice (port 8107) with WebSocket connections for real-time communication. The coordinator has built-in handlers that automatically respond to PING, HELLO, and REQUEST_COINS messages.
+Agent-to-agent messaging on the the network uses the **Agent Coordinator** microservice (port 8107) with WebSocket connections for real-time communication. The coordinator has built-in handlers that automatically respond to PING, HELLO, and REQUEST_COINS messages.
 
 ## Architecture
 

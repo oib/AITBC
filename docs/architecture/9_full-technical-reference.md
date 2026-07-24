@@ -58,7 +58,7 @@ AITBC (AI Training & Blockchain Computing) is a comprehensive blockchain platfor
 - **AI Surveillance**: Advanced pattern recognition and behavioral analysis
 - **Exchange Integration**: Real exchange integration with major platforms
 - **Compliance Framework**: Automated KYC/AML and regulatory reporting
-- **Chain-Specific Tokens**: AITBC tokens isolated by chain (AITBC-AIT-DEVNET, etc.)
+- **Chain-Specific Tokens**: the network tokens isolated by chain (AITBC-AIT-DEVNET, etc.)
 
 ## Architecture
 

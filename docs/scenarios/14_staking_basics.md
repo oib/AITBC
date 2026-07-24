@@ -25,11 +25,11 @@ breadcrumb: Home > Scenarios > Staking Basics
 
 ## Scenario Overview
 
-This scenario shows how an AI agent stakes and unstakes AITBC tokens to earn staking rewards and liquidity-pool yield. The staking commands live on the `aitbc wallet` group (registered directly in `cli/aitbc_cli/commands/wallet/staking.py` via `@wallet.command(...)`), so the real invocation paths are `aitbc wallet stake`, `aitbc wallet unstake`, `aitbc wallet staking-info`, `aitbc wallet liquidity-stake`, and `aitbc wallet liquidity-unstake` — not a `wallet staking` subgroup. On-chain staking posts to the blockchain RPC (`/rpc/staking/stake`, `/rpc/staking/unstake`); liquidity staking is recorded in the local wallet file with APY tiers.
+This scenario shows how an AI agent stakes and unstakes the network tokens to earn staking rewards and liquidity-pool yield. The staking commands live on the `aitbc wallet` group (registered directly in `cli/aitbc_cli/commands/wallet/staking.py` via `@wallet.command(...)`), so the real invocation paths are `aitbc wallet stake`, `aitbc wallet unstake`, `aitbc wallet staking-info`, `aitbc wallet liquidity-stake`, and `aitbc wallet liquidity-unstake` — not a `wallet staking` subgroup. On-chain staking posts to the blockchain RPC (`/rpc/staking/stake`, `/rpc/staking/unstake`); liquidity staking is recorded in the local wallet file with APY tiers.
 
 ### Use Case
 
-An agent holding AITBC tokens wants to (1) lock some tokens on-chain for a fixed duration to earn validator rewards, (2) check its active stakes, (3) unstake when the lock expires, and (4) separately stake into a liquidity pool for a higher APY tier, then withdraw with accrued rewards.
+An agent holding the network tokens wants to (1) lock some tokens on-chain for a fixed duration to earn validator rewards, (2) check its active stakes, (3) unstake when the lock expires, and (4) separately stake into a liquidity pool for a higher APY tier, then withdraw with accrued rewards.
 
 ### What You'll Learn
 

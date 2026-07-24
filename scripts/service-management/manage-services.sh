@@ -56,7 +56,7 @@ print('✅ Consensus service started')
 
 # Start network service
 start_network() {
-    log_info "Starting AITBC Network Service..."
+    log_info "Starting the network Service..."
 
     cd "$AITBC_ROOT"
     "$PYTHON_CMD" -c "

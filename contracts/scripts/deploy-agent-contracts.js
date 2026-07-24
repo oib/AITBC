@@ -29,14 +29,14 @@ async function main() {
 
     try {
         // Get existing contracts
-        let aitbcTokenAddress, paymentProcessorAddress, aiPowerRentalAddress;
+        let paymentTokenAddress, paymentProcessorAddress, aiPowerRentalAddress;
 
         try {
             const existingContractsFile = `deployed-contracts-${hre.network.name}.json`;
             if (fs.existsSync(existingContractsFile)) {
                 const existingContracts = JSON.parse(fs.readFileSync(existingContractsFile, 'utf8'));
-                aitbcTokenAddress = existingContracts.contracts.AITBCToken?.address;
-                paymentProcessorAddress = existingContracts.contracts.AITBCPaymentProcessor?.address;
+                paymentTokenAddress = existingContracts.contracts.AITBCToken?.address;
+                paymentProcessorAddress = existingContracts.contracts.PaymentProcessor?.address;
                 aiPowerRentalAddress = existingContracts.contracts.AIPowerRental?.address;
             }
         } catch (error) {
@@ -44,35 +44,35 @@ async function main() {
         }
 
         // Deploy Mock ERC20 if needed
-        if (!aitbcTokenAddress) {
+        if (!paymentTokenAddress) {
             console.log("📦 Deploying mock AITBC token...");
             const MockERC20 = await ethers.getContractFactory("MockERC20");
-            const aitbcToken = await MockERC20.deploy(
+            const paymentToken = await MockERC20.deploy(
                 "AITBC Token",
                 "AITBC",
                 ethers.utils.parseEther("1000000")
             );
-            await aitbcToken.deployed();
-            aitbcTokenAddress = aitbcToken.address;
+            await paymentToken.deployed();
+            paymentTokenAddress = paymentToken.address;
 
             deployedContracts.contracts.AITBCToken = {
-                address: aitbcTokenAddress,
-                deploymentHash: aitbcToken.deployTransaction.hash,
-                gasUsed: (await aitbcToken.deployTransaction.wait()).gasUsed.toString()
+                address: paymentTokenAddress,
+                deploymentHash: paymentToken.deployTransaction.hash,
+                gasUsed: (await paymentToken.deployTransaction.wait()).gasUsed.toString()
             };
 
-            console.log(`✅ AITBC Token: ${aitbcTokenAddress}`);
+            console.log(`✅ AITBC Token: ${paymentTokenAddress}`);
         }
 
         // Deploy Mock Payment Processor if needed
         if (!paymentProcessorAddress) {
             console.log("📦 Deploying mock AITBC Payment Processor...");
-            const MockPaymentProcessor = await ethers.getContractFactory("AITBCPaymentProcessor");
-            const paymentProcessor = await MockPaymentProcessor.deploy(aitbcTokenAddress);
+            const MockPaymentProcessor = await ethers.getContractFactory("PaymentProcessor");
+            const paymentProcessor = await MockPaymentProcessor.deploy(paymentTokenAddress);
             await paymentProcessor.deployed();
             paymentProcessorAddress = paymentProcessor.address;
 
-            deployedContracts.contracts.AITBCPaymentProcessor = {
+            deployedContracts.contracts.PaymentProcessor = {
                 address: paymentProcessorAddress,
                 deploymentHash: paymentProcessor.deployTransaction.hash,
                 gasUsed: (await paymentProcessor.deployTransaction.wait()).gasUsed.toString()
@@ -85,7 +85,7 @@ async function main() {
         console.log("📦 Deploying AgentWallet contract...");
         const AgentWallet = await ethers.getContractFactory("AgentWallet");
         const agentWallet = await AgentWallet.deploy(
-            aitbcTokenAddress,
+            paymentTokenAddress,
             paymentProcessorAddress
         );
         await agentWallet.deployed();
@@ -117,7 +117,7 @@ async function main() {
             console.log("📦 Deploying AIPowerRental contract...");
             const AIPowerRental = await ethers.getContractFactory("AIPowerRental");
             const aiPowerRental = await AIPowerRental.deploy(
-                aitbcTokenAddress
+                paymentTokenAddress
             );
             await aiPowerRental.deployed();
             aiPowerRentalAddress = aiPowerRental.address;
@@ -186,7 +186,7 @@ async function main() {
 VITE_AGENT_WALLET_ADDRESS=${agentWallet.address}
 VITE_AGENT_ORCHESTRATION_ADDRESS=${agentOrchestration.address}
 VITE_AI_POWER_RENTAL_ADDRESS=${aiPowerRentalAddress}
-VITE_AITBC_TOKEN_ADDRESS=${aitbcTokenAddress}
+VITE_AITBC_TOKEN_ADDRESS=${paymentTokenAddress}
 VITE_PAYMENT_PROCESSOR_ADDRESS=${paymentProcessorAddress}
 
 # Network Configuration
@@ -224,7 +224,7 @@ VITE_RETRY_LIMIT=3
         console.log(`  AgentWallet: ${agentWallet.address}`);
         console.log(`  AgentOrchestration: ${agentOrchestration.address}`);
         console.log(`  AIPowerRental: ${aiPowerRentalAddress}`);
-        console.log(`  AITBC Token: ${aitbcTokenAddress}`);
+        console.log(`  AITBC Token: ${paymentTokenAddress}`);
         console.log(`  Payment Processor: ${paymentProcessorAddress}`);
         console.log("");
         console.log("🔧 Next Steps:");

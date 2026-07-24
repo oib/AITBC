@@ -254,7 +254,7 @@ service_url = "http://localhost:8105"
 
 ## Wallet Integration
 
-Commands that require signing use the AITBC wallet system:
+Commands that require signing use the the wallet system:
 
 ```bash
 # List available wallets

@@ -6,7 +6,7 @@ Deploy a smart contract to the blockchain
 - **Release**: —
 ## Implementation Details
 - `apps/blockchain-node/src/aitbc_chain/rpc/contract_service.py` — Contract Service Module — queries deployed contracts from the database.
-- `apps/coordinator-api/src/coordinator_api/contexts/blockchain/services/blockchain.py` — Blockchain service for AITBC token operations
+- `apps/coordinator-api/src/coordinator_api/contexts/blockchain/services/blockchain.py` — Blockchain service for the network token operations
 - `apps/blockchain-node/src/aitbc_chain/contracts/htlc_contract.py` — Return the configured block time for a chain, falling back to the global default.
 - `aitbc/caching/blockchain_decorator.py` — Blockchain-specific caching decorator
 - `Blockchain Node` exposes `POST /rpc/contracts/deploy` (operation `deploy_contract_route_rpc_contracts_deploy_post`) — Deploy a smart contract

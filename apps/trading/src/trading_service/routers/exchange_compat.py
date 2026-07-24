@@ -9,9 +9,11 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 from aitbc.aitbc_logging import get_logger
+from aitbc_agent_core import get_active_brand
 
 router = APIRouter(tags=["exchange"])
 logger = get_logger(__name__)
+_brand = get_active_brand()
 
 BITCOIN_CONFIG: dict[str, Any] = {
     "testnet": True,
@@ -83,7 +85,7 @@ async def confirm_exchange_payment(payment_id: str, tx_hash: str) -> dict[str, A
     payment["tx_hash"] = tx_hash
     payment["confirmed_at"] = int(time.time())
     try:
-        logger.info("Minting %s AITBC tokens for user %s", payment["aitbc_amount"], payment["user_id"])
+        logger.info("Minting %s %s tokens for user %s", payment["aitbc_amount"], _brand.token_symbol, payment["user_id"])
     except Exception as e:
         logger.error("Error minting tokens: %s", e)
     logger.info("Confirmed exchange payment %s with tx_hash %s", payment_id, tx_hash)

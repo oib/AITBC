@@ -18,7 +18,7 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
     // State variables
     AIPowerRental public aiPowerRental;
     PerformanceVerifier public performanceVerifier;
-    IERC20 public aitbcToken;
+    IERC20 public paymentToken;
 
     uint256 public priceUpdateCounter;
     uint256 public basePricePerHour = 1e16; // 0.01 AITBC per hour
@@ -253,11 +253,11 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
     constructor(
         address _aiPowerRental,
         address _performanceVerifier,
-        address _aitbcToken
+        address _paymentToken
     ) {
         aiPowerRental = AIPowerRental(_aiPowerRental);
         performanceVerifier = PerformanceVerifier(_performanceVerifier);
-        aitbcToken = IERC20(_aitbcToken);
+        paymentToken = IERC20(_paymentToken);
         priceUpdateCounter = 0;
 
         // Initialize supported regions

@@ -18,7 +18,7 @@ import "./AIToken.sol";
 contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
 
     // State variables
-    IERC20 public aitbcToken;
+    IERC20 public paymentToken;
     PerformanceVerifier public performanceVerifier;
 
     uint256 public stakeCounter;
@@ -267,12 +267,12 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     }
 
     modifier sufficientBalance(uint256 _amount) {
-        require(aitbcToken.balanceOf(msg.sender) >= _amount, "Insufficient balance");
+        require(paymentToken.balanceOf(msg.sender) >= _amount, "Insufficient balance");
         _;
     }
 
-    constructor(address _aitbcToken, address _performanceVerifier) {
-        aitbcToken = IERC20(_aitbcToken);
+    constructor(address _paymentToken, address _performanceVerifier) {
+        paymentToken = IERC20(_paymentToken);
         performanceVerifier = PerformanceVerifier(_performanceVerifier);
 
         // Set tier multipliers (in basis points)
@@ -359,7 +359,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         activeStakeIds.push(stakeId);
 
         // Transfer tokens to contract
-        require(aitbcToken.transferFrom(msg.sender, address(this), _amount), "Transfer failed");
+        require(paymentToken.transferFrom(msg.sender, address(this), _amount), "Transfer failed");
 
         // Update rate limiting counters
         userStakeCount[msg.sender]++;
@@ -404,7 +404,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         _updateStakingPool(stake.agentWallet, msg.sender, _additionalAmount, true);
 
         // Transfer additional tokens
-        require(aitbcToken.transferFrom(msg.sender, address(this), _additionalAmount), "Transfer failed");
+        require(paymentToken.transferFrom(msg.sender, address(this), _additionalAmount), "Transfer failed");
 
         emit StakeUpdated(_stakeId, newTotalAmount, newAPY);
     }
@@ -464,11 +464,11 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
 
         // Transfer tokens back to staker
         if (totalAmount > 0) {
-            require(aitbcToken.transfer(msg.sender, totalAmount), "Stake transfer failed");
+            require(paymentToken.transfer(msg.sender, totalAmount), "Stake transfer failed");
         }
 
         if (totalRewards > 0) {
-            require(aitbcToken.transfer(msg.sender, totalRewards), "Rewards transfer failed");
+            require(paymentToken.transfer(msg.sender, totalRewards), "Rewards transfer failed");
         }
 
         emit StakeCompleted(_stakeId, msg.sender, totalAmount, totalRewards);
@@ -498,11 +498,11 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
 
         // Transfer platform fee
         if (platformFee > 0) {
-            require(aitbcToken.transferFrom(msg.sender, owner(), platformFee), "Platform fee transfer failed");
+            require(paymentToken.transferFrom(msg.sender, owner(), platformFee), "Platform fee transfer failed");
         }
 
         // Transfer distributable amount to contract
-        require(aitbcToken.transferFrom(msg.sender, address(this), distributableAmount), "Earnings transfer failed");
+        require(paymentToken.transferFrom(msg.sender, address(this), distributableAmount), "Earnings transfer failed");
 
         // Distribute to stakers proportionally
         uint256 totalDistributed = 0;
@@ -938,7 +938,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         stake.amount -= slashAmount;
         stake.status = StakeStatus.SLASHED;
 
-        require(aitbcToken.transfer(owner(), slashAmount), "Transfer failed");
+        require(paymentToken.transfer(owner(), slashAmount), "Transfer failed");
 
         emit StakeSlashed(_stakeId, stake.staker, slashAmount, _reason);
     }
@@ -990,7 +990,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
                 stake.amount -= slashAmount;
                 stake.status = StakeStatus.SLASHED;
 
-                require(aitbcToken.transfer(owner(), slashAmount), "Transfer failed");
+                require(paymentToken.transfer(owner(), slashAmount), "Transfer failed");
 
                 emit StakeSlashed(stakeId, stake.staker, slashAmount, _reason);
             }
@@ -1067,7 +1067,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
             uint256 reward = (totalSlashed * slashReporterReward) / 10000;
 
             if (reward > 0) {
-                require(aitbcToken.transfer(msg.sender, reward), "Reward transfer failed");
+                require(paymentToken.transfer(msg.sender, reward), "Reward transfer failed");
             }
 
             emit MaliciousAgentReported(_agentWallet, msg.sender, reward);
