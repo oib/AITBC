@@ -93,12 +93,14 @@ ecosystem & DAO grants, and industry-specific compliance modules.
 - File: `cli/aitbc_cli/commands/grant.py` (new)
   - `grant create`, `grant vote`, `grant disburse`, `grant list`.
 
-### B4: Cleanup verification (P2)
+### B4: Cleanup verification (P2) — ✅ scripts landed
 
 - File: `scripts/security/scan_secrets.py` (new or update)
   - Enforce that no hardcoded API keys are added to the repo.
+  - Fixed `apps/wallet/.../manager.py` hardcoded `coordinator-key`.
 - File: `scripts/ci/check_deprecation_cleanup.sh` (new)
   - Grep for `AIPowerRental`, `light-theme`, and hardcoded API-key patterns.
+  - Fixed `apps/coordinator-api/.../analytics.py` default dashboard theme `light` -> `dark`.
 
 ### B5: Core capability verification (P1)
 
@@ -152,6 +154,8 @@ cd /opt/aitbc
       migration.
 - [x] CLI `developer` and `grant` commands are wired and smoke-tested.
 - [x] Compliance policy helpers have unit coverage.
-- [~] `ruff`, `mypy`, and `pytest tests/unit` pass (ruff/mypy green; pytest has 2 pre-existing failures unrelated to B work).
+- [x] Cleanup verification scripts (`scan_secrets.py`, `check_deprecation_cleanup.sh`) pass.
+- [x] `ruff` and `mypy` pass.
+- [~] `pytest tests/unit` passes (951 pass; 2 pre-existing failures unrelated to B work: `test_alembic_migration_drops_unused_tables` and `test_package_version_matches_source`).
 
 *Generated with [Devin](https://devin.ai)*

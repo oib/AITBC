@@ -114,7 +114,7 @@ class ChainManager:
             chain_id=chain_id,
             name="AITBC Network",
             coordinator_url="http://localhost:8203",
-            coordinator_api_key="coordinator-key",
+            coordinator_api_key=os.getenv("COORDINATOR_API_KEY", ""),
             ledger_db_path=str(_DATA_DIR / "wallet_ledger_devnet.db"),
             keystore_path=str(_DATA_DIR / "keystore_devnet"),
         )
