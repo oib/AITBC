@@ -1,6 +1,7 @@
 # v0.17.0 — Accessibility & Theme Engine
 
 **Last Updated**: 2026-07-24
+**Technical Plan**: [accessibility_theme_plan.md](accessibility_theme_plan.md)
 **Status**: Planned 🚧
 **Prerequisite**: v0.10.18 complete; v0.11.0 in-flight, v0.12.0–v0.16.2 planned
 
@@ -24,30 +25,44 @@ allowing per-user and per-system preference.
 
 ### Theme Engine Foundation (P0)
 
-- Implement a CSS-variable-based theme system with semantic color tokens
-  (`--color-bg-primary`, `--color-text-primary`, `--color-accent`, etc.).
+- Implement `packages/theme-provider` with a global `ThemeProvider` and a
+  `useAitbcTheme` hook consumed by `website` and `apps/blockchain-explorer`.
+- Transition to a CSS-variable-based theme system using AITBC semantic color
+  tokens (`--color-bg-primary`, `--color-zk-verified`, `--color-gpu-priority`,
+  `--color-text-accent`, etc.).
 - Add `light`, `dark`, `high-contrast`, and `system` theme modes.
 - Provide a theme provider component that hydrates the initial mode from
   `localStorage` and `prefers-color-scheme`/`prefers-contrast` media queries.
-- Ensure theme switching does not cause a flash of unstyled content (FOUC).
+- Prevent FOUC across global multi-region edge nodes by caching preferences in
+  Redis and checking server-side before hydration.
 
 ### Accessibility Improvements (P1)
 
 - Add `prefers-reduced-motion` support across animations and transitions.
 - Improve focus indicators to meet WCAG 2.2 AA standards.
 - Add `prefers-contrast` and `prefers-color-scheme` responsive behavior.
-- Audit keyboard navigation and ARIA roles for core pages.
+- Implement `aria-live="polite"` regions for "Multi-Modal Fusion" WebSocket
+  streams so screen readers announce real-time updates without stealing focus.
+- Add keyboard focus management and skip-links for GPU Marketplace listings.
+- Enforce 4.5:1 text contrast and 3:1 graphical contrast, targeting dynamic
+  pricing charts and ZK-proof status displays.
 
 ### User Preference Persistence (P1)
 
-- Persist theme and accessibility preferences in `localStorage`.
+- Persist guest theme and accessibility preferences in `localStorage`.
 - Add a `/settings` or user-menu panel for mode selection.
-- Sync preferences across sessions and devices if a user identity is available.
+- For authenticated OpenClaw agents, store a `theme_preference` ID in a
+  `mapping(address => bytes32)` on the agent identity contract for immutable,
+  cross-device consistency.
+- Cache wallet-bound preferences in Redis at global edge nodes so FOUC prevention
+  and theme hydration remain <100ms.
 
 ### Theme-Agnostic Component Library (P2)
 
 - Refactor existing components to consume CSS variables instead of hardcoded
   dark colors.
+- Add a high-contrast "Developer" theme for the `blockchain-explorer` that
+  maximizes legibility for dense GPU metrics and ZK-proof verification logs.
 - Add theme snapshots to the visual regression test suite.
 - Document the token naming convention in `docs/ui/theming.md`.
 
@@ -70,8 +85,9 @@ allowing per-user and per-system preference.
 - [ ] `prefers-reduced-motion` and `prefers-contrast` are honored.
 - [ ] Focus indicators and keyboard navigation pass WCAG 2.2 AA checks.
 - [ ] User preference persistence works across reloads.
+- [ ] Wallet-bound theme preferences are persisted on-chain and cached at edge nodes.
 - [ ] Visual regression tests cover the new themes.
 - [ ] `./venv/bin/python -m ruff check .` passes (for any Python tooling).
-- [ ] Lint/tests for the UI package pass.
+- [ ] `eslint-plugin-jsx-a11y` is enabled and the UI lint/tests/build pass.
 
 *Generated with [Devin](https://devin.ai)*
