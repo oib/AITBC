@@ -26,11 +26,14 @@ cross-chain yield, and slashing appeals.
 ### A1: Automated staking & rebalancing (P0)
 
 - File: `aitbc/agent_economics/staking.py` (new)
-  - `StakingStrategy`, delegation/un-delegation, yield tracking.
+  - `StakingStrategy`, `Delegation`, `DelegationStatus`, `YieldPosition`, and
+    delegation/unbond/withdraw/claim helpers.
 - File: `aitbc/agent_economics/rebalancing.py` (new or update)
-  - Cross-chain rebalancing triggers and exposure limits.
+  - `RebalancingTrigger` enum (threshold, schedule, opportunity) added to
+    `ReinvestmentPolicy`; cross-chain rebalancing triggers and exposure limits.
 - File: `aitbc/agent_economics/portfolio.py` (new)
-  - Portfolio tracking per chain/token.
+  - `Portfolio` aggregate over `ChainHoldings` with allocation, deviation,
+    and rebalance-needed detection.
 
 ### A2: Performance bond lifecycle (P0)
 
@@ -114,7 +117,7 @@ cd /opt/aitbc
 
 ## Release Gate
 
-- [ ] Automated staking and rebalancing strategies have unit tests.
+- [x] Automated staking and rebalancing strategies have unit tests.
 - [ ] Performance bond lifecycle (lock, top-up, release, liquidation) is
       modeled and tested.
 - [ ] Provider reinvestment loop publishes updated capacity.

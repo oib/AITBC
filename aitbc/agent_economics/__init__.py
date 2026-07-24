@@ -1,4 +1,4 @@
-"""AITBC OpenClaw autonomous economics shared types (v0.11.0 §A2, v0.12.0 §A2).
+"""AITBC OpenClaw autonomous economics shared types (v0.11.0–v0.13.0).
 
 Provides:
 - PricingStrategyType, RevenueRouteType, OnChainActionType: enums for economic primitives
@@ -8,6 +8,9 @@ Provides:
 - OnChainAction: validated on-chain economic action payload
 - PerformanceBond, StakeAccount: bond and stake primitives
 - SlashReason, SlashingCondition, SlashEvent: slashing validators
+- StakingStrategy, Delegation, YieldPosition: staking primitives
+- Portfolio: portfolio tracking
+- MarketMakerStrategy, SurgePricing, DynamicFeeMarket: dynamic pricing
 """
 
 from __future__ import annotations
@@ -23,10 +26,12 @@ from .errors import (
     BondError,
     BudgetError,
     OnChainActionError,
+    PortfolioError,
     PricingError,
     RebalanceError,
     RevenueRouteError,
     SlashError,
+    StakingError,
 )
 from .models import (
     Budget,
@@ -37,6 +42,7 @@ from .models import (
     RevenueRoute,
     RevenueRouteType,
 )
+from .portfolio import Portfolio
 from .pricing import (
     DemandForecast,
     DemandTrend,
@@ -52,6 +58,13 @@ from .rebalance import (
     RebalanceActionType,
     RebalanceConstraint,
     Rebalancer,
+    RebalancingTrigger,
+)
+from .staking import (
+    Delegation,
+    DelegationStatus,
+    StakingStrategy,
+    YieldPosition,
 )
 from .slash import (
     SlashEvent,
@@ -71,6 +84,8 @@ __all__ = [
     "BudgetError",
     "ChainHoldings",
     "ConstraintType",
+    "Delegation",
+    "DelegationStatus",
     "DemandForecast",
     "DemandTrend",
     "DynamicFeeMarket",
@@ -79,6 +94,8 @@ __all__ = [
     "OnChainActionError",
     "OnChainActionType",
     "PerformanceBond",
+    "Portfolio",
+    "PortfolioError",
     "PricingError",
     "PricingStrategy",
     "PricingStrategyType",
@@ -87,6 +104,7 @@ __all__ = [
     "RebalanceConstraint",
     "RebalanceError",
     "Rebalancer",
+    "RebalancingTrigger",
     "ReinvestmentPolicy",
     "RevenueRoute",
     "RevenueRouteError",
@@ -97,7 +115,10 @@ __all__ = [
     "SlashingCondition",
     "StakeAccount",
     "StakeStatus",
+    "StakingError",
+    "StakingStrategy",
     "SurgePricing",
+    "YieldPosition",
     "compute_slash_amount",
     "slash_bond",
     "slash_stake",
