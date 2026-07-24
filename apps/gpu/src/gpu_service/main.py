@@ -291,12 +291,89 @@ class OptimizeInferenceRequest(BaseModel):
     request_data: dict[str, Any]
 
 
+class QueueJobRequest(BaseModel):
+    gpu_id: str
+    client_id: str
+    priority: int
+    payload: dict[str, Any]
+
+
 @app.post("/v1/marketplace/edge-gpu/optimize/inference/{gpu_id}")
 async def optimize_inference(
     gpu_id: str, request: OptimizeInferenceRequest, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]
 ):
     """Optimize ML inference request for edge GPU"""
     return await svc.optimize_inference_for_edge(gpu_id, request.model_name, request.request_data)
+
+
+@app.post("/v1/gpu/queue")
+async def queue_gpu_job(request: QueueJobRequest, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]) -> dict[str, Any]:
+    """Enqueue a dynamic-priority GPU job"""
+    job = await svc.queue_job(request.gpu_id, request.client_id, request.priority, request.payload)
+    return {
+        "job_id": job.id,
+        "gpu_id": job.gpu_id,
+        "client_id": job.client_id,
+        "priority": job.priority,
+        "status": job.status.value,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
+    }
+
+
+@app.get("/v1/gpu/queue/{gpu_id}")
+async def list_gpu_queue(
+    gpu_id: str, svc: Annotated[EdgeGPUService, Depends(get_edge_service)], status: str | None = None, limit: int = 100
+) -> dict[str, Any]:
+    """List GPU jobs ordered by priority"""
+    jobs = await svc.list_queued_jobs(gpu_id, status=status, limit=limit)
+    return {
+        "gpu_id": gpu_id,
+        "jobs": [
+            {
+                "job_id": j.id,
+                "client_id": j.client_id,
+                "priority": j.priority,
+                "status": j.status.value,
+                "created_at": j.created_at.isoformat() if j.created_at else None,
+            }
+            for j in jobs
+        ],
+        "total": len(jobs),
+    }
+
+
+@app.post("/v1/gpu/queue/{gpu_id}/next")
+async def next_gpu_queue(gpu_id: str, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]) -> dict[str, Any]:
+    """Pop the highest-priority queued job for a GPU"""
+    job = await svc.get_next_queued_job(gpu_id)
+    if not job:
+        return {"gpu_id": gpu_id, "job": None}
+    return {
+        "gpu_id": gpu_id,
+        "job": {
+            "job_id": job.id,
+            "client_id": job.client_id,
+            "priority": job.priority,
+            "status": job.status.value,
+            "payload": job.payload,
+            "started_at": job.started_at.isoformat() if job.started_at else None,
+        },
+    }
+
+
+@app.post("/v1/gpu/queue/{job_id}/complete")
+async def complete_gpu_queue(
+    job_id: str, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]
+) -> dict[str, Any] | tuple[dict[str, Any], int]:
+    """Mark a running GPU job as completed"""
+    job = await svc.complete_job(job_id)
+    if not job:
+        return ({"error": "Job not found"}, 404)
+    return {
+        "job_id": job.id,
+        "status": job.status.value,
+        "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+    }
 
 
 @app.post("/v1/transactions")

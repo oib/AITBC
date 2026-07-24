@@ -6,6 +6,8 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
+from sqlmodel import select
+
 from ..clients.blockchain_rpc import BlockchainRPCClient
 from ..schemas.island import BridgeRequest, IslandMembership, IslandStatus
 from ..storage import get_session
@@ -25,7 +27,13 @@ class IslandService:
         self.rpc_client = BlockchainRPCClient()
 
     async def join_island(
-        self, island_id: str, island_name: str, chain_id: str | list[str], role: str = "compute-provider", is_hub: bool = False
+        self,
+        island_id: str,
+        island_name: str,
+        chain_id: str | list[str],
+        role: str = "compute-provider",
+        is_hub: bool = False,
+        region: str | None = None,
     ) -> dict[str, Any]:
         """Join an island via blockchain RPC"""
         # Call blockchain RPC to join island
@@ -44,8 +52,18 @@ class IslandService:
                     status = IslandStatus(raw_status)
                 except ValueError:
                     status = IslandStatus.ACTIVE
+                extra_data: dict[str, Any] = {}
+                if region:
+                    extra_data["region"] = region
+                if is_hub:
+                    extra_data["is_hub"] = is_hub
                 membership = IslandMembership(
-                    island_id=island_id, island_name=island_name, chain_id=chain_id, role=role, status=status
+                    island_id=island_id,
+                    island_name=island_name,
+                    chain_id=chain_id,
+                    role=role,
+                    status=status,
+                    extra_data=extra_data,
                 )
                 session.add(membership)
                 await session.commit()
@@ -78,6 +96,14 @@ class IslandService:
         """Get island details via blockchain RPC"""
         result = await self.rpc_client.get_island_info(island_id)
         return result
+
+    async def list_memberships_by_region(self, region: str) -> list[IslandMembership]:
+        """List edge node island memberships for a given region."""
+        async with get_session() as session:
+            stmt = select(IslandMembership)
+            result = await session.execute(stmt)
+            memberships = result.scalars().all()
+            return [m for m in memberships if m.extra_data.get("region") == region]
 
     async def request_bridge(self, target_island_id: str) -> dict[str, Any]:
         """Request bridge to another island via blockchain RPC"""
