@@ -107,7 +107,7 @@ types, and documents the success criteria needed to call the phase complete.
 ## Release Gate
 
 - [ ] Phase 4 success criteria are defined and reviewed.
-- [ ] `OpenClaw`/`agent_economics` types and spike tests pass.
+- [x] `OpenClaw`/`agent_economics` types and spike tests pass.
 - [ ] `apps/memory/` service starts and passes a health check.
 - [ ] Developer registry and grant proposal endpoints are testable.
 - [ ] Compliance policy helpers have unit coverage.

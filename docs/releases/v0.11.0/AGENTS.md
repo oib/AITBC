@@ -138,7 +138,7 @@ cd /opt/aitbc
 ## Release Gate
 
 - [ ] Phase 4 success criteria are defined and reviewed.
-- [ ] `aitbc/agent_economics` types compile and have unit tests.
+- [x] `aitbc/agent_economics` types compile and have unit tests.
 - [ ] `aitbc/agent_memory` models are consumed by `apps/memory`.
 - [ ] `apps/memory` service starts and passes a health check.
 - [ ] Developer registry and grant proposal SQLModels are created with a
