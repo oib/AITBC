@@ -9,10 +9,11 @@ Revises: add_developer_platform
 Create Date: 2026-07-22 15:55:56.926522+00:00
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
+from alembic import context, op
 
 # revision identifiers, used by Alembic.
 revision: str = "7350cc615a22"
@@ -22,6 +23,8 @@ depends_on: str | Sequence[str] | None = None
 
 
 def _has_table(bind: sa.engine.Engine, table_name: str) -> bool:
+    if context.is_offline_mode():
+        return False
     return table_name in sa.inspect(bind).get_table_names()
 
 
