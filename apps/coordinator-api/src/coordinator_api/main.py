@@ -36,6 +36,8 @@ from .config import settings, validate_critical_environment_variables
 from .contexts.agent_identity.routers import agent_identity
 from .contexts.blockchain.routers import blockchain
 from .contexts.cross_chain.routers.cross_chain_integration import router as cross_chain
+from .contexts.developer.routers.developer import router as developer_registry
+from .contexts.governance.routers.grants import router as grants_router
 
 from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
 from .contexts.ipfs.routers import router as ipfs
@@ -395,7 +397,9 @@ def create_app() -> FastAPI:
     app.include_router(agent_router, prefix="/v1/agents")
     app.include_router(agent_identity, prefix="/v1")
     app.include_router(developer_platform, prefix="/v1")
+    app.include_router(developer_registry, prefix="/v1")
     app.include_router(governance_enhanced, prefix="/v1")
+    app.include_router(grants_router, prefix="/v1")
 
     # More optional routers
     try:
