@@ -1,4 +1,4 @@
-# v0.13.0 — Compliance-Ready Modules
+# v0.13.0 — Mature Autonomous Economic Infrastructure
 
 **Last Updated**: 2026-07-24
 **Status**: Planned 🚧
@@ -6,81 +6,81 @@
 
 ## Release Theme
 
-Implement compliance-ready modules for industry-specific deployments. This
-release delivers the encryption, audit logging, data classification, and
-container/sub-network isolation primitives required for Healthcare (HIPAA) and
-Financial services agents, plus generic templates for Manufacturing, Education,
-and Retail.
+Mature the OpenClaw Autonomous Economics layer into a production-grade,
+self-regulating system. This release delivers automated staking and
+rebalancing for provider agents, full performance-bond lifecycle management,
+cross-chain yield strategies, and the risk/solvency engine needed for agent
+infrastructure to scale without human intervention.
 
 ## Motivation
 
-The platform lists Healthcare (HIPAA) and Finance (regulatory) as target
-industries, but the infrastructure to enforce strict data protection, audit
-trails, and consent management is not yet in place. v0.13.0 closes that gap by
-introducing compliance containers, sub-networks, and policy-aware APIs so
-medical and financial agents can operate on AITBC without leaking protected
-data.
+The multi-chain wallet and atomic-swap foundation is in place, and v0.12.0
+introduces the basic economic primitives. The next maturity step is to let
+Compute Provider agents autonomously manage their own performance bonds,
+reinvest earned AITBC tokens, and rebalance across chains and yield venues so
+they can continuously upgrade GPU capacity and absorb shocks.
 
 ## Planned Work
 
-### Compliance Policy Framework (P0)
+### Automated Staking & Rebalancing (P0)
 
-- Create `aitbc/compliance/` with policy definitions for HIPAA, SOC 2, GLBA,
-  PCI-DSS, and generic Manufacturing, Education, and Retail templates.
-- Add data classification labels (PHI, PII, PCI, public, internal, restricted).
-- Implement consent and retention policy abstractions.
+- Implement `StakingStrategy` and `RebalancingPolicy` in `aitbc/agent_economics/`.
+- Add automated delegation/un-delegation of AITBC to validator sets based on
+  real yield and slashing risk.
+- Implement cross-chain rebalancing triggers (threshold, schedule, and
+  opportunity-based).
+- Add portfolio tracking and exposure limits per chain/token.
 
-### Compliance Containers & Sub-Networks (P0)
+### Performance Bond Lifecycle (P0)
 
-- Design "compliance containers" that isolate sensitive workloads and storage.
-- Add sub-network segmentation so medical/financial agents run in dedicated,
-  encrypted enclaves.
-- Integrate with Trusted Execution Environments (TEEs) where available.
+- Extend `PerformanceBond` with lock, top-up, partial release, and liquidation
+  states.
+- Implement automated bond top-up when collateral value falls below required
+  thresholds.
+- Add bond forfeiture and provider off-boarding workflows.
+- Wire bond status to provider eligibility in `apps/marketplace/`.
 
-### Encryption & Key Management (P1)
+### Provider Reinvestment Loop (P1)
 
-- Enforce AES-256 encryption for data-at-rest and TLS 1.3 for data-in-transit
-  within compliance containers.
-- Add per-tenant key derivation and rotation policies.
-- Implement key escrow and recovery flows for regulated data.
+- Build the reinvestment decision engine: earned AITBC is converted to GPU
+  and storage capacity according to a provider-defined policy.
+- Integrate with `apps/miner/` and `apps/gpu/` to publish new capacity.
+- Add forecast-driven pre-investment (e.g., buy memory before demand spikes).
 
-### Audit Logging & Immutable Trails (P1)
+### Risk & Solvency Engine (P1)
 
-- Build an append-only, tamper-evident audit log for compliance-sensitive
-  events.
-- Add log shipping and retention policies.
-- Integrate audit events with `apps/coordinator-api` analytics domain.
+- Add a solvency monitor that predicts bond shortfalls and recommends action.
+- Implement risk scoring for chains, validators, and storage providers.
+- Add circuit-breaker logic that halts autonomous actions during extreme
+  market events.
 
-### Healthcare HIPAA Module (P1)
+### Cross-Chain Yield & Liquidity (P2)
 
-- Implement minimum-necessary access controls for PHI.
-- Add consent tracking, right-to-access, and right-to-delete workflows.
-- Enforce audit logging for all PHI access and modifications.
+- Add yield-venue integrations (staking, liquidity pools) with pluggable
+  adapters.
+- Implement AITBC token swaps across chains to fund operations.
+- Add yield harvest and compounding automation.
 
-### Financial Regulatory Module (P2)
+### Slashing Appeals & Governance (P2)
 
-- Implement PCI-DSS and GLBA controls for financial agents.
-- Add transaction audit trails and non-repudiation proofs.
-- Wire to OpenClaw DAO governance for compliance parameter updates.
-
-### Coordinator-API Integration (P2)
-
-- Add compliance middleware/decorators that enforce classification and consent.
-- Add `compliance` CLI commands for policy checks and audit export.
+- Implement on-chain slashing appeals with evidence submission.
+- Add OpenClaw DAO proposals for slashing rule updates and bond thresholds.
+- Add economic emergency pause and parameter rollback controls.
 
 ## Breaking Changes
 
-- New compliance middleware and policy decorators may restrict existing
-  endpoints. Concrete breaking changes will be documented as the release
-  matures.
+- Bond state machine changes will affect `apps/coordinator-api` provider
+  eligibility and `apps/miner/` reinvestment flows. Concrete breaking changes
+  will be documented as the release matures.
 
 ## Release Gate
 
-- [ ] Compliance policy framework compiles and has unit tests.
-- [ ] Compliance container/sub-network design is documented and reviewed.
-- [ ] Encryption and key management primitives are testable.
-- [ ] Immutable audit log is wired to `coordinator-api` events.
-- [ ] HIPAA and financial modules have example policies and tests.
+- [ ] Automated staking and rebalancing strategies have unit tests.
+- [ ] Performance bond lifecycle (lock, top-up, release, liquidation) is
+      modeled and tested.
+- [ ] Provider reinvestment loop publishes updated capacity.
+- [ ] Risk/solvency engine triggers circuit breakers under simulated stress.
+- [ ] Cross-chain yield and slashing appeal workflows are testable.
 - [ ] `./venv/bin/python -m ruff check .` passes.
 - [ ] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
 - [ ] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.

@@ -156,16 +156,19 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 - **v0.12.0** — OpenClaw Autonomous Economics (agent wallets & escrow, performance bonds & staking, automated rebalancing & reinvestment, dynamic fee market, OpenClaw DAO economic governance): <ref_file file="/opt/aitbc/docs/releases/v0.12.0/change.log" /> 🚧 planned
 
 ### Product Track v0.13 (2026 roadmap)
-- **v0.13.0** — Compliance-Ready Modules (HIPAA, financial regulatory, compliance containers, sub-networks, encryption, immutable audit logging): <ref_file file="/opt/aitbc/docs/releases/v0.13.0/change.log" /> 🚧 planned
+- **v0.13.0** — Mature Autonomous Economic Infrastructure (automated staking/rebalancing, performance bond lifecycle, provider reinvestment, risk/solvency engine, cross-chain yield, slashing appeals): <ref_file file="/opt/aitbc/docs/releases/v0.13.0/change.log" /> 🚧 planned
 
 ### Product Track v0.14 (2026 roadmap)
-- **v0.14.0** — Platform Builder Tooling (CLI config tool, SDK, builder docs, developer registry, DAO grants, local dev helpers): <ref_file file="/opt/aitbc/docs/releases/v0.14.0/change.log" /> 🚧 planned
+- **v0.14.1** — TEE-Backed Verification & Confidential Compute Phase 1 (attestation, enclaves, confidential messaging, TEE-backed data processing): <ref_file file="/opt/aitbc/docs/releases/v0.14.1/change.log" /> 🚧 planned
+- **v0.14.2** — TEE-Backed Verification & Confidential Compute Phase 2 (ZK+TEE dual verification, confidential transactions, healthcare/finance reference enclaves): <ref_file file="/opt/aitbc/docs/releases/v0.14.2/change.log" /> 🚧 planned
 
 ### Product Track v0.15 (2026 roadmap)
-- **v0.15.0** — Mature Autonomous Economic Infrastructure (automated staking/rebalancing, performance bond lifecycle, provider reinvestment, risk/solvency engine, cross-chain yield, slashing appeals): <ref_file file="/opt/aitbc/docs/releases/v0.15.0/change.log" /> 🚧 planned
+- **v0.15.1** — Compliance-Ready Modules Phase 1 (policy framework, data classification, encryption, immutable audit logging, HIPAA): <ref_file file="/opt/aitbc/docs/releases/v0.15.1/change.log" /> 🚧 planned
+- **v0.15.2** — Compliance-Ready Modules Phase 2 (compliance containers/sub-networks, financial regulatory module, middleware, CLI): <ref_file file="/opt/aitbc/docs/releases/v0.15.2/change.log" /> 🚧 planned
 
 ### Product Track v0.16 (2026 roadmap)
-- **v0.16.0** — TEE-Backed Verification & Confidential Compute (attestation, enclaves, confidential messaging, ZK+TEE dual verification, confidential transactions): <ref_file file="/opt/aitbc/docs/releases/v0.16.0/change.log" /> 🚧 planned
+- **v0.16.1** — Platform Builder Tooling Phase 1 (CLI config tool, developer registry, DAO grants, local dev helpers, introductory builder docs): <ref_file file="/opt/aitbc/docs/releases/v0.16.1/change.log" /> 🚧 planned
+- **v0.16.2** — Platform Builder Tooling Phase 2 (SDK, SDK reference docs, white-label/plugin architecture): <ref_file file="/opt/aitbc/docs/releases/v0.16.2/change.log" /> 🚧 planned
 
 ### Product Track v0.17 (2026 roadmap)
 - **v0.17.0** — Accessibility & Theme Engine (light/dark/high-contrast/system modes, reduced motion, WCAG focus, user preference persistence): <ref_file file="/opt/aitbc/docs/releases/v0.17.0/change.log" /> 🚧 planned
@@ -205,10 +208,13 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.10.18                                        (update deployment stabilization: market_metrics migration, wallet keystore restore, update.sh/health_check.sh fixes, poetry switch) ✅ complete
   → v0.11.0                                         (Phase 4 & 2026 roadmap foundations: memory, economics, grants, compliance) 🚧 in progress
   → v0.12.0                                         (OpenClaw Autonomous Economics) 🚧 planned
-  → v0.13.0                                         (Compliance-Ready Modules: HIPAA, finance, audit logging) 🚧 planned
-  → v0.14.0                                         (Platform Builder Tooling: SDK, CLI config, builder docs, developer registry, DAO grants) 🚧 planned
-  → v0.15.0                                         (Mature Autonomous Economic Infrastructure) 🚧 planned
-  → v0.16.0                                         (TEE-Backed Verification & Confidential Compute) 🚧 planned
+  → v0.13.0                                         (Mature Autonomous Economic Infrastructure) 🚧 planned
+  → v0.14.1                                         (TEE-Backed Verification & Confidential Compute Phase 1) 🚧 planned
+  → v0.14.2                                         (TEE-Backed Verification & Confidential Compute Phase 2) 🚧 planned
+  → v0.15.1                                         (Compliance-Ready Modules Phase 1) 🚧 planned
+  → v0.15.2                                         (Compliance-Ready Modules Phase 2) 🚧 planned
+  → v0.16.1                                         (Platform Builder Tooling Phase 1) 🚧 planned
+  → v0.16.2                                         (Platform Builder Tooling Phase 2) 🚧 planned
   → v0.17.0                                         (Accessibility & Theme Engine) 🚧 planned
   → v1.0.0                                          (production readiness)
   → v2.0.0                                          (vision — questionable features, parked for re-evaluation)
