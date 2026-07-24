@@ -22,17 +22,19 @@ ecosystem & DAO grants, and industry-specific compliance modules.
 
 ## Agent A — Shared Core & Types
 
-### A1: Phase 4 success criteria (P0)
+### A1: Phase 4 success criteria (P0) — ✅ defined
 
-- Document measurable Phase 4 gates in `docs/releases/v0.11.0/change.log`
-  and the checklist below.
-- Define baseline metrics in `docs/releases/v0.11.0/phase4_gates.yml` for:
-  autonomous economic loop adoption, storage node coverage, grant disbursement
-  correctness, compliance coverage, and test coverage.
-- Add `scripts/ci/check_phase4_gates.py`; it reads the YAML gate definitions and
-  exits non-zero if any P0 criterion is not met.
+- File: `docs/releases/v0.11.0/phase4_gates.yml` (updated)
+  - Baseline metrics defined for all five P0 gates.
+  - `compliance_coverage` and `test_coverage` are `status: passed`
+    (50.61% shared-core test coverage, 100% policy-template coverage).
+  - Operational gates (`autonomous_economic_loop_adoption`,
+    `storage_node_coverage`, `grant_disbursement_correctness`) are
+    `status: pending` until network metrics are available.
+- File: `scripts/ci/check_phase4_gates.py` (new)
+  - Reads `phase4_gates.yml` and exits non-zero if any gate is not met.
 
-### A2: OpenClaw Autonomous Economics types (P0)
+### A2: OpenClaw Autonomous Economics types (P0) — ✅ complete
 
 - File: `aitbc/agent_economics/__init__.py` (new)
 - File: `aitbc/agent_economics/models.py` (new)
@@ -40,7 +42,7 @@ ecosystem & DAO grants, and industry-specific compliance modules.
 - File: `aitbc/agent_economics/errors.py` (new)
   - Domain exceptions for invalid budgets, routes, and strategies.
 
-### A3: Decentralized AI Memory & Storage types (P1)
+### A3: Decentralized AI Memory & Storage types (P1) — ✅ complete
 
 - File: `aitbc/agent_memory/__init__.py` (new)
 - File: `aitbc/agent_memory/models.py` (new)
@@ -49,7 +51,7 @@ ecosystem & DAO grants, and industry-specific compliance modules.
 - File: `aitbc/agent_memory/errors.py` (new)
   - Domain exceptions for missing or unauthorized blobs.
 
-### A4: Industry-specific compliance abstractions (P2)
+### A4: Industry-specific compliance abstractions (P2) — ✅ complete
 
 - File: `aitbc/compliance/__init__.py` (new)
 - File: `aitbc/compliance/policies.py` (new)
@@ -160,12 +162,17 @@ cd /opt/aitbc
 - [x] Developer registry and grant proposal SQLModels are created with a
       migration.
 - [x] CLI `developer` and `grant` commands are wired and smoke-tested.
-- [x] Compliance policy helpers have unit coverage.
+- [x] Compliance policy helpers have unit coverage (all 8 templates tested).
 - [x] Cleanup verification scripts (`scan_secrets.py`, `check_deprecation_cleanup.sh`) pass.
 - [x] Core capability verification (edge, GPU priority queue, fusion) complete.
 - [x] `config check-keys` command reports missing environment API keys.
 - [x] Dark-mode-only accessibility policy documented in `docs/web/README.md`.
 - [x] `ruff` and `mypy` pass.
-- [~] `pytest tests/unit` passes (951 pass; 2 pre-existing failures unrelated to B work: `test_alembic_migration_drops_unused_tables` and `test_package_version_matches_source`).
+- [x] `pytest tests/unit` passes.
+- [x] `alembic upgrade head` and `alembic check` pass for coordinator-api.
+- [x] Installed `aitbc` package version aligned with `pyproject.toml` (0.10.18).
+- [~] `scripts/ci/check_phase4_gates.py`: `compliance_coverage` (100%) and
+      `test_coverage` (50.61%) pass; operational gates remain pending until
+      network metrics are available.
 
 *Generated with [Devin](https://devin.ai)*
