@@ -1,7 +1,7 @@
 # v0.12.0 — OpenClaw Autonomous Economics
 
 **Last Updated**: 2026-07-24
-**Version**: 0.1 — Planned 🚧
+**Version**: 1.0 — Complete ✅
 
 **Release Theme**: Implement the OpenClaw Autonomous Economics layer:
 self-managing agent wallets, automated staking and rebalancing, performance
@@ -63,33 +63,40 @@ bonds, dynamic fee markets, and provider reinvestment loops.
 
 ## Agent B — Applications, DAO & CLI
 
-### B1: OpenClaw DAO economic governance (P2)
+### B1: OpenClaw DAO economic governance (P2) — ✅ complete
 
 - File: `apps/coordinator-api/src/coordinator_api/contexts/governance/domain/economic_proposal.py` (new)
   - SQLModel `EconomicParameterProposal`.
-- File: `apps/coordinator-api/alembic/versions/` (new migration)
-  - Create `economic_parameter_proposal` table.
+- File: `apps/coordinator-api/src/coordinator_api/main.py`
+  - Import `EconomicParameterProposal` so `SQLModel.metadata` and `alembic check` agree.
+- File: `apps/coordinator-api/alembic/versions/bf44ceb6e4ee_add_economic_parameter_proposal_table.py` (new)
+  - Create `economic_parameter_proposal` table with `if_not_exists` guards.
 
-### B2: Provider reinvestment loop (P1)
+### B2: Provider reinvestment loop (P1) — ✅ complete
 
-- File: `apps/miner/src/miner_app/reinvestment.py` (TBD)
-  - Autonomous reinvestment of earned AITBC into GPU/storage capacity.
-- File: `apps/coordinator-api/src/coordinator_api/contexts/marketplace/` (TBD)
-  - APIs to publish updated provider capacity after reinvestment.
+- File: `apps/miner/miner_app/reinvestment.py` (new)
+  - `ReinvestmentEngine`, `ReinvestmentPolicy`, and `build_revenue_route`.
+  - Uses `aitbc.agent_economics.Budget`, `OnChainAction`, and `RevenueRoute`.
+- File: `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace.py`
+  - `POST /marketplace/providers/{provider_id}/capacity` to publish updated capacity.
+- File: `apps/coordinator-api/src/coordinator_api/contexts/marketplace/services/marketplace.py`
+  - `MarketplaceService.update_provider_capacity` updates the provider's latest offer.
 
-### B3: CLI extensions (P1)
+### B3: CLI extensions (P1) — ✅ complete
 
 - File: `cli/aitbc_cli/commands/agent_wallet.py` (new)
   - `agent-wallet balance`, `agent-wallet stake`, `agent-wallet rebalance`.
-- File: `cli/aitbc_cli/commands/economics.py` (new)
-  - `economics propose`, `economics vote`, `economics status`.
+- File: `cli/aitbc_cli/commands/economics.py`
+  - `economics propose`, `economics vote`, `economics status` added to existing group.
+- File: `cli/aitbc_cli/core/main.py`
+  - Registers the `agent-wallet` command group.
 
-### B4: Economic eventing & audit (P2)
+### B4: Economic eventing & audit (P2) — ✅ complete
 
 - File: `apps/coordinator-api/src/coordinator_api/contexts/analytics/economic_events.py` (new)
-  - Event log for lease, payment, slash, and rebalance events.
+  - `EconomicEvent`, `EconomicEventType`, and in-memory `EventStore`.
 - File: `scripts/audit/reconcile_agent_wallets.py` (new)
-  - Reconciliation helper for agent wallets and escrow.
+  - Reconciliation helper for agent wallet budgets and expected balances.
 
 ---
 
@@ -117,9 +124,9 @@ cd /opt/aitbc
 - [x] Agent wallet and escrow primitives are defined and tested.
 - [x] Performance bond and staking models compile and have unit coverage.
 - [x] Reinvestment policy and `Rebalancer` planner have unit tests.
-- [ ] Automated rebalancing loop passes simulation tests.
+- [x] Automated rebalancing loop passes simulation tests.
 - [x] Dynamic fee market extends the existing Dynamic Pricing API.
-- [ ] OpenClaw DAO governance proposals for economic parameters are testable.
-- [ ] `ruff`, `mypy`, and `pytest tests/unit` pass.
+- [x] OpenClaw DAO governance proposals for economic parameters are testable.
+- [x] `ruff`, `mypy`, and `pytest tests/unit` pass.
 
 *Generated with [Devin](https://devin.ai)*
