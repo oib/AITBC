@@ -155,6 +155,9 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 ### Product Track v0.12 (2026 roadmap)
 - **v0.12.0** — OpenClaw Autonomous Economics (agent wallets & escrow, performance bonds & staking, automated rebalancing & reinvestment, dynamic fee market, OpenClaw DAO economic governance): <ref_file file="/opt/aitbc/docs/releases/v0.12.0/change.log" /> 🚧 planned
 
+### Product Track v0.13 (2026 roadmap)
+- **v0.13.0** — Compliance-Ready Modules (HIPAA, financial regulatory, compliance containers, sub-networks, encryption, immutable audit logging): <ref_file file="/opt/aitbc/docs/releases/v0.13.0/change.log" /> 🚧 planned
+
 ### Post-v1 Vision (not fit until after v1.0.0)
 - **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
 
