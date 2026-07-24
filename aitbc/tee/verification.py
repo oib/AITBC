@@ -1,13 +1,17 @@
 """ZK + TEE dual-verification policy (v0.14.2 §A1).
 
-ponytail: This is a policy skeleton. Real enforcement needs a ZK verifier and
-a TEE quote validator wired to a platform attestation service.
+Provides ``VerificationMode``, ``ZKProof``, ``DualVerificationPolicy``, and
+helpers to evaluate ZK-only, TEE-only, or combined verification. Real
+enforcement still needs a ZK verifier and a platform-specific quote validator;
+the in-memory policy here is a selectable policy skeleton.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 
 from .attestation import AttestationQuote, AttestationVerifier
 from .errors import TEEError
@@ -21,12 +25,25 @@ class VerificationMode(StrEnum):
     BOTH = "both"
 
 
+@dataclass
 class ZKProof:
     """Placeholder for a zero-knowledge proof object."""
 
-    def __init__(self, proof_id: str, verified: bool = True):
-        self.proof_id = proof_id
-        self.verified = verified
+    proof_id: str
+    verified: bool = True
+    meta: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class DualVerificationResult:
+    """Detailed result of a dual-verification policy check."""
+
+    verified: bool
+    mode: VerificationMode
+    tee_ok: bool
+    zk_ok: bool
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+    meta: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -36,21 +53,46 @@ class DualVerificationPolicy:
     mode: VerificationMode
     allowed_measurements: set[str] | frozenset[str] | None = None
 
+    def _verify_tee(self, quote: AttestationQuote | None) -> bool:
+        if quote is None:
+            return False
+        return AttestationVerifier(self.allowed_measurements).verify(quote)
+
+    def _verify_zk(self, zk_proof: ZKProof | None) -> bool:
+        return zk_proof is not None and zk_proof.verified
+
     def verify(self, quote: AttestationQuote | None, zk_proof: ZKProof | None) -> bool:
         """Evaluate the verification policy for the given evidence."""
+        return self.verify_with_result(quote, zk_proof).verified
+
+    def verify_with_result(
+        self,
+        quote: AttestationQuote | None,
+        zk_proof: ZKProof | None,
+    ) -> DualVerificationResult:
+        """Evaluate the policy and return a detailed result."""
+        tee_ok = self._verify_tee(quote)
+        zk_ok = self._verify_zk(zk_proof)
+
         if self.mode == VerificationMode.ZK_ONLY:
             if zk_proof is None:
                 raise TEEError("ZK proof required for zk_only mode")
-            return zk_proof.verified
-        if self.mode == VerificationMode.TEE_ONLY:
+            verified = zk_ok
+        elif self.mode == VerificationMode.TEE_ONLY:
             if quote is None:
                 raise TEEError("TEE quote required for tee_only mode")
-            return AttestationVerifier(self.allowed_measurements).verify(quote)
-        if self.mode == VerificationMode.BOTH:
-            zk_ok = zk_proof is not None and zk_proof.verified
-            tee_ok = quote is not None and AttestationVerifier(self.allowed_measurements).verify(quote)
-            return zk_ok and tee_ok
-        raise ValueError(f"unsupported verification mode {self.mode}")
+            verified = tee_ok
+        elif self.mode == VerificationMode.BOTH:
+            verified = tee_ok and zk_ok
+        else:
+            raise ValueError(f"unsupported verification mode {self.mode}")
+
+        return DualVerificationResult(
+            verified=verified,
+            mode=self.mode,
+            tee_ok=tee_ok,
+            zk_ok=zk_ok,
+        )
 
 
 def verify_with_policy(
@@ -60,3 +102,12 @@ def verify_with_policy(
 ) -> bool:
     """Top-level helper to verify evidence against a dual-verification policy."""
     return policy.verify(quote, zk_proof)
+
+
+def verify_with_result(
+    policy: DualVerificationPolicy,
+    quote: AttestationQuote | None,
+    zk_proof: ZKProof | None,
+) -> DualVerificationResult:
+    """Top-level helper returning a detailed verification result."""
+    return policy.verify_with_result(quote, zk_proof)
