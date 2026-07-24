@@ -19,6 +19,7 @@ from aitbc_cli.commands.chain import chain
 from aitbc_cli.commands.cluster import cluster
 from aitbc_cli.commands.coin_requests import coin_requests
 from aitbc_cli.commands.compliance import compliance
+from aitbc_cli.commands.deploy import deploy
 from aitbc_cli.commands.confidential import confidential
 from aitbc_cli.commands.config import config as config_cmd
 from aitbc_cli.commands.contract import contract
@@ -35,6 +36,7 @@ from aitbc_cli.commands.exchange import exchange
 from aitbc_cli.commands.exchange_island import exchange_island
 from aitbc_cli.commands.genesis import genesis
 from aitbc_cli.commands.governance import governance
+from aitbc_cli.commands.plugin import plugin
 
 # Import island-specific commands
 from aitbc_cli.commands.gpu_marketplace import gpu
@@ -49,6 +51,7 @@ from aitbc_cli.commands.monitor import monitor  # Re-enabled - no core dependenc
 from aitbc_cli.commands.network import network
 from aitbc_cli.commands.operations import operations
 from aitbc_cli.commands.performance import performance
+from aitbc_cli.commands.platform import platform
 from aitbc_cli.commands.pool_hub import pool_hub
 from aitbc_cli.commands.reinvest import reinvest
 from aitbc_cli.commands.reputation import reputation
@@ -170,8 +173,11 @@ cli.add_command(account)
 cli.add_command(messaging)
 cli.add_command(network)
 cli.add_command(performance)
+cli.add_command(platform)
 cli.add_command(pool_hub)
+cli.add_command(plugin)
 cli.add_command(bridge)
+cli.add_command(deploy)
 cli.add_command(contract)
 cli.add_command(script)
 cli.add_command(economics)
