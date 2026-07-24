@@ -61,8 +61,8 @@ def send(ctx, wallet_id: str, recipient_id: str, amount_commitment: str):
                 "tx_id": tx.tx_id,
                 "sender_id": tx.sender_id,
                 "recipient_id": tx.recipient_id,
-                "amount_commitment": tx.amount_commitment,
-                "signature": tx.signature.decode("utf-8", errors="replace") if tx.signature else "",
+                "amount_commitment": tx.amount_commitment.hex() if tx.amount_commitment else "",
+                "signature": tx.signature.hex() if tx.signature else "",
                 "settled": receipt["settled"],
                 "status": "simulated",
             }
@@ -73,7 +73,7 @@ def send(ctx, wallet_id: str, recipient_id: str, amount_commitment: str):
                     "payment_id": tx.tx_id,
                     "sender_id": tx.sender_id,
                     "recipient_id": tx.recipient_id,
-                    "amount_commitment": tx.amount_commitment,
+                    "amount_commitment": tx.amount_commitment.hex() if tx.amount_commitment else "",
                 },
             )
         output(result, ctx.obj.get("output_format", "table"), title="Confidential Send")
