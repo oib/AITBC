@@ -199,8 +199,17 @@ v0.5.16  (security hardening + multi-chain preparation) ✅ complete
   → v0.10.12                                        (quality hardening: mypy completeness, test suite repair, production assert removal, dependency/version cleanup) ✅
   → v0.10.13                                        (security & correctness hardening: credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) ✅
   → v0.10.14                                        (legacy code & stub elimination: shadow packages, legacy routers, fake implementations, duplicate stacks) ✅
-  → v0.10.15                                        (router/module decomposition and settlement config wiring) ✅
+  → v0.10.15                                        (router/module decomposition and settlement config wiring) ✅ complete
   → v0.10.16                                        (security & correctness hardening: bridge, wallet auth, financial exactness, migrations, CI/deployment) ✅ complete
+  → v0.10.17                                        (security & auth hardening bugfix: auth bypass, hardcoded defaults, feature flags, pool-hub reward signing) ✅ complete
+  → v0.10.18                                        (update deployment stabilization: market_metrics migration, wallet keystore restore, update.sh/health_check.sh fixes, poetry switch) ✅ complete
+  → v0.11.0                                         (Phase 4 & 2026 roadmap foundations: memory, economics, grants, compliance) 🚧 in progress
+  → v0.12.0                                         (OpenClaw Autonomous Economics) 🚧 planned
+  → v0.13.0                                         (Compliance-Ready Modules: HIPAA, finance, audit logging) 🚧 planned
+  → v0.14.0                                         (Platform Builder Tooling: SDK, CLI config, builder docs, developer registry, DAO grants) 🚧 planned
+  → v0.15.0                                         (Mature Autonomous Economic Infrastructure) 🚧 planned
+  → v0.16.0                                         (TEE-Backed Verification & Confidential Compute) 🚧 planned
+  → v0.17.0                                         (Accessibility & Theme Engine) 🚧 planned
   → v1.0.0                                          (production readiness)
   → v2.0.0                                          (vision — questionable features, parked for re-evaluation)
 ```
