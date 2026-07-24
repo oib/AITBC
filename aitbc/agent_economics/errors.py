@@ -29,3 +29,7 @@ class BondError(AgentEconomicsError):
 
 class SlashError(AgentEconomicsError):
     """Slashing validation or application error."""
+
+
+class RebalanceError(AgentEconomicsError):
+    """Rebalancing or reinvestment policy error."""
