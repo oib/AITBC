@@ -1,0 +1,94 @@
+# v0.11.0 — Phase 4 & 2026 Roadmap Foundations
+
+**Last Updated**: 2026-07-24
+**Status**: Planned 🚧
+**Prerequisite**: v0.10.18 complete
+
+## Release Theme
+
+Begin implementing the platform's 2026 product roadmap and Phase 4 success
+criteria: OpenClaw autonomous economics, decentralized AI memory and storage,
+the developer ecosystem and DAO grants program, and industry-specific compliance
+modules.
+
+## Motivation
+
+The next product phase moves beyond the multi-chain foundation and
+trading/settlement infrastructure into user-facing autonomous services. The
+roadmap explicitly schedules:
+
+- OpenClaw Autonomous Economics (Q2–Q3 2026)
+- Decentralized AI Memory & Storage (Q3 2026)
+- Developer Ecosystem & DAO Grants (Q4 2026)
+- Phase 4 success criteria gating
+- Industry-specific solutions for Healthcare (HIPAA), Finance (regulatory),
+  Manufacturing, Education, and Retail
+
+v0.11.0 scopes these tracks, establishes the first service skeletons and shared
+types, and documents the success criteria needed to call the phase complete.
+
+## Planned Work
+
+### Phase 4 Success Criteria (P0)
+
+- Define measurable Phase 4 gates: autonomous economic loop adoption, storage
+  node coverage, grant disbursement correctness, compliance coverage, and test
+  coverage.
+- Wire gate checks into the CI/release pipeline.
+- Baseline the metrics needed to evaluate each gate.
+
+### OpenClaw Autonomous Economics (P0)
+
+- Design economic agent primitives in `aitbc/agent_economics/`.
+- Add budget, revenue routing, and on-chain strategy abstractions.
+- Spike automated pricing/fee market for agent services.
+- Integrate with the existing multi-chain wallet and atomic swap
+  infrastructure.
+
+### Decentralized AI Memory & Storage (P1)
+
+- Design a content-addressed storage protocol and shared types.
+- Create the `apps/memory/` service skeleton: store, retrieve, encrypt,
+  replicate.
+- Define storage market primitives (capacity, pricing, proofs).
+- Add agent state persistence APIs in `aitbc/agent_memory/`.
+
+### Developer Ecosystem & DAO Grants (P1)
+
+- Add grant proposal types and workflow to the `apps/coordinator-api`
+  governance domain.
+- Create a developer registry domain and API.
+- Extend the CLI with `developer` and `grant` command groups.
+- Implement milestone-based disbursement tracking.
+
+### Industry-Specific Compliance (P2)
+
+- Add `aitbc/compliance/` policies for HIPAA, SOC2/GLBA/PCI-DSS, and generic
+  Manufacturing, Education, and Retail templates.
+- Implement data classification, consent, retention, and audit-log helpers.
+- Add compliance-aware decorators for `coordinator-api` endpoints.
+
+### Cleanup Verification (P2)
+
+- Confirm all `AIPowerRental` references are gone; add a regression check.
+- Confirm light-theme assets are removed and dark mode is enforced across the
+  website.
+- Confirm no hardcoded API keys remain; add a secret-scan step to CI.
+
+## Breaking Changes
+
+- New services and public API surface are expected. Concrete breaking changes
+  will be documented as the release matures.
+
+## Release Gate
+
+- [ ] Phase 4 success criteria are defined and reviewed.
+- [ ] `OpenClaw`/`agent_economics` types and spike tests pass.
+- [ ] `apps/memory/` service starts and passes a health check.
+- [ ] Developer registry and grant proposal endpoints are testable.
+- [ ] Compliance policy helpers have unit coverage.
+- [ ] `./venv/bin/python -m ruff check .` passes.
+- [ ] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
+- [ ] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.
+
+*Generated with [Devin](https://devin.ai)*
