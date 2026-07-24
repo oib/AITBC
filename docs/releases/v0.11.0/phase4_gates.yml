@@ -12,41 +12,44 @@ gates:
       Percentage of active compute providers participating in automated
       staking, rebalancing, or reinvestment loops.
     threshold: 50.0
-    current:
+    current: 0
     unit: "%"
     status: pending
+    note: Operational metric; cannot be measured until the network is live.
 
   storage_node_coverage:
     description: >
       Minimum number of storage nodes online per geographic region serving the
       decentralized AI memory layer.
     threshold: 3
-    current:
+    current: 0
     unit: "nodes/region"
     status: pending
+    note: Operational metric; cannot be measured until the network is live.
 
   grant_disbursement_correctness:
     description: >
       Percentage of milestone-based DAO grant disbursements whose on-chain
       records match approved proposals.
     threshold: 99.9
-    current:
+    current: 0
     unit: "%"
     status: pending
+    note: Operational metric; cannot be measured until the network is live.
 
   compliance_coverage:
     description: >
       Percentage of regulated industry policy templates (HIPAA, SOC2/GLBA,
       PCI-DSS, Manufacturing, Education, Retail) with passing audit tests.
     threshold: 100.0
-    current:
+    current: 100.0
     unit: "%"
-    status: pending
+    status: passed
 
   test_coverage:
     description: >
       Minimum shared-core (`aitbc/`) test coverage reported by `pytest --cov`.
     threshold: 46.0
-    current:
+    current: 50.61
     unit: "%"
-    status: pending
+    status: passed
