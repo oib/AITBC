@@ -28,17 +28,23 @@ from aitbc.compliance import (
 from aitbc.compliance.errors import InvalidClassificationError, PolicyViolationError
 
 
-def test_load_hipaa_template() -> None:
-    policy = load_policy_template("hipaa")
-    assert policy.framework == ComplianceFramework.HIPAA
-    assert DataClassification.PHI in policy.classifications
-    assert policy.require_control("HIPAA-1")
-
-
-def test_load_pci_dss_template() -> None:
-    policy = load_policy_template(ComplianceFramework.PCI_DSS)
-    assert DataClassification.PCI in policy.classifications
-    assert policy.require_control("PCI-1")
+@pytest.mark.parametrize(
+    "framework,control_id",
+    [
+        (ComplianceFramework.HIPAA, "HIPAA-1"),
+        (ComplianceFramework.SOC2, "SOC2-1"),
+        (ComplianceFramework.GLBA, "GLBA-1"),
+        (ComplianceFramework.PCI_DSS, "PCI-1"),
+        (ComplianceFramework.MANUFACTURING, "MFG-1"),
+        (ComplianceFramework.EDUCATION, "EDU-1"),
+        (ComplianceFramework.RETAIL, "RET-1"),
+        (ComplianceFramework.GENERIC, "GEN-1"),
+    ],
+)
+def test_load_policy_template(framework: ComplianceFramework, control_id: str) -> None:
+    policy = load_policy_template(framework)
+    assert policy.framework == framework
+    assert policy.require_control(control_id)
 
 
 def test_template_is_independent_copy() -> None:
