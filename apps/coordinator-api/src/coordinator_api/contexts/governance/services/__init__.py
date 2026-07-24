@@ -1,5 +1,5 @@
 """Governance services."""
 
-from .governance_service import GovernanceService
+from .grant_service import GrantService
 
-__all__ = ["GovernanceService"]
+__all__ = ["GrantService"]
