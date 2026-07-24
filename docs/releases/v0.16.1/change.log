@@ -1,15 +1,15 @@
-# v0.14.0 — Platform Builder Tooling
+# v0.16.1 — Platform Builder Tooling (Phase 1: CLI, Registry & Grants)
 
 **Last Updated**: 2026-07-24
 **Status**: Planned 🚧
-**Prerequisite**: v0.10.18 complete; v0.11.0 in-flight, v0.12.0 and v0.13.0 planned
+**Prerequisite**: v0.10.18 complete; v0.11.0 in-flight, v0.12.0–v0.15.2 planned
 
 ## Release Theme
 
-Improve the Platform Builder experience: SDKs, how-to guides, a streamlined
-CLI configuration tool, and the developer ecosystem/DAO grants workflows
-needed to onboard external contributors and lower the barrier to entry for
-new AITBC developers.
+Improve the Platform Builder experience with a streamlined CLI configuration
+tool, developer registry, DAO grants workflows, local development helpers, and
+introductory builder documentation — the foundation needed to onboard external
+contributors and lower the barrier to entry for new AITBC developers.
 
 ## Motivation
 
@@ -29,18 +29,10 @@ or submit contributions.
 - Integrate key validation with the existing `scripts/security/scan_secrets.py`
   workflow.
 
-### SDK for Platform Builders (P1)
-
-- Create `packages/py/aitbc-sdk/` with high-level client bindings for
-  coordinator-api, wallet, and agent registry.
-- Add typed request/response models and retry/circuit-breaker helpers.
-- Publish a local install target (`pip install -e packages/py/aitbc-sdk`).
-
 ### Builder Documentation & How-To Guides (P1)
 
 - Create `docs/builders/` with:
   - `getting-started.md` — install, env setup, first agent.
-  - `sdk-reference.md` — API client usage.
   - `contributing.md` — repo layout, tests, commit conventions.
   - `grants.md` — how to propose and complete DAO grants.
 
@@ -61,15 +53,14 @@ or submit contributions.
 
 ## Breaking Changes
 
-- New CLI commands and SDK surface. Existing environment-based configuration
-  remains backward compatible.
+- New CLI commands and developer registry endpoints. Existing environment-based
+  configuration remains backward compatible.
 
 ## Release Gate
 
 - [ ] `aitbc config check` reports missing env keys correctly.
 - [ ] `aitbc bootstrap-env` produces a valid starter `.env`.
-- [ ] `aitbc-sdk` package installs and exposes coordinator-api client.
-- [ ] Builder docs cover getting started, SDK reference, contributing, and grants.
+- [ ] Builder docs cover getting started, contributing, and grants.
 - [ ] Developer registry and grant proposal endpoints are testable.
 - [ ] `./venv/bin/python -m ruff check .` passes.
 - [ ] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.

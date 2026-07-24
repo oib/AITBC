@@ -7,7 +7,7 @@
 theme engine supporting light, dark, high-contrast, and system modes,
 reduced-motion support, and WCAG-aligned focus indicators.
 
-**Prerequisites**: v0.10.18 complete; v0.11.0 in-flight, v0.12.0–v0.16.0
+**Prerequisites**: v0.10.18 complete; v0.11.0 in-flight, v0.12.0–v0.16.2
 planned.
 
 ---
@@ -60,7 +60,7 @@ planned.
 ### B5: Compliance mapping (P2)
 
 - File: `docs/releases/v0.17.0/accessibility-checklist.md` (new)
-  - WCAG acceptance criteria mapped to v0.13.0 compliance modules.
+  - WCAG acceptance criteria mapped to v0.15.1/v0.15.2 compliance modules.
 
 ---
 

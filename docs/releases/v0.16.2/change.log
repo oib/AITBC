@@ -1,0 +1,65 @@
+# v0.16.2 — Platform Builder Tooling (Phase 2: SDK & White-Label)
+
+**Last Updated**: 2026-07-24
+**Status**: Planned 🚧
+**Prerequisite**: v0.16.1 complete; v0.17.0 planned
+
+## Release Theme
+
+Deliver the Platform Builder SDK and white-label tooling on top of the
+v0.16.1 CLI and developer registry foundation. This release enables
+third-party integrators to build custom dashboards and brand-aligned instances
+of AITBC.
+
+## Motivation
+
+v0.16.1 provides the CLI configuration tool, developer registry, grants
+workflows, and local development helpers. Phase 2 adds the high-level SDK,
+white-label configuration manifest, and plugin architecture needed for
+external contributors to ship specialized AITBC deployments.
+
+## Planned Work
+
+### SDK for Platform Builders (P0)
+
+- Create `packages/py/aitbc-sdk/` with high-level client bindings for
+  coordinator-api, wallet, and agent registry.
+- Add typed request/response models and retry/circuit-breaker helpers.
+- Publish a local install target (`pip install -e packages/py/aitbc-sdk`).
+
+### SDK Reference Documentation (P0)
+
+- Create `docs/builders/sdk-reference.md` covering API client usage.
+
+### White-Label & Plugin Architecture (P1)
+
+- Move core marketplace/coordinator logic to a headless `packages/aitbc-core`.
+- Add `.yaml`/`.json` brand manifest support (logos, themes, API endpoints,
+  settlement rules, performance bonds).
+- Define plugin lifecycle hooks (`onResourceDiscovery`, `onNegotiationStart`,
+  `onProofGeneration`, `onVerificationSuccess`).
+- Add `aitbc init-platform`, `aitbc plugin create`, and `aitbc deploy-brand`
+  scaffolding commands.
+
+### White-Label SDK Features (P1)
+
+- React/Vue component library for blockchain explorer and marketplace data.
+- WebSocket stream handlers for multi-modal agent communication.
+- Resource monitoring hooks for GPU priority, preemption, and edge node health.
+
+## Breaking Changes
+
+- New SDK package and plugin surface. Existing environment-based configuration
+  remains backward compatible.
+
+## Release Gate
+
+- [ ] `aitbc-sdk` package installs and exposes a coordinator-api client.
+- [ ] SDK reference documentation covers all public client methods.
+- [ ] White-label brand manifest is documented and has an example.
+- [ ] Plugin lifecycle hooks are wired into OpenClaw agent execution.
+- [ ] `./venv/bin/python -m ruff check .` passes.
+- [ ] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
+- [ ] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.
+
+*Generated with [Devin](https://devin.ai)*
