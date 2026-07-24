@@ -2,6 +2,7 @@
 
 **Last Updated**: 2026-07-24
 **Version**: 0.1 — Planned 🚧
+**Technical Plan**: [accessibility_theme_plan.md](accessibility_theme_plan.md)
 
 **Release Theme**: Reintroduce accessibility options with a CSS-variable-based
 theme engine supporting light, dark, high-contrast, and system modes,
@@ -24,13 +25,17 @@ planned.
 
 ### B1: Theme engine foundation (P0)
 
-- File: `packages/web/src/theme/ThemeProvider.tsx` (new or update)
-  - Hydrate initial theme from `localStorage` and system media queries.
-  - Support `light`, `dark`, `high-contrast`, and `system`.
-- File: `packages/web/src/theme/tokens.css` (new)
-  - Semantic CSS variables for backgrounds, text, accents, borders, focus.
-- File: `packages/web/src/theme/no-fouc.ts` (new)
-  - Prevent flash of unstyled content on initial load.
+- File: `packages/theme-provider/src/ThemeProvider.tsx` (new)
+  - Global `ThemeProvider` and `useAitbcTheme` hook for `website` and
+    `apps/blockchain-explorer`.
+- File: `packages/theme-provider/src/tokens.css` (new)
+  - AITBC semantic CSS variables (`--color-bg-primary`, `--color-zk-verified`,
+    `--color-gpu-priority`, `--color-text-accent`, etc.).
+- File: `packages/theme-provider/src/no-fouc.ts` (new)
+  - Prevent FOUC by hydrating from `localStorage`/system media queries and
+    Redis-cached server-side preferences.
+- File: `packages/theme-provider/package.json` (new)
+  - Monorepo package entry with styled-components or emotion peer deps.
 
 ### B2: Accessibility improvements (P1)
 
@@ -40,22 +45,36 @@ planned.
   - WCAG 2.2 AA focus indicators.
 - File: `packages/web/src/components/a11y/SkipLink.tsx` (new)
   - Skip-to-content link for keyboard users.
+- File: `packages/web/src/components/a11y/LiveRegion.tsx` (new)
+  - `aria-live="polite"` region for Multi-Modal Fusion WebSocket streams.
+- File: `packages/web/src/styles/contrast.css` (new)
+  - 4.5:1 text and 3:1 graphical contrast enforcement for charts and metrics.
 
 ### B3: User preference persistence (P1)
 
 - File: `packages/web/src/settings/AppearancePanel.tsx` (new)
   - UI for mode, contrast, and motion preferences.
 - File: `packages/web/src/hooks/usePreferences.ts` (new)
-  - Persist and sync preferences via `localStorage`/user identity.
+  - Persist and sync guest preferences via `localStorage`.
+- File: `apps/coordinator-api/src/coordinator_api/contexts/preferences/redis_cache.py` (new)
+  - Redis edge cache for wallet-bound theme preferences (<100ms hydration).
+- File: `contracts/contracts/AgentIdentity.sol` (update)
+  - Add `mapping(address => bytes32) themePreference` for OpenClaw agents.
+- File: `packages/web/src/hooks/useWalletTheme.ts` (new)
+  - Read/write theme preference through the agent identity contract.
 
 ### B4: Theme-agnostic component library (P2)
 
 - File: `packages/web/src/components/**/*` (update)
   - Replace hardcoded dark colors with CSS variable tokens.
+- File: `packages/web/src/theme/variants/contrast.css` (new)
+  - High-contrast "Developer" theme for `apps/blockchain-explorer`.
 - File: `packages/web/tests/visual/regression.spec.ts` (new or update)
   - Add theme snapshots for visual regression.
 - File: `docs/ui/theming.md` (new)
   - Token naming convention and component usage guide.
+- File: `tests/ui-accessibility/` (new)
+  - Programmatic ARIA and contrast validation for marketplace components.
 
 ### B5: Compliance mapping (P2)
 
@@ -76,6 +95,8 @@ cd packages/web
 npm run lint
 npm run test
 npm run build
+# Accessibility lint
+npx eslint --ext .ts,.tsx src/ --plugin jsx-a11y
 ```
 
 ## Coordination Protocol
@@ -93,7 +114,8 @@ npm run build
 - [ ] `prefers-reduced-motion` and `prefers-contrast` are honored.
 - [ ] Focus indicators and keyboard navigation pass WCAG 2.2 AA checks.
 - [ ] User preference persistence works across reloads.
+- [ ] Wallet-bound theme preferences are persisted on-chain and cached at edge nodes.
 - [ ] Visual regression tests cover the new themes.
-- [ ] UI lint, tests, and build pass.
+- [ ] `eslint-plugin-jsx-a11y` passes and `tests/ui-accessibility` validate ARIA/contrast.
 
 *Generated with [Devin](https://devin.ai)*
