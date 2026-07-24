@@ -19,6 +19,8 @@ from aitbc_cli.commands.compliance import compliance
 from aitbc_cli.commands.config import config as config_cmd
 from aitbc_cli.commands.contract import contract
 from aitbc_cli.commands.cross_chain import cross_chain  # Re-enabled - no core dependency
+from aitbc_cli.commands.developer import developer
+from aitbc_cli.commands.grant import grant
 from aitbc_cli.commands.economics import economics
 from aitbc_cli.commands.edge import edge
 from aitbc_cli.commands.explorer import explorer
@@ -133,6 +135,8 @@ cli.add_command(analytics)  # Re-enabled - core.analytics exists
 cli.add_command(cross_chain, name="crosschain")  # Re-enabled - no core dependency
 cli.add_command(reputation)  # Reputation management
 cli.add_command(governance)  # Governance operations
+cli.add_command(developer)  # Developer registry
+cli.add_command(grant)  # DAO grant proposals
 cli.add_command(monitor)  # Re-enabled - no core dependency
 cli.add_command(node)
 cli.add_command(agent_comm)  # Cross-chain agent communication (distinct from `agent` SDK group)

@@ -67,19 +67,17 @@ ecosystem & DAO grants, and industry-specific compliance modules.
 
 ## Agent B — Applications, CLI & Operations
 
-### B1: `apps/memory` service skeleton (P1) — blocked pending Agent A A3
-
-> `aitbc/agent_memory` shared models are not yet landed; B1 should start after A3.
+### B1: `apps/memory` service skeleton (P1) — ✅ skeleton landed
 
 - File: `apps/memory/src/memory_app/main.py` (new)
 - File: `apps/memory/src/memory_app/api.py` (new)
   - `POST /store`, `GET /retrieve`, `GET /health`.
 - File: `apps/memory/src/memory_app/config.py` (new)
-  - Subclass `apps/shared-core/src/app/core/config.py` `ServiceSettings`.
+  - Subclass `aitbc_shared.ServiceSettings`.
 - File: `apps/memory/src/memory_app/service.py` (new)
-  - Content addressing, encryption-at-rest, and replication hooks.
+  - Content addressing, encryption-at-rest hook, and replication proof hook.
 
-### B2: Developer ecosystem & DAO grants (P1) — ✅ in progress / skeleton landed
+### B2: Developer ecosystem & DAO grants (P1) — ✅ skeleton landed
 
 - File: `apps/coordinator-api/src/coordinator_api/contexts/governance/domain/grant.py` (new)
   - SQLModel `GrantProposal` and `GrantMilestone`.
@@ -148,12 +146,12 @@ cd /opt/aitbc
 - [x] Phase 4 success criteria are defined and reviewed.
 - [x] `aitbc/agent_economics` types compile and have unit tests.
 - [x] `aitbc/agent_memory` models compile and have unit tests.
-- [ ] `aitbc/agent_memory` models are consumed by `apps/memory`.
-- [ ] `apps/memory` service starts and passes a health check.
-- [ ] Developer registry and grant proposal SQLModels are created with a
+- [x] `aitbc/agent_memory` models are consumed by `apps/memory`.
+- [x] `apps/memory` service starts and passes a health check.
+- [x] Developer registry and grant proposal SQLModels are created with a
       migration.
-- [ ] CLI `developer` and `grant` commands are wired and smoke-tested.
+- [x] CLI `developer` and `grant` commands are wired and smoke-tested.
 - [x] Compliance policy helpers have unit coverage.
-- [ ] `ruff`, `mypy`, and `pytest tests/unit` pass.
+- [~] `ruff`, `mypy`, and `pytest tests/unit` pass (ruff/mypy green; pytest has 2 pre-existing failures unrelated to B work).
 
 *Generated with [Devin](https://devin.ai)*
