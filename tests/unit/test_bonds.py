@@ -89,6 +89,44 @@ def test_performance_bond_liquidate() -> None:
     assert bond.status == BondStatus.LIQUIDATED
 
 
+def test_performance_bond_top_up() -> None:
+    bond = PerformanceBond(
+        bond_id="b1",
+        agent_id="agent-a",
+        amount=Decimal("100"),
+        token="AITBC",
+    )
+    bond.activate()
+    bond.top_up(Decimal("50"))
+    assert bond.amount == Decimal("150")
+
+
+def test_performance_bond_partial_release() -> None:
+    bond = PerformanceBond(
+        bond_id="b1",
+        agent_id="agent-a",
+        amount=Decimal("100"),
+        token="AITBC",
+    )
+    bond.activate()
+    bond.partial_release(Decimal("30"))
+    assert bond.amount == Decimal("70")
+    assert bond.status == BondStatus.PARTIALLY_RELEASED
+
+
+def test_performance_bond_partial_release_full_amount() -> None:
+    bond = PerformanceBond(
+        bond_id="b1",
+        agent_id="agent-a",
+        amount=Decimal("100"),
+        token="AITBC",
+    )
+    bond.activate()
+    bond.partial_release(Decimal("100"))
+    assert bond.amount == Decimal("0")
+    assert bond.status == BondStatus.RELEASED
+
+
 def test_stake_account_lifecycle() -> None:
     stake = StakeAccount(
         stake_id="s1",
