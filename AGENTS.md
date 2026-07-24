@@ -161,6 +161,9 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 ### Product Track v0.14 (2026 roadmap)
 - **v0.14.0** — Platform Builder Tooling (CLI config tool, SDK, builder docs, developer registry, DAO grants, local dev helpers): <ref_file file="/opt/aitbc/docs/releases/v0.14.0/change.log" /> 🚧 planned
 
+### Product Track v0.15 (2026 roadmap)
+- **v0.15.0** — Mature Autonomous Economic Infrastructure (automated staking/rebalancing, performance bond lifecycle, provider reinvestment, risk/solvency engine, cross-chain yield, slashing appeals): <ref_file file="/opt/aitbc/docs/releases/v0.15.0/change.log" /> 🚧 planned
+
 ### Post-v1 Vision (not fit until after v1.0.0)
 - **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
 
