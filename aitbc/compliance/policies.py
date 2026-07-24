@@ -55,7 +55,7 @@ def normalize_classification(
     if isinstance(classification, DataClassification):
         return classification
     try:
-        return DataClassification(classification)
+        return DataClassification(str(classification).lower())
     except ValueError as exc:
         raise InvalidClassificationError(f"Unknown data classification: {classification}") from exc
 
