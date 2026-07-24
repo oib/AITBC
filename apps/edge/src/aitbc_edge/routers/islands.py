@@ -18,6 +18,7 @@ class JoinIslandRequest(BaseModel):
     chain_id: str | list[str]
     role: str = Field(default="compute-provider")
     is_hub: bool = Field(default=False)
+    region: str | None = Field(default=None)
 
 
 class LeaveIslandRequest(BaseModel):
@@ -48,6 +49,7 @@ async def join_island(
         chain_id=request.chain_id,
         role=request.role,
         is_hub=request.is_hub,
+        region=request.region,
     )
     return result
 
@@ -75,6 +77,29 @@ async def get_island(island_id: str, svc: Annotated[IslandService, Depends(get_i
     if island is None:
         raise HTTPException(status_code=404, detail=f"Island {island_id} not found")
     return island
+
+
+@router.get("/by-region/{region}")
+async def list_memberships_by_region(
+    region: str, svc: Annotated[IslandService, Depends(get_island_service)]
+) -> dict[str, Any]:
+    """List island memberships for a specific region (multi-region edge nodes)."""
+    memberships = await svc.list_memberships_by_region(region)
+    return {
+        "region": region,
+        "memberships": [
+            {
+                "island_id": m.island_id,
+                "island_name": m.island_name,
+                "chain_id": m.chain_id,
+                "role": m.role,
+                "status": m.status.value,
+                "region": m.extra_data.get("region"),
+            }
+            for m in memberships
+        ],
+        "total": len(memberships),
+    }
 
 
 @router.post("/bridge")

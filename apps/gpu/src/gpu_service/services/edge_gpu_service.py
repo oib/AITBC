@@ -10,7 +10,15 @@ from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
 
-from ..domain.gpu_marketplace import CONSUMER_GPU_PROFILES, ConsumerGPUProfile, EdgeGPUMetrics, GPUArchitecture, GPURegistry
+from ..domain.gpu_marketplace import (
+    CONSUMER_GPU_PROFILES,
+    ConsumerGPUProfile,
+    EdgeGPUMetrics,
+    GPUArchitecture,
+    GPUJobQueue,
+    GPUJobStatus,
+    GPURegistry,
+)
 
 logger = get_logger(__name__)
 
@@ -201,3 +209,60 @@ class EdgeGPUService:
     async def optimize_inference_for_edge(self, gpu_id: str, model_name: str, request_data: dict[str, Any]) -> dict[str, Any]:
         """Optimize ML inference request for edge GPU"""
         return {"gpu_id": gpu_id, "model_name": model_name, "optimized": True, "latency_reduction": 0.0}
+
+    # ponytail: priority queue uses an in-DB ordering by priority desc / created_at asc.
+    # This is a naive O(n log n) sort per call; for very high throughput use a dedicated queue.
+    async def queue_job(self, gpu_id: str, client_id: str, priority: int, payload: dict[str, Any]) -> GPUJobQueue:
+        """Enqueue a GPU job with a dynamic priority."""
+        job = GPUJobQueue(
+            gpu_id=gpu_id,
+            client_id=client_id,
+            priority=priority,
+            payload=payload,
+            status=GPUJobStatus.QUEUED,
+        )
+        self.session.add(job)
+        await self.session.commit()
+        await self.session.refresh(job)
+        return job
+
+    async def get_next_queued_job(self, gpu_id: str) -> GPUJobQueue | None:
+        """Return the highest-priority queued job for a GPU and mark it running."""
+        from datetime import UTC, datetime
+
+        stmt = (
+            select(GPUJobQueue)
+            .where(GPUJobQueue.gpu_id == gpu_id, GPUJobQueue.status == GPUJobStatus.QUEUED)
+            .order_by(GPUJobQueue.priority.desc(), GPUJobQueue.created_at.asc())  # type: ignore[attr-defined]
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        job = result.scalar_one_or_none()
+        if job:
+            job.status = GPUJobStatus.RUNNING
+            job.started_at = datetime.now(UTC)
+            await self.session.commit()
+        return job
+
+    async def complete_job(self, job_id: str) -> GPUJobQueue | None:
+        """Mark a running GPU job as completed."""
+        from datetime import UTC, datetime
+
+        stmt = select(GPUJobQueue).where(GPUJobQueue.id == job_id)
+        result = await self.session.execute(stmt)
+        job = result.scalar_one_or_none()
+        if job:
+            job.status = GPUJobStatus.COMPLETED
+            job.completed_at = datetime.now(UTC)
+            await self.session.commit()
+            await self.session.refresh(job)
+        return job
+
+    async def list_queued_jobs(self, gpu_id: str, status: str | None = None, limit: int = 100) -> list[GPUJobQueue]:
+        """List GPU jobs for a GPU, optionally filtered by status, sorted by priority."""
+        stmt = select(GPUJobQueue).where(GPUJobQueue.gpu_id == gpu_id)
+        if status:
+            stmt = stmt.where(GPUJobQueue.status == status)
+        stmt = stmt.order_by(GPUJobQueue.priority.desc(), GPUJobQueue.created_at.asc()).limit(limit)  # type: ignore[attr-defined]
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
