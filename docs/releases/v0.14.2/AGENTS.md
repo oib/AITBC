@@ -24,16 +24,20 @@ confidential transactions, and healthcare/finance reference enclaves.
 ### A1: ZK + TEE dual verification (P0)
 
 - File: `aitbc/tee/verification.py` (new)
-  - Policy for ZK-only, TEE-only, or combined verification.
+  - ``VerificationMode``, ``ZKProof``, ``DualVerificationPolicy``,
+    ``DualVerificationResult``, and ``verify_with_policy`` helpers for
+    ZK-only, TEE-only, or combined verification.
 - File: `aitbc/tee/benchmark.py` (new)
-  - Latency/cost benchmarking utilities.
+  - ``TEEBenchmark`` and ``TEEBenchmarkResult`` latency/cost harness.
 
 ### A2: Confidential transactions (P0)
 
 - File: `aitbc/wallet/confidential.py` (new)
-  - TEE-signed transaction envelopes and balance proofs.
+  - ``ConfidentialTransaction`` (Ed25519-signed envelope) and
+    ``ConfidentialWallet`` with balance commitments and proofs.
 - File: `aitbc/agent_economics/confidential_payments.py` (new)
-  - Enclave-side payment validation.
+  - ``ConfidentialPayment``, ``validate_payment``, and ``settle_payment`` for
+    enclave-side payment validation and settlement.
 
 ---
 
