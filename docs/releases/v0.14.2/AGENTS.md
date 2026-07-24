@@ -24,11 +24,13 @@ confidential transactions, and healthcare/finance reference enclaves.
 ### A1: ZK + TEE dual verification (P0) — ✅ complete
 
 - File: `aitbc/tee/verification.py` (new)
-  - ``VerificationMode``, ``ZKProof``, ``DualVerificationPolicy``,
+  - ``VerificationMode``, ``ZKProof`` (with optional Ed25519 signature
+    binding and context IDs), ``DualVerificationPolicy``,
     ``DualVerificationResult``, and ``verify_with_policy`` helpers for
     ZK-only, TEE-only, or combined verification.
 - File: `aitbc/tee/benchmark.py` (new)
-  - ``TEEBenchmark`` and ``TEEBenchmarkResult`` latency/cost harness.
+  - ``TEEBenchmark`` and ``TEEBenchmarkResult`` latency/cost harness with
+    throughput (ops/sec) and peak memory metrics.
 - File: `aitbc/tee/attestation.py` (updated)
   - Ed25519 signing/verification for ``AttestationQuote``; optional signature
     enforcement in ``AttestationVerifier``.
