@@ -1,7 +1,7 @@
 # v0.14.2 — TEE-Backed Verification & Confidential Compute (Phase 2)
 
 **Last Updated**: 2026-07-24
-**Version**: 0.1 — Planned 🚧
+**Version**: 1.0 — Complete ✅
 
 **Release Theme**: Extend the TEE foundation with dual-verification policies,
 confidential transactions, and healthcare/finance reference enclaves.
@@ -21,7 +21,7 @@ confidential transactions, and healthcare/finance reference enclaves.
 
 ## Agent A — Shared Core & Types
 
-### A1: ZK + TEE dual verification (P0)
+### A1: ZK + TEE dual verification (P0) — ✅ complete
 
 - File: `aitbc/tee/verification.py` (new)
   - ``VerificationMode``, ``ZKProof``, ``DualVerificationPolicy``,
@@ -29,15 +29,22 @@ confidential transactions, and healthcare/finance reference enclaves.
     ZK-only, TEE-only, or combined verification.
 - File: `aitbc/tee/benchmark.py` (new)
   - ``TEEBenchmark`` and ``TEEBenchmarkResult`` latency/cost harness.
+- File: `aitbc/tee/attestation.py` (updated)
+  - Ed25519 signing/verification for ``AttestationQuote``; optional signature
+    enforcement in ``AttestationVerifier``.
 
-### A2: Confidential transactions (P0)
+### A2: Confidential transactions (P0) — ✅ complete
 
 - File: `aitbc/wallet/confidential.py` (new)
   - ``ConfidentialTransaction`` (Ed25519-signed envelope) and
-    ``ConfidentialWallet`` with balance commitments and proofs.
+    ``ConfidentialWallet`` with Pedersen-style balance commitments and proofs.
+  - Fixed commitment encoding to reduce points into the curve range so
+    subtraction of commitments no longer raises ``MalformedPointError``.
 - File: `aitbc/agent_economics/confidential_payments.py` (new)
   - ``ConfidentialPayment``, ``validate_payment``, and ``settle_payment`` for
     enclave-side payment validation and settlement.
+- File: `cli/aitbc_cli/commands/confidential.py` (updated)
+  - JSON output serializes bytes commitments/signatures as hex.
 
 ---
 
