@@ -66,7 +66,7 @@ primitives for autonomous budgets, revenue routing, and performance bonds.
 
 ## Release Gate
 
-- [ ] Agent wallet and escrow primitives are defined and tested.
+- [x] Agent wallet and escrow primitives are defined and tested.
 - [ ] Performance bond and staking models compile and have unit coverage.
 - [ ] Automated rebalancing loop passes simulation tests.
 - [ ] Dynamic fee market extends the existing Dynamic Pricing API.
