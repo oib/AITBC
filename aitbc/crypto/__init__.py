@@ -22,7 +22,16 @@ from .crypto import (
     validate_ethereum_address,
     verify_signature,
 )
+from .errors import CryptoError
 from .hashing import generate_hmac, verify_hmac
+from .key_recovery import (
+    KeyEscrow,
+    KeyEscrowStatus,
+    RecoveryShare,
+    escrow_key,
+    recover_key,
+    verify_escrow_integrity,
+)
 from .payment_escrow import EscrowEntry, EscrowStatus, PaymentEscrow
 from .secrets import (
     SecretManager,
@@ -30,6 +39,12 @@ from .secrets import (
     generate_secure_random_int,
     generate_secure_random_string,
     get_secret_manager,
+)
+from .tenant_keys import (
+    TenantKey,
+    TenantKeyManager,
+    TenantKeyPolicy,
+    TenantKeyStatus,
 )
 from .tokens import (
     APIKeyManager,
@@ -58,6 +73,8 @@ __all__ = [
     "EscrowStatus",
     "PaymentEscrow",
     "decrypt_private_key",
+    # Crypto errors
+    "CryptoError",
     # Crypto functions
     "derive_ethereum_address",
     "encrypt_private_key",
@@ -69,6 +86,13 @@ __all__ = [
     "generate_secure_random_bytes",
     "generate_secure_random_int",
     "generate_secure_random_string",
+    # Key recovery (v0.15.1)
+    "KeyEscrow",
+    "KeyEscrowStatus",
+    "RecoveryShare",
+    "escrow_key",
+    "recover_key",
+    "verify_escrow_integrity",
     # Token functions
     "generate_token",
     "get_secret_manager",
@@ -81,4 +105,9 @@ __all__ = [
     "validate_token_format",
     "verify_hmac",
     "verify_signature",
+    # Tenant keys (v0.15.1)
+    "TenantKey",
+    "TenantKeyManager",
+    "TenantKeyPolicy",
+    "TenantKeyStatus",
 ]

@@ -18,6 +18,7 @@ from aitbc_cli.commands.chain import chain
 from aitbc_cli.commands.cluster import cluster
 from aitbc_cli.commands.coin_requests import coin_requests
 from aitbc_cli.commands.compliance import compliance
+from aitbc_cli.commands.confidential import confidential
 from aitbc_cli.commands.config import config as config_cmd
 from aitbc_cli.commands.contract import contract
 from aitbc_cli.commands.cross_chain import cross_chain  # Re-enabled - no core dependency
@@ -59,6 +60,7 @@ from aitbc_cli.commands.trade import trade
 
 # Import modular command groups
 from aitbc_cli.commands.system import system
+from aitbc_cli.commands.tee import tee
 
 # Import new modular commands
 from aitbc_cli.commands.transactions import transactions
@@ -174,6 +176,8 @@ cli.add_command(script)
 cli.add_command(economics)
 cli.add_command(bond)
 cli.add_command(reinvest)
+cli.add_command(tee)
+cli.add_command(confidential)
 cli.add_command(cluster)
 cli.add_command(security)
 cli.add_command(compliance)

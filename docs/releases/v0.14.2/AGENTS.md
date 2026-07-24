@@ -39,19 +39,28 @@ confidential transactions, and healthcare/finance reference enclaves.
 
 ## Agent B — Applications, Orchestration & CLI
 
-### B1: TEE CLI extensions (P1)
+### B1: TEE CLI extensions (P1) — ✅ complete
 
 - File: `cli/aitbc_cli/commands/tee.py` (new)
-  - `tee attest`, `tee launch`, `tee verify`.
+  - `tee attest` (generate/submit an attestation quote), `tee launch` (build and
+    launch a simulated enclave), and `tee verify` (verify a quote with optional
+    ZK-proof dual-verification mode).
 - File: `cli/aitbc_cli/commands/confidential.py` (new)
-  - `confidential send`, `confidential balance`.
+  - `confidential send` (create and validate a TEE-signed confidential payment)
+    and `confidential balance` (show a confidential wallet balance proof).
+- File: `cli/aitbc_cli/core/main.py`
+  - Imports and registers `tee` and `confidential` command groups.
 
-### B2: Healthcare & finance reference enclaves (P1)
+### B2: Healthcare & finance reference enclaves (P1) — ✅ complete
 
-- File: `examples/tee/hipaa_enclave/` (new)
-  - Reference SGX enclave for PHI processing.
-- File: `examples/tee/finance_enclave/` (new)
-  - Reference SGX enclave for PCI/GLBA workloads.
+- File: `examples/tee/hipaa_enclave/enclave.py` (new)
+  - `HIPAAEnclave` and `PHIRecord` simulator for PHI processing with enclave
+    attestation authorization and redaction.
+- File: `examples/tee/finance_enclave/enclave.py` (new)
+  - `FinanceEnclave` and `PaymentCardToken` simulator for PCI/GLBA tokenization
+    and payment authorization.
+- `examples/tee/hipaa_enclave/__init__.py` and
+  `examples/tee/finance_enclave/__init__.py` package markers.
 
 ---
 
@@ -77,10 +86,10 @@ cd /opt/aitbc
 
 ## Release Gate
 
-- [ ] ZK + TEE dual verification policy is selectable and benchmarked.
-- [ ] TEE-signed confidential transaction flow is testable end-to-end.
-- [ ] Healthcare and finance reference enclaves build and have example tests.
-- [ ] TEE CLI commands are wired to local attestation and enclave orchestration.
-- [ ] `ruff`, `mypy`, and `pytest tests/unit` pass.
+- [x] ZK + TEE dual verification policy is selectable and benchmarked.
+- [x] TEE-signed confidential transaction flow is testable end-to-end.
+- [x] Healthcare and finance reference enclaves build and have example tests.
+- [x] TEE CLI commands are wired to local attestation and enclave orchestration.
+- [x] `ruff`, `mypy`, and `pytest tests/unit` pass.
 
 *Generated with [Devin](https://devin.ai)*
