@@ -33,9 +33,11 @@ Healthcare (HIPAA) and other regulated industries.
 ### A2: Encryption & key management (P1)
 
 - File: `aitbc/crypto/tenant_keys.py` (new)
-  - Per-tenant key derivation and rotation policies.
+  - ``TenantKeyPolicy``, ``TenantKey``, ``TenantKeyManager`` with PBKDF2 key
+    derivation, Fernet encryption/decryption, and key rotation with re-encryption.
 - File: `aitbc/crypto/key_recovery.py` (new)
-  - Key escrow and recovery flows for regulated data.
+  - ``KeyEscrow``, ``RecoveryShare``, ``KeyEscrowStatus``, and ``escrow_key`` /
+    ``recover_key`` helpers for key escrow and recovery flows.
 
 ### A3: Audit log primitives (P1)
 
@@ -85,7 +87,7 @@ cd /opt/aitbc
 ## Release Gate
 
 - [ ] Compliance policy framework compiles and has unit tests.
-- [ ] Encryption and key management primitives are testable.
+- [x] Encryption and key management primitives are testable.
 - [ ] Immutable audit log is wired to `coordinator-api` events.
 - [ ] HIPAA module has example policies and tests.
 - [ ] `ruff`, `mypy`, and `pytest tests/unit` pass.
