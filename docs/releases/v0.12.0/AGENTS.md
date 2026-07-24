@@ -24,12 +24,16 @@ bonds, dynamic fee markets, and provider reinvestment loops.
 
 ### A1: Agent wallets & escrow (P0)
 
-- File: `aitbc/wallet/agent_wallet.py` (new or update)
-  - Agent-owned smart contract wallet abstraction.
+- File: `aitbc/wallet/__init__.py` (new)
+- File: `aitbc/wallet/agent_wallet.py` (new)
+  - `AgentWallet` and `WalletStatus` with per-token balances and validated
+    deposit/withdraw/transfer operations.
 - File: `aitbc/wallet/escrow.py` (new)
-  - Escrow and allowance primitives for lease, storage, and compute payments.
-- File: `aitbc/wallet/errors.py` (update)
-  - Escrow-related exceptions.
+  - `Escrow`, `EscrowAllowance`, and `EscrowStatus` primitives for lease,
+    storage, and compute payments.
+- File: `aitbc/wallet/errors.py` (new)
+  - `WalletError`, `AgentWalletError`, `InsufficientBalanceError`,
+    `EscrowError`, and `AllowanceExceededError`.
 
 ### A2: Performance bonds & staking (P0)
 
@@ -104,7 +108,7 @@ cd /opt/aitbc
 
 ## Release Gate
 
-- [ ] Agent wallet and escrow primitives are defined and tested.
+- [x] Agent wallet and escrow primitives are defined and tested.
 - [ ] Performance bond and staking models compile and have unit coverage.
 - [ ] Automated rebalancing loop passes simulation tests.
 - [ ] Dynamic fee market extends the existing Dynamic Pricing API.
