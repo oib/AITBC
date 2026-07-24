@@ -1,4 +1,4 @@
-"""Performance bond and staking shared types for AITBC (v0.12.0 §A2).
+"""Performance bond and staking shared types for AITBC (v0.12.0 §A2, v0.13.0 §A2).
 
 Defines ``PerformanceBond`` and ``StakeAccount`` primitives consumed by the
 OpenClaw agent runtime, ``apps/coordinator-api`` governance/economic domains,
@@ -24,6 +24,7 @@ class BondStatus(StrEnum):
     LOCKED = "locked"
     SLASHED = "slashed"
     RELEASED = "released"
+    PARTIALLY_RELEASED = "partially_released"
     LIQUIDATED = "liquidated"
     EXPIRED = "expired"
 
@@ -82,19 +83,58 @@ class PerformanceBond:
         self.locked_until = until
 
     def release(self, now: datetime | None = None) -> None:
-        """Release the bond back to the agent."""
+        """Release the remaining bond amount back to the agent."""
         if now is None:
             now = datetime.utcnow()
         if self.status not in {
             BondStatus.ACTIVE,
             BondStatus.LOCKED,
             BondStatus.EXPIRED,
+            BondStatus.PARTIALLY_RELEASED,
         }:
             raise BondError(f"cannot release bond in status {self.status}")
         if self.status == BondStatus.LOCKED and self.locked_until is not None:
             if self.locked_until > now:
                 raise BondError("bond is still locked")
         self.status = BondStatus.RELEASED
+
+    def top_up(self, amount: Decimal) -> None:
+        """Add collateral to the bond."""
+        if amount <= 0:
+            raise ValueError("top-up amount must be positive")
+        if self.status not in {
+            BondStatus.PENDING,
+            BondStatus.ACTIVE,
+            BondStatus.LOCKED,
+            BondStatus.SLASHED,
+            BondStatus.PARTIALLY_RELEASED,
+        }:
+            raise BondError(f"cannot top up bond in status {self.status}")
+        self.amount += amount
+
+    def partial_release(self, amount: Decimal, now: datetime | None = None) -> None:
+        """Release part of the bond collateral."""
+        if now is None:
+            now = datetime.utcnow()
+        if amount <= 0:
+            raise ValueError("partial release amount must be positive")
+        if self.status not in {
+            BondStatus.ACTIVE,
+            BondStatus.LOCKED,
+            BondStatus.EXPIRED,
+            BondStatus.PARTIALLY_RELEASED,
+        }:
+            raise BondError(f"cannot partially release bond in status {self.status}")
+        if self.status == BondStatus.LOCKED and self.locked_until is not None:
+            if self.locked_until > now:
+                raise BondError("bond is still locked")
+        if amount > self.amount:
+            raise BondError("partial release amount exceeds bond amount")
+        self.amount -= amount
+        if self.amount > 0:
+            self.status = BondStatus.PARTIALLY_RELEASED
+        else:
+            self.status = BondStatus.RELEASED
 
     def slash(self) -> None:
         """Mark the bond as slashed."""
@@ -104,7 +144,12 @@ class PerformanceBond:
 
     def liquidate(self) -> None:
         """Liquidate the bond to cover a shortfall."""
-        if self.status not in {BondStatus.ACTIVE, BondStatus.LOCKED, BondStatus.SLASHED}:
+        if self.status not in {
+            BondStatus.ACTIVE,
+            BondStatus.LOCKED,
+            BondStatus.SLASHED,
+            BondStatus.PARTIALLY_RELEASED,
+        }:
             raise BondError(f"cannot liquidate bond in status {self.status}")
         self.status = BondStatus.LIQUIDATED
 
