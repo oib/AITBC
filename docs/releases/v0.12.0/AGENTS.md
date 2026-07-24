@@ -54,8 +54,10 @@ bonds, dynamic fee markets, and provider reinvestment loops.
 ### A4: Dynamic fee market strategies (P1)
 
 - File: `aitbc/agent_economics/pricing.py` (new)
-  - `MarketMakerStrategy`, demand forecast, and surge pricing primitives.
-  - Extend existing Dynamic Pricing API types.
+  - `MarketMakerStrategy` with bid/ask spread and inventory adjustment.
+  - `DemandForecast` and `DemandTrend` primitives.
+  - `SurgePricing` with demand-driven multiplier updates.
+  - `DynamicFeeMarket` combining surge pricing and demand forecasts.
 
 ---
 
@@ -116,7 +118,7 @@ cd /opt/aitbc
 - [x] Performance bond and staking models compile and have unit coverage.
 - [x] Reinvestment policy and `Rebalancer` planner have unit tests.
 - [ ] Automated rebalancing loop passes simulation tests.
-- [ ] Dynamic fee market extends the existing Dynamic Pricing API.
+- [x] Dynamic fee market extends the existing Dynamic Pricing API.
 - [ ] OpenClaw DAO governance proposals for economic parameters are testable.
 - [ ] `ruff`, `mypy`, and `pytest tests/unit` pass.
 
