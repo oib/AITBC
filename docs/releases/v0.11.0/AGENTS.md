@@ -44,8 +44,8 @@ ecosystem & DAO grants, and industry-specific compliance modules.
 
 - File: `aitbc/agent_memory/__init__.py` (new)
 - File: `aitbc/agent_memory/models.py` (new)
-  - Content-addressed blob, storage lease, replication proof, encryption
-    envelope.
+  - `ContentAddressedBlob`, `StorageLease`, `ReplicationProof`, and
+    `EncryptionEnvelope` dataclasses.
 - File: `aitbc/agent_memory/errors.py` (new)
   - Domain exceptions for missing or unauthorized blobs.
 
@@ -140,6 +140,7 @@ cd /opt/aitbc
 
 - [x] Phase 4 success criteria are defined and reviewed.
 - [x] `aitbc/agent_economics` types compile and have unit tests.
+- [x] `aitbc/agent_memory` models compile and have unit tests.
 - [ ] `aitbc/agent_memory` models are consumed by `apps/memory`.
 - [ ] `apps/memory` service starts and passes a health check.
 - [ ] Developer registry and grant proposal SQLModels are created with a
