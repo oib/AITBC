@@ -38,9 +38,12 @@ bonds, dynamic fee markets, and provider reinvestment loops.
 ### A2: Performance bonds & staking (P0)
 
 - File: `aitbc/agent_economics/bonds.py` (new)
-  - `PerformanceBond`, `StakeAccount` data classes.
+  - `PerformanceBond` with `BondStatus` lifecycle (pending, active, locked,
+    slashed, released, liquidated, expired) and `StakeAccount` with
+    `StakeStatus` lifecycle (pending, active, unstaking, unstaked).
 - File: `aitbc/agent_economics/slash.py` (new)
-  - Slashing condition validators.
+  - `SlashReason`, `SlashingCondition`, `SlashEvent`, `compute_slash_amount`,
+    `validate_slash_event`, `slash_bond`, and `slash_stake` validators.
 
 ### A3: Rebalancing & reinvestment policies (P1)
 
@@ -109,7 +112,7 @@ cd /opt/aitbc
 ## Release Gate
 
 - [x] Agent wallet and escrow primitives are defined and tested.
-- [ ] Performance bond and staking models compile and have unit coverage.
+- [x] Performance bond and staking models compile and have unit coverage.
 - [ ] Automated rebalancing loop passes simulation tests.
 - [ ] Dynamic fee market extends the existing Dynamic Pricing API.
 - [ ] OpenClaw DAO governance proposals for economic parameters are testable.
