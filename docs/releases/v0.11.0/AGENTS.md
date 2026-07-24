@@ -53,16 +53,23 @@ ecosystem & DAO grants, and industry-specific compliance modules.
 
 - File: `aitbc/compliance/__init__.py` (new)
 - File: `aitbc/compliance/policies.py` (new)
-  - HIPAA, SOC2/GLBA/PCI-DSS, Manufacturing, Education, and Retail policy
+  - `ComplianceFramework`, `DataClassification`, `Control`, and
+    `CompliancePolicy` primitives plus `load_policy_template` for HIPAA,
+    SOC2, GLBA, PCI-DSS, Manufacturing, Education, Retail, and Generic
     templates.
 - File: `aitbc/compliance/audit.py` (new)
-  - Consent, retention, and audit-log helpers.
+  - `ConsentRecord`, `RetentionPolicy`, `AuditEvent`, and helpers for
+    classification sensitivity, retention expiry, and audit-event creation.
+- File: `aitbc/compliance/errors.py` (new)
+  - `ComplianceError`, `InvalidClassificationError`, `PolicyViolationError`.
 
 ---
 
 ## Agent B — Applications, CLI & Operations
 
-### B1: `apps/memory` service skeleton (P1)
+### B1: `apps/memory` service skeleton (P1) — blocked pending Agent A A3
+
+> `aitbc/agent_memory` shared models are not yet landed; B1 should start after A3.
 
 - File: `apps/memory/src/memory_app/main.py` (new)
 - File: `apps/memory/src/memory_app/api.py` (new)
@@ -72,7 +79,7 @@ ecosystem & DAO grants, and industry-specific compliance modules.
 - File: `apps/memory/src/memory_app/service.py` (new)
   - Content addressing, encryption-at-rest, and replication hooks.
 
-### B2: Developer ecosystem & DAO grants (P1)
+### B2: Developer ecosystem & DAO grants (P1) — ✅ in progress / skeleton landed
 
 - File: `apps/coordinator-api/src/coordinator_api/contexts/governance/domain/grant.py` (new)
   - SQLModel `GrantProposal` and `GrantMilestone`.
@@ -81,7 +88,7 @@ ecosystem & DAO grants, and industry-specific compliance modules.
 - File: `apps/coordinator-api/alembic/versions/` (new migration)
   - Create `grant_proposal`, `grant_milestone`, and `developer` tables.
 
-### B3: CLI extensions (P1)
+### B3: CLI extensions (P1) — ✅ in progress / commands landed
 
 - File: `cli/aitbc_cli/commands/developer.py` (new)
   - `developer register`, `developer list`.
@@ -146,7 +153,7 @@ cd /opt/aitbc
 - [ ] Developer registry and grant proposal SQLModels are created with a
       migration.
 - [ ] CLI `developer` and `grant` commands are wired and smoke-tested.
-- [ ] Compliance policy helpers have unit coverage.
+- [x] Compliance policy helpers have unit coverage.
 - [ ] `ruff`, `mypy`, and `pytest tests/unit` pass.
 
 *Generated with [Devin](https://devin.ai)*
