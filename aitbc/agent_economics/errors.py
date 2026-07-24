@@ -41,3 +41,7 @@ class StakingError(AgentEconomicsError):
 
 class PortfolioError(AgentEconomicsError):
     """Portfolio allocation or valuation error."""
+
+
+class LiquidationError(AgentEconomicsError):
+    """Bond liquidation or provider off-boarding error."""

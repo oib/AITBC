@@ -37,10 +37,13 @@ cross-chain yield, and slashing appeals.
 
 ### A2: Performance bond lifecycle (P0)
 
-- File: `aitbc/agent_economics/bonds.py` (new or update)
-  - `PerformanceBond` with lock, top-up, release, liquidation states.
+- File: `aitbc/agent_economics/bonds.py` (updated)
+  - `PerformanceBond` with lock, top-up, partial release, full release, slash,
+    and liquidation states.
 - File: `aitbc/agent_economics/liquidation.py` (new)
-  - Liquidation and off-boarding logic.
+  - `LiquidationReason`, `LiquidationEvent`, `LiquidationStatus`,
+    `ProviderOffboarding`, `OffboardingStatus`, `liquidate_bond`, and
+    `offboard_provider` helpers.
 
 ### A3: Risk & solvency engine (P1)
 
@@ -118,7 +121,7 @@ cd /opt/aitbc
 ## Release Gate
 
 - [x] Automated staking and rebalancing strategies have unit tests.
-- [ ] Performance bond lifecycle (lock, top-up, release, liquidation) is
+- [x] Performance bond lifecycle (lock, top-up, release, liquidation) is
       modeled and tested.
 - [ ] Provider reinvestment loop publishes updated capacity.
 - [ ] Risk/solvency engine triggers circuit breakers under simulated stress.
