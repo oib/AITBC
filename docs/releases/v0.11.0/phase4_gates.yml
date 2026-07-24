@@ -1,0 +1,52 @@
+version: "0.11.0"
+description: |
+  Phase 4 success criteria for the 2026 AITBC roadmap. Each gate defines a
+  measurable threshold that must be met before v0.11.0 can be released.
+  The `current` value is updated manually or by CI as features land; the
+  `scripts/ci/check_phase4_gates.py` script fails if any gate is below its
+  threshold or has a status other than "passed".
+
+gates:
+  autonomous_economic_loop_adoption:
+    description: >
+      Percentage of active compute providers participating in automated
+      staking, rebalancing, or reinvestment loops.
+    threshold: 50.0
+    current:
+    unit: "%"
+    status: pending
+
+  storage_node_coverage:
+    description: >
+      Minimum number of storage nodes online per geographic region serving the
+      decentralized AI memory layer.
+    threshold: 3
+    current:
+    unit: "nodes/region"
+    status: pending
+
+  grant_disbursement_correctness:
+    description: >
+      Percentage of milestone-based DAO grant disbursements whose on-chain
+      records match approved proposals.
+    threshold: 99.9
+    current:
+    unit: "%"
+    status: pending
+
+  compliance_coverage:
+    description: >
+      Percentage of regulated industry policy templates (HIPAA, SOC2/GLBA,
+      PCI-DSS, Manufacturing, Education, Retail) with passing audit tests.
+    threshold: 100.0
+    current:
+    unit: "%"
+    status: pending
+
+  test_coverage:
+    description: >
+      Minimum shared-core (`aitbc/`) test coverage reported by `pytest --cov`.
+    threshold: 46.0
+    current:
+    unit: "%"
+    status: pending
