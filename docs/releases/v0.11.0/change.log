@@ -75,6 +75,30 @@ types, and documents the success criteria needed to call the phase complete.
   website.
 - Confirm no hardcoded API keys remain; add a secret-scan step to CI.
 
+### Core Capability & Phase 2/3 Gaps (P1)
+
+- Confirm completion status for **Multi-Modal Fusion**, **Dynamic GPU Priority
+  Queuing**, and **Global Multi-Region Edge Nodes**.
+- Add missing verification tags for these capabilities or document outstanding
+  work.
+- Refine Phase 2/3 success criteria and any missing wiring into
+  `coordinator-api`, `apps/edge`, or `apps/gpu`.
+
+### User Interface & Accessibility (P2)
+
+- Audit the dark-mode-only website refactor for accessibility and
+  user-preference coverage.
+- Decide whether to reintroduce an optional light theme or document the
+  accessibility mitigation (e.g., high-contrast dark mode).
+- Remove any remaining light-theme asset references.
+
+### API Management & Onboarding (P2)
+
+- Add setup documentation and validation for environment-based API key
+  configuration.
+- Provide a CLI command or script that reports which required API keys are
+  missing before service start.
+
 ## Breaking Changes
 
 - New services and public API surface are expected. Concrete breaking changes
