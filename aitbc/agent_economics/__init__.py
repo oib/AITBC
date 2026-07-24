@@ -37,6 +37,13 @@ from .models import (
     RevenueRoute,
     RevenueRouteType,
 )
+from .pricing import (
+    DemandForecast,
+    DemandTrend,
+    DynamicFeeMarket,
+    MarketMakerStrategy,
+    SurgePricing,
+)
 from .rebalance import (
     ChainHoldings,
     ConstraintType,
@@ -64,6 +71,10 @@ __all__ = [
     "BudgetError",
     "ChainHoldings",
     "ConstraintType",
+    "DemandForecast",
+    "DemandTrend",
+    "DynamicFeeMarket",
+    "MarketMakerStrategy",
     "OnChainAction",
     "OnChainActionError",
     "OnChainActionType",
@@ -86,6 +97,7 @@ __all__ = [
     "SlashingCondition",
     "StakeAccount",
     "StakeStatus",
+    "SurgePricing",
     "compute_slash_amount",
     "slash_bond",
     "slash_stake",
