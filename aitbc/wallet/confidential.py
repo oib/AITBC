@@ -1,14 +1,25 @@
 """TEE-signed confidential transaction envelopes and balance proofs (v0.14.2 §A2).
 
-ponytail: This is a skeleton. Real confidential transactions need range proofs,
-commitments, and a TEE signature scheme.
+Provides ``ConfidentialTransaction`` and ``ConfidentialWallet`` primitives. The
+signature scheme uses Ed25519 with a 32-byte private key derived from the
+caller-provided ``signing_key`` material via SHA-256. Production deployments
+should generate keys inside the TEE and never expose the private key outside
+the enclave boundary.
 """
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
+
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
 
 
 @dataclass
@@ -20,21 +31,44 @@ class ConfidentialTransaction:
     recipient_id: str
     amount_commitment: str
     signature: bytes = b""
+    public_key: bytes = b""
     nonce: int = 0
     meta: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
+    def _signing_payload(self) -> bytes:
+        return (f"{self.tx_id}:{self.sender_id}:{self.recipient_id}:{self.amount_commitment}:{self.nonce}").encode()
+
+    def _derive_private_key(self, signing_key: bytes) -> Ed25519PrivateKey:
+        # ponytail: derive a deterministic 32-byte Ed25519 seed from the caller's key.
+        # Production should use a key generated and held inside the TEE.
+        seed = hashlib.sha256(signing_key).digest()
+        return Ed25519PrivateKey.from_private_bytes(seed)
+
     def sign(self, signing_key: bytes) -> None:
         """Sign the transaction envelope with a TEE-derived key."""
-        payload = f"{self.tx_id}:{self.sender_id}:{self.recipient_id}:{self.amount_commitment}:{self.nonce}".encode()
-        # ponytail: replace with real TEE signing (ECDSA/Ed25519 inside the enclave).
-        self.signature = signing_key + b":" + payload[:32]
+        private_key = self._derive_private_key(signing_key)
+        self.public_key = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        self.signature = private_key.sign(self._signing_payload())
 
-    def verify(self, public_key: bytes) -> bool:
-        """Verify the TEE signature against a public key."""
-        if not self.signature or b":" not in self.signature:
+    def verify(self, public_key: bytes | None = None) -> bool:
+        """Verify the TEE signature against a public key.
+
+        If ``public_key`` is not provided, the public key stored on the
+        transaction is used.
+        """
+        key_bytes = public_key if public_key is not None else self.public_key
+        if not self.signature or not key_bytes:
             return False
-        return self.signature.startswith(public_key)
+        try:
+            pub = Ed25519PublicKey.from_public_bytes(key_bytes)
+            pub.verify(self.signature, self._signing_payload())
+            return True
+        except InvalidSignature:
+            return False
 
 
 @dataclass
