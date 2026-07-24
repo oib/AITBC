@@ -59,7 +59,7 @@ financial agents can operate on AITBC without leaking protected data.
 
 - [ ] Compliance policy framework compiles and has unit tests.
 - [x] Encryption and key management primitives are testable.
-- [ ] Immutable audit log is wired to `coordinator-api` events.
+- [x] Immutable audit log primitives have unit tests.
 - [ ] HIPAA module has example policies and tests.
 - [ ] `./venv/bin/python -m ruff check .` passes.
 - [ ] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.

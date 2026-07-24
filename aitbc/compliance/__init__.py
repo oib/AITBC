@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from .audit import (
     AuditEvent,
+    AuditLog,
     AuditOutcome,
     ConsentRecord,
     RetentionAction,
@@ -20,7 +21,9 @@ from .audit import (
     is_sensitive_classification,
     require_consent,
     retention_expired,
+    verify_audit_log,
 )
+from .retention import RetentionEngine, RetentionSchedule, apply_retention
 from .errors import ComplianceError, InvalidClassificationError, PolicyViolationError
 from .policies import (
     ComplianceFramework,
@@ -33,6 +36,7 @@ from .policies import (
 
 __all__ = [
     "AuditEvent",
+    "AuditLog",
     "AuditOutcome",
     "ComplianceError",
     "ComplianceFramework",
@@ -43,11 +47,15 @@ __all__ = [
     "InvalidClassificationError",
     "PolicyViolationError",
     "RetentionAction",
+    "RetentionEngine",
     "RetentionPolicy",
+    "RetentionSchedule",
+    "apply_retention",
     "build_audit_event",
     "is_sensitive_classification",
     "load_policy_template",
     "normalize_classification",
     "require_consent",
     "retention_expired",
+    "verify_audit_log",
 ]
