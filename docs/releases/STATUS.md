@@ -1,6 +1,6 @@
 # AITBC Release Status Overview
 
-**Last updated:** 2026-07-22
+**Last updated:** 2026-07-24
 **Audit report:** [AUDIT.md](AUDIT.md)
 
 ## Release Status Table
@@ -50,10 +50,13 @@
 | v0.10.18 | Update deployment stabilization | ✅ Complete | market_metrics migration conflict, wallet keystore restore, update.sh/health_check.sh fixes, poetry switch, schema-drift reconciliation |
 | v0.11.0 | Phase 4 & 2026 Roadmap Foundations | 🚧 Planned | OpenClaw autonomous economics, decentralized AI memory/storage, developer ecosystem & DAO grants, Phase 4 criteria, compliance modules |
 | v0.12.0 | OpenClaw Autonomous Economics | 🚧 Planned | Agent wallets/escrow, performance bonds, automated rebalancing, dynamic fee market, OpenClaw DAO economic governance |
-| v0.13.0 | Compliance-Ready Modules | 🚧 Planned | HIPAA, financial regulatory, compliance containers, sub-networks, encryption, immutable audit logging |
-| v0.14.0 | Platform Builder Tooling | 🚧 Planned | CLI config tool, SDK, builder docs, developer registry, DAO grants, local dev helpers |
-| v0.15.0 | Mature Autonomous Economic Infrastructure | 🚧 Planned | Automated staking/rebalancing, performance bond lifecycle, provider reinvestment, risk/solvency engine, cross-chain yield, slashing appeals |
-| v0.16.0 | TEE-Backed Verification & Confidential Compute | 🚧 Planned | Attestation, enclaves, confidential messaging, ZK+TEE dual verification, confidential transactions |
+| v0.13.0 | Mature Autonomous Economic Infrastructure | 🚧 Planned | Automated staking/rebalancing, performance bond lifecycle, provider reinvestment, risk/solvency engine, cross-chain yield, slashing appeals |
+| v0.14.1 | TEE-Backed Verification & Confidential Compute (Phase 1) | 🚧 Planned | Attestation, enclaves, confidential messaging, TEE-backed data processing |
+| v0.14.2 | TEE-Backed Verification & Confidential Compute (Phase 2) | 🚧 Planned | ZK+TEE dual verification, confidential transactions, healthcare/finance reference enclaves |
+| v0.15.1 | Compliance-Ready Modules (Phase 1) | 🚧 Planned | Policy framework, data classification, encryption, immutable audit logging, HIPAA |
+| v0.15.2 | Compliance-Ready Modules (Phase 2) | 🚧 Planned | Compliance containers/sub-networks, financial regulatory module, middleware, CLI |
+| v0.16.1 | Platform Builder Tooling (Phase 1) | 🚧 Planned | CLI config tool, developer registry, DAO grants, local dev helpers, builder docs |
+| v0.16.2 | Platform Builder Tooling (Phase 2) | 🚧 Planned | SDK, SDK reference docs, white-label/plugin architecture |
 | v0.17.0 | Accessibility & Theme Engine | 🚧 Planned | Light/dark/high-contrast/system modes, reduced motion, WCAG focus, user preference persistence |
 | v1.0.0 | Production readiness | 🚧 Planned | Requires all v0.5.16–v0.10.x complete |
 | v2.0.0 | Vision/questionable features | 🅿️ Parked | For re-evaluation after v1.0.0 |
