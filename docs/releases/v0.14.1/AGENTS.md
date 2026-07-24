@@ -1,4 +1,4 @@
-# v0.16.0 — TEE-Backed Verification & Confidential Compute
+# v0.14.1 — TEE-Backed Verification & Confidential Compute (Phase 1)
 
 **Last Updated**: 2026-07-24
 **Version**: 0.1 — Planned 🚧
@@ -7,7 +7,7 @@
 (TEEs) to provide hardware-level privacy for agent messaging, sensitive data
 processing, and confidential transactions.
 
-**Prerequisites**: v0.10.18 complete; v0.11.0 in-flight, v0.12.0–v0.15.0
+**Prerequisites**: v0.10.18 complete; v0.11.0 in-flight, v0.12.0–v0.13.0
 planned.
 
 ---
@@ -17,7 +17,7 @@ planned.
 | Agent | Files | Tasks |
 |---|---|---|
 | **Agent A** | `aitbc/tee/`, `aitbc/crypto/`, `aitbc/compute/` | TEE attestation, enclave identity, confidential messaging primitives, sealed storage |
-| **Agent B** | `apps/coordinator-api` attestation/verification, `apps/gpu/`, `apps/edge/`, `cli/` | Remote attestation API, enclave orchestration, TEE compute tasks, CLI |
+| **Agent B** | `apps/coordinator-api` attestation/verification, `apps/gpu/`, `apps/edge/` | Remote attestation API, enclave orchestration, TEE compute tasks |
 
 ---
 
@@ -46,20 +46,6 @@ planned.
 - File: `aitbc/tee/sealed_storage.py` (new)
   - Sealed data-at-rest helpers.
 
-### A4: ZK + TEE dual verification (P2)
-
-- File: `aitbc/tee/verification.py` (new)
-  - Policy for ZK-only, TEE-only, or combined verification.
-- File: `aitbc/tee/benchmark.py` (new)
-  - Latency/cost benchmarking utilities.
-
-### A5: Confidential transactions (P2)
-
-- File: `aitbc/wallet/confidential.py` (new)
-  - TEE-signed transaction envelopes and balance proofs.
-- File: `aitbc/agent_economics/confidential_payments.py` (new)
-  - Enclave-side payment validation.
-
 ---
 
 ## Agent B — Applications, Orchestration & CLI
@@ -78,20 +64,6 @@ planned.
 - File: `apps/edge/src/edge_app/tee_proxy.py` (TBD)
   - Edge proxy that routes messages into TEE-backed channels.
 
-### B3: CLI extensions (P2)
-
-- File: `cli/aitbc_cli/commands/tee.py` (new)
-  - `tee attest`, `tee launch`, `tee verify`.
-- File: `cli/aitbc_cli/commands/confidential.py` (new)
-  - `confidential send`, `confidential balance`.
-
-### B4: Healthcare & finance reference enclaves (P2)
-
-- File: `examples/tee/hipaa_enclave/` (new)
-  - Reference SGX enclave for PHI processing.
-- File: `examples/tee/finance_enclave/` (new)
-  - Reference SGX enclave for PCI/GLBA workloads.
-
 ---
 
 ## Verification Commands
@@ -107,13 +79,13 @@ cd /opt/aitbc
 
 - Agent A owns `aitbc/tee/`, TEE-aware crypto primitives, and confidential
   compute task abstractions.
-- Agent B owns `apps/coordinator-api` attestation verification, `apps/gpu/`
-  and `apps/edge/` enclave orchestration, and CLI commands.
+- Agent B owns `apps/coordinator-api` attestation verification and `apps/gpu/`
+  and `apps/edge/` enclave orchestration.
 - Shared boundary: `aitbc/tee/attestation.py` is consumed by the
   `apps/coordinator-api` attestation API; Agent A writes the primitives first,
   then Agent B wires the remote verification service.
 - Sequence: Agent A lands attestation, identity, and channel primitives before
-  Agent B begins orchestration and CLI integration.
+  Agent B begins orchestration integration.
 
 ## Release Gate
 
@@ -122,7 +94,6 @@ cd /opt/aitbc
 - [ ] Confidential agent-to-agent messaging channel is established and
       stress-tested.
 - [ ] TEE-backed data processing integrates with the memory layer.
-- [ ] ZK + TEE dual verification policy is selectable and benchmarked.
 - [ ] `ruff`, `mypy`, and `pytest tests/unit` pass.
 
 *Generated with [Devin](https://devin.ai)*

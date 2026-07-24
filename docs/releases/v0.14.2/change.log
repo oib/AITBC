@@ -1,0 +1,65 @@
+# v0.14.2 — TEE-Backed Verification & Confidential Compute (Phase 2)
+
+**Last Updated**: 2026-07-24
+**Status**: Planned 🚧
+**Prerequisite**: v0.14.1 complete; v0.15.1–v0.15.2 planned
+
+## Release Theme
+
+Extend the TEE foundation laid in v0.14.1 with dual-verification policies,
+confidential transactions, and healthcare/finance reference enclaves. This
+release closes the loop between ZK-proofs and TEEs and wires
+confidential-compute features to wallet and economic flows.
+
+## Motivation
+
+v0.14.1 delivers attestation, enclave lifecycle, confidential messaging, and
+TEE-backed data processing. Phase 2 builds on that plumbing to provide
+dual-verification modes, enclave-side confidential transactions, and
+industry-specific reference enclaves for HIPAA and PCI workloads.
+
+## Planned Work
+
+### ZK + TEE Dual Verification (P0)
+
+- Design a dual-verification mode: TEE guarantees execution privacy, ZK-proof
+  guarantees transition correctness.
+- Add policy knobs for choosing ZK-only, TEE-only, or combined verification.
+- Benchmark and document latency/cost tradeoffs.
+
+### Confidential Transactions (P0)
+
+- Add TEE-signed transaction envelopes that hide amounts and counterparties.
+- Implement enclave-side balance validation and proof-of-solvency checks.
+- Wire to `aitbc/wallet/` and `aitbc/agent_economics/` for confidential
+  payments.
+
+### Healthcare & Finance TEE Modules (P1)
+
+- Provide SGX-ready reference enclaves for PHI processing and PCI workloads.
+- Add compliance mapping to the v0.15.x HIPAA/financial regulatory modules.
+- Document audit controls for TEE attestation and key lifecycle.
+
+### CLI Extensions (P1)
+
+- Add `cli/aitbc_cli/commands/tee.py` with `tee attest`, `tee launch`, `tee verify`.
+- Add `cli/aitbc_cli/commands/confidential.py` with `confidential send`,
+  `confidential balance`.
+
+## Breaking Changes
+
+- TEE transaction envelope and dual-verification headers will be added to
+  wallet and compute APIs. Concrete breaking changes will be documented as the
+  release matures.
+
+## Release Gate
+
+- [ ] ZK + TEE dual verification policy is selectable and benchmarked.
+- [ ] TEE-signed confidential transaction flow is testable end-to-end.
+- [ ] Healthcare and finance reference enclaves build and have example tests.
+- [ ] TEE CLI commands are wired to local attestation and enclave orchestration.
+- [ ] `./venv/bin/python -m ruff check .` passes.
+- [ ] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
+- [ ] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.
+
+*Generated with [Devin](https://devin.ai)*
