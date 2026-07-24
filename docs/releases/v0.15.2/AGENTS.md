@@ -37,10 +37,21 @@ middleware/CLI integration on top of the v0.15.1 compliance policy foundation.
 - File: `apps/gpu/src/gpu_app/compliance_enclaves.py` (TBD)
   - TEE-backed GPU enclave support.
 
-### B2: Financial regulatory module (P0)
+### B2: Financial regulatory module (P0) — ✅ complete
 
 - File: `apps/coordinator-api/src/coordinator_api/contexts/compliance/finance.py` (new)
-  - PCI/GLBA controls, transaction audit trails, and non-repudiation proofs.
+  - `TransactionAuditRecord` and `NonRepudiationProof` SQLModels with PCI/GLBA
+    classification, consent checks, and audit trail fields.
+  - `FinancialComplianceService` creates regulated transactions, authorizes them
+    against a policy, and produces/verifies non-repudiation proofs.
+- File: `apps/coordinator-api/alembic/versions/1a7d8e9b0c2f_create_financial_compliance_tables.py` (new)
+  - Creates `transaction_audit_record` and `non_repudiation_proof` tables with
+    indexes.
+- File: `apps/coordinator-api/src/coordinator_api/main.py`
+  - Imports the new SQLModels so `alembic`/`SQLModel.metadata` sees them.
+- `tests/unit/test_v152_agent_b.py` covers transaction creation, consent-gated
+  authorization, and non-repudiation proof verification for PCI and GLBA
+  policies.
 
 ### B3: Coordinator-api middleware & CLI (P1)
 
@@ -73,9 +84,9 @@ cd /opt/aitbc
 ## Release Gate
 
 - [ ] Compliance container/sub-network design is documented and reviewed.
-- [ ] Financial regulatory module has example policies and tests.
+- [x] Financial regulatory module has example policies and tests.
 - [ ] Compliance middleware enforces classification and consent in coordinator-api.
 - [ ] `compliance` CLI commands are wired to policy checks and audit export.
-- [ ] `ruff`, `mypy`, and `pytest tests/unit` pass.
+- [x] `ruff`, `mypy`, and `pytest tests/unit` pass.
 
 *Generated with [Devin](https://devin.ai)*

@@ -45,6 +45,7 @@ from .contexts.governance.routers.grants import router as grants_router
 from .contexts.marketplace.domain.provider_bond import ProviderBond  # noqa: F401
 from .contexts.tee.attestation import EnclaveIdentity, TEEAttestation  # noqa: F401
 from .contexts.tee.routers import attestation_router as tee_attestation_router
+from .contexts.compliance.finance import NonRepudiationProof, TransactionAuditRecord  # noqa: F401
 from .contexts.compliance.hipaa import ConsentRecord, PHIAccessLog  # noqa: F401
 from .contexts.compliance.routers import hipaa_router
 
