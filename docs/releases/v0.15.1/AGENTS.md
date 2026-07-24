@@ -94,10 +94,10 @@ cd /opt/aitbc
 
 ## Release Gate
 
-- [ ] Compliance policy framework compiles and has unit tests.
+- [x] Compliance policy framework compiles and has unit tests.
 - [x] Encryption and key management primitives are testable.
 - [x] Immutable audit log primitives have unit tests.
-- [ ] HIPAA module has example policies and tests.
-- [ ] `ruff`, `mypy`, and `pytest tests/unit` pass.
+- [x] HIPAA module has example policies and tests.
+- [x] `ruff`, `mypy`, and `pytest tests/unit` pass.
 
 *Generated with [Devin](https://devin.ai)*

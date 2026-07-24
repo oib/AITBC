@@ -1,7 +1,9 @@
 """Enclave-side confidential payment validation (v0.14.2 §A2).
 
-ponytail: This is a policy skeleton. Production should verify range proofs,
-commitment consistency, and TEE signatures inside the enclave.
+Provides ``ConfidentialPayment`` and helpers to validate and settle confidential
+payments. Validation checks sender/recipient, commitment presence, and the
+transaction signature. Real production logic should also verify range proofs
+and commitment consistency inside the enclave.
 """
 
 from __future__ import annotations
@@ -40,6 +42,8 @@ def validate_payment(payment: ConfidentialPayment, expected_sender: str = "") ->
         raise TEEError("payment must include a signed confidential transaction")
     if not payment.tx.signature:
         raise TEEError("confidential transaction is not signed")
+    if not payment.tx.verify():
+        raise TEEError("confidential transaction signature is invalid")
     payment.validated = True
     return True
 
