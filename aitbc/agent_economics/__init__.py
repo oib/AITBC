@@ -24,6 +24,7 @@ from .errors import (
     BudgetError,
     OnChainActionError,
     PricingError,
+    RebalanceError,
     RevenueRouteError,
     SlashError,
 )
@@ -35,6 +36,15 @@ from .models import (
     PricingStrategyType,
     RevenueRoute,
     RevenueRouteType,
+)
+from .rebalance import (
+    ChainHoldings,
+    ConstraintType,
+    ReinvestmentPolicy,
+    RebalanceAction,
+    RebalanceActionType,
+    RebalanceConstraint,
+    Rebalancer,
 )
 from .slash import (
     SlashEvent,
@@ -52,6 +62,8 @@ __all__ = [
     "BondStatus",
     "Budget",
     "BudgetError",
+    "ChainHoldings",
+    "ConstraintType",
     "OnChainAction",
     "OnChainActionError",
     "OnChainActionType",
@@ -59,6 +71,12 @@ __all__ = [
     "PricingError",
     "PricingStrategy",
     "PricingStrategyType",
+    "RebalanceAction",
+    "RebalanceActionType",
+    "RebalanceConstraint",
+    "RebalanceError",
+    "Rebalancer",
+    "ReinvestmentPolicy",
     "RevenueRoute",
     "RevenueRouteError",
     "RevenueRouteType",
