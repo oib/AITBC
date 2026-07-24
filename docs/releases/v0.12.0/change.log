@@ -68,6 +68,7 @@ primitives for autonomous budgets, revenue routing, and performance bonds.
 
 - [x] Agent wallet and escrow primitives are defined and tested.
 - [x] Performance bond and staking models compile and have unit coverage.
+- [x] Reinvestment policy and `Rebalancer` planner have unit tests.
 - [ ] Automated rebalancing loop passes simulation tests.
 - [ ] Dynamic fee market extends the existing Dynamic Pricing API.
 - [ ] OpenClaw DAO governance proposals for economic parameters are testable.
