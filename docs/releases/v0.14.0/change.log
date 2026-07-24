@@ -1,0 +1,78 @@
+# v0.14.0 — Platform Builder Tooling
+
+**Last Updated**: 2026-07-24
+**Status**: Planned 🚧
+**Prerequisite**: v0.10.18 complete; v0.11.0 in-flight, v0.12.0 and v0.13.0 planned
+
+## Release Theme
+
+Improve the Platform Builder experience: SDKs, how-to guides, a streamlined
+CLI configuration tool, and the developer ecosystem/DAO grants workflows
+needed to onboard external contributors and lower the barrier to entry for
+new AITBC developers.
+
+## Motivation
+
+Hardcoded API keys have been removed in favor of environment variables, and
+the project is shifting toward Phase 4 success criteria. To grow the builder
+community, the platform needs self-service onboarding, clear documentation,
+and tooling that validates a developer's environment before they run services
+or submit contributions.
+
+## Planned Work
+
+### CLI Configuration Tool (P0)
+
+- Add `aitbc config check` to report missing or malformed environment API keys.
+- Add `aitbc config set --key KEY --value VALUE` with secure storage guidance.
+- Add `aitbc bootstrap-env` to generate a starter `.env` file and validate it.
+- Integrate key validation with the existing `scripts/security/scan_secrets.py`
+  workflow.
+
+### SDK for Platform Builders (P1)
+
+- Create `packages/py/aitbc-sdk/` with high-level client bindings for
+  coordinator-api, wallet, and agent registry.
+- Add typed request/response models and retry/circuit-breaker helpers.
+- Publish a local install target (`pip install -e packages/py/aitbc-sdk`).
+
+### Builder Documentation & How-To Guides (P1)
+
+- Create `docs/builders/` with:
+  - `getting-started.md` — install, env setup, first agent.
+  - `sdk-reference.md` — API client usage.
+  - `contributing.md` — repo layout, tests, commit conventions.
+  - `grants.md` — how to propose and complete DAO grants.
+
+### Developer Registry & DAO Grants (P2)
+
+- Extend `apps/coordinator-api` with a developer registry (profile,
+  reputation, project listing).
+- Add grant proposal lifecycle: draft, vote, milestone, disburse, close.
+- Add CLI commands: `developer register`, `developer list`, `grant create`,
+  `grant vote`, `grant milestone`, `grant status`.
+
+### Local Development Helpers (P2)
+
+- Add `scripts/dev/start-local.sh` to spin up a minimal local node, coordinator,
+  and wallet for integration testing.
+- Add example agent projects under `examples/builder/`.
+- Provide `pytest` fixtures in `tests/integration/fixtures/builder.py`.
+
+## Breaking Changes
+
+- New CLI commands and SDK surface. Existing environment-based configuration
+  remains backward compatible.
+
+## Release Gate
+
+- [ ] `aitbc config check` reports missing env keys correctly.
+- [ ] `aitbc bootstrap-env` produces a valid starter `.env`.
+- [ ] `aitbc-sdk` package installs and exposes coordinator-api client.
+- [ ] Builder docs cover getting started, SDK reference, contributing, and grants.
+- [ ] Developer registry and grant proposal endpoints are testable.
+- [ ] `./venv/bin/python -m ruff check .` passes.
+- [ ] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
+- [ ] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.
+
+*Generated with [Devin](https://devin.ai)*
