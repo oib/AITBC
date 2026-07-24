@@ -13,6 +13,9 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
 from .attestation import AttestationQuote, AttestationVerifier
 from .errors import TEEError
 
@@ -27,11 +30,40 @@ class VerificationMode(StrEnum):
 
 @dataclass
 class ZKProof:
-    """Placeholder for a zero-knowledge proof object."""
+    """Zero-knowledge proof placeholder with optional Ed25519 signature binding.
+
+    When ``verifying_key``, ``public_inputs``, and ``proof_data`` are supplied,
+    ``verify()`` performs an Ed25519 signature check as a simulator for a real
+    ZK verifier. Otherwise it falls back to the ``verified`` boolean.
+    """
 
     proof_id: str
     verified: bool = True
+    context_id: str = ""
+    verifying_key: bytes = b""
+    public_inputs: bytes = b""
+    proof_data: bytes = b""
     meta: dict[str, Any] = field(default_factory=dict)
+
+    def _bound_inputs(self) -> bytes:
+        if self.context_id:
+            return self.context_id.encode() + b"|" + self.public_inputs
+        return self.public_inputs
+
+    def verify(self) -> bool:
+        """Verify the proof.
+
+        If a verifying key is present, verify the Ed25519 signature over the
+        (context-bound) public inputs; otherwise trust ``self.verified``.
+        """
+        if not self.verifying_key or not self.proof_data:
+            return self.verified
+        try:
+            pub = Ed25519PublicKey.from_public_bytes(self.verifying_key)
+            pub.verify(self.proof_data, self._bound_inputs())
+            return True
+        except InvalidSignature:
+            return False
 
 
 @dataclass
@@ -59,7 +91,7 @@ class DualVerificationPolicy:
         return AttestationVerifier(self.allowed_measurements).verify(quote)
 
     def _verify_zk(self, zk_proof: ZKProof | None) -> bool:
-        return zk_proof is not None and zk_proof.verified
+        return zk_proof is not None and zk_proof.verify()
 
     def verify(self, quote: AttestationQuote | None, zk_proof: ZKProof | None) -> bool:
         """Evaluate the verification policy for the given evidence."""
