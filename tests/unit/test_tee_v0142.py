@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
 from aitbc.agent_economics import (
     ConfidentialPayment,
     settle_payment,
@@ -9,10 +12,13 @@ from aitbc.agent_economics import (
 )
 from aitbc.tee import (
     AttestationQuote,
+    AttestationVerifier,
     DualVerificationPolicy,
+    QuoteGenerator,
     TEEBenchmark,
     VerificationMode,
     ZKProof,
+    verify_quote,
     verify_with_policy,
     verify_with_result,
 )
@@ -148,3 +154,127 @@ def test_confidential_payment_invalid_signature_fails() -> None:
         assert False, "expected TEEError"
     except TEEError:
         pass
+
+
+def test_quote_signature_verification() -> None:
+    generator = QuoteGenerator(enclave_id="enc-1", signing_key=b"tee-signing-key")
+    quote = generator.generate(quote_id="q1", measurement="m-1")
+    assert quote.signature != b""
+    assert quote.public_key != b""
+    assert AttestationVerifier({"m-1"}, require_signature=True).verify(quote) is True
+
+
+def test_quote_tampering_fails_signature_verification() -> None:
+    generator = QuoteGenerator(enclave_id="enc-1", signing_key=b"tee-signing-key")
+    quote = generator.generate(quote_id="q1", measurement="m-1")
+    quote.quote_blob = b"tampered"
+    assert AttestationVerifier({"m-1"}, require_signature=True).verify(quote) is False
+
+
+def test_quote_wrong_measurement_fails() -> None:
+    quote = AttestationQuote(quote_blob=b"quote", measurement="m-1")
+    assert verify_quote(quote, expected_measurement="m-2") is False
+
+
+def test_zk_proof_signature_binding() -> None:
+    private_key = Ed25519PrivateKey.generate()
+    public_key = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    context_id = "tx-1"
+    public_inputs = b"public"
+    bound_inputs = context_id.encode() + b"|" + public_inputs
+    proof_data = private_key.sign(bound_inputs)
+    zk = ZKProof(
+        proof_id="zk-1",
+        context_id=context_id,
+        verifying_key=public_key,
+        public_inputs=public_inputs,
+        proof_data=proof_data,
+    )
+    assert zk.verify() is True
+
+
+def test_zk_proof_wrong_context_fails() -> None:
+    private_key = Ed25519PrivateKey.generate()
+    public_key = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    proof_data = private_key.sign(b"tx-1|public")
+    zk = ZKProof(
+        proof_id="zk-1",
+        context_id="tx-2",
+        verifying_key=public_key,
+        public_inputs=b"public",
+        proof_data=proof_data,
+    )
+    assert zk.verify() is False
+
+
+def test_dual_verification_both_with_signed_evidence() -> None:
+    generator = QuoteGenerator(enclave_id="enc-1", signing_key=b"tee-signing-key")
+    quote = generator.generate(quote_id="q1", measurement="m-1")
+
+    private_key = Ed25519PrivateKey.generate()
+    public_key = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    public_inputs = b"inputs"
+    bound_inputs = quote.quote_id.encode() + b"|" + public_inputs
+    proof_data = private_key.sign(bound_inputs)
+    zk = ZKProof(
+        proof_id="zk-1",
+        context_id=quote.quote_id,
+        verifying_key=public_key,
+        public_inputs=public_inputs,
+        proof_data=proof_data,
+    )
+
+    policy = DualVerificationPolicy(
+        mode=VerificationMode.BOTH,
+        allowed_measurements={"m-1"},
+    )
+    assert verify_with_policy(policy, quote, zk) is True
+
+
+def test_tee_benchmark_summary_includes_throughput_and_memory() -> None:
+    benchmark = TEEBenchmark(name="test")
+    benchmark.run("noop", lambda: None)
+    summary = benchmark.summary()
+    assert summary["count"] == 1.0
+    assert summary["ops_per_sec"] > 0
+    assert summary["peak_memory_bytes"] >= 0
+
+
+def test_confidential_commitment_opens_correctly() -> None:
+    wallet = ConfidentialWallet(wallet_id="w-1", owner_id="owner-1")
+    tx = wallet.send("recipient-1", "commitment-100", b"secret-key")
+    assert tx.verify_commitment() is True
+
+
+def test_confidential_payment_wrong_commitment_fails() -> None:
+    wallet = ConfidentialWallet(wallet_id="w-1", owner_id="owner-1")
+    tx = wallet.send("recipient-1", "commitment-100", b"secret-key")
+    payment = ConfidentialPayment(
+        payment_id=tx.tx_id,
+        sender_id=tx.sender_id,
+        recipient_id=tx.recipient_id,
+        amount_commitment=b"wrong",
+        tx=tx,
+    )
+    try:
+        validate_payment(payment)
+        assert False, "expected TEEError"
+    except TEEError:
+        pass
+
+
+def test_confidential_wallet_balance_commitment_changes() -> None:
+    wallet = ConfidentialWallet(wallet_id="w-1", owner_id="owner-1")
+    wallet.deposit("commitment-100")
+    balance_before = wallet.balance_commitment
+    wallet.send("recipient-1", "commitment-50", b"secret-key")
+    assert wallet.balance_commitment != balance_before
