@@ -629,7 +629,7 @@ class DashboardManager:
             editors=[],
             is_public=False,
             status="active",
-            dashboard_settings={"theme": "light", "animations": True, "auto_refresh": True},
+            dashboard_settings={"theme": "dark", "animations": True, "auto_refresh": True},
         )
         session.add(dashboard)
         session.commit()
