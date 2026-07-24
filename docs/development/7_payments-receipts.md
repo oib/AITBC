@@ -1,6 +1,6 @@
 # Payments and Receipts
 
-This guide explains how payments work on the AITBC network and how to understand your receipts.
+This guide explains how payments work on the the network and how to understand your receipts.
 
 ## Payment Flow
 
@@ -14,7 +14,7 @@ Client submits job → Job processed by miner → Receipt generated → Payment 
 2. **Miner Selection**: The Coordinator assigns your job to an available miner
 3. **Processing**: The miner executes your job using their GPU
 4. **Receipt Creation**: A cryptographic receipt is generated proving work completion
-5. **Settlement**: AITBC tokens are transferred from client to miner
+5. **Settlement**: the network tokens are transferred from client to miner
 
 ## Understanding Receipts
 
@@ -27,7 +27,7 @@ Every completed job generates a receipt containing:
 | `provider` | Miner address who processed the job |
 | `client` | Your address (who requested the job) |
 | `units` | Compute units consumed (e.g., GPU seconds) |
-| `price` | Amount paid in AITBC tokens |
+| `price` | Amount paid in the network tokens |
 | `model` | AI model used |
 | `started_at` | When processing began |
 | `completed_at` | When processing finished |
@@ -99,7 +99,7 @@ curl https://aitbc.bubuit.net/api/v1/receipts?client=<your_address>
 
 *Rates may vary based on network demand and miner availability.*
 
-## Getting AITBC Tokens
+## Getting the network tokens
 
 ### Via Exchange
 

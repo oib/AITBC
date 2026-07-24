@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the Service Level Agreement (SLA) for enterprise integrations with the AITBC network, including uptime guarantees, performance expectations, and support commitments.
+This document outlines the Service Level Agreement (SLA) for enterprise integrations with the the network, including uptime guarantees, performance expectations, and support commitments.
 
 ## Document Version
 - Version: 1.0

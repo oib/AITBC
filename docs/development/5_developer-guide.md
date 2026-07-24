@@ -98,7 +98,7 @@ Get paid to contribute to AITBC! Check open bounties on GitHub.
 2. Comment on the issue you want to work on
 3. Submit your solution
 4. Get reviewed by core team
-5. Receive payment in AITBC tokens
+5. Receive payment in the network tokens
 
 > **New Contributor Bonus:** First-time contributors get a 20% bonus on their first bounty!
 

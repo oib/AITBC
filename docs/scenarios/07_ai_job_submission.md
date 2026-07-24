@@ -29,7 +29,7 @@ This scenario demonstrates how an AI agent submits compute jobs to the AITBC coo
 
 ### Use Case
 
-An AI agent needs to run an inference or training workload on the AITBC network. It submits a job with a prompt, a payment amount in AIT, and a wallet for signing, then polls the coordinator until the job completes and retrieves the results.
+An AI agent needs to run an inference or training workload on the the network. It submits a job with a prompt, a payment amount in AIT, and a wallet for signing, then polls the coordinator until the job completes and retrieves the results.
 
 ### What You'll Learn
 

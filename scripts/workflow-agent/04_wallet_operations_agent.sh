@@ -16,7 +16,7 @@ else
     export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
     echo "⚠️  Using default configuration (env file not found)"
 fi
-echo "=== agent AITBC Wallet Operations ==="
+echo "=== agent the wallet Operations ==="
 
 # 1. Initialize agent WalletAgent
 echo "1. Initializing agent WalletAgent..."

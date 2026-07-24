@@ -16,6 +16,9 @@ from typing import Any, cast
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.crypto import derive_ethereum_address, encrypt_private_key
 from aitbc.network import AITBCHTTPClient, Web3Client
+from aitbc_agent_core import get_active_brand
+
+_brand = get_active_brand()
 
 from ..contexts.agent_identity.domain.agent_identity import ChainType
 from ..contexts.wallet.services.money import from_atomic_units, to_atomic_units, validate_positive_amount
@@ -609,7 +612,7 @@ class AvalancheWalletAdapter(EthereumWalletAdapter):
 
 
 class AITBCWalletAdapter(EnhancedWalletAdapter):
-    """AITBC wallet adapter using native RPC protocol (not Ethereum-compatible)"""
+    """Native wallet adapter using the AITBC RPC protocol (not Ethereum-compatible)"""
 
     def __init__(self, rpc_url: str, security_level: SecurityLevel = SecurityLevel.MEDIUM, chain_id: int = 1000):
         super().__init__(chain_id, ChainType.AITBC, rpc_url, security_level)
@@ -619,7 +622,7 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
         self._http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
 
     async def create_wallet(self, owner_address: str, security_config: dict[str, Any]) -> dict[str, Any]:
-        """Create a new AITBC wallet with enhanced security"""
+        """Create a new wallet with enhanced security"""
         try:
             from eth_account import Account
 
@@ -637,10 +640,10 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
                 "nonce": 0,
                 "transaction_count": 0,
             }
-            logger.info("Created AITBC wallet %s for owner %s", address, owner_address)
+            logger.info("Created %s wallet %s for owner %s", _brand.wallet_name, address, owner_address)
             return wallet_data
         except Exception as e:
-            logger.error("Error creating AITBC wallet: %s", e)
+            logger.error("Error creating %s wallet: %s", _brand.wallet_name, e)
             raise
 
     async def get_balance(self, wallet_address: str, token_address: str | None = None) -> dict[str, Any]:

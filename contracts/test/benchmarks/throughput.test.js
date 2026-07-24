@@ -21,7 +21,7 @@ describe("Throughput Benchmarks", function () {
     });
   });
 
-  describe("AITBCPaymentProcessor", function () {
+  describe("PaymentProcessor", function () {
     it("Should benchmark createPayment throughput", async function () {
       // Placeholder for throughput benchmark
       // TODO: Implement actual throughput measurement

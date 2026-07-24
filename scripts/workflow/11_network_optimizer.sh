@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# AITBC Network Optimization Script
+# the network Optimization Script
 # Optimizes network configuration and performance
 
-echo "=== AITBC Network Optimization ==="
+echo "=== the network Optimization ==="
 
 
 # Source scenario configuration

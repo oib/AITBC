@@ -14,7 +14,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 contract AgentMarketplaceV2 is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
-    IERC20 public aitbcToken;
+    IERC20 public paymentToken;
 
     uint256 public capabilityCounter;
     uint256 public subscriptionCounter;
@@ -59,9 +59,9 @@ contract AgentMarketplaceV2 is Ownable, ReentrancyGuard, Pausable {
         _;
     }
 
-    constructor(address _aitbcToken) {
-        require(_aitbcToken != address(0), "Invalid token address");
-        aitbcToken = IERC20(_aitbcToken);
+    constructor(address _paymentToken) {
+        require(_paymentToken != address(0), "Invalid token address");
+        paymentToken = IERC20(_paymentToken);
     }
 
     /**
@@ -129,11 +129,11 @@ contract AgentMarketplaceV2 is Ownable, ReentrancyGuard, Pausable {
         uint256 providerAmount = cap.pricePerCall - platformFee;
 
         // Transfer funds
-        aitbcToken.safeTransferFrom(msg.sender, address(this), cap.pricePerCall);
+        paymentToken.safeTransferFrom(msg.sender, address(this), cap.pricePerCall);
 
         // Pay provider
         if (providerAmount > 0) {
-            aitbcToken.safeTransfer(cap.providerAgent, providerAmount);
+            paymentToken.safeTransfer(cap.providerAgent, providerAmount);
         }
 
         cap.totalCalls += 1;
@@ -154,11 +154,11 @@ contract AgentMarketplaceV2 is Ownable, ReentrancyGuard, Pausable {
         uint256 providerAmount = cap.subscriptionPrice - platformFee;
 
         // Transfer funds
-        aitbcToken.safeTransferFrom(msg.sender, address(this), cap.subscriptionPrice);
+        paymentToken.safeTransferFrom(msg.sender, address(this), cap.subscriptionPrice);
 
         // Pay provider
         if (providerAmount > 0) {
-            aitbcToken.safeTransfer(cap.providerAgent, providerAmount);
+            paymentToken.safeTransfer(cap.providerAgent, providerAmount);
         }
 
         cap.totalRevenue += providerAmount;
@@ -209,9 +209,9 @@ contract AgentMarketplaceV2 is Ownable, ReentrancyGuard, Pausable {
      * @dev Withdraw accumulated platform fees
      */
     function withdrawPlatformFees() external onlyOwner {
-        uint256 balance = aitbcToken.balanceOf(address(this));
+        uint256 balance = paymentToken.balanceOf(address(this));
         require(balance > 0, "No fees to withdraw");
-        aitbcToken.safeTransfer(owner(), balance);
+        paymentToken.safeTransfer(owner(), balance);
     }
 
     function pause() external onlyOwner {

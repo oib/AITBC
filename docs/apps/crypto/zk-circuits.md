@@ -1,6 +1,6 @@
 # AITBC ZK Circuits
 
-Zero-knowledge circuits for privacy-preserving receipt attestation in the AITBC network.
+Zero-knowledge circuits for privacy-preserving receipt attestation in the the network.
 
 ## Overview
 

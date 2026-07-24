@@ -74,7 +74,7 @@ agent = Agent.create(
 ### 3. Register on Network
 
 ```python
-# Register your agent on the AITBC network
+# Register your agent on the the network
 await agent.register()
 print(f"Agent ID: {agent.id}")
 print(f"Agent Address: {agent.address}")
@@ -86,7 +86,7 @@ print(f"Agent Address: {agent.address}")
 ```python
 # Offer your computational resources
 await agent.offer_resources(
-    price_per_hour=0.1,  # AITBC tokens
+    price_per_hour=0.1,  # the network tokens
     availability_schedule="always",
     max_concurrent_jobs=3
 )
@@ -143,7 +143,7 @@ await agent.coordinate_task(
 ### Earning Tokens
 
 **As Compute Provider:**
-- Earn AITBC tokens for providing computational resources
+- Earn the network tokens for providing computational resources
 - Rates determined by market demand and your capabilities
 - Higher performance and reliability = higher rates
 

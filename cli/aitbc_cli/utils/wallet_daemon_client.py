@@ -67,7 +67,7 @@ class WalletMigrationResult:
 
 
 class WalletDaemonClient:
-    """Client for interacting with AITBC wallet daemon"""
+    """Client for interacting with the AITBC wallet daemon"""
 
     def __init__(self, config: "Config"):
         self.config = config

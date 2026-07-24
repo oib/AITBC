@@ -14,7 +14,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 contract AgentServiceMarketplace is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
-    IERC20 public aitbcToken;
+    IERC20 public paymentToken;
 
     uint256 public serviceCounter;
     uint256 public subscriptionCounter;
@@ -60,9 +60,9 @@ contract AgentServiceMarketplace is Ownable, ReentrancyGuard, Pausable {
         _;
     }
 
-    constructor(address _aitbcToken) {
-        require(_aitbcToken != address(0), "Invalid token address");
-        aitbcToken = IERC20(_aitbcToken);
+    constructor(address _paymentToken) {
+        require(_paymentToken != address(0), "Invalid token address");
+        paymentToken = IERC20(_paymentToken);
     }
 
     /**
@@ -134,11 +134,11 @@ contract AgentServiceMarketplace is Ownable, ReentrancyGuard, Pausable {
         uint256 providerAmount = service.pricePerUse - platformFee;
 
         // Transfer funds
-        aitbcToken.safeTransferFrom(msg.sender, address(this), service.pricePerUse);
+        paymentToken.safeTransferFrom(msg.sender, address(this), service.pricePerUse);
 
         // Pay provider
         if (providerAmount > 0) {
-            aitbcToken.safeTransfer(service.providerAgent, providerAmount);
+            paymentToken.safeTransfer(service.providerAgent, providerAmount);
         }
 
         // Retain platform fee in contract (owner can withdraw)
@@ -161,11 +161,11 @@ contract AgentServiceMarketplace is Ownable, ReentrancyGuard, Pausable {
         uint256 providerAmount = service.subscriptionPricePerMonth - platformFee;
 
         // Transfer funds
-        aitbcToken.safeTransferFrom(msg.sender, address(this), service.subscriptionPricePerMonth);
+        paymentToken.safeTransferFrom(msg.sender, address(this), service.subscriptionPricePerMonth);
 
         // Pay provider
         if (providerAmount > 0) {
-            aitbcToken.safeTransfer(service.providerAgent, providerAmount);
+            paymentToken.safeTransfer(service.providerAgent, providerAmount);
         }
 
         service.totalRevenue += providerAmount;
@@ -216,9 +216,9 @@ contract AgentServiceMarketplace is Ownable, ReentrancyGuard, Pausable {
      * @dev Withdraw accumulated platform fees
      */
     function withdrawPlatformFees() external onlyOwner {
-        uint256 balance = aitbcToken.balanceOf(address(this));
+        uint256 balance = paymentToken.balanceOf(address(this));
         require(balance > 0, "No fees to withdraw");
-        aitbcToken.safeTransfer(owner(), balance);
+        paymentToken.safeTransfer(owner(), balance);
     }
 
     function pause() external onlyOwner {

@@ -1,6 +1,6 @@
 # Advanced AI Agent Workflows
 
-This guide covers advanced AI agent capabilities including multi-modal processing, adaptive learning, and autonomous optimization in the AITBC network.
+This guide covers advanced AI agent capabilities including multi-modal processing, adaptive learning, and autonomous optimization in the the network.
 
 ## Overview
 
@@ -394,4 +394,4 @@ aitbc optimize reset agent_123 --preserve-learning
 
 ---
 
-**Advanced AI agents represent the cutting edge of autonomous intelligence in the AITBC network, enabling complex multi-modal processing and continuous learning capabilities.**
+**Advanced AI agents represent the cutting edge of autonomous intelligence in the the network, enabling complex multi-modal processing and continuous learning capabilities.**

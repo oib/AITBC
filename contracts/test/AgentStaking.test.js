@@ -3,7 +3,7 @@ import hardhat from "hardhat";
 const { ethers } = hardhat;
 
 describe("AgentStaking High-Priority Tests", function () {
-  let aitbcToken, performanceVerifier, agentStaking;
+  let paymentToken, performanceVerifier, agentStaking;
   let deployer, staker, agentWallet;
   let stakeId;
 
@@ -12,8 +12,8 @@ describe("AgentStaking High-Priority Tests", function () {
 
     // Deploy AIToken
     const AIToken = await ethers.getContractFactory("AIToken");
-    aitbcToken = await AIToken.deploy(ethers.parseUnits("1000000", 18));
-    await aitbcToken.waitForDeployment();
+    paymentToken = await AIToken.deploy(ethers.parseUnits("1000000", 18));
+    await paymentToken.waitForDeployment();
 
     // Deploy mock verifier (simple contract with verify function)
     const MockVerifier = await ethers.getContractFactory("MockVerifier");
@@ -23,14 +23,14 @@ describe("AgentStaking High-Priority Tests", function () {
     // Deploy AgentStaking
     const AgentStaking = await ethers.getContractFactory("AgentStaking");
     agentStaking = await AgentStaking.deploy(
-      await aitbcToken.getAddress(),
+      await paymentToken.getAddress(),
       await performanceVerifier.getAddress()
     );
     await agentStaking.waitForDeployment();
 
     // Mint tokens to staker
-    await aitbcToken.mint(staker.address, ethers.parseEther("10000"));
-    await aitbcToken.connect(staker).approve(
+    await paymentToken.mint(staker.address, ethers.parseEther("10000"));
+    await paymentToken.connect(staker).approve(
       await agentStaking.getAddress(),
       ethers.parseEther("1000000000")
     );
@@ -84,7 +84,7 @@ describe("AgentStaking High-Priority Tests", function () {
       expect(stake[9]).to.equal(0); // agentTier = BRONZE
 
       // Verify staker's balance decreased
-      const stakerBalance = await aitbcToken.balanceOf(staker.address);
+      const stakerBalance = await paymentToken.balanceOf(staker.address);
       expect(stakerBalance).to.equal(ethers.parseEther("9000"));
     });
 
@@ -200,7 +200,7 @@ describe("AgentStaking High-Priority Tests", function () {
       await ethers.provider.send("evm_mine");
 
       // Get staker balance before completion
-      const balanceBefore = await aitbcToken.balanceOf(staker.address);
+      const balanceBefore = await paymentToken.balanceOf(staker.address);
 
       // Complete unbonding
       const tx = await agentStaking.connect(staker).completeUnbonding(stakeId);
@@ -219,7 +219,7 @@ describe("AgentStaking High-Priority Tests", function () {
       expect(stakeAfter[6]).to.equal(2); // status = COMPLETED
 
       // Verify staker received stake amount (900 after penalty) + rewards
-      const balanceAfter = await aitbcToken.balanceOf(staker.address);
+      const balanceAfter = await paymentToken.balanceOf(staker.address);
       expect(balanceAfter).to.be.greaterThan(balanceBefore + ethers.parseEther("900"));
     });
 
@@ -233,14 +233,14 @@ describe("AgentStaking High-Priority Tests", function () {
       await ethers.provider.send("evm_mine");
 
       // Get staker balance before completion
-      const balanceBefore = await aitbcToken.balanceOf(staker.address);
+      const balanceBefore = await paymentToken.balanceOf(staker.address);
 
       // Complete unbonding
       const tx = await agentStaking.connect(staker).completeUnbonding(stakeId);
       const receipt = await tx.wait();
 
       // Verify penalty was applied (10% of 1000 AITBC = 100 AITBC)
-      const balanceAfter = await aitbcToken.balanceOf(staker.address);
+      const balanceAfter = await paymentToken.balanceOf(staker.address);
       const expectedBalance = balanceBefore + ethers.parseEther("900") + accumulatedRewards; // 1000 - 100 penalty + rewards
       expect(balanceAfter).to.be.closeTo(expectedBalance, ethers.parseEther("0.01"));
     });

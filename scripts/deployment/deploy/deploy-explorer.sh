@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Deploy AITBC Explorer to the server
+# Deploy the block explorer to the server
 
 set -e
 
@@ -8,7 +8,7 @@ SERVER="${AITBC_DEPLOY_SERVER:-root@127.0.0.1}"
 EXPLORER_DIR="/root/aitbc/apps/explorer-web"
 NGINX_CONFIG="/etc/nginx/sites-available/aitbc"
 
-echo "🚀 Deploying AITBC Explorer to Server"
+echo "🚀 Deploying the block explorer to Server"
 echo "====================================="
 echo "Server: $SERVER"
 echo ""

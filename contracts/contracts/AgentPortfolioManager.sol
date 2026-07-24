@@ -18,7 +18,7 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
     using Math for uint256;
 
     // State variables
-    IERC20 public aitbcToken;
+    IERC20 public paymentToken;
     uint256 public portfolioCounter;
     uint256 public strategyCounter;
     uint256 public rebalanceThreshold = 500; // 5% threshold for rebalancing (in basis points)
@@ -124,11 +124,11 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
         _;
     }
 
-    constructor(address _aitbcToken) {
-        aitbcToken = IERC20(_aitbcToken);
+    constructor(address _paymentToken) {
+        paymentToken = IERC20(_paymentToken);
 
         // Initialize with basic assets
-        _addAsset(address(aitbcToken), "AITBC", 18, 100000000); // $1.00 USD
+        _addAsset(address(paymentToken), "AITBC", 18, 100000000); // $1.00 USD
     }
 
     /**

@@ -22,7 +22,7 @@ This guide helps diagnose and resolve common issues with Agent blockchain integr
 - GPU allocation operations fail
 
 **Solutions:**
-- Ensure wallet has enough AITBC tokens for staking
+- Ensure wallet has enough the network tokens for staking
 - Request tokens from faucet: `aitbc wallet faucet --wallet <wallet>`
 - Check wallet balance: `aitbc wallet balance --wallet <wallet>`
 

@@ -98,7 +98,7 @@ class TestWalletToCoordinatorIntegration:
         job_data = {
             "payload": {"job_type": "ai_inference", "parameters": {"model": "gpt-4", "prompt": "Test job with payment"}},
             "ttl_seconds": 900,
-            "payment_amount": 100,  # 100 AITBC tokens
+            "payment_amount": 100,  # 100 the network tokens
             "payment_currency": "AITBC",
         }
 

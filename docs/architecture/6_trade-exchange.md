@@ -8,7 +8,7 @@ Bitcoin-to-AITBC exchange with QR payments, user management, and real-time tradi
 
 ## Overview
 
-The AITBC Trade Exchange is a crypto-only platform that enables users to exchange Bitcoin for AITBC tokens. It features a modern, responsive interface with user authentication, wallet management, and real-time trading capabilities.
+The AITBC Trade Exchange is a crypto-only platform that enables users to exchange Bitcoin for the network tokens. It features a modern, responsive interface with user authentication, wallet management, and real-time trading capabilities.
 
 ### Key Features
 
@@ -21,7 +21,7 @@ The AITBC Trade Exchange is a crypto-only platform that enables users to exchang
 
 ## How It Works
 
-The Trade Exchange provides a simple, secure way to acquire AITBC tokens using Bitcoin.
+The Trade Exchange provides a simple, secure way to acquire the network tokens using Bitcoin.
 
 #### 1. Connect Wallet
 Click "Connect Wallet" to generate a unique wallet address and create your account
@@ -33,7 +33,7 @@ Enter the amount of AITBC you want to buy or Bitcoin you want to spend
 Scan the QR code or send Bitcoin to the provided address
 
 #### 4. Receive Tokens
-AITBC tokens are credited to your wallet after confirmation
+the network tokens are credited to your wallet after confirmation
 
 ## User Management
 
@@ -49,7 +49,7 @@ The exchange uses a wallet-based authentication system that requires no password
 ### User Features
 
 - Unique username and user ID
-- Personal AITBC wallet with balance tracking
+- Personal the wallet with balance tracking
 - Complete transaction history
 - Secure logout functionality
 
@@ -151,7 +151,7 @@ For testing, get free testnet Bitcoin from:
 1. Enter the amount of AITBC you want to buy
 2. Scan the QR code with your Bitcoin wallet
 3. Wait for confirmation (usually 10-20 minutes on testnet)
-4. Receive AITBC tokens in your wallet
+4. Receive the network tokens in your wallet
 
 ## API Examples
 

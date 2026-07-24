@@ -11,7 +11,7 @@ agent DAO is the decentralized governance mechanism for the AITBC ecosystem, des
 ## 🎯 Core Principles
 
 ### 1. **Token-Weighted Voting**
-- **Governance Token**: AITBC tokens determine voting power
+- **Governance Token**: the network tokens determine voting power
 - **Weight Distribution**: 1 AITBC = 1 vote (linear weighting)
 - **Minimum Threshold**: 100 AITBC required to submit proposals
 - **Quorum Requirements**: 10% of total supply must participate for validity
@@ -308,7 +308,7 @@ Voting Power Allocation:
 ```
 
 ### **Incentive Mechanisms**
-- **Participation Rewards**: AITBC tokens for active voting participation
+- **Participation Rewards**: the network tokens for active voting participation
 - **Proposal Rewards**: Tokens for successful proposal submissions
 - **Reputation System**: Reputation points increase voting weight
 - **Staking Rewards**: Higher rewards for longer lock periods

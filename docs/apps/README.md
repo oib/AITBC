@@ -93,7 +93,7 @@ Complete documentation for all AITBC applications and services.
 - [Compliance](compliance/) - Compliance services
   - **Features**: Compliance verification, regulatory checks, audit logging
   - **Quick Start**: Start compliance service with `aitbc compliance start`, configure rules in `compliance.yaml`, and check agent status via `/compliance/check`
-- [Governance Service](governance-service/) - Governance and DAO operations for the AITBC network
+- [Governance Service](governance-service/) - Governance and DAO operations for the the network
   - **Features**: Proposal management, voting mechanisms, DAO operations
   - **Quick Start**: Launch with `aitbc governance-service start`, submit proposals via `/proposals`, and vote on governance matters at `/vote`
 
