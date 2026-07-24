@@ -167,6 +167,9 @@ The release roadmap is split into two interleaved tracks: **infrastructure** (bl
 ### Product Track v0.16 (2026 roadmap)
 - **v0.16.0** — TEE-Backed Verification & Confidential Compute (attestation, enclaves, confidential messaging, ZK+TEE dual verification, confidential transactions): <ref_file file="/opt/aitbc/docs/releases/v0.16.0/change.log" /> 🚧 planned
 
+### Product Track v0.17 (2026 roadmap)
+- **v0.17.0** — Accessibility & Theme Engine (light/dark/high-contrast/system modes, reduced motion, WCAG focus, user preference persistence): <ref_file file="/opt/aitbc/docs/releases/v0.17.0/change.log" /> 🚧 planned
+
 ### Post-v1 Vision (not fit until after v1.0.0)
 - **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
 
