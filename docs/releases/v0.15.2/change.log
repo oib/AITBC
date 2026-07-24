@@ -1,0 +1,56 @@
+# v0.15.2 — Compliance-Ready Modules (Phase 2: Containers, Finance & Middleware)
+
+**Last Updated**: 2026-07-24
+**Status**: Planned 🚧
+**Prerequisite**: v0.15.1 complete; v0.16.1–v0.16.2 planned
+
+## Release Theme
+
+Extend the compliance foundation laid in v0.15.1 with isolated compliance
+containers and sub-networks, the financial regulatory module, and
+coordinator-api middleware/CLI integration.
+
+## Motivation
+
+v0.15.1 defines policies, data classification, encryption, audit logging, and
+the HIPAA module. Phase 2 adds the runtime isolation primitives and
+financial-regulatory controls needed to deploy regulated agents, plus the
+middleware and CLI commands that make compliance features accessible.
+
+## Planned Work
+
+### Compliance Containers & Sub-Networks (P0)
+
+- Design "compliance containers" that isolate sensitive workloads and storage.
+- Add sub-network segmentation so medical/financial agents run in dedicated,
+  encrypted enclaves.
+- Integrate with Trusted Execution Environments (TEEs) where available.
+
+### Financial Regulatory Module (P0)
+
+- Implement PCI-DSS and GLBA controls for financial agents.
+- Add transaction audit trails and non-repudiation proofs.
+- Wire to OpenClaw DAO governance for compliance parameter updates.
+
+### Coordinator-API Integration (P1)
+
+- Add compliance middleware/decorators that enforce classification and consent.
+- Add `compliance` CLI commands for policy checks and audit export.
+
+## Breaking Changes
+
+- New compliance middleware and policy decorators may restrict existing
+  endpoints. Concrete breaking changes will be documented as the release
+  matures.
+
+## Release Gate
+
+- [ ] Compliance container/sub-network design is documented and reviewed.
+- [ ] Financial regulatory module has example policies and tests.
+- [ ] Compliance middleware enforces classification and consent in coordinator-api.
+- [ ] `compliance` CLI commands are wired to policy checks and audit export.
+- [ ] `./venv/bin/python -m ruff check .` passes.
+- [ ] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
+- [ ] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.
+
+*Generated with [Devin](https://devin.ai)*
