@@ -26,10 +26,11 @@ ecosystem & DAO grants, and industry-specific compliance modules.
 
 - Document measurable Phase 4 gates in `docs/releases/v0.11.0/change.log`
   and the checklist below.
-- Define baseline metrics for: autonomous economic loop adoption, storage node
-  coverage, grant disbursement correctness, compliance coverage, and test
-  coverage.
-- Add a CI gate script that fails the build if any P0 criterion is not met.
+- Define baseline metrics in `docs/releases/v0.11.0/phase4_gates.yml` for:
+  autonomous economic loop adoption, storage node coverage, grant disbursement
+  correctness, compliance coverage, and test coverage.
+- Add `scripts/ci/check_phase4_gates.py`; it reads the YAML gate definitions and
+  exits non-zero if any P0 criterion is not met.
 
 ### A2: OpenClaw Autonomous Economics types (P0)
 
@@ -137,7 +138,7 @@ cd /opt/aitbc
 
 ## Release Gate
 
-- [ ] Phase 4 success criteria are defined and reviewed.
+- [x] Phase 4 success criteria are defined and reviewed.
 - [x] `aitbc/agent_economics` types compile and have unit tests.
 - [ ] `aitbc/agent_memory` models are consumed by `apps/memory`.
 - [ ] `apps/memory` service starts and passes a health check.
