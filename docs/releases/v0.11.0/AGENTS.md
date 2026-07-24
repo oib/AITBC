@@ -116,13 +116,16 @@ ecosystem & DAO grants, and industry-specific compliance modules.
 - File: `docs/releases/v0.11.0/capability_verification.md` (new)
   - Core capability documentation with "✅ COMPLETE" tags.
 
-### B6: API key onboarding & UI accessibility (P2)
+### B6: API key onboarding & UI accessibility (P2) — ✅ complete
 
-- File: `cli/aitbc_cli/commands/config.py` (new or update)
-  - `config check-keys` command that reports missing environment API keys.
-- File: `docs/web/README.md` (TBD)
-  - Document the dark-mode-only accessibility decision and any light-theme
-    mitigation.
+- File: `cli/aitbc_cli/commands/config.py` (updated)
+  - Added `config check-keys` command that reports missing environment API keys
+    for `AITBC_API_KEY`, `CLIENT_API_KEY`, `MINER_API_KEY`, `ADMIN_API_KEY`,
+    `COORDINATOR_API_KEY`, and optional provider keys (OpenAI, Google
+    Translate, DeepL, Exchange).
+- File: `docs/web/README.md` (new)
+  - Documents the dark-mode-only accessibility decision, high-contrast
+    mitigation, and verification command.
 
 ---
 
@@ -159,6 +162,9 @@ cd /opt/aitbc
 - [x] CLI `developer` and `grant` commands are wired and smoke-tested.
 - [x] Compliance policy helpers have unit coverage.
 - [x] Cleanup verification scripts (`scan_secrets.py`, `check_deprecation_cleanup.sh`) pass.
+- [x] Core capability verification (edge, GPU priority queue, fusion) complete.
+- [x] `config check-keys` command reports missing environment API keys.
+- [x] Dark-mode-only accessibility policy documented in `docs/web/README.md`.
 - [x] `ruff` and `mypy` pass.
 - [~] `pytest tests/unit` passes (951 pass; 2 pre-existing failures unrelated to B work: `test_alembic_migration_drops_unused_tables` and `test_package_version_matches_source`).
 

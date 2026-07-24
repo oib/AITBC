@@ -10,7 +10,7 @@ import click
 import yaml
 
 from ..config import get_config
-from ..utils import error, output, success
+from ..utils import error, output, success, warning
 
 
 @click.group()
@@ -456,6 +456,72 @@ def get_secret(ctx, key: str):
 
     decrypted = decrypt_value(secrets[key])
     output({"key": key, "value": decrypted}, ctx.obj["output"])
+
+
+@config.command()
+@click.option("--strict", is_flag=True, help="Exit with error if any required key is missing")
+@click.pass_context
+def check_keys(ctx, strict: bool):
+    """Check which environment API keys are configured."""
+    required_keys = [
+        "AITBC_API_KEY",
+        "CLIENT_API_KEY",
+        "MINER_API_KEY",
+        "ADMIN_API_KEY",
+        "COORDINATOR_API_KEY",
+    ]
+    optional_keys = [
+        "OPENAI_API_KEY",
+        "GOOGLE_TRANSLATE_API_KEY",
+        "DEEPL_API_KEY",
+        "EXCHANGE_API_KEY",
+    ]
+
+    results = []
+    missing_required = []
+
+    for key in required_keys + optional_keys:
+        value = os.getenv(key)
+        entry = {
+            "key": key,
+            "present": bool(value),
+            "source": "env",
+            "required": key in required_keys,
+        }
+        if value:
+            # ponytail: only report length; never print secrets.
+            entry["length"] = len(value)
+        elif key in required_keys:
+            missing_required.append(key)
+        results.append(entry)
+
+    summary = {
+        "total": len(required_keys) + len(optional_keys),
+        "required_present": len(required_keys) - len(missing_required),
+        "required_total": len(required_keys),
+        "missing_required": missing_required,
+        "keys": results,
+    }
+
+    if ctx.obj["output"] == "table":
+        for entry in results:
+            status = "present" if entry["present"] else "missing"
+            level = "required" if entry["required"] else "optional"
+            line = f"{entry['key']} ({level}): {status}"
+            if entry["present"]:
+                success(line)
+            else:
+                warning(line)
+        if missing_required:
+            warning(f"Missing required keys: {', '.join(missing_required)}")
+        else:
+            success("All required API keys are present")
+
+    output(summary, ctx.obj["output"])
+
+    if strict and missing_required:
+        error("Required API keys are missing")
+        ctx.exit(1)
 
 
 # Add profiles group to config
