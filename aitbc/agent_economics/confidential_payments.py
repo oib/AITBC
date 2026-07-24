@@ -1,9 +1,8 @@
 """Enclave-side confidential payment validation (v0.14.2 §A2).
 
 Provides ``ConfidentialPayment`` and helpers to validate and settle confidential
-payments. Validation checks sender/recipient, commitment presence, and the
-transaction signature. Real production logic should also verify range proofs
-and commitment consistency inside the enclave.
+payments. Validation checks sender/recipient, commitment consistency, transaction
+signature, and that the amount commitment opens to the stored label/blinding.
 """
 
 from __future__ import annotations
@@ -22,16 +21,13 @@ class ConfidentialPayment:
     payment_id: str
     sender_id: str
     recipient_id: str
-    amount_commitment: str
+    amount_commitment: bytes = b""
     tx: ConfidentialTransaction | None = None
     validated: bool = False
 
 
 def validate_payment(payment: ConfidentialPayment, expected_sender: str = "") -> bool:
-    """Validate a confidential payment inside the TEE trust boundary.
-
-    Checks sender, non-empty commitment, and an attached transaction signature.
-    """
+    """Validate a confidential payment inside the TEE trust boundary."""
     if not payment.sender_id or not payment.recipient_id:
         raise TEEError("payment must specify sender and recipient")
     if not payment.amount_commitment:
@@ -40,10 +36,14 @@ def validate_payment(payment: ConfidentialPayment, expected_sender: str = "") ->
         raise TEEError("sender does not match expected sender")
     if payment.tx is None:
         raise TEEError("payment must include a signed confidential transaction")
+    if payment.tx.amount_commitment != payment.amount_commitment:
+        raise TEEError("payment commitment does not match transaction commitment")
     if not payment.tx.signature:
         raise TEEError("confidential transaction is not signed")
     if not payment.tx.verify():
         raise TEEError("confidential transaction signature is invalid")
+    if not payment.tx.verify_commitment():
+        raise TEEError("confidential transaction commitment is invalid")
     payment.validated = True
     return True
 
