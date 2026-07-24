@@ -9,8 +9,8 @@
 ## A
 
 - **AITBC**: Artificial Intelligence Training Blockchain - The blockchain platform for decentralized AI compute training
-- **AIT**: AITBC Token - The native cryptocurrency token used for transactions, staking, and governance on the AITBC network
-- **Agent**: An autonomous software entity that performs tasks on the AITBC network, such as wallet management, AI job submission, or marketplace operations
+- **AIT**: the network token - The native cryptocurrency token used for transactions, staking, and governance on the the network
+- **Agent**: An autonomous software entity that performs tasks on the the network, such as wallet management, AI job submission, or marketplace operations
 - **Agent Coordinator**: A specialized agent type that orchestrates multi-agent workflows and manages complex coordination tasks
 - **Agent SDK**: Software Development Kit for building AITBC agents with identity management, authentication, and communication capabilities
 - **Agent Type**: Classification of agents based on their capabilities (coordinator, genesis, follower, wallet, general, specialized, architect)
@@ -34,7 +34,7 @@
 
 ## D
 
-- **DAO**: Decentralized Autonomous Organization - Governance structure for AITBC network decisions
+- **DAO**: Decentralized Autonomous Organization - Governance structure for the network decisions
 - **Distributed Consensus**: Agreement mechanism across multiple nodes in a network
 - **Distributed AI Training**: AI model training distributed across multiple compute providers
 
@@ -57,7 +57,7 @@
 - **Genesis Deployment**: Creating and deploying a genesis block to initialize a new blockchain network
 - **GPU Service**: Service for managing GPU resources and compute capacity
 - **Governance Voting**: Mechanism for token holders to vote on network proposals and decisions
-- **Gossip Protocol**: Peer-to-peer communication protocol for message dissemination in the AITBC network
+- **Gossip Protocol**: Peer-to-peer communication protocol for message dissemination in the the network
 
 ## H
 
@@ -75,7 +75,7 @@
 ## J
 
 - **JWT**: JSON Web Token - Authentication token format used for secure API authentication
-- **Job Submission**: Process of submitting AI compute jobs to the AITBC network
+- **Job Submission**: Process of submitting AI compute jobs to the the network
 
 ## K
 
@@ -162,7 +162,7 @@
 | Acronym | Full Term |
 |---------|-----------|
 | AITBC | Artificial Intelligence Training Blockchain |
-| AIT | AITBC Token |
+| AIT | the network token |
 | CLI | Command Line Interface |
 | DAO | Decentralized Autonomous Organization |
 | GPU | Graphics Processing Unit |

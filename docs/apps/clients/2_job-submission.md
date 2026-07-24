@@ -1,6 +1,6 @@
 # Job Submission Guide
 
-Submit compute jobs to the AITBC network using the enhanced CLI.
+Submit compute jobs to the the network using the enhanced CLI.
 
 ## Basic Submission
 

@@ -8,7 +8,7 @@ console.log("=== AITBC Smart Contract Validation ===");
 // Contract files to validate
 const contracts = [
     'contracts/AIPowerRental.sol',
-    'contracts/AITBCPaymentProcessor.sol',
+    'contracts/PaymentProcessor.sol',
     'contracts/PerformanceVerifier.sol',
     'contracts/DisputeResolution.sol',
     'contracts/EscrowService.sol',
@@ -101,11 +101,11 @@ console.log("\n🔗 Integration Validation:");
 
 // Check for cross-contract references
 const crossReferences = {
-    'AIPowerRental': ['AITBCPaymentProcessor', 'PerformanceVerifier'],
-    'AITBCPaymentProcessor': ['AIPowerRental', 'DisputeResolution', 'EscrowService'],
+    'AIPowerRental': ['PaymentProcessor', 'PerformanceVerifier'],
+    'PaymentProcessor': ['AIPowerRental', 'DisputeResolution', 'EscrowService'],
     'PerformanceVerifier': ['AIPowerRental'],
-    'DisputeResolution': ['AIPowerRental', 'AITBCPaymentProcessor', 'PerformanceVerifier'],
-    'EscrowService': ['AIPowerRental', 'AITBCPaymentProcessor'],
+    'DisputeResolution': ['AIPowerRental', 'PaymentProcessor', 'PerformanceVerifier'],
+    'EscrowService': ['AIPowerRental', 'PaymentProcessor'],
     'DynamicPricing': ['AIPowerRental', 'PerformanceVerifier']
 };
 

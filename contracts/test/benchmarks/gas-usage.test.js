@@ -21,7 +21,7 @@ describe("Gas Usage Benchmarks", function () {
     });
   });
 
-  describe("AITBCPaymentProcessor", function () {
+  describe("PaymentProcessor", function () {
     it("Should benchmark createPayment gas usage", async function () {
       // Placeholder for gas usage benchmark
       // TODO: Implement actual gas usage measurement

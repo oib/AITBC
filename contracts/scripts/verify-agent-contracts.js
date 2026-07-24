@@ -39,7 +39,7 @@ async function main() {
             address: deployedContracts.contracts.AgentWallet?.address,
             constructorArgs: [
                 deployedContracts.contracts.AITBCToken?.address,
-                deployedContracts.contracts.AITBCPaymentProcessor?.address
+                deployedContracts.contracts.PaymentProcessor?.address
             ]
         },
         {
@@ -64,8 +64,8 @@ async function main() {
             ]
         },
         {
-            name: "AITBCPaymentProcessor",
-            address: deployedContracts.contracts.AITBCPaymentProcessor?.address,
+            name: "PaymentProcessor",
+            address: deployedContracts.contracts.PaymentProcessor?.address,
             constructorArgs: [
                 deployedContracts.contracts.AITBCToken?.address
             ]

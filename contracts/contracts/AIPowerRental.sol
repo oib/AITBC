@@ -16,7 +16,7 @@ import "./Groth16Verifier.sol";
 contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
 
     // State variables
-    IERC20 public aitbcToken;
+    IERC20 public paymentToken;
     ZKReceiptVerifier public zkVerifier;
     Groth16Verifier public groth16Verifier;
 
@@ -165,11 +165,11 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
 
     // Constructor
     constructor(
-        address _aitbcToken,
+        address _paymentToken,
         address _zkVerifier,
         address _groth16Verifier
     ) {
-        aitbcToken = IERC20(_aitbcToken);
+        paymentToken = IERC20(_paymentToken);
         zkVerifier = ZKReceiptVerifier(_zkVerifier);
         groth16Verifier = Groth16Verifier(_groth16Verifier);
         agreementCounter = 0;
@@ -257,7 +257,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
 
         // Transfer tokens from consumer to contract
         require(
-            aitbcToken.transferFrom(msg.sender, address(this), totalAmount),
+            paymentToken.transferFrom(msg.sender, address(this), totalAmount),
             "Payment transfer failed"
         );
 
@@ -291,14 +291,14 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
 
         if (providerAmount > 0) {
             require(
-                aitbcToken.transfer(agreement.provider, providerAmount),
+                paymentToken.transfer(agreement.provider, providerAmount),
                 "Provider payment failed"
             );
         }
 
         if (platformFeeAmount > 0) {
             require(
-                aitbcToken.transfer(owner(), platformFeeAmount),
+                paymentToken.transfer(owner(), platformFeeAmount),
                 "Platform fee transfer failed"
             );
         }
@@ -453,7 +453,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
 
         if (_resolutionAmount > 0) {
             require(
-                aitbcToken.transfer(winner, _resolutionAmount),
+                paymentToken.transfer(winner, _resolutionAmount),
                 "Resolution payment failed"
             );
         }

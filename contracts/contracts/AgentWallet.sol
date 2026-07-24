@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 contract AgentWallet is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    IERC20 public aitbcToken;
+    IERC20 public paymentToken;
 
     // Structs
     struct Agent {
@@ -58,9 +58,9 @@ contract AgentWallet is Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor(address _aitbcToken) {
-        require(_aitbcToken != address(0), "Invalid token address");
-        aitbcToken = IERC20(_aitbcToken);
+    constructor(address _paymentToken) {
+        require(_paymentToken != address(0), "Invalid token address");
+        paymentToken = IERC20(_paymentToken);
     }
 
     /**
@@ -111,7 +111,7 @@ contract AgentWallet is Ownable, ReentrancyGuard {
         require(_amount > 0, "Amount must be greater than 0");
 
         // Transfer tokens from the caller to this contract
-        aitbcToken.safeTransferFrom(msg.sender, address(this), _amount);
+        paymentToken.safeTransferFrom(msg.sender, address(this), _amount);
 
         // Update agent balance
         agents[_agent].balance += _amount;
@@ -132,7 +132,7 @@ contract AgentWallet is Ownable, ReentrancyGuard {
         agents[_agent].balance -= _amount;
 
         // Transfer tokens back to the owner
-        aitbcToken.safeTransfer(msg.sender, _amount);
+        paymentToken.safeTransfer(msg.sender, _amount);
 
         emit FundsWithdrawn(_agent, _amount);
     }
@@ -174,7 +174,7 @@ contract AgentWallet is Ownable, ReentrancyGuard {
         agentTransactions[msg.sender].push(txId);
 
         // Transfer tokens to the recipient
-        aitbcToken.safeTransfer(_recipient, _amount);
+        paymentToken.safeTransfer(_recipient, _amount);
 
         emit MicroTransactionExecuted(txId, msg.sender, _recipient, _amount, _purpose);
 

@@ -7,7 +7,7 @@ The AITBC Trade Exchange features a modern, intuitive interface with user authen
 
 ### Main Menu
 Located in the top header, you'll find:
-- **Trade**: Buy and sell AITBC tokens
+- **Trade**: Buy and sell the network tokens
 - **Marketplace**: Browse GPU computing offers
 - **Wallet**: View your profile and wallet information
 
@@ -28,7 +28,7 @@ Located in the top header, you'll find:
 ### 2. View Your Profile
 Click on "Wallet" in the navigation to see:
 - **User Profile Card**: Your account information
-- **AITBC Wallet**: Your wallet address and balance
+- **the wallet**: Your wallet address and balance
 - **Transaction History**: Your trading activity
 
 ## Trading AITBC
@@ -41,7 +41,7 @@ Click on "Wallet" in the navigation to see:
 5. A QR code and payment address will be displayed
 6. Send Bitcoin to the provided address
 7. Wait for confirmation (1 confirmation needed)
-8. AITBC tokens will be credited to your wallet
+8. the network tokens will be credited to your wallet
 
 ### Exchange Rates
 - **Current Rate**: 1 BTC = 100,000 AITBC
@@ -56,15 +56,15 @@ Click on "Wallet" in the navigation to see:
 - **Member Since**: When you joined the platform
 - **Logout**: Securely disconnect from the exchange
 
-### AITBC Wallet
-- **Address**: Your unique AITBC wallet address
-- **Balance**: Current AITBC token balance
+### the wallet
+- **Address**: Your unique the wallet address
+- **Balance**: Current the network token balance
 - **USD Value**: Approximate value in USD
 
 ### Transaction History
 - **Date/Time**: When transactions occurred
 - **Type**: Buy, sell, deposit, withdrawal
-- **Amount**: Quantity of AITBC tokens
+- **Amount**: Quantity of the network tokens
 - **Status**: Pending, completed, or failed
 
 ## Security Features
@@ -89,7 +89,7 @@ Click on "Wallet" in the navigation to see:
 ### Trading
 1. Always check the current exchange rate
 2. Bitcoin payments require 1 confirmation
-3. AITBC tokens are credited automatically
+3. the network tokens are credited automatically
 
 ### Security
 1. Logout when done trading

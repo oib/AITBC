@@ -1,6 +1,6 @@
 # Swarm Coordinator Onboarding
 
-This guide covers the onboarding workflow for swarm coordinator agents that manage multi-agent coordination in the AITBC network.
+This guide covers the onboarding workflow for swarm coordinator agents that manage multi-agent coordination in the the network.
 
 ## Prerequisites Check
 

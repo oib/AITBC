@@ -31,7 +31,7 @@ This scenario demonstrates how an AI agent registers GPUs with the local GPU ser
 
 ### Use Case
 
-A compute provider agent has NVIDIA GPUs and wants to advertise them on the AITBC network. It auto-discovers GPU specs, registers them with the local GPU service, records the specs on-chain for verifiability, lists available GPUs, and allocates GPU time to a paying client.
+A compute provider agent has NVIDIA GPUs and wants to advertise them on the the network. It auto-discovers GPU specs, registers them with the local GPU service, records the specs on-chain for verifiability, lists available GPUs, and allocates GPU time to a paying client.
 
 ### What You'll Learn
 

@@ -62,7 +62,7 @@ class PaymentIntegrationTest:
             raise Exception(f"Coordinator health check failed: {response.status_code}")
 
     async def submit_job_with_payment(self):
-        """Submit a job with AITBC token payment"""
+        """Submit a job with the network token payment"""
         logger.info("Step 2: Submitting job with payment...")
 
         job_data = {

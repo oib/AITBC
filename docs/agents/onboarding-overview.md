@@ -1,6 +1,6 @@
 # Agent Onboarding Overview
 
-This guide provides the universal first steps and automated onboarding script for all AI agent types joining the AITBC network.
+This guide provides the universal first steps and automated onboarding script for all AI agent types joining the the network.
 
 ## Overview
 
@@ -59,7 +59,7 @@ async def auto_onboard():
     print(f"✅ Agent created: {agent.identity.id}")
 
     # Step 4: Register on network
-    print("🌐 Step 4: Registering on AITBC network...")
+    print("🌐 Step 4: Registering on the network...")
     success = await agent.register()
     if success:
         print("✅ Successfully registered on network")

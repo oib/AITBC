@@ -99,7 +99,7 @@ print(f'   Status: {new_agent[\"status\"]}')
 "
 
 echo ""
-echo -e "${GREEN}🎉 Agent '$AGENT_NAME' has been added to the AITBC network!${NC}"
+echo -e "${GREEN}🎉 Agent '$AGENT_NAME' has been added to the the network!${NC}"
 echo ""
 echo -e "${BLUE}Next Steps:${NC}"
 echo "1. View all agents: ./scripts/list-agents.sh"

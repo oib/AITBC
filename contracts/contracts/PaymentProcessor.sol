@@ -12,10 +12,10 @@ import "./AIPowerRental.sol";
  * @dev Advanced payment processing contract with escrow, automated releases, and dispute resolution
  * @notice Handles AITBC token payments for AI power rental services
  */
-contract AITBCPaymentProcessor is Ownable, ReentrancyGuard, Pausable {
+contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
 
     // State variables
-    IERC20 public aitbcToken;
+    IERC20 public paymentToken;
     AIPowerRental public aiPowerRental;
 
     uint256 public paymentCounter;
@@ -206,18 +206,18 @@ contract AITBCPaymentProcessor is Ownable, ReentrancyGuard, Pausable {
     }
 
     modifier sufficientBalance(address _user, uint256 _amount) {
-        require(aitbcToken.balanceOf(_user) >= _amount, "Insufficient balance");
+        require(paymentToken.balanceOf(_user) >= _amount, "Insufficient balance");
         _;
     }
 
     modifier sufficientAllowance(address _user, uint256 _amount) {
-        require(aitbcToken.allowance(_user, address(this)) >= _amount, "Insufficient allowance");
+        require(paymentToken.allowance(_user, address(this)) >= _amount, "Insufficient allowance");
         _;
     }
 
     // Constructor
-    constructor(address _aitbcToken, address _aiPowerRental) {
-        aitbcToken = IERC20(_aitbcToken);
+    constructor(address _paymentToken, address _aiPowerRental) {
+        paymentToken = IERC20(_paymentToken);
         aiPowerRental = AIPowerRental(_aiPowerRental);
         paymentCounter = 0;
     }
@@ -302,7 +302,7 @@ contract AITBCPaymentProcessor is Ownable, ReentrancyGuard, Pausable {
         uint256 totalAmount = _amount + platformFee + disputeFee;
 
         require(
-            aitbcToken.transferFrom(msg.sender, address(this), totalAmount),
+            paymentToken.transferFrom(msg.sender, address(this), totalAmount),
             "Payment transfer failed"
         );
     }
@@ -400,7 +400,7 @@ contract AITBCPaymentProcessor is Ownable, ReentrancyGuard, Pausable {
 
         // Transfer tokens to contract
         require(
-            aitbcToken.transferFrom(msg.sender, address(this), _amount),
+            paymentToken.transferFrom(msg.sender, address(this), _amount),
             "Escrow transfer failed"
         );
 
@@ -432,7 +432,7 @@ contract AITBCPaymentProcessor is Ownable, ReentrancyGuard, Pausable {
         userEscrowBalance[escrow.depositor] -= escrow.amount;
 
         require(
-            aitbcToken.transfer(escrow.beneficiary, escrow.amount),
+            paymentToken.transfer(escrow.beneficiary, escrow.amount),
             "Escrow release failed"
         );
 
@@ -461,7 +461,7 @@ contract AITBCPaymentProcessor is Ownable, ReentrancyGuard, Pausable {
         userEscrowBalance[escrow.depositor] -= escrow.amount;
 
         require(
-            aitbcToken.transfer(escrow.depositor, escrow.amount),
+            paymentToken.transfer(escrow.depositor, escrow.amount),
             "Escrow refund failed"
         );
 
@@ -521,7 +521,7 @@ contract AITBCPaymentProcessor is Ownable, ReentrancyGuard, Pausable {
         // Transfer resolution amount to winner
         if (_resolutionAmount > 0) {
             require(
-                aitbcToken.transfer(winner, _resolutionAmount),
+                paymentToken.transfer(winner, _resolutionAmount),
                 "Resolution payment failed"
             );
         }
@@ -529,7 +529,7 @@ contract AITBCPaymentProcessor is Ownable, ReentrancyGuard, Pausable {
         // Refund remaining amount to loser
         if (refundAmount > 0) {
             require(
-                aitbcToken.transfer(loser, refundAmount),
+                paymentToken.transfer(loser, refundAmount),
                 "Refund payment failed"
             );
         }
@@ -558,7 +558,7 @@ contract AITBCPaymentProcessor is Ownable, ReentrancyGuard, Pausable {
         payment.platformFee = 0;
 
         require(
-            aitbcToken.transfer(owner(), feeAmount),
+            paymentToken.transfer(owner(), feeAmount),
             "Platform fee transfer failed"
         );
 
@@ -629,14 +629,14 @@ contract AITBCPaymentProcessor is Ownable, ReentrancyGuard, Pausable {
 
         // Transfer amount to recipient
         require(
-            aitbcToken.transfer(payment.to, payment.amount),
+            paymentToken.transfer(payment.to, payment.amount),
             "Payment transfer failed"
         );
 
         // Transfer platform fee to owner
         if (payment.platformFee > 0) {
             require(
-                aitbcToken.transfer(owner(), payment.platformFee),
+                paymentToken.transfer(owner(), payment.platformFee),
                 "Platform fee transfer failed"
             );
         }

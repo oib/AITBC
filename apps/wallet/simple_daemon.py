@@ -2,7 +2,7 @@
 """
 Multi-Chain Wallet Daemon
 
-Real implementation connecting to AITBC wallet keystore and blockchain RPC.
+Real implementation connecting to the AITBC wallet keystore and blockchain RPC.
 """
 
 import json
@@ -20,9 +20,12 @@ from fastapi.responses import JSONResponse
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import BLOCKCHAIN_RPC_URL as _DEFAULT_RPC_URL, KEYSTORE_DIR
 from aitbc.crypto import encrypt_private_key
+from aitbc_agent_core import get_active_brand
 
 # Add CLI utils to path
 sys.path.insert(0, "/opt/aitbc/cli")
+
+_brand = get_active_brand()
 
 # Create FastAPI app
 wallet_app = FastAPI(title="AITBC Wallet Daemon", debug=False)
@@ -50,7 +53,7 @@ chains_data: dict[str, Any] = {
     "chains": [
         {
             "chain_id": os.getenv("CHAIN_ID", ""),
-            "name": "AITBC Network",
+            "name": _brand.network_name,
             "status": "active",
             "coordinator_url": "http://localhost:8203",
             "blockchain_url": BLOCKCHAIN_RPC_URL,
@@ -190,7 +193,7 @@ async def get_wallet_balance(chain_id: str, wallet_id: str):
             "address": wallet["address"],
             "chain_id": chain_id,
             "balance": balance,
-            "currency": "AITBC",
+            "currency": _brand.token_symbol,
             "last_updated": datetime.now().isoformat(),
             "mode": "daemon",
         }
@@ -332,7 +335,7 @@ async def get_chain_wallet_info(chain_id: str, wallet_id: str):
         "public_key": wallet["public_key"],
         "encrypted": wallet["encrypted"],
         "balance": balance,
-        "currency": "AITBC",
+        "currency": _brand.token_symbol,
         "created_at": datetime.now().isoformat(),
         "metadata": {"chain_specific": True, "token_symbol": "AITBC"},
     }

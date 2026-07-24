@@ -1,5 +1,5 @@
 # Job Management
-Accept and complete jobs on the AITBC network.
+Accept and complete jobs on the the network.
 
 ## Overview
 
