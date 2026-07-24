@@ -37,16 +37,19 @@ planned.
 ### A2: Confidential messaging (P1)
 
 - File: `aitbc/tee/channel.py` (new)
-  - Encrypted agent-to-agent channels bound to attested identities.
+  - `TEEChannel`, `ChannelState`, `TEEMessage` for encrypted agent-to-agent
+    channels bound to an established `TEESession`.
 - File: `aitbc/tee/session.py` (new)
-  - Key exchange with replay protection and forward secrecy.
+  - `TEESession`, `SessionState`, key exchange, replay-protected nonce
+    counter, and forward-secrecy key rotation.
 
 ### A3: TEE-backed data processing (P1)
 
 - File: `aitbc/compute/tee_task.py` (new)
-  - Confidential execution task abstractions.
+  - `TEETask`, `TEETaskInput`, `TEETaskResult`, `TEETaskRunner`, and
+    `TEEExecutionStatus` for confidential execution task abstractions.
 - File: `aitbc/tee/sealed_storage.py` (new)
-  - Sealed data-at-rest helpers.
+  - `SealedBlob` and `seal`/`unseal` helpers bound to an enclave measurement.
 
 ---
 
