@@ -102,15 +102,19 @@ ecosystem & DAO grants, and industry-specific compliance modules.
   - Grep for `AIPowerRental`, `light-theme`, and hardcoded API-key patterns.
   - Fixed `apps/coordinator-api/.../analytics.py` default dashboard theme `light` -> `dark`.
 
-### B5: Core capability verification (P1)
+### B5: Core capability verification (P1) — ✅ complete
 
-- File: `apps/edge/` (TBD)
-  - Verify or complete Global Multi-Region Edge Nodes.
-- File: `apps/gpu/` (TBD)
-  - Verify or complete Dynamic GPU Priority Queuing.
-- File: `aitbc/fusion/` (TBD)
-  - Verify or complete Multi-Modal Fusion.
-- Update core feature documentation with the "✅ COMPLETE" tag once verified.
+- File: `apps/edge/` (updated)
+  - Added `region` support to island memberships (`POST /api/v1/islands/join`,
+    `GET /api/v1/islands/by-region/{region}`) for Global Multi-Region Edge Nodes.
+- File: `apps/gpu/` (updated)
+  - Implemented Dynamic GPU Priority Queuing via `gpu_job_queue` table and
+    `POST/GET /v1/gpu/queue`, `POST /v1/gpu/queue/{gpu_id}/next`,
+    `POST /v1/gpu/queue/{job_id}/complete` endpoints.
+- File: `aitbc/fusion/` (new)
+  - Shared `FusionInput`, `FusionOutput`, `FusionConfig`, `FusionStrategy` types.
+- File: `docs/releases/v0.11.0/capability_verification.md` (new)
+  - Core capability documentation with "✅ COMPLETE" tags.
 
 ### B6: API key onboarding & UI accessibility (P2)
 
