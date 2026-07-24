@@ -52,6 +52,7 @@
 | v0.12.0 | OpenClaw Autonomous Economics | 🚧 Planned | Agent wallets/escrow, performance bonds, automated rebalancing, dynamic fee market, OpenClaw DAO economic governance |
 | v0.13.0 | Compliance-Ready Modules | 🚧 Planned | HIPAA, financial regulatory, compliance containers, sub-networks, encryption, immutable audit logging |
 | v0.14.0 | Platform Builder Tooling | 🚧 Planned | CLI config tool, SDK, builder docs, developer registry, DAO grants, local dev helpers |
+| v0.15.0 | Mature Autonomous Economic Infrastructure | 🚧 Planned | Automated staking/rebalancing, performance bond lifecycle, provider reinvestment, risk/solvency engine, cross-chain yield, slashing appeals |
 | v1.0.0 | Production readiness | 🚧 Planned | Requires all v0.5.16–v0.10.x complete |
 | v2.0.0 | Vision/questionable features | 🅿️ Parked | For re-evaluation after v1.0.0 |
 
