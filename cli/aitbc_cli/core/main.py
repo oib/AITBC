@@ -12,6 +12,7 @@ from aitbc_cli.commands.agent_sdk import agent
 from aitbc_cli.commands.agent_wallet import agent_wallet
 from aitbc_cli.commands.ai import ai
 from aitbc_cli.commands.bond import bond
+from aitbc_cli.commands.bootstrap import bootstrap
 from aitbc_cli.commands.analytics import analytics  # Re-enabled - core.analytics exists
 from aitbc_cli.commands.bridge import bridge
 from aitbc_cli.commands.chain import chain
@@ -175,6 +176,7 @@ cli.add_command(contract)
 cli.add_command(script)
 cli.add_command(economics)
 cli.add_command(bond)
+cli.add_command(bootstrap)
 cli.add_command(reinvest)
 cli.add_command(tee)
 cli.add_command(confidential)
