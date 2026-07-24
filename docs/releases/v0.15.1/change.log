@@ -58,7 +58,7 @@ financial agents can operate on AITBC without leaking protected data.
 ## Release Gate
 
 - [ ] Compliance policy framework compiles and has unit tests.
-- [ ] Encryption and key management primitives are testable.
+- [x] Encryption and key management primitives are testable.
 - [ ] Immutable audit log is wired to `coordinator-api` events.
 - [ ] HIPAA module has example policies and tests.
 - [ ] `./venv/bin/python -m ruff check .` passes.
