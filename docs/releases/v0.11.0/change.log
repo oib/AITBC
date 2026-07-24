@@ -31,11 +31,12 @@ types, and documents the success criteria needed to call the phase complete.
 
 ### Phase 4 Success Criteria (P0)
 
-- Define measurable Phase 4 gates: autonomous economic loop adoption, storage
-  node coverage, grant disbursement correctness, compliance coverage, and test
-  coverage.
-- Wire gate checks into the CI/release pipeline.
-- Baseline the metrics needed to evaluate each gate.
+- Define measurable Phase 4 gates in `docs/releases/v0.11.0/phase4_gates.yml`:
+  autonomous economic loop adoption, storage node coverage, grant
+  disbursement correctness, compliance coverage, and test coverage.
+- Wire gate checks into the CI/release pipeline via
+  `scripts/ci/check_phase4_gates.py`.
+- Baseline the metrics needed to evaluate each gate and document review owners.
 
 ### OpenClaw Autonomous Economics (P0)
 
@@ -106,7 +107,7 @@ types, and documents the success criteria needed to call the phase complete.
 
 ## Release Gate
 
-- [ ] Phase 4 success criteria are defined and reviewed.
+- [x] Phase 4 success criteria are defined and reviewed.
 - [x] `OpenClaw`/`agent_economics` types and spike tests pass.
 - [ ] `apps/memory/` service starts and passes a health check.
 - [ ] Developer registry and grant proposal endpoints are testable.
