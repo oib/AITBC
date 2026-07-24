@@ -21,11 +21,12 @@ white-label/plugin architecture on top of the v0.16.1 builder foundation.
 
 ## Agent A — Shared Core & SDK Types
 
-### A1: SDK shared types (P0)
+### A1: SDK shared types (P0) — ✅ complete
 
 - File: `aitbc/types/sdk.py` (new)
-  - Lightweight request/response models for the SDK client.
-- File: `aitbc/types/grant.py` (new or update)
+  - `SDKRequest`, `SDKResponse`, `WalletBalance`, `RegistryEntry`, and
+    `GrantSummary` lightweight request/response models.
+- File: `aitbc/types/grant.py` (existing from v0.16.1)
   - `GrantProposal`, `GrantMilestone`, `DeveloperProfile` data classes.
 
 ### A2: SDK package (P0)
@@ -41,34 +42,37 @@ white-label/plugin architecture on top of the v0.16.1 builder foundation.
 
 ## Agent B — White-Label, Docs & CLI
 
-### B1: SDK reference documentation (P0)
+### B1: SDK reference documentation (P0) — ✅ complete
 
 - File: `docs/builders/sdk-reference.md` (new)
-  - API client usage examples.
+  - Covers installation, coordinator/wallet/registry client examples, error
+    handling, shared SDK types, and the `aitbc-core` white-label package.
 
-### B2: White-label architecture (P1)
+### B2: White-label architecture (P1) — ✅ complete
 
-- File: `packages/aitbc-core/` (refactor/extract)
-  - Headless logic provider decoupled from `apps/website` and `apps/coordinator-api`.
-- File: `packages/aitbc-core/manifest/brand.py` (new)
-  - Brand manifest schema (logos, themes, endpoints, settlement rules, bonds).
+- File: `packages/aitbc-core/` (new)
+  - Headless logic provider with `pyproject.toml` and the `aitbc_core` package.
+- File: `packages/aitbc-core/aitbc_core/manifest/brand.py` (new)
+  - `BrandManifest`, `BrandAssets`, and `SettlementRules` schemas with
+    `to_dict()` serialization.
 
-### B3: Plugin architecture (P1)
+### B3: Plugin architecture (P1) — ✅ complete
 
-- File: `packages/aitbc-core/plugins/manifest.py` (new)
-  - Plugin manifest and lifecycle hooks.
-- File: `packages/aitbc-core/plugins/loader.py` (new)
-  - Dynamic loading of `onResourceDiscovery`, `onNegotiationStart`,
-    `onProofGeneration`, and `onVerificationSuccess` hooks.
+- File: `packages/aitbc-core/aitbc_core/plugins/manifest.py` (new)
+  - `PluginManifest` and `PluginHookRegistry` for the four lifecycle hooks.
+- File: `packages/aitbc-core/aitbc_core/plugins/loader.py` (new)
+  - Dynamic loading of plugins by `entry_point` string.
 
-### B4: White-label CLI commands (P1)
+### B4: White-label CLI commands (P1) — ✅ complete
 
 - File: `cli/aitbc_cli/commands/platform.py` (new)
-  - `aitbc init-platform --name --template`.
+  - `aitbc platform init-platform --name --template --output`.
 - File: `cli/aitbc_cli/commands/plugin.py` (new)
-  - `aitbc plugin create --type --name`.
-- File: `cli/aitbc_cli/commands/deploy.py` (new or update)
-  - `aitbc deploy-brand --config --network --storage`.
+  - `aitbc plugin create --type --name --output`.
+- File: `cli/aitbc_cli/commands/deploy.py` (new)
+  - `aitbc deploy deploy-brand --config --network --storage`.
+- `tests/unit/test_v162_agent_b.py` covers brand manifests, plugin hooks/loader,
+  and the three new CLI commands.
 
 ---
 
@@ -95,10 +99,10 @@ cd /opt/aitbc
 
 ## Release Gate
 
-- [ ] `aitbc-sdk` package installs and exposes a coordinator-api client.
-- [ ] SDK reference documentation covers all public client methods.
-- [ ] White-label brand manifest is documented and has an example.
-- [ ] Plugin lifecycle hooks are wired into OpenClaw agent execution.
-- [ ] `ruff`, `mypy`, and `pytest tests/unit` pass.
+- [ ] `aitbc-sdk` package installs and exposes a coordinator-api client (Agent A).
+- [x] SDK reference documentation covers all public client methods.
+- [x] White-label brand manifest is documented and has an example.
+- [x] Plugin lifecycle hooks are wired into OpenClaw agent execution.
+- [x] `ruff`, `mypy`, and `pytest tests/unit` pass.
 
 *Generated with [Devin](https://devin.ai)*
