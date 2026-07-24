@@ -47,12 +47,19 @@ cross-chain yield, and slashing appeals.
 
 ### A3: Risk & solvency engine (P1)
 
-- File: `aitbc/risk/solvency.py` (new)
-  - Bond shortfall prediction and action recommendations.
-- File: `aitbc/risk/circuit_breaker.py` (new)
-  - Market-stress circuit breakers for autonomous actions.
+- File: `aitbc/risk/__init__.py` (new)
+  - Module exports.
+- File: `aitbc/risk/errors.py` (new)
+  - `RiskError`.
 - File: `aitbc/risk/scoring.py` (new)
-  - Risk scoring for chains, validators, and storage providers.
+  - `RiskCategory`, `RiskLevel`, `RiskScore`, and configurable `RiskScorer`
+    with weighted `assess` and aggregate helpers.
+- File: `aitbc/risk/solvency.py` (new)
+  - `SolvencyReport` and `SolvencyEngine` for bond shortfall prediction,
+    buffered collateral requirements, and action recommendations.
+- File: `aitbc/risk/circuit_breaker.py` (new)
+  - `CircuitState`, `MarketStressEvent`, `CircuitBreaker` with CLOSED/OPEN/
+    HALF_OPEN state machine and `is_open()` helper.
 
 ### A4: Cross-chain yield & liquidity (P2)
 
@@ -124,7 +131,7 @@ cd /opt/aitbc
 - [x] Performance bond lifecycle (lock, top-up, release, liquidation) is
       modeled and tested.
 - [ ] Provider reinvestment loop publishes updated capacity.
-- [ ] Risk/solvency engine triggers circuit breakers under simulated stress.
+- [x] Risk/solvency engine triggers circuit breakers under simulated stress.
 - [ ] Cross-chain yield and slashing appeal workflows are testable.
 - [ ] `ruff`, `mypy`, and `pytest tests/unit` pass.
 
