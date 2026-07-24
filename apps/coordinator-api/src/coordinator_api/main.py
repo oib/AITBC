@@ -39,8 +39,10 @@ from .contexts.cross_chain.routers.cross_chain_integration import router as cros
 from .contexts.developer.routers.developer import router as developer_registry
 from .contexts.analytics.economic_events import EconomicEvent  # noqa: F401
 from .contexts.governance.domain.economic_proposal import EconomicParameterProposal  # noqa: F401
+from .contexts.governance.domain.slash_appeal import SlashAppeal  # noqa: F401
 from .contexts.governance.routers.economic_proposals import router as economic_proposals_router
 from .contexts.governance.routers.grants import router as grants_router
+from .contexts.marketplace.domain.provider_bond import ProviderBond  # noqa: F401
 
 from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
 from .contexts.ipfs.routers import router as ipfs
