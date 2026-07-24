@@ -94,6 +94,24 @@ ecosystem & DAO grants, and industry-specific compliance modules.
 - File: `scripts/ci/check_deprecation_cleanup.sh` (new)
   - Grep for `AIPowerRental`, `light-theme`, and hardcoded API-key patterns.
 
+### B5: Core capability verification (P1)
+
+- File: `apps/edge/` (TBD)
+  - Verify or complete Global Multi-Region Edge Nodes.
+- File: `apps/gpu/` (TBD)
+  - Verify or complete Dynamic GPU Priority Queuing.
+- File: `aitbc/fusion/` (TBD)
+  - Verify or complete Multi-Modal Fusion.
+- Update core feature documentation with the "✅ COMPLETE" tag once verified.
+
+### B6: API key onboarding & UI accessibility (P2)
+
+- File: `cli/aitbc_cli/commands/config.py` (new or update)
+  - `config check-keys` command that reports missing environment API keys.
+- File: `docs/web/README.md` (TBD)
+  - Document the dark-mode-only accessibility decision and any light-theme
+    mitigation.
+
 ---
 
 ## Verification Commands
