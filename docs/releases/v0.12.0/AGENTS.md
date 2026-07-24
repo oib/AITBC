@@ -48,7 +48,8 @@ bonds, dynamic fee markets, and provider reinvestment loops.
 ### A3: Rebalancing & reinvestment policies (P1)
 
 - File: `aitbc/agent_economics/rebalance.py` (new)
-  - `ReinvestmentPolicy`, chain-holdings model, and constraints.
+  - `ReinvestmentPolicy`, `ChainHoldings`, `RebalanceConstraint`,
+    `RebalanceAction`, and `Rebalancer` planner.
 
 ### A4: Dynamic fee market strategies (P1)
 
@@ -113,6 +114,7 @@ cd /opt/aitbc
 
 - [x] Agent wallet and escrow primitives are defined and tested.
 - [x] Performance bond and staking models compile and have unit coverage.
+- [x] Reinvestment policy and `Rebalancer` planner have unit tests.
 - [ ] Automated rebalancing loop passes simulation tests.
 - [ ] Dynamic fee market extends the existing Dynamic Pricing API.
 - [ ] OpenClaw DAO governance proposals for economic parameters are testable.
