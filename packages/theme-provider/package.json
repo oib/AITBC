@@ -1,0 +1,18 @@
+{
+  "name": "@aitbc/theme-provider",
+  "version": "0.17.0",
+  "description": "AITBC CSS-variable theme provider",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "dependencies": {},
+  "scripts": {
+    "lint": "tsc --noEmit && eslint src --ext .ts,.tsx",
+    "test": "jest",
+    "build": "tsc"
+  },
+  "license": "MIT"
+}
