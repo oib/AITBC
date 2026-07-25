@@ -8,6 +8,7 @@ from typing import Any
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "AITBCClient": ("client", "AITBCClient"),
     "CoordinatorAPIClient": ("client", "CoordinatorAPIClient"),
+    "CoordinatorClient": ("client", "CoordinatorClient"),
     "CoordinatorReceiptClient": ("receipts", "CoordinatorReceiptClient"),
     "RegistryClient": ("client", "RegistryClient"),
     "WalletClient": ("client", "WalletClient"),
@@ -19,6 +20,9 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "AITBCError": ("errors", "AITBCError"),
     "AITBCConnectionError": ("errors", "AITBCConnectionError"),
     "AITBCRateLimitError": ("errors", "AITBCRateLimitError"),
+    "RetryConfig": ("retry", "RetryConfig"),
+    "SDKCircuitBreaker": ("retry", "SDKCircuitBreaker"),
+    "SDKRetryPolicy": ("retry", "SDKRetryPolicy"),
     "with_backoff": ("retry", "with_backoff"),
 }
 

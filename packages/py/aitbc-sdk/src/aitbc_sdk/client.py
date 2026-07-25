@@ -167,6 +167,18 @@ class CoordinatorAPIClient:
         except Exception as exc:  # noqa: BLE001
             return SDKResponse(status=503, error=str(exc))
 
+    def get_grant_summary(self, grant_id: str) -> GrantSummary:
+        """Fetch a grant summary."""
+        payload = self._http.get(f"/v1/grants/{grant_id}/summary")
+        return GrantSummary(
+            grant_id=_str(payload.get("grant_id") or payload.get("id")),
+            title=_str(payload.get("title")),
+            status=_str(payload.get("status")),
+            requested_amount=_decimal(payload.get("requested_amount")),
+            approved_amount=_decimal(payload.get("approved_amount")),
+        )
 
-# Canonical alias used in the builder documentation.
+
+# Canonical aliases used in the builder documentation.
 AITBCClient = CoordinatorAPIClient
+CoordinatorClient = CoordinatorAPIClient
