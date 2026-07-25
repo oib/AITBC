@@ -1,7 +1,7 @@
 # v0.16.2 — Platform Builder Tooling (Phase 2: SDK & White-Label)
 
 **Last Updated**: 2026-07-24
-**Status**: Planned 🚧
+**Status**: ✅ complete
 **Prerequisite**: v0.16.1 complete; v0.17.0 planned
 
 ## Release Theme
@@ -54,12 +54,12 @@ external contributors to ship specialized AITBC deployments.
 
 ## Release Gate
 
-- [ ] `aitbc-sdk` package installs and exposes a coordinator-api client.
-- [ ] SDK reference documentation covers all public client methods.
-- [ ] White-label brand manifest is documented and has an example.
-- [ ] Plugin lifecycle hooks are wired into OpenClaw agent execution.
-- [ ] `./venv/bin/python -m ruff check .` passes.
-- [ ] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
-- [ ] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.
+- [x] `aitbc-sdk` package installs and exposes a coordinator-api client.
+- [x] SDK reference documentation covers all public client methods.
+- [x] White-label brand manifest is documented and has an example.
+- [x] Plugin lifecycle hooks are wired into OpenClaw agent execution.
+- [x] `./venv/bin/python -m ruff check .` passes.
+- [x] `./venv/bin/python -m mypy --show-error-codes aitbc/` passes.
+- [x] `./venv/bin/python -m pytest tests/unit -q -o addopts=""` passes.
 
 *Generated with [Devin](https://devin.ai)*
