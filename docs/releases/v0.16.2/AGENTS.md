@@ -36,14 +36,21 @@ white-label/plugin architecture on top of the v0.16.1 builder foundation.
 - File: `packages/py/aitbc-sdk/src/aitbc_sdk/retry.py` (updated)
   - `with_backoff` helper and `SDKRetryPolicy` / `SDKCircuitBreaker` wrappers.
 
-### A2: SDK package (P0)
+### A2: SDK package (P0) — ✅ complete
 
 - File: `packages/py/aitbc-sdk/pyproject.toml` (new)
-- File: `packages/py/aitbc-sdk/src/aitbc_sdk/__init__.py` (new)
+- File: `packages/py/aitbc-sdk/src/aitbc_sdk/__init__.py` (updated)
+  - Lazy exports for `CoordinatorAPIClient`/`CoordinatorClient`, `WalletClient`,
+    `RegistryClient`, `SDKRetryPolicy`, `SDKCircuitBreaker`, `with_backoff`, and
+    SDK exception types.
 - File: `packages/py/aitbc-sdk/src/aitbc_sdk/client.py` (new)
-  - High-level coordinator-api, wallet, and registry clients.
+  - High-level `CoordinatorAPIClient` (coordinator-api, wallet, and registry),
+    `WalletClient`, and `RegistryClient`.
 - File: `packages/py/aitbc-sdk/src/aitbc_sdk/retry.py` (new)
-  - Shared retry and circuit-breaker helpers.
+  - `SDKRetryPolicy`, `SDKCircuitBreaker`, and `with_backoff` helpers.
+- File: `packages/py/aitbc-sdk/src/aitbc_sdk/errors.py` (new)
+  - SDK-specific exception types (`AITBCError`, `AITBCConnectionError`,
+    `AITBCRateLimitError`).
 
 ---
 
