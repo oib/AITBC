@@ -1,0 +1,38 @@
+/* Contrast enforcement for charts, metrics, and graphical objects. */
+
+.aitbc-contrast-safe {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+}
+
+.aitbc-chart-stroke {
+  stroke-width: 2px;
+}
+
+.aitbc-metric-positive {
+  color: var(--color-zk-verified);
+}
+
+.aitbc-metric-warning {
+  color: var(--color-gpu-priority);
+}
+
+.aitbc-metric-error {
+  color: var(--color-error);
+}
+
+/* Ensure text on accented backgrounds is readable (≥ 4.5:1 target). */
+.aitbc-accent-bg {
+  background-color: var(--color-text-accent);
+  color: var(--color-bg-primary);
+}
+
+[data-aitbc-contrast="high"] .aitbc-chart-stroke {
+  stroke-width: 3px;
+}
+
+[data-aitbc-contrast="high"] .aitbc-metric-positive,
+[data-aitbc-contrast="high"] .aitbc-metric-warning,
+[data-aitbc-contrast="high"] .aitbc-metric-error {
+  font-weight: 700;
+}
