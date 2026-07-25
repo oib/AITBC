@@ -6,12 +6,20 @@ from importlib import import_module
 from typing import Any
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
+    "AITBCClient": ("client", "AITBCClient"),
+    "CoordinatorAPIClient": ("client", "CoordinatorAPIClient"),
     "CoordinatorReceiptClient": ("receipts", "CoordinatorReceiptClient"),
+    "RegistryClient": ("client", "RegistryClient"),
+    "WalletClient": ("client", "WalletClient"),
     "ReceiptPage": ("receipts", "ReceiptPage"),
     "ReceiptVerification": ("receipts", "ReceiptVerification"),
     "SignatureValidation": ("receipts", "SignatureValidation"),
     "verify_receipt": ("receipts", "verify_receipt"),
     "verify_receipts": ("receipts", "verify_receipts"),
+    "AITBCError": ("errors", "AITBCError"),
+    "AITBCConnectionError": ("errors", "AITBCConnectionError"),
+    "AITBCRateLimitError": ("errors", "AITBCRateLimitError"),
+    "with_backoff": ("retry", "with_backoff"),
 }
 
 

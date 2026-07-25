@@ -21,13 +21,20 @@ white-label/plugin architecture on top of the v0.16.1 builder foundation.
 
 ## Agent A — Shared Core & SDK Types
 
-### A1: SDK shared types (P0) — ✅ complete
+### A1: SDK shared types + installable package (P0) — ✅ complete
 
 - File: `aitbc/types/sdk.py` (new)
   - `SDKRequest`, `SDKResponse`, `WalletBalance`, `RegistryEntry`, and
     `GrantSummary` lightweight request/response models.
 - File: `aitbc/types/grant.py` (existing from v0.16.1)
   - `GrantProposal`, `GrantMilestone`, `DeveloperProfile` data classes.
+- File: `packages/py/aitbc-sdk/src/aitbc_sdk/client.py` (new)
+  - `CoordinatorAPIClient` (also exported as `AITBCClient`) with nested
+    `WalletClient` and `RegistryClient`.
+- File: `packages/py/aitbc-sdk/src/aitbc_sdk/errors.py` (new)
+  - `AITBCError`, `AITBCConnectionError`, `AITBCRateLimitError`.
+- File: `packages/py/aitbc-sdk/src/aitbc_sdk/retry.py` (updated)
+  - `with_backoff` helper and `SDKRetryPolicy` / `SDKCircuitBreaker` wrappers.
 
 ### A2: SDK package (P0)
 
@@ -99,7 +106,7 @@ cd /opt/aitbc
 
 ## Release Gate
 
-- [ ] `aitbc-sdk` package installs and exposes a coordinator-api client (Agent A).
+- [x] `aitbc-sdk` package installs and exposes a coordinator-api client.
 - [x] SDK reference documentation covers all public client methods.
 - [x] White-label brand manifest is documented and has an example.
 - [x] Plugin lifecycle hooks are wired into OpenClaw agent execution.
