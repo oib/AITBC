@@ -1,0 +1,20 @@
+{
+  "name": "@aitbc/web",
+  "version": "0.17.0",
+  "description": "AITBC web UI components and accessibility styles",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "dependencies": {
+    "@aitbc/theme-provider": "workspace:*"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit && eslint src --ext .ts,.tsx --plugin jsx-a11y",
+    "test": "jest",
+    "build": "tsc"
+  },
+  "license": "MIT"
+}
