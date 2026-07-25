@@ -1,0 +1,31 @@
+/* WCAG 2.2 AA focus indicators. */
+
+:focus-visible {
+  outline: var(--focus-ring-width, 3px) solid var(--color-focus-ring, #66fcf1);
+  outline-offset: var(--focus-ring-offset, 2px);
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  box-shadow: 0 0 0 var(--focus-ring-width, 3px) var(--color-focus-ring, #66fcf1);
+}
+
+.skip-link:focus {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  padding: 0.75rem 1rem;
+  text-decoration: none;
+  font-weight: 600;
+}

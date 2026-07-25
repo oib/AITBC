@@ -1,0 +1,103 @@
+/**
+ * AITBC semantic design tokens.
+ *
+ * Dark mode is the default. Light and high-contrast variants are activated
+ * through the `data-aitbc-theme` attribute on `<html>` or `<body>`.
+ */
+
+:root {
+  /* Backgrounds */
+  --color-bg-primary: #0b0c10;
+  --color-bg-secondary: #1f2833;
+  --color-bg-tertiary: #2d3a4a;
+
+  /* Text */
+  --color-text-primary: #f8f8f8;
+  --color-text-secondary: #c5c6c7;
+  --color-text-muted: #8a8d91;
+
+  /* Accents */
+  --color-text-accent: #66fcf1;
+  --color-border-subtle: #45a29e;
+
+  /* Status / domain specific */
+  --color-zk-verified: #4ade80;
+  --color-gpu-priority: #f59e0b;
+  --color-error: #ef4444;
+  --color-warning: #f97316;
+
+  /* Focus */
+  --color-focus-ring: #66fcf1;
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 2px;
+}
+
+[data-aitbc-theme="light"] {
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f4f4f5;
+  --color-bg-tertiary: #e4e4e7;
+
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #3f3f46;
+  --color-text-muted: #71717a;
+
+  --color-text-accent: #0f766e;
+  --color-border-subtle: #14b8a6;
+
+  --color-zk-verified: #16a34a;
+  --color-gpu-priority: #d97706;
+  --color-error: #dc2626;
+  --color-warning: #ea580c;
+
+  --color-focus-ring: #0f766e;
+}
+
+[data-aitbc-theme="high-contrast"] {
+  --color-bg-primary: #000000;
+  --color-bg-secondary: #000000;
+  --color-bg-tertiary: #000000;
+
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #ffffff;
+  --color-text-muted: #ffffff;
+
+  --color-text-accent: #ffff00;
+  --color-border-subtle: #ffffff;
+
+  --color-zk-verified: #00ff00;
+  --color-gpu-priority: #ffff00;
+  --color-error: #ff0000;
+  --color-warning: #ff9900;
+
+  --color-focus-ring: #ffff00;
+  --focus-ring-width: 4px;
+}
+
+@media (prefers-color-scheme: light) {
+  :not([data-aitbc-theme]) {
+    --color-bg-primary: #ffffff;
+    --color-bg-secondary: #f4f4f5;
+    --color-bg-tertiary: #e4e4e7;
+
+    --color-text-primary: #1a1a1a;
+    --color-text-secondary: #3f3f46;
+    --color-text-muted: #71717a;
+
+    --color-text-accent: #0f766e;
+    --color-border-subtle: #14b8a6;
+
+    --color-zk-verified: #16a34a;
+    --color-gpu-priority: #d97706;
+    --color-error: #dc2626;
+    --color-warning: #ea580c;
+
+    --color-focus-ring: #0f766e;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --focus-ring-width: 4px;
+    --color-focus-ring: #ffff00;
+  }
+}

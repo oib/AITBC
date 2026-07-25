@@ -306,6 +306,7 @@ convention = "google"
 add_ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]
 
 [tool.pytest.ini_options]
+pythonpath = ["apps/coordinator-api/src"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 consider_namespace_packages = true
@@ -328,6 +329,7 @@ testpaths = [
     "tests/cli",
     "tests/services",
     "tests/production",
+    "tests/ui-accessibility",
     "apps/blockchain-node/tests",
 ]
 markers = [
