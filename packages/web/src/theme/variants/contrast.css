@@ -1,0 +1,18 @@
+/* High-contrast "Developer" theme for apps/blockchain-explorer. */
+
+[data-aitbc-theme="high-contrast"] .aitbc-button,
+[data-aitbc-theme="high-contrast"] .aitbc-card,
+[data-aitbc-theme="high-contrast"] .aitbc-metric {
+  border: 2px solid var(--color-border-subtle, #ffffff);
+}
+
+[data-aitbc-theme="high-contrast"] .aitbc-button {
+  background-color: var(--color-bg-primary, #000000);
+  color: var(--color-text-primary, #ffffff);
+  font-weight: 700;
+}
+
+[data-aitbc-theme="high-contrast"] .aitbc-button:hover {
+  background-color: var(--color-text-accent, #ffff00);
+  color: var(--color-bg-primary, #000000);
+}
