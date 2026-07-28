@@ -22,6 +22,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+import uuid
 from datetime import UTC, datetime
 
 from sqlmodel import select
@@ -238,8 +239,9 @@ class CrossChainSettlementService:
         secret = generate_secret()
         secret_hash = compute_hashlock(secret)
 
-        # Generate escrow_id
-        escrow_id = "esc_" + hashlib.sha256(f"{trade_id}:{sender}:{recipient}:{time.time()}".encode()).hexdigest()[:16]
+        # Generate escrow_id: nanosecond clock + uuid suffix so concurrent or
+        # retried creates for the same trade can never collide.
+        escrow_id = f"esc_{time.time_ns():x}{uuid.uuid4().hex[:8]}"
 
         # Calculate timelocks. Use current time as a proxy for current block
         # height on each chain (height = time // block_time).
@@ -785,7 +787,11 @@ class CrossChainSettlementService:
             records = session.execute(stmt).scalars().all()
 
             for record in records:
-                created = record.created_at.timestamp() if record.created_at else 0.0
+                # Measure the timeout from the lock time when the escrow has
+                # been locked — an escrow that sat pending before locking
+                # should not expire early. Fall back to created_at.
+                timeout_base = record.locked_at or record.created_at
+                created = timeout_base.timestamp() if timeout_base else 0.0
                 if now - created > record.timeout_seconds:
                     logger.warning(
                         "Escrow %s timed out (status=%s, age=%ds, timeout=%ds)",

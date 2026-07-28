@@ -152,6 +152,15 @@ class AtomicSettlementCoordinator:
             return
 
         self._running = True
+        # Startup recovery: refund escrows that timed out while the node was
+        # down, before entering the periodic loop. Escrows still within their
+        # timeout are left for the loop to refund when they expire.
+        try:
+            recovered = await self._service.check_timeouts()
+            if recovered:
+                logger.info("Startup recovery refunded %d timed-out escrows: %s", len(recovered), recovered)
+        except Exception as e:
+            logger.error("Startup recovery scan failed: %s", e)
         self._task = create_task_with_logging(self._monitor_loop(), name="settlement_monitor_loop")
         logger.info("Settlement timeout monitor started (interval=%ds)", _MONITOR_INTERVAL_SECONDS)
 
