@@ -76,8 +76,10 @@ async def test_commit_accumulates_messages():
 
 
 @pytest.mark.asyncio
-async def test_reject_unsigned_message_when_key_set():
-    """when private_key is set, unsigned incoming messages are rejected"""
+async def test_reject_unsigned_message_when_signatures_required():
+    """unsigned incoming messages are rejected when pbft_require_signatures is on"""
+    from aitbc_chain.config import settings
+
     consensus = _make_consensus(4)
     # Use a dummy private key (non-empty) to enable signing mode
     pbft = PBFTConsensus(consensus, private_key="a" * 64, chain_id="test")
@@ -91,8 +93,12 @@ async def test_reject_unsigned_message_when_key_set():
         signature="",  # unsigned
         timestamp=0.0,
     )
-    # _verify_message_signature should reject unsigned messages when key is set
-    assert pbft._verify_message_signature(msg) is False
+    original = settings.pbft_require_signatures
+    settings.pbft_require_signatures = True
+    try:
+        assert pbft._verify_message_signature(msg) is False
+    finally:
+        settings.pbft_require_signatures = original
 
 
 @pytest.mark.asyncio
