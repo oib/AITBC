@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -96,7 +96,7 @@ def test_quote_expiry_blocks_execution() -> None:
         quote_id="q1",
         agent_id="agent-a",
         routes=swap.routes,
-        expiry=datetime.utcnow() - timedelta(minutes=1),
+        expiry=datetime.now(UTC) - timedelta(minutes=1),
     )
     swap.set_quote(quote)
     with pytest.raises(SwapError):

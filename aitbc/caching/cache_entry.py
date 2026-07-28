@@ -28,10 +28,10 @@ class CacheEntry:
         if self.expires_at is None:
             return False
         now = datetime.now(UTC)
-        if self.expires_at.tzinfo is None:
-            # Compare naive datetime by treating both as naive
-            return now.replace(tzinfo=None) > self.expires_at
-        return now > self.expires_at
+        # Normalize the naive side: a naive expires_at is assumed to be UTC,
+        # not a reason to strip tzinfo from the aware side.
+        expires = self.expires_at.replace(tzinfo=UTC) if self.expires_at.tzinfo is None else self.expires_at
+        return now > expires
 
     def update_access(self):
         """Update last access time"""

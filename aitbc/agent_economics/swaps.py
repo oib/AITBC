@@ -7,7 +7,7 @@ simple ``quote_swap`` helper for planning cross-chain AITBC transfers.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -61,7 +61,7 @@ class SwapQuote:
     quote_id: str
     agent_id: str
     routes: list[SwapRoute]
-    expiry: datetime = field(default_factory=lambda: datetime.utcnow() + timedelta(minutes=5))
+    expiry: datetime = field(default_factory=lambda: datetime.now(UTC) + timedelta(minutes=5))
     meta: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -94,7 +94,7 @@ class CrossChainSwap:
     routes: list[SwapRoute] = field(default_factory=list)
     status: SwapStatus | str = SwapStatus.PENDING
     quote: SwapQuote | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     executed_at: datetime | None = None
     meta: dict[str, Any] = field(default_factory=dict)
 
@@ -122,7 +122,7 @@ class CrossChainSwap:
     def execute(self, now: datetime | None = None) -> None:
         """Mark the swap as executed."""
         if now is None:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
         if self.status != SwapStatus.QUOTED:
             raise SwapError(f"cannot execute swap in status {self.status}")
         if self.quote is not None and self.quote.expiry < now:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -36,7 +36,7 @@ def test_performance_bond_activate() -> None:
 
 
 def test_performance_bond_lock_and_release() -> None:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     bond = PerformanceBond(
         bond_id="b1",
         agent_id="agent-a",
@@ -52,7 +52,7 @@ def test_performance_bond_lock_and_release() -> None:
 
 
 def test_performance_bond_cannot_release_while_locked() -> None:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     future = now + timedelta(days=1)
     bond = PerformanceBond(
         bond_id="b1",

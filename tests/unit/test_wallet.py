@@ -6,7 +6,7 @@ spending.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -90,7 +90,7 @@ def test_escrow_refund_after_release_fails() -> None:
 
 
 def test_escrow_expired() -> None:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     escrow = Escrow(
         escrow_id="e1",
         payer_id="agent-a",

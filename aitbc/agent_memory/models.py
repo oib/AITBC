@@ -8,7 +8,7 @@ addressing, storage leases, replication proofs, and encryption envelopes.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -50,7 +50,7 @@ class ContentAddressedBlob:
     owner: str
     size: int = 0
     tags: dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def __post_init__(self) -> None:
         if not self.content_address:
@@ -69,8 +69,8 @@ class StorageLease:
     chain_id: str
     status: LeaseStatus | str = LeaseStatus.PENDING
     price: Decimal = field(default_factory=lambda: Decimal("0"))
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    expires_at: datetime = field(default_factory=lambda: datetime.utcnow() + timedelta(days=7))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    expires_at: datetime = field(default_factory=lambda: datetime.now(UTC) + timedelta(days=7))
     meta: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -90,7 +90,7 @@ class StorageLease:
         if self.status == LeaseStatus.REVOKED:
             return True
         if now is None:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
         return self.expires_at <= now
 
 
@@ -102,7 +102,7 @@ class ReplicationProof:
     content_address: str
     node_id: str
     status: ReplicationStatus | str = ReplicationStatus.VALID
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     challenge_nonce: str = ""
     signature: str = ""
     meta: dict[str, Any] = field(default_factory=dict)

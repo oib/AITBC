@@ -6,7 +6,7 @@ retention, and audit event helpers.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -84,7 +84,7 @@ def test_consent_record_active() -> None:
 
 
 def test_consent_record_expired() -> None:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     consent = ConsentRecord(
         subject_id="user-1",
         purpose="analytics",
@@ -99,20 +99,20 @@ def test_consent_record_revoked() -> None:
         subject_id="user-1",
         purpose="analytics",
         granted=True,
-        revoked_at=datetime.utcnow(),
+        revoked_at=datetime.now(UTC),
     )
     assert consent.is_active() is False
 
 
 def test_retention_expired() -> None:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     retention = RetentionPolicy(classification="pii", duration_days=30)
     created = now - timedelta(days=31)
     assert retention_expired(retention, created, now) is True
 
 
 def test_retention_not_expired() -> None:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     retention = RetentionPolicy(classification="pii", duration_days=30)
     created = now - timedelta(days=5)
     assert retention_expired(retention, created, now) is False

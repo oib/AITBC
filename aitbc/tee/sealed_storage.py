@@ -37,10 +37,10 @@ class SealedBlob:
             raise ValueError("measurement is required")
 
 
-def _derive_key(measurement: str, secret: bytes = b"") -> bytes:
-    """Derive a sealing key from a measurement and optional secret."""
+def _derive_key(measurement: str, secret: bytes) -> bytes:
+    """Derive a sealing key from a measurement and a caller-supplied secret."""
     if not secret:
-        secret = measurement.encode("utf-8")
+        raise ValueError("secret is required")
     return sha256(secret + measurement.encode("utf-8")).digest()
 
 
@@ -59,13 +59,14 @@ def seal(
     enclave_id: str,
     measurement: str,
     plaintext: bytes,
-    secret: bytes = b"",
+    *,
+    secret: bytes,
     nonce: bytes | None = None,
 ) -> SealedBlob:
     """Seal ``plaintext`` so it can only be unsealed by the same measurement.
 
-    ``secret`` is an optional platform sealing key. ``nonce`` is generated if
-    not provided.
+    ``secret`` is the platform sealing key and is required (simulators must
+    pass one explicitly). ``nonce`` is generated if not provided.
     """
     if not plaintext:
         raise ValueError("plaintext cannot be empty")
@@ -84,8 +85,11 @@ def seal(
     )
 
 
-def unseal(blob: SealedBlob, secret: bytes = b"") -> bytes:
-    """Unseal a ``SealedBlob`` and verify its integrity tag."""
+def unseal(blob: SealedBlob, *, secret: bytes) -> bytes:
+    """Unseal a ``SealedBlob`` and verify its integrity tag.
+
+    ``secret`` must be the same key passed to ``seal`` and is required.
+    """
     key = _derive_key(blob.measurement, secret)
     ciphertext = base64.b64decode(blob.ciphertext)
     expected_tag = hmac.new(key, ciphertext, sha256).digest()

@@ -90,7 +90,7 @@ class SwarmCoordinator(Agent):
             self.swarm_reputation[swarm_id] = 0.5  # Starting reputation
 
             # Start swarm participation tasks
-            asyncio.create_task(self._swarm_participation_loop(swarm_id))
+            self._track_task(self._swarm_participation_loop(swarm_id))
 
             logger.info("Joined swarm: %s as %s", swarm_id, config.get("role", "participant"))
             return True
