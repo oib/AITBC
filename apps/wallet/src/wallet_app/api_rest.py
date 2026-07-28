@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 from aitbc.utils import format_ait
+from aitbc.utils.validation import validate_address
 
 from .deps import get_keystore, get_ledger, get_receipt_service, require_admin_api_key
 from .keystore.persistent_service import PersistentKeystoreService
@@ -178,6 +179,15 @@ def get_wallet_balance(
 
     balance = 0
     chain_id = meta.get("chain_id", os.getenv("CHAIN_ID", ""))
+    if not validate_address(address):
+        return {
+            "wallet_id": wallet_id,
+            "address": address,
+            "balance": balance,
+            "balance_ait": format_ait(balance),
+            "chain_id": chain_id,
+            "error": "Invalid address format",
+        }
     try:
         rpc_url = _settings.blockchain_rpc_url
         resp = _httpx.get(f"{rpc_url}/rpc/account/{address}", timeout=5)

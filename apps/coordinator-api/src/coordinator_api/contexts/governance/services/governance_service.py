@@ -21,6 +21,7 @@ from typing import Any
 from uuid import uuid4
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.utils.validation import validate_address
 
 logger = get_logger(__name__)
 
@@ -280,6 +281,9 @@ class GovernanceService:
 
     def get_voting_power(self, address: str) -> int:
         """Get stake-weighted voting power for an address"""
+        if not validate_address(address):
+            logger.warning("Invalid address format for voting power query: %s", address)
+            return 0
         try:
             import httpx
 

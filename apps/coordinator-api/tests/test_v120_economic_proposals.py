@@ -4,9 +4,20 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from fastapi.testclient import TestClient
+
+from aitbc.auth import create_access_token
+
+
+def _auth_headers(client: TestClient) -> None:
+    """Attach a valid JWT to the test client for economic proposal routes."""
+    token = create_access_token("test_user", "client")
+    client.headers = {"Authorization": f"Bearer {token}"}
+
 
 def test_create_and_get_economic_proposal(client) -> None:
     """Economic proposals can be created and retrieved through the API."""
+    _auth_headers(client)
     create_resp = client.post(
         "/v1/economic-proposals",
         json={
@@ -29,6 +40,7 @@ def test_create_and_get_economic_proposal(client) -> None:
 
 def test_vote_and_execute_economic_proposal(client) -> None:
     """Votes are recorded and a proposal can be executed after reaching threshold."""
+    _auth_headers(client)
     create_resp = client.post(
         "/v1/economic-proposals",
         json={
@@ -57,6 +69,7 @@ def test_vote_and_execute_economic_proposal(client) -> None:
 
 def test_list_economic_proposals(client) -> None:
     """Listing returns created proposals."""
+    _auth_headers(client)
     client.post(
         "/v1/economic-proposals",
         json={
