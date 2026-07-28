@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
 
+from ....auth import require_auth
 from ....metrics import governance_errors_total, governance_requests_total
 from ....storage import get_session
 from ....utils.cache import cached, get_cache_config
@@ -25,7 +26,7 @@ from ..services.economic_proposal_service import EconomicProposalService
 
 logger = get_logger(__name__)
 limiter = Limiter(key_func=get_remote_address)
-router = APIRouter(tags=["governance", "economics"], prefix="/economic-proposals")
+router = APIRouter(tags=["governance", "economics"], prefix="/economic-proposals", dependencies=[Depends(require_auth)])
 
 
 def _get_service(session: Annotated[Session, Depends(get_session)]) -> EconomicProposalService:
