@@ -3,6 +3,7 @@ ETH-AIT Bridge API Routes
 REST API endpoints for bridge operations.
 """
 
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -115,7 +116,7 @@ async def complete_deposit(
 
 
 @router.get("/calculate")
-async def calculate_exchange(eth_amount: float) -> dict[str, Any]:
+async def calculate_exchange(eth_amount: Decimal) -> dict[str, Any]:
     """
     Calculate AIT amount for a given ETH amount.
 
