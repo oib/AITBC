@@ -60,7 +60,7 @@ def rate_limit(limit: str) -> object:
 
 security = HTTPBearer(auto_error=False)
 API_KEY = os.getenv("API_GATEWAY_KEY", "")
-REQUIRE_AUTH = os.getenv("API_GATEWAY_REQUIRE_AUTH", "false").lower() == "true"
+REQUIRE_AUTH = os.getenv("API_GATEWAY_REQUIRE_AUTH", "true").lower() == "true"
 SERVICES: dict[str, dict[str, object]] = {
     "gpu": {"base_url": os.getenv("GPU_SERVICE_URL", "http://localhost:8101"), "prefix": "/v1/gpu"},
     "marketplace": {"base_url": os.getenv("COORDINATOR_API_URL", "http://localhost:8203"), "prefix": "/v1/marketplace"},
