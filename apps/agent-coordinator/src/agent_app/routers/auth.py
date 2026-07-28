@@ -1,4 +1,5 @@
 from typing import Annotated, Any
+import hmac
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -48,14 +49,14 @@ async def login(request: Request, login_data: dict[str, str]) -> dict[str, Any]:
             "user": user_password,
         }
 
-        # Validate credentials
-        if username == "admin" and password == demo_users["admin"]:
+        # Validate credentials (timing-safe password comparison)
+        if username == "admin" and hmac.compare_digest(password, demo_users["admin"]):
             user_id = "admin_001"
             role = Role.ADMIN
-        elif username == "operator" and password == demo_users["operator"]:
+        elif username == "operator" and hmac.compare_digest(password, demo_users["operator"]):
             user_id = "operator_001"
             role = Role.OPERATOR
-        elif username == "user" and password == demo_users["user"]:
+        elif username == "user" and hmac.compare_digest(password, demo_users["user"]):
             user_id = "user_001"
             role = Role.USER
         else:
