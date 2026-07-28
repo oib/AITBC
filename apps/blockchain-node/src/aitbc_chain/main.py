@@ -123,6 +123,7 @@ class BlockchainNode:
         )
         self._subscription_manager: SubscriptionManager | None = None
         self._multi_chain_manager: MultiChainManager | None = None
+        self._settlement_coordinators: list[Any] = []
         self._sync: ChainSync | None = None
 
     @staticmethod
@@ -447,6 +448,16 @@ class BlockchainNode:
                 )
         else:
             logger.warning("Unknown blockchain_mode: %s, defaulting to follower behavior", settings.blockchain_mode)
+        # Settlement timeout monitor: refunds escrows stuck in non-terminal
+        # states (incl. any that timed out while the node was down).
+        if settings.escrow_enabled:
+            from .cross_chain.settlement_coordinator import AtomicSettlementCoordinator
+
+            for chain_id in self._supported_chains():
+                coordinator = AtomicSettlementCoordinator(chain_id=chain_id)
+                await coordinator.start_monitor()
+                self._settlement_coordinators.append(coordinator)
+            logger.info("Settlement timeout monitors started for %d chains", len(self._settlement_coordinators))
         await self._setup_gossip_subscribers()
         try:
             await self._stop_event.wait()
@@ -597,6 +608,12 @@ class BlockchainNode:
             except Exception as e:
                 logger.error("Error stopping multi-chain manager: %s", e)
         await self._task_registry.cancel_all(timeout=10.0)
+        for coordinator in self._settlement_coordinators:
+            try:
+                await coordinator.stop_monitor()
+            except Exception as e:
+                logger.error("Error stopping settlement monitor: %s", e)
+        self._settlement_coordinators.clear()
         for _chain_id, proposer in list(self._proposers.items()):
             await proposer.stop()
         self._proposers.clear()

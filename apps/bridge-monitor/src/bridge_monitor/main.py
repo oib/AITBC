@@ -1,9 +1,9 @@
 """Bridge monitor service - polls Ethereum for ETH deposits and sends AIT."""
 
+import asyncio
 import os
 import sys
-import time
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 from aitbc.aitbc_logging import configure_logging, get_logger
@@ -43,6 +43,7 @@ class BridgeMonitor:
             logger.warning("GENESIS_WALLET_PRIVATE_KEY not set - cannot sign AIT transfers")
         self.poll_interval = int(os.getenv("BRIDGE_POLL_INTERVAL", "30"))
         self.min_eth_deposit = Decimal(os.getenv("MIN_ETH_DEPOSIT", "0.001"))
+        self.min_ait_deposit = Decimal(os.getenv("BRIDGE_MIN_DEPOSIT_AIT", "1"))
         self.blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
         init_db()
         logger.info("BridgeMonitor initialized - watching %s", self.bridge_eth_address)
@@ -110,8 +111,9 @@ class BridgeMonitor:
                 return None
             nonce = int(sender_response.json().get("nonce", 0))
 
-            # Build and sign transaction
-            tx_amount = int(amount)
+            # Build and sign transaction — quantize to integer AIT units
+            # (ROUND_HALF_UP, not int() truncation which silently drops dust)
+            tx_amount = int(amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
             transaction = {
                 "from": self.genesis_wallet_address,
                 "to": to_address,
@@ -146,11 +148,26 @@ class BridgeMonitor:
             return None
 
     def process_deposit(self, tx_hash: str, from_address: str, eth_amount: Decimal, tx_data: str) -> None:
-        """Process a single ETH deposit."""
+        """Process a single ETH deposit.
+
+        Every code path leaves the deposit in a terminal or PENDING_RETRY
+        state so the block cursor can safely advance.
+        """
         logger.info("Processing deposit: %s from %s, amount: %s ETH", tx_hash, from_address, eth_amount)
         existing = get_deposit(tx_hash)
         if existing:
-            logger.info("Deposit %s already processed, skipping", tx_hash)
+            status = existing.get("status")
+            if status == BridgeDepositStatus.COMPLETED.value:
+                logger.info("Deposit %s already completed, skipping", tx_hash)
+                return
+            if status == BridgeDepositStatus.FAILED.value:
+                logger.info("Deposit %s already failed, skipping", tx_hash)
+                return
+            # PROCESSING / PENDING_RETRY — likely a crash mid-transfer.
+            # Mark for retry so the retry queue re-attempts with backoff
+            # rather than silently skipping (which would lose funds).
+            logger.warning("Deposit %s in non-terminal state %s, marking for retry", tx_hash, status)
+            self._mark_for_retry(tx_hash, f"Recovered from non-terminal state: {status}")
             return
         ait_recipient = self.parse_ait_recipient(tx_data)
         if not ait_recipient:
@@ -168,6 +185,16 @@ class BridgeMonitor:
             logger.error("Could not calculate AIT amount")
             create_deposit(tx_hash, from_address, str(eth_amount), ait_recipient)
             update_deposit(tx_hash, status=BridgeDepositStatus.FAILED, error_message="Price calculation failed")
+            return
+        if ait_amount < self.min_ait_deposit:
+            logger.warning("Deposit %s: AIT amount %s below minimum %s, rejecting", tx_hash, ait_amount, self.min_ait_deposit)
+            create_deposit(tx_hash, from_address, str(eth_amount), ait_recipient)
+            update_deposit(
+                tx_hash,
+                ait_amount=str(ait_amount),
+                status=BridgeDepositStatus.FAILED,
+                error_message=f"AIT amount {ait_amount} below minimum {self.min_ait_deposit}",
+            )
             return
         deposit_id = create_deposit(tx_hash, from_address, str(eth_amount), ait_recipient)
         if not deposit_id:
@@ -285,13 +312,21 @@ class BridgeMonitor:
                         from_address = tx.get("from", "")
                         tx_data = tx.get("input", "0x")
                         logger.info("Found deposit: %s from %s, amount: %s ETH", tx_hash, from_address, eth_amount)
-                        self.process_deposit(tx_hash, from_address, eth_amount, tx_data)
-                # Advance cursor only after processing all deposits in this block
+                        try:
+                            self.process_deposit(tx_hash, from_address, eth_amount, tx_data)
+                        except Exception:
+                            logger.exception("Unexpected error processing deposit %s, marking for retry", tx_hash)
+                            try:
+                                self._mark_for_retry(tx_hash, "Unexpected error during processing")
+                            except Exception:
+                                logger.exception("Failed to mark deposit %s for retry", tx_hash)
+                # Advance cursor only after every deposit in this block is
+                # in a terminal or PENDING_RETRY state (or was skipped).
                 set_cursor("last_processed_block", block_num)
         except Exception as e:
             logger.error("Error polling Ethereum: %s", e)
 
-    def run(self) -> None:
+    async def run(self) -> None:
         """Main polling loop."""
         logger.info("Starting bridge monitor polling loop")
         while True:
@@ -300,13 +335,13 @@ class BridgeMonitor:
                 self.process_retry_queue()
             except Exception as e:
                 logger.error("Error in polling loop: %s", e)
-            time.sleep(self.poll_interval)
+            await asyncio.sleep(self.poll_interval)
 
 
 def main() -> None:
     """Main entry point."""
     monitor = BridgeMonitor()
-    monitor.run()
+    asyncio.run(monitor.run())
 
 
 if __name__ == "__main__":
