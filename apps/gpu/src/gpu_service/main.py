@@ -225,6 +225,7 @@ async def delete_gpu(gpu_id: str, session: Annotated[AsyncSession, Depends(get_s
         await session.commit()
         return {"message": f"GPU {gpu_id} deleted successfully"}
     except Exception as e:
+        await session.rollback()
         logger.error("Error deleting GPU %s: %s", gpu_id, e)
         return ({"error": str(e)}, 500)
 
@@ -609,6 +610,7 @@ async def miner_heartbeat(heartbeat_data: dict[str, Any], session: Annotated[Asy
         await session.commit()
         return {"status": "ok"}
     except Exception as e:
+        await session.rollback()
         logger.error("Heartbeat error: %s", e)
         return ({"error": str(e)}, 500)
 
@@ -697,6 +699,7 @@ async def deregister_miner(miner_id: str, session: Annotated[AsyncSession, Depen
         await session.commit()
         return {"status": "ok", "miner_id": miner_id, "message": "Miner deregistered"}
     except Exception as e:
+        await session.rollback()
         logger.error("Deregister miner error: %s", e)
         return ({"error": str(e)}, 500)
 
