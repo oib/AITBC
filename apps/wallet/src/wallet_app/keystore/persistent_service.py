@@ -21,6 +21,7 @@ from nacl.signing import SigningKey
 from ..crypto.encryption import EncryptionError, EncryptionSuite
 from ..security import validate_password_rules, wipe_buffer
 from ..settings import settings
+from aitbc.utils.validation import validate_address
 
 _DEFAULT_DB = settings.ledger_db_path.parent / "keystore.db"
 
@@ -439,6 +440,8 @@ class PersistentKeystoreService:
 
     def _get_account_nonce(self, address: str) -> int:
         """Fetch current nonce from blockchain for an address"""
+        if not validate_address(address):
+            return 0
         try:
             rpc_url = settings.blockchain_rpc_url
             response = httpx.get(f"{rpc_url}/rpc/accounts/{address}", timeout=10.0)

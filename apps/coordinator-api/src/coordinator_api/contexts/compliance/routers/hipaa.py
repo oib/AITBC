@@ -8,10 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from ....auth import require_auth
 from ....storage import get_session
 from ..hipaa import ConsentRecord, HIPAAComplianceService, PHIAccessLog
 
-router = APIRouter(tags=["compliance", "hipaa"], prefix="/hipaa")
+router = APIRouter(tags=["compliance", "hipaa"], prefix="/hipaa", dependencies=[Depends(require_auth)])
 
 
 def _get_service(session: Annotated[Session, Depends(get_session)]) -> HIPAAComplianceService:
