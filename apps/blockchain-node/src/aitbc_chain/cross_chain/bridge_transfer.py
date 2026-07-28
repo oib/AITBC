@@ -44,6 +44,8 @@ class BridgeTransferMixin(BridgeBase):
             if sender_account.balance < total_deduction:
                 raise ValueError(f"Insufficient balance: {sender_account.balance} < {total_deduction}")
             sender_account.balance -= total_deduction
+            lock_nonce = sender_account.nonce
+            sender_account.nonce += 1
             session.add(sender_account)
             lock_tx = Transaction(
                 chain_id=source_chain,
@@ -61,7 +63,7 @@ class BridgeTransferMixin(BridgeBase):
                 },
                 value=amount,
                 fee=fee,
-                nonce=sender_account.nonce,
+                nonce=lock_nonce,
                 timestamp=datetime.now(UTC),
                 block_height=None,
                 status="pending",
@@ -113,6 +115,13 @@ class BridgeTransferMixin(BridgeBase):
         if proof_hash in self._processed_proofs:
             raise ValueError("Proof already processed (double-spend attempt)")
         with self._session_factory() as session:
+            # Persistent replay protection: the in-memory set is lost on
+            # restart; a recorded proof_hash is not.
+            persisted_proof = session.exec(
+                select(CrossChainTransfer.transfer_id).where(CrossChainTransfer.proof_hash == proof_hash)
+            ).first()
+            if persisted_proof is not None:
+                raise ValueError("Proof already processed (double-spend attempt)")
             record = session.get(CrossChainTransfer, transfer_id)
             if not record:
                 raise ValueError(f"Transfer not found: {transfer_id}")
@@ -125,6 +134,8 @@ class BridgeTransferMixin(BridgeBase):
                 recipient_account = Account(chain_id=record.target_chain, address=record.recipient, balance=0, nonce=0)
                 session.add(recipient_account)
             recipient_account.balance += record.amount
+            release_nonce = recipient_account.nonce
+            recipient_account.nonce += 1
             session.add(recipient_account)
             target_tx_hash = hashlib.sha256(f"{transfer_id}:{record.target_chain}:{int(time.time())}".encode()).hexdigest()
             release_tx = Transaction(
@@ -143,7 +154,7 @@ class BridgeTransferMixin(BridgeBase):
                 },
                 value=record.amount,
                 fee=0,
-                nonce=0,
+                nonce=release_nonce,
                 timestamp=datetime.now(UTC),
                 block_height=None,
                 status="confirmed",
@@ -152,6 +163,7 @@ class BridgeTransferMixin(BridgeBase):
             session.add(release_tx)
             record.status = "completed"
             record.target_tx_hash = target_tx_hash
+            record.proof_hash = proof_hash
             record.confirm_time = datetime.now(UTC)
             session.add(record)
             session.commit()
@@ -214,6 +226,8 @@ class BridgeTransferMixin(BridgeBase):
                 sender_account = Account(chain_id=record.source_chain, address=record.sender, balance=0, nonce=0)
                 session.add(sender_account)
             sender_account.balance += record.amount
+            refund_nonce = sender_account.nonce
+            sender_account.nonce += 1
             session.add(sender_account)
 
             # Create a BRIDGE_REFUND transaction record
@@ -234,7 +248,7 @@ class BridgeTransferMixin(BridgeBase):
                 },
                 value=record.amount,
                 fee=0,
-                nonce=0,
+                nonce=refund_nonce,
                 timestamp=datetime.now(UTC),
                 block_height=None,
                 status="confirmed",
