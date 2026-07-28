@@ -59,10 +59,8 @@ class ConsentRecord(SQLModel, table=True):
             return False
         if self.expires_at is not None:
             expires = self.expires_at
-            if expires.tzinfo is None and now.tzinfo is not None:
-                now = now.replace(tzinfo=None)
-            elif expires.tzinfo is not None and now.tzinfo is None:
-                expires = expires.replace(tzinfo=None)
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=UTC)
             if expires <= now:
                 return False
         return True
