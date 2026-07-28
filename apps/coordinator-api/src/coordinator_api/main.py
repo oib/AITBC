@@ -246,6 +246,12 @@ def create_app() -> FastAPI:
     # Validate critical environment variables at startup
     validate_critical_environment_variables()
 
+    # Fail closed: production must have auth enabled and not be in test mode
+    if settings.environment == "production":
+        assert settings.auth_enabled and not settings.test_mode, (
+            "Production environment requires auth_enabled=True and test_mode=False"
+        )
+
     limiter = Limiter(key_func=get_remote_address)
 
     # Disable docs and redoc in production
