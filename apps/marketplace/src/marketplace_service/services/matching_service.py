@@ -1,5 +1,6 @@
 """Marketplace matching service for matching GPU providers with consumers"""
 
+from decimal import Decimal
 from typing import Any
 
 import httpx
@@ -37,7 +38,7 @@ class MatchingService:
     async def find_best_match(
         self,
         bid_requirements: dict[str, Any],
-        max_price: float | None = None,
+        max_price: Decimal | None = None,
         preferred_region: str | None = None,
         min_gpu_memory: int | None = None,
         required_gpu_model: str | None = None,
@@ -105,7 +106,9 @@ class MatchingService:
         """
         score = 1.0
         if requirements.get("max_price"):
-            price_ratio = float(offer.price_per_hour or 0) / float(requirements["max_price"])
+            max_price_val = Decimal(str(requirements["max_price"]))
+            offer_price = offer.price_per_hour or Decimal("0")
+            price_ratio = float(offer_price / max_price_val) if max_price_val > 0 else 0.0
             score *= 1.0 - price_ratio * 0.3
         if requirements.get("capacity"):
             capacity_ratio = min(offer.capacity / requirements["capacity"], 2.0)
@@ -117,7 +120,7 @@ class MatchingService:
     async def match_and_assign(
         self,
         requirements: dict[str, Any],
-        max_price: float | None = None,
+        max_price: Decimal | None = None,
         preferred_region: str | None = None,
         chain_id: str | None = None,
     ) -> dict[str, Any]:

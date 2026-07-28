@@ -5,7 +5,7 @@ import time
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel
 
 from aitbc.aitbc_logging import get_logger
@@ -23,6 +23,8 @@ BITCOIN_CONFIG: dict[str, Any] = {
     "payment_timeout": 3600,
 }
 payments: dict[str, dict[str, Any]] = {}
+# Idempotency key → payment_id mapping (prevents duplicate payment creation on replay)
+_idempotency_keys: dict[str, str] = {}
 
 
 class ExchangePaymentRequest(BaseModel):
@@ -35,14 +37,26 @@ class ExchangePaymentRequest(BaseModel):
 
 @router.post("/v1/exchange/create-payment")
 async def create_exchange_payment(
-    payment_request: ExchangePaymentRequest, background_tasks: BackgroundTasks
+    payment_request: ExchangePaymentRequest, background_tasks: BackgroundTasks, request: Request
 ) -> dict[str, Any]:
-    """Create a new Bitcoin payment request (migrated from Coordinator API)."""
+    """Create a new Bitcoin payment request (migrated from Coordinator API).
+
+    Supports idempotency via the ``Idempotency-Key`` header: if the same key
+    is replayed, the original payment is returned instead of creating a duplicate.
+    """
     if payment_request.aitbc_amount <= 0 or payment_request.btc_amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
     expected_btc = payment_request.aitbc_amount / BITCOIN_CONFIG["exchange_rate"]
     if abs(payment_request.btc_amount - expected_btc) > 1e-08:
         raise HTTPException(status_code=400, detail="Amount mismatch")
+
+    # Idempotency: if the same key was used before, return the original payment
+    idempotency_key = request.headers.get("Idempotency-Key")
+    if idempotency_key:
+        existing_payment_id = _idempotency_keys.get(idempotency_key)
+        if existing_payment_id and existing_payment_id in payments:
+            return payments[existing_payment_id]
+
     payment_id = str(uuid.uuid4())
     payment = {
         "payment_id": payment_id,
@@ -57,6 +71,8 @@ async def create_exchange_payment(
         "tx_hash": None,
     }
     payments[payment_id] = payment
+    if idempotency_key:
+        _idempotency_keys[idempotency_key] = payment_id
     background_tasks.add_task(monitor_payment, payment_id)
     logger.info("Created exchange payment %s for user %s", payment_id, payment_request.user_id)
     return payment
