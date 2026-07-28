@@ -531,6 +531,9 @@ class ChainSettings(BaseSettings):
     # testing via RPC endpoints.
     # v0.10.16: fail-closed by default; enable only after explicit security review.
     multi_validator_consensus_enabled: bool = False
+    # v0.18.0: reject unsigned PBFT messages by default; test harnesses must
+    # set this to False explicitly.
+    pbft_require_signatures: bool = True
     consensus_view_change_timeout_seconds: int = 30  # H6 — timeout before view change
     consensus_round_timeout_seconds: int = 10  # per-round timeout
     consensus_validator_set_epoch_blocks: int = 7200  # C3 — epoch length for rotation

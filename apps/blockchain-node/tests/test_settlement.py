@@ -520,7 +520,7 @@ class TestSettlementService:
             await svc.refund(escrow_id)
 
     async def test_check_timeouts(self, mock_session):
-        """check_timeouts refunds timed-out escrows."""
+        """check_timeouts refunds timed-out escrows (timeout measured from lock)."""
         svc = CrossChainSettlementService("ait-hub")
         created = await svc.create_escrow(
             trade_id="trade_11",
@@ -534,13 +534,94 @@ class TestSettlementService:
         escrow_id = created["escrow_id"]
         await svc.lock_escrow(escrow_id)
 
-        # Backdate to simulate timeout
+        # Backdate the lock to simulate timeout (v0.18.0: timeout measured
+        # from locked_at when set, not created_at)
         record = mock_session.escrows[escrow_id]
-        record.created_at = datetime.now(UTC) - timedelta(seconds=7200)
+        record.locked_at = datetime.now(UTC) - timedelta(seconds=7200)
 
         refunded = await svc.check_timeouts()
         assert escrow_id in refunded
         assert mock_session.escrows[escrow_id].status == EscrowStatus.REFUNDED.value
+
+    async def test_check_timeouts_recent_lock_not_expired(self, mock_session):
+        """An escrow that sat pending for ages but locked just now must not expire."""
+        svc = CrossChainSettlementService("ait-hub")
+        created = await svc.create_escrow(
+            trade_id="trade_11b",
+            source_chain="ait-hub",
+            dest_chain="ait-island-1",
+            sender="alice",
+            recipient="bob",
+            amount=100,
+            timeout_seconds=3600,
+        )
+        escrow_id = created["escrow_id"]
+        # Created long ago...
+        mock_session.escrows[escrow_id].created_at = datetime.now(UTC) - timedelta(seconds=7200)
+        # ...but locked just now (lock_escrow sets locked_at itself).
+        await svc.lock_escrow(escrow_id)
+
+        refunded = await svc.check_timeouts()
+        assert escrow_id not in refunded
+
+    async def test_check_timeouts_pending_uses_created_at(self, mock_session):
+        """A never-locked escrow still times out from created_at."""
+        svc = CrossChainSettlementService("ait-hub")
+        created = await svc.create_escrow(
+            trade_id="trade_11c",
+            source_chain="ait-hub",
+            dest_chain="ait-island-1",
+            sender="alice",
+            recipient="bob",
+            amount=100,
+            timeout_seconds=3600,
+        )
+        escrow_id = created["escrow_id"]
+        mock_session.escrows[escrow_id].created_at = datetime.now(UTC) - timedelta(seconds=7200)
+
+        refunded = await svc.check_timeouts()
+        assert escrow_id in refunded
+
+    async def test_create_escrow_ids_unique_on_retry(self, mock_session):
+        """Identical create calls (same trade, same second) never collide."""
+        svc = CrossChainSettlementService("ait-hub")
+        ids = set()
+        for _ in range(3):
+            result = await svc.create_escrow(
+                trade_id="trade_retry",
+                source_chain="ait-hub",
+                dest_chain="ait-island-1",
+                sender="alice",
+                recipient="bob",
+                amount=100,
+                timeout_seconds=3600,
+            )
+            ids.add(result["escrow_id"])
+        assert len(ids) == 3
+
+    async def test_startup_recovery_refunds_timed_out_escrows(self, mock_session):
+        """The coordinator's startup scan refunds escrows that expired while down."""
+        from aitbc_chain.cross_chain.settlement_coordinator import AtomicSettlementCoordinator
+
+        svc = CrossChainSettlementService("ait-hub")
+        created = await svc.create_escrow(
+            trade_id="trade_down",
+            source_chain="ait-hub",
+            dest_chain="ait-island-1",
+            sender="alice",
+            recipient="bob",
+            amount=100,
+            timeout_seconds=3600,
+        )
+        escrow_id = created["escrow_id"]
+        mock_session.escrows[escrow_id].created_at = datetime.now(UTC) - timedelta(seconds=7200)
+
+        coordinator = AtomicSettlementCoordinator(chain_id="ait-hub")
+        await coordinator.start_monitor()
+        try:
+            assert mock_session.escrows[escrow_id].status == EscrowStatus.REFUNDED.value
+        finally:
+            await coordinator.stop_monitor()
 
     # -- proof chain -------------------------------------------------------
 
