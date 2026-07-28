@@ -6,12 +6,11 @@ import asyncio
 import json
 import re
 import time
-from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException, Request, status
 from sqlalchemy import asc, text
-from sqlmodel import delete, select
+from sqlmodel import select
 
 from aitbc.rate_limiting import rate_limit
 
@@ -209,14 +208,6 @@ async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str
                 block_height = int(block_data["height"])
             except (KeyError, TypeError, ValueError) as exc:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid block height") from exc
-            timestamp = block_data.get("timestamp")
-            if isinstance(timestamp, str):
-                try:
-                    timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-                except ValueError:
-                    timestamp = datetime.now(UTC)
-            elif timestamp is None:
-                timestamp = datetime.now(UTC)
             with session_scope(chain_id) as session:
                 existing_height_block = session.exec(
                     select(Block).where(Block.chain_id == chain_id).where(Block.height == block_height)
@@ -233,36 +224,40 @@ async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str
                         status_code=status.HTTP_409_CONFLICT,
                         detail=f"Block height {block_height} already exists with different hash",
                     )
-                parent_hash = block_data["parent_hash"]
-                if block_height > 1:
-                    parent_block = session.exec(select(Block).where(Block.hash == parent_hash)).first()
-                    if parent_block is None:
-                        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Parent block not found")
-                existing_block = session.execute(select(Block).where(Block.hash == block_hash)).first()
-                if existing_block:
-                    _logger.warning(
-                        "Deleting existing block with conflicting hash %s from chain %s",
-                        block_hash,
-                        existing_block[0].chain_id,
+                existing_block = session.exec(
+                    select(Block).where(Block.chain_id == chain_id).where(Block.hash == block_hash)
+                ).first()
+                if existing_block is not None:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Block hash {block_hash} already exists at height {existing_block.height}",
                     )
-                    session.execute(delete(Block).where(Block.hash == block_hash))  # type: ignore[arg-type]
-                    session.commit()
-                block = Block(
-                    chain_id=chain_id,
-                    height=block_height,
-                    hash=block_hash,
-                    parent_hash=block_data["parent_hash"],
-                    proposer=block_data["proposer"],
-                    timestamp=timestamp,
-                    state_root=block_data.get("state_root"),
-                    tx_count=block_data.get("tx_count", 0),
+            # Route through the same validated import path as peer sync
+            # (signature, parent linkage, state root, transaction application).
+            from ..sync import ChainSync
+
+            block_data["chain_id"] = chain_id
+            sync = ChainSync(
+                session_factory=lambda: session_scope(chain_id),  # type: ignore[misc,arg-type]
+                chain_id=chain_id,
+            )
+            result = sync.import_block(block_data, transactions=block_data.get("transactions"))
+            if not result.accepted:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Block rejected: {result.reason}",
                 )
-                session.add(block)
-                session.commit()
-                # Invalidate the in-process block header cache for this height
-                # so subsequent reads fetch fresh data from the DB.
-                get_block_header_cache().invalidate(chain_id, height=block_height, hash=block_hash)
-                return {"success": True, "block_height": block.height, "block_hash": block.hash, "chain_id": chain_id}
+            # Invalidate the in-process block header cache for this height
+            # so subsequent reads fetch fresh data from the DB.
+            get_block_header_cache().invalidate(chain_id, height=block_height, hash=block_hash)
+            return {
+                "success": True,
+                "accepted": True,
+                "block_height": result.height,
+                "block_hash": result.block_hash,
+                "chain_id": chain_id,
+                "reorged": result.reorged,
+            }
         except HTTPException:
             raise
         except Exception as e:
