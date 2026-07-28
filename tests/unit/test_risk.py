@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -144,7 +144,7 @@ def test_circuit_breaker_opens_on_severity_fraction() -> None:
 
 
 def test_circuit_breaker_half_open_recovery() -> None:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     breaker = CircuitBreaker(
         name="market",
         threshold=Decimal("80"),
@@ -158,7 +158,7 @@ def test_circuit_breaker_half_open_recovery() -> None:
 
 
 def test_circuit_breaker_reopens_on_half_open_failure() -> None:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     breaker = CircuitBreaker(
         name="market",
         threshold=Decimal("80"),

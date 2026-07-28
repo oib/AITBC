@@ -8,7 +8,7 @@ and the CLI.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -74,7 +74,7 @@ class PerformanceBond:
     def lock(self, until: datetime, now: datetime | None = None) -> None:
         """Lock the bond until ``until``."""
         if now is None:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
         if self.status not in {BondStatus.PENDING, BondStatus.ACTIVE}:
             raise BondError(f"cannot lock bond in status {self.status}")
         if until <= now:
@@ -85,7 +85,7 @@ class PerformanceBond:
     def release(self, now: datetime | None = None) -> None:
         """Release the remaining bond amount back to the agent."""
         if now is None:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
         if self.status not in {
             BondStatus.ACTIVE,
             BondStatus.LOCKED,
@@ -115,7 +115,7 @@ class PerformanceBond:
     def partial_release(self, amount: Decimal, now: datetime | None = None) -> None:
         """Release part of the bond collateral."""
         if now is None:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
         if amount <= 0:
             raise ValueError("partial release amount must be positive")
         if self.status not in {
@@ -156,7 +156,7 @@ class PerformanceBond:
     def mark_expired(self, now: datetime | None = None) -> None:
         """Mark an expired locked bond."""
         if now is None:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
         if self.status == BondStatus.LOCKED and self.locked_until is not None:
             if self.locked_until <= now:
                 self.status = BondStatus.EXPIRED
@@ -173,7 +173,7 @@ class StakeAccount:
     token: str
     chain_id: str = "ait-hub"
     status: StakeStatus | str = StakeStatus.PENDING
-    started_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     unstaked_at: datetime | None = None
     reward: Decimal = field(default_factory=lambda: Decimal("0"))
     meta: dict[str, Any] = field(default_factory=dict)
@@ -205,4 +205,4 @@ class StakeAccount:
         if self.status != StakeStatus.UNSTAKING:
             raise BondError(f"cannot finalize unstake from status {self.status}")
         self.status = StakeStatus.UNSTAKED
-        self.unstaked_at = datetime.utcnow()
+        self.unstaked_at = datetime.now(UTC)

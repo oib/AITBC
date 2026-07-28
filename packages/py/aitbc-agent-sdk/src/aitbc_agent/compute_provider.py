@@ -166,7 +166,7 @@ class ComputeProvider(Agent):
             }
 
             # Start dynamic pricing task
-            asyncio.create_task(self._dynamic_pricing_loop())
+            self._track_task(self._dynamic_pricing_loop())
 
             logger.info("Dynamic pricing enabled")
             return True
@@ -230,7 +230,7 @@ class ComputeProvider(Agent):
             self._update_utilization()
 
             # Execute job (simulate)
-            asyncio.create_task(self._execute_job(job, job_request))
+            self._track_task(self._execute_job(job, job_request))
 
             logger.info("Job accepted: %s from %s", job.job_id, job.consumer_id)
             return True
@@ -452,7 +452,7 @@ class ComputeProvider(Agent):
         await super().__aenter__() if hasattr(super(), "__aenter__") else self.register()
         # Start dynamic pricing if enabled
         if self.dynamic_pricing.get("enabled", False):
-            asyncio.create_task(self._dynamic_pricing_loop())
+            self._track_task(self._dynamic_pricing_loop())
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:

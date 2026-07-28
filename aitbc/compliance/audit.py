@@ -41,7 +41,7 @@ class ConsentRecord:
     subject_id: str
     purpose: str
     granted: bool = True
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
     revoked_at: datetime | None = None
     meta: dict[str, Any] = field(default_factory=dict)
@@ -55,7 +55,7 @@ class ConsentRecord:
         if not self.granted or self.revoked_at is not None:
             return False
         if now is None:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
         if self.expires_at is not None and self.expires_at <= now:
             return False
         return True
@@ -113,7 +113,7 @@ def retention_expired(
 ) -> bool:
     """Return True if a record has exceeded its retention period."""
     if now is None:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
     expiry = created_at + timedelta(days=retention.duration_days)
     return now >= expiry
 
@@ -131,7 +131,7 @@ def build_audit_event(
 ) -> AuditEvent:
     """Factory for creating a timestamped audit event."""
     if now is None:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
     return AuditEvent(
         event_id=event_id,
         timestamp=now,

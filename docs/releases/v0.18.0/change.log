@@ -1,0 +1,165 @@
+# v0.18.0 — Audit Remediation: Chain Integrity, Money Correctness & Auth Defaults (Bugfix)
+
+**Last Updated**: 2026-07-28
+**Status**: Planned 🚧
+**Prerequisite**: v0.17.0 complete
+
+## Release Theme
+
+Remediate the findings of the 2026-07-28 full-repo audit (6 parallel audits:
+financial, blockchain node, security/auth, concurrency, bridge/settlement,
+repo-wide patterns; top claims verified by hand against the code). Fail-closed
+behavior for chain import, settlement, and authentication boundaries.
+
+Scale context (from v2.0.0 parking-lot review): 10–50 nodes, thousands of
+accounts, 10–100 transfers/day, no external audit budget. Fixes are scoped to
+that reality — smallest correct diffs, no new dependencies, no new abstractions.
+
+## Motivation
+
+The audit found a consistent pattern: the *sync* paths are well validated, but
+the RPC/admin, bridge, and trading paths bypass the same guarantees:
+
+- `import_block` RPC writes blocks with no signature/state-root/tx validation
+  and **deletes** existing blocks on hash conflict; `import_chain` wipes a
+  whole chain without auth or atomicity.
+- `sync_validator.validate_block_signature` verifies no signature; PBFT
+  accepts unsigned messages when no private key is configured.
+- Replay protection (tx hashes, bridge proofs) is in-memory only — lost on
+  restart; bridge lock/HTLC paths never increment account nonces; bridge
+  release/refund txs are hardcoded `nonce=0`.
+- The trading service escaped the v0.10.4/v0.10.6 Decimal migrations — money
+  is still `float`; settlement/matching have no row locking or idempotency.
+- Bridge monitor advances its cursor before the AIT mint succeeds and
+  truncates sub-1-AIT deposits to zero — user funds silently lost.
+- API Gateway ships with `REQUIRE_AUTH` defaulting to `false`; coordinator-api
+  auth middleware is silently disabled by `test_mode`/`auth_enabled=False`
+  while HIPAA/TEE/economic-proposal routers carry no explicit auth deps.
+- Timing-unsafe `==` comparisons in password verification paths; TEE sealing
+  defaults to an empty secret; naive/aware datetime comparison bugs expire
+  cache entries and HIPAA consents at wrong times.
+
+## Planned Work
+
+### Agent A — Shared Core (`aitbc/`, `packages/py/`) — ✅ complete (2026-07-28)
+
+- [x] A1: `aitbc/auth/password.py:116` — PBKDF2 verification now uses
+      `hmac.compare_digest`.
+- [x] A2: `aitbc/tee/sealed_storage.py` — `secret` is now a required
+      keyword-only argument for `seal`/`unseal`; `_derive_key` raises
+      `ValueError` on empty secret and no longer falls back to the
+      measurement (which made the key publicly derivable). `tee/session.py`
+      needed no change — the flagged lines were dataclass field defaults
+      already guarded by `establish()`/`rotate_key()` checks.
+- [x] A3: `aitbc/caching/cache_entry.py:26-34` — naive `expires_at` is now
+      assumed UTC instead of stripping tzinfo from `now`. Regression test
+      added in `tests/test_caching.py::TestCacheEntry`.
+- [x] A4: `datetime.utcnow()` → `datetime.now(UTC)` swept across
+      `aitbc/agent_economics/` (bonds, staking, swaps, liquidation),
+      `aitbc/wallet/escrow.py`, `aitbc/agent_memory/models.py`,
+      `aitbc/compliance/audit.py`, `aitbc/risk/` (circuit_breaker, solvency),
+      including `default_factory=` forms, plus the 7 unit-test files passing
+      naive datetimes into these APIs. Deliberately skipped:
+      `aitbc/models/coin_request.py` (SQLAlchemy naive `DateTime` column —
+      needs a schema decision, not a mechanical swap).
+- [x] A5: `aitbc/ethereum_rpc.py` — added `wait_for_transaction_async`
+      (poll via `asyncio.to_thread`, sleep via `asyncio.sleep`); sync
+      variant kept. `aitbc/crypto/secrets.py` — writer paths already held
+      `self._lock`; fixed the two unguarded dict iterations
+      (`list_secrets`, `rotate_encryption_key`) that could hit
+      "dictionary changed size during iteration" against the rotation
+      thread. `rotate_encryption_key` now holds the lock for the full
+      re-encryption so mid-rotation add/delete can't lose secrets.
+- [x] A6: `packages/py/aitbc-agent-sdk` — added `Agent._track_task()`
+      helper (holds strong refs in a set, discards on completion); all four
+      fire-and-forget `asyncio.create_task` sites now use it
+      (`swarm_coordinator.py:93`, `compute_provider.py:169,233,455`).
+
+Verification after Agent A: `ruff check` clean, `mypy aitbc/` clean (204
+files), `pytest tests/unit` 1178 passed.
+
+### Agent B — Apps (`apps/`, `cli/`)
+
+- [ ] B1: `rpc/blocks.py` `import_block` — route through
+      `sync_block_import._append_block()` validation; remove the
+      delete-on-hash-conflict path (lines 241–249).
+- [ ] B2: `rpc/sync.py` `import_chain` — require admin auth, validate payload
+      before any delete, wrap delete+import in one DB transaction.
+- [ ] B3: `sync_validator.py` — verify block signatures cryptographically (or
+      rename to `validate_block_format` and fix callers);
+      `consensus/pbft.py:287` — `pbft_require_signatures` flag default True.
+- [ ] B4: Consensus determinism — tiebreak validator rotation by `address`
+      (`rotation.py`); tiebreak mempool eviction by `tx_hash`
+      (`mempool.py:165`).
+- [ ] B5: Persist replay protection — dedup tx hashes and bridge proofs
+      against the DB (unique constraints), not only in-memory sets
+      (`state/state_transition.py`, `cross_chain/bridge_transfer.py`).
+- [ ] B6: Nonce correctness — increment sender nonce on bridge lock and in
+      HTLC `_transfer_balance`; remove hardcoded `nonce=0` on bridge
+      release/refund txs.
+- [ ] B7: Settlement robustness — startup recovery scan for non-terminal
+      escrows in `settlement_coordinator.py`; `escrow_id` from
+      `time.time_ns()`+uuid (`settlement.py:242`); timeout from `locked_at`.
+- [ ] B8: `apps/bridge-monitor` — advance block cursor only after successful
+      AIT transfer (or explicit retry mark); quantize amounts with
+      `ROUND_HALF_UP`; enforce a minimum deposit.
+- [ ] B9: Decimal migration completion — `trading/domain/trading.py`,
+      `trading/domain/inter_chain.py`, marketplace escrow (`main.py:159`),
+      wallet ETH-AIT bridge columns (`bridge_db.py:25-26` REAL → NUMERIC/TEXT
+      + Alembic migration where applicable), pool-hub scoring float cast.
+- [ ] B10: Trading settlement/matching — `SELECT FOR UPDATE` (or
+      `BEGIN IMMEDIATE` on sqlite) around status transitions; idempotency-key
+      support on payment-creation endpoints; validate `amount > 0` on
+      inter-chain trades.
+- [ ] B11: Add missing `session.rollback()` in exception handlers —
+      trading `routers/settlement.py`, `apps/gpu/main.py` (delete_gpu,
+      miner_heartbeat, deregister_miner).
+- [ ] B12: Auth defaults — API Gateway `API_GATEWAY_REQUIRE_AUTH` default
+      `true`; coordinator-api startup assert (production + auth disabled =
+      refuse to boot); explicit auth deps on HIPAA, TEE attestation, and
+      economic-proposal routers.
+- [ ] B13: SSRF — validate address format before URL interpolation in
+      governance voting-power and wallet balance paths
+      (`governance_service.py:287`, wallet `persistent_service.py:444`,
+      `api_rest.py:183`).
+- [ ] B14: `agent_app/routers/auth.py:52-58` — `hmac.compare_digest` for
+      login comparison.
+- [ ] B15: Robustness sweep — `await asyncio.sleep` in bridge-monitor loop;
+      sqlite context managers in blockchain-explorer + coordinator-api
+      explorer service; pool-hub billing batch transaction + async session;
+      coordinator-api HIPAA consent timezone fix (`contexts/compliance/
+      hipaa.py:60-68`).
+
+### Deferred (documented, not in this release)
+
+- Reorg handling for bridge proofs/monitor — real but rare at current scale;
+  design note added to v2.0.0 parking-lot evaluation.
+- `skip_state_root_validation` gating, balance BigInt overflow checks, DB
+  mempool max-size race — tracked as P2 follow-ups in AGENTS.md.
+- Module-level `asyncio.Lock` in blockchain-node RPC — downgraded after
+  verification: safe on Python 3.13 single-loop; no action.
+
+## Breaking Changes
+
+- `API_GATEWAY_REQUIRE_AUTH` now defaults to `true`; deployments relying on
+  the implicit open gateway must set it to `false` explicitly.
+- PBFT rejects unsigned messages by default; test harnesses must set
+  `pbft_require_signatures=false` explicitly.
+- `import_block` RPC rejects blocks that fail sync validation;
+  `import_chain` requires admin auth.
+- `aitbc.tee` sealing/session functions raise without an explicit secret.
+- Bridge monitor rejects deposits below the minimum AIT threshold.
+
+## Verification
+
+```bash
+cd /opt/aitbc
+./venv/bin/python -m ruff check .
+./venv/bin/python -m mypy --show-error-codes aitbc/
+./venv/bin/python -m pytest tests/unit -q -o addopts=""
+./venv/bin/python -m pytest tests/integration -q -o addopts=""
+cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
+cd apps/blockchain-node && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
+```
+
+*Generated with [Devin](https://devin.ai)*
