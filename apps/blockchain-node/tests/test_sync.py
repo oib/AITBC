@@ -73,7 +73,8 @@ def _seed_chain(session_factory, count=5, chain_id="test-chain", proposer="propo
 
 
 class TestProposerSignatureValidator:
-    def test_valid_block(self):
+    def test_unsigned_block_rejected_without_trusted_set(self):
+        """Fail closed: unsigned block + empty trusted set = no way to authenticate."""
         v = ProposerSignatureValidator()
         ts = datetime.now(UTC)
         bh = _make_block_hash("test", 1, "0x00", ts)
@@ -86,8 +87,55 @@ class TestProposerSignatureValidator:
                 "timestamp": ts.isoformat(),
             }
         )
+        assert ok is False
+        assert "no trusted proposer set" in reason
+
+    def test_signed_block_accepted(self):
+        """A block signed by its proposer verifies cryptographically."""
+        from eth_account import Account as EthAccount
+
+        from aitbc.crypto.consensus_signing import sign_block_hash
+
+        proposer = EthAccount.create()
+        v = ProposerSignatureValidator()
+        ts = datetime.now(UTC)
+        bh = _make_block_hash("test", 1, "0x00", ts)
+        ok, reason = v.validate_block_signature(
+            {
+                "height": 1,
+                "hash": bh,
+                "parent_hash": "0x00",
+                "proposer": proposer.address,
+                "timestamp": ts.isoformat(),
+                "signature": sign_block_hash(bh, proposer.key.hex()),
+            }
+        )
         assert ok is True
         assert reason == "Valid"
+
+    def test_signed_block_wrong_key_rejected(self):
+        """A signature recovering to a different address is rejected."""
+        from eth_account import Account as EthAccount
+
+        from aitbc.crypto.consensus_signing import sign_block_hash
+
+        proposer = EthAccount.create()
+        impostor = EthAccount.create()
+        v = ProposerSignatureValidator()
+        ts = datetime.now(UTC)
+        bh = _make_block_hash("test", 1, "0x00", ts)
+        ok, reason = v.validate_block_signature(
+            {
+                "height": 1,
+                "hash": bh,
+                "parent_hash": "0x00",
+                "proposer": proposer.address,
+                "timestamp": ts.isoformat(),
+                "signature": sign_block_hash(bh, impostor.key.hex()),
+            }
+        )
+        assert ok is False
+        assert "Invalid proposer signature" in reason
 
     def test_missing_proposer(self):
         v = ProposerSignatureValidator()
