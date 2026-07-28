@@ -11,6 +11,7 @@ Provides both bcrypt (recommended) and PBKDF2 (legacy) options.
 from __future__ import annotations
 
 import base64
+import hmac
 import secrets
 from typing import Any
 
@@ -113,7 +114,7 @@ def verify_password_pbkdf2(password: str, hashed_password: str, salt: str) -> bo
         True if password matches hash.
     """
     new_hash, _ = hash_password_pbkdf2(password, salt)
-    return new_hash == hashed_password
+    return hmac.compare_digest(new_hash, hashed_password)
 
 
 # Global instance (agent-coordinator compatibility)

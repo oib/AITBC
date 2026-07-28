@@ -8,7 +8,7 @@ portfolio/bond state from ``aitbc.agent_economics`` and optionally
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -27,7 +27,7 @@ class SolvencyReport:
     bond_requirements: Decimal = Decimal("0")
     recommendations: list[str] = field(default_factory=list)
     meta: dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
     def surplus(self) -> Decimal:

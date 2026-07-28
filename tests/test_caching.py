@@ -52,6 +52,15 @@ class TestCacheEntry:
         entry = CacheEntry(value="test_value", expires_at=expires)
         assert entry.is_expired() is True
 
+    def test_is_expired_naive_expires_at_treated_as_utc(self):
+        """A naive expires_at is assumed UTC, not compared against a stripped now"""
+        naive_past = (datetime.now(UTC) - timedelta(seconds=1)).replace(tzinfo=None)
+        entry = CacheEntry(value="test_value", expires_at=naive_past)
+        assert entry.is_expired() is True
+        naive_future = (datetime.now(UTC) + timedelta(seconds=60)).replace(tzinfo=None)
+        entry = CacheEntry(value="test_value", expires_at=naive_future)
+        assert entry.is_expired() is False
+
 
 class TestLRUCache:
     """Tests for LRUCache"""

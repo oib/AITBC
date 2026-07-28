@@ -8,7 +8,7 @@ staking operations.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -34,7 +34,7 @@ class MarketStressEvent:
     metric: str = ""
     severity: Decimal = Decimal("0")
     stress_score: Decimal | None = None
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     meta: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -69,7 +69,7 @@ class CircuitBreaker:
     half_open_max_calls: int = 1
     state: CircuitState = CircuitState.CLOSED
     failure_count: int = 0
-    last_state_change: datetime = field(default_factory=datetime.utcnow)
+    last_state_change: datetime = field(default_factory=lambda: datetime.now(UTC))
     last_failure_time: datetime | None = None
     half_open_calls: int = 0
     meta: dict[str, Any] = field(default_factory=dict)
@@ -95,7 +95,7 @@ class CircuitBreaker:
     def can_execute(self, now: datetime | None = None) -> bool:
         """Return True if an autonomous action may run."""
         if now is None:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
 
         if self.state == CircuitState.CLOSED:
             return True
@@ -117,7 +117,7 @@ class CircuitBreaker:
     def record(self, event: MarketStressEvent, now: datetime | None = None) -> None:
         """Record a market-stress event and update breaker state."""
         if now is None:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
 
         score = event.effective_stress_score
         if self.state == CircuitState.HALF_OPEN:

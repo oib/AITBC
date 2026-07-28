@@ -5,6 +5,7 @@ Supports public endpoints (Infura, Alchemy, Cloudflare) with automatic fallback.
 
 from __future__ import annotations
 
+import asyncio
 import os
 import time
 from dataclasses import dataclass, field
@@ -219,6 +220,18 @@ class EthereumRPCClient:
             if receipt is not None:
                 return receipt
             time.sleep(poll_interval)
+        return None
+
+    async def wait_for_transaction_async(
+        self, tx_hash: str, timeout: int = 120, poll_interval: int = 5
+    ) -> dict[str, Any] | None:
+        """Non-blocking variant of ``wait_for_transaction`` for async callers."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            receipt = await asyncio.to_thread(self.get_transaction_receipt, tx_hash)
+            if receipt is not None:
+                return receipt
+            await asyncio.sleep(poll_interval)
         return None
 
     def health_check(self) -> dict[str, Any]:

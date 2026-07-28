@@ -9,7 +9,7 @@ v0.12.0.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -36,7 +36,7 @@ class Delegation:
     amount: Decimal
     token: str
     status: DelegationStatus | str = DelegationStatus.PENDING
-    delegated_at: datetime = field(default_factory=datetime.utcnow)
+    delegated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     unbonded_at: datetime | None = None
     rewards: Decimal = field(default_factory=lambda: Decimal("0"))
     chain_id: str = "ait-hub"
@@ -63,7 +63,7 @@ class Delegation:
         if self.status != DelegationStatus.ACTIVE:
             raise StakingError(f"cannot unbond delegation in status {self.status}")
         self.status = DelegationStatus.UNBONDING
-        self.unbonded_at = datetime.utcnow()
+        self.unbonded_at = datetime.now(UTC)
 
     def withdraw(self) -> None:
         """Complete unbonding and mark delegation withdrawn."""
@@ -87,14 +87,14 @@ class YieldPosition:
     token: str
     total_staked: Decimal = field(default_factory=lambda: Decimal("0"))
     total_rewards: Decimal = field(default_factory=lambda: Decimal("0"))
-    last_harvested: datetime = field(default_factory=datetime.utcnow)
+    last_harvested: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def harvest(self, amount: Decimal) -> None:
         """Record a reward harvest."""
         if amount < 0:
             raise ValueError("harvest amount cannot be negative")
         self.total_rewards += amount
-        self.last_harvested = datetime.utcnow()
+        self.last_harvested = datetime.now(UTC)
 
 
 @dataclass
