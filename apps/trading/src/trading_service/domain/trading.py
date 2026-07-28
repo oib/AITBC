@@ -4,10 +4,12 @@ Implements SQLModel definitions for P2P trading, matching, negotiation, and sett
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
+from sqlalchemy import Numeric
 from sqlmodel import JSON, Column, Field, SQLModel
 
 
@@ -73,7 +75,7 @@ class TradeRequest(SQLModel, table=True):
     specifications: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     constraints: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
-    budget_range: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    budget_range: dict[str, Decimal] = Field(default={}, sa_column=Column(JSON))
     preferred_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     negotiation_flexible: bool = Field(default=True)
 
@@ -165,7 +167,7 @@ class TradeNegotiation(SQLModel, table=True):
     initial_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     final_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
-    price_range: dict[str, float] = Field(default={}, sa_column=Column(JSON))
+    price_range: dict[str, Decimal] = Field(default={}, sa_column=Column(JSON))
     service_level_agreements: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     delivery_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     payment_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
@@ -210,7 +212,7 @@ class TradeAgreement(SQLModel, table=True):
     specifications: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     service_level_agreement: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
-    total_price: float = Field(ge=0)
+    total_price: Decimal = Field(default=Decimal("0"), ge=0, sa_column=Column(Numeric(20, 8), nullable=False))
     currency: str = Field(default="AITBC")
     payment_schedule: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     settlement_type: SettlementType
@@ -252,7 +254,7 @@ class TradeSettlement(SQLModel, table=True):
     seller_agent_id: str = Field(index=True)
 
     settlement_type: SettlementType
-    total_amount: float = Field(ge=0)
+    total_amount: Decimal = Field(default=Decimal("0"), ge=0, sa_column=Column(Numeric(20, 8), nullable=False))
     currency: str = Field(default="AITBC")
 
     payment_status: str = Field(default="pending")
@@ -267,10 +269,14 @@ class TradeSettlement(SQLModel, table=True):
     milestone_payments: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
     completed_milestones: list[str] = Field(default=[], sa_column=Column(JSON))
 
-    platform_fee: float = Field(default=0.0)
-    processing_fee: float = Field(default=0.0)
-    gas_fee: float = Field(default=0.0)
-    net_amount_seller: float = Field(ge=0)
+    platform_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False, default=Decimal("0")))
+    processing_fee: Decimal = Field(
+        default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False, default=Decimal("0"))
+    )
+    gas_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False, default=Decimal("0")))
+    net_amount_seller: Decimal = Field(
+        default=Decimal("0"), ge=0, sa_column=Column(Numeric(20, 8), nullable=False, default=Decimal("0"))
+    )
 
     status: TradeStatus = Field(default=TradeStatus.SETTLING)
     initiated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -341,9 +347,15 @@ class TradingAnalytics(SQLModel, table=True):
     failed_trades: int = Field(default=0)
     cancelled_trades: int = Field(default=0)
 
-    total_trade_volume: float = Field(default=0.0)
-    average_trade_value: float = Field(default=0.0)
-    total_platform_fees: float = Field(default=0.0)
+    total_trade_volume: Decimal = Field(
+        default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False, default=Decimal("0"))
+    )
+    average_trade_value: Decimal = Field(
+        default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False, default=Decimal("0"))
+    )
+    total_platform_fees: Decimal = Field(
+        default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False, default=Decimal("0"))
+    )
 
     trade_type_distribution: dict[str, int] = Field(default={}, sa_column=Column(JSON))
 

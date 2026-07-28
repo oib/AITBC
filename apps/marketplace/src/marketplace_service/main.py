@@ -7,6 +7,7 @@ import os
 from aitbc.constants import BLOCKCHAIN_RPC_URL as _DEFAULT_RPC_URL
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from decimal import Decimal
 from typing import Annotated, Any
 
 import httpx
@@ -156,7 +157,7 @@ async def get_offer(offer_id: str, svc: Annotated[MarketplaceService, Depends(ge
         raise
 
 
-async def _create_escrow_bg(job_id: str, buyer: str, provider: str, amount: float) -> None:
+async def _create_escrow_bg(job_id: str, buyer: str, provider: str, amount: Decimal) -> None:
     """Fire-and-forget escrow creation — runs outside the SQLAlchemy session."""
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -186,7 +187,7 @@ async def book_offer(
         logger.info("POST /v1/marketplace/offers/%s/book completed", offer_id)
         buyer = booking_data.get("wallet") or booking_data.get("buyer")
         provider = booking_data.get("provider") or result.get("provider")
-        amount = float(booking_data.get("amount") or booking_data.get("price") or 0)
+        amount = Decimal(str(booking_data.get("amount") or booking_data.get("price") or 0))
         bid_id = result.get("bid_id")
         if bid_id and buyer and provider and amount:
             background_tasks.add_task(_create_escrow_bg, bid_id, buyer, provider, amount)
@@ -201,7 +202,7 @@ class MatchRequest(BaseModel):
     """Request model for marketplace matching (v0.6.6)."""
 
     requirements: dict[str, Any] = Field(default_factory=dict)
-    max_price: float | None = None
+    max_price: Decimal | None = None
     preferred_region: str | None = None
     chain_id: str | None = None
 
@@ -359,7 +360,7 @@ async def calculate_dynamic_pricing(
         price_multiplier = 0.9
     else:
         price_multiplier = 1.0
-    suggested_price = float(base_price) * price_multiplier
+    suggested_price = base_price * Decimal(str(price_multiplier))
     return {
         "offer_id": offer_id,
         "base_price": base_price,

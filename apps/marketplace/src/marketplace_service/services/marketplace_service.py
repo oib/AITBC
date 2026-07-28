@@ -3,6 +3,7 @@ Marketplace service for managing marketplace operations
 """
 
 import time
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -181,7 +182,7 @@ class MarketplaceService:
             "period_type": period_type,
             "total_offers": total_offers,
             "total_capacity": total_capacity,
-            "average_price": round(float(avg_price), 2),
+            "average_price": Decimal(avg_price).quantize(Decimal("0.01")) if avg_price else Decimal("0"),
         }
 
     async def list_plugins(self, plugin_type: str | None = None, status: str = "approved") -> list[dict[str, Any]]:
