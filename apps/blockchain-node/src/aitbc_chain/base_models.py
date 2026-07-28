@@ -214,6 +214,8 @@ class CrossChainTransfer(SQLModel, table=True):
     target_tx_hash: str | None = None
     lock_time: datetime | None = None
     confirm_time: datetime | None = None
+    # v0.18.0: persisted proof hash for cross-restart replay protection.
+    proof_hash: str | None = Field(default=None, index=True)
 
 
 class BridgeValidator(SQLModel, table=True):

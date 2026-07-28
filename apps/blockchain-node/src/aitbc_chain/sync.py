@@ -50,7 +50,9 @@ class ChainSync(BulkSyncMixin, StateSyncMixin, BlockImportMixin):
         self._chain_id = chain_id
         self._logger = get_logger(__name__)
         self._max_reorg_depth = max_reorg_depth
-        self._validator = validator or ProposerSignatureValidator()
+        self._validator = validator or ProposerSignatureValidator(
+            [p.strip() for p in settings.trusted_proposers.split(",") if p.strip()]
+        )
         self._validate_signatures = validate_signatures
         self._batch_size = batch_size
         self._poll_interval = poll_interval
