@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +34,7 @@ class InterChainTradeService:
         recipient: str,
         amount: int,
         offer_id: str | None = None,
-        price: float = 0.0,
+        price: Decimal = Decimal("0"),
         quantity: int = 0,
     ) -> InterChainTrade:
         """Create a new inter-chain trade."""

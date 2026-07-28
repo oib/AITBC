@@ -39,16 +39,16 @@ class MatchingEngine:
 
         Returns a match result dict if a match is found, None otherwise.
         """
-        # Get the trade to match
+        # Get the trade to match (lock for update to prevent concurrent matching)
         stmt = select(InterChainTrade).where(InterChainTrade.trade_id == trade_id)
-        result = await self.session.execute(stmt)
+        result = await self.session.execute(stmt.with_for_update())
         trade = result.scalars().first()
         if not trade:
             return None
         if trade.status != "pending":
             return {"trade_id": trade_id, "status": trade.status, "matched": False, "reason": "trade not pending"}
 
-        # Find matching counterparty trades
+        # Find matching counterparty trades (lock for update to prevent double-matching)
         # A match is: counterparty source = our dest, counterparty dest = our source
         match_stmt = (
             select(InterChainTrade)
@@ -60,6 +60,7 @@ class MatchingEngine:
                 InterChainTrade.amount == trade.amount,
             )
             .order_by(InterChainTrade.price.desc(), InterChainTrade.created_at.asc())  # type: ignore[attr-defined]
+            .with_for_update()
         )
         result = await self.session.execute(match_stmt)
         candidates = list(result.scalars().all())
