@@ -123,7 +123,7 @@ def test_cli_reinvest_simulate() -> None:
 
 def test_risk_circuit_breaker_and_solvency() -> None:
     """Risk stubs compute scores and trip circuit breakers under simulated stress."""
-    from datetime import datetime
+    from datetime import UTC, datetime
     from decimal import Decimal
 
     from aitbc.risk import CircuitBreaker, CircuitState, MarketStressEvent, SolvencyEngine
@@ -133,7 +133,7 @@ def test_risk_circuit_breaker_and_solvency() -> None:
     assert score.level.value == "critical"
 
     breaker = CircuitBreaker(name="market-stress", threshold=Decimal("70"))
-    breaker.record(MarketStressEvent(event_id="evt-1", stress_score=Decimal("80"), timestamp=datetime.utcnow()))
+    breaker.record(MarketStressEvent(event_id="evt-1", stress_score=Decimal("80"), timestamp=datetime.now(UTC)))
     assert breaker.state == CircuitState.OPEN
     assert not breaker.can_execute()
 

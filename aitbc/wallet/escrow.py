@@ -8,7 +8,7 @@ Agent B services.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -39,8 +39,8 @@ class Escrow:
     chain_id: str = "ait-hub"
     status: EscrowStatus | str = EscrowStatus.PENDING
     purpose: str = ""
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    expires_at: datetime = field(default_factory=lambda: datetime.utcnow() + timedelta(days=1))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    expires_at: datetime = field(default_factory=lambda: datetime.now(UTC) + timedelta(days=1))
     released_at: datetime | None = None
     meta: dict[str, Any] = field(default_factory=dict)
 
@@ -55,7 +55,7 @@ class Escrow:
     def is_expired(self, now: datetime | None = None) -> bool:
         """Return True if the escrow has passed its expiration time."""
         if now is None:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
         return (
             self.status
             not in {
@@ -69,7 +69,7 @@ class Escrow:
     def release(self, now: datetime | None = None) -> None:
         """Release escrow funds to the payee."""
         if now is None:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
         if self.status == EscrowStatus.RELEASED:
             raise EscrowError("escrow already released")
         if self.is_expired(now):
@@ -80,7 +80,7 @@ class Escrow:
     def refund(self, now: datetime | None = None) -> None:
         """Return escrow funds to the payer."""
         if now is None:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
         if self.status in {EscrowStatus.RELEASED, EscrowStatus.REFUNDED}:
             raise EscrowError(f"escrow already {self.status}")
         self.status = EscrowStatus.REFUNDED
@@ -98,7 +98,7 @@ class EscrowAllowance:
     amount: Decimal
     used: Decimal = field(default_factory=lambda: Decimal("0"))
     chain_id: str = "ait-hub"
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
     meta: dict[str, Any] = field(default_factory=dict)
 

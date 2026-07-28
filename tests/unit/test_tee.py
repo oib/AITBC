@@ -178,12 +178,24 @@ def test_seal_and_unseal_round_trip() -> None:
         enclave_id="enc-1",
         measurement="measurement-1",
         plaintext=b"secret data",
+        secret=b"test-sealing-key",
     )
     assert isinstance(blob, SealedBlob)
     assert blob.ciphertext != b"secret data"
 
-    recovered = unseal(blob)
+    recovered = unseal(blob, secret=b"test-sealing-key")
     assert recovered == b"secret data"
+
+
+def test_seal_requires_secret() -> None:
+    with pytest.raises(ValueError, match="secret is required"):
+        seal(
+            blob_id="b1",
+            enclave_id="enc-1",
+            measurement="measurement-1",
+            plaintext=b"secret data",
+            secret=b"",
+        )
 
 
 def test_unseal_tampered_blob_fails() -> None:
@@ -192,10 +204,11 @@ def test_unseal_tampered_blob_fails() -> None:
         enclave_id="enc-1",
         measurement="measurement-1",
         plaintext=b"secret data",
+        secret=b"test-sealing-key",
     )
     blob.tag = b"tampered"
     with pytest.raises(TEEError):
-        unseal(blob)
+        unseal(blob, secret=b"test-sealing-key")
 
 
 # A3: tee task

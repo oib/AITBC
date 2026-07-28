@@ -138,12 +138,13 @@ class SecretManager:
         Returns:
             List of secret keys
         """
-        if include_expired:
-            return list(self.secrets.keys())
+        with self._lock:
+            if include_expired:
+                return list(self.secrets.keys())
 
-        # Only return non-expired secrets
-        current_time = datetime.now(UTC)
-        return [key for key, data in self.secrets.items() if current_time <= datetime.fromisoformat(data["expires_at"])]
+            # Only return non-expired secrets
+            current_time = datetime.now(UTC)
+            return [key for key, data in self.secrets.items() if current_time <= datetime.fromisoformat(data["expires_at"])]
 
     def get_secret_metadata(self, key: str) -> dict[str, Any] | None:
         """Get metadata about a secret without decrypting it
@@ -195,21 +196,24 @@ class SecretManager:
         """
         try:
             new_fernet = Fernet(new_key)
-            reencrypted_secrets = {}
 
-            for key, data in self.secrets.items():
-                # Decrypt with old key
-                decrypted = self.fernet.decrypt(data["encrypted_value"].encode("utf-8"))
-                # Re-encrypt with new key
-                reencrypted = new_fernet.encrypt(decrypted)
-                reencrypted_secrets[key] = {
-                    **data,
-                    "encrypted_value": reencrypted.decode("utf-8"),
-                    "rotated_at": datetime.now(UTC).isoformat(),
-                }
+            # Hold the lock for the whole re-encryption: keys added/removed
+            # mid-rotation would otherwise be lost or left under the old key.
+            with self._lock:
+                reencrypted_secrets = {}
+                for key, data in self.secrets.items():
+                    # Decrypt with old key
+                    decrypted = self.fernet.decrypt(data["encrypted_value"].encode("utf-8"))
+                    # Re-encrypt with new key
+                    reencrypted = new_fernet.encrypt(decrypted)
+                    reencrypted_secrets[key] = {
+                        **data,
+                        "encrypted_value": reencrypted.decode("utf-8"),
+                        "rotated_at": datetime.now(UTC).isoformat(),
+                    }
 
-            self.fernet = new_fernet
-            self.secrets = reencrypted_secrets
+                self.fernet = new_fernet
+                self.secrets = reencrypted_secrets
             return True
         except Exception:
             return False

@@ -6,7 +6,7 @@ encryption envelopes.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -56,7 +56,7 @@ def test_storage_lease_string_status() -> None:
 
 
 def test_storage_lease_expired() -> None:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     lease = StorageLease(
         lease_id="l1",
         content_address="cid-123",
@@ -81,7 +81,7 @@ def test_storage_lease_revoked_is_expired() -> None:
 
 
 def test_storage_lease_expires_before_created() -> None:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     with pytest.raises(ValueError):
         StorageLease(
             lease_id="l1",
