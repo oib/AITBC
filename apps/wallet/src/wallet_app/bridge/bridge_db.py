@@ -6,6 +6,7 @@ SQLite database for tracking ETH deposits and AIT minting operations.
 import os
 import sqlite3
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 DB_PATH = "/var/lib/aitbc/bridge_deposits.db"
@@ -22,8 +23,8 @@ def init_db() -> None:
             id TEXT PRIMARY KEY,
             tx_hash TEXT UNIQUE NOT NULL,
             from_address TEXT NOT NULL,
-            amount_eth REAL NOT NULL,
-            amount_ait REAL NOT NULL,
+            amount_eth NUMERIC NOT NULL,
+            amount_ait NUMERIC NOT NULL,
             status TEXT NOT NULL DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             verified_at TIMESTAMP,
@@ -35,18 +36,82 @@ def init_db() -> None:
         CREATE TABLE IF NOT EXISTS price_history (
             id INTEGER PRIMARY KEY,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            eth_usd_price REAL NOT NULL,
-            eth_eur_price REAL NOT NULL,
-            exchange_rate_usd REAL NOT NULL,
-            exchange_rate_eur REAL NOT NULL
+            eth_usd_price NUMERIC NOT NULL,
+            eth_eur_price NUMERIC NOT NULL,
+            exchange_rate_usd NUMERIC NOT NULL,
+            exchange_rate_eur NUMERIC NOT NULL
         )
     """)
+
+    # Migrate existing tables from REAL to NUMERIC column affinity.
+    # SQLite doesn't support ALTER COLUMN TYPE, so we recreate the table
+    # (standard SQLite migration pattern). Only runs if columns are REAL.
+    _migrate_real_to_numeric(conn)
 
     conn.commit()
     conn.close()
 
 
-def insert_deposit(tx_hash: str, from_address: str, amount_eth: float, amount_ait: float) -> str:
+def _migrate_real_to_numeric(conn: sqlite3.Connection) -> None:
+    """Migrate eth_deposits and price_history from REAL to NUMERIC affinity."""
+    cursor = conn.cursor()
+
+    for table, _cols in [
+        ("eth_deposits", ["amount_eth", "amount_ait"]),
+        ("price_history", ["eth_usd_price", "eth_eur_price", "exchange_rate_usd", "exchange_rate_eur"]),
+    ]:
+        # Check if table exists and has REAL columns
+        cursor.execute(f"PRAGMA table_info({table})")
+        columns = cursor.fetchall()
+        if not columns:
+            continue
+        has_real = any(col[2].upper() == "REAL" for col in columns)
+        if not has_real:
+            continue
+
+        # Recreate table with NUMERIC columns (SQLite migration pattern)
+        temp_name = f"_old_{table}"
+        cursor.execute(f"ALTER TABLE {table} RENAME TO {temp_name}")
+
+        if table == "eth_deposits":
+            cursor.execute("""
+                CREATE TABLE eth_deposits (
+                    id TEXT PRIMARY KEY,
+                    tx_hash TEXT UNIQUE NOT NULL,
+                    from_address TEXT NOT NULL,
+                    amount_eth NUMERIC NOT NULL,
+                    amount_ait NUMERIC NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    verified_at TIMESTAMP,
+                    completed_at TIMESTAMP
+                )
+            """)
+            cursor.execute(f"""
+                INSERT INTO eth_deposits
+                SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at
+                FROM {temp_name}
+            """)
+        else:
+            cursor.execute("""
+                CREATE TABLE price_history (
+                    id INTEGER PRIMARY KEY,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    eth_usd_price NUMERIC NOT NULL,
+                    eth_eur_price NUMERIC NOT NULL,
+                    exchange_rate_usd NUMERIC NOT NULL,
+                    exchange_rate_eur NUMERIC NOT NULL
+                )
+            """)
+            cursor.execute(f"""
+                INSERT INTO price_history
+                SELECT id, timestamp, eth_usd_price, eth_eur_price, exchange_rate_usd, exchange_rate_eur
+                FROM {temp_name}
+            """)
+        cursor.execute(f"DROP TABLE {temp_name}")
+
+
+def insert_deposit(tx_hash: str, from_address: str, amount_eth: Decimal, amount_ait: Decimal) -> str:
     """Insert a new deposit record."""
     import uuid
 
@@ -191,7 +256,7 @@ def get_all_deposits(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
     ]
 
 
-def insert_price_history(eth_usd: float, eth_eur: float, exchange_rate_usd: float, exchange_rate_eur: float) -> None:
+def insert_price_history(eth_usd: Decimal, eth_eur: Decimal, exchange_rate_usd: Decimal, exchange_rate_eur: Decimal) -> None:
     """Insert a new price history record."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
