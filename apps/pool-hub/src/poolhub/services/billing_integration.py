@@ -110,13 +110,51 @@ class BillingIntegration:
         """Sync usage data for all miners to coordinator-api billing.
 
         Uses batched queries to collect all miner usage in O(1) round trips
-        instead of O(N) per-miner queries.
+        instead of O(N) per-miner queries. All DB reads are done in one
+        transaction for consistency.
         """
         end_date = datetime.now(UTC)
         start_date = end_date - timedelta(hours=hours_back)
-        stmt = select(Miner)
-        miners = self.db.execute(stmt).scalars().all()
-        miner_ids = [m.miner_id for m in miners]
+        # Read all data in one transaction for a consistent snapshot
+        with self.db.begin():
+            stmt = select(Miner)
+            miners = self.db.execute(stmt).scalars().all()
+            miner_ids = [m.miner_id for m in miners]
+            if not miner_ids:
+                return {
+                    "sync_period": {"start": start_date.isoformat(), "end": end_date.isoformat()},
+                    "miners_processed": 0,
+                    "miners_failed": 0,
+                    "total_usage_records": 0,
+                    "details": [],
+                }
+
+            # Batch 1: API call counts (global, not per-miner — MatchRequest has no miner_id)
+            count_stmt = select(func.count(MatchRequest.id)).where(
+                and_(MatchRequest.created_at >= start_date, MatchRequest.created_at <= end_date)
+            )
+            total_api_calls = self.db.execute(count_stmt).scalar() or 0
+
+            # Batch 2: Match results for all miners in one query
+            result_stmt = (
+                select(MatchResult)
+                .where(
+                    and_(
+                        MatchResult.miner_id.in_(miner_ids),
+                        MatchResult.created_at >= start_date,
+                        MatchResult.created_at <= end_date,
+                    )
+                )
+                .where(MatchResult.eta_ms.isnot_(None))
+            )
+            all_results = self.db.execute(result_stmt).scalars().all()
+
+        # Group by miner_id and aggregate (outside the transaction — pure computation)
+        compute_ms_by_miner: dict[str, int] = {}
+        for r in all_results:
+            compute_ms_by_miner[r.miner_id] = compute_ms_by_miner.get(r.miner_id, 0) + (r.eta_ms or 0)
+        api_calls_per_miner = Decimal(str(total_api_calls)) / Decimal(str(len(miner_ids)))
+
         results: dict[str, Any] = {
             "sync_period": {"start": start_date.isoformat(), "end": end_date.isoformat()},
             "miners_processed": 0,
@@ -124,34 +162,6 @@ class BillingIntegration:
             "total_usage_records": 0,
             "details": [],
         }
-        if not miner_ids:
-            return results
-
-        # Batch 1: API call counts (global, not per-miner — MatchRequest has no miner_id)
-        count_stmt = select(func.count(MatchRequest.id)).where(
-            and_(MatchRequest.created_at >= start_date, MatchRequest.created_at <= end_date)
-        )
-        total_api_calls = self.db.execute(count_stmt).scalar() or 0
-        api_calls_per_miner = Decimal(str(total_api_calls)) / Decimal(str(len(miner_ids)))
-
-        # Batch 2: Match results for all miners in one query
-        result_stmt = (
-            select(MatchResult)
-            .where(
-                and_(
-                    MatchResult.miner_id.in_(miner_ids),
-                    MatchResult.created_at >= start_date,
-                    MatchResult.created_at <= end_date,
-                )
-            )
-            .where(MatchResult.eta_ms.isnot_(None))
-        )
-        all_results = self.db.execute(result_stmt).scalars().all()
-
-        # Group by miner_id and aggregate
-        compute_ms_by_miner: dict[str, int] = {}
-        for r in all_results:
-            compute_ms_by_miner[r.miner_id] = compute_ms_by_miner.get(r.miner_id, 0) + (r.eta_ms or 0)
 
         for miner_id in miner_ids:
             try:
