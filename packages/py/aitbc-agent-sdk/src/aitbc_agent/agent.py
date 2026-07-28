@@ -2,9 +2,11 @@
 Core Agent class for AITBC network participation
 """
 
+import asyncio
 import json
 import os
 import uuid
+from collections.abc import Coroutine
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -107,6 +109,7 @@ class Agent:
         self.earnings = 0.0
         self.coordinator_url = coordinator_url or "http://localhost:8107"
         self.http_client = AITBCHTTPClient(base_url=self.coordinator_url)
+        self._background_tasks: set[asyncio.Task[Any]] = set()
 
         # Contract integration
         self.contract_integration: AgentContractIntegration | None = None
@@ -130,6 +133,17 @@ class Agent:
                 logger.info("Contract integration initialized for agent")
             except Exception as e:
                 logger.warning("Failed to initialize contract integration: %s", e)
+
+    def _track_task(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[Any]:
+        """Create a background task and hold a strong reference to it.
+
+        asyncio only keeps weak references to tasks; without this the GC can
+        collect a fire-and-forget task mid-flight and silently stop the loop.
+        """
+        task = asyncio.create_task(coro)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+        return task
 
     @classmethod
     def create(cls, name: str, agent_type: str, capabilities: dict[str, Any]) -> "Agent":

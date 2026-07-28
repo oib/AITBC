@@ -8,7 +8,7 @@ and helpers that consume the ``PerformanceBond`` lifecycle from
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -56,7 +56,7 @@ class LiquidationEvent:
     reason: LiquidationReason | str
     amount: Decimal
     status: LiquidationStatus | str = LiquidationStatus.PENDING
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     evidence: str = ""
     meta: dict[str, Any] = field(default_factory=dict)
 
@@ -85,7 +85,7 @@ class ProviderOffboarding:
     reason: str = ""
     status: OffboardingStatus | str = OffboardingStatus.PENDING
     resources_released: bool = False
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     meta: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
