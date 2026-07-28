@@ -280,14 +280,13 @@ class PBFTConsensus:
     def _verify_message_signature(self, message: PBFTMessage) -> bool:
         """Verify a PBFT message signature (B6/C4).
 
-        Rejects unsigned messages. When ``self._private_key`` is empty
-        (no signing configured), unsigned messages are accepted for
-        backwards-compatible testing.
+        Rejects unsigned messages unless ``pbft_require_signatures`` is
+        explicitly disabled in config (testing only). Signed messages are
+        verified cryptographically regardless of whether this node has its
+        own signing key — verification only needs the signer's address.
         """
-        if not self._private_key:
-            return True  # no signing configured — accept unsigned (testing)
         if not message.signature:
-            return False  # reject unsigned messages when signing is configured
+            return not settings.pbft_require_signatures
         from aitbc.crypto.consensus_signing import verify_consensus_message
 
         msg_data = {

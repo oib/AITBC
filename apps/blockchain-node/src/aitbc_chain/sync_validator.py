@@ -35,7 +35,13 @@ class ProposerSignatureValidator:
         self._trusted.discard(proposer_id)
 
     def validate_block_signature(self, block_data: dict[str, Any]) -> tuple[bool, str]:
-        """Validate that a block was produced by a trusted proposer.
+        """Validate that a block was produced by an authorized proposer.
+
+        Verifies the proposer's secp256k1 signature over the block hash
+        when the block carries one. Fails closed when the block is
+        unsigned and no trusted proposer set is configured — without
+        either, there is no way to authenticate the proposer. Unsigned
+        legacy blocks are only accepted from configured trusted proposers.
 
         Returns (is_valid, reason).
         """
@@ -47,9 +53,6 @@ class ProposerSignatureValidator:
             return (False, f"Invalid block hash format: {block_hash}")
         if not block_hash.startswith("0x"):
             block_hash = f"0x{block_hash}"
-        if self._trusted and proposer not in self._trusted:
-            metrics_registry.increment("sync_signature_rejected_total")
-            return (False, f"Proposer '{proposer}' not in trusted set")
         expected_fields = ["height", "parent_hash", "timestamp"]
         for field in expected_fields:
             if field not in block_data:
@@ -61,5 +64,18 @@ class ProposerSignatureValidator:
             int(hash_hex, 16)
         except ValueError:
             return (False, f"Invalid hex in hash: {hash_hex}")
+        if self._trusted and proposer not in self._trusted:
+            metrics_registry.increment("sync_signature_rejected_total")
+            return (False, f"Proposer '{proposer}' not in trusted set")
+        signature = block_data.get("signature", "")
+        if signature:
+            from aitbc.crypto.consensus_signing import verify_block_signature
+
+            if not verify_block_signature(block_hash, signature, proposer):
+                metrics_registry.increment("sync_signature_rejected_total")
+                return (False, "Invalid proposer signature")
+        elif not self._trusted:
+            metrics_registry.increment("sync_signature_rejected_total")
+            return (False, "Unsigned block and no trusted proposer set configured")
         metrics_registry.increment("sync_signature_validated_total")
         return (True, "Valid")
