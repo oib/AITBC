@@ -1,8 +1,9 @@
 """Inter-chain trading endpoints: chain discovery, trade lifecycle, matching."""
 
+from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
 from ..dependencies import get_chain_discovery, get_inter_chain_service, get_matching_engine
@@ -50,10 +51,14 @@ async def create_inter_chain_trade(
     recipient: str,
     amount: int,
     offer_id: str | None = None,
-    price: float = 0.0,
+    price: Decimal = Decimal("0"),
     quantity: int = 0,
 ):
     """Create a new inter-chain trade."""
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+    if price < 0:
+        raise HTTPException(status_code=400, detail="Price cannot be negative")
     return await svc.create_trade(
         source_chain=source_chain,
         dest_chain=dest_chain,

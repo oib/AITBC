@@ -14,8 +14,10 @@ create → match → agree lifecycle.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from uuid import uuid4
 
+from sqlalchemy import Column, Numeric
 from sqlmodel import Field, Index, SQLModel
 
 
@@ -37,7 +39,7 @@ class InterChainTrade(SQLModel, table=True):
     recipient: str
     amount: int
     offer_id: str | None = None
-    price: float = Field(default=0.0)
+    price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False, default=Decimal("0")))
     quantity: int = Field(default=0)
     source_tx_hash: str | None = None  # set in v0.9.0 (escrow lock)
     dest_tx_hash: str | None = None  # set in v0.9.0 (settlement)
