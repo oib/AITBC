@@ -1,6 +1,7 @@
 """Chain client — config constants, data layer, and shared DB/RPC helpers."""
 
 import os
+from contextlib import closing
 from typing import Any
 
 import httpx
@@ -86,20 +87,19 @@ async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> dict[s
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
         if chain_db_path.exists():
-            conn = sqlite3.connect(str(chain_db_path))
-            cursor = conn.cursor()
+            with closing(sqlite3.connect(str(chain_db_path))) as conn:
+                cursor = conn.cursor()
 
-            cursor.execute(
-                """
-                SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status, value, fee, nonce
-                FROM "transaction"
-                WHERE tx_hash = ?
-            """,
-                (tx_hash,),
-            )
+                cursor.execute(
+                    """
+                    SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status, value, fee, nonce
+                    FROM "transaction"
+                    WHERE tx_hash = ?
+                """,
+                    (tx_hash,),
+                )
 
-            result = cursor.fetchone()
-            conn.close()
+                result = cursor.fetchone()
 
             if result:
                 tx_hash_db, sender, recipient, payload, block_height, created_at, tx_type, status, value, fee, nonce = result
@@ -148,69 +148,66 @@ async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
         if chain_db_path.exists():
-            conn = sqlite3.connect(str(chain_db_path))
-            cursor = conn.cursor()
+            with closing(sqlite3.connect(str(chain_db_path))) as conn:
+                cursor = conn.cursor()
 
-            # Get block data
-            cursor.execute(
-                """
-                SELECT height, hash, proposer, timestamp, tx_count, state_root
-                FROM block
-                WHERE height = ?
-            """,
-                (height,),
-            )
-
-            result = cursor.fetchone()
-
-            if result:
-                height, block_hash, proposer, timestamp, tx_count, state_root = result
-
-                # Get transactions for this block
+                # Get block data
                 cursor.execute(
                     """
-                    SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
-                    FROM "transaction"
-                    WHERE block_height = ?
-                    ORDER BY created_at
+                    SELECT height, hash, proposer, timestamp, tx_count, state_root
+                    FROM block
+                    WHERE height = ?
                 """,
                     (height,),
                 )
 
-                transactions = []
-                for row in cursor.fetchall():
-                    tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = row
-                    transactions.append(
-                        {
-                            "tx_hash": tx_hash,
-                            "sender": sender,
-                            "recipient": recipient,
-                            "payload": payload,
-                            "amount": value,
-                            "amount_ait": format_ait(value) if value else "0 AIT",
-                            "fee": fee,
-                            "fee_ait": format_ait(fee) if fee else "0 AIT",
-                            "nonce": nonce,
-                            "type": tx_type,
-                            "status": status,
-                            "created_at": created_at,
-                        }
+                result = cursor.fetchone()
+
+                if result:
+                    height, block_hash, proposer, timestamp, tx_count, state_root = result
+
+                    # Get transactions for this block
+                    cursor.execute(
+                        """
+                        SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
+                        FROM "transaction"
+                        WHERE block_height = ?
+                        ORDER BY created_at
+                    """,
+                        (height,),
                     )
 
-                conn.close()
+                    transactions = []
+                    for row in cursor.fetchall():
+                        tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = row
+                        transactions.append(
+                            {
+                                "tx_hash": tx_hash,
+                                "sender": sender,
+                                "recipient": recipient,
+                                "payload": payload,
+                                "amount": value,
+                                "amount_ait": format_ait(value) if value else "0 AIT",
+                                "fee": fee,
+                                "fee_ait": format_ait(fee) if fee else "0 AIT",
+                                "nonce": nonce,
+                                "type": tx_type,
+                                "status": status,
+                                "created_at": created_at,
+                            }
+                        )
 
-                return {
-                    "height": height,
-                    "hash": block_hash,
-                    "proposer": proposer,
-                    "timestamp": timestamp,
-                    "txCount": tx_count,
-                    "stateRoot": state_root,
-                    "transactions": transactions,
-                }
-            else:
-                conn.close()
-                return {}
+                    return {
+                        "height": height,
+                        "hash": block_hash,
+                        "proposer": proposer,
+                        "timestamp": timestamp,
+                        "txCount": tx_count,
+                        "stateRoot": state_root,
+                        "transactions": transactions,
+                    }
+                else:
+                    return {}
         else:
             # Fallback to RPC method
             rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
@@ -240,69 +237,68 @@ async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN, offs
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
         if chain_db_path.exists():
-            conn = sqlite3.connect(str(chain_db_path))
-            cursor = conn.cursor()
+            with closing(sqlite3.connect(str(chain_db_path))) as conn:
+                cursor = conn.cursor()
 
-            # Get latest blocks with offset
-            cursor.execute(
-                """
-                SELECT height, hash, proposer, timestamp, tx_count, state_root
-                FROM block
-                ORDER BY height DESC
-                LIMIT ? OFFSET ?
-            """,
-                (limit, offset),
-            )
-
-            blocks = []
-            for row in cursor.fetchall():
-                height, block_hash, proposer, timestamp, tx_count, state_root = row
-
-                # Get transactions for this block
+                # Get latest blocks with offset
                 cursor.execute(
                     """
-                    SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
-                    FROM "transaction"
-                    WHERE block_height = ?
-                    ORDER BY created_at
+                    SELECT height, hash, proposer, timestamp, tx_count, state_root
+                    FROM block
+                    ORDER BY height DESC
+                    LIMIT ? OFFSET ?
                 """,
-                    (height,),
+                    (limit, offset),
                 )
 
-                transactions = []
-                for tx_row in cursor.fetchall():
-                    tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row
-                    transactions.append(
+                blocks = []
+                for row in cursor.fetchall():
+                    height, block_hash, proposer, timestamp, tx_count, state_root = row
+
+                    # Get transactions for this block
+                    cursor.execute(
+                        """
+                        SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
+                        FROM "transaction"
+                        WHERE block_height = ?
+                        ORDER BY created_at
+                    """,
+                        (height,),
+                    )
+
+                    transactions = []
+                    for tx_row in cursor.fetchall():
+                        tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row
+                        transactions.append(
+                            {
+                                "tx_hash": tx_hash,
+                                "sender": sender,
+                                "recipient": recipient,
+                                "payload": payload,
+                                "amount": value,
+                                "amount_ait": format_ait(value) if value else "0 AIT",
+                                "fee": fee,
+                                "fee_ait": format_ait(fee) if fee else "0 AIT",
+                                "nonce": nonce,
+                                "type": tx_type,
+                                "status": status,
+                                "created_at": created_at,
+                            }
+                        )
+
+                    blocks.append(
                         {
-                            "tx_hash": tx_hash,
-                            "sender": sender,
-                            "recipient": recipient,
-                            "payload": payload,
-                            "amount": value,
-                            "amount_ait": format_ait(value) if value else "0 AIT",
-                            "fee": fee,
-                            "fee_ait": format_ait(fee) if fee else "0 AIT",
-                            "nonce": nonce,
-                            "type": tx_type,
-                            "status": status,
-                            "created_at": created_at,
+                            "height": height,
+                            "hash": block_hash,
+                            "proposer": proposer,
+                            "timestamp": timestamp,
+                            "txCount": tx_count,
+                            "stateRoot": state_root,
+                            "transactions": transactions,
                         }
                     )
 
-                blocks.append(
-                    {
-                        "height": height,
-                        "hash": block_hash,
-                        "proposer": proposer,
-                        "timestamp": timestamp,
-                        "txCount": tx_count,
-                        "stateRoot": state_root,
-                        "transactions": transactions,
-                    }
-                )
-
-            conn.close()
-            return blocks
+                return blocks
         else:
             # Fallback to RPC method
             rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])

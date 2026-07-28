@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections import defaultdict, deque
+from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
@@ -260,22 +261,21 @@ class ExplorerService:
                 chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
             if chain_db_path.exists():
-                conn = sqlite3.connect(str(chain_db_path))
-                cursor = conn.cursor()
+                with closing(sqlite3.connect(str(chain_db_path))) as conn:
+                    cursor = conn.cursor()
 
-                # Search for block by hash (with or without 0x prefix)
-                clean_hash = block_hash.lower().replace("0x", "")
-                cursor.execute(
-                    """
-                    SELECT height, hash, proposer, timestamp, tx_count, state_root
-                    FROM block
-                    WHERE lower(replace(hash, '0x', '')) = ?
-                """,
-                    (clean_hash,),
-                )
+                    # Search for block by hash (with or without 0x prefix)
+                    clean_hash = block_hash.lower().replace("0x", "")
+                    cursor.execute(
+                        """
+                        SELECT height, hash, proposer, timestamp, tx_count, state_root
+                        FROM block
+                        WHERE lower(replace(hash, '0x', '')) = ?
+                    """,
+                        (clean_hash,),
+                    )
 
-                result = cursor.fetchone()
-                conn.close()
+                    result = cursor.fetchone()
 
                 if result:
                     height, hash, proposer, timestamp, tx_count, state_root = result
@@ -302,22 +302,21 @@ class ExplorerService:
                 chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
             if chain_db_path.exists():
-                conn = sqlite3.connect(str(chain_db_path))
-                cursor = conn.cursor()
+                with closing(sqlite3.connect(str(chain_db_path))) as conn:
+                    cursor = conn.cursor()
 
-                # Search for transaction by hash (with or without 0x prefix)
-                clean_hash = tx_hash.lower().replace("0x", "")
-                cursor.execute(
-                    """
-                    SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
-                    FROM "transaction"
-                    WHERE lower(replace(tx_hash, '0x', '')) = ?
-                """,
-                    (clean_hash,),
-                )
+                    # Search for transaction by hash (with or without 0x prefix)
+                    clean_hash = tx_hash.lower().replace("0x", "")
+                    cursor.execute(
+                        """
+                        SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
+                        FROM "transaction"
+                        WHERE lower(replace(tx_hash, '0x', '')) = ?
+                    """,
+                        (clean_hash,),
+                    )
 
-                result = cursor.fetchone()
-                conn.close()
+                    result = cursor.fetchone()
 
                 if result:
                     tx_hash, sender, recipient, payload, block_height, created_at, tx_type, status = result
