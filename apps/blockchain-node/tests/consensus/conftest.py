@@ -24,3 +24,12 @@ def enable_multi_validator_consensus():
     settings.multi_validator_consensus_enabled = True
     yield
     settings.multi_validator_consensus_enabled = original
+
+
+@pytest.fixture(autouse=True)
+def disable_pbft_signature_requirement():
+    """Accept unsigned PBFT messages in tests (v0.18.0 flag, explicit opt-out)."""
+    original = settings.pbft_require_signatures
+    settings.pbft_require_signatures = False
+    yield
+    settings.pbft_require_signatures = original

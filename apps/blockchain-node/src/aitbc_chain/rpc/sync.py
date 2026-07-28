@@ -18,7 +18,7 @@ from ..config import settings
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Block, Transaction
-from .utils import get_chain_id
+from .utils import get_chain_id, verify_admin_signature
 
 _logger = get_logger(__name__)
 _last_import_time = 0
@@ -158,117 +158,142 @@ async def export_chain(request: Request, chain_id: str | None = None) -> dict[st
         raise HTTPException(status_code=500, detail=f"Failed to export chain: {str(e)}") from e
 
 
+def _build_import_objects(
+    unique_blocks: list[dict[str, Any]],
+    accounts: list[dict[str, Any]],
+    transactions: list[dict[str, Any]],
+    chain_id: str,
+) -> tuple[list[Block], list[Account], list[Transaction]]:
+    """Validate the full import payload and build ORM objects in memory.
+
+    Raises HTTPException(400) on any malformed record *before* the caller
+    touches the database, so a bad payload can never half-wipe a chain.
+    """
+    new_blocks: list[Block] = []
+    for block_data in unique_blocks:
+        for field in ("hash", "parent_hash", "proposer"):
+            if not block_data.get(field):
+                raise HTTPException(status_code=400, detail=f"Block {block_data.get('height')} missing {field}")
+        block_timestamp = _parse_datetime_value(block_data.get("timestamp"), "block timestamp") or datetime.now(UTC)
+        new_blocks.append(
+            Block(
+                chain_id=chain_id,
+                height=block_data["height"],
+                hash=block_data["hash"],
+                parent_hash=block_data["parent_hash"],
+                proposer=block_data["proposer"],
+                timestamp=block_timestamp,
+                state_root=block_data.get("state_root"),
+                tx_count=block_data.get("tx_count", 0),
+                block_metadata=block_data.get("block_metadata"),
+            )
+        )
+    new_accounts: list[Account] = []
+    for account_data in accounts:
+        account_chain_id = account_data.get("chain_id", chain_id)
+        if account_chain_id != chain_id:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Mismatched account chain_id '{account_chain_id}' for import chain '{chain_id}'",
+            )
+        try:
+            new_accounts.append(
+                Account(
+                    chain_id=account_chain_id,
+                    address=account_data["address"],
+                    balance=account_data["balance"],
+                    nonce=account_data["nonce"],
+                )
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=400, detail=f"Account record missing field: {exc}") from exc
+    new_transactions: list[Transaction] = []
+    for tx_data in transactions:
+        tx_chain_id = tx_data.get("chain_id", chain_id)
+        if tx_chain_id != chain_id:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Mismatched transaction chain_id '{tx_chain_id}' for import chain '{chain_id}'",
+            )
+        try:
+            tx = Transaction(
+                id=tx_data.get("id"),
+                chain_id=tx_chain_id,
+                tx_hash=str(tx_data.get("tx_hash") or tx_data.get("id") or ""),
+                block_height=tx_data.get("block_height"),
+                sender=tx_data["sender"],
+                recipient=tx_data["recipient"],
+                payload=tx_data.get("payload", {}),
+                value=tx_data.get("value", 0),
+                fee=tx_data.get("fee", 0),
+                nonce=tx_data.get("nonce", 0),
+                timestamp=_serialize_optional_timestamp(tx_data.get("timestamp")),
+                status=tx_data.get("status", "pending"),
+                tx_metadata=tx_data.get("tx_metadata"),
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=400, detail=f"Transaction record missing field: {exc}") from exc
+        created_at = _parse_datetime_value(tx_data.get("created_at"), "transaction created_at")
+        if created_at is not None:
+            tx.created_at = created_at
+        new_transactions.append(tx)
+    return new_blocks, new_accounts, new_transactions
+
+
+def _import_chain_data(import_data: dict[str, Any]) -> dict[str, Any]:
+    """Validated, atomic chain import. Caller is responsible for admin auth."""
+    chain_id = import_data.get("chain_id")
+    blocks = import_data.get("blocks", [])
+    accounts = import_data.get("accounts", [])
+    transactions = import_data.get("transactions", [])
+    if not chain_id and blocks:
+        chain_id = blocks[0].get("chain_id")
+    chain_id = get_chain_id(chain_id)
+    unique_blocks = _dedupe_import_blocks(blocks, chain_id)
+    if not unique_blocks:
+        raise HTTPException(status_code=400, detail="No blocks to import")
+    # Validate the entire payload before any deletion happens.
+    new_blocks, new_accounts, new_transactions = _build_import_objects(unique_blocks, accounts, transactions, chain_id)
+    with session_scope() as session:
+        existing_blocks = session.execute(select(Block).where(Block.chain_id == chain_id).order_by(Block.height))  # type: ignore[arg-type]
+        existing_count = len(list(existing_blocks.scalars().all()))
+        if existing_count > 0:
+            _logger.info("Replacing existing chain with %s blocks", existing_count)
+        _logger.info("Clearing existing transactions for chain %s", chain_id)
+        session.execute(delete(Transaction).where(Transaction.chain_id == chain_id))  # type: ignore[arg-type]
+        if new_accounts:
+            _logger.info("Clearing existing accounts for chain %s", chain_id)
+            session.execute(delete(Account).where(Account.chain_id == chain_id))  # type: ignore[arg-type]
+        _logger.info("Clearing existing blocks for chain %s", chain_id)
+        session.execute(delete(Block).where(Block.chain_id == chain_id))  # type: ignore[arg-type]
+        _logger.info("Importing %s unique blocks (filtered from %s total)", len(new_blocks), len(blocks))
+        for block in new_blocks:
+            session.add(block)
+        for account in new_accounts:
+            session.add(account)
+        for tx in new_transactions:
+            session.add(tx)
+        # One commit for delete+import: any failure above rolls the whole
+        # thing back and the existing chain stays intact.
+        session.commit()
+        return {
+            "success": True,
+            "imported_blocks": len(new_blocks),
+            "imported_accounts": len(new_accounts),
+            "imported_transactions": len(new_transactions),
+            "chain_id": chain_id,
+            "message": f"Successfully imported {len(new_blocks)} blocks",
+        }
+
+
 @rate_limit(rate=50, per=60)
 async def import_chain(request: Request, import_data: dict[str, Any]) -> dict[str, Any]:
-    """Import chain state from JSON for manual synchronization"""
+    """Import chain state from JSON for manual synchronization (admin only)"""
     async with _import_lock:
         try:
-            chain_id = import_data.get("chain_id")
-            blocks = import_data.get("blocks", [])
-            accounts = import_data.get("accounts", [])
-            transactions = import_data.get("transactions", [])
-            if not chain_id and blocks:
-                chain_id = blocks[0].get("chain_id")
-            chain_id = get_chain_id(chain_id)
-            unique_blocks = _dedupe_import_blocks(blocks, chain_id)
-            with session_scope() as session:
-                if not unique_blocks:
-                    raise HTTPException(status_code=400, detail="No blocks to import")
-                existing_blocks = session.execute(select(Block).where(Block.chain_id == chain_id).order_by(Block.height))  # type: ignore[arg-type]
-                existing_count = len(list(existing_blocks.scalars().all()))
-                if existing_count > 0:
-                    _logger.info("Backing up existing chain with %s blocks", existing_count)
-                _logger.info("Clearing existing transactions for chain %s", chain_id)
-                session.execute(delete(Transaction).where(Transaction.chain_id == chain_id))  # type: ignore[arg-type]
-                if accounts:
-                    _logger.info("Clearing existing accounts for chain %s", chain_id)
-                    session.execute(delete(Account).where(Account.chain_id == chain_id))  # type: ignore[arg-type]
-                _logger.info("Clearing existing blocks for chain %s", chain_id)
-                session.execute(delete(Block).where(Block.chain_id == chain_id))  # type: ignore[arg-type]
-                import_hashes = {block_data["hash"] for block_data in unique_blocks}
-                if import_hashes:
-                    from sqlalchemy import Column, String
-
-                    hash_conflict_result = session.execute(
-                        select(Block.hash, Block.chain_id).where(Column("hash", String).in_(import_hashes))
-                    )
-                    hash_conflicts = hash_conflict_result.all()
-                    if hash_conflicts:
-                        conflict_chains = {chain_id for _, chain_id in hash_conflicts}
-                        _logger.warning(
-                            "Clearing %s blocks with conflicting hashes across chains: %s",
-                            len(hash_conflicts),
-                            conflict_chains,
-                        )
-                        session.execute(delete(Block).where(Block.hash.in_(import_hashes)))  # type: ignore[attr-defined]
-                session.commit()
-                session.expire_all()
-                _logger.info("Importing %s unique blocks (filtered from %s total)", len(unique_blocks), len(blocks))
-                for block_data in unique_blocks:
-                    block_timestamp = _parse_datetime_value(block_data.get("timestamp"), "block timestamp") or datetime.now(
-                        UTC
-                    )
-                    block = Block(
-                        chain_id=chain_id,
-                        height=block_data["height"],
-                        hash=block_data["hash"],
-                        parent_hash=block_data["parent_hash"],
-                        proposer=block_data["proposer"],
-                        timestamp=block_timestamp,
-                        state_root=block_data.get("state_root"),
-                        tx_count=block_data.get("tx_count", 0),
-                        block_metadata=block_data.get("block_metadata"),
-                    )
-                    session.add(block)
-                for account_data in accounts:
-                    account_chain_id = account_data.get("chain_id", chain_id)
-                    if account_chain_id != chain_id:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"Mismatched account chain_id '{account_chain_id}' for import chain '{chain_id}'",
-                        )
-                    account = Account(
-                        chain_id=account_chain_id,
-                        address=account_data["address"],
-                        balance=account_data["balance"],
-                        nonce=account_data["nonce"],
-                    )
-                    session.add(account)
-                for tx_data in transactions:
-                    tx_chain_id = tx_data.get("chain_id", chain_id)
-                    if tx_chain_id != chain_id:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"Mismatched transaction chain_id '{tx_chain_id}' for import chain '{chain_id}'",
-                        )
-                    tx = Transaction(
-                        id=tx_data.get("id"),
-                        chain_id=tx_chain_id,
-                        tx_hash=str(tx_data.get("tx_hash") or tx_data.get("id") or ""),
-                        block_height=tx_data.get("block_height"),
-                        sender=tx_data["sender"],
-                        recipient=tx_data["recipient"],
-                        payload=tx_data.get("payload", {}),
-                        value=tx_data.get("value", 0),
-                        fee=tx_data.get("fee", 0),
-                        nonce=tx_data.get("nonce", 0),
-                        timestamp=_serialize_optional_timestamp(tx_data.get("timestamp")),
-                        status=tx_data.get("status", "pending"),
-                        tx_metadata=tx_data.get("tx_metadata"),
-                    )
-                    created_at = _parse_datetime_value(tx_data.get("created_at"), "transaction created_at")
-                    if created_at is not None:
-                        tx.created_at = created_at
-                    session.add(tx)
-                session.commit()
-                return {
-                    "success": True,
-                    "imported_blocks": len(unique_blocks),
-                    "imported_accounts": len(accounts),
-                    "imported_transactions": len(transactions),
-                    "chain_id": chain_id,
-                    "message": f"Successfully imported {len(unique_blocks)} blocks",
-                }
+            if not verify_admin_signature(import_data, import_data.get("admin_address"), import_data.get("admin_signature")):
+                raise HTTPException(status_code=403, detail="Invalid or unauthorized admin signature")
+            return _import_chain_data(import_data)
         except HTTPException:
             raise
         except Exception as e:
@@ -280,6 +305,8 @@ async def import_chain(request: Request, import_data: dict[str, Any]) -> dict[st
 async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, Any]:
     """Force blockchain reorganization to sync with specified peer"""
     try:
+        if not verify_admin_signature(peer_data, peer_data.get("admin_address"), peer_data.get("admin_signature")):
+            raise HTTPException(status_code=403, detail="Invalid or unauthorized admin signature")
         peer_url = peer_data.get("peer_url")
         target_height = peer_data.get("target_height")
         if not peer_url:
@@ -307,7 +334,9 @@ async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, A
             raise HTTPException(
                 status_code=400, detail=f"Peer only has {len(peer_blocks)} blocks, cannot sync to height {target_height}"
             )
-        import_result = await import_chain(request, peer_chain_data["export_data"])
+        # force_sync already verified admin auth above; call the import
+        # directly rather than re-authing the (unsigned) peer payload.
+        import_result = _import_chain_data(peer_chain_data["export_data"])
         return {
             "success": True,
             "synced_from": peer_url,

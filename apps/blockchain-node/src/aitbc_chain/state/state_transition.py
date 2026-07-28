@@ -70,6 +70,14 @@ class StateTransition:
         if tx_hash in self._processed_tx_hashes:
             logger.warning("Replay attack detected: Transaction %s already processed", tx_hash)
             return (False, f"Transaction {tx_hash} already processed (replay attack)")
+        # Persistent replay protection: the in-memory set above is lost on
+        # restart; the DB unique constraint on (chain_id, tx_hash) is not.
+        persisted_tx = session.exec(
+            select(Transaction.tx_hash).where(Transaction.chain_id == chain_id, Transaction.tx_hash == tx_hash)
+        ).first()
+        if persisted_tx is not None:
+            logger.warning("Replay attack detected: Transaction %s already persisted", tx_hash)
+            return (False, f"Transaction {tx_hash} already processed (replay attack)")
         sender_addr = tx_data.get("from")
         signature = tx_data.get("signature")
         if signature and sender_addr:
@@ -166,10 +174,16 @@ class StateTransition:
                 tx_type = "TRANSFER"
         value = tx_data.get("value", 0)
         fee = tx_data.get("fee", 0)
+        # Guard against BigInt overflow (SQLite INTEGER is 64-bit signed)
+        _MAX_INT64 = 2**63 - 1
+        if value < 0 or fee < 0 or value > _MAX_INT64 or fee > _MAX_INT64:
+            raise ValueError(f"Transaction value/fee out of range: value={value}, fee={fee}")
         if tx_type == "MESSAGE":
             total_cost = fee
         else:
             total_cost = value + fee
+            if total_cost > _MAX_INT64:
+                raise ValueError(f"Transaction total_cost overflow: {total_cost}")
             session.get(Account, (chain_id, recipient_addr))
         logger.info("Updating sender balance: %s -= %s", sender_addr, total_cost)
         session.execute(

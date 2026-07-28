@@ -55,8 +55,9 @@ class ValidatorRotation:
 
     def _rotate_round_robin(self) -> bool:
         """Round-robin rotation of validator roles"""
-        validators = list(self.consensus.validators.values())
-        active_validators = [v for v in validators if v.is_active]
+        # Sort by address so every node rotates in the same order regardless
+        # of local validator insertion order.
+        active_validators = sorted((v for v in self.consensus.validators.values() if v.is_active), key=lambda v: v.address)
 
         # Rotate roles among active validators
         for i, validator in enumerate(active_validators):
@@ -73,7 +74,7 @@ class ValidatorRotation:
     def _rotate_stake_weighted(self) -> bool:
         """Stake-weighted rotation"""
         validators = sorted(
-            [v for v in self.consensus.validators.values() if v.is_active], key=lambda v: v.stake, reverse=True
+            [v for v in self.consensus.validators.values() if v.is_active], key=lambda v: (-v.stake, v.address)
         )
 
         for i, validator in enumerate(validators[: self.config.max_validators]):
@@ -90,7 +91,7 @@ class ValidatorRotation:
     def _rotate_reputation_based(self) -> bool:
         """Reputation-based rotation"""
         validators = sorted(
-            [v for v in self.consensus.validators.values() if v.is_active], key=lambda v: v.reputation, reverse=True
+            [v for v in self.consensus.validators.values() if v.is_active], key=lambda v: (-v.reputation, v.address)
         )
 
         # Filter by reputation threshold
@@ -115,8 +116,9 @@ class ValidatorRotation:
         for validator in validators:
             validator.hybrid_score = validator.stake * validator.reputation
 
-        # Sort by hybrid score
-        validators.sort(key=lambda v: v.hybrid_score, reverse=True)
+        # Sort by hybrid score (address tiebreaker keeps rotation
+        # deterministic across nodes when scores tie)
+        validators.sort(key=lambda v: (-v.hybrid_score, v.address))
 
         for i, validator in enumerate(validators[: self.config.max_validators]):
             if i == 0:

@@ -1,16 +1,37 @@
 import hashlib
+import json
 from contextlib import contextmanager
 from datetime import datetime
 from unittest.mock import Mock
 
 import pytest
+from aitbc_chain.config import settings
 from aitbc_chain.models import Account, Block, Transaction
 from aitbc_chain.rpc import sync as rpc_sync
+from eth_account import Account as EthAccount
+from eth_keys import keys
+from eth_utils import keccak
 from sqlmodel import Session, SQLModel, create_engine, select
 
 
 def _hex(value: str) -> str:
     return "0x" + hashlib.sha256(value.encode()).hexdigest()
+
+
+@pytest.fixture
+def admin_signer(monkeypatch):
+    """Create an admin account, trust it, and return a payload-signing function."""
+    admin = EthAccount.create()
+    monkeypatch.setattr(settings, "bridge_admin_addresses", admin.address.lower())
+
+    def _sign(payload: dict) -> dict:
+        payload["admin_address"] = admin.address.lower()
+        message = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        pk = keys.PrivateKey(admin.key)
+        payload["admin_signature"] = pk.sign_msg_hash(keccak(message)).to_hex()
+        return payload
+
+    return _sign
 
 
 @pytest.fixture
@@ -123,7 +144,9 @@ async def test_export_chain_filters_records_by_chain_id(isolated_engine, mock_re
 
 
 @pytest.mark.asyncio
-async def test_import_chain_dedupes_duplicate_heights_and_preserves_transaction_fields(isolated_engine, mock_request):
+async def test_import_chain_dedupes_duplicate_heights_and_preserves_transaction_fields(
+    isolated_engine, mock_request, admin_signer
+):
     with Session(isolated_engine) as session:
         session.add(
             Block(
@@ -217,7 +240,7 @@ async def test_import_chain_dedupes_duplicate_heights_and_preserves_transaction_
         ],
     }
 
-    result = await rpc_sync.import_chain(mock_request, import_payload)
+    result = await rpc_sync.import_chain(mock_request, admin_signer(import_payload))
 
     assert result["success"] is True
     assert result["imported_blocks"] == 2
@@ -240,8 +263,102 @@ async def test_import_chain_dedupes_duplicate_heights_and_preserves_transaction_
     assert chain_a_transactions[0].timestamp == "2026-01-02T00:00:02"
 
 
-async def test_import_chain_clears_hash_conflicts_across_chains(isolated_engine, mock_request):
-    """Test that import-chain clears blocks with conflicting hashes across different chains."""
+@pytest.mark.asyncio
+async def test_import_chain_requires_admin_signature(isolated_engine, mock_request):
+    """import_chain rejects unauthenticated requests (v0.18.0 B2)."""
+    from fastapi import HTTPException
+
+    import_payload = {
+        "chain_id": "chain-a",
+        "blocks": [
+            {
+                "chain_id": "chain-a",
+                "height": 0,
+                "hash": _hex("block-0"),
+                "parent_hash": "0x00",
+                "proposer": "node-a",
+                "timestamp": "2026-01-01T00:00:00",
+                "tx_count": 0,
+            }
+        ],
+    }
+
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.import_chain(mock_request, import_payload)
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_import_chain_invalid_payload_leaves_chain_intact(isolated_engine, mock_request, admin_signer):
+    """A malformed record must abort the import *before* any deletion (v0.18.0 B2)."""
+    from fastapi import HTTPException
+
+    with Session(isolated_engine) as session:
+        session.add(
+            Block(
+                chain_id="chain-a",
+                height=0,
+                hash=_hex("existing-block-0"),
+                parent_hash="0x00",
+                proposer="node-a",
+                timestamp=datetime(2026, 1, 1, 0, 0, 0),
+                tx_count=1,
+            )
+        )
+        session.add(
+            Transaction(
+                chain_id="chain-a",
+                tx_hash=_hex("existing-tx"),
+                block_height=0,
+                sender="alice",
+                recipient="bob",
+                payload={},
+                value=1,
+                fee=1,
+                nonce=0,
+                status="confirmed",
+            )
+        )
+        session.commit()
+
+    import_payload = {
+        "chain_id": "chain-a",
+        "blocks": [
+            {
+                "chain_id": "chain-a",
+                "height": 0,
+                "hash": _hex("incoming-block-0"),
+                "parent_hash": "0x00",
+                "proposer": "node-a",
+                "timestamp": "2026-01-02T00:00:00",
+                "tx_count": 0,
+            }
+        ],
+        "transactions": [
+            {
+                "chain_id": "chain-a",
+                "tx_hash": _hex("bad-tx"),
+                "block_height": 0,
+                # missing required "sender"
+                "recipient": "bob",
+            }
+        ],
+    }
+
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.import_chain(mock_request, admin_signer(import_payload))
+    assert exc_info.value.status_code == 400
+
+    with Session(isolated_engine) as session:
+        blocks = session.exec(select(Block).where(Block.chain_id == "chain-a")).all()
+        txs = session.exec(select(Transaction).where(Transaction.chain_id == "chain-a")).all()
+    assert [b.hash for b in blocks] == [_hex("existing-block-0")]
+    assert [t.tx_hash for t in txs] == [_hex("existing-tx")]
+
+
+@pytest.mark.asyncio
+async def test_import_chain_preserves_other_chains_on_hash_conflict(isolated_engine, mock_request, admin_signer):
+    """Import must never delete blocks belonging to a different chain (v0.18.0 B2)."""
     with Session(isolated_engine) as session:
         session.add(
             Block(
@@ -318,7 +435,7 @@ async def test_import_chain_clears_hash_conflicts_across_chains(isolated_engine,
         ],
     }
 
-    result = await rpc_sync.import_chain(mock_request, import_payload)
+    result = await rpc_sync.import_chain(mock_request, admin_signer(import_payload))
 
     assert result["success"] is True
     assert result["imported_blocks"] == 2
@@ -329,5 +446,6 @@ async def test_import_chain_clears_hash_conflicts_across_chains(isolated_engine,
 
     assert [block.height for block in chain_c_blocks] == [0, 1]
     assert chain_c_blocks[0].hash == conflicting_hash
-    assert len(chain_a_blocks_after) == 1
-    assert chain_a_blocks_after[0].height == 1
+    # chain-a blocks must be untouched — a hash collision on another chain is
+    # not a conflict under the (chain_id, hash) uniqueness model.
+    assert [block.height for block in chain_a_blocks_after] == [0, 1]
