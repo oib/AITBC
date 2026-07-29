@@ -43,6 +43,11 @@ replaced: []
 sync:
   sync_scope:
     - ".claude/"
+    - ".gemini/"
+    - ".codex/"
+    - ".cursor/"
+    - ".agents/"
+    - "dark-factory/"
   auto_substitute: true
   backup: true
   conflict_strategy: "prompt"
