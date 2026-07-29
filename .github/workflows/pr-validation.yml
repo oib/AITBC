@@ -1,0 +1,141 @@
+# PR Validation Workflow
+# Template for SAFe Agentic Workflow projects
+#
+# Enforces:
+# - Rebase-first workflow (PR must be up-to-date with base branch)
+# - All CI checks must pass
+# - Commit message format validation
+#
+# Customize placeholders:
+# - AITBC: Your ticket prefix (e.g., "WOR", "PROJ")
+
+name: PR Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  validate-pr:
+    name: Validate PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR is rebased on base branch
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          BASE_SHA=$(git rev-parse origin/${{ github.base_ref }})
+          MERGE_BASE=$(git merge-base HEAD origin/${{ github.base_ref }})
+
+          if [ "$BASE_SHA" != "$MERGE_BASE" ]; then
+            echo "::error::PR is not rebased on ${{ github.base_ref }}. Please rebase."
+            echo ""
+            echo "Run: git fetch origin && git rebase origin/${{ github.base_ref }}"
+            exit 1
+          fi
+
+          echo "✅ PR is properly rebased on ${{ github.base_ref }}"
+
+      - name: Check migration-number collision (ABS-449)
+        run: |
+          # Fail the MR BEFORE merge if it adds a migration number that the base
+          # branch (main or the epic) already added — merge-base gate, so the
+          # add/add conflict + Epic-Sync renumber is never paid. See
+          # docs/database/MIGRATION_PREFIX_GUARD.md.
+          git fetch origin ${{ github.base_ref }}
+          bash scripts/migration-number-collision-check.sh \
+            "origin/${{ github.base_ref }}" HEAD
+
+      - name: Check provider hook copies are in sync
+        run: |
+          # harness/claude/hooks/ is the SHIPPED-harness SOURCE (ABS-96/97);
+          # agent_providers/claude_code/hooks/ is the downstream provider-package
+          # copy. They must stay identical.
+          if ! diff -r harness/claude/hooks agent_providers/claude_code/hooks; then
+            echo "::error::harness/claude/hooks/ and agent_providers/claude_code/hooks/ have diverged. Apply hook changes to both copies."
+            exit 1
+          fi
+
+          echo "✅ Provider hook copies are in sync"
+
+      - name: Validate Claude Code hooks wiring (ABS-32)
+        run: |
+          # live copy — intentional (ABS-97): hooks are auto-loaded from this
+          # repo's OWN live .claude/settings.json at runtime, so this step
+          # deliberately validates the live path, not the harness/claude source.
+          # Guard the ABS-32 fix: valid JSON, tool-name-only matchers, no
+          # command-in-matcher patterns, and passing behavioral tests.
+          sudo apt-get update -qq && sudo apt-get install -y -qq jq
+          jq empty .claude/settings.template.json
+          jq empty .claude/hooks-config.json
+
+          # PreToolUse/PostToolUse matchers must be tool names only — never a
+          # space or ".*git" (the old, never-firing command-in-matcher style).
+          BAD=$(jq -r '
+            [ .hooks | to_entries[] | .value[] | (.matcher // "") ]
+            | map(select(test(" ") or test("\\.\\*git"))) | .[]
+          ' .claude/settings.template.json)
+          if [ -n "$BAD" ]; then
+            echo "::error::command-in-matcher style in settings.template.json: $BAD"
+            exit 1
+          fi
+
+          bash tests/test-hooks-behavioral.sh
+          bash tests/test-hooks-config.sh
+          echo "✅ Claude Code hooks wiring validated"
+
+      - name: Check provider skills parity
+        run: bash .github/scripts/check-skills-parity.sh
+
+      - name: Check rule ledger completeness (ABS-523, ADR-A-0028)
+        run: bash scripts/rule-ledger-check.sh
+
+      - name: Check sandbox-env guard on test entrypoints (PILOT-46)
+        run: bash scripts/sandbox-guard-check.sh
+
+      - name: Validate commit messages
+        run: |
+          # Get commits in this PR
+          COMMITS=$(git log --format="%s" origin/${{ github.base_ref }}..HEAD)
+
+          echo "Checking commit messages..."
+          echo "$COMMITS" | while read -r msg; do
+            # Check for conventional commit format with ticket reference
+            if ! echo "$msg" | grep -qE "^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .+ \[AITBC-[0-9]+\]$"; then
+              # Allow merge commits and generated commits
+              if ! echo "$msg" | grep -qE "^(Merge|🤖 Generated)"; then
+                echo "::warning::Commit message may not follow SAFe format: $msg"
+                echo "Expected: type(scope): description [AITBC-XXX]"
+              fi
+            fi
+          done
+
+          echo "✅ Commit message validation complete"
+
+      - name: Check PR title format
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+
+          if ! echo "$PR_TITLE" | grep -qE "^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .+ \[AITBC-[0-9]+\]$"; then
+            echo "::warning::PR title may not follow SAFe format"
+            echo "Expected: type(scope): description [AITBC-XXX]"
+            echo "Got: $PR_TITLE"
+          else
+            echo "✅ PR title follows SAFe format"
+          fi
+
+      - name: Check for Linear ticket reference
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if echo "$PR_BODY" | grep -qE "AITBC-[0-9]+"; then
+            echo "✅ Linear ticket reference found in PR body"
+          else
+            echo "::warning::No Linear ticket reference found in PR body"
+            echo "Please include a reference like AITBC-123"
+          fi

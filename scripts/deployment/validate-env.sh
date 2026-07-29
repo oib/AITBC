@@ -344,7 +344,7 @@ main() {
 }
 
 # Handle script interruption
-trap 'error "Script interrupted"' INT TERM
+trap 'error "Script interrupted"; exit 130' INT TERM
 
 # Run main function
 main "$@"
