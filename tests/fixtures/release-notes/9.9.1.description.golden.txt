@@ -1,0 +1,1 @@
+Governor-only patch: no .claude/ harness file changes; marker entry for tag/changelog parity (ABS-226 stub input).
