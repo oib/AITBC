@@ -399,3 +399,214 @@ pyproject.toml.new
 Dockerfile
 docker-compose.yml
 .dockerignore
+
+# ============================================================================
+# SAW harness ignore rules (appended on boilerplate adoption, docs/meta/pre-boilerplate-backup/)
+# ============================================================================
+# AITBC SAFe-Agentic-Workflow .gitignore
+# Template repository for SAFe-based human-AI collaborative development
+
+# ============================================================================
+# IDE / Editor Files
+# ============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# ============================================================================
+# Operating System Files
+# ============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ============================================================================
+# Environment Variables & Secrets
+# ============================================================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# Filled-in bootstrap values file (may contain DB_PASSWORD); the *.template is tracked
+bootstrap.values
+
+# ============================================================================
+# Bootstrap Artifacts
+# ============================================================================
+# Generated tooling-readiness report; regenerated on every setup run
+bootstrap-gap-report.md
+
+# ============================================================================
+# Logs
+# ============================================================================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+# Test fixtures are committed on purpose (skill-mining miner source #2); exempt from *.log
+!tests/fixtures/skill-mining/state/run.log
+
+# ============================================================================
+# Dependencies
+# ============================================================================
+node_modules/
+jspm_packages/
+bower_components/
+
+# ============================================================================
+# Build Output
+# ============================================================================
+dist/
+build/
+.next/
+out/
+.nuxt/
+.cache/
+.parcel-cache/
+.vercel/
+
+# ============================================================================
+# Testing
+# ============================================================================
+coverage/
+.nyc_output/
+*.lcov
+.jest/
+
+# ============================================================================
+# Temporary Files
+# ============================================================================
+*.tmp
+*.bak
+*.swp
+*.swo
+.temp/
+tmp/
+
+# ============================================================================
+# Package Manager Lock Files (Optional - Uncomment if needed)
+# ============================================================================
+# Uncomment these if you want to ignore lock files
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ============================================================================
+# Database Files (Local Development)
+# ============================================================================
+*.sqlite
+*.sqlite3
+*.db
+
+# ============================================================================
+# Prisma (if using Prisma ORM)
+# ============================================================================
+# Keep migrations but ignore generated client
+# node_modules/@prisma/
+
+# ============================================================================
+# Docker
+# ============================================================================
+.dockerignore
+# ABS-239: backend/.dockerignore is load-bearing — it keeps `.env` (incl. the
+# bootstrap token) out of the image build context (AC#5). It MUST be tracked, so
+# override the blanket ignore above. (The blanket rule itself is the architect's
+# follow-up to reconsider; this negation makes the S7 install path correct now.)
+!backend/.dockerignore
+
+# ============================================================================
+# CI/CD
+# ============================================================================
+.github/workflows/*.local.yml
+
+# ============================================================================
+# Harness Sync Metadata (generated, not committed)
+# ============================================================================
+.harness-sync.json
+.harness-backup/
+.harness-patches/
+.claude/.harness-sync.json
+.claude/.harness-backup/
+.claude/.harness-patches/
+
+# ============================================================================
+# Mock Task-Tracker Runtime State (scripts/mock-tracker.sh events snapshot)
+# ============================================================================
+work/.events-state
+
+# ============================================================================
+# Jira Task-Tracker Runtime State (scripts/jira-tracker.sh events snapshot)
+# ============================================================================
+# Status snapshot the Jira adapter diffs each `events` poll against. Runtime
+# state, reconstructible from a fresh JQL sweep; never committed.
+work/.jira-events-state
+
+# ============================================================================
+# Tracker-Koexistenz Runtime (epic ABS-326) — shadow-mirror replay log,
+# divergence reports + operator whitelist. Runtime/operator state of the
+# Jira->backend migration; reconstructible or operator-local, never committed.
+# ============================================================================
+work/.shadow-mirror.log
+work/divergence/
+work/tracker-divergence-whitelist.txt
+
+# ============================================================================
+# Orchestrator Runtime (scripts/orchestrator.sh) — pure coordination, no work
+# state (spec ABS-36 §7): lock dirs, kill-switch, ephemeral packet temp files.
+# Reconstructible; must never be committed.
+# ============================================================================
+work/.orchestrator/
+work/.orchestrator-stop
+
+# Staged-suite completeness ledger (PILOT-50) — advisory scratch state recording
+# which staged-suite stages passed at which HEAD. Reconstructible; never committed.
+work/.suite-stage-ledger
+
+# ============================================================================
+# Seat Scratch (ABS-253) — sanctioned default path for the tracker adapter's
+# --body-file / --reason-file drafts. Write-allowlisted in
+# .claude/settings.template.json; ephemeral by definition, never committed.
+# ============================================================================
+work/scratch/
+
+# ============================================================================
+# Evolver runtime (ABS-25) — GEP asset store + session memory
+# ============================================================================
+# Anchored to repo root: Evolver only creates these at the project root, and an
+# unanchored `memory/` would ignore any memory/ directory at any depth in a
+# consuming project (e.g. src/lib/memory/).
+/.evolver/
+/memory/
+
+# ============================================================================
+# Profile activation (ABS-37) — local/per-environment, not committed
+# ============================================================================
+# Written by `scripts/profile.sh set <name>`; absence means the neutral
+# default. Each clone/CI environment chooses its own active profile.
+/.active-profile
+
+# ============================================================================
+# Project-Specific
+# ============================================================================
+# Add any project-specific files to ignore here
+
+
+# Graphify local extraction cache (graph.json + report are committed)
+graphify-out/cache/

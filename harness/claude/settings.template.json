@@ -1,0 +1,142 @@
+{
+  "_comment": "Claude Code settings template. Copy to settings.json and customize for your project. See https://code.claude.com/docs/en/settings. The 'hooks' block below is the LIVE, auto-loaded wiring (ABS-32); .claude/hooks-config.json is the annotated source-of-record only.",
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"
+  },
+  "teammateMode": "in-process",
+  "permissions": {
+    "_comment": "Configure permission rules for your project. See https://code.claude.com/docs/en/permissions. The work/scratch/** grants below are REQUIRED, not examples: work/scratch/ is the sanctioned default path for the adapter's --body-file/--reason-file drafts (ABS-253). Without them a seat's draft Write is denied under --permission-mode dontAsk and the tracker call silently loses the body. The deny rule is likewise REQUIRED (ABS-272): refs/stash is ONE stack shared by ALL worktrees, so a seat's stash/pop eats a concurrently running sibling seat's uncommitted work.",
+    "allow": [
+      "Write(work/scratch/**)",
+      "Edit(work/scratch/**)"
+    ],
+    "deny": [
+      "Bash(git stash:*)"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "BRANCH=$(git branch --show-current 2>/dev/null); if [ \"$BRANCH\" = 'main' ]; then echo '⚠️ REMINDER: Create a feature branch before making changes.'; fi",
+            "description": "Remind to use feature branches when on main"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "payload=$(cat); if ! command -v jq >/dev/null 2>&1; then echo 'hooks: jq not found; skipping commit-format reminder' >&2; exit 0; fi; cmd=$(printf '%s' \"$payload\" | jq -r '.tool_input.command // empty'); printf '%s' \"$cmd\" | grep -qE 'git[[:space:]]+commit' || exit 0; echo '📝 REMINDER: Commit message should follow conventional format: type(scope): description [TICKET-XXX]'",
+            "description": "Remind about commit message format before git commit (matcher is tool name 'Bash'; command re-derived from stdin JSON via jq)"
+          },
+          {
+            "type": "command",
+            "command": "payload=$(cat); if ! command -v jq >/dev/null 2>&1; then echo 'hooks: jq not found; skipping git-push guards' >&2; exit 0; fi; cmd=$(printf '%s' \"$payload\" | jq -r '.tool_input.command // empty'); printf '%s' \"$cmd\" | grep -qE 'git[[:space:]]+push' || exit 0; BRANCH=$(git branch --show-current 2>/dev/null); if [ \"$BRANCH\" = 'main' ]; then echo '❌ BLOCKER: Cannot push directly to main. Create a feature branch first: git checkout -b feature-description' >&2; exit 2; fi; if git status --porcelain | grep -q .; then echo '❌ BLOCKER: Uncommitted changes detected. Commit all changes before pushing.' >&2; exit 2; fi; if git fetch origin -q 2>/dev/null && git log HEAD..origin/main --oneline 2>/dev/null | grep -q .; then echo '⚠️ WARNING: Branch is behind origin/main. Consider rebasing first: git rebase origin/main'; fi; exit 0",
+            "description": "git push guards: block push to main (exit 2), block push with uncommitted changes (exit 2), warn if behind main. matcher is tool name 'Bash'; command re-derived from stdin JSON via jq"
+          },
+          {
+            "type": "command",
+            "command": "payload=$(cat); if ! command -v jq >/dev/null 2>&1; then echo 'hooks: jq not found; skipping pr-create reminder' >&2; exit 0; fi; cmd=$(printf '%s' \"$payload\" | jq -r '.tool_input.command // empty'); printf '%s' \"$cmd\" | grep -qE 'gh[[:space:]]+pr[[:space:]]+create|bb[[:space:]]+pr[[:space:]]+create' || exit 0; echo '📋 REMINDER: Use /pre-pr to run complete validation first!'",
+            "description": "Remind about pre-PR validation before pr create. matcher is tool name 'Bash'; command re-derived from stdin JSON via jq"
+          },
+          {
+            "type": "command",
+            "command": "payload=$(cat); if ! command -v jq >/dev/null 2>&1; then echo 'hooks: jq not found; skipping iteration-guard' >&2; exit 0; fi; cmd=$(printf '%s' \"$payload\" | jq -r '.tool_input.command // empty'); printf '%s' \"$cmd\" | grep -qE 'Iteration [0-9]+ of [0-9]+' || exit 0; guard=\"${CLAUDE_PROJECT_DIR:-.}/scripts/hooks/iteration-guard.sh\"; if [ ! -x \"$guard\" ] && [ ! -f \"$guard\" ]; then echo 'hooks: iteration-guard.sh not found; skipping' >&2; exit 0; fi; printf '%s' \"$payload\" | bash \"$guard\"; ec=$?; if [ \"$ec\" = '2' ]; then exit 2; fi; exit 0",
+            "description": "ABS-12 iteration guard: fires only when command carries an 'Iteration N of M' marker; re-pipes the ORIGINAL payload to iteration-guard.sh so it applies its own bounce-command logic; propagates its exit 2 as a block. See specs/ABS-12-iteration-guard-spec.md"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/pre-bash-rls-validation.sh\"",
+            "description": "ABS-149 RLS validation reminder: advisory (never blocks, always exit 0) reminder to use withUserContext/withAdminContext/withSystemContext when a Bash command runs Prisma/psql/DATABASE_URL without an RLS context. Matcher is tool name 'Bash'; the script reads the command from the stdin JSON payload via jq (NOT $1) and fails open (exit 0) if jq is missing or the command is not a DB operation. See .claude/hooks/pre-bash-rls-validation.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/pre-bash-kill-guard.sh\"",
+            "description": "ABS-243 foreign-process kill guard: BLOCKS (exit 2) a seat's name-pattern process kill (pkill without -P/-g/-s, killall, kill $(pgrep …)) that could reap a process outside the seat spawn tree — e.g. the operator's live orchestrator. PID/group/session-scoped kills (kill \"$pid\", pkill -P \"$pid\") pass unchanged. Fires only for seats (ORCH_SEAT marker); a human shell is never guarded. Kill switch ORCH_KILL_GUARD=0 (ABS-111, default ON). Blocked kills logged to ORCH_KILL_GUARD_LOG (ABS-66). Reads the command from the stdin JSON payload via jq; fails open (exit 0) if jq is missing. See .claude/hooks/pre-bash-kill-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/pre-bash-stash-guard.sh\"",
+            "description": "ABS-272 shared-stash guard: BLOCKS (exit 2) a seat's MUTATING git stash (bare/push/save/pop/apply/drop/clear/branch/store, incl. the `git -C <dir> stash` form) because refs/stash is ONE stack SHARED by ALL worktrees — a seat's stash/pop eats a concurrently running sibling seat's uncommitted work (3 incidents 2026-07-13: ABS-251←ABS-255, ABS-254←ABS-265). The stderr message names the allowed stash-free recipe (throwaway `git worktree add --detach` on the base commit). Read-only `git stash list`/`show` pass unchanged. Fires only for seats (ORCH_SEAT marker); a human shell is never guarded. Kill switch ORCH_STASH_GUARD=0 (ABS-111, default ON). Blocked stashes logged to ORCH_STASH_GUARD_LOG (ABS-66). Reads the command from the stdin JSON payload via jq; fails open (exit 0) if jq is missing. Belt-and-suspenders to the permissions.deny rule Bash(git stash:*) above. See .claude/hooks/pre-bash-stash-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/pre-bash-merge-guard.sh\"",
+            "description": "PILOT-11/ABS-513 seat-independent merge chokepoint: BLOCKS (exit 2) a seat's `bb pr merge`/`glab mr merge` whose resolved MR/PR TARGET is a protected branch (main / ORCH_PROTECTED_BRANCHES), before the merge reaches the git host — closing the MR !150 self-merge defect class mechanically instead of by prose. It resolves the target (ORCH_MERGE_GUARD_TARGET_CMD override/test seam, else native glab/bb view), runs scripts/merge-target-guard.sh check <target>, and surfaces the guard's MERGE-GUARD-REFUSE … action=hitl-handoff intent line on refuse. Legit epic-branch auto-merge (ADR-A-0014, epic/*) passes untouched (exit 0); an unresolvable target fails CLOSED (blocks). Fires only for seats (ORCH_SEAT marker); a human shell is never guarded. Kill switch ORCH_MERGE_GUARD=0 (ABS-111, default ON). Blocked merges logged to ORCH_MERGE_GUARD_LOG (ABS-66). Reads the command from the stdin JSON payload via jq; fails open (exit 0) if jq is missing or the command is not a merge. See .claude/hooks/pre-bash-merge-guard.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "payload=$(cat); if ! command -v jq >/dev/null 2>&1; then echo 'hooks: jq not found; skipping doc reminder' >&2; exit 0; fi; fp=$(printf '%s' \"$payload\" | jq -r '.tool_input.file_path // empty'); printf '%s' \"$fp\" | grep -qE 'CLAUDE\\.md|CONTRIBUTING\\.md|AGENTS\\.md|README\\.md' && echo '📚 REMINDER: High-impact file modified. Update related documentation in this PR.'; exit 0",
+            "description": "Remind about documentation when important files modified. matcher is tool name; file_path from stdin JSON via jq"
+          },
+          {
+            "type": "command",
+            "command": "payload=$(cat); if ! command -v jq >/dev/null 2>&1; then echo 'hooks: jq not found; skipping markdown format' >&2; exit 0; fi; fp=$(printf '%s' \"$payload\" | jq -r '.tool_input.file_path // empty'); [ -n \"$fp\" ] || exit 0; printf '%s' \"$fp\" | grep -qE '\\.md$' || exit 0; npx --no-install prettier --write \"$fp\" >/dev/null 2>&1 && echo '✨ Prettier: Formatted'; if npx --no-install markdownlint-cli \"$fp\" >/dev/null 2>&1; then echo '✅ Markdownlint: OK'; else echo \"⚠️ Run: npx markdownlint-cli --fix \\\"$fp\\\"\"; fi; exit 0",
+            "description": "Format and lint markdown files after edit. matcher is tool name; file_path from stdin JSON via jq (no grep -oP)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/hooks/evolver-lifecycle.sh\" 2>/dev/null || true",
+            "description": "ABS-25 Evolver lifecycle: invoke evolver --review after Write/Edit when evolution provider is evolver (rate-limited; fail-open)"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/session-wrong-entry-guard.sh\"",
+            "description": "ABS-92 stable-governs-dev guard: refuse a bare interactive session in the dev repo when a same-product stable checkout exists (exit 2 with the launch recipe); silent no-op otherwise and for headless spawns. Escape hatch: SAW_GUARD_DISABLE=1. See scripts/session-wrong-entry-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "printf '%s\\n' '🚀 Session Started' '📖 Remember: @CONTRIBUTING.md workflow' '📝 Key commands: /start-work, /check-workflow, /pre-pr, /end-work | Remote: /remote-status, /remote-deploy' '📚 Full list (19 commands): see .claude/README.md' '💡 Run /check-workflow for current status'",
+            "description": "Session start reminder with available commands"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/hooks/evolver-lifecycle.sh\" 2>/dev/null || true",
+            "description": "ABS-25 Evolver lifecycle: invoke evolver --review on session start when evolution provider is evolver (skips if not installed or provider none; fail-open)"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if git status --porcelain 2>/dev/null | grep -q .; then echo '⚠️ Session ending with uncommitted changes. Use /end-work to complete cleanly.'; else echo '✅ Clean session end - no uncommitted changes'; fi",
+            "description": "Check for uncommitted work at session end"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/hooks/evolver-lifecycle.sh\" 2>/dev/null || true",
+            "description": "ABS-25 Evolver lifecycle: invoke evolver --review on Stop when evolution provider is evolver (fail-open)"
+          }
+        ]
+      }
+    ]
+  }
+}

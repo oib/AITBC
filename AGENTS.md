@@ -1,259 +1,530 @@
-# AGENTS.md — AITBC Project Rules & Agent Plans
+# SAFe Agent Team Quick Reference
 
-This file is the source of truth for project conventions, verification commands, and per-agent task plans. Agent-specific plans live at `docs/releases/<version>/AGENTS.md`; this root file holds the stable conventions and the **current** in-flight plan.
+> **Philosophy**: "Search First, Reuse Always, Create Only When Necessary"
+>
+> Pattern discovery is MANDATORY before implementation.
+>
+> **Team Culture**: "We work as a round table team that has 4 pillars of SAFe inscribed on that round table. It means something."
+>
+> **Note**: This file is auto-loaded as system instructions by tools that follow the `AGENTS.md` convention, including Codex CLI and Google Antigravity (see [.agents/README.md](./.agents/README.md)).
 
-**Current in-flight plan**: [v0.11.0](docs/releases/v0.11.0/change.log) — Phase 4 & 2026 Roadmap Foundations (OpenClaw autonomous economics, decentralized AI memory/storage, developer ecosystem & DAO grants, Phase 4 success criteria, industry-specific compliance) — 🚧 in progress
+## Documentation
 
-**Previous**: [v0.10.17](docs/releases/v0.10.17/change.log) — Security & Auth Hardening (Bugfix) (auth bypass, hardcoded defaults, feature flags, pool-hub reward signing, wiring bug) — ✅ complete
+**Workflow SOPs:**
 
-**Previous**: [v0.10.15](docs/releases/v0.10.15/change.log) — Monolithic Router/Module Decomposition + cross-chain settlement block-time config wiring — ✅ complete
+- [Agent Workflow SOP v1.4](./docs/sop/AGENT_WORKFLOW_SOP.md) - vNext contract, Exit States, Role Collapsing (AITBC-497/499)
+- [Agent Configuration SOP](./docs/sop/AGENT_CONFIGURATION_SOP.md) - Tool restrictions, model selection
+- [ARCHitect-in-CLI Role](./docs/workflow/ARCHITECT_IN_CLI_ROLE.md) - Primary orchestrator definition
 
-**Previous**: [v0.10.14](docs/releases/v0.10.14/change.log) — Legacy Code & Stub Elimination (shadow packages, legacy routers, fake implementations, duplicate stacks) — ✅ complete
+**CI/CD Documentation:**
 
-**Previous**: [v0.10.13](docs/releases/v0.10.13/change.log) — Security & Correctness Hardening (credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) — ✅ complete
-**Previous**: [v0.10.12](docs/releases/v0.10.12/change.log) — Quality Hardening (mypy completeness, test suite repair, production assert removal, and dependency/version cleanup) — ✅ complete
-**Previous**: [v0.10.11](docs/releases/v0.10.11/change.log) — Bug Fixes & Code Quality Continuation (complete stub implementations, Pydantic v2 migration, SQLAlchemy pattern standardization, type safety improvements, and concurrency safety) — ✅ complete
+- [CI/CD Pipeline Guide](./docs/ci-cd/CI-CD-Pipeline-Guide.md) - Pipeline implementation guide
 
-**Previous**: [v0.10.10](docs/releases/v0.10.10/change.log) — Code Quality & Testing Roadmap (expand mypy coverage to 851 files, raise coverage gate, add property-based tests, add performance regression tests, pin dependencies, add local dev script, add integration fixtures) — ✅ complete
+**Database SOPs:**
 
-## Project Layout
+- [RLS Migration SOP](./docs/database/RLS_DATABASE_MIGRATION_SOP.md) - MANDATORY for Data Engineer
 
-- `aitbc/` — shared core library (types, config, db, logging, queues, crypto, network, agent_bridge, agent_protocols, agent_registry, etc.)
-- `apps/` — microservices (coordinator-api, blockchain-node, exchange, wallet, marketplace, miner, edge, gpu, governance, …)
-- `cli/` — `aitbc_cli` command-line tool
-- `packages/py/` — publishable Python packages
-- `tests/` — `unit/`, `integration/`, `e2e/`, `coordinator/`
-- `scripts/` — ops, deployment, monitoring, migration, security
-- `docs/releases/<version>/` — per-release changelogs and agent task assignment
+**Project Standards:**
 
-## Verification Commands
+- [Harness Whitepaper](./docs/whitepapers/CLAUDE-CODE-HARNESS-MODERNIZATION-AITBC-444.md) - Complete harness architecture
+- [Agent Perspective](./docs/whitepapers/CLAUDE-CODE-HARNESS-AGENT-PERSPECTIVE.md) - Why the harness works
+- [SAFe Methodology](https://github.com/oib/AITBC) - This repository
 
-```bash
-# Type check (shared core)
-./venv/bin/python -m mypy --show-error-codes aitbc/
+## When to Use Which Agent
 
-# Lint (whole repo)
-./venv/bin/python -m ruff check .
+| Agent Role                           | Use Case                                                                                          | Success Criteria                                            | Primary Tools                       |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------- |
+| **TDM** (Technical Delivery Manager) | Blocker triage seat (`Blocked` → classify env/external/scope, resume to origin, ABS-76); evidence tracking (NOT orchestration - see v1.3 SOP) | Blocker classified + resolved/escalated, ticket resumed     | Linear, Confluence                  |
+| **BSA** (Business Systems Analyst)   | Requirements decomposition, acceptance criteria, testing strategy, follow-up ticket decisions     | Clear user stories, testable ACs, QA plan defined           | Linear, Confluence, Markdown        |
+| **Issue Enrichment Agent**           | Owns ticket creation: dedup gate, agent-ready formatting, guardrail annotation, tracker operation | Verdict recorded, no duplicates, ticket created via adapter | Read, Grep, Bash, tracker adapter   |
+| **PO-Agent** (Product Owner Agent)   | Story acceptance (post-QAS), epic-completion determination, WSJF prioritization, orchestration    | Accept/reject + reasoning recorded, epic DoD verified       | Read, Grep, Bash, tracker adapter   |
+| **Self-Improvement Agent**           | Epic Retro seat (auto-spawned on `Epic Done`, ABS-69): runs `scripts/skill-mining.sh` FIRST (mandatory input, ABS-219), then retro; skill mining + boilerplate improvement proposals | Miner report read; per `SKILL-KANDIDAT` verdict a filed proposal or reasoned rejection; report | Read, Write, Grep, Glob, Bash       |
+| **Boilerplate Migration**            | Migrating a consuming project to the current boilerplate version (runs FROM the current checkout) | Reviewable diff on migration branch, migration report filed | Read, Write, Edit, Bash, Grep, Glob |
+| **System Architect**                 | Pattern validation, Stage 1 PR review, migration approval, arch decisions, guided ADR authoring   | ADR created/updated at correct level, PR review complete    | Read, Grep, ADR templates           |
+| **UI/UX Design Agent**               | Schema-conformant design creation, design ACs, handoff to QAS-Design (never tests own designs)    | Design cites design system, testable design ACs on ticket   | Read, Write, Edit, Grep, Glob       |
+| **FE Developer**                     | UI components, client-side logic, user interactions                                               | Lint and build passes                                       | Read, Write, Edit, Bash             |
+| **BE Developer**                     | API routes, server logic, RLS enforcement                                                         | Integration tests pass                                      | Read, Write, Edit, Bash             |
+| **DE** (Data Engineer)               | Schema changes, migrations, database architecture                                                 | Migration applied, RLS maintained                           | Prisma, SQL, migration tools        |
+| **TW** (Technical Writer)            | Documentation, guides, technical content                                                          | Markdown lint passes                                        | Read, Write, Edit, Grep, Glob, Bash |
+| **DPE** (Data Provisioning Engineer) | Test data, database access, data validation                                                       | Test data available, DB accessible                          | SQL, Prisma Studio, scripts         |
+| **QAS** (Quality Assurance)          | **GATE OWNER**: Execute testing, validate ACs, iteration authority, evidence to Linear            | All ACs verified, evidence posted, Exit: "Approved for RTE" | Playwright, Jest, Linear MCP        |
+| **QAS-Design** (Design QA)           | **DESIGN GATE**: Verify design ACs (DACs) independently, iteration loop back to UI/UX Design      | All DACs verified, evidence posted, Exit: "Design Approved" | Read, Bash, Grep, tracker adapter   |
+| **SecEng** (Security Engineer)       | Security validation, RLS checks, vulnerability assessment (Independence Gate - not collapsible)   | Security audit passed, RLS enforced                         | RLS scripts, security tools         |
+| **RTE** (Release Train Engineer)     | **PR SHEPHERD**: PR creation, CI/CD monitoring (NO code, NO merge) - Exit: "Ready for HITL"       | PR created, CI green, Exit: "Ready for HITL Review"         | Git, host PR CLI (`gh`: `bb`/`gh`), CI tools |
 
-# Tests (note: requires pytest-rerunfailures + pytest-asyncio; add -o addopts="" to bypass if missing)
-./venv/bin/python -m pytest tests/unit -q
-./venv/bin/python -m pytest tests/integration -q
+## Agent Handoff Map
 
-# Coordinator-api tests (needs PYTHONPATH=src and aitbc_shared installed)
-cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
+Canonical inter-agent handoffs introduced with the team extension (ADR-A-0012):
+
+```text
+Follow-up work (ticket creation chain):
+  Any reviewing agent (QAS, System Architect, SecEng, ...)
+    └─ Follow-Up Recommendation ─→ BSA (decide: create / in-scope / discard)
+         └─ Follow-Up Ticket Draft ─→ Issue Enrichment Agent
+              ├─ 1. duplicate-detection skill (reject / append / create)
+              ├─ 2. issue-enrichment skill (agent-ready format + guardrail notes)
+              └─ 3. create/append via task-tracking adapter
+
+Product ownership (PO-Agent):
+  PO-Agent ─ ADR Authoring Request ─→ System Architect (guided ADR authoring)
+  PO-Agent ─ Follow-Up Recommendation ─→ BSA (see chain above)
+  PO-Agent ─ Self-Improvement Trigger ─→ Self-Improvement Agent
+             (mandatory at epic completion, optional mid-epic)
+  Human-only, never PO-Agent: new features, merge to main, additional costs
+
+Design workflow:
+  Requester ─→ UI/UX Design Agent (design + Design Acceptance Criteria)
+    └─ "Ready for QAS-Design" ─→ QAS-Design Agent (independent DAC testing)
+         └─ fail: findings ─→ back to UI/UX Design Agent (iteration loop)
+
+Standalone:
+  Boilerplate Migration Agent — human-invoked, runs from the current boilerplate
+  against a target project; merge of the migration branch stays human-only.
 ```
 
-## Conventions
+## v3 Automated Seat Coverage (ABS-69)
 
-- **Python 3.13**, line length 127 (ruff), `target-version = "py313"`.
-- **SQLModel** for ORM models in `apps/coordinator-api/src/app/domain/`. Add `index=True` on columns filtered/ordered at the SQL layer. Composite indexes via `sqlalchemy.Index(...)` in `__table_args__` tuple.
-- **Config**: `pydantic_settings.BaseSettings`. Shared base lives in `apps/shared-core/src/app/core/config.py` (`ServiceSettings`, `DatabaseConfig`). New services should subclass these rather than redefining `DatabaseConfig`.
-- **Logging**: `aitbc.aitbc_logging` is canonical. `aitbc/log_utils/logging.py` is a thin re-export shim — do not duplicate logging setup.
-- **Constants**: `aitbc/constants.py` sources `REPO_DIR` from `AITBC_REPO_DIR` env var (defaults to `/opt/aitbc`).
-- **DB init**: services call `SQLModel.metadata.create_all` (or `Base.metadata.create_all`). `create_all` only adds indexes to fresh DBs; for existing DBs add an Alembic migration under `apps/coordinator-api/alembic/versions/` using `if_not_exists=True`.
-- **Commit style**: `type(scope): subject` — see `git log --oneline`. Include `Generated with [Devin]` trailer + Co-Authored-By when committing via Devin.
-- **Do not** edit files outside your agent's ownership without coordinating (see conflict boundaries in the release plan).
+Every agent role below has a **live automated seat** in the v3 orchestrator workflow — the coordinator spawns a fresh agent on the trigger status (ADR-A-0002), the agent does its seat duty and transitions the ticket via the adapter. No role is paper-only or orphaned. The spawn-facing seat section lives in each role's `harness/claude/agents/<role>.md`. Full status→role map: `docs/sop/ORCHESTRATOR_SOP.md`; charters per spec §2, §3.10.
 
-## Agent Roles (stable across releases)
+| Role                        | v3 Seat                     | Trigger status → exit                                                                 |
+| --------------------------- | --------------------------- | ------------------------------------------------------------------------------------- |
+| **PO-Agent**                | PO Triage                   | `PO Triage` → Grooming / Backlog / Needs PO Decision                                   |
+| **PO-Agent**                | Story Acceptance            | `Story Acceptance` → Merging (accept) / Ready for Development (reject)                 |
+| **PO-Agent**                | Needs PO Decision (ABS-61)  | `Needs PO Decision` → Backlog / Ready for Development / Blocked; epic decomposition    |
+| **BSA**                     | Grooming                    | `Grooming` → Enrichment (story drafts + flags)                                         |
+| **BSA**                     | Follow-up Decision (ABS-75) | sweep on unanswered `kind: follow-up` → `kind: bsa-decision` reply; create/in-scope/discard |
+| **Issue Enrichment Agent**  | Enrichment                  | `Enrichment` → Ticket Review (batch child creation)                                   |
+| **QAS**                     | Ticket Review (DoR gate)    | `Ticket Review` → Architecture Review / Grooming (rework) / Needs PO Decision          |
+| **System Architect**        | Architecture Review         | `Architecture Review` → Stories In Flight + releases each child to Design              |
+| **UI/UX Design Agent**      | Design                      | `Design` (design flag) → Ready for Development (design + measurable design ACs)        |
+| **Security Engineer**       | Security Review             | `Security Review` (security flag) → Test Prep / Ready for Development (blocking)       |
+| **Data Provisioning Eng**   | Test Prep                   | `Test Prep` (data flag) → In Test (fixtures + RLS test contexts)                       |
+| **QAS-Design**              | Design Test                 | `Design Test` (design flag) → Story Acceptance / Design (design-fix) / Ready for Development (impl-fix) |
+| **Technical Writer**        | Docs                        | `Docs` → Done (story documentation)                                                   |
+| **RTE**                     | Merging (ABS-89)            | `Merging` → Docs (merged) / Ready for Development (rebase|CI failure); no revert       |
+| **RTE**                     | Epic Integration (ABS-90)   | `Epic Integration` → Ready for Epic Acceptance (NOTIFY) / bisect reopen / Needs PO Decision |
+| **TDM**                     | Blocker Triage (ABS-76)     | `Blocked` (any stage) → resume to pre-blocked status / hold + human escalation         |
+| **Self-Improvement Agent**  | Epic Retro                  | `Epic Done` (terminal) → `skill-mining.sh` first (ABS-219), then retro + skill mining, no exit transition |
+| **Boilerplate Migration**   | (human-invoked, standalone) | not part of the automated loop — runs from the current checkout against a target       |
 
-| Agent | Domain | Owns |
-|-------|--------|------|
-| **Agent A** | Type safety & shared core (`aitbc/`) | All of `aitbc/` except `aitbc/constants.py`, `aitbc/log_utils/` |
-| **Agent B** | Bug fixes, infrastructure & apps | `aitbc/constants.py`, `aitbc/log_utils/`, all `apps/`, `cli/`, systemd config |
+Conditional stages (`Design`, `Design Test`, `Security Review`, `Test Prep`) are SKIP-FORWARDed by the runner when the story lacks the matching flag — agents carry zero routing logic. `Ready for Epic Acceptance` and `Stories In Flight` are resting states (NOTIFY / JOIN); `Backlog` seeds the pipelines.
 
-**Conflict boundary**: both agents must not edit the same file. Shared files (`aitbc/database/replica.py`, `aitbc/network/circuit_breaker.py`, agent bridge imports) are sequenced — see the Coordination Protocol below.
+## Auto-Loaded Skills
 
-### Coordination Protocol
+Skills are loaded progressively—metadata at startup, full content when context triggers.
 
-When both agents need to touch shared files or adjacent code paths, follow this protocol:
+| Skill                    | Trigger                    | Purpose                                     |
+| ------------------------ | -------------------------- | ------------------------------------------- |
+| `safe-workflow`          | Commits, branches, PRs     | SAFe format, rebase-first workflow          |
+| `pattern-discovery`      | Before writing code        | Pattern-first development (MANDATORY)       |
+| `duplicate-detection`    | Before creating any ticket | Mandatory dedup gate: reject/append/create  |
+| `issue-enrichment`       | After dedup verdict        | Agent-ready format + guardrail annotation   |
+| `rls-patterns`           | Database operations        | RLS context helpers (withUserContext, etc.) |
+| `frontend-patterns`      | UI work                    | Clerk, shadcn, Next.js patterns             |
+| `api-patterns`           | API route creation         | Route structure, error handling             |
+| `testing-patterns`       | Writing tests              | Jest, Playwright patterns                   |
+| `orchestration-patterns` | Multi-step work            | Agent loop, evidence-based delivery         |
+| `agent-coordination`     | Multi-agent work           | Assignment matrix, escalation patterns      |
+| `team-coordination`      | Agent Teams spawn          | Multi-agent orchestration (experimental)    |
+| `stop-slop`              | Before emitting deliverable| Anti-slop output-quality gate               |
 
-1. **Declare intent**: Before starting work on a shared file, the agent posts in the release's `AGENTS.md` (under a "Coordination" section) which file(s) they intend to modify and when.
-2. **Sequence, don't parallelize**: Shared files are edited sequentially, not concurrently. Agent A goes first for `aitbc/` shared files; Agent B goes first for `apps/` shared files.
-3. **Lock files during editing**: The agent currently editing a shared file adds a `# WIP: Agent X` comment at the top of the file while editing. The other agent waits until the comment is removed.
-4. **Shared files list** (must be sequenced):
-   - `aitbc/database/replica.py` — both agents touch DB replica logic
-   - `aitbc/network/circuit_breaker.py` — both agents touch circuit breaker
-   - `aitbc/agent_bridge/` — Agent A owns types, Agent B owns implementations
-   - `apps/blockchain-node/src/aitbc_chain/rpc/router.py` — Agent B owns, but Agent A may touch for type fixes
-   - `apps/blockchain-node/src/aitbc_chain/sync.py` — Agent B owns, but shared with network layer
-5. **Conflict resolution**: If both agents edit the same file despite the protocol, the agent whose domain owns the file wins. The other agent rebases.
+**Note**: `/skills` command has display bug (v2.0.73, GitHub #14733). Skills work but won't show in list. Ask Claude directly: "What skills are available?"
+
+## Success Validation Commands
+
+### Frontend Development
+
+```bash
+npm run type-check && npm run lint && npm run build && echo "FE SUCCESS" || echo "FE FAILED"
+```
+
+### Backend Development
+
+```bash
+npm run test:integration && echo "BE SUCCESS" || echo "BE FAILED"
+```
+
+### Documentation
+
+```bash
+npm run lint:md && echo "DOCS SUCCESS" || echo "DOCS FAILED"
+```
+
+### Pre-Push Validation
+
+```bash
+npm run ci:validate && echo "CI SUCCESS" || echo "CI FAILED"
+```
+
+### Database Migration
+
+```bash
+npx prisma migrate dev --name migration_name && echo "MIGRATION SUCCESS" || echo "MIGRATION FAILED"
+```
+
+## SAFe Specs-Driven Workflow
+
+### Planning Phase (BSA)
+
+```bash
+# Large initiative → Use planning template
+cp specs_templates/planning_template.md specs/{feature}-planning.md
+# Fill with Epic → Features → Stories → Enablers
+
+# User story → Use spec template
+cp specs_templates/spec_template.md specs/AITBC-XXX-{feature}-spec.md
+# Fill with implementation details
+```
+
+### Execution Phase (All Agents)
+
+```bash
+# 1. Read spec for clear goal
+cat specs/AITBC-XXX-{feature}-spec.md
+
+# 2. Extract:
+# - User story (goal)
+# - Acceptance criteria (success)
+# - Low-level tasks (steps)
+# - Demo script (validation)
+
+# 3. Implement using Simon's loop:
+# - Clear goal from spec
+# - Pattern discovery (codebase + specs)
+# - Iterate until demo script passes
+# - Escalate if blocked
+```
+
+## Pattern Discovery Protocol (MANDATORY)
+
+### 0. Search Specs Directory (FIRST)
+
+```bash
+# Find similar implementations in specs
+ls specs/*-spec.md | grep "similar_feature"
+
+# Review SAFe user stories
+grep -r "As a.*I want to" specs/
+
+# Check patterns from past specs
+cat specs/XXX-similar-spec.md
+```
+
+### 1. Search Codebase
+
+```bash
+# Search for similar functionality
+grep -r "feature_name|functionality" app/
+
+# Find existing helpers
+ls lib/ && grep -r "helper_pattern" lib/
+
+# Check components
+grep -r "component_pattern" components/
+```
+
+### 2. Search Session History
+
+```bash
+# Search agent session todos
+grep -r "similar_feature|pattern" ~/.claude/todos/ 2>/dev/null
+
+# Find recent implementation patterns
+ls -lt ~/.claude/todos/ | head -20
+```
+
+### 3. Consult Documentation
+
+- `CONTRIBUTING.md` - Workflow and git process
+- `docs/database/DATA_DICTIONARY.md` - Database schema (SINGLE SOURCE OF TRUTH)
+- `docs/database/RLS_IMPLEMENTATION_GUIDE.md` - Row Level Security (MANDATORY for DB ops)
+- `docs/security/SECURITY_FIRST_ARCHITECTURE.md` - Security patterns
+
+### 4. Architectural Validation
+
+- Propose pattern to System Architect
+- Get approval before implementation
+- Document decision in session notes
+
+## Agent Workflow
+
+### Standard Agent Loop (Per Simon Willison)
+
+1. **Clear Goal** - BSA defines with acceptance criteria
+2. **Pattern Discovery** - Search codebase and sessions
+3. **Iterative Problem Solving**:
+   - Implement approach
+   - Run validation command
+   - If fails → analyze error, adjust, repeat
+   - If blocked → escalate to TDM with context
+4. **Evidence Attachment** - Session ID + validation results in Linear
+
+### No Over-Engineering
+
+- ❌ No file locks
+- ❌ No circuit breakers
+- ❌ No arbitrary retry limits
+- ✅ Let agents iterate until success or blocked
+- ✅ Agent decides when to escalate
+
+## Session Archaeology
+
+### Monitor Concurrent Sessions
+
+```bash
+# See active sessions
+ls -lt ~/.claude/todos/*.json | head -10
+
+# Check for concurrent work on same files
+grep -l "file_path" ~/.claude/todos/*.json
+```
+
+### Cross-Agent Coordination
+
+```bash
+# Find related work by another agent
+grep -r "linear_ticket_number" ~/.claude/todos/
+
+# Discover implementation patterns
+grep -r "withUserContext|withAdminContext" ~/.claude/todos/
+```
+
+## Exit States (vNext Contract)
+
+Each agent has explicit exit states that define handoff points:
+
+```
+┌─────────────────┬───────────────────────────────────────────┐
+│ Role            │ Exit State                                │
+├─────────────────┼───────────────────────────────────────────┤
+│ BE-Developer    │ "Ready for QAS"                           │
+│ FE-Developer    │ "Ready for QAS"                           │
+│ Data-Engineer   │ "Ready for QAS"                           │
+│ QAS             │ "Approved for RTE"                        │
+│ RTE             │ "Ready for HITL Review"                   │
+│ System Architect│ "Stage 1 Approved - Ready for ARCHitect"  │
+│ HITL            │ MERGED                                    │
+└─────────────────┴───────────────────────────────────────────┘
+```
+
+### Gate Quick Reference
+
+```
+┌─────────────────┬─────────────────┬─────────────────────────┐
+│ Gate            │ Owner           │ Blocking?               │
+├─────────────────┼─────────────────┼─────────────────────────┤
+│ Stop-the-Line   │ Implementer     │ YES - no AC = no work   │
+│ QAS Gate        │ QAS             │ YES - no approval = stop│
+│ Stage 1 Review  │ System Architect│ YES - pattern check     │
+│ Stage 2 Review  │ ARCHitect-CLI   │ YES - architecture check│
+│ HITL Merge      │ oib            │ YES - final authority   │
+└─────────────────┴─────────────────┴─────────────────────────┘
+```
+
+**Iteration cap is mechanically enforced (ABS-12)**: the QAS / QAS-Design gate loops are capped by prompt-level rules (ABS-11) **and** by a `PreToolUse` hook — `scripts/hooks/iteration-guard.sh`, wired in `.claude/hooks-config.json`. It counts a ticket's `Iteration N of M` bounce markers via the task-tracking adapter and blocks the bounce once the cap (default 3) is reached, forcing human escalation. It fails open if the tracker is unreachable. See the [Loop Termination Rules](./docs/sop/AGENT_WORKFLOW_SOP.md) and `specs/ABS-12-iteration-guard-spec.md`.
+
+### Role Collapsing (AITBC-499)
+
+- **RTE**: Collapsible (PR creation, CI shepherding can be done by implementer)
+- **QAS**: NOT collapsible (independence gate - spawn subagent for verification)
+- **SecEng**: NOT collapsible (security audit requires independence)
+
+See [Agent Workflow SOP v1.4](./docs/sop/AGENT_WORKFLOW_SOP.md) for details.
+
+### Agent Teams (Experimental)
+
+Agent Teams enable real-time multi-agent orchestration using Claude Code's experimental Agent Teams feature. When enabled, agents are spawned as teammates with shared task lists and SAFe quality gates enforced via task dependencies.
+
+- **Enable**: Set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `.claude/settings.json`
+- **Skill**: `/team-coordination` — patterns for TeamCreate, SendMessage, shared TaskList
+- **Guide**: See [Agent Teams Guide](docs/onboarding/AGENT-TEAMS-GUIDE.md) and [Optional Features](docs/guides/OPTIONAL-FEATURES.md)
 
 ---
 
-## Completed Releases
+## Quick Reference
 
-All prior release plans are complete. Details are in the respective changelogs:
+### Key Documentation
 
-- **v0.5.12** — Duplication elimination & large-file decomposition: <ref_file file="/opt/aitbc/docs/releases/v0.5.12/change.log" />
-- **v0.5.13** — coordinator-api bounded context (P1–P4, T1–T3): <ref_file file="/opt/aitbc/docs/releases/v0.5.13/change.log" />
-- **v0.5.14** — Cross-context dependency elimination (X1–X9, L1–L19): <ref_file file="/opt/aitbc/docs/releases/v0.5.14/change.log" />
-- **v0.5.15** — Flat-to-context migration + test suite repair (P1–P7): <ref_file file="/opt/aitbc/docs/releases/v0.5.15/change.log" />
-- **v0.5.16** — Security Hardening & Multi-Chain Preparation (18 bugs fixed + signing-scheme regression fix + key model migration to secp256k1): <ref_file file="/opt/aitbc/docs/releases/v0.5.16/change.log" />
-- **v0.5.17** — Test Infrastructure (multi-chain fixtures, multi-node harness, stub test conversion, bridge test suite): <ref_file file="/opt/aitbc/docs/releases/v0.5.17/change.log" />
-- **v0.6.5** — Agent Coordination Service (chain_id/island_id awareness, PaymentEscrow, chain-aware task distribution): <ref_file file="/opt/aitbc/docs/releases/v0.6.5/change.log" />
+- Branch/commit/PR conventions: invoke the `safe-workflow` skill (loads on demand). `CONTRIBUTING.md` is the reference, not a mandatory read.
+- `docs/database/DATA_DICTIONARY.md` - Database schema (SINGLE SOURCE OF TRUTH)
+- `docs/database/RLS_DATABASE_MIGRATION_SOP.md` - Schema changes (ARCHitect approval required)
+- `docs/security/SECURITY_FIRST_ARCHITECTURE.md` - Security patterns
 
-### Security Audit & Status
+### Agent Files
 
-- **Bridge Security Audit** (Bug #3 + Bug #4 fixed, regression tests passing): <ref_file file="/opt/aitbc/docs/releases/AUDIT.md" />
-- **Release Status Overview** (all releases, config defaults, audit summary): <ref_file file="/opt/aitbc/docs/releases/STATUS.md" />
+- `.claude/agents/bsa.md` - Business Systems Analyst
+- `.claude/agents/system-architect.md` - System Architect
+- `.claude/agents/tdm.md` - Technical Delivery Manager
+- `.claude/agents/fe-developer.md` - Frontend Developer
+- `.claude/agents/be-developer.md` - Backend Developer
+- `.claude/agents/data-engineer.md` - Data Engineer
+- `.claude/agents/data-provisioning-eng.md` - Data Provisioning Engineer
+- `.claude/agents/tech-writer.md` - Technical Writer
+- `.claude/agents/qas.md` - Quality Assurance Specialist
+- `.claude/agents/security-engineer.md` - Security Engineer
+- `.claude/agents/rte.md` - Release Train Engineer
+- `.claude/agents/po-agent.md` - PO-Agent (Product Owner)
+- `.claude/agents/issue-enrichment.md` - Issue Enrichment Agent
+- `.claude/agents/ui-ux-design.md` - UI/UX Design Agent
+- `.claude/agents/qas-design.md` - QAS-Design Agent
+- `.claude/agents/self-improvement.md` - Self-Improvement Agent
+- `.claude/agents/boilerplate-migration.md` - Boilerplate Migration Agent
 
-## Planned Releases
+## Human-in-the-Loop (HITL) Model
 
-The release roadmap is split into two interleaved tracks: **infrastructure** (blockchain, bridge, sync, settlement) and **product** (agent coordination, compute marketplace, pool hub, governance). Product releases are interleaved after the multi-chain foundation is complete. Version numbers are monotonic — each release has a higher version than the one before it.
+**Product Owner / Product Manager**: oib
 
-### Immediate Bugfix (Patch)
-- **v0.5.18** — Test Suite Repair (green the `apps/blockchain-node/tests/` suite: 64 failed + 8 errors, all pre-existing; prevent CI hangs; quarantine Redis/Postgres tests; add the suite to `testpaths`). Establishes the green baseline v0.6.0 needs: <ref_file file="/opt/aitbc/docs/releases/v0.5.18/change.log" /> ✅ complete
-- **v0.5.19** — Tech Debt Cleanup (cross-context import refactor, dead pricing models, fakeredis): <ref_file file="/opt/aitbc/docs/releases/v0.5.19/change.log" /> ✅ complete
+Day-to-day product ownership is delegated to the **PO-Agent** (`.claude/agents/po-agent.md`): story acceptance (post-QAS), epic-completion determination, and autonomous WSJF backlog prioritization (per the ADR-A-0004 amendment, ABS-9). The human POPM's role:
 
-### Infrastructure Track (multi-chain foundation)
-- **v0.6.0** — Database & Network Optimization (query indexing, connection pooling, N+1 elimination, batch writes, block header caching, network compression): <ref_file file="/opt/aitbc/docs/releases/v0.6.0/change.log" /> ✅ complete
-- **v0.6.1** — Parallel Processing (parallel tx validation via dependency analysis, deterministic scheduling, pure state transitions): <ref_file file="/opt/aitbc/docs/releases/v0.6.1/change.log" /> ✅ complete
-- **v0.6.2** — Sync & Gossip Optimization (gossip protocol versioning, message prioritization, compact blocks, parallel sync from multiple peers, delta sync): <ref_file file="/opt/aitbc/docs/releases/v0.6.2/change.log" /> ✅ complete
-- **v0.6.3** — Multi-Island Node Support: <ref_file file="/opt/aitbc/docs/releases/v0.6.3/change.log" /> ✅ complete
-- **v0.6.4** — Multi-Chain Per Island: <ref_file file="/opt/aitbc/docs/releases/v0.6.4/change.log" /> ✅ complete (MultiValidatorPoA/PBFT remain in THRESHOLD state for security review)
+- **Feature initiation**: Creating new features is human-only — the PO-Agent manages and prioritizes existing scope, and escalates feature proposals
+- **Merge approval**: Merges to main remain human (ADR-A-0005); accepted work reaches HITL via RTE-shepherded PRs
+- **Cost approval**: Additional license/LLM costs remain human (ADR-A-0009); the PO-Agent escalates with a cost summary
+- **Guardrail-setting**: Defines and adjusts the boundaries the PO-Agent operates within
+- **Escalation target & oversight**: Receives PO-Agent escalations and retains oversight of all agent work
+- All work requires evidence in Linear before acceptance review
+- Swimlane workflow: Backlog → Ready → In Progress → Testing → Ready for Review → Done
+- Final approval on deliverables sits with the PO-Agent — EXCEPT feature initiation, merges to main, and cost approval, which stay with the human POPM
 
-### Product Track (interleaved after v0.6.4)
-- **v0.6.5** — Agent Coordination Service: <ref_file file="/opt/aitbc/docs/releases/v0.6.5/change.log" /> ✅ complete
-- **v0.6.6** — Compute Marketplace: <ref_file file="/opt/aitbc/docs/releases/v0.6.6/change.log" /> ✅ complete
-- **v0.6.7** — Pool Hub & Mining: <ref_file file="/opt/aitbc/docs/releases/v0.6.7/change.log" /> ✅ complete
+---
 
-### Infrastructure + Product (bridge + governance)
-- **v0.7.0** — Bridge Basics: <ref_file file="/opt/aitbc/docs/releases/v0.7.0/change.log" /> ✅ complete
-- **v0.7.1** — Bridge Security: <ref_file file="/opt/aitbc/docs/releases/v0.7.1/change.log" /> ✅ complete
-- **v0.7.2** — Bridge Verification (In-Process Crypto): <ref_file file="/opt/aitbc/docs/releases/v0.7.2/change.log" /> ✅ complete
-- **v0.7.3** — Governance: <ref_file file="/opt/aitbc/docs/releases/v0.7.3/change.log" /> ✅ complete
-- **v0.7.4** — Deferred v0.7.x Items (External Oracle, Cross-Chain Governance, Parameter Automation, Emergency Proposals, Coordinator-API Bridge): <ref_file file="/opt/aitbc/docs/releases/v0.7.4/change.log" /> ✅ complete
-- **v0.7.5** — Consensus Activation (MultiValidatorPoA + PBFT: fix 6 Critical + 6 High findings from security review, then activate): <ref_file file="/opt/aitbc/docs/releases/v0.7.4/security-review-multivalidator-poa.md" /> ✅ complete (enabled for homebrew testing in v0.10.0 — no external security audit — poor homebrew project)
+## 🎯 Agent Invocation Examples
 
-### Infrastructure Track (trading + settlement)
-- **v0.8.0** — Inter-Chain Trading Basics: <ref_file file="/opt/aitbc/docs/releases/v0.8.0/change.log" /> ✅ complete
-- **v0.8.1** — Cross-Chain Offer Sync (polling-based): <ref_file file="/opt/aitbc/docs/releases/v0.8.1/change.log" /> ✅ complete
-- **v0.8.2** — Advanced Offer Sync (subscription, real-time, search index): <ref_file file="/opt/aitbc/docs/releases/v0.8.2/change.log" /> ✅ complete
-- **v0.9.0** — Atomic Cross-Chain Settlement: <ref_file file="/opt/aitbc/docs/releases/v0.9.0/change.log" /> ✅ complete (A1-A6 ✅, B1-B12 ✅; all tests passing; external security audit skipped — poor project, no budget)
+### Simple Invocation (Direct Mention)
 
-### Patch Releases
-- **v0.10.0** — Runtime Bug Fixes, Service Modernization & Feature Activation (consensus state root fix, SharedHttpClient classmethod fix, DB column migration, session_scope chain_id fix, PyCUDA log noise, exchange module entry point, miner logging, enable multi-validator consensus + atomic settlement for homebrew testing): <ref_file file="/opt/aitbc/docs/releases/v0.10.0/change.log" /> ✅ complete
-- **v0.10.1** — Gap Fill for v0.6.0–v0.8.2 (20 tasks: CLI endpoint paths, island ID bug, node CLI crash, HTTP RPC compression, P2P→sync wiring, feature flag activation, MultiChainManager init, edge-advertise/registration/health/payment, pool join/leave, mining RPC wired to coordinator, parameter automation, duplicate bridge removal, trading service deploy + gossip integration + lease tracker + polling fallback): <ref_file file="/opt/aitbc/docs/releases/v0.10.1/change.log" /> ✅ complete
-- **v0.10.2** — Mock & Placeholder Elimination (17 categories: smart contract RPC, AI services, exchange mock trades/wallet/order matching/supply, governance vote tx hash, agent receipts, user transactions, developer platform rejection/reward, IPFS fallback, FHE warnings, GPU optimizer warnings, miner demo-token, pool-hub categories, trading block explorer, oracle docstring, data layer mock warning, feature flag accuracy): <ref_file file="/opt/aitbc/docs/releases/v0.10.2/change.log" /> ✅ complete
-- **v0.10.3** — Bug Fix & Hardening (28 issues fixed + 1 skipped: exchange financial safety, resource leaks, configuration mismatches, concurrency safety, security hardening, database indexes, CLI routing, pre-existing staking router fix): <ref_file file="/opt/aitbc/docs/releases/v0.10.3/change.log" /> ✅ complete
-- **v0.10.4** — Performance, Correctness & Cleanup (24 tasks: Decimal migration for pool-hub billing + trading pricing/bid engines, N+1 query elimination, missing DB indexes, asyncio.Lock race condition fixes, ~1,000 lines dead code deletion, HTTP client/JWT/retry/config-validator consolidation): <ref_file file="/opt/aitbc/docs/releases/v0.10.4/change.log" /> ✅ complete
-- **v0.10.5** — JWT/Auth Consolidation (shared `aitbc/auth/` module: unified JWT handler, password hashing, API keys, RBAC, FastAPI dependencies, middleware, security matrix; old app-level auth modules converted to re-export shims with deprecation warnings): <ref_file file="/opt/aitbc/docs/releases/v0.10.5/change.log" /> ✅ complete
-- **v0.10.6** — Dead Code Elimination, Decimal Migration Completion & Duplicate Consolidation (delete 7 dead `aitbc/` modules ~1,570 lines, complete Decimal migration for wallet/trading/marketplace/pool-hub, fix blocking I/O + mempool N+1 + missing indexes, consolidate circuit breakers/address validation/config classes/health endpoints, sweep stale port 8006): <ref_file file="/opt/aitbc/docs/releases/v0.10.6/change.log" /> ✅ complete
-- **v0.10.7** — Dead Code Elimination (coordinator-api + agent-management) & Duplicate Consolidation (delete ~5,800 lines of dead code, deprecate agent-management, consolidate blockchain RPC clients, CLI error handling, DB init, config classes, security utils, health endpoints, CORS setup): <ref_file file="/opt/aitbc/docs/releases/v0.10.7/change.log" /> ✅ complete
-- **v0.10.8** — Config Consolidation & Dead Retry Helper Cleanup (resolve config.py vs hierarchical_config.py package shadowing, consolidate simple health endpoints, delete 3 unused retry helpers): <ref_file file="/opt/aitbc/docs/releases/v0.10.8/change.log" /> ✅ complete
-- **v0.10.9** — Dead Code Elimination & Status Drift Cleanup (delete ~2,500 lines of dead test-only modules from aitbc/, fix documentation/status drift, clean up stale port references, migrate auth shims, remove deprecated constants): <ref_file file="/opt/aitbc/docs/releases/v0.10.9/change.log" /> ✅ complete
-- **v0.10.10** — Code Quality & Testing Roadmap (expand mypy coverage to 851 files, raise coverage gate, add property-based tests, add performance regression tests, pin dependencies, add local dev script, add integration fixtures): <ref_file file="/opt/aitbc/docs/releases/v0.10.10/change.log" /> ✅ complete
-- **v0.10.11** — Bug Fixes & Code Quality Continuation (complete stub implementations, Pydantic v2 migration, SQLAlchemy pattern standardization, type safety improvements, concurrency safety): <ref_file file="/opt/aitbc/docs/releases/v0.10.11/change.log" /> ✅ complete
-- **v0.10.12** — Quality Hardening (mypy completeness, test suite repair, production assert removal, and dependency/version cleanup): <ref_file file="/opt/aitbc/docs/releases/v0.10.12/change.log" /> ✅ complete
-- **v0.10.13** — Security & Correctness Hardening (credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage): <ref_file file="/opt/aitbc/docs/releases/v0.10.13/change.log" /> ✅ complete
-- **v0.10.15** — Monolithic Router/Module Decomposition + cross-chain settlement block-time config wiring: <ref_file file="/opt/aitbc/docs/releases/v0.10.15/change.log" /> ✅ complete
-- **v0.10.14** — Legacy Code & Stub Elimination (shadow packages, legacy routers, fake implementations, duplicate stacks): <ref_file file="/opt/aitbc/docs/releases/v0.10.14/change.log" /> ✅ complete
+Use `@agent-name` for simple, single-step tasks:
 
-### Product Track v0.11 (2026 roadmap)
-- **v0.11.0** — Phase 4 & 2026 Roadmap Foundations (OpenClaw autonomous economics, decentralized AI memory/storage, developer ecosystem & DAO grants, Phase 4 success criteria, industry-specific compliance): <ref_file file="/opt/aitbc/docs/releases/v0.11.0/change.log" /> 🚧 in progress
+```bash
+# Planning
+@bsa Create a spec for user profile API endpoint
+@system-architect Review the RLS policy for user_profiles table
 
-### Product Track v0.12 (2026 roadmap)
-- **v0.12.0** — OpenClaw Autonomous Economics (agent wallets & escrow, performance bonds & staking, automated rebalancing & reinvestment, dynamic fee market, OpenClaw DAO economic governance): <ref_file file="/opt/aitbc/docs/releases/v0.12.0/change.log" /> 🚧 planned
+# Implementation
+@be-developer Implement the GET /api/user/profile endpoint
+@fe-developer Create a UserProfile component with form validation
+@data-engineer Add email_verified column to users table
 
-### Product Track v0.13 (2026 roadmap)
-- **v0.13.0** — Mature Autonomous Economic Infrastructure (automated staking/rebalancing, performance bond lifecycle, provider reinvestment, risk/solvency engine, cross-chain yield, slashing appeals): <ref_file file="/opt/aitbc/docs/releases/v0.13.0/change.log" /> 🚧 planned
+# Quality & Documentation
+@qas Write integration tests for user profile feature
+@security-engineer Audit RLS policies for user_profiles table
+@tech-writer Document the user profile API in README
 
-### Product Track v0.14 (2026 roadmap)
-- **v0.14.1** — TEE-Backed Verification & Confidential Compute Phase 1 (attestation, enclaves, confidential messaging, TEE-backed data processing): <ref_file file="/opt/aitbc/docs/releases/v0.14.1/change.log" /> 🚧 planned
-- **v0.14.2** — TEE-Backed Verification & Confidential Compute Phase 2 (ZK+TEE dual verification, confidential transactions, healthcare/finance reference enclaves): <ref_file file="/opt/aitbc/docs/releases/v0.14.2/change.log" /> 🚧 planned
-
-### Product Track v0.15 (2026 roadmap)
-- **v0.15.1** — Compliance-Ready Modules Phase 1 (policy framework, data classification, encryption, immutable audit logging, HIPAA): <ref_file file="/opt/aitbc/docs/releases/v0.15.1/change.log" /> 🚧 planned
-- **v0.15.2** — Compliance-Ready Modules Phase 2 (compliance containers/sub-networks, financial regulatory module, middleware, CLI): <ref_file file="/opt/aitbc/docs/releases/v0.15.2/change.log" /> 🚧 planned
-
-### Product Track v0.16 (2026 roadmap)
-- **v0.16.1** — Platform Builder Tooling Phase 1 (CLI config tool, developer registry, DAO grants, local dev helpers, introductory builder docs): <ref_file file="/opt/aitbc/docs/releases/v0.16.1/change.log" /> 🚧 planned
-- **v0.16.2** — Platform Builder Tooling Phase 2 (SDK, SDK reference docs, white-label/plugin architecture): <ref_file file="/opt/aitbc/docs/releases/v0.16.2/change.log" /> 🚧 planned
-
-### Product Track v0.17 (2026 roadmap)
-- **v0.17.0** — Accessibility & Theme Engine (light/dark/high-contrast/system modes, reduced motion, WCAG focus, user preference persistence): <ref_file file="/opt/aitbc/docs/releases/v0.17.0/change.log" /> 🚧 planned
-
-### Post-v1 Vision (not fit until after v1.0.0)
-- **v2.0.0** — Vision/Questionable Features — Parked for Re-Evaluation: <ref_file file="/opt/aitbc/docs/releases/v2.0.0/change.log" /> 🅿️ parked
-
-### Release Sequence (monotonic)
-
-```
-v0.5.16  (security hardening + multi-chain preparation) ✅ complete
-  → v0.5.17  (test infrastructure) ✅ complete
-  → v0.5.18  (test suite repair — blockchain-node suite green + gated) ✅ complete
-  → v0.5.19  (tech debt cleanup — cross-context imports, dead pricing models, fakeredis)
-  → v0.6.0 → v0.6.1 → v0.6.2 → v0.6.3 → v0.6.4  (infra: db/network opt ✅, parallel processing ✅, sync, multi-island, multi-chain)
-  → v0.6.5 → v0.6.6 → v0.6.7                      (product: agents ✅, marketplace, pool hub)
-  → v0.7.0 → v0.7.1 → v0.7.2 → v0.7.3 → v0.7.4 → v0.7.5  (infra+product: bridge basics, bridge security, bridge verification, governance, deferred v0.7.x items, consensus activation)
-  → v0.8.0 → v0.8.1 → v0.8.2 → v0.9.0               (infra: trading basics, offer sync polling, offer sync subscription, atomic settlement)
-  → v0.10.0                                         (patch: runtime bug fixes — consensus state root, SharedHttpClient, DB migration, service modernization) ✅
-  → v0.10.1                                         (gap fill: 20 tasks fixing v0.6.0–v0.8.2 unwired/deployed/broken features) ✅
-  → v0.10.2                                         (mock elimination: 17 categories of mock/placeholder replaced with real queries or honest errors) ✅
-  → v0.10.3                                         (bug fix & hardening: 28 issues fixed + 1 skipped — exchange financial safety, resource leaks, config mismatches, concurrency, security) ✅
-  → v0.10.4                                         (performance, correctness & cleanup: Decimal migration, N+1 elimination, indexes, race conditions, dead code deletion, infrastructure consolidation) ✅
-  → v0.10.5                                         (JWT/auth consolidation: shared aitbc/auth/ module, re-export shims) ✅
-  → v0.10.6                                         (dead code elimination, Decimal migration completion, duplicate consolidation) ✅
-  → v0.10.7                                         (dead code elimination: coordinator-api + agent-management, duplicate consolidation: blockchain RPC, CLI error handling, DB init, config, security, health, CORS) ✅
-  → v0.10.8                                         (config consolidation: package shadowing fix, health endpoint helper, dead retry helper cleanup) ✅
-  → v0.10.9                                         (dead code elimination & status drift cleanup: ~2,500 lines dead test-only aitbc/ modules, stale port cleanup, auth shim migration) ✅
-  → v0.10.10                                        (code quality & testing roadmap: mypy coverage expansion to 851 files, coverage gate, property-based tests, perf regression, dep pinning, dev script, integration fixtures) ✅
-  → v0.10.11                                        (bug fixes & code quality continuation: stub completion, Pydantic v2, SQLAlchemy standardization, concurrency safety) ✅
-  → v0.10.12                                        (quality hardening: mypy completeness, test suite repair, production assert removal, dependency/version cleanup) ✅
-  → v0.10.13                                        (security & correctness hardening: credential hygiene, auth boundaries, signature verification, fake payments, file permissions, migration integrity, test coverage) ✅
-  → v0.10.14                                        (legacy code & stub elimination: shadow packages, legacy routers, fake implementations, duplicate stacks) ✅
-  → v0.10.15                                        (router/module decomposition and settlement config wiring) ✅ complete
-  → v0.10.16                                        (security & correctness hardening: bridge, wallet auth, financial exactness, migrations, CI/deployment) ✅ complete
-  → v0.10.17                                        (security & auth hardening bugfix: auth bypass, hardcoded defaults, feature flags, pool-hub reward signing) ✅ complete
-  → v0.10.18                                        (update deployment stabilization: market_metrics migration, wallet keystore restore, update.sh/health_check.sh fixes, poetry switch) ✅ complete
-  → v0.11.0                                         (Phase 4 & 2026 roadmap foundations: memory, economics, grants, compliance) 🚧 in progress
-  → v0.12.0                                         (OpenClaw Autonomous Economics) 🚧 planned
-  → v0.13.0                                         (Mature Autonomous Economic Infrastructure) 🚧 planned
-  → v0.14.1                                         (TEE-Backed Verification & Confidential Compute Phase 1) 🚧 planned
-  → v0.14.2                                         (TEE-Backed Verification & Confidential Compute Phase 2) 🚧 planned
-  → v0.15.1                                         (Compliance-Ready Modules Phase 1) 🚧 planned
-  → v0.15.2                                         (Compliance-Ready Modules Phase 2) 🚧 planned
-  → v0.16.1                                         (Platform Builder Tooling Phase 1) 🚧 planned
-  → v0.16.2                                         (Platform Builder Tooling Phase 2) 🚧 planned
-  → v0.17.0                                         (Accessibility & Theme Engine) 🚧 planned
-  → v1.0.0                                          (production readiness)
-  → v2.0.0                                          (vision — questionable features, parked for re-evaluation)
+# Coordination
+@tdm Coordinate implementation of AITBC-123 user profile feature
+@rte Create PR for AITBC-123 and run CI validation
 ```
 
-### Scope Correction Notes
+### Task Tool Invocation (Complex Tasks)
 
-- **v0.6.0 vs v0.6.1 split**: v0.6.0 was originally bundled with parallel block/tx processing targets (block import >500/sec, tx validation <10ms). These require fundamental architectural changes (dependency analysis, deterministic scheduling, conflict resolution) that caching/DB optimization cannot achieve. The sequential tx loop in `poa.py` (lines 239-327) and full state root recomputation in `merkle_patricia_trie.py` (lines 402-419) are the bottlenecks. v0.6.0 is now scoped to DB/network/caching only; block/tx processing targets moved to v0.6.1 (Parallel Processing). v0.7.0 (Bridge Basics) requires both v0.6.0 AND v0.6.1.
+Use `Task()` for complex, multi-step tasks with detailed instructions:
 
-- **v0.7.2 rescope**: The original v0.7.2 plan assumed external oracle infrastructure (`oracle1.aitbc.bubuit.net`, `oracle2.aitbc.bubuit.net`) that does not exist. No oracle client code, light client library, or deployed oracle network are present. v0.7.2 is now rescoped to use **in-process cryptographic verification** with existing Merkle Patricia Trie infrastructure (`merkle_patricia_trie.verify_proof`). External oracle integration is deferred to a future release (v0.8.x or v0.9.x). The trivially forgeable `_validate_proof` in `cross_chain/bridge.py` (lines 244-257) is replaced with Merkle proof + block header signature + finality verification.
+```typescript
+// BSA: Create comprehensive spec
+Task({
+  subagent_type: "bsa",
+  description: "Create spec for AITBC-123",
+  prompt: `Create comprehensive spec for AITBC-123 user profile feature.
 
-- **CLI command gaps**: Release plans referenced CLI commands that don't exist yet. Each affected release's change.log now includes a "🖥️ CLI Commands" section listing the exact commands to implement:
-  - v0.6.2: `sync status`
-  - v0.6.3: `chain sync-status`, `node island health`, `node island list` (alias)
-  - v0.6.4: `chain start`, `chain stop`, `chain list --island`
-  - v0.7.1: `bridge security-status`, `bridge register-validator`
-  - v0.7.2: `bridge oracle-status`
-  - v0.7.4: `governance propagate`, `governance aggregate-votes`, `bridge oracle-status` (real impl), `consensus validators`, `consensus status`
-  - v0.8.0: entire `trade` command group (create, list, chains, get, status)
-  - v0.8.1: `trade discover`, `trade sync`, `trade sync-status`
-  - v0.8.2: `trade watch`, `trade subscription-status`
-  - v0.9.0: `trade lock-escrow`, `trade settle`
+Requirements:
+- User can view and edit their profile
+- Profile includes: name, email, bio, avatar
+- Email verification required
+- Admin can view all profiles
 
-### Suggestions.md Investigation Results
+Please:
+1. Search for existing user/profile patterns in patterns_library/
+2. Create user story with acceptance criteria
+3. Define testing strategy (unit, integration, E2E)
+4. Add #EXPORT_CRITICAL tags for security requirements
+5. Reference relevant patterns from pattern library`,
+});
 
-All 19 `suggestions.md` files across release folders were read, investigated, and incorporated into change.logs. Key findings:
+// Backend Developer: Implement with pattern discovery
+Task({
+  subagent_type: "be-developer",
+  description: "Implement AITBC-123 API",
+  prompt: `Read spec at specs/AITBC-123-user-profile-spec.md
 
-- **v0.5.16**: ~~All 7 original confirmed bugs STILL PRESENT in codebase.~~ **RE-VERIFIED 2026-06-29: ALL 7 FIXED** across v0.5.16–v0.6.7. 5 fully fixed (TransactionRequest chain_id, sync.py chain_id, agent_stream chain_id, marketplace hardcoded DB path, marketplace raw SQL). 1 partially fixed + fenced (bridge `_validate_proof` — proposer-set membership + Merkle proof deferred to v0.7.2, release fenced behind `BRIDGE_RELEASE_ENABLED=false`). 1 was NOT A BUG (agent_stream port 8202 is correct; the original suggestion had the port direction backwards — 8006 is the stale port, 8202 is correct per blockchain-node config.py:89). **UPDATE 2026-06-18: Bridge `_validate_proof` security audit completed — Bug #3 (proposer signature validator-set membership) and Bug #4 (Merkle proof enforcement) fixed with regression tests. See [AUDIT.md](docs/releases/AUDIT.md).**
-- **v0.6.3**: All 4 claims confirmed — SubscriptionClient single-hub/chain (`subscription_client.py:23-26`), island manager tasks disabled (`main.py:283-288`), CHAIN_SYNC_SOURCES not implemented, gossip topic not chain-specific (`main.py:146` vs `174`).
-- **v0.6.4**: Dead code confirmed — MultiChainManager (`multi_chain_manager.py:56`), MultiValidatorPoA (`multi_validator_poa.py:33`), PBFT (`pbft.py:48`). join_island has 8 call sites inventoried.
-- **v0.6.6**: GPU service submits transactions without chain_id (`gpu_service/main.py:272-291`). Marketplace direct SQLite already in v0.5.16.
-- **v0.6.7**: Pool-hub app does not exist yet. No reward policy constants anywhere in codebase.
-- **v0.7.0**: `aitbc-bridge-service` does not exist — migration guide corrected to `aitbc-blockchain-node`. Bridge code is in blockchain-node.
-- **v0.7.1**: No `threat_model.md` exists. Security audit not sequenced — must freeze API first, then audit.
-- **v0.7.2**: Rescoped from external oracle to in-process verification (oracle endpoints don't exist).
-- **v0.8.0**: InterChainTrade schema not defined (no SQLModel). Dispute resolution not scoped.
-- **v0.8.1**: IslandManager is membership registry only (264 lines, 14 methods, no offer sync).
-- **v0.9.0**: **DECISION: HTLC** (not two-phase commit). HTLC has partial implementation, two-phase commit has none. Requires dual security audits.
-- **v2.0.0**: Futures/options/margin confirmed copy-pasted from DEX template. **DROP** decision. (Was v0.10.0 — moved to v2.0.0 as a vision release not fit until after v1.0.0.)
-- **v1.0.0**: Rewritten from stale v0.4.26-era plan to match current architecture.
+Implement the user profile API endpoints:
+1. GET /api/user/profile - Get current user's profile
+2. PUT /api/user/profile - Update current user's profile
+3. GET /api/admin/users/:id/profile - Admin view any profile
 
-Each release's `change.log` now includes a "Verified Code Targets (from suggestions.md investigation)" subsection with specific file paths and line numbers. Each `suggestions.md` has been updated with verification status.
+Requirements:
+- Use withUserContext for user endpoints
+- Use withAdminContext for admin endpoints
+- Follow RLS patterns from patterns_library/database/
+- Validate input with Zod schemas
+- Write unit tests for each endpoint
+
+Pattern discovery is MANDATORY before implementation.`,
+});
+
+// QAS: Execute comprehensive testing
+Task({
+  subagent_type: "qas",
+  description: "Test AITBC-123 feature",
+  prompt: `Read spec at specs/AITBC-123-user-profile-spec.md
+
+Execute the testing strategy defined by BSA:
+
+1. Unit Tests:
+   - Test Zod validation schemas
+   - Test RLS context helpers
+   - Test error handling
+
+2. Integration Tests:
+   - Test GET /api/user/profile with user context
+   - Test PUT /api/user/profile with valid/invalid data
+   - Test admin endpoints with admin context
+   - Test RLS isolation (user A cannot see user B's data)
+
+3. E2E Tests:
+   - User can view their profile
+   - User can edit their profile
+   - Admin can view any profile
+   - Unauthorized access is blocked
+
+Validate all acceptance criteria from the spec.`,
+});
+
+// TDM: Reactive blocker resolution (NOT orchestration)
+Task({
+  subagent_type: "tdm",
+  description: "Resolve blocker for AITBC-123",
+  prompt: `A blocker has been reported for AITBC-123.
+
+TDM Responsibilities (per v1.3 SOP):
+1. Monitor progress - read session archaeology, Linear, PR comments
+2. Identify blocker details - search for "FAILED|error|blocked"
+3. Escalate to appropriate specialist to resolve
+4. Track evidence - attach session IDs, test results to Linear
+5. Update Linear ticket with resolution
+
+NOTE: TDM is REACTIVE, not an orchestrator.
+ARCHitect-in-CLI is the primary orchestrator.`,
+});
+```
+
+### When to Use Which Invocation Method
+
+| Scenario                  | Method         | Example                                             |
+| ------------------------- | -------------- | --------------------------------------------------- |
+| **Simple question**       | Direct mention | `@bsa What patterns exist for user authentication?` |
+| **Single-step task**      | Direct mention | `@be-developer Add logging to the login endpoint`   |
+| **Multi-step task**       | Task tool      | BSA creating spec with pattern discovery            |
+| **Complex coordination**  | Task tool      | Multiple agents working on related features         |
+| **Detailed requirements** | Task tool      | QAS executing comprehensive test strategy           |
+| **Blocker resolution**    | Task tool      | TDM investigating and escalating blockers           |
+
+### Pro Tips
+
+1. **Always reference specs**: `Read spec at specs/AITBC-XXX-spec.md`
+2. **Mandate pattern discovery**: `Pattern discovery is MANDATORY before implementation`
+3. **Check #EXPORT_CRITICAL tags**: `Review #EXPORT_CRITICAL tags in spec first`
+4. **Validate with commands**: Use success validation commands from agent prompts
+5. **Update Linear**: TDM can update Linear with `mcp__linear-mcp__create_comment`
+6. **TDM is reactive**: Don't use TDM for orchestration—use ARCHitect-in-CLI
+
+---
+
+**Quick Start**: invoke the `safe-workflow` skill for branch/commit/PR conventions (`CONTRIBUTING.md` is the reference, not a mandatory read), search codebase, propose to System Architect, validate with test command, attach evidence to Linear.

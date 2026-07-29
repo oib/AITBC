@@ -1,0 +1,63 @@
+# =============================================================================
+# bootstrap.values.template — non-interactive input for scripts/setup-template.sh
+# =============================================================================
+# Copy this file, fill in your values, and run:
+#
+#   bash scripts/setup-template.sh --values bootstrap.values --yes
+#
+# Rules:
+#   - One KEY=VALUE per line. Keys match the wizard's prompt variables exactly.
+#   - Lines starting with '#' and blank lines are ignored.
+#   - Values may be wrapped in single or double quotes; one surrounding pair is
+#     stripped. Quote values containing '#' or leading/trailing spaces.
+#   - Any key you omit falls back to: environment variable of the same name,
+#     then the wizard's built-in default, then (if a TTY) an interactive prompt.
+#   - Required keys (must be present in non-interactive mode): PROJECT_NAME,
+#     PROJECT_REPO, PROJECT_SHORT, GITHUB_ORG, TICKET_PREFIX.
+#     (MAIN_BRANCH is required by the wizard but defaults to "main".)
+# =============================================================================
+
+# --- Project identity (PROJECT_DOMAIN optional) ---
+PROJECT_NAME=my-saas-app
+PROJECT_REPO=my-saas-app
+PROJECT_SHORT=ACME
+PROJECT_DOMAIN=acme.com
+
+# --- Organization ---
+GITHUB_ORG=acme-corp
+COMPANY_NAME=Acme Corp
+
+# --- Author (all optional; drive LICENSE/CITATION/SECURITY metadata) ---
+AUTHOR_NAME=Jane Smith
+AUTHOR_FIRST_NAME=Jane
+AUTHOR_LAST_NAME=Smith
+AUTHOR_HANDLE=janesmith
+AUTHOR_EMAIL=jane@acme.com
+AUTHOR_WEBSITE=https://janesmith.dev
+SECURITY_EMAIL=security@acme.com
+
+# --- Workflow ---
+ARCHITECT_GITHUB_HANDLE=lead-dev
+TICKET_PREFIX=ACM
+LINEAR_WORKSPACE=acme
+MAIN_BRANCH=main
+
+# --- MCP server names (defaults shown) ---
+MCP_LINEAR_SERVER=linear-mcp
+MCP_CONFLUENCE_SERVER=confluence-mcp
+# Jira MCP server name (used by the jira-stack profile / duplicate-detection skill).
+MCP_JIRA_SERVER=jira-mcp
+
+# --- Infrastructure (optional) ---
+DB_USER=app_user
+# DB_PASSWORD is a SECRET: it is written to .env only, never to tracked files.
+DB_PASSWORD=change-me
+DB_NAME=app_dev
+DB_CONTAINER=app-postgres
+DEV_CONTAINER=app-dev
+STAGING_CONTAINER=app-staging
+CONTAINER_REGISTRY=ghcr.io/acme-corp
+
+# --- Profile (optional; defaults to "neutral") ---
+# Selectable with --profile too. Must match a directory under profiles/.
+# PROFILE=neutral
