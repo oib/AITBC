@@ -63,7 +63,7 @@ class Settings(ServiceSettings):
     debug: bool = False
 
     # Server settings (standardized: AGENT_COORDINATOR_BIND_HOST/PORT, fallback to HOST/PORT for backward compatibility)
-    host: str = os.getenv("AGENT_COORDINATOR_BIND_HOST", os.getenv("HOST", "0.0.0.0"))
+    host: str = os.getenv("AGENT_COORDINATOR_BIND_HOST", os.getenv("HOST", "0.0.0.0"))  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
     port: int = int(os.getenv("AGENT_COORDINATOR_BIND_PORT", os.getenv("PORT", "8107")))
     workers: int = int(os.getenv("WORKERS", "1"))
 

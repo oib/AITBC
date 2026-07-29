@@ -65,7 +65,7 @@ def submit_tee_task(
         headers["Authorization"] = f"Bearer {api_key}"
     request = urllib.request.Request(url, data=data, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:  # nosec B310 - coordinator_url is a caller-supplied param with a trusted localhost default, not runtime user input
             response.read()
     except urllib.error.URLError as exc:
         task.add_log(f"coordinator submission failed: {exc}")

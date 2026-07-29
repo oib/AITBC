@@ -36,13 +36,16 @@ async def api_activity_timeline(
         cursor = conn.cursor()
 
         # Get daily transaction counts for the last N days
-        cursor.execute(f"""
+        cursor.execute(
+            """
             SELECT DATE(created_at) as day, type, COUNT(*) as count
             FROM "transaction"
-            WHERE created_at >= datetime('now', '-{days} days')
+            WHERE created_at >= datetime('now', ?)
             GROUP BY DATE(created_at), type
             ORDER BY day
-        """)
+            """,
+            (f"-{int(days)} days",),
+        )
 
         # Organize by day and type
         data: dict[str, dict[str, int]] = {}

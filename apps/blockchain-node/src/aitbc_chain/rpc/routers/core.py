@@ -135,7 +135,7 @@ async def get_network_info_route(request: Request) -> dict[str, Any]:
     from pathlib import Path
 
     env_file = Path("/etc/aitbc/blockchain.env")
-    p2p_host = os.getenv("p2p_bind_host", "0.0.0.0")
+    p2p_host = os.getenv("p2p_bind_host", "0.0.0.0")  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
     p2p_port = os.getenv("p2p_bind_port", "8200")
     p2p_node_id = os.getenv("p2p_node_id", "unknown")
     if env_file.exists():
@@ -149,7 +149,7 @@ async def get_network_info_route(request: Request) -> dict[str, Any]:
                 elif line.startswith("p2p_node_id="):
                     p2p_node_id = line.split("=", 1)[1]
     hostname = os.getenv("AITBC_HOSTNAME", socket.gethostname())
-    p2p_endpoint = f"{hostname}:{p2p_port}" if p2p_host == "0.0.0.0" else f"{p2p_host}:{p2p_port}"
+    p2p_endpoint = f"{hostname}:{p2p_port}" if p2p_host == "0.0.0.0" else f"{p2p_host}:{p2p_port}"  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
     chain_id = getattr(settings, "chain_id", "ait-hub.aitbc.bubuit.net")
     supported_chains = getattr(settings, "supported_chains", "ait-mainnet").split(",")
     protocol = os.getenv("AITBC_PROTOCOL", "http")

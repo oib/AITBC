@@ -53,4 +53,4 @@ async def health() -> dict[str, str]:
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8100)
+    uvicorn.run(app, host="0.0.0.0", port=8100)  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer

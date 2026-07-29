@@ -26,7 +26,7 @@ class Settings(ServiceSettings):
 
     # Service bind (kept for backward compat with GOVERNANCE_BIND_HOST/PORT env vars;
     # ServiceSettings also provides app_host/app_port)
-    bind_host: str = Field(default="0.0.0.0")
+    bind_host: str = Field(default="0.0.0.0")  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
     bind_port: int = Field(default=8105)
 
     # Blockchain integration (v0.7.3) — port 8202 is the canonical blockchain RPC port

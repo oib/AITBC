@@ -85,7 +85,7 @@ class HierarchicalConfig:
             "environment": "development",
             "debug": False,
             "log_level": "INFO",
-            "host": "0.0.0.0",
+            "host": "0.0.0.0",  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
             "port": 8000,
             "workers": 1,
             "database_pool_size": 10,
@@ -206,7 +206,7 @@ if HAS_PYDANTIC_SETTINGS:
         log_format: str = Field(
             default="%(asctime)s - %(name)s - %(levelname)s - %(message)s", description="Log format string"
         )
-        host: str = Field(default="0.0.0.0", description="Server host address")
+        host: str = Field(default="0.0.0.0", description="Server host address")  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
         port: int = Field(default=8000, description="Server port")
         workers: int = Field(default=1, description="Number of worker processes")
         database_url: str | None = Field(default=None, description="Database connection URL")
@@ -387,7 +387,7 @@ def create_config_template(environment: str = "development") -> dict[str, Any]:
             "environment": "development",
             "debug": True,
             "log_level": "DEBUG",
-            "host": "0.0.0.0",
+            "host": "0.0.0.0",  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
             "port": 8000,
             "workers": 1,
         },
@@ -395,7 +395,7 @@ def create_config_template(environment: str = "development") -> dict[str, Any]:
             "environment": "staging",
             "debug": False,
             "log_level": "INFO",
-            "host": "0.0.0.0",
+            "host": "0.0.0.0",  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
             "port": 8000,
             "workers": 2,
         },
@@ -403,7 +403,7 @@ def create_config_template(environment: str = "development") -> dict[str, Any]:
             "environment": "production",
             "debug": False,
             "log_level": "WARNING",
-            "host": "0.0.0.0",
+            "host": "0.0.0.0",  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
             "port": 8000,
             "workers": 4,
         },
