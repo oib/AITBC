@@ -165,7 +165,7 @@ def update_deposit(
     params.append(eth_tx_hash)
 
     if updates:
-        query = f"UPDATE bridge_deposits SET {', '.join(updates)} WHERE eth_tx_hash = ?"
+        query = f"UPDATE bridge_deposits SET {', '.join(updates)} WHERE eth_tx_hash = ?"  # nosec B608 - every `updates` entry is a hardcoded "column = ?" literal above; values are bound via params
         cursor.execute(query, params)
         conn.commit()
         conn.close()

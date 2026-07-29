@@ -265,4 +265,4 @@ async def proxy_request(path: str, request: Request, authenticated: Annotated[bo
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8201)
+    uvicorn.run(app, host="0.0.0.0", port=8201)  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
