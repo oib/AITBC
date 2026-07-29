@@ -1,111 +1,681 @@
-# Contributing to AITBC
+# Contributing
 
-Thanks for considering a contribution. This guide covers how to set up a development environment, run the verification suite, and follow the project's conventions.
+Welcome to Claude Code Harness for Multi-Agent Team Workflows! This guide covers everything you need to know to contribute effectively, whether you're a human developer, Claude Code, or an AI remote agent.
 
-## Development setup
+## 🎯 Quick Start
 
-The project is tested on Python 3.13 and uses Poetry for dependency management.
+**For Human Developers**: Follow the complete setup process below
+**For AI Agents**: Focus on [AI Agent Guidelines](#ai-agent-guidelines) and [Workflow Process](#workflow-process)
+
+## 📋 Table of Contents
+
+- [Prerequisites & Setup](#prerequisites--setup)
+- [AI Agent Guidelines](#ai-agent-guidelines)
+- [Work Product vs. Governor](#work-product-vs-governor)
+- [Branch Naming Conventions](#branch-naming-conventions)
+- [Commit Message Guidelines](#commit-message-guidelines)
+- [Workflow Process](#workflow-process)
+- [Pull Request Process](#pull-request-process)
+- [CI/CD Pipeline](#cicd-pipeline)
+- [Local Development](#local-development)
+- [Troubleshooting](#troubleshooting)
+
+## Prerequisites & Setup
+
+### For Human Developers
+
+1. **Install Dependencies**:
+
+   ```bash
+   python3.13 --version    # Python 3.13
+   poetry --version        # Poetry (dependency management)
+   ```
+
+2. **Clone and Setup**:
+
+   ```bash
+   git clone https://github.com/oib/AITBC.git
+   cd AITBC
+   poetry install
+   # or: python3 -m venv venv && ./venv/bin/pip install -r requirements-dev.txt
+   ```
+
+3. **Environment Setup**:
+
+   ```bash
+   cp .env.template .env
+   # Fill in your environment variables
+   ```
+
+4. **Per-app setup** (each microservice under `apps/*` has its own `pyproject.toml`):
+
+   ```bash
+   cd apps/coordinator-api && poetry install
+   ```
+
+### For AI Agents
+
+AI agents (Claude Code, Augment agents) should:
+
+1. **Read this entire document** before starting work
+2. **Follow all workflow processes** exactly as human developers
+3. **Use the PR template** at `.github/pull_request_template.md`
+4. **Run local validation** (`ruff check .`, `mypy aitbc/`, relevant `pytest` suites — see [CLAUDE.md](CLAUDE.md#development-commands)) before pushing
+5. **Reference tracker tickets** in all commits and PRs (no Linear/Jira wired up for this project — GitHub issue/PR numbers serve as the reference, per [`profiles/neutral/`](profiles/neutral/profile.yaml))
+
+## AI Agent Guidelines
+
+### Required Behavior for AI Agents
+
+**✅ MUST DO**:
+
+- Follow the exact branch naming convention: `AITBC-{number}-{description}`
+- Use SAFe commit message format with a ticket reference
+- Run `ruff check .`, `mypy aitbc/`, and the relevant `pytest` suites before pushing any code
+- Use the comprehensive PR template completely
+- Follow rebase-first workflow (never create merge commits)
+- Reference the ticket/issue in all commits and PR title
+
+**❌ NEVER DO**:
+
+- Skip the CI/CD validation steps
+- Create branches without a ticket number
+- Use merge commits (always rebase)
+- Push without running local validation
+- Ignore failing CI checks
+
+### Skills 2.0 and Agent Teams (v2.5.0)
+
+Skills now support fine-grained invocation control via YAML frontmatter fields: `disable-model-invocation`, `user-invocable`, `context: fork`, `allowed-tools`, and `argument-hint`. See the [Skill Authoring Guide](docs/guides/SKILL_AUTHORING_GUIDE.md) for details.
+
+Agent Teams is an experimental feature for real-time multi-agent orchestration. See the [Agent Teams Guide](docs/onboarding/AGENT-TEAMS-GUIDE.md).
+
+### AI Agent Workflow Example
 
 ```bash
-# Clone
-git clone https://github.com/oib/aitbc.git /opt/aitbc
-cd /opt/aitbc
+# 1. Start work (always from latest main)
+git checkout main && git pull origin main
+git checkout -b AITBC-123-implement-feature
 
-# Install dependencies
-pip install poetry
-poetry install
+# 2. Make changes and commit with SAFe format
+git commit -m "feat(scope): implement feature [AITBC-123]"
 
-# Or use the existing venv if one is already provisioned
-source ./venv/bin/activate
-```
-
-## Verification commands
-
-Run these before committing:
-
-```bash
-# Lint (whole repo)
+# 3. Before pushing - ALWAYS validate locally
 ./venv/bin/python -m ruff check .
-
-# Type check shared core
 ./venv/bin/python -m mypy --show-error-codes aitbc/
+./venv/bin/python -m pytest tests/unit tests/integration -q
 
-# Unit tests
-./venv/bin/python -m pytest tests/unit -q
+# 4. Rebase and push
+git fetch origin && git rebase origin/main
+git push --force-with-lease origin AITBC-123-implement-feature
 
-# Integration tests
-./venv/bin/python -m pytest tests/integration -q
-
-# coordinator-api tests
-cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
-
-# blockchain-node tests
-cd apps/blockchain-node && PYTHONPATH=src ../../venv/bin/python -m pytest tests -q -o addopts=""
+# 5. Create PR using template at .github/pull_request_template.md
 ```
 
-> If you see missing-plugin warnings, add `-o addopts=""` to skip the `pytest-rerunfailures`/`pytest-asyncio` extras.
+## Work Product vs. Governor
 
-## Project layout
+When you are working **on this repository itself** (developing the boilerplate, not a project
+built from it), keep two things mentally separate:
 
-- `aitbc/` — shared core library (logging, crypto, network, auth, rate limiting, queues, etc.)
-- `apps/` — microservices: `coordinator-api`, `blockchain-node`, `exchange`, `marketplace`, `wallet`, `miner`, `edge`, `gpu`, `governance`, ...
-- `cli/` — `aitbc_cli` command-line tool
-- `packages/py/` — publishable Python packages
-- `tests/` — `unit/`, `integration/`, `e2e/`, `coordinator/`
-- `scripts/` — ops, deployment, monitoring, migration, security
-- `docs/` — user-facing docs, reference, scenarios, and the release index
-- `docs/releases/<version>/` — per-release changelogs and agent task assignments
+- **Work product — `harness/claude/`.** The shipped Claude Code harness (agent defs, skills,
+  commands, hooks, `hooks-config.json`, `settings.template.json`, the harness's own README/SETUP/
+  TROUBLESHOOTING docs) lives here as its **editable source**. It is inert — a ticket can edit it
+  freely, the same as any other file under version control.
+- **Governor — the live `.claude/` + a pinned stable checkout.** The repo's own `.claude/` is what
+  Claude Code actually reads to run *this* session, and (under self-hosting) a separate pinned
+  **stable** release checkout supplies the agent definitions and scripts that govern work on this
+  repo's `dev` branch. Editing `.claude/` directly edits the thing steering your current session —
+  don't. **Edit `harness/claude/` only.** The live `.claude/` is now **generated** — it is
+  materialized from the release tag recorded in `.governor-tag` (ABS-94, Phase 2b) via
+  `scripts/generate-governor.sh`, so it equals `generated(pin)`, NOT a mirror of your edits.
+  Mirroring is dead: do not hand-copy changes into `.claude/`. CI rejects direct edits to the
+  shipped items under `.claude/` (the drift guard `tests/test-harness-parity.sh` asserts
+  `generate-governor.sh --check` passes). Your `harness/claude/` edits reach the live `.claude/`
+  and consumers only at **promotion**, when the release commit bumps `.governor-tag` and
+  regenerates (ABS-95 wires that step).
 
-## Code conventions
+This is the same mental model for humans and agents alike: **`harness/claude/` is what you ship;
+`.claude/` (plus the stable checkout, when self-hosting) is what governs you while you ship it.**
 
-- **Python 3.13**, line length 127, `target-version = "py313"` in `pyproject.toml`.
-- **Imports**: use absolute imports inside `aitbc/`, relative imports are fine inside a single app package.
-- **ORM**: SQLModel for coordinator-api domain models; add `index=True` on columns used in `WHERE`/`ORDER BY`; composite indexes go in `__table_args__`.
-- **Config**: use `pydantic_settings.BaseSettings`. New services should subclass `ServiceSettings`/`DatabaseConfig` from the shared core rather than redefining them.
-- **Logging**: use `aitbc.aitbc_logging` (`configure_logging`, `get_logger`) everywhere. Do not set up logging from scratch.
-- **Constants**: `aitbc/constants.py` resolves `REPO_DIR` from `AITBC_REPO_DIR` (defaults to `/opt/aitbc`).
-- **DB init**: services call `SQLModel.metadata.create_all` (or `Base.metadata.create_all`). For existing databases, add an Alembic migration under the relevant app with `if_not_exists=True`.
-- **Auth**: use `aitbc.auth` for JWT/API-key auth, RBAC, and middleware. Do not introduce new hardcoded API keys.
-- **Tests**: one small runnable check for non-trivial logic; full tests for user-facing paths. Target 85% coverage for new code.
+See [ABS-91 self-hosting model](docs/agent-outputs/ABS-96-layout-decision.md) for the full
+namespace rationale, and the [Orchestrator SOP's "Stable-Governs-Dev Mode" section](docs/sop/ORCHESTRATOR_SOP.md#stable-governs-dev-mode-abs-92)
+for the two-checkout operating mode.
 
-## Commit style
+## Branch Naming Conventions
 
-Use [Conventional Commits](https://www.conventionalcommits.org/):
+**REQUIRED FORMAT**: `AITBC-{number}-{short-description}`
+
+### ✅ Correct Examples
+
+- `AITBC-42-add-user-authentication`
+- `AITBC-57-fix-profile-image-upload`
+- `AITBC-123-implement-stripe-checkout`
+
+### ❌ Incorrect Examples
+
+- `feature/add-dark-mode` (missing ticket number)
+- `fix/broken-login-form` (missing ticket number)
+- `john-new-feature` (personal naming)
+- `WIP` (not descriptive)
+
+### Branch Naming Rules
+
+1. **MUST** start with `AITBC-{number}` (Linear ticket reference)
+2. Use lowercase letters and hyphens for description
+3. Keep description short but descriptive (max 50 chars total)
+4. Never include personal names or dates
+5. Make sure the name reflects the actual work being done
+
+**Note**: Branch naming is enforced by reviewer convention. The shipped CI workflows do not validate branch names — add a branch-name check to your pipeline if you want automatic enforcement.
+
+## Commit Message Guidelines
+
+**REQUIRED FORMAT**: SAFe methodology with Linear ticket reference
 
 ```
-type(scope): short subject
-
-Body explaining why, not just what.
-
-Generated with [Devin](https://devin.ai)
-Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+type(scope): description [AITBC-XXX]
 ```
 
-Examples:
+### Types (Required)
 
-- `feat(auth): add X-Api-Key support to AuthMiddleware`
-- `fix(blockchain): handle missing keystore password gracefully`
-- `docs(readme): update hero section and status matrix`
+- `feat` - New feature
+- `fix` - Bug fix
+- `docs` - Documentation changes
+- `style` - Code formatting (no logic changes)
+- `refactor` - Code restructuring (no feature/bug changes)
+- `test` - Adding or updating tests
+- `chore` - Maintenance tasks, dependencies
+- `ci` - CI/CD pipeline changes
 
-## Release planning
+### Scope (Optional)
 
-This repo uses an internal agent-release model documented in `AGENTS.md`:
+- `payments` - Payment-related changes
+- `auth` - Authentication features
+- `ui` - User interface components
+- `api` - API routes and backend
+- `db` - Database changes
 
-- **Agent A** owns `aitbc/` shared core (type safety, auth, rate limiting, etc.).
-- **Agent B** owns `apps/`, `cli/`, `aitbc/constants.py`, `aitbc/log_utils/`, and systemd config.
-- Shared files (`aitbc/database/replica.py`, `aitbc/network/circuit_breaker.py`, `aitbc/agent_bridge/`, blockchain-node `sync.py`/`router.py`) require coordination.
+### Examples
 
-The current in-flight plan is in `docs/releases/v0.10.16/AGENTS.md`. If your change touches a file outside the current agent's boundary, declare intent in the release's `AGENTS.md` and follow the coordination protocol.
+✅ **Correct**:
 
-## Pull request process
+```
+feat(payments): add Stripe checkout integration [AITBC-42]
+fix(auth): resolve login redirect issue [AITBC-57]
+docs: update API documentation [AITBC-123]
+```
 
-1. Open a PR against `main`.
-2. Ensure `ruff check .` and the relevant test commands pass.
-3. Include a concise description and test plan.
-4. Reference the release plan if this is part of an in-flight release.
+❌ **Incorrect**:
 
-## Questions?
+```
+add new feature (missing ticket reference)
+feat: add checkout (missing ticket reference)
+WIP: working on stuff (not descriptive)
+```
 
-- Read the [Master Index](docs/MASTER_INDEX.md) for documentation navigation.
-- See [docs/releases/STATUS.md](docs/releases/STATUS.md) for what's currently in progress.
-- For support, visit https://devin.ai/support.
+**Note**: The CI/CD pipeline will **automatically reject** commits that don't follow this format.
+
+### Exempt commits (operator/release, no ticket)
+
+The ticket tag is **enforced mechanically** on story branches: the PILOT-79 commit-msg
+guard (`scripts/hooks/commit-msg-ticket-tag-guard.sh`, installed by the orchestrator into
+`<git-common-dir>/hooks/commit-msg`) aborts a **seat** commit on a `<ticket>-auto` story
+branch whose message is missing its `[AITBC-XXX]` tag. This is the tag the RTE
+Epic-Integration bisect maps a culprit commit to its story with — an untagged commit that
+reaches the epic branch can strand the whole epic in `Needs PO Decision`.
+
+Not every commit has a ticket, and a naïve "tag required everywhere" would block releases.
+Two commit classes exist; the second is **exempt** and must be *recognisable*, never silently
+untagged:
+
+| Class | Tag | Recognised by |
+|-------|-----|---------------|
+| (a) Seat / story commit | **required** | committed on a `<ticket>-auto` story branch |
+| (b) Operator / release commit | not required | subject begins `chore(release):` / `chore(governor):`, **or** the message carries a `[no-ticket]` marker |
+
+Use `[no-ticket]` for a genuinely ticketless commit (a `HARNESS_CHANGELOG` entry, a docs
+afterthought) so its exemption is explicit and greppable. Protected branches (`main`/`master`)
+and `epic/*` integration branches are operator/RTE territory and are never guarded. Kill
+switch (operator only): `ORCH_TICKET_TAG_GUARD=0`.
+
+## Workflow Process
+
+**CRITICAL**: This project uses a **rebase-first workflow** enforced by CI/CD automation.
+
+### 1. Starting Work
+
+```bash
+# ALWAYS start from latest main
+git checkout main
+git pull origin main
+
+# Create feature branch with ticket number
+git checkout -b AITBC-{number}-{description}
+```
+
+### 2. During Development
+
+```bash
+# Make changes and commit with SAFe format
+git add .
+git commit -m "feat(scope): description [AITBC-XXX]"
+
+# Keep branch updated (rebase, never merge)
+git fetch origin
+git rebase origin/main
+```
+
+### 3. Before Creating PR
+
+```bash
+# REQUIRED: Run local validation
+./venv/bin/python -m ruff check .
+./venv/bin/python -m mypy --show-error-codes aitbc/
+./venv/bin/python -m pytest tests/unit tests/integration -q
+
+# Fix any issues before proceeding
+```
+
+### 4. Push Changes
+
+```bash
+# ALWAYS use force-with-lease after rebase.
+# Push to the ACTIVE remote (the pin), never `origin` by convention — see the
+# Remote Doctrine below. On a single-remote fork this is just `origin`.
+git push --force-with-lease "${ORCH_MAIN_REMOTE:-origin}" AITBC-{number}-{description}
+```
+
+> **Remote Doctrine (this repo).** GitLab (`gitlab.haemosan.at`) is the permanent LIVE
+> remote; Bitbucket (`origin`) is a **release mirror** that receives only `main` + the
+> release tag at release time. Push / MR-open **always follows the active-remote pin
+> `ORCH_MAIN_REMOTE`, never `origin` by convention** (mechanically enforced by
+> `scripts/active-remote-guard.sh`). The only legitimate Bitbucket write is the release
+> mirror push (`scripts/release-mirror-push.sh`). Full doctrine:
+> [docs/guides/REMOTE_DOCTRINE_GUIDE.md](docs/guides/REMOTE_DOCTRINE_GUIDE.md).
+
+### 5. Create Pull Request
+
+- **Use the template** at `.github/pull_request_template.md`
+- **Fill out ALL sections** completely
+- **Reference Linear ticket** in title: `feat(scope): description [AITBC-XXX]`
+- **Request appropriate reviewers** (auto-assigned via CODEOWNERS)
+
+### 6. Respond to CI/CD Feedback
+
+The automated pipeline will check:
+
+- ✅ Branch naming format
+- ✅ Commit message format
+- ✅ Rebase status (no merge commits)
+- ✅ All tests passing
+- ✅ Code quality (ESLint, TypeScript)
+- ✅ Build verification
+
+**If checks fail**: Fix issues and push again (pipeline re-runs automatically)
+
+### 7. Merge Process
+
+- **ONLY use "Rebase and merge"** (maintains linear history)
+- **NEVER use "Squash and merge"** or "Create merge commit"
+- **Auto-merge available** with `auto-merge` label (if all checks pass)
+
+> **Epic-branch variant (orchestrated v3 epics — [ADR-A-0014](adrs/agentic/ADR-A-0014-workflow-v3-per-epic-merge-gate.md)).**
+> When a story belongs to an orchestrated Workflow v3 epic, its branch PRs into the epic's
+> integration branch `epic/AITBC-XX-{description}` **instead of** `main` —
+> same rebase-first, same "Rebase and merge", same commit format. The epic branch is kept current
+> via a sanctioned rebase onto `origin/main` and reaches `main` through **one
+> human-merged PR** after the whole epic is tested on staging. Agents never merge to
+> `main`. Epic-less stories (e.g. standalone follow-ups) keep the standard flow above:
+> a per-story PR into `main`, merged by a human.
+
+## Agent Exit States (vNext Contract)
+
+Each agent role has explicit exit states that define handoff points in the workflow:
+
+```
+┌─────────────────┬───────────────────────────────────────────┐
+│ Role            │ Exit State                                │
+├─────────────────┼───────────────────────────────────────────┤
+│ BE-Developer    │ "Ready for QAS"                           │
+│ FE-Developer    │ "Ready for QAS"                           │
+│ Data-Engineer   │ "Ready for QAS"                           │
+│ QAS             │ "Approved for RTE"                        │
+│ RTE             │ "Ready for HITL Review"                   │
+│ System Architect│ "Stage 1 Approved - Ready for ARCHitect"  │
+│ HITL            │ MERGED                                    │
+└─────────────────┴───────────────────────────────────────────┘
+```
+
+### Gate Quick Reference
+
+```
+┌─────────────────┬─────────────────┬─────────────────────────┐
+│ Gate            │ Owner           │ Blocking?               │
+├─────────────────┼─────────────────┼─────────────────────────┤
+│ Stop-the-Line   │ Implementer     │ YES - no AC = no work   │
+│ QAS Gate        │ QAS             │ YES - no approval = stop│
+│ Stage 1 Review  │ System Architect│ YES - pattern check     │
+│ Stage 2 Review  │ ARCHitect-CLI   │ YES - architecture check│
+│ HITL Merge      │ oib            │ YES - final authority   │
+└─────────────────┴─────────────────┴─────────────────────────┘
+```
+
+### Role Collapsing (AITBC-499)
+
+- **RTE**: Collapsible (PR creation can be done by implementer)
+- **QAS**: NOT collapsible (independence gate - spawn subagent)
+- **SecEng**: NOT collapsible (security audit requires independence)
+
+See [Agent Workflow SOP v1.4](./docs/sop/AGENT_WORKFLOW_SOP.md) for complete details.
+
+## Pull Request Process
+
+### PR Template Requirements
+
+**MUST USE**: `.github/pull_request_template.md` (comprehensive template)
+
+**Required Sections**:
+
+- 📋 Summary with Linear ticket link
+- 🎯 Changes Made (detailed list)
+- 🧪 Testing (coverage and results)
+- 📊 Impact Analysis (files changed, breaking changes)
+- 🔄 Multi-Team Coordination (rebase status, dependencies)
+- ✅ Pre-merge Checklist (quality, security, SAFe compliance)
+
+### Automated PR Validation
+
+The CI/CD pipeline automatically validates:
+
+1. **Structure Validation** 🔍
+   - Branch naming: `AITBC-{number}-{description}`
+   - PR title includes Linear ticket: `[AITBC-XXX]`
+   - Linear ticket exists and is valid
+
+2. **Rebase Status Check** 🔄
+   - Branch is up-to-date with `main`
+   - No merge commits (linear history maintained)
+   - Auto-comments with rebase instructions if needed
+
+3. **Comprehensive Testing** 🧪
+   - Unit tests (fast feedback)
+   - Integration tests (API/database)
+   - E2E tests (full user workflows)
+
+4. **Quality & Security** 🔍
+   - ESLint + TypeScript validation
+   - Security audit and secret detection
+   - Code formatting (Prettier)
+
+5. **Build Verification** 🏗️
+   - Next.js production build
+   - Asset optimization
+   - Build artifact validation
+
+6. **Conflict Detection** 🚨
+   - High-risk file monitoring (`.env.template`, `config.ts`, `package.json`)
+   - Team notification triggers
+   - Extra review requirements for sensitive changes
+
+### Review Process
+
+**Automatic Assignment**: Based on CODEOWNERS file
+
+- Core config files → oib (ARCHitect-in-the-IDE)
+- Payment features → @payments-team oib
+- Authentication → @auth-team oib
+- Database schema → @backend-team oib
+
+**Review Requirements**:
+
+- At least 1 required reviewer approval
+- All CI checks must pass
+- No merge conflicts
+- Linear history maintained
+
+## CI/CD Pipeline
+
+### GitHub Secrets Configuration
+
+**Required for full CI test coverage** (optional but recommended):
+
+1. Navigate to your repository's **Settings → Secrets and variables → Actions**
+2. Add the following repository secrets:
+   - `STRIPE_TEST_SECRET_KEY` - Your Stripe test mode secret key (sk*test*...)
+   - `STRIPE_TEST_WEBHOOK_SECRET` - Your Stripe test webhook signing secret (whsec\_...)
+
+**Note**: CI will run with safe placeholders if these aren't configured, but real test keys provide better coverage.
+
+### Local Validation Commands
+
+```bash
+# Run all quality checks (REQUIRED before pushing)
+yarn ci:validate
+
+# Individual checks
+yarn type-check      # TypeScript validation
+yarn lint           # ESLint validation (uses eslint.config.mjs flat config - AITBC-290)
+yarn test:unit      # Unit tests
+yarn test:integration # Integration tests
+yarn format:check   # Prettier formatting
+yarn build          # Production build test
+```
+
+**Note (AITBC-290)**: Linting now uses ESLint CLI directly instead of `next lint`. Configuration is in `eslint.config.mjs` (flat config format). The legacy `.eslintrc.json` has been removed.
+
+### Pipeline Stages
+
+1. **Structure Validation** → Validates branch/PR format
+2. **Rebase Status Check** → Ensures linear history
+3. **Comprehensive Testing** → All test suites
+4. **Quality & Security** → Code quality and security
+5. **Build Verification** → Production build test
+6. **Conflict Detection** → High-risk file monitoring
+
+### Pipeline Benefits
+
+- **No merge conflicts** between teams (rebase enforcement)
+- **Automatic quality gates** (no broken code reaches `main`)
+- **Team coordination** (automatic notifications and assignments)
+- **Parallel development** (teams work simultaneously safely)
+
+## Local Development
+
+### Environment Setup
+
+```bash
+# Database (PostgreSQL via Docker)
+docker-compose up -d
+
+# Environment variables
+cp .env.template .env
+# Edit .env with your values
+
+# Database migrations
+npx prisma migrate dev
+npx prisma generate
+
+# RLS Security Setup (Important!)
+# The database now uses Row Level Security for data protection
+# Use aitbc_app_user for proper RLS enforcement in development
+# See docs/database/RLS_IMPLEMENTATION_GUIDE.md for details
+```
+
+### Development Commands
+
+```bash
+# Start development server
+yarn dev
+
+# Database management
+npx prisma studio          # Database GUI
+npx prisma migrate dev      # Run migrations
+npx prisma db push         # Push schema changes (dev only)
+
+# Testing
+yarn test:unit             # Unit tests
+yarn test:integration      # Integration tests
+yarn test:e2e             # E2E tests (requires running server)
+
+# Code quality
+yarn lint                  # ESLint (migrated from 'next lint' - AITBC-290)
+yarn lint:fix             # Auto-fix ESLint issues
+yarn format               # Format with Prettier
+yarn type-check           # TypeScript validation
+
+# RLS Security Testing
+node scripts/test-rls-phase3-simple.js  # Basic RLS functionality test
+# Run comprehensive security validation:
+# cat scripts/rls-phase4-final-validation.sql | docker exec -i aitbc-postgres-1 psql -U aitbc_app_user -d aitbc
+```
+
+## Row Level Security (RLS) Development
+
+### 🔒 Security Implementation
+
+The AITBC application uses **Row Level Security (RLS)** for database-level data protection. This is critical for preventing cross-user data access.
+
+### RLS Development Guidelines
+
+**🚨 CURRENT STATUS:**
+
+- RLS lint is warn-only temporarily; migrate to withRLS()
+- DB migrations are manual-only with ARCHitect approval
+
+**✅ MUST DO when working with database operations:**
+
+- Use `withUserContext()`, `withAdminContext()`, or `withSystemContext()` helpers
+- Test with `aitbc_app_user` role (not `aitbc` superuser)
+- Validate user data isolation in your tests
+- Check RLS context is properly set before database queries
+
+**❌ NEVER DO:**
+
+- Bypass RLS context setting for user operations
+- Use `aitbc` (superuser) for application testing
+- Trust session variables for role validation
+- Assume users can access data without proper context
+
+### RLS Testing Requirements
+
+```bash
+# Test basic RLS functionality
+node scripts/test-rls-phase3-simple.js
+
+# Run comprehensive security validation
+cat scripts/rls-phase4-final-validation.sql | docker exec -i aitbc-postgres-1 psql -U aitbc_app_user -d aitbc
+
+# Test user isolation manually
+docker exec aitbc-postgres-1 psql -U aitbc_app_user -d aitbc -c "
+  SET app.current_user_id = 'your_test_user';
+  SELECT COUNT(*) FROM user; -- Should see only your test user's data
+"
+```
+
+### Common RLS Patterns
+
+```typescript
+// User operation - automatic context setting
+const userPayments = await withUserContext(prisma, userId, async (client) => {
+  return client.payments.findMany({ where: { user_id: userId } });
+});
+
+// Admin operation - requires admin role
+const webhookEvents = await withAdminContext(prisma, userId, async (client) => {
+  return client.webhook_events.findMany();
+});
+
+// System operation - for background tasks
+const systemData = await withSystemContext(
+  prisma,
+  "webhook",
+  async (client) => {
+    return client.webhook_events.create({ data: webhookData });
+  },
+);
+```
+
+### RLS Documentation
+
+- **Implementation Guide**: `docs/database/RLS_IMPLEMENTATION_GUIDE.md`
+- **Troubleshooting**: `docs/guides/RLS_TROUBLESHOOTING.md`
+- **Security Scripts**: `scripts/rls-*.sql`
+
+---
+
+## Troubleshooting
+
+### Common CI/CD Issues
+
+**Branch Name Rejected**:
+
+```bash
+# Rename branch to correct format
+git branch -m AITBC-{number}-{description}
+git push origin -u AITBC-{number}-{description}
+git push origin --delete old-branch-name
+```
+
+**Rebase Required**:
+
+```bash
+git fetch origin
+git rebase origin/dev
+# Resolve any conflicts
+git push --force-with-lease origin your-branch
+```
+
+**Commit Message Format Error**:
+
+```bash
+# Amend last commit message
+git commit --amend -m "feat(scope): description [AITBC-XXX]"
+git push --force-with-lease origin your-branch
+```
+
+**CI Validation Failures**:
+
+```bash
+# Run local validation to see specific issues
+yarn ci:validate
+
+# Fix issues and commit
+git add .
+git commit -m "fix: resolve CI validation issues [AITBC-XXX]"
+```
+
+### Getting Help
+
+- **Documentation**: [CI/CD Pipeline Guide](docs/ci-cd/CI-CD-Pipeline-Guide.md)
+- **Implementation Guide**: `docs/CI-CD-Pipeline-Guide.md`
+- **Team Workflow**: `docs/AITBC-Multi-Team-Git-Workflow-Guide.md`
+- **Quick Setup**: `docs/ci-cd-implementation-checklist.md`
+
+## Additional Resources
+
+### Key Documentation Files
+
+- **Database Schema**: `docs/database/DATA_DICTIONARY.md` (SINGLE SOURCE OF TRUTH - AI Context)
+- **Database Security**: `docs/database/RLS_DATABASE_MIGRATION_SOP.md` (MANDATORY for schema changes)
+- **Security Architecture**: `docs/guides/SECURITY_FIRST_ARCHITECTURE.md` (REQUIRED for new services)
+- **Technical Improvements Strategy**: `docs/technical-improvements/` (Complete implementation roadmap)
+- **Implementation Tickets**: `docs/technical-improvements/07-implementation-roadmap.md#immediate-implementation-tickets`
+- **Redis Implementation Contract**: `docs/contracts/REDIS_IMPLEMENTATION_CONTRACT.md` (Infrastructure team agreement)
+- **CI/CD Setup**: `scripts/setup-ci-cd.sh`
+- **Pipeline Guide**: `docs/CI-CD-Pipeline-Guide.md`
+- **Team Workflow**: `docs/AITBC-Multi-Team-Git-Workflow-Guide.md`
+- **Implementation Checklist**: `docs/ci-cd-implementation-checklist.md`
+- **Payment Test Status**: `__tests__/PAYMENT_TESTS_STATUS.md`
+- **TypeScript Cleanup**: `docs/archive/aitbc-139-typescript-cleanup-status.md` (AITBC-139)
+
+### Confluence Documentation
+
+- [CI/CD Pipeline Guide](docs/ci-cd/CI-CD-Pipeline-Guide.md)
+
+---
+
+**This document is maintained by the AITBC development team and reflects our current CI/CD pipeline implementation.**
+
+**Last Updated**: 2025-12-23
+**Version**: 2.1 (vNext Workflow Contract - AITBC-497/499)
+**Maintained by**: AITBC Development Team + ARCHitect-in-the-IDE (Auggie)

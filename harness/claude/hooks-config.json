@@ -1,0 +1,129 @@
+{
+  "_source_of_record": "ANNOTATED REFERENCE ONLY — NOT auto-loaded by Claude Code. The LIVE hook wiring lives in .claude/settings.template.json (copied to settings.json), which Claude Code auto-loads. This file mirrors those hooks with descriptions for humans and for the sync manifest. Editing here does NOT change runtime behavior — edit settings.template.json. See ABS-32.",
+  "_semantics": "Claude Code matches PreToolUse/PostToolUse 'matcher' against the tool NAME only (e.g. 'Bash', 'Write|Edit') — never command text. Hook input arrives as JSON on stdin (.tool_name, .tool_input.command, .tool_input.file_path, .hook_event_name); there is NO $TOOL_INPUT env var. A blocker must exit 2 (stderr is fed back to Claude); exit 1 is non-blocking. See https://code.claude.com/docs/en/hooks",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "BRANCH=$(git branch --show-current 2>/dev/null); if [ \"$BRANCH\" = 'main' ]; then echo '⚠️ REMINDER: Create a feature branch before making changes.'; fi",
+            "description": "Remind to use feature branches when on main (no matcher: UserPromptSubmit always fires)"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "payload=$(cat); if ! command -v jq >/dev/null 2>&1; then echo 'hooks: jq not found; skipping commit-format reminder' >&2; exit 0; fi; cmd=$(printf '%s' \"$payload\" | jq -r '.tool_input.command // empty'); printf '%s' \"$cmd\" | grep -qE 'git[[:space:]]+commit' || exit 0; echo '📝 REMINDER: Commit message should follow conventional format: type(scope): description [TICKET-XXX]'",
+            "description": "Commit-format reminder. Matcher is tool name 'Bash'; command re-derived from stdin JSON via jq. Fails open (exit 0) if jq missing."
+          },
+          {
+            "type": "command",
+            "command": "payload=$(cat); if ! command -v jq >/dev/null 2>&1; then echo 'hooks: jq not found; skipping git-push guards' >&2; exit 0; fi; cmd=$(printf '%s' \"$payload\" | jq -r '.tool_input.command // empty'); printf '%s' \"$cmd\" | grep -qE 'git[[:space:]]+push' || exit 0; BRANCH=$(git branch --show-current 2>/dev/null); if [ \"$BRANCH\" = 'main' ]; then echo '❌ BLOCKER: Cannot push directly to main. Create a feature branch first: git checkout -b feature-description' >&2; exit 2; fi; if git status --porcelain | grep -q .; then echo '❌ BLOCKER: Uncommitted changes detected. Commit all changes before pushing.' >&2; exit 2; fi; if git fetch origin -q 2>/dev/null && git log HEAD..origin/main --oneline 2>/dev/null | grep -q .; then echo '⚠️ WARNING: Branch is behind origin/main. Consider rebasing first: git rebase origin/main'; fi; exit 0",
+            "description": "git push guards: block push-to-main (exit 2), block push-with-uncommitted (exit 2), warn-if-behind-main. Matcher is tool name 'Bash'; command from stdin JSON via jq. Genuine policy blocks exit 2; everything else fails open."
+          },
+          {
+            "type": "command",
+            "command": "payload=$(cat); if ! command -v jq >/dev/null 2>&1; then echo 'hooks: jq not found; skipping pr-create reminder' >&2; exit 0; fi; cmd=$(printf '%s' \"$payload\" | jq -r '.tool_input.command // empty'); printf '%s' \"$cmd\" | grep -qE 'gh[[:space:]]+pr[[:space:]]+create|bb[[:space:]]+pr[[:space:]]+create' || exit 0; echo '📋 REMINDER: Use /pre-pr to run complete validation first!'",
+            "description": "PR-create reminder. Matcher is tool name 'Bash'; command from stdin JSON via jq."
+          },
+          {
+            "type": "command",
+            "command": "payload=$(cat); if ! command -v jq >/dev/null 2>&1; then echo 'hooks: jq not found; skipping iteration-guard' >&2; exit 0; fi; cmd=$(printf '%s' \"$payload\" | jq -r '.tool_input.command // empty'); printf '%s' \"$cmd\" | grep -qE 'Iteration [0-9]+ of [0-9]+' || exit 0; guard=\"${CLAUDE_PROJECT_DIR:-.}/scripts/hooks/iteration-guard.sh\"; if [ ! -x \"$guard\" ] && [ ! -f \"$guard\" ]; then echo 'hooks: iteration-guard.sh not found; skipping' >&2; exit 0; fi; printf '%s' \"$payload\" | bash \"$guard\"; ec=$?; if [ \"$ec\" = '2' ]; then exit 2; fi; exit 0",
+            "description": "ABS-12 iteration guard: fires only when the command carries an 'Iteration N of M' marker; re-pipes the ORIGINAL payload to iteration-guard.sh (which applies its own gate-bounce logic and exits 2 at cap); propagates exit 2. Fails open if jq or the script is missing. See specs/ABS-12-iteration-guard-spec.md"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/pre-bash-rls-validation.sh\"",
+            "description": "ABS-149 RLS validation reminder: advisory (never blocks, always exit 0). When a Bash command runs Prisma/psql/DATABASE_URL without an RLS context, the script reminds to use withUserContext/withAdminContext/withSystemContext. Matcher is tool name 'Bash'; command is read from the stdin JSON payload via jq (NOT $1, which was the old dead-gate bug). Fails open if jq is missing or the command is not a DB operation."
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/pre-bash-kill-guard.sh\"",
+            "description": "ABS-243 foreign-process kill guard: BLOCKS (exit 2) a seat's name-pattern process kill — pkill without -P/-g/-s, killall, or kill $(pgrep …) — which can reap a process outside the seat spawn tree, e.g. the operator's live orchestrator (the exact incident: a seat ran pkill -9 -f 'orchestrator.sh --live' twice, session a33f54f8). PID/group/session-scoped kills (kill \"$pid\", pkill -P \"$pid\") pass unchanged (AC2). Fires only for orchestrator seats (ORCH_SEAT/ORCH_TICKET/ORCH_ROLE marker); a human shell is never guarded. Kill switch ORCH_KILL_GUARD=0 restores legacy behavior (ABS-111 pattern, default ON). Blocked kills append to ORCH_KILL_GUARD_LOG with timestamp + matched form + command (ABS-66 observability). Matcher is tool name 'Bash'; command read from stdin JSON via jq. Fails open (exit 0) if jq missing or non-seat context."
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/pre-bash-stash-guard.sh\"",
+            "description": "ABS-272 shared-stash guard: BLOCKS (exit 2) a seat's MUTATING git stash — bare `git stash`, push/save, pop/apply/drop/clear/branch/store, including the `git -C <dir> stash …` form (git global flags are normalized away before matching). WHY: refs/stash is ONE stack SHARED by ALL worktrees of a repo (only HEAD, refs/bisect, refs/worktree, refs/rewritten are per-worktree), while the runner operates seats CONCURRENTLY in their own worktrees — so a seat's `git stash pop` pops whatever a sibling seat pushed and silently eats that seat's uncommitted work (3 incidents in one run window, 2026-07-13: ABS-251 popped ABS-255's stash, ABS-254 popped ABS-265's). The stderr message names the allowed stash-free recipe: a throwaway `git worktree add --detach` on the base commit, run the suite there, `git worktree remove`. Read-only `git stash list` / `git stash show` pass unchanged (they never write refs/stash). Fires only for orchestrator seats (ORCH_SEAT/ORCH_TICKET/ORCH_ROLE marker); a human shell is never guarded. Kill switch ORCH_STASH_GUARD=0 restores legacy behavior (ABS-111 pattern, default ON). Blocked stashes append to ORCH_STASH_GUARD_LOG with timestamp + matched form + command (ABS-66 observability). Matcher is tool name 'Bash'; command read from stdin JSON via jq. Fails open (exit 0) if jq missing or non-seat context. Second layer to the permissions.deny rule Bash(git stash:*) in settings.template.json — the hook is what carries the recipe in its refusal message."
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/pre-bash-merge-guard.sh\"",
+            "description": "PILOT-11 / twin ABS-513 seat-independent merge chokepoint: BLOCKS (exit 2) a seat's `bb pr merge` / `glab mr merge` whose resolved MR/PR TARGET branch is protected (main / ORCH_PROTECTED_BRANCHES), BEFORE the merge command reaches the git host. WHY: PILOT-10 shipped scripts/merge-target-guard.sh (the decision) but wired it in ONLY as prose in the rte duty-step, and prose was already ignored once — in v3-pilot #2 (2026-07-21) an RTE seat opened MR !150 (PILOT-3-auto -> main) and self-merged it, bypassing the ADR-A-0004/0005 human-merge boundary. #PATH_DECISION (spawn-seam vs permission-layer): the spawn seam controls only how a seat is LAUNCHED, never the merge CLI it types in its own shell, so it cannot be a chokepoint; a PreToolUse Bash guard fires on every Bash call regardless of seat cooperation — the same proven mechanism as the stash/kill/push-to-main guards. It resolves the target (ORCH_MERGE_GUARD_TARGET_CMD override + host-agnostic test seam, else native glab/bb view), runs scripts/merge-target-guard.sh check <target>, and on REFUSE surfaces the guard's MERGE-GUARD-REFUSE … action=hitl-handoff intent line and exit 2 (no merge call). A legit epic-branch auto-merge (ADR-A-0014, epic/*) passes untouched (exit 0); an UNRESOLVABLE target fails CLOSED on the merge boundary (#EXPORT_CRITICAL). Non-merge commands (git status, bb pr view, bb/glab create) pass untouched. Fires only for orchestrator seats (ORCH_SEAT/ORCH_TICKET/ORCH_ROLE marker); a human shell is never guarded. Kill switch ORCH_MERGE_GUARD=0 restores legacy behavior (ABS-111 pattern, default ON). Blocked merges append to ORCH_MERGE_GUARD_LOG with timestamp + resolved target + command (ABS-66 observability). Matcher is tool name 'Bash'; command read from stdin JSON via jq. Fails open (exit 0) if jq missing, non-seat context, or the command is not a merge-API call. Conformance test: tests/test-merge-guard-chokepoint.sh."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "payload=$(cat); if ! command -v jq >/dev/null 2>&1; then echo 'hooks: jq not found; skipping doc reminder' >&2; exit 0; fi; fp=$(printf '%s' \"$payload\" | jq -r '.tool_input.file_path // empty'); printf '%s' \"$fp\" | grep -qE 'CLAUDE\\.md|CONTRIBUTING\\.md|AGENTS\\.md|README\\.md' && echo '📚 REMINDER: High-impact file modified. Update related documentation in this PR.'; exit 0",
+            "description": "Doc reminder when high-impact files edited. Matcher is tool name; file_path from stdin JSON via jq (NOT grep -oP)."
+          },
+          {
+            "type": "command",
+            "command": "payload=$(cat); if ! command -v jq >/dev/null 2>&1; then echo 'hooks: jq not found; skipping markdown format' >&2; exit 0; fi; fp=$(printf '%s' \"$payload\" | jq -r '.tool_input.file_path // empty'); [ -n \"$fp\" ] || exit 0; printf '%s' \"$fp\" | grep -qE '\\.md$' || exit 0; npx --no-install prettier --write \"$fp\" >/dev/null 2>&1 && echo '✨ Prettier: Formatted'; if npx --no-install markdownlint-cli \"$fp\" >/dev/null 2>&1; then echo '✅ Markdownlint: OK'; else echo \"⚠️ Run: npx markdownlint-cli --fix \\\"$fp\\\"\"; fi; exit 0",
+            "description": "Markdown prettier + markdownlint after edit. Matcher is tool name; file_path from stdin JSON via jq (BSD-safe, no grep -oP)."
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/hooks/evolver-lifecycle.sh\" 2>/dev/null || true",
+            "description": "ABS-25 Evolver lifecycle: invoke evolver --review after Write/Edit when evolution provider is evolver (rate-limited; fail-open)"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/session-wrong-entry-guard.sh\"",
+            "description": "ABS-92 stable-governs-dev guard: refuse a bare interactive session in the dev repo when a same-product stable checkout exists (exit 2 with the launch recipe); silent no-op otherwise and for headless spawns. Escape hatch: SAW_GUARD_DISABLE=1. See scripts/session-wrong-entry-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "printf '%s\\n' '🚀 Session Started' '📖 Remember: @CONTRIBUTING.md workflow' '📝 Key commands: /start-work, /check-workflow, /pre-pr, /end-work | Remote: /remote-status, /remote-deploy' '📚 Full list (19 commands): see .claude/README.md' '💡 Run /check-workflow for current status'",
+            "description": "Session start reminder with available commands"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/hooks/evolver-lifecycle.sh\" 2>/dev/null || true",
+            "description": "ABS-25 Evolver lifecycle on session start (fail-open)"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if git status --porcelain 2>/dev/null | grep -q .; then echo '⚠️ Session ending with uncommitted changes. Use /end-work to complete cleanly.'; else echo '✅ Clean session end - no uncommitted changes'; fi",
+            "description": "Check for uncommitted work at session end (SessionEnd must NOT register evolver — Stop only)"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/hooks/evolver-lifecycle.sh\" 2>/dev/null || true",
+            "description": "ABS-25 Evolver lifecycle on Stop (fail-open)"
+          }
+        ]
+      }
+    ]
+  }
+}
