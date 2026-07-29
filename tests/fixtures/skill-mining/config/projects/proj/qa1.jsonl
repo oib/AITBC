@@ -1,0 +1,3 @@
+{"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "t0", "name": "Bash", "input": {"command": "echo hello", "description": "x"}}]}}
+{"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "ls -la", "description": "x"}}]}}
+{"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "t2", "name": "Bash", "input": {"command": "export FOO=sk-supersecret1234567890", "description": "x"}}]}}
