@@ -573,8 +573,17 @@ cmd_search() {
     [ -z "$f_status" ] || qs="$qs&labels=$(py 'import sys,urllib.parse; sys.stdout.write(urllib.parse.quote(sys.argv[1]))' "status/$f_status")"
     [ -z "$f_text" ] || qs="$qs&q=$(py 'import sys,urllib.parse; sys.stdout.write(urllib.parse.quote(sys.argv[1]))' "$f_text")"
 
-    local page=1 tab rows
-    tab="$(printf '\t')"
+    # us: internal-only row delimiter (ASCII Unit Separator, \x1f). NOT a bare
+    # tab: bash `read` treats tab as "IFS whitespace" per POSIX regardless of
+    # what IFS is set to, so a genuinely EMPTY interior field (e.g. a ticket
+    # with no type/ label) collapses two adjacent tabs into one delimiter and
+    # shifts every following field left by one -- silently corrupting the row.
+    # \x1f isn't in that whitespace class, so empty fields round-trip intact.
+    # This is purely an internal format; the public tab-separated output
+    # contract (ABS-389) is unaffected -- it's assembled fresh via printf/cut
+    # below, never re-parsed with `read`.
+    local page=1 us rows
+    us="$(printf '\x1f')"
     rows="$(mktemp "${TMPDIR:-/tmp}/gitea-search.XXXXXX")"
     while :; do
         local batch n
@@ -593,7 +602,7 @@ for i in json.load(sys.stdin):
     status = scoped("status/")
     lane = scoped("lane/") or "normal"
     priority = scoped("priority/") or "normal"
-    sys.stdout.write("\t".join([
+    sys.stdout.write("\x1f".join([
         str(i["number"]), typ, status, lane, priority, i["created_at"], i["title"],
     ]))
     sys.stdout.write("\n")
@@ -604,7 +613,7 @@ for i in json.load(sys.stdin):
     done
 
     # Filter (type/parent/label/lane) + priority-rank + emit in canonical order.
-    while IFS="$tab" read -r num typ status lane priority created title; do
+    while IFS="$us" read -r num typ status lane priority created title; do
         [ -n "$num" ] || continue
         [ -z "$f_type" ]  || [ "$typ" = "$f_type" ] || continue
         [ -z "$f_lane" ]  || [ "$lane" = "$f_lane" ] || continue
@@ -629,7 +638,7 @@ sys.exit(0 if sys.argv[1] in names else 1)
         local rank
         case "$priority" in hotfix) rank=0 ;; high) rank=1 ;; low) rank=3 ;; *) rank=2 ;; esac
         printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$rank" "$created" "$(fmt_id "$num")" "$typ" "$status" "$priority" "$title"
-    done < "$rows" | sort -t "$tab" -k1,1 -k2,2 -s | cut -f3-
+    done < "$rows" | sort -t "$(printf '\t')" -k1,1 -k2,2 -s | cut -f3-
     rm -f "$rows"
 }
 
@@ -1012,12 +1021,17 @@ cmd_link() {
 cmd_children() {
     local epic="$1"
     require_ticket "$epic"
-    local page=1 found=0
+    # us: internal-only row delimiter (see cmd_search's comment for why a bare
+    # tab is unsafe -- bash `read` collapses consecutive tabs as IFS
+    # whitespace, corrupting rows where `status` is empty, e.g. a ticket
+    # created outside this adapter with no status/ label).
+    local page=1 found=0 us
+    us="$(printf '\x1f')"
     while :; do
         local batch n
         batch="$(http_call GET "/repos/$GITEA_OWNER/$GITEA_REPO/issues?type=issues&state=all&limit=50&page=$page")"
         n="$(printf '%s' "$batch" | py 'import sys,json; print(len(json.load(sys.stdin)))')"
-        while IFS="$(printf '\t')" read -r num status title parent; do
+        while IFS="$us" read -r num status title parent; do
             [ -n "$num" ] || continue
             [ "$parent" = "$epic" ] || continue
             printf '%s\t[%s]\t%s\n' "$(fmt_id "$num")" "$status" "$title"
@@ -1030,13 +1044,13 @@ for i in json.load(sys.stdin):
     for l in labels:
         if l.startswith("status/"):
             status = l[len("status/"):]
-    print("\t".join([str(i["number"]), status, i["title"], ""]))
-' | while IFS="$(printf '\t')" read -r num status title _; do
+    print("\x1f".join([str(i["number"]), status, i["title"], ""]))
+' | while IFS="$us" read -r num status title _; do
             local raw body parent
             raw="$(http_call GET "/repos/$GITEA_OWNER/$GITEA_REPO/issues/$num")"
             body="$(printf '%s' "$raw" | json_get 'd["body"]')"
             parent="$(meta_get "$body" parent)"
-            printf '%s\t%s\t%s\t%s\n' "$num" "$status" "$title" "$parent"
+            printf '%s%s%s%s%s%s%s\n' "$num" "$us" "$status" "$us" "$title" "$us" "$parent"
         done)
         [ "$n" -ge 50 ] || break
         page=$((page + 1))
