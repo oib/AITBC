@@ -607,6 +607,10 @@ work/scratch/
 # ============================================================================
 # Add any project-specific files to ignore here
 
+# Pristine vendored-boilerplate reference clone (own nested .git; used for
+# manual upgrade diffing, not part of this repo's tree)
+/agentic-boilerplate/
+
 
 # Graphify local extraction cache (graph.json + report are committed)
 graphify-out/cache/
