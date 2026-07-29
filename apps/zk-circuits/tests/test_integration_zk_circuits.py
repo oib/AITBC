@@ -13,10 +13,10 @@ def test_full_cache_workflow():
     cache = ZKCircuitCache()
 
     # Create a test circuit file
-    test_file = Path("/tmp/test_workflow.circom")
+    test_file = Path("/tmp/test_workflow.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
     test_file.write_text("pragma circom 2.0.0;")
 
-    output_dir = Path("/tmp/build/test_workflow")
+    output_dir = Path("/tmp/build/test_workflow")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Create a dummy output file
@@ -49,10 +49,10 @@ def test_cache_invalidation():
     """Test cache invalidation when source changes"""
     cache = ZKCircuitCache()
 
-    test_file = Path("/tmp/test_invalidation.circom")
+    test_file = Path("/tmp/test_invalidation.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
     test_file.write_text("pragma circom 2.0.0;")
 
-    output_dir = Path("/tmp/build/test_invalidation")
+    output_dir = Path("/tmp/build/test_invalidation")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_file = output_dir / "test_invalidation.r1cs"
@@ -85,10 +85,10 @@ def test_cache_stats_with_entries():
 
     # Create multiple cache entries
     for i in range(3):
-        test_file = Path(f"/tmp/test_stats_{i}.circom")
+        test_file = Path(f"/tmp/test_stats_{i}.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
         test_file.write_text(f"pragma circom 2.0.0; /* test {i} */")
 
-        output_dir = Path(f"/tmp/build/test_stats_{i}")
+        output_dir = Path(f"/tmp/build/test_stats_{i}")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
         output_dir.mkdir(parents=True, exist_ok=True)
 
         output_file = output_dir / f"test_stats_{i}.r1cs"
@@ -102,13 +102,13 @@ def test_cache_stats_with_entries():
         assert stats["total_size_mb"] > 0
     finally:
         for i in range(3):
-            test_file = Path(f"/tmp/test_stats_{i}.circom")
+            test_file = Path(f"/tmp/test_stats_{i}.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
             if test_file.exists():
                 test_file.unlink()
         import shutil
 
-        if Path("/tmp/build").exists():
-            shutil.rmtree("/tmp/build")
+        if Path("/tmp/build").exists():  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+            shutil.rmtree("/tmp/build")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
         cache.clear_cache()
 
 
@@ -123,7 +123,7 @@ def test_compile_circuit_cached_file_not_found():
 def test_compile_circuit_cached_auto_output_dir():
     """Test compile_circuit_cached with auto-generated output directory"""
     # Create a test circuit file
-    test_file = Path("/tmp/test_auto_dir.circom")
+    test_file = Path("/tmp/test_auto_dir.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
     test_file.write_text("pragma circom 2.0.0;")
 
     try:
@@ -140,10 +140,10 @@ def test_compile_circuit_cached_with_cache_disabled():
     """Test compile_circuit_cached with cache disabled"""
     ZKCircuitCache()
 
-    test_file = Path("/tmp/test_no_cache.circom")
+    test_file = Path("/tmp/test_no_cache.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
     test_file.write_text("pragma circom 2.0.0;")
 
-    output_dir = Path("/tmp/build/test_no_cache")
+    output_dir = Path("/tmp/build/test_no_cache")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
     output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -161,10 +161,10 @@ def test_compile_circuit_cached_cache_hit():
     """Test compile_circuit_cached with cache hit"""
     cache = ZKCircuitCache()
 
-    test_file = Path("/tmp/test_cache_hit.circom")
+    test_file = Path("/tmp/test_cache_hit.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
     test_file.write_text("pragma circom 2.0.0;")
 
-    output_dir = Path("/tmp/build/test_cache_hit")
+    output_dir = Path("/tmp/build/test_cache_hit")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Create output file to make cache valid

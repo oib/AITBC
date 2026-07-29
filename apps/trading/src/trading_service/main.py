@@ -100,7 +100,7 @@ app.include_router(settlement_router)
 if __name__ == "__main__":
     import uvicorn
 
-    host = os.getenv("TRADING_BIND_HOST", "0.0.0.0")
+    host = os.getenv("TRADING_BIND_HOST", "0.0.0.0")  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
     port = int(os.getenv("TRADING_BIND_PORT", "8104"))
 
     uvicorn.run(app, host=host, port=port, access_log=False)

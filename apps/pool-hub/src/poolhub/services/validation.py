@@ -67,7 +67,7 @@ class HardwareValidator:
     async def _get_service_definition(self, service_id: str) -> dict[str, Any] | None:
         """Fetch service definition from registry"""
         try:
-            response = requests.get(f"{self.registry_url}/services/{service_id}")
+            response = requests.get(f"{self.registry_url}/services/{service_id}", timeout=30)
             if response.status_code == 200:
                 return response.json()  # type: ignore
             return None

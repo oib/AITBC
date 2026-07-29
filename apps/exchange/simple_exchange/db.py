@@ -151,7 +151,7 @@ def _migrate_real_to_text(conn, cursor, table_name, schema_sql, monetary_columns
     col_list = ", ".join(old_cols)
     select_list = ", ".join(select_parts)
 
-    cursor.execute(f"INSERT INTO {table_name} ({col_list}) SELECT {select_list} FROM {old_name}")
+    cursor.execute(f"INSERT INTO {table_name} ({col_list}) SELECT {select_list} FROM {old_name}")  # nosec B608 - table_name validated against _ALLOWED_TABLES above; old_name/col_list derive from it and the DB's own schema, never external input
     cursor.execute(f"DROP TABLE {old_name}")
     return True
 
