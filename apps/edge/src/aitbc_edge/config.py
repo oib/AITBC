@@ -18,7 +18,7 @@ class Settings(ServiceSettings):
 
     # Override defaults for edge service
     service_name: str = "aitbc-edge"
-    app_host: str = "0.0.0.0"
+    app_host: str = "0.0.0.0"  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
     app_port: int = 8111
     api_prefix: str = "/v1"
 

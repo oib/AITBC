@@ -250,7 +250,7 @@ class MultiLanguageConfig:
             "environment": os.getenv("ENVIRONMENT", "development"),
             "debug": os.getenv("DEBUG", "false").lower() == "true",
             "workers": int(os.getenv("WORKERS", 4)),
-            "host": os.getenv("HOST", "0.0.0.0"),
+            "host": os.getenv("HOST", "0.0.0.0"),  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
             "port": int(os.getenv("PORT", 8000)),
             "ssl": {
                 "enabled": os.getenv("SSL_ENABLED", "false").lower() == "true",

@@ -22,7 +22,7 @@ class BaseHandler(BaseHTTPRequestHandler):
         Returns parsed JSON dict. Raises on HTTP errors or timeouts.
         """
         url = f"{RPC_BASE_URL}{path}"
-        with urlopen(url, timeout=RPC_TIMEOUT) as response:
+        with urlopen(url, timeout=RPC_TIMEOUT) as response:  # nosec B310 - RPC_BASE_URL is validated (module-level startswith http(s):// check, see top of this file) before this call
             return json.loads(response.read().decode())  # type: ignore[no-any-return]
 
     def _require_api_key(self) -> bool:

@@ -15,7 +15,7 @@ python = ">=3.13.5,<3.14.1 || >3.14.1,<3.15"
 fastapi = "0.136.3"
 uvicorn = {extras = ["standard"], version = "0.49.0"}
 gunicorn = "26.0.0"
-starlette = "1.2.1"
+starlette = "1.3.1"
 # Database & ORM
 sqlalchemy = {extras = ["asyncio"], version = "2.0.50"}
 sqlmodel = "0.0.38"
@@ -29,7 +29,7 @@ orjson = "3.11.9"
 aitbc-shared = {path = "packages/aitbc-shared", develop = true}
 # Configuration & Environment
 pydantic = "2.13.3"
-pydantic-settings = "2.14.1"
+pydantic-settings = "2.14.2"
 python-dotenv = "1.2.2"
 # Rate Limiting & Security
 slowapi = "0.1.9"
@@ -70,7 +70,7 @@ tabulate = "0.10.0"
 colorama = "0.4.6"
 keyring = "25.7.0"
 # JSON & Serialization
-msgpack = "1.1.2"
+msgpack = "1.2.1"
 python-multipart = "0.0.32"
 # Logging & Monitoring
 structlog = "26.1.0"
