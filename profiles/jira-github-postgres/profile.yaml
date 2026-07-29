@@ -1,0 +1,107 @@
+# jira-github-postgres profile — a NON-SAW reference stack.
+#
+# Purpose: prove the profile abstraction genericizes SAW's Linear/Confluence/Supabase opinions
+# WITHOUT editing any harness file. Compare with saw-stack: same neutral capabilities and the
+# same stack-independent SAW drivers (tdm, rte, data-engineer, …); only `provider` and the
+# provider-specific bindings differ. Swapping the whole stack is a profile change, not a fork.
+#
+# Status: reference — the tracker/docs bindings name adapters that a project would implement
+# against profiles/neutral/adapters/*.md (v1 ships the neutral interfaces + Linear as the one
+# worked example; other providers are prepared, not productive — same stance as the base).
+
+profile: jira-github-postgres
+description: >
+  Jira Cloud + GitHub (issues & PRs) + plain PostgreSQL + Docker/GitHub Actions, docs-in-repo.
+  Demonstrates a fully non-SAW stack expressed purely as capability→provider bindings.
+based_on: neutral
+
+# Stack applicability (ABS-257): plain Postgres, no RLS layer, no Next.js/Clerk/Stripe —
+# so SAW's nextjs/clerk/prisma/postgres-rls patterns are correctly hidden from this stack,
+# while `generic` patterns and the GitHub Actions CI patterns stay visible.
+stack: [github-actions]
+
+capabilities:
+  task-tracking:
+    provider: jira-cloud
+    implemented_by:
+      agents: [tdm]                       # unchanged SAW driver
+      commands: [start-work, end-work]    # unchanged
+      skills: [safe-workflow]
+      adapter: profiles/neutral/adapters/task-tracking.md   # bound to Jira instead of Linear
+      config: { jira_site: "{{JIRA_SITE}}", jira_cloud_id: "{{JIRA_CLOUD_ID}}", project_key: "AITBC" }
+    notes: >
+      Replaces SAW's linear-sop skill / sync-linear command / linear-mcp with a Jira
+      binding. The canonical statuses and the tdm-driven flow are identical.
+    required: true
+
+  docs:
+    provider: markdown-repo               # docs live in-repo under docs/; "publish" = a docs PR
+    implemented_by:
+      agents: [tech-writer]
+      commands: [update-docs]
+      adapter: profiles/neutral/adapters/docs.md
+    notes: Replaces Confluence; no external docs tool.
+    required: true
+
+  git:
+    provider: github
+    protected_branches: ["main"]
+    autonomous_merge: false
+    implemented_by:
+      agents: [rte]                       # RTE still shepherds PRs and never merges
+      skills: [git-advanced, safe-workflow]
+      commands: [pre-pr, release]
+    required: true
+
+  database:
+    provider: postgres                    # plain Postgres; no Supabase, no RLS layer
+    implemented_by:
+      agents: [data-engineer, data-provisioning-eng]
+      skills: [migration-patterns]        # NOTE: rls-patterns intentionally dropped — not applicable
+      adapter: profiles/neutral/adapters/database.md
+    notes: >
+      Drops SAW's RLS-specific rls-patterns skill; the database capability's reversibility and
+      breaking-change invariants still apply via migration-patterns.
+    required: true
+
+  deploy:
+    provider: docker-github-actions
+    production_release: human-only
+    implemented_by:
+      agents: [rte]
+      skills: [deployment-sop, release-patterns]
+      commands: [deploy-dev, remote-deploy, remote-rollback, release]
+    required: true
+
+  notifications:
+    provider: jira-cloud                  # human notifications land in Jira
+    implemented_by: { agents: [tdm] }
+    required: true
+
+  design-system:
+    provider: none
+    required: false
+
+  secrets:
+    provider: vault
+    mediated_access_only: true
+    implemented_by:
+      agents: [security-engineer]
+      skills: [security-audit]
+    required: true
+
+# Identical to saw-stack — approval boundaries are stack-independent invariants.
+approval_boundaries:
+  - architecture-change
+  - breaking-change
+  - merge-to-main
+  - additional-costs
+  - production-deployment
+  - adr-acceptance
+  - epic-acceptance
+
+# What this profile demonstrates (the whole point):
+#   1. Not one harness file (.claude/.gemini/.codex/.cursor/.agents) was edited to swap the stack.
+#   2. The SAW roles/skills/commands that are provider-agnostic are reused verbatim.
+#   3. Only `provider`, provider-specific skills, and adapter config changed.
+#   => "technology-neutral core, opinionated stack as a profile" holds.

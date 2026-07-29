@@ -1,0 +1,616 @@
+# =============================================================================
+# Canonical Ticket Status Machine
+# =============================================================================
+# The ten canonical v1 statuses from the blueprint (§14 Ticket Lifecycle) and
+# ADR-A-0006 (active task tracking), extended by the sixteen v3 workflow
+# statuses (ABS-69/ABS-70: two pipelines — epic and story — one seated agent
+# role per transient status; spec specs/DRAFT-workflow-v2-full-agent-team-spec.md
+# §1). Statuses are ACTIVE: every transition is an event that triggers the
+# mapped workflow (docs/sop/AGENT_WORKFLOW_SOP.md).
+# Adapters (see task-tracking.md in this directory) must represent every
+# canonical status distinctly and enforce the transition table below.
+#
+# Consumed by the mock adapter (scripts/mock-tracker.sh) with zero-dependency
+# awk. Keep the shape stable when editing:
+#   - status entries:  "  - name: <Status>"   (2-space indent)
+#   - allowed nexts:   "      - <Status>"     (6-space indent, under "    next:")
+#   - comments on their own lines only (no trailing comments after values)
+#
+# v3 classification (ABS-81): each status is marked in its comment as
+#   pipeline: shared | epic | story
+#   class:    transient (agent-owned, reconcile may re-derive a spawn)
+#           | resting   (entry/terminal/human-owned; reconcile never re-derives)
+
+version: 1
+
+# v1/v2 happy path (unchanged, still valid — v3 statuses are purely additive):
+#   Backlog -> Ready for Development -> In Progress -> In Review -> In Test
+#     -> Ready for Human Acceptance -> Ready for Merge -> Done
+#
+# v3 epic pipeline (spec §1.1):
+#   Backlog -> PO Triage -> Grooming -> Enrichment -> Ticket Review
+#     -> Architecture Review -> Stories In Flight -> Epic Integration
+#     -> Ready for Epic Acceptance -> Epic Done
+#   (Ticket Review may bounce to Grooming: DoR rework, spec §3.10; Epic
+#    Integration may bounce to Stories In Flight: bisect reopen, spec §3.5;
+#    Ready for Epic Acceptance may return to Grooming: human rejection =
+#    forward-fix, never revert.)
+#
+# v3 PRE-FILLED epic (children already exist at intake -- classify_intake
+# `epic-with-children`, ABS-271). The ACTUAL route, which is a REPAIR, not a
+# planned chain -- do not read it as a designed happy path:
+#   Backlog -> Stories In Flight        (ABS-214 JOIN-rest park; no seat moves
+#                                        such an epic forward out of Backlog)
+#     -> [STATION-GUARD] -> Ticket Review   (mechanical redirect: the landing
+#                                        skipped the mandatory DoR gate)
+#     -> Architecture Review -> Stories In Flight -> ...
+#   Grooming/Enrichment are never visited: they exist to CREATE children, and the
+#   children are already there. The DoR gate (Ticket Review) is the one station
+#   such an epic still owes, and the guard is what makes it unskippable -- there
+#   is deliberately NO forward seat edge into the gate for this class, because no
+#   seat is on the path to take one.
+#
+# v3 story pipeline (spec §1.2; sim statuses "Implement"/"Code Review" map to
+# the existing "Ready for Development".."In Review" real statuses):
+#   Backlog -> Design -> Ready for Development -> In Progress -> In Review
+#     -> Security Review -> Test Prep -> In Test -> Design Test
+#     -> Story Acceptance -> Merging -> Docs -> Done
+#   Conditional stages (Design / Security Review / Test Prep / Design Test)
+#   are SKIP-FORWARDed by the orchestrator when the ticket lacks the matching
+#   flag (spec §3.3). All impl-fix bounces target Ready for Development
+#   (fresh implementer, ADR-A-0002); the design-fix bounce targets Design.
+#
+# Blocked is reachable from — and returns to — any active (non-terminal)
+# status. Needs PO Decision is likewise reachable from any active status
+# (an agent/human/sweep requesting a product decision) and returns to the
+# status the PO-Agent routes it to.
+#
+# Backward redirect edges (ABS-284). A small, ENUMERATED set of backward edges
+# exists so the runner's two fail-closed gates (STATION-GUARD, ABS-136/ABS-247;
+# DONE-GATE, ABS-211) can LAND the correction they announce, instead of emitting
+# a redirect this table forbids, having the adapter reject it, and then silently
+# stalling the ticket forever while the log reads as enforcement (ABS-284
+# Defects 1 & 2). The edges are exactly the (landing -> target) redirects the
+# guards' own chain helpers (chain_index / first_skipped_mandatory /
+# chain_station_mandatory / guard_chain_index in scripts/orchestrator.sh) can
+# emit over the LEGAL forward-skip edges below:
+#   - In Test -> Security Review, In Test -> Test Prep
+#       STATION-GUARD: a story lands In Test via the legal but skipping
+#       'In Review -> In Test' edge while carrying a conditional flag; the flag
+#       makes the jumped stage mandatory-for-this-ticket (ABS-247) and the guard
+#       redirects BACK to it ('security' -> Security Review, 'data' -> Test Prep).
+#   - Ready for Human Acceptance -> Story Acceptance
+#       STATION-GUARD: the documented v1/v2 happy path 'In Test -> Ready for Human
+#       Acceptance' folds the unconditionally-mandatory Story Acceptance
+#       (guard_chain_index treats RfHA as index 10, ABS-216); the guard redirects
+#       to it. This is the headline case — every plain story on the v1/v2 flow.
+#   - Ready for Human Acceptance -> Design Test
+#       STATION-GUARD: same landing, but a 'design'-flagged story folds Design Test
+#       (idx 8) FIRST — that conditional stage is mandatory-for-this-ticket
+#       (ABS-247) and precedes Story Acceptance, so it is the first skipped station.
+#   - Done -> Merging
+#       DONE-GATE: a story reaches Done with its implementation PR still OPEN — a
+#       false JOIN signal; redirect to Merging so the PR merges before Done
+#       (defined below in Done.next, added with ABS-270).
+# tests/orchestrator.d/ABS-284-station-guard-redirect-edges.sh DERIVES this set
+# mechanically from the guard's own chain helpers and FAILS if the table lacks any
+# of them (ABS-284 AC5, the anti-rot lock) — the enumeration cannot silently go
+# stale as chain stations or gates are added.
+#
+# A BLANKET "any backward move along the chain is legal" rule was deliberately
+# REJECTED (ABS-284 #PATH_DECISION): it would dissolve ADR-A-0002 (all impl-fix
+# bounces route to Ready for Development — a fresh implementer — never to an
+# arbitrary earlier stage) and ABS-90 (Done is terminal with exactly one
+# deliberate reopen edge, Ready for Development, the bisect reopen; agents never
+# revert main). A blanket rule legalizes e.g. Done -> In Progress and every bounce
+# shape those ADRs exist to forbid. Do NOT "simplify" these edges into one.
+
+statuses:
+
+  # --- shared entry ----------------------------------------------------------
+
+  # pipeline: shared | class: resting (entry — tickets legitimately rest here)
+  - name: Backlog
+    entered_when: Ticket created
+    triggers: PO prioritization sweep
+    next:
+      - Ready for Development
+      # v3 epic pipeline entry (human or the Backlog-spawned po-agent routes
+      # an epic into triage, ABS-71).
+      - PO Triage
+      # v3 story release (the Architecture Review seat releases groomed
+      # stories into the story pipeline, ABS-71/ABS-72).
+      - Design
+      # v3 epic JOIN-rest (ABS-214): a decomposed epic that the po-agent
+      # released children from rests in its correct JOIN state — the po-agent
+      # (declaratively) or the runner (epic_join_rest_complete, analog to the
+      # ABS-203 write-light completion) moves it here instead of looping as a
+      # HANDOFF-NOMOVE in Backlog. Only decomposed epics (child-count > 0) take
+      # this edge; a plain Backlog ticket never does.
+      - Stories In Flight
+      - Blocked
+      - Needs PO Decision
+
+  # --- story pipeline (v1/v2 core, v3-extended) -------------------------------
+
+  # pipeline: story | class: transient (v3 conditional gate, flag: design —
+  # the story pipeline's first stage; unflagged stories are SKIP-FORWARDed)
+  - name: Design
+    entered_when: Story released by the Architecture Review seat (v3)
+    triggers: Coordinator spawns ui-ux-design (design + measurable design ACs)
+    next:
+      - Ready for Development
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: story | class: transient (implementer spawn, role from ticket)
+  - name: Ready for Development
+    entered_when: Prioritized + dependencies clear + ticket-quality gate passed
+    triggers: Coordinator spawns implementation subagent
+    next:
+      - In Progress
+      # PO may deprioritize back to the backlog.
+      - Backlog
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: story | class: resting (agent working; set by the implementer)
+  - name: In Progress
+    entered_when: Subagent starts
+    triggers: Progress monitoring
+    next:
+      - In Review
+      # Impl-fix bounce target (ADR-A-0002 / ADR-A-0024): fresh implementer.
+      # The runner takes this edge to undo an implementer self-transition on a
+      # handoff commit mis-report (ADR-A-0024 d.2); real operators also use it
+      # to reroute a crash-orphaned In Progress ticket. In Progress was the only
+      # active impl/review stage missing the canonical bounce edge every other
+      # (In Review / Security Review / Test Prep) already carries.
+      - Ready for Development
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: story | class: transient (read-only reviewer spawn, ABS-57)
+  - name: In Review
+    entered_when: Implementation handoff complete, PR/diff exists
+    triggers: Coordinator spawns Review Agent
+    next:
+      - In Test
+      # v3 pass route: code review hands to the (conditional) security gate;
+      # the orchestrator SKIP-FORWARDs unflagged tickets (ABS-72/ABS-84).
+      - Security Review
+      # Blocking review findings send the ticket back to implementation
+      # (blueprint §15; a fresh subagent gets the findings in its packet).
+      - In Progress
+      # v3 bounce target: fresh implementer spawn (ADR-A-0002, ABS-72).
+      - Ready for Development
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: story | class: transient (v3 conditional gate, flag: security)
+  - name: Security Review
+    entered_when: Code review passed on a security-flagged story (v3)
+    triggers: Coordinator spawns security-engineer (independence gate)
+    next:
+      - Test Prep
+      # Security findings route back to implementation (fresh spawn).
+      - Ready for Development
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: story | class: transient (v3 conditional gate, flag: data)
+  - name: Test Prep
+    entered_when: Security gate passed (or skipped) on a data-flagged story (v3)
+    triggers: Coordinator spawns data-provisioning-eng (fixtures, RLS contexts)
+    next:
+      - In Test
+      # Missing-setup findings route back to implementation.
+      - Ready for Development
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: story | class: transient (QA spawn)
+  - name: In Test
+    entered_when: Review passed (or findings triaged)
+    triggers: Coordinator spawns QA/Test Agent
+    next:
+      - Ready for Human Acceptance
+      # v3 pass route: functional tests hand to the (conditional) design test.
+      - Design Test
+      # STATION-GUARD redirect edges (ABS-284; see the "Backward redirect edges"
+      # note in the header). A story lands here via the legal but skipping
+      # 'In Review -> In Test' edge while carrying a conditional flag; the flag
+      # makes the jumped stage mandatory-for-this-ticket (ABS-247) and the guard
+      # redirects BACK to it — 'security' -> Security Review, 'data' -> Test Prep.
+      # Enumerated, NOT blanket-backward (header rationale): the guard can only ever
+      # target these two conditional stages from an In Test landing.
+      - Security Review
+      - Test Prep
+      # Failing tests route back to implementation.
+      - In Progress
+      # v3 bounce target: fresh implementer spawn (ADR-A-0002, ABS-72).
+      - Ready for Development
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: story | class: transient (v3 conditional gate, flag: design)
+  - name: Design Test
+    entered_when: Functional tests passed on a design-flagged story (v3)
+    triggers: Coordinator spawns qas-design (implemented UI vs design ACs)
+    next:
+      - Story Acceptance
+      # design-fix bounce: back to the Design seat (spec §1.2).
+      - Design
+      # impl-fix bounce: fresh implementer spawn.
+      - Ready for Development
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: story | class: transient (v3 PO acceptance seat)
+  - name: Story Acceptance
+    entered_when: All test gates passed (v3)
+    triggers: Coordinator spawns po-agent (evidence-based accept/reject)
+    next:
+      - Merging
+      # Rejection routes back to implementation (fresh spawn).
+      - Ready for Development
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: story | class: transient (v3 RTE merge seat -- merges onto the
+  # epic's integration branch only, never main; auto-merge is gated on
+  # ADR-A-0014, the standalone epic-branch decision within the unchanged
+  # ADR-A-0004/0005 main boundaries, ABS-78/ABS-88)
+  - name: Merging
+    entered_when: Story accepted (v3; sequential per epic, acceptance order)
+    triggers: Coordinator spawns rte (rebase + CI + auto-merge onto the epic
+      branch on green -- never merges to main)
+    next:
+      - Docs
+      # ABS-133 human-gate rest (Befund 7, run ABS-126): with auto-merge OFF the
+      # rte seat opens the PR and hands off with NO target of its own; the runner
+      # rests the story at the human-owned "Ready for Merge" gate
+      # (handoff_default_target) instead of looping the RECONCILABLE Merging seat,
+      # which re-spawned a fresh rte (~$0.75) every reconcile cadence while the PR
+      # waited for the human. Auto-merge (ADR-A-0014) still declares Docs.
+      - Ready for Merge
+      # Rebase/CI failure bounces the story to implementation (spec §3.5).
+      - Ready for Development
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: story | class: transient (v3 tech-writer seat)
+  - name: Docs
+    entered_when: Story merged (v3)
+    triggers: Coordinator spawns tech-writer (story documentation)
+    next:
+      - Done
+      # ABS-270 merge-wait park: `Docs` is entered_when "Story merged" -- but a
+      # story can LAND here with its PR still open (auto-merge could not merge it,
+      # or the merge is the human's). The tech-writer would then only refuse Done
+      # (done_pr_gate, ABS-211) and rest, which the runner misread as an ABS-132
+      # stuck loop and escalated to the PO -- who has no merge authority at all
+      # (human-only #2, ADR-A-0005). The runner (docs_pr_gate) therefore rests such
+      # a story at the human-owned "Ready for Merge" gate WITHOUT spawning the
+      # tech-writer, and releases it back here once the PR is merged.
+      - Ready for Merge
+      # ABS-323 async fastlane acceptance reject edge: a `lane=fastlane` ticket
+      # rests HERE (past the combined gate + merge-queue) for the daily PO
+      # acceptance batch (scripts/fastlane-acceptance-batch.sh). On REJECT the
+      # po-agent routes it back to development with a defect list; this backward
+      # agent hop is the ABS-74 rework counter's input. Only the reject action
+      # takes this edge (normal-lane Docs tickets never do).
+      - Ready for Development
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: story | class: resting (human-owned in the v1/v2 flow)
+  - name: Ready for Human Acceptance
+    entered_when: Tests pass, gates green or exceptions documented
+    triggers: PO epic-completion check; human notification when epic-complete
+    next:
+      - Ready for Merge
+      # STATION-GUARD redirect edges (ABS-284; see the "Backward redirect edges"
+      # note in the header). RfHA is the v1/v2 happy-path landing of
+      # 'In Test -> Ready for Human Acceptance' (statuses.yaml v1/v2 path above);
+      # guard_chain_index treats RfHA as index 10 (ABS-216), so that hop folds
+      # every mandatory station strictly between In Test (7) and 10. The guard
+      # redirects to the FIRST such station: Story Acceptance (idx 9, unconditional)
+      # for a plain story, OR Design Test (idx 8) when the story carries the
+      # 'design' flag, which makes that conditional stage mandatory-for-this-ticket
+      # (ABS-247) and precedes Story Acceptance. BOTH targets are reachable, so BOTH
+      # edges must exist or the redirect is rejected and the ticket stalls silently
+      # at RfHA. Enumerated (derived by the ABS-284 AC5 test), not blanket-backward.
+      - Story Acceptance
+      - Design Test
+      # Human requests changes before accepting the ticket scope.
+      - In Progress
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: story | class: resting (human-owned merge gate, ADR-A-0004/0005).
+  # This is also THE resting place for the v3 state "story correct, PR open,
+  # waiting on a human" (ABS-270): no seat is spawned here (map_action -> NOOP),
+  # reconcile does not re-derive it (is_reconcilable_status -> false, so resting
+  # costs zero spawns and the ABS-132 no-move counter has nothing to count), and
+  # the stuck detector treats it as a legitimate rest (is_legit_rest_status).
+  - name: Ready for Merge
+    entered_when: Human accepted ticket scope, or story pipeline green with an
+      unmerged PR (v3 merge-wait park, ABS-270)
+    triggers: Human merges (Release Agent has PR ready)
+    next:
+      # ABS-290: post-merge forward exit — the same hole ABS-266 closed for
+      # 'Needs PO Decision'. After the human merges, the story continues into
+      # the docs sweep instead of being stranded with Done as the only route.
+      - Docs
+      - Done
+      # ABS-270 merge-wait release: once the PR of a story the runner parked here
+      # (from Docs) is merged, the reconcile sweep sends it back to Docs so the
+      # tech-writer finishes it and it reaches Done with no manual step. Only
+      # parks made from Docs are released; the Path-A human gate is untouched.
+      - Docs
+      # ABS-454 ready-for-merge-gate edge: a story that reaches `Ready for Merge`
+      # with NO mirrored MR (MR-create failed, or the branch push was lost in a
+      # runner restart — ABS-425 / ABS-420 / ABS-416, ABS-354 class) is redirected
+      # back to `Merging` by ready_for_merge_mr_gate so the RTE respawn creates the
+      # MR (self-heal instead of a human-invisible stall). Mirrors the ABS-211
+      # `Done -> Merging` edge; without it the adapter would REJECT the redirect.
+      - Merging
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: shared | class: resting (terminal — two deliberate exceptions:
+  # the v3 Epic Integration bisect may REOPEN a merged-but-faulty story back
+  # to implementation; spec §3.5, ABS-90. Agents never revert main; reopening
+  # forward-fixes the story instead. And the ABS-211 done-gate bounces a Done
+  # whose PR is not merged back to Merging — see below.)
+  - name: Done
+    entered_when: PR merged
+    triggers: Documentation sweep, epic progress update
+    next:
+      - Ready for Development
+      # ABS-211 done-gate edge (added ABS-270). done_pr_gate has redirected an
+      # unmerged-PR Done back to `Merging` since ABS-211 — but the edge was never
+      # added here, so the adapter REJECTED that redirect and the story stayed in
+      # Done: the gate detected the false signal, posted its comment, and could not
+      # act on it, leaving the epic JOIN free to fire on it (the exact ABS-192 /
+      # ABS-202 defect the gate exists to stop). Uncovered by driving the gate
+      # end-to-end for ABS-270 (tests/test-merge-wait.sh AC3); tests/test-done-gate.sh
+      # had hand-built the dump precisely BECAUSE this edge was missing.
+      - Merging
+
+  # --- epic pipeline (v3, ABS-69) ---------------------------------------------
+
+  # pipeline: epic | class: transient (v3 PO triage seat)
+  - name: PO Triage
+    entered_when: Epic routed into the v3 pipeline (human or Backlog po-agent)
+    triggers: Coordinator spawns po-agent (scope, WSJF priority, guardrails)
+    next:
+      - Grooming
+      # PO may deprioritize the epic back to the backlog.
+      - Backlog
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: epic | class: transient (v3 BSA grooming seat)
+  - name: Grooming
+    entered_when: Epic triaged (or bounced back by Ticket Review / rejected by
+      the human — forward-fix, spec §3.5)
+    triggers: Coordinator spawns bsa (story drafts, testable ACs, flags)
+    next:
+      - Enrichment
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: epic | class: transient (v3 enrichment seat — the single ticket
+  # creator)
+  - name: Enrichment
+    entered_when: Story drafts ready
+    triggers: Coordinator spawns issue-enrichment (dedup, format, create children)
+    next:
+      - Ticket Review
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: epic | class: transient (v3 Definition-of-Ready gate, spec §3.10)
+  - name: Ticket Review
+    entered_when: Child tickets created
+    triggers: Coordinator spawns qas (DoR batch review of all children)
+    next:
+      - Architecture Review
+      # DoR rework verdict bounces the epic to grooming (counted by the
+      # per-ticket rework counter, ABS-74).
+      - Grooming
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: epic | class: transient (v3 architecture gate)
+  - name: Architecture Review
+    entered_when: DoR gate passed
+    # ABS-290: quoted — an unquoted inline '#' opens a YAML comment and
+    # silently TRUNCATES this scalar for any strict YAML parser.
+    triggers: "Coordinator spawns system-architect (patterns, #PATH_DECISION,
+      releases stories)"
+    next:
+      - Stories In Flight
+      # Architectural rework routes back to grooming.
+      - Grooming
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: epic | class: resting (epic rests while children run; the JOIN
+  # rule advances it mechanically — spec §3.1, ABS-73)
+  - name: Stories In Flight
+    entered_when: Architecture review released the stories
+    triggers: Sweep JOIN rule (all children + AC-blocking additions Done)
+    next:
+      - Epic Integration
+      # ABS-271 STATION-GUARD repair edge: a PRE-FILLED epic can reach this status
+      # directly from Backlog (the ABS-214 JOIN-rest edge), landing PAST the DoR
+      # gate it never ran. STATION-GUARD redirects it back to that gate. Not a seat
+      # route -- no seat transitions Stories In Flight -> Ticket Review; only the
+      # runner's own mechanical correction does.
+      - Ticket Review
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: epic | class: transient (v3 RTE integration seat -- sync-rebases
+  # the epic's own integration branch onto main (the sole sanctioned rewrite),
+  # deploys and smokes it; git-bisect over the ticket-tagged commits on fail
+  # reopens the culprit story -- never resets the branch otherwise, never
+  # touches main)
+  - name: Epic Integration
+    entered_when: JOIN fired (all stories done)
+    triggers: Coordinator spawns rte (sync-rebase epic branch onto main +
+      staging deploy + smoke; git-bisect ticket-tagged commits on fail)
+    next:
+      - Ready for Epic Acceptance
+      # Bisect reopened an offending story; the epic waits again (spec §3.5).
+      - Stories In Flight
+      # Sync-rebase conflict: RTE aborts (branch untouched) and blocks for TDM
+      # triage; resume returns to Epic Integration (spec §3.5, ADR-A-0014).
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: epic | class: resting (human-owned -- THE ready-to-test gate;
+  # the human tests the epic's integration branch here and merges its PR to
+  # main themselves -- the only path from an epic branch to main, ADR-A-0014)
+  - name: Ready for Epic Acceptance
+    entered_when: Staging deploy + smoke passed
+    triggers: NOTIFY human (ready-to-test — the workflow's one notification)
+    next:
+      - Epic Done
+      # Human rejection = forward-fix via grooming (never revert, spec §3.5).
+      - Grooming
+      - Blocked
+      - Needs PO Decision
+
+  # pipeline: epic | class: transient (v3 retro seat; terminal after the spawn
+  # — self-improvement posts its proposals and the epic rests here for good)
+  - name: Epic Done
+    # ABS-301: no legal forward edge exists after the retro spawn; the escalation
+    # budget sweep reads this flag from the file (not a hardcoded name list) and
+    # skips the stall counter for statuses where terminal: true.
+    terminal: true
+    entered_when: Human accepted the epic on staging
+    triggers: Coordinator spawns self-improvement (retro, skill mining,
+      proposals)
+    next: []
+
+  # --- cross-cutting -----------------------------------------------------------
+
+  # pipeline: shared | class: resting (human/TDM-owned; v3 spawns tdm once per
+  # entry — ABS-76. Unblocking returns the ticket to whichever active status
+  # it left, both pipelines.)
+  # ABS-296 auto-release: when ORCH_BLOCKED_AUTO_RELEASE=1, the reconcile sweep
+  # transitions a Blocked ticket whose depends_on are all Done back to its
+  # BLOCKED-FROM origin. The exhaustive next: list below is what makes every
+  # valid origin a legal machine edge (both TDM/human and the runner may drive
+  # the Blocked -> <origin> transition — the edge is the same in both cases).
+  - name: Blocked
+    entered_when: Any agent hits an unresolvable obstacle
+    triggers: "TDM blocker triage (v3, ABS-76), then human escalation if needed;
+      dependency-caused entries auto-released by the reconcile sweep once
+      all depends_on are Done (ORCH_BLOCKED_AUTO_RELEASE=1, ABS-296)."
+    next:
+      - Backlog
+      - Ready for Development
+      - In Progress
+      - In Review
+      - In Test
+      - Ready for Human Acceptance
+      - Ready for Merge
+      - Design
+      - Security Review
+      - Test Prep
+      - Design Test
+      - Story Acceptance
+      - Merging
+      - Docs
+      - PO Triage
+      - Grooming
+      - Enrichment
+      - Ticket Review
+      - Architecture Review
+      - Stories In Flight
+      - Epic Integration
+      - Ready for Epic Acceptance
+      - Needs PO Decision
+
+  # pipeline: shared | class: transient (po-agent decision spawn, ABS-61)
+  - name: Needs PO Decision
+    entered_when: An agent, human, or sweep requests a product decision
+    triggers: Coordinator spawns PO-Agent
+    # The PO-Agent decides and routes the ticket onward. Unlike Blocked (which
+    # resumes to the exact status it left, hence its exhaustive next: list), this
+    # status is a fresh product decision, NOT a resume-to-origin — so it lists only
+    # the sanctioned reset/resume targets below, never the mid-chain implementer
+    # statuses. Escalations (rework §3.2, crash §3.8, follow-up budget §3.4,
+    # empty-epic §3.6, ambiguous-bisect §3.5) all land on one of these.
+    next:
+      - Backlog
+      - Ready for Development
+      # v3 routes: epics resume triage/grooming or their resting JOIN state;
+      # stories resume the design stage (ABS-71/ABS-72).
+      - PO Triage
+      - Grooming
+      - Stories In Flight
+      - Design
+      # ABS-266: post-merge forward exit. Every other target above routes BACKWARD
+      # into re-implementation, which is destructive for a story whose code is
+      # already merged. Without `Docs` a post-merge escalation is un-routable
+      # forward and the PO-Agent has to launder it through `Blocked` purely
+      # because Blocked's resume-to-origin next: list happens to be exhaustive
+      # (ABS-234). `Docs` (entered_when: Story merged) is the correct resume point
+      # for a merged story the PO accepts; Done stays gated behind the Docs seat.
+      - Docs
+      # PILOT-49/ABS-555: forward exit to Merging for a story the iteration cap
+      # parked while it was ALREADY approved (both gate verdicts on the ticket,
+      # merge_readiness clean). Every other target above routes BACKWARD into the
+      # pipeline, which re-trips the same cap a gate later — the deterministic
+      # deadlock that left finished, approved work unmergeable without a human.
+      # This edge lets the PO-Agent route proven-approved work forward to the RTE
+      # merge seat (which still rebases + runs CI). GUARDRAIL: use ONLY when the
+      # gate approvals are documented on the ticket; a story still genuinely under
+      # review takes one of the backward targets above.
+      - Merging
+      - Blocked
+
+  # pipeline: shared | class: resting (terminal — ABS-338, Epic ABS-326 Option A,
+  # operator decision-of-record 2026-07-17). Jira carries a `Canceled` status
+  # (e.g. ABS-127) that the v3 canonical machine lacked, so the shadow mirror
+  # skipped it (`unbekannter Jira-Status 'Canceled' — skip`) and the runner
+  # STUCK-DETECT / ABS-132 respawn limiter treated a canceled ticket as a stalled
+  # ACTIVE one and re-derived forever (~$0.6-1.0/cycle). Canceled is a terminal
+  # rest: like Epic Done it carries `terminal: true` and `next: []` — NO reverse
+  # edge; reopening a canceled ticket is a NEW ticket. Consumed data-drivenly by
+  # status_is_terminal (ABS-339 limiter exemption) and enumerated in the runner's
+  # terminal/known sets (STUCK-DETECT is_legit_rest_status, is_known_status,
+  # first_live_claim, propagate_start_label terminal-skip). Relates to ADR-A-0026
+  # (first-class orchestration state).
+  - name: Canceled
+    terminal: true
+    entered_when: Ticket abandoned in Jira (the source of truth); mirrored into
+      the v3 backend as a terminal rest (Koexistenz, Epic ABS-326)
+    triggers: None — terminal; the shadow mirror syncs the Jira truth, no seat
+    next: []
+
+  # pipeline: shared | class: resting (terminal — PILOT-34 Human-Override).
+  # An operator has consciously decided this ticket will NOT be implemented
+  # ("Won't Do"). Modeled on Canceled (ABS-338): like Epic Done it carries
+  # `terminal: true` and `next: []` — NO reverse edge; reopening a rejected
+  # ticket is a NEW ticket. Runner and sweeps treat Rejected identically to
+  # Done/Canceled: consumed data-drivenly by status_is_terminal (ABS-339
+  # respawn-limiter exemption) and enumerated in the runner's terminal/known
+  # sets (is_legit_rest_status, is_known_status, first_live_claim,
+  # propagate_start_label terminal-skip) — no stall counter, no respawn, JOIN
+  # excluded. The ONLY entry path is the Mission Control Human-Override (admin
+  # role, audited: confirm dialog + mandatory reason); the Jira shadow-mirror
+  # maps Resolution 'Won't Do' onto this status (Koexistenz, ABS-326).
+  - name: Rejected
+    terminal: true
+    entered_when: Operator (admin) overrides the ticket via the Mission Control
+      Human-Override panel (confirm dialog + mandatory reason)
+    triggers: None — terminal; the runner and sweeps skip it (stall-counter and
+      respawn-limiter exempt, JOIN excluded)
+    next: []
