@@ -611,6 +611,12 @@ work/scratch/
 # manual upgrade diffing, not part of this repo's tree)
 /agentic-boilerplate/
 
+# Committed test fixtures under tests/fixtures/sync/ intentionally include a
+# settings.local.json sample (harness fork-sync test data, not this repo's own
+# local runtime settings) — negate so a user-global "**/.claude/settings.local.json"
+# gitignore rule can't silently drop it from the index (ABS-280 fixture-integrity).
+!tests/fixtures/sync/**/settings.local.json
+
 
 # Graphify local extraction cache (graph.json + report are committed)
 graphify-out/cache/
