@@ -87,11 +87,8 @@ def _migrate_real_to_numeric(conn: sqlite3.Connection) -> None:
                     completed_at TIMESTAMP
                 )
             """)
-            cursor.execute(f"""
-                INSERT INTO eth_deposits
-                SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at
-                FROM {temp_name}
-            """)
+            query = f"INSERT INTO eth_deposits SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at FROM {temp_name}"  # nosec B608 - temp_name is a hardcoded literal table name from this function's own migration list (`table` above), never external input
+            cursor.execute(query)
         else:
             cursor.execute("""
                 CREATE TABLE price_history (
@@ -103,12 +100,9 @@ def _migrate_real_to_numeric(conn: sqlite3.Connection) -> None:
                     exchange_rate_eur NUMERIC NOT NULL
                 )
             """)
-            cursor.execute(f"""
-                INSERT INTO price_history
-                SELECT id, timestamp, eth_usd_price, eth_eur_price, exchange_rate_usd, exchange_rate_eur
-                FROM {temp_name}
-            """)
-        cursor.execute(f"DROP TABLE {temp_name}")
+            query = f"INSERT INTO price_history SELECT id, timestamp, eth_usd_price, eth_eur_price, exchange_rate_usd, exchange_rate_eur FROM {temp_name}"  # nosec B608 - temp_name is a hardcoded literal table name from this function's own migration list (`table` above), never external input
+            cursor.execute(query)
+        cursor.execute(f"DROP TABLE {temp_name}")  # nosec B608 - temp_name is a hardcoded literal (see above)
 
 
 def insert_deposit(tx_hash: str, from_address: str, amount_eth: Decimal, amount_ait: Decimal) -> str:
@@ -171,14 +165,13 @@ def update_deposit_status(deposit_id: str, status: str) -> bool:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
+    # timestamp_field is one of exactly two hardcoded literals below, never
+    # derived from caller input -- `status` itself is bound as a ? parameter.
     timestamp_field = "verified_at" if status == "verified" else "completed_at"
 
+    query = f"UPDATE eth_deposits SET status = ?, {timestamp_field} = ? WHERE id = ?"  # nosec B608 - timestamp_field is one of exactly two hardcoded literals above, never caller input
     cursor.execute(
-        f"""
-        UPDATE eth_deposits
-        SET status = ?, {timestamp_field} = ?
-        WHERE id = ?
-        """,
+        query,
         (status, datetime.now().isoformat(), deposit_id),
     )
 
@@ -309,10 +302,11 @@ def cleanup_old_prices(days: int = 30) -> int:
     cursor = conn.cursor()
 
     cursor.execute(
-        f"""
-        DELETE FROM price_history
-        WHERE timestamp < datetime('now', '-{days} days')
         """
+        DELETE FROM price_history
+        WHERE timestamp < datetime('now', ?)
+        """,
+        (f"-{int(days)} days",),
     )
 
     deleted_count = cursor.rowcount

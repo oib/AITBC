@@ -26,7 +26,7 @@ def main():
             import uvicorn
 
             logger.info("Starting blockchain FastAPI app on port 8202")
-            uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BLOCKCHAIN_PORT", 8202)))
+            uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BLOCKCHAIN_PORT", 8202)))  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
         except ImportError as e:
             logger.error("Failed to import blockchain app: %s", e)
             try:
@@ -88,7 +88,7 @@ def basic_blockchain_node():
         activity_thread = threading.Thread(target=blockchain_activity, daemon=True)
         activity_thread.start()
         logger.info("Starting basic blockchain API on port 8202")
-        uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BLOCKCHAIN_PORT", 8202)))
+        uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BLOCKCHAIN_PORT", 8202)))  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
     except ImportError:
         logger.info("FastAPI not available, using simple blockchain node")
         while True:

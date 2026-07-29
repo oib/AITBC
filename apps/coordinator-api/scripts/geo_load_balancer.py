@@ -142,6 +142,6 @@ async def create_app():
 
 if __name__ == "__main__":
     app = asyncio.run(create_app())
-    host = os.environ.get("HOST", "0.0.0.0")
+    host = os.environ.get("HOST", "0.0.0.0")  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
     port = int(os.environ.get("PORT", 8017))
     web.run_app(app, host=host, port=port)

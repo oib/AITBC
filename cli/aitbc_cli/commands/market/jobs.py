@@ -84,7 +84,7 @@ def run_job(ctx: click.Context, offer_id: str, prompt: str, max_tokens: int, str
         )
         info("Running inference...")
         t_start = datetime.now()
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310 - URL is a fully hardcoded literal (local Ollama endpoint), no variable interpolation
             resp_data = json.loads(resp.read())
         elapsed = (datetime.now() - t_start).total_seconds()
 
@@ -177,8 +177,14 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
         price_unit = offer.get("price_unit", "per_audio_min")
         provider_address = offer.get("provider_address", "")
         model = offer.get("model", "base")
-        # Use provider's public endpoint from offer; fall back to localhost for self-hosted
+        # Use provider's public endpoint from offer; fall back to localhost for self-hosted.
+        # The offer comes from a third-party provider over the gossip network, so the
+        # endpoint scheme must be validated before it's ever passed to urlopen() --
+        # otherwise a malicious offer could point at file:// or an internal address.
         whisper_endpoint = offer.get("endpoint", "http://localhost:8110")
+        if not whisper_endpoint.startswith(("http://", "https://")):
+            error(f"Rejecting offer with unsafe endpoint scheme: {whisper_endpoint}")
+            raise click.Abort()
         # Normalise: strip trailing /whisper path if present, add /transcribe
         whisper_base = whisper_endpoint.rstrip("/").removesuffix("/transcribe")
         whisper_transcribe_url = whisper_base + "/transcribe"
@@ -238,7 +244,7 @@ def transcribe_job(ctx, offer_id: str, audio_file: str, language: str | None, ta
         req = _urllib.Request(
             whisper_transcribe_url, data=body, headers={"Content-Type": f"multipart/form-data; boundary={boundary.decode()}"}
         )
-        with _urllib.urlopen(req, timeout=300) as resp:
+        with _urllib.urlopen(req, timeout=300) as resp:  # nosec B310 - endpoint scheme validated above (must be http:// or https://) before this call
             resp_data = json.loads(resp.read())
 
         elapsed = (datetime.now() - t_start).total_seconds()
@@ -509,8 +515,14 @@ def process_video(ctx, offer_id: str, input_file: str, format: str, codec: str, 
         info(f"Offer: ffmpeg/{model} at {price} AIT/{price_unit} — provider {provider_address}")
         info(f"Input file: {input_file}")
 
-        # Use provider's public endpoint from offer; fall back to localhost for self-hosted
+        # Use provider's public endpoint from offer; fall back to localhost for self-hosted.
+        # The offer comes from a third-party provider over the gossip network, so the
+        # endpoint scheme must be validated before it's ever passed to urlopen() --
+        # otherwise a malicious offer could point at file:// or an internal address.
         ffmpeg_endpoint = offer.get("endpoint", "http://localhost:8230")
+        if not ffmpeg_endpoint.startswith(("http://", "https://")):
+            error(f"Rejecting offer with unsafe endpoint scheme: {ffmpeg_endpoint}")
+            raise click.Abort()
         # Normalise: strip trailing /process if present, add /process
         ffmpeg_base = ffmpeg_endpoint.rstrip("/").removesuffix("/process")
         ffmpeg_process_url = ffmpeg_base + "/process"
@@ -549,7 +561,7 @@ def process_video(ctx, offer_id: str, input_file: str, format: str, codec: str, 
         req = _urllib.Request(
             ffmpeg_process_url, data=body, headers={"Content-Type": f"multipart/form-data; boundary={boundary.decode()}"}
         )
-        with _urllib.urlopen(req, timeout=3600) as resp:
+        with _urllib.urlopen(req, timeout=3600) as resp:  # nosec B310 - endpoint scheme validated above (must be http:// or https://) before this call
             resp_data = json.loads(resp.read())
 
         elapsed = (datetime.now() - t_start).total_seconds()

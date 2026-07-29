@@ -187,7 +187,7 @@ class ExchangeMixin:
                     tx_url, data=encoded_data, headers={"Content-Type": "application/x-www-form-urlencoded"}
                 )
 
-                with urllib.request.urlopen(req, timeout=RPC_TIMEOUT) as response:
+                with urllib.request.urlopen(req, timeout=RPC_TIMEOUT) as response:  # nosec B310 - RPC_BASE_URL is validated (module-level startswith http(s):// check in base.py) before this call
                     tx_result = json.loads(response.read().decode())
                 tx_hash = tx_result.get("tx_hash", "")
 
@@ -254,7 +254,7 @@ class ExchangeMixin:
             blockchain_url = f"{RPC_BASE_URL}/rpc/getBalance/{treasury_address}"
 
             try:
-                with urllib.request.urlopen(blockchain_url, timeout=RPC_TIMEOUT) as response:
+                with urllib.request.urlopen(blockchain_url, timeout=RPC_TIMEOUT) as response:  # nosec B310 - RPC_BASE_URL is validated (module-level startswith http(s):// check in base.py) before this call
                     balance_data = json.loads(response.read().decode())
                     treasury_balance = balance_data.get("balance", 0)
 
@@ -389,7 +389,7 @@ class ExchangeMixin:
 
             # Get AITBC balance from blockchain
             blockchain_url = f"{RPC_BASE_URL}/rpc/balance/{address}"
-            with urllib.request.urlopen(blockchain_url, timeout=RPC_TIMEOUT) as response:
+            with urllib.request.urlopen(blockchain_url, timeout=RPC_TIMEOUT) as response:  # nosec B310 - RPC_BASE_URL is validated (module-level startswith http(s):// check in base.py) before this call
                 balance_data = json.loads(response.read().decode())
 
             # For BTC, we'll query a Bitcoin API (simplified for now)

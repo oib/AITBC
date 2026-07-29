@@ -576,7 +576,7 @@ class TestChainRPCEndpoints:
                 chain_id="chain-a",
                 chain_type=ChainType.DEFAULT,
                 status=ChainStatus.RUNNING,
-                db_path=Path("/tmp/chain.db"),
+                db_path=Path("/tmp/chain.db"),  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
                 rpc_port=8202,
                 p2p_port=8007,
                 started_at=1234567890.0,

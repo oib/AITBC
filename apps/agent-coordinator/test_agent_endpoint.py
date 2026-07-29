@@ -86,4 +86,4 @@ async def execute_task(task: TaskMessage):
 
 if __name__ == "__main__":
     print("Starting test agent endpoint on port 9997...")
-    uvicorn.run(app, host="0.0.0.0", port=9997, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=9997, log_level="info")  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer

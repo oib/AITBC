@@ -106,7 +106,7 @@ class AlertDispatcher:
                 method="POST",
             )
             try:
-                with request.urlopen(webhook_request, timeout=5) as response:
+                with request.urlopen(webhook_request, timeout=5) as response:  # nosec B310 - webhook_url is operator-set config (AITBC_ALERT_WEBHOOK_URL env var), not runtime user input
                     if response.status >= 400:
                         raise RuntimeError(f"Webhook responded with status {response.status}")
             except error.URLError as exc:
