@@ -5,8 +5,10 @@ allowed-tools: [Read, Write, Edit, Bash, Grep, Glob]
 
 Execute a dependency audit for AITBC's Python/Poetry stack to identify security issues and
 optimization opportunities. Findings become tickets in the active tracker
-(`scripts/mock-tracker.sh` — this repo's `neutral` profile has `task-tracking.provider: mock`; see
-`profiles/neutral/profile.yaml` and `CLAUDE.md`), not Linear/Jira.
+(`scripts/gitea-tracker.sh` against the real Gitea issue tracker — this repo's `neutral` profile
+has `task-tracking.provider: gitea`; see `profiles/neutral/profile.yaml` and
+`docs/sop/ORCHESTRATOR_SOP.md`'s "Gitea Tracker Adapter" section for the required
+`GITEA_SITE`/`GITEA_TOKEN`/`GITEA_OWNER`/`GITEA_REPO` env vars), not Linear/Jira/mock.
 
 ## Audit Workflow
 
@@ -129,11 +131,13 @@ Document findings in `docs/agent-outputs/technical-docs/dependency-audit-report-
 
 ### 7. Create Tracker Tickets for Actionable Findings
 
-For each significant finding, create a ticket via the mock tracker (per `tracker-ops` skill):
+For each significant finding, create a real Gitea issue via the tracker adapter (requires
+`GITEA_SITE`/`GITEA_TOKEN`/`GITEA_OWNER`/`GITEA_REPO` set; run `scripts/gitea-tracker.sh setup`
+once beforehand if labels aren't already provisioned):
 
 ```bash
-scripts/mock-tracker.sh create --type ticket --title "<short description>" \
-    --prefix AITBC --priority <hotfix|high|normal|low> \
+scripts/gitea-tracker.sh create --type ticket --title "<short description>" \
+    --priority <hotfix|high|normal|low> \
     --body-file <path-to-finding-writeup.md>
 ```
 
@@ -162,4 +166,4 @@ Run audits:
 
 This provides a systematic approach to dependency management and optimization, scoped to
 AITBC's actual Python/Poetry monorepo (plus optional per-app Node audits) and its actual
-mock-tracker ticketing, rather than the generic yarn/Linear template this command started from.
+Gitea Issues ticketing, rather than the generic yarn/Linear template this command started from.
