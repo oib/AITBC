@@ -1,0 +1,106 @@
+# saw-stack profile — SAW's production-tested opinionated stack, expressed as a profile.
+# Binds each neutral capability to SAW's concrete providers and points at the SAW
+# skills/commands/agents that implement them. This is the "batteries-included" option.
+
+profile: saw-stack
+description: >
+  SAW's opinionated stack: Linear + Confluence + Supabase/Postgres(RLS) +
+  Docker/GitHub Actions + Next.js/Clerk/shadcn + Stripe. Production-tested
+  (SAW v2.10.0). Choose this to start working immediately with SAW's defaults.
+based_on: safe-agentic-workflow@v2.10.0
+
+# Stack applicability (ABS-257): which pattern tags this project can actually use.
+# scripts/pattern-applicability.sh filters patterns_library/ against this list, and the
+# pattern-discovery skill recommends only from the result — so a foreign-stack project is
+# never offered Next.js/Prisma/Clerk code. Patterns tagged `generic` always apply.
+# Vocabulary: see patterns_library/README.md "Stack applicability".
+stack: [nextjs, react, clerk, prisma, postgres-rls, stripe, github-actions, playwright]
+
+capabilities:
+  task-tracking:
+    provider: linear
+    implemented_by:
+      skills: [linear-sop, safe-workflow]
+      commands: [start-work, end-work, sync-linear]
+      agents: [tdm]
+      mcp: "linear-mcp"
+    hooks: [post-commit-linear-update.sh]
+    required: true
+
+  docs:
+    provider: confluence
+    implemented_by:
+      skills: [confluence-docs]
+      agents: [tech-writer]
+      mcp: "confluence-mcp"
+    required: true
+
+  git:
+    provider: github
+    protected_branches: ["main"]
+    autonomous_merge: false
+    implemented_by:
+      skills: [git-advanced, safe-workflow]
+      commands: [pre-pr, release]
+      agents: [rte]               # RTE: PR shepherd, never merges — Exit "Ready for HITL"
+    required: true
+
+  database:
+    provider: supabase-postgres-rls
+    implemented_by:
+      skills: [rls-patterns, migration-patterns]
+      agents: [data-engineer, data-provisioning-eng]
+      docs: [docs/database/RLS_DATABASE_MIGRATION_SOP.md]
+    required: true
+
+  deploy:
+    provider: docker-github-actions
+    production_release: human-only
+    implemented_by:
+      skills: [deployment-sop, release-patterns]
+      commands: [deploy-dev, remote-deploy, remote-rollback, release]
+      docs: [docs/ci-cd/CI-CD-Pipeline-Guide.md]
+    required: true
+
+  notifications:
+    provider: linear             # human notifications land in the tracker (Linear)
+    required: true
+
+  design-system:
+    provider: none               # SAW frontend uses shadcn/Clerk patterns, not a formal design system
+    implemented_by:
+      skills: [frontend-patterns]
+      agents: [fe-developer]
+    required: false
+
+  knowledge:
+    provider: okf-repo           # in-repo OKF bundle at knowledge/; see adapters/knowledge.md
+    bundle_path: knowledge/
+    implemented_by:
+      skills: [pattern-discovery]
+      agents: [bsa, tech-writer]
+    required: false
+
+  secrets:
+    provider: env                # .env.template; mediated access, no committed secrets
+    mediated_access_only: true
+    implemented_by:
+      skills: [security-audit]
+      agents: [security-engineer]
+    required: true
+
+# SAW-specific extras beyond the neutral capability set.
+extras:
+  payments: { provider: stripe, skills: [stripe-patterns] }
+  frontend: { framework: next.js, auth: clerk, ui: shadcn, skills: [frontend-patterns, api-patterns] }
+  orchestration: { dark_factory: true }   # persistent tmux agent teams (dark-factory/)
+  providers: [claude-code, gemini-cli, codex-cli, cursor]
+
+approval_boundaries:
+  - architecture-change        # System Architect + ADR
+  - breaking-change
+  - merge-to-main              # RTE never merges; HITL only
+  - additional-costs
+  - production-deployment      # agents prepare; human releases
+  - adr-acceptance
+  - epic-acceptance
