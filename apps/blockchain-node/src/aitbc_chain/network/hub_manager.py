@@ -180,7 +180,7 @@ class HubManager:
             credentials["island_id"] = self.island_id
             credentials["island_name"] = self.island_name
             rpc_host = self.local_address
-            if rpc_host in {"0.0.0.0", "127.0.0.1", "localhost", ""}:
+            if rpc_host in {"0.0.0.0", "127.0.0.1", "localhost", ""}:  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
                 rpc_host = settings.hub_discovery_url or socket.gethostname()
             credentials["rpc_endpoint"] = f"http://{rpc_host}:8202"
             credentials["p2p_port"] = self.local_port

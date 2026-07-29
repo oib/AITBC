@@ -59,6 +59,6 @@ def test_alembic_offline_sql(tmp_path: Path) -> None:
 
 def test_alembic_single_head() -> None:
     """The migration graph should have exactly one head."""
-    result = _run_alembic(Path("/tmp"), "heads")
+    result = _run_alembic(Path("/tmp"), "heads")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
     heads = [line for line in result.stdout.strip().splitlines() if line.strip()]
     assert len(heads) == 1, f"Expected exactly one head, got: {heads}"

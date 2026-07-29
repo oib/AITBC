@@ -219,7 +219,7 @@ if __name__ == "__main__":
     import os
 
     # Standardized environment variable naming: SERVICE_BIND_HOST and SERVICE_BIND_PORT
-    host = os.getenv("FFMPEG_BIND_HOST", "0.0.0.0")
+    host = os.getenv("FFMPEG_BIND_HOST", "0.0.0.0")  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
     port = int(os.getenv("FFMPEG_BIND_PORT", os.getenv("FFMPEG_PORT", "8230")))
 
     uvicorn.run(app, host=host, port=port)

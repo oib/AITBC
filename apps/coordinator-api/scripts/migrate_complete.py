@@ -56,7 +56,7 @@ def migrate_all_data():
         column_names = [col[1] for col in columns]
 
         # Get data
-        sqlite_cursor.execute(f'SELECT * FROM "{table_name}"')
+        sqlite_cursor.execute(f'SELECT * FROM "{table_name}"')  # nosec B608 - table_name is validated against the allowed_tables allowlist above
         rows = sqlite_cursor.fetchall()
 
         if not rows:
@@ -64,16 +64,12 @@ def migrate_all_data():
             continue
 
         # Build insert query
+        # nosec B608 - table_name validated against allowed_tables above; column_names
+        # come from PRAGMA table_info (the DB's own schema), never external input.
         if table_name == "user":
-            insert_sql = f'''
-                INSERT INTO "{table_name}" ({", ".join(column_names)})
-                VALUES ({", ".join(["%s"] * len(column_names))})
-            '''
+            insert_sql = f'INSERT INTO "{table_name}" ({", ".join(column_names)}) VALUES ({", ".join(["%s"] * len(column_names))})'  # nosec B608
         else:
-            insert_sql = f'''
-                INSERT INTO "{table_name}" ({", ".join(column_names)})
-                VALUES ({", ".join(["%s"] * len(column_names))})
-            '''
+            insert_sql = f'INSERT INTO "{table_name}" ({", ".join(column_names)}) VALUES ({", ".join(["%s"] * len(column_names))})'  # nosec B608
 
         # Insert data
         count = 0

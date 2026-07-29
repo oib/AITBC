@@ -191,7 +191,7 @@ class CoinGeckoOracle:
 
             url = f"{_COINGECKO_BASE}/simple/price?ids={coin_id}&vs_currencies={vs_currency}&include_last_updated_at=true"
             req = urllib.request.Request(url, headers={"User-Agent": "aitbc-oracle/1.0"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - base URL is a hardcoded https:// literal (_COINGECKO_BASE); only query-string values are interpolated
                 data = json.loads(resp.read())
 
             if coin_id not in data:

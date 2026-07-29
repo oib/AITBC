@@ -288,7 +288,7 @@ def migrate_data():
             continue
 
         print(f"Migrating {table_name}...")
-        sqlite_cursor.execute(f'SELECT * FROM "{table_name}"')
+        sqlite_cursor.execute(f'SELECT * FROM "{table_name}"')  # nosec B608 - table_name comes from a hardcoded literal migrations list above, further validated against allowed_tables
         rows = sqlite_cursor.fetchall()
 
         count = 0
