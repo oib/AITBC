@@ -38,6 +38,7 @@ uv.lock
 *.env
 .env.*
 !.env.example
+!.env.template
 .env.local
 .env.*.local
 
@@ -371,6 +372,15 @@ api_keys.txt
 !*.example
 !.pre-commit-config.yaml
 !.yamllint.yaml
+# Harness/profile config -- not secrets, actively read at runtime by every
+# tracker adapter (statuses.yaml) and the profile/capability-binding system
+# (profile.yaml). Blanket *.yaml above silently swallowed these on the initial
+# SAW harness adoption; discovered when scripts/gitea-tracker.sh (which reads
+# statuses.yaml as its status-machine source of truth) was added and this repo
+# had never actually committed the file a fresh clone would need.
+!profiles/*/profile.yaml
+!profiles/neutral/adapters/statuses.yaml
+!docs/rule-ledger.yaml
 backups/*/config/
 backups/*/logs/
 
@@ -557,6 +567,13 @@ work/.events-state
 # Status snapshot the Jira adapter diffs each `events` poll against. Runtime
 # state, reconstructible from a fresh JQL sweep; never committed.
 work/.jira-events-state
+
+# ============================================================================
+# Gitea Task-Tracker Runtime State (scripts/gitea-tracker.sh events snapshot)
+# ============================================================================
+# Status snapshot the Gitea adapter diffs each `events` poll against. Runtime
+# state, reconstructible from a fresh sweep; never committed.
+work/.gitea-events-state
 
 # ============================================================================
 # Tracker-Koexistenz Runtime (epic ABS-326) — shadow-mirror replay log,
