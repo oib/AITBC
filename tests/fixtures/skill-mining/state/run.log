@@ -1,0 +1,5 @@
+T	INTENT-CLAIM	ABS-100	be-developer	Ready for Development	-
+T	TELEMETRY	ABS-100	be-developer	Ready for Development	Bash=5 Skill=1
+T	INTENT-HANDOFF-NOMOVE	ABS-120	bsa	Backlog	-
+T	INTENT-HANDOFF-NOMOVE	ABS-120	bsa	Backlog	-
+T	INTENT-SPAWN-CRASH	ABS-130	qas	Ready for QAS	-
