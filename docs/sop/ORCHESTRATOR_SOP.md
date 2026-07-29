@@ -2701,6 +2701,73 @@ a fence can grow past 200, tighten `JIRA_JQL_FILTER` (e.g. add a sprint/label cl
 
 ---
 
+## Gitea Tracker Adapter (this project's task-tracking provider)
+
+`scripts/gitea-tracker.sh` implements the canonical task-tracking operations
+(`profiles/neutral/adapters/task-tracking.md`) against the real Gitea issue tracker at
+`$GITEA_SITE/$GITEA_OWNER/$GITEA_REPO`. Its CLI surface mirrors `scripts/mock-tracker.sh` exactly
+(same subcommands, flags, output shapes, exit codes), so the orchestrator runs **unmodified**
+against it. Dependencies: `bash`, `curl`, `python3` (JSON only — no `jq`).
+
+Unlike Jira, Gitea has **no native custom-status field** (only open/closed) and no native
+lane/role/priority/parent/depends-on fields, so this adapter maps every canonical field onto
+labels (using Gitea's *exclusive scoped label* feature — `scope/value`, at most one label per
+scope on an issue at a time) plus a hidden HTML-comment metadata block at the top of the issue
+body for the handful of fields with no label-shaped representation (`parent`, `depends_on`,
+`links`, `iteration_cap`). See the adapter's own header comment for the full mapping table.
+
+### One-time setup (required before first use)
+
+```bash
+export GITEA_SITE="https://your-gitea-host"
+export GITEA_TOKEN="..."          # repo-scope access token; never commit this
+export GITEA_OWNER="your-org-or-user"
+export GITEA_REPO="your-repo"
+
+scripts/gitea-tracker.sh setup     # idempotent: creates the ~47 required labels
+                                   # (28 canonical statuses + type/lane/role/priority/flag
+                                   # scopes + ac-blocking). Safe to re-run at any time.
+```
+
+### Binding it
+
+```bash
+export TRACKER_CMD=scripts/gitea-tracker.sh
+scripts/orchestrator.sh                 # dry-run: logs intents, spawns nothing
+scripts/orchestrator.sh --live          # spawns real subagents, writes to Gitea issues
+```
+
+### Environment variables (human-provisioned)
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `GITEA_SITE` | yes | Gitea base URL, e.g. `https://gitea.example.com`. |
+| `GITEA_TOKEN` | yes | Gitea access token (repo scope). **Secret.** Never stored in the repo, never echoed. |
+| `GITEA_OWNER` | yes | Repo owner/org. |
+| `GITEA_REPO` | yes | Repo name. |
+| `GITEA_TICKET_PREFIX` | no | Cosmetic id prefix (default `AITBC`). Ticket identity is always the Gitea issue number; unlike the mock adapter's `--prefix`, this does not create a separate id namespace — Gitea has one issue-number sequence per repo. |
+
+The token is delivered to `curl` through a mode-600 `--config` file (never on the command line, so
+it never appears in `ps` or curl's verbose trace), and all curl output is scrubbed before it can
+reach a log (same discipline as `jira-tracker.sh`).
+
+### Fencing / safety
+
+Gitea issues are already repo-scoped (one tracker per repo), so there is no cross-project fence to
+configure the way `JIRA_JQL_FILTER` fences a shared Jira instance. The natural fence is: point a
+first live run at a **throwaway test repo** (a separate `GITEA_REPO`), not the real project repo,
+and only switch `GITEA_REPO` to the real one once a fenced run has passed. As with Jira, cap
+`ORCH_MAX_SPAWNS_PER_RUN` low for the first live run against real issues.
+
+### API-call budget
+
+`events` costs one `GET /issues` sweep per poll cycle (paged past 50 issues). `get` costs one issue
+GET + one comments GET per page of 50. `create`/`transition`/`comment`/`link`/`update`/`assign`
+cost one or two calls each; label lookups reuse a per-invocation in-memory cache (one `GET /labels`
+per script invocation, not per label).
+
+---
+
 ## Stall Detection (ABS-62)
 
 The same reconciliation sweep that recovers dropped spawns also runs two **mechanical, bash-only**

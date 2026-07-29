@@ -1,0 +1,4889 @@
+# =============================================================================
+# Rule Ledger (ABS-515/ABS-516 / epic ABS-514)
+# =============================================================================
+# Machine-readable inventory of the RULES-carrying markdown surface: every
+# H2/H3 section of each scoped file has one row per occurrence declaring its
+# enforcement status. Checked by scripts/rule-ledger-check.sh (auto-discovered
+# via tests/test-rule-ledger.sh).
+#
+#   kind: enforced    -> sensors: [deterministic sensor, ...]  (path or path:function).
+#                        Semantics: a NAMED SENSOR EXISTS — not proof it is
+#                        live-wired to this exact rule (that is the sensor's
+#                        own test's job).
+#   kind: derived     -> section retells code-enforced behavior; sensors mandatory;
+#                        condensation candidate for ABS-524.
+#   kind: unenforced  -> risk: "what can go wrong while only the LLM enforces it"
+#                        — this is the sensor-backfill worklist.
+#   kind: informative -> descriptive/reference section, not a normative rule.
+#
+# Anchoring is (file, heading) — section level, no IDs injected into the md.
+# scope_dirs: every *.md under these dirs MUST be listed in scope (C6).
+#
+# ID ALLOCATION — ticket-scoped, NOT a running counter (ABS-600):
+#   New rows get `R-<TICKET>-<n>` where <TICKET> is the globally-unique ticket
+#   that introduces them and <n> counts THIS ticket's own rows (R-ABS-600-1,
+#   R-ABS-600-2, ...). Mint it with `scripts/next-rule-ledger-id.sh <TICKET>`.
+#   WHY: a running counter (`R-NNNN`) is read off YOUR branch, so two parallel
+#   stories both pick the same "next" number and collide at integration — the
+#   exact Pilot-8 failure (R-1109..R-1116 each existed 2–4×, 12 rows renumbered
+#   by hand). A ticket id is minted centrally by the tracker, never in parallel,
+#   so ticket-scoped ids are collision-free BY CONSTRUCTION across branches.
+#   See docs/registry-id-allocation.md for the cross-registry rule + rationale.
+#   Legacy `R-NNNN` ids are FROZEN (append-only): never renumber, never reuse,
+#   and never mint a new one — the scheme only survives for existing rows.
+#
+# CHECKER LIMIT — EXISTENCE, NOT WIREDNESS (PILOT-68 / ABS-570):
+#   rule-ledger-check.sh verifies a sensor PATH exists (and, for a
+#   `path:function` sensor, that the function is DEFINED in that file). It does
+#   NOT verify the sensor actually EXERCISES the rule it is listed against. A
+#   sensor that exists but tests a DIFFERENT rule is therefore NOT auto-
+#   detectable — the wrong-sensor assignment is only caught by a human reading
+#   the row against the ADR (e.g. R-0957 once listed a skills-parity guard for a
+#   Decision that explicitly EXCLUDES skills guards; the checker was silent).
+#   Treat `enforced` as "a plausibly-related named sensor exists", not proof of
+#   coverage; the sensor's own tests/test-*.sh is what pins the wiredness.
+# =============================================================================
+scope_dirs:
+  - docs/sop
+  - .claude/agents
+  - adrs/agentic
+scope:
+  - AGENTS.md
+  - CLAUDE.md
+  - docs/sop/ADR-IMPORT-RUNBOOK.md
+  - docs/sop/ADR_AUTHORING_GUIDE.md
+  - docs/sop/AGENT_CONFIGURATION_SOP.md
+  - docs/sop/AGENT_WORKFLOW_SOP.md
+  - docs/sop/BOILERPLATE_MIGRATION_SOP.md
+  - docs/sop/COMMIT_TAG_GUARD_SOP.md
+  - docs/sop/DEFINITION_OF_READY.md
+  - docs/sop/DESIGN_WORKFLOW_SOP.md
+  - docs/sop/FOLLOW_UP_TICKET_SOP.md
+  - docs/sop/JOIN_EXEMPT_OPERATOR_GUIDE.md
+  - docs/sop/ORCHESTRATOR_SOP.md
+  - docs/sop/ORCHESTRATOR_SOP_CHANGELOG.md
+  - docs/sop/ORCHESTRATOR_STATE_MARKERS.md
+  - docs/sop/PO_AGENT_SOP.md
+  - docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+  - docs/sop/SANDBOX_GUARD_SOP.md
+  - docs/sop/SELF_IMPROVEMENT_SOP.md
+  - docs/sop/TEST_SUITE_LAYOUT.md
+  - docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+  - docs/sop/bsa-reference.md
+  - docs/sop/po-agent-reference.md
+  - docs/sop/rte-reference.md
+  - docs/sop/system-architect-reference.md
+  - .claude/agents/README.md
+  - .claude/agents/_common-rules.md
+  - .claude/agents/be-developer.md
+  - .claude/agents/boilerplate-migration.md
+  - .claude/agents/bsa.md
+  - .claude/agents/data-engineer.md
+  - .claude/agents/data-provisioning-eng.md
+  - .claude/agents/fe-developer.md
+  - .claude/agents/issue-enrichment.md
+  - .claude/agents/po-agent.md
+  - .claude/agents/qas-design.md
+  - .claude/agents/qas.md
+  - .claude/agents/rte.md
+  - .claude/agents/security-engineer.md
+  - .claude/agents/self-improvement.md
+  - .claude/agents/system-architect.md
+  - .claude/agents/tdm.md
+  - .claude/agents/tech-writer.md
+  - .claude/agents/ui-ux-design.md
+  - adrs/agentic/ADR-A-0001-three-level-adr-hierarchy.md
+  - adrs/agentic/ADR-A-0002-fresh-subagent-execution.md
+  - adrs/agentic/ADR-A-0003-context-minimization.md
+  - adrs/agentic/ADR-A-0004-human-approval-boundaries.md
+  - adrs/agentic/ADR-A-0005-mandatory-prs.md
+  - adrs/agentic/ADR-A-0006-active-task-tracking.md
+  - adrs/agentic/ADR-A-0007-adapter-model.md
+  - adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+  - adrs/agentic/ADR-A-0009-cost-approval-gate.md
+  - adrs/agentic/ADR-A-0010-minimal-change-default.md
+  - adrs/agentic/ADR-A-0011-three-layer-application-architecture.md
+  - adrs/agentic/ADR-A-0012-agent-team-extension.md
+  - adrs/agentic/ADR-A-0013-self-hosting-stable-governs-dev.md
+  - adrs/agentic/ADR-A-0014-workflow-v3-per-epic-merge-gate.md
+  - adrs/agentic/ADR-A-0015-provider-mirror-governance.md
+  - adrs/agentic/ADR-A-0016-claude-target-apply-path.md
+  - adrs/agentic/ADR-A-0017-design-quality-detector-backing.md
+  - adrs/agentic/ADR-A-0018-cross-visit-blocker-classification.md
+  - adrs/agentic/ADR-A-0019-po-deprioritize-vs-misdump-signal.md
+  - adrs/agentic/ADR-A-0020-design-first-story-routing.md
+  - adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+  - adrs/agentic/ADR-A-0022-agent-def-overlays.md
+  - adrs/agentic/ADR-A-0023-session-invalidation-inputs.md
+  - adrs/agentic/ADR-A-0024-handoff-commit-verification.md
+  - adrs/agentic/ADR-A-0025-per-epic-merge-token.md
+  - adrs/agentic/ADR-A-0026-first-class-orchestration-state.md
+  - adrs/agentic/ADR-A-0027-dashboard-url-grammar.md
+  - adrs/agentic/ADR-A-0028-rule-ledger-executable-enforcement.md
+  - adrs/agentic/ADR-A-0029-multi-instance-event-bus.md
+  - adrs/agentic/ADR-A-0030-remote-doctrine.md
+  - adrs/agentic/README.md
+  - .claude/skills/duplicate-detection/SKILL.md
+  - .claude/skills/issue-enrichment/SKILL.md
+rules:
+  - id: R-0001
+    file: AGENTS.md
+    heading: "Documentation"
+    kind: informative
+  - id: R-0002
+    file: AGENTS.md
+    heading: "When to Use Which Agent"
+    kind: informative
+  - id: R-0003
+    file: AGENTS.md
+    heading: "Agent Handoff Map"
+    kind: informative
+  - id: R-0004
+    file: AGENTS.md
+    heading: "v3 Automated Seat Coverage (ABS-69)"
+    kind: informative
+  - id: R-0005
+    file: AGENTS.md
+    heading: "Auto-Loaded Skills"
+    kind: unenforced
+    risk: "Skills-parity CI pins cross-provider file presence, not that spawned seats actually load the skills"
+  - id: R-0006
+    file: AGENTS.md
+    heading: "Success Validation Commands"
+    kind: informative
+  - id: R-0007
+    file: AGENTS.md
+    heading: "Frontend Development"
+    kind: informative
+  - id: R-0008
+    file: AGENTS.md
+    heading: "Backend Development"
+    kind: informative
+  - id: R-0009
+    file: AGENTS.md
+    heading: "Documentation"
+    kind: informative
+  - id: R-0010
+    file: AGENTS.md
+    heading: "Pre-Push Validation"
+    kind: informative
+  - id: R-0011
+    file: AGENTS.md
+    heading: "Database Migration"
+    kind: informative
+  - id: R-0012
+    file: AGENTS.md
+    heading: "SAFe Specs-Driven Workflow"
+    kind: informative
+  - id: R-0013
+    file: AGENTS.md
+    heading: "Planning Phase (BSA)"
+    kind: informative
+  - id: R-0014
+    file: AGENTS.md
+    heading: "Execution Phase (All Agents)"
+    kind: informative
+  - id: R-0015
+    file: AGENTS.md
+    heading: "Pattern Discovery Protocol (MANDATORY)"
+    kind: unenforced
+    risk: "Skill invocation is not verifiable from the repo; no telemetry sensor asserts pattern discovery ran before implementation"
+  - id: R-0016
+    file: AGENTS.md
+    heading: "0. Search Specs Directory (FIRST)"
+    kind: informative
+  - id: R-0017
+    file: AGENTS.md
+    heading: "1. Search Codebase"
+    kind: informative
+  - id: R-0018
+    file: AGENTS.md
+    heading: "2. Search Session History"
+    kind: informative
+  - id: R-0019
+    file: AGENTS.md
+    heading: "3. Consult Documentation"
+    kind: informative
+  - id: R-0020
+    file: AGENTS.md
+    heading: "4. Architectural Validation"
+    kind: informative
+  - id: R-0021
+    file: AGENTS.md
+    heading: "Agent Workflow"
+    kind: informative
+  - id: R-0022
+    file: AGENTS.md
+    heading: "Standard Agent Loop (Per Simon Willison)"
+    kind: informative
+  - id: R-0023
+    file: AGENTS.md
+    heading: "No Over-Engineering"
+    kind: informative
+  - id: R-0024
+    file: AGENTS.md
+    heading: "Session Archaeology"
+    kind: informative
+  - id: R-0025
+    file: AGENTS.md
+    heading: "Monitor Concurrent Sessions"
+    kind: informative
+  - id: R-0026
+    file: AGENTS.md
+    heading: "Cross-Agent Coordination"
+    kind: informative
+  - id: R-0027
+    file: AGENTS.md
+    heading: "Exit States (vNext Contract)"
+    kind: enforced
+    sensors: [tests/test-agent-def-exit-state.sh, tests/test-agent-def-exit-lint.sh]
+  - id: R-0028
+    file: AGENTS.md
+    heading: "Gate Quick Reference"
+    kind: enforced
+    sensors: [tests/test-done-gate.sh, tests/test-station-guard.sh, tests/test-ready-for-merge-gate.sh]
+  - id: R-0029
+    file: AGENTS.md
+    heading: "Role Collapsing (AITBC-499)"
+    kind: informative
+  - id: R-0030
+    file: AGENTS.md
+    heading: "Agent Teams (Experimental)"
+    kind: informative
+  - id: R-0031
+    file: AGENTS.md
+    heading: "Quick Reference"
+    kind: informative
+  - id: R-0032
+    file: AGENTS.md
+    heading: "Key Documentation"
+    kind: informative
+  - id: R-0033
+    file: AGENTS.md
+    heading: "Agent Files"
+    kind: informative
+  - id: R-0034
+    file: AGENTS.md
+    heading: "Human-in-the-Loop (HITL) Model"
+    kind: unenforced
+    risk: "ADR-A-0004 boundary; no dedicated test pins the never-auto-spawned role set"
+  - id: R-0035
+    file: AGENTS.md
+    heading: "🎯 Agent Invocation Examples"
+    kind: informative
+  - id: R-0036
+    file: AGENTS.md
+    heading: "Simple Invocation (Direct Mention)"
+    kind: informative
+  - id: R-0037
+    file: AGENTS.md
+    heading: "Task Tool Invocation (Complex Tasks)"
+    kind: informative
+  - id: R-0038
+    file: AGENTS.md
+    heading: "When to Use Which Invocation Method"
+    kind: informative
+  - id: R-0039
+    file: AGENTS.md
+    heading: "Pro Tips"
+    kind: informative
+  - id: R-0040
+    file: CLAUDE.md
+    heading: "AI Assistant Context for SAFe Multi-Agent Development"
+    kind: informative
+  - id: R-0041
+    file: CLAUDE.md
+    heading: "Quick Start"
+    kind: informative
+  - id: R-0042
+    file: CLAUDE.md
+    heading: "Development Commands"
+    kind: informative
+  - id: R-0043
+    file: CLAUDE.md
+    heading: "Architecture Overview"
+    kind: informative
+  - id: R-0044
+    file: CLAUDE.md
+    heading: "Technology Stack"
+    kind: informative
+  - id: R-0045
+    file: CLAUDE.md
+    heading: "Repository Structure"
+    kind: informative
+  - id: R-0046
+    file: CLAUDE.md
+    heading: "SAFe Workflow"
+    kind: informative
+  - id: R-0047
+    file: CLAUDE.md
+    heading: "Metacognitive Tags"
+    kind: unenforced
+    risk: "Tag usage in specs relies on seat discipline; no lint checks for #PATH_DECISION/#PLAN_UNCERTAINTY/#EXPORT_CRITICAL presence"
+  - id: R-0048
+    file: CLAUDE.md
+    heading: "Pattern Discovery Protocol (MANDATORY)"
+    kind: unenforced
+    risk: "Skill invocation is not verifiable from the repo; no telemetry sensor asserts pattern discovery ran before implementation"
+  - id: R-0049
+    file: CLAUDE.md
+    heading: "Search Scope Guard"
+    kind: unenforced
+    risk: "Advisory prose only; no hook blocks recursive grep/find over the excluded dirs"
+  - id: R-0050
+    file: CLAUDE.md
+    heading: "Project-Specific Implementation Notes"
+    kind: informative
+  - id: R-0051
+    file: CLAUDE.md
+    heading: "Authentication"
+    kind: informative
+  - id: R-0052
+    file: CLAUDE.md
+    heading: "Payments"
+    kind: informative
+  - id: R-0053
+    file: CLAUDE.md
+    heading: "Analytics"
+    kind: informative
+  - id: R-0054
+    file: CLAUDE.md
+    heading: "Database"
+    kind: unenforced
+    risk: "RLS helper rule backed only by the advisory (never-blocking) hook .claude/hooks/pre-bash-rls-validation.sh (ABS-149)"
+  - id: R-0055
+    file: CLAUDE.md
+    heading: "Code Quality"
+    kind: informative
+  - id: R-0056
+    file: CLAUDE.md
+    heading: "CI/CD Pipeline"
+    kind: informative
+  - id: R-0057
+    file: CLAUDE.md
+    heading: "PR Workflow"
+    kind: enforced
+    sensors: [.github/workflows/pr-validation.yml, .github/scripts/check-commit-format.sh]
+  - id: R-0058
+    file: CLAUDE.md
+    heading: "Branch Protection"
+    kind: unenforced
+    risk: "Platform-side branch-protection setting; not verifiable by a repo sensor"
+  - id: R-0059
+    file: docs/sop/ADR-IMPORT-RUNBOOK.md
+    heading: "Prerequisites"
+    kind: informative
+  - id: R-0060
+    file: docs/sop/ADR-IMPORT-RUNBOOK.md
+    heading: "Step 1 — Verify ADR frontmatter"
+    kind: informative
+  - id: R-0061
+    file: docs/sop/ADR-IMPORT-RUNBOOK.md
+    heading: "Step 2 — Pack and import"
+    kind: informative
+  - id: R-0062
+    file: docs/sop/ADR-IMPORT-RUNBOOK.md
+    heading: "Step 3 — Verify"
+    kind: informative
+  - id: R-0063
+    file: docs/sop/ADR-IMPORT-RUNBOOK.md
+    heading: "The `supersedes:` frontmatter convention"
+    kind: informative
+  - id: R-0064
+    file: docs/sop/ADR-IMPORT-RUNBOOK.md
+    heading: "Re-import idempotency"
+    kind: informative
+  - id: R-0065
+    file: docs/sop/ADR-IMPORT-RUNBOOK.md
+    heading: "Human-only: ADR acceptance"
+    kind: informative
+  - id: R-0066
+    file: docs/sop/ADR-IMPORT-RUNBOOK.md
+    heading: "Related"
+    kind: informative
+  - id: R-0067
+    file: docs/sop/ADR_AUTHORING_GUIDE.md
+    heading: "Overview"
+    kind: informative
+  - id: R-0068
+    file: docs/sop/ADR_AUTHORING_GUIDE.md
+    heading: "When to Author an ADR"
+    kind: informative
+  - id: R-0069
+    file: docs/sop/ADR_AUTHORING_GUIDE.md
+    heading: "How the System Architect Guides Authoring"
+    kind: informative
+  - id: R-0070
+    file: docs/sop/ADR_AUTHORING_GUIDE.md
+    heading: "Worked Example"
+    kind: informative
+  - id: R-0071
+    file: docs/sop/ADR_AUTHORING_GUIDE.md
+    heading: "Path A: Human Direct Invocation"
+    kind: informative
+  - id: R-0072
+    file: docs/sop/ADR_AUTHORING_GUIDE.md
+    heading: "Path B: PO-Agent Handoff"
+    kind: informative
+  - id: R-0073
+    file: docs/sop/ADR_AUTHORING_GUIDE.md
+    heading: "Stop-the-Line Rule"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0074
+    file: docs/sop/ADR_AUTHORING_GUIDE.md
+    heading: "ADR Acceptance Closeout (ABS-212)"
+    kind: informative
+  - id: R-0075
+    file: docs/sop/ADR_AUTHORING_GUIDE.md
+    heading: "ADR Id Numbering and the Uniqueness Guard (ABS-283)"
+    kind: informative
+  - id: R-1101
+    file: docs/sop/ADR_AUTHORING_GUIDE.md
+    heading: "Every Classification Must Name Its Effect (PILOT-69)"
+    kind: unenforced
+    risk: "Authoring-review discipline: a new taxonomy could ship a detected-but-inert class (log-noise) if the System Architect does not enforce named effects; no mechanical sensor can decide 'every class is wired' across arbitrary taxonomies"
+  - id: R-0076
+    file: docs/sop/ADR_AUTHORING_GUIDE.md
+    heading: "Related Documents"
+    kind: informative
+  - id: R-0077
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Standard Operating Procedure for Configuring Claude Code Agents"
+    kind: informative
+  - id: R-0078
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Overview"
+    kind: informative
+  - id: R-0079
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Agent Configuration Format"
+    kind: informative
+  - id: R-0080
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "YAML Frontmatter Structure"
+    kind: informative
+  - id: R-0081
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Required Fields"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0082
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Tool Restrictions by Agent Role"
+    kind: informative
+  - id: R-0083
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Planning Agents (Opus Model)"
+    kind: informative
+  - id: R-0084
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "BSA (Business Systems Analyst)"
+    kind: informative
+  - id: R-0085
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "System Architect"
+    kind: informative
+  - id: R-0086
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Execution Agents (Sonnet Model)"
+    kind: informative
+  - id: R-0087
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "BE Developer"
+    kind: informative
+  - id: R-0088
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "FE Developer"
+    kind: informative
+  - id: R-0089
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Data Engineer"
+    kind: informative
+  - id: R-0090
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Data Provisioning Engineer"
+    kind: informative
+  - id: R-0091
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Quality Agents (Sonnet Model)"
+    kind: informative
+  - id: R-0092
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "QAS (Quality Assurance Specialist) - Gate Owner (v1.4)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0093
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Security Engineer"
+    kind: informative
+  - id: R-0094
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Documentation Agent (Sonnet Model)"
+    kind: informative
+  - id: R-0095
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Tech Writer"
+    kind: informative
+  - id: R-0096
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Coordination Agents (Sonnet Model)"
+    kind: informative
+  - id: R-0097
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "TDM (Technical Delivery Manager)"
+    kind: informative
+  - id: R-0098
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "RTE (Release Train Engineer) - PR Shepherd (v1.4)"
+    kind: informative
+  - id: R-0099
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Model Selection Criteria"
+    kind: informative
+  - id: R-0100
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "When to Use Opus"
+    kind: informative
+  - id: R-0101
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "When to Use Sonnet"
+    kind: informative
+  - id: R-0102
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Tool Access Guidelines"
+    kind: informative
+  - id: R-0103
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Core Tools"
+    kind: informative
+  - id: R-0104
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Restricted Tools"
+    kind: informative
+  - id: R-0105
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Git Operations"
+    kind: informative
+  - id: R-0106
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Adding a New Agent"
+    kind: informative
+  - id: R-0107
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Step 1: Create Agent File"
+    kind: informative
+  - id: R-0108
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Step 2: Add Frontmatter"
+    kind: informative
+  - id: R-0109
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Step 3: Determine Tool Access"
+    kind: informative
+  - id: R-0110
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Step 4: Select Model"
+    kind: informative
+  - id: R-0111
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Step 5: Test Configuration"
+    kind: informative
+  - id: R-0112
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Harness Source of Truth"
+    kind: informative
+  - id: R-0113
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Edit Workflow"
+    kind: informative
+  - id: R-0114
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Agent Definition Size Management"
+    kind: informative
+  - id: R-0115
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Slim + Reference Pattern"
+    kind: informative
+  - id: R-0116
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Applying the Pattern"
+    kind: informative
+  - id: R-0117
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Modifying Existing Agents"
+    kind: informative
+  - id: R-0118
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Changing Tool Access"
+    kind: informative
+  - id: R-0119
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Changing Model Selection"
+    kind: informative
+  - id: R-0120
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Validation Checklist"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0121
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Troubleshooting"
+    kind: informative
+  - id: R-0122
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Agent Cannot Access Tool"
+    kind: informative
+  - id: R-0123
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Agent Using Wrong Model"
+    kind: informative
+  - id: R-0124
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Frontmatter Parse Error"
+    kind: informative
+  - id: R-0125
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Related Documentation"
+    kind: informative
+  - id: R-0126
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Overview"
+    kind: informative
+  - id: R-0127
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Method 1: Direct Specialist Invocation"
+    kind: informative
+  - id: R-0128
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Workflow"
+    kind: informative
+  - id: R-0129
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Steps"
+    kind: informative
+  - id: R-0130
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Quality Gates"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0131
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Method 2: TDM Orchestration — RETIRED"
+    kind: informative
+  - id: R-0132
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Method 3: ARCHitect-in-CLI Orchestration"
+    kind: informative
+  - id: R-0133
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Workflow"
+    kind: informative
+  - id: R-0134
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Steps"
+    kind: informative
+  - id: R-0135
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Quality Gates"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0136
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Method 4: System Architect Review for Complex Code"
+    kind: informative
+  - id: R-0137
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Step 1: Complete Specialist Work"
+    kind: informative
+  - id: R-0138
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Step 2: System Architect Review (MANDATORY)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0139
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Step 3: Address Review Feedback"
+    kind: informative
+  - id: R-0140
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Step 4: Create PR (Only After Approval)"
+    kind: informative
+  - id: R-0141
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Example: AITBC-321 Gap"
+    kind: informative
+  - id: R-0142
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Workflow Selection Guide"
+    kind: informative
+  - id: R-0143
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Decision Tree"
+    kind: informative
+  - id: R-0144
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Complexity Assessment"
+    kind: informative
+  - id: R-0145
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Quality Gates by Method"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0146
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Method 1 Quality Gates"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0147
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Standard-Feature Quality Gates (v3 orchestrator — Method 2 retired)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0148
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Method 3 Quality Gates"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0149
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Method 4 Quality Gates (CRITICAL)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0150
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Escalation Paths"
+    kind: informative
+  - id: R-0151
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Technical Blockers → `Blocked` (TDM triage) or `Needs PO Decision`"
+    kind: informative
+  - id: R-0152
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Process Issues"
+    kind: informative
+  - id: R-0153
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Security Concerns → `Security Review`"
+    kind: informative
+  - id: R-0154
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Success Metrics"
+    kind: informative
+  - id: R-0155
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Method 1 Success"
+    kind: informative
+  - id: R-0156
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Standard-Feature Success (v3 orchestrator — Method 2 retired)"
+    kind: informative
+  - id: R-0157
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Method 3 Success"
+    kind: informative
+  - id: R-0158
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Method 4 Success (CRITICAL)"
+    kind: informative
+  - id: R-0159
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "vNext Workflow Contract (AITBC-497)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0160
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Exit States"
+    kind: informative
+  - id: R-0161
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Stop-the-Line Gate"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0162
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "QAS Gate Owner Role"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0163
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "RTE PR Shepherd Role"
+    kind: informative
+  - id: R-0164
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "3-Stage PR Review"
+    kind: informative
+  - id: R-0165
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Role Collapsing Guidelines (AITBC-499)"
+    kind: informative
+  - id: R-0166
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Collapsible Roles"
+    kind: informative
+  - id: R-0167
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Non-Collapsible Roles (Independence Gates)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0168
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Collapsed Workflow Example"
+    kind: informative
+  - id: R-0169
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Loop Termination Rules (ABS-11)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0170
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "1. Failure Classification (Mandatory Before Any Bounce)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0171
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "2. Iteration Cap"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0172
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "3. Same-Error-Twice Rule"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0173
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "4. DAC Change Freeze"
+    kind: informative
+  - id: R-0174
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "5. Arbiter Rule"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0175
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "6. Environment Preflight"
+    kind: informative
+  - id: R-0176
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "7. Mechanical Enforcement (ABS-12)"
+    kind: informative
+  - id: R-0177
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Direct Implementation Status Discipline (ABS-126)"
+    kind: informative
+  - id: R-0178
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Related Documentation"
+    kind: informative
+  - id: R-0179
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Loop Termination Rules Implementation"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0180
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "Version History"
+    kind: informative
+  - id: R-0181
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "v1.5 (2026-07-06)"
+    kind: informative
+  - id: R-0182
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "v1.4 (2025-12-23)"
+    kind: informative
+  - id: R-0183
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "v1.3 (2025-12-15)"
+    kind: informative
+  - id: R-0184
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "v1.1 (2025-10-06)"
+    kind: informative
+  - id: R-0185
+    file: docs/sop/AGENT_WORKFLOW_SOP.md
+    heading: "v1.0 (2025-10-05)"
+    kind: informative
+  - id: R-0186
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "Overview"
+    kind: informative
+  - id: R-0187
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "1. Versioning Scheme and the `.boilerplate-version` Marker"
+    kind: informative
+  - id: R-0188
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "1.1 Scheme"
+    kind: informative
+  - id: R-0189
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "1.2 The Marker File"
+    kind: informative
+  - id: R-0190
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "1.3 Stamping at Project Setup"
+    kind: informative
+  - id: R-0191
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "2. Invocation"
+    kind: informative
+  - id: R-0192
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "2.1 Windows Prerequisite: `core.longpaths` (ABS-276)"
+    kind: informative
+  - id: R-0193
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "3. Ownership Classification (per ADR-A-0008)"
+    kind: informative
+  - id: R-0194
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "3.1 Hash-First Drift Detection"
+    kind: informative
+  - id: R-0195
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "3.1.1 Setup-Token Normalization (ABS-249)"
+    kind: informative
+  - id: R-0196
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "3.1.2 Integrity Check of Adopted Copies (ABS-273)"
+    kind: informative
+  - id: R-0197
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "3.2 The `scripts/` domain (ADR-A-0008 Amendment 2026-07-12, ABS-228)"
+    kind: informative
+  - id: R-0198
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "3.3 The harness surface (ADR-A-0008 Amendment 2026-07-14, ABS-248)"
+    kind: informative
+  - id: R-0199
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "3.4 Customizing an agent def: use an OVERLAY, not a fork (ADR-A-0022, ABS-258)"
+    kind: informative
+  - id: R-0200
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "4. Worked Example: Migrating a Project from 0.1.0 to 0.2.0"
+    kind: informative
+  - id: R-0201
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "Step 1 — Run the driver"
+    kind: informative
+  - id: R-0202
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "Step 2 — Report"
+    kind: informative
+  - id: R-0203
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "Step 3 — Human Merge"
+    kind: informative
+  - id: R-0204
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "5. Abort and Escalation Cases"
+    kind: informative
+  - id: R-0205
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "6. Consumer-Feedback Channel (ABS-260)"
+    kind: informative
+  - id: R-0206
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "6.1 Consumer Side — Export Duty"
+    kind: informative
+  - id: R-0207
+    file: docs/sop/BOILERPLATE_MIGRATION_SOP.md
+    heading: "6.2 Upstream Side — Intake"
+    kind: informative
+  - id: R-0208
+    file: docs/sop/DEFINITION_OF_READY.md
+    heading: "Overview"
+    kind: informative
+  - id: R-0209
+    file: docs/sop/DEFINITION_OF_READY.md
+    heading: "The DoR Checklist (per child ticket)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0210
+    file: docs/sop/DEFINITION_OF_READY.md
+    heading: "Cross-Story Checks (the batch advantage)"
+    kind: informative
+  - id: R-0211
+    file: docs/sop/DEFINITION_OF_READY.md
+    heading: "The Mandatory Coverage-Mapping Rule"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0212
+    file: docs/sop/DEFINITION_OF_READY.md
+    heading: "The Blind-Spot Catalog"
+    kind: informative
+  - id: R-0213
+    file: docs/sop/DEFINITION_OF_READY.md
+    heading: "The Three Verdicts"
+    kind: informative
+  - id: R-0214
+    file: docs/sop/DEFINITION_OF_READY.md
+    heading: "`ready` — all children pass → `Architecture Review`"
+    kind: informative
+  - id: R-0215
+    file: docs/sop/DEFINITION_OF_READY.md
+    heading: "`rework` — one or more defects → `Grooming`"
+    kind: informative
+  - id: R-0216
+    file: docs/sop/DEFINITION_OF_READY.md
+    heading: "`open question` — cannot decide → `Needs PO Decision`"
+    kind: informative
+  - id: R-0217
+    file: docs/sop/DEFINITION_OF_READY.md
+    heading: "Path-B entry-gate reuse (v3.1 flexible intake — ABS-102 / ABS-107)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0218
+    file: docs/sop/DEFINITION_OF_READY.md
+    heading: "The epic-prerequisite check (Path-B only)"
+    kind: informative
+  - id: R-0219
+    file: docs/sop/DEFINITION_OF_READY.md
+    heading: "Path-B auto-fix rework loop (v3.1 flexible intake — ABS-108)"
+    kind: informative
+  - id: R-0220
+    file: docs/sop/DEFINITION_OF_READY.md
+    heading: "Related Documents"
+    kind: informative
+  - id: R-0221
+    file: docs/sop/DESIGN_WORKFLOW_SOP.md
+    heading: "Overview"
+    kind: informative
+  - id: R-0222
+    file: docs/sop/DESIGN_WORKFLOW_SOP.md
+    heading: "The Independence Rule (NON-NEGOTIABLE)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0223
+    file: docs/sop/DESIGN_WORKFLOW_SOP.md
+    heading: "Design Request Flow"
+    kind: informative
+  - id: R-0224
+    file: docs/sop/DESIGN_WORKFLOW_SOP.md
+    heading: "Step 1: Request"
+    kind: informative
+  - id: R-0225
+    file: docs/sop/DESIGN_WORKFLOW_SOP.md
+    heading: "Step 2: Read the Design System"
+    kind: informative
+  - id: R-0226
+    file: docs/sop/DESIGN_WORKFLOW_SOP.md
+    heading: "Step 3: Design + Design ACs"
+    kind: informative
+  - id: R-0227
+    file: docs/sop/DESIGN_WORKFLOW_SOP.md
+    heading: "Step 4: Attach to Ticket via Adapter"
+    kind: informative
+  - id: R-0228
+    file: docs/sop/DESIGN_WORKFLOW_SOP.md
+    heading: "Step 5: Handoff to QAS-Design"
+    kind: informative
+  - id: R-0229
+    file: docs/sop/DESIGN_WORKFLOW_SOP.md
+    heading: "Worked Example"
+    kind: informative
+  - id: R-0230
+    file: docs/sop/DESIGN_WORKFLOW_SOP.md
+    heading: "Design Testing Stage (QAS-Design)"
+    kind: informative
+  - id: R-0231
+    file: docs/sop/DESIGN_WORKFLOW_SOP.md
+    heading: "Stage 1: Pre-Check"
+    kind: informative
+  - id: R-0232
+    file: docs/sop/DESIGN_WORKFLOW_SOP.md
+    heading: "Stage 2: Per-DAC Verification"
+    kind: informative
+  - id: R-0233
+    file: docs/sop/DESIGN_WORKFLOW_SOP.md
+    heading: "Stage 3: Evidence + Verdict via Adapter"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0234
+    file: docs/sop/DESIGN_WORKFLOW_SOP.md
+    heading: "Related Documentation"
+    kind: informative
+  - id: R-0235
+    file: docs/sop/FOLLOW_UP_TICKET_SOP.md
+    heading: "Overview"
+    kind: informative
+  - id: R-0236
+    file: docs/sop/FOLLOW_UP_TICKET_SOP.md
+    heading: "Follow-Up Recommendation Format (posted as `kind: follow-up`)"
+    kind: informative
+  - id: R-0237
+    file: docs/sop/FOLLOW_UP_TICKET_SOP.md
+    heading: "Decision Outcomes"
+    kind: informative
+  - id: R-0238
+    file: docs/sop/FOLLOW_UP_TICKET_SOP.md
+    heading: "Outcome 1: `create`"
+    kind: informative
+  - id: R-0239
+    file: docs/sop/FOLLOW_UP_TICKET_SOP.md
+    heading: "Outcome 2: `in-scope`"
+    kind: informative
+  - id: R-0240
+    file: docs/sop/FOLLOW_UP_TICKET_SOP.md
+    heading: "Outcome 3: `discard`"
+    kind: informative
+  - id: R-0241
+    file: docs/sop/FOLLOW_UP_TICKET_SOP.md
+    heading: "Outside-Epic Default and AC-Blocking Attachment (spec §3.4, S11)"
+    kind: informative
+  - id: R-0242
+    file: docs/sop/FOLLOW_UP_TICKET_SOP.md
+    heading: "Per-Epic Follow-Up Budget (spec §3.4, S7 / S9)"
+    kind: informative
+  - id: R-0243
+    file: docs/sop/FOLLOW_UP_TICKET_SOP.md
+    heading: "Recovery after exhaustion (ABS-293)"
+    kind: informative
+  - id: R-0244
+    file: docs/sop/FOLLOW_UP_TICKET_SOP.md
+    heading: "Ticket Creation (`create` only) — enrichment protocol"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0245
+    file: docs/sop/FOLLOW_UP_TICKET_SOP.md
+    heading: "Issue Enrichment Stage"
+    kind: informative
+  - id: R-0246
+    file: docs/sop/FOLLOW_UP_TICKET_SOP.md
+    heading: "Related Documentation"
+    kind: informative
+  - id: R-0247
+    file: docs/sop/JOIN_EXEMPT_OPERATOR_GUIDE.md
+    heading: "Problem it solves"
+    kind: informative
+  - id: R-0248
+    file: docs/sop/JOIN_EXEMPT_OPERATOR_GUIDE.md
+    heading: "When to use it"
+    kind: informative
+  - id: R-0249
+    file: docs/sop/JOIN_EXEMPT_OPERATOR_GUIDE.md
+    heading: "Runner enforcement (ABS-297)"
+    kind: informative
+  - id: R-0250
+    file: docs/sop/JOIN_EXEMPT_OPERATOR_GUIDE.md
+    heading: "How to apply the exemption"
+    kind: informative
+  - id: R-0251
+    file: docs/sop/JOIN_EXEMPT_OPERATOR_GUIDE.md
+    heading: "What the marker must be"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0252
+    file: docs/sop/JOIN_EXEMPT_OPERATOR_GUIDE.md
+    heading: "What the marker must not be"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0253
+    file: docs/sop/JOIN_EXEMPT_OPERATOR_GUIDE.md
+    heading: "What the runner does next"
+    kind: informative
+  - id: R-0254
+    file: docs/sop/JOIN_EXEMPT_OPERATOR_GUIDE.md
+    heading: "Scope constraints (ABS-210)"
+    kind: informative
+  - id: R-0255
+    file: docs/sop/JOIN_EXEMPT_OPERATOR_GUIDE.md
+    heading: "Troubleshooting"
+    kind: informative
+  - id: R-0256
+    file: docs/sop/JOIN_EXEMPT_OPERATOR_GUIDE.md
+    heading: "Epic still sitting in `Stories In Flight` after posting the marker"
+    kind: informative
+  - id: R-0257
+    file: docs/sop/JOIN_EXEMPT_OPERATOR_GUIDE.md
+    heading: "Log says `INTENT JOIN-WAIT` with the child you exempted as `pending-children`"
+    kind: informative
+  - id: R-0258
+    file: docs/sop/JOIN_EXEMPT_OPERATOR_GUIDE.md
+    heading: "Log says `INTENT JOIN-EXEMPT` but epic did not transition"
+    kind: informative
+  - id: R-0259
+    file: docs/sop/JOIN_EXEMPT_OPERATOR_GUIDE.md
+    heading: "References"
+    kind: informative
+  - id: R-0260
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Overview"
+    kind: informative
+  - id: R-0261
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Prerequisites"
+    kind: informative
+  - id: R-0262
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Starting and Stopping"
+    kind: informative
+  - id: R-0263
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Start (dry-run — default, safe)"
+    kind: informative
+  - id: R-0264
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Start (live — spawns real subagents, incurs cost)"
+    kind: informative
+  - id: R-0265
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Single-cycle / test mode"
+    kind: informative
+  - id: R-0266
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Stop — the kill switch"
+    kind: enforced
+    sensors: [tests/test-shipper-commands.sh]
+  - id: R-0267
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Stable-Governs-Dev Mode (ABS-92)"
+    kind: enforced
+    sensors: [scripts/session-wrong-entry-guard.sh, tests/test-wrong-entry-guard.sh]
+  - id: R-1109
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Harness-release preflight (PILOT-81)"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:check_harness_release, tests/orchestrator.d/PILOT-81-harness-release-guard.sh]
+  - id: R-0268
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "RC dogfooding (governing under a release candidate)"
+    kind: informative
+  - id: R-0269
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Dry-run vs `--live`"
+    kind: informative
+  - id: R-0270
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Environment Knobs"
+    kind: enforced
+    sensors: [scripts/orch-knob-doc-drift.sh, tests/test-orch-knob-drift.sh]
+  - id: R-0271
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Additional knobs (ABS-517 audit)"
+    kind: derived
+    sensors: [scripts/orch-knob-doc-drift.sh, tests/test-orch-knob-drift.sh]
+  - id: R-0272
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Seat-context variables (spawn-seam contract, not operator knobs)"
+    kind: derived
+    sensors: [scripts/orch-knob-doc-drift.sh]
+  - id: R-0273
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Async Spawns (ABS-111 A1)"
+    kind: informative
+  - id: R-0274
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Priority-Aware Dispatch (ABS-261)"
+    kind: enforced
+    sensors: [tests/orchestrator.d/ABS-261-priority-dispatch.sh]
+  - id: R-0275
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Priority order"
+    kind: derived
+    sensors: [tests/orchestrator.d/ABS-261-priority-dispatch.sh]
+  - id: R-0276
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Setting priority on a ticket"
+    kind: informative
+  - id: R-0277
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Hotfix cap overrun (ORCH_HOTFIX_CAP_BONUS)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0278
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Kill-switch"
+    kind: informative
+  - id: R-0279
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Observability"
+    kind: informative
+  - id: R-0280
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Relationship to the multi-orchestrator workaround"
+    kind: informative
+  - id: R-0281
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Session Resume Until Acceptance (ABS-111 A2)"
+    kind: informative
+  - id: R-0282
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Poisoned-session guard (ABS-254 / ADR-A-0023 rule 3)"
+    kind: unenforced
+    risk: "No dedicated test pins the poisoned-session invalidation"
+  - id: R-0283
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Account-switch session invalidation (ABS-302)"
+    kind: unenforced
+    risk: "No dedicated test pins account-switch invalidation"
+  - id: R-0284
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Session-local watchers and operator notifications (ABS-302)"
+    kind: informative
+  - id: R-0285
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Handoff repair + status-evidence success (ABS-111 A2c / C7)"
+    kind: enforced
+    sensors: [tests/orchestrator.d/ABS-265-stdout-evidence.sh]
+  - id: R-0286
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "depends_on Gate (ABS-111 C8, release points: PILOT-19 merge-fact, PILOT-44 Docs-status)"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:blocked_auto_release_sweep, tests/orchestrator.d/ABS-296-blocked-auto-release.sh]
+  - id: R-0287
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Runner-Provisioned Worktrees (ABS-111 C9)"
+    kind: informative
+  - id: R-0288
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Local permissions travel into the worktree (ABS-131)"
+    kind: informative
+  - id: R-0289
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Fresh-base provisioning (ABS-355)"
+    kind: informative
+  - id: R-0290
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Spawn-Seam Env Scrub (ABS-355)"
+    kind: enforced
+    sensors: [tests/orchestrator.d/ABS-285-env-scrub.sh]
+  - id: R-0291
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Main-checkout seat isolation (ABS-393)"
+    kind: informative
+  - id: R-0292
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "State-Dir Self-Heal (ABS-355 / ABS-393)"
+    kind: informative
+  - id: R-0293
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Forensic self-heal logging (ABS-393)"
+    kind: informative
+  - id: R-0294
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Per-Seat Turn / Model Overrides (ABS-111 A3 / B6)"
+    kind: informative
+  - id: R-0295
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Turn-ceiling resolution (ABS-156, calibrated PILOT-65)"
+    kind: informative
+  - id: R-0296
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Observability — run.log and timestamps (ABS-111 D11 / D12)"
+    kind: informative
+  - id: R-0297
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Revision-Pinned Policy Injection (ABS-382 / ABS-231 S5)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0298
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Default-safe behaviour"
+    kind: informative
+  - id: R-0299
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Cache invalidation"
+    kind: informative
+  - id: R-0300
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Audit trail"
+    kind: informative
+  - id: R-0301
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Live-Run Allowlist Baseline"
+    kind: unenforced
+    risk: "Allowlist baseline is operator-applied; no sensor compares live settings against the documented baseline"
+  - id: R-0302
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Backlog Opt-In Gate (ABS-101)"
+    kind: unenforced
+    risk: "Gate checked only at the Backlog intake edge; decomposition children bypass it (2026-07-18 proposal; sensor planned: ABS-518)"
+  - id: R-0303
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "The Cost Gate (ADR-A-0009)"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:budget_exhausted, tests/orchestrator.d/ABS-293-budget-recovery.sh]
+  - id: R-0304
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Multi-Orchestrator Operating Mode (ABS-181)"
+    kind: enforced
+    sensors: [tests/test-claim.sh, tests/test-claim-mutex.sh, tests/test-claim-dispatch.sh, tests/test-claim-assign.sh]
+  - id: R-0305
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Claim configuration (env vars)"
+    kind: informative
+  - id: R-0306
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "One-step rollout — enable `ORCH_CLAIM_MODE=on` on ALL machines at once"
+    kind: informative
+  - id: R-0307
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Affinity — a ticket sticks to the machine that first claimed it"
+    kind: derived
+    sensors: [tests/test-claim-mutex.sh]
+  - id: R-0308
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Fairness — claim only what you can spawn now"
+    kind: derived
+    sensors: [tests/test-claim-dispatch.sh]
+  - id: R-0309
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Recovery — TTL takeover of a crashed / parked holder"
+    kind: derived
+    sensors: [tests/test-claim-mutex.sh]
+  - id: R-0310
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Fleet budget accounting — per-runner, NOT shared"
+    kind: derived
+    sensors: [tests/test-claim.sh]
+  - id: R-0311
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Verifying claim mutual exclusion (ABS-187)"
+    kind: informative
+  - id: R-0312
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Per-Epic Merge Token (ABS-256, ADR-A-0025)"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:merge_token_gate, tests/test-merge-token.sh, tests/test-merge-wait.sh]
+  - id: R-0313
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Why the token alone is not enough — the cross-bounce hold rule"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0314
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Token implementation"
+    kind: derived
+    sensors: [scripts/orchestrator.sh:merge_token_gate]
+  - id: R-0315
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Observability"
+    kind: informative
+  - id: R-0316
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Head-of-line blocking"
+    kind: derived
+    sensors: [tests/test-merge-token.sh]
+  - id: R-0317
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Test suite"
+    kind: informative
+  - id: R-0318
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Scope and what is not bundled"
+    kind: informative
+  - id: R-0319
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Handoff Commit Verification (ABS-255, ADR-A-0024)"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:handoff_work_verified, scripts/orchestrator.sh:handoff_claims_commit]
+  - id: R-0320
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "The `commits:` field (seat contract)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0321
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "What the gate checks"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0322
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Failure semantics"
+    kind: derived
+    sensors: [scripts/orchestrator.sh:handoff_work_verified]
+  - id: R-0323
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Status-machine change: `In Progress → Ready for Development`"
+    kind: derived
+    sensors: [scripts/orchestrator.sh:handoff_work_verified]
+  - id: R-0324
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Kill-switch"
+    kind: informative
+  - id: R-0325
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Test suite"
+    kind: informative
+  - id: R-0326
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Handoff Marker Duty Verification (ABS-297)"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:handoff_followthrough]
+  - id: R-0327
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Two duties in scope"
+    kind: derived
+    sensors: [scripts/orchestrator.sh:handoff_followthrough]
+  - id: R-0328
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Failure semantics"
+    kind: derived
+    sensors: [scripts/orchestrator.sh:handoff_followthrough]
+  - id: R-0329
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Seat contracts"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0330
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Kill-switch"
+    kind: informative
+  - id: R-0331
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Fail-open guards"
+    kind: derived
+    sensors: [scripts/orchestrator.sh:handoff_followthrough]
+  - id: R-0332
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Test suite"
+    kind: informative
+  - id: R-0333
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Human-Only Boundaries (Never Auto-Spawned)"
+    kind: unenforced
+    risk: "ADR-A-0004 role boundary; the never-auto-spawned role set is prose without a dedicated test"
+  - id: R-0334
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Epic Lifecycle (v3 — ABS-69)"
+    kind: informative
+  - id: R-0335
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Epic pipeline (one ticket per epic)"
+    kind: informative
+  - id: R-0336
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Story pipeline (per child story)"
+    kind: informative
+  - id: R-0337
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Path-A tail — parentless ticket: own branch + RTE PR-to-`main`, human merges (v3.1, ABS-106)  `#EXPORT_CRITICAL`"
+    kind: enforced
+    sensors: [tests/test-path-a-solo-pipeline.sh]
+  - id: R-0338
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Epic entry — how a ticket enters the pipeline"
+    kind: informative
+  - id: R-0339
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Intake classification — three-way route (v3.1, ABS-102)"
+    kind: enforced
+    sensors: [tests/test-intake-classification.sh]
+  - id: R-0340
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Ticket-Review DoR gate (spec §3.10)"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:epic_passed_dor_gate]
+  - id: R-0341
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Path-B auto-fix rework loop (v3.1, ABS-108)"
+    kind: derived
+    sensors: [scripts/orchestrator.sh:rework_count, scripts/orchestrator.sh:escalate_rework]
+  - id: R-0342
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "JOIN rule + guards (spec §3.1, §3.6)"
+    kind: enforced
+    sensors: [tests/test-epic-join-resting.sh, scripts/orchestrator.sh:join_budget_deadlock]
+  - id: R-0343
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "SKIP-FORWARD — conditional stages are the runner's job (spec §3.3)"
+    kind: derived
+    sensors: [scripts/orchestrator.sh:skip_forward, scripts/orchestrator.sh:skip_forward_target]
+  - id: R-0344
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "STATION-GUARD — flag-conditional station enforcement (ABS-247)"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:station_guard, tests/test-station-guard.sh, tests/orchestrator.d/ABS-284-station-guard-redirect-edges.sh]
+  - id: R-0345
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Rework counter (spec §3.2)"
+    kind: derived
+    sensors: [scripts/orchestrator.sh:rework_count]
+  - id: R-0346
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Crash escalation (spec §3.8)"
+    kind: informative
+  - id: R-0347
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Transition-on-handoff + respawn loop-guard (ABS-132)"
+    kind: derived
+    sensors: [scripts/orchestrator.sh:apply_handoff_transition, scripts/orchestrator.sh:handoff_target_status]
+  - id: R-0348
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Cross-visit loop-breaker + escalation budget (ABS-199 / ADR-A-0018)"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:crossvisit_guard]
+  - id: R-0349
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Turn-cap salvage (ABS-175)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0350
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Blocked → TDM triage (spec §1.3, §3.7, ABS-76)"
+    kind: enforced
+    sensors: [tests/orchestrator.d/ABS-296-blocked-auto-release.sh]
+  - id: R-0351
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Per-day spawn budget (spec §3.9)"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:daily_budget_exhausted]
+  - id: R-0352
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Wipe-resistant spawn ledger (ABS-393)"
+    kind: informative
+  - id: R-0353
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Notify points"
+    kind: informative
+  - id: R-0354
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Watcher / cron notification rule (ABS-302)"
+    kind: unenforced
+    risk: "Push-notification duty is prose; no sensor detects a silent watcher"
+  - id: R-0355
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Cost pins (sim §5, ADR-A-0009)"
+    kind: informative
+  - id: R-0356
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Iteration-Guard → Needs PO Decision Behavior (§5.5, counting model v2: ABS-115)"
+    kind: enforced
+    sensors: [scripts/hooks/iteration-guard.sh, tests/test-iteration-guard.sh]
+  - id: R-0357
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Read-only Review Gate (ABS-57)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0358
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Reconciliation and Crash Recovery (§5.1)"
+    kind: enforced
+    sensors: [tests/orchestrator.d/ABS-295-crash-repair.sh, tests/orchestrator.d/ABS-451-inprogress-orphan-heal.sh]
+  - id: R-0359
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Agentic Backend Binding (ABS-229)"
+    kind: enforced
+    sensors: [tests/test-backend-tracker.sh]
+  - id: R-0360
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Binding it"
+    kind: informative
+  - id: R-0361
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Environment variables (human-provisioned)"
+    kind: informative
+  - id: R-0362
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Registration and token bootstrap"
+    kind: informative
+  - id: R-0363
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "TRACKER_CMD switching recipe"
+    kind: informative
+  - id: R-0364
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Allowlist baseline"
+    kind: informative
+  - id: R-0365
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Board URL"
+    kind: informative
+  - id: R-0366
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Jira Cloud Binding (ABS-64)"
+    kind: enforced
+    sensors: [tests/test-jira-tracker.sh]
+  - id: R-0367
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Binding it"
+    kind: informative
+  - id: R-0368
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Environment variables (human-provisioned)"
+    kind: informative
+  - id: R-0369
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Fencing (do this before the first live run)"
+    kind: unenforced
+    risk: "Operator checklist; no sensor verifies the fence before a live run"
+  - id: R-0370
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Status-mapping prerequisite (human Jira workflow config)"
+    kind: unenforced
+    risk: "Human Jira workflow configuration; not repo-verifiable"
+  - id: R-0371
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "First-run safety checklist"
+    kind: unenforced
+    risk: "Operator checklist without a sensor"
+  - id: R-0372
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "API-call budget"
+    kind: informative
+  - id: R-0373
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Stall Detection (ABS-62)"
+    kind: enforced
+    sensors: [tests/orchestrator.d/ABS-225-watchdog-idle.sh]
+  - id: R-0374
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Spawn Telemetry (ABS-125)"
+    kind: informative
+  - id: R-0375
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Built-in Skills for Spawned Seats (ABS-123)"
+    kind: informative
+  - id: R-0376
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Review-Gate Sizing (ABS-124) and Per-Role Spawn Providers (ABS-122)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0377
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Token/Cost Accounting and the Cost Report (ABS-120)"
+    kind: informative
+  - id: R-0378
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Crash Backoff, Outage Pause and Escalation Halt (ABS-118)"
+    kind: informative
+  - id: R-0379
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Bounce Routing into In Progress + Stuck Detector (ABS-116)"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:is_bounce_status]
+  - id: R-0380
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Liveness watchdog — full-standstill detection (ABS-312)"
+    kind: enforced
+    sensors: [tests/orchestrator.d/ABS-225-watchdog-idle.sh]
+  - id: R-0381
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Wait-State Invariant Sweep — adapter-lane parity (ABS-406)"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:merging_docs_waitstate_gate, tests/test-merge-wait.sh, tests/orchestrator.d/PILOT-2-merging-docs-waitstate.sh]
+  - id: R-0382
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Known Limitations — Headless Spawn Write Boundaries"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0383
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "The `.claude/` write guard"
+    kind: informative
+  - id: R-0384
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Project-dir file-tool sandbox"
+    kind: informative
+  - id: R-0385
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Ticket-authoring guidance"
+    kind: informative
+  - id: R-0386
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Observed, unconfirmed cause"
+    kind: informative
+  - id: R-0387
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Troubleshooting"
+    kind: informative
+  - id: R-0388
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Related Documents"
+    kind: informative
+  - id: R-0389
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "Overview"
+    kind: informative
+  - id: R-0390
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "1. Story Acceptance Flow (Post-QAS)"
+    kind: informative
+  - id: R-0391
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "Procedure"
+    kind: informative
+  - id: R-0392
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "Example: Accept"
+    kind: informative
+  - id: R-0393
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "Example: Reject"
+    kind: informative
+  - id: R-0394
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "2. Epic-Completion Check Procedure"
+    kind: informative
+  - id: R-0395
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "3. WSJF Prioritization Example"
+    kind: informative
+  - id: R-0396
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "4. The Three Human-Only Escalation Paths"
+    kind: informative
+  - id: R-0397
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "4.1 Creating New Features → Feature Proposal to Human POPM"
+    kind: informative
+  - id: R-0398
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "4.2 Merging to Main → RTE → HITL"
+    kind: informative
+  - id: R-0399
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "4.3 Approving Additional Costs → Cost Summary to Human"
+    kind: informative
+  - id: R-0400
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "5. Self-Improvement Trigger Handoff"
+    kind: informative
+  - id: R-0401
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "6. `Needs PO Decision` Spawn"
+    kind: informative
+  - id: R-0402
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "6.1 On-demand product decision (non-epic ticket)"
+    kind: informative
+  - id: R-0403
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "6.2 Epic decomposition (bare `type: epic` with no children)"
+    kind: informative
+  - id: R-0404
+    file: docs/sop/PO_AGENT_SOP.md
+    heading: "Related Documents"
+    kind: informative
+  - id: R-0405
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "How to Use This Checklist"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0406
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "Documentation Completeness"
+    kind: informative
+  - id: R-0407
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "Code Review Requirements"
+    kind: informative
+  - id: R-0408
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "System Architect Review Triggers (Check ALL that apply)"
+    kind: informative
+  - id: R-0409
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "System Architect Review Status"
+    kind: informative
+  - id: R-0410
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "Standard Code Review"
+    kind: informative
+  - id: R-0411
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "Security Validation"
+    kind: informative
+  - id: R-0412
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "Test Coverage"
+    kind: informative
+  - id: R-0413
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "Linear Ticket Completeness"
+    kind: informative
+  - id: R-0414
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "Workflow Compliance"
+    kind: informative
+  - id: R-0415
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "Code Quality"
+    kind: informative
+  - id: R-0416
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "Documentation Quality"
+    kind: informative
+  - id: R-0417
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "Sign-Off"
+    kind: informative
+  - id: R-0418
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "System Architect Approval (if required)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0419
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "Final Validation"
+    kind: informative
+  - id: R-0420
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "Example: AITBC-321 Failure Analysis"
+    kind: informative
+  - id: R-0421
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "Items That Should Have Been Checked"
+    kind: informative
+  - id: R-0422
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "What Went Wrong"
+    kind: informative
+  - id: R-0423
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "Lesson Learned"
+    kind: informative
+  - id: R-0424
+    file: docs/sop/PRE_PR_VALIDATION_CHECKLIST.md
+    heading: "Related Documentation"
+    kind: informative
+  - id: R-0425
+    file: docs/sop/SELF_IMPROVEMENT_SOP.md
+    heading: "Overview"
+    kind: informative
+  - id: R-0426
+    file: docs/sop/SELF_IMPROVEMENT_SOP.md
+    heading: "1. Trigger Paths"
+    kind: informative
+  - id: R-0427
+    file: docs/sop/SELF_IMPROVEMENT_SOP.md
+    heading: "1.1 PO-Agent Handoff"
+    kind: informative
+  - id: R-0428
+    file: docs/sop/SELF_IMPROVEMENT_SOP.md
+    heading: "1.2 Human Invocation"
+    kind: informative
+  - id: R-0429
+    file: docs/sop/SELF_IMPROVEMENT_SOP.md
+    heading: "2. Analysis Flow"
+    kind: informative
+  - id: R-0430
+    file: docs/sop/SELF_IMPROVEMENT_SOP.md
+    heading: "3. Worked Example: Mined Skill Proposal"
+    kind: informative
+  - id: R-0431
+    file: docs/sop/SELF_IMPROVEMENT_SOP.md
+    heading: "4. Worked Example: Improvement Proposal File"
+    kind: informative
+  - id: R-0432
+    file: docs/sop/SELF_IMPROVEMENT_SOP.md
+    heading: "5. Human Forwarding Step"
+    kind: informative
+  - id: R-0433
+    file: docs/sop/SELF_IMPROVEMENT_SOP.md
+    heading: "Related Documents"
+    kind: informative
+  - id: R-0434
+    file: docs/sop/TEST_SUITE_LAYOUT.md
+    heading: "1. Orchestrator tests → one file per story (never append to the monolith)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0435
+    file: docs/sop/TEST_SUITE_LAYOUT.md
+    heading: "2. Orchestrator SOP version → append a change-log line (never edit the header)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0436
+    file: docs/sop/TEST_SUITE_LAYOUT.md
+    heading: "3. Fast test paths (test-runtime-diet)"
+    kind: informative
+  - id: R-0437
+    file: docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+    heading: "Tooling map"
+    kind: informative
+  - id: R-0438
+    file: docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+    heading: "Sandbox-Pflicht für Backend-Tests (ABS-374)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0439
+    file: docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+    heading: "Phase 1 — Shadow (Jira leads, backend mirrors)"
+    kind: informative
+  - id: R-0440
+    file: docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+    heading: "Preconditions"
+    kind: informative
+  - id: R-0441
+    file: docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+    heading: "Launcher env"
+    kind: informative
+  - id: R-0442
+    file: docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+    heading: "Verification (after enabling)"
+    kind: informative
+  - id: R-0443
+    file: docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+    heading: "Daily operation"
+    kind: informative
+  - id: R-0444
+    file: docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+    heading: "Gate: Shadow → Pilot **[OPERATOR]**"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0445
+    file: docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+    heading: "Phase 2 — Pilot (backend leads one low-risk lane)"
+    kind: informative
+  - id: R-0446
+    file: docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+    heading: "Preconditions"
+    kind: informative
+  - id: R-0447
+    file: docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+    heading: "Launcher env (pilot lane only)"
+    kind: informative
+  - id: R-0448
+    file: docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+    heading: "Verification"
+    kind: informative
+  - id: R-0449
+    file: docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+    heading: "Gate: Pilot → Cutover **[OPERATOR]**"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0450
+    file: docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+    heading: "Phase 3 — Cutover (Jira read-only → decommissioned)"
+    kind: informative
+  - id: R-0451
+    file: docs/sop/TRACKER-MIGRATION-RUNBOOK.md
+    heading: "Rollback"
+    kind: informative
+  - id: R-0452
+    file: docs/sop/bsa-reference.md
+    heading: "Planning Mode — SAFe Work Breakdown template"
+    kind: informative
+  - id: R-0453
+    file: docs/sop/bsa-reference.md
+    heading: "Spec Creation Mode — section scaffolds"
+    kind: informative
+  - id: R-0454
+    file: docs/sop/bsa-reference.md
+    heading: "Evidence Attachment template"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0455
+    file: docs/sop/bsa-reference.md
+    heading: "Common user-story patterns"
+    kind: informative
+  - id: R-0456
+    file: docs/sop/bsa-reference.md
+    heading: "Follow-Up Ticket — worked examples"
+    kind: informative
+  - id: R-0457
+    file: docs/sop/po-agent-reference.md
+    heading: "WSJF scoring — detail"
+    kind: informative
+  - id: R-0458
+    file: docs/sop/po-agent-reference.md
+    heading: "Acceptance decision — worked format"
+    kind: informative
+  - id: R-0459
+    file: docs/sop/po-agent-reference.md
+    heading: "Epic decomposition (Branch B) — full worked sequence"
+    kind: informative
+  - id: R-0460
+    file: docs/sop/po-agent-reference.md
+    heading: "Escalation packages — contents"
+    kind: informative
+  - id: R-0461
+    file: docs/sop/po-agent-reference.md
+    heading: "Backlog-triage exit — declared target or transition (ABS-409)"
+    kind: informative
+  - id: R-0462
+    file: docs/sop/po-agent-reference.md
+    heading: "Seat exit transitions — full commands"
+    kind: informative
+  - id: R-0463
+    file: docs/sop/po-agent-reference.md
+    heading: "ADR Authoring Request — template"
+    kind: informative
+  - id: R-0464
+    file: docs/sop/po-agent-reference.md
+    heading: "Full-detail SOP"
+    kind: informative
+  - id: R-0465
+    file: docs/sop/rte-reference.md
+    heading: "Success & compliance validation commands"
+    kind: informative
+  - id: R-0466
+    file: docs/sop/rte-reference.md
+    heading: "Pre-PR validation checklist"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0467
+    file: docs/sop/rte-reference.md
+    heading: "CI/CD pipeline stages (`.github/workflows/`)"
+    kind: informative
+  - id: R-0468
+    file: docs/sop/rte-reference.md
+    heading: "Watch / triage CI"
+    kind: informative
+  - id: R-0469
+    file: docs/sop/rte-reference.md
+    heading: "Post-merge cleanup (after HITL merges)"
+    kind: informative
+  - id: R-0470
+    file: docs/sop/rte-reference.md
+    heading: "Evidence attachment template (RTE Release Report)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0471
+    file: docs/sop/rte-reference.md
+    heading: "Common release patterns"
+    kind: informative
+  - id: R-0472
+    file: docs/sop/rte-reference.md
+    heading: "Pattern 1 — Standard feature release"
+    kind: informative
+  - id: R-0473
+    file: docs/sop/rte-reference.md
+    heading: "Pattern 2 — Hotfix release"
+    kind: informative
+  - id: R-0474
+    file: docs/sop/rte-reference.md
+    heading: "Pattern 3 — Multi-agent coordination"
+    kind: informative
+  - id: R-0475
+    file: docs/sop/rte-reference.md
+    heading: "Production deployment owner (ABS/AITBC-314)"
+    kind: informative
+  - id: R-1118
+    file: docs/sop/rte-reference.md
+    heading: "Epic-Integration station — status: OPERATOR-SUPPORTED (PILOT-76)"
+    kind: informative
+  - id: R-1110
+    file: docs/sop/rte-reference.md
+    heading: "Enablers now in place"
+    kind: derived
+    sensors: [tests/staged-suite.sh, tests/test-spawn-tmpdir.sh]
+  - id: R-1111
+    file: docs/sop/rte-reference.md
+    heading: "What remains operator-supported (until PILOT-76 AC4 is falsified by a live run)"
+    kind: informative
+  - id: R-0476
+    file: docs/sop/system-architect-reference.md
+    heading: "1. Pattern & Session Discovery — Search Commands"
+    kind: informative
+  - id: R-0477
+    file: docs/sop/system-architect-reference.md
+    heading: "Reference documentation for validation"
+    kind: informative
+  - id: R-0478
+    file: docs/sop/system-architect-reference.md
+    heading: "2. Spec Review Protocol (full workflow)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0479
+    file: docs/sop/system-architect-reference.md
+    heading: "When to review"
+    kind: informative
+  - id: R-0480
+    file: docs/sop/system-architect-reference.md
+    heading: "Steps"
+    kind: informative
+  - id: R-0481
+    file: docs/sop/system-architect-reference.md
+    heading: "Verdict — APPROVED"
+    kind: informative
+  - id: R-0482
+    file: docs/sop/system-architect-reference.md
+    heading: "Verdict — REJECTED"
+    kind: informative
+  - id: R-0483
+    file: docs/sop/system-architect-reference.md
+    heading: "Spec review section (added to the spec)"
+    kind: informative
+  - id: R-0484
+    file: docs/sop/system-architect-reference.md
+    heading: "3. Guided ADR Authoring — templates & rationale"
+    kind: informative
+  - id: R-0485
+    file: docs/sop/system-architect-reference.md
+    heading: "ADR file creation"
+    kind: informative
+  - id: R-0486
+    file: docs/sop/system-architect-reference.md
+    heading: "ADR body skeleton (if the skill template is unavailable)"
+    kind: informative
+  - id: R-0487
+    file: docs/sop/system-architect-reference.md
+    heading: "Scan for existing coverage (Step 1 commands)"
+    kind: informative
+  - id: R-0488
+    file: docs/sop/system-architect-reference.md
+    heading: "PO-Agent handoff (Path A) request format"
+    kind: informative
+  - id: R-0489
+    file: docs/sop/system-architect-reference.md
+    heading: "4. PR Review — verbose material"
+    kind: informative
+  - id: R-0490
+    file: docs/sop/system-architect-reference.md
+    heading: "Analysis commands"
+    kind: informative
+  - id: R-0491
+    file: docs/sop/system-architect-reference.md
+    heading: "Migration safety (if applicable)"
+    kind: informative
+  - id: R-0492
+    file: docs/sop/system-architect-reference.md
+    heading: "Verdict — APPROVED"
+    kind: informative
+  - id: R-0493
+    file: docs/sop/system-architect-reference.md
+    heading: "Verdict — CHANGES REQUESTED"
+    kind: informative
+  - id: R-0494
+    file: docs/sop/system-architect-reference.md
+    heading: "Post the verdict"
+    kind: informative
+  - id: R-0495
+    file: docs/sop/system-architect-reference.md
+    heading: "Common PR issues (from pattern analysis)"
+    kind: informative
+  - id: R-0496
+    file: docs/sop/system-architect-reference.md
+    heading: "Review metrics to report to TDM"
+    kind: informative
+  - id: R-0497
+    file: docs/sop/system-architect-reference.md
+    heading: "5. Pattern Library Maintenance (when BSA proposes a new pattern)"
+    kind: informative
+  - id: R-0498
+    file: docs/sop/system-architect-reference.md
+    heading: "Pattern template"
+    kind: informative
+  - id: R-0499
+    file: docs/sop/system-architect-reference.md
+    heading: "6. Evidence Attachment Template"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0500
+    file: docs/sop/system-architect-reference.md
+    heading: "7. Common Architectural Patterns (code)"
+    kind: informative
+  - id: R-0501
+    file: docs/sop/system-architect-reference.md
+    heading: "RLS context (MANDATORY for DB operations)"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-0502
+    file: docs/sop/system-architect-reference.md
+    heading: "API route"
+    kind: informative
+  - id: R-0503
+    file: docs/sop/system-architect-reference.md
+    heading: "UI component"
+    kind: informative
+  - id: R-0504
+    file: docs/sop/system-architect-reference.md
+    heading: "8. Background rationale"
+    kind: informative
+  - id: R-0505
+    file: .claude/agents/README.md
+    heading: "License"
+    kind: informative
+  - id: R-0506
+    file: .claude/agents/README.md
+    heading: "Intellectual Property"
+    kind: informative
+  - id: R-0507
+    file: .claude/agents/README.md
+    heading: "Agents Included"
+    kind: informative
+  - id: R-0508
+    file: .claude/agents/_common-rules.md
+    heading: "1. Evidence-Disziplin (handoff truthfulness, ABS-137)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0509
+    file: .claude/agents/_common-rules.md
+    heading: "2. Commit-Format"
+    kind: informative
+  - id: R-0510
+    file: .claude/agents/_common-rules.md
+    heading: "3. Session-Resume-Etikette"
+    kind: informative
+  - id: R-0511
+    file: .claude/agents/_common-rules.md
+    heading: "4. Tracker-Protokoll"
+    kind: informative
+  - id: R-0512
+    file: .claude/agents/_common-rules.md
+    heading: "5. Background-Task-Disziplin (spawn lifecycle, ABS-195)"
+    kind: informative
+  - id: R-0513
+    file: .claude/agents/_common-rules.md
+    heading: "6. Branch-Disziplin (never commit to local main, ABS-224)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0514
+    file: .claude/agents/_common-rules.md
+    heading: "7. Claim-Protokoll (pull the ticket at work start, ABS-224 AC6)"
+    kind: informative
+  - id: R-0515
+    file: .claude/agents/_common-rules.md
+    heading: "8. Kill-Scope (never kill by name/pattern, ABS-243)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0516
+    file: .claude/agents/_common-rules.md
+    heading: "9. Baseline-Vergleich ohne Stash (never `git stash`, ABS-272)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0517
+    file: .claude/agents/_common-rules.md
+    heading: "10. Harness↔Provider-Mirror-Parität (ABS-317)"
+    kind: informative
+  - id: R-0518
+    file: .claude/agents/_common-rules.md
+    heading: "11. Process-Skill-Gate (invoke before every handoff, ABS-318)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0519
+    file: .claude/agents/_common-rules.md
+    heading: "12. Prioritäts-Charter (never raise a ticket's priority, ABS-261)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0520
+    file: .claude/agents/be-developer.md
+    heading: "Role Overview"
+    kind: informative
+  - id: R-0521
+    file: .claude/agents/be-developer.md
+    heading: "Context Sequence (MANDATORY, ADR-A-0003)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0522
+    file: .claude/agents/be-developer.md
+    heading: "Ponytail Principle (MANDATORY, skill: ponytail)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0523
+    file: .claude/agents/be-developer.md
+    heading: "Precondition (Stop-the-Line Gate)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0524
+    file: .claude/agents/be-developer.md
+    heading: "Ownership Model"
+    kind: informative
+  - id: R-0525
+    file: .claude/agents/be-developer.md
+    heading: "Available Skills (Auto-Loaded)"
+    kind: informative
+  - id: R-0527
+    file: .claude/agents/be-developer.md
+    heading: "Success Validation Command"
+    kind: informative
+  - id: R-0528
+    file: .claude/agents/be-developer.md
+    heading: "Pattern Execution Workflow (AITBC-300)"
+    kind: informative
+  - id: R-0529
+    file: .claude/agents/be-developer.md
+    heading: "Step 1: Read Your Spec"
+    kind: informative
+  - id: R-0530
+    file: .claude/agents/be-developer.md
+    heading: "Step 1b: Environment Preflight (MANDATORY before implementing)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0531
+    file: .claude/agents/be-developer.md
+    heading: "Step 2: Load the Pattern"
+    kind: informative
+  - id: R-0532
+    file: .claude/agents/be-developer.md
+    heading: "Step 3: Copy Pattern Code"
+    kind: informative
+  - id: R-0533
+    file: .claude/agents/be-developer.md
+    heading: "Step 4: Customize Per Spec"
+    kind: informative
+  - id: R-0534
+    file: .claude/agents/be-developer.md
+    heading: "Step 5: Validate"
+    kind: informative
+  - id: R-0540
+    file: .claude/agents/be-developer.md
+    heading: "RLS Requirements"
+    kind: informative
+  - id: R-0541
+    file: .claude/agents/be-developer.md
+    heading: "Migration Numbering (MANDATORY, ABS-449)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0543
+    file: .claude/agents/be-developer.md
+    heading: "Key Principles"
+    kind: informative
+  - id: R-0544
+    file: .claude/agents/be-developer.md
+    heading: "Exit Protocol"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0545
+    file: .claude/agents/be-developer.md
+    heading: "Escalation"
+    kind: informative
+  - id: R-0546
+    file: .claude/agents/be-developer.md
+    heading: "Report to BSA if"
+    kind: informative
+  - id: R-0547
+    file: .claude/agents/be-developer.md
+    heading: "Report to TDM if"
+    kind: informative
+  - id: R-0548
+    file: .claude/agents/be-developer.md
+    heading: "Common seat rules (distillate — full text auto-prepended from `_common-rules.md`, ABS-174)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0549
+    file: .claude/agents/be-developer.md
+    heading: "Built-in skills for this seat (ABS-123)"
+    kind: informative
+  - id: R-0550
+    file: .claude/agents/boilerplate-migration.md
+    heading: "Role Overview"
+    kind: informative
+  - id: R-0551
+    file: .claude/agents/boilerplate-migration.md
+    heading: "Clear Goal Definition"
+    kind: informative
+  - id: R-0552
+    file: .claude/agents/boilerplate-migration.md
+    heading: "Execution Model"
+    kind: informative
+  - id: R-0553
+    file: .claude/agents/boilerplate-migration.md
+    heading: "The Mechanical Driver Does the Work"
+    kind: informative
+  - id: R-0554
+    file: .claude/agents/boilerplate-migration.md
+    heading: "Your LLM Job (the only thing left)"
+    kind: informative
+  - id: R-0555
+    file: .claude/agents/boilerplate-migration.md
+    heading: "Tools Available"
+    kind: informative
+  - id: R-0556
+    file: .claude/agents/boilerplate-migration.md
+    heading: "Escalation Protocol"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0557
+    file: .claude/agents/boilerplate-migration.md
+    heading: "Human Decision Required (Not Blocking the Branch)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0558
+    file: .claude/agents/boilerplate-migration.md
+    heading: "Key Principles"
+    kind: informative
+  - id: R-0559
+    file: .claude/agents/bsa.md
+    heading: "Role Overview"
+    kind: informative
+  - id: R-0560
+    file: .claude/agents/bsa.md
+    heading: "Non-negotiables (MANDATORY)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0561
+    file: .claude/agents/bsa.md
+    heading: "Pattern Discovery (MANDATORY, AITBC-300)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0562
+    file: .claude/agents/bsa.md
+    heading: "Operating Modes"
+    kind: informative
+  - id: R-0563
+    file: .claude/agents/bsa.md
+    heading: "Planning Mode — large initiative / Confluence analysis"
+    kind: informative
+  - id: R-0564
+    file: .claude/agents/bsa.md
+    heading: "Spec Creation Mode — user story ready for development"
+    kind: informative
+  - id: R-0565
+    file: .claude/agents/bsa.md
+    heading: "Follow-Up Ticket Decision"
+    kind: informative
+  - id: R-0566
+    file: .claude/agents/bsa.md
+    heading: "Grooming Seat (v3 epic pipeline, ABS-85)"
+    kind: informative
+  - id: R-0567
+    file: .claude/agents/bsa.md
+    heading: "Follow-up Decision Seat (v3 follow-up watcher, ABS-75)"
+    kind: informative
+  - id: R-0568
+    file: .claude/agents/bsa.md
+    heading: "Escalation"
+    kind: informative
+  - id: R-0569
+    file: .claude/agents/bsa.md
+    heading: "Common seat rules (distillate — full text auto-prepended from `_common-rules.md`, ABS-174)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0570
+    file: .claude/agents/data-engineer.md
+    heading: "Available Skills (Auto-Loaded)"
+    kind: informative
+  - id: R-0571
+    file: .claude/agents/data-engineer.md
+    heading: "Role Overview"
+    kind: informative
+  - id: R-0572
+    file: .claude/agents/data-engineer.md
+    heading: "Context Sequence (MANDATORY, ADR-A-0003)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0573
+    file: .claude/agents/data-engineer.md
+    heading: "Ponytail Principle (MANDATORY, skill: ponytail)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0574
+    file: .claude/agents/data-engineer.md
+    heading: "Precondition (Stop-the-Line Gate)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0575
+    file: .claude/agents/data-engineer.md
+    heading: "Ownership Model"
+    kind: informative
+  - id: R-0576
+    file: .claude/agents/data-engineer.md
+    heading: "NEW (AITBC-314): PROD Migration & Schema Ownership"
+    kind: informative
+  - id: R-0577
+    file: .claude/agents/data-engineer.md
+    heading: "📂 Output Location"
+    kind: informative
+  - id: R-0578
+    file: .claude/agents/data-engineer.md
+    heading: "✅ Mandatory Reading Checklist"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0579
+    file: .claude/agents/data-engineer.md
+    heading: "Schema Changes (MANDATORY - ALWAYS READ THESE)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0580
+    file: .claude/agents/data-engineer.md
+    heading: "Pattern Work"
+    kind: informative
+  - id: R-0581
+    file: .claude/agents/data-engineer.md
+    heading: "Migration Numbering (MANDATORY, ABS-449)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0582
+    file: .claude/agents/data-engineer.md
+    heading: "ARCHitect Approval"
+    kind: informative
+  - id: R-0583
+    file: .claude/agents/data-engineer.md
+    heading: "🚀 Quick Start"
+    kind: informative
+  - id: R-0584
+    file: .claude/agents/data-engineer.md
+    heading: "Your workflow in 4 steps"
+    kind: informative
+  - id: R-0585
+    file: .claude/agents/data-engineer.md
+    heading: "Success Validation Command"
+    kind: informative
+  - id: R-0586
+    file: .claude/agents/data-engineer.md
+    heading: "Pattern Execution Workflow (AITBC-300)"
+    kind: informative
+  - id: R-0587
+    file: .claude/agents/data-engineer.md
+    heading: "Step 1: Read Your Spec"
+    kind: informative
+  - id: R-0588
+    file: .claude/agents/data-engineer.md
+    heading: "Step 1b: Environment Preflight (MANDATORY before implementing)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0589
+    file: .claude/agents/data-engineer.md
+    heading: "Step 2: Load the Pattern"
+    kind: informative
+  - id: R-0590
+    file: .claude/agents/data-engineer.md
+    heading: "Step 3: Copy Pattern Code"
+    kind: informative
+  - id: R-0591
+    file: .claude/agents/data-engineer.md
+    heading: "For RLS migrations (rls-migration.md)"
+    kind: informative
+  - id: R-0592
+    file: .claude/agents/data-engineer.md
+    heading: "For transactions (prisma-transaction.md)"
+    kind: informative
+  - id: R-0593
+    file: .claude/agents/data-engineer.md
+    heading: "Step 4: Customize Per Spec"
+    kind: informative
+  - id: R-0594
+    file: .claude/agents/data-engineer.md
+    heading: "Follow pattern's customization guide"
+    kind: informative
+  - id: R-0595
+    file: .claude/agents/data-engineer.md
+    heading: "Step 5: Test Migration Locally"
+    kind: informative
+  - id: R-0596
+    file: .claude/agents/data-engineer.md
+    heading: "Step 6: Get ARCHitect Approval"
+    kind: informative
+  - id: R-0597
+    file: .claude/agents/data-engineer.md
+    heading: "Common Tasks"
+    kind: informative
+  - id: R-0598
+    file: .claude/agents/data-engineer.md
+    heading: "Adding Tables with RLS"
+    kind: informative
+  - id: R-0599
+    file: .claude/agents/data-engineer.md
+    heading: "Multi-Step Operations"
+    kind: informative
+  - id: R-0600
+    file: .claude/agents/data-engineer.md
+    heading: "RLS Requirements"
+    kind: informative
+  - id: R-0601
+    file: .claude/agents/data-engineer.md
+    heading: "Pattern includes all of this - just customize table name"
+    kind: informative
+  - id: R-0602
+    file: .claude/agents/data-engineer.md
+    heading: "Tools Available"
+    kind: informative
+  - id: R-0603
+    file: .claude/agents/data-engineer.md
+    heading: "Key Principles"
+    kind: informative
+  - id: R-0604
+    file: .claude/agents/data-engineer.md
+    heading: "Exit Protocol"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0605
+    file: .claude/agents/data-engineer.md
+    heading: "Escalation"
+    kind: informative
+  - id: R-0606
+    file: .claude/agents/data-engineer.md
+    heading: "Report to BSA if"
+    kind: informative
+  - id: R-0607
+    file: .claude/agents/data-engineer.md
+    heading: "Report to ARCHitect if"
+    kind: informative
+  - id: R-0608
+    file: .claude/agents/data-engineer.md
+    heading: "Report to TDM if"
+    kind: informative
+  - id: R-0609
+    file: .claude/agents/data-engineer.md
+    heading: "Common seat rules (distillate — full text auto-prepended from `_common-rules.md`, ABS-174)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0610
+    file: .claude/agents/data-engineer.md
+    heading: "Built-in skills for this seat (ABS-123)"
+    kind: informative
+  - id: R-0611
+    file: .claude/agents/data-provisioning-eng.md
+    heading: "Role Overview"
+    kind: informative
+  - id: R-0612
+    file: .claude/agents/data-provisioning-eng.md
+    heading: "🚀 Quick Start"
+    kind: informative
+  - id: R-0613
+    file: .claude/agents/data-provisioning-eng.md
+    heading: "Success Validation Command"
+    kind: informative
+  - id: R-0614
+    file: .claude/agents/data-provisioning-eng.md
+    heading: "Pattern Execution Workflow"
+    kind: informative
+  - id: R-0615
+    file: .claude/agents/data-provisioning-eng.md
+    heading: "Step 1: Read Your Spec"
+    kind: informative
+  - id: R-0616
+    file: .claude/agents/data-provisioning-eng.md
+    heading: "Step 2: Implement Data Pipeline"
+    kind: informative
+  - id: R-0617
+    file: .claude/agents/data-provisioning-eng.md
+    heading: "Step 3: Use RLS for Database Operations"
+    kind: informative
+  - id: R-0618
+    file: .claude/agents/data-provisioning-eng.md
+    heading: "Step 4: Validate Data Quality"
+    kind: informative
+  - id: R-0619
+    file: .claude/agents/data-provisioning-eng.md
+    heading: "Common Tasks"
+    kind: informative
+  - id: R-0620
+    file: .claude/agents/data-provisioning-eng.md
+    heading: "ETL Pipelines"
+    kind: informative
+  - id: R-0621
+    file: .claude/agents/data-provisioning-eng.md
+    heading: "Data Validation"
+    kind: informative
+  - id: R-0622
+    file: .claude/agents/data-provisioning-eng.md
+    heading: "Key Principles"
+    kind: informative
+  - id: R-0623
+    file: .claude/agents/data-provisioning-eng.md
+    heading: "Escalation"
+    kind: informative
+  - id: R-0624
+    file: .claude/agents/data-provisioning-eng.md
+    heading: "Report to BSA if:"
+    kind: informative
+  - id: R-0625
+    file: .claude/agents/data-provisioning-eng.md
+    heading: "Test Prep Seat (v3 story pipeline)"
+    kind: informative
+  - id: R-0626
+    file: .claude/agents/fe-developer.md
+    heading: "Role Overview"
+    kind: informative
+  - id: R-0627
+    file: .claude/agents/fe-developer.md
+    heading: "Context Sequence (MANDATORY, ADR-A-0003)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0628
+    file: .claude/agents/fe-developer.md
+    heading: "Ponytail Principle (MANDATORY, skill: ponytail)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0629
+    file: .claude/agents/fe-developer.md
+    heading: "Precondition (Stop-the-Line Gate)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0630
+    file: .claude/agents/fe-developer.md
+    heading: "Ownership Model"
+    kind: informative
+  - id: R-0631
+    file: .claude/agents/fe-developer.md
+    heading: "Available Skills (Auto-Loaded)"
+    kind: informative
+  - id: R-0632
+    file: .claude/agents/fe-developer.md
+    heading: "🚀 Quick Start"
+    kind: informative
+  - id: R-0633
+    file: .claude/agents/fe-developer.md
+    heading: "Success Validation Command"
+    kind: informative
+  - id: R-0634
+    file: .claude/agents/fe-developer.md
+    heading: "Pattern Execution Workflow (AITBC-300)"
+    kind: informative
+  - id: R-0635
+    file: .claude/agents/fe-developer.md
+    heading: "Step 1: Read Your Spec"
+    kind: informative
+  - id: R-0636
+    file: .claude/agents/fe-developer.md
+    heading: "Step 1b: Environment Preflight (MANDATORY before implementing)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0637
+    file: .claude/agents/fe-developer.md
+    heading: "Step 2: Load the Pattern"
+    kind: informative
+  - id: R-0638
+    file: .claude/agents/fe-developer.md
+    heading: "Step 3: Copy Pattern Code"
+    kind: informative
+  - id: R-0639
+    file: .claude/agents/fe-developer.md
+    heading: "Step 4: Customize Per Spec"
+    kind: informative
+  - id: R-0640
+    file: .claude/agents/fe-developer.md
+    heading: "Step 5: Validate"
+    kind: informative
+  - id: R-0641
+    file: .claude/agents/fe-developer.md
+    heading: "Common Tasks"
+    kind: informative
+  - id: R-0642
+    file: .claude/agents/fe-developer.md
+    heading: "Creating Components"
+    kind: informative
+  - id: R-0643
+    file: .claude/agents/fe-developer.md
+    heading: "Form Implementation"
+    kind: informative
+  - id: R-0644
+    file: .claude/agents/fe-developer.md
+    heading: "Data Display"
+    kind: informative
+  - id: R-0645
+    file: .claude/agents/fe-developer.md
+    heading: "Tools Available"
+    kind: informative
+  - id: R-0646
+    file: .claude/agents/fe-developer.md
+    heading: "Key Principles"
+    kind: informative
+  - id: R-0647
+    file: .claude/agents/fe-developer.md
+    heading: "Exit Protocol"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0648
+    file: .claude/agents/fe-developer.md
+    heading: "Escalation"
+    kind: informative
+  - id: R-0649
+    file: .claude/agents/fe-developer.md
+    heading: "Report to BSA if"
+    kind: informative
+  - id: R-0650
+    file: .claude/agents/fe-developer.md
+    heading: "Report to TDM if"
+    kind: informative
+  - id: R-0651
+    file: .claude/agents/fe-developer.md
+    heading: "Common seat rules (distillate — full text auto-prepended from `_common-rules.md`, ABS-174)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0652
+    file: .claude/agents/fe-developer.md
+    heading: "Built-in skills for this seat (ABS-123)"
+    kind: informative
+  - id: R-0653
+    file: .claude/agents/issue-enrichment.md
+    heading: "Role Overview"
+    kind: informative
+  - id: R-0654
+    file: .claude/agents/issue-enrichment.md
+    heading: "Context Sequence (MANDATORY, ADR-A-0003)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0655
+    file: .claude/agents/issue-enrichment.md
+    heading: "Clear Goal Definition"
+    kind: informative
+  - id: R-0656
+    file: .claude/agents/issue-enrichment.md
+    heading: "Workflow (Enforced Order)"
+    kind: informative
+  - id: R-0657
+    file: .claude/agents/issue-enrichment.md
+    heading: "Step 1: Duplicate-Detection Gate (MANDATORY)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0658
+    file: .claude/agents/issue-enrichment.md
+    heading: "Step 2: Enrichment (`issue-enrichment` skill)"
+    kind: informative
+  - id: R-0659
+    file: .claude/agents/issue-enrichment.md
+    heading: "Step 3: Tracker Operation (adapter, system-agnostic)"
+    kind: informative
+  - id: R-0660
+    file: .claude/agents/issue-enrichment.md
+    heading: "Step 3b: Fastlane Eligibility Proposal (ABS-320, v3 epic ABS-314)"
+    kind: informative
+  - id: R-0661
+    file: .claude/agents/issue-enrichment.md
+    heading: "Agent-Ready Ticket Structure"
+    kind: informative
+  - id: R-0662
+    file: .claude/agents/issue-enrichment.md
+    heading: "Context Pack (B4, ABS-111)"
+    kind: informative
+  - id: R-0663
+    file: .claude/agents/issue-enrichment.md
+    heading: "Guardrail-Feasibility Check"
+    kind: informative
+  - id: R-0664
+    file: .claude/agents/issue-enrichment.md
+    heading: "Boundary vs. BSA"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0665
+    file: .claude/agents/issue-enrichment.md
+    heading: "Tools Available"
+    kind: informative
+  - id: R-0666
+    file: .claude/agents/issue-enrichment.md
+    heading: "Escalation Protocol"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0667
+    file: .claude/agents/issue-enrichment.md
+    heading: "Return to Requester (BSA / PO-Agent / Human)"
+    kind: informative
+  - id: R-0668
+    file: .claude/agents/issue-enrichment.md
+    heading: "Escalate to System Architect"
+    kind: informative
+  - id: R-0669
+    file: .claude/agents/issue-enrichment.md
+    heading: "Key Principles"
+    kind: informative
+  - id: R-0670
+    file: .claude/agents/issue-enrichment.md
+    heading: "Enrichment Seat (v3 epic pipeline)"
+    kind: informative
+  - id: R-0671
+    file: .claude/agents/issue-enrichment.md
+    heading: "Write-light Path-B re-visit (no-op dedup, ABS-203)"
+    kind: informative
+  - id: R-0672
+    file: .claude/agents/po-agent.md
+    heading: "Role Overview"
+    kind: informative
+  - id: R-0673
+    file: .claude/agents/po-agent.md
+    heading: "Non-negotiables (MANDATORY)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0674
+    file: .claude/agents/po-agent.md
+    heading: "Story Acceptance (Full Authority)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0675
+    file: .claude/agents/po-agent.md
+    heading: "Epic-Completion Detection"
+    kind: informative
+  - id: R-0676
+    file: .claude/agents/po-agent.md
+    heading: "Autonomous Backlog Prioritization (WSJF)"
+    kind: informative
+  - id: R-0677
+    file: .claude/agents/po-agent.md
+    heading: "Backlog-triage exit — a target is mandatory (ABS-409)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0678
+    file: .claude/agents/po-agent.md
+    heading: "Orchestration Triggers"
+    kind: informative
+  - id: R-0679
+    file: .claude/agents/po-agent.md
+    heading: "`Needs PO Decision` Spawn"
+    kind: informative
+  - id: R-0680
+    file: .claude/agents/po-agent.md
+    heading: "PO Triage Seat (v3 epic pipeline)"
+    kind: informative
+  - id: R-0681
+    file: .claude/agents/po-agent.md
+    heading: "HUMAN-ONLY DECISIONS (Hard Rules)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0682
+    file: .claude/agents/po-agent.md
+    heading: "1. Creating New Features"
+    kind: informative
+  - id: R-0683
+    file: .claude/agents/po-agent.md
+    heading: "2. Merging to Main"
+    kind: informative
+  - id: R-0684
+    file: .claude/agents/po-agent.md
+    heading: "3. Approving Additional Costs"
+    kind: informative
+  - id: R-0685
+    file: .claude/agents/po-agent.md
+    heading: "4. Provisioning Credentials, Secrets, and External Accounts"
+    kind: informative
+  - id: R-0686
+    file: .claude/agents/po-agent.md
+    heading: "Escalation Protocol"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0687
+    file: .claude/agents/po-agent.md
+    heading: "Tools Available"
+    kind: informative
+  - id: R-0688
+    file: .claude/agents/po-agent.md
+    heading: "Common seat rules (distillate — full text auto-prepended from `_common-rules.md`, ABS-174)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0689
+    file: .claude/agents/qas-design.md
+    heading: "Role: Design Gate Owner (Not Just Reviewer)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0690
+    file: .claude/agents/qas-design.md
+    heading: "Intake: Handoff from the UI/UX Design Agent"
+    kind: informative
+  - id: R-0691
+    file: .claude/agents/qas-design.md
+    heading: "Pre-Check (MANDATORY, Before Any Testing)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0692
+    file: .claude/agents/qas-design.md
+    heading: "Test Execution"
+    kind: informative
+  - id: R-0693
+    file: .claude/agents/qas-design.md
+    heading: "Detector-backed design-system-check (when design system enabled, ADR-A-0017)"
+    kind: informative
+  - id: R-0694
+    file: .claude/agents/qas-design.md
+    heading: "Evidence + Verdict (MANDATORY)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0695
+    file: .claude/agents/qas-design.md
+    heading: "Fail Path: Iteration Loop"
+    kind: informative
+  - id: R-0696
+    file: .claude/agents/qas-design.md
+    heading: "Iteration Counter and Hard Cap"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0697
+    file: .claude/agents/qas-design.md
+    heading: "Failure Classification (MANDATORY before any bounce)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0698
+    file: .claude/agents/qas-design.md
+    heading: "Same-Error-Twice Rule"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0699
+    file: .claude/agents/qas-design.md
+    heading: "DAC Change Freeze"
+    kind: informative
+  - id: R-0700
+    file: .claude/agents/qas-design.md
+    heading: "Independence Rules (NOT COLLAPSIBLE)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0701
+    file: .claude/agents/qas-design.md
+    heading: "Boundary vs. General QAS"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0702
+    file: .claude/agents/qas-design.md
+    heading: "Exit Protocol"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0703
+    file: .claude/agents/qas-design.md
+    heading: "Routing Authority"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0704
+    file: .claude/agents/qas-design.md
+    heading: "Escalation"
+    kind: informative
+  - id: R-0705
+    file: .claude/agents/qas-design.md
+    heading: "Report to BSA if"
+    kind: informative
+  - id: R-0706
+    file: .claude/agents/qas-design.md
+    heading: "Report to TDM if"
+    kind: informative
+  - id: R-0707
+    file: .claude/agents/qas-design.md
+    heading: "Design Test Seat (v3 story pipeline)"
+    kind: informative
+  - id: R-0708
+    file: .claude/agents/qas.md
+    heading: "Role: Gate Owner (Not Just Validator)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0709
+    file: .claude/agents/qas.md
+    heading: "Available Skills (Auto-Loaded)"
+    kind: informative
+  - id: R-0710
+    file: .claude/agents/qas.md
+    heading: "Role Overview"
+    kind: informative
+  - id: R-0711
+    file: .claude/agents/qas.md
+    heading: "Context Sequence (MANDATORY, ADR-A-0003)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0712
+    file: .claude/agents/qas.md
+    heading: "Ownership Model"
+    kind: informative
+  - id: R-0713
+    file: .claude/agents/qas.md
+    heading: "Iteration Authority"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0714
+    file: .claude/agents/qas.md
+    heading: "Failure Classification (MANDATORY before any bounce)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0715
+    file: .claude/agents/qas.md
+    heading: "Iteration Counter and Hard Cap"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0716
+    file: .claude/agents/qas.md
+    heading: "Same-Error-Twice Rule"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0717
+    file: .claude/agents/qas.md
+    heading: "Linear Evidence (MANDATORY)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0718
+    file: .claude/agents/qas.md
+    heading: "📂 Output Location"
+    kind: informative
+  - id: R-0719
+    file: .claude/agents/qas.md
+    heading: "✅ Mandatory Reading Checklist"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0720
+    file: .claude/agents/qas.md
+    heading: "Database Work Required?"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0721
+    file: .claude/agents/qas.md
+    heading: "New Service/Feature?"
+    kind: informative
+  - id: R-0722
+    file: .claude/agents/qas.md
+    heading: "Pattern Work?"
+    kind: informative
+  - id: R-0723
+    file: .claude/agents/qas.md
+    heading: "🚀 Quick Start"
+    kind: informative
+  - id: R-0724
+    file: .claude/agents/qas.md
+    heading: "Success Validation Command"
+    kind: informative
+  - id: R-0725
+    file: .claude/agents/qas.md
+    heading: "Pattern Execution Workflow (AITBC-300)"
+    kind: informative
+  - id: R-0726
+    file: .claude/agents/qas.md
+    heading: "Step 1: Read Your Spec"
+    kind: informative
+  - id: R-0727
+    file: .claude/agents/qas.md
+    heading: "Step 2: Load the Test Pattern"
+    kind: informative
+  - id: R-0728
+    file: .claude/agents/qas.md
+    heading: "Step 3: Copy Test Pattern Code"
+    kind: informative
+  - id: R-0729
+    file: .claude/agents/qas.md
+    heading: "Step 4: Customize Per Spec"
+    kind: informative
+  - id: R-0730
+    file: .claude/agents/qas.md
+    heading: "Step 5: Run Tests"
+    kind: informative
+  - id: R-0731
+    file: .claude/agents/qas.md
+    heading: "Common Tasks"
+    kind: informative
+  - id: R-0732
+    file: .claude/agents/qas.md
+    heading: "Testing APIs"
+    kind: informative
+  - id: R-0733
+    file: .claude/agents/qas.md
+    heading: "Testing User Workflows"
+    kind: informative
+  - id: R-0734
+    file: .claude/agents/qas.md
+    heading: "Acceptance Criteria Validation"
+    kind: informative
+  - id: R-0735
+    file: .claude/agents/qas.md
+    heading: "Tools Available"
+    kind: informative
+  - id: R-0736
+    file: .claude/agents/qas.md
+    heading: "Key Principles"
+    kind: informative
+  - id: R-0737
+    file: .claude/agents/qas.md
+    heading: "Exit Protocol"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0738
+    file: .claude/agents/qas.md
+    heading: "Routing Authority"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0739
+    file: .claude/agents/qas.md
+    heading: "Escalation"
+    kind: informative
+  - id: R-0740
+    file: .claude/agents/qas.md
+    heading: "Report to BSA if"
+    kind: informative
+  - id: R-0741
+    file: .claude/agents/qas.md
+    heading: "Report to TDM if"
+    kind: informative
+  - id: R-0742
+    file: .claude/agents/qas.md
+    heading: "Ticket Review Seat — Definition-of-Ready gate (v3 epic pipeline, spec §3.10)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0743
+    file: .claude/agents/qas.md
+    heading: "Built-in skills for this seat (ABS-123)"
+    kind: informative
+  - id: R-0744
+    file: .claude/agents/rte.md
+    heading: "Role Overview"
+    kind: informative
+  - id: R-0745
+    file: .claude/agents/rte.md
+    heading: "Context Sequence (MANDATORY, ADR-A-0003)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0746
+    file: .claude/agents/rte.md
+    heading: "Prerequisite (QAS Gate)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0747
+    file: .claude/agents/rte.md
+    heading: "Ownership Model"
+    kind: informative
+  - id: R-0748
+    file: .claude/agents/rte.md
+    heading: "Non-negotiables"
+    kind: informative
+  - id: R-0749
+    file: .claude/agents/rte.md
+    heading: "Available Skills (Auto-Loaded)"
+    kind: informative
+  - id: R-0750
+    file: .claude/agents/rte.md
+    heading: "Reference material (pull in on demand)"
+    kind: informative
+  - id: R-0751
+    file: .claude/agents/rte.md
+    heading: "Standard PR Workflow (single-branch stories)"
+    kind: informative
+  - id: R-0752
+    file: .claude/agents/rte.md
+    heading: "Escalation Protocol"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0753
+    file: .claude/agents/rte.md
+    heading: "Exit Protocol"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0754
+    file: .claude/agents/rte.md
+    heading: "Merging Seat (v3 story pipeline, ABS-89)"
+    kind: informative
+  - id: R-0755
+    file: .claude/agents/rte.md
+    heading: "Epic Integration Seat (v3 epic pipeline, ABS-90)"
+    kind: informative
+  - id: R-0756
+    file: .claude/agents/rte.md
+    heading: "Common seat rules (distillate — full text auto-prepended from `_common-rules.md`, ABS-174)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0757
+    file: .claude/agents/rte.md
+    heading: "Built-in skills for this seat (ABS-123)"
+    kind: informative
+  - id: R-0758
+    file: .claude/agents/security-engineer.md
+    heading: "Role Overview"
+    kind: informative
+  - id: R-0759
+    file: .claude/agents/security-engineer.md
+    heading: "🚀 Quick Start"
+    kind: informative
+  - id: R-0760
+    file: .claude/agents/security-engineer.md
+    heading: "Success Validation Command"
+    kind: informative
+  - id: R-0761
+    file: .claude/agents/security-engineer.md
+    heading: "Pattern Execution Workflow"
+    kind: informative
+  - id: R-0762
+    file: .claude/agents/security-engineer.md
+    heading: "Step 1: Read Your Spec"
+    kind: informative
+  - id: R-0763
+    file: .claude/agents/security-engineer.md
+    heading: "Step 2: Load the Security Pattern"
+    kind: informative
+  - id: R-0764
+    file: .claude/agents/security-engineer.md
+    heading: "Step 3: Execute Security Validation"
+    kind: informative
+  - id: R-0765
+    file: .claude/agents/security-engineer.md
+    heading: "Step 4: Security Checklist"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0766
+    file: .claude/agents/security-engineer.md
+    heading: "Step 5: Document Findings"
+    kind: informative
+  - id: R-0767
+    file: .claude/agents/security-engineer.md
+    heading: "Common Tasks"
+    kind: informative
+  - id: R-0768
+    file: .claude/agents/security-engineer.md
+    heading: "RLS Enforcement Validation"
+    kind: informative
+  - id: R-0769
+    file: .claude/agents/security-engineer.md
+    heading: "API Security Review"
+    kind: informative
+  - id: R-0770
+    file: .claude/agents/security-engineer.md
+    heading: "Vulnerability Scanning"
+    kind: informative
+  - id: R-0771
+    file: .claude/agents/security-engineer.md
+    heading: "Critical Security Rules"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0772
+    file: .claude/agents/security-engineer.md
+    heading: "Tools Available"
+    kind: informative
+  - id: R-0773
+    file: .claude/agents/security-engineer.md
+    heading: "Key Principles"
+    kind: informative
+  - id: R-0774
+    file: .claude/agents/security-engineer.md
+    heading: "Escalation"
+    kind: informative
+  - id: R-0775
+    file: .claude/agents/security-engineer.md
+    heading: "Report to ARCHitect (CRITICAL) if:"
+    kind: informative
+  - id: R-0776
+    file: .claude/agents/security-engineer.md
+    heading: "Block Deployment if:"
+    kind: informative
+  - id: R-0777
+    file: .claude/agents/security-engineer.md
+    heading: "Security Review Seat (v3 story pipeline)"
+    kind: informative
+  - id: R-0778
+    file: .claude/agents/self-improvement.md
+    heading: "Role Overview"
+    kind: informative
+  - id: R-0779
+    file: .claude/agents/self-improvement.md
+    heading: "Clear Goal Definition"
+    kind: informative
+  - id: R-0780
+    file: .claude/agents/self-improvement.md
+    heading: "Trigger Model (NO Self-Scheduling)"
+    kind: informative
+  - id: R-0781
+    file: .claude/agents/self-improvement.md
+    heading: "Analysis Flow"
+    kind: informative
+  - id: R-0782
+    file: .claude/agents/self-improvement.md
+    heading: "Step 0: Skill-Mining Report (MANDATORY FIRST, ABS-219)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0783
+    file: .claude/agents/self-improvement.md
+    heading: "Step 1: Retrospective Analysis (reuse the `retro` skill)"
+    kind: informative
+  - id: R-0784
+    file: .claude/agents/self-improvement.md
+    heading: "Step 2: Skill Mining"
+    kind: informative
+  - id: R-0785
+    file: .claude/agents/self-improvement.md
+    heading: "Step 3: Boilerplate Improvement Proposals (Conformant Feedback Loop)"
+    kind: informative
+  - id: R-0786
+    file: .claude/agents/self-improvement.md
+    heading: "Step 4: Self-Improvement Report"
+    kind: informative
+  - id: R-0787
+    file: .claude/agents/self-improvement.md
+    heading: "Tools Available"
+    kind: informative
+  - id: R-0788
+    file: .claude/agents/self-improvement.md
+    heading: "Escalation Protocol"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0789
+    file: .claude/agents/self-improvement.md
+    heading: "Return to PO-Agent / Human Invoker"
+    kind: informative
+  - id: R-0790
+    file: .claude/agents/self-improvement.md
+    heading: "Route via BSA → Issue Enrichment Agent"
+    kind: informative
+  - id: R-0791
+    file: .claude/agents/self-improvement.md
+    heading: "Escalate to Human"
+    kind: informative
+  - id: R-0792
+    file: .claude/agents/self-improvement.md
+    heading: "Key Principles"
+    kind: informative
+  - id: R-0793
+    file: .claude/agents/self-improvement.md
+    heading: "Epic Retro Seat (v3 epic pipeline — terminal)"
+    kind: informative
+  - id: R-0794
+    file: .claude/agents/system-architect.md
+    heading: "Skills"
+    kind: informative
+  - id: R-0795
+    file: .claude/agents/system-architect.md
+    heading: "Non-negotiables (MANDATORY — consolidated)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0796
+    file: .claude/agents/system-architect.md
+    heading: "Ownership Model"
+    kind: informative
+  - id: R-0797
+    file: .claude/agents/system-architect.md
+    heading: "Stage 1 Review Role"
+    kind: informative
+  - id: R-0798
+    file: .claude/agents/system-architect.md
+    heading: "Output Location"
+    kind: informative
+  - id: R-0799
+    file: .claude/agents/system-architect.md
+    heading: "Success Validation Command"
+    kind: informative
+  - id: R-0800
+    file: .claude/agents/system-architect.md
+    heading: "Spec Review"
+    kind: informative
+  - id: R-0801
+    file: .claude/agents/system-architect.md
+    heading: "Guided ADR Authoring"
+    kind: informative
+  - id: R-0802
+    file: .claude/agents/system-architect.md
+    heading: "PR Review — Gate Criteria"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0803
+    file: .claude/agents/system-architect.md
+    heading: "Pattern Library Maintenance"
+    kind: informative
+  - id: R-0804
+    file: .claude/agents/system-architect.md
+    heading: "Escalation Protocol"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0805
+    file: .claude/agents/system-architect.md
+    heading: "Exit Protocol (Stage 1 Review)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0806
+    file: .claude/agents/system-architect.md
+    heading: "Orchestrator-Spawned In Review Gate (ABS-36)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0807
+    file: .claude/agents/system-architect.md
+    heading: "Architecture Review Seat (v3 epic pipeline)"
+    kind: informative
+  - id: R-0808
+    file: .claude/agents/system-architect.md
+    heading: "Design-First ADR Authoring Seat (ABS-213 / ADR-A-0020)"
+    kind: informative
+  - id: R-0809
+    file: .claude/agents/tdm.md
+    heading: "Role Overview"
+    kind: informative
+  - id: R-0810
+    file: .claude/agents/tdm.md
+    heading: "Context Sequence (MANDATORY, ADR-A-0003)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0811
+    file: .claude/agents/tdm.md
+    heading: "Clear Goal Definition"
+    kind: informative
+  - id: R-0812
+    file: .claude/agents/tdm.md
+    heading: "Success Validation Command"
+    kind: informative
+  - id: R-0813
+    file: .claude/agents/tdm.md
+    heading: "Pattern Discovery (MANDATORY)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0814
+    file: .claude/agents/tdm.md
+    heading: "1. Search Active Work"
+    kind: informative
+  - id: R-0815
+    file: .claude/agents/tdm.md
+    heading: "2. Search Blockers"
+    kind: informative
+  - id: R-0816
+    file: .claude/agents/tdm.md
+    heading: "3. Review Documentation"
+    kind: informative
+  - id: R-0817
+    file: .claude/agents/tdm.md
+    heading: "Tools Available"
+    kind: informative
+  - id: R-0818
+    file: .claude/agents/tdm.md
+    heading: "Workflow Steps"
+    kind: informative
+  - id: R-0819
+    file: .claude/agents/tdm.md
+    heading: "1. Work Coordination"
+    kind: informative
+  - id: R-0820
+    file: .claude/agents/tdm.md
+    heading: "2. Blocker Management"
+    kind: informative
+  - id: R-0821
+    file: .claude/agents/tdm.md
+    heading: "3. Linear Ticket Management"
+    kind: informative
+  - id: R-0822
+    file: .claude/agents/tdm.md
+    heading: "4. PR Coordination"
+    kind: informative
+  - id: R-0823
+    file: .claude/agents/tdm.md
+    heading: "5. Evidence Collection"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0824
+    file: .claude/agents/tdm.md
+    heading: "Documentation Requirements"
+    kind: informative
+  - id: R-0825
+    file: .claude/agents/tdm.md
+    heading: "MUST READ (Before Starting)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0826
+    file: .claude/agents/tdm.md
+    heading: "MUST FOLLOW"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0827
+    file: .claude/agents/tdm.md
+    heading: "Escalation Protocol"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0828
+    file: .claude/agents/tdm.md
+    heading: "When to Escalate to ARCHitect (oib)"
+    kind: informative
+  - id: R-0829
+    file: .claude/agents/tdm.md
+    heading: "When to Escalate to POPM (Scott)"
+    kind: informative
+  - id: R-0830
+    file: .claude/agents/tdm.md
+    heading: "When to Escalate to Team"
+    kind: informative
+  - id: R-0831
+    file: .claude/agents/tdm.md
+    heading: "Evidence Attachment Template"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0832
+    file: .claude/agents/tdm.md
+    heading: "Common Coordination Patterns"
+    kind: informative
+  - id: R-0833
+    file: .claude/agents/tdm.md
+    heading: "Pattern 1: Parallel Development"
+    kind: informative
+  - id: R-0834
+    file: .claude/agents/tdm.md
+    heading: "Pattern 2: Sequential Dependencies"
+    kind: informative
+  - id: R-0835
+    file: .claude/agents/tdm.md
+    heading: "Pattern 3: Blocker Resolution"
+    kind: informative
+  - id: R-0836
+    file: .claude/agents/tdm.md
+    heading: "Key Principles"
+    kind: informative
+  - id: R-0837
+    file: .claude/agents/tdm.md
+    heading: "Agent Teams Orchestration (Experimental)"
+    kind: informative
+  - id: R-0838
+    file: .claude/agents/tdm.md
+    heading: "Team Lead Responsibilities"
+    kind: informative
+  - id: R-0839
+    file: .claude/agents/tdm.md
+    heading: "SAFe Gate Dependencies Pattern"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0840
+    file: .claude/agents/tdm.md
+    heading: "When to Use Teams vs Subagents"
+    kind: informative
+  - id: R-0841
+    file: .claude/agents/tdm.md
+    heading: "Team Sizing"
+    kind: informative
+  - id: R-0842
+    file: .claude/agents/tdm.md
+    heading: "Blocker Triage Seat (v3 both pipelines, ABS-76)"
+    kind: informative
+  - id: R-1107
+    file: .claude/agents/tdm.md
+    heading: "Ops-Sweep (cadence-triggered janitor, PILOT-42)"
+    kind: unenforced
+    risk: "The runner-side cadence dispatch is code-enforced (tests/orchestrator.d/PILOT-42-ops-sweep-cadence.sh pins knob-0=off, marker seeding, health gate), but the SEAT's Phase-0 report-only contract is LLM-enforced only: nothing mechanically stops the ops-sweep seat from executing a ticket transition, comment, or git write during shadow phase — that sensor tests when the seat is spawned, not what it refrains from doing"
+  - id: R-1108
+    file: .claude/agents/tdm.md
+    heading: "Tier activation (PILOT-43) — act ONLY on what the packet enables"
+    kind: unenforced
+    risk: "The runner encodes ACTIVE TIERS into the packet and the encoding is code-enforced (tests/orchestrator.d/PILOT-43-ops-sweep-tiers.sh pins phase/tiers normalization and no-opt-in=shadow), but the seat OBEYING that scope — acting only on enabled tiers and keeping Tier C/D report-only — is LLM adherence only; the sensor verifies packet contents, not the seat's restraint"
+  - id: R-1119
+    file: docs/sop/COMMIT_TAG_GUARD_SOP.md
+    heading: "What the guard does"
+    kind: derived
+    sensors: [scripts/hooks/commit-msg-ticket-tag-guard.sh, tests/test-commit-tag-guard.sh]
+  - id: R-1120
+    file: docs/sop/COMMIT_TAG_GUARD_SOP.md
+    heading: "Two commit classes"
+    kind: derived
+    sensors: [scripts/commit-tag-guard.sh, tests/test-commit-tag-guard.sh]
+  - id: R-1121
+    file: docs/sop/COMMIT_TAG_GUARD_SOP.md
+    heading: "Opting out with `[no-ticket]`"
+    kind: derived
+    sensors: [scripts/commit-tag-guard.sh, tests/test-commit-tag-guard.sh]
+  - id: R-1112
+    file: docs/sop/COMMIT_TAG_GUARD_SOP.md
+    heading: "Kill switch"
+    kind: derived
+    sensors: [scripts/hooks/commit-msg-ticket-tag-guard.sh, tests/test-commit-tag-guard.sh]
+  - id: R-1113
+    file: docs/sop/COMMIT_TAG_GUARD_SOP.md
+    heading: "Bisect recovery (RTE, AC5)"
+    kind: derived
+    sensors: [scripts/commit-tag-guard.sh, tests/test-commit-tag-guard.sh]
+  - id: R-1114
+    file: docs/sop/COMMIT_TAG_GUARD_SOP.md
+    heading: "Classifier subcommands"
+    kind: derived
+    sensors: [scripts/commit-tag-guard.sh, tests/test-commit-tag-guard.sh]
+  - id: R-1115
+    file: docs/sop/COMMIT_TAG_GUARD_SOP.md
+    heading: "Running the test suite"
+    kind: informative
+  - id: R-1116
+    file: docs/sop/COMMIT_TAG_GUARD_SOP.md
+    heading: "Related files"
+    kind: informative
+  - id: R-0843
+    file: .claude/agents/tech-writer.md
+    heading: "Role Overview"
+    kind: informative
+  - id: R-0844
+    file: .claude/agents/tech-writer.md
+    heading: "🚀 Quick Start"
+    kind: informative
+  - id: R-0845
+    file: .claude/agents/tech-writer.md
+    heading: "Success Validation Command"
+    kind: informative
+  - id: R-0846
+    file: .claude/agents/tech-writer.md
+    heading: "Pattern Execution Workflow"
+    kind: informative
+  - id: R-0847
+    file: .claude/agents/tech-writer.md
+    heading: "Step 1: Read Your Spec"
+    kind: informative
+  - id: R-0848
+    file: .claude/agents/tech-writer.md
+    heading: "Step 2: Load the Pattern"
+    kind: informative
+  - id: R-0849
+    file: .claude/agents/tech-writer.md
+    heading: "Step 3: Copy Pattern Template"
+    kind: informative
+  - id: R-0850
+    file: .claude/agents/tech-writer.md
+    heading: "Step 4: Customize Per Spec"
+    kind: informative
+  - id: R-0851
+    file: .claude/agents/tech-writer.md
+    heading: "Step 5: Validate"
+    kind: informative
+  - id: R-0852
+    file: .claude/agents/tech-writer.md
+    heading: "Common Tasks"
+    kind: informative
+  - id: R-0853
+    file: .claude/agents/tech-writer.md
+    heading: "Feature Documentation"
+    kind: informative
+  - id: R-0854
+    file: .claude/agents/tech-writer.md
+    heading: "API Documentation"
+    kind: informative
+  - id: R-0855
+    file: .claude/agents/tech-writer.md
+    heading: "Migration Guides"
+    kind: informative
+  - id: R-0856
+    file: .claude/agents/tech-writer.md
+    heading: "Documentation Quality"
+    kind: informative
+  - id: R-0857
+    file: .claude/agents/tech-writer.md
+    heading: "Anti-Slop Gate (MANDATORY, skill: stop-slop)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0858
+    file: .claude/agents/tech-writer.md
+    heading: "Tools Available"
+    kind: informative
+  - id: R-0859
+    file: .claude/agents/tech-writer.md
+    heading: "Key Principles"
+    kind: informative
+  - id: R-0860
+    file: .claude/agents/tech-writer.md
+    heading: "Escalation"
+    kind: informative
+  - id: R-0861
+    file: .claude/agents/tech-writer.md
+    heading: "Report to BSA if:"
+    kind: informative
+  - id: R-0862
+    file: .claude/agents/tech-writer.md
+    heading: "Docs Seat (v3 story pipeline)"
+    kind: informative
+  - id: R-0863
+    file: .claude/agents/tech-writer.md
+    heading: "Common seat rules (distillate — full text auto-prepended from `_common-rules.md`, ABS-174)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0864
+    file: .claude/agents/ui-ux-design.md
+    heading: "Role Overview"
+    kind: informative
+  - id: R-0865
+    file: .claude/agents/ui-ux-design.md
+    heading: "Independence Gate (CRITICAL)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0866
+    file: .claude/agents/ui-ux-design.md
+    heading: "Design-System Source (File-Based)"
+    kind: informative
+  - id: R-0867
+    file: .claude/agents/ui-ux-design.md
+    heading: "Missing-File Behaviour (MANDATORY)"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0868
+    file: .claude/agents/ui-ux-design.md
+    heading: "Design Creation"
+    kind: informative
+  - id: R-0869
+    file: .claude/agents/ui-ux-design.md
+    heading: "Design Acceptance Criteria (Core Deliverable)"
+    kind: informative
+  - id: R-0870
+    file: .claude/agents/ui-ux-design.md
+    heading: "Design Acceptance Criteria Block Format"
+    kind: informative
+  - id: R-0871
+    file: .claude/agents/ui-ux-design.md
+    heading: "Handoff Contract to QAS-Design Agent"
+    kind: unenforced
+    risk: "Seat contract relies on LLM adherence; the def-structure lints (tests/test-agent-def-lint.sh) pin format, not behavior"
+  - id: R-0872
+    file: .claude/agents/ui-ux-design.md
+    heading: "Workflow (5 Steps)"
+    kind: informative
+  - id: R-0873
+    file: .claude/agents/ui-ux-design.md
+    heading: "Escalation"
+    kind: informative
+  - id: R-0874
+    file: .claude/agents/ui-ux-design.md
+    heading: "Report to requester/BSA if"
+    kind: informative
+  - id: R-0875
+    file: .claude/agents/ui-ux-design.md
+    heading: "Report to System Architect if"
+    kind: informative
+  - id: R-0876
+    file: .claude/agents/ui-ux-design.md
+    heading: "Design Seat (v3 story pipeline)"
+    kind: informative
+  - id: R-0877
+    file: adrs/agentic/ADR-A-0001-three-level-adr-hierarchy.md
+    heading: "Context"
+    kind: informative
+  - id: R-0878
+    file: adrs/agentic/ADR-A-0001-three-level-adr-hierarchy.md
+    heading: "Decision"
+    kind: unenforced
+    risk: "LLM-only: the ADR authority ordering (accepted project > company > agentic > defaults) and the rule that a narrower ADR overrides a broader one only with a human-accepted `overrides` entry are not machine-checked — a mis-ordered or unattributed override takes effect uncaught."
+  - id: R-0879
+    file: adrs/agentic/ADR-A-0001-three-level-adr-hierarchy.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0880
+    file: adrs/agentic/ADR-A-0002-fresh-subagent-execution.md
+    heading: "Context"
+    kind: informative
+  - id: R-0881
+    file: adrs/agentic/ADR-A-0002-fresh-subagent-execution.md
+    heading: "Decision"
+    kind: unenforced
+    risk: "LLM/runner-convention only: nothing mechanically blocks a task from running in a reused or context-carrying agent, or from skipping its handoff record — a violation surfaces only as durable-state drift downstream."
+  - id: R-0882
+    file: adrs/agentic/ADR-A-0002-fresh-subagent-execution.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0883
+    file: adrs/agentic/ADR-A-0002-fresh-subagent-execution.md
+    heading: "Amendment 2026-07-06 (ABS-111)"
+    kind: informative
+  - id: R-0884
+    file: adrs/agentic/ADR-A-0002-fresh-subagent-execution.md
+    heading: "Related Decisions"
+    kind: informative
+  - id: R-0885
+    file: adrs/agentic/ADR-A-0003-context-minimization.md
+    heading: "Context"
+    kind: informative
+  - id: R-0886
+    file: adrs/agentic/ADR-A-0003-context-minimization.md
+    heading: "Decision"
+    kind: unenforced
+    risk: "LLM-only: the mandatory context sequence and the five stop-conditions are self-policed; an over-broad context load is a workflow-quality miss caught only in review (declared as an overrun by convention, not by a gate)."
+  - id: R-0887
+    file: adrs/agentic/ADR-A-0003-context-minimization.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0888
+    file: adrs/agentic/ADR-A-0004-human-approval-boundaries.md
+    heading: "Context"
+    kind: informative
+  - id: R-0889
+    file: adrs/agentic/ADR-A-0004-human-approval-boundaries.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/merge-target-guard.sh, tests/test-merge-target-guard.sh, tests/test-adr-status.sh]
+  - id: R-0890
+    file: adrs/agentic/ADR-A-0004-human-approval-boundaries.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0891
+    file: adrs/agentic/ADR-A-0004-human-approval-boundaries.md
+    heading: "Amendment 2026-07-02 (ABS-9)"
+    kind: informative
+  - id: R-0892
+    file: adrs/agentic/ADR-A-0004-human-approval-boundaries.md
+    heading: "Amendment 2026-07-03 (ABS-11)"
+    kind: informative
+  - id: R-0893
+    file: adrs/agentic/ADR-A-0004-human-approval-boundaries.md
+    heading: "Amendment 2026-07-14 (ABS-295, ABS-296, ABS-298, ABS-301) — AD-1: self-reversal rule"
+    kind: informative
+  - id: R-0894
+    file: adrs/agentic/ADR-A-0004-human-approval-boundaries.md
+    heading: "Amendment 2026-07-15 (ABS-315) — ADR-acceptance close-out step"
+    kind: informative
+  - id: R-1094
+    file: adrs/agentic/ADR-A-0004-human-approval-boundaries.md
+    heading: "Amendment 2026-07-26 (PILOT-53 / ABS-562) — correcting the false ADR-checker authorship claim + open marker rows"
+    kind: informative
+  - id: R-0895
+    file: adrs/agentic/ADR-A-0005-mandatory-prs.md
+    heading: "Context"
+    kind: informative
+  - id: R-0896
+    file: adrs/agentic/ADR-A-0005-mandatory-prs.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/merge-target-guard.sh, tests/test-merge-guard-chokepoint.sh, tests/test-merge-wait.sh]
+  - id: R-0897
+    file: adrs/agentic/ADR-A-0005-mandatory-prs.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0898
+    file: adrs/agentic/ADR-A-0005-mandatory-prs.md
+    heading: "Exceptions"
+    kind: informative
+  - id: R-0899
+    file: adrs/agentic/ADR-A-0006-active-task-tracking.md
+    heading: "Context"
+    kind: informative
+  - id: R-0900
+    file: adrs/agentic/ADR-A-0006-active-task-tracking.md
+    heading: "Decision"
+    kind: unenforced
+    risk: "LLM/design-enforced: statuses.yaml is data, but this decision's obligation that adapters surface status-change events (webhook/poll) is not asserted per adapter — a silent adapter is caught only at integration."
+  - id: R-0901
+    file: adrs/agentic/ADR-A-0006-active-task-tracking.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0902
+    file: adrs/agentic/ADR-A-0007-adapter-model.md
+    heading: "Context"
+    kind: informative
+  - id: R-0903
+    file: adrs/agentic/ADR-A-0007-adapter-model.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [tests/test-tracker-adapter-lint.sh, tests/test-mock-tracker.sh]
+  - id: R-0904
+    file: adrs/agentic/ADR-A-0007-adapter-model.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0905
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Context"
+    kind: informative
+  - id: R-0906
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Decision"
+    kind: unenforced
+    risk: "LLM/process-enforced: the migration and adopt tooling mechanizes hash-first DRIFT detection, but the ownership-class ASSIGNMENT of a given file is a human/LLM judgement with no dedicated content sensor."
+  - id: R-0907
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0908
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Amendment 2026-07-03 (ABS-5, ADR-A-0012)"
+    kind: informative
+  - id: R-0909
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Amendment 2026-07-12 (ABS-228) — `scripts/` (runner/adapter/tooling) enters the ownership surface"
+    kind: informative
+  - id: R-0910
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Context"
+    kind: informative
+  - id: R-0911
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Decision"
+    kind: unenforced
+    risk: "LLM/process-enforced: the `scripts/` domain's entry into the ownership surface is surfaced by the adopt/migration report, not gated; no sensor verifies a specific script's assigned ownership class."
+  - id: R-0912
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0913
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Amendment 2026-07-13 (ABS-259) — fork budget: `upstream_ref` duty + de-fork check in the report"
+    kind: informative
+  - id: R-0914
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Context"
+    kind: informative
+  - id: R-0915
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Decision"
+    kind: unenforced
+    risk: "LLM/process-enforced: the `upstream_ref` duty and de-fork budget are reported by the adopt analysis, not blocked — an un-tracked or over-budget fork is a warning, not a hard gate."
+  - id: R-0916
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0917
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Amendment 2026-07-13 (ABS-264) — consumer-declarable exceptions: SOURCE ∪ TARGET map union, subtract-only"
+    kind: informative
+  - id: R-0918
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Context"
+    kind: informative
+  - id: R-0919
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Decision"
+    kind: unenforced
+    risk: "LLM/process-enforced: the SOURCE∪TARGET subtract-only exception union is applied by the migration tooling, but its correctness for a given consumer's map is not independently sensed."
+  - id: R-0920
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0921
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Related decisions"
+    kind: informative
+  - id: R-0922
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Amendment 2026-07-14 (ABS-248) — the harness surface enters the ownership map"
+    kind: informative
+  - id: R-0923
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Context"
+    kind: informative
+  - id: R-0924
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Decision"
+    kind: unenforced
+    risk: "LLM/process-enforced: the harness surface is declared in the ownership map and drift-hashed, but no dedicated sensor verifies a harness file's assigned class beyond that hash."
+  - id: R-0925
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0926
+    file: adrs/agentic/ADR-A-0008-boilerplate-ownership-and-upgrades.md
+    heading: "Implementation notes (input to the ABS-248 re-spec; supersedes its AC1–AC3)"
+    kind: informative
+  - id: R-0927
+    file: adrs/agentic/ADR-A-0009-cost-approval-gate.md
+    heading: "Context"
+    kind: informative
+  - id: R-0928
+    file: adrs/agentic/ADR-A-0009-cost-approval-gate.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:budget_exhausted, tests/orchestrator.d/ABS-293-budget-recovery.sh]
+  - id: R-0929
+    file: adrs/agentic/ADR-A-0009-cost-approval-gate.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0930
+    file: adrs/agentic/ADR-A-0010-minimal-change-default.md
+    heading: "Context"
+    kind: informative
+  - id: R-0931
+    file: adrs/agentic/ADR-A-0010-minimal-change-default.md
+    heading: "Decision"
+    kind: unenforced
+    risk: "LLM-only by design: the minimal-change / anti-over-engineering discipline is enforced by coding and review agents' judgement (the Ponytail Principle stated inline in each such agent def); over-production is caught only as a review finding, never mechanically blocked."
+  - id: R-0932
+    file: adrs/agentic/ADR-A-0010-minimal-change-default.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0933
+    file: adrs/agentic/ADR-A-0011-three-layer-application-architecture.md
+    heading: "Context"
+    kind: informative
+  - id: R-0934
+    file: adrs/agentic/ADR-A-0011-three-layer-application-architecture.md
+    heading: "Decision"
+    kind: unenforced
+    risk: "LLM-only: the layer boundaries (frontend never reaches the data layer directly; the business layer is the sole data consumer) are an architectural convention with no dedicated sensor — a boundary violation is caught only in architecture review."
+  - id: R-0935
+    file: adrs/agentic/ADR-A-0011-three-layer-application-architecture.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0936
+    file: adrs/agentic/ADR-A-0012-agent-team-extension.md
+    heading: "Context"
+    kind: informative
+  - id: R-0937
+    file: adrs/agentic/ADR-A-0012-agent-team-extension.md
+    heading: "Decision"
+    kind: unenforced
+    risk: "LLM/roster-convention: the 17-agent roster and the skills-not-standalone-agents rule are documented, not asserted — an added standalone agent or a mis-scoped role is caught only in review."
+  - id: R-0938
+    file: adrs/agentic/ADR-A-0012-agent-team-extension.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0939
+    file: adrs/agentic/ADR-A-0012-agent-team-extension.md
+    heading: "Related decisions"
+    kind: informative
+  - id: R-0940
+    file: adrs/agentic/ADR-A-0013-self-hosting-stable-governs-dev.md
+    heading: "Context"
+    kind: informative
+  - id: R-0941
+    file: adrs/agentic/ADR-A-0013-self-hosting-stable-governs-dev.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/session-wrong-entry-guard.sh, tests/test-wrong-entry-guard.sh]
+  - id: R-0942
+    file: adrs/agentic/ADR-A-0013-self-hosting-stable-governs-dev.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0943
+    file: adrs/agentic/ADR-A-0013-self-hosting-stable-governs-dev.md
+    heading: "Related Decisions"
+    kind: informative
+  - id: R-0944
+    file: adrs/agentic/ADR-A-0013-self-hosting-stable-governs-dev.md
+    heading: "References"
+    kind: informative
+  - id: R-0945
+    file: adrs/agentic/ADR-A-0013-self-hosting-stable-governs-dev.md
+    heading: "Amendment note"
+    kind: informative
+  - id: R-0946
+    file: adrs/agentic/ADR-A-0014-workflow-v3-per-epic-merge-gate.md
+    heading: "Context"
+    kind: informative
+  - id: R-0947
+    file: adrs/agentic/ADR-A-0014-workflow-v3-per-epic-merge-gate.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [tests/test-ready-for-merge-gate.sh]
+  - id: R-0948
+    file: adrs/agentic/ADR-A-0014-workflow-v3-per-epic-merge-gate.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0949
+    file: adrs/agentic/ADR-A-0014-workflow-v3-per-epic-merge-gate.md
+    heading: "Positive"
+    kind: informative
+  - id: R-0950
+    file: adrs/agentic/ADR-A-0014-workflow-v3-per-epic-merge-gate.md
+    heading: "Negative / trade-offs"
+    kind: informative
+  - id: R-0951
+    file: adrs/agentic/ADR-A-0014-workflow-v3-per-epic-merge-gate.md
+    heading: "Risk analysis (sim scenario S5)"
+    kind: informative
+  - id: R-0952
+    file: adrs/agentic/ADR-A-0014-workflow-v3-per-epic-merge-gate.md
+    heading: "Amendment 2026-07-16 (ABS-336) — Autonomous integration-conflict resolution"
+    kind: informative
+  - id: R-1095
+    file: adrs/agentic/ADR-A-0014-workflow-v3-per-epic-merge-gate.md
+    heading: "Amendment 2026-07-26 (PILOT-53 / ABS-562) — the actual mechanical gate on a pipeline-less remote"
+    kind: informative
+  - id: R-0953
+    file: adrs/agentic/ADR-A-0014-workflow-v3-per-epic-merge-gate.md
+    heading: "Related Decisions"
+    kind: informative
+  - id: R-0954
+    file: adrs/agentic/ADR-A-0014-workflow-v3-per-epic-merge-gate.md
+    heading: "References"
+    kind: informative
+  - id: R-0955
+    file: adrs/agentic/ADR-A-0014-workflow-v3-per-epic-merge-gate.md
+    heading: "Sign-off"
+    kind: informative
+  - id: R-0956
+    file: adrs/agentic/ADR-A-0015-provider-mirror-governance.md
+    heading: "Context"
+    kind: informative
+  - id: R-0957
+    file: adrs/agentic/ADR-A-0015-provider-mirror-governance.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/pre-release-check.sh, tests/test-mirror-drift-guard.sh]
+  - id: R-0958
+    file: adrs/agentic/ADR-A-0015-provider-mirror-governance.md
+    heading: "Guardrail"
+    kind: informative
+  - id: R-0959
+    file: adrs/agentic/ADR-A-0015-provider-mirror-governance.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0960
+    file: adrs/agentic/ADR-A-0016-claude-target-apply-path.md
+    heading: "Context"
+    kind: informative
+  - id: R-0961
+    file: adrs/agentic/ADR-A-0016-claude-target-apply-path.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/sync-claude-harness.sh, tests/test-harness-parity.sh]
+  - id: R-0962
+    file: adrs/agentic/ADR-A-0016-claude-target-apply-path.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0963
+    file: adrs/agentic/ADR-A-0016-claude-target-apply-path.md
+    heading: "Related decisions"
+    kind: informative
+  - id: R-0964
+    file: adrs/agentic/ADR-A-0017-design-quality-detector-backing.md
+    heading: "Context"
+    kind: informative
+  - id: R-0965
+    file: adrs/agentic/ADR-A-0017-design-quality-detector-backing.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/design-system-check.sh]
+  - id: R-0966
+    file: adrs/agentic/ADR-A-0017-design-quality-detector-backing.md
+    heading: "Guardrail"
+    kind: informative
+  - id: R-0967
+    file: adrs/agentic/ADR-A-0017-design-quality-detector-backing.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0968
+    file: adrs/agentic/ADR-A-0018-cross-visit-blocker-classification.md
+    heading: "Context"
+    kind: informative
+  - id: R-0969
+    file: adrs/agentic/ADR-A-0018-cross-visit-blocker-classification.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:crossvisit_guard]
+  - id: R-0970
+    file: adrs/agentic/ADR-A-0018-cross-visit-blocker-classification.md
+    heading: "(a) Blocker-class taxonomy and mechanical derivation"
+    kind: informative
+  - id: R-0971
+    file: adrs/agentic/ADR-A-0018-cross-visit-blocker-classification.md
+    heading: "(b) Cross-visit memory — a marker file under `work/.orchestrator/`"
+    kind: informative
+  - id: R-0972
+    file: adrs/agentic/ADR-A-0018-cross-visit-blocker-classification.md
+    heading: "(c) Threshold semantics — 2nd same-class visit auto-parks"
+    kind: informative
+  - id: R-0973
+    file: adrs/agentic/ADR-A-0018-cross-visit-blocker-classification.md
+    heading: "(d) Escalation-budget semantics and reset rule"
+    kind: informative
+  - id: R-0974
+    file: adrs/agentic/ADR-A-0018-cross-visit-blocker-classification.md
+    heading: "(e) NOTIFY-once dedup"
+    kind: informative
+  - id: R-0975
+    file: adrs/agentic/ADR-A-0018-cross-visit-blocker-classification.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0976
+    file: adrs/agentic/ADR-A-0018-cross-visit-blocker-classification.md
+    heading: "Alternatives considered"
+    kind: informative
+  - id: R-0977
+    file: adrs/agentic/ADR-A-0018-cross-visit-blocker-classification.md
+    heading: "Related Decisions"
+    kind: informative
+  - id: R-0978
+    file: adrs/agentic/ADR-A-0018-cross-visit-blocker-classification.md
+    heading: "References"
+    kind: informative
+  - id: R-0979
+    file: adrs/agentic/ADR-A-0019-po-deprioritize-vs-misdump-signal.md
+    heading: "Context"
+    kind: informative
+  - id: R-0980
+    file: adrs/agentic/ADR-A-0019-po-deprioritize-vs-misdump-signal.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:escalation_resume_target, tests/test-orchestrator.sh]
+  - id: R-0981
+    file: adrs/agentic/ADR-A-0019-po-deprioritize-vs-misdump-signal.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0982
+    file: adrs/agentic/ADR-A-0019-po-deprioritize-vs-misdump-signal.md
+    heading: "Related Decisions"
+    kind: informative
+  - id: R-0983
+    file: adrs/agentic/ADR-A-0019-po-deprioritize-vs-misdump-signal.md
+    heading: "References"
+    kind: informative
+  - id: R-0984
+    file: adrs/agentic/ADR-A-0020-design-first-story-routing.md
+    heading: "Context"
+    kind: informative
+  - id: R-0985
+    file: adrs/agentic/ADR-A-0020-design-first-story-routing.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh, tests/test-orchestrator.sh]
+  - id: R-0986
+    file: adrs/agentic/ADR-A-0020-design-first-story-routing.md
+    heading: "(a) Detection signal — a plain `design-first` label"
+    kind: informative
+  - id: R-0987
+    file: adrs/agentic/ADR-A-0020-design-first-story-routing.md
+    heading: "(b) Option-B semantics — the label is a one-shot latch consumed by the architect handoff"
+    kind: informative
+  - id: R-0988
+    file: adrs/agentic/ADR-A-0020-design-first-story-routing.md
+    heading: "(c) Architect seat model — Opus (already pinned)"
+    kind: informative
+  - id: R-0989
+    file: adrs/agentic/ADR-A-0020-design-first-story-routing.md
+    heading: "(d) AC3 mechanical guard — a suite test, not a `.claude` hook"
+    kind: informative
+  - id: R-0990
+    file: adrs/agentic/ADR-A-0020-design-first-story-routing.md
+    heading: "(e) Kill-switch — `ORCH_DESIGN_FIRST_ROUTING`, default-on"
+    kind: informative
+  - id: R-0991
+    file: adrs/agentic/ADR-A-0020-design-first-story-routing.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-0992
+    file: adrs/agentic/ADR-A-0020-design-first-story-routing.md
+    heading: "Alternatives considered"
+    kind: informative
+  - id: R-0993
+    file: adrs/agentic/ADR-A-0020-design-first-story-routing.md
+    heading: "Related Decisions"
+    kind: informative
+  - id: R-0994
+    file: adrs/agentic/ADR-A-0020-design-first-story-routing.md
+    heading: "References"
+    kind: informative
+  - id: R-0995
+    file: adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+    heading: "Context"
+    kind: informative
+  - id: R-0996
+    file: adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/backend-tracker.sh, tests/test-backend-tracker.sh]
+  - id: R-0997
+    file: adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+    heading: "(a) Storage — Postgres 16 with JSONB entities, not NoSQL, not full event sourcing"
+    kind: informative
+  - id: R-0998
+    file: adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+    heading: "(b) Entity-type registry — types and workflows are data, not code"
+    kind: informative
+  - id: R-0999
+    file: adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+    heading: "(c) API layering — three surfaces, one server"
+    kind: informative
+  - id: R-1000
+    file: adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+    heading: "(d) Boilerplate seams — backward compatibility is the acceptance test"
+    kind: informative
+  - id: R-1001
+    file: adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+    heading: "(e) Integrations — forge outbound, webhooks inbound, SSE to the browser"
+    kind: informative
+  - id: R-1002
+    file: adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+    heading: "(f) The single orchestrator touch — packet composition (opt-in)"
+    kind: informative
+  - id: R-1003
+    file: adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+    heading: "(g) Product shape"
+    kind: informative
+  - id: R-1004
+    file: adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+    heading: "(h) Phasing"
+    kind: informative
+  - id: R-1005
+    file: adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+    heading: "(i) Tenant isolation — app-layer scoping ratified for Phase 1; Postgres RLS is a triggered backstop"
+    kind: informative
+  - id: R-1006
+    file: adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-1007
+    file: adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+    heading: "Alternatives considered"
+    kind: informative
+  - id: R-1008
+    file: adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+    heading: "Related Decisions"
+    kind: informative
+  - id: R-1009
+    file: adrs/agentic/ADR-A-0021-agentic-delivery-backend.md
+    heading: "References"
+    kind: informative
+  - id: R-1010
+    file: adrs/agentic/ADR-A-0022-agent-def-overlays.md
+    heading: "Context"
+    kind: informative
+  - id: R-1011
+    file: adrs/agentic/ADR-A-0022-agent-def-overlays.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [tests/test-agent-def-overlay.sh]
+  - id: R-1012
+    file: adrs/agentic/ADR-A-0022-agent-def-overlays.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-1013
+    file: adrs/agentic/ADR-A-0022-agent-def-overlays.md
+    heading: "Related decisions"
+    kind: informative
+  - id: R-1014
+    file: adrs/agentic/ADR-A-0022-agent-def-overlays.md
+    heading: "References"
+    kind: informative
+  - id: R-1015
+    file: adrs/agentic/ADR-A-0023-session-invalidation-inputs.md
+    heading: "Context"
+    kind: informative
+  - id: R-1016
+    file: adrs/agentic/ADR-A-0023-session-invalidation-inputs.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:result_has_mutating_denial, tests/test-orchestrator.sh]
+  - id: R-1017
+    file: adrs/agentic/ADR-A-0023-session-invalidation-inputs.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-1018
+    file: adrs/agentic/ADR-A-0023-session-invalidation-inputs.md
+    heading: "Related Decisions"
+    kind: informative
+  - id: R-1019
+    file: adrs/agentic/ADR-A-0023-session-invalidation-inputs.md
+    heading: "References"
+    kind: informative
+  - id: R-1020
+    file: adrs/agentic/ADR-A-0024-handoff-commit-verification.md
+    heading: "Context"
+    kind: informative
+  - id: R-1021
+    file: adrs/agentic/ADR-A-0024-handoff-commit-verification.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:handoff_work_verified]
+  - id: R-1022
+    file: adrs/agentic/ADR-A-0024-handoff-commit-verification.md
+    heading: "(a) Verify in the RUNNER, at the handoff choke point — not in a reviewer-seat template"
+    kind: informative
+  - id: R-1023
+    file: adrs/agentic/ADR-A-0024-handoff-commit-verification.md
+    heading: "(b) The claim must be machine-readable — a `commits:` field in the handoff record"
+    kind: informative
+  - id: R-1024
+    file: adrs/agentic/ADR-A-0024-handoff-commit-verification.md
+    heading: "(c) The two checks — existence, then reachability"
+    kind: informative
+  - id: R-1025
+    file: adrs/agentic/ADR-A-0024-handoff-commit-verification.md
+    heading: "(d) Failure semantics — refuse the handoff, put the work back on the seat that lied"
+    kind: informative
+  - id: R-1026
+    file: adrs/agentic/ADR-A-0024-handoff-commit-verification.md
+    heading: "(e) Counting — reuse the existing counters, add none (AC3)"
+    kind: informative
+  - id: R-1027
+    file: adrs/agentic/ADR-A-0024-handoff-commit-verification.md
+    heading: "(f) Claim without a hash — advisory in v1, explicitly not blocking"
+    kind: informative
+  - id: R-1028
+    file: adrs/agentic/ADR-A-0024-handoff-commit-verification.md
+    heading: "(g) Kill-switch — `ORCH_VERIFY_COMMITS`, default-on"
+    kind: informative
+  - id: R-1029
+    file: adrs/agentic/ADR-A-0024-handoff-commit-verification.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-1030
+    file: adrs/agentic/ADR-A-0024-handoff-commit-verification.md
+    heading: "Alternatives considered"
+    kind: informative
+  - id: R-1031
+    file: adrs/agentic/ADR-A-0024-handoff-commit-verification.md
+    heading: "Related Decisions"
+    kind: informative
+  - id: R-1032
+    file: adrs/agentic/ADR-A-0024-handoff-commit-verification.md
+    heading: "References"
+    kind: informative
+  - id: R-1033
+    file: adrs/agentic/ADR-A-0025-per-epic-merge-token.md
+    heading: "Status"
+    kind: informative
+  - id: R-1034
+    file: adrs/agentic/ADR-A-0025-per-epic-merge-token.md
+    heading: "Context"
+    kind: informative
+  - id: R-1035
+    file: adrs/agentic/ADR-A-0025-per-epic-merge-token.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:merge_token_gate, tests/test-merge-token.sh]
+  - id: R-1036
+    file: adrs/agentic/ADR-A-0025-per-epic-merge-token.md
+    heading: "Implementation Notes"
+    kind: informative
+  - id: R-1037
+    file: adrs/agentic/ADR-A-0025-per-epic-merge-token.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-1038
+    file: adrs/agentic/ADR-A-0025-per-epic-merge-token.md
+    heading: "Positive"
+    kind: informative
+  - id: R-1039
+    file: adrs/agentic/ADR-A-0025-per-epic-merge-token.md
+    heading: "Negative"
+    kind: informative
+  - id: R-1040
+    file: adrs/agentic/ADR-A-0025-per-epic-merge-token.md
+    heading: "Neutral"
+    kind: informative
+  - id: R-1041
+    file: adrs/agentic/ADR-A-0025-per-epic-merge-token.md
+    heading: "Alternatives Considered"
+    kind: informative
+  - id: R-1042
+    file: adrs/agentic/ADR-A-0025-per-epic-merge-token.md
+    heading: "Related Decisions"
+    kind: informative
+  - id: R-1043
+    file: adrs/agentic/ADR-A-0025-per-epic-merge-token.md
+    heading: "References"
+    kind: informative
+  - id: R-1044
+    file: adrs/agentic/ADR-A-0026-first-class-orchestration-state.md
+    heading: "Context"
+    kind: informative
+  - id: R-1045
+    file: adrs/agentic/ADR-A-0026-first-class-orchestration-state.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/backend-status-literal-drift-guard.sh, tests/test-backend-status-literal-drift.sh]
+  - id: R-1046
+    file: adrs/agentic/ADR-A-0026-first-class-orchestration-state.md
+    heading: "(a) Pathology catalogue — one named schema element per failure mode"
+    kind: informative
+  - id: R-1047
+    file: adrs/agentic/ADR-A-0026-first-class-orchestration-state.md
+    heading: "(b) The design constraint, stated normatively"
+    kind: informative
+  - id: R-1048
+    file: adrs/agentic/ADR-A-0026-first-class-orchestration-state.md
+    heading: "(c) Migration mapping — v2 markers → v3 fields"
+    kind: informative
+  - id: R-1049
+    file: adrs/agentic/ADR-A-0026-first-class-orchestration-state.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-1050
+    file: adrs/agentic/ADR-A-0026-first-class-orchestration-state.md
+    heading: "Alternatives considered"
+    kind: informative
+  - id: R-1051
+    file: adrs/agentic/ADR-A-0026-first-class-orchestration-state.md
+    heading: "Related Decisions"
+    kind: informative
+  - id: R-1052
+    file: adrs/agentic/ADR-A-0026-first-class-orchestration-state.md
+    heading: "References"
+    kind: informative
+  - id: R-1053
+    file: adrs/agentic/ADR-A-0027-dashboard-url-grammar.md
+    heading: "Context"
+    kind: informative
+  - id: R-1054
+    file: adrs/agentic/ADR-A-0027-dashboard-url-grammar.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [backend/apps/web/src/useDrawerURL.ts, backend/apps/web/test/routing.test.ts, backend/apps/web/e2e/filters.spec.ts]
+  - id: R-1055
+    file: adrs/agentic/ADR-A-0027-dashboard-url-grammar.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-1056
+    file: adrs/agentic/ADR-A-0028-rule-ledger-executable-enforcement.md
+    heading: "Context"
+    kind: informative
+  - id: R-1057
+    file: adrs/agentic/ADR-A-0028-rule-ledger-executable-enforcement.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/rule-ledger-check.sh, tests/test-rule-ledger.sh]
+  - id: R-1058
+    file: adrs/agentic/ADR-A-0028-rule-ledger-executable-enforcement.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-1059
+    file: adrs/agentic/ADR-A-0028-rule-ledger-executable-enforcement.md
+    heading: "Related Decisions"
+    kind: informative
+  - id: R-1060
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Purpose"
+    kind: informative
+  - id: R-1061
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "When to Use"
+    kind: informative
+  - id: R-1062
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Search Capability (two modes)"
+    kind: informative
+  - id: R-1063
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Production: tracker MCP full-text search"
+    kind: informative
+  - id: R-1064
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Local/dev: mock adapter"
+    kind: informative
+  - id: R-1065
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Search protocol"
+    kind: unenforced
+    risk: "Gate skill executed by the LLM; no telemetry sensor asserts the gate actually ran before ticket creation"
+  - id: R-1066
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Follow-up creation (Security-Review / QAS, `kind: follow-up`) — MANDATORY pre-search"
+    kind: unenforced
+    risk: "Gate skill executed by the LLM; no telemetry sensor asserts the gate actually ran before ticket creation"
+  - id: R-1067
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Decision Algorithm"
+    kind: informative
+  - id: R-1068
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Verdict Format"
+    kind: informative
+  - id: R-1069
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Usage Examples"
+    kind: informative
+  - id: R-1070
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Example 1: reject — identical and open (rule 1)"
+    kind: informative
+  - id: R-1071
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Example 2: create + link — identical but done (rule 2, root-cause check)"
+    kind: informative
+  - id: R-1072
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Example 3: append — similar, scope covers it, not started (rule 3)"
+    kind: informative
+  - id: R-1073
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Example 4: create + link — similar but in progress (rule 4)"
+    kind: informative
+  - id: R-1074
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Example 5: plain create — no match (rule 5)"
+    kind: informative
+  - id: R-1075
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Example 6: append — cross-lineage concurrent twin (Rule 0, ABS-452 conformance scenario)"
+    kind: informative
+  - id: R-1076
+    file: .claude/skills/duplicate-detection/SKILL.md
+    heading: "Authoritative References"
+    kind: informative
+  - id: R-1077
+    file: .claude/skills/issue-enrichment/SKILL.md
+    heading: "Purpose"
+    kind: informative
+  - id: R-1078
+    file: .claude/skills/issue-enrichment/SKILL.md
+    heading: "When to Use"
+    kind: informative
+  - id: R-1079
+    file: .claude/skills/issue-enrichment/SKILL.md
+    heading: "Agent-Ready Ticket Template"
+    kind: informative
+  - id: R-1080
+    file: .claude/skills/issue-enrichment/SKILL.md
+    heading: "Guardrail-Feasibility Checklist"
+    kind: unenforced
+    risk: "Gate skill executed by the LLM; no telemetry sensor asserts the gate actually ran before ticket creation"
+  - id: R-1081
+    file: .claude/skills/issue-enrichment/SKILL.md
+    heading: "Guardrail Annotation Block Format"
+    kind: informative
+  - id: R-1082
+    file: .claude/skills/issue-enrichment/SKILL.md
+    heading: "Worked Example: Input Draft → Enriched Ticket"
+    kind: informative
+  - id: R-1083
+    file: .claude/skills/issue-enrichment/SKILL.md
+    heading: "`append` verdicts and AC-rework: rewrite the body (ABS-252)"
+    kind: informative
+  - id: R-1084
+    file: .claude/skills/issue-enrichment/SKILL.md
+    heading: "Authoritative References"
+    kind: informative
+  - id: R-1085
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Pre-filled-epic child hold — EPIC-REVIEW-WAIT (ABS-518)"
+    kind: derived
+    sensors: [scripts/orchestrator.sh:epic_review_owed, tests/orchestrator.d/ABS-518-epic-review-wait.sh]
+  - id: R-1086
+    file: docs/sop/ORCHESTRATOR_STATE_MARKERS.md
+    heading: "Counters (ADR-A-0026 P4 — migrate to typed backend columns)"
+    kind: derived
+    sensors: [tests/test-orchestrator-marker-allowlist.sh]
+  - id: R-1087
+    file: docs/sop/ORCHESTRATOR_STATE_MARKERS.md
+    heading: "Leases and locks (ADR-A-0026 P10 — migrate to backend leases)"
+    kind: derived
+    sensors: [tests/test-orchestrator-marker-allowlist.sh]
+  - id: R-1088
+    file: docs/sop/ORCHESTRATOR_STATE_MARKERS.md
+    heading: "Crash / repair markers (ADR-A-0026 P13 — replaced by restart-reconcile)"
+    kind: derived
+    sensors: [tests/test-orchestrator-marker-allowlist.sh]
+  - id: R-1089
+    file: docs/sop/ORCHESTRATOR_STATE_MARKERS.md
+    heading: "Legitimately local (stays runner-side; not ADR-A-0026 migration targets)"
+    kind: derived
+    sensors: [tests/test-orchestrator-marker-allowlist.sh]
+  - id: R-1090
+    file: adrs/agentic/ADR-A-0029-multi-instance-event-bus.md
+    heading: "Context"
+    kind: informative
+  - id: R-1091
+    file: adrs/agentic/ADR-A-0029-multi-instance-event-bus.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [backend/packages/core/src/events.ts, backend/apps/server/test/events-routes.test.ts]
+  - id: R-1092
+    file: adrs/agentic/ADR-A-0029-multi-instance-event-bus.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-1093
+    file: adrs/agentic/ADR-A-0029-multi-instance-event-bus.md
+    heading: "Alternatives considered"
+    kind: informative
+  - id: R-1098
+    file: adrs/agentic/ADR-A-0030-remote-doctrine.md
+    heading: "Context"
+    kind: informative
+  - id: R-1099
+    file: adrs/agentic/ADR-A-0030-remote-doctrine.md
+    heading: "Decision"
+    kind: enforced
+    sensors: [scripts/active-remote-guard.sh, scripts/release-mirror-push.sh, tests/test-remote-doctrine.sh]
+  - id: R-1096
+    file: adrs/agentic/ADR-A-0030-remote-doctrine.md
+    heading: "Consequences"
+    kind: informative
+  - id: R-1097
+    file: adrs/agentic/ADR-A-0030-remote-doctrine.md
+    heading: "Alternatives considered"
+    kind: informative
+  - id: R-1100
+    file: docs/sop/AGENT_CONFIGURATION_SOP.md
+    heading: "Prompt Size Budget (commons + role + overlay) — sensor-enforced"
+    kind: enforced
+    sensors: [scripts/agent-prompt-size.sh, tests/test-agent-prompt-size-budget.sh]
+  - id: R-1102
+    file: docs/sop/SANDBOX_GUARD_SOP.md
+    heading: "What the guard does"
+    kind: derived
+    sensors: [tests/sandbox-guard.sh, tests/test-sandbox-guard.sh]
+  - id: R-1103
+    file: docs/sop/SANDBOX_GUARD_SOP.md
+    heading: "What the CI check enforces"
+    kind: derived
+    sensors: [scripts/sandbox-guard-check.sh, tests/test-sandbox-guard.sh]
+  - id: R-1104
+    file: docs/sop/SANDBOX_GUARD_SOP.md
+    heading: "Adding a new backend-touching test"
+    kind: informative
+  - id: R-1105
+    file: docs/sop/SANDBOX_GUARD_SOP.md
+    heading: "Fixture discipline for tests that test the check itself"
+    kind: informative
+  - id: R-1106
+    file: docs/sop/SANDBOX_GUARD_SOP.md
+    heading: "Root cause of the vacuum-green incident (PILOT-62)"
+    kind: informative
+  # --- PILOT-75: Remote Push Verification (ADR-A-0024 + ADR-A-0030) ---
+  - id: R-1122
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Remote Push Verification (PILOT-75, ADR-A-0024 + ADR-A-0030)"
+    kind: enforced
+    sensors: [scripts/orchestrator.sh:push_verify_failures, tests/orchestrator.d/PILOT-75-remote-push-verify.sh]
+  - id: R-1123
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Why this gate exists — four incidents across three runs"
+    kind: informative
+  - id: R-1124
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Scope"
+    kind: informative
+  - id: R-1125
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "What the gate checks"
+    kind: unenforced
+    risk: "Normative SOP rule without a dedicated sensor; relies on operator/seat adherence"
+  - id: R-1126
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Failure semantics"
+    kind: derived
+    sensors: [scripts/orchestrator.sh:push_verify_failures]
+  - id: R-1127
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "AC3 — main-checkout seat sensor"
+    kind: derived
+    sensors: [scripts/ops-sweep-sensors.sh:detect_worktree_hygiene]
+  - id: R-1128
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Seat contract (applies to all seats)"
+    kind: unenforced
+    risk: "Normative seat rule (commit AND push before forwarding); relies on seat adherence, backed by the push-verify gate"
+  - id: R-1129
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Kill-switch"
+    kind: informative
+  - id: R-1117
+    file: docs/sop/ORCHESTRATOR_SOP.md
+    heading: "Test suite"
+    kind: informative
