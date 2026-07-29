@@ -1,0 +1,40 @@
+# =============================================================================
+# .gitattributes — line-ending normalisation + merge drivers
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Line endings: LF in the index, LF in the working tree (ABS-275)
+# -----------------------------------------------------------------------------
+# git for Windows ships core.autocrlf=true, so without these rules a Windows
+# checkout writes CRLF working-tree files. A CRLF .sh then fails to run at all
+# ("bad interpreter: /bin/bash^M"), and every upgrade diff degrades into a
+# whole-file EOL conflict. A consumer hit both on the v2.21.2 -> v2.25.0
+# migration; ABS-249 defused the hashing side of it in v2.25.1, and these rules
+# close the source.
+#
+# text=auto  normalise to LF in the index for files git detects as text
+#            (binaries are detected and left alone).
+# eol=lf     check out LF regardless of platform or the user's core.autocrlf.
+#
+# This file was created by f79bb79 (ABS-215) carrying only the merge driver
+# below; the equivalent rules in the upstream ancestor never came across.
+* text=auto eol=lf
+
+# Shell scripts are the executable surface (scripts/, hooks, tests/), where one
+# stray CR is a hard runtime failure. Mark them text outright instead of relying
+# on content auto-detection.
+*.sh text eol=lf
+
+# -----------------------------------------------------------------------------
+# Merge drivers for shared-file conflict magnets (ABS-215)
+# -----------------------------------------------------------------------------
+# The orchestrator SOP change log is append-only. The built-in `union` merge
+# driver keeps BOTH sides of overlapping appends instead of raising a conflict,
+# so concurrent per-ticket entries auto-merge with no hand-resolve at the
+# epic-integration gate (#EXPORT_CRITICAL, rte no-hand-resolve). `union` ships
+# with git — no `[merge "union"]` config is required.
+#
+# git resolves attributes per attribute, not per line: this sets `merge` and
+# leaves the `text`/`eol` values from the patterns above intact. Asserted in
+# tests/test-gitattributes-eol.sh.
+docs/sop/ORCHESTRATOR_SOP_CHANGELOG.md merge=union
