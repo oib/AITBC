@@ -1,0 +1,9 @@
+{
+  "_comment": "Keryk AI fork-specific settings (protected from sync)",
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "bash": "allow"
+  }
+}
