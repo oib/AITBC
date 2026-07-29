@@ -1,0 +1,243 @@
+# =============================================================================
+# Bitbucket Pipelines — enforced CI for THIS repository (ABS-143)
+# =============================================================================
+# Context: the sole remote is Bitbucket, so the GitHub Actions files under
+# .github/workflows/ NEVER run here (they are consumer-facing template payload
+# — see .github/workflows/README.md). This pipeline is the real, enforced CI
+# that CONTRIBUTING.md and ADR-A-0014 promise ("CI rejects direct edits to the
+# shipped .claude/", "auto-merge on green CI").
+#
+# POPM decision (2026-07-07, ABS-143): Bitbucket Pipelines, NOT a GitHub mirror.
+#
+# Runs on every PR and on pushes to main:
+#   1. Provider hook-copy parity  (harness/claude/hooks vs agent_providers/…)
+#   2. Provider skills parity     (.github/scripts/check-skills-parity.sh)
+#   3. Governor drift guard       (tests/test-harness-parity.sh — ABS-94)
+#   4. Full test suite            (tests/test-*.sh loop)
+#   5. Commit-format check        (real ABS prefix; PR range vs main tip)
+#
+# Plus, when backend/ or the workflow source of truth changes (ABS-234):
+#   6. Backend validation         (pnpm lint + typecheck + tests on a real Postgres)
+#
+# The node:20 image ships git + node; we add python3 + PyYAML + jq, which some
+# suites require (test-fork-sync, test-setup-template, test-hooks-behavioral…).
+# =============================================================================
+
+image: node:20-bookworm
+
+clone:
+  # Full history so the commit-format check can walk origin/<dest>..HEAD.
+  depth: full
+
+definitions:
+  services:
+    # ABS-287: Postgres for the backend workspace's DB-gated tests. Matches
+    # backend/docker-compose.yml (postgres:16-alpine, db `agentic`). The
+    # credentials point at an ephemeral CI service container and carry no real
+    # secret, so they live here rather than in repository variables.
+    # The backend's DB-backed tests (CAS, concurrency race, atomicity, tenant
+    # isolation) SKIP THEMSELVES when DATABASE_URL is absent. Without a real
+    # Postgres here, CI would report green while testing nothing that matters —
+    # so the service is not optional garnish, it is the point.
+    postgres:
+      image: postgres:16-alpine
+      variables:
+        POSTGRES_DB: agentic
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+
+  steps:
+    - step: &backend-validation
+        name: Backend (agentic delivery backend — lint, typecheck, tests)
+        image: node:22-bookworm # backend engines: node >=22; the repo default is 20
+        # Runs only when the backend or the workflow SOURCE OF TRUTH changes.
+        # statuses.yaml is in this list deliberately (ABS-234): editing it IS the
+        # Workflow-as-Data-Drift scenario (ADR-A-0021 risk 7) that the built-in
+        # copy's byte-identity test exists to catch. A filter scoped to backend/**
+        # alone would not fire on it — the guard would sit there, never running,
+        # on exactly the commit it was written for.
+        condition:
+          changesets:
+            includePaths:
+              - "backend/**"
+              - "profiles/neutral/adapters/statuses.yaml"
+              - "bitbucket-pipelines.yml"
+        services:
+          - postgres
+        caches:
+          - node
+        script:
+          - apt-get update -qq
+          - apt-get install -y -qq --no-install-recommends postgresql-client
+          - npm install -g pnpm@11.12.0 # matches pnpm-lock.yaml (lockfileVersion 9.0)
+          - cd backend
+
+          - echo "=== Install (frozen lockfile) ==="
+          - pnpm install --frozen-lockfile
+
+          - echo "=== Wait for Postgres ==="
+          - |
+            for i in $(seq 1 30); do
+              pg_isready -h 127.0.0.1 -p 5432 -U postgres -d agentic && break
+              echo "  waiting for postgres ($i/30)"; sleep 2
+            done
+            # Not ready after 60s → fail loudly rather than let the DB tests skip.
+            pg_isready -h 127.0.0.1 -p 5432 -U postgres -d agentic
+
+          - echo "=== Lint ==="
+          - pnpm lint
+
+          - echo "=== Typecheck ==="
+          - pnpm typecheck
+
+          - echo "=== Tests (DATABASE_URL set — DB-backed tests must NOT skip) ==="
+          - export DATABASE_URL="postgres://postgres:postgres@127.0.0.1:5432/agentic"
+          - |
+            set -o pipefail
+            if ! pnpm test 2>&1 | tee /tmp/backend_test.txt; then
+              echo "ERROR: backend test suite failed" >&2
+              exit 1
+            fi
+            # A skipped DB test is a silently-inert guard — the exact failure mode
+            # this step was added to end (the suites self-skip when DATABASE_URL is
+            # absent, so a misconfigured service would otherwise report green while
+            # testing nothing). Treat any skip as a red build.
+            # NOTE: pnpm -r prefixes each line ("packages/core test: ℹ skipped 3"),
+            # so this pattern is deliberately unanchored — an anchored one silently
+            # matches nothing, which is how the guard would rot.
+            if grep -qE "skipped [1-9]" /tmp/backend_test.txt; then
+              echo "ERROR: backend tests were SKIPPED — DATABASE_URL not seen by the runner?" >&2
+              echo "The DB-backed CAS/concurrency/atomicity/tenant tests must actually run." >&2
+              exit 1
+            fi
+            echo "✅ Backend: lint + typecheck + tests passed, nothing skipped"
+
+    - step: &web-e2e-validation
+        name: Web e2e (Mission-Control SPA — Playwright on a real Postgres)
+        image: node:22-bookworm # backend engines: node >=22 (same as backend-validation)
+        # ABS-434: the ABS-410 Mission-Control web tier had NO executed e2e in CI —
+        # QAS could only verify web stories statically because `npm run test:e2e`
+        # cannot reach Postgres at the config default (localhost:55432) in QAS, so
+        # the Playwright webServer never boots and the suite is env-skipped. This
+        # step provisions a reachable Postgres (the `postgres` service below),
+        # points DATABASE_URL at it, migrates it, builds the SPA the server serves,
+        # then RUNS `test:e2e` — replacing static-only checks with executed e2e for
+        # every subsequent ABS-410 web-tier story.
+        condition:
+          changesets:
+            includePaths:
+              # The web-app path (AC4): every ABS-410 web-tier story lands here and
+              # is now verified by EXECUTED e2e, not static-only review. The pipeline
+              # file is included so a change to this job re-runs it (self-check).
+              - "backend/apps/web/**"
+              - "bitbucket-pipelines.yml"
+        services:
+          - postgres
+        caches:
+          - node
+        script:
+          - apt-get update -qq
+          - apt-get install -y -qq --no-install-recommends postgresql-client
+          - npm install -g pnpm@11.12.0 # matches pnpm-lock.yaml (lockfileVersion 9.0)
+          - cd backend
+
+          - echo "=== Install (frozen lockfile) ==="
+          - pnpm install --frozen-lockfile
+
+          - echo "=== Wait for Postgres (fail loudly, never let the suite env-skip) ==="
+          - |
+            for i in $(seq 1 30); do
+              pg_isready -h 127.0.0.1 -p 5432 -U postgres -d agentic && break
+              echo "  waiting for postgres ($i/30)"; sleep 2
+            done
+            # Not ready after 60s → fail loudly rather than fall back to the
+            # unreachable localhost:55432 default and skip (the ABS-434 defect).
+            pg_isready -h 127.0.0.1 -p 5432 -U postgres -d agentic
+
+          # DATABASE_URL points the Playwright webServer at THIS Postgres, not the
+          # config default (localhost:55432) that is unreachable in CI/QAS.
+          - export DATABASE_URL="postgres://postgres:postgres@127.0.0.1:5432/agentic"
+
+          - echo "=== Migrations (schema on the e2e Postgres, before the suite) ==="
+          # NODE_ENV=development is the documented local/CI dev path: the migrate
+          # CLI's loadConfig fails closed outside dev without BACKEND_BOOTSTRAP_TOKEN
+          # (ABS-262). This process only creates the schema on the ephemeral CI DB;
+          # the Playwright webServer boots the server with its own E2E token and
+          # re-runs migrations idempotently.
+          - NODE_ENV=development pnpm migrate
+
+          - echo "=== Build the SPA (the webServer serves ./dist via WEB_DIST) ==="
+          - pnpm --filter @agentic-backend/web build
+
+          - echo "=== Playwright browser (chromium only — the config's default project) ==="
+          - pnpm --filter @agentic-backend/web exec playwright install --with-deps chromium
+
+          - echo "=== Web e2e — suite EXECUTES (per-test pass/fail), no env-skip ==="
+          # The specs self-seed their fixtures via the API in beforeAll; the server
+          # auto-migrates on boot too, so the suite has its schema + data.
+          - pnpm --filter @agentic-backend/web test:e2e
+
+    - step: &full-validation
+        name: Full validation (parity gates + test suite + commit-format)
+        script:
+          - apt-get update -qq
+          - apt-get install -y -qq --no-install-recommends python3 python3-yaml jq
+
+          - echo "=== 1. Provider hook-copy parity ==="
+          - |
+            if ! diff -r harness/claude/hooks agent_providers/claude_code/hooks; then
+              echo "ERROR: harness/claude/hooks/ and agent_providers/claude_code/hooks/ have diverged. Apply hook changes to both copies." >&2
+              exit 1
+            fi
+            echo "✅ Provider hook copies are in sync"
+
+          - echo "=== 2. Provider skills parity ==="
+          - bash .github/scripts/check-skills-parity.sh
+
+          - echo "=== 3. Governor drift guard (ABS-94) ==="
+          - bash tests/test-harness-parity.sh
+
+          - echo "=== 4. Test suite (tests/test-*.sh) ==="
+          - |
+            FAIL=0
+            for t in tests/test-*.sh; do
+              name=$(basename "$t" .sh)
+              echo "--- ${name} ---"
+              if bash "$t" > /tmp/test_output.txt 2>&1; then
+                echo "  PASS ${name}"
+              else
+                echo "  FAIL ${name}"
+                echo "  Last 20 lines of output:"
+                tail -20 /tmp/test_output.txt | sed 's/^/    /'
+                FAIL=1
+              fi
+            done
+            if [ "$FAIL" -ne 0 ]; then
+              echo "TEST SUITE FAILED" >&2
+              exit 1
+            fi
+            echo "✅ ALL TESTS PASSED"
+
+          - echo "=== 5. Commit-format check (real ABS prefix) ==="
+          - |
+            if [ -n "${BITBUCKET_PR_DESTINATION_BRANCH:-}" ]; then
+              # PR: enforce every commit the PR introduces.
+              git fetch -q origin "$BITBUCKET_PR_DESTINATION_BRANCH"
+              bash .github/scripts/check-commit-format.sh "origin/${BITBUCKET_PR_DESTINATION_BRANCH}..HEAD"
+            else
+              # main push: the commit is already merged — re-check only the tip
+              # (merge-commit tips are exempt, so main never reddens on history).
+              bash .github/scripts/check-commit-format.sh HEAD
+            fi
+
+pipelines:
+  pull-requests:
+    '**':
+      - step: *full-validation
+      - step: *backend-validation
+      - step: *web-e2e-validation
+  branches:
+    main:
+      - step: *full-validation
+      - step: *backend-validation
+      - step: *web-e2e-validation
