@@ -66,7 +66,18 @@ branch_alt() { printf '%s' "$1" | tr ',' ' ' | tr -s ' ' '\n' | sed '/^$/d' | pa
 status_alt() { printf '%s' "$1" | tr ',' '|' | sed 's/ *| */|/g; s/^ *//; s/ *$//'; }
 
 # mtime_epoch <path> -> seconds since epoch (BSD then GNU stat).
-mtime_epoch() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0; }
+# Each stat variant is captured in its OWN command substitution: on GNU stat,
+# `-f` means "filesystem status" (not BSD's "format"), so `stat -f %m` prints a
+# multi-line filesystem-info block (starting "  File: ...") to stdout AND exits
+# 1 -- if both stat calls shared one substitution, that stray "File:" text
+# would leak into the result and later be misparsed as a bareword variable
+# reference inside `$(( ... ))` arithmetic (nounset: "File: unbound variable").
+mtime_epoch() {
+    local out
+    out="$(stat -f %m "$1" 2>/dev/null)" && { printf '%s\n' "$out"; return; }
+    out="$(stat -c %Y "$1" 2>/dev/null)" && { printf '%s\n' "$out"; return; }
+    echo 0
+}
 
 HUMAN_GATE_RE="$(status_alt "${RUN_STATUS_HUMAN_GATE_STATUSES:-$DEFAULT_HUMAN_GATE_STATUSES}")"
 PROTECTED_RE="$(branch_alt "${RUN_STATUS_PROTECTED_BRANCHES:-$DEFAULT_PROTECTED_BRANCHES}")"
