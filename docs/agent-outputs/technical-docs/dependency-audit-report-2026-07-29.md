@@ -61,14 +61,15 @@ No HIGH-severity findings. 107 MEDIUM findings, grouped by rule (bandit confiden
 
 ## Implementation Tickets
 
-Filed in the active tracker (Gitea Issues, `oib/aitbc`):
+Filed in the active tracker (Gitea Issues, `oib/aitbc`), grouped under one epic:
 
-- AITBC-51: ecdsa 0.19.2 Minerva timing attack (PYSEC-2026-1325) — no fix available, needs mitigation
-- AITBC-52: msgpack 1.1.2 DoS on repeated Unpacker error (GHSA-6v7p-g79w-8964) — upgrade to 1.2.1
-- AITBC-53: pydantic-settings 2.14.1 secrets-dir symlink escape (GHSA-4xgf-cpjx-pc3j) — upgrade to 2.14.2
-- AITBC-54: starlette 1.2.1 — two CVEs (PYSEC-2026-248, PYSEC-2026-249) — upgrade to >=1.3.1
-- AITBC-55: bandit B608 triage — 23 possible SQL-injection-shaped queries
-- AITBC-56: bandit B108 triage — 41 hardcoded /tmp usages
-- AITBC-57: bandit B104 triage — 31 bind-all-interfaces findings
-- AITBC-58: bandit B310 triage — 11 unrestricted urlopen scheme findings
-- AITBC-59: bandit B113 fix — 1 requests call without a timeout
+- **AITBC-60** (epic): Dependency/security audit remediation (2026-07-29)
+  - AITBC-51: ecdsa 0.19.2 Minerva timing attack (PYSEC-2026-1325) — no fix available, needs mitigation
+  - AITBC-52: msgpack 1.1.2 DoS on repeated Unpacker error (GHSA-6v7p-g79w-8964) — upgrade to 1.2.1
+  - AITBC-53: pydantic-settings 2.14.1 secrets-dir symlink escape (GHSA-4xgf-cpjx-pc3j) — upgrade to 2.14.2
+  - AITBC-54: starlette 1.2.1 — two CVEs (PYSEC-2026-248, PYSEC-2026-249) — upgrade to >=1.3.1
+  - AITBC-55: bandit B608 triage — 23 possible SQL-injection-shaped queries
+  - AITBC-56: bandit B108 triage — 41 hardcoded /tmp usages
+  - AITBC-57: bandit B104 triage — 31 bind-all-interfaces findings
+  - AITBC-58: bandit B310 triage — 11 unrestricted urlopen scheme findings
+  - AITBC-59: bandit B113 fix — 1 requests call without a timeout
