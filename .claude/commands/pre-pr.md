@@ -108,16 +108,14 @@ All validation steps pass. Ready to create PR with:
 
 ```bash
 git push --force-with-lease origin {branch-name}
-{{GIT_HOST_CLI}} pr create --title "..." --body "..."   # bb pr create (Bitbucket) / gh pr create (GitHub)
+gh pr create --title "..." --body "..."
 ```
 
 Report final status and any remaining blockers.
 
-## Customization Guide
+## Resolved Values (this repo)
 
-To adapt this command for your infrastructure, replace these placeholders:
-
-| Placeholder       | Description               | Example               |
-| ----------------- | ------------------------- | --------------------- |
-| `AITBC` | Your Linear ticket prefix | `WOR`, `PROJ`, `TASK` |
-| `{{GIT_HOST_CLI}}` | Your host's PR CLI        | `bb` (Bitbucket), `gh` (GitHub) |
+| Value | Resolution |
+|-------|------------|
+| Ticket prefix | `AITBC` |
+| Host PR CLI | `gh` (GitHub) |
