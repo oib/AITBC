@@ -8,6 +8,7 @@ description: "Answer the operator's recurring \"Status?\" question in one compac
 triggers:
 - user
 - model
+context: fork
 allowed-tools:
 - exec
 - read

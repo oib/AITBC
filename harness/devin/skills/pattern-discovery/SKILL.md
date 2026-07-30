@@ -6,6 +6,7 @@ description: Pattern library discovery for pattern-first development. Use BEFORE
 triggers:
 - user
 - model
+context: fork
 allowed-tools:
 - exec
 - glob
