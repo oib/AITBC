@@ -35,7 +35,21 @@ AGENTS_SRC="${DEVIN_AGENTS_SRC:-harness/devin/agents}"
 [ -d "$SKILLS_SRC" ] || { echo "sync-devin: missing skills source $SKILLS_SRC" >&2; exit 1; }
 [ -d "$AGENTS_SRC" ] || { echo "sync-devin: missing agents source $AGENTS_SRC" >&2; exit 1; }
 
+# Determine if the source is already Devin-format (harness/devin) or
+# Claude-format (harness/claude / .claude). Devin-format sources use
+# passthrough mode to avoid lossy double-conversion.
+PASSTHROUGH=""
+if [ -f "$SKILLS_SRC" ] || echo "$SKILLS_SRC" | grep -q "harness/devin\|\.devin"; then
+    PASSTHROUGH="--passthrough"
+elif [ -d "$SKILLS_SRC" ]; then
+    # Heuristic: if any SKILL.md in the source has 'triggers:' it's already Devin-format.
+    if grep -rl '^triggers:' "$SKILLS_SRC" >/dev/null 2>&1; then
+        PASSTHROUGH="--passthrough"
+    fi
+fi
+
 exec python3 "$SCRIPT_DIR/mirror-claude-to-devin.py" \
+    $PASSTHROUGH \
     --skills-src "$SKILLS_SRC" \
     --agents-src "$AGENTS_SRC" \
     --skills-dst .devin/skills \
