@@ -59,18 +59,47 @@ v0.20.0 is a harness-only release that makes the SAFe Agentic Workflow (SAW) v2.
 - `harness/devin/agents/*`
 - `.devin/skills/*`
 - `.devin/agents/*`
+- `tests/test-spawn-devin.sh`
 - `docs/releases/v0.20.0/AGENTS.md`
 - `docs/releases/v0.20.0/RELEASE_v0.20.0.md`
 
+### 5. Provider-seam parity fixes found by testing the adapter
+
+The first cut of the adapter launched Devin correctly but silently dropped several load-bearing parts of the §3.1 seam contract that the Claude binding implements. All are now fixed and covered by `tests/test-spawn-devin.sh` (20 assertions).
+
+| Gap | Impact | Fix |
+|-----|--------|-----|
+| `_common-rules.md` was never prepended (ABS-174) | Every Devin seat ran without the cross-seat rules all Claude seats receive, including evidence discipline and the anti-slop gate | Compose `commons -> role def -> overlay` |
+| `ORCH_TOOLS` was ignored (ABS-57) | The In Review seat reuses the write-capable `system-architect` role; it could edit the code it was reviewing | A write-free `ORCH_TOOLS` override now forces `--permission-mode auto` |
+| `ORCH_TARGET_REPO` was ignored (ABS-92) | In the self-hosting lane the seat ran in the wrong repo | cwd is `ORCH_SPAWN_CWD`, else `ORCH_TARGET_REPO`, and a failed `cd` is fatal |
+| `ORCH_OVERRIDES_DIR` overlay was ignored (ABS-258) | A project could not refine an agent def without forking it | `<role>.append.md` is appended after the role body |
+| Underscore roles were spawnable (ABS-174) | A stray role label could resolve `_common-rules` as an agent | Underscore-prefixed roles are rejected |
+| `opus`/`sonnet` were pinned to `claude-opus-4.6`/`claude-sonnet-4` | Silent model downgrade: Devin resolves `opus` to the current Opus family, so the mapping moved seats to an older model | Aliases pass through untouched |
+
+### 6. Verified Devin CLI behaviour relied on by the adapter
+
+Measured against Devin CLI 3000.3.22, because the enforcement choice depends on it:
+
+- `--permission-mode auto` in `-p` mode **does** block a write: the call is rejected with `rejected a tool call that requires confirmation` and the file is not created. This is the mechanical read-only gate for QAS / Security Engineer / write-free `ORCH_TOOLS` seats.
+- `--agent-config` with `allowed-tools: [read, grep, glob]` **did not** block the `write` tool — the file was created. Same for `permissions.deny: ["write", "edit"]` and `permissions.deny: ["Write(**)"]`.
+- Therefore read-only enforcement uses the permission mode only, never an `--agent-config` allowlist.
+- `--agent-config` accepts exactly `system-instructions`, `allowed-tools`, `permissions`, `mcp-servers`, `extensions` (unknown fields are rejected).
+- Devin has no `--max-turns` equivalent, so the `ORCH_MAX_TURNS` ceiling (ABS-150) is not enforceable on this provider.
+
 ## Known Issues
 
+- `ORCH_MAX_TURNS` (ABS-150) has no Devin equivalent, so a runaway Devin seat is not capped by a turn ceiling. The respawn limit in the orchestrator is the only backstop.
+- `--agent-config` tool restrictions are not enforced by Devin CLI 3000.3.22 (see section 6). If a future release fixes this, the adapter should additionally pass an allowlist so a read-only seat is narrowed at the tool level, not only by permission mode.
+- A single seat has been spawned end-to-end against the live CLI (it composed the commons, produced a `## Handoff` record, and correctly refused an unverifiable request). A full multi-stage epic has not yet been burned on this provider.
 - `CLAUDE.md` has uncommitted working-tree modifications.
 - `work/.gitea-events-state.current.*` temp files remain untracked.
-- The Devin seat has been syntax- and command-validated but not yet live-burned through a full ticket lifecycle on this provider.
 
 ## Verification
 
 ```bash
+bash tests/test-spawn-devin.sh          # 20/20 provider-seam contract assertions
+bash tests/test-spawn-tmpdir.sh         # Claude seam unaffected
+bash tests/test-spawn-skill-path.sh     # Claude seam unaffected
 bash scripts/sync-devin-harness.sh
 bash -n scripts/orchestrator-spawn-devin.sh
 bash -n scripts/sync-devin-harness.sh

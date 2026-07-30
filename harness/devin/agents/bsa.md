@@ -2,7 +2,7 @@
 name: bsa
 description: Business Systems Analyst - Pattern discovery, spec creation, acceptance
   criteria definition
-model: claude-opus-4.6
+model: opus
 allowed-tools:
 - edit
 - exec

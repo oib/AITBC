@@ -1,7 +1,7 @@
 ---
 name: data-engineer
 description: Data Engineer - Database schema changes and migrations
-model: claude-opus-4.6
+model: opus
 allowed-tools:
 - edit
 - exec

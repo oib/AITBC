@@ -1,7 +1,7 @@
 ---
 name: be-developer
 description: Backend Developer - API implementation using patterns, RLS enforcement
-model: claude-opus-4.6
+model: opus
 allowed-tools:
 - edit
 - exec

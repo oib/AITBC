@@ -1,7 +1,7 @@
 ---
 name: rte
 description: Release Train Engineer - PR creation, CI/CD validation, release coordination
-model: claude-sonnet-4
+model: sonnet
 allowed-tools:
 - exec
 - grep

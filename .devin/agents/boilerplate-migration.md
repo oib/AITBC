@@ -2,7 +2,7 @@
 name: boilerplate-migration
 description: Boilerplate Migration Agent - Migrates a consuming project to the current
   boilerplate version
-model: claude-sonnet-4
+model: sonnet
 allowed-tools:
 - edit
 - exec
