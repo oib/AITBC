@@ -767,8 +767,18 @@ ORCH_MAIN_REMOTE="${ORCH_MAIN_REMOTE:-}"
 # the ticket to In Progress) before the reconcile sweep warns. 0 disables.
 # WARN-only — never an auto-transition (the status chain stays seat-led).
 ORCH_CLAIM_WARN_MINUTES="${ORCH_CLAIM_WARN_MINUTES:-10}"
-# Spawn seam (§3.1): default = shipped Claude Code binding. Tests override with a stub.
-ORCH_SPAWN_CMD="${ORCH_SPAWN_CMD:-$SCRIPT_DIR/orchestrator-spawn-claude.sh}"
+# Spawn seam (§3.1): prefer Devin CLI if installed, otherwise Claude Code.
+# Tests override with a stub. Explicit ORCH_SPAWN_CMD always wins.
+if [ -z "${ORCH_SPAWN_CMD:-}" ]; then
+    if command -v devin >/dev/null 2>&1; then
+        ORCH_SPAWN_CMD="$SCRIPT_DIR/orchestrator-spawn-devin.sh"
+    elif command -v claude >/dev/null 2>&1; then
+        ORCH_SPAWN_CMD="$SCRIPT_DIR/orchestrator-spawn-claude.sh"
+    else
+        # No provider on PATH — keep the Claude default for a clear error message later.
+        ORCH_SPAWN_CMD="$SCRIPT_DIR/orchestrator-spawn-claude.sh"
+    fi
+fi
 # Read-only toolset handed to the In Review spawn (ABS-57 separation-of-duties):
 # the reviewer reuses the write-capable `system-architect` role but must only be
 # able to review, comment, and transition — never edit the code under review. The
