@@ -11,9 +11,9 @@ set -euo pipefail
 # running live orchestrator (whose state lives in its own repo checkout).
 #
 # Usage (from anywhere inside the repo):
-#   .claude/skills/run-boilerplate/driver.sh smoke      # full lifecycle cycle, PASS/FAIL
-#   .claude/skills/run-boilerplate/driver.sh sandbox    # print export lines for interactive driving
-#   .claude/skills/run-boilerplate/driver.sh clean      # remove driver sandboxes
+#   harness/devin/skills/run-boilerplate/driver.sh smoke      # full lifecycle cycle, PASS/FAIL
+#   harness/devin/skills/run-boilerplate/driver.sh sandbox    # print export lines for interactive driving
+#   harness/devin/skills/run-boilerplate/driver.sh clean      # remove driver sandboxes
 # =============================================================================
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
