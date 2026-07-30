@@ -32,7 +32,7 @@ TOOL_MAP = {
     "Bash": "exec",
     "Grep": "grep",
     "Glob": "glob",
-    "Skill": None,
+    "Skill": "skill",
     "Task": "todo_write",
     "WebSearch": "web_search",
     "WebFetch": "webfetch",
@@ -69,7 +69,7 @@ def convert_model(model: str | None) -> str | None:
     if not model:
         return None
     model = str(model).strip()
-    if re.fullmatch(r"claude-.*", model, re.I) or re.fullmatch(r"opus|sonnet|codex", model, re.I):
+    if re.fullmatch(r"claude-.*", model, re.I) or re.fullmatch(r"opus|sonnet|codex|haiku", model, re.I):
         return "swe-1.7-medium"
     return model
 
@@ -159,6 +159,12 @@ def mirror_skills(skills_src: Path, skills_dst: Path, agents_dst: Path):
             "description": fm.get("description", ""),
             "triggers": ["user", "model"],
         }
+
+        # Preserve Devin-specific or already-generated frontmatter so a second
+        # pass (harness/devin -> .devin) is lossless.
+        for key in ("triggers", "context", "subagent", "timeout"):
+            if key in fm:
+                new_fm[key] = fm[key]
 
         if "model" in fm:
             converted = convert_model(fm["model"])
