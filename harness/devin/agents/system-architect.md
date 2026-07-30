@@ -2,7 +2,7 @@
 name: system-architect
 description: System Architect - Pattern validation, architectural decisions, conflict
   prevention
-model: claude-opus-4.6
+model: opus
 allowed-tools:
 - edit
 - exec

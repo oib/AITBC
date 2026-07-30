@@ -2,7 +2,7 @@
 name: self-improvement
 description: Self-Improvement Agent - Skill mining from recurring tasks and boilerplate
   improvement proposals
-model: claude-opus-4.6
+model: opus
 allowed-tools:
 - exec
 - glob
