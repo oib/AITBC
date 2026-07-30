@@ -215,4 +215,22 @@ RESOLVED_MODEL="${ORCH_DEVIN_MODEL:-${ORCH_MODEL:-}}"
 set -- -p --prompt-file "$PROMPT_FILE" --permission-mode "$PERM_MODE" --respect-workspace-trust false
 [ -n "$RESOLVED_MODEL" ] && set -- "$@" --model "$RESOLVED_MODEL"
 
-exec "$DEVIN_BIN" "$@"
+# ABS-111 / ABS-157: Devin has no --max-turns, so if the runner exported a
+# wall-clock timeout, wrap the CLI in timeout(1)/gtimeout(1). The orchestrator
+# already runs a parallel watchdog; this is a last-resort SIGTERM/SIGKILL so
+# a runaway devin process cannot outlive its budget on a direct spawn.
+WALL_SEC="${ORCH_AGENT_TIMEOUT:-${ORCH_AGENT_MAX_LIFETIME:-}}"
+TIMEOUT_BIN=""
+if [ -n "$WALL_SEC" ] && [ "$WALL_SEC" -gt 0 ] 2>/dev/null; then
+    if command -v timeout >/dev/null 2>&1; then
+        TIMEOUT_BIN="timeout"
+    elif command -v gtimeout >/dev/null 2>&1; then
+        TIMEOUT_BIN="gtimeout"
+    fi
+fi
+if [ -n "$TIMEOUT_BIN" ]; then
+    # -s TERM: ask politely; -k 60: SIGKILL if still alive 60s after TERM.
+    exec "$TIMEOUT_BIN" -s TERM -k 60 "$WALL_SEC" "$DEVIN_BIN" "$@"
+else
+    exec "$DEVIN_BIN" "$@"
+fi

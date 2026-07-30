@@ -84,11 +84,11 @@ Measured against Devin CLI 3000.3.22, because the enforcement choice depends on 
 - `--agent-config` with `allowed-tools: [read, grep, glob]` **did not** block the `write` tool — the file was created. Same for `permissions.deny: ["write", "edit"]` and `permissions.deny: ["Write(**)"]`.
 - Therefore read-only enforcement uses the permission mode only, never an `--agent-config` allowlist.
 - `--agent-config` accepts exactly `system-instructions`, `allowed-tools`, `permissions`, `mcp-servers`, `extensions` (unknown fields are rejected).
-- Devin has no `--max-turns` equivalent, so the `ORCH_MAX_TURNS` ceiling (ABS-150) is not enforceable on this provider.
+- Devin has no `--max-turns` equivalent, so the `ORCH_MAX_TURNS` ceiling (ABS-150) is not enforceable as a turn cap. The runner already enforces `ORCH_AGENT_TIMEOUT`/`ORCH_AGENT_MAX_LIFETIME` as a wall-clock watchdog; the Devin adapter now additionally wraps `devin` in `timeout(1)`/`gtimeout(1)` when those values are exported, providing a last-resort SIGTERM/SIGKILL bound.
 
 ## Known Issues
 
-- `ORCH_MAX_TURNS` (ABS-150) has no Devin equivalent, so a runaway Devin seat is not capped by a turn ceiling. The respawn limit in the orchestrator is the only backstop.
+- `ORCH_MAX_TURNS` (ABS-150) has no Devin equivalent, so a runaway Devin seat is not capped by a turn count. The runner's wall-clock `ORCH_AGENT_TIMEOUT` and the adapter's `timeout(1)` wrapper bound total runtime, but not the number of turns.
 - `--agent-config` tool restrictions are not enforced by Devin CLI 3000.3.22 (see section 6). If a future release fixes this, the adapter should additionally pass an allowlist so a read-only seat is narrowed at the tool level, not only by permission mode.
 - A single seat has been spawned end-to-end against the live CLI (it composed the commons, produced a `## Handoff` record, and correctly refused an unverifiable request). A full multi-stage epic has not yet been burned on this provider.
 - `CLAUDE.md` has uncommitted working-tree modifications.
