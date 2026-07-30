@@ -4,11 +4,19 @@ argument-hint: [PR-number]
 allowed-tools: [Read, Write, Edit, Bash, Grep, Glob]
 ---
 
-> **📋 TEMPLATE**: This command is a template. See "Customization Guide" below to adapt for your infrastructure.
+> **⚠️ Not applicable to AITBC.** This command assumes a Docker-based PR image-build workflow
+> (`./scripts/dev-docker.sh`, `docker-compose.staging.yml`, a `build-docker-image` PR label) that
+> does not exist in this repo. AITBC is explicitly **Docker-free** — it "deploys exclusively via
+> systemd" (see `.gitignore`'s "Deployment: Docker-free project" section, which actively
+> gitignores `Dockerfile`/`docker-compose.yml`/`.dockerignore`). There is no Docker registry CI
+> path, no `dev-docker.sh` script, and no `build-docker-image` label wired up. Left as inert
+> reference/template content rather than force-adapted into a Docker workflow this project
+> doesn't have; do not run the steps below as written.
 
 Test the Docker registry PR workflow by adding the `build-docker-image` label to a PR and verifying the build.
 
-> **Host note**: label-triggered image builds assume GitHub Actions. Commands below use `{{GIT_HOST_CLI}}` (`bb` on Bitbucket, `gh` on GitHub); on Bitbucket, manage labels/triggers via the PR web UI or your Pipelines trigger of choice.
+> **Host note**: label-triggered image builds assume GitHub Actions. Commands below use `gh`
+> (this repo is GitHub-hosted).
 
 ## Workflow
 
@@ -17,7 +25,7 @@ Test the Docker registry PR workflow by adding the `build-docker-image` label to
 If argument provided ($1):
 
 - Use as PR number
-- Fetch PR details: `{{GIT_HOST_CLI}} pr view $1`   # bb pr view (Bitbucket) / gh pr view (GitHub)
+- Fetch PR details: `gh pr view $1`
 
 If no argument:
 
@@ -29,13 +37,13 @@ If no argument:
 Add `build-docker-image` label:
 
 ```bash
-{{GIT_HOST_CLI}} pr edit {PR-number} --add-label "build-docker-image"   # gh syntax; Bitbucket: add the label via the PR web UI
+gh pr edit {PR-number} --add-label "build-docker-image"
 ```
 
 Confirm label added:
 
 ```bash
-{{GIT_HOST_CLI}} pr view {PR-number} --json labels   # bb pr view (Bitbucket) / gh pr view --json labels (GitHub)
+gh pr view {PR-number} --json labels
 ```
 
 ### 3. Monitor Build
@@ -45,12 +53,12 @@ Explain to user:
 - GitHub Actions will build Docker image (~5-10 min)
 - Image will be tagged as `pr-{number}`
 - Build status visible in PR checks
-- Can monitor at: `https://oib/AITBC/actions`
+- Can monitor at: `https://github.com/oib/AITBC/actions`
 
 Provide link to PR:
 
 ```bash
-{{GIT_HOST_CLI}} pr view {PR-number} --web   # bb pr view (Bitbucket) / gh pr view --web (GitHub)
+gh pr view {PR-number} --web
 ```
 
 ### 4. Verification Steps
@@ -91,7 +99,7 @@ After verification:
 ```bash
 # Revert docker-compose.dev.yml
 # Remove label to stop builds
-{{GIT_HOST_CLI}} pr edit {PR-number} --remove-label "build-docker-image"   # gh syntax; Bitbucket: remove the label via the PR web UI
+gh pr edit {PR-number} --remove-label "build-docker-image"
 ```
 
 ## Success Criteria
@@ -116,11 +124,7 @@ Report each step's status:
 
 This validates the entire PR Docker workflow before relying on it for future PRs.
 
-## Customization Guide
+## Status
 
-To adapt this command for your infrastructure, replace these placeholders:
-
-| Placeholder       | Description               | Example               |
-| ----------------- | ------------------------- | --------------------- |
-| `AITBC` | Your Linear ticket prefix | `WOR`, `PROJ`, `TASK` |
-| `{{GIT_HOST_CLI}}` | Your host's PR CLI        | `bb` (Bitbucket), `gh` (GitHub) |
+Marked not-applicable per the scope note at the top of this file — AITBC has no Docker build
+workflow to test. Kept as inert reference content, not customized further.

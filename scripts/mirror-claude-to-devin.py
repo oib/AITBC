@@ -16,7 +16,9 @@ references to .devin/ in the .devin copies.
 import argparse
 import os
 import re
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import yaml
@@ -214,20 +216,103 @@ def mirror_agents(agents_src: Path, agents_dst: Path, skills_dst: Path):
         (agents_dst / src_file.name).write_text(dump_frontmatter(new_fm) + "\n" + body, encoding="utf-8")
 
 
+def _symlink_tree(link_dir: Path, target_dir: Path) -> None:
+    """Ensure link_dir is a symlink to target_dir, creating parents as needed."""
+    link_dir.parent.mkdir(parents=True, exist_ok=True)
+    if link_dir.is_symlink():
+        if link_dir.readlink() == target_dir:
+            return
+    if link_dir.exists():
+        raise FileExistsError(f"{link_dir} exists and is not the required symlink to {target_dir}")
+    link_dir.symlink_to(target_dir, target_is_directory=True)
+
+
+def _diff_dirs(temp_dir: Path, real_dir: Path, allow_extras: bool) -> list[str]:
+    """Run `diff -rq` and return the lines that represent real drift."""
+    if not real_dir.exists():
+        return [f"real directory missing: {real_dir}"]
+    result = subprocess.run(
+        ["diff", "-rq", str(temp_dir), str(real_dir)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        return []
+    fails = []
+    real_prefix = f"Only in {real_dir}"
+    for line in result.stdout.splitlines() + result.stderr.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if allow_extras and line.startswith(real_prefix):
+            continue
+        fails.append(line)
+    return fails
+
+
+def check_mirror(skills_src: Path, agents_src: Path, skills_dst: Path, agents_dst: Path) -> int:
+    """Mirror to a temp tree and compare with the real destination.
+
+    This lets `harness/devin` and `.devin` consumers be drift-guarded without
+    writing to the real destination. Extras in the real `.devin/` consumer are
+    allowed (project-specific skills/agents) but a missing or differing
+    generated file is a fail.
+    """
+    repo_root = Path(__file__).resolve().parent.parent
+    with tempfile.TemporaryDirectory(prefix="devin-mirror-check-") as tmp:
+        temp_root = Path(tmp)
+        for src in (skills_src, agents_src):
+            src_parent = src.parent
+            _symlink_tree(temp_root / src_parent, repo_root / src_parent)
+
+        # Destination directories are materialized inside the temp tree.
+        for dst in (skills_dst, agents_dst):
+            (temp_root / dst).parent.mkdir(parents=True, exist_ok=True)
+
+        old_cwd = os.getcwd()
+        try:
+            os.chdir(temp_root)
+            mirror_skills(skills_src, temp_root / skills_dst, temp_root / agents_dst)
+            mirror_agents(agents_src, temp_root / agents_dst, temp_root / skills_dst)
+        finally:
+            os.chdir(old_cwd)
+
+        real_skills = repo_root / skills_dst
+        real_agents = repo_root / agents_dst
+        # A consumer .devin tree may carry project-specific additions.
+        allow_extras = str(skills_dst).split(os.sep, 1)[0] == ".devin"
+        failures = []
+        failures.extend(_diff_dirs(temp_root / skills_dst, real_skills, allow_extras))
+        failures.extend(_diff_dirs(temp_root / agents_dst, real_agents, allow_extras))
+
+        if failures:
+            print(f"Drift detected against {skills_dst} and {agents_dst}:", file=sys.stderr)
+            for line in failures:
+                print(f"  {line}", file=sys.stderr)
+            return 1
+        print(f"No drift: {skills_dst} and {agents_dst} are up to date.")
+        return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Mirror Claude harness into Devin CLI tree")
     parser.add_argument("--skills-src", default=".claude/skills", type=Path)
     parser.add_argument("--agents-src", default=".claude/agents", type=Path)
     parser.add_argument("--skills-dst", default=".devin/skills", type=Path)
     parser.add_argument("--agents-dst", default=".devin/agents", type=Path)
+    parser.add_argument("--check", action="store_true", help="Compare only; do not write the live destination.")
     args = parser.parse_args(argv)
 
-    if not args.skills_src.exists():
+    repo_root = Path(__file__).resolve().parent.parent
+    if not (repo_root / args.skills_src).exists():
         print(f"Skills source missing: {args.skills_src}", file=sys.stderr)
         return 1
-    if not args.agents_src.exists():
+    if not (repo_root / args.agents_src).exists():
         print(f"Agents source missing: {args.agents_src}", file=sys.stderr)
         return 1
+
+    if args.check:
+        return check_mirror(args.skills_src, args.agents_src, args.skills_dst, args.agents_dst)
 
     # Absolute paths make relative rewrites stable inside rewrite_body.
     os.chdir(Path.cwd())
