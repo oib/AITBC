@@ -1,7 +1,7 @@
 ---
 name: security-engineer
 description: Security Engineer - RLS validation, security audits, vulnerability scanning
-model: claude-opus-4.6
+model: opus
 allowed-tools:
 - exec
 - grep
