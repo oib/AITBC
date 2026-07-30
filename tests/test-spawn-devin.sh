@@ -225,6 +225,94 @@ rc=$(run_seam qas ORCH_TARGET_REPO="$TARGET" ORCH_SPAWN_CWD="$WORKTREE")
 assert_contains "$(cat "$RECORD_ARGV" 2>/dev/null || echo "")" "$WORKTREE" "ORCH_SPAWN_CWD takes precedence over ORCH_TARGET_REPO"
 
 echo ""
+echo -e "${CYAN}AC10 — SQLite database-lock retry with exponential backoff${NC}"
+# Stub devin that fails with "database is locked" on first call, succeeds on second.
+# Records call count to verify retry happened.
+CALL_COUNT_FILE="$TEST_DIR/devin-call-count"
+: > "$CALL_COUNT_FILE"
+cat > "$STUB_DIR/devin" <<'EOF'
+#!/usr/bin/env bash
+COUNT_FILE="${CALL_COUNT_FILE:-/dev/null}"
+n=$(cat "$COUNT_FILE" 2>/dev/null || echo 0)
+n=$((n + 1))
+echo "$n" > "$COUNT_FILE"
+if [ "$n" -eq 1 ]; then
+    echo "Error: database is locked" >&2
+    exit 1
+fi
+echo "## Handoff"
+echo "- role: qas"
+echo "- status: Done"
+echo "- summary: succeeded on retry"
+EOF
+chmod +x "$STUB_DIR/devin"
+rc=$(run_seam qas ORCH_TARGET_REPO="$TARGET" ORCH_DEVIN_DB_LOCK_RETRIES=3 ORCH_DEVIN_DB_LOCK_BASE_DELAY=1 ORCH_DEVIN_DB_LOCK_MAX_DELAY=2 CALL_COUNT_FILE="$CALL_COUNT_FILE")
+# The stub should have been called twice (1 fail + 1 success)
+calls=$(cat "$CALL_COUNT_FILE" 2>/dev/null || echo 0)
+TOTAL=$((TOTAL + 1))
+if [ "$calls" -ge 2 ]; then
+    echo -e "  ${GREEN}PASS${NC} devin retried after database-locked error ($calls calls)"; PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}FAIL${NC} devin did not retry after database-locked error ($calls calls)"; FAIL=$((FAIL + 1))
+fi
+# The seam should exit 0 (success on retry)
+assert_exit "$rc" 0 "seam exits 0 after successful retry"
+
+echo ""
+echo -e "${CYAN}AC11 — SQLite database-lock retry exhausts and fails${NC}"
+# Stub devin that always fails with "database is locked"
+: > "$CALL_COUNT_FILE"
+cat > "$STUB_DIR/devin" <<'EOF'
+#!/usr/bin/env bash
+COUNT_FILE="${CALL_COUNT_FILE:-/dev/null}"
+n=$(cat "$COUNT_FILE" 2>/dev/null || echo 0)
+n=$((n + 1))
+echo "$n" > "$COUNT_FILE"
+echo "Error: database is locked" >&2
+exit 1
+EOF
+chmod +x "$STUB_DIR/devin"
+rc=$(run_seam qas ORCH_TARGET_REPO="$TARGET" ORCH_DEVIN_DB_LOCK_RETRIES=2 ORCH_DEVIN_DB_LOCK_BASE_DELAY=1 ORCH_DEVIN_DB_LOCK_MAX_DELAY=2 CALL_COUNT_FILE="$CALL_COUNT_FILE")
+# The stub should have been called 3 times (1 initial + 2 retries)
+calls=$(cat "$CALL_COUNT_FILE" 2>/dev/null || echo 0)
+TOTAL=$((TOTAL + 1))
+if [ "$calls" -ge 3 ]; then
+    echo -e "  ${GREEN}PASS${NC} devin exhausted retries ($calls calls, expected 3)"; PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}FAIL${NC} devin did not exhaust retries ($calls calls, expected 3)"; FAIL=$((FAIL + 1))
+fi
+# The seam should exit non-zero
+TOTAL=$((TOTAL + 1))
+if [ "$rc" -ne 0 ]; then
+    echo -e "  ${GREEN}PASS${NC} seam exits non-zero after exhausting retries"; PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}FAIL${NC} seam exits 0 after exhausting retries (expected non-zero)"; FAIL=$((FAIL + 1))
+fi
+
+echo ""
+echo -e "${CYAN}AC12 — non-database-locked error does NOT retry${NC}"
+# Stub devin that fails with a different error
+: > "$CALL_COUNT_FILE"
+cat > "$STUB_DIR/devin" <<'EOF'
+#!/usr/bin/env bash
+COUNT_FILE="${CALL_COUNT_FILE:-/dev/null}"
+n=$(cat "$COUNT_FILE" 2>/dev/null || echo 0)
+n=$((n + 1))
+echo "$n" > "$COUNT_FILE"
+echo "Error: model not found" >&2
+exit 1
+EOF
+chmod +x "$STUB_DIR/devin"
+rc=$(run_seam qas ORCH_TARGET_REPO="$TARGET" ORCH_DEVIN_DB_LOCK_RETRIES=3 ORCH_DEVIN_DB_LOCK_BASE_DELAY=1 ORCH_DEVIN_DB_LOCK_MAX_DELAY=2 CALL_COUNT_FILE="$CALL_COUNT_FILE")
+calls=$(cat "$CALL_COUNT_FILE" 2>/dev/null || echo 0)
+TOTAL=$((TOTAL + 1))
+if [ "$calls" -eq 1 ]; then
+    echo -e "  ${GREEN}PASS${NC} non-database-locked error did not retry ($calls calls)"; PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}FAIL${NC} non-database-locked error retried ($calls calls, expected 1)"; FAIL=$((FAIL + 1))
+fi
+
+echo ""
 if [ "$FAIL" -eq 0 ]; then
     echo -e "${CYAN}=== Results: $PASS/$TOTAL passed ===${NC}"
     echo -e "${GREEN}All tests passed${NC}"
