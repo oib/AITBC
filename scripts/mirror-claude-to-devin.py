@@ -103,6 +103,23 @@ def rewrite_body(text: str, skills_dst: Path, agents_dst: Path) -> str:
     return text
 
 
+def rewrite_text_file(path: Path, skills_dst: Path, agents_dst: Path) -> None:
+    """Rewrite harness/ and .claude/ skill/agent references in a text file."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        return
+    new_text = rewrite_body(text, skills_dst, agents_dst)
+    if new_text != text:
+        path.write_text(new_text, encoding="utf-8")
+
+
+def rewrite_tree(dst: Path, skills_dst: Path, agents_dst: Path) -> None:
+    for child in dst.rglob("*"):
+        if child.is_file():
+            rewrite_text_file(child, skills_dst, agents_dst)
+
+
 def mirror_skills(skills_src: Path, skills_dst: Path, agents_dst: Path):
     skills_dst.mkdir(parents=True, exist_ok=True)
     for src_dir in skills_src.iterdir():
@@ -157,11 +174,14 @@ def mirror_skills(skills_src: Path, skills_dst: Path, agents_dst: Path):
         body = rewrite_body(body, skills_dst, agents_dst)
         (dst_dir / "SKILL.md").write_text(dump_frontmatter(new_fm) + "\n" + body, encoding="utf-8")
 
+        # Rewrite references in any companion files (scripts, references).
+        rewrite_tree(dst_dir, skills_dst, agents_dst)
+
 
 def mirror_agents(agents_src: Path, agents_dst: Path, skills_dst: Path):
     agents_dst.mkdir(parents=True, exist_ok=True)
     for src_file in agents_src.iterdir():
-        if not src_file.is_file() or not src_file.suffix == ".md" or src_file.name.startswith("_"):
+        if not src_file.is_file() or not src_file.suffix == ".md" or src_file.name.startswith("_") or src_file.name.lower().startswith("readme"):
             continue
 
         text = src_file.read_text(encoding="utf-8")
