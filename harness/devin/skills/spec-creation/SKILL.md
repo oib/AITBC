@@ -6,6 +6,7 @@ description: Spec creation with pattern references, acceptance criteria, and dem
 triggers:
 - user
 - model
+context: fork
 allowed-tools:
 - glob
 - grep
