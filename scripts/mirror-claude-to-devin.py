@@ -43,6 +43,17 @@ TOOL_MAP = {
     # unknown mcp__* tools collapse to the generic mcp_call_tool
 }
 
+# Full set of valid Devin CLI tool names (used by normalize_tool and lint).
+VALID_DEVIN_TOOLS = {
+    "read", "write", "edit", "multi_edit", "exec", "grep", "glob",
+    "skill", "todo_write", "web_search", "webfetch", "ask_user_question",
+    "run_subagent", "read_subagent", "mcp_call_tool",
+    "mcp_list_servers", "mcp_list_tools", "mcp_read_resource",
+    "browser_preview", "close_browser_preview",
+    "notebook_read", "notebook_edit",
+    "request_scope", "get_output", "kill_shell",
+}
+
 
 def normalize_tool(name: str) -> str | None:
     name = str(name).strip()
@@ -50,11 +61,16 @@ def normalize_tool(name: str) -> str | None:
         return TOOL_MAP[name]
     if name.startswith("mcp__"):
         return "mcp_call_tool"
+    # Handle PascalCase MCP tool names (e.g. McpCallTool -> mcp_call_tool)
     lower = name.lower()
-    # If it already looks like a Devin tool, pass through.
+    if lower in TOOL_MAP.values():
+        return lower
     if re.fullmatch(r"[a-z_]+", lower):
         return lower
-    # Fallback: keep the lowered name and let Devin ignore it if invalid.
+    # Convert PascalCase to snake_case before falling back
+    snake = re.sub(r"([A-Z])", r"_\1", name).lower().lstrip("_")
+    if snake in TOOL_MAP.values() or snake in VALID_DEVIN_TOOLS:
+        return snake
     return lower
 
 
@@ -167,7 +183,13 @@ def mirror_skills(skills_src: Path, skills_dst: Path, agents_dst: Path, passthro
 
         if passthrough:
             _passthrough_copy(src_skill, dst_dir / "SKILL.md", skills_dst, agents_dst)
-            rewrite_tree(dst_dir, skills_dst, agents_dst)
+            # Rewrite references in companion files only (SKILL.md already
+            # rewritten by _passthrough_copy).
+            for child in dst_dir.iterdir():
+                if child.is_file() and child.name != "SKILL.md":
+                    rewrite_text_file(child, skills_dst, agents_dst)
+                elif child.is_dir():
+                    rewrite_tree(child, skills_dst, agents_dst)
             continue
 
         text = src_skill.read_text(encoding="utf-8")
@@ -270,19 +292,16 @@ def _symlink_tree(link_dir: Path, target_dir: Path) -> None:
 
 # --- S2: Semantic lint -------------------------------------------------------
 
-VALID_DEVIN_TOOLS = {
-    "read", "write", "edit", "multi_edit", "exec", "grep", "glob",
-    "skill", "todo_write", "web_search", "webfetch", "ask_user_question",
-    "run_subagent", "mcp_call_tool",
-}
-
 
 def _lint_frontmatter(path: Path, fm: dict, errors: list[str]) -> None:
     """Validate a single file's frontmatter for Devin compatibility."""
     rel = str(path)
-    # Check YAML was parsed (fm is a dict, not None).
+    # Check YAML was parsed (fm must be a dict).
     if fm is None:
         errors.append(f"{rel}: invalid or missing YAML frontmatter")
+        return
+    if not isinstance(fm, dict):
+        errors.append(f"{rel}: YAML frontmatter parsed to {type(fm).__name__}, expected dict")
         return
     # Check tool names are in the Devin allowlist.
     tools = fm.get("allowed-tools", [])

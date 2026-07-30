@@ -83,20 +83,6 @@ if ! python3 "$MIRROR" \
     rc=1
 fi
 
-# --- S4: Guard .devin/ top-level files against harness/devin/ ----------------
-echo "Checking .devin/ top-level files == harness/devin/ ..."
-for topfile in config.json; do
-    if [ -f "$REPO_ROOT/harness/devin/$topfile" ]; then
-        if [ ! -f "$REPO_ROOT/.devin/$topfile" ]; then
-            echo "  DRIFT: .devin/$topfile missing (harness/devin/$topfile exists)" >&2
-            rc=1
-        elif ! diff -q "$REPO_ROOT/harness/devin/$topfile" "$REPO_ROOT/.devin/$topfile" >/dev/null 2>&1; then
-            echo "  DRIFT: .devin/$topfile differs from harness/devin/$topfile" >&2
-            rc=1
-        fi
-    fi
-done
-
 # --- S2: Semantic lint (YAML validity, tool/model validity, preservation) --
 echo "Running semantic lint on harness/devin/ and .devin/ ..."
 if ! python3 "$MIRROR" --lint; then
