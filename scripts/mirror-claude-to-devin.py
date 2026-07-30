@@ -59,19 +59,18 @@ def normalize_tool(name: str) -> str | None:
 
 
 def convert_model(model: str | None) -> str | None:
-    """Normalize a Claude model name to a Devin model alias.
+    """Normalize a Claude model name to the Devin boilerplate default.
 
-    Devin resolves the `opus` / `sonnet` / `codex` aliases to their CURRENT
-    family, so bare aliases are kept as-is. Pinning them to a version number
-    would silently downgrade the seat (`opus` means Opus 5, not Opus 4.6).
+    The Devin boilerplate default model is `swe-1.7-medium`. Any
+    Claude `opus` / `sonnet` / `codex` reference is mapped to that default so
+    generated Devin agents do not accidentally pin to Anthropic-specific
+    aliases. Non-Claude / already-Devin names are passed through unchanged.
     """
     if not model:
         return None
     model = str(model).strip()
-    if re.fullmatch(r"claude-sonnet(-\d.*)?", model, re.I):
-        return "sonnet"
-    if re.fullmatch(r"claude-opus(-\d.*)?", model, re.I):
-        return "opus"
+    if re.fullmatch(r"claude-.*", model, re.I) or re.fullmatch(r"opus|sonnet|codex", model, re.I):
+        return "swe-1.7-medium"
     return model
 
 
@@ -204,6 +203,9 @@ def mirror_agents(agents_src: Path, agents_dst: Path, skills_dst: Path):
             converted = convert_model(fm["model"])
             if converted:
                 new_fm["model"] = converted
+        else:
+            # Boilerplate default for Devin agents.
+            new_fm["model"] = "swe-1.7-medium"
 
         raw_tools = fm.get("tools", fm.get("allowed-tools", []))
         if isinstance(raw_tools, str):

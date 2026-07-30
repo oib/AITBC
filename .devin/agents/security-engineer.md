@@ -1,7 +1,7 @@
 ---
 name: security-engineer
 description: Security Engineer - RLS validation, security audits, vulnerability scanning
-model: opus
+model: swe-1.7-medium
 allowed-tools:
 - exec
 - grep
