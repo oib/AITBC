@@ -57,15 +57,19 @@ def normalize_tool(name: str) -> str | None:
 
 
 def convert_model(model: str | None) -> str | None:
+    """Normalize a Claude model name to a Devin model alias.
+
+    Devin resolves the `opus` / `sonnet` / `codex` aliases to their CURRENT
+    family, so bare aliases are kept as-is. Pinning them to a version number
+    would silently downgrade the seat (`opus` means Opus 5, not Opus 4.6).
+    """
     if not model:
         return None
     model = str(model).strip()
-    if re.match(r"^(sonnet|claude-sonnet)", model, re.I):
-        return "claude-sonnet-4"
-    if re.match(r"^(opus|claude-opus)", model, re.I):
-        return "claude-opus-4.6"
-    if re.match(r"^(codex)", model, re.I):
-        return "codex"
+    if re.fullmatch(r"claude-sonnet(-\d.*)?", model, re.I):
+        return "sonnet"
+    if re.fullmatch(r"claude-opus(-\d.*)?", model, re.I):
+        return "opus"
     return model
 
 

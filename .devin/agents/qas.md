@@ -1,7 +1,7 @@
 ---
 name: qas
 description: Quality Assurance Specialist - Testing execution using test patterns
-model: claude-sonnet-4
+model: sonnet
 allowed-tools:
 - exec
 - grep
