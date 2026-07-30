@@ -115,9 +115,37 @@ PY
 [ -n "${ORCH_SPAWN_CWD:-}" ] && [ -d "$ORCH_SPAWN_CWD" ] && cd "$ORCH_SPAWN_CWD"
 
 DEVIN_BIN="${ORCH_DEVIN_BIN:-devin}"
-PERM_MODE="${ORCH_DEVIN_PERMISSION_MODE:-accept-edits}"
+
+# Role-aware permission mode. QAS and Security Engineer are intentionally
+# read-only in Devin (separation-of-duties, same as the Claude seam's tool
+# restriction); implementers and writers can edit. ORCH_DEVIN_PERMISSION_MODE
+# overrides this default.
+case "${ROLE}" in
+    qas|qas-design|security-engineer)
+        DEFAULT_PERM="auto"
+        ;;
+    *)
+        DEFAULT_PERM="accept-edits"
+        ;;
+esac
+PERM_MODE="${ORCH_DEVIN_PERMISSION_MODE:-$DEFAULT_PERM}"
+
+# Resolve the Devin model. ORCH_DEVIN_MODEL wins, then a translation of
+# ORCH_MODEL (which the orchestrator sets from the agent def's frontmatter).
+# Leave the flag off entirely if no model is known so Devin uses its default.
+RESOLVED_MODEL="${ORCH_DEVIN_MODEL:-}"
+if [ -z "$RESOLVED_MODEL" ]; then
+    _claude_model="${ORCH_MODEL:-}"
+    case "$_claude_model" in
+        "" ) ;;
+        opus|claude-opus*|claude-opus-4* ) RESOLVED_MODEL="claude-opus-4.6" ;;
+        sonnet|claude-sonnet*|claude-sonnet-4* ) RESOLVED_MODEL="claude-sonnet-4" ;;
+        codex ) RESOLVED_MODEL="codex" ;;
+        * ) RESOLVED_MODEL="$_claude_model" ;;
+    esac
+fi
 
 set -- -p --prompt-file "$PROMPT_FILE" --permission-mode "$PERM_MODE" --respect-workspace-trust false
-[ -n "${ORCH_DEVIN_MODEL:-}" ] && set -- "$@" --model "$ORCH_DEVIN_MODEL"
+[ -n "$RESOLVED_MODEL" ] && set -- "$@" --model "$RESOLVED_MODEL"
 
 exec "$DEVIN_BIN" "$@"
