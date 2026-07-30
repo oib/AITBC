@@ -92,9 +92,13 @@ def rewrite_body(text: str, skills_dst: Path, agents_dst: Path) -> str:
     """Point references at the .devin/ tree in the mirrored copies."""
     text = text.replace("harness/claude/skills/", str(skills_dst.relative_to(Path.cwd())) + "/")
     text = text.replace("harness/.claude/skills/", str(skills_dst.relative_to(Path.cwd())) + "/")
+    text = text.replace("harness/devin/skills/", str(skills_dst.relative_to(Path.cwd())) + "/")
+    text = text.replace("harness/.devin/skills/", str(skills_dst.relative_to(Path.cwd())) + "/")
     text = text.replace(".claude/skills/", str(skills_dst.relative_to(Path.cwd())) + "/")
     text = text.replace("harness/claude/agents/", str(agents_dst.relative_to(Path.cwd())) + "/")
     text = text.replace("harness/.claude/agents/", str(agents_dst.relative_to(Path.cwd())) + "/")
+    text = text.replace("harness/devin/agents/", str(agents_dst.relative_to(Path.cwd())) + "/")
+    text = text.replace("harness/.devin/agents/", str(agents_dst.relative_to(Path.cwd())) + "/")
     text = text.replace(".claude/agents/", str(agents_dst.relative_to(Path.cwd())) + "/")
     return text
 
