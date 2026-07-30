@@ -2,7 +2,7 @@
 name: system-architect
 description: System Architect - Pattern validation, architectural decisions, conflict
   prevention
-model: opus
+model: swe-1.7-medium
 allowed-tools:
 - edit
 - exec

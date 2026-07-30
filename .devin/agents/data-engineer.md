@@ -1,7 +1,7 @@
 ---
 name: data-engineer
 description: Data Engineer - Database schema changes and migrations
-model: opus
+model: swe-1.7-medium
 allowed-tools:
 - edit
 - exec

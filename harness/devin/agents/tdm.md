@@ -2,7 +2,7 @@
 name: tdm
 description: Technical Delivery Manager - Orchestrates agents, manages blockers, updates
   Linear
-model: opus
+model: swe-1.7-medium
 allowed-tools:
 - exec
 - mcp_call_tool
