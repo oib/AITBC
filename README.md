@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/python-3.13-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Poetry](https://img.shields.io/badge/packaging-poetry-1a1a1a?logo=python)](https://python-poetry.org/)
-[![Version](https://img.shields.io/badge/version-v0.20.3-blue?style=flat-square)]()
+[![Version](https://img.shields.io/badge/version-v0.20.4-blue?style=flat-square)]()
 
 > **Decentralized marketplace for AI compute, powered by PoA consensus, agents, and verifiable task execution.**
 
