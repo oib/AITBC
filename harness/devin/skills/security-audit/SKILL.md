@@ -6,6 +6,7 @@ description: RLS validation, security audits, OWASP compliance, and vulnerabilit
 triggers:
 - user
 - model
+context: fork
 allowed-tools:
 - exec
 - glob
