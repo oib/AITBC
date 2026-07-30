@@ -125,7 +125,23 @@ def rewrite_tree(dst: Path, skills_dst: Path, agents_dst: Path) -> None:
             rewrite_text_file(child, skills_dst, agents_dst)
 
 
-def mirror_skills(skills_src: Path, skills_dst: Path, agents_dst: Path):
+def _passthrough_copy(src: Path, dst: Path, skills_dst: Path, agents_dst: Path) -> None:
+    """Copy a file as-is, only rewriting harness/.claude path references.
+
+    Used for the harness/devin -> .devin leg where the source is already in
+    Devin format and re-parsing frontmatter would be a lossy double conversion.
+    """
+    try:
+        text = src.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        import shutil
+        shutil.copy2(src, dst)
+        return
+    new_text = rewrite_body(text, skills_dst, agents_dst)
+    dst.write_text(new_text, encoding="utf-8")
+
+
+def mirror_skills(skills_src: Path, skills_dst: Path, agents_dst: Path, passthrough: bool = False):
     skills_dst.mkdir(parents=True, exist_ok=True)
     for src_dir in skills_src.iterdir():
         if not src_dir.is_dir():
@@ -148,6 +164,11 @@ def mirror_skills(skills_src: Path, skills_dst: Path, agents_dst: Path):
             else:
                 import shutil
                 shutil.copy2(child, dst_dir / child.name)
+
+        if passthrough:
+            _passthrough_copy(src_skill, dst_dir / "SKILL.md", skills_dst, agents_dst)
+            rewrite_tree(dst_dir, skills_dst, agents_dst)
+            continue
 
         text = src_skill.read_text(encoding="utf-8")
         fm, body = split_frontmatter(text)
@@ -189,10 +210,22 @@ def mirror_skills(skills_src: Path, skills_dst: Path, agents_dst: Path):
         rewrite_tree(dst_dir, skills_dst, agents_dst)
 
 
-def mirror_agents(agents_src: Path, agents_dst: Path, skills_dst: Path):
+def mirror_agents(agents_src: Path, agents_dst: Path, skills_dst: Path, passthrough: bool = False):
     agents_dst.mkdir(parents=True, exist_ok=True)
     for src_file in agents_src.iterdir():
-        if not src_file.is_file() or not src_file.suffix == ".md" or src_file.name.startswith("_") or src_file.name.lower().startswith("readme"):
+        if not src_file.is_file() or not src_file.suffix == ".md" or src_file.name.lower().startswith("readme"):
+            continue
+
+        # S5: Guard underscore-prefixed shared fragments. In conversion mode
+        # they are passthrough-copied (path rewrite only, no frontmatter
+        # conversion) since they are shared fragments, not spawnable roles.
+        # In passthrough mode they are also copied.
+        if src_file.name.startswith("_"):
+            _passthrough_copy(src_file, agents_dst / src_file.name, skills_dst, agents_dst)
+            continue
+
+        if passthrough:
+            _passthrough_copy(src_file, agents_dst / src_file.name, skills_dst, agents_dst)
             continue
 
         text = src_file.read_text(encoding="utf-8")
@@ -235,6 +268,127 @@ def _symlink_tree(link_dir: Path, target_dir: Path) -> None:
     link_dir.symlink_to(target_dir, target_is_directory=True)
 
 
+# --- S2: Semantic lint -------------------------------------------------------
+
+VALID_DEVIN_TOOLS = {
+    "read", "write", "edit", "multi_edit", "exec", "grep", "glob",
+    "skill", "todo_write", "web_search", "webfetch", "ask_user_question",
+    "run_subagent", "mcp_call_tool",
+}
+
+
+def _lint_frontmatter(path: Path, fm: dict, errors: list[str]) -> None:
+    """Validate a single file's frontmatter for Devin compatibility."""
+    rel = str(path)
+    # Check YAML was parsed (fm is a dict, not None).
+    if fm is None:
+        errors.append(f"{rel}: invalid or missing YAML frontmatter")
+        return
+    # Check tool names are in the Devin allowlist.
+    tools = fm.get("allowed-tools", [])
+    if isinstance(tools, list):
+        for t in tools:
+            if t not in VALID_DEVIN_TOOLS:
+                errors.append(f"{rel}: unknown Devin tool '{t}' in allowed-tools")
+    # Check model is not a Claude alias.
+    model = fm.get("model")
+    if model and re.fullmatch(r"claude-.*|opus|sonnet|codex|haiku", str(model), re.I):
+        errors.append(f"{rel}: model '{model}' is a Claude alias, not a Devin model")
+
+
+def lint_mirror(harness_devin: Path, live_devin: Path) -> int:
+    """Semantic lint: verify converter output is Devin-valid and lossless.
+
+    Checks:
+    1. All YAML frontmatter in SKILL.md and agent .md files parses correctly.
+    2. No Claude model aliases leaked into Devin files.
+    3. No unknown Devin tool names in allowed-tools.
+    4. subagent: true in harness/devin is preserved in .devin.
+    5. Skill tool present in Devin agents whose Claude source had Skill.
+    """
+    repo_root = Path(__file__).resolve().parent.parent
+    errors: list[str] = []
+
+    def _collect_lint_targets(root: Path) -> list[Path]:
+        """Collect SKILL.md files and agent .md files (not READMEs/references)."""
+        if not root.exists():
+            return []
+        targets = []
+        # SKILL.md files under skills/
+        skills_dir = root / "skills"
+        if skills_dir.exists():
+            for skill_dir in skills_dir.iterdir():
+                if skill_dir.is_dir():
+                    skill_md = skill_dir / "SKILL.md"
+                    if skill_md.exists():
+                        targets.append(skill_md)
+        # Agent .md files under agents/ (exclude _ prefixed and READMEs)
+        agents_dir = root / "agents"
+        if agents_dir.exists():
+            for md in agents_dir.glob("*.md"):
+                if md.name.lower().startswith("readme"):
+                    continue
+                targets.append(md)
+        return sorted(targets)
+
+    # 1-3: Lint SKILL.md and agent .md files in both trees.
+    for tree in (harness_devin, live_devin):
+        for md in _collect_lint_targets(tree):
+            try:
+                text = md.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, OSError):
+                continue
+            fm, _ = split_frontmatter(text)
+            _lint_frontmatter(md, fm, errors)
+
+    # 4: subagent preservation: harness/devin skills with subagent: true
+    #    must also have subagent: true in .devin.
+    harness_skills = harness_devin / "skills"
+    live_skills = live_devin / "skills"
+    if harness_skills.exists() and live_skills.exists():
+        for skill_dir in harness_skills.iterdir():
+            if not skill_dir.is_dir():
+                continue
+            src = skill_dir / "SKILL.md"
+            if not src.exists():
+                continue
+            fm, _ = split_frontmatter(src.read_text(encoding="utf-8"))
+            if fm and fm.get("subagent") is True:
+                live_skill = live_skills / skill_dir.name / "SKILL.md"
+                if live_skill.exists():
+                    live_fm, _ = split_frontmatter(live_skill.read_text(encoding="utf-8"))
+                    if not (live_fm and live_fm.get("subagent") is True):
+                        errors.append(
+                            f"{live_skill}: subagent: true lost (harness/devin has it)"
+                        )
+
+    # 5: Skill tool mapping — agents in harness/devin that list 'skill' should
+    #    keep it in .devin.
+    harness_agents = harness_devin / "agents"
+    live_agents = live_devin / "agents"
+    if harness_agents.exists() and live_agents.exists():
+        for agent_md in harness_agents.glob("*.md"):
+            if agent_md.name.startswith("_"):
+                continue
+            fm, _ = split_frontmatter(agent_md.read_text(encoding="utf-8"))
+            if fm and "skill" in (fm.get("allowed-tools") or []):
+                live_agent = live_agents / agent_md.name
+                if live_agent.exists():
+                    live_fm, _ = split_frontmatter(live_agent.read_text(encoding="utf-8"))
+                    if not (live_fm and "skill" in (live_fm.get("allowed-tools") or [])):
+                        errors.append(
+                            f"{live_agent}: 'skill' tool lost from allowed-tools"
+                        )
+
+    if errors:
+        print(f"Semantic lint found {len(errors)} issue(s):", file=sys.stderr)
+        for e in errors:
+            print(f"  {e}", file=sys.stderr)
+        return 1
+    print("Semantic lint: all checks passed.")
+    return 0
+
+
 def _diff_dirs(temp_dir: Path, real_dir: Path, allow_extras: bool) -> list[str]:
     """Run `diff -rq` and return the lines that represent real drift."""
     if not real_dir.exists():
@@ -258,7 +412,7 @@ def _diff_dirs(temp_dir: Path, real_dir: Path, allow_extras: bool) -> list[str]:
     return fails
 
 
-def check_mirror(skills_src: Path, agents_src: Path, skills_dst: Path, agents_dst: Path) -> int:
+def check_mirror(skills_src: Path, agents_src: Path, skills_dst: Path, agents_dst: Path, passthrough: bool = False) -> int:
     """Mirror to a temp tree and compare with the real destination.
 
     This lets `harness/devin` and `.devin` consumers be drift-guarded without
@@ -280,8 +434,8 @@ def check_mirror(skills_src: Path, agents_src: Path, skills_dst: Path, agents_ds
         old_cwd = os.getcwd()
         try:
             os.chdir(temp_root)
-            mirror_skills(skills_src, temp_root / skills_dst, temp_root / agents_dst)
-            mirror_agents(agents_src, temp_root / agents_dst, temp_root / skills_dst)
+            mirror_skills(skills_src, temp_root / skills_dst, temp_root / agents_dst, passthrough=passthrough)
+            mirror_agents(agents_src, temp_root / agents_dst, temp_root / skills_dst, passthrough=passthrough)
         finally:
             os.chdir(old_cwd)
 
@@ -309,6 +463,8 @@ def main(argv=None):
     parser.add_argument("--skills-dst", default=".devin/skills", type=Path)
     parser.add_argument("--agents-dst", default=".devin/agents", type=Path)
     parser.add_argument("--check", action="store_true", help="Compare only; do not write the live destination.")
+    parser.add_argument("--passthrough", action="store_true", help="Copy source as-is (Devin-to-Devin) instead of converting Claude frontmatter.")
+    parser.add_argument("--lint", action="store_true", help="Run semantic lint on harness/devin/ and .devin/ (YAML validity, tool/model validity, subagent/skill preservation).")
     args = parser.parse_args(argv)
 
     repo_root = Path(__file__).resolve().parent.parent
@@ -319,13 +475,16 @@ def main(argv=None):
         print(f"Agents source missing: {args.agents_src}", file=sys.stderr)
         return 1
 
+    if args.lint:
+        return lint_mirror(repo_root / "harness/devin", repo_root / ".devin")
+
     if args.check:
-        return check_mirror(args.skills_src, args.agents_src, args.skills_dst, args.agents_dst)
+        return check_mirror(args.skills_src, args.agents_src, args.skills_dst, args.agents_dst, passthrough=args.passthrough)
 
     # Absolute paths make relative rewrites stable inside rewrite_body.
     os.chdir(Path.cwd())
-    mirror_skills(args.skills_src.resolve(), args.skills_dst.resolve(), args.agents_dst.resolve())
-    mirror_agents(args.agents_src.resolve(), args.agents_dst.resolve(), args.skills_dst.resolve())
+    mirror_skills(args.skills_src.resolve(), args.skills_dst.resolve(), args.agents_dst.resolve(), passthrough=args.passthrough)
+    mirror_agents(args.agents_src.resolve(), args.agents_dst.resolve(), args.skills_dst.resolve(), passthrough=args.passthrough)
     print(f"Mirrored Devin skills to {args.skills_dst} and agents to {args.agents_dst}")
     return 0
 
