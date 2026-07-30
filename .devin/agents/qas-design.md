@@ -2,7 +2,7 @@
 name: qas-design
 description: QAS-Design Agent - Independent UI/UX design testing against design acceptance
   criteria
-model: sonnet
+model: swe-1.7-medium
 allowed-tools:
 - exec
 - grep
