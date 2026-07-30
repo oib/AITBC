@@ -31,10 +31,13 @@ v0.20.0 is a harness-only release that makes the SAFe Agentic Workflow (SAW) v2.
   - `context`/`agent` are normalized; `agent: Explore` becomes `subagent: true`
   - `model` is mapped to Devin model names
   - References to `harness/claude/skills/`, `.claude/skills/`, `harness/claude/agents/`, and `.claude/agents/` are rewritten to `.devin/skills/` and `.devin/agents/`
-- Generated trees:
+- Shipped harness source:
+  - `harness/devin/skills/` — 32 skills
+  - `harness/devin/agents/` — 18 agent profiles
+- Generated consumer trees:
   - `.devin/skills/` — 32 skills
   - `.devin/agents/` — 18 agent profiles
-- New `scripts/sync-devin-harness.sh` regenerates `.devin/` from the live `.claude/` tree (or the shipped `harness/claude/` tree when `.claude/` has not yet been generated).
+- New `scripts/sync-devin-harness.sh` regenerates `.devin/` from the shipped `harness/devin/` tree (falling back to `harness/claude/` or `.claude/` when no Devin harness has been published).
 
 ### 3. Orchestrator default provider detection
 
@@ -52,6 +55,8 @@ v0.20.0 is a harness-only release that makes the SAFe Agentic Workflow (SAW) v2.
 - `scripts/mirror-claude-to-devin.py`
 - `scripts/sync-devin-harness.sh`
 - `scripts/orchestrator.sh`
+- `harness/devin/skills/*`
+- `harness/devin/agents/*`
 - `.devin/skills/*`
 - `.devin/agents/*`
 - `docs/releases/v0.20.0/AGENTS.md`
