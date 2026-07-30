@@ -1,7 +1,7 @@
 ---
 name: data-provisioning-eng
 description: Data Provisioning Engineer - Data pipelines and ETL processes
-model: claude-opus-4.6
+model: opus
 allowed-tools:
 - edit
 - exec
