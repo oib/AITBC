@@ -1,0 +1,8 @@
+version: 1
+project_owned_exceptions:
+  - path: .agentic/upgrade/ownership.local.yaml
+    kind: structural
+  - path: .claude/skills/bandit-triage/
+    kind: structural
+  - path: .claude/skills/dependency-cve-remediation/
+    kind: structural
