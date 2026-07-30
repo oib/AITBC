@@ -11,6 +11,7 @@ allowed-tools:
 - glob
 - grep
 - read
+subagent: true
 ---
 
 # Bandit Triage

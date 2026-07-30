@@ -4,12 +4,17 @@ allowed-tools: [Read, Write, Edit, Bash, Grep, Glob]
 argument-hint: "<version> (e.g., v2.17.0)"
 ---
 
-> **📋 TEMPLATE**: This command uses `main`, `AITBC`, `{{GIT_HOST_CLI}}`, and
-> `{{GIT_REMOTE_SLUG}}` placeholders. Replace with your project values. `{{GIT_HOST_CLI}}` is your
-> host's PR CLI — this repository is on **Bitbucket**, so it is `bb` (Bitbucket has no GitHub-style
-> release-object CLI; see Phase 4). A GitHub-hosted fork sets it to `gh` and can additionally run
-> `gh release create` in Phase 4.4. `{{GIT_REMOTE_SLUG}}` is the `workspace/repo` (Bitbucket) or
-> `org/repo` (GitHub) slug.
+> **⚠️ Scope note (AITBC).** This command manages the **SAW harness's own self-hosting version
+> pin** (`.governor-tag`, `harness/claude/**` → generated `.claude/`, `~/boilerplate-stable`) — it is
+> the harness maintainer's release process for publishing a new harness version upstream. It is
+> **NOT** AITBC's own application release process. AITBC's own versions (`v0.x.y`, see
+> `docs/CHANGELOG.md` and the existing `v0.*` tags) are cut through AITBC's own separate release
+> workflow, unrelated to this file. Only run this command if you deliberately intend to publish a
+> new SAW-harness release from this fork upstream; otherwise **Phases 3 and 4.3 do not apply** to
+> normal AITBC development and should be skipped.
+>
+> Resolved for this repo: host is **GitHub**, so `{{GIT_HOST_CLI}}` → `gh` and `{{GIT_REMOTE_SLUG}}`
+> → `oib/AITBC` throughout.
 
 You are executing a full version release. Follow each phase in order. **Do not skip phases.** Report status after each.
 
@@ -41,7 +46,7 @@ git log --oneline origin/main..HEAD  # Must be empty (in sync)
 ### 1.2 Check Open PRs
 
 ```bash
-{{GIT_HOST_CLI}} pr list                 # bb pr list (Bitbucket) / gh pr list --state open (GitHub)
+gh pr list --state open
 ```
 
 **Decision point**: If there are open PRs intended for this release, merge them first (Phase 2). If none, skip to Phase 3.
@@ -51,7 +56,7 @@ git log --oneline origin/main..HEAD  # Must be empty (in sync)
 For each open PR to merge, inspect its build/merge state:
 
 ```bash
-{{GIT_HOST_CLI}} pr view <NUMBER>        # bb pr view <NUMBER> shows status + merge checks
+gh pr view <NUMBER>                      # shows status + merge checks
 ```
 
 **BLOCKER**: All checks must pass. Do not merge PRs with failing required checks.
@@ -65,8 +70,7 @@ For each open PR to merge, inspect its build/merge state:
 For each PR (merge in order — base dependencies first):
 
 ```bash
-{{GIT_HOST_CLI}} pr merge <NUMBER>       # bb pr merge <NUMBER> (Bitbucket)
-                                         # gh pr merge <NUMBER> --squash --subject "..." (GitHub)
+gh pr merge <NUMBER> --squash --subject "..."
 ```
 
 Use your host's squash/rebase option to keep history clean; match the commit-message convention
@@ -314,7 +318,7 @@ git log --oneline origin/<SECONDARY_BRANCH>..origin/main  # Should be empty
 
 ```bash
 git tag -l 'v*' | sort -V | tail -5
-{{GIT_HOST_CLI}} pr list                 # sanity: confirm no release PRs left open
+gh pr list --state open                  # sanity: confirm no release PRs left open
 ```
 
 ---
@@ -347,7 +351,7 @@ echo "=== Local ===" && git branch -v
 echo "=== Tags ===" && git tag -l 'v*' | sort -V | tail -5
 echo "=== Governor pin ===" && cat .governor-tag         # must equal <version> (self-hosting)
 echo "=== Drift guard ===" && git checkout <version> && bash scripts/generate-governor.sh --check
-echo "=== Open PRs ===" && {{GIT_HOST_CLI}} pr list
+echo "=== Open PRs ===" && gh pr list --state open
 ```
 
 ---
@@ -379,11 +383,15 @@ Or flag blockers:
 - Local working tree is clean on main
 - Zero open PRs intended for this release
 
-## Customization Guide
+## Resolved Values (this repo)
 
-| Placeholder | Description | Example |
-|-------------|-------------|---------|
-| `main` | Primary branch name | `main`, `template` |
-| `AITBC` | Linear/Jira ticket prefix | `WOR`, `SCA`, `ABS` |
-| `{{GIT_HOST_CLI}}` | Host PR CLI | `bb` (Bitbucket), `gh` (GitHub) |
-| `{{GIT_REMOTE_SLUG}}` | Remote repo slug | `workspace/repo`, `org/repo` |
+| Value | Resolution |
+|-------|------------|
+| Primary branch | `main` |
+| Ticket prefix | `AITBC` |
+| Host PR CLI | `gh` (GitHub) |
+| Remote repo slug | `oib/AITBC` |
+
+> Reminder: per the scope note at the top of this file, this is the SAW harness's own
+> self-hosting release process. AITBC's own `v0.x.y` application releases go through a separate,
+> existing process (`docs/CHANGELOG.md`, the current `v0.*` tags) — not this command.
