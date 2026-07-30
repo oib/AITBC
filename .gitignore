@@ -638,3 +638,6 @@ work/scratch/
 # Graphify local extraction cache (graph.json + report are committed)
 graphify-out/cache/
 graphify-out/graph.html
+
+# Orchestrator / tracker scratch state under work/
+work/
