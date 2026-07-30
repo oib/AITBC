@@ -11,7 +11,6 @@ allowed-tools:
 - glob
 - grep
 - read
-subagent: true
 ---
 
 # Security Audit Skill
