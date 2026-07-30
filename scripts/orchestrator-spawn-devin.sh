@@ -228,9 +228,98 @@ if [ -n "$WALL_SEC" ] && [ "$WALL_SEC" -gt 0 ] 2>/dev/null; then
         TIMEOUT_BIN="gtimeout"
     fi
 fi
-if [ -n "$TIMEOUT_BIN" ]; then
-    # -s TERM: ask politely; -k 60: SIGKILL if still alive 60s after TERM.
-    exec "$TIMEOUT_BIN" -s TERM -k 60 "$WALL_SEC" "$DEVIN_BIN" "$@"
-else
-    exec "$DEVIN_BIN" "$@"
+
+# --- SQLite database-lock resilience ----------------------------------------
+# Devin CLI stores sessions in a SQLite database (~/.local/share/devin/cli/
+# sessions.db) with WAL mode and a 1-second busy_timeout. When the orchestrator
+# spawns sessions in rapid succession, the previous session's WAL checkpoint
+# or connection cleanup can exceed the 1-second busy_timeout, causing:
+#   Error: database is locked
+# This section:
+#   1. Cleans up stale session lock files from crashed sessions
+#   2. Waits for any in-flight Devin process to release the DB
+#   3. Retries the spawn with exponential backoff on "database is locked" errors
+DEVIN_DB="${HOME}/.local/share/devin/cli/sessions.db"
+DEVIN_LOCK_DIR="${HOME}/.local/share/devin/cli/session_locks"
+DB_LOCK_MAX_RETRIES="${ORCH_DEVIN_DB_LOCK_RETRIES:-3}"
+DB_LOCK_BASE_DELAY="${ORCH_DEVIN_DB_LOCK_BASE_DELAY:-2}"   # seconds
+DB_LOCK_MAX_DELAY="${ORCH_DEVIN_DB_LOCK_MAX_DELAY:-15}"    # seconds cap
+
+# Clean up stale session lock files from crashed sessions.
+# These accumulate when Devin CLI crashes (e.g. timeout kill) and never cleans up.
+if [ -d "$DEVIN_LOCK_DIR" ]; then
+    find "$DEVIN_LOCK_DIR" -name "*.lock" -mmin +5 -delete 2>/dev/null || true
 fi
+
+# Wait for any in-flight Devin process to release the DB connection.
+# A short delay lets the previous session's SQLite WAL checkpoint complete.
+_devin_pids=$(pgrep -f "devin.*-p.*--prompt-file" 2>/dev/null || true)
+if [ -n "$_devin_pids" ]; then
+    # Another Devin print-mode session is running — wait briefly for it to finish.
+    _wait_sec=0
+    while [ -n "$_devin_pids" ] && [ "$_wait_sec" -lt "$DB_LOCK_MAX_DELAY" ]; do
+        sleep 1
+        _wait_sec=$((_wait_sec + 1))
+        _devin_pids=$(pgrep -f "devin.*-p.*--prompt-file" 2>/dev/null || true)
+    done
+    # Brief settle delay for WAL checkpoint after the process exits.
+    sleep 1
+fi
+
+# Retry wrapper: re-invoke devin with exponential backoff on "database is locked".
+# The orchestrator's own retry (do_spawn_action) is coarser (1 retry, no backoff);
+# this inner retry handles the specific SQLite contention case with finer granularity.
+# stderr is captured to a temp file so we can inspect it for the lock error without
+# corrupting the stdout handoff record that the orchestrator parses.
+_db_lock_errfile="$(mktemp "$TMPDIR/devin-db-lock.XXXXXX")"
+trap 'rm -f "$PACKET_TEMP" "$PROMPT_FILE" "$_db_lock_errfile"' EXIT
+_db_lock_attempt=0
+while true; do
+    # Disable set -e for the devin invocation so we can capture the exit code
+    # and retry on "database is locked" errors.
+    if [ -n "$TIMEOUT_BIN" ]; then
+        # -s TERM: ask politely; -k 60: SIGKILL if still alive 60s after TERM.
+        set +e
+        "$TIMEOUT_BIN" -s TERM -k 60 "$WALL_SEC" "$DEVIN_BIN" "$@" 2>"$_db_lock_errfile"
+        _rc=$?
+        set -e
+    else
+        set +e
+        "$DEVIN_BIN" "$@" 2>"$_db_lock_errfile"
+        _rc=$?
+        set -e
+    fi
+
+    # Check if the failure was due to "database is locked"
+    if [ "$_rc" -ne 0 ] && [ "$_db_lock_attempt" -lt "$DB_LOCK_MAX_RETRIES" ]; then
+        if grep -q "database is locked" "$_db_lock_errfile" 2>/dev/null; then
+            _delay=$(( DB_LOCK_BASE_DELAY * (2 ** _db_lock_attempt) ))
+            [ "$_delay" -gt "$DB_LOCK_MAX_DELAY" ] && _delay="$DB_LOCK_MAX_DELAY"
+            echo "spawn-devin: database is locked (attempt $((_db_lock_attempt + 1))/$((_db_lock_attempt + 1 + DB_LOCK_MAX_RETRIES))); retrying in ${_delay}s..." >&2
+            cat "$_db_lock_errfile" >&2
+            sleep "$_delay"
+            _db_lock_attempt=$((_db_lock_attempt + 1))
+            # Clean up any stale locks before retrying
+            if [ -d "$DEVIN_LOCK_DIR" ]; then
+                find "$DEVIN_LOCK_DIR" -name "*.lock" -mmin +1 -delete 2>/dev/null || true
+            fi
+            # Wait for any other in-flight Devin process before retrying
+            _devin_pids=$(pgrep -f "devin.*-p.*--prompt-file" 2>/dev/null || true)
+            if [ -n "$_devin_pids" ]; then
+                _wait_sec=0
+                while [ -n "$_devin_pids" ] && [ "$_wait_sec" -lt "$DB_LOCK_MAX_DELAY" ]; do
+                    sleep 1
+                    _wait_sec=$((_wait_sec + 1))
+                    _devin_pids=$(pgrep -f "devin.*-p.*--prompt-file" 2>/dev/null || true)
+                done
+                sleep 1
+            fi
+            : > "$_db_lock_errfile"
+            continue
+        fi
+    fi
+
+    # Flush captured stderr to our stderr before exiting
+    cat "$_db_lock_errfile" >&2 2>/dev/null || true
+    exit "$_rc"
+done
