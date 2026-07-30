@@ -26,15 +26,28 @@ assert_true() {
 
 echo -e "${CYAN}=== Devin harness drift guard ===${NC}\n"
 
-if bash "$CHECK" >/tmp/devin_drift_check.$$ 2>&1; then
+OUTFILE="/tmp/devin_drift_check.$$"
+if bash "$CHECK" >"$OUTFILE" 2>&1; then
     assert_true 0 "harness/devin/ and .devin/ match their generators"
     echo "    No drift."
+    # Verify the semantic lint ran
+    if grep -q "Semantic lint: all checks passed" "$OUTFILE"; then
+        assert_true 0 "semantic lint passed"
+    else
+        assert_true 1 "semantic lint passed"
+    fi
+    # Verify .claude vs harness/claude check ran
+    if grep -q ".claude/ matches harness/claude/" "$OUTFILE"; then
+        assert_true 0 ".claude/ vs harness/claude/ parity checked"
+    else
+        assert_true 1 ".claude/ vs harness/claude/ parity checked"
+    fi
 else
     assert_true 1 "harness/devin/ and .devin/ match their generators"
     echo "    Drift output:"
-    sed 's/^/      /' /tmp/devin_drift_check.$$
+    sed 's/^/      /' "$OUTFILE"
 fi
-rm -f /tmp/devin_drift_check.$$
+rm -f "$OUTFILE"
 
 echo ""
 echo -e "${CYAN}=== Test Results ===${NC}"
