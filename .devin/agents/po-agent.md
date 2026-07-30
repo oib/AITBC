@@ -2,7 +2,7 @@
 name: po-agent
 description: PO-Agent - Story acceptance, autonomous backlog prioritization, epic
   completion, orchestration triggers
-model: opus
+model: swe-1.7-medium
 allowed-tools:
 - exec
 - glob

@@ -1,7 +1,7 @@
 ---
 name: tech-writer
 description: Technical Writer - Documentation creation using documentation patterns
-model: sonnet
+model: swe-1.7-medium
 allowed-tools:
 - edit
 - exec

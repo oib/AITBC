@@ -2,7 +2,7 @@
 name: ui-ux-design
 description: UI/UX Design Agent - Schema-conformant design creation and design acceptance
   criteria
-model: sonnet
+model: swe-1.7-medium
 allowed-tools:
 - edit
 - exec
