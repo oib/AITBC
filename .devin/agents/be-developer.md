@@ -1,7 +1,7 @@
 ---
 name: be-developer
 description: Backend Developer - API implementation using patterns, RLS enforcement
-model: opus
+model: swe-1.7-medium
 allowed-tools:
 - edit
 - exec
