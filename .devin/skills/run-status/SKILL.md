@@ -9,10 +9,10 @@ triggers:
 - user
 - model
 context: fork
-subagent: true
 allowed-tools:
 - exec
 - read
+subagent: true
 ---
 
 # Run-Status Skill
