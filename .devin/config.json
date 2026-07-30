@@ -1,0 +1,12 @@
+{
+  "read_config_from": {
+    "claude": true,
+    "cursor": true,
+    "windsurf": true
+  },
+  "permissions": {
+    "allow": [],
+    "deny": [],
+    "ask": []
+  }
+}
