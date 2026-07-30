@@ -10309,10 +10309,12 @@ run_spawn_cmd() {
     [ "$_reap_children" = "1" ] && set -m 2>/dev/null || true
     if [ -f "$cmd" ]; then
         ORCH_ROLE="$role" ORCH_TICKET="$ticket" ORCH_PACKET_FILE="$pf" ORCH_MAX_TURNS="$turns" ORCH_MODEL="$model" ORCH_TOOLS="$tools_env" \
+        ORCH_AGENT_TIMEOUT="$timeout_s" ORCH_AGENT_MAX_LIFETIME="$max_lifetime" \
         ORCH_RESUME_SESSION_ID="${SPAWN_RESUME_ID:-}" ORCH_SPAWN_CWD="$seat_cwd" \
             "${_scrub[@]}" bash "${words[@]}" "$role" "$ticket" "$pf" < "$pf" > "$outfile" 2> "$errfile" &
     else
         ORCH_ROLE="$role" ORCH_TICKET="$ticket" ORCH_PACKET_FILE="$pf" ORCH_MAX_TURNS="$turns" ORCH_MODEL="$model" ORCH_TOOLS="$tools_env" \
+        ORCH_AGENT_TIMEOUT="$timeout_s" ORCH_AGENT_MAX_LIFETIME="$max_lifetime" \
         ORCH_RESUME_SESSION_ID="${SPAWN_RESUME_ID:-}" ORCH_SPAWN_CWD="$seat_cwd" \
             "${_scrub[@]}" "${words[@]}" "$role" "$ticket" "$pf" < "$pf" > "$outfile" 2> "$errfile" &
     fi
