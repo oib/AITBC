@@ -16,6 +16,39 @@ MIRROR="$REPO_ROOT/scripts/mirror-claude-to-devin.py"
 PASS=0; FAIL=0; TOTAL=0
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
 
+# Track all backup files for cleanup on EXIT/ERR
+BACKUP_DIR="/tmp/devin-test-backups-$$"
+mkdir -p "$BACKUP_DIR"
+BACKUP_FILES=()
+
+# Cleanup trap — always restore from backups and remove temp files
+cleanup() {
+    local rc=$?
+    for entry in "${BACKUP_FILES[@]}"; do
+        local backup="${entry%%|*}"
+        local target="${entry##*|}"
+        if [ -f "$backup" ] && [ -n "$target" ] && [ -f "$target" ]; then
+            cp "$backup" "$target" 2>/dev/null || true
+        fi
+    done
+    rm -rf "$BACKUP_DIR" 2>/dev/null || true
+    # Remove any leftover temp files
+    rm -f /tmp/devin_drift_check.$$ /tmp/devin_neg_backup_$$ 2>/dev/null || true
+    exit $rc
+}
+trap cleanup EXIT
+
+# Helper: backup a file before mutating it (only first time — preserves original)
+backup_file() {
+    local target="$1"
+    local backup="$BACKUP_DIR/$(echo "$target" | tr '/' '_')"
+    # Only backup if not already backed up (preserve original state)
+    if [ ! -f "$backup" ]; then
+        cp "$target" "$backup"
+        BACKUP_FILES+=("$backup|$target")
+    fi
+}
+
 assert_true() {
     local code="$1"; local label="$2"
     TOTAL=$((TOTAL + 1))
@@ -68,19 +101,14 @@ echo -e "${CYAN}=== Negative tests (drift injection) ===${NC}\n"
 
 # Test 1: Inject content drift in a .devin skill
 TARGET_SKILL="$REPO_ROOT/.devin/skills/safe-workflow/SKILL.md"
-BACKUP="/tmp/devin_neg_backup_$$"
 if [ -f "$TARGET_SKILL" ]; then
-    cp "$TARGET_SKILL" "$BACKUP"
-    # Append a drift marker to the body
+    backup_file "$TARGET_SKILL"
     echo "<!-- DRIFT INJECTION -->" >> "$TARGET_SKILL"
     if bash "$CHECK" >/dev/null 2>&1; then
         assert_false 0 "content drift in .devin skill detected"
     else
         assert_false 1 "content drift in .devin skill detected"
     fi
-    # Restore
-    cp "$BACKUP" "$TARGET_SKILL"
-    rm -f "$BACKUP"
 else
     assert_true 0 "content drift test skipped (no safe-workflow skill)"
 fi
@@ -88,8 +116,7 @@ fi
 # Test 2: Inject unknown tool in a .devin agent
 TARGET_AGENT="$REPO_ROOT/.devin/agents/rte.md"
 if [ -f "$TARGET_AGENT" ]; then
-    cp "$TARGET_AGENT" "$BACKUP"
-    # Add an invalid tool to allowed-tools
+    backup_file "$TARGET_AGENT"
     sed -i 's/allowed-tools:/allowed-tools:\n  - bogus_invalid_tool/' "$TARGET_AGENT" 2>/dev/null || \
         sed -i '' 's/allowed-tools:/allowed-tools:\
   - bogus_invalid_tool/' "$TARGET_AGENT"
@@ -98,17 +125,13 @@ if [ -f "$TARGET_AGENT" ]; then
     else
         assert_false 1 "unknown tool in .devin agent detected by lint"
     fi
-    # Restore
-    cp "$BACKUP" "$TARGET_AGENT"
-    rm -f "$BACKUP"
 else
     assert_true 0 "unknown tool test skipped (no rte agent)"
 fi
 
 # Test 3: Inject Claude model alias in a .devin agent
 if [ -f "$TARGET_AGENT" ]; then
-    cp "$TARGET_AGENT" "$BACKUP"
-    # Replace model with a Claude alias
+    backup_file "$TARGET_AGENT"
     sed -i 's/^model: .*/model: opus/' "$TARGET_AGENT" 2>/dev/null || \
         sed -i '' 's/^model:.*/model: opus/' "$TARGET_AGENT"
     if python3 "$MIRROR" --lint >/dev/null 2>&1; then
@@ -116,9 +139,6 @@ if [ -f "$TARGET_AGENT" ]; then
     else
         assert_false 1 "Claude model alias in .devin agent detected by lint"
     fi
-    # Restore
-    cp "$BACKUP" "$TARGET_AGENT"
-    rm -f "$BACKUP"
 else
     assert_true 0 "Claude model alias test skipped (no rte agent)"
 fi
@@ -126,8 +146,7 @@ fi
 # Test 4: Remove subagent flag from a .devin skill that should have it
 TARGET_SUBAGENT_SKILL="$REPO_ROOT/.devin/skills/pattern-discovery/SKILL.md"
 if [ -f "$TARGET_SUBAGENT_SKILL" ]; then
-    cp "$TARGET_SUBAGENT_SKILL" "$BACKUP"
-    # Remove the subagent: true line
+    backup_file "$TARGET_SUBAGENT_SKILL"
     sed -i '/^subagent: true/d' "$TARGET_SUBAGENT_SKILL" 2>/dev/null || \
         sed -i '' '/^subagent: true/d' "$TARGET_SUBAGENT_SKILL"
     if python3 "$MIRROR" --lint >/dev/null 2>&1; then
@@ -135,9 +154,6 @@ if [ -f "$TARGET_SUBAGENT_SKILL" ]; then
     else
         assert_false 1 "lost subagent flag in .devin skill detected by lint"
     fi
-    # Restore
-    cp "$BACKUP" "$TARGET_SUBAGENT_SKILL"
-    rm -f "$BACKUP"
 else
     assert_true 0 "subagent flag test skipped (no pattern-discovery skill)"
 fi
@@ -145,6 +161,16 @@ fi
 # Verify restoration: final happy-path check
 echo ""
 echo -e "${CYAN}=== Post-restoration verification ===${NC}\n"
+# Explicitly restore all backups before checking (the EXIT trap is a safety net)
+for entry in "${BACKUP_FILES[@]}"; do
+    backup="${entry%%|*}"
+    target="${entry##*|}"
+    if [ -f "$backup" ] && [ -n "$target" ]; then
+        cp "$backup" "$target" 2>/dev/null || true
+    fi
+done
+BACKUP_FILES=()  # clear so the trap doesn't re-restore
+
 if bash "$CHECK" >/dev/null 2>&1; then
     assert_true 0 "all trees restored — drift guard passes again"
 else

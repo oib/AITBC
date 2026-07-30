@@ -23,6 +23,23 @@ from pathlib import Path
 
 import yaml
 
+# Security: maximum frontmatter size to prevent YAML billion-laughs DoS.
+MAX_FRONTMATTER_BYTES = 256 * 1024  # 256 KiB — generous for any valid skill/agent
+
+
+def _assert_no_symlink(path: Path) -> None:
+    """Security guard: raise if `path` is a symlink.
+
+    Prevents destination-symlink traversal attacks where a malicious .devin/
+    tree contains symlinks pointing outside the target directory.
+    """
+    try:
+        st = path.lstat()
+    except FileNotFoundError:
+        return  # target doesn't exist yet — safe
+    if st.st_mode & 0o170000 == 0o120000:  # S_ISLNK
+        raise OSError(f"refusing to write through symlink: {path}")
+
 
 TOOL_MAP = {
     "Read": "read",
@@ -63,15 +80,16 @@ def normalize_tool(name: str) -> str | None:
         return "mcp_call_tool"
     # Handle PascalCase MCP tool names (e.g. McpCallTool -> mcp_call_tool)
     lower = name.lower()
-    if lower in TOOL_MAP.values():
+    if lower in TOOL_MAP.values() or lower in VALID_DEVIN_TOOLS:
         return lower
-    if re.fullmatch(r"[a-z_]+", lower):
+    if re.fullmatch(r"[a-z_]+", lower) and lower in VALID_DEVIN_TOOLS:
         return lower
-    # Convert PascalCase to snake_case before falling back
+    # Convert PascalCase to snake_case before checking allowlist
     snake = re.sub(r"([A-Z])", r"_\1", name).lower().lstrip("_")
     if snake in TOOL_MAP.values() or snake in VALID_DEVIN_TOOLS:
         return snake
-    return lower
+    # Reject unknown tool names instead of passing them through
+    return None
 
 
 def convert_model(model: str | None) -> str | None:
@@ -91,15 +109,23 @@ def convert_model(model: str | None) -> str | None:
 
 
 def split_frontmatter(text: str):
-    """Return (frontmatter dict or None, body)."""
+    """Return (frontmatter dict or None, body).
+
+    Security: bounds frontmatter size and catches RecursionError/MemoryError
+    to prevent YAML billion-laughs DoS attacks.
+    """
     if not text.startswith("---"):
         return None, text
     parts = text.split("---", 2)
     if len(parts) < 3:
         return None, text
+    fm_text = parts[1]
+    # Reject oversized frontmatter (DoS guard)
+    if len(fm_text.encode("utf-8")) > MAX_FRONTMATTER_BYTES:
+        return None, text
     try:
-        fm = yaml.safe_load(parts[1]) or {}
-    except yaml.YAMLError:
+        fm = yaml.safe_load(fm_text) or {}
+    except (yaml.YAMLError, RecursionError, MemoryError):
         fm = {}
     return fm, parts[2].lstrip("\n")
 
@@ -146,7 +172,10 @@ def _passthrough_copy(src: Path, dst: Path, skills_dst: Path, agents_dst: Path) 
 
     Used for the harness/devin -> .devin leg where the source is already in
     Devin format and re-parsing frontmatter would be a lossy double conversion.
+
+    Security: refuses to write through symlinks (destination-symlink traversal).
     """
+    _assert_no_symlink(dst)
     try:
         text = src.read_text(encoding="utf-8")
     except (UnicodeDecodeError, OSError):
@@ -167,19 +196,22 @@ def mirror_skills(skills_src: Path, skills_dst: Path, agents_dst: Path, passthro
             continue
 
         dst_dir = skills_dst / src_dir.name
+        _assert_no_symlink(dst_dir)
         dst_dir.mkdir(parents=True, exist_ok=True)
 
         # Copy all non-SKILL.md files in the skill directory (scripts, references).
         for child in src_dir.iterdir():
             if child.name == "SKILL.md":
                 continue
+            dst_child = dst_dir / child.name
             if child.is_dir():
-                # shallow copy of subdirs
+                _assert_no_symlink(dst_child)
                 import shutil
-                shutil.copytree(child, dst_dir / child.name, dirs_exist_ok=True)
+                shutil.copytree(child, dst_child, dirs_exist_ok=True)
             else:
+                _assert_no_symlink(dst_child)
                 import shutil
-                shutil.copy2(child, dst_dir / child.name)
+                shutil.copy2(child, dst_child)
 
         if passthrough:
             _passthrough_copy(src_skill, dst_dir / "SKILL.md", skills_dst, agents_dst)
@@ -226,7 +258,9 @@ def mirror_skills(skills_src: Path, skills_dst: Path, agents_dst: Path, passthro
             new_fm["subagent"] = True
 
         body = rewrite_body(body, skills_dst, agents_dst)
-        (dst_dir / "SKILL.md").write_text(dump_frontmatter(new_fm) + "\n" + body, encoding="utf-8")
+        skill_md = dst_dir / "SKILL.md"
+        _assert_no_symlink(skill_md)
+        skill_md.write_text(dump_frontmatter(new_fm) + "\n" + body, encoding="utf-8")
 
         # Rewrite references in any companion files (scripts, references).
         rewrite_tree(dst_dir, skills_dst, agents_dst)
@@ -276,11 +310,28 @@ def mirror_agents(agents_src: Path, agents_dst: Path, skills_dst: Path, passthro
             new_fm["allowed-tools"] = devin_tools
 
         body = rewrite_body(body, skills_dst, agents_dst)
-        (agents_dst / src_file.name).write_text(dump_frontmatter(new_fm) + "\n" + body, encoding="utf-8")
+        agent_md = agents_dst / src_file.name
+        _assert_no_symlink(agent_md)
+        agent_md.write_text(dump_frontmatter(new_fm) + "\n" + body, encoding="utf-8")
 
 
-def _symlink_tree(link_dir: Path, target_dir: Path) -> None:
-    """Ensure link_dir is a symlink to target_dir, creating parents as needed."""
+def _symlink_tree(link_dir: Path, target_dir: Path, temp_root: Path | None = None) -> None:
+    """Ensure link_dir is a symlink to target_dir, creating parents as needed.
+
+    Security: if temp_root is provided, validates that link_dir is a strict
+    child of temp_root (no absolute paths or .. traversal).
+    """
+    if temp_root is not None:
+        # Reject absolute paths and .. traversal
+        link_resolved = Path(os.path.normpath(link_dir))
+        temp_resolved = Path(os.path.normpath(temp_root))
+        try:
+            rel = link_resolved.relative_to(temp_resolved)
+        except ValueError:
+            raise OSError(
+                f"refusing to create symlink outside temp root: {link_dir} "
+                f"is not under {temp_root}"
+            )
     link_dir.parent.mkdir(parents=True, exist_ok=True)
     if link_dir.is_symlink():
         if link_dir.readlink() == target_dir:
@@ -444,7 +495,7 @@ def check_mirror(skills_src: Path, agents_src: Path, skills_dst: Path, agents_ds
         temp_root = Path(tmp)
         for src in (skills_src, agents_src):
             src_parent = src.parent
-            _symlink_tree(temp_root / src_parent, repo_root / src_parent)
+            _symlink_tree(temp_root / src_parent, repo_root / src_parent, temp_root=temp_root)
 
         # Destination directories are materialized inside the temp tree.
         for dst in (skills_dst, agents_dst):
