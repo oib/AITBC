@@ -2,7 +2,7 @@
 name: issue-enrichment
 description: Issue Enrichment Agent - Dedup gate, agent-ready ticket formatting, guardrail
   annotation, tracker operations
-model: sonnet
+model: swe-1.7-medium
 allowed-tools:
 - exec
 - glob

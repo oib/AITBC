@@ -1,7 +1,7 @@
 ---
 name: fe-developer
 description: Frontend Developer - UI implementation using patterns
-model: opus
+model: swe-1.7-medium
 allowed-tools:
 - edit
 - exec
