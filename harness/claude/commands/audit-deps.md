@@ -3,92 +3,76 @@ description: Run comprehensive dependency audit
 allowed-tools: [Read, Write, Edit, Bash, Grep, Glob]
 ---
 
-> **📋 TEMPLATE**: This command is a template. See "Customization Guide" below to adapt for your infrastructure.
-
-Execute dependency audit to identify optimization opportunities and security issues.
+Execute a dependency audit for AITBC's Python/Poetry stack to identify security issues and
+optimization opportunities. Findings become tickets in the active tracker
+(`scripts/gitea-tracker.sh` against the real Gitea issue tracker — this repo's `neutral` profile
+has `task-tracking.provider: gitea`; see `profiles/neutral/profile.yaml` and
+`docs/sop/ORCHESTRATOR_SOP.md`'s "Gitea Tracker Adapter" section for the required
+`GITEA_SITE`/`GITEA_TOKEN`/`GITEA_OWNER`/`GITEA_REPO` env vars), not Linear/Jira/mock.
 
 ## Audit Workflow
 
 ### 1. Security Audit
 
-Check for vulnerabilities:
+Check for known vulnerabilities in installed dependencies (already in `pyproject.toml` as dev
+dependencies — `pip-audit`, `safety`; run inside the project venv):
 
 ```bash
-yarn audit
+./venv/bin/python -m pip_audit
+./venv/bin/python -m safety check --full-report
 ```
 
 Report:
 
 - Critical/High severity issues
-- Packages with known vulnerabilities
+- Packages with known CVEs
 - Recommended upgrades
 
-### 2. Bundle Analysis
-
-Run bundle analyzer:
+### 2. Static Security Lint (bandit)
 
 ```bash
-ANALYZE=true yarn build
+./venv/bin/python -m bandit -r aitbc/ apps/ cli/ -ll
 ```
 
 Identify:
 
-- Largest packages
-- Duplicate dependencies
-- Unused code opportunities
+- Hardcoded secrets/credentials
+- Insecure crypto/subprocess/eval usage
+- Other OWASP-adjacent findings ranked by severity
 
-### 3. Unused Dependencies
-
-Run depcheck:
+### 3. Unused / Missing Dependencies
 
 ```bash
-npx depcheck
+./venv/bin/python -m pip list --not-required   # top-level installs not pulled in by anything else
+poetry show --outdated                          # per-package outdated report (if using poetry)
 ```
 
-Find:
-
-- Unused dependencies (can remove)
-- Missing dependencies (should add)
-- Dependencies only in devDependencies
+Cross-check against actual imports (`grep -rn '^import \|^from ' aitbc/ apps/*/src`) to spot
+declared-but-unused packages, and anything imported but missing from `pyproject.toml`.
 
 ### 4. Outdated Packages
 
-Check for updates:
-
 ```bash
-yarn outdated
+poetry show --outdated
 ```
 
 Report:
 
 - Packages with newer versions
 - Major vs minor vs patch updates
-- Breaking change risks
+- Breaking change risk (read the changelog for majors)
 
-### 5. Specific Checks
+### 5. App-Specific Node/JS Dependencies (optional, per-app)
 
-**Icon Libraries** (common bloat):
-
-```bash
-find . -name "*.tsx" -o -name "*.ts" | xargs grep -h "from.*icons" | sort -u
-```
-
-Analyze:
-
-- Which icon libraries used
-- Usage patterns
-- Consolidation opportunities
-
-**Large Packages**:
+A few AITBC components have their own `package.json` (e.g. `apps/explorer-web`,
+`contracts/` Solidity tooling). Audit those independently, per app, only if in scope:
 
 ```bash
-du -sh node_modules/* | sort -hr | head -20
+cd apps/explorer-web && npm audit
 ```
 
-Identify:
-
-- Top 20 largest packages
-- Unnecessary large dependencies
+Do not run this against the repo root — there is no root-level `package.json`; Python is the
+primary stack (see `CLAUDE.md` Technology Stack).
 
 ### 6. Create Audit Report
 
@@ -99,40 +83,28 @@ Document findings in `docs/agent-outputs/technical-docs/dependency-audit-report-
 
 **Date**: {current-date}
 **Scope**: Full dependency audit
-**Tools**: yarn audit, depcheck, bundle-analyzer
+**Tools**: pip-audit, safety, bandit, poetry show --outdated
 
 ## Executive Summary
 
 - Total packages: {count}
 - Security issues: {count} ({severity})
-- Optimization potential: {size} MB
+- Optimization potential: {summary}
 - Quick wins: {count} tickets
 
 ## Findings
 
-### 1. Security Issues
+### 1. Security Issues (pip-audit / safety / bandit)
 
-- List critical/high issues
-- Recommended actions
+- List critical/high issues with CVE ids
+- Recommended actions (upgrade to version X, remove package Y, etc.)
 
-### 2. Bundle Size Optimization
+### 2. Unused / Missing Dependencies
 
-- Current size: {size}
-- Bloat identified: {list}
-- Savings potential: {size}
+- Unused (declared, not imported): {list}
+- Missing (imported, not declared): {list}
 
-### 3. Unused Dependencies
-
-- Runtime: {list}
-- DevDependencies: {list}
-- Action: Can remove
-
-### 4. Missing Dependencies
-
-- {list}
-- Action: Should add
-
-### 5. Outdated Packages
+### 3. Outdated Packages
 
 - Major updates: {list}
 - Minor updates: {list}
@@ -143,46 +115,44 @@ Document findings in `docs/agent-outputs/technical-docs/dependency-audit-report-
 ### Immediate Actions (High Priority)
 
 1. {action}
-2. {action}
 
 ### Short-term (Medium Priority)
 
 1. {action}
-2. {action}
 
 ### Long-term (Low Priority)
 
 1. {action}
-2. {action}
 
 ## Implementation Tickets
-
-Create Linear tickets for each actionable item:
 
 - AITBC-{number}: {description}
 ```
 
-### 7. Create Linear Tickets
+### 7. Create Tracker Tickets for Actionable Findings
 
-For each significant finding:
+For each significant finding, create a real Gitea issue via the tracker adapter (requires
+`GITEA_SITE`/`GITEA_TOKEN`/`GITEA_OWNER`/`GITEA_REPO` set; run `scripts/gitea-tracker.sh setup`
+once beforehand if labels aren't already provisioned):
 
-- Create ticket with clear scope
-- Add to backlog
-- Prioritize based on impact
-- Estimate effort
-
-Use MCP:
-
-```text
-mcp__linear-mcp__create_issue
+```bash
+scripts/gitea-tracker.sh create --type ticket --title "<short description>" \
+    --priority <hotfix|high|normal|low> \
+    --body-file <path-to-finding-writeup.md>
 ```
+
+- Scope each ticket narrowly (one CVE/package/finding per ticket where practical)
+- Priority: `hotfix` for actively-exploited CVEs, `high` for critical/high-severity findings,
+  `normal`/`low` for outdated-package hygiene
+- Leave tickets in `Backlog` for PO-Agent/human prioritization — do not self-assign `Ready for
+  Development`
 
 ## Audit Frequency
 
 Run audits:
 
-- **Monthly**: Quick security check
-- **Quarterly**: Full dependency audit
+- **Monthly**: Quick security check (`pip-audit` + `safety`)
+- **Quarterly**: Full dependency audit (all steps above)
 - **Before major releases**: Comprehensive audit
 - **After dependency upgrades**: Validation audit
 
@@ -194,12 +164,6 @@ Run audits:
 - ✅ Team has clear prioritization
 - ✅ Baseline established for next audit
 
-This provides systematic approach to dependency management and optimization.
-
-## Customization Guide
-
-To adapt this command for your infrastructure, replace these placeholders:
-
-| Placeholder       | Description               | Example               |
-| ----------------- | ------------------------- | --------------------- |
-| `AITBC` | Your Linear ticket prefix | `WOR`, `PROJ`, `TASK` |
+This provides a systematic approach to dependency management and optimization, scoped to
+AITBC's actual Python/Poetry monorepo (plus optional per-app Node audits) and its actual
+Gitea Issues ticketing, rather than the generic yarn/Linear template this command started from.
