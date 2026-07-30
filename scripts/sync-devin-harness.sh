@@ -35,21 +35,38 @@ AGENTS_SRC="${DEVIN_AGENTS_SRC:-harness/devin/agents}"
 [ -d "$SKILLS_SRC" ] || { echo "sync-devin: missing skills source $SKILLS_SRC" >&2; exit 1; }
 [ -d "$AGENTS_SRC" ] || { echo "sync-devin: missing agents source $AGENTS_SRC" >&2; exit 1; }
 
-# Determine if the source is already Devin-format (harness/devin) or
-# Claude-format (harness/claude / .claude). Devin-format sources use
-# passthrough mode to avoid lossy double-conversion.
-PASSTHROUGH=""
-if [ -f "$SKILLS_SRC" ] || echo "$SKILLS_SRC" | grep -q "harness/devin\|\.devin"; then
-    PASSTHROUGH="--passthrough"
-elif [ -d "$SKILLS_SRC" ]; then
-    # Heuristic: if any SKILL.md in the source has 'triggers:' it's already Devin-format.
-    if grep -rl '^triggers:' "$SKILLS_SRC" >/dev/null 2>&1; then
-        PASSTHROUGH="--passthrough"
+# Detect whether each source is already Devin-format (use passthrough) or
+# Claude-format (use conversion). The decision is made independently for
+# skills and agents to handle mixed-format scenarios.
+#
+# A source is considered Devin-format if:
+#   - Its path contains harness/devin or .devin, OR
+#   - Any SKILL.md / agent .md in it has 'triggers:' frontmatter (Devin-specific)
+_detect_devin_format() {
+    local src_dir="$1"
+    local marker="$2"  # SKILL.md for skills, *.md for agents
+    if echo "$src_dir" | grep -q "harness/devin\|\.devin"; then
+        echo "--passthrough"
+        return
     fi
+    if grep -rl '^triggers:' "$src_dir" --include="$marker" >/dev/null 2>&1; then
+        echo "--passthrough"
+        return
+    fi
+    echo ""
+}
+
+SKILLS_PT="$(_detect_devin_format "$SKILLS_SRC" "SKILL.md")"
+AGENTS_PT="$(_detect_devin_format "$AGENTS_SRC" "*.md")"
+
+# In practice both sources are always the same format. If they disagree, warn
+# and use the skills detection (the more common case).
+if [ "$SKILLS_PT" != "$AGENTS_PT" ]; then
+    echo "sync-devin: WARNING — skills and agents sources have different formats; using skills detection" >&2
 fi
 
 exec python3 "$SCRIPT_DIR/mirror-claude-to-devin.py" \
-    $PASSTHROUGH \
+    $SKILLS_PT \
     --skills-src "$SKILLS_SRC" \
     --agents-src "$AGENTS_SRC" \
     --skills-dst .devin/skills \
