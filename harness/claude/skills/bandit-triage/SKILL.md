@@ -1,16 +1,11 @@
 ---
 name: bandit-triage
-description: Triage a bandit rule category (B608, B108, B104, B310, B113, ...) to
-  zero unreviewed findings. Use when acting on a bandit scan, resolving a security-audit
-  finding category, or adding a
-triggers:
-- user
-- model
-allowed-tools:
-- exec
-- glob
-- grep
-- read
+description: Triage a bandit rule category (B608, B108, B104, B310, B113, ...) to zero
+  unreviewed findings. Use when acting on a bandit scan, resolving a security-audit
+  finding category, or adding a # nosec annotation.
+context: fork
+agent: Explore
+allowed-tools: Read, Bash, Grep, Glob
 ---
 
 # Bandit Triage

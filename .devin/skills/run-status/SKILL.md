@@ -11,7 +11,6 @@ triggers:
 allowed-tools:
 - exec
 - read
-subagent: true
 ---
 
 # Run-Status Skill
