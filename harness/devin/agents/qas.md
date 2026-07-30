@@ -7,6 +7,7 @@ allowed-tools:
 - grep
 - mcp_call_tool
 - read
+- skill
 ---
 
 # Quality Assurance Specialist (QAS)

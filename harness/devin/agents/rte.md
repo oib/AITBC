@@ -6,6 +6,7 @@ allowed-tools:
 - exec
 - grep
 - read
+- skill
 ---
 
 # Release Train Engineer (RTE)

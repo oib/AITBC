@@ -6,6 +6,7 @@ description: Triage a bandit rule category (B608, B108, B104, B310, B113, ...) t
 triggers:
 - user
 - model
+context: fork
 allowed-tools:
 - exec
 - glob
