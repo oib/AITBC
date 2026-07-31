@@ -12,6 +12,7 @@
 4. Confirmed the reviewed-file checklist covers 23 `apps/` service roots.
 5. Spot-checked all 5 cited findings at their file paths and line numbers.
 6. Confirmed `detail=str(e)` appears 303 times in `apps/` and RLS helpers appear 0 times in `apps/`.
+7. Re-verified the report is committed on `AITBC-AUDIT-3-auto` and pushed to the active remote before the In Test gate.
 
 ## Spot-check results
 
