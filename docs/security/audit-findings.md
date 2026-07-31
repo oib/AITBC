@@ -689,6 +689,102 @@ The staking contract has no rate limiting on:
 **Status:**
 Resolved - comprehensive rate limiting with daily limits, cooldowns, and max stakes per user
 
+## Shared Core Audit Findings (AITBC-AUDIT-2)
+
+Read-only audit of the `aitbc/` shared core completed on 2026-07-30. It reviewed
+204 tracked `.py` files across all top-level `aitbc/` subpackages, confirmed
+`python3 -m compileall -q aitbc/` as clean, and made no source changes.
+
+### Reviewed Top-Level Subpackages
+
+The checklist below covers every top-level module or package under `aitbc/`:
+
+agent_bridge, agent_economics, agent_memory, aitbc_logging.py, alerting.py,
+async_helpers, async_tasks.py, auth, blockchain, bridge, caching, compliance,
+compute, config, constants.py, crypto, database, data_layer, db, ethereum_rpc.py,
+exceptions.py, fusion, gossip, governance, health_checks.py, http_client,
+__init__.py, log_utils, marketplace, middleware, models, network, oracles,
+parallel, profiling.py, rate_limiting.py, rewards, risk, security,
+security_headers.py, settlement, sync, tee, trading, training_setup, types,
+_version.py, utils, wallet.
+
+### Findings
+
+#### Finding: Float used for oracle price
+
+- **Severity:** High
+- **Component:** `aitbc/oracles/price_oracle.py`
+- **Location:** line 76
+- **Status:** Open
+
+`PriceResult.price` is typed as `float`. Per the project `Decimal` policy for
+money and price data, financial fields should use `Decimal`.
+
+**Suggested fix:** change `price: float` to `price: Decimal` and parse Chainlink
+answers into `Decimal` values.
+
+---
+
+#### Finding: Float used for trade price fields
+
+- **Severity:** High
+- **Component:** `aitbc/trading/types.py`
+- **Location:** lines 116, 160, 177, 199
+- **Status:** Open
+
+The `price` fields at the listed line numbers are `float` in the trading
+dataclasses. This contradicts the `Decimal` policy for price data.
+
+**Suggested fix:** replace `price: float = 0.0` with `price: Decimal = Decimal("0")`
+in the four dataclasses.
+
+---
+
+#### Finding: Float used for amount validation
+
+- **Severity:** High
+- **Component:** `aitbc/security/validators.py`
+- **Location:** line 259
+- **Status:** Open
+
+`validate_amount()` casts the input to `float` before comparing it to zero.
+Amounts should be validated as `Decimal` to avoid floating-point rounding.
+
+**Suggested fix:** use `Decimal(str(amount))` instead of `float(amount)` and
+compare with `Decimal("0")`.
+
+---
+
+#### Finding: Float used for transaction amount bounds and mocks
+
+- **Severity:** Medium
+- **Component:** `aitbc/data_layer/data_layer.py`
+- **Location:** lines 53-54, 114
+- **Status:** Open
+
+`get_transactions` accepts `amount_min` and `amount_max` as `float`, and the mock
+generator stores `"amount": 1.0`. These should use `Decimal`.
+
+**Suggested fix:** change `amount_min: float | None` and `amount_max: float | None`
+to `Decimal | None`, and set the mock `amount` to `Decimal("1.0")`.
+
+---
+
+#### Finding: Broad exception handler masks subprocess errors
+
+- **Severity:** Medium
+- **Component:** `aitbc/training_setup/stage_runner.py`
+- **Location:** line 107
+- **Status:** Open
+
+The sleep command handler uses `except Exception as e:`, which catches more than
+the intended `ValueError` from `int(...)` and any `OSError` from `time.sleep`.
+
+**Suggested fix:** narrow the `except` to `except (ValueError, TypeError):` so
+unrelated exceptions are not silently swallowed.
+
+---
+
 ## Severity Classification
 
 - **Critical:** Immediate risk of fund loss, data breach, or system compromise
