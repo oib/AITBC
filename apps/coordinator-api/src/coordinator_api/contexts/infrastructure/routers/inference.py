@@ -10,6 +10,7 @@ Provides:
 
 from __future__ import annotations
 
+import logging
 import json
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -90,10 +91,14 @@ async def generate(request: Request, req: InferenceRequest) -> dict[str, Any]:
         }
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="Ollama service not available") from None
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=502, detail=f"Ollama error: {e.response.text}") from None
+    except httpx.HTTPStatusError:
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=502, detail="Internal server error") from None
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Inference failed: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
 
 
 @router.post("/generate/stream", summary="Generate text (streaming)")
@@ -188,8 +193,10 @@ async def batch_generate(request: Request, req: BatchInferenceRequest) -> dict[s
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="Ollama service not available") from None
     except Exception as e:
+        logging.getLogger(__name__).exception("Unhandled exception")
+
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Batch inference failed: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error"
         ) from e
 
 
@@ -234,10 +241,14 @@ async def pull_model(request: Request, model_name: str) -> dict[str, Any]:
         }
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="Ollama service not available") from None
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=502, detail=f"Ollama pull error: {e.response.text}") from None
+    except httpx.HTTPStatusError:
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=502, detail="Internal server error") from None
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to pull model: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
 
 
 @router.get("/health", summary="Health check")

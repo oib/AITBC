@@ -74,7 +74,9 @@ async def export_search(format: str = "csv", type: str = "transactions", data: s
             raise HTTPException(status_code=400, detail="Unsupported format")
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}") from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/api/export/blocks")
@@ -117,4 +119,6 @@ async def export_blocks(format: str = "csv") -> StreamingResponse:
             raise HTTPException(status_code=400, detail="Unsupported format")
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}") from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

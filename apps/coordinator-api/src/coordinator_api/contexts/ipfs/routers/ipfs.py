@@ -1,5 +1,6 @@
 """IPFS storage router for Coordinator API"""
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -95,7 +96,9 @@ async def upload_memory(request: IPFSUploadRequest) -> dict[str, Any]:
             "filecoin_deal": result.filecoin_deal,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/retrieve")
@@ -127,7 +130,9 @@ async def retrieve_memory(request: IPFSRetrieveRequest) -> dict[str, Any]:
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Retrieve failed: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/batch-upload")
@@ -160,7 +165,9 @@ async def batch_upload_memories(request: IPFSBatchUploadRequest) -> dict[str, An
             ],
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Batch upload failed: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/create-deal")
@@ -185,7 +192,9 @@ async def create_filecoin_deal(request: IPFSCreateDealRequest) -> dict[str, Any]
             "duration": request.duration,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Deal creation failed: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/list/{agent_id}")
@@ -207,7 +216,9 @@ async def list_agent_memories(
             "cids": cids,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"List failed: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.delete("/delete")
@@ -230,7 +241,9 @@ async def delete_memory(request: IPFSDeleteRequest) -> dict[str, Any]:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/stats")
@@ -247,7 +260,9 @@ async def get_storage_stats() -> dict[str, Any]:
             "stats": stats,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/health")

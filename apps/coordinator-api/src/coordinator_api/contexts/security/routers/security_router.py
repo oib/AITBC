@@ -54,7 +54,9 @@ async def create_security_policy(
         return policy
     except Exception as e:
         logger.error("Failed to create security policy: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/scan", response_model=dict[str, Any])
@@ -74,7 +76,9 @@ async def scan_security(
         }
     except Exception as e:
         logger.error("Failed to perform security scan: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/policies", response_model=list[AgentSecurityPolicy])
@@ -84,7 +88,9 @@ async def list_security_policies() -> list[AgentSecurityPolicy]:
         return []
     except Exception as e:
         logger.error("Failed to list security policies: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/policies/{policy_id}", response_model=AgentSecurityPolicy)
@@ -105,7 +111,9 @@ async def get_security_policy(
         raise
     except Exception as e:
         logger.error("Failed to get security policy: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.put("/policies/{policy_id}", response_model=AgentSecurityPolicy)
@@ -142,7 +150,9 @@ async def update_security_policy(
         raise
     except Exception as e:
         logger.error("Failed to update security policy: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.delete("/policies/{policy_id}")
@@ -174,7 +184,9 @@ async def delete_security_policy(
         raise
     except Exception as e:
         logger.error("Failed to delete security policy: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/validate-workflow/{workflow_id}")
@@ -198,7 +210,9 @@ async def validate_workflow_security(
         raise
     except Exception as e:
         logger.error("Failed to validate workflow security: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/audit-logs", response_model=list[AgentAuditLog])
@@ -245,7 +259,9 @@ async def list_audit_logs(
         return audit_logs  # type: ignore[return-value]
     except Exception as e:
         logger.error("Failed to list audit logs: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/audit-logs/{audit_id}", response_model=AgentAuditLog)
@@ -266,7 +282,9 @@ async def get_audit_log(
         raise
     except Exception as e:
         logger.error("Failed to get audit log: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/trust-scores")
@@ -301,7 +319,9 @@ async def list_trust_scores(
         return trust_scores  # type: ignore[return-value]
     except Exception as e:
         logger.error("Failed to list trust scores: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/trust-scores/{entity_type}/{entity_id}", response_model=AgentTrustScore)
@@ -333,7 +353,9 @@ async def get_trust_score(
         raise
     except Exception as e:
         logger.error("Failed to get trust score: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/trust-scores/{entity_type}/{entity_id}/update")
@@ -379,7 +401,9 @@ async def update_trust_score(
         return trust_score
     except Exception as e:
         logger.error("Failed to update trust score: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/sandbox/{execution_id}/create")
@@ -416,7 +440,9 @@ async def create_sandbox(
         return sandbox  # type: ignore[return-value]
     except Exception as e:
         logger.error("Failed to create sandbox: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/sandbox/{execution_id}/monitor")
@@ -434,7 +460,9 @@ async def monitor_sandbox(
         return monitoring_data
     except Exception as e:
         logger.error("Failed to monitor sandbox: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/sandbox/{execution_id}/cleanup")
@@ -460,7 +488,9 @@ async def cleanup_sandbox(
         return {"success": success, "message": "Sandbox cleanup completed"}
     except Exception as e:
         logger.error("Failed to cleanup sandbox: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/executions/{execution_id}/security-monitor")
@@ -479,7 +509,9 @@ async def monitor_execution_security(
         return monitoring_result
     except Exception as e:
         logger.error("Failed to monitor execution security: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/security-dashboard")
@@ -537,7 +569,9 @@ async def get_security_dashboard(
         }
     except Exception as e:
         logger.error("Failed to get security dashboard: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/security-stats")
@@ -603,7 +637,9 @@ async def get_security_statistics(
         }
     except Exception as e:
         logger.error("Failed to get security statistics: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 # ============================================================================
