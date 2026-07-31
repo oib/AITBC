@@ -3,6 +3,7 @@ Tests for island credentials utility functions
 """
 
 import json
+import os
 from unittest.mock import mock_open, patch
 
 import pytest
@@ -28,6 +29,8 @@ class TestLoadIslandCredentials:
     def test_load_credentials_success(self, mock_path, mock_file):
         """Test successful credentials loading"""
         mock_path.return_value.exists.return_value = True
+        mock_path.return_value.stat.return_value.st_uid = os.geteuid()
+        mock_path.return_value.stat.return_value.st_mode = 0o100600
         credentials_data = {
             "island_id": "island123",
             "island_name": "Test Island",
@@ -56,6 +59,8 @@ class TestLoadIslandCredentials:
     def test_load_credentials_invalid_json(self, mock_path, mock_file):
         """Test loading credentials with invalid JSON"""
         mock_path.return_value.exists.return_value = True
+        mock_path.return_value.stat.return_value.st_uid = os.geteuid()
+        mock_path.return_value.stat.return_value.st_mode = 0o100600
         mock_file.return_value.read.return_value = "invalid json"
 
         with pytest.raises(json.JSONDecodeError):
@@ -66,6 +71,8 @@ class TestLoadIslandCredentials:
     def test_load_credentials_missing_field(self, mock_path, mock_file):
         """Test loading credentials with missing required field"""
         mock_path.return_value.exists.return_value = True
+        mock_path.return_value.stat.return_value.st_uid = os.geteuid()
+        mock_path.return_value.stat.return_value.st_mode = 0o100600
         credentials_data = {
             "island_id": "island123",
             "island_name": "Test Island",
