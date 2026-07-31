@@ -42,7 +42,9 @@ async def create_escrow_route(request: Request, escrow_data: dict[str, Any]) -> 
         raise
     except Exception as e:
         _logger.error("Create escrow failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Create escrow failed: {e}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{escrow_id}/lock", summary="Lock escrow funds")
@@ -60,7 +62,9 @@ async def lock_escrow_route(escrow_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Lock escrow failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Lock escrow failed: {e}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{escrow_id}/verify", summary="Verify lock proof")
@@ -78,7 +82,9 @@ async def verify_lock_route(escrow_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Verify lock failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Verify lock failed: {e}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{escrow_id}/execute", summary="Execute trade on destination")
@@ -96,7 +102,9 @@ async def execute_trade_route(escrow_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Execute trade failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Execute trade failed: {e}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{escrow_id}/settle", summary="Settle escrow with secret")
@@ -120,7 +128,9 @@ async def settle_escrow_route(escrow_id: str, body: dict[str, Any]) -> dict[str,
         raise
     except Exception as e:
         _logger.error("Settle escrow failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Settle escrow failed: {e}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{escrow_id}/refund", summary="Refund escrow")
@@ -138,7 +148,9 @@ async def refund_escrow_route(escrow_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Refund escrow failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Refund escrow failed: {e}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/{escrow_id}", summary="Get escrow details")
@@ -159,7 +171,9 @@ async def get_escrow_route(escrow_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Get escrow failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Get escrow failed: {e}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/{escrow_id}/status", summary="Get escrow status")
@@ -178,7 +192,9 @@ async def get_escrow_status_route(escrow_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Get escrow status failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Get escrow status failed: {e}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/{escrow_id}/proofs", summary="Get proof chain")
@@ -197,7 +213,9 @@ async def get_proof_chain_route(escrow_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Get proof chain failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Get proof chain failed: {e}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{escrow_id}/extend-timeout", summary="Extend escrow timeout")
@@ -221,7 +239,9 @@ async def extend_timeout_route(escrow_id: str, body: dict[str, Any]) -> dict[str
         raise
     except Exception as e:
         _logger.error("Extend timeout failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Extend timeout failed: {e}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{escrow_id}/dispute", summary="File a dispute for an escrow")
@@ -251,7 +271,9 @@ async def file_escrow_dispute_route(escrow_id: str, body: dict[str, Any]) -> dic
         raise
     except Exception as e:
         _logger.error("File dispute failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"File dispute failed: {e}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{escrow_id}/resolve", summary="Resolve a dispute")
@@ -286,4 +308,6 @@ async def resolve_escrow_dispute_route(escrow_id: str, body: dict[str, Any]) -> 
         raise
     except Exception as e:
         _logger.error("Resolve dispute failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Resolve dispute failed: {e}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

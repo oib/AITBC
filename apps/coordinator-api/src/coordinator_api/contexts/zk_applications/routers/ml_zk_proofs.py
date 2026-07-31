@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -31,7 +32,9 @@ async def prove_ml_training(request: Request, proof_request: dict[str, Any]) -> 
             "circuit_type": "ml_training",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/verify/training")
@@ -51,7 +54,9 @@ async def verify_ml_training(request: Request, verification_request: dict[str, A
             "privacy_preserved": verification_result.get("privacy_preserved", False),
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/prove/modular")
@@ -75,7 +80,9 @@ async def prove_modular_ml(request: Request, proof_request: dict[str, Any]) -> d
             "optimization_level": "phase3_optimized",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/verify/inference")
@@ -95,7 +102,9 @@ async def verify_ml_inference(request: Request, verification_request: dict[str, 
             "privacy_preserved": verification_result["privacy_preserved"],
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/circuits")

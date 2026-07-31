@@ -315,6 +315,10 @@ async def analytics_overview(period: str = "24h") -> dict[str, Any]:
                         detail=f"Failed to fetch analytics from blockchain RPC: {response.text}",
                     )
     except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}") from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=503, detail="Internal server error") from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Analytics failed: {str(e)}") from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

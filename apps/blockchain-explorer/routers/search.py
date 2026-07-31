@@ -70,9 +70,13 @@ async def search_transactions(
                         detail=f"Failed to fetch transactions from blockchain RPC: {response.text}",
                     )
     except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}") from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=503, detail="Internal server error") from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}") from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/api/search/blocks")
@@ -121,6 +125,10 @@ async def search_blocks(
                         status_code=response.status_code, detail=f"Failed to fetch blocks from blockchain RPC: {response.text}"
                     )
     except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}") from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=503, detail="Internal server error") from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}") from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

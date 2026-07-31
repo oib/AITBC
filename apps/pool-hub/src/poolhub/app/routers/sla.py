@@ -101,7 +101,9 @@ async def get_miner_sla_metrics(
         return metrics  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error getting SLA metrics for miner %s: %s", miner_id, e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/metrics", response_model=list[SLAMetricResponse])
@@ -114,7 +116,9 @@ async def get_all_sla_metrics(
         return metrics  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error getting SLA metrics: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/violations", response_model=list[SLAViolationResponse])
@@ -130,7 +134,9 @@ async def get_sla_violations(
         return violations  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error getting SLA violations: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/metrics/collect")
@@ -141,7 +147,9 @@ async def collect_sla_metrics(sla_collector: Annotated[SLACollector, Depends(get
         return results
     except Exception as e:
         logger.error("Error collecting SLA metrics: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/capacity/snapshots", response_model=list[CapacitySnapshotResponse])
@@ -157,7 +165,9 @@ async def get_capacity_snapshots(hours: int | None, db: Annotated[Session, Depen
         return snapshots  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error getting capacity snapshots: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/capacity/forecast")
@@ -177,7 +187,9 @@ async def get_capacity_forecast(
         }
     except Exception as e:
         logger.error("Error getting capacity forecast: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/capacity/recommendations")
@@ -200,7 +212,9 @@ async def get_scaling_recommendations(
         }
     except Exception as e:
         logger.error("Error getting scaling recommendations: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/capacity/alerts/configure")
@@ -210,7 +224,9 @@ async def configure_capacity_alerts(alert_config: dict[str, Any], db: Annotated[
         return {"status": "configured", "alert_config": alert_config, "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error("Error configuring capacity alerts: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/billing/usage")
@@ -225,7 +241,9 @@ async def get_billing_usage(
         return metrics
     except Exception as e:
         logger.error("Error getting billing usage: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/billing/sync")
@@ -245,7 +263,9 @@ async def sync_billing_usage(
         return result
     except Exception as e:
         logger.error("Error syncing billing usage: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/billing/usage/record")
@@ -265,7 +285,9 @@ async def record_usage(
         return result
     except Exception as e:
         logger.error("Error recording usage: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/billing/invoice/generate")
@@ -280,7 +302,9 @@ async def generate_invoice(
         return result
     except Exception as e:
         logger.error("Error generating invoice: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/status")
@@ -304,4 +328,6 @@ async def get_sla_status(db: Annotated[Session, Depends(get_db)]) -> dict[str, A
         }
     except Exception as e:
         logger.error("Error getting SLA status: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
