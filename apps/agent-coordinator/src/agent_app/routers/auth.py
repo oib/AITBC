@@ -86,7 +86,9 @@ async def login(request: Request, login_data: dict[str, str]) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error("Error during login: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/refresh")
@@ -105,7 +107,9 @@ async def refresh_token(request: Request, refresh_data: dict[str, str]) -> dict[
         raise
     except Exception as e:
         logger.error("Error refreshing token: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/validate")
@@ -124,7 +128,9 @@ async def validate_token(request: Request, validate_data: dict[str, str]) -> dic
         raise
     except Exception as e:
         logger.error("Error validating token: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/api-key/generate")
@@ -145,7 +151,9 @@ async def generate_api_key(
         raise
     except Exception as e:
         logger.error("Error generating API key: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/api-key/validate")
@@ -161,7 +169,9 @@ async def validate_api_key(request: Request, api_key: str) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error("Error validating API key: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.delete("/api-key/{api_key}")
@@ -179,4 +189,6 @@ async def revoke_api_key(
         raise
     except Exception as e:
         logger.error("Error revoking API key: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

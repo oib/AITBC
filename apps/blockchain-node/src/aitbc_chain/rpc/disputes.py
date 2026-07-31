@@ -55,7 +55,9 @@ async def file_dispute(
         raise
     except Exception as e:
         _logger.error("Error filing dispute: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to file dispute: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 async def submit_evidence(
@@ -82,7 +84,9 @@ async def submit_evidence(
         raise
     except Exception as e:
         _logger.error("Error submitting evidence: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to submit evidence: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 async def verify_evidence(
@@ -108,7 +112,9 @@ async def verify_evidence(
         raise
     except Exception as e:
         _logger.error("Error verifying evidence: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to verify evidence: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 async def submit_arbitration_vote(
@@ -133,7 +139,9 @@ async def submit_arbitration_vote(
         raise
     except Exception as e:
         _logger.error("Error submitting arbitration vote: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to submit vote: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 async def authorize_arbitrator(
@@ -158,7 +166,9 @@ async def authorize_arbitrator(
         raise
     except Exception as e:
         _logger.error("Error authorizing arbitrator: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to authorize arbitrator: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 async def get_active_disputes() -> dict[str, Any]:
@@ -175,7 +185,9 @@ async def get_active_disputes() -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Error getting active disputes: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to get active disputes: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 async def get_authorized_arbitrators() -> dict[str, Any]:
@@ -192,7 +204,9 @@ async def get_authorized_arbitrators() -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Error getting authorized arbitrators: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to get authorized arbitrators: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 async def get_arbitrator_disputes(arbitrator_address: str) -> dict[str, Any]:
@@ -209,7 +223,9 @@ async def get_arbitrator_disputes(arbitrator_address: str) -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Error getting arbitrator disputes: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to get arbitrator disputes: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 async def get_user_disputes(user_address: str) -> dict[str, Any]:
@@ -226,7 +242,9 @@ async def get_user_disputes(user_address: str) -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Error getting user disputes: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to get user disputes: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 async def get_dispute(dispute_id: int) -> GetDisputeResponse:
@@ -257,7 +275,9 @@ async def get_dispute(dispute_id: int) -> GetDisputeResponse:
         raise
     except Exception as e:
         _logger.error("Error getting dispute: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to get dispute: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 async def get_dispute_evidence(dispute_id: int) -> list[GetEvidenceResponse]:
@@ -288,7 +308,9 @@ async def get_dispute_evidence(dispute_id: int) -> list[GetEvidenceResponse]:
         raise
     except Exception as e:
         _logger.error("Error getting dispute evidence: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to get dispute evidence: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 async def get_arbitration_votes(dispute_id: int) -> list[GetArbitrationVotesResponse]:
@@ -305,4 +327,6 @@ async def get_arbitration_votes(dispute_id: int) -> list[GetArbitrationVotesResp
         raise
     except Exception as e:
         _logger.error("Error getting arbitration votes: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to get arbitration votes: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

@@ -85,7 +85,9 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> d
         raise
     except Exception as e:
         logger.error("Error sending encrypted message: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/inbox")
@@ -106,7 +108,9 @@ async def get_inbox(
         return {"agent_id": agent_id, "messages": messages, "count": len(messages), "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error("Error getting inbox: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/history")
@@ -144,7 +148,9 @@ async def get_message_history(
         raise
     except Exception as e:
         logger.error("Error retrieving message history: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/{agent_id}")
@@ -162,7 +168,9 @@ async def get_messages_for_agent(request: Request, agent_id: str) -> dict[str, A
         return {"agent_id": agent_id, "count": len(messages), "messages": messages, "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error("Error getting messages for agent %s: %s", agent_id, e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/discover")
@@ -198,7 +206,9 @@ async def discover_agents(
         raise
     except Exception as e:
         logger.error("Error discovering agents: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/subscribe")
@@ -222,7 +232,9 @@ async def subscribe_to_topic(request: Request, req: SubscribeRequest) -> dict[st
         }
     except Exception as e:
         logger.error("Error subscribing to topic: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/broadcast")
@@ -295,7 +307,9 @@ async def broadcast_message(request_http: Request, request: BroadcastRequest) ->
         raise
     except Exception as e:
         logger.error("Error broadcasting message: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/id/{message_id}")
@@ -313,7 +327,9 @@ async def get_message(request: Request, message_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error("Error retrieving message %s: %s", message_id, e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/load-balancer/stats")
@@ -327,7 +343,9 @@ async def get_load_balancer_stats(request: Request) -> dict[str, Any]:
         return {"status": "success", "stats": stats, "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error("Error getting load balancer stats: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/registry/stats")
@@ -341,7 +359,9 @@ async def get_registry_stats(request: Request) -> dict[str, Any]:
         return {"status": "success", "stats": stats, "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error("Error getting registry stats: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/agents/service/{service}")
@@ -361,7 +381,9 @@ async def get_agents_by_service(request: Request, service: str) -> dict[str, Any
         }
     except Exception as e:
         logger.error("Error getting agents by service: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/agents/capability/{capability}")
@@ -381,7 +403,9 @@ async def get_agents_by_capability(request: Request, capability: str) -> dict[st
         }
     except Exception as e:
         logger.error("Error getting agents by capability: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.put("/load-balancer/strategy")
@@ -408,7 +432,9 @@ async def set_load_balancing_strategy(
         raise
     except Exception as e:
         logger.error("Error setting load balancing strategy: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/peers/add")
@@ -437,7 +463,9 @@ async def add_peer(
         raise
     except Exception as e:
         logger.error("Error adding peer: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/peers/remove")
@@ -466,7 +494,9 @@ async def remove_peer(
         raise
     except Exception as e:
         logger.error("Error removing peer: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/peers/{agent_id}")
@@ -488,7 +518,9 @@ async def get_agent_peers(request: Request, agent_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error("Error retrieving peers for agent %s: %s", agent_id, e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/peers")
@@ -511,4 +543,6 @@ async def get_all_peers(request: Request) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error("Error retrieving all peer connections: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

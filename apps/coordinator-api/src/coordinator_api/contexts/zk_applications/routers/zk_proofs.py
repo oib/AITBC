@@ -9,6 +9,7 @@ Provides REST API endpoints for:
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -91,8 +92,10 @@ async def generate_proof(request: Request, req: GenerateProofRequest) -> ProofRe
     except HTTPException:
         raise
     except Exception as e:
+        logging.getLogger(__name__).exception("Unhandled exception")
+
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Proof generation error: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error"
         ) from e
 
 
@@ -126,7 +129,9 @@ async def verify_proof(request: Request, req: VerifyProofRequest) -> Verificatio
         )
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Verification error: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
 
 
 @router.get("/info", summary="Get circuit information")
@@ -140,8 +145,10 @@ async def get_circuit_info(request: Request) -> dict[str, Any]:
             "available_circuits": list(zk_service.available_circuits.keys()),
         }
     except Exception as e:
+        logging.getLogger(__name__).exception("Unhandled exception")
+
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get circuit info: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error"
         ) from e
 
 

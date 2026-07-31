@@ -191,6 +191,7 @@ async def create_performance_profile(
         )
     except Exception as e:
         logger.error("Error creating performance profile: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -210,6 +211,7 @@ async def get_performance_profile(
         raise
     except Exception as e:
         logger.error("Error getting performance profile for agent %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -237,6 +239,7 @@ async def update_performance_metrics(
         }
     except Exception as e:
         logger.error("Error updating performance metrics for agent %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -270,6 +273,7 @@ async def create_meta_learning_model(
         )
     except Exception as e:
         logger.error("Error creating meta-learning model: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -296,6 +300,7 @@ async def adapt_model_to_task(
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.error("Error adapting meta-learning model: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -328,6 +333,7 @@ async def allocate_resources(
         )
     except Exception as e:
         logger.error("Error allocating resources: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -360,6 +366,7 @@ async def optimize_performance(
         )
     except Exception as e:
         logger.error("Error optimizing performance: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -394,6 +401,7 @@ async def create_capability(
         )
     except Exception as e:
         logger.error("Error creating capability: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -423,6 +431,7 @@ async def list_agent_capabilities(
         ]
     except Exception as e:
         logger.error("Error listing capabilities for agent %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -438,4 +447,5 @@ async def get_performance_analytics(
         return analytics
     except Exception as e:
         logger.error("Error getting performance analytics for agent %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
