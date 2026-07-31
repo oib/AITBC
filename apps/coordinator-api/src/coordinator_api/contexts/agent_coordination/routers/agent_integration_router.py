@@ -85,7 +85,9 @@ async def list_deployment_configs(
         return user_configs
     except Exception as e:
         logger.error("Failed to list deployment configs: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/deployments/configs/{config_id}", response_model=AgentDeploymentConfig)
@@ -109,7 +111,9 @@ async def get_deployment_config(
         raise
     except Exception as e:
         logger.error("Failed to get deployment config: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/deployments/{config_id}/deploy")
@@ -139,7 +143,9 @@ async def deploy_workflow(
         raise
     except Exception as e:
         logger.error("Failed to deploy workflow: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/deployments/{config_id}/health")
@@ -165,7 +171,9 @@ async def get_deployment_health(
         raise
     except Exception as e:
         logger.error("Failed to get deployment health: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/deployments/{config_id}/scale")
@@ -195,7 +203,9 @@ async def scale_deployment(
         raise
     except Exception as e:
         logger.error("Failed to scale deployment: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/deployments/{config_id}/rollback")
@@ -222,7 +232,9 @@ async def rollback_deployment(
         raise
     except Exception as e:
         logger.error("Failed to rollback deployment: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/deployments/instances", response_model=list[AgentDeploymentInstance])
@@ -255,7 +267,9 @@ async def list_deployment_instances(
         return user_instances
     except Exception as e:
         logger.error("Failed to list deployment instances: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/deployments/instances/{instance_id}", response_model=AgentDeploymentInstance)
@@ -282,7 +296,9 @@ async def get_deployment_instance(
         raise
     except Exception as e:
         logger.error("Failed to get deployment instance: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/integrations/zk/{execution_id}")
@@ -312,7 +328,9 @@ async def integrate_with_zk_system(
         raise
     except Exception as e:
         logger.error("Failed to integrate with ZK system: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/metrics/deployments/{deployment_id}")
@@ -341,7 +359,9 @@ async def get_deployment_metrics(
         raise
     except Exception as e:
         logger.error("Failed to get deployment metrics: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/production/deploy")
@@ -371,7 +391,9 @@ async def deploy_to_production(
         raise
     except Exception as e:
         logger.error("Failed to deploy to production: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/production/dashboard")
@@ -421,7 +443,9 @@ async def get_production_dashboard(
         return dashboard_data
     except Exception as e:
         logger.error("Failed to get production dashboard: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/production/health")
@@ -482,7 +506,9 @@ async def get_production_health(
         return health_status
     except Exception as e:
         logger.error("Failed to get production health: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/production/alerts")
@@ -499,4 +525,6 @@ async def get_production_alerts(
         return {"alerts": alerts, "total_count": len(alerts), "severity": severity, "source": "coordinator_metrics"}
     except Exception as e:
         logger.error("Failed to get production alerts: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

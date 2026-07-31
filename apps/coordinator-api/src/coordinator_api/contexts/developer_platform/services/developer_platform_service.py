@@ -203,9 +203,13 @@ class DeveloperPlatformService:
                     return str(resp.json().get("tx_hash", ""))
                 else:
                     logger.error("Reward payout failed: blockchain returned %s", resp.status_code)
-                    raise HTTPException(status_code=502, detail=f"Blockchain rejected reward payout: {resp.status_code}")
+                    logger.exception("Unhandled exception")
+
+                    raise HTTPException(status_code=502, detail="Internal server error")
         except httpx.ConnectError as e:
-            raise HTTPException(status_code=503, detail=f"Blockchain node unavailable: {e}") from e
+            logger.exception("Unhandled exception")
+
+            raise HTTPException(status_code=503, detail="Internal server error") from e
 
     async def get_developer_profile(self, wallet_address: str) -> DeveloperProfile | None:
         """Get developer profile by wallet address"""
@@ -375,7 +379,9 @@ class DeveloperPlatformService:
         try:
             await mint_tokens(address, rewards["pending_rewards"])
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to mint rewards: {str(e)}") from e
+            logger.exception("Unhandled exception")
+
+            raise HTTPException(status_code=500, detail="Internal server error") from e
         claim_info = {
             "address": address,
             "amount_claimed": rewards["pending_rewards"],

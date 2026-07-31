@@ -106,7 +106,9 @@ async def capabilities():
             "gpu_device": _device,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get capabilities: {e}") from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @app.post("/process")
@@ -125,9 +127,13 @@ async def process_video(
     try:
         result = subprocess.run(["ffmpeg", "-hwaccels"], capture_output=True, text=True, timeout=5)
         if _hw_accel not in result.stdout:
-            raise HTTPException(status_code=503, detail=f"Hardware acceleration {_hw_accel} not available")
+            logger.exception("Unhandled exception")
+
+            raise HTTPException(status_code=503, detail="Internal server error")
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"FFmpeg not available: {e}") from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=503, detail="Internal server error") from e
 
     # Create temporary files
     suffix = os.path.splitext(file.filename or "video.mp4")[1] or ".mp4"
@@ -182,7 +188,9 @@ async def process_video(
         elapsed = round(time.time() - t_start, 2)
 
         if process.returncode != 0:
-            raise HTTPException(status_code=500, detail=f"FFmpeg processing failed: {process.stderr}")
+            logger.exception("Unhandled exception")
+
+            raise HTTPException(status_code=500, detail="Internal server error")
 
         # Calculate result hash
         with open(output_path, "rb") as f:
