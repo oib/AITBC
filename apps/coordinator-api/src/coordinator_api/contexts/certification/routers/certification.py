@@ -185,6 +185,7 @@ async def certify_agent(
         raise
     except Exception as e:
         logger.error("Error certifying agent: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -206,6 +207,7 @@ async def renew_certification(
         raise
     except Exception as e:
         logger.error("Error renewing certification: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -242,6 +244,7 @@ async def get_agent_certifications(
         ]
     except Exception as e:
         logger.error("Error getting certifications for agent %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -276,6 +279,7 @@ async def create_partnership_program(
         }
     except Exception as e:
         logger.error("Error creating partnership program: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -314,6 +318,7 @@ async def apply_for_partnership(
         raise
     except Exception as e:
         logger.error("Error applying for partnership: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -355,6 +360,7 @@ async def get_agent_partnerships(
         ]
     except Exception as e:
         logger.error("Error getting partnerships for agent %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -395,6 +401,7 @@ async def list_partnership_programs(
         ]
     except Exception as e:
         logger.error("Error listing partnership programs: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -429,6 +436,7 @@ async def create_badge(
         }
     except Exception as e:
         logger.error("Error creating badge: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -473,6 +481,7 @@ async def award_badge(
         raise
     except Exception as e:
         logger.error("Error awarding badge: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -518,6 +527,7 @@ async def get_agent_badges(
         ]
     except Exception as e:
         logger.error("Error getting badges for agent %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -565,6 +575,7 @@ async def list_available_badges(
         ]
     except Exception as e:
         logger.error("Error listing available badges: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -585,6 +596,7 @@ async def check_automatic_badges(
         }
     except Exception as e:
         logger.error("Error checking automatic badges for agent %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -600,6 +612,7 @@ async def get_agent_summary(
         return AgentCertificationSummary(**summary)
     except Exception as e:
         logger.error("Error getting certification summary for agent %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -639,6 +652,7 @@ async def get_verification_records(
         ]
     except Exception as e:
         logger.error("Error getting verification records for agent %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -664,6 +678,7 @@ async def get_certification_levels(
         return sorted(levels, key=lambda x: ["basic", "intermediate", "advanced", "enterprise", "premium"].index(x["level"]))
     except Exception as e:
         logger.error("Error getting certification levels: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -709,6 +724,7 @@ async def get_certification_requirements(
         ]
     except Exception as e:
         logger.error("Error getting certification requirements: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -773,4 +789,5 @@ async def get_certification_leaderboard(
         ]
     except Exception as e:
         logger.error("Error getting certification leaderboard: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e

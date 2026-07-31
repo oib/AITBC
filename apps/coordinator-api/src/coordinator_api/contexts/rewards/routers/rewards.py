@@ -142,6 +142,7 @@ async def get_reward_profile(
         raise
     except Exception as e:
         logger.error("Error getting reward profile for %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -163,6 +164,7 @@ async def create_reward_profile(
         }
     except Exception as e:
         logger.error("Error creating reward profile for %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -242,6 +244,7 @@ async def get_tier_progress(
         raise
     except Exception as e:
         logger.error("Error getting tier progress for %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -286,6 +289,7 @@ async def get_reward_analytics(
         return RewardAnalyticsResponse(**analytics_data)
     except Exception as e:
         logger.error("Error getting reward analytics: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -329,6 +333,7 @@ async def get_reward_leaderboard(
         return leaderboard
     except Exception as e:
         logger.error("Error getting reward leaderboard: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -359,6 +364,7 @@ async def get_reward_tiers(request: Request, session: Annotated[Session, Depends
         return sorted(tiers, key=lambda x: x["min_trust_score"])
     except Exception as e:
         logger.error("Error getting reward tiers: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -397,6 +403,7 @@ async def get_agent_milestones(
         ]
     except Exception as e:
         logger.error("Error getting milestones for %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -440,6 +447,7 @@ async def get_reward_distributions(
         ]
     except Exception as e:
         logger.error("Error getting distributions for %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 

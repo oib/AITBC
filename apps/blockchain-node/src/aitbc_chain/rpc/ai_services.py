@@ -5,6 +5,7 @@ No demo/seed jobs are created — the job list starts empty and is populated
 by real submissions.
 """
 
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -115,7 +116,9 @@ async def ai_submit_job(request: AIJobRequest) -> dict[str, Any]:
 
     except Exception as e:
         metrics_registry.increment("rpc_ai_submit_errors_total")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/ai/jobs", summary="List AI jobs", tags=["ai"])
@@ -144,7 +147,9 @@ async def ai_list_jobs(wallet_address: str | None = None, status: str | None = N
 
     except Exception as e:
         metrics_registry.increment("rpc_ai_list_errors_total")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/ai/job/{job_id}", summary="Get AI job by ID", tags=["ai"])
@@ -170,7 +175,9 @@ async def ai_get_job(job_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         metrics_registry.increment("rpc_ai_get_errors_total")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/ai/job/{job_id}/cancel", summary="Cancel AI job", tags=["ai"])
@@ -203,7 +210,9 @@ async def ai_cancel_job(job_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         metrics_registry.increment("rpc_ai_cancel_errors_total")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/ai/stats", summary="AI service statistics", tags=["ai"])
@@ -246,4 +255,6 @@ async def ai_stats() -> dict[str, Any]:
 
     except Exception as e:
         metrics_registry.increment("rpc_ai_stats_errors_total")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

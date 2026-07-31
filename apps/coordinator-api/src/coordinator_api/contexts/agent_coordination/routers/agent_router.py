@@ -47,7 +47,9 @@ async def create_workflow(
         return workflow
     except Exception as e:
         logger.error("Failed to create workflow: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/workflows", response_model=list[AIAgentWorkflow])
@@ -74,7 +76,9 @@ async def list_workflows(
         return workflows  # type: ignore[return-value]
     except Exception as e:
         logger.error("Failed to list workflows: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/workflows/{workflow_id}", response_model=AIAgentWorkflow)
@@ -97,7 +101,9 @@ async def get_workflow(
         raise
     except Exception as e:
         logger.error("Failed to get workflow: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.put("/workflows/{workflow_id}", response_model=AIAgentWorkflow)
@@ -128,7 +134,9 @@ async def update_workflow(
         raise
     except Exception as e:
         logger.error("Failed to update workflow: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.delete("/workflows/{workflow_id}")
@@ -152,7 +160,9 @@ async def delete_workflow(
         raise
     except Exception as e:
         logger.error("Failed to delete workflow: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/workflows/{workflow_id}/execute", response_model=AgentExecutionResponse)
@@ -192,7 +202,9 @@ async def execute_workflow(
         raise
     except Exception as e:
         logger.error("Failed to execute workflow: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/executions/{execution_id}/status", response_model=AgentExecutionStatus)
@@ -217,7 +229,9 @@ async def get_execution_status(
         raise
     except Exception as e:
         logger.error("Failed to get execution status: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/executions", response_model=list[AgentExecutionStatus])
@@ -247,7 +261,9 @@ async def list_executions(
         raise
     except Exception as e:
         logger.error("Failed to list executions: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/workflows/{workflow_id}/cancel")
@@ -279,7 +295,9 @@ async def cancel_workflow(
         raise
     except Exception as e:
         logger.error("Failed to cancel workflow: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/workflows/{workflow_id}/executions", response_model=list[AgentExecutionStatus])
@@ -306,4 +324,6 @@ async def list_workflow_executions(
         raise
     except Exception as e:
         logger.error("Failed to list workflow executions: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
