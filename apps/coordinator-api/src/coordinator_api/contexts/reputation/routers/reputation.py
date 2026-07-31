@@ -147,6 +147,7 @@ async def get_reputation_profile(
         return ReputationProfileResponse(**profile_data)
     except Exception as e:
         logger.error("Error getting reputation profile for %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -168,6 +169,7 @@ async def create_reputation_profile(
         }
     except Exception as e:
         logger.error("Error creating reputation profile for %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -202,6 +204,7 @@ async def add_community_feedback(
         )
     except Exception as e:
         logger.error("Error adding feedback for agent %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -231,6 +234,7 @@ async def record_job_completion(
         }
     except Exception as e:
         logger.error("Error recording job completion: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -263,6 +267,7 @@ async def get_trust_score_breakdown(
         )
     except Exception as e:
         logger.error("Error getting trust score breakdown for %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -284,6 +289,7 @@ async def get_reputation_leaderboard(
         return [LeaderboardEntry(**entry) for entry in leaderboard_data]
     except Exception as e:
         logger.error("Error getting leaderboard: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -342,6 +348,7 @@ async def get_reputation_metrics(
         )
     except Exception as e:
         logger.error("Error getting reputation metrics: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -381,6 +388,7 @@ async def get_agent_feedback(
         ]
     except Exception as e:
         logger.error("Error getting feedback for agent %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -418,6 +426,7 @@ async def get_reputation_events(
         ]
     except Exception as e:
         logger.error("Error getting reputation events for %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -445,6 +454,7 @@ async def update_specialization(
         raise
     except Exception as e:
         logger.error("Error updating specialization for %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -472,6 +482,7 @@ async def update_region(
         raise
     except Exception as e:
         logger.error("Error updating region for %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -513,6 +524,7 @@ async def get_cross_chain_reputation(
         raise
     except Exception as e:
         logger.error("Error getting cross-chain reputation for %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -541,6 +553,7 @@ async def sync_cross_chain_reputation(
         raise
     except Exception as e:
         logger.error("Error syncing cross-chain reputation for %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -592,6 +605,7 @@ async def get_cross_chain_leaderboard(
         }
     except Exception as e:
         logger.error("Error getting cross-chain leaderboard: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -643,6 +657,7 @@ async def submit_cross_chain_event(
         raise
     except Exception as e:
         logger.error("Error submitting cross-chain event: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -690,4 +705,5 @@ async def get_cross_chain_analytics(
         }
     except Exception as e:
         logger.error("Error getting cross-chain analytics: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e

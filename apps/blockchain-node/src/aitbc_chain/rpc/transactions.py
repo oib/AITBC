@@ -135,8 +135,10 @@ async def get_mempool(request: Request, chain_id: str | None = None, limit: int 
         return {"success": True, "transactions": pending_txs, "count": len(pending_txs)}
     except Exception as e:
         _logger.error("Failed to get mempool", extra={"error": str(e)})
+        _logger.exception("Unhandled exception")
+
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get mempool: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error"
         ) from e
 
 
