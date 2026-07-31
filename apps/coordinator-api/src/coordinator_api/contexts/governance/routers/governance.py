@@ -59,7 +59,9 @@ async def init_governance_profile(
         return profile  # type: ignore[no-any-return]
     except Exception as e:
         logger.error("Error creating governance profile: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/profiles/{profile_id}/delegate", response_model=GovernanceProfile)
@@ -75,7 +77,9 @@ async def delegate_voting_power(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/proposals", response_model=Proposal)
@@ -94,7 +98,9 @@ async def create_proposal(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/proposals/{proposal_id}/vote", response_model=Vote)
@@ -116,7 +122,9 @@ async def cast_vote(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/proposals/{proposal_id}/process", response_model=Proposal)
@@ -130,7 +138,9 @@ async def process_proposal(request: Request, proposal_id: str, session: Annotate
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/proposals/{proposal_id}/execute", response_model=Proposal)
@@ -149,7 +159,9 @@ async def execute_proposal(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/analytics/reports", response_model=TransparencyReport)
@@ -165,4 +177,6 @@ async def generate_transparency_report(
         report = await service.generate_transparency_report(period)
         return report  # type: ignore[no-any-return]
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

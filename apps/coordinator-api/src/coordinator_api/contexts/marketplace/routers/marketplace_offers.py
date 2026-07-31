@@ -106,4 +106,6 @@ async def list_all_offers(session: Annotated[Session, Depends(get_session)]) -> 
         return result
     except Exception as e:
         logger.error("Error listing offers: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

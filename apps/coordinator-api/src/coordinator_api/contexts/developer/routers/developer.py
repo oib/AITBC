@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -35,7 +36,9 @@ async def register_developer(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error registering developer: {e}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("", response_model=list[DeveloperResponse])
@@ -51,7 +54,9 @@ async def list_developers(
     try:
         return await service.list(limit=limit, offset=offset, active_only=active_only)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error listing developers: {e}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/{wallet_address}", response_model=DeveloperResponse)
@@ -70,7 +75,9 @@ async def get_developer(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting developer: {e}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.put("/{wallet_address}", response_model=DeveloperResponse)
@@ -87,4 +94,6 @@ async def update_developer(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating developer: {e}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

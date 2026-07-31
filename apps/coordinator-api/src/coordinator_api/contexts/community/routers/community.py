@@ -87,7 +87,9 @@ async def create_developer_profile(
         return profile
     except Exception as e:
         logger.error("Error creating developer profile: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/developers/{developer_id}", response_model=DeveloperProfile)
@@ -123,7 +125,9 @@ async def publish_solution(
         return solution
     except Exception as e:
         logger.error("Error publishing solution: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/solutions", response_model=list[AgentSolution])
@@ -152,7 +156,9 @@ async def purchase_solution(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/labs/propose", response_model=InnovationLab)
@@ -169,7 +175,9 @@ async def propose_innovation_lab(
         lab = await service.propose_lab(researcher_id, request.model_dump())
         return lab
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/labs/{lab_id}/join")
@@ -220,7 +228,9 @@ async def create_community_post(
         post = await service.create_post(author_id, request.model_dump())
         return post
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/platform/feed", response_model=list[CommunityPost])
@@ -263,7 +273,9 @@ async def create_hackathon(
     except ValueError as e:
         raise HTTPException(status_code=403, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/hackathons/{hackathon_id}/register")
