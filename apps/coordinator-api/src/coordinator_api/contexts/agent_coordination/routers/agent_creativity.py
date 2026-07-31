@@ -104,7 +104,9 @@ async def create_creative_capability(
         )
     except Exception as e:
         logger.error("Error creating creative capability: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/capabilities/{capability_id}/enhance")
@@ -125,7 +127,9 @@ async def enhance_creativity(
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.error("Error enhancing creativity: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/capabilities/{capability_id}/evaluate")
@@ -146,7 +150,9 @@ async def evaluate_creation(
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.error("Error evaluating creation: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/ideation/generate")
@@ -164,7 +170,9 @@ async def generate_ideas(request: IdeationRequest) -> dict[str, Any]:
         return result
     except Exception as e:
         logger.error("Error generating ideas: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/synthesis/cross-domain")
@@ -186,7 +194,9 @@ async def synthesize_cross_domain(
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.error("Error in cross-domain synthesis: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/capabilities/{agent_id}")
@@ -201,4 +211,6 @@ async def list_agent_creative_capabilities(
         return capabilities  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error fetching creative capabilities: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

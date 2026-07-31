@@ -70,7 +70,9 @@ async def submit_task(request_http: Request, request: TaskSubmission, background
         raise
     except Exception as e:
         logger.error("Error submitting task: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/tasks/status")
@@ -84,7 +86,9 @@ async def get_task_status(request: Request) -> dict[str, Any]:
         return {"status": "success", "stats": stats, "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error("Error getting task status: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/tasks/queues")
@@ -100,7 +104,9 @@ async def get_queue_sizes(request: Request) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error("Error getting queue sizes: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/tasks/queues/{priority}/clear")
@@ -128,7 +134,9 @@ async def clear_queue(request: Request, priority: str) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error("Error clearing queue: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/tasks/queues/stats")
@@ -150,7 +158,9 @@ async def get_queue_stats(request: Request) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error("Error getting queue stats: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 # ---------------------------------------------------------------------------

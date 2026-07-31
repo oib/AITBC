@@ -29,7 +29,9 @@ async def assign_user_role(
         raise
     except Exception as e:
         logger.error("Error assigning user role: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/users/{user_id}/role")
@@ -47,7 +49,9 @@ async def get_user_role(
         raise
     except Exception as e:
         logger.error("Error getting user role: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/users/{user_id}/permissions")
@@ -67,7 +71,9 @@ async def get_user_permissions(
         raise
     except Exception as e:
         logger.error("Error getting user permissions: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/users/{user_id}/permissions/grant")
@@ -89,7 +95,9 @@ async def grant_user_permission(
         raise
     except Exception as e:
         logger.error("Error granting user permission: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.delete("/users/{user_id}/permissions/{permission}")
@@ -111,7 +119,9 @@ async def revoke_user_permission(
         raise
     except Exception as e:
         logger.error("Error revoking user permission: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/roles")
@@ -129,7 +139,9 @@ async def list_all_roles(
         raise
     except Exception as e:
         logger.error("Error listing roles: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/roles/{role}")

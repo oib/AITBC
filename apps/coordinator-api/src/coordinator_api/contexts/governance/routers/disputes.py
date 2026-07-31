@@ -10,6 +10,7 @@ Provides:
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -76,7 +77,9 @@ async def file_dispute(request: Request, req: FileDisputeRequest) -> dict[str, A
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to file dispute: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/evidence", summary="Submit evidence")
@@ -104,7 +107,9 @@ async def submit_evidence(request: Request, req: SubmitEvidenceRequest) -> dict[
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to submit evidence: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/vote", summary="Cast arbitrator vote")
@@ -137,7 +142,9 @@ async def cast_vote(request: Request, req: CastVoteRequest) -> dict[str, Any]:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to cast vote: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/health", summary="Health check")
@@ -163,7 +170,9 @@ async def get_dispute(request: Request, dispute_id: str) -> dict[str, Any]:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get dispute: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/", summary="List disputes")
@@ -183,7 +192,9 @@ async def list_disputes(request: Request, status: str | None = None, party: str 
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to list disputes: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/arbitrators/register", summary="Register as arbitrator")
@@ -200,4 +211,6 @@ async def register_arbitrator(request: Request, address: str) -> dict[str, Any]:
         return {"success": success, "address": address, "message": "Arbitrator registered"}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

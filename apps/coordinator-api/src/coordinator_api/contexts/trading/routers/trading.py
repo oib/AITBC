@@ -225,6 +225,7 @@ async def create_trade_request(
         )
     except Exception as e:
         logger.error("Error creating trade request: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -257,6 +258,7 @@ async def get_trade_request(
         raise
     except Exception as e:
         logger.error("Error getting trade request %s: %s", request_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -272,6 +274,7 @@ async def find_matches(request: Request, request_id: str, session: Annotated[Ses
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.error("Error finding matches for request %s: %s", request_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -312,6 +315,7 @@ async def get_trade_matches(
         ]
     except Exception as e:
         logger.error("Error getting trade matches for request %s: %s", request_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -344,6 +348,7 @@ async def initiate_negotiation(
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.error("Error initiating negotiation: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -379,6 +384,7 @@ async def get_negotiation(
         raise
     except Exception as e:
         logger.error("Error getting negotiation %s: %s", negotiation_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -414,6 +420,7 @@ async def get_trade_match(
         raise
     except Exception as e:
         logger.error("Error getting trade match %s: %s", match_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -429,6 +436,7 @@ async def get_trading_summary(
         return TradingSummaryResponse(**summary)
     except Exception as e:
         logger.error("Error getting trading summary for %s: %s", agent_id, str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -472,6 +480,7 @@ async def list_trade_requests(
         ]
     except Exception as e:
         logger.error("Error listing trade requests: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -518,6 +527,7 @@ async def list_trade_matches(
         ]
     except Exception as e:
         logger.error("Error listing trade matches: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -560,6 +570,7 @@ async def list_negotiations(
         ]
     except Exception as e:
         logger.error("Error listing negotiations: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -613,6 +624,7 @@ async def get_trading_analytics(
         return analytics
     except Exception as e:
         logger.error("Error getting trading analytics: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -654,4 +666,5 @@ async def simulate_trade_matching(
         }
     except Exception as e:
         logger.error("Error simulating trade matching: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e

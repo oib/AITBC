@@ -48,7 +48,9 @@ async def register_agent(request_http: Request, request: AgentRegistrationReques
         raise
     except Exception as e:
         logger.error("Error registering agent: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/agents/discover")
@@ -68,7 +70,9 @@ async def discover_agents(request: Request, query: dict[str, Any]) -> dict[str, 
         }
     except Exception as e:
         logger.error("Error discovering agents: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/agents/{agent_id}")
@@ -86,7 +90,9 @@ async def get_agent(request: Request, agent_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error("Error getting agent: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.put("/agents/{agent_id}/status")
@@ -113,7 +119,9 @@ async def update_agent_status(request: Request, agent_id: str, request_status: A
             raise HTTPException(status_code=500, detail="Failed to update agent status")
     except Exception as e:
         logger.error("Error updating agent status: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/agents/{agent_id}/heartbeat")
@@ -139,4 +147,6 @@ async def agent_heartbeat(request: Request, agent_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error("Error processing heartbeat: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

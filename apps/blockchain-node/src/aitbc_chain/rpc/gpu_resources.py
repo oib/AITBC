@@ -1,5 +1,6 @@
 """GPU resource RPC endpoints for AITBC blockchain."""
 
+import logging
 import os
 from datetime import UTC, datetime
 from typing import Any
@@ -78,7 +79,9 @@ async def list_gpus(chain_id: str | None = None, status: str | None = None) -> d
 
     except Exception as e:
         metrics_registry.increment("rpc_gpu_list_errors_total")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/gpu/allocations/{gpu_id}", summary="Query GPU allocations", tags=["gpu_resources"])
@@ -126,7 +129,9 @@ async def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[
 
     except Exception as e:
         metrics_registry.increment("rpc_gpu_allocations_get_errors_total")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/gpu/register", summary="Register GPU on-chain", tags=["gpu_resources"])
@@ -191,7 +196,9 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = N
 
     except Exception as e:
         metrics_registry.increment("rpc_gpu_register_errors_total")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/gpu/info/{gpu_id}", summary="Query GPU registration", tags=["gpu_resources"])
@@ -241,7 +248,9 @@ async def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
         raise
     except Exception as e:
         metrics_registry.increment("rpc_gpu_get_errors_total")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/gpu/allocate", summary="Allocate GPU on-chain", tags=["gpu_resources"])
@@ -285,7 +294,9 @@ async def allocate_gpu(request: GPUAllocationRequest, chain_id: str | None = Non
 
     except Exception as e:
         metrics_registry.increment("rpc_gpu_allocate_errors_total")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 # ============================================================================
@@ -364,7 +375,9 @@ async def register_edge_node(request: EdgeNodeRegistrationRequest, chain_id: str
 
     except Exception as e:
         metrics_registry.increment("rpc_edge_register_errors_total")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/edge/info/{node_id}", summary="Query edge node registration", tags=["gpu_resources"])
@@ -411,4 +424,6 @@ async def get_edge_node(node_id: str, chain_id: str | None = None) -> dict[str, 
         raise
     except Exception as e:
         metrics_registry.increment("rpc_edge_get_errors_total")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

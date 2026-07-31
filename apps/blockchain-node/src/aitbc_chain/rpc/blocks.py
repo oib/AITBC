@@ -47,7 +47,9 @@ async def get_genesis_allocations(request: Request, chain_id: str | None = None)
                 "genesis_state_root": genesis.state_root,
             }
         except json.JSONDecodeError as e:
-            raise HTTPException(status_code=500, detail=f"Failed to parse genesis block metadata: {e}") from e
+            _logger.exception("Unhandled exception")
+
+            raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @rate_limit(rate=200, per=60)
@@ -262,4 +264,6 @@ async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str
             raise
         except Exception as e:
             _logger.error("Error importing block: %s", e)
-            raise HTTPException(status_code=500, detail=f"Failed to import block: {str(e)}") from e
+            _logger.exception("Unhandled exception")
+
+            raise HTTPException(status_code=500, detail="Internal server error") from e
