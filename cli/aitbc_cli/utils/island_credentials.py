@@ -4,6 +4,7 @@ Provides functions to load and validate island credentials from the local filesy
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,7 @@ def load_island_credentials() -> dict[str, Any]:
 
     Raises:
         FileNotFoundError: If credentials file does not exist
+        PermissionError: If credentials file is not owned by the user or is too permissive
         json.JSONDecodeError: If credentials file is invalid JSON
         ValueError: If credentials are invalid or missing required fields
     """
@@ -31,6 +33,16 @@ def load_island_credentials() -> dict[str, Any]:
     if not credentials_path.exists():
         raise FileNotFoundError(
             f"Island credentials not found at {CREDENTIALS_PATH}. Run 'aitbc node island join' to join an island first."
+        )
+
+    file_stat = credentials_path.stat()
+    if file_stat.st_uid != os.geteuid():
+        raise PermissionError(
+            f"Island credentials file {CREDENTIALS_PATH} must be owned by the current user"
+        )
+    if file_stat.st_mode & 0o777 > 0o600:
+        raise PermissionError(
+            f"Island credentials file {CREDENTIALS_PATH} has overly permissive mode; set it to 0o600"
         )
 
     with open(credentials_path) as f:
