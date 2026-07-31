@@ -2,6 +2,7 @@
 Consensus router.
 """
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -52,7 +53,9 @@ async def consensus_status_route(chain_id: str = "ait-hub") -> dict[str, Any]:
         }
     except Exception as e:
         _logger.error("Error getting consensus status: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/validators", summary="List consensus validators")
@@ -81,7 +84,9 @@ async def consensus_validators_route(chain_id: str = "ait-hub") -> dict[str, Any
         return {"validators": [], "chain_id": chain_id, "multi_validator_enabled": False}
     except Exception as e:
         _logger.error("Error listing consensus validators: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/slashing-history", summary="Get slashing history")
@@ -111,4 +116,6 @@ async def consensus_slashing_history_route(chain_id: str = "ait-hub") -> dict[st
         return {"slashing_events": [], "chain_id": chain_id, "multi_validator_enabled": False}
     except Exception as e:
         _logger.error("Error getting slashing history: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
