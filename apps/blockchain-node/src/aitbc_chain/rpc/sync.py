@@ -155,7 +155,9 @@ async def export_chain(request: Request, chain_id: str | None = None) -> dict[st
         raise
     except Exception as e:
         _logger.error("Error exporting chain: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to export chain: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 def _build_import_objects(
@@ -298,7 +300,9 @@ async def import_chain(request: Request, import_data: dict[str, Any]) -> dict[st
             raise
         except Exception as e:
             _logger.error("Error importing chain: %s", e)
-            raise HTTPException(status_code=500, detail=f"Failed to import chain: {str(e)}") from e
+            _logger.exception("Unhandled exception")
+
+            raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @rate_limit(rate=50, per=60)
@@ -348,7 +352,9 @@ async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, A
         raise
     except Exception as e:
         _logger.error("Error forcing sync: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to force sync: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @rate_limit(rate=200, per=60)
