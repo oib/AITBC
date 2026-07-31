@@ -3,6 +3,7 @@ Simple test agent endpoint to verify task distribution
 Listens on port 9997 and accepts task execution requests
 """
 
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -81,7 +82,9 @@ async def execute_task(task: TaskMessage):
 
     except Exception as e:
         print(f"[{datetime.now(UTC)}] Error executing task: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 if __name__ == "__main__":

@@ -220,7 +220,9 @@ async def update_miner_capabilities(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not found") from None
     except Exception as e:
         logger.error("Error updating miner capabilities: %s", e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
 
 
 @router.delete("/miners/{miner_id}", summary="Deregister miner")
@@ -240,7 +242,9 @@ async def deregister_miner(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not found") from None
     except Exception as e:
         logger.error("Error deregistering miner: %s", e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
 
 
 @router.post("/miners/{miner_id}/jobs/{job_id}/fail", summary="Report job failure")
@@ -262,7 +266,9 @@ async def fail_job(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     except Exception as e:
         logger.error("Error failing job %s: %s", job_id, e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
 
 
 class FailJobRequest(BaseModel):
@@ -313,4 +319,6 @@ async def complete_job(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         logger.error("Error completing job %s: %s", job_id, e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e

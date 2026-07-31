@@ -44,7 +44,9 @@ async def get_prometheus_metrics(request: Request) -> Response:
         return Response(content="\n".join(prometheus_output), media_type="text/plain")
     except Exception as e:
         logger.error("Error getting metrics: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/metrics/summary")
@@ -71,7 +73,9 @@ async def get_metrics_summary(request: Request) -> dict[str, Any]:
         }
     except Exception as e:
         logger.error("Error getting metrics summary: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/metrics/health")
@@ -98,7 +102,9 @@ async def get_health_metrics(request: Request) -> dict[str, Any]:
         return {"status": "success", "health": health_metrics}
     except Exception as e:
         logger.error("Error getting health metrics: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/system/status")
@@ -122,7 +128,9 @@ async def get_system_status(
         return {"status": "success", "system": system_metrics}
     except Exception as e:
         logger.error("Error getting system status: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/protected/admin")
@@ -139,7 +147,9 @@ async def protected_admin(
         raise
     except Exception as e:
         logger.error("Error accessing protected admin endpoint: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/protected/operator")
@@ -156,4 +166,6 @@ async def protected_operator(
         raise
     except Exception as e:
         logger.error("Error accessing protected operator endpoint: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
