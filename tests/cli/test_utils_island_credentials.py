@@ -4,6 +4,7 @@ Tests for island credential loading utility
 """
 
 import json
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -29,6 +30,7 @@ class TestLoadIslandCredentials:
 
             with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
+            os.chmod(credentials_path, 0o600)
 
             with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = load_island_credentials()
@@ -59,9 +61,31 @@ class TestLoadIslandCredentials:
 
             with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
+            os.chmod(credentials_path, 0o600)
 
             with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 with pytest.raises(ValueError, match="missing required field"):
+                    load_island_credentials()
+
+    def test_load_island_credentials_world_readable(self):
+        """Test loading credentials with overly permissive file mode"""
+        from aitbc_cli.utils.island_credentials import load_island_credentials
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            credentials_path = Path(tmpdir) / "island_credentials.json"
+            credentials_data = {
+                "island_id": "island123",
+                "island_name": "Test Island",
+                "island_chain_id": "ait-devnet",
+                "credentials": {"rpc_endpoint": "http://localhost:8202"},
+            }
+
+            with open(credentials_path, "w") as f:
+                json.dump(credentials_data, f)
+            os.chmod(credentials_path, 0o644)
+
+            with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
+                with pytest.raises(PermissionError, match="overly permissive"):
                     load_island_credentials()
 
 
@@ -83,6 +107,7 @@ class TestGetRpcEndpoint:
 
             with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
+            os.chmod(credentials_path, 0o600)
 
             with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_rpc_endpoint()
@@ -104,6 +129,7 @@ class TestGetRpcEndpoint:
 
             with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
+            os.chmod(credentials_path, 0o600)
 
             with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 with pytest.raises(ValueError, match="RPC endpoint not found"):
@@ -128,6 +154,7 @@ class TestGetChainId:
 
             with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
+            os.chmod(credentials_path, 0o600)
 
             with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_chain_id()
@@ -153,6 +180,7 @@ class TestGetIslandId:
 
             with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
+            os.chmod(credentials_path, 0o600)
 
             with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_island_id()
@@ -178,6 +206,7 @@ class TestGetIslandName:
 
             with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
+            os.chmod(credentials_path, 0o600)
 
             with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_island_name()
@@ -203,6 +232,7 @@ class TestGetGenesisBlockHash:
 
             with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
+            os.chmod(credentials_path, 0o600)
 
             with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_genesis_block_hash()
@@ -224,6 +254,7 @@ class TestGetGenesisBlockHash:
 
             with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
+            os.chmod(credentials_path, 0o600)
 
             with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_genesis_block_hash()
@@ -249,6 +280,7 @@ class TestValidateCredentials:
 
             with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
+            os.chmod(credentials_path, 0o600)
 
             with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = validate_credentials()
@@ -283,6 +315,7 @@ class TestGetP2PPort:
 
             with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
+            os.chmod(credentials_path, 0o600)
 
             with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_p2p_port()
@@ -304,6 +337,7 @@ class TestGetP2PPort:
 
             with open(credentials_path, "w") as f:
                 json.dump(credentials_data, f)
+            os.chmod(credentials_path, 0o600)
 
             with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
                 result = get_p2p_port()
