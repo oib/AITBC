@@ -33,7 +33,9 @@ async def get_alerts(
         raise
     except Exception as e:
         logger.error("Error getting alerts: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/alerts/{alert_id}/resolve")
@@ -51,7 +53,9 @@ async def resolve_alert(
         raise
     except Exception as e:
         logger.error("Error resolving alert: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/alerts/stats")
@@ -69,7 +73,9 @@ async def get_alert_stats(
         raise
     except Exception as e:
         logger.error("Error getting alert stats: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/alerts/rules")
@@ -87,7 +93,9 @@ async def get_alert_rules(
         raise
     except Exception as e:
         logger.error("Error getting alert rules: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/sla")
@@ -108,7 +116,9 @@ async def get_sla_status(
         raise
     except Exception as e:
         logger.error("Error getting SLA status: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/sla/{sla_id}/record")
@@ -131,7 +141,9 @@ async def record_sla_metric(
         raise
     except Exception as e:
         logger.error("Error recording SLA metric: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/system/status")
@@ -176,4 +188,6 @@ async def get_system_status(
         raise
     except Exception as e:
         logger.error("Error getting system status: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

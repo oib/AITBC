@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -48,7 +49,9 @@ async def create_grant(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating grant: {e}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("", response_model=list[GrantProposalResponse])
@@ -65,7 +68,9 @@ async def list_grants(
     try:
         return await service.list_grants(developer_id=developer_id, status=status, limit=limit, offset=offset)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error listing grants: {e}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/{grant_id}", response_model=GrantProposalResponse)
@@ -84,7 +89,9 @@ async def get_grant(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting grant: {e}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{grant_id}/milestones", response_model=GrantMilestoneResponse, status_code=201)
@@ -107,7 +114,9 @@ async def create_milestone(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating milestone: {e}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/{grant_id}/milestones", response_model=list[GrantMilestoneResponse])
@@ -121,7 +130,9 @@ async def list_milestones(
     try:
         return await service.get_milestones(grant_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error listing milestones: {e}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{grant_id}/process", response_model=GrantProposalResponse)
@@ -137,7 +148,9 @@ async def process_grant(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing grant: {e}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{grant_id}/vote", response_model=GrantProposalResponse)
@@ -154,7 +167,9 @@ async def vote_grant(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error voting on grant: {e}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{grant_id}/disburse", response_model=GrantProposalResponse)
@@ -171,4 +186,6 @@ async def disburse_grant(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error disbursing grant: {e}") from e
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

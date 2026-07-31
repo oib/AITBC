@@ -122,7 +122,9 @@ async def create_confidential_transaction(
         )
     except Exception as e:
         logger.error("Failed to create confidential transaction: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/transactions/{transaction_id}", response_model=ConfidentialTransactionView)
@@ -137,7 +139,9 @@ async def get_confidential_transaction(
         raise
     except Exception as e:
         logger.error("Failed to get transaction %s: %s", transaction_id, e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/transactions/{transaction_id}/access", response_model=ConfidentialAccessResponse)
@@ -197,7 +201,9 @@ async def access_confidential_data(
         raise
     except Exception as e:
         logger.error("Failed to access confidential data: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/transactions/{transaction_id}/audit", response_model=ConfidentialAccessResponse)
@@ -244,7 +250,9 @@ async def audit_access_confidential_data(
         raise
     except Exception as e:
         logger.error("Failed audit access: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/keys/register", response_model=KeyRegistrationResponse)
@@ -286,7 +294,9 @@ async def register_encryption_key(
         )
     except Exception as e:
         logger.error("Failed to register key: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/keys/rotate")
@@ -305,13 +315,17 @@ async def rotate_encryption_key(
             "rotated_at": new_key_pair.created_at,
         }
     except NotImplementedError as e:
-        raise HTTPException(status_code=501, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=501, detail="Internal server error") from e
     except KeyManagementError as e:
         logger.error("Key rotation failed: %s", e)
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.error("Failed to rotate keys: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/access/logs", response_model=AccessLogResponse)
@@ -324,7 +338,9 @@ async def get_access_logs(
         return AccessLogResponse(logs=[], total_count=0, has_more=False)
     except Exception as e:
         logger.error("Failed to get access logs: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/status")
@@ -344,4 +360,6 @@ async def get_confidential_status(request: Request, api_key: Annotated[str, Depe
         }
     except Exception as e:
         logger.error("Failed to get status: %s", e)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

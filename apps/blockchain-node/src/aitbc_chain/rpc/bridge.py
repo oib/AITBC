@@ -84,7 +84,9 @@ async def bridge_lock(request: Request, lock_data: dict[str, Any]) -> dict[str, 
         raise
     except Exception as e:
         _logger.error("Bridge lock failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Bridge lock failed: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @rate_limit(rate=20, per=60)
@@ -153,7 +155,9 @@ async def bridge_confirm(request: Request, confirm_data: dict[str, Any]) -> dict
         raise
     except Exception as e:
         _logger.error("Bridge confirm failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Bridge confirm failed: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @rate_limit(rate=100, per=60)
@@ -187,7 +191,9 @@ async def get_bridge_transfer(request: Request, transfer_id: str) -> dict[str, A
         raise
     except Exception as e:
         _logger.error("Get bridge transfer failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to get transfer: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @rate_limit(rate=50, per=60)
@@ -218,7 +224,9 @@ async def list_pending_transfers(request: Request, chain_id: str | None = None) 
         raise
     except Exception as e:
         _logger.error("List pending transfers failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to list transfers: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @rate_limit(rate=20, per=60)
@@ -263,7 +271,9 @@ async def bridge_unlock(request: Request, unlock_data: dict[str, Any]) -> dict[s
         raise
     except Exception as e:
         _logger.error("Bridge unlock failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Bridge unlock failed: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @rate_limit(rate=100, per=60)
@@ -286,7 +296,9 @@ async def get_bridge_balance(request: Request, chain_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Get bridge balance failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to get bridge balance: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @rate_limit(rate=100, per=60)
@@ -317,7 +329,9 @@ async def bridge_health(request: Request) -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Bridge health check failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Bridge health check failed: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @rate_limit(rate=20, per=60)
@@ -357,7 +371,9 @@ async def bridge_batch_lock(request: Request, batch_data: dict[str, Any]) -> lis
         raise
     except Exception as e:
         _logger.error("Bridge batch lock failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Bridge batch lock failed: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @rate_limit(rate=20, per=60)
@@ -411,7 +427,9 @@ async def bridge_batch_confirm(request: Request, batch_data: dict[str, Any]) -> 
         raise
     except Exception as e:
         _logger.error("Bridge batch confirm failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Bridge batch confirm failed: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 # ---------------------------------------------------------------------------
@@ -479,7 +497,9 @@ async def register_validator(request: Request, reg_data: dict[str, Any]) -> dict
         raise
     except Exception as e:
         _logger.error("Validator registration failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Validator registration failed: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @rate_limit(rate=100, per=60)
@@ -530,7 +550,9 @@ async def get_validator_set(request: Request, chain_id: str) -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Get validator set failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to get validator set: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @rate_limit(rate=100, per=60)
@@ -576,7 +598,9 @@ async def bridge_security_status(request: Request) -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Bridge security status failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Bridge security status failed: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 # ---------------------------------------------------------------------------
@@ -626,7 +650,9 @@ async def store_block_header(request: Request, header_data: dict[str, Any]) -> d
         raise
     except Exception as e:
         _logger.error("Store block header failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Store block header failed: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @rate_limit(rate=100, per=60)
@@ -647,7 +673,9 @@ async def get_block_header(request: Request, chain_id: str, height: int) -> dict
         raise
     except Exception as e:
         _logger.error("Get block header failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Get block header failed: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 # ---------------------------------------------------------------------------
@@ -673,4 +701,6 @@ async def bridge_oracle_status(request: Request) -> dict[str, Any]:
         raise
     except Exception as e:
         _logger.error("Bridge oracle status failed: %s", e)
-        raise HTTPException(status_code=500, detail=f"Bridge oracle status failed: {str(e)}") from e
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e

@@ -134,6 +134,7 @@ async def collect_market_data(
         return AnalyticsSummaryResponse(**result)
     except Exception as e:
         logger.error("Error collecting market data: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -166,6 +167,7 @@ async def get_market_insights(
         return result
     except Exception as e:
         logger.error("Error getting market insights: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -210,6 +212,7 @@ async def get_market_metrics(
         ]
     except Exception as e:
         logger.error("Error getting market metrics: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -223,6 +226,7 @@ async def get_market_overview(request: Request, session: Annotated[Session, Depe
         return MarketOverviewResponse(**overview)
     except Exception as e:
         logger.error("Error getting market overview: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -272,6 +276,7 @@ async def create_dashboard(
         )
     except Exception as e:
         logger.error("Error creating dashboard: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -306,6 +311,7 @@ async def get_dashboard(
         raise
     except Exception as e:
         logger.error("Error getting dashboard: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -335,6 +341,7 @@ async def generate_report(
         return report
     except Exception as e:
         logger.error("Error generating report: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -355,6 +362,7 @@ async def get_report(
         raise
     except Exception as e:
         logger.error("Error getting report: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -390,6 +398,7 @@ async def generate_insight(
         return insight
     except Exception as e:
         logger.error("Error generating insight: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -410,6 +419,7 @@ async def get_insight(
         raise
     except Exception as e:
         logger.error("Error getting insight: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -428,6 +438,7 @@ async def get_market_trends(
         return trends
     except Exception as e:
         logger.error("Error getting market trends: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -446,6 +457,7 @@ async def get_market_segments(
         return segments
     except Exception as e:
         logger.error("Error getting market segments: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -464,6 +476,7 @@ async def get_competitor_analysis(
         return analysis
     except Exception as e:
         logger.error("Error getting competitor analysis: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -487,6 +500,7 @@ async def get_metric_forecast(
         return forecast
     except Exception as e:
         logger.error("Error getting metric forecast: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -505,6 +519,7 @@ async def get_active_alerts(
         return alerts
     except Exception as e:
         logger.error("Error getting active alerts: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -523,6 +538,7 @@ async def acknowledge_alert(
         return result
     except Exception as e:
         logger.error("Error acknowledging alert: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -541,6 +557,7 @@ async def get_performance_benchmarks(
         return benchmarks
     except Exception as e:
         logger.error("Error getting performance benchmarks: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -559,6 +576,7 @@ async def get_custom_queries(
         return queries
     except Exception as e:
         logger.error("Error getting custom queries: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -580,6 +598,7 @@ async def create_custom_query(
         return query
     except Exception as e:
         logger.error("Error creating custom query: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -598,6 +617,7 @@ async def execute_custom_query(
         return result
     except Exception as e:
         logger.error("Error executing custom query: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -619,6 +639,7 @@ async def export_analytics_data(
         return export_result
     except Exception as e:
         logger.error("Error exporting analytics data: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -636,6 +657,7 @@ async def get_realtime_metrics(
         return metrics
     except Exception as e:
         logger.error("Error getting realtime metrics: %s", str(e))
+        logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
