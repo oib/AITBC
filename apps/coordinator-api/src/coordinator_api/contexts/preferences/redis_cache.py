@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any
+from typing import Any, cast
 
 from aitbc.aitbc_logging import get_logger
 
@@ -47,7 +47,7 @@ class ThemePreferenceCache:
             try:
                 raw = self._client.get(key)
                 if raw:
-                    return json.loads(raw)
+                    return cast(dict[str, Any], json.loads(raw))
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Redis read failed for %s: %s", wallet_address, exc)
         return self._fallback.get(key)

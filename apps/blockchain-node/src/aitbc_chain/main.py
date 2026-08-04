@@ -250,7 +250,7 @@ class BlockchainNode:
                             logger.info("Importing block for chain %s: %s", chain_id_param, block_data.get("height"))
 
                             sync = ChainSync(
-                                session_factory=lambda chain_id_param=chain_id_param: session_scope(chain_id_param),  # type: ignore[misc,arg-type]
+                                session_factory=lambda chain_id_param=chain_id_param: session_scope(chain_id_param),
                                 chain_id=chain_id_param,
                             )
                             res = sync.import_block(block_data, transactions=block_data.get("transactions"))
@@ -378,9 +378,7 @@ class BlockchainNode:
             if p2p_service is not None:
                 try:
                     default_chain = self._supported_chains()[0] if self._supported_chains() else settings.chain_id
-                    self._sync = ChainSync(
-                        session_factory=lambda cid=default_chain: session_scope(cid), chain_id=default_chain
-                    )  # type: ignore[misc,arg-type]
+                    self._sync = ChainSync(session_factory=lambda: session_scope(default_chain), chain_id=default_chain)
                     p2p_service.set_peer_capability_callback(self._sync.register_sync_peer)
                     logger.info("P2P peer capability callback wired to ChainSync peer tracker")
                 except Exception as e:
@@ -511,7 +509,7 @@ class BlockchainNode:
                     for chain_id in chains:
                         try:
                             sync = ChainSync(
-                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),  # type: ignore[misc,arg-type]
+                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),
                                 chain_id=chain_id,
                             )
                             result = await sync.sync_state_from(source_url)
@@ -532,7 +530,7 @@ class BlockchainNode:
                     for chain_id in chains:
                         try:
                             sync = ChainSync(
-                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),  # type: ignore[misc,arg-type]
+                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),
                                 chain_id=chain_id,
                             )
                             local_status = sync.get_sync_status()
@@ -569,7 +567,7 @@ class BlockchainNode:
                     for chain_id in chains:
                         try:
                             sync = ChainSync(
-                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),  # type: ignore[misc,arg-type]
+                                session_factory=lambda chain_id=chain_id: session_scope(chain_id),
                                 chain_id=chain_id,
                             )
                             imported = await sync.bulk_import_from(source_url)

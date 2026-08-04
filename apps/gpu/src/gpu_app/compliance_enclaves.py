@@ -52,6 +52,8 @@ class ComplianceGPUEnclave:
 
     def attest(self, measurement: str) -> None:
         """Attest the enclave and mark it as trusted."""
+        if self.enclave is None:
+            raise ValueError("enclave not initialized")
         self.enclave.build()
         self.enclave.launch()
         self.attested = True

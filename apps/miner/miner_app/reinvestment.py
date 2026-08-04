@@ -53,7 +53,7 @@ class ReinvestmentEngine:
         self.budget = budget
         self.policy = policy
 
-    def plan_reinvestment(self, earnings: Decimal, agent_id: str) -> list[OnChainAction]:
+    def plan_reinvestment(self, earnings: Decimal | float | int | str, agent_id: str) -> list[OnChainAction]:
         """Return the on-chain actions produced from a batch of earnings.
 
         ponytail: No actual blockchain execution happens here; the engine only
@@ -102,10 +102,10 @@ class ReinvestmentEngine:
             )
         return actions
 
-    def apply(self, earnings: Decimal, agent_id: str) -> list[OnChainAction]:
+    def apply(self, earnings: Decimal | float | int | str, agent_id: str) -> list[OnChainAction]:
         """Plan reinvestment, allocate budget, and return actions for execution."""
         actions = self.plan_reinvestment(earnings, agent_id)
-        total = sum(action.amount for action in actions)
+        total = sum((action.amount for action in actions), start=Decimal("0"))
         if total > 0:
             self.budget.allocate(total)
         return actions

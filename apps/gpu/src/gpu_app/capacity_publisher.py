@@ -7,7 +7,7 @@ import urllib.error
 import urllib.request
 import json
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 
 DEFAULT_COORDINATOR_URL = "http://localhost:8203"
@@ -28,7 +28,7 @@ def publish_capacity(
     marketplace capacity endpoint; production deployments should use the
     shared HTTP client with retries and authentication.
     """
-    base = (coordinator_url or os.getenv("COORDINATOR_URL", DEFAULT_COORDINATOR_URL)).rstrip("/")
+    base = (coordinator_url or os.getenv("COORDINATOR_URL", DEFAULT_COORDINATOR_URL) or "").rstrip("/")
     url = f"{base}/v1/marketplace/providers/{provider_id}/capacity"
     payload: dict[str, Any] = {
         "provider_id": provider_id,
@@ -43,10 +43,10 @@ def publish_capacity(
         headers["X-Api-Key"] = api_key
 
     data = json.dumps(payload).encode()
-    req = urllib.request.Request(url, data=data, headers=headers, method="POST")  # type: ignore[arg-type]
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - coordinator_url comes from a caller-supplied param or trusted COORDINATOR_URL env var, not runtime user input
-            return json.loads(resp.read().decode())
+            return cast(dict[str, Any], json.loads(resp.read().decode()))
     except urllib.error.HTTPError as exc:
         return {"error": exc.read().decode(), "status": exc.code}
     except urllib.error.URLError as exc:
