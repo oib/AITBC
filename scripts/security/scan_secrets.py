@@ -37,7 +37,6 @@ DEFAULT_EXCLUDE = {
     "*.pyo",
     ".DS_Store",
     # Non-production paths are skipped by default.
-    "contracts",
     "docs",
     "packages",
     "dev",
@@ -45,11 +44,10 @@ DEFAULT_EXCLUDE = {
     "test",
     "examples",
     "example",
-    "workflow",
-    "multi-node",
     "README.md",
     "artifacts",
     "out",
+    "work",
 }
 
 
