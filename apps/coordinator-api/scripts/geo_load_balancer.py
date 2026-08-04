@@ -49,7 +49,7 @@ class GeoLoadBalancer:
 
         import random
 
-        rand = random.randint(1, total_weight)
+        rand = random.randint(1, total_weight)  # nosec B311 - weighted random selection for load balancing, not security-sensitive
         current_weight = 0
 
         for name, config in healthy_regions:
