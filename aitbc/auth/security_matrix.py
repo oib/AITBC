@@ -20,6 +20,7 @@ class AuthLevel(Enum):
     CLIENT = "client"  # Client role required
     MINER = "miner"  # Miner role required
     ADMIN_OR_CLIENT = "admin_or_client"  # Admin or client role
+    DENY = "deny"  # Default-deny for unregistered routes
 
 
 # Default route security matrix (coordinator-api routes).
@@ -135,8 +136,8 @@ def get_auth_level(path: str, matrix: dict[str, AuthLevel] | None = None) -> Aut
         if "*" in pattern and fnmatch.fnmatch(path, pattern):
             return level
 
-    # Default to requiring any valid authentication
-    return AuthLevel.ANY
+    # Unregistered routes default to deny (CORE-03)
+    return AuthLevel.DENY
 
 
 def check_role_match(required_level: AuthLevel, user_role: str | None) -> bool:
@@ -161,6 +162,8 @@ def check_role_match(required_level: AuthLevel, user_role: str | None) -> bool:
         return user_role == "miner"
     if required_level == AuthLevel.ADMIN_OR_CLIENT:
         return user_role in ("admin", "client")
+    if required_level == AuthLevel.DENY:
+        return False
     return False  # type: ignore[unreachable]
 
 
