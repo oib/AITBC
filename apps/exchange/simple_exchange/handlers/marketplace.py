@@ -4,7 +4,7 @@ B2 backport: Prices use Decimal (stored as TEXT) for exact arithmetic.
 B3 backport: Database connections are closed via try/finally.
 """
 
-import random
+import secrets
 import sqlite3
 import urllib.parse
 from datetime import UTC, datetime
@@ -18,7 +18,7 @@ class MarketplaceMixin:
     """Marketplace offer and order management methods."""
 
     def _new_marketplace_id(self, prefix):
-        return f"{prefix}_{int(datetime.now(UTC).timestamp() * 1000)}{random.randint(100, 999)}"
+        return f"{prefix}_{int(datetime.now(UTC).timestamp() * 1000)}{secrets.randbelow(900) + 100}"
 
     def _marketplace_offer_row(self, row):
         return {
