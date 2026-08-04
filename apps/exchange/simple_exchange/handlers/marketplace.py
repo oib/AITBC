@@ -96,6 +96,8 @@ class MarketplaceMixin:
             self.send_error(404, "Offer not found")  # type: ignore[attr-defined]
 
     def handle_marketplace_create_offer(self):
+        if not self._require_api_key():  # type: ignore[attr-defined]
+            return
         try:
             data = self._read_json_body()  # type: ignore[attr-defined]
             item = data.get("item") or data.get("item_type") or "service"
@@ -141,6 +143,8 @@ class MarketplaceMixin:
             self.send_json_response({"success": False, "error": str(e)}, status=400)  # type: ignore[attr-defined]
 
     def handle_marketplace_book_offer(self, path):
+        if not self._require_api_key():  # type: ignore[attr-defined]
+            return
         try:
             offer_id = urllib.parse.unquote(path[len("/v1/marketplace/offers/") : -len("/book")])
             data = self._read_json_body()  # type: ignore[attr-defined]
@@ -212,6 +216,8 @@ class MarketplaceMixin:
         self.send_json_response({"orders": orders})  # type: ignore[attr-defined]
 
     def handle_marketplace_delete_order(self, path):
+        if not self._require_api_key():  # type: ignore[attr-defined]
+            return
         order_id = urllib.parse.unquote(path.rsplit("/", 1)[-1])
         conn = sqlite3.connect(get_db_path())
         try:
@@ -224,6 +230,8 @@ class MarketplaceMixin:
         self.send_json_response({"success": True, "order_id": order_id, "deleted": deleted})  # type: ignore[attr-defined]
 
     def handle_marketplace_delete_offer(self, path):
+        if not self._require_api_key():  # type: ignore[attr-defined]
+            return
         offer_id = urllib.parse.unquote(path.rsplit("/", 1)[-1])
         conn = sqlite3.connect(get_db_path())
         try:
