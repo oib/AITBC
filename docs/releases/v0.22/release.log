@@ -1,0 +1,866 @@
+# v0.22 Release Log
+
+Baseline: v0.21.0 (747046277, branch `main`)
+Type: pre-release codebase audit — bugs, issues, gaps, suggestions
+Date: 2026-08-04
+Scope: full monorepo — `aitbc/`, `apps/` (21 services), `cli/`, `packages/`, `contracts/`, `scripts/`, `tests/`, `docs/`
+
+---
+
+## Method
+
+Six parallel read-only audits covering every subdirectory of the repo. No files were
+modified. Findings below are from direct source reads with file:line references;
+one finding (CORE-05) was reproduced by executing the failing call.
+
+Total: ~290 findings. This log lists the actionable set, grouped by area and ordered
+by severity within each. Findings are ID-tagged for ticket creation.
+
+---
+
+## Executive summary
+
+The release is **not ship-ready as-is**. Four themes account for most of the high
+severity findings, and each is systemic rather than incidental:
+
+1. **Auth fails open in multiple services.** exchange's `_require_api_key` returns
+   `True` when unset; pool-hub's token check falls through to a default miner; wallet's
+   fund-moving endpoints have no auth at all; trading has no auth anywhere in the
+   service; `aitbc.auth.security_matrix` defaults unlisted routes to `ANY`.
+2. **pool-hub is broken at runtime.** Repositories `flush()` but never `commit()`, and
+   several routers call the sync Session API on an `AsyncSession` without `await`.
+   Core write paths either crash or silently discard data behind an HTTP 200.
+3. **The Decimal-for-money mandate (CLAUDE.md) is violated in most services** —
+   coordinator-api, blockchain-node, wallet, trading, exchange-bridge, governance, gpu,
+   edge, ai-engine, miner, and `aitbc/trading` + `aitbc/oracles` all carry float money paths.
+4. **Several "controls" are stubs that always return success** — the agent_bridge
+   compliance check, agent-coordinator's AI approval and consensus voting, gpu's job
+   result endpoints, coordinator-api's batch settlement hook.
+
+Highest-priority individual items: `ContractRegistry.onlyAuthorized` (SC-01),
+agent-coordinator's `decrypt_message` returning plaintext on signature failure (APP-30),
+coordinator-api payment IDOR (APP-01), pool-hub's silent data loss (APP-24), and the
+secret scanner's blind spot over `contracts/` (OPS-01).
+
+---
+
+## Shared core library — `aitbc/`
+
+Clean on several axes worth noting: no `eval`/`exec`/`pickle`, no bare `except:`,
+no hardcoded credentials, no insecure `random` for security purposes anywhere in the tree.
+
+### High
+
+- **CORE-01** `aitbc/auth/middleware.py:165` — `import redis` sits *outside* the
+  `try/except (ImportError, ConnectionError, TypeError)` that follows it (175-181).
+  Without the `redis` package, `RateLimiter()` raises uncaught `ImportError`, and it is
+  instantiated at import time (`rate_limiter = RateLimiter()`, line 240) — so importing
+  `aitbc.auth.middleware` crashes outright, despite the docstring promising an in-memory
+  fallback. Fix: move the import inside the `try`, as `caching/redis_cache.py` does.
+- **CORE-05** `aitbc/database/pooling.py:118-127` — `create_async_pooled_engine` passes
+  `poolclass=QueuePool` (the *sync* pool) to `create_async_engine`. Reproduced:
+  `ArgumentError: Pool class QueuePool cannot be used with asyncio engine`. Every default
+  call is broken. The unit test mocks `create_async_engine`, so it never exercises the
+  real validation and the bug ships silently. Fix: `AsyncAdaptedQueuePool`.
+- **CORE-06** `aitbc/database/connection.py:120-151` — `DatabaseConnection.execute`
+  returns the cursor from inside `with self.cursor() as cursor:`; the CM's
+  `finally: cursor.close()` runs as part of the return, so the caller receives an already
+  closed cursor and any `fetchone()/fetchall()` raises `ProgrammingError`.
+- **CORE-14** `aitbc/security_headers.py:191` — the **production** CSP is
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval'`. `'unsafe-eval'` defeats much of CSP's
+  purpose. Note there are two independently maintained SecurityHeaders implementations
+  with inconsistent policies (`auth/middleware.py::SecurityHeaders` omits `unsafe-eval`).
+- **CORE-16** `aitbc/crypto/key_recovery.py:62-63,123-136` — `KeyEscrow` validates a
+  `shares_required` threshold, implying M-of-N recovery, but the scheme is a plain XOR
+  n-of-n split. Recovering with exactly `shares_required` shares when
+  `shares_required < shares_total` does not raise — it silently XORs to a **wrong key**.
+  The validation gives false confidence that a threshold is enforced.
+- **CORE-17** `aitbc/bridge/multisig.py:92-93` vs `aitbc/bridge/verification.py:77-80` —
+  the two sibling signature-verification paths disagree on address casing.
+  `verification.py` lower-cases both sides before comparing; `multisig.py`'s
+  `valid_signers = [s for s in signers if s in valid_addresses]` is case-sensitive with no
+  normalization. If the validator set isn't stored in the exact casing `recover_signer()`
+  returns, multisig threshold checks never count a legitimate signer.
+- **CORE-20** `aitbc/caching/redis_cache.py:39-47` — `RedisCache.set` passes arbitrary
+  Python objects to `setex()` with no serialization. Non-primitives raise inside redis-py,
+  get caught by a broad `except`, and silently fall back to the local dict — "distributed"
+  caching degrades to per-process for anything but str/bytes/int/float, with only a
+  `logger.warning` and no signal to the caller that coherence is gone.
+- **CORE-24** `aitbc/agent_bridge/src/integration_layer.py:237-251` —
+  `_execute_compliance_check` is a complete stub: it ignores its inputs and
+  unconditionally returns `"status": "passed"` with hardcoded
+  `checks_performed: ["kyc", "aml", "sanctions"]`. A stub masquerading as a real control
+  in a compliance-sensitive path.
+- **CORE-25** `aitbc/agent_bridge/src/integration_layer.py:21-37,113-178` — one
+  `AITBCServiceIntegration` instance per bridge lifetime, but every method does
+  `async with self.integration as integration:` and `__aenter__`/`__aexit__` open/close
+  `self.session` each time. Concurrent calls share the mutable session; one call's
+  `__aexit__` closes it while another is still using it → intermittent "session is closed"
+  under load.
+
+### Medium
+
+- **CORE-03** `aitbc/auth/security_matrix.py:138-139` — routes absent from
+  `ROUTE_SECURITY_MATRIX` silently default to `AuthLevel.ANY`. A new admin endpoint that a
+  developer forgets to register becomes reachable by any authenticated user — fail-open in
+  a security-critical matrix. Fix: default deny, plus a test asserting every app route is present.
+- **CORE-15** `aitbc/compliance/retention.py:66-73` — when a record has *not* expired,
+  `evaluate` returns hardcoded `RetentionAction.ARCHIVE`. The enum has no "retain" value,
+  so a record well inside its active window is indistinguishable from one whose policy is
+  archive; a caller acting on this can archive live regulated data. The sibling
+  `apply_retention()` correctly takes this as a parameter.
+- **CORE-08** `aitbc/rate_limiting.py:87` — `limiter_name = f"rl_{rate}_{per}_{id(key_func)}"`
+  omits the wrapped function's identity, so two different endpoints with the same
+  `(rate, per, key_func)` share one bucket per client key. Hammering endpoint A trips the
+  supposedly independent limit on endpoint B.
+- **CORE-09** `aitbc/security/rate_limiter.py:39,55-67` — `self._requests` never evicts a
+  key once its list empties; per-IP limiting grows unboundedly with client cardinality
+  (memory-leak / DoS vector — an attacker just varies the source key).
+- **CORE-11** Three overlapping request-ID middlewares: `http_client/client.py:55` (raw
+  ASGI, sets the `contextvars` ContextVar that `RequestIDPropagatingClient` reads),
+  `middleware/request_id.py:27` (Starlette, sets only `request.state`), and
+  `middleware/correlation.py:17` (a third doing nearly the same). A service wiring up
+  either of the latter two — the idiomatic FastAPI choices — never populates the contextvar,
+  so outbound calls silently drop request-ID propagation. Silent cross-service tracing gap.
+- **CORE-13** `aitbc/middleware/validation.py:29-47` — the size guard trusts client-supplied
+  `Content-Length`; chunked transfer-encoding or a spoofed value bypasses the 10MB cap
+  entirely. The response-size check (line 53) fires only after `call_next` has already built
+  the full response in memory, so it can't prevent the resource use it checks for.
+- **CORE-18** `aitbc/network/circuit_breaker.py:44-57` — `check()` has no locking; two
+  concurrent callers can both see `OPEN` with an expired timeout, both flip to `HALF_OPEN`,
+  and both proceed — violating the class's own documented "only one probe" invariant.
+- **CORE-19** `aitbc/network/subscription_manager.py:133-144` — `stop_all` cancels each
+  task but never calls `entry.client.stop()`, despite `stop()` being part of
+  `SubscriptionClientProtocol`; abrupt cancellation skips connection cleanup.
+- **CORE-04** `aitbc/auth/api_key.py:73-150` — `_save_keys()` rewrites the entire JSON key
+  store on every `validate_api_key()` call (line 140) with no file locking; concurrent
+  requests race and lose `usage_count`/`last_used` or corrupt the file. The process-local
+  singleton (line 173) also means a key created by one worker is invisible to others until restart.
+- **CORE-02** `aitbc/auth/middleware.py:434-442` — `sanitize_input` calls `html.escape()`
+  and *then* strips `<>"'&` from the already-escaped string, so `<` → `&lt;` → `lt;`.
+  Output is garbled rather than either properly escaped or properly stripped.
+- **CORE-22** `aitbc/security/encryption.py:216` — `migrate_legacy_wallet` sets
+  `"migration_timestamp": secrets.token_hex(16)` — random hex in a field named and consumed
+  as a timestamp (apparently copy-pasted from surrounding key-generation code).
+- **CORE-23** Fail-open defaults on security status fields: `aitbc/tee/verification.py:41`
+  `ZKProof.verified: bool = True` (a proof built without `verifying_key`/`proof_data` trusts
+  itself), and `aitbc/agent_memory/models.py:104` `ReplicationProof.status = VALID`. Both
+  default to the trusting outcome rather than fail-closed.
+- **CORE-28** `aitbc/constants.py:78` and `:85` — `BRIDGE_VALIDATOR_SET_GRACE_PERIOD`
+  defined twice with different values and comments (`7200` under "v0.7.1", silently
+  overwritten by `3600` under "v0.7.2"). Currently unused, but a copy/paste-across-versions
+  defect in a security-relevant bridge timing constant.
+- **CORE-07 / CORE-21 / CORE-27** float-for-money violations in shared core:
+  `trading/offer_types.py:97,129` (`SyncedOffer.price`); `oracles/price_oracle.py:76,205-290`
+  (chained float arithmetic deriving AIT/USD/EUR compute pricing that backs real settlement);
+  `agent_bridge/src/integration_layer.py:226-227` (float literals `0.1`/`0.001` defaulted into
+  a blockchain trade-submission path).
+- **CORE-26** `aitbc/agent_bridge/src/integration_layer.py:22-28` — `service_endpoints` are
+  hardcoded `http://localhost:PORT` literals, inconsistent with the env/config-driven approach
+  everywhere else in the library; unusable outside a single-host dev setup.
+
+### Low
+
+- **CORE-10** Four separately implemented rate limiters (`network/rate_limiter.py`,
+  `security/rate_limiter.py`, `auth/middleware.py::RateLimiter`, `rate_limiting.py`). Two are
+  documented as intentionally separate, but the proliferation invites bugs like CORE-08.
+- **CORE-12** `aitbc/middleware/cors.py:33-41` — defaults are self-contradictory:
+  `allow_origins=["*"]` + `allow_credentials=True`, which the function's own validation
+  (line 40) rejects. `setup_cors(app)` with no args always raises. Latent — all current
+  callers pass origins explicitly.
+- **CORE-29** `aitbc/settlement/htlc.py:71` — `verify_secret` uses `==` rather than
+  `hmac.compare_digest`, inconsistent with `crypto/hashing.py`, `auth/api_key.py`, and
+  `tee/sealed_storage.py`. Low real-world impact (hashlock is public on-chain), but worth
+  normalizing for defense in depth.
+
+---
+
+## Applications — `apps/`
+
+### Cross-service
+
+- **APP-X1** **Tuple-returned error responses never set HTTP status codes.**
+  `marketplace/main.py`, `governance/main.py`, `gpu/main.py` all use
+  `return ({"error": ...}, 404)`. FastAPI serializes this as a 2-element JSON array with
+  **HTTP 200** — every intended 4xx/5xx is invisible to clients. High, and systemic across
+  three services. Fix: `JSONResponse(status_code=...)`/`HTTPException`.
+- **APP-X2** **Frozen timestamps.** `default=dt.datetime.now(UTC)` — a value computed once
+  at import, not a callable — in `pool-hub/src/poolhub/models.py` (11 columns, e.g. line 43)
+  and `blockchain-node/src/aitbc_chain/contracts/persistent_spending_tracker.py:31,49,61`.
+  Every row gets the same timestamp for the life of the process. coordinator-api does this
+  correctly via `server_default=func.now()`. High. Fix: `server_default=func.now()` or
+  `default=lambda: ...`, plus a lint rule against bare `default=<call>()` on datetime columns.
+- **APP-X3** **Auth reimplemented ad hoc per service instead of shared `aitbc.auth`,
+  frequently failing open.** coordinator-api correctly re-exports the shared module; wallet,
+  pool-hub, trading, exchange each hand-roll their own. High.
+- **APP-X4** **`shared-core` / `shared-domain` are effectively empty** —
+  `shared_domain/__init__.py` is 0 bytes; shared-core's `database.py` is shadowed by an empty
+  package of the same name and is unreachable dead code. This is why DB/HTTP boilerplate is
+  duplicated across every service. High.
+- **APP-X5** **Alembic drift.** coordinator-api and blockchain-node both have live tables
+  with no migration (relying on `create_all` at startup); trading has a migration that
+  silently no-ops. Medium.
+
+### coordinator-api
+
+- **APP-01** *(High)* `contexts/payments/routers/payments.py:29,44,62,81,106,130` — **IDOR on
+  every payment endpoint.** `get_payment`, `get_job_payment`, `release_payment`,
+  `refund_payment`, `get_payment_receipt` require only generic client auth; `user["sub"]` is
+  never compared against the payment/job owner, so any authenticated client can view, release,
+  or refund another client's payment by enumerating `payment_id`.
+- **APP-02** *(High)* `contexts/payments/services/payments.py:73,110,190,227`,
+  `settlement/manager.py:251,268-270`, `settlement/storage.py:243,428` — `Decimal` amounts
+  converted via `float(...)` before being sent to wallet/exchange or stored in settlement
+  records, reintroducing precision loss on the money path despite dedicated "exact monetary
+  semantics" migrations elsewhere in the same service.
+- **APP-03** *(High)* 12+ live SQLModel tables have no Alembic migration
+  (`ai_agent_workflows`, `creative_capabilities`, `trust_score_calculations`,
+  `innovation_labs`, `regional_councils`, `meta_learning_models`,
+  `federated_learning_session`, `training_round`, `training_participant`,
+  `resource_embeddings`, `bounty_stats`, `hackathons`) — any non-fresh deployed DB is missing them.
+- **APP-04** *(Medium)* `settlement/storage.py:188-191,228-231` — interval SQL built as
+  `f"... INTERVAL '${param_count} hours'"`: the placeholder is inside a quoted literal, not
+  valid bound-parameter syntax, so the query throws or fails to filter. Fix:
+  `NOW() - make_interval(hours => $1)`.
+- **APP-05** *(Medium)* `settlement/manager.py:63-100` — `settle_cross_chain` stores the
+  pending record under literal `message_id="pending"` but on final failure writes under
+  `message_id=""`; the original row never reconciles to FAILED and is orphaned.
+- **APP-06** *(Medium)* `settlement/hooks.py:250-256` — `BatchSettlementHook.add_to_batch`
+  is `pass` and `process_batch` returns `[]`, yet the class is exported as public API. Any
+  job handed to it is silently dropped rather than settled.
+- **APP-07** *(Medium)* `tests/test_routers_payments.py` is an empty stub
+  (`class TestPaymentsRouter: pass`) — zero coverage for exactly the endpoints where APP-01 hides.
+
+### blockchain-node
+
+- **APP-08** *(High)* `src/aitbc_chain/rpc/staking.py:62-63` —
+  `locked_until.replace(day=locked_until.day + lock_days)` adds 30 to the *day component*
+  instead of using a `timedelta`, raising `ValueError: day is out of range for month` on
+  most calendar days. This crashes the live `/staking/stake` endpoint that moves real funds
+  out of `Account.balance`.
+- **APP-09** *(High)* `src/aitbc_chain/rpc/escrow_routes.py:31-66` — `_resolve_chain_account`
+  swallows all exceptions and returns `None` on any HTTP error; `_submit_payment_tx` then
+  silently falls back to the node's own `_NODE_WALLET` as sender/recipient on transient
+  network failure instead of failing the escrow release loudly.
+- **APP-10** *(High)* `src/aitbc_chain/rpc/utils.py:53-80` (`verify_request_signature`), used
+  by `staking.py:49` and `bridge.py:49,134,254,467` — unlike ordinary transactions (bound to
+  `sender_account.nonce`), this flow has **no nonce or timestamp**, so a captured signature
+  can be replayed to re-trigger staking, bridge lock/confirm/unlock, or validator registration.
+- **APP-11** *(High)* `src/aitbc_chain/contracts/persistent_spending_tracker.py:31,49,61` —
+  frozen timestamps (see APP-X2) in the table whose entire purpose is tracking per-period
+  agent spending limits.
+- **APP-12** *(Medium)* `src/aitbc_chain/rpc/auth.py:34-53` — with
+  `TRUST_X_WALLET_ADDRESS=true`, `get_authenticated_address` accepts any `X-Wallet-Address`
+  header with zero proof of ownership; it is the only authenticated path actually wired up
+  (JWT Bearer is stubbed to reject).
+- **APP-13** *(Medium)* `consensus/multi_validator_poa.py:37`, `consensus/slashing.py:27,103-115`
+  — `Validator.stake` and `slash_amount = validator.stake * event.slash_amount` are `float`;
+  consensus-critical values subject to rounding disagreement between validators evaluating
+  the same event.
+- **APP-14** *(Medium)* Alembic covers only `block`/`transaction`/`receipt`/`account`;
+  13 other tables (`escrow`, `cross_chain_transfer`, `bridge_validators`, `stake`,
+  `governance_proposal`, `htlc_swaps`, `smart_contract`, …) rely on `create_all()` plus an
+  ad-hoc runtime `_migrate_existing_columns()`.
+- **APP-15** *(Medium)* `consensus/keys.py:44,187-217` — validator secp256k1 private keys
+  persisted as plaintext hex in `validator_keys.json`, protected only by `0600`, despite the
+  package shipping `database_encryption.py` for encrypting other data at rest.
+- **APP-16** *(Medium)* `tests/economics/test_staking.py`, `tests/test_v0516_regression.py:627-661`
+  — the only staking tests target a dead in-memory `StakingManager` not wired into the live
+  app; the real endpoint is only tested for signature rejection, never a successful stake,
+  which is why APP-08 was never caught.
+
+### wallet
+
+- **APP-17** *(High)* `src/wallet_app/api_rest.py:117-336`, `api_jsonrpc.py:64-118` —
+  `create_wallet`, `unlock_wallet`, `sign_payload`, `send_transaction` — which create,
+  decrypt, sign, and broadcast real fund-moving transactions — have **no authentication
+  dependency at all** (only rate limiting), while `faucet_request` correctly requires
+  `require_admin_api_key`.
+- **APP-18** *(High)* `src/wallet_app/crypto/encryption.py:42-52` — `encrypt()` derives the
+  Argon2id key into immutable `bytes` and never wipes it, unlike `decrypt()` which uses a
+  `bytearray` + `wipe_buffer`. The raw wallet-decryption key from every `create_wallet`
+  lingers in process memory until GC.
+- **APP-19** *(High)* `keystore/persistent_service.py:321-328,370-372`,
+  `crypto/encryption.py:55-66` — key material is wrapped in `bytearray` specifically so
+  `wipe_buffer` can zero it, then converted via `bytes(secret_bytes)` before use with nacl.
+  `bytes` is immutable and cannot be zeroed, so an unwiped copy survives every sign/decrypt
+  regardless of the `wipe_buffer` call.
+- **APP-20** *(High)* `tests/` contains **zero test functions** — wallet creation,
+  Argon2id/XChaCha20-Poly1305 encryption, Ed25519 signing, key wiping, and transaction
+  submission have no automated coverage whatsoever.
+- **APP-21** *(Medium)* `ledger_mock/postgresql_adapter.py:196-205` —
+  `create_postgresql_adapter()` hardcodes production-shaped credentials
+  (`"password": "aitbc_password"`) with no settings/env override, reachable from real code paths.
+- **APP-22** *(Medium)* `api_rest.py:341-372`, `bridge/bridge_routes.py` — several
+  `async def` endpoints do blocking sync work on the event loop (sync sqlite, sync
+  `httpx.post()`), unlike `create_wallet` which correctly uses `asyncio.to_thread`.
+- **APP-23** *(Medium)* `api_rest.py:309-312`, `keystore/persistent_service.py:432-439` —
+  broad `except Exception` forwards the raw exception string into a client-facing
+  `HTTPException(400, ...)` on an unauthenticated endpoint, leaking DB errors, RPC responses,
+  and paths. Also `_log_access` silently drops audit-log write failures, so the unlock/sign
+  audit trail can vanish exactly when something is wrong.
+
+### pool-hub — **most broken service in the repo**
+
+- **APP-24** *(High)* `repositories/{match_repository,miner_repository,feedback_repository}.py`
+  — these only call `session.flush()`, never `commit()`, and callers don't commit either.
+  `get_session()` closes the `AsyncSession` at request end without committing, so SQLAlchemy
+  rolls back: **match requests, miner registrations, and feedback are silently discarded
+  while the endpoint returns 200 OK.**
+- **APP-25** *(High)* `app/routers/services.py:25,36,68,77,92,107,124,136,141-142` and
+  `parameters.py:88,132` — `db` is an `AsyncSession` but every call site uses the sync API
+  (`db.execute(stmt).scalars()`, `db.commit()`, `db.refresh()`, `db.delete()`) without
+  `await` → `AttributeError: 'coroutine' object has no attribute ...` on every read/write endpoint.
+- **APP-26** *(High)* `services/sla_collector.py:73,155,254` — lines 155/254 call
+  `self.db.execute(...)` without `await` (crashing `collect_all_miner_metrics` and violation
+  resolution); line 73's un-awaited `commit()` silently no-ops so `uptime_pct` is never
+  persisted. `# type: ignore[misc]` suppressions hide this class of bug.
+- **APP-27** *(High)* `services/billing_integration.py:119-150` — `sync_all_miners_usage`
+  opens `with self.db.begin():` (sync CM) on an `AsyncSession` and calls `execute` without
+  `await`; the entire batched billing-sync path throws at runtime.
+- **APP-28** *(High)* `app/routers/match.py:115-118` — `_compose_explain` reads
+  `status.queue_len`/`status.avg_latency_ms` from the module-level `fastapi.status` import
+  instead of its `miner_status` parameter → `AttributeError` on every `/v1/match` call that
+  reaches result-building, masked as a generic 500 by the surrounding broad except.
+- **APP-29** *(High)* `models.py:205-223` vs `clients/blockchain.py:142-185` — `RewardPayout`
+  is modeled specifically to prevent duplicate reward payouts, but no migration creates the
+  `reward_payouts` table and no code ever inserts into it. `distribute_rewards()` tracks
+  paid/unpaid state solely in an in-process object, so a restart or second replica has no
+  record of prior payouts — **double-payment risk**.
+- **APP-29b** *(High)* `app/routers/parameters.py:57-95` — `POST /v1/parameters/apply`
+  (governance-triggered pricing/capacity changes) has no auth dependency and never verifies
+  the referenced proposal actually passed on-chain; any caller who can reach the service can
+  rewrite pricing/capacity/enabled flags.
+- **APP-29c** *(Medium)* `app/deps.py:33-74` — a missing/invalid `Authorization` header, or a
+  Bearer token matching no miner, both silently fall through to the configured default
+  `miner_id` (or a fabricated stub `Miner`) instead of 401.
+
+### agent-coordinator
+
+- **APP-30** *(High)* `encryption/message_encryption.py:185-229` — `decrypt_message` logs a
+  signature-verification failure as a *warning* and **returns the plaintext anyway**. Forged
+  messages are accepted.
+- **APP-31** *(High)* `services/approval/ai_approval.py:82` — fund transfers gated on
+  `"approve" in ai_response or "yes" in ai_response`; a rejection reading
+  `"reject: yes, suspicious"` auto-approves.
+- **APP-32** *(High)* `services/island_members.py:12-49` — "trusted member" status, used to
+  auto-approve coin transfers, is derived by regex-scraping `journalctl` output.
+- **APP-33** *(High)* `workflow/orchestrator.py:313-373` — steps "execute" by sleeping 0.1s
+  and fabricating success; unsatisfiable dependencies fall through and the workflow is still
+  marked COMPLETED.
+- **APP-34** *(High)* `consensus/distributed_consensus.py:112-138` — votes are simulated with
+  `random.random()` the moment a proposal is created, so real `cast_vote` calls cannot affect outcomes.
+- **APP-35** *(Medium)* Race conditions: `routing/agent_discovery.py` (unlocked registry
+  mutation); `load_balancer.py:429-438` (hash ring never rebuilt on membership change).
+  Resource leak: `websocket/agent_stream.py:334-356`.
+
+### governance
+
+- **APP-36** *(High)* `main.py:158-171` — clients set their own `voting_power_used` with no
+  server-side balance check: unlimited self-reported voting power.
+- **APP-37** *(High)* `main.py:428-579` — cross-chain propose/execute bypass
+  `submit_governance_tx` and submit transactions with `"signature": ""` — **unsigned**.
+- **APP-38** *(High)* `main.py:231` vs `:360` — duplicate route registration makes the real
+  voting-power handler unreachable; the live one returns hardcoded 1000/500/100 for every address.
+- **APP-39** *(High)* Float money throughout treasury/staking/votes.
+
+### marketplace
+
+- **APP-40** *(High)* `services/matching_service.py:155-190` — the offer is committed as
+  `RESERVED` *before* coordinator submission, and submission failure is logged as a warning,
+  leaving offers permanently stuck.
+- **APP-41** *(High)* `services/marketplace_service.py:123-149` — `book_offer` never changes
+  offer status (double-booking), and `_create_bid` returns an object **never persisted to the DB**.
+- **APP-42** *(Medium)* `main.py:770-823` — unauthenticated live-settings mutation.
+
+### gpu
+
+- **APP-43** *(High)* `main.py:576-596` — `register_miner` sets GPU status but never commits.
+- **APP-44** *(High)* `main.py:645-671` — `poll_jobs`, `submit_job_result`, and
+  `submit_job_failure` are no-ops returning a fake `"ok"`.
+- **APP-45** *(Medium)* `services/edge_gpu_service.py:229-245` — SELECT-then-UPDATE job claim
+  with no row lock (race: two workers claim the same job).
+- **APP-46** *(Medium)* Unauthenticated delete/reprice of any listing; float pricing;
+  3 tests against ~25 routes; `data/consumer_gpu_profiles.py` is a drifted orphan duplicate.
+
+### api-gateway
+
+- **APP-47** *(High)* `main.py:55-100` — the rate limiter is fully wired up but `rate_limit()`
+  is **never called on any route**; no rate limiting is enforced anywhere. Additionally 6 of 7
+  tests currently fail, meaning CI is either not run or ignored for this service.
+- **APP-48** *(Medium)* `main.py:209` — prefix match without a segment boundary, so
+  `/v1/walletfoo` routes to wallet; `:212` — unmatched paths silently default to coordinator
+  instead of 404; `:171-201` — non-idempotent POSTs are retried 3x.
+
+### exchange
+
+- **APP-49** *(High)* `simple_exchange/handlers/exchange.py:147-164` — `amount_dec`/`price_dec`
+  are parsed with no positivity check, so a negative or zero price/amount order is accepted,
+  persisted, and matched — a negative-price SELL can sweep the entire open BUY book.
+- **APP-50** *(High)* `simple_exchange/handlers/base.py:28-41` — when `EXCHANGE_API_KEY` is
+  unset, `_require_api_key` returns `True` unconditionally: order placement, treasury balance,
+  and wallet-balance endpoints run fully unauthenticated by default (**fail-open**).
+- **APP-51** *(High)* `simple_exchange/handlers/marketplace.py:98-236` — no mutation handler
+  (`create_offer`, `book_offer`, `delete_order`, `delete_offer`) calls `_require_api_key()`,
+  and delete handlers cancel by ID with no check that the caller's wallet matches the row —
+  any client can cancel any other user's listing.
+- **APP-52** *(High)* `simple_exchange/handlers/bridge.py:78,108-113,156,246,272` — all bridge
+  monetary math (`fee_eth = eth_amount * 0.005`, `ait_amount = (eth_amount * eth_usd) / ait_usd`)
+  uses `float()`, unlike `exchange.py`/`marketplace.py` in the same service.
+- **APP-53** *(Medium)* `handlers/exchange.py:147-242` — the whole order-placement body is one
+  `try/except Exception`, so a bad Decimal parse is reported as `"Blockchain RPC unavailable"`
+  with HTTP 503. `:179` — on-chain orders are always submitted with `"nonce": 0`.
+- **APP-54** *(Low)* Architecturally inconsistent with all 5 siblings: flat `simple_exchange/`
+  on stdlib `http.server` rather than `src/<pkg>/` on FastAPI — which is *why* it lacks shared
+  `aitbc.auth` and hand-rolls a fail-open key check.
+
+### trading
+
+- **APP-55** *(High)* `domain/trading.py:78,170` — `TradeRequest.budget_range` and
+  `TradeNegotiation.price_range` are `dict[str, Decimal]` stored via plain `Column(JSON)` with
+  no Decimal-aware serializer. `Decimal` is not stdlib-JSON-serializable, so any write with
+  real amounts raises `StatementError` (reproduced locally).
+- **APP-56** *(High)* `dependencies.py`, `main.py` — **no authentication or authorization
+  anywhere in the service**; trade/order creation, escrow lock, and settlement reveal-secret
+  endpoints are callable by anyone who can reach the port.
+- **APP-57** *(High)* `routers/exchange_compat.py:92-108` — `confirm_exchange_payment` is an
+  unauthenticated webhook that flips any pending payment to `confirmed` and triggers a
+  token-mint entry for an arbitrary caller-supplied `tx_hash`, with no HMAC verification.
+- **APP-58** *(High)* `routers/exchange_compat.py:25-27` — payment state lives only in a
+  process-local dict (lost on restart, inconsistent across replicas), and amounts are `float`
+  compared with an epsilon of `1e-08`.
+- **APP-59** *(High)* `alembic/versions/002_v0180_decimal_money_fields.py:32-53` — targets
+  table names `tradeagreement`/`tradesettlement`/`tradinganalytics` but the real
+  `__tablename__`s are `trade_agreements`/`trade_settlements`/`trading_analytics`. Guarded by
+  `if table_name in existing_tables`, so it **silently no-ops** and never converts money
+  columns from Float to Numeric(20,8). Needs a follow-up migration for any DB that already ran it.
+- **APP-60** *(High)* `routers/legacy_trading.py:30-67`, `routers/transactions.py:18-52` —
+  raw `dict[str, Any]` bodies with no Pydantic schema passed via `**kwargs` straight into
+  SQLModel constructors: mass-assignment of `status`, `completion_percentage`, `id`, timestamps.
+- **APP-61** *(Medium)* `services/trading_service.py:105-133` — `get_analytics` returns
+  hardcoded `0.0` volumes instead of aggregating real trade values: a stub disguised as a metric.
+
+### ai-engine, miner, edge, memory, explorer, bridges
+
+- **APP-62** *(High)* `ai-engine/src/ai_service.py` — the deployed trading service generates
+  every price, RSI, sentiment, and buy/sell signal with `np.random`; `/api/ai/trade` is
+  unauthenticated.
+- **APP-63** *(High)* `miner/production_miner.py:17-18` — `MINER_ID` and `AUTH_TOKEN` both read
+  from `MINER_API_KEY`: the miner ID *is* the secret.
+- **APP-64** *(High)* `blockchain-event-bridge/event_subscribers/contracts.py:73-116` — the
+  block checkpoint resets to chain head on startup (events during downtime are silently
+  skipped) and advances unconditionally with no reorg or duplicate handling.
+- **APP-65** *(High)* `blockchain-explorer` — all sqlite3 access is synchronous blocking I/O
+  inside `async def` handlers.
+- **APP-66** *(Medium)* `blockchain-explorer/routers/blocks.py:239-290` — unescaped LIKE
+  wildcards (`address=%` matches everything); `routers/export.py` — CSV formula injection.
+- **APP-67** *(Medium)* `memory/service.py:29-32` — unsalted SHA-256 used as a KDF.
+- **APP-68** *(Medium)* Resource leaks: `edge/clients/*.py` (per-request `httpx.AsyncClient`,
+  never closed); `blockchain-event-bridge/action_handlers/*` (`close()` nulls the client
+  instead of closing it, and `bridge.stop()` never calls it); `bridge-monitor/storage.py:178-249`;
+  `blockchain-explorer/routers/transactions.py`.
+- **APP-69** *(Medium)* edge has **zero tests**; shared-core has zero tests; miner's only
+  money-handling module (`reinvestment.py`) is untested.
+- **APP-70** *(Medium)* Committed artifacts: `edge/var/lib/aitbc/data/edge.db` (152KB SQLite
+  DB), `edge/aitbc-edge.service.bak`, `blockchain-event-bridge/polling/*` (never instantiated).
+
+### zk-circuits
+
+- **APP-71** *(High)* ~20MB of `.zkey`/`.wasm`/`.r1cs`/`.ptau` committed with no `.gitignore`,
+  and the `.ptau` files are the **snarkjs tutorial toy ceremony** ("1st Contributor Name")
+  sitting next to production receipt circuits. Five near-duplicate `modular_ml_components*`
+  variants add to the confusion.
+
+---
+
+## Smart contracts — `contracts/`
+
+- **SC-01** *(Critical)* `contracts/ContractRegistry.sol:47-50` — `onlyAuthorized` checks
+  `msg.sender != owner() && !isContract(msg.sender)`, i.e. it only distinguishes EOA from
+  contract. **Any attacker-deployed contract passes.** This modifier gates `registerContract`
+  (L108), `updateContract` (L142), `deregisterContract` (L163), and `batchRegisterContracts`
+  (L227) — the central address book that Treasury, Staking, DAO, and RewardDistributor all
+  trust. Fix: require `msg.sender == owner()` or an explicit role.
+- **SC-02** *(High)* Unguarded, front-runnable `initialize(address _registry)` in 5 modular
+  contracts — protected only by a one-time "already initialized" flag, so anyone can call it
+  immediately after deployment and permanently poison `registry` and derived addresses:
+  `TreasuryManager.sol:119`, `DAOGovernanceEnhanced.sol:147`, `RewardDistributor.sol:139`,
+  `PerformanceAggregator.sol:128`, `StakingPoolFactory.sol:165`. Fix: `onlyOwner`.
+- **SC-03** *(High)* `AIServiceAMM.sol:876-894` — `executeEmergencyWithdraw` brute-forces the
+  operation hash in a loop bounded by the timelock *value* (default 48h = 172,800 s, line 49),
+  hashing on each of up to 172,801 iterations. It exceeds any realistic block gas limit, so
+  the function permanently reverts OOG. Fix: store the operation hash/ID at scheduling time.
+- **SC-04** *(High)* `DAOGovernanceEnhanced.sol:291-312` — `executeProposal` has **no quorum**:
+  the pass condition is only `forVotes > againstVotes && totalVotes > 0` (L298), and no quorum
+  concept exists in the file. A single voter can pass a proposal that then executes an
+  arbitrary `call{value}` to any target (L405) on the DAO's behalf.
+- **SC-05** *(Medium-High)* `AgentStaking.sol:483-533` — `distributeAgentEarnings` loops
+  unbounded over `pool.stakers` with a nested inner scan (outer L509, inner L517-524): a DoS
+  via organic growth that can permanently block reward distribution. It also **under-pays** —
+  the inner loop `break`s on the first ACTIVE stake matching a staker (L520-523), so anyone
+  with multiple concurrent stakes on the same agent is credited for only one.
+- **SC-06** *(Medium)* `AgentStaking.sol:977-998` — `_slashAllStakesForAgent` loops over all
+  historical stakes with an external token transfer per iteration (L993); same unbounded-loop
+  DoS, eventually making slashing impossible to execute.
+- **SC-07** *(Medium)* Non-standard-ERC20-unsafe transfers in 5 contracts — raw
+  `transfer`/`transferFrom` in `require(...)` instead of `SafeERC20` (which sibling contracts
+  TreasuryManager and RewardDistributor do import). `AgentBounty.sol:244,412,435,680,685`;
+  `EscrowService.sol:628,905,912`; `PaymentProcessor.sol:435,464,524,532,561,632,639`;
+  `AgentStaking.sol:467,471,941,993,1070`; `AIPowerRental.sol:294,301,456`. USDT-style tokens
+  that don't return a bool will always revert.
+- **SC-08** *(Medium)* `upgrade(address newImplementation)` is a misleading no-op in 4
+  contracts — it only does `version++` and discards the address:
+  `TreasuryManager.sol:143-146`, `DAOGovernanceEnhanced.sol:164-167`,
+  `PerformanceAggregator.sol:145-148`, `StakingPoolFactory.sol:181-184`.
+- **SC-09** *(Medium)* Missing zero-address validation in constructors taking dependency
+  addresses — `AgentBounty.sol:170`, `EscrowService.sol:330-338`, `AIPowerRental.sol:167-176`,
+  `PaymentProcessor.sol:219-223`. A deploy-script typo permanently bricks the contract or
+  points it at an attacker-controlled address.
+- **SC-10** *(Medium)* `contracts/scripts/deploy-mainnet.js:32-39` — deploys a contract
+  explicitly logged as `"AIToken (Mock)"` straight to mainnet with 1B initial supply, with no
+  confirmation gate before spending real funds.
+- **SC-11** *(Low-Medium)* `contracts/scripts/deploy-testnet.sh:17,63` —
+  `NETWORK="${2:-localhost}"` assumes a `--network` flag comes first, so the documented
+  `./deploy-testnet.sh sepolia` silently deploys to **localhost**. It also invokes
+  `scripts/deploy.js`, which does not exist — a dead code path.
+- **SC-12** *(Low)* `AgentBounty.sol:603-629` — `getBountyStats()` loops over every bounty ever
+  created; unbounded and callable on-chain by another contract.
+- **SC-13** *(Low)* `governance/src/AITBCVoting.sol:41-74` — `createProposal` has no minimum
+  stake/voting-power requirement (the computed `votingPower` at L53 is never checked):
+  proposal spam.
+- **SC-14** *(Low)* `contracts/GPURegistry.sol` — a 20-line stub whose own docstring says to
+  use transaction-based registration instead, sitting in the compiled contracts directory
+  where it could be deployed by mistake.
+
+---
+
+## Ops tooling — `scripts/`
+
+- **OPS-01** *(High)* `security/scan_secrets.py:18-53` — `DEFAULT_EXCLUDE` literally contains
+  `"contracts"`, `"workflow"`, and `"multi-node"`. Exclusion matches *any* path component
+  (`_should_exclude`, L96-103) and the tool walks `/opt/aitbc` by default, so the CI secret
+  scanner is **blind to the entire `contracts/` tree** — which includes deploy scripts
+  referencing `PRIVATE_KEY` — plus two `scripts/` subdirectories.
+- **OPS-02** *(High)* `migration/scale_balances_3600x.py:264-289` — if
+  `recalculate_state_root()` returns `None` (L274) the script prints a warning, **continues**,
+  and still reports `"✅ Migration completed successfully!"` with exit 0, even though the
+  genesis `state_root` is now inconsistent with the just-scaled balances.
+- **OPS-03** *(High)* `migration/scale_balances_3600x.py:127-153` — `recalculate_state_root()`
+  is a hand-rolled sha256 over concatenated `address:balance:nonce` strings, documented in-code
+  as "not the actual Merkle Patricia Trie" (L131-132). The genesis `state_root` it writes will
+  not match what the real node computes, likely causing consensus/genesis-validation failure
+  after the hard fork.
+- **OPS-04** *(High)* `deployment/deploy.sh:378-383` — `rollback_deployment()` runs
+  `rm -rf "$REPO_ROOT"` (defaulting to `/opt/aitbc`, the entire install) then `cp -r` from
+  backup, with **no confirmation prompt** — unlike `maintenance/restore_postgresql.sh`, which
+  does prompt. If the copy fails partway, the install directory is left empty.
+- **OPS-05** *(High)* `ops/rotate_jwt_secret.sh:41`, `ops/rotate_api_key_secret.sh:41` —
+  `NEW_SECRET="$1"` takes the secret as a **command-line argument**, visible to any local user
+  via `ps aux` / `/proc/<pid>/cmdline` and recorded in shell history. Fix: read from stdin,
+  env var, or a restricted-permission file.
+- **OPS-06** *(Medium-High)* `ops/rotate_jwt_secret.sh:86,143`,
+  `ops/rotate_api_key_secret.sh:86,125` — the new secret is interpolated unescaped into
+  `sed -i "s/…=.*/…=$NEW_SECRET/"`. Base64 secrets routinely contain `/` and `&`, both special
+  to sed substitution, corrupting the replacement or failing silently.
+- **OPS-07** *(Medium)* `ops/rotate_jwt_secret.sh:49,191`,
+  `ops/rotate_api_key_secret.sh:49,162` — pre-rotation `.env.backup_<timestamp>` files
+  containing the **old plaintext secret** are only cleaned when older than 7 days
+  (`-mtime +7 -delete`), leaving rotated secrets recoverable on disk for a week.
+- **OPS-08** *(Medium)* `migration/scale_balances_3600x.py:240-241` — `--chain-id` defaults to
+  the production domain `ait-hub.aitbc.bubuit.net` and `--data-path` to `/var/lib/aitbc/data`,
+  so running with no arguments targets **production by default**, with no confirmation before
+  an irreversible ×3600 balance rewrite.
+- **OPS-09** *(Medium)* `security/migrate_secrets_to_env_files.py:16-83` — rewrites systemd
+  `.service` files in place (L81) with no backup; a regex misparse (L49) makes the original
+  unrecoverable except via git. `:86-103` — `create_env_template()` only redacts values whose
+  *variable name* matches `password|secret|token|key|auth`, so a secret under a differently
+  named var (e.g. `DATABASE_URL` with embedded credentials) is written verbatim into
+  `/opt/aitbc/templates/env/*.env`.
+- **OPS-10** *(Medium)* `deployment/setup.sh:235,240,266` — installs Node.js via
+  `curl -fsSL https://deb.nodesource.com/setup_24.x | bash -` (three times, for different
+  distros): a remote script piped into a root shell with no checksum or signature verification.
+- **OPS-11** *(Medium)* `deployment/deploy/{deploy_container_with_miner,container-deploy,deploy_gpu_to_container}.py`
+  — ~70% duplicate scripts hardcoding one developer's home directory
+  (`/home/oib/windsurf/aitbc`) and username (`User=oib` in generated systemd units), unusable
+  by any other operator. Most `subprocess.run(...)` calls ignore return codes
+  (`container-deploy.py:40`, `deploy_container_with_miner.py:33,37,52`), so a failed container
+  launch or file push goes undetected and the script proceeds.
+- **OPS-12** *(Medium)* `github/solve-github-prs.sh:110-126,145-146` — automates
+  `git add`/`git commit` on `main` and instructs the operator to `git push origin main`,
+  directly bypassing the repo's own branch protection ("No direct pushes to main", PR +
+  CODEOWNERS review, per CLAUDE.md). It is also stale (hardcodes PRs #28–#38) and its
+  self-test does `import types.requests`, which is not a real module for the `types-requests`
+  stub package — so the verification step is meaningless and silently swallowed.
+- **OPS-13** *(Medium)* No README in the five highest-risk script directories —
+  `deployment/`, `migration/`, `security/`, `release/`, `ops/` — despite them containing
+  `rm -rf $REPO_ROOT`, `DROP DATABASE`, the ×3600 hard-fork migration, and secret rotation.
+  Nothing documents purpose, prerequisites, or blast radius.
+- **OPS-14** *(Medium)* `release/check-v0.5.0.sh:24,35,92` — the pre-tag placeholder-secret
+  gate scans only `/opt/aitbc/apps`. The identical placeholder
+  `PRIVATE_KEY=your_private_key_here` that `deployment/deploy-developer-ecosystem.sh:71`
+  generates into a `.env` template lives outside that path, so the gate would never catch it.
+- **OPS-15** *(Low)* `maintenance/restore_postgresql.sh:161,165` — `db_name` (from a k8s
+  secret) is interpolated unquoted into `psql -c "DROP DATABASE IF EXISTS $db_name;"` /
+  `"CREATE DATABASE $db_name;"`: a SQL-injection surface if that value is ever malformed.
+- **OPS-16** *(Low)* ~15 occurrences of `eval "$test_command"` across `testing/` and
+  `workflow/` (`run_staking_tests.sh:54`, `test_simulate.sh:59`, `run_all_tests.sh:142`,
+  `test_workflow_cli.sh:41`, `test_resource.sh:41`, `test_config_profiles.sh:44`,
+  `test_edge_advanced.sh:59`, `test_workflow.sh:63`, `workflow/32_*.sh:54,74`,
+  `workflow/31_*.sh:54,74`, `workflow/26_*.sh:242`, `workflow/18_*.sh:35`,
+  `workflow/41_*.sh:50,68`, `workflow/43_*.sh:55,75`). Currently file-local literals, but a
+  latent injection vector the moment any incorporates dynamic input. Fix: array-based invocation.
+- **OPS-17** *(Low)* `service-management/{fix-services,manage-services,run-local-services,stop-services}.sh`
+  — four independent implementations of the same systemd start/stop logic with slightly
+  different service lists; a service added to one is easily forgotten in the others.
+- **OPS-18** *(Low)* `sync/bulk_sync.sh:9-10` — hardcodes `GENESIS_NODE="10.1.223.40"` and
+  `GENESIS_PORT="8006"` with no env/flag override, unlike `multi-node/*`.
+- **OPS-19** *(Low)* `economics/harvest_yield.py:1-6` — a yield-harvesting script (moves and
+  compounds funds) shipping in a production ops directory while documented as a skeleton that
+  "uses the in-memory demo adapter unless a real adapter is registered", with no runtime warning.
+
+---
+
+## CLI — `cli/`
+
+- **CLI-01** *(High)* `aitbc_cli/utils/dual_mode_wallet_adapter.py:92-97` — **fake, predictable
+  private keys.** `_create_wallet_file()` sets
+  `private_key = f"simple_key_{wallet_name}_{datetime.now().isoformat()}"` instead of
+  generating real key material, and marks the wallet `"encrypted": bool(password)` while
+  storing that fake key in plaintext. `aitbc_cli/commands/wallet/__init__.py:38-47` already
+  documents this as a known legacy defect — but this is still the live code path.
+- **CLI-02** *(High)* `aitbc_cli/utils/wallet_daemon_client.py:440-452` —
+  `get_wallet_balance_in_chain` always returns `balance=0.0` ("For now, return a placeholder
+  balance"), handing callers fabricated financial data instead of an error.
+- **CLI-03** *(High)* `aitbc_cli/auth/__init__.py:7-23` — credential storage silently regressed
+  from the OS keyring (still used by the legacy `cli/auth/__init__.py`) to a module-level
+  `_CREDENTIAL_STORE: dict[...] = {}` — plaintext, in-process only, and gone on the next CLI
+  invocation since each call is a fresh process. Currently dead code, dangerous if wired up.
+- **CLI-04** *(Medium)* `cli/utils/`, `cli/auth/`, `cli/models/` — a duplicate legacy top-level
+  package tree shadowing `cli/aitbc_cli/*`. `cli/setup.py` uses
+  `find_packages(exclude=["aitbc"])`, so these install into site-packages under the dangerously
+  generic names `utils`, `auth`, `models`, `config_data`. The trees have diverged rather than
+  being re-export shims — e.g. `cli/utils/wallet_daemon_client.py` still leaks HTTP clients
+  (`sign_message`, `send_transaction`, `unlock_wallet`, `list_chains`) that the `aitbc_cli`
+  copy fixed with `with`.
+- **CLI-05** *(Medium)* `aitbc_cli/utils/crypto_utils.py:150-183` — multisig challenges live in
+  a process-local dict on a module singleton, so a challenge from `create_signing_request` can
+  never be found by a later `verify_and_add_signature` (separate processes). Line 182 also sets
+  `"created_at": secrets.token_hex(8)` — random hex, not a timestamp — so expiry cannot be computed.
+- **CLI-06** *(Medium)* `cli/utils/secure_audit.py:21-24,87-119` — the tamper-evident audit log
+  under `~/.aitbc/audit` is created with default permissions (no `chmod`), the singleton does
+  disk I/O at import (line 317), and there is no file locking, so concurrent writers can
+  interleave and break the hash chain.
+- **CLI-07** *(Medium)* `aitbc_cli/services/env_validator.py:22-48,70-77` — `_looks_like_secret`
+  only flags 32+ alnum, `sk-…`, or 64-hex values, so any shorter or differently formatted
+  secret in a `*_API_KEY`/`*_TOKEN` key is stored **unredacted** in `result.present[key]`,
+  which callers may print or log.
+- **CLI-08** *(Medium)* `aitbc_cli/core/main.py:80-84` — the `aitbc list` alias calls
+  `wallet.main(args=["list"], standalone_mode=False)`, starting a fresh Click invocation
+  instead of forwarding the context, so global flags (`--url`, `--api-key`, `--output`,
+  `--chain-id`) are silently dropped.
+- **CLI-09** *(Medium)* `aitbc_cli/core/chain_manager.py:349,447,462-463` — chain
+  migration/replication reports fabricated statistics (`available_space_mb=10000`,
+  `blocks_transferred=1000`, `transfer_time_seconds=300`) with no dry-run gate.
+- **CLI-10** *(Low-Medium)* `aitbc_cli/commands/config.py:415-427` — `set_secret` writes
+  `secrets.json` with default umask and only then `chmod(0o600)`, leaving a TOCTOU window
+  where the file is world-readable.
+- **CLI-11** *(Medium)* Test coverage: 6 test files (~107 test functions) against 50+ command
+  groups and 142 source files. No dedicated tests for `agent`, `bridge`, `chain`, `compliance`,
+  `contract`, `deploy`, `governance`, `mining`, `node/*`, `pool_hub`, `security`, `tee`,
+  `wallet/*`, or `workflow`.
+- **CLI-12** *(Low)* `aitbc_cli/utils/dual_mode_wallet_adapter.py:93,97` — generated addresses
+  (`aitbc1{wallet_name}_simple`) contain underscores and fail the codebase's own
+  `^ait(bc)?1[a-z0-9]+$` validator, so wallets created here are rejected by other commands.
+  `:13` — hardcoded `sys.path.insert(0, "/opt/aitbc/cli")` at import time.
+- **CLI-13** *(Low)* `aitbc_cli/commands/client.py` is an unregistered empty stub group; three
+  differently-purposed "agent" groups (`agent_sdk.py`→`agent`, `agent.py`→`agent-msg`,
+  `agent_comm.py`) are disambiguated only by import aliases.
+
+---
+
+## Packages — `packages/`
+
+- **PKG-01** *(High)* `py/aitbc-sdk/aitbc_sdk/receipts.py:89-213` —
+  `CoordinatorReceiptClient._request()` builds a fresh `AITBCHTTPClient` on every call and
+  never closes it (line 192, inside the retry loop). Since `iter_receipts()` calls it once per
+  page, a job with many receipt pages — or any retried request — leaks one unclosed client and
+  connection pool per attempt.
+- **PKG-02** *(High)* `py/aitbc-sdk/aitbc_sdk/receipts.py:223-233` —
+  `ReceiptVerifier(_decode_key(key_id))` is constructed **outside** the `try`. A receipt with
+  no `"signature"` field yields `key_id=""` → `_decode_key("")` → `b""` →
+  `nacl.signing.VerifyKey(b"")` raises, propagating uncaught out of
+  `verify_receipt`/`verify_receipts`/`summarize_receipts`. **One malformed receipt crashes the
+  entire batch** instead of being reported invalid.
+- **PKG-03** *(High)* `aitbc-core/aitbc_core/plugins/loader.py:1-34` — `load_plugin()` does
+  `importlib.import_module()` + `getattr()` + call, driven entirely by a manifest string
+  (`"module.path:callable"`), with no sandboxing, signature verification, or trust check — the
+  module's own docstring says production needs all three. If manifests can originate from an
+  untrusted white-label config or admin API, this is arbitrary code execution by design.
+- **PKG-04** *(Medium)* `aitbc-shared/aitbc_shared/orm.py:9-19` — `get_engine()` caches
+  `_engine` at module scope on first call, so every later call **silently ignores a different
+  `database_url`** and returns the original engine; consumers expecting per-call DB targeting
+  write to the wrong database. `:22-26` — `get_session()` is a bare generator, not decorated
+  with `@contextlib.contextmanager`, so `with get_session() as s:` raises `AttributeError`
+  outside FastAPI's `Depends()`.
+- **PKG-05** *(Medium-High)* Every `.tsx`/`.ts` file in `packages/web/src` and
+  `packages/theme-provider/src` starts with `// @ts-nocheck` (`Button.tsx:1`,
+  `LiveRegion.tsx:1`, `SkipLink.tsx:1`, `AppearancePanel.tsx:1`, `ThemeProvider.tsx:1`), while
+  `package.json`'s `lint` script is `tsc --noEmit && eslint …`. **The type gate is a no-op**
+  and reports zero errors regardless of correctness.
+- **PKG-06** *(Medium)* `packages/web/package.json` and `packages/theme-provider/package.json`
+  — the `lint`/`test`/`build` scripts invoke `tsc`, `eslint`, `eslint-plugin-jsx-a11y`, and
+  `jest`, none of which are declared in `devDependencies`. A clean `npm install` in either
+  package cannot run any of its own scripts.
+- **PKG-07** *(Medium)* `py/aitbc-agent-sdk/aitbc_agent/command_executor.py:16,21` — default
+  `cli_path="/opt/aitbc/aitbc-cli"` does not match the actual installed entry point (`cli/setup.py`
+  registers the console script `aitbc`), so `execute_command()` raises `FileNotFoundError` on
+  any normal pip/poetry install. `:28` — naive `command.split()` breaks arguments needing quoting.
+- **PKG-08** *(Medium)* `packages/web/src/hooks/useWalletTheme.ts:16-46` — a production-looking
+  hook that is an explicit stub: `setPreference()` just `setTimeout(100)`s and updates local
+  state, with no on-chain read/write despite the name and return shape implying wallet-bound
+  persistence.
+- **PKG-09** *(Medium)* `packages/web/src/hooks/usePreferences.ts` and
+  `theme-provider/src/ThemeProvider.tsx` independently own the same
+  `localStorage["aitbc-theme-preference"]` key with separate React state and no `storage`-event
+  sync; if both mount (web depends on the theme-provider), they silently diverge.
+- **PKG-10** *(Low-Medium)* `packages/web/tests/visual/regression.spec.ts` — the "visual
+  regression" suite renders nothing and screenshots nothing; its three tests set a DOM
+  attribute and assert it was set, and would pass with the theming completely broken.
+- **PKG-11** *(Low)* `py/aitbc-crypto/aitbc_crypto/signing.py:34-38` — `ReceiptVerifier.verify()`
+  catches bare `Exception` and returns `False`, making malformed base64 and wrong-length keys
+  indistinguishable from a genuinely bad signature, with no logging.
+- **PKG-12** *(Low)* `py/aitbc-sdk/aitbc_sdk/client.py:142-160` — `CoordinatorAPIClient` has no
+  `close()` or context-manager support despite owning an `AITBCHTTPClient`.
+- **PKG-13** *(Low)* `aitbc-shared/pyproject.toml:9` requires `>=3.10` while every other
+  package requires `>=3.13`/`^3.13`. Build backends are also split — `setuptools.build_meta`
+  for `aitbc-core`/`aitbc-shared`, `poetry.core.masonry.api` for all of `packages/py/*`.
+- **PKG-14** *(Low)* `theme-provider/src/ThemeProvider.tsx:39-58` — `readPreference()` calls
+  `window.matchMedia` unguarded while its sibling `resolveMode()` (26-28) checks
+  `typeof window === "undefined"`. Safe today only because the sole call site is inside a
+  `useEffect`; a latent SSR crash.
+
+---
+
+## Tests
+
+- **TEST-01** *(High)* **Wallet has no working test coverage anywhere.**
+  `tests/integration/test_wallet_api.py` is skipped at import
+  (`pytest.skip("wallet_service app pollutes shared SQLModel metadata", allow_module_level=True)`),
+  and `apps/wallet/tests/` contains only an empty `conftest.py`/`__init__.py`. Fix the metadata
+  collision rather than skipping (see also APP-17 through APP-20).
+- **TEST-02** *(High)* `tests/TEST_STATUS_SUMMARY.md` claims
+  `"100% COMPLETED (v0.3.0 - April 2, 2026)"` and lists the JWT, monitoring, type-safety, and
+  advanced-features production suites as "✅ PASSED 100%" — but those suites are all
+  skip-gated (TEST-04) and the referenced version is far behind current. Actively misleading;
+  regenerate from a real run or delete.
+- **TEST-03** *(Medium)* Permanently disabled suites:
+  `tests/property_tests/test_validation_properties.py` (`pytestmark = pytest.mark.skip("Skipping broken test file")`)
+  and individual skips in `tests/property_tests/test_crypto_properties.py` citing API drift
+  ("sign_transaction_hash API may have changed in eth-account",
+  "validate_ethereum_address may expect AITBC format not Ethereum").
+- **TEST-04** *(Medium)* All five `tests/production/*.py` suites are gated on
+  `skipif(not _service_available())` against a live service on `localhost:9001`, so in normal
+  CI they are 100% silently skipped.
+- **TEST-05** *(Medium)* `tests/integration/test_marketplace_api.py` — 136 lines skipped for a
+  package removed in the v0.5.x migration, superseded by real app-local tests. Delete.
+- **TEST-06** *(Medium)* `tests/` root holds 198 loose files, 112 of which are `test-*.sh`
+  scripts for an entirely different subsystem (git/PR/orchestrator governance tooling:
+  `test-jira-tracker.sh`, `test-adr-status.sh`, `test-merge-wait.sh`, `test-kill-guard.sh`),
+  intermixed with ~86 Python unit tests. Relocate to `tests/orchestrator.d/` (which already
+  exists and is used by `staged-suite.sh`) or a new `tests/tooling/`.
+- **TEST-07** *(Medium)* `tests/test-orchestrator.sh` is a single 341KB / 5,440-line shell file;
+  line 1272 uses a backgrounded `sleep 2` for lock cleanup — timing-based rather than
+  event-based synchronization.
+- **TEST-08** *(Low)* `tests/staking/` contains only a README describing where staking tests
+  *should* live. `tests/archived_phase_tests/` (3 files, 212K) sits live in the main tree under
+  an "archived" name with no `__init__.py`. Duplicate blockchain coverage spans
+  `tests/test_blockchain.py`, `test_blockchain_service.py`, and three
+  `tests/integration/test_blockchain_*.py` files. `tests/conftest_sqlite.py` hardcodes
+  `redis://localhost:6379/1`.
+
+---
+
+## Docs & repo hygiene
+
+- **DOC-01** *(High)* Root `README.md` badge reads `version-v0.20.4` while `docs/releases/`
+  documents versions through v2.10.0. Sync it, or generate it from a single source of truth.
+- **DOC-02** *(High)* **OpenAPI spec drift** — two parallel directories for the same services
+  have diverged. `docs/api/wallet-openapi.json` carries an extra `x-api-key` header parameter
+  and the title "AITBC Wallet Daemon"; `docs/openapi/wallet.json` says "AITBC Wallet Service".
+  `docs/api/marketplace-openapi.json` includes a `chain_id` query filter (labeled v0.6.6) that
+  `docs/openapi/marketplace.json` lacks. Pick one canonical location (`docs/api/` looks newer)
+  and auto-regenerate or delete the other.
+- **DOC-03** *(Medium)* `docs/releases/` version-scheme inconsistency — directories with
+  `change.log`/`suggestions.md` through v2.0.0, then loose top-level files
+  (`v2.5.0-UPGRADE.md`, `v2.6.0-STRUCTURED-CHANGELOG.md`, three separate v2.9.0 files,
+  `v2.10.0-UPGRADE.md`), with gaps at v2.1–v2.4 and v2.7–v2.8. Standardize going forward.
+- **DOC-04** *(Medium)* `docs/getting-started/quick-start.md` and `quickstart.md` are two
+  entirely unrelated documents with near-identical names (security/performance features vs.
+  joining the network as a follower node) — a guaranteed source of wrong links.
+- **DOC-05** *(Medium)* `docs/agent-outputs/` holds 32 entries / ~2.9MB of ticket-scoped scratch
+  artifacts (`epic-ABS-*-merge-log.md`, `live-runs/`, `qa-validations/`, `test-prep/`,
+  `enrichment-staging/`) accumulating indefinitely in the docs tree. Prune or archive
+  completed-ticket outputs.
+- **DOC-06** *(Low)* Near-duplicate directory names: `docs/release/` (process docs) vs
+  `docs/releases/` (version history); `docs/ops/` (one runbook) vs `docs/operations/` (the real
+  tree). Merge or rename. Likewise `docs/CHANGELOG.md` (a "Documentation Changelog") vs the
+  root project `CHANGELOG.md`.
+- **DOC-07** *(Low)* `docs/meta/pre-boilerplate-backup/` (48K of `.orig` files) is a one-time
+  migration backup with no removal date; `specs/` at the repo root mirrors the same
+  ticket-scoped pattern as `docs/agent-outputs/`, splitting design docs across two locations.
+- **HYG-01** *(Clean)* Cache and build artifacts are correctly handled — `.mypy_cache/`,
+  `.ruff_cache/`, `htmlcov/`, `tests/htmlcov/`, `.hypothesis/`, `.pytest_cache/`, `.coverage`,
+  `coverage.json`, `tmp/`, `work/`, `data/`, and `venv/` are all gitignored and untracked
+  (verified via `git check-ignore -v` and `git ls-files`). The single 17KB top-level
+  `.gitignore` is well organized. No action needed.
+- **HYG-02** *(Low)* Uncommitted working-tree changes at audit time: `.gitignore` (2 lines) and
+  `docs/releases/v0.21/release.log` (47 lines). `work/scratch/` holds 10 leftover agent files
+  (gitignored, but residue accumulating — the workflow that writes there should clean up).
+
+---
+
+## Suggested v0.22 plan
+
+**Release blockers — fix before tagging**
+
+1. Restore pool-hub to a working state: commit boundaries (APP-24) and the async/await
+   migration (APP-25, APP-26, APP-27, APP-28). Remove the `# type: ignore[misc]` suppressions
+   that hid these, then re-run mypy.
+2. Close the fail-open auth holes: APP-50/APP-51 (exchange), APP-29c/APP-29b (pool-hub),
+   APP-17 (wallet), APP-56 (trading), CORE-03 (shared matrix default).
+3. Fix APP-01 (payment IDOR) and add the authz tests that APP-07's empty stub should have held.
+4. Fix APP-30 (decrypt returns plaintext on signature failure) and APP-31 (substring-matched
+   fund approval).
+5. Fix SC-01 and SC-02 before any contract redeploy; SC-04 (quorum) and SC-03 (unusable
+   emergency withdraw) should land in the same audit pass.
+6. Fix CORE-05 and CORE-06 — both are outright broken-on-first-use and trivially unit-testable.
+7. Fix OPS-01 (secret scanner blind to `contracts/`) and re-run the scanner over the full tree
+   before tagging; then OPS-02/OPS-03 before any hard-fork migration is executed.
+
+**High-value follow-ups**
+
+8. Repo-wide Decimal sweep (`grep -rn "float(" apps/*/src aitbc/`) with a lint rule to prevent
+   regression — this is the single most repeated defect class in the audit.
+9. Add a lint rule banning `default=<call>()` on datetime columns; fix the 14 known sites (APP-X2).
+10. Decide the fate of the stubs that report success — CORE-24, APP-33, APP-34, APP-44,
+    APP-06, APP-62, CLI-02, CLI-09. Each should either be implemented or raise
+    `NotImplementedError`; none should keep returning fabricated success.
+11. Delete or reconcile the duplicate legacy trees: `cli/utils|auth|models` (CLI-04),
+    `docs/openapi` vs `docs/api` (DOC-02), the three request-ID middlewares (CORE-11), and the
+    four rate limiters (CORE-10).
+12. Populate `shared-core`/`shared-domain` (APP-X4) — their emptiness is the root cause of the
+    duplicated boilerplate found in every service.
+13. Give wallet and edge real test suites (APP-20, TEST-01, APP-69); fix api-gateway's broken
+    suite (APP-47) and find out why 6 failing tests did not block a release.
+14. Remove `@ts-nocheck` from `packages/web` and `theme-provider` and add the missing
+    devDependencies so their lint gate does something (PKG-05, PKG-06).
+15. Purge the zk-circuits toy ceremony and add a `.gitignore` for build artifacts (APP-71).
+
+**Process gaps worth noting**
+
+- Several findings (APP-47's 6 failing tests, TEST-02's false status doc, APP-59's no-op
+  migration) indicate CI results are not gating merges. Worth confirming the pipeline actually
+  blocks on failure before relying on any of the above fixes staying fixed.
+- OPS-12 documents a script that instructs operators to push directly to `main`, contradicting
+  the branch protection described in CLAUDE.md.
+- OPS-13 and OPS-14: the release checklist scans a narrower path than the repo now occupies.
