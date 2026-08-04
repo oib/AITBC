@@ -272,7 +272,7 @@ class JWTHandler:
             token_payload.setdefault("exp", expire)
             token_payload.setdefault("type", "access")
             token = jwt.encode(token_payload, self.secret_key, algorithm=self.algorithm)
-            return {"status": "success", "token": token, "expires_at": expire.isoformat(), "token_type": "Bearer"}
+            return {"status": "success", "token": token, "expires_at": expire.isoformat(), "token_type": "Bearer"}  # nosec B105
         except Exception as e:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": "Token generation failed"}
