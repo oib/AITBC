@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager, contextmanager
 
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 from sqlalchemy.pool import QueuePool
 
 from aitbc.aitbc_logging import get_logger

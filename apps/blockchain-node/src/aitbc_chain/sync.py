@@ -6,6 +6,7 @@ import asyncio
 import json
 import time
 from collections.abc import Callable
+from contextlib import AbstractContextManager
 from typing import Any
 
 import httpx
@@ -37,7 +38,7 @@ class ChainSync(BulkSyncMixin, StateSyncMixin, BlockImportMixin):
 
     def __init__(
         self,
-        session_factory: Callable[[], Session],
+        session_factory: Callable[[], Session] | Callable[[], AbstractContextManager[Session]],
         *,
         chain_id: str = "",
         max_reorg_depth: int = 10,

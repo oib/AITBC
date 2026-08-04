@@ -34,7 +34,7 @@ async def main() -> None:
     init_db(settings.chain_id)
 
     sync = ChainSync(
-        session_factory=session_scope,  # type: ignore[arg-type]
+        session_factory=lambda: session_scope(settings.chain_id),
         chain_id=settings.chain_id,
         batch_size=args.batch_size,
         poll_interval=args.poll_interval,
