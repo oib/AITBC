@@ -221,6 +221,7 @@ class MessageEncryptor:
                     logger.info("Signature verified for message from %s", encrypted_msg.sender_id)
                 except Exception as e:
                     logger.warning("Signature verification failed: %s", e)
+                    return None
             message: dict[str, Any] = json.loads(message_json.decode("utf-8"))
             logger.info("Decrypted message from %s to %s", encrypted_msg.sender_id, recipient_id)
             return message
