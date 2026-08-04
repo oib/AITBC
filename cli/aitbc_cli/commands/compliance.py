@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import UTC, datetime
+from typing import Any
 
 import click
 
@@ -84,6 +85,7 @@ def export_audit(ctx, output_file: str):
     """Export a simulated compliance audit trail to a JSON file."""
     try:
         client = _api_client()
+        records: list[dict[str, Any]] | dict[str, Any]
         if client is None:
             records = [
                 {

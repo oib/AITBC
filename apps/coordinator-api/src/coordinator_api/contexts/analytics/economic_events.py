@@ -100,7 +100,7 @@ class EventStore:
         if self._session is None:
             events = self._events[:]
         else:
-            stmt = select(EconomicEvent).order_by(EconomicEvent.created_at.desc())
+            stmt = select(EconomicEvent).order_by(EconomicEvent.created_at.desc())  # type: ignore[attr-defined]
             if actor_id:
                 stmt = stmt.where(EconomicEvent.actor_id == actor_id)
             if event_type:

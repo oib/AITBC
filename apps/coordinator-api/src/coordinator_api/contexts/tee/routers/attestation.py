@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
 from ....auth import require_auth
 from ....storage import get_session
