@@ -6,7 +6,7 @@ logging, and integration with existing AITBC patterns.
 """
 
 import logging
-import subprocess
+import subprocess  # nosec B404
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +36,7 @@ class TrainingEnvironment:
         faucet_amount: int = 1000,
         genesis_allocation: int = 10000,
         wallet_prefix: str = "training-w",
-        genesis_password_path: str = "/var/lib/aitbc/keystore/.genesis_password",
+        genesis_password_path: str = "/var/lib/aitbc/keystore/.genesis_password",  # nosec B107
     ):
         self.aitbc_dir = Path(aitbc_dir)
         self.log_dir = Path(log_dir)
@@ -78,7 +78,7 @@ class TrainingEnvironment:
             raise PrerequisitesError(f"AITBC CLI not found at {aitbc_cli}")
         log.info("✓ AITBC CLI found")
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603: fixed command, safe input
                 [str(aitbc_cli), "blockchain", "info"], cwd=self.aitbc_dir, capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
@@ -105,7 +105,7 @@ class TrainingEnvironment:
         # Check wallets
         wallets = []
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603: fixed command, safe input
                 [str(aitbc_cli), "wallet", "list"],
                 cwd=self.aitbc_dir,
                 capture_output=True,
@@ -124,7 +124,7 @@ class TrainingEnvironment:
         # Check blockchain
         blockchain = "unknown"
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603: fixed command, safe input
                 [str(aitbc_cli), "blockchain", "info"],
                 cwd=self.aitbc_dir,
                 capture_output=True,
