@@ -472,6 +472,8 @@ pnpm-debug.log*
 lerna-debug.log*
 # Test fixtures are committed on purpose (skill-mining miner source #2); exempt from *.log
 !tests/fixtures/skill-mining/state/run.log
+# Release notes and changelogs are committed on purpose
+!docs/releases/*/*.log
 
 # ============================================================================
 # Dependencies
