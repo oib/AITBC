@@ -4,7 +4,7 @@ Handles faucet service deployment and management
 """
 
 import logging
-import subprocess
+import subprocess  # nosec B404
 from pathlib import Path
 from typing import Any
 
@@ -34,7 +34,7 @@ class ServiceDeployment:
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
         try:
             # Check if faucet service already exists
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603: fixed command, safe input
                 [str(aitbc_cli), "service", "list"],
                 cwd=self.aitbc_dir,
                 capture_output=True,
@@ -46,7 +46,7 @@ class ServiceDeployment:
                 return {"status": "completed", "note": "Faucet service already deployed"}
 
             # Deploy faucet service
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603: fixed command, safe input
                 [str(aitbc_cli), "service", "deploy", "faucet"],
                 cwd=self.aitbc_dir,
                 capture_output=True,
@@ -73,7 +73,7 @@ class ServiceDeployment:
         log.info("Starting faucet service...")
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603: fixed command, safe input
                 [str(aitbc_cli), "service", "start", "faucet"],
                 cwd=self.aitbc_dir,
                 capture_output=True,
@@ -100,7 +100,7 @@ class ServiceDeployment:
         log.info("Verifying faucet service status...")
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603: fixed command, safe input
                 [str(aitbc_cli), "service", "status", "faucet"],
                 cwd=self.aitbc_dir,
                 capture_output=True,
