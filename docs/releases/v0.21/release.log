@@ -2,23 +2,29 @@
 
 Series: v0.21.0 -> v0.21.1 (baseline: v0.20.4)
 
-3a0464cbe fix(security): add nosec justification for empty string validation [AITBC-1]
-63532dddf fix(security): add nosec justification for default secret validation [AITBC-1]
-eb19e8ec5 fix(security): add nosec justification for TOKEN enum value [AITBC-1]
-cd7b31777 fix(security): add nosec comments for non-cryptographic random usage [AITBC-1]
-da2e69a12 fix(security): add nosec justification for B105 Bearer token constant [AITBC-1]
-ee9eb6cb9 fix(security): add nosec B311 justifications for random usage in synthetic data generation [AITBC-1]
-69e4b3add fix(security): add nosec justification for hardcoded password in mock adapter [AITBC-1]
-11d61d692 fix(security): add nosec justification for random usage in load balancer [AITBC-1]
-b2b143d8c fix(security): suppress B311 in blockchain-node ws load test [AITBC-1]
-9a05acdaf fix(agent-coordinator): suppress B311 for non-cryptographic consensus simulation random [AITBC-1]
-6b7cdc2a6 fix(security): suppress false-positive B311 in agent selection [AITBC-1]
-79bc29b7c chore(security): verify training_setup passes bandit and ruff [AITBC-1]
-1e22f717b fix(security): add nosec justification for fixed subprocess calls in training setup [AITBC-3]
-0dbbba5ba fix(security): replace random with secrets in marketplace id generation [AITBC-2]
-c46a0328e fix(db): replace B311 pseudo-random with secrets in replica routing [AITBC-1]
-bc895e4a7 chore(harness): remove boilerplate directory and broken drift guard
-ba8ad7fc7 refactor(harness): remove remaining boilerplate dirs
+17eec11a2 docs(release): add v0.21 release log [AITBC-69]
+a3f66a3f7 fix(type): resolve mypy errors, raise coverage floor to 60%, and align session handling [AITBC-69]
+af1a8eaa9 fix(security): add nosec justification for empty string validation [AITBC-1]
+33bc0319b fix(security): add nosec justification for default secret validation [AITBC-1]
+569893067 fix(security): add nosec justification for TOKEN enum value [AITBC-1]
+dc6015e7d fix(security): add nosec comments for non-cryptographic random usage [AITBC-1]
+8ebb7cb82 fix(security): add nosec justification for B105 Bearer token constant [AITBC-1]
+6a9e94dc8 fix(security): add nosec B311 justifications for random usage in synthetic data generation [AITBC-1]
+dbb1c07a3 fix(security): add nosec justification for hardcoded password in mock adapter [AITBC-1]
+e83c0acb6 fix(security): add nosec justification for random usage in load balancer [AITBC-1]
+626786067 fix(security): suppress B311 in blockchain-node ws load test [AITBC-1]
+7727577a0 fix(agent-coordinator): suppress B311 for non-cryptographic consensus simulation random [AITBC-1]
+9422a9d5b fix(security): suppress false-positive B311 in agent selection [AITBC-1]
+ee20337aa chore(security): verify training_setup passes bandit and ruff [AITBC-1]
+828d32dae fix(security): add nosec justification for fixed subprocess calls in training setup [AITBC-3]
+ca2dfd3fe fix(security): replace random with secrets in marketplace id generation [AITBC-2]
+da033b62c fix(db): replace B311 pseudo-random with secrets in replica routing [AITBC-1]
+6288569b1 chore(harness): remove boilerplate directory and broken drift guard
+844e47d49 refactor(harness): remove remaining boilerplate dirs
+905ab2838 chore(audit): merge AITBC-AUDIT-5-auto
+a1827d515 chore(audit): merge AITBC-AUDIT-4-cli-audit-docs
+287d7097d chore(audit): merge AITBC-AUDIT-3-auto (v0.20.4.3)
+88ea3639c chore(audit): merge AITBC-AUDIT-2-audit-findings
 ea07c9743 refactor(harness): strip boilerplate; now sourced from /opt/aitbc/boilerplate
 c2a29a4d8 docs(qas): add QA validation report for AITBC-AUDIT-3 [no-ticket]
 c9a3216bd docs(security): add AITBC-AUDIT-2 shared core audit findings [no-ticket]
@@ -28,5 +34,10 @@ cb54a6f0e docs(qa): DEMO-2 validation report [DEMO-2]
 6f3790404 docs: add QA validation report for HTTPException hardening [DEMO-1]
 0bdaeaa68 fix(cli): harden island credentials file permissions [DEMO-2]
 bdf25c97c fix(apps): harden HTTPException 5xx detail strings and add per-service tests [DEMO-1]
+cd5da9736 docs(qa): add validation report for tests suite audit [AITBC-5]
+94cea5328 docs(security): add cli/aitbc_cli audit findings [AITBC-AUDIT-4]
+a54cc5537 docs(qa): re-verify QA validation report for AITBC-AUDIT-3 [no-ticket]
+a5386de9c docs(qas): add QA validation report for AITBC-AUDIT-3 [no-ticket]
+dddcb95f1 docs(security): add AITBC-AUDIT-2 shared core audit findings [no-ticket]
 a85d4194b fix(spawn): add SQLite database-lock retry with backoff [AITBC-AUDIT-1]
 524c641ae docs(release): add v0.20.4 release notes [AITBC-65]
