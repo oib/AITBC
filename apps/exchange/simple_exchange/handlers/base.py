@@ -28,12 +28,13 @@ class BaseHandler(BaseHTTPRequestHandler):
     def _require_api_key(self) -> bool:
         """Check X-Api-Key header against EXCHANGE_API_KEY env var.
 
-        Returns True if auth is disabled (no key configured) or the key matches.
-        Returns False after sending a 401 response if the key is missing/invalid.
+        Returns False after sending a 401 response if the key is missing, invalid,
+        or not configured. A missing EXCHANGE_API_KEY is treated as an auth failure.
         """
         expected = os.getenv("EXCHANGE_API_KEY")
         if not expected:
-            return True
+            self.send_error(401, "API key not configured")
+            return False
         provided = self.headers.get("X-Api-Key", "")
         if provided != expected:
             self.send_error(401, "Invalid or missing X-Api-Key")
