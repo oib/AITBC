@@ -332,7 +332,7 @@ class LoadBalancer:
         """Random agent selection"""
         import random
 
-        return random.choice(agents)
+        return random.choice(agents)  # nosec B311
 
 
 class MessageQueue:
