@@ -182,11 +182,11 @@ class AISurveillanceSystem:
         for symbol in symbols:
             base_price = 50000 if symbol == "BTC/USDT" else 3000
             timestamp = datetime.now()
-            price = base_price * (1 + random.uniform(-0.05, 0.05))
-            volume = random.uniform(1000, 50000)
-            if random.random() < 0.1:
-                volume *= random.uniform(5, 20)
-                price *= random.uniform(0.95, 1.05)
+            price = base_price * (1 + random.uniform(-0.05, 0.05))  # nosec B311 - synthetic market data, not cryptographic
+            volume = random.uniform(1000, 50000)  # nosec B311 - synthetic market data, not cryptographic
+            if random.random() < 0.1:  # nosec B311 - synthetic market data, not cryptographic
+                volume *= random.uniform(5, 20)  # nosec B311 - synthetic market data, not cryptographic
+                price *= random.uniform(0.95, 1.05)  # nosec B311 - synthetic market data, not cryptographic
             market_data = {
                 "timestamp": timestamp,
                 "symbol": symbol,
@@ -338,12 +338,12 @@ class AISurveillanceSystem:
         """Generate behavioral features for user"""
         user_hash = hash(user_id) % 100
         return {
-            "session_duration": user_hash + random.uniform(1, 8),
-            "trade_patterns": random.uniform(0.1, 1.0),
-            "device_consistency": random.uniform(0.7, 1.0),
-            "geo_location": random.uniform(0.8, 1.0),
-            "transaction_frequency": random.uniform(1, 50),
-            "avg_trade_size": random.uniform(1000, 100000),
+            "session_duration": user_hash + random.uniform(1, 8),  # nosec B311 - synthetic test data, not cryptographic
+            "trade_patterns": random.uniform(0.1, 1.0),  # nosec B311 - synthetic test data, not cryptographic
+            "device_consistency": random.uniform(0.7, 1.0),  # nosec B311 - synthetic test data, not cryptographic
+            "geo_location": random.uniform(0.8, 1.0),  # nosec B311 - synthetic test data, not cryptographic
+            "transaction_frequency": random.uniform(1, 50),  # nosec B311 - synthetic test data, not cryptographic
+            "avg_trade_size": random.uniform(1000, 100000),  # nosec B311 - synthetic test data, not cryptographic
         }
 
     def _calculate_predictive_features(self, user_id: str, patterns: list[BehaviorPattern]) -> dict[str, float]:
@@ -372,8 +372,8 @@ class AISurveillanceSystem:
         return {
             "price_manipulation": self._detect_price_manipulation(prices),
             "volume_anomalies": self._detect_volume_anomalies(volumes),
-            "cross_market_patterns": random.uniform(0.1, 0.9),
-            "news_sentiment": random.uniform(-1, 1),
+            "cross_market_patterns": random.uniform(0.1, 0.9),  # nosec B311 - synthetic test data, not cryptographic
+            "news_sentiment": random.uniform(-1, 1),  # nosec B311 - synthetic test data, not cryptographic
             "order_imbalance": np.abs(np.mean(buy_orders) - np.mean(sell_orders)) / np.mean(buy_orders + sell_orders),
         }
 
@@ -398,12 +398,12 @@ class AISurveillanceSystem:
     def _simulate_ml_prediction(self, model_type: str, features: dict[str, float]) -> float:
         """Simulate ML model prediction"""
         if not features:
-            return random.uniform(0.1, 0.3)
+            return random.uniform(0.1, 0.3)  # nosec B311 - synthetic test data, not cryptographic
         model = self.risk_models.get(model_type)
         if not model:
             return 0.5
         feature_score = np.mean(list(features.values())) if features else 0.5
-        noise = random.uniform(-0.1, 0.1)
+        noise = random.uniform(-0.1, 0.1)  # nosec B311 - synthetic test data, not cryptographic
         prediction = feature_score * model.accuracy + noise
         return float(max(0.0, min(1.0, prediction)))
 
@@ -453,7 +453,7 @@ class AISurveillanceSystem:
         """Handle surveillance alert"""
         logger.info("🔧 Processing alert: %s", alert.alert_id)
         alert.resolved = True
-        if random.random() < 0.1:
+        if random.random() < 0.1:  # nosec B311 - synthetic test data, not cryptographic
             alert.false_positive = True
             logger.info("✅ Alert %s marked as false positive", alert.alert_id)
 
