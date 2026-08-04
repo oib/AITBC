@@ -131,8 +131,8 @@ class DistributedConsensus:
             vote_probability += node.reputation_score * 0.2
             if proposal.proposal_data.get("priority") == "high":
                 vote_probability += 0.1
-            vote_probability += random.uniform(-0.2, 0.2)
-            vote = random.random() < vote_probability
+            vote_probability += random.uniform(-0.2, 0.2)  # nosec B311
+            vote = random.random() < vote_probability  # nosec B311
             await self.cast_vote(proposal.proposal_id, node_id, vote)
         except Exception as e:
             logger.error("Error simulating node vote: %s", e)
