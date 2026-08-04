@@ -1,6 +1,9 @@
 # AITBC Monorepo ignore rules
 # Updated: 2026-05-19 - Deduplication, added venv_staging, fixed legacy CLI
 
+# Boilerplate harness checkout (external, not part of the product repo)
+boilerplate/
+
 # ===================
 # Python
 # ===================
