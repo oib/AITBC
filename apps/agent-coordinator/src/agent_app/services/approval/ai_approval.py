@@ -78,8 +78,8 @@ class AIApprovalStrategy(ApprovalStrategy):
             result = response.json()
             ai_response = result.get("response", "").strip().lower()
 
-            # Parse AI decision
-            approved = "approve" in ai_response or "yes" in ai_response
+            # Parse AI decision — the prompt demands "APPROVE: ..." or "REJECT: ..."
+            approved = ai_response.startswith("approve")
             reason = f"AI decision: {result.get('response', 'No reason provided')}"
 
             self.log_decision(request, approved=approved, reason=reason)
