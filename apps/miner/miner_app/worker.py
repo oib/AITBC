@@ -23,7 +23,7 @@ def _publish_capacity_for_agent(agent_id: str, actions: list[Any]) -> None:
     except ImportError:
         return
 
-    capacity = sum(1 for a in actions if getattr(a, "action_type", None) == OnChainActionType.REINVEST)
+    capacity = sum(1 for a in actions if getattr(a, "action_type", None) == OnChainActionType.STAKE)
     if capacity:
         publish_capacity(agent_id, capacity)
 

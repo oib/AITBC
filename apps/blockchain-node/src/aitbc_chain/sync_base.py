@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from contextlib import AbstractContextManager
 from typing import Any, Protocol
 
 import httpx
@@ -24,7 +25,7 @@ class SyncBase(Protocol):
     _logger: logging.Logger
 
     # Database / session
-    _session_factory: Callable[[], Session]
+    _session_factory: Callable[[], Session] | Callable[[], AbstractContextManager[Session]]
 
     # Sync tuning
     _poll_interval: float
