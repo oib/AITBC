@@ -2,7 +2,7 @@
 Read replica management for PostgreSQL databases.
 """
 
-import random
+import secrets
 import time
 from typing import Any
 
@@ -99,7 +99,7 @@ class ReadReplicaManager:
         Returns:
             SQLAlchemy engine for read operations
         """
-        if not self.replica_engines or (self.read_weight < 100 and random.randint(0, 99) >= self.read_weight):
+        if not self.replica_engines or (self.read_weight < 100 and secrets.randbelow(100) >= self.read_weight):
             return self.primary_engine
         if self.replica_engines:
             engine = self.replica_engines[self.current_replica_index]
