@@ -61,7 +61,7 @@ async def _publish_transactions(
                 "fee": 1,
                 "payload": {
                     "job_id": job_id,
-                    "amount": random.randint(1, 10),
+                    "amount": random.randint(1, 10),  # nosec B311
                     "timestamp": time.time_ns(),
                 },
             }
