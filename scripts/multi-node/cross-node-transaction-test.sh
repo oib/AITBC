@@ -23,7 +23,7 @@ LOG_FILE="${LOG_DIR}/cross-node-transaction-test.log"
 
 # Test Configuration
 TEST_WALLET_NAME="cross-node-test-wallet"
-TEST_WALLET_PASSWORD="test123456"
+TEST_WALLET_PASSWORD="mock_test_password"
 TEST_RECIPIENT="ait1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz4vxy"
 TEST_AMOUNT=1
 CHAINS="${CHAINS:-ait-mainnet,ait-testnet}"
