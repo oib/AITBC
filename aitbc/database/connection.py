@@ -126,30 +126,37 @@ class DatabaseConnection:
             params: Query parameters
 
         Returns:
-            Cursor object
+            Cursor object (caller is responsible for closing it)
 
         Raises:
             DatabaseError: If query fails
         """
         start_time = time.time()
+        if not self._connection:
+            self.connect()
+        conn = self._connection
+        if conn is None:
+            raise DatabaseError("Database connection not established")
         try:
-            with self.cursor() as cursor:
-                if params:
-                    cursor.execute(query, params)
-                else:
-                    cursor.execute(query)
+            cursor = conn.cursor()
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            conn.commit()
 
-                if self.monitor:
-                    execution_time_ms = (time.time() - start_time) * 1000
-                    self.monitor.record_query(
-                        query=query,
-                        execution_time_ms=execution_time_ms,
-                        success=True,
-                        row_count=cursor.rowcount if hasattr(cursor, "rowcount") else 0,
-                    )
+            if self.monitor:
+                execution_time_ms = (time.time() - start_time) * 1000
+                self.monitor.record_query(
+                    query=query,
+                    execution_time_ms=execution_time_ms,
+                    success=True,
+                    row_count=cursor.rowcount if hasattr(cursor, "rowcount") else 0,
+                )
 
-                return cast(sqlite3.Cursor, cursor)
+            return cursor
         except sqlite3.Error as e:
+            conn.rollback()
             if self.monitor:
                 execution_time_ms = (time.time() - start_time) * 1000
                 self.monitor.record_query(
