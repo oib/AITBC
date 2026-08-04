@@ -30,7 +30,7 @@ class RiskCategory(StrEnum):
     VALIDATOR = "validator"
     STORAGE = "storage"
     PROVIDER = "provider"
-    TOKEN = "token"
+    TOKEN = "token"  # nosec B105 - enum value name, not a password
 
 
 @dataclass
