@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
-from decimal import Decimal
 from typing import Annotated, Any, cast
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select
 
 from ..database import get_session
@@ -37,41 +36,22 @@ async def get_miner_from_token(
     """Resolve the authenticated miner from the Authorization header.
 
     Expects ``Authorization: Bearer <api_key>``.  Looks up the miner by
-    matching the API key hash.  Falls back to the configured ``miner_id``
-    when no Authorization header is present (local/dev mode).
+    matching the API key hash.  Missing, malformed, or non-matching headers
+    raise 401 — no fallback to a configured or stub miner is allowed.
     """
-    miner_id = getattr(settings, "miner_id", "default")
-    if authorization and authorization.startswith("Bearer "):
-        import hashlib
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing or malformed Authorization header")
 
-        api_key = authorization[7:]
-        key_hash = hashlib.sha256(api_key.encode()).hexdigest()
-        result = await session.execute(select(Miner).where(Miner.api_key_hash == key_hash))
-        miner = result.scalars().first()
-        if miner is not None:
-            return cast(Miner, miner)
-    # Fallback: look up by configured miner_id
-    result = await session.execute(select(Miner).where(Miner.miner_id == miner_id))
+    import hashlib
+
+    api_key = authorization[7:]
+    key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    result = await session.execute(select(Miner).where(Miner.api_key_hash == key_hash))
     miner = result.scalars().first()
     if miner is not None:
         return cast(Miner, miner)
-    # No miner registered yet — return a minimal stub so endpoints don't crash.
-    # This allows the hardware-profile endpoint to report empty data rather
-    # than 500.  Once a miner registers via the pools router, real data is used.
-    return Miner(
-        miner_id=miner_id,
-        api_key_hash="",
-        addr="",
-        proto="",
-        gpu_vram_gb=0.0,
-        gpu_name=None,
-        cpu_cores=0,
-        ram_gb=0.0,
-        max_parallel=1,
-        base_price=Decimal("0"),
-        tags={},
-        capabilities=[],
-    )
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or unknown API key")
 
 
 # FastAPI dependency wrappers — get_session and get_redis are already async
