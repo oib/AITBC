@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-# .claude/hooks/pre-commit — mirror drift guards
-# Generate-governor materializes this into .claude/hooks/pre-commit.
-# It also serves as a git pre-commit example (symlink/copy to .git/hooks/pre-commit).
-set -euo pipefail
-
-# Devin harness mirrors
-bash scripts/check-devin-harness-drift.sh
