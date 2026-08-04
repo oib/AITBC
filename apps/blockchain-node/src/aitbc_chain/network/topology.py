@@ -136,11 +136,11 @@ class NetworkTopology:
         # Connect to nearby peers and some random long-range connections
         import random
 
-        if random.random() < 0.1:  # 10% random connections
+        if random.random() < 0.1:  # 10% random connections  # nosec: B311
             return True
 
         # Connect based on geographic or network proximity (simplified)
-        return random.random() < 0.3  # 30% of nearby connections
+        return random.random() < 0.3  # 30% of nearby connections  # nosec: B311
 
     def _scale_free_should_connect(self, peer1: PeerNode, peer2: PeerNode) -> bool:
         """Scale-free topology connection logic"""
@@ -150,7 +150,7 @@ class NetworkTopology:
 
         # Higher probability for nodes with higher degree
         connection_probability = (degree1 + degree2) / (2 * self.max_degree)
-        return random.random() < connection_probability  # type: ignore[no-any-return]
+        return random.random() < connection_probability  # type: ignore[no-any-return]  # nosec: B311
 
     def _mesh_should_connect(self, peer1: PeerNode, peer2: PeerNode) -> bool:
         """Full mesh topology connection logic"""
@@ -163,7 +163,7 @@ class NetworkTopology:
         import random
 
         # 40% small world, 30% scale-free, 30% mesh
-        strategy_choice = random.random()
+        strategy_choice = random.random()  # nosec: B311
 
         if strategy_choice < 0.4:
             return self._small_world_should_connect(peer1, peer2)
