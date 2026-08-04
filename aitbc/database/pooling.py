@@ -5,7 +5,7 @@ SQLAlchemy connection pooling utilities.
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import QueuePool, StaticPool
+from sqlalchemy.pool import AsyncAdaptedQueuePool, QueuePool, StaticPool
 
 from aitbc.aitbc_logging import get_logger
 
@@ -117,7 +117,7 @@ def create_async_pooled_engine(
 
     engine = create_async_engine(
         async_url,
-        poolclass=QueuePool,
+        poolclass=AsyncAdaptedQueuePool,
         pool_size=pool_size,
         max_overflow=max_overflow,
         pool_recycle=pool_recycle,
