@@ -243,8 +243,8 @@ class AdvancedAnalytics:
         import random
 
         base_price = 50000 if symbol == "BTC/USDT" else 3000
-        price = base_price * (1 + random.uniform(-0.02, 0.02))
-        volume = random.uniform(1000, 10000)
+        price = base_price * (1 + random.uniform(-0.02, 0.02))  # nosec B311 - synthetic market data, not cryptographic
+        volume = random.uniform(1000, 10000)  # nosec B311 - synthetic market data, not cryptographic
         return {"symbol": symbol, "price": price, "volume": volume, "timestamp": datetime.now()}
 
     async def _check_alerts(self) -> None:
