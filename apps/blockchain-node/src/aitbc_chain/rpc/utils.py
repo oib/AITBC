@@ -196,7 +196,7 @@ def get_bridge_admin_addresses() -> set[str]:
     return {a.strip().lower() for a in settings.bridge_admin_addresses.split(",") if a.strip()}
 
 
-def verify_admin_signature(payload: dict[str, Any], admin_address: str, admin_signature: str) -> bool:
+def verify_admin_signature(payload: dict[str, Any], admin_address: str | None, admin_signature: str | None) -> bool:
     """Verify that an administrative request was signed by a configured bridge admin.
 
     The signed message is the canonical JSON of ``payload`` excluding the

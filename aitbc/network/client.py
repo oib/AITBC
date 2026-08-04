@@ -27,6 +27,7 @@ class AITBCHTTPClient:
         base_url: str = "",
         timeout: int | float = 30,
         headers: dict[str, str] | None = None,
+        api_key: str | None = None,
         max_retries: int = 3,
         enable_cache: bool = False,
         cache_ttl: int = 300,
@@ -42,6 +43,7 @@ class AITBCHTTPClient:
             base_url: Base URL for all requests
             timeout: Request timeout in seconds
             headers: Default headers for all requests
+            api_key: API key added to request headers
             max_retries: Maximum retry attempts with exponential backoff
             enable_cache: Enable request/response caching for GET requests
             cache_ttl: Cache time-to-live in seconds
@@ -53,6 +55,8 @@ class AITBCHTTPClient:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.headers = headers or {}
+        if api_key:
+            self.headers["X-API-Key"] = api_key
         self.correlation_id = correlation_id
         self.logger = get_logger(__name__)
         self.session = requests.Session()
@@ -326,6 +330,7 @@ class AsyncAITBCHTTPClient:
         base_url: str = "",
         timeout: int | float = 30,
         headers: dict[str, str] | None = None,
+        api_key: str | None = None,
         max_retries: int = 3,
         enable_cache: bool = False,
         cache_ttl: int = 300,
@@ -341,6 +346,7 @@ class AsyncAITBCHTTPClient:
             base_url: Base URL for all requests
             timeout: Request timeout in seconds
             headers: Default headers for all requests
+            api_key: API key added to request headers
             max_retries: Maximum retry attempts with exponential backoff
             enable_cache: Enable request/response caching for GET requests
             cache_ttl: Cache time-to-live in seconds
@@ -352,6 +358,8 @@ class AsyncAITBCHTTPClient:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.headers = headers or {}
+        if api_key:
+            self.headers["X-API-Key"] = api_key
         self.correlation_id = correlation_id
         self.logger = get_logger(__name__)
 

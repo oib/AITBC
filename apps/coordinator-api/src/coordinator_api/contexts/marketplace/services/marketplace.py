@@ -89,7 +89,7 @@ class MarketplaceService:
         exists, the caller must create one first; this avoids orphan records.
         """
         stmt = (
-            select(MarketplaceOffer).where(MarketplaceOffer.provider == provider).order_by(MarketplaceOffer.created_at.desc())
+            select(MarketplaceOffer).where(MarketplaceOffer.provider == provider).order_by(MarketplaceOffer.created_at.desc())  # type: ignore[attr-defined]
         )
         offer = self.session.execute(stmt.limit(1)).scalars().first()
         if offer is None:
