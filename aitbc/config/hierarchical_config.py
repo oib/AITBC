@@ -308,11 +308,11 @@ if HAS_PYDANTIC_SETTINGS:
             if self.environment == "production":
                 if not self.secret_key:
                     raise ValueError("SECRET_KEY environment variable is required in production")
-                if self.secret_key == "change-me-in-production":
+                if self.secret_key == "change-me-in-production":  # nosec B105
                     raise ValueError("SECRET_KEY must be changed from default value")
                 if not self.jwt_secret:
                     raise ValueError("JWT_SECRET environment variable is required in production")
-                if self.jwt_secret == "change-me-in-production":
+                if self.jwt_secret == "change-me-in-production":  # nosec B105
                     raise ValueError("JWT_SECRET must be changed from default value")
 
         @field_validator("secret_key", "jwt_secret", mode="before")
