@@ -75,12 +75,12 @@ class EconomicProposalService:
         """List economic parameter proposals with optional filters."""
         stmt = select(EconomicParameterProposal)
         if proposer_id:
-            stmt = stmt.where(EconomicParameterProposal.proposer_id == proposer_id)
+            stmt = stmt.where(EconomicParameterProposal.proposer_id == proposer_id)  # type: ignore[arg-type]
         if parameter_name:
-            stmt = stmt.where(EconomicParameterProposal.parameter_name == parameter_name)
+            stmt = stmt.where(EconomicParameterProposal.parameter_name == parameter_name)  # type: ignore[arg-type]
         if status:
-            stmt = stmt.where(EconomicParameterProposal.status == status)
-        stmt = stmt.order_by(EconomicParameterProposal.created_at.desc()).offset(offset).limit(limit)
+            stmt = stmt.where(EconomicParameterProposal.status == status)  # type: ignore[arg-type]
+        stmt = stmt.order_by(EconomicParameterProposal.created_at.desc()).offset(offset).limit(limit)  # type: ignore[attr-defined]
         return list(self.session.execute(stmt).scalars().all())
 
     async def vote(

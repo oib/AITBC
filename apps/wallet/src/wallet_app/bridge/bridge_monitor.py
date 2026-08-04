@@ -5,6 +5,7 @@ Polls Ethereum RPC for incoming ETH transactions to the bridge wallet address.
 
 import asyncio
 import os
+from decimal import Decimal
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -66,7 +67,7 @@ async def process_transaction(tx: dict[str, Any]) -> bool:
     # Parse ETH amount (hex wei to ETH)
     value_hex = tx.get("value", "0x0")
     value_wei = int(value_hex, 16)
-    amount_eth = value_wei / 1e18  # Convert wei to ETH
+    amount_eth = Decimal(value_wei) / Decimal(10**18)  # Convert wei to ETH
 
     if amount_eth <= 0:
         return False

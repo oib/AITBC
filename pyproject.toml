@@ -210,6 +210,33 @@ module = [
     "config",
     "aitbc_agent",
     "aitbc_agent.*",
+    "opentelemetry.*",
+    "ping3",
+    "pycuda",
+    "pycuda.*",
+    "fasttext",
+    "langdetect",
+    "langdetect.*",
+    "polyglot",
+    "polyglot.*",
+    "networkx",
+    "sqlcipher3",
+    "meilisearch",
+    "broadcaster",
+    "aiofiles",
+    "tenseal",
+    "nltk",
+    "nltk.*",
+    "spacy",
+    "spacy.*",
+    "pandas",
+    "advanced_analytics",
+    "deepl",
+    "google",
+    "google.*",
+    "openai",
+    "coordinator_api.contexts.*.config",
+    "coordinator_api.contexts.language.services.main",
 ]
 ignore_missing_imports = true
 
@@ -249,10 +276,10 @@ ignore_missing_imports = true
 # Gradual type checking approach - no apps currently ignored
 
 # Coverage policy: one documented baseline with per-package overrides in CI.
-# The project minimum is 25%; higher thresholds are enforced per test run
+# The project minimum is 60%; higher thresholds are enforced per test run
 # (aitbc/ 46%, apps combined 50%, targeted gates 70/85 in Gitea workflows).
 [tool.coverage.report]
-fail_under = 25
+fail_under = 60
 show_missing = true
 precision = 2
 exclude_lines = [

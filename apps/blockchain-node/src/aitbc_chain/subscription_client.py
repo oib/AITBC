@@ -182,7 +182,7 @@ class SubscriptionClient:
 
                         chain_id = self._chain_id
                         sync = ChainSync(
-                            session_factory=lambda cid=chain_id: session_scope(cid),  # type: ignore[misc,arg-type]
+                            session_factory=lambda cid=chain_id: session_scope(cid),
                             chain_id=chain_id,
                         )
                         local_height = sync.get_sync_status().get("head_height", -1)
@@ -334,7 +334,7 @@ class SubscriptionClient:
                     "sync_mode": "push",
                 },
             )
-            sync = ChainSync(session_factory=lambda chain_id=self._chain_id: session_scope(chain_id), chain_id=self._chain_id)  # type: ignore[misc,arg-type]
+            sync = ChainSync(session_factory=lambda chain_id=self._chain_id: session_scope(chain_id), chain_id=self._chain_id)
             result = sync.import_block(
                 block_data,
                 transactions=block_data.get("transactions"),
@@ -356,6 +356,7 @@ class SubscriptionClient:
                         "height": block_height,
                         "hash": block_hash,
                         "reason": result.reason,
+                        "proposer": block_data.get("proposer", "unknown"),
                         "node_id": self._node_id,
                     },
                 )

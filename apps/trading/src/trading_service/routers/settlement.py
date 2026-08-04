@@ -29,7 +29,7 @@ def _get_settlement_client() -> SettlementClient:
 
 async def _lock_trade_for_update(svc: InterChainTradeService, trade_id: str) -> InterChainTrade | None:
     """Load a trade with SELECT ... FOR UPDATE (or BEGIN IMMEDIATE on sqlite)."""
-    stmt = select(InterChainTrade).where(InterChainTrade.trade_id == trade_id)
+    stmt = select(InterChainTrade).where(InterChainTrade.trade_id == trade_id)  # type: ignore[arg-type]
     # with_for_update is a no-op on SQLite but acquires row locks on PostgreSQL/MySQL
     result = await svc.session.execute(stmt.with_for_update())
     return result.scalars().first()

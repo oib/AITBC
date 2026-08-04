@@ -240,7 +240,7 @@ async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str
 
             block_data["chain_id"] = chain_id
             sync = ChainSync(
-                session_factory=lambda: session_scope(chain_id),  # type: ignore[misc,arg-type]
+                session_factory=lambda: session_scope(chain_id),
                 chain_id=chain_id,
             )
             result = sync.import_block(block_data, transactions=block_data.get("transactions"))
