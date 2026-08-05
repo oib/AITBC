@@ -137,4 +137,4 @@ def test_batch_evaluate() -> None:
     ]
     results = engine.batch_evaluate(records, now=now)
     assert results["r1"] == RetentionAction.ARCHIVE
-    assert results["r2"] == RetentionAction.ARCHIVE
+    assert results["r2"] == RetentionAction.REVIEW

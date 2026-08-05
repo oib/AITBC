@@ -55,12 +55,14 @@ class RateLimiter:
         if key not in self._requests:
             self._requests[key] = []
 
-        # Remove old requests outside the time window
+        # Remove old requests outside the time window and drop empty keys
         self._requests[key] = [req_time for req_time in self._requests[key] if req_time > window_start]
+        if not self._requests[key]:
+            del self._requests[key]
 
         # Check if under rate limit
-        if len(self._requests[key]) < self.rate:
-            self._requests[key].append(now)
+        if len(self._requests.get(key, [])) < self.rate:
+            self._requests.setdefault(key, []).append(now)
             return True
         else:
             logger.warning("Rate limit exceeded for %s", key)
@@ -92,7 +94,10 @@ class RateLimiter:
         if key not in self._requests:
             return self.rate
 
-        # Remove old requests
+        # Remove old requests and drop empty keys
         self._requests[key] = [req_time for req_time in self._requests[key] if req_time > window_start]
+        if not self._requests[key]:
+            del self._requests[key]
+            return self.rate
 
         return self.rate - len(self._requests[key])
