@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from aitbc_shared import JobPayment, PaymentEscrow  # type: ignore[import-untyped]
+from aitbc_shared import JobPayment, PaymentEscrow
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
@@ -82,7 +82,7 @@ class PaymentService:
             response = client.post(
                 f"{self.exchange_base_url}/api/v1/token/escrow/create",
                 json={
-                    "amount": float(payment.amount),
+                    "amount": str(payment.amount),
                     "currency": payment.currency,
                     "job_id": payment.job_id,
                     "timeout_seconds": 3600,
@@ -119,7 +119,7 @@ class PaymentService:
             try:
                 escrow_data = client.post(
                     f"{self.wallet_base_url}/api/v1/escrow/create",
-                    json={"amount": float(payment.amount), "currency": payment.currency, "timeout_seconds": 3600},
+                    json={"amount": str(payment.amount), "currency": payment.currency, "timeout_seconds": 3600},
                 )
                 payment.escrow_address = escrow_data["address"]
                 payment.status = "escrowed"
@@ -201,7 +201,7 @@ class PaymentService:
                     json={
                         "payment_id": payment_id,
                         "address": payment.refund_address,
-                        "amount": float(payment.amount),
+                        "amount": str(payment.amount),
                         "reason": reason,
                     },
                 )
@@ -243,7 +243,7 @@ class PaymentService:
         return JobPaymentView(
             job_id=payment.job_id,
             payment_id=payment.id,
-            amount=float(payment.amount),
+            amount=payment.amount,
             currency=payment.currency,
             status=payment.status,
             payment_method=payment.payment_method,
