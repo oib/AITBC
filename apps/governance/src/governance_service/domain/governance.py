@@ -5,10 +5,11 @@ Database models for agent DAO, voting, proposals, and governance analytics
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, Numeric, String
 from sqlmodel import JSON, Column, Field, Index, SQLModel
 
 
@@ -43,8 +44,8 @@ class GovernanceProfile(SQLModel, table=True):
     user_id: str = Field(unique=True, index=True)
 
     role: GovernanceRole = Field(default=GovernanceRole.MEMBER)
-    voting_power: float = Field(default=0.0)
-    delegated_power: float = Field(default=0.0)
+    voting_power: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    delegated_power: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
 
     total_votes_cast: int = Field(default=0)
     proposals_created: int = Field(default=0)
@@ -78,9 +79,9 @@ class Proposal(SQLModel, table=True):
         default="general"
     )  # marketplace_rule, fee_structure, service_approval, protocol_upgrade, dispute_resolution, parameter_change
     proposal_value: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    quorum_required: float = Field(default=1000000.0)
-    yes_votes: float = Field(default=0.0)
-    no_votes: float = Field(default=0.0)
+    quorum_required: Decimal = Field(default=Decimal("1000000"), sa_column=Column(Numeric(20, 8)))
+    yes_votes: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    no_votes: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     execution_tx_hash: str | None = None
     execution_timestamp: datetime | None = None
     proposal_metadata: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
@@ -92,9 +93,9 @@ class Proposal(SQLModel, table=True):
 
     # Legacy fields (kept for compatibility)
     execution_payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    votes_for: float = Field(default=0.0)  # Legacy alias for yes_votes
-    votes_against: float = Field(default=0.0)  # Legacy alias for no_votes
-    votes_abstain: float = Field(default=0.0)
+    votes_for: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))  # Legacy alias for yes_votes
+    votes_against: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))  # Legacy alias for no_votes
+    votes_abstain: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     passing_threshold: float = Field(default=0.5)
     snapshot_block: int | None = Field(default=None)
     snapshot_timestamp: datetime | None = Field(default=None)
@@ -122,14 +123,14 @@ class Vote(SQLModel, table=True):
     voter_id: str = Field(foreign_key="governance_profiles.profile_id")
 
     vote_type: VoteType = Field(sa_column=Column(String(20)))
-    voting_power_used: float
+    voting_power_used: Decimal = Field(sa_column=Column(Numeric(20, 8)))
     reason: str | None = None
-    power_at_snapshot: float = Field(default=0.0)
-    delegated_power_at_snapshot: float = Field(default=0.0)
+    power_at_snapshot: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    delegated_power_at_snapshot: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
 
     # v0.4.12 new fields
-    voting_power: float = Field(default=0.0)  # Token-weighted power used
-    vote_weight: float = Field(default=0.0)  # Calculated weight
+    voting_power: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))  # Token-weighted power used
+    vote_weight: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))  # Calculated weight
     delegated_from: str | None = None  # For delegated votes
     signature: str | None = None  # 130 char ECDSA signature
 
@@ -154,7 +155,7 @@ class Delegation(SQLModel, table=True):
     delegation_id: str = Field(primary_key=True, default_factory=lambda: f"del_{uuid.uuid4().hex[:8]}")
     delegator_address: str = Field(index=True)
     delegate_address: str = Field(index=True)
-    voting_power: float = Field(default=0.0)
+    voting_power: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
     is_active: bool = Field(default=True)
@@ -171,11 +172,11 @@ class GovernanceToken(SQLModel, table=True):
 
     token_id: str = Field(primary_key=True, default_factory=lambda: f"tok_{uuid.uuid4().hex[:8]}")
     holder_address: str = Field(unique=True, index=True)
-    token_balance: float = Field(default=0.0)
-    staked_tokens: float = Field(default=0.0)
-    voting_power: float = Field(default=0.0)
-    rewards_claimed: float = Field(default=0.0)
-    rewards_pending: float = Field(default=0.0)
+    token_balance: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    staked_tokens: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    voting_power: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    rewards_claimed: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    rewards_pending: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     last_updated: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -191,12 +192,12 @@ class TokenStake(SQLModel, table=True):
 
     stake_id: str = Field(primary_key=True, default_factory=lambda: f"stake_{uuid.uuid4().hex[:8]}")
     staker_address: str = Field(index=True)
-    amount_staked: float = Field(default=0.0)
+    amount_staked: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     lock_period_days: int = Field(default=30)
     staked_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     unstakes_at: datetime | None = None
     is_active: bool = Field(default=True)
-    rewards_earned: float = Field(default=0.0)
+    rewards_earned: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
 
 
 class ProposalExecutionLog(SQLModel, table=True):
@@ -225,8 +226,8 @@ class DaoTreasury(SQLModel, table=True):
 
     treasury_id: str = Field(primary_key=True, default="main_treasury")
 
-    total_balance: float = Field(default=0.0)
-    allocated_funds: float = Field(default=0.0)
+    total_balance: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    allocated_funds: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
 
     asset_breakdown: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
@@ -244,10 +245,10 @@ class TransparencyReport(SQLModel, table=True):
     total_proposals: int
     passed_proposals: int
     active_voters: int
-    total_voting_power_participated: float
+    total_voting_power_participated: Decimal = Field(sa_column=Column(Numeric(20, 8)))
 
-    treasury_inflow: float
-    treasury_outflow: float
+    treasury_inflow: Decimal = Field(sa_column=Column(Numeric(20, 8)))
+    treasury_outflow: Decimal = Field(sa_column=Column(Numeric(20, 8)))
 
     metrics: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
