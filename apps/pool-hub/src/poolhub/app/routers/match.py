@@ -113,6 +113,6 @@ def _select_candidates(
 
 
 def _compose_explain(score: float, miner: Any, miner_status: Any) -> str:
-    load = status.queue_len if status else 0
-    latency = status.avg_latency_ms if status else "n/a"
+    load = miner_status.queue_len if miner_status else 0
+    latency = miner_status.avg_latency_ms if miner_status else "n/a"
     return f"score={score:.3f} load={load} latency={latency}"
