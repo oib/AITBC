@@ -377,9 +377,32 @@ rollback_deployment() {
         systemctl stop "$service" 2>/dev/null || true
     done
 
-    # Restore backup
-    rm -rf "$REPO_ROOT"
-    cp -r "$LATEST_BACKUP" "$REPO_ROOT"
+    # Restore backup.
+    #
+    # This was `rm -rf "$REPO_ROOT"` followed by `cp -r`, with no confirmation: a failure
+    # partway through the copy (disk full, corrupt backup) left the install directory
+    # empty with nothing to fall back to. Now the old tree is moved aside, the copy is
+    # verified to have succeeded, and only then is the old tree discarded.
+    if [[ "${ROLLBACK_ASSUME_YES:-}" != "yes" ]]; then
+        if [[ ! -t 0 ]]; then
+            error "Refusing to roll back non-interactively; set ROLLBACK_ASSUME_YES=yes to proceed"
+        fi
+        read -r -p "This will replace $REPO_ROOT with $LATEST_BACKUP. Type 'rollback' to continue: " _confirm
+        [[ "$_confirm" == "rollback" ]] || error "Rollback not confirmed; aborting"
+    fi
+
+    PREVIOUS_TREE="${REPO_ROOT}.rollback-$(date +%Y%m%d_%H%M%S)"
+    log "Moving current tree aside to $PREVIOUS_TREE"
+    mv "$REPO_ROOT" "$PREVIOUS_TREE"
+
+    if ! cp -r "$LATEST_BACKUP" "$REPO_ROOT"; then
+        log "Restore failed; putting the previous tree back"
+        rm -rf "$REPO_ROOT"
+        mv "$PREVIOUS_TREE" "$REPO_ROOT"
+        error "Rollback failed to restore $LATEST_BACKUP; original tree preserved"
+    fi
+
+    log "Restore succeeded; previous tree retained at $PREVIOUS_TREE"
 
     # Restart services
     start_services
