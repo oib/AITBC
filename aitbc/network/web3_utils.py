@@ -3,6 +3,7 @@ Web3 utilities for AITBC
 Provides Ethereum blockchain interaction utilities using web3.py
 """
 
+from decimal import Decimal
 from typing import Any, cast
 
 try:
@@ -81,11 +82,11 @@ class Web3Client:
         except Exception as e:
             raise ValueError(f"Failed to get gas price: {e}") from e
 
-    def get_gas_price_gwei(self) -> float:
+    def get_gas_price_gwei(self) -> Decimal:
         """Get current gas price in Gwei"""
         try:
             gas_price_wei = self.get_gas_price()
-            return float(gas_price_wei) / 10**9
+            return Decimal(gas_price_wei) / Decimal(10**9)
         except Exception as e:
             raise ValueError(f"Failed to get gas price in Gwei: {e}") from e
 
