@@ -454,7 +454,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
             logger.error("Failed to get gas price: %s", e)
             raise
 
-    async def _get_gas_price_gwei(self) -> float:
+    async def _get_gas_price_gwei(self) -> Decimal:
         """Get current gas price in Gwei"""
         try:
             return self._web3_client.get_gas_price_gwei()
