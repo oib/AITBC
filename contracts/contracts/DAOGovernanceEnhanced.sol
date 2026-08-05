@@ -27,6 +27,8 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
     // Staking Parameters
     uint256 public minStakeAmount;
     uint256 public unbondingPeriod = 7 days;
+    // ponytail: static default quorum in token units; owner can update via setQuorum()
+    uint256 public quorum = 1000 * 10**18;
 
     // Enhanced Staker struct
     struct Staker {
@@ -295,7 +297,7 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
 
         // Check if proposal passed
         uint256 totalVotes = p.forVotes + p.againstVotes + p.abstainVotes;
-        bool passed = p.forVotes > p.againstVotes && totalVotes > 0;
+        bool passed = p.forVotes > p.againstVotes && totalVotes >= quorum;
 
         if (passed) {
             p.state = ProposalState.Succeeded;
@@ -502,6 +504,10 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
 
     function setUnbondingPeriod(uint256 _unbondingPeriod) external onlyOwner {
         unbondingPeriod = _unbondingPeriod;
+    }
+
+    function setQuorum(uint256 _quorum) external onlyOwner {
+        quorum = _quorum;
     }
 
     function emergencyPause() external onlyOwner {
