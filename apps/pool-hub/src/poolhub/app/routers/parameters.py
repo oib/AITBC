@@ -7,11 +7,11 @@ the proposal ID is provided and the parameter change is well-formed.
 
 from __future__ import annotations
 
-import hmac
 from datetime import UTC, datetime
 from typing import Annotated, Any, cast
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from aitbc.auth import APIKeyAuthenticator
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,17 +56,19 @@ GOVERNANCE_PARAMETERS: dict[str, type] = {
 }
 
 
-def _require_governance_key(x_poolhub_key: str = Header(..., alias="X-PoolHub-Key")) -> None:
-    """Validate the caller-supplied governance key against the configured shared secret."""
-    if not x_poolhub_key or not hmac.compare_digest(x_poolhub_key, settings.coordinator_shared_secret):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Missing or invalid governance key")
+_governance_auth = APIKeyAuthenticator(
+    expected_key=settings.coordinator_shared_secret,
+    auth_enabled=True,
+    header_name="X-PoolHub-Key",
+    success_role="governance",
+)
 
 
 @router.post("/apply", response_model=ParameterChangeResponse)
 async def apply_parameter_change(
     change: ParameterChangeRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[None, Depends(_require_governance_key)],
+    _: Annotated[dict[str, Any], Depends(_governance_auth)],
 ) -> ParameterChangeResponse:
     """Apply a governance-approved parameter change to pool-hub service config.
 
