@@ -7,7 +7,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..deps import get_db, get_miner_id
 from ...models import Miner, ServiceConfig, ServiceType
@@ -18,22 +18,24 @@ router = APIRouter(prefix="/services", tags=["services"])
 
 @router.get("/", response_model=list[ServiceConfigResponse])
 async def list_service_configs(
-    db: Annotated[Session, Depends(get_db)], miner_id: Annotated[str, Depends(get_miner_id)]
+    db: Annotated[AsyncSession, Depends(get_db)], miner_id: Annotated[str, Depends(get_miner_id)]
 ) -> list[ServiceConfigResponse]:
     """List all service configurations for the miner"""
     stmt = select(ServiceConfig).where(ServiceConfig.miner_id == miner_id)
-    configs = db.execute(stmt).scalars().all()
+    result = await db.execute(stmt)
+    configs = result.scalars().all()
 
     return [ServiceConfigResponse.model_validate(config) for config in configs]
 
 
 @router.get("/{service_type}", response_model=ServiceConfigResponse)
 async def get_service_config(
-    service_type: str, db: Annotated[Session, Depends(get_db)], miner_id: Annotated[str, Depends(get_miner_id)]
+    service_type: str, db: Annotated[AsyncSession, Depends(get_db)], miner_id: Annotated[str, Depends(get_miner_id)]
 ) -> ServiceConfigResponse:
     """Get configuration for a specific service"""
     stmt = select(ServiceConfig).where(ServiceConfig.miner_id == miner_id, ServiceConfig.service_type == service_type)
-    config = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    config = result.scalar_one_or_none()
 
     if not config:
         # Return default config
@@ -55,7 +57,7 @@ async def get_service_config(
 async def create_or_update_service_config(
     service_type: str,
     config_data: ServiceConfigCreate,
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     miner_id: Annotated[str, Depends(get_miner_id)],
 ) -> ServiceConfigResponse:
     """Create or update service configuration"""
@@ -65,7 +67,8 @@ async def create_or_update_service_config(
 
     # Check if config exists
     stmt = select(ServiceConfig).where(ServiceConfig.miner_id == miner_id, ServiceConfig.service_type == service_type)
-    existing = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    existing = result.scalar_one_or_none()
 
     if existing:
         # Update existing
@@ -74,8 +77,8 @@ async def create_or_update_service_config(
         existing.pricing = config_data.pricing
         existing.capabilities = config_data.capabilities
         existing.max_concurrent = config_data.max_concurrent
-        db.commit()
-        db.refresh(existing)
+        await db.commit()
+        await db.refresh(existing)
         config = existing
     else:
         # Create new
@@ -89,8 +92,8 @@ async def create_or_update_service_config(
             max_concurrent=config_data.max_concurrent,
         )
         db.add(config)
-        db.commit()
-        db.refresh(config)
+        await db.commit()
+        await db.refresh(config)
 
     return ServiceConfigResponse.model_validate(config)
 
@@ -99,12 +102,13 @@ async def create_or_update_service_config(
 async def patch_service_config(
     service_type: str,
     config_data: ServiceConfigUpdate,
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     miner_id: Annotated[str, Depends(get_miner_id)],
 ) -> ServiceConfigResponse:
     """Partially update service configuration"""
     stmt = select(ServiceConfig).where(ServiceConfig.miner_id == miner_id, ServiceConfig.service_type == service_type)
-    config = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    config = result.scalar_one_or_none()
 
     if not config:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service configuration not found")
@@ -121,25 +125,26 @@ async def patch_service_config(
     if config_data.max_concurrent is not None:
         config.max_concurrent = config_data.max_concurrent
 
-    db.commit()
-    db.refresh(config)
+    await db.commit()
+    await db.refresh(config)
 
     return ServiceConfigResponse.model_validate(config)
 
 
 @router.delete("/{service_type}")
 async def delete_service_config(
-    service_type: str, db: Annotated[Session, Depends(get_db)], miner_id: Annotated[str, Depends(get_miner_id)]
+    service_type: str, db: Annotated[AsyncSession, Depends(get_db)], miner_id: Annotated[str, Depends(get_miner_id)]
 ) -> dict[str, Any]:
     """Delete service configuration"""
     stmt = select(ServiceConfig).where(ServiceConfig.miner_id == miner_id, ServiceConfig.service_type == service_type)
-    config = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    config = result.scalar_one_or_none()
 
     if not config:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service configuration not found")
 
-    db.delete(config)
-    db.commit()
+    await db.delete(config)
+    await db.commit()
 
     return {"message": f"Service configuration for {service_type} deleted"}
 
@@ -215,13 +220,14 @@ async def get_service_template(service_type: str) -> dict[str, Any]:
 async def validate_service_config(
     service_type: str,
     config_data: dict[str, Any],
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     miner_id: Annotated[str, Depends(get_miner_id)],
 ) -> dict[str, Any]:
     """Validate service configuration against miner capabilities"""
     # Get miner info
     stmt = select(Miner).where(Miner.miner_id == miner_id)
-    miner = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    miner = result.scalar_one_or_none()
 
     if not miner:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Miner not found")
