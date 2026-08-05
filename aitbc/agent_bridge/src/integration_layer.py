@@ -35,14 +35,20 @@ class AITBCServiceIntegration:
             "agent_coordinator": os.getenv("AGENT_COORDINATOR_URL", f"http://localhost:{AGENT_COORDINATOR_PORT}"),
         }
         self.session: aiohttp.ClientSession | None = None
+        self._session_ref: int = 0
 
     async def __aenter__(self):
-        self.session = aiohttp.ClientSession()
+        if self.session is None or self.session.closed:
+            self.session = aiohttp.ClientSession()
+        self._session_ref += 1
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.session:
+        self._session_ref -= 1
+        if self._session_ref <= 0 and self.session:
             await self.session.close()
+            self.session = None
+            self._session_ref = 0
 
     async def get_blockchain_info(self) -> dict[str, Any]:
         """Get blockchain information"""
