@@ -17,9 +17,14 @@ import logging
 import os
 from typing import Any
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 from aitbc.marketplace import BlockchainRPCClient
 from aitbc.rewards import REWARD_PER_SHARE, RewardPolicy
+
+from ..models import RewardPayout
 
 logger = logging.getLogger(__name__)
 
@@ -139,11 +144,14 @@ class PoolHubBlockchainClient:
         logger.info("Miner registered on-chain: miner_id=%s, chain=%s", miner_id, self._chain_id)
         return result
 
-    async def distribute_rewards(self, block_height: int) -> list[dict[str, Any]]:
+    async def distribute_rewards(self, block_height: int, session: AsyncSession | None = None) -> list[dict[str, Any]]:
         """Distribute rewards for the current epoch.
 
         Args:
             block_height: Current block height
+            session: Optional async DB session. When provided, ``RewardPayout``
+                records are checked before submission and persisted after, making
+                the idempotency guarantee survive restarts and replicas.
 
         Returns:
             List of payout results (one per miner)
@@ -156,6 +164,29 @@ class PoolHubBlockchainClient:
         for contrib in unpaid:
             if not self._reward_policy.is_eligible_for_payout(contrib.miner_id):
                 continue
+
+            if session is not None:
+                existing = await session.execute(
+                    select(RewardPayout).where(
+                        RewardPayout.miner_id == contrib.miner_id,
+                        RewardPayout.epoch_number == epoch.epoch_number,
+                        RewardPayout.chain_id == self._chain_id,
+                    )
+                )
+                record = existing.scalar_one_or_none()
+                if record is not None and record.status == "paid":
+                    logger.info("Skipping already-paid reward for %s epoch %s", contrib.miner_id, epoch.epoch_number)
+                    payouts.append(
+                        {
+                            "miner_id": contrib.miner_id,
+                            "amount": contrib.reward_amount,
+                            "tx_hash": record.tx_hash or "",
+                            "epoch": epoch.epoch_number,
+                            "status": "already_paid",
+                        }
+                    )
+                    continue
+
             try:
                 result = await self.submit_reward_transaction(
                     miner_address=contrib.miner_id,
@@ -164,6 +195,19 @@ class PoolHubBlockchainClient:
                 )
                 tx_hash = result.get("tx_hash", "")
                 self._reward_policy.mark_paid(contrib.miner_id, tx_hash)
+
+                if session is not None:
+                    payout_record = RewardPayout(
+                        miner_id=contrib.miner_id,
+                        chain_id=self._chain_id,
+                        epoch_number=epoch.epoch_number,
+                        amount=contrib.reward_amount,
+                        tx_hash=tx_hash,
+                        status="paid",
+                    )
+                    session.add(payout_record)
+                    await session.commit()  # type: ignore[misc, func-returns-value]
+
                 payouts.append(
                     {
                         "miner_id": contrib.miner_id,
@@ -174,6 +218,17 @@ class PoolHubBlockchainClient:
                 )
             except Exception as e:
                 logger.error("Failed to distribute reward to %s: %s", contrib.miner_id, e)
+                if session is not None:
+                    failed_record = RewardPayout(
+                        miner_id=contrib.miner_id,
+                        chain_id=self._chain_id,
+                        epoch_number=epoch.epoch_number,
+                        amount=contrib.reward_amount,
+                        status="failed",
+                    )
+                    session.add(failed_record)
+                    await session.commit()  # type: ignore[misc, func-returns-value]
+
                 payouts.append(
                     {
                         "miner_id": contrib.miner_id,
