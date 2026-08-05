@@ -21,6 +21,15 @@ from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
+def _utcnow() -> dt.datetime:
+    """Current UTC time, as a column default.
+
+    Passed to `default=`/`onupdate=` as a callable so SQLAlchemy evaluates it per row.
+    Passing `dt.datetime.now(dt.UTC)` directly binds one import-time value to every row.
+    """
+    return dt.datetime.now(dt.UTC)
+
+
 class ServiceType(StrEnum):
     """Supported service types"""
 
@@ -40,7 +49,7 @@ class Miner(Base):
 
     miner_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     api_key_hash: Mapped[str] = mapped_column(String(128), nullable=False)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     last_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     addr: Mapped[str] = mapped_column(String(256))
     proto: Mapped[str] = mapped_column(String(32))
@@ -74,7 +83,7 @@ class MinerStatus(Base):
     uptime_pct: Mapped[float | None] = mapped_column(Float)  # SLA metric
     last_heartbeat_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.now(dt.UTC), onupdate=dt.datetime.now(dt.UTC)
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
     )
 
     miner: Mapped[Miner] = relationship(back_populates="status")
@@ -88,7 +97,7 @@ class MatchRequest(Base):
     requirements: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
     hints: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
     top_k: Mapped[int] = mapped_column(Integer, default=1)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     results: Mapped[list[MatchResult]] = relationship(back_populates="request", cascade="all, delete-orphan")
 
@@ -104,7 +113,7 @@ class MatchResult(Base):
     eta_ms: Mapped[int | None] = mapped_column(Integer)
     price: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
 
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC), index=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
 
     request: Mapped[MatchRequest] = relationship(back_populates="results")
 
@@ -119,7 +128,7 @@ class Feedback(Base):
     latency_ms: Mapped[int | None] = mapped_column(Integer)
     fail_code: Mapped[str | None] = mapped_column(String(64))
     tokens_spent: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC), index=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
 
     miner: Mapped[Miner] = relationship(back_populates="feedback")
 
@@ -137,9 +146,9 @@ class ServiceConfig(Base):
     pricing: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     capabilities: Mapped[list[str]] = mapped_column(JSON, default=list)
     max_concurrent: Mapped[int] = mapped_column(Integer, default=1)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.now(dt.UTC), onupdate=dt.datetime.now(dt.UTC)
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
     )
 
     # Add unique constraint for miner_id + service_type
@@ -159,7 +168,7 @@ class SLAMetric(Base):
     metric_value: Mapped[float] = mapped_column(Float, nullable=False)
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
     is_violation: Mapped[bool] = mapped_column(Boolean, default=False)
-    timestamp: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
+    timestamp: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     meta_data: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
 
     miner: Mapped[Miner] = relationship(backref="sla_metrics")
@@ -178,7 +187,7 @@ class SLAViolation(Base):
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
     violation_duration_ms: Mapped[int | None] = mapped_column(Integer)
     resolved_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC), index=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
     meta_data: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
 
     miner: Mapped[Miner] = relationship(backref="sla_violations")
@@ -198,7 +207,7 @@ class CapacitySnapshot(Base):
     forecast_capacity: Mapped[int] = mapped_column(Integer, nullable=False)
     recommended_scaling: Mapped[str] = mapped_column(String(32), nullable=False)
     scaling_reason: Mapped[str] = mapped_column(Text)
-    timestamp: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
+    timestamp: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     meta_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
 
@@ -218,5 +227,5 @@ class RewardPayout(Base):
     amount: Mapped[int] = mapped_column(Integer)  # in compute-seconds
     tx_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="pending")  # pending, paid, failed
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.now(dt.UTC))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     paid_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
