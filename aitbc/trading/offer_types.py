@@ -133,7 +133,7 @@ class SyncedOffer:
             attributes=data.get("attributes", {}),
             last_synced=data.get("last_synced", ""),
             sync_status=data.get("sync_status", "fresh"),
-            sync_confidence=float(data.get("sync_confidence", 1.0)),
+            sync_confidence=data.get("sync_confidence", 1.0),
         )
 
 
