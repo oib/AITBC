@@ -2,16 +2,6 @@
 Test Trading service main application
 """
 
-import pytest
-from fastapi.testclient import TestClient
-from trading_service.main import app
-
-
-@pytest.fixture
-def client():
-    """Create test client for Trading service"""
-    return TestClient(app)
-
 
 def test_health_check(client):
     """Test health check endpoint"""

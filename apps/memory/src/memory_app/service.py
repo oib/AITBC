@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import secrets
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -26,9 +27,17 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def _derive_fernet_key(master_key: str) -> bytes:
-    """Derive a Fernet-compatible key from the configured master key."""
-    digest = hashlib.sha256(master_key.encode("utf-8")).digest()
+def _derive_fernet_key(master_key: str, salt: bytes) -> bytes:
+    """Derive a Fernet-compatible key from the configured master key.
+
+    Uses PBKDF2-HMAC-SHA256 with the provided salt instead of a raw SHA-256 digest,
+    which closes the unsalted-KDF finding while remaining Fernet-compatible.
+
+    ponytail: the salt is generated per store instance. Because this service is
+    in-memory-only, a per-process salt is acceptable; persistence would require
+    storing the salt alongside each encrypted blob.
+    """
+    digest = hashlib.pbkdf2_hmac("sha256", master_key.encode("utf-8"), salt, 100_000, dklen=32)
     return base64.urlsafe_b64encode(digest)
 
 
@@ -45,12 +54,15 @@ class MemoryStore:
     def __init__(self) -> None:
         self._store: dict[str, dict[str, Any]] = {}
         self._master_key: str | None = settings.memory_master_key
+        # ponytail: per-instance salt. For an in-memory service this is fine; persisted
+        # storage would require storing the salt with each encrypted blob.
+        self._salt: bytes = secrets.token_bytes(16)
         self._fernet = None
         if self._master_key:
             try:
                 from cryptography.fernet import Fernet
 
-                self._fernet = Fernet(_derive_fernet_key(self._master_key))
+                self._fernet = Fernet(_derive_fernet_key(self._master_key, self._salt))
                 logger.info("Memory service: encryption-at-rest enabled")
             except Exception as e:
                 logger.warning("Memory service: failed to initialize Fernet: %s", e)
