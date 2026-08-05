@@ -140,6 +140,9 @@ def recalculate_state_root(db_path: Path, chain_id: str) -> str | None:
         # Get all accounts
         cursor.execute("SELECT address, balance, nonce FROM account WHERE chain_id=?", (chain_id,))
         accounts = cursor.fetchall()
+        if not accounts:
+            print("❌ No accounts found for chain; cannot recalculate state root.")
+            return None
 
         # Simplified state root calculation (hash of all account states)
         # In production, use the actual MPT implementation
@@ -154,6 +157,9 @@ def recalculate_state_root(db_path: Path, chain_id: str) -> str | None:
 
         # Update genesis block state_root
         cursor.execute("UPDATE block SET state_root = ? WHERE height=0 AND chain_id=?", (state_root, chain_id))
+        if cursor.rowcount == 0:
+            print("❌ Genesis block not found; cannot update state root.")
+            return None
 
         conn.commit()
         print("  ✅ Updated genesis block state_root in database")
