@@ -33,9 +33,7 @@ payments: dict[str, dict[str, Any]] = {}
 _idempotency_keys: dict[str, str] = {}
 
 # ponytail: local JSON state file; replace with DB-backed storage when multi-replica
-_STATE_FILE = Path(
-    os.environ.get("TRADING_EXCHANGE_STATE_FILE", "/opt/aitbc/data/trading/exchange_state.json")
-)
+_STATE_FILE = Path(os.environ.get("TRADING_EXCHANGE_STATE_FILE", "/opt/aitbc/data/trading/exchange_state.json"))
 
 
 def _load_state() -> None:
@@ -153,7 +151,7 @@ async def get_exchange_rates() -> dict[str, Any]:
     }
 
 
-@router.get("/v1/exchange/market-stats")
+@router.get("/v1/exchange/market-stats", dependencies=[Depends(require_trading_api_key)])
 async def get_market_stats() -> dict[str, Any]:
     """Get market statistics (migrated from Coordinator API)."""
     current_time = int(time.time())
@@ -174,13 +172,13 @@ async def get_market_stats() -> dict[str, Any]:
     }
 
 
-@router.get("/v1/exchange/wallet/balance")
+@router.get("/v1/exchange/wallet/balance", dependencies=[Depends(require_trading_api_key)])
 async def get_exchange_wallet_balance() -> dict[str, Any]:
     """Get Bitcoin wallet balance (migrated from Coordinator API)."""
     return {"balance": 0.0, "unconfirmed_balance": 0.0, "address": BITCOIN_CONFIG["main_address"]}
 
 
-@router.get("/v1/exchange/wallet/info")
+@router.get("/v1/exchange/wallet/info", dependencies=[Depends(require_trading_api_key)])
 async def get_exchange_wallet_info() -> dict[str, Any]:
     """Get comprehensive wallet information (migrated from Coordinator API)."""
     return {"address": BITCOIN_CONFIG["main_address"], "network": "testnet", "balance": 0.0, "transactions": []}

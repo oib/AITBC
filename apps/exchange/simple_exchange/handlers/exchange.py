@@ -7,14 +7,20 @@ connections are closed via ``try/finally`` (B3 backport).
 """
 
 import json
+import secrets
 import sqlite3
+import urllib.error
 import urllib.parse
+import urllib.request
 from datetime import UTC, datetime
 
+from aitbc.aitbc_logging import get_logger
 from aitbc.utils.decimal import to_decimal as _to_decimal
 
 from ..db import get_db_path
 from .base import RPC_BASE_URL, RPC_TIMEOUT
+
+logger = get_logger(__name__)
 
 
 def _row_to_order(row) -> dict:
@@ -159,24 +165,31 @@ class ExchangeMixin:
                 return
 
             # B2: Convert to Decimal for exact monetary arithmetic
-            amount_dec = _to_decimal(amount_raw)
-            price_dec = _to_decimal(price_raw)
+            try:
+                amount_dec = _to_decimal(amount_raw)
+                price_dec = _to_decimal(price_raw)
+            except Exception:
+                self.send_error(400, "Invalid amount or price")  # type: ignore[attr-defined]
+                return
+
+            if amount_dec <= 0 or price_dec <= 0:
+                self.send_error(400, "Amount and price must be positive")  # type: ignore[attr-defined]
+                return
+
             total_dec = amount_dec * price_dec
 
             # Create order transaction on blockchain
             tx_hash = ""
             try:
-                import urllib.parse
-                import urllib.request
-
-                # Prepare transaction data
+                # Prepare transaction data. Nonce is a one-time value so orders cannot be
+                # replayed with the same tx hash; it is not the wallet-managed account nonce.
                 tx_data = {
                     "from": user_address,
                     "type": "ORDER",
                     "order_type": order_type,
                     "amount": str(amount_dec),
                     "price": str(price_dec),
-                    "nonce": 0,  # Would get actual nonce from wallet
+                    "nonce": secrets.token_hex(8),
                 }
 
                 # Send transaction to blockchain
@@ -191,9 +204,8 @@ class ExchangeMixin:
                     tx_result = json.loads(response.read().decode())
                 tx_hash = tx_result.get("tx_hash", "")
 
-            except Exception:
-                # Fallback to database-only if blockchain is down
-                pass
+            except (urllib.error.URLError, json.JSONDecodeError) as e:
+                logger.warning("Blockchain sendTx failed, falling back to database-only order: %s", e)
 
             # B1: Insert order and match within a single transaction.
             # BEGIN IMMEDIATE acquires the write lock before we read open orders,
