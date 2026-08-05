@@ -51,8 +51,7 @@ class Settings(ServiceSettings):
     enable_coordinator_api_trigger: bool = Field(default=True)
     enable_marketplace_trigger: bool = Field(default=True)
 
-    # Polling configuration (Phase 3)
-    enable_polling: bool = Field(default=False)
+    # Polling interval for contract event subscriber sleep
     polling_interval_seconds: int = Field(default=60)
 
     @field_validator("blockchain_rpc_url")

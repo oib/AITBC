@@ -13,6 +13,54 @@ from typing import Annotated, Any
 
 from fastapi import Depends, Header, HTTPException, Request, status
 
+
+class APIKeyAuthenticator:
+    """Shared service API-key dependency.
+
+    Reads the configured header (default ``X-Api-Key``) and compares it against
+    an expected key using constant-time comparison. When ``auth_enabled`` is
+    false, the dependency always succeeds. This replaces the hand-rolled
+    API-key checks in wallet, trading, and other services.
+    """
+
+    def __init__(
+        self,
+        expected_key: str | None,
+        auth_enabled: bool = True,
+        header_name: str = "X-Api-Key",
+        success_role: str = "admin",
+    ) -> None:
+        self.expected_key = expected_key
+        self.auth_enabled = auth_enabled
+        self.header_name = header_name
+        self.success_role = success_role
+
+    async def __call__(self, request: Request) -> dict[str, Any]:
+        if not self.auth_enabled:
+            return {"sub": "api_key", "role": self.success_role, "auth_type": "api_key"}
+
+        if not self.expected_key:
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail="API key not configured",
+            )
+
+        api_key = request.headers.get(self.header_name)
+        if not api_key:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing API key",
+            )
+
+        if not hmac.compare_digest(str(api_key), str(self.expected_key)):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API key",
+            )
+
+        return {"sub": "api_key", "role": self.success_role, "auth_type": "api_key"}
+
+
 from .jwt import verify_access_token
 
 
@@ -174,10 +222,13 @@ AuthDep = Annotated[dict[str, Any], Depends(require_auth)]
 AdminDep = Annotated[dict[str, Any], Depends(require_admin)]
 ClientDep = Annotated[dict[str, Any], Depends(require_client)]
 MinerDep = Annotated[dict[str, Any], Depends(require_miner)]
+APIKeyAuth = Annotated[dict[str, Any], Depends(APIKeyAuthenticator)]
 
 
 __all__ = [
     "AdminDep",
+    "APIKeyAuth",
+    "APIKeyAuthenticator",
     "AuthDep",
     "ClientDep",
     "MinerDep",
