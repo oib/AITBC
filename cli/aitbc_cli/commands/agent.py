@@ -104,13 +104,13 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
         return None
 
 
-@click.group()
-def agent():
-    """Agent messaging commands (ping, send, receive, peers, request-coins)"""
+@click.group(name="agent-msg")
+def messaging():
+    """Agent messaging commands (ping, send, receive, peers, request-coins)."""
     pass
 
 
-@agent.command()
+@messaging.command()
 @click.argument("message")
 @click.option("--to-agent", help="Target agent ID")
 @click.option("--priority", default="normal", help="Message priority")
@@ -134,7 +134,7 @@ def send(ctx, message: str, to_agent: str | None, priority: str):
         error(f"Error sending message: {e}")
 
 
-@agent.command()
+@messaging.command()
 @click.option("--limit", type=int, default=20, help="Number of messages to return")
 @click.pass_context
 def receive(ctx, limit: int):
@@ -152,7 +152,7 @@ def receive(ctx, limit: int):
         error(f"Error receiving messages: {e}")
 
 
-@agent.command()
+@messaging.command()
 @click.pass_context
 def peers(ctx):
     """List Agent Coordinator peers"""
@@ -169,7 +169,7 @@ def peers(ctx):
         error(f"Error fetching peers: {e}")
 
 
-@agent.command()
+@messaging.command()
 @click.option("--agent", default="hub-coordinator", show_default=True, help="Recipient agent ID to ping")
 @click.option(
     "--sender",
@@ -234,7 +234,7 @@ def ping(ctx, agent: str, sender: str, coordinator_url: str | None, timeout: int
     _asyncio.run(_ping())
 
 
-@agent.command(name="request-coins")
+@messaging.command(name="request-coins")
 @click.option(
     "--wallet",
     default=None,
