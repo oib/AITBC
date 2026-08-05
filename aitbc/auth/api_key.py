@@ -6,6 +6,10 @@ Extracted from ``apps/agent-coordinator/src/app/auth/jwt_handler.py::APIKeyManag
 Keys are stored as one-way SHA-256 digests; the plaintext key is returned to the
 caller exactly once at generation time. Validation uses constant-time digest
 comparison to limit timing attacks.
+
+This implementation uses a process-wide file lock (``filelock``) on the storage
+file so concurrent callers / multi-worker deployments do not corrupt the JSON
+store. Each mutating operation reloads from disk before writing.
 """
 
 from __future__ import annotations
@@ -17,6 +21,8 @@ import os
 import secrets
 from datetime import UTC, datetime
 from typing import Any
+
+import filelock
 
 from aitbc.aitbc_logging import get_logger
 
@@ -30,13 +36,18 @@ class APIKeyManager:
     with ``0600`` permissions. Each digest maps to a dict with user_id,
     permissions, created_at, last_used, and usage_count. The plaintext key is
     never persisted after generation.
+
+    A file lock on ``<storage_path>.lock`` protects all reads and writes so the
+    JSON file is safe across processes.
     """
 
     def __init__(self, storage_path: str | None = None) -> None:
         self.storage_path: str = (
             storage_path or os.getenv("API_KEY_STORAGE_PATH", "/var/lib/aitbc/api_keys.json") or "/var/lib/aitbc/api_keys.json"
         )
-        self.api_keys: dict[str, Any] = self._load_keys()
+        self._lock = filelock.FileLock(f"{self.storage_path}.lock")
+        with self._lock:
+            self.api_keys: dict[str, Any] = self._load_keys()
 
     @staticmethod
     def _hash_key(api_key: str) -> str:
@@ -71,43 +82,24 @@ class APIKeyManager:
         return len(key) == 64 and all(c in "0123456789abcdefABCDEF" for c in key)
 
     def _save_keys(self) -> None:
-        """Save API keys to persistent storage."""
+        """Save API keys to persistent storage.
+
+        This is the unguarded write helper; callers must hold ``self._lock``.
+        """
         try:
             os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
             with open(self.storage_path, "w") as f:
                 json.dump(self.api_keys, f, indent=2)
-            os.chmod(self.storage_path, 384)  # 0600
+            os.chmod(self.storage_path, 0o600)
         except (OSError, TypeError) as e:
             logger.error("Error saving API keys: %s", e)
 
-    def generate_api_key(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
-        """Generate new API key for user.
+    def _refresh(self) -> None:
+        """Reload the in-memory key store from disk.
 
-        Returns:
-            ``{"status": "success", "api_key": ..., "permissions": ..., "created_at": ...}``
-            or ``{"status": "error", "message": ...}``
+        Callers must hold ``self._lock``.
         """
-        try:
-            api_key = secrets.token_urlsafe(32)
-            key_hash = self._hash_key(api_key)
-            key_data: dict[str, Any] = {
-                "user_id": user_id,
-                "permissions": permissions or [],
-                "created_at": datetime.now(UTC).isoformat(),
-                "last_used": None,
-                "usage_count": 0,
-            }
-            self.api_keys[key_hash] = key_data
-            self._save_keys()
-            return {
-                "status": "success",
-                "api_key": api_key,
-                "permissions": permissions or [],
-                "created_at": key_data["created_at"],
-            }
-        except (OSError, TypeError, KeyError) as e:
-            logger.error("Error generating API key: %s", e)
-            return {"status": "error", "message": "API key generation failed"}
+        self.api_keys = self._load_keys()
 
     def _find_key_data(self, api_key: str) -> tuple[str, dict[str, Any] | None]:
         """Look up key data by constant-time comparison of digests.
@@ -124,6 +116,37 @@ class APIKeyManager:
                 matched_data = key_data
         return matched_key or key_hash, matched_data
 
+    def generate_api_key(self, user_id: str, permissions: list[str] | None = None) -> dict[str, Any]:
+        """Generate new API key for user.
+
+        Returns:
+            ``{"status": "success", "api_key": ..., "permissions": ..., "created_at": ...}``
+            or ``{"status": "error", "message": ...}``
+        """
+        try:
+            with self._lock:
+                self._refresh()
+                api_key = secrets.token_urlsafe(32)
+                key_hash = self._hash_key(api_key)
+                key_data: dict[str, Any] = {
+                    "user_id": user_id,
+                    "permissions": permissions or [],
+                    "created_at": datetime.now(UTC).isoformat(),
+                    "last_used": None,
+                    "usage_count": 0,
+                }
+                self.api_keys[key_hash] = key_data
+                self._save_keys()
+                return {
+                    "status": "success",
+                    "api_key": api_key,
+                    "permissions": permissions or [],
+                    "created_at": key_data["created_at"],
+                }
+        except (OSError, TypeError, KeyError) as e:
+            logger.error("Error generating API key: %s", e)
+            return {"status": "error", "message": "API key generation failed"}
+
     def validate_api_key(self, api_key: str) -> dict[str, Any]:
         """Validate API key and return user info.
 
@@ -132,19 +155,21 @@ class APIKeyManager:
             or ``{"status": "error", "valid": False, "message": ...}``
         """
         try:
-            matched_key, key_data = self._find_key_data(api_key)
-            if key_data is None:
-                return {"status": "error", "valid": False, "message": "Invalid API key"}
-            key_data["last_used"] = datetime.now(UTC).isoformat()
-            key_data["usage_count"] += 1
-            self._save_keys()
-            return {
-                "status": "success",
-                "valid": True,
-                "user_id": key_data["user_id"],
-                "permissions": key_data["permissions"],
-                "usage_count": key_data["usage_count"],
-            }
+            with self._lock:
+                self._refresh()
+                matched_key, key_data = self._find_key_data(api_key)
+                if key_data is None:
+                    return {"status": "error", "valid": False, "message": "Invalid API key"}
+                key_data["last_used"] = datetime.now(UTC).isoformat()
+                key_data["usage_count"] += 1
+                self._save_keys()
+                return {
+                    "status": "success",
+                    "valid": True,
+                    "user_id": key_data["user_id"],
+                    "permissions": key_data["permissions"],
+                    "usage_count": key_data["usage_count"],
+                }
         except (OSError, TypeError, KeyError) as e:
             logger.error("Error validating API key: %s", e)
             return {"status": "error", "message": "API key validation failed"}
@@ -157,13 +182,15 @@ class APIKeyManager:
             or ``{"status": "error", "message": ...}``
         """
         try:
-            matched_key, key_data = self._find_key_data(api_key)
-            if key_data is not None:
-                del self.api_keys[matched_key]
-                self._save_keys()
-                return {"status": "success", "message": "API key revoked"}
-            else:
-                return {"status": "error", "message": "API key not found"}
+            with self._lock:
+                self._refresh()
+                matched_key, key_data = self._find_key_data(api_key)
+                if key_data is not None:
+                    del self.api_keys[matched_key]
+                    self._save_keys()
+                    return {"status": "success", "message": "API key revoked"}
+                else:
+                    return {"status": "error", "message": "API key not found"}
         except (OSError, TypeError, KeyError) as e:
             logger.error("Error revoking API key: %s", e)
             return {"status": "error", "message": "API key revocation failed"}
