@@ -87,6 +87,14 @@ class BlockchainEventBridge:
         if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
         self._tasks.clear()
+        # Close any handlers that opened persistent HTTP clients.
+        for handler in (
+            self.coordinator_handler,
+            self.agent_daemon_handler,
+            self.marketplace_handler,
+        ):
+            if handler is not None:
+                await handler.close()
         self._running = False
         logger.info("Blockchain event bridge stopped")
 

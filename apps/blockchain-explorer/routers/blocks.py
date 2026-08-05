@@ -16,6 +16,7 @@ from chain_client import (
     get_latest_blocks,
     normalize_block,
 )
+from .common import like_pattern
 from validation import validate_tx_hash
 
 logger = get_logger(__name__)
@@ -257,13 +258,15 @@ async def api_blocks_by_address(
         with closing(sqlite3.connect(str(chain_db_path))) as conn:
             cursor = conn.cursor()
 
-            search_term = f"%{address}%"
+            search_term = like_pattern(address)
             cursor.execute(
                 """
                 SELECT DISTINCT b.height, b.hash, b.proposer, b.timestamp, b.tx_count, b.state_root
                 FROM block b
                 JOIN "transaction" t ON b.height = t.block_height
-                WHERE t.sender LIKE ? OR t.recipient LIKE ? OR t.payload LIKE ?
+                WHERE t.sender LIKE ? ESCAPE '|'
+                   OR t.recipient LIKE ? ESCAPE '|'
+                   OR t.payload LIKE ? ESCAPE '|'
                 ORDER BY b.height DESC
                 LIMIT ?
             """,
