@@ -18,6 +18,16 @@ logger = get_logger(__name__)
 Base = declarative_base()
 
 
+def _utcnow() -> datetime:
+    """Current UTC time, as a column default.
+
+    Passed to `default=` as a callable so SQLAlchemy evaluates it per row. Passing
+    `datetime.now(UTC)` directly binds one import-time value to every row, which would
+    silently break the per-period spending windows this module exists to enforce.
+    """
+    return datetime.now(UTC)
+
+
 class SpendingRecord(Base):
     """Database model for spending tracking"""
 
@@ -28,7 +38,7 @@ class SpendingRecord(Base):
     period_key = Column(String, index=True)
     amount = Column(Float)
     transaction_hash = Column(String)
-    timestamp = Column(DateTime, default=datetime.now(UTC))
+    timestamp = Column(DateTime, default=_utcnow)
     __table_args__ = (
         Index("idx_agent_period", "agent_address", "period_type", "period_key"),
         Index("idx_timestamp", "timestamp"),
@@ -46,7 +56,7 @@ class SpendingLimit(Base):
     per_week = Column(Float)
     time_lock_threshold = Column(Float)
     time_lock_delay_hours = Column(Integer)
-    updated_at = Column(DateTime, default=datetime.now(UTC))
+    updated_at = Column(DateTime, default=_utcnow)
     updated_by = Column(String)
 
 
@@ -58,7 +68,7 @@ class GuardianAuthorization(Base):
     agent_address = Column(String, index=True)
     guardian_address = Column(String, index=True)
     is_active = Column(Boolean, default=True)
-    added_at = Column(DateTime, default=datetime.now(UTC))
+    added_at = Column(DateTime, default=_utcnow)
     added_by = Column(String)
 
 
