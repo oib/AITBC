@@ -3,7 +3,9 @@
 Wraps BlockchainRPCClient (from v0.6.6) with pool-hub-specific logic:
 - Submit reward transactions on job completion
 - Register miners on blockchain via GPU registration endpoint
-- Track reward payouts to prevent duplicates via RewardPolicy
+- Track reward payouts to prevent duplicates, via the reward_payouts unique
+  constraint (RewardPolicy's in-process state cannot survive a restart or span
+  replicas, so it is bookkeeping only -- not the guarantee)
 
 Reward transactions are signed with secp256k1 (Ethereum-style) over the
 canonical JSON of the signed fields, matching the blockchain node's verifier
@@ -15,9 +17,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.constants import BLOCKCHAIN_RPC_URL
@@ -144,17 +148,28 @@ class PoolHubBlockchainClient:
         logger.info("Miner registered on-chain: miner_id=%s, chain=%s", miner_id, self._chain_id)
         return result
 
-    async def distribute_rewards(self, block_height: int, session: AsyncSession | None = None) -> list[dict[str, Any]]:
-        """Distribute rewards for the current epoch.
+    async def distribute_rewards(self, block_height: int, session: AsyncSession) -> list[dict[str, Any]]:
+        """Distribute rewards for the current epoch, at most once per miner per epoch.
+
+        Duplicate protection is the ``reward_payouts`` unique constraint on
+        (miner_id, chain_id, epoch_number), not RewardPolicy's in-process state. That
+        state is a per-process dict: it is lost on restart and not shared between
+        replicas, so on its own it permitted the same miner to be paid twice for the same
+        epoch.
+
+        Each payout is *claimed* before the transaction is submitted. A crash between
+        claim and submission leaves a ``pending`` row, which blocks a duplicate and shows
+        up in reconciliation. Claiming afterwards instead would risk paying twice, and an
+        unrecoverable double payment is worse than a recoverable missed one.
 
         Args:
             block_height: Current block height
-            session: Optional async DB session. When provided, ``RewardPayout``
-                records are checked before submission and persisted after, making
-                the idempotency guarantee survive restarts and replicas.
+            session: Database session providing the idempotency guarantee
 
         Returns:
-            List of payout results (one per miner)
+            List of payout results (one per miner). Miners already paid or claimed for
+            this epoch are reported with ``status`` ``"already_paid"`` and are not
+            submitted again.
         """
         self._reward_policy.update_block_height(block_height)
         epoch = self._reward_policy.calculate_payouts()
@@ -165,27 +180,27 @@ class PoolHubBlockchainClient:
             if not self._reward_policy.is_eligible_for_payout(contrib.miner_id):
                 continue
 
-            if session is not None:
-                existing = await session.execute(
-                    select(RewardPayout).where(
-                        RewardPayout.miner_id == contrib.miner_id,
-                        RewardPayout.epoch_number == epoch.epoch_number,
-                        RewardPayout.chain_id == self._chain_id,
-                    )
+            claim = await self._claim_payout(
+                session=session,
+                miner_id=contrib.miner_id,
+                epoch_number=epoch.epoch_number,
+                amount=contrib.reward_amount,
+            )
+            if claim is None:
+                logger.info(
+                    "Skipping reward for %s in epoch %s: already claimed or paid",
+                    contrib.miner_id,
+                    epoch.epoch_number,
                 )
-                record = existing.scalar_one_or_none()
-                if record is not None and record.status == "paid":
-                    logger.info("Skipping already-paid reward for %s epoch %s", contrib.miner_id, epoch.epoch_number)
-                    payouts.append(
-                        {
-                            "miner_id": contrib.miner_id,
-                            "amount": contrib.reward_amount,
-                            "tx_hash": record.tx_hash or "",
-                            "epoch": epoch.epoch_number,
-                            "status": "already_paid",
-                        }
-                    )
-                    continue
+                payouts.append(
+                    {
+                        "miner_id": contrib.miner_id,
+                        "amount": contrib.reward_amount,
+                        "epoch": epoch.epoch_number,
+                        "status": "already_paid",
+                    }
+                )
+                continue
 
             try:
                 result = await self.submit_reward_transaction(
@@ -194,50 +209,76 @@ class PoolHubBlockchainClient:
                     job_id=f"epoch-{epoch.epoch_number}",
                 )
                 tx_hash = result.get("tx_hash", "")
+                claim.status = "paid"
+                claim.tx_hash = tx_hash
+                claim.paid_at = datetime.now(UTC)
+                await session.commit()
                 self._reward_policy.mark_paid(contrib.miner_id, tx_hash)
-
-                if session is not None:
-                    payout_record = RewardPayout(
-                        miner_id=contrib.miner_id,
-                        chain_id=self._chain_id,
-                        epoch_number=epoch.epoch_number,
-                        amount=contrib.reward_amount,
-                        tx_hash=tx_hash,
-                        status="paid",
-                    )
-                    session.add(payout_record)
-                    await session.commit()  # type: ignore[misc, func-returns-value]
-
                 payouts.append(
                     {
                         "miner_id": contrib.miner_id,
                         "amount": contrib.reward_amount,
                         "tx_hash": tx_hash,
                         "epoch": epoch.epoch_number,
+                        "status": "paid",
                     }
                 )
             except Exception as e:
                 logger.error("Failed to distribute reward to %s: %s", contrib.miner_id, e)
-                if session is not None:
-                    failed_record = RewardPayout(
-                        miner_id=contrib.miner_id,
-                        chain_id=self._chain_id,
-                        epoch_number=epoch.epoch_number,
-                        amount=contrib.reward_amount,
-                        status="failed",
-                    )
-                    session.add(failed_record)
-                    await session.commit()  # type: ignore[misc, func-returns-value]
-
+                # Leave the claim in place: the miner may or may not have been paid on
+                # chain, and re-attempting blindly is how double payments happen.
+                # Reconciliation resolves a 'failed' row against the chain.
+                claim.status = "failed"
+                await session.commit()
                 payouts.append(
                     {
                         "miner_id": contrib.miner_id,
                         "amount": contrib.reward_amount,
                         "error": str(e),
                         "epoch": epoch.epoch_number,
+                        "status": "failed",
                     }
                 )
         return payouts
+
+    async def _claim_payout(
+        self,
+        session: AsyncSession,
+        miner_id: str,
+        epoch_number: int,
+        amount: int,
+    ) -> RewardPayout | None:
+        """Reserve the right to pay one miner for one epoch.
+
+        Returns the claimed row, or None if this (miner, chain, epoch) is already claimed.
+        The unique constraint does the arbitration, so two replicas racing on the same
+        payout produce exactly one winner.
+        """
+        payout = RewardPayout(
+            miner_id=miner_id,
+            chain_id=self._chain_id,
+            epoch_number=epoch_number,
+            amount=amount,
+            status="pending",
+        )
+        session.add(payout)
+        try:
+            await session.flush()
+        except IntegrityError:
+            await session.rollback()
+            return None
+        return payout
+
+    async def has_been_paid(self, session: AsyncSession, miner_id: str, epoch_number: int) -> bool:
+        """Return True if this miner already has a payout row for this epoch."""
+        result = await session.execute(
+            select(RewardPayout).where(
+                RewardPayout.miner_id == miner_id,
+                RewardPayout.chain_id == self._chain_id,
+                RewardPayout.epoch_number == epoch_number,
+            )
+        )
+        return result.scalar_one_or_none() is not None
 
     def record_contribution(self, miner_id: str, score: float, shares: int | None = None) -> None:
         """Record a miner's contribution for the current epoch.
