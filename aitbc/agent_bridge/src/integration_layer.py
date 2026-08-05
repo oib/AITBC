@@ -7,6 +7,7 @@ Connects agent protocols to existing AITBC services
 import logging
 import os
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 import aiohttp
@@ -230,8 +231,8 @@ class AgentServiceBridge:
                     "type": "trade",
                     "symbol": task_data.get("symbol", "AITBC/BTC"),
                     "side": task_data.get("side", "buy"),
-                    "amount": task_data.get("amount", 0.1),
-                    "price": task_data.get("price", market_data.get("price", 0.001)),
+                    "amount": Decimal(str(task_data.get("amount", "0.1"))),
+                    "price": Decimal(str(task_data.get("price", market_data.get("price", "0.001")))),
                 }
 
                 # Submit transaction

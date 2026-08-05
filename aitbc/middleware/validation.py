@@ -14,54 +14,38 @@ logger = get_logger(__name__)
 
 
 class RequestValidationMiddleware(BaseHTTPMiddleware):
-    """Middleware to validate incoming requests"""
+    """Middleware to validate incoming requests."""
 
     def __init__(
         self,
         app: ASGIApp,
         max_request_size: int = 10 * 1024 * 1024,  # 10MB default
-        max_response_size: int = 10 * 1024 * 1024,  # 10MB default
     ) -> None:
         super().__init__(app)
         self.max_request_size = max_request_size
-        self.max_response_size = max_response_size
+
+    async def _read_body_with_limit(self, request: Request) -> bytes:
+        """Read the request body up to max_request_size + 1 bytes."""
+        body = b""
+        limit = self.max_request_size + 1
+        async for chunk in request.stream():
+            body += chunk
+            if len(body) > limit:
+                logger.warning(
+                    "Request too large: client=%s",
+                    request.client.host if request.client else "unknown",
+                )
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Request too large. Maximum size is {self.max_request_size} bytes",
+                )
+        return body
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        # Validate request size
-        content_length = request.headers.get("content-length")
-        if content_length:
-            try:
-                size = int(content_length)
-                if size > self.max_request_size:
-                    logger.warning(
-                        "Request too large: content_length=%s max_size=%s client=%s",
-                        size,
-                        self.max_request_size,
-                        request.client.host if request.client else "unknown",
-                    )
-                    raise HTTPException(
-                        status_code=413,
-                        detail=f"Request too large. Maximum size is {self.max_request_size} bytes",
-                    )
-            except ValueError:
-                logger.warning("Invalid content-length header: %s", content_length)
+        # ponytail: actual body read limits chunked / spoofed Content-Length
+        request._body = await self._read_body_with_limit(request)
 
         # Process request
         response = await call_next(request)
-
-        # Validate response size (skip for streaming responses)
-        if hasattr(response, "body"):
-            response_size = len(response.body)
-            if response_size > self.max_response_size:
-                logger.warning(
-                    "Response too large: response_size=%s max_size=%s path=%s",
-                    response_size,
-                    self.max_response_size,
-                    request.url.path,
-                )
-                raise HTTPException(
-                    status_code=500,
-                    detail="Response too large",
-                )
 
         return response
