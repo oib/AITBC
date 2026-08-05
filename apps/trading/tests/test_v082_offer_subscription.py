@@ -427,7 +427,7 @@ class TestWebSocketEndpoint:
 
         from trading_service.main import app
 
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-Trading-Api-Key": "test-trading-key"})
         response = client.post(
             "/v1/trading/offers/subscribe",
             json={"node_id": "test-node", "chain_id": "ait-hub"},
@@ -443,7 +443,7 @@ class TestWebSocketEndpoint:
 
         from trading_service.main import app
 
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-Trading-Api-Key": "test-trading-key"})
         response = client.post(
             "/v1/trading/offers/heartbeat",
             json={"node_id": "test-node", "chain_id": "ait-hub"},
@@ -457,7 +457,7 @@ class TestWebSocketEndpoint:
 
         from trading_service.main import app
 
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-Trading-Api-Key": "test-trading-key"})
         response = client.get("/v1/trading/offers/subscription-status")
         assert response.status_code == 200
         assert isinstance(response.json(), list)
@@ -467,7 +467,7 @@ class TestWebSocketEndpoint:
 
         from trading_service.main import app
 
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-Trading-Api-Key": "test-trading-key"})
         response = client.get("/v1/trading/offers/search", params={"q": "gpu", "limit": 10})
         assert response.status_code == 200
         assert isinstance(response.json(), list)
@@ -477,7 +477,7 @@ class TestWebSocketEndpoint:
 
         from trading_service.main import app
 
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-Trading-Api-Key": "test-trading-key"})
         response = client.post(
             "/v1/trading/offers/subscribe",
             json={"chain_id": "ait-hub"},
