@@ -189,7 +189,7 @@ async def get_gpu(gpu_id: str, session: Annotated[AsyncSession, Depends(get_sess
         result = await session.execute(select(GPURegistry).where(GPURegistry.id == gpu_id))  # type: ignore[arg-type]
         gpu = result.scalar_one_or_none()
         if not gpu:
-            return ({"error": "GPU not found"}, 404)
+            return JSONResponse(status_code=404, content={"error": "GPU not found"})
         return {
             "id": gpu.id,
             "miner_id": gpu.miner_id,
@@ -206,7 +206,7 @@ async def get_gpu(gpu_id: str, session: Annotated[AsyncSession, Depends(get_sess
         }
     except Exception as e:
         logger.error("Error getting GPU %s: %s", gpu_id, e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.delete("/v1/gpu/{gpu_id}")
@@ -220,14 +220,14 @@ async def delete_gpu(gpu_id: str, session: Annotated[AsyncSession, Depends(get_s
         result = await session.execute(select(GPURegistry).where(GPURegistry.id == gpu_id))  # type: ignore[arg-type]
         gpu = result.scalar_one_or_none()
         if not gpu:
-            return ({"error": "GPU not found"}, 404)
+            return JSONResponse(status_code=404, content={"error": "GPU not found"})
         await session.delete(gpu)
         await session.commit()
         return {"message": f"GPU {gpu_id} deleted successfully"}
     except Exception as e:
         await session.rollback()
         logger.error("Error deleting GPU %s: %s", gpu_id, e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.put("/v1/gpu/{gpu_id}")
@@ -241,7 +241,7 @@ async def update_gpu(gpu_id: str, gpu_data: dict[str, Any], session: Annotated[A
         result = await session.execute(select(GPURegistry).where(GPURegistry.id == gpu_id))  # type: ignore[arg-type]
         gpu = result.scalar_one_or_none()
         if not gpu:
-            return ({"error": "GPU not found"}, 404)
+            return JSONResponse(status_code=404, content={"error": "GPU not found"})
         if "price_per_hour" in gpu_data:
             gpu.price_per_hour = gpu_data["price_per_hour"]
         if "status" in gpu_data:
@@ -258,7 +258,7 @@ async def update_gpu(gpu_id: str, gpu_data: dict[str, Any], session: Annotated[A
     except Exception as e:
         await session.rollback()
         logger.error("Error updating GPU %s: %s", gpu_id, e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.get("/v1/marketplace/edge-gpu/profiles")
@@ -369,7 +369,7 @@ async def complete_gpu_queue(
     """Mark a running GPU job as completed"""
     job = await svc.complete_job(job_id)
     if not job:
-        return ({"error": "Job not found"}, 404)
+        return JSONResponse(status_code=404, content={"error": "Job not found"})
     return {
         "job_id": job.id,
         "status": job.status.value,
@@ -383,7 +383,7 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
     transaction_type = transaction_data.get("type")
     action = transaction_data.get("action")
     if transaction_type != "gpu_marketplace":
-        return ({"error": "Invalid transaction type for GPU service"}, 400)
+        return JSONResponse(status_code=400, content={"error": "Invalid transaction type for GPU service"})
     try:
         if action == "offer":
             gpu_specs = transaction_data.get("specs", {})
@@ -472,11 +472,11 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
                 response_data["blockchain_tx_hash"] = blockchain_tx_hash
             return response_data
         else:
-            return ({"error": f"Invalid action: {action}. Only 'offer' is currently supported"}, 400)
+            return JSONResponse(status_code=400, content={"error": f"Invalid action: {action}. Only 'offer' is currently supported"})
     except Exception as e:
         await session.rollback()
         logger.error("Transaction submission error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.get("/v1/transactions")
@@ -517,7 +517,7 @@ async def get_transactions(
         return transactions
     except Exception as e:
         logger.error("Transaction query error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.post("/v1/gpu/register")
@@ -570,7 +570,7 @@ async def register_gpu(gpu_data: dict[str, Any], session: Annotated[AsyncSession
     except Exception as e:
         await session.rollback()
         logger.error("GPU registration error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.post("/v1/miners/register")
@@ -593,7 +593,7 @@ async def register_miner(miner_data: dict[str, Any], session: Annotated[AsyncSes
         return {"status": "ok", "miner_id": miner_id, "session_token": session_token, "gpu_count": len(existing_gpus)}
     except Exception as e:
         logger.error("Miner registration error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.post("/v1/miners/heartbeat")
@@ -612,7 +612,7 @@ async def miner_heartbeat(heartbeat_data: dict[str, Any], session: Annotated[Asy
     except Exception as e:
         await session.rollback()
         logger.error("Heartbeat error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.get("/v1/miners/{miner_id}/gpus")
@@ -639,7 +639,7 @@ async def get_miner_gpus(miner_id: str, session: Annotated[AsyncSession, Depends
         ]
     except Exception as e:
         logger.error("Get miner GPUs error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.post("/v1/miners/poll")
@@ -701,7 +701,7 @@ async def deregister_miner(miner_id: str, session: Annotated[AsyncSession, Depen
     except Exception as e:
         await session.rollback()
         logger.error("Deregister miner error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 if __name__ == "__main__":
