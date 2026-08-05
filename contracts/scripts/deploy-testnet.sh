@@ -14,7 +14,36 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONTRACTS_DIR="$(dirname "$SCRIPT_DIR")"
-NETWORK="${2:-localhost}"
+
+# Accept both documented forms. This was `NETWORK="${2:-localhost}"`, which only worked
+# for `--network <name>`; the bare positional form shown in the usage text silently
+# deployed to localhost instead of the network the operator asked for.
+NETWORK="localhost"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --network)
+            [[ $# -ge 2 ]] || { echo "error: --network requires a value" >&2; exit 2; }
+            NETWORK="$2"
+            shift 2
+            ;;
+        --network=*)
+            NETWORK="${1#*=}"
+            shift
+            ;;
+        -h|--help)
+            sed -n '2,11p' "${BASH_SOURCE[0]}"
+            exit 0
+            ;;
+        -*)
+            echo "error: unknown option '$1'" >&2
+            exit 2
+            ;;
+        *)
+            NETWORK="$1"
+            shift
+            ;;
+    esac
+done
 
 echo "=== AITBC ZK Contract Deployment ==="
 echo "Network: $NETWORK"
@@ -54,6 +83,11 @@ fi
 echo ""
 echo "--- Step 3: Deploy to $NETWORK ---"
 if command -v pnpm &>/dev/null && [[ -f "hardhat.config.js" ]]; then
+    if [[ ! -f "scripts/deploy.js" ]]; then
+        echo "error: scripts/deploy.js not found in $CONTRACTS_DIR" >&2
+        echo "       Expected alongside hardhat.config.js; see contracts/scripts/deploy.js" >&2
+        exit 1
+    fi
     pnpm hardhat run scripts/deploy.js --network "$NETWORK"
 else
     echo "Deploy script template:"

@@ -217,6 +217,10 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
 
     // Constructor
     constructor(address _paymentToken, address _aiPowerRental) {
+        // A zero address here is unrecoverable: the contract is immutable, so a deploy
+        // script typo permanently bricks every payment path with no way to correct it.
+        require(_paymentToken != address(0), "payment token cannot be zero address");
+        require(_aiPowerRental != address(0), "AI power rental cannot be zero address");
         paymentToken = IERC20(_paymentToken);
         aiPowerRental = AIPowerRental(_aiPowerRental);
         paymentCounter = 0;

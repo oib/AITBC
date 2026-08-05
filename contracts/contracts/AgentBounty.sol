@@ -168,6 +168,10 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     }
 
     constructor(address _paymentToken, address _performanceVerifier) {
+        // Immutable contract: a zero address from a deploy-script typo cannot be corrected
+        // afterwards and silently breaks every reward transfer.
+        require(_paymentToken != address(0), "payment token cannot be zero address");
+        require(_performanceVerifier != address(0), "performance verifier cannot be zero address");
         paymentToken = IERC20(_paymentToken);
         performanceVerifier = PerformanceVerifier(_performanceVerifier);
 
