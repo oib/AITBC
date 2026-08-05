@@ -4,6 +4,7 @@ import os
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.aitbc_logging import get_logger
@@ -23,7 +24,7 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
     transaction_type = transaction_data.get("type")
     action = transaction_data.get("action")
     if transaction_type != "trading":
-        return ({"error": "Invalid transaction type for Trading service"}, 400)
+        return JSONResponse(status_code=400, content={"error": "Invalid transaction type for Trading service"})
     try:
         if action == "request":
             request = TradeRequest(**transaction_data)
@@ -38,7 +39,7 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
             settlement = TradeSettlement(**transaction_data)
             session.add(settlement)
         else:
-            return ({"error": f"Invalid action: {action}"}, 400)
+            return JSONResponse(status_code=400, content={"error": f"Invalid action: {action}"})
         await session.commit()
         return {
             "status": "success",
@@ -49,7 +50,7 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
     except Exception as e:
         await session.rollback()
         logger.error("Transaction submission error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @router.get("/v1/transactions")
@@ -124,7 +125,7 @@ async def get_transactions(
         return transactions
     except Exception as e:
         logger.error("Transaction query error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @router.get("/v1/blocks")
