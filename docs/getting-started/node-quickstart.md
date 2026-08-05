@@ -1,4 +1,9 @@
-# Quick Start: Join the the network
+# Node Quick Start: Join the network
+
+> Renamed from `quickstart.md` (DOC-04). It sat beside `quick-start.md`, an unrelated
+> guide to security and performance features, and the two names differed only by a
+> hyphen — `quick-start.md` has ~51 inbound links, this one had none, so links
+> intended for one routinely reached the other.
 
 This guide shows how to set up a follower node to join the AITBC blockchain network.
 
