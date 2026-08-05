@@ -9,7 +9,8 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, desc
 
 from aitbc.aitbc_logging import get_logger
 
@@ -83,12 +84,12 @@ class InvoiceGenerationRequest(BaseModel):
     period_end: datetime
 
 
-def get_sla_collector(db: Annotated[Session, Depends(get_db)]) -> SLACollector:
-    return SLACollector(db)
+def get_sla_collector(db: Annotated[AsyncSession, Depends(get_db)]) -> SLACollector:
+    return SLACollector(db)  # type: ignore[arg-type]
 
 
-def get_billing_integration(db: Annotated[Session, Depends(get_db)]) -> BillingIntegration:
-    return BillingIntegration(db)
+def get_billing_integration(db: Annotated[AsyncSession, Depends(get_db)]) -> BillingIntegration:
+    return BillingIntegration(db)  # type: ignore[arg-type]
 
 
 @router.get("/metrics/{miner_id}", response_model=list[SLAMetricResponse])
@@ -123,11 +124,11 @@ async def get_all_sla_metrics(
 
 @router.get("/violations", response_model=list[SLAViolationResponse])
 async def get_sla_violations(
-    miner_id: str | None, resolved: bool | None, db: Annotated[Session, Depends(get_db)]
+    miner_id: str | None, resolved: bool | None, db: Annotated[AsyncSession, Depends(get_db)]
 ) -> list[SLAViolationResponse]:
     """Get SLA violations"""
     try:
-        sla_collector = SLACollector(db)
+        sla_collector = SLACollector(db)  # type: ignore[arg-type]
         violations = await sla_collector.get_sla_violations(
             miner_id=miner_id, resolved=resolved if resolved is not None else False
         )
@@ -153,15 +154,16 @@ async def collect_sla_metrics(sla_collector: Annotated[SLACollector, Depends(get
 
 
 @router.get("/capacity/snapshots", response_model=list[CapacitySnapshotResponse])
-async def get_capacity_snapshots(hours: int | None, db: Annotated[Session, Depends(get_db)]) -> list[CapacitySnapshotResponse]:
+async def get_capacity_snapshots(hours: int | None, db: Annotated[AsyncSession, Depends(get_db)]) -> list[CapacitySnapshotResponse]:
     """Get capacity planning snapshots"""
     try:
         hours_value = hours if hours is not None else 24
         cutoff = datetime.now(UTC) - timedelta(hours=hours_value)
         stmt = (
-            db.query(CapacitySnapshot).filter(CapacitySnapshot.timestamp >= cutoff).order_by(CapacitySnapshot.timestamp.desc())
+            select(CapacitySnapshot).where(CapacitySnapshot.timestamp >= cutoff).order_by(desc(CapacitySnapshot.timestamp))
         )
-        snapshots = stmt.all()
+        result = await db.execute(stmt)
+        snapshots = result.scalars().all()
         return snapshots  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error getting capacity snapshots: %s", e)
@@ -218,7 +220,7 @@ async def get_scaling_recommendations(
 
 
 @router.post("/capacity/alerts/configure")
-async def configure_capacity_alerts(alert_config: dict[str, Any], db: Annotated[Session, Depends(get_db)]) -> dict[str, Any]:
+async def configure_capacity_alerts(alert_config: dict[str, Any], db: Annotated[AsyncSession, Depends(get_db)]) -> dict[str, Any]:
     """Configure capacity alerts"""
     try:
         return {"status": "configured", "alert_config": alert_config, "timestamp": datetime.now(UTC).isoformat()}
@@ -308,10 +310,10 @@ async def generate_invoice(
 
 
 @router.get("/status")
-async def get_sla_status(db: Annotated[Session, Depends(get_db)]) -> dict[str, Any]:
+async def get_sla_status(db: Annotated[AsyncSession, Depends(get_db)]) -> dict[str, Any]:
     """Get overall SLA status"""
     try:
-        sla_collector = SLACollector(db)
+        sla_collector = SLACollector(db)  # type: ignore[arg-type]
         active_violations = await sla_collector.get_sla_violations(resolved=False)
         recent_metrics = await sla_collector.get_sla_metrics(hours=1)
         if any(v.severity == "critical" for v in active_violations):
