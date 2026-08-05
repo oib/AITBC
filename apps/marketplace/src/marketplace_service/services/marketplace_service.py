@@ -13,7 +13,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.marketplace import BlockchainRPCClient, OfferFSM
 
 from ..config import settings
-from ..domain.marketplace import MarketplaceOffer, ServiceRating, SoftwareService
+from ..domain.marketplace import Bid, MarketplaceOffer, ServiceRating, SoftwareService
 
 logger = get_logger(__name__)
 
@@ -128,13 +128,14 @@ class MarketplaceService:
             if not offer:
                 logger.error("Offer not found: %s", offer_id)
                 raise ValueError(f"Offer not found: {offer_id}")
-            bid_data = {
-                "provider": booking_data.get("wallet") or "unknown",
-                "capacity": booking_data.get("duration_hours", 1.0),
-                "price": booking_data.get("price", offer.price),
-                "status": "pending",
-            }
-            bid = await self._create_bid(bid_data)
+            if offer.status != "available":
+                raise ValueError(f"Offer {offer_id} is not available (status={offer.status})")
+
+            bid = await self._create_bid(offer_id, booking_data, offer)
+            offer.status = "booked"
+            self.session.add(offer)
+            await self.session.commit()
+            await self.session.refresh(bid)
             logger.info("Created bid for offer %s: %s", offer_id, bid.id)
             return {
                 "bid_id": bid.id,
@@ -558,20 +559,23 @@ class MarketplaceService:
             logger.error("Error in query_graph: %s: %s", type(e).__name__, str(e))
             raise
 
-    async def _create_bid(self, bid_data: dict[str, Any]) -> Any:
-        """Create a bid record (simple stub for internal use)"""
+    async def _create_bid(self, offer_id: str, booking_data: dict[str, Any], offer: MarketplaceOffer) -> Bid:
+        """Create and persist a bid record for a marketplace offer booking."""
         try:
-            # Create a simple bid-like object
-            class Bid:
-                def __init__(self, data: dict[str, Any]) -> None:
-                    self.id: str = data.get("provider", "unknown") + "-" + str(int(time.time()))
-                    self.provider: str | None = data.get("provider")
-                    self.capacity: float | None = data.get("capacity")
-                    self.price: Any = data.get("price")
-                    self.status: str | None = data.get("status")
-
-            bid = Bid(bid_data)
-            logger.info("Created internal bid: %s", bid.id)
+            buyer = booking_data.get("wallet") or booking_data.get("buyer") or "unknown"
+            price = Decimal(str(booking_data.get("price", offer.price or 0)))
+            capacity = float(booking_data.get("duration_hours", 1.0))
+            bid = Bid(
+                offer_id=offer_id,
+                provider=offer.provider or "unknown",
+                buyer=buyer,
+                capacity=capacity,
+                price=price,
+                status="pending",
+            )
+            self.session.add(bid)
+            await self.session.commit()
+            logger.info("Created bid %s for offer %s", bid.id, offer_id)
             return bid
         except Exception as e:
             logger.error("Error in _create_bid: %s: %s", type(e).__name__, str(e))

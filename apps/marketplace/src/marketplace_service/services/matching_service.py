@@ -187,6 +187,10 @@ class MatchingService:
                 job_id = task_data.get("job_id") or escrow_id
             except Exception as e:
                 logger.warning("Failed to submit task to agent-coordinator: %s", e)
+                # ponytail: release the reservation so the offer does not stay stuck
+                fsm.transition(OfferStatus.AVAILABLE)
+                best_offer.status = OfferStatus.AVAILABLE.value
+                await self.session.commit()
 
             logger.info(
                 "Matched offer %s (price=%s) for chain_id=%s, task_id=%s",
