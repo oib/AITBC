@@ -23,7 +23,9 @@ class AgentDaemonHandler:
 
     async def close(self) -> None:
         """Close HTTP client."""
-        self._client = None
+        if self._client is not None:
+            await self._client.close()
+            self._client = None
 
     async def handle_transaction(self, tx_data: dict[str, Any]) -> None:
         """Handle a transaction that may require agent daemon response."""

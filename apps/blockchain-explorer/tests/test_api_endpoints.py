@@ -303,7 +303,7 @@ def test_search_transactions_advanced(client):
     """GET /api/search/transactions with filters (mocked data layer)"""
     mock_result = {"transactions": [{"hash": "0x123", "type": "transfer"}]}
 
-    with patch("main.get_data_layer") as mock_get_dl:
+    with patch("routers.search.get_data_layer") as mock_get_dl:
         mock_dl = AsyncMock()
         mock_dl.get_transactions = AsyncMock(return_value=mock_result)
         mock_get_dl.return_value = mock_dl
@@ -353,7 +353,7 @@ def test_search_blocks_advanced(client):
     """GET /api/search/blocks with filters (mocked data layer)"""
     mock_result = {"blocks": [{"height": 1, "hash": "0x123"}]}
 
-    with patch("main.get_data_layer") as mock_get_dl:
+    with patch("routers.search.get_data_layer") as mock_get_dl:
         mock_dl = AsyncMock()
         mock_dl.get_blocks = AsyncMock(return_value=mock_result)
         mock_get_dl.return_value = mock_dl
@@ -387,7 +387,7 @@ def test_analytics_overview_success(client):
     """GET /api/analytics/overview returns overview data (mocked data layer)"""
     mock_overview = {"total_transactions": 100, "total_blocks": 50}
 
-    with patch("main.get_data_layer") as mock_get_dl:
+    with patch("routers.analytics.get_data_layer") as mock_get_dl:
         mock_dl = AsyncMock()
         mock_dl.get_analytics_overview = AsyncMock(return_value=mock_overview)
         mock_get_dl.return_value = mock_dl
@@ -400,7 +400,7 @@ def test_analytics_overview_success(client):
 
 def test_analytics_overview_rpc_404(client):
     """GET /api/analytics/overview returns 500 when data layer fails"""
-    with patch("main.get_data_layer") as mock_get_dl:
+    with patch("routers.analytics.get_data_layer") as mock_get_dl:
         mock_dl = AsyncMock()
         mock_dl.get_analytics_overview = AsyncMock(side_effect=Exception("RPC endpoint not available"))
         mock_get_dl.return_value = mock_dl
@@ -488,7 +488,7 @@ def test_export_blocks_json(client):
 
 def test_validate_tx_hash_valid():
     """Test tx hash validation with valid hashes"""
-    from main import validate_tx_hash
+    from validation import validate_tx_hash
 
     assert validate_tx_hash("0x" + "a" * 64) is True
     assert validate_tx_hash("a" * 64) is True
@@ -497,7 +497,7 @@ def test_validate_tx_hash_valid():
 
 def test_validate_tx_hash_invalid():
     """Test tx hash validation rejects invalid hashes"""
-    from main import validate_tx_hash
+    from validation import validate_tx_hash
 
     assert validate_tx_hash("") is False
     assert validate_tx_hash("short") is False
@@ -508,7 +508,7 @@ def test_validate_tx_hash_invalid():
 
 def test_validate_chain_id_valid():
     """Test chain ID validation with valid IDs"""
-    from main import validate_chain_id
+    from validation import validate_chain_id
 
     assert validate_chain_id("ait-hub.aitbc.bubuit.net") is True
     assert validate_chain_id("ait-mainnet") is True
@@ -517,7 +517,7 @@ def test_validate_chain_id_valid():
 
 def test_validate_chain_id_invalid():
     """Test chain ID validation rejects invalid IDs"""
-    from main import validate_chain_id
+    from validation import validate_chain_id
 
     assert validate_chain_id("") is False
     assert validate_chain_id("ab") is False  # too short
@@ -529,6 +529,10 @@ def test_validate_chain_id_invalid():
 # --- Pydantic models ---
 
 
+@pytest.mark.xfail(
+    reason="TransactionSearch and BlockSearch models were removed during refactoring; endpoints use direct query parameters",
+    strict=False,
+)
 def test_transaction_search_model_defaults():
     """Test TransactionSearch model defaults"""
     from main import TransactionSearch
@@ -540,6 +544,10 @@ def test_transaction_search_model_defaults():
     assert search.offset == 0
 
 
+@pytest.mark.xfail(
+    reason="TransactionSearch and BlockSearch models were removed during refactoring; endpoints use direct query parameters",
+    strict=False,
+)
 def test_transaction_search_model_with_values():
     """Test TransactionSearch model with all fields"""
     from main import TransactionSearch
@@ -559,6 +567,10 @@ def test_transaction_search_model_with_values():
     assert search.limit == 100
 
 
+@pytest.mark.xfail(
+    reason="TransactionSearch and BlockSearch models were removed during refactoring; endpoints use direct query parameters",
+    strict=False,
+)
 def test_block_search_model_defaults():
     """Test BlockSearch model defaults"""
     from main import BlockSearch
@@ -569,6 +581,10 @@ def test_block_search_model_defaults():
     assert search.offset == 0
 
 
+@pytest.mark.xfail(
+    reason="TransactionSearch and BlockSearch models were removed during refactoring; endpoints use direct query parameters",
+    strict=False,
+)
 def test_block_search_model_with_values():
     """Test BlockSearch model with all fields"""
     from main import BlockSearch

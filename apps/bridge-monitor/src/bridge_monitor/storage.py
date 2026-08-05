@@ -2,6 +2,7 @@
 
 import os
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
@@ -22,64 +23,63 @@ def init_db() -> None:
     """Initialize bridge deposits database."""
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    with closing(sqlite3.connect(DB_PATH)) as conn:
+        cursor = conn.cursor()
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS bridge_deposits (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            eth_tx_hash TEXT UNIQUE NOT NULL,
-            eth_from_address TEXT NOT NULL,
-            eth_amount TEXT NOT NULL,
-            ait_recipient TEXT NOT NULL,
-            ait_amount TEXT,
-            eth_usd_price TEXT,
-            ait_usd_price TEXT,
-            ait_tx_hash TEXT,
-            status TEXT NOT NULL DEFAULT 'pending',
-            created_at TEXT NOT NULL,
-            processed_at TEXT,
-            error_message TEXT,
-            retry_count INTEGER NOT NULL DEFAULT 0,
-            next_retry_at TEXT
-        )
-    """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS bridge_deposits (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                eth_tx_hash TEXT UNIQUE NOT NULL,
+                eth_from_address TEXT NOT NULL,
+                eth_amount TEXT NOT NULL,
+                ait_recipient TEXT NOT NULL,
+                ait_amount TEXT,
+                eth_usd_price TEXT,
+                ait_usd_price TEXT,
+                ait_tx_hash TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TEXT NOT NULL,
+                processed_at TEXT,
+                error_message TEXT,
+                retry_count INTEGER NOT NULL DEFAULT 0,
+                next_retry_at TEXT
+            )
+        """)
 
-    # Add retry columns to existing tables (migration for upgrades)
-    try:
-        cursor.execute("ALTER TABLE bridge_deposits ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE bridge_deposits ADD COLUMN next_retry_at TEXT")
-    except sqlite3.OperationalError:
-        pass
+        # Add retry columns to existing tables (migration for upgrades)
+        try:
+            cursor.execute("ALTER TABLE bridge_deposits ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            cursor.execute("ALTER TABLE bridge_deposits ADD COLUMN next_retry_at TEXT")
+        except sqlite3.OperationalError:
+            pass
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS bridge_cursor (
-            key TEXT PRIMARY KEY,
-            value INTEGER NOT NULL
-        )
-    """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS bridge_cursor (
+                key TEXT PRIMARY KEY,
+                value INTEGER NOT NULL
+            )
+        """)
 
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_eth_tx_hash ON bridge_deposits(eth_tx_hash)
-    """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_eth_tx_hash ON bridge_deposits(eth_tx_hash)
+        """)
 
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_status ON bridge_deposits(status)
-    """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_status ON bridge_deposits(status)
+        """)
 
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_next_retry ON bridge_deposits(next_retry_at)
-    """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_next_retry ON bridge_deposits(next_retry_at)
+        """)
 
-    conn.commit()
-    conn.close()
+        conn.commit()
 
 
-def get_db_connection() -> sqlite3.Connection:
-    """Get database connection."""
+def _db_connection() -> sqlite3.Connection:
+    """Get a fresh database connection with row factory enabled."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -87,32 +87,30 @@ def get_db_connection() -> sqlite3.Connection:
 
 def create_deposit(eth_tx_hash: str, eth_from_address: str, eth_amount: str, ait_recipient: str) -> int | None:
     """Create a new bridge deposit record."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
 
-    try:
-        cursor.execute(
-            """
-            INSERT INTO bridge_deposits
-            (eth_tx_hash, eth_from_address, eth_amount, ait_recipient, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                eth_tx_hash,
-                eth_from_address,
-                eth_amount,
-                ait_recipient,
-                BridgeDepositStatus.PENDING,
-                datetime.now(UTC).isoformat(),
-            ),
-        )
-        conn.commit()
-        return cursor.lastrowid
-    except sqlite3.IntegrityError:
-        # Transaction already exists
-        return None
-    finally:
-        conn.close()
+        try:
+            cursor.execute(
+                """
+                INSERT INTO bridge_deposits
+                (eth_tx_hash, eth_from_address, eth_amount, ait_recipient, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    eth_tx_hash,
+                    eth_from_address,
+                    eth_amount,
+                    ait_recipient,
+                    BridgeDepositStatus.PENDING,
+                    datetime.now(UTC).isoformat(),
+                ),
+            )
+            conn.commit()
+            return cursor.lastrowid
+        except sqlite3.IntegrityError:
+            # Transaction already exists
+            return None
 
 
 def update_deposit(
@@ -127,135 +125,127 @@ def update_deposit(
     next_retry_at: str | None = None,
 ) -> bool:
     """Update bridge deposit record."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
 
-    updates = []
-    params: list[Any] = []
+        updates = []
+        params: list[Any] = []
 
-    if ait_amount is not None:
-        updates.append("ait_amount = ?")
-        params.append(ait_amount)
-    if eth_usd_price is not None:
-        updates.append("eth_usd_price = ?")
-        params.append(eth_usd_price)
-    if ait_usd_price is not None:
-        updates.append("ait_usd_price = ?")
-        params.append(ait_usd_price)
-    if ait_tx_hash is not None:
-        updates.append("ait_tx_hash = ?")
-        params.append(ait_tx_hash)
-    if status is not None:
-        updates.append("status = ?")
-        params.append(status.value)
-    if error_message is not None:
-        updates.append("error_message = ?")
-        params.append(error_message)
-    if retry_count is not None:
-        updates.append("retry_count = ?")
-        params.append(retry_count)
-    if next_retry_at is not None:
-        updates.append("next_retry_at = ?")
-        params.append(next_retry_at)
+        if ait_amount is not None:
+            updates.append("ait_amount = ?")
+            params.append(ait_amount)
+        if eth_usd_price is not None:
+            updates.append("eth_usd_price = ?")
+            params.append(eth_usd_price)
+        if ait_usd_price is not None:
+            updates.append("ait_usd_price = ?")
+            params.append(ait_usd_price)
+        if ait_tx_hash is not None:
+            updates.append("ait_tx_hash = ?")
+            params.append(ait_tx_hash)
+        if status is not None:
+            updates.append("status = ?")
+            params.append(status.value)
+        if error_message is not None:
+            updates.append("error_message = ?")
+            params.append(error_message)
+        if retry_count is not None:
+            updates.append("retry_count = ?")
+            params.append(retry_count)
+        if next_retry_at is not None:
+            updates.append("next_retry_at = ?")
+            params.append(next_retry_at)
 
-    if status is not None and status in (BridgeDepositStatus.COMPLETED, BridgeDepositStatus.FAILED):
-        updates.append("processed_at = ?")
-        params.append(datetime.now(UTC).isoformat())
+        if status is not None and status in (BridgeDepositStatus.COMPLETED, BridgeDepositStatus.FAILED):
+            updates.append("processed_at = ?")
+            params.append(datetime.now(UTC).isoformat())
 
-    params.append(eth_tx_hash)
+        params.append(eth_tx_hash)
 
-    if updates:
-        query = f"UPDATE bridge_deposits SET {', '.join(updates)} WHERE eth_tx_hash = ?"  # nosec B608 - every `updates` entry is a hardcoded "column = ?" literal above; values are bound via params
-        cursor.execute(query, params)
-        conn.commit()
-        conn.close()
-        return True
+        if updates:
+            query = f"UPDATE bridge_deposits SET {', '.join(updates)} WHERE eth_tx_hash = ?"  # nosec B608 - every `updates` entry is a hardcoded "column = ?" literal above; values are bound via params
+            cursor.execute(query, params)
+            conn.commit()
+            return True
 
-    conn.close()
-    return False
+        return False
 
 
 def get_deposit(eth_tx_hash: str) -> dict[str, Any] | None:
     """Get deposit by transaction hash."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM bridge_deposits WHERE eth_tx_hash = ?", (eth_tx_hash,))
-    row = cursor.fetchone()
-    conn.close()
+        cursor.execute("SELECT * FROM bridge_deposits WHERE eth_tx_hash = ?", (eth_tx_hash,))
+        row = cursor.fetchone()
 
-    if row:
-        return dict(row)
-    return None
+        if row:
+            return dict(row)
+        return None
 
 
 def get_deposits(status: BridgeDepositStatus | None = None, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
     """Get deposits with optional status filter."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
 
-    if status:
-        cursor.execute(
-            "SELECT * FROM bridge_deposits WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
-            (status.value, limit, offset),
-        )
-    else:
-        cursor.execute("SELECT * FROM bridge_deposits ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset))
+        if status:
+            cursor.execute(
+                "SELECT * FROM bridge_deposits WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                (status.value, limit, offset),
+            )
+        else:
+            cursor.execute("SELECT * FROM bridge_deposits ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset))
 
-    rows = cursor.fetchall()
-    conn.close()
+        rows = cursor.fetchall()
 
-    return [dict(row) for row in rows]
+        return [dict(row) for row in rows]
 
 
 def count_deposits(status: BridgeDepositStatus | None = None) -> int:
     """Count deposits with optional status filter."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
 
-    if status:
-        cursor.execute("SELECT COUNT(*) FROM bridge_deposits WHERE status = ?", (status.value,))
-    else:
-        cursor.execute("SELECT COUNT(*) FROM bridge_deposits")
+        if status:
+            cursor.execute("SELECT COUNT(*) FROM bridge_deposits WHERE status = ?", (status.value,))
+        else:
+            cursor.execute("SELECT COUNT(*) FROM bridge_deposits")
 
-    count: int = cursor.fetchone()[0]
-    conn.close()
+        count: int = cursor.fetchone()[0]
 
-    return count
+        return count
 
 
 def get_deposits_for_retry(now_iso: str | None = None) -> list[dict[str, Any]]:
     """Get deposits in PENDING_RETRY status whose next_retry_at has passed."""
     if now_iso is None:
         now_iso = datetime.now(UTC).isoformat()
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT * FROM bridge_deposits WHERE status = ? AND (next_retry_at IS NULL OR next_retry_at <= ?) ORDER BY created_at ASC",
-        (BridgeDepositStatus.PENDING_RETRY.value, now_iso),
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM bridge_deposits WHERE status = ? AND (next_retry_at IS NULL OR next_retry_at <= ?) ORDER BY created_at ASC",
+            (BridgeDepositStatus.PENDING_RETRY.value, now_iso),
+        )
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
 
 
 def get_cursor(key: str = "last_processed_block") -> int | None:
     """Get the persisted block cursor."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT value FROM bridge_cursor WHERE key = ?", (key,))
-    row = cursor.fetchone()
-    conn.close()
-    return row[0] if row else None
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM bridge_cursor WHERE key = ?", (key,))
+        row = cursor.fetchone()
+        return row[0] if row else None
 
 
 def set_cursor(key: str, value: int) -> None:
     """Set the persisted block cursor."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO bridge_cursor (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?",
-        (key, value, value),
-    )
-    conn.commit()
-    conn.close()
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO bridge_cursor (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?",
+            (key, value, value),
+        )
+        conn.commit()

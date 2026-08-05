@@ -1,6 +1,7 @@
 """Transaction routes — transaction by hash, transaction search, transaction details."""
 
 import json
+from contextlib import closing
 from typing import Any
 
 import httpx
@@ -10,6 +11,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.utils import format_ait
 
 from chain_client import BLOCKCHAIN_RPC_URLS, DEFAULT_CHAIN, get_transaction
+from .common import like_pattern
 from validation import validate_tx_hash
 
 logger = get_logger(__name__)
@@ -34,21 +36,20 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAI
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
         if chain_db_path.exists():
-            conn = sqlite3.connect(str(chain_db_path))
-            cursor = conn.cursor()
+            with closing(sqlite3.connect(str(chain_db_path))) as conn:
+                cursor = conn.cursor()
 
-            # Search for transaction by hash (case-insensitive, with or without 0x prefix)
-            cursor.execute(
-                """
-                SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
-                FROM "transaction"
-                WHERE lower(replace(tx_hash, '0x', '')) = ?
-            """,
-                (clean_hash.lower(),),
-            )
+                # Search for transaction by hash (case-insensitive, with or without 0x prefix)
+                cursor.execute(
+                    """
+                    SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
+                    FROM "transaction"
+                    WHERE lower(replace(tx_hash, '0x', '')) = ?
+                """,
+                    (clean_hash.lower(),),
+                )
 
-            result = cursor.fetchone()
-            conn.close()
+                result = cursor.fetchone()
 
             if result:
                 tx_hash, sender, recipient, payload, block_height, created_at, tx_type, status = result
@@ -92,42 +93,41 @@ async def api_search_transactions(
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
         if chain_db_path.exists():
-            conn = sqlite3.connect(str(chain_db_path))
-            cursor = conn.cursor()
+            with closing(sqlite3.connect(str(chain_db_path))) as conn:
+                cursor = conn.cursor()
 
-            # Search for transactions where sender, recipient, or payload contains the address
-            # Using LIKE for partial matching (payload contains node IDs like provider_node_id)
-            search_term = f"%{address}%"
-            cursor.execute(
-                """
-                SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
-                FROM "transaction"
-                WHERE sender LIKE ?
-                   OR recipient LIKE ?
-                   OR payload LIKE ?
-                ORDER BY created_at DESC
-                LIMIT ?
-            """,
-                (search_term, search_term, search_term, limit),
-            )
-
-            transactions = []
-            for row in cursor.fetchall():
-                tx_hash, sender, recipient, payload, block_height, created_at, tx_type, status = row
-                transactions.append(
-                    {
-                        "tx_hash": tx_hash,
-                        "sender": sender,
-                        "recipient": recipient,
-                        "payload": payload,
-                        "block_height": block_height,
-                        "created_at": created_at,
-                        "type": tx_type,
-                        "status": status,
-                    }
+                # Search for transactions where sender, recipient, or payload contains the address
+                # Using LIKE for partial matching (payload contains node IDs like provider_node_id)
+                search_term = like_pattern(address)
+                cursor.execute(
+                    """
+                    SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
+                    FROM "transaction"
+                    WHERE sender LIKE ? ESCAPE '|'
+                       OR recipient LIKE ? ESCAPE '|'
+                       OR payload LIKE ? ESCAPE '|'
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                """,
+                    (search_term, search_term, search_term, limit),
                 )
 
-            conn.close()
+                transactions = []
+                for row in cursor.fetchall():
+                    tx_hash, sender, recipient, payload, block_height, created_at, tx_type, status = row
+                    transactions.append(
+                        {
+                            "tx_hash": tx_hash,
+                            "sender": sender,
+                            "recipient": recipient,
+                            "payload": payload,
+                            "block_height": block_height,
+                            "created_at": created_at,
+                            "type": tx_type,
+                            "status": status,
+                        }
+                    )
+
             return {"transactions": transactions}
 
         return {"transactions": []}
