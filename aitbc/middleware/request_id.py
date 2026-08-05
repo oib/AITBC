@@ -10,6 +10,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.http_client.client import set_request_id
 
 logger = get_logger(__name__)
 
@@ -33,6 +34,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         request_id = request.headers.get(self.header_name) or str(uuid.uuid4())
+        set_request_id(request_id)
         request.state.request_id = request_id
         request.state.correlation_id = request_id  # Alias for correlation tracking
 

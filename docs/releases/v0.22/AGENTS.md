@@ -12,7 +12,7 @@ Focus: `aitbc/`, `apps/blockchain-node`, `apps/blockchain-event-bridge`,
 `apps/blockchain-explorer`, `contracts/`, ops/scripts, shared packages, and
 infrastructure-wide findings.
 
-- **CORE** — CORE-04/08/09/10/11/13/15/16/21/25
+- **CORE** — CORE-04/16/25
 
 - **Contracts** — SC-05/06/08/09/10/11/12/14
 - **Ops** — OPS-03/04/06/07/08/09/10/12/14/15/16/17/18
@@ -47,10 +47,14 @@ Closed in the first pass: CORE-02 (`sanitize_input` double-escaping), CORE-12
 random hex), CORE-28 (duplicate `BRIDGE_VALIDATOR_SET_GRACE_PERIOD`), CORE-29
 (`verify_secret` timing-safe comparison).
 
-Closed in the second pass: CORE-18 (circuit-breaker lock), CORE-19
-(`SubscriptionManager.stop_all` invokes `client.stop()`), CORE-20 (`RedisCache`
-serializes to JSON and signals non-serializable values), CORE-26
-(`AITBCServiceIntegration` endpoints are env-configurable).
+Closed in the second pass: CORE-08 (rate-limiter name collision), CORE-09
+(rate-limiter stale-key eviction), CORE-10/11 (request-ID middlewares populate the
+outbound `ContextVar`), CORE-13 (size guard actually caps chunked/spoofed bodies),
+CORE-15 (`RetentionEngine` returns the schedule's default action for non-expired
+records), CORE-18 (circuit-breaker lock), CORE-19 (`SubscriptionManager.stop_all`
+invokes `client.stop()`), CORE-20 (`RedisCache` serializes to JSON), CORE-21
+(`_execute_trading_task` uses `Decimal` defaults), CORE-26 (`AITBCServiceIntegration`
+endpoints are env-configurable).
 
 1. **Auth / API key** — CORE-04 (API key JSON file races + multi-worker).
 2. **Security defaults / fail-closed** — CORE-03 (default deny in `ROUTE_SECURITY_MATRIX`),
@@ -58,9 +62,9 @@ serializes to JSON and signals non-serializable values), CORE-26
 3. **Bridge / lifecycle** — CORE-17 (multisig casing).
 4. **Money / floats in core** — CORE-07/21/27 (`SyncedOffer.price`, `price_oracle`,
    `integration_layer` trade submission).
-5. **Rate limiters, request ID, guardrails** — CORE-08/09/10/11 (limiter name collision,
-   key eviction, consolidation, request-ID propagation), CORE-13 (size guard), CORE-14
-   (CSP `unsafe-eval`), CORE-15/16/24/25.
+5. **Rate limiters, request ID, guardrails** — CORE-14 (CSP `unsafe-eval`), CORE-16
+   (key-recovery threshold enforcement — already implemented; verify and close), CORE-24
+   (agent-bridge compliance stub), CORE-25 (`AITBCServiceIntegration` session reuse).
 
 ### Contracts
 
