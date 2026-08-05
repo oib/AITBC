@@ -169,6 +169,12 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         address _zkVerifier,
         address _groth16Verifier
     ) {
+        // Immutable contract: a zero address from a deploy-script typo cannot be corrected
+        // afterwards. A zero verifier is the worse case -- proof checks would revert
+        // rather than pass, but the contract is permanently unusable either way.
+        require(_paymentToken != address(0), "payment token cannot be zero address");
+        require(_zkVerifier != address(0), "ZK verifier cannot be zero address");
+        require(_groth16Verifier != address(0), "groth16 verifier cannot be zero address");
         paymentToken = IERC20(_paymentToken);
         zkVerifier = ZKReceiptVerifier(_zkVerifier);
         groth16Verifier = Groth16Verifier(_groth16Verifier);
