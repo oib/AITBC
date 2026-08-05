@@ -89,11 +89,22 @@ def check_threshold(
         Non-members are filtered out before counting.
     """
     required = threshold if threshold is not None else validator_set.threshold
-    valid_addresses = validator_set.addresses
-    valid_signers = [s for s in signers if s in valid_addresses]
-    # Deduplicate (one signer can't count twice)
+    # Case-insensitive membership, matching validate_block_header in bridge/verification.py:
+    # recover_signer returns a checksummed address while the validator set may hold
+    # lowercase. A case-sensitive `in` here silently counts legitimate signers as
+    # non-members, so a genuinely signed transfer fails the threshold.
+    valid_addresses = {a.lower() for a in validator_set.addresses}
+    valid_signers = [s for s in signers if s.lower() in valid_addresses]
+    # Deduplicate on the normalized form so one signer cannot count twice by varying case.
     unique_signers = list(dict.fromkeys(valid_signers))
-    return len(unique_signers) >= required, len(unique_signers), unique_signers
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for signer in unique_signers:
+        key = signer.lower()
+        if key not in seen:
+            seen.add(key)
+            deduped.append(signer)
+    return len(deduped) >= required, len(deduped), deduped
 
 
 def verify_threshold_signatures(

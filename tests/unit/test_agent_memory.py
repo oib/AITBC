@@ -105,12 +105,17 @@ def test_storage_lease_negative_price() -> None:
 
 
 def test_replication_proof_defaults() -> None:
+    """An unchecked proof defaults to UNVERIFIED, not VALID.
+
+    This previously asserted VALID, encoding a fail-open default: a proof nobody had
+    verified was indistinguishable from one that had passed.
+    """
     proof = ReplicationProof(
         proof_id="p1",
         content_address="cid-123",
         node_id="node-1",
     )
-    assert proof.status == ReplicationStatus.VALID
+    assert proof.status == ReplicationStatus.UNVERIFIED
 
 
 def test_replication_proof_string_status() -> None:
