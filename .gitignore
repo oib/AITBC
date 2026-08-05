@@ -558,6 +558,9 @@ tmp/
 .claude/.harness-backup/
 .claude/.harness-patches/
 
+# Cursor IDE config is not used for this project
+.cursor/
+
 # ============================================================================
 # Mock Task-Tracker Runtime State (scripts/mock-tracker.sh events snapshot)
 # ============================================================================
