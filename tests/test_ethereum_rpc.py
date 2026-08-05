@@ -1,5 +1,6 @@
 """Tests for aitbc.ethereum_rpc"""
 
+from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient, get_ethereum_client
@@ -94,7 +95,7 @@ class TestEthereumRPCClient:
             mock_get.return_value = mock_w3
             result = client.get_balance("0x1234567890123456789012345678901234567890")
             assert result["wei"] == 1000000000000000000
-            assert result["ether"] == 1.0
+            assert result["ether"] == Decimal("1")
 
     def test_get_block(self):
         client = EthereumRPCClient()
