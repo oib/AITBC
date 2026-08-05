@@ -74,11 +74,15 @@ present in the tagged artifact.
   via AITBC-88; api-gateway rate limiter is now applied to the catch-all proxy route;
   per-row datetime defaults, staking lock-period arithmetic, real CLI wallet key material,
   stdin-based secret rotation, and wallet tests.
-- **APP-44, APP-49, APP-53, APP-56, APP-62, APP-63, APP-67** — GPU no-op job
-  endpoints now return 501 instead of fake success; exchange order positivity/validation
-  and unique nonce; trading exchange-compat auth on the three unauthenticated endpoints;
-  AI engine simulation is opt-in, labelled, and `/api/ai/trade` is authenticated;
-  miner `MINER_ID` split from the auth token; memory service salted PBKDF2 key derivation.
+- **APP-44, APP-49, APP-51, APP-53, APP-56, APP-61, APP-62, APP-63, APP-66, APP-67,
+  APP-68** — GPU no-op job endpoints now return 501 instead of fake success; exchange
+  order positivity/validation and unique nonce; marketplace deletes require wallet
+  ownership; trading analytics use real agreement volume; exchange-compat auth on the
+  three unauthenticated endpoints; AI engine simulation is opt-in, labelled, and
+  `/api/ai/trade` is authenticated; miner `MINER_ID` split from the auth token; memory
+  service salted PBKDF2 key derivation; blockchain-explorer escapes LIKE wildcards,
+  sanitizes CSV exports, and closes DB/HTTP clients; bridge-monitor storage closes
+  connections reliably; edge clients and bridge handlers close on shutdown.
 
 ### Partially remediated
 
@@ -121,13 +125,16 @@ Verification commands (run on this branch):
 - 87 core/TEE/bridge/CLI tests passed.
 - 32 blockchain staking tests passed.
 - 25 wallet tests passed.
-- `tests/unit`: 1,178 passed, 0 failed.
+- `tests/unit`: 1,212 passed, 0 failed.
 - `apps/ai-engine/tests`: 27 passed, 0 failed (opt-in simulation + auth).
 - `apps/api-gateway/tests`: 18 passed, 0 failed (rate limiting enforced).
-- `apps/exchange/tests`: 14 passed, 0 failed (positivity, nonce, exception narrowing).
+- `apps/blockchain-explorer/tests`: 63 passed, 4 xfailed (LIKE escape, CSV sanitization, test repairs).
+- `apps/blockchain-event-bridge/tests`: 27 passed, 0 failed (handler close on shutdown).
+- `apps/bridge-monitor/tests`: 8 passed, 0 failed (connection context managers).
+- `apps/exchange/tests`: 14 passed, 0 failed (positivity, nonce, exception narrowing, marketplace ownership).
 - `apps/gpu/tests`: 17 passed, 0 failed (no-op job endpoints return 501).
 - `apps/memory/tests`: 1 passed, 0 failed (PBKDF2 key derivation).
-- `apps/trading/tests`: 84 passed, 0 failed (exchange-compat auth, test auth fixtures).
+- `apps/trading/tests`: 84 passed, 0 failed (real analytics volume, exchange-compat auth, test auth fixtures).
 - All `return ({"error": ...}, status)` tuple response sites across `apps/` were
   converted to `JSONResponse`; a repo-wide grep confirms zero remaining instances.
 - Documentation checker validated 3,079 internal links (72 boilerplate-owned links skipped).
@@ -145,7 +152,7 @@ partial:
 | Area | Confirmed fixed | Confirmed open/partial | Notes |
 |---|---|---|---|
 | Shared core (`aitbc/`) | CORE-01, CORE-03, CORE-05, CORE-06, CORE-07, CORE-14, CORE-17, CORE-21, CORE-23, CORE-24, CORE-27 | CORE-02, CORE-04, CORE-08, CORE-09, CORE-10, CORE-11, CORE-12, CORE-13, CORE-15, CORE-16 (partial), CORE-18 (partial), CORE-19, CORE-20, CORE-22, CORE-25, CORE-26, CORE-28, CORE-29 | CORE-16/18 improved but not closed. |
-| Applications | APP-01, APP-08, APP-17, APP-24, APP-25, APP-29c, APP-30, APP-31, APP-44, APP-47, APP-49, APP-50, APP-53, APP-55, APP-56, APP-57, APP-59, APP-62, APP-63, APP-67, APP-X1, APP-X2 | APP-X3 (partial), APP-X4, APP-26, APP-27, APP-28, APP-29, APP-29b (partial), APP-32–APP-48, APP-51 (partial), APP-54, APP-60, APP-61 (partial), APP-64–APP-66, APP-68 (partial), APP-69 (partial), APP-70, APP-71 (partial) | APP-X1/44/47/49/53/56/62/63/67 now closed. Many stubs, float money, missing auth, and no-op endpoints remain. |
+| Applications | APP-01, APP-08, APP-17, APP-24, APP-25, APP-29c, APP-30, APP-31, APP-44, APP-47, APP-49, APP-50, APP-51, APP-53, APP-55, APP-56, APP-57, APP-59, APP-61, APP-62, APP-63, APP-66, APP-67, APP-68, APP-X1, APP-X2 | APP-X3 (partial), APP-X4, APP-26, APP-27, APP-28, APP-29, APP-29b (partial), APP-32–APP-48, APP-54, APP-60, APP-64, APP-65, APP-69 (partial), APP-70, APP-71 (partial) | APP-X1/44/47/49/51/53/56/61/62/63/66/67/68 now closed. Many stubs, float money, missing auth, and no-op endpoints remain. |
 | Smart contracts | SC-01, SC-02, SC-03, SC-04 | SC-05–SC-14 (with SC-07/13 partial) | Unbounded loops, no-op upgrades, unsafe deployment scripts, missing validations. |
 | Ops/Scripts | OPS-01, OPS-02, OPS-05 | OPS-03, OPS-04, OPS-06–OPS-18 (with OPS-13/19 partial) | Destructive rollback, secret handling, supply-chain install, maintenance scripts remain. |
 | CLI | CLI-01, CLI-12 (partial) | CLI-02–CLI-13 (with CLI-04 partial) | Placeholder results, in-memory state, TOCTOU, stub groups remain. |

@@ -29,7 +29,9 @@ class CoordinatorAPIHandler:
 
     async def close(self) -> None:
         """Close HTTP client."""
-        self._client = None
+        if self._client is not None:
+            await self._client.close()
+            self._client = None
 
     async def handle_block(self, block_data: dict[str, Any], transactions: list[dict[str, Any]]) -> None:
         """Handle a new block by triggering coordinator API actions."""
