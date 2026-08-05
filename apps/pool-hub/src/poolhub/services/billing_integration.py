@@ -83,7 +83,7 @@ class BillingIntegration:
     async def sync_miner_usage(self, miner_id: str, start_date: datetime, end_date: datetime) -> dict[str, Any]:
         """Sync usage data for a miner to coordinator-api billing"""
         stmt = select(Miner).where(Miner.miner_id == miner_id)
-        miner = self.db.execute(stmt).scalar_one_or_none()
+        miner = (await self.db.execute(stmt)).scalar_one_or_none()  # type: ignore[misc]
         if not miner:
             raise ValueError(f"Miner not found: {miner_id}")
         tenant_id = miner_id
@@ -116,9 +116,9 @@ class BillingIntegration:
         end_date = datetime.now(UTC)
         start_date = end_date - timedelta(hours=hours_back)
         # Read all data in one transaction for a consistent snapshot
-        with self.db.begin():
+        async with self.db.begin():
             stmt = select(Miner)
-            miners = self.db.execute(stmt).scalars().all()
+            miners = (await self.db.execute(stmt)).scalars().all()  # type: ignore[misc]
             miner_ids = [m.miner_id for m in miners]
             if not miner_ids:
                 return {
@@ -133,7 +133,7 @@ class BillingIntegration:
             count_stmt = select(func.count(MatchRequest.id)).where(
                 and_(MatchRequest.created_at >= start_date, MatchRequest.created_at <= end_date)
             )
-            total_api_calls = self.db.execute(count_stmt).scalar() or 0
+            total_api_calls = (await self.db.execute(count_stmt)).scalar() or 0  # type: ignore[misc]
 
             # Batch 2: Match results for all miners in one query
             result_stmt = (
@@ -147,7 +147,7 @@ class BillingIntegration:
                 )
                 .where(MatchResult.eta_ms.isnot_(None))
             )
-            all_results = self.db.execute(result_stmt).scalars().all()
+            all_results = (await self.db.execute(result_stmt)).scalars().all()  # type: ignore[misc]
 
         # Group by miner_id and aggregate (outside the transaction — pure computation)
         compute_ms_by_miner: dict[str, int] = {}
@@ -211,7 +211,7 @@ class BillingIntegration:
         count_stmt = select(func.count(MatchRequest.id)).where(
             and_(MatchRequest.created_at >= start_date, MatchRequest.created_at <= end_date)
         )
-        api_calls = self.db.execute(count_stmt).scalar() or 0
+        api_calls = (await self.db.execute(count_stmt)).scalar() or 0  # type: ignore[misc]
         usage_data["api_calls"] = Decimal(str(api_calls))
         result_stmt = (
             select(MatchResult)
@@ -222,7 +222,7 @@ class BillingIntegration:
             )
             .where(MatchResult.eta_ms.isnot_(None))
         )
-        results = self.db.execute(result_stmt).scalars().all()
+        results = (await self.db.execute(result_stmt)).scalars().all()  # type: ignore[misc]
         total_compute_time_ms = sum(r.eta_ms for r in results if r.eta_ms)
         compute_hours = Decimal(str(total_compute_time_ms)) / Decimal("1000") / Decimal("3600") if results else Decimal("0")
         usage_data["compute_hours"] = compute_hours
