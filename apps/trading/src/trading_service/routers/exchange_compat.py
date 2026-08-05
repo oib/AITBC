@@ -1,8 +1,12 @@
 """Migrated exchange payment endpoints (compatibility layer)."""
 
 import asyncio
+import json
+import os
 import time
 import uuid
+from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -28,13 +32,39 @@ payments: dict[str, dict[str, Any]] = {}
 # Idempotency key → payment_id mapping (prevents duplicate payment creation on replay)
 _idempotency_keys: dict[str, str] = {}
 
+# ponytail: local JSON state file; replace with DB-backed storage when multi-replica
+_STATE_FILE = Path(
+    os.environ.get("TRADING_EXCHANGE_STATE_FILE", "/opt/aitbc/data/trading/exchange_state.json")
+)
+
+
+def _load_state() -> None:
+    if not _STATE_FILE.exists():
+        return
+    try:
+        with _STATE_FILE.open() as f:
+            data = json.load(f)
+        payments.update(data.get("payments", {}))
+        _idempotency_keys.update(data.get("idempotency_keys", {}))
+    except Exception as e:
+        logger.warning("Failed to load exchange state: %s", e)
+
+
+def _save_state() -> None:
+    _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with _STATE_FILE.open("w") as f:
+        json.dump({"payments": payments, "idempotency_keys": _idempotency_keys}, f)
+
+
+_load_state()
+
 
 class ExchangePaymentRequest(BaseModel):
     """Exchange payment request schema."""
 
     user_id: str
-    aitbc_amount: float
-    btc_amount: float
+    aitbc_amount: Decimal
+    btc_amount: Decimal
 
 
 @router.post("/v1/exchange/create-payment", dependencies=[Depends(require_trading_api_key)])
@@ -49,7 +79,7 @@ async def create_exchange_payment(
     if payment_request.aitbc_amount <= 0 or payment_request.btc_amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
     expected_btc = payment_request.aitbc_amount / BITCOIN_CONFIG["exchange_rate"]
-    if abs(payment_request.btc_amount - expected_btc) > 1e-08:
+    if payment_request.btc_amount != expected_btc:
         raise HTTPException(status_code=400, detail="Amount mismatch")
 
     # Idempotency: if the same key was used before, return the original payment
@@ -63,8 +93,8 @@ async def create_exchange_payment(
     payment = {
         "payment_id": payment_id,
         "user_id": payment_request.user_id,
-        "aitbc_amount": payment_request.aitbc_amount,
-        "btc_amount": payment_request.btc_amount,
+        "aitbc_amount": float(payment_request.aitbc_amount),
+        "btc_amount": float(payment_request.btc_amount),
         "payment_address": BITCOIN_CONFIG["main_address"],
         "status": "pending",
         "created_at": int(time.time()),
@@ -75,6 +105,7 @@ async def create_exchange_payment(
     payments[payment_id] = payment
     if idempotency_key:
         _idempotency_keys[idempotency_key] = payment_id
+    _save_state()
     background_tasks.add_task(monitor_payment, payment_id)
     logger.info("Created exchange payment %s for user %s", payment_id, payment_request.user_id)
     return payment
@@ -88,6 +119,7 @@ async def get_exchange_payment_status(payment_id: str) -> dict[str, Any]:
     payment = payments[payment_id]
     if payment["status"] == "pending" and time.time() > payment["expires_at"]:
         payment["status"] = "expired"
+        _save_state()
     return payment
 
 
@@ -102,6 +134,7 @@ async def confirm_exchange_payment(payment_id: str, tx_hash: str, request: Reque
     payment["status"] = "confirmed"
     payment["tx_hash"] = tx_hash
     payment["confirmed_at"] = int(time.time())
+    _save_state()
     try:
         logger.info("Minting %s %s tokens for user %s", payment["aitbc_amount"], _brand.token_symbol, payment["user_id"])
     except Exception as e:
@@ -159,6 +192,7 @@ async def monitor_payment(payment_id: str) -> None:
         payment = payments[payment_id]
         if payment["status"] == "pending" and time.time() > payment["expires_at"]:
             payment["status"] = "expired"
+            _save_state()
             logger.info("Payment %s expired", payment_id)
             break
         await asyncio.sleep(30)
