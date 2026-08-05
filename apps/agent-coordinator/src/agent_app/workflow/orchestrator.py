@@ -3,7 +3,6 @@ Workflow Orchestration Engine for AITBC Agent Coordinator
 Implements multi-agent workflow execution with Redis persistence
 """
 
-import asyncio
 import json
 import uuid
 from dataclasses import dataclass, field
@@ -311,43 +310,50 @@ class WorkflowOrchestrator:
             return []
 
     async def _execute_workflow_async(self, execution: WorkflowExecution) -> None:
-        """Execute workflow steps asynchronously"""
+        """Execute workflow steps asynchronously.
+
+        Steps are now executed in dependency order. If a step's dependencies can never be
+        satisfied (missing or cyclic), the workflow fails instead of silently completing.
+        """
         execution.status = WorkflowStatus.RUNNING
         await self._save_workflow_execution(execution)
         try:
-            completed_steps = set()
-            while execution.current_step_index < len(execution.steps):
-                step = execution.steps[execution.current_step_index]
-                if not all(dep in completed_steps for dep in step.dependencies):
-                    execution.current_step_index += 1
-                    continue
-                step.status = StepStatus.RUNNING
-                step.started_at = datetime.now(UTC)
-                await self._save_workflow_execution(execution)
-                try:
-                    await self._execute_step(step, execution.input_parameters)
-                    step.status = StepStatus.COMPLETED
-                    step.completed_at = datetime.now(UTC)
-                    completed_steps.add(step.step_id)
-                    execution.results[step.step_id] = step.result
-                except Exception as e:
-                    step.status = StepStatus.FAILED
-                    step.error = str(e)
-                    step.completed_at = datetime.now(UTC)
-                    if step.retry_count < step.max_retries:
-                        step.retry_count += 1
-                        step.status = StepStatus.PENDING
-                        logger.warning("Step %s failed, retrying (%s/%s)", step.step_id, step.retry_count, step.max_retries)
-                        continue
-                    else:
-                        logger.error("Step %s failed after %s retries", step.step_id, step.max_retries)
-                        execution.status = WorkflowStatus.FAILED
-                        execution.error = f"Step {step.step_id} failed: {str(e)}"
-                        execution.completed_at = datetime.now(UTC)
-                        await self._save_workflow_execution(execution)
-                        return
-                await self._save_workflow_execution(execution)
-                execution.current_step_index += 1
+            completed_steps: set[str] = set()
+            remaining = {step.step_id: step for step in execution.steps}
+
+            while remaining:
+                ready_steps = [step for step in remaining.values() if all(dep in completed_steps for dep in step.dependencies)]
+                if not ready_steps:
+                    missing = [f"{step.step_id} depends on {step.dependencies}" for step in remaining.values()]
+                    raise ValueError(f"Unsatisfiable workflow dependencies: {missing}")
+
+                for step in ready_steps:
+                    step.status = StepStatus.RUNNING
+                    step.started_at = datetime.now(UTC)
+                    await self._save_workflow_execution(execution)
+                    for attempt in range(step.max_retries + 1):
+                        try:
+                            await self._execute_step(step, execution.input_parameters)
+                            step.status = StepStatus.COMPLETED
+                            step.completed_at = datetime.now(UTC)
+                            step.error = None
+                            completed_steps.add(step.step_id)
+                            execution.results[step.step_id] = step.result
+                            break
+                        except Exception as e:
+                            step.error = str(e)
+                            step.completed_at = datetime.now(UTC)
+                            logger.warning(
+                                "Step %s failed (attempt %s/%s): %s", step.step_id, attempt + 1, step.max_retries + 1, e
+                            )
+                            if attempt < step.max_retries:
+                                step.status = StepStatus.PENDING
+                            else:
+                                step.status = StepStatus.FAILED
+                                raise
+                    del remaining[step.step_id]
+                    await self._save_workflow_execution(execution)
+
             execution.status = WorkflowStatus.COMPLETED
             execution.completed_at = datetime.now(UTC)
             await self._save_workflow_execution(execution)
@@ -362,15 +368,23 @@ class WorkflowOrchestrator:
             if execution.execution_id in self.active_executions:
                 del self.active_executions[execution.execution_id]
 
+    _NOOP_ACTIONS = ("noop", "sleep", "")
+
     async def _execute_step(self, step: WorkflowStep, input_parameters: dict[str, Any]) -> None:
-        """Execute a single workflow step"""
-        await asyncio.sleep(0.1)
+        """Execute a single workflow step.
+
+        ponytail: Only explicit no-op actions are allowed. Any real action without an
+        implementation now raises instead of fabricating success.
+        """
+        if step.action not in self._NOOP_ACTIONS:
+            raise NotImplementedError(f"Workflow step action {step.action!r} has no real implementation")
+
         step.result = {
             "status": "success",
-            "output": f"Executed {step.action} on agent {step.agent_id}",
+            "output": f"No-op action {step.action} on agent {step.agent_id}",
             "timestamp": datetime.now(UTC).isoformat(),
         }
-        logger.info("Executed step %s: %s on %s", step.step_id, step.action, step.agent_id)
+        logger.info("Executed no-op step %s: %s on %s", step.step_id, step.action, step.agent_id)
 
     async def _save_workflow_definition(self, workflow: WorkflowDefinition) -> None:
         """Save workflow definition to Redis"""
