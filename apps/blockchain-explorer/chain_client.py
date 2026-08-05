@@ -1,9 +1,10 @@
 """Chain client — config constants, data layer, and shared DB/RPC helpers."""
 
 import os
-from contextlib import closing
+from pathlib import Path
 from typing import Any
 
+import aiosqlite
 import httpx
 
 from aitbc.aitbc_logging import get_logger
@@ -79,18 +80,15 @@ async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> dict[s
         logger.warning("Invalid chain_id format")
         return {}
     try:
-        import sqlite3
-        from pathlib import Path
-
         chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
         if chain_db_path.exists():
-            with closing(sqlite3.connect(str(chain_db_path))) as conn:
-                cursor = conn.cursor()
+            async with aiosqlite.connect(str(chain_db_path)) as conn:
+                cursor = await conn.cursor()
 
-                cursor.execute(
+                await cursor.execute(
                     """
                     SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status, value, fee, nonce
                     FROM "transaction"
@@ -99,7 +97,7 @@ async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> dict[s
                     (tx_hash,),
                 )
 
-                result = cursor.fetchone()
+                result = await cursor.fetchone()
 
             if result:
                 tx_hash_db, sender, recipient, payload, block_height, created_at, tx_type, status, value, fee, nonce = result
@@ -140,19 +138,16 @@ async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any
         return {}
     try:
         # First try blockchain database for direct lookup
-        import sqlite3
-        from pathlib import Path
-
         chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
         if chain_db_path.exists():
-            with closing(sqlite3.connect(str(chain_db_path))) as conn:
-                cursor = conn.cursor()
+            async with aiosqlite.connect(str(chain_db_path)) as conn:
+                cursor = await conn.cursor()
 
                 # Get block data
-                cursor.execute(
+                await cursor.execute(
                     """
                     SELECT height, hash, proposer, timestamp, tx_count, state_root
                     FROM block
@@ -161,13 +156,13 @@ async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any
                     (height,),
                 )
 
-                result = cursor.fetchone()
+                result = await cursor.fetchone()
 
                 if result:
                     height, block_hash, proposer, timestamp, tx_count, state_root = result
 
                     # Get transactions for this block
-                    cursor.execute(
+                    await cursor.execute(
                         """
                         SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
                         FROM "transaction"
@@ -178,7 +173,8 @@ async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any
                     )
 
                     transactions = []
-                    for row in cursor.fetchall():
+                    rows = await cursor.fetchall()
+                    for row in rows:
                         tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = row
                         transactions.append(
                             {
@@ -229,19 +225,16 @@ async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN, offs
     """Get latest blocks from blockchain DB via RPC"""
     try:
         # First try blockchain database for direct lookup
-        import sqlite3
-        from pathlib import Path
-
         chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
         if chain_db_path.exists():
-            with closing(sqlite3.connect(str(chain_db_path))) as conn:
-                cursor = conn.cursor()
+            async with aiosqlite.connect(str(chain_db_path)) as conn:
+                cursor = await conn.cursor()
 
                 # Get latest blocks with offset
-                cursor.execute(
+                await cursor.execute(
                     """
                     SELECT height, hash, proposer, timestamp, tx_count, state_root
                     FROM block
@@ -252,11 +245,12 @@ async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN, offs
                 )
 
                 blocks = []
-                for row in cursor.fetchall():
+                rows = await cursor.fetchall()
+                for row in rows:
                     height, block_hash, proposer, timestamp, tx_count, state_root = row
 
                     # Get transactions for this block
-                    cursor.execute(
+                    await cursor.execute(
                         """
                         SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
                         FROM "transaction"
@@ -267,7 +261,8 @@ async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN, offs
                     )
 
                     transactions = []
-                    for tx_row in cursor.fetchall():
+                    tx_rows = await cursor.fetchall()
+                    for tx_row in tx_rows:
                         tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row
                         transactions.append(
                             {
