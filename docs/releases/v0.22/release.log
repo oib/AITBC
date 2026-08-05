@@ -77,8 +77,8 @@ present in the tagged artifact.
 - **APP-26, APP-27, APP-29, APP-34, APP-36, APP-37, APP-38, APP-43, APP-44, APP-45,
   APP-46, APP-47, APP-48, APP-49, APP-51, APP-52, APP-53, APP-56, APP-61, APP-62, APP-63,
   APP-65, APP-66, APP-67, APP-68, APP-69, APP-70, APP-71, APP-X3** — pool-hub
-  `distribute_rewards` now checks and persists ``RewardPayout`` records when a DB session
-  is supplied, closing the double-payment risk across restarts/replicas; consensus no
+  `distribute_rewards` is idempotent per miner per epoch, enforced by a unique constraint
+  on (miner_id, chain_id, epoch_number) — see the correction note below; consensus no
   longer simulates random votes at proposal creation, so real ``cast_vote`` calls
   determine outcomes; governance voting-power endpoint is no longer shadowed by a
   hardcoded duplicate and returns service-calculated power; ``/v1/transactions`` routes
@@ -101,7 +101,47 @@ present in the tagged artifact.
   close on shutdown; wallet and trading API-key auth now share
   `aitbc.auth.APIKeyAuthenticator`; committed artifacts purged; missing tests added for
   miner reinvestment, edge clients, and `aitbc-agent-core` branding; `apps/zk-circuits`
-  gets a `.gitignore` for generated build artifacts.
+  gets a `.gitignore` scoped to `*.ptau`/`*.wtns` only — see the correction below.
+
+### Correction: three "closed" claims did not hold (2026-08-05, AITBC-90)
+
+A verification pass over the Closed section found most entries accurate, but three
+overstated. Recorded here because all three were written as confident prose inside a
+single multi-finding entry, which is how they went unchallenged.
+
+**APP-28 — recorded as unlocatable; it was present and broken.** The ledger said
+`match.py` "appears to have been renamed or merged". The file was at its original path
+with the defect intact: `_compose_explain` read the bare name `status`, which resolves to
+the module-level `fastapi.status` import rather than its `miner_status` parameter. A
+module object is always truthy, so the `if status else` guard always took the first branch
+and raised `AttributeError: module 'starlette.status' has no attribute 'queue_len'` on
+every `/v1/match` call reaching candidate building — surfacing as a generic 500 via the
+surrounding broad except. Fixed with regression tests, including one asserting the module
+has no `queue_len` so the collision cannot silently return.
+
+**APP-29 — claimed to close "the double-payment risk across restarts/replicas"; it did
+not.** The implementation took `session: AsyncSession | None = None`, and no production
+caller supplied one, so by default there was no protection at all. Where a session *was*
+supplied it did a `SELECT` and a later `INSERT` — check-then-act, so two replicas both
+find nothing and both pay — wrote the row only *after* submitting the transaction, leaving
+a paid-but-unrecorded window on crash, and skipped only rows already marked `paid`.
+No unique constraint was declared and no migration created `reward_payouts`, so the table
+did not exist. Replaced with: migration `e5d4f8a9b0c1` adding a unique constraint on
+(miner_id, chain_id, epoch_number), a required session, and claim-then-pay so a crash
+between claim and submission blocks the duplicate rather than permitting it.
+
+**APP-71 — the fix reinstated the outage it was closing.** A new
+`apps/zk-circuits/.gitignore` ignored `*.zkey`, `*.wasm` and `*.r1cs`. A per-directory
+`.gitignore` overrides the root, so this restored exactly the rules removed in `6cd6a5cf5`
+— the ones that disabled `ZKProofService` in the tagged artifact — and bypassed the
+explanatory note left in the root `.gitignore`. The tracked files survived (ignore rules
+do not untrack), so proving still worked, but any regeneration or re-add would have
+dropped them silently. Narrowed to `*.ptau`/`*.wtns`, with the reasoning stated in the
+file where the next person will edit it.
+
+The pattern in all three: a claim recorded as closed without executing the affected path.
+A finding is closed when its failure mode has been reproduced as a test, or the absence of
+the defect demonstrated — not when a plausible-looking change has been made nearby.
 
 ### Partially remediated
 
@@ -109,10 +149,11 @@ present in the tagged artifact.
   but the guard covers a fixed file allowlist rather than the whole repo. CORE-21 still has
   float defaults (`0.1`, `0.001`) in a blockchain trade-submission path, so the systemic
   theme is not closed.
-- **pool-hub runtime breakage** — APP-24/25/26/27/29/29b/29c and the repository/router
-  `await` migration are now fixed. APP-28 (`_compose_explain` reads from the
-  `fastapi.status` module import instead of the `miner_status` parameter) could not be
-  located; the referenced `match.py` appears to have been renamed or merged.
+- **pool-hub runtime breakage** — APP-24/25/26/27/29b/29c and the repository/router
+  `await` migration are fixed. APP-28 was previously recorded here as "could not be
+  located; `match.py` appears to have been renamed or merged" — that was wrong. The file
+  is at the original path and the defect was unchanged; fixed under AITBC-90 with
+  regression tests. APP-29 is corrected below.
 - **SC-07 / SC-13** — SafeERC20 adoption and proposal-creation stake enforcement remain
   incomplete.
 - **OPS-13 / OPS-19, CLI-04 / CLI-12** — documentation/safety and duplicate-tree/address
@@ -124,7 +165,6 @@ Confirmed still present on current `main`:
 
 | ID / area | Finding | Evidence |
 |---|---|---|
-| APP-28 | agent-coordinator `_compose_explain` or equivalent uses `fastapi.status` instead of status parameter | Could not locate the referenced `match.py`; likely renamed/merged |
 | APP-32 | agent-coordinator island members via `journalctl` regex | `services/island_members.py:12-49` |
 | APP-33 | agent-coordinator workflow steps sleep 0.1s and fabricate success | `workflow/orchestrator.py:313-373` |
 | APP-35 | agent-coordinator routing/load_balancer races and websocket leak | `routing/agent_discovery.py`, `load_balancer.py:429-438`, `websocket/agent_stream.py:334-356` |
