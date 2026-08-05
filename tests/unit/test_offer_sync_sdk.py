@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, UTC
+from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -65,7 +66,7 @@ def _sample_synced_offer(
         chain_id=chain_id,
         provider="provider_1",
         service_type=service_type,
-        price=0.05,
+        price=Decimal("0.05"),
         quantity=10,
         status="available",
         attributes={"gpu_model": "A100", "region": "us-east"},
@@ -80,8 +81,8 @@ def _sample_discovery_request() -> OfferDiscoveryRequest:
         source_chain="ait-hub",
         dest_chain="ait-island1",
         service_type="gpu_marketplace",
-        min_price=0.01,
-        max_price=0.10,
+        min_price=Decimal("0.01"),
+        max_price=Decimal("0.10"),
         region="us-east",
         gpu_model="A100",
         limit=50,
@@ -179,7 +180,7 @@ class TestSyncedOffer:
         assert d["offer_id"] == "offer_001"
         assert d["chain_id"] == "ait-hub"
         assert d["service_type"] == "gpu_marketplace"
-        assert d["price"] == 0.05
+        assert d["price"] == "0.05"
         assert d["status"] == "available"
         assert d["sync_status"] == "fresh"
         assert d["sync_confidence"] == 1.0
@@ -190,7 +191,7 @@ class TestSyncedOffer:
             "chain_id": "ait-island1",
             "provider": "provider_2",
             "service_type": "compute",
-            "price": 0.10,
+            "price": "0.10",
             "quantity": 5,
             "status": "reserved",
             "attributes": {"gpu_model": "H100"},
@@ -202,7 +203,7 @@ class TestSyncedOffer:
         assert offer.offer_id == "offer_002"
         assert offer.chain_id == "ait-island1"
         assert offer.service_type == "compute"
-        assert offer.price == 0.10
+        assert offer.price == Decimal("0.10")
         assert offer.status == "reserved"
         assert offer.sync_status == "stale"
         assert offer.sync_confidence == 0.5
@@ -212,7 +213,7 @@ class TestSyncedOffer:
         offer = SyncedOffer.from_dict({"offer_id": "o3", "chain_id": "ait-hub"})
         assert offer.offer_id == "o3"
         assert offer.provider == ""
-        assert offer.price == 0.0
+        assert offer.price == Decimal("0")
         assert offer.quantity == 0
         assert offer.status == "available"
         assert offer.sync_status == "fresh"
@@ -257,8 +258,8 @@ class TestOfferDiscoveryRequest:
         assert params["source_chain"] == "ait-hub"
         assert params["dest_chain"] == "ait-island1"
         assert params["service_type"] == "gpu_marketplace"
-        assert params["min_price"] == 0.01
-        assert params["max_price"] == 0.10
+        assert params["min_price"] == "0.01"
+        assert params["max_price"] == "0.10"
         assert params["region"] == "us-east"
         assert params["gpu_model"] == "A100"
         assert params["limit"] == 50
