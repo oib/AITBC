@@ -138,7 +138,7 @@ async def get_payment_receipt(
     receipt = PaymentReceipt(
         payment_id=payment.id,
         job_id=payment.job_id,
-        amount=float(payment.amount),
+        amount=payment.amount,
         currency=payment.currency,
         status=payment.status,
         transaction_hash=payment.transaction_hash,

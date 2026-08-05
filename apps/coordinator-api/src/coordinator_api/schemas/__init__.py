@@ -37,9 +37,9 @@ class JobPaymentCreate(BaseModel):
 
     @field_validator("amount")
     @classmethod
-    def validate_amount(cls, v: float) -> float:
+    def validate_amount(cls, v: Decimal) -> Decimal:
         """Validate and round payment amount"""
-        if v < 0.01:
+        if v < Decimal("0.01"):
             raise ValueError("Minimum payment amount is 0.01 AITBC")
         return round(v, 8)  # Prevent floating point precision issues
 
@@ -58,7 +58,7 @@ class JobPaymentView(BaseModel):
 
     job_id: str
     payment_id: str
-    amount: float
+    amount: Decimal
     currency: str
     status: str
     payment_method: str
@@ -76,7 +76,7 @@ class PaymentRequest(BaseModel):
     """Request to pay for a job"""
 
     job_id: str = Field(..., min_length=1, max_length=128, description="Job identifier")
-    amount: float = Field(..., gt=0, le=1_000_000, description="Payment amount")
+    amount: Decimal = Field(..., gt=Decimal("0"), le=Decimal("1000000"), description="Payment amount")
     currency: str = Field(default="BTC", description="Payment currency")
     refund_address: str | None = Field(None, min_length=1, max_length=255, description="Refund address")
 
@@ -90,9 +90,9 @@ class PaymentRequest(BaseModel):
 
     @field_validator("amount")
     @classmethod
-    def validate_amount(cls, v: float) -> float:
+    def validate_amount(cls, v: Decimal) -> Decimal:
         """Validate payment amount"""
-        if v < 0.0001:  # Minimum BTC amount
+        if v < Decimal("0.0001"):  # Minimum BTC amount
             raise ValueError("Minimum payment amount is 0.0001")
         return round(v, 8)
 
@@ -113,7 +113,7 @@ class PaymentReceipt(BaseModel):
 
     payment_id: str
     job_id: str
-    amount: float
+    amount: Decimal
     currency: str
     status: str
     transaction_hash: str | None = None
