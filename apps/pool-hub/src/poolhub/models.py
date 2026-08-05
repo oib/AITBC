@@ -16,6 +16,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -216,9 +217,14 @@ class RewardPayout(Base):
 
     Tracks reward payouts per miner per epoch to prevent duplicate payouts
     and provide an audit trail of all reward distributions.
+
+    The unique constraint is the duplicate-payout guarantee, not documentation: it is
+    enforced by the database, so it survives restarts, holds across replicas, and
+    serializes concurrent distribution runs. In-process bookkeeping does none of that.
     """
 
     __tablename__ = "reward_payouts"
+    __table_args__ = (UniqueConstraint("miner_id", "chain_id", "epoch_number", name="uq_reward_payout_miner_chain_epoch"),)
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     miner_id: Mapped[str] = mapped_column(String(64), index=True)
