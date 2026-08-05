@@ -5,12 +5,24 @@
 
 set -e
 
-# Configuration
-GENESIS_NODE="10.1.223.40"
-GENESIS_PORT="8006"
-LOCAL_PORT="8006"
-MAX_SYNC_DIFF=100  # Trigger bulk sync if difference > 100 blocks
-BULK_BATCH_SIZE=500  # Process 500 blocks at a time
+# Configuration.
+#
+# These were hardcoded, so a genesis-node IP change meant this script silently synced
+# against the wrong (or an unreachable) host rather than failing. Overridable via the
+# environment, matching scripts/multi-node/*; the literals remain as defaults.
+GENESIS_NODE="${GENESIS_NODE:-10.1.223.40}"
+GENESIS_PORT="${GENESIS_PORT:-8006}"
+LOCAL_PORT="${LOCAL_PORT:-8006}"
+MAX_SYNC_DIFF="${MAX_SYNC_DIFF:-100}"      # Trigger bulk sync if difference > 100 blocks
+BULK_BATCH_SIZE="${BULK_BATCH_SIZE:-500}"  # Process 500 blocks at a time
+
+# Fail loudly if the genesis node is unreachable rather than reporting a sync that never
+# happened.
+if ! curl -sf --max-time 10 "http://${GENESIS_NODE}:${GENESIS_PORT}/status" >/dev/null 2>&1; then
+    echo "ERROR: genesis node http://${GENESIS_NODE}:${GENESIS_PORT} is not reachable." >&2
+    echo "       Set GENESIS_NODE / GENESIS_PORT if it has moved." >&2
+    exit 1
+fi
 
 echo "=== 🔄 AITBC BULK SYNC DETECTOR ==="
 echo "Timestamp: $(date)"
