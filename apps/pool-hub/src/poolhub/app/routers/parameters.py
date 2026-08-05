@@ -14,7 +14,7 @@ from typing import Annotated, Any, cast
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..deps import get_db_session as get_db
 from ...settings import settings
@@ -65,7 +65,7 @@ def _require_governance_key(x_poolhub_key: str = Header(..., alias="X-PoolHub-Ke
 @router.post("/apply", response_model=ParameterChangeResponse)
 async def apply_parameter_change(
     change: ParameterChangeRequest,
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[None, Depends(_require_governance_key)],
 ) -> ParameterChangeResponse:
     """Apply a governance-approved parameter change to pool-hub service config.
@@ -94,7 +94,8 @@ async def apply_parameter_change(
 
     # Find the service config for the target service
     stmt = select(ServiceConfig).where(ServiceConfig.service_type == change.target_service)
-    config = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    config = result.scalar_one_or_none()
 
     if not config:
         raise HTTPException(
@@ -138,8 +139,8 @@ async def apply_parameter_change(
         )
 
     config.updated_at = datetime.now(UTC)
-    db.commit()
-    db.refresh(config)
+    await db.commit()
+    await db.refresh(config)
 
     return ParameterChangeResponse(
         proposal_id=change.proposal_id,
