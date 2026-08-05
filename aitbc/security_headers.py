@@ -188,7 +188,10 @@ def create_production_security_headers() -> SecurityHeaders:
         X_Frame_Options="DENY",
         X_XSS_Protection="1; mode=block",
         Strict_Transport_Security="max-age=31536000; includeSubDomains; preload",
-        Content_Security_Policy="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'",
+        # No 'unsafe-eval' in production: it re-permits eval()/new Function() and gives back
+        # most of the script-injection surface CSP exists to remove. Matches the policy in
+        # aitbc/auth/middleware.py::SecurityHeaders, which never allowed it.
+        Content_Security_Policy="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
         Referrer_Policy="strict-origin-when-cross-origin",
         Permissions_Policy="geolocation=(), microphone=(), camera=()",
         Cache_Control="no-cache, no-store, must-revalidate",

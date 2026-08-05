@@ -235,17 +235,19 @@ class AgentServiceBridge:
             return {"status": "error", "message": str(e)}
 
     async def _execute_compliance_check(self, task_data: dict[str, Any]) -> dict[str, Any]:
-        """Execute compliance check task"""
-        try:
-            # Basic compliance check
-            compliance_result = {
-                "user_id": task_data.get("user_id"),
-                "check_type": task_data.get("check_type", "basic"),
-                "status": "passed",
-                "checks_performed": ["kyc", "aml", "sanctions"],
-                "timestamp": datetime.now(UTC).isoformat(),
-            }
+        """Execute compliance check task.
 
-            return {"status": "success", "result": compliance_result}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
+        Not implemented. This previously returned a hardcoded
+        ``{"status": "passed", "checks_performed": ["kyc", "aml", "sanctions"]}`` that
+        ignored its inputs entirely -- no KYC, AML or sanctions screening was ever
+        performed. Any caller treating that as a compliance gate was told every subject
+        passes, which is worse than having no gate at all.
+
+        Raises:
+            NotImplementedError: always, until real screening is wired up.
+        """
+        raise NotImplementedError(
+            "Agent-bridge compliance screening (kyc/aml/sanctions) is not implemented. "
+            "Route compliance decisions through aitbc.compliance policy evaluation, or the "
+            "coordinator-api compliance context -- do not treat this task type as a gate."
+        )

@@ -38,7 +38,10 @@ class ZKProof:
     """
 
     proof_id: str
-    verified: bool = True
+    # Fail closed. A proof constructed without a verifying key and proof_data must not
+    # assert its own validity; verify() falls back to this flag, so defaulting it True
+    # made an unverified proof indistinguishable from a checked one.
+    verified: bool = False
     context_id: str = ""
     verifying_key: bytes = b""
     public_inputs: bytes = b""
