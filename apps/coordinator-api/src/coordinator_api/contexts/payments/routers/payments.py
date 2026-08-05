@@ -26,10 +26,10 @@ async def create_payment(
     user: ClientDep,
 ) -> JobPaymentView:
     """Create a payment for a job"""
-    user["sub"]
+    client_id = user["sub"]
 
     service = PaymentService(session)
-    payment = await service.create_payment(payment_data.job_id, payment_data)
+    payment = await service.create_payment(client_id, payment_data.job_id, payment_data)
 
     return service.to_view(payment)
 
@@ -41,10 +41,10 @@ async def get_payment(
     user: ClientDep,
 ) -> JobPaymentView:
     """Get payment details by ID"""
-    user["sub"]
+    client_id = user["sub"]
 
     service = PaymentService(session)
-    payment = service.get_payment(payment_id)
+    payment = service.get_payment(client_id, payment_id)
 
     if not payment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
@@ -59,10 +59,10 @@ async def get_job_payment(
     user: ClientDep,
 ) -> JobPaymentView:
     """Get payment information for a specific job"""
-    user["sub"]
+    client_id = user["sub"]
 
     service = PaymentService(session)
-    payment = service.get_job_payment(job_id)
+    payment = service.get_job_payment(client_id, job_id)
 
     if not payment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found for this job")
@@ -78,16 +78,16 @@ async def release_payment(
     user: ClientDep,
 ) -> dict[str, Any]:
     """Release payment from escrow (for completed jobs)"""
-    user["sub"]
+    client_id = user["sub"]
 
     service = PaymentService(session)
 
     # Verify the payment belongs to the client's job
-    payment = service.get_payment(payment_id)
+    payment = service.get_payment(client_id, payment_id)
     if not payment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
 
-    success = await service.release_payment(release_data.job_id, payment_id, release_data.reason)
+    success = await service.release_payment(client_id, release_data.job_id, payment_id, release_data.reason)
 
     if not success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to release payment")
@@ -103,16 +103,16 @@ async def refund_payment(
     user: ClientDep,
 ) -> dict[str, Any]:
     """Refund payment (for failed or cancelled jobs)"""
-    user["sub"]
+    client_id = user["sub"]
 
     service = PaymentService(session)
 
     # Verify the payment belongs to the client's job
-    payment = service.get_payment(payment_id)
+    payment = service.get_payment(client_id, payment_id)
     if not payment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
 
-    success = await service.refund_payment(refund_data.job_id, payment_id, refund_data.reason)
+    success = await service.refund_payment(client_id, refund_data.job_id, payment_id, refund_data.reason)
 
     if not success:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to refund payment")
@@ -127,10 +127,10 @@ async def get_payment_receipt(
     user: ClientDep,
 ) -> PaymentReceipt:
     """Get payment receipt with verification status"""
-    user["sub"]
+    client_id = user["sub"]
 
     service = PaymentService(session)
-    payment = service.get_payment(payment_id)
+    payment = service.get_payment(client_id, payment_id)
 
     if not payment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")

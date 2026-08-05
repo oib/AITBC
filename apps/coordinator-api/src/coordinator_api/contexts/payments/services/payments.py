@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from aitbc_shared import JobPayment, PaymentEscrow
+from aitbc_shared import JobPayment, PaymentEscrow  # type: ignore[import-untyped]
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
@@ -18,6 +18,7 @@ from aitbc_agent_core import get_active_brand
 
 from ....schemas import JobPaymentCreate, JobPaymentView
 from ....storage import get_session
+from ...infrastructure.domain.job import Job
 
 logger = get_logger(__name__)
 _brand = get_active_brand()
@@ -31,8 +32,19 @@ class PaymentService:
         self.wallet_base_url = f"http://127.0.0.1:{WALLET_PORT}"
         self.exchange_base_url = "http://127.0.0.1:8106"
 
-    async def create_payment(self, job_id: str, payment_data: JobPaymentCreate) -> JobPayment:
+    def _require_owned_job(self, job_id: str, client_id: str) -> Job:
+        """Fetch a job and verify it belongs to the requesting client."""
+        job = self.session.get(Job, job_id)
+        if job is None or job.client_id != client_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized for this payment",
+            )
+        return job
+
+    async def create_payment(self, client_id: str, job_id: str, payment_data: JobPaymentCreate) -> JobPayment:
         """Create a new payment for a job with ACID compliance"""
+        self._require_owned_job(job_id, client_id)
         try:
             payment = JobPayment(
                 job_id=job_id,
@@ -138,11 +150,12 @@ class PaymentService:
             self.session.commit()
             return None
 
-    async def release_payment(self, job_id: str, payment_id: str, reason: str | None = None) -> bool:
+    async def release_payment(self, client_id: str, job_id: str, payment_id: str, reason: str | None = None) -> bool:
         """Release payment from escrow to miner"""
         payment = self.session.get(JobPayment, payment_id)
-        if not payment or payment.job_id != job_id:
+        if payment is None or payment.job_id != job_id:
             return False
+        self._require_owned_job(payment.job_id, client_id)
         if payment.status != "escrowed":
             return False
         try:
@@ -172,11 +185,12 @@ class PaymentService:
             logger.error("Error releasing payment: %s", e)
             return False
 
-    async def refund_payment(self, job_id: str, payment_id: str, reason: str) -> bool:
+    async def refund_payment(self, client_id: str, job_id: str, payment_id: str, reason: str) -> bool:
         """Refund payment to client"""
         payment = self.session.get(JobPayment, payment_id)
-        if not payment or payment.job_id != job_id:
+        if payment is None or payment.job_id != job_id:
             return False
+        self._require_owned_job(payment.job_id, client_id)
         if payment.status not in ["escrowed", "pending"]:
             return False
         try:
@@ -211,12 +225,17 @@ class PaymentService:
             logger.error("Error refunding payment: %s", e)
             return False
 
-    def get_payment(self, payment_id: str) -> JobPayment | None:
+    def get_payment(self, client_id: str, payment_id: str) -> JobPayment | None:
         """Get payment by ID"""
-        return self.session.get(JobPayment, payment_id)
+        payment = self.session.get(JobPayment, payment_id)
+        if payment is None:
+            return None
+        self._require_owned_job(payment.job_id, client_id)
+        return payment
 
-    def get_job_payment(self, job_id: str) -> JobPayment | None:
+    def get_job_payment(self, client_id: str, job_id: str) -> JobPayment | None:
         """Get payment for a specific job"""
+        self._require_owned_job(job_id, client_id)
         return self.session.execute(select(JobPayment).where(JobPayment.job_id == job_id)).scalars().first()
 
     def to_view(self, payment: JobPayment) -> JobPaymentView:
