@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", _DEFAULT_RPC_URL)
+from aitbc.auth import APIKeyAuthenticator  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.middleware import (  # noqa: E402
@@ -117,6 +118,13 @@ async def get_marketplace_service(session: Annotated[AsyncSession, Depends(get_s
 async def get_matching_service(session: Annotated[AsyncSession, Depends(get_session)]) -> MatchingService:
     """Get matching service instance"""
     return MatchingService(session)
+
+
+require_marketplace_api_key = APIKeyAuthenticator(
+    expected_key=settings.api_key,
+    auth_enabled=settings.auth_enabled,
+    success_role="marketplace_admin",
+)
 
 
 @app.get("/v1/marketplace/offers")
@@ -691,7 +699,9 @@ async def submit_transaction(
             offer = MarketplaceOffer(**transaction_data)
             session.add(offer)
         else:
-            return JSONResponse(status_code=400, content={"error": f"Invalid action: {action}. Only 'offer' is currently supported"})
+            return JSONResponse(
+                status_code=400, content={"error": f"Invalid action: {action}. Only 'offer' is currently supported"}
+            )
         await session.commit()
         return {"status": "success"}
     except Exception as e:
@@ -772,7 +782,10 @@ _MARKETPLACE_GOVERNANCE_PARAMETERS: dict[str, type] = {
 
 
 @app.post("/v1/marketplace/parameters/apply")
-async def apply_marketplace_parameter(request: ParameterChangeRequest) -> dict[str, Any]:
+async def apply_marketplace_parameter(
+    request: ParameterChangeRequest,
+    authenticated: Annotated[dict[str, Any], Depends(require_marketplace_api_key)],
+) -> dict[str, Any]:
     """Apply a governance-approved parameter change to the marketplace service (v0.7.4 §B4).
 
     Validates that the parameter is known and the old_value matches the
