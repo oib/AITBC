@@ -93,8 +93,8 @@ async def create_exchange_payment(
     payment = {
         "payment_id": payment_id,
         "user_id": payment_request.user_id,
-        "aitbc_amount": float(payment_request.aitbc_amount),
-        "btc_amount": float(payment_request.btc_amount),
+        "aitbc_amount": str(payment_request.aitbc_amount),
+        "btc_amount": str(payment_request.btc_amount),
         "payment_address": BITCOIN_CONFIG["main_address"],
         "status": "pending",
         "created_at": int(time.time()),
@@ -158,17 +158,17 @@ async def get_market_stats() -> dict[str, Any]:
     """Get market statistics (migrated from Coordinator API)."""
     current_time = int(time.time())
     yesterday_time = current_time - 24 * 60 * 60
-    daily_volume = 0
+    daily_volume = Decimal("0")
     for payment in payments.values():
         if payment["status"] == "confirmed" and payment.get("confirmed_at", 0) > yesterday_time:
-            daily_volume += payment["aitbc_amount"]
-    base_price = 1.0 / BITCOIN_CONFIG["exchange_rate"]
+            daily_volume += Decimal(payment["aitbc_amount"])
+    base_price = Decimal("1") / BITCOIN_CONFIG["exchange_rate"]
     price_change_percent = 5.2
     return {
-        "price": base_price,
+        "price": str(base_price),
         "price_change_24h": price_change_percent,
-        "daily_volume": daily_volume,
-        "daily_volume_btc": daily_volume / BITCOIN_CONFIG["exchange_rate"],
+        "daily_volume": str(daily_volume),
+        "daily_volume_btc": str(daily_volume / BITCOIN_CONFIG["exchange_rate"]),
         "total_payments": len([p for p in payments.values() if p["status"] == "confirmed"]),
         "pending_payments": len([p for p in payments.values() if p["status"] == "pending"]),
     }
