@@ -49,7 +49,15 @@ class ConnectionManager:
         self.agent_inboxes: dict[str, list[dict[str, Any]]] = {}
 
     async def connect(self, websocket: WebSocket, agent_id: str) -> None:
-        """Accept a WebSocket connection from an agent"""
+        """Accept a WebSocket connection from an agent."""
+        if agent_id in self.active_connections:
+            # ponytail: close any stale connection with the same agent_id before replacing it,
+            # so the socket does not remain half-open and the old task can exit cleanly.
+            old_websocket = self.active_connections[agent_id]
+            try:
+                await old_websocket.close()
+            except Exception as e:
+                logger.warning("Error closing old WebSocket for %s: %s", agent_id, e)
         await websocket.accept()
         self.active_connections[agent_id] = websocket
         self.agent_topics[agent_id] = set()
@@ -64,15 +72,21 @@ class ConnectionManager:
             }
         )
 
-    def disconnect(self, agent_id: str) -> None:
-        """Remove agent connection"""
+    async def disconnect(self, agent_id: str) -> None:
+        """Remove agent connection and close the underlying WebSocket."""
         if agent_id in self.active_connections:
+            websocket = self.active_connections[agent_id]
+            try:
+                await websocket.close()
+            except Exception as e:
+                logger.warning("Error closing WebSocket for %s: %s", agent_id, e)
             del self.active_connections[agent_id]
         if agent_id in self.agent_topics:
             for topic in self.agent_topics[agent_id]:
                 if topic in self.topic_subscriptions:
                     self.topic_subscriptions[topic].discard(agent_id)
             del self.agent_topics[agent_id]
+        self.agent_inboxes.pop(agent_id, None)
         logger.info("Agent %s disconnected from WebSocket", agent_id)
 
     async def send_personal_message(self, message: dict[str, Any], agent_id: str) -> bool:
@@ -84,7 +98,7 @@ class ConnectionManager:
                 return True
             except Exception as e:
                 logger.error("Error sending message to %s: %s", agent_id, e)
-                self.disconnect(agent_id)
+                await self.disconnect(agent_id)
                 return False
         return False
 
@@ -235,10 +249,10 @@ class AgentStreamHandler:
                 else:
                     logger.warning("Unknown message type: %s", message_type)
         except WebSocketDisconnect:
-            self.connection_manager.disconnect(agent_id)
+            await self.connection_manager.disconnect(agent_id)
         except Exception as e:
             logger.error("Error in message stream for %s: %s", agent_id, e)
-            self.connection_manager.disconnect(agent_id)
+            await self.connection_manager.disconnect(agent_id)
 
     async def handle_presence_stream(self, websocket: WebSocket, agent_id: str) -> None:
         """Handle WebSocket presence stream for an agent"""
@@ -275,7 +289,7 @@ class AgentStreamHandler:
                 elif message_type == "heartbeat":
                     await websocket.send_json({"type": "heartbeat_ack", "timestamp": datetime.now(UTC).isoformat()})
         except WebSocketDisconnect:
-            self.connection_manager.disconnect(agent_id)
+            await self.connection_manager.disconnect(agent_id)
             offline_data = {
                 "type": "presence_update",
                 "agent_id": agent_id,
@@ -285,7 +299,7 @@ class AgentStreamHandler:
             await self.connection_manager.broadcast(offline_data)
         except Exception as e:
             logger.error("Error in presence stream for %s: %s", agent_id, e)
-            self.connection_manager.disconnect(agent_id)
+            await self.connection_manager.disconnect(agent_id)
 
 
 _connection_manager: ConnectionManager | None = None
