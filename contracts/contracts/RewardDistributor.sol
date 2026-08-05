@@ -136,7 +136,7 @@ contract RewardDistributor is IRewardDistributor, Ownable, ReentrancyGuard, Paus
     /**
      * @dev Initialize the reward distributor (implements IModularContract)
      */
-    function initialize(address _registry) external override {
+    function initialize(address _registry) external override onlyOwner {
         require(address(registry) == address(0), "Already initialized");
         registry = ContractRegistry(_registry);
 
