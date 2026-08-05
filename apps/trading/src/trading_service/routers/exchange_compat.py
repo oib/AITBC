@@ -5,11 +5,13 @@ import time
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from aitbc.aitbc_logging import get_logger
 from aitbc_agent_core import get_active_brand
+
+from ..dependencies import require_trading_api_key, require_webhook_signature
 
 router = APIRouter(tags=["exchange"])
 logger = get_logger(__name__)
@@ -35,7 +37,7 @@ class ExchangePaymentRequest(BaseModel):
     btc_amount: float
 
 
-@router.post("/v1/exchange/create-payment")
+@router.post("/v1/exchange/create-payment", dependencies=[Depends(require_trading_api_key)])
 async def create_exchange_payment(
     payment_request: ExchangePaymentRequest, background_tasks: BackgroundTasks, request: Request
 ) -> dict[str, Any]:
@@ -78,7 +80,7 @@ async def create_exchange_payment(
     return payment
 
 
-@router.get("/v1/exchange/payment-status/{payment_id}")
+@router.get("/v1/exchange/payment-status/{payment_id}", dependencies=[Depends(require_trading_api_key)])
 async def get_exchange_payment_status(payment_id: str) -> dict[str, Any]:
     """Get payment status (migrated from Coordinator API)."""
     if payment_id not in payments:
@@ -89,8 +91,8 @@ async def get_exchange_payment_status(payment_id: str) -> dict[str, Any]:
     return payment
 
 
-@router.post("/v1/exchange/confirm-payment/{payment_id}")
-async def confirm_exchange_payment(payment_id: str, tx_hash: str) -> dict[str, Any]:
+@router.post("/v1/exchange/confirm-payment/{payment_id}", dependencies=[Depends(require_webhook_signature)])
+async def confirm_exchange_payment(payment_id: str, tx_hash: str, request: Request) -> dict[str, Any]:
     """Confirm payment (webhook from payment processor, migrated from Coordinator API)."""
     if payment_id not in payments:
         raise HTTPException(status_code=404, detail="Payment not found")
@@ -108,7 +110,7 @@ async def confirm_exchange_payment(payment_id: str, tx_hash: str) -> dict[str, A
     return {"status": "ok", "payment_id": payment_id, "aitbc_amount": payment["aitbc_amount"]}
 
 
-@router.get("/v1/exchange/rates")
+@router.get("/v1/exchange/rates", dependencies=[Depends(require_trading_api_key)])
 async def get_exchange_rates() -> dict[str, Any]:
     """Get current exchange rates (migrated from Coordinator API)."""
     return {
