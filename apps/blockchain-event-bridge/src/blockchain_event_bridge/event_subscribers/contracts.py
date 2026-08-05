@@ -1,9 +1,12 @@
 """Contract event subscriber for smart contract event monitoring."""
 
 import asyncio
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.constants import DATA_DIR
 from aitbc.exceptions import NetworkError
 from aitbc.network import AsyncAITBCHTTPClient
 
@@ -11,7 +14,15 @@ from ..config import Settings
 
 if TYPE_CHECKING:
     from ..bridge import BlockchainEventBridge
+
 logger = get_logger(__name__)
+
+# Number of recent blocks we keep uncommitted to tolerate chain reorganisations.
+# Events in blocks closer than this to the head are not marked as processed.
+_FINALITY_BLOCKS = 12
+
+_CHECKPOINT_DIR = Path(DATA_DIR) / "data" / "blockchain-event-bridge"
+_CHECKPOINT_PATH = _CHECKPOINT_DIR / "contract_checkpoints.json"
 
 
 class ContractEventSubscriber:
@@ -70,23 +81,76 @@ class ContractEventSubscriber:
                 logger.error("Error in contract event subscriber: %s", e, exc_info=True)
                 await asyncio.sleep(5)
 
+    def _load_checkpoints(self) -> dict[str, int]:
+        """Load persisted contract checkpoints if present."""
+        from typing import cast
+
+        try:
+            if _CHECKPOINT_PATH.exists():
+                with open(_CHECKPOINT_PATH, encoding="utf-8") as f:
+                    return cast(dict[str, int], json.load(f))
+        except Exception as e:
+            logger.warning("Could not load contract checkpoints from %s: %s", _CHECKPOINT_PATH, e)
+        return {}
+
+    def _save_checkpoints(self) -> None:
+        """Persist last processed block heights."""
+        try:
+            _CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+            with open(_CHECKPOINT_PATH, "w", encoding="utf-8") as f:
+                json.dump(self.last_processed_blocks, f)
+        except Exception as e:
+            logger.warning("Could not save contract checkpoints to %s: %s", _CHECKPOINT_PATH, e)
+
     async def _initialize_block_tracking(self) -> None:
-        """Initialize block tracking from current chain height."""
+        """Initialize block tracking from persisted checkpoints.
+
+        ponytail: Previously reset to chain head on every startup, silently
+        skipping events that arrived while the bridge was down. If no checkpoint
+        exists we start a safe distance behind head; otherwise we resume from the
+        last finalized height we processed.
+        """
         try:
             client = await self._get_client()
             head_data = await client.get("/head")
             current_height = head_data.get("height", 0)
+            safe_height = max(0, current_height - _FINALITY_BLOCKS)
+
+            persisted = self._load_checkpoints()
             for contract in self.contract_addresses:
-                if self.contract_addresses[contract]:
-                    self.last_processed_blocks[contract] = current_height
-            logger.info("Initialized block tracking at height %s", current_height)
+                if not self.contract_addresses[contract]:
+                    continue
+                if contract in persisted:
+                    # Cap at the safe height so we always re-scan the finality window
+                    self.last_processed_blocks[contract] = min(persisted[contract], safe_height)
+                    logger.info(
+                        "Resumed %s checkpoint at %s (head: %s)",
+                        contract,
+                        self.last_processed_blocks[contract],
+                        current_height,
+                    )
+                else:
+                    # First run: start behind head to avoid skipping recent history.
+                    # A missing checkpoint means we cannot recover downtime from before this run.
+                    self.last_processed_blocks[contract] = max(0, current_height - 100)
+                    logger.warning(
+                        "No checkpoint for %s; starting at %s (head: %s). Events before this height may have been missed.",
+                        contract,
+                        self.last_processed_blocks[contract],
+                        current_height,
+                    )
         except NetworkError as e:
             logger.error("Network error initializing block tracking: %s", e)
         except Exception as e:
             logger.error("Error initializing block tracking: %s", e)
 
     async def _poll_contract_events(self) -> None:
-        """Poll for contract events from blockchain."""
+        """Poll for contract events from blockchain.
+
+        ponytail: Only scans up to ``current_height - _FINALITY_BLOCKS`` before
+        updating the checkpoint, keeping the last N blocks uncommitted so a chain
+        reorg in the unprocessed window does not leave us with orphan events.
+        """
         client = await self._get_client()
         for contract_name, contract_address in self.contract_addresses.items():
             if not contract_address:
@@ -94,13 +158,19 @@ class ContractEventSubscriber:
             try:
                 head_data = await client.get("/head")
                 current_height = head_data.get("height", 0)
-                last_height = self.last_processed_blocks.get(contract_name, current_height - 100)
+                to_block = max(0, current_height - _FINALITY_BLOCKS)
+                last_height = self.last_processed_blocks.get(contract_name, to_block)
+
+                if to_block <= last_height:
+                    # Nothing new in the finalized range yet.
+                    continue
+
                 logs_data = await client.post(
                     "/eth_getLogs",
                     json={
                         "address": contract_address,
                         "from_block": last_height + 1,
-                        "to_block": current_height,
+                        "to_block": to_block,
                         "topics": self.event_topics.get(contract_name, []),
                     },
                 )
@@ -109,7 +179,8 @@ class ContractEventSubscriber:
                     logger.info("Found %s events for %s", len(logs), contract_name)
                     for log in logs:
                         await self._process_contract_event(contract_name, log)
-                self.last_processed_blocks[contract_name] = current_height
+                self.last_processed_blocks[contract_name] = to_block
+                self._save_checkpoints()
             except NetworkError as e:
                 logger.error("Network error polling events for %s: %s", contract_name, e)
             except Exception as e:
@@ -160,4 +231,5 @@ class ContractEventSubscriber:
         """Stop the contract event subscriber."""
         self._running = False
         self._client = None
+        self._save_checkpoints()
         logger.info("Contract event subscriber stopped")
