@@ -116,7 +116,7 @@ contract TreasuryManager is ITreasuryManager, Ownable, ReentrancyGuard, Pausable
     /**
      * @dev Initialize the treasury manager (implements IModularContract)
      */
-    function initialize(address _registry) external override {
+    function initialize(address _registry) external override onlyOwner {
         require(address(registry) == address(0), "Already initialized");
         registry = ContractRegistry(_registry);
 

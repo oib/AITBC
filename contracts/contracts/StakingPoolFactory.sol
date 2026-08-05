@@ -162,7 +162,7 @@ contract StakingPoolFactory is IStakingPoolFactory, Ownable, ReentrancyGuard, Pa
     /**
      * @dev Initialize the staking pool factory (implements IModularContract)
      */
-    function initialize(address _registry) external override {
+    function initialize(address _registry) external override onlyOwner {
         require(address(registry) == address(0), "Already initialized");
         registry = ContractRegistry(_registry);
 
