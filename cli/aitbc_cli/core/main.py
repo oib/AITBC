@@ -78,9 +78,24 @@ logger = get_logger(__name__)
 
 
 @click.command(name="list")
-def list_wallets():
+@click.pass_context
+def list_wallets(ctx):
     """Legacy wallet list alias"""
-    return wallet.main(args=["list"], standalone_mode=False)
+    # Forward to the wallet group's list subcommand so global flags in ctx.obj are preserved.
+    ctx.invoke(
+        wallet,
+        wallet_name=None,
+        wallet_path=None,
+        use_daemon=True,
+        chain_id=ctx.obj.get("chain_id"),
+    )
+    list_cmd = wallet.get_command(ctx, "list")
+    if list_cmd is None:
+        from ..utils import error
+
+        error("wallet list subcommand not found")
+        return
+    return ctx.invoke(list_cmd)
 
 
 @click.command()
