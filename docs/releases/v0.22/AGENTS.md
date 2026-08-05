@@ -12,7 +12,7 @@ Focus: `aitbc/`, `apps/blockchain-node`, `apps/blockchain-event-bridge`,
 `apps/blockchain-explorer`, `contracts/`, ops/scripts, shared packages, and
 infrastructure-wide findings.
 
-- **CORE** — CORE-02/04/08/09/10/11/12/13/15/16/18/19/20/21/22/25/26/28/29
+- **CORE** — CORE-04/08/09/10/11/13/15/16/21/25
 
 - **Contracts** — SC-05/06/08/09/10/11/12/14
 - **Ops** — OPS-03/04/06/07/08/09/10/12/14/15/16/17/18
@@ -42,22 +42,25 @@ implementation.
 
 ### CORE
 
-1. **Broken-on-first-use fixes** — CORE-01, CORE-05, CORE-06, CORE-12 (redis import,
-   sync `QueuePool` in async engine, closed cursor return, self-contradictory CORS defaults).
-   Each is a single-file, testable bug.
+Closed in the first pass: CORE-02 (`sanitize_input` double-escaping), CORE-12
+(`setup_cors` wildcard-with-credentials default), CORE-22 (`migration_timestamp`
+random hex), CORE-28 (duplicate `BRIDGE_VALIDATOR_SET_GRACE_PERIOD`), CORE-29
+(`verify_secret` timing-safe comparison).
+
+Closed in the second pass: CORE-18 (circuit-breaker lock), CORE-19
+(`SubscriptionManager.stop_all` invokes `client.stop()`), CORE-20 (`RedisCache`
+serializes to JSON and signals non-serializable values), CORE-26
+(`AITBCServiceIntegration` endpoints are env-configurable).
+
+1. **Auth / API key** — CORE-04 (API key JSON file races + multi-worker).
 2. **Security defaults / fail-closed** — CORE-03 (default deny in `ROUTE_SECURITY_MATRIX`),
-   CORE-23 (`ZKProof.verified` and `ReplicationProof.status` default to untrusted),
-   CORE-28 (duplicate `BRIDGE_VALIDATOR_SET_GRACE_PERIOD`), CORE-29 (`hmac.compare_digest`
-   in `htlc.verify_secret`).
-3. **Auth / bridge / lifecycle** — CORE-04 (API key JSON store races + multi-worker),
-   CORE-17 (multisig casing), CORE-18 (circuit-breaker lock), CORE-19 (subscription
-   `stop()` cleanup), CORE-22 (`migration_timestamp` random hex), CORE-26 (hardcoded
-   `http://localhost:PORT` endpoints).
+   CORE-23 (`ZKProof.verified` and `ReplicationProof.status` default to untrusted).
+3. **Bridge / lifecycle** — CORE-17 (multisig casing).
 4. **Money / floats in core** — CORE-07/21/27 (`SyncedOffer.price`, `price_oracle`,
    `integration_layer` trade submission).
-5. **Rate limiters & request ID** — CORE-08/09/10/11 (limiter name collision, key eviction,
-   consolidation, request-ID propagation), CORE-13 (size guard), CORE-14 (CSP
-   `unsafe-eval`), CORE-15/16/20/24/25.
+5. **Rate limiters, request ID, guardrails** — CORE-08/09/10/11 (limiter name collision,
+   key eviction, consolidation, request-ID propagation), CORE-13 (size guard), CORE-14
+   (CSP `unsafe-eval`), CORE-15/16/24/25.
 
 ### Contracts
 

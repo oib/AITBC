@@ -2,6 +2,7 @@
 Redis cache wrapper for distributed caching
 """
 
+import json
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -31,18 +32,36 @@ class RedisCache:
     def get(self, key: str) -> Any | None:
         if self._client:
             try:
-                return self._client.get(key)
+                raw = self._client.get(key)
             except Exception as e:
                 logger.warning("Redis GET failed for key %s: %s", key, e)
+            else:
+                if raw is None:
+                    return None
+                if isinstance(raw, bytes):
+                    raw = raw.decode("utf-8")
+                try:
+                    return json.loads(raw)
+                except json.JSONDecodeError:
+                    # ponytail: legacy primitive stored without JSON encoding
+                    return raw
+                except Exception as e:
+                    logger.warning("Redis GET decode failed for key %s: %s", key, e)
+                    return raw
         return self._data.get(key)
 
     def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
         if self._client:
             try:
-                self._client.setex(key, ttl or self._default_ttl, value)
+                serialized = json.dumps(value)
+            except (TypeError, ValueError) as e:
+                logger.warning("Redis cache value for key %s is not JSON serializable: %s", key, e)
+                return False
+            try:
+                self._client.setex(key, ttl or self._default_ttl, serialized)
                 return True
             except Exception as e:
-                logger.warning("Redis SET failed for key %s: %s", key, e)
+                logger.warning("Redis SET failed for key %s, falling back to in-memory: %s", key, e)
         self._data[key] = value
         return True
 
