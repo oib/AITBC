@@ -254,7 +254,7 @@ async def mint_tokens(address: str, amount: float) -> dict[str, Any]:
         raise Exception(f"Failed to mint tokens: {e}") from e
 
 
-def get_balance(address: str) -> float | None:
+def get_balance(address: str) -> Decimal | None:
     """Get token balance for an address"""
 
     if not validate_address(address):
@@ -268,7 +268,7 @@ def get_balance(address: str) -> float | None:
                 f"{BLOCKCHAIN_RPC}/getBalance/{address}",
                 headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
             )
-            return float(response.get("balance", 0))
+            return Decimal(str(response.get("balance", 0)))
         except NetworkError as e:
             logger.error("Error getting balance: %s", e)
             return None
