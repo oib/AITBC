@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from aitbc.auth import APIKeyAuthenticator  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.marketplace import BlockchainRPCClient, OfferFSM, OfferStatus  # noqa: E402
@@ -173,6 +174,13 @@ async def get_session_dep() -> AsyncIterator[AsyncSession]:
         yield session
 
 
+require_gpu_api_key = APIKeyAuthenticator(
+    expected_key=settings.api_key,
+    auth_enabled=settings.auth_enabled,
+    success_role="gpu_admin",
+)
+
+
 async def get_edge_service(session: Annotated[AsyncSession, Depends(get_session_dep)]) -> EdgeGPUService:
     """Get edge GPU service instance"""
     return EdgeGPUService(session)
@@ -210,7 +218,11 @@ async def get_gpu(gpu_id: str, session: Annotated[AsyncSession, Depends(get_sess
 
 
 @app.delete("/v1/gpu/{gpu_id}")
-async def delete_gpu(gpu_id: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
+async def delete_gpu(
+    gpu_id: str,
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
+):
     """Delete a specific GPU by ID"""
     from sqlalchemy import select
 
@@ -231,7 +243,12 @@ async def delete_gpu(gpu_id: str, session: Annotated[AsyncSession, Depends(get_s
 
 
 @app.put("/v1/gpu/{gpu_id}")
-async def update_gpu(gpu_id: str, gpu_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
+async def update_gpu(
+    gpu_id: str,
+    gpu_data: dict[str, Any],
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
+):
     """Update a specific GPU by ID"""
     from sqlalchemy import select
 
@@ -282,7 +299,11 @@ async def get_edge_gpu_metrics(gpu_id: str, limit: int | None, svc: Annotated[Ed
 
 
 @app.post("/v1/marketplace/edge-gpu/scan/{miner_id}")
-async def scan_edge_gpus(miner_id: str, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]):
+async def scan_edge_gpus(
+    miner_id: str,
+    svc: Annotated[EdgeGPUService, Depends(get_edge_service)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
+):
     """Scan and register edge GPUs for a miner"""
     return await svc.discover_and_register_edge_gpus(miner_id)
 
@@ -378,7 +399,11 @@ async def complete_gpu_queue(
 
 
 @app.post("/v1/transactions")
-async def submit_transaction(transaction_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
+async def submit_transaction(
+    transaction_data: dict[str, Any],
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
+):
     """Submit GPU marketplace transaction to blockchain"""
     transaction_type = transaction_data.get("type")
     action = transaction_data.get("action")
@@ -472,7 +497,9 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
                 response_data["blockchain_tx_hash"] = blockchain_tx_hash
             return response_data
         else:
-            return JSONResponse(status_code=400, content={"error": f"Invalid action: {action}. Only 'offer' is currently supported"})
+            return JSONResponse(
+                status_code=400, content={"error": f"Invalid action: {action}. Only 'offer' is currently supported"}
+            )
     except Exception as e:
         await session.rollback()
         logger.error("Transaction submission error: %s", e)
@@ -521,7 +548,11 @@ async def get_transactions(
 
 
 @app.post("/v1/gpu/register")
-async def register_gpu(gpu_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
+async def register_gpu(
+    gpu_data: dict[str, Any],
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
+):
     """Register a GPU with the service and record on blockchain"""
     from uuid import uuid4
 
@@ -574,7 +605,11 @@ async def register_gpu(gpu_data: dict[str, Any], session: Annotated[AsyncSession
 
 
 @app.post("/v1/miners/register")
-async def register_miner(miner_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
+async def register_miner(
+    miner_data: dict[str, Any],
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
+):
     """Register or update a miner"""
     from uuid import uuid4
 
@@ -590,6 +625,7 @@ async def register_miner(miner_data: dict[str, Any], session: Annotated[AsyncSes
         if existing_gpus:
             for gpu in existing_gpus:
                 gpu.status = "online"
+            await session.commit()
         return {"status": "ok", "miner_id": miner_id, "session_token": session_token, "gpu_count": len(existing_gpus)}
     except Exception as e:
         logger.error("Miner registration error: %s", e)
@@ -685,7 +721,10 @@ async def get_miner_earnings(miner_id: str, session: Annotated[AsyncSession, Dep
 
 @app.put("/v1/miners/{miner_id}/capabilities")
 async def update_miner_capabilities(
-    miner_id: str, capabilities_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]
+    miner_id: str,
+    capabilities_data: dict[str, Any],
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
 ):
     """Update miner capabilities"""
     capabilities = capabilities_data.get("capabilities", {})
@@ -693,7 +732,11 @@ async def update_miner_capabilities(
 
 
 @app.delete("/v1/miners/{miner_id}")
-async def deregister_miner(miner_id: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
+async def deregister_miner(
+    miner_id: str,
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
+):
     """Deregister miner"""
     from sqlalchemy import update
 
