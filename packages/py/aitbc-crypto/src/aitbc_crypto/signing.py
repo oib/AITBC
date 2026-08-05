@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import base64
+import logging
 from typing import Any
 
+from nacl.exceptions import BadSignatureError
 from nacl.signing import SigningKey, VerifyKey
 
 from .receipt import canonical_json
+
+logger = logging.getLogger(__name__)
 
 
 class ReceiptSigner:
@@ -29,10 +33,25 @@ class ReceiptVerifier:
     def verify(self, payload: dict[str, Any], signature: dict[str, Any]) -> bool:
         if signature.get("alg") != "Ed25519":
             return False
-        sig_bytes = base64.urlsafe_b64decode(signature["sig"] + "==")
         message = canonical_json(payload).encode("utf-8")
+        try:
+            sig_bytes = base64.urlsafe_b64decode(signature["sig"] + "==")
+        except (KeyError, ValueError, TypeError) as exc:
+            # Malformed input, not a failed signature check. Both used to return a bare
+            # False, so a caller could not tell "this receipt was tampered with" from
+            # "we were handed the wrong dict shape".
+            logger.warning("Signature payload is malformed: %s", exc)
+            return False
+
         try:
             self._key.verify(message, sig_bytes)
             return True
+        except BadSignatureError:
+            # The expected negative result: a genuine mismatch. Not logged as a warning --
+            # verifying untrusted receipts is the normal path.
+            return False
         except Exception:
+            # Anything else is a programming or environment error; losing it silently is
+            # how a broken verifier looks exactly like a batch of invalid receipts.
+            logger.exception("Unexpected error during signature verification")
             return False
