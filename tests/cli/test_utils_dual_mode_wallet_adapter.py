@@ -3,6 +3,8 @@ Dual Mode Wallet Adapter Tests
 Tests for dual-mode wallet adapter
 """
 
+import json
+import re
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -132,7 +134,13 @@ class TestDualModeWalletAdapter:
 
     @patch("aitbc_cli.utils.dual_mode_wallet_adapter.error")
     def test_create_wallet_file_mode_simple(self, mock_error):
-        """Test creating simple wallet in file mode"""
+        """A file-mode wallet gets real key material and a derived address.
+
+        This previously asserted `"simple" in result["address"]`, which only held
+        because the address was the fabricated string f"aitbc1{name}_simple" and the
+        private key was f"simple_key_{name}_{timestamp}". The address is now derived
+        from a real secp256k1 key.
+        """
         from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -140,23 +148,57 @@ class TestDualModeWalletAdapter:
             adapter.wallet_dir = Path(tmpdir)
 
             result = adapter.create_wallet("test_simple", "password123", "simple")
+
             assert result["mode"] == "file"
-            assert "address" in result
-            assert "simple" in result["address"]
+            assert re.fullmatch(r"0x[a-fA-F0-9]{40}", result["address"])
+            # The wallet name must not leak into the address.
+            assert "test_simple" not in result["address"]
 
     @patch("aitbc_cli.utils.dual_mode_wallet_adapter.error")
-    def test_create_wallet_file_mode_hd(self, mock_error):
-        """Test creating HD wallet in file mode"""
+    def test_create_wallet_file_mode_addresses_are_unique(self, mock_error):
+        """Two wallets must not share an address -- the old format string made them predictable."""
         from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
 
         with tempfile.TemporaryDirectory() as tmpdir:
             adapter = DualModeWalletAdapter(use_daemon=False)
             adapter.wallet_dir = Path(tmpdir)
 
-            result = adapter.create_wallet("test_hd", "password123", "hd")
-            assert result["mode"] == "file"
-            assert "address" in result
-            assert "hd" in result["address"]
+            first = adapter.create_wallet("wallet_a", "password123", "simple")
+            second = adapter.create_wallet("wallet_b", "password123", "simple")
+
+            assert first["address"] != second["address"]
+
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.error")
+    def test_create_wallet_file_mode_stores_real_key(self, mock_error):
+        """The persisted private key must be key material, not a derived format string."""
+        from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            adapter = DualModeWalletAdapter(use_daemon=False)
+            adapter.wallet_dir = Path(tmpdir)
+
+            adapter.create_wallet("test_stored", "password123", "simple")
+            stored = json.loads((Path(tmpdir) / "test_stored.json").read_text())
+
+            assert not str(stored["private_key"]).startswith("simple_key_")
+            assert "test_stored" not in str(stored["private_key"])
+
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.error")
+    def test_create_wallet_file_mode_hd_is_not_implemented(self, mock_error):
+        """HD file wallets must fail loudly rather than emit a non-HD wallet.
+
+        This previously asserted `"hd" in result["address"]`, which passed only because
+        the address was the fabricated string f"aitbc1{name}_hd" -- no seed-phrase
+        derivation ever happened.
+        """
+        from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            adapter = DualModeWalletAdapter(use_daemon=False)
+            adapter.wallet_dir = Path(tmpdir)
+
+            with pytest.raises(NotImplementedError, match="HD wallet creation is not implemented"):
+                adapter.create_wallet("test_hd", "password123", "hd")
 
     @patch("aitbc_cli.utils.dual_mode_wallet_adapter.error")
     def test_create_wallet_file_exists(self, mock_error):
