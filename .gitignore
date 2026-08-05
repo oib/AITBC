@@ -646,3 +646,9 @@ graphify-out/graph.html
 
 # Orchestrator / tracker scratch state under work/
 work/
+
+# ZK circuit build artifacts (v0.22 #7) — regenerated, not tracked
+*.ptau
+*.zkey
+*.wasm
+*.r1cs
