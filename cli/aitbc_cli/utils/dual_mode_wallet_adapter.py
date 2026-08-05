@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, "/opt/aitbc/cli")
+from aitbc.crypto import derive_ethereum_address, generate_ethereum_private_key
+
 from aitbc_cli.utils import error, success
 from aitbc_cli.utils.wallet_daemon_client import WalletDaemonClient
 
@@ -86,21 +88,27 @@ class DualModeWalletAdapter:
             error(f"Wallet '{wallet_name}' already exists")
             raise Exception("Wallet exists")
 
-        # Generate wallet data
-        if wallet_type == "simple":
-            # Simple wallet with deterministic key for testing
-            private_key = f"simple_key_{wallet_name}_{datetime.now().isoformat()}"
-            address = f"aitbc1{wallet_name}_simple"
-        else:
-            # HD wallet (placeholder for real implementation)
-            private_key = f"hd_key_{wallet_name}_{datetime.now().isoformat()}"
-            address = f"aitbc1{wallet_name}_hd"
+        # Generate real secp256k1 key material and derive the address from it. Both wallet
+        # types use the same generator; "hd" does not yet derive from a seed phrase, so it is
+        # rejected below rather than silently producing a non-HD wallet.
+        if wallet_type not in ("simple", "hd"):
+            raise ValueError(f"Unsupported wallet type: {wallet_type}")
+        if wallet_type == "hd":
+            raise NotImplementedError(
+                "HD wallet creation is not implemented for file-based wallets. "
+                "Use --type simple, or create the wallet through the wallet daemon."
+            )
+
+        private_key = generate_ethereum_private_key()
+        address = derive_ethereum_address(private_key)
 
         wallet_data = {
             "name": wallet_name,
             "address": address,
             "balance": 0.0,
-            "encrypted": bool(password),
+            # _save_wallet encrypts private_key and sets this to True when a password is
+            # supplied. Without a password the key is stored in plaintext, so say so.
+            "encrypted": False,
             "private_key": private_key,
             "transactions": [],
             "created_at": datetime.now().isoformat(),
