@@ -234,7 +234,7 @@ Out-of-scope needs surfaced while deciding or decomposing follow the usual route
 
 ## Related Documents
 
-- [`harness/.claude/agents/po-agent.md`](../../harness/.claude/agents/po-agent.md) - PO-Agent role definition (source of truth; slimmed to 13.4 KB in ABS-173)
+- [`.claude/agents/po-agent.md`](../../.claude/agents/po-agent.md) - PO-Agent role definition (source of truth; slimmed to 13.4 KB in ABS-173)
 - [`docs/sop/po-agent-reference.md`](po-agent-reference.md) - Machine-oriented companion: worked examples, templates, and long bash sequences the agent pulls in on each named Trigger (extracted in ABS-173)
 - [`adrs/agentic/ADR-A-0004-human-approval-boundaries.md`](../../adrs/agentic/ADR-A-0004-human-approval-boundaries.md) - Approval boundaries + ABS-9 amendment
 - [`docs/sop/ADR_AUTHORING_GUIDE.md`](ADR_AUTHORING_GUIDE.md) - ADR Authoring Request handoff (PO-Agent → System Architect)
