@@ -5,7 +5,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 
-from .deps import get_keystore, get_ledger, get_receipt_service
+from .deps import get_keystore, get_ledger, get_receipt_service, require_admin_api_key
 from .keystore.persistent_service import PersistentKeystoreService
 from .ledger_mock import SQLiteLedgerAdapter
 from .models import from_validation_result
@@ -28,6 +28,7 @@ def _response(
 @router.post("/rpc", summary="JSON-RPC endpoint")
 def handle_jsonrpc(
     request: dict[str, Any],
+    _admin: Annotated[None, Depends(require_admin_api_key)],
     service: Annotated[ReceiptVerifierService, Depends(get_receipt_service)],
     keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
     ledger: Annotated[SQLiteLedgerAdapter, Depends(get_ledger)],

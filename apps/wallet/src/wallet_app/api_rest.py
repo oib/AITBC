@@ -121,6 +121,7 @@ async def create_wallet(
     wallet_request: WalletCreateRequest,
     keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
     ledger: Annotated[SQLiteLedgerAdapter, Depends(get_ledger)],
+    _admin: Annotated[None, Depends(require_admin_api_key)],
 ) -> WalletCreateResponse:
     try:
         secret = base64.b64decode(wallet_request.secret_key) if wallet_request.secret_key else None
@@ -215,6 +216,7 @@ def unlock_wallet(
     unlock_request: WalletUnlockRequest,
     keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
     ledger: Annotated[SQLiteLedgerAdapter, Depends(get_ledger)],
+    _admin: Annotated[None, Depends(require_admin_api_key)],
 ) -> WalletUnlockResponse:
     try:
         ip_address = request.client.host if request.client else "unknown"
@@ -248,6 +250,7 @@ def sign_payload(
     sign_request: WalletSignRequest,
     keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
     ledger: Annotated[SQLiteLedgerAdapter, Depends(get_ledger)],
+    _admin: Annotated[None, Depends(require_admin_api_key)],
 ) -> WalletSignResponse:
     try:
         message = base64.b64decode(sign_request.message_base64)
@@ -283,6 +286,7 @@ def send_transaction(
     tx_request: WalletTransactionRequest,
     keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
     ledger: Annotated[SQLiteLedgerAdapter, Depends(get_ledger)],
+    _admin: Annotated[None, Depends(require_admin_api_key)],
 ) -> WalletTransactionResponse:
     """
     Sign and submit a transaction to the blockchain.
