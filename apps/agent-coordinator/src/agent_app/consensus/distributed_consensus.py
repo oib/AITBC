@@ -110,32 +110,16 @@ class DistributedConsensus:
             return {"status": "error", "message": str(e)}
 
     async def _initiate_voting(self, proposal: ConsensusProposal) -> None:
-        """Initiate voting for a proposal"""
+        """Initiate voting for a proposal.
+
+        ponytail: Previously this simulated random votes at creation, making
+        real ``cast_vote`` calls irrelevant. Votes are now only accepted through
+        the public ``cast_vote`` API.
+        """
         try:
-            active_nodes = [node for node in self.nodes.values() if node.is_active]
-            for node in active_nodes:
-                await self._simulate_node_vote(proposal, node.node_id)
             await self._check_consensus(proposal)
         except Exception as e:
             logger.error("Error initiating voting: %s", e)
-
-    async def _simulate_node_vote(self, proposal: ConsensusProposal, node_id: str) -> None:
-        """Simulate a node's voting decision"""
-        try:
-            node = self.nodes.get(node_id)
-            if not node or not node.is_active:
-                return
-            import random
-
-            vote_probability = 0.5
-            vote_probability += node.reputation_score * 0.2
-            if proposal.proposal_data.get("priority") == "high":
-                vote_probability += 0.1
-            vote_probability += random.uniform(-0.2, 0.2)  # nosec B311
-            vote = random.random() < vote_probability  # nosec B311
-            await self.cast_vote(proposal.proposal_id, node_id, vote)
-        except Exception as e:
-            logger.error("Error simulating node vote: %s", e)
 
     async def cast_vote(self, proposal_id: str, node_id: str, vote: bool) -> dict[str, Any]:
         """Cast a vote for a proposal"""

@@ -223,6 +223,11 @@ class GovernanceService:
 
                 logging.getLogger(__name__).warning("On-chain GOVERNANCE_VOTE submission failed: %s", e)
 
+        # Server-side voting power: do not let clients self-report unlimited weight.
+        # Use the on-chain balance snapshot (or zero if the chain query failed) as
+        # the authoritative voting_power_used.
+        vote.voting_power_used = vote.voting_power
+
         self.session.add(vote)
 
         # Update proposal vote counters

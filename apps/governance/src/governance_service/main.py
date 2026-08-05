@@ -228,56 +228,41 @@ async def get_governance_params():
     return params
 
 
-@app.get("/v1/governance/voting-power/{address}")
-async def get_voting_power(
-    address: str, proposal_id: str | None, svc: Annotated[GovernanceService, Depends(get_governance_service)]
-):
-    """Get voting power for an address (migrated from Coordinator API)"""
-    logger.info("Getting voting power for address %s", address)
-    base_voting_power = 1000
-    staking_bonus = 500
-    participation_bonus = 100
-    total_voting_power = base_voting_power + staking_bonus + participation_bonus
-    has_voted = False
-    if proposal_id:
-        votes = await svc.list_votes(proposal_id=proposal_id, voter_id=address)
-        has_voted = len(votes) > 0
-    return {
-        "address": address,
-        "voting_power": total_voting_power,
-        "breakdown": {
-            "token_holdings": base_voting_power,
-            "staking_bonus": staking_bonus,
-            "participation_bonus": participation_bonus,
-        },
-        "has_voted": has_voted,
-        "proposal_id": proposal_id,
-        "calculated_at": svc.get_current_timestamp(),
-    }
-
-
 @app.post("/v1/transactions")
-async def submit_transaction(transaction_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
-    """Submit governance transaction"""
-    from .domain.governance import Proposal, Vote
+async def submit_transaction(
+    transaction_data: dict[str, Any], svc: Annotated[GovernanceService, Depends(get_governance_service)]
+):
+    """Submit governance transaction via the governance service.
 
+    This routes propose/vote/execute through ``GovernanceService`` so on-chain
+    GOVERNANCE_* transactions are built and signed when ``enable_onchain_submission``
+    is enabled, rather than silently storing unvalidated records.
+    """
     transaction_type = transaction_data.get("type")
     action = transaction_data.get("action")
     if transaction_type != "governance":
         return JSONResponse(status_code=400, content={"error": "Invalid transaction type for governance service"})
     try:
         if action == "propose":
-            proposal = Proposal(**transaction_data)
-            session.add(proposal)
-        elif action == "vote":
-            vote = Vote(**transaction_data)
-            session.add(vote)
-        else:
-            return JSONResponse(status_code=400, content={"error": f"Invalid action: {action}. Only 'propose' and 'vote' are currently supported"})
-        await session.commit()
-        return {"status": "success", "transaction_id": transaction_data.get("proposal_id") or transaction_data.get("vote_id")}
+            proposal = await svc.create_proposal(transaction_data)
+            return {"status": "success", "transaction_id": proposal.proposal_id}
+        if action == "vote":
+            vote = await svc.create_vote(transaction_data)
+            return {"status": "success", "transaction_id": vote.vote_id}
+        if action == "execute":
+            proposal_id = transaction_data.get("proposal_id")
+            executor_address = transaction_data.get("executor_address", "")
+            if not proposal_id:
+                return JSONResponse(status_code=400, content={"error": "proposal_id is required for execute"})
+            proposal = await svc.execute_proposal(proposal_id, executor_address)
+            if proposal is None:
+                return JSONResponse(status_code=404, content={"error": "Proposal not found"})
+            return {"status": "success", "transaction_id": proposal.proposal_id, "tx_hash": proposal.execution_tx_hash}
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"Invalid action: {action}. Only 'propose', 'vote', and 'execute' are supported"},
+        )
     except Exception as e:
-        await session.rollback()
         logger.error("Transaction submission error: %s", e)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
