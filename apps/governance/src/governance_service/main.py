@@ -191,9 +191,9 @@ async def execute_proposal(
     logger.info("Executing proposal %s by executor %s", proposal_id, executor_id)
     proposal = await svc.get_proposal(proposal_id)
     if not proposal:
-        return ({"error": "Proposal not found"}, 404)
+        return JSONResponse(status_code=404, content={"error": "Proposal not found"})
     if proposal.status != "passed":
-        return ({"error": "Proposal must be in 'passed' status to execute"}, 400)
+        return JSONResponse(status_code=400, content={"error": "Proposal must be in 'passed' status to execute"})
     try:
         execution_result = {
             "proposal_id": proposal_id,
@@ -207,7 +207,7 @@ async def execute_proposal(
         return execution_result
     except Exception as e:
         logger.error("Error executing proposal %s: %s", proposal_id, e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.get("/v1/governance/params")
@@ -264,7 +264,7 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
     transaction_type = transaction_data.get("type")
     action = transaction_data.get("action")
     if transaction_type != "governance":
-        return ({"error": "Invalid transaction type for governance service"}, 400)
+        return JSONResponse(status_code=400, content={"error": "Invalid transaction type for governance service"})
     try:
         if action == "propose":
             proposal = Proposal(**transaction_data)
@@ -273,13 +273,13 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
             vote = Vote(**transaction_data)
             session.add(vote)
         else:
-            return ({"error": f"Invalid action: {action}. Only 'propose' and 'vote' are currently supported"}, 400)
+            return JSONResponse(status_code=400, content={"error": f"Invalid action: {action}. Only 'propose' and 'vote' are currently supported"})
         await session.commit()
         return {"status": "success", "transaction_id": transaction_data.get("proposal_id") or transaction_data.get("vote_id")}
     except Exception as e:
         await session.rollback()
         logger.error("Transaction submission error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.get("/v1/transactions")
@@ -334,7 +334,7 @@ async def get_transactions(
         return transactions
     except Exception as e:
         logger.error("Transaction query error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.post("/v1/governance/stake")
@@ -354,7 +354,7 @@ async def stake_tokens(
         }
     except Exception as e:
         logger.error("Staking error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.get("/v1/governance/voting-power/{address}")
@@ -365,7 +365,7 @@ async def get_voting_power_v2(address: str, svc: Annotated[GovernanceService, De
         return {"address": address, "voting_power": voting_power, "calculated_at": svc.get_current_timestamp()}
     except Exception as e:
         logger.error("Voting power calculation error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.post("/v1/governance/delegate")
@@ -387,7 +387,7 @@ async def delegate_voting_power(
         }
     except Exception as e:
         logger.error("Delegation error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.post("/v1/governance/proposals/{proposal_id}/execute")
@@ -400,7 +400,7 @@ async def execute_proposal_v2(
     try:
         proposal = await svc.execute_proposal(proposal_id, executor_address=executor_address)
         if not proposal:
-            return ({"error": "Proposal not found"}, 404)
+            return JSONResponse(status_code=404, content={"error": "Proposal not found"})
         return {
             "proposal_id": proposal_id,
             "status": proposal.status,
@@ -408,10 +408,10 @@ async def execute_proposal_v2(
             "tx_hash": proposal.execution_tx_hash,
         }
     except ValueError as e:
-        return ({"error": str(e)}, 400)
+        return JSONResponse(status_code=400, content={"error": str(e)})
     except Exception as e:
         logger.error("Proposal execution error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 # ============================================================================
