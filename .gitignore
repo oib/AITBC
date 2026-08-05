@@ -647,8 +647,13 @@ graphify-out/graph.html
 # Orchestrator / tracker scratch state under work/
 work/
 
-# ZK circuit build artifacts (v0.22 #7) — regenerated, not tracked
+# ZK Powers-of-Tau ceremony files (v0.22 #7) — regenerable, ~16MB, setup-only.
+# Produced by the setup/contribute/prepare scripts in apps/zk-circuits/package.json and
+# consumed only by `snarkjs groth16 setup`; nothing reads them at runtime.
 *.ptau
-*.zkey
-*.wasm
-*.r1cs
+
+# NOTE: *.zkey, *.wasm and *.r1cs are deliberately NOT ignored.
+# apps/coordinator-api/.../zk_applications/services/zk_proofs.py loads proving keys and
+# witness calculators from apps/zk-circuits/ at import time (receipt_simple_0001.zkey,
+# receipt_simple_js/receipt_simple.wasm, and the ml_*/modular_* equivalents). Ignoring
+# them empties ZKProofService.available_circuits and silently disables proving.

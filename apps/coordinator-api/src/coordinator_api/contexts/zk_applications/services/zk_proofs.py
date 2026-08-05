@@ -46,13 +46,26 @@ class ZKProofService:
         }
         self.available_circuits = {}
         for circuit_name, paths in self.circuits.items():
-            if all(p.exists() for p in paths.values()):
+            missing = [str(p) for p in paths.values() if not p.exists()]
+            if not missing:
                 self.available_circuits[circuit_name] = paths
                 logger.info("✅ Circuit '%s' available at %s", circuit_name, paths["zkey_path"].parent)
             else:
-                logger.warning("❌ Circuit '%s' missing files", circuit_name)
+                # Name the absent files. A bare "missing files" warning let an over-broad
+                # .gitignore (*.zkey/*.wasm) silently untrack every proving key without
+                # anyone noticing proving had been disabled.
+                logger.warning("❌ Circuit '%s' unavailable, missing: %s", circuit_name, ", ".join(missing))
         logger.info("Available circuits: %s", list(self.available_circuits.keys()))
         self.enabled = len(self.available_circuits) > 0
+        if not self.enabled:
+            # Losing every circuit is a deployment fault, not a normal degraded mode:
+            # callers get None from every generate_*_proof and receipts go unproven.
+            logger.error(
+                "ZK proving is DISABLED: no circuit has a complete set of files under %s. "
+                "Proving keys (*.zkey) and witness calculators (*.wasm) must be present in the "
+                "deployment; check they are tracked in git and not excluded by .gitignore.",
+                self.circuits_dir,
+            )
 
     async def generate_receipt_proof(
         self, receipt: Receipt, job_result: JobResult, privacy_level: str = "basic"
