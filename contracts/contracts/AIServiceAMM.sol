@@ -873,17 +873,8 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
      * @param token Token address to withdraw
      * @param amount Amount to withdraw
      */
-    function executeEmergencyWithdraw(address token, uint256 amount) external onlyOwner {
-        bytes32 operationHash = keccak256(abi.encodePacked("emergencyWithdraw", token, amount, msg.sender, block.timestamp - emergencyWithdrawTimelock));
-
-        // Try to find the operation hash by checking all possible timestamps within the timelock window
-        for (uint256 i = 0; i <= emergencyWithdrawTimelock; i++) {
-            bytes32 testHash = keccak256(abi.encodePacked("emergencyWithdraw", token, amount, msg.sender, block.timestamp - i));
-            if (emergencyWithdrawScheduled[testHash]) {
-                operationHash = testHash;
-                break;
-            }
-        }
+    function executeEmergencyWithdraw(address token, uint256 amount, uint256 scheduleTime) external onlyOwner {
+        bytes32 operationHash = keccak256(abi.encodePacked("emergencyWithdraw", token, amount, msg.sender, scheduleTime));
 
         require(emergencyWithdrawScheduled[operationHash], "Operation not scheduled");
         require(block.timestamp >= emergencyWithdrawTimestamps[operationHash], "Timelock not elapsed");
