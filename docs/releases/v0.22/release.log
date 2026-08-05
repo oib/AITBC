@@ -2,6 +2,7 @@
 
 Baseline: v0.21.0 (747046277)
 Tag: **v0.22.0** = `a5d84956f`
+Current verification: `main` = `8c63051cc` (11 commits after the tag)
 Type: pre-release codebase audit — bugs, issues, gaps, suggestions
 Audit date: 2026-08-04 · Status last updated: 2026-08-05
 Scope: full monorepo — `aitbc/`, `apps/` (21 services), `cli/`, `packages/`, `contracts/`, `scripts/`, `tests/`, `docs/`
@@ -45,52 +46,114 @@ predates the check:
 **Zero findings were fabricated.** Verifying a finding requires checking the code as it
 stood when the finding was written, or reading the history — not only the current tree.
 
-### Closed
+### Closed on current `main`
 
-Remediated on `main` and verified present in the tagged code:
+Verified at `3f0582e1f` (AITBC-88) plus the follow-up changes on this branch. The
+`v0.22.0` tag remains at `a5d84956f`; fixes labelled **post-tag** below are therefore not
+present in the tagged artifact.
+
+**Present in the `v0.22.0` tag:**
 
 - **Auth fail-open** (theme 1) — exchange, pool-hub, wallet, trading, and the
   `security_matrix` default-DENY, via AITBC-72.
 - **pool-hub runtime breakage** (theme 2) — commit-after-flush and the async/await
   migration, via AITBC-72.
-- **Decimal-for-money** (theme 3) — coordinator-api, trading, exchange, oracles,
-  Ethereum RPC, staking, plus a `no-float-money` lint guard, via AITBC-74/76.
+- **Selected Decimal-for-money paths** — coordinator-api, trading, exchange, oracles,
+  Ethereum RPC, staking, plus an allowlist-based `no-float-money` guard, via AITBC-74/76.
 - **Contracts** — SC-01, SC-02, SC-03, SC-04, via AITBC-72/74.
+
+**Post-tag on current `main`:**
+
 - **CORE-01, CORE-14, CORE-17, CORE-23, CORE-24** — redis import, production CSP
   `unsafe-eval`, multisig signer casing, fail-open proof defaults, and the fabricated
   agent-bridge compliance pass, via AITBC-87.
 - **ZK proving keys** — restored after `a5d84956f` untracked every `*.zkey`/`*.wasm`
   and silently disabled `ZKProofService`, via AITBC-87.
+- **APP-X1, APP-47, APP-X2, APP-08, CLI-01, OPS-05, TEST-01** — all tuple
+  `({"error": ...}, status)` response sites in `apps/` converted to `JSONResponse`
+  via AITBC-88; api-gateway rate limiter is now applied to the catch-all proxy route;
+  per-row datetime defaults, staking lock-period arithmetic, real CLI wallet key material,
+  stdin-based secret rotation, and wallet tests.
+
+### Partially remediated
+
+- **Decimal-for-money theme** — the paths named above are fixed and the lint guard passes,
+  but the guard covers a fixed file allowlist rather than the whole repo. CORE-21 still has
+  float defaults (`0.1`, `0.001`) in a blockchain trade-submission path, so the systemic
+  theme is not closed.
+- **pool-hub runtime breakage** — APP-24/25/29b/29c and the repository/router `await`
+  migration are fixed, but APP-26 (`sla_collector.py` still uses sync `self.db.execute`/
+  `commit` without `await` on an AsyncSession), APP-27 (`billing_integration.py` uses a
+  sync `with self.db.begin()` context manager on an AsyncSession), and APP-28
+  (`_compose_explain` reads from the `fastapi.status` module import instead of the
+  `miner_status` parameter) remain open.
+- **SC-07 / SC-13** — SafeERC20 adoption and proposal-creation stake enforcement remain
+  incomplete.
+- **OPS-13 / OPS-19, CLI-04 / CLI-12** — documentation/safety and duplicate-tree/address
+  cleanup are only partial.
 
 ### Open
 
-Confirmed still present on `main` at the time of writing:
+Confirmed still present on current `main`:
 
-| ID | Finding | Evidence |
+| ID / area | Finding | Evidence |
 |---|---|---|
-| APP-X1 | Tuple error responses serialize as HTTP 200 | 41 `return ({"error": ...}, code)` sites in marketplace/governance/gpu |
-| APP-X2 | Frozen `datetime.now()` column defaults | 11 in `poolhub/models.py`, 3 in `persistent_spending_tracker.py` |
-| APP-47 | api-gateway rate limiter never invoked | 0 call sites for `rate_limit()` |
+| APP-48 | api-gateway routing issues | Prefix boundary, unknown-route fallback, non-idempotent POST retries |
 | APP-62 | ai-engine generates trading signals with `np.random` | 12 uses in `ai_service.py` |
-| APP-44 | gpu `poll_jobs`/`submit_job_result` are no-ops returning `"ok"` | — |
-| APP-08 | `/rpc/staking/stake` raises ValueError on most days | fix pending in PR #85 |
-| CLI-01 | CLI writes fabricated private keys, marked encrypted | fix pending in PR #85 |
-| OPS-05 | Secret-rotation scripts take the secret via argv | fix pending in PR #85 |
-| TEST-01 | `apps/wallet` has zero tests | fix pending in PR #85 |
+| APP-44 | gpu `poll_jobs`/`submit_job_result` are no-ops returning success | `main.py:645-671` |
+| CORE | CORE-02/04/08/09/10/11/12/13/15/16/18/19/20/21/22/25/26/28/29 | Reverified against current source; CORE-16/18 are partial but not closed |
+| Contracts | SC-05/06/08/09/10/11/12/14 | Unbounded loops, no-op upgrades, unsafe deployment paths, and compiled stub remain |
+| Ops | OPS-03/04/06/07/08/09/10/12/14/15/16/17/18 | Migration, destructive rollback, secret handling, supply-chain, and maintenance findings remain |
+| CLI | CLI-02/03/05/06/07/08/09/10/13 | Placeholder results, in-memory/plaintext state, TOCTOU, and stub/alias findings remain |
+| Packages | PKG-01 through PKG-14 | No package source changed between the audit baseline and this verification |
+| Tests/docs | TEST-02 through TEST-08; DOC-02 through DOC-07 | Original gaps remain; DOC-01 and TEST-01 are closed |
 
-PR #85 (`AITBC-70-v022-audit-fixes`) carries the last four and needs a rebase onto
-`a5d84956f`.
+Other application findings not listed above remain **unassessed**. Do not read absence from
+this ledger as either fixed or open.
 
-Everything else in this log is **unassessed** — neither confirmed fixed nor confirmed
-open. Do not read absence from the two lists above as either.
+Verification commands (run on this branch at `3f0582e1f` plus the follow-up edits):
+
+- 87 core/TEE/bridge/CLI tests passed.
+- 32 blockchain staking tests passed.
+- 25 wallet tests passed.
+- `tests/unit`: 1,178 passed, 0 failed.
+- `apps/api-gateway/tests`: 18 passed, 0 failed (rate limiting now enforced).
+- All `return ({"error": ...}, status)` tuple response sites across `apps/` were
+  converted to `JSONResponse`; a repo-wide grep confirms zero remaining instances.
+- Documentation checker validated 3,079 internal links (72 boilerplate-owned links skipped).
+- `scripts/lint/no_float_money.py` passed for its configured allowlist.
+- `ruff check aitbc/ apps/ cli/ packages/py/ examples/` and `mypy aitbc/` both passed.
+
+---
+
+## Re-verification summary (2026-08-05)
+
+The ledger above was spot-checked against this branch (post `3f0582e1f`). In addition to
+the post-tag fixes already listed, the following broad themes were confirmed still open or
+partial:
+
+| Area | Confirmed fixed | Confirmed open/partial | Notes |
+|---|---|---|---|
+| Shared core (`aitbc/`) | CORE-01, CORE-03, CORE-05, CORE-06, CORE-07, CORE-14, CORE-17, CORE-21, CORE-23, CORE-24, CORE-27 | CORE-02, CORE-04, CORE-08, CORE-09, CORE-10, CORE-11, CORE-12, CORE-13, CORE-15, CORE-16 (partial), CORE-18 (partial), CORE-19, CORE-20, CORE-22, CORE-25, CORE-26, CORE-28, CORE-29 | CORE-16/18 improved but not closed. |
+| Applications | APP-01, APP-08, APP-17, APP-24, APP-25, APP-29c, APP-30, APP-31, APP-47, APP-50, APP-55, APP-57, APP-59, APP-X1, APP-X2 | APP-X3 (partial), APP-X4, APP-26, APP-27, APP-28, APP-29, APP-29b (partial), APP-32–APP-53, APP-60, APP-61 (partial), APP-62–APP-71 | APP-X1 now closed: all tuple response sites in `apps/` converted to `JSONResponse`. APP-47 now closed: rate-limit decorator applied to catch-all proxy. Many stubs, float money, missing auth, and no-op endpoints remain. |
+| Smart contracts | SC-01, SC-02, SC-03, SC-04 | SC-05–SC-14 (with SC-07/13 partial) | Unbounded loops, no-op upgrades, unsafe deployment scripts, missing validations. |
+| Ops/Scripts | OPS-01, OPS-02, OPS-05 | OPS-03, OPS-04, OPS-06–OPS-18 (with OPS-13/19 partial) | Destructive rollback, secret handling, supply-chain install, maintenance scripts remain. |
+| CLI | CLI-01, CLI-12 (partial) | CLI-02–CLI-13 (with CLI-04 partial) | Placeholder results, in-memory state, TOCTOU, stub groups remain. |
+| Packages | — | PKG-01–PKG-14 | No package source changed between the audit baseline and this verification. |
+| Tests/Docs | TEST-01, DOC-01 | TEST-02–TEST-08, DOC-02–DOC-07 | Stale status docs, skipped suites, duplicate doc trees remain. |
+
+This means **v0.22.0 is still not ship-ready**, and even this branch (post `3f0582e1f`)
+leaves the majority of the ~176 actionable findings either open, partial, or unassessed.
 
 ---
 
 ## Method
 
-Six parallel read-only audits covering every subdirectory of the repo. No files were
-modified. Findings below are from direct source reads with file:line references;
-one finding (CORE-05) was reproduced by executing the failing call.
+Six parallel read-only audits covered every subdirectory of the repo. During this pass
+source files were modified only to close verified findings (e.g. AITBC-88 for tuple
+responses and APP-47 for the api-gateway rate limiter). Findings below are from direct
+source reads with file:line references; one finding (CORE-05) was reproduced by executing
+the failing call.
 
 Total: ~290 findings. This log lists the actionable set, grouped by area and ordered
 by severity within each. Findings are ID-tagged for ticket creation.
