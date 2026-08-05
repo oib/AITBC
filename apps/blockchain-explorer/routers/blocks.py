@@ -1,8 +1,9 @@
 """Block routes — latest blocks, non-empty blocks, block by hash, block by address, block by height."""
 
-from contextlib import closing
+from pathlib import Path
 from typing import Any
 
+import aiosqlite
 import httpx
 from fastapi import APIRouter
 
@@ -43,9 +44,6 @@ async def api_non_empty_blocks(
 ) -> dict[str, Any]:
     """API endpoint for non-empty blocks (blocks with transactions)"""
     try:
-        import sqlite3
-        from pathlib import Path
-
         chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
@@ -53,16 +51,17 @@ async def api_non_empty_blocks(
         if not chain_db_path.exists():
             return {"blocks": []}
 
-        with closing(sqlite3.connect(str(chain_db_path))) as conn:
-            cursor = conn.cursor()
+        async with aiosqlite.connect(str(chain_db_path)) as conn:
+            cursor = await conn.cursor()
 
             # Get current chain height
-            cursor.execute("SELECT MAX(height) FROM block")
-            max_height = cursor.fetchone()[0] or 0
+            await cursor.execute("SELECT MAX(height) FROM block")
+            row = await cursor.fetchone()
+            max_height = row[0] if row and row[0] is not None else 0
 
             # Find non-empty blocks by searching backwards from tip
             # Join with transaction table to find blocks that have transactions
-            cursor.execute(
+            await cursor.execute(
                 """
                 SELECT DISTINCT b.height, b.hash, b.proposer, b.timestamp, b.tx_count, b.state_root
                 FROM block b
@@ -75,11 +74,12 @@ async def api_non_empty_blocks(
             )
 
             blocks = []
-            for row in cursor.fetchall():
+            rows = await cursor.fetchall()
+            for row in rows:
                 height, block_hash, proposer, timestamp, tx_count, state_root = row
 
                 # Get transactions for this block
-                cursor.execute(
+                await cursor.execute(
                     """
                     SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
                     FROM "transaction"
@@ -90,7 +90,8 @@ async def api_non_empty_blocks(
                 )
 
                 transactions = []
-                for tx_row in cursor.fetchall():
+                tx_rows = await cursor.fetchall()
+                for tx_row in tx_rows:
                     tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row
                     transactions.append(
                         {
@@ -134,19 +135,16 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
         # First try blockchain database for direct lookup
-        import sqlite3
-        from pathlib import Path
-
         chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
         if chain_db_path.exists():
-            with closing(sqlite3.connect(str(chain_db_path))) as conn:
-                cursor = conn.cursor()
+            async with aiosqlite.connect(str(chain_db_path)) as conn:
+                cursor = await conn.cursor()
 
                 # Search for block by hash (case-insensitive, with or without 0x prefix)
-                cursor.execute(
+                await cursor.execute(
                     """
                     SELECT height, hash, proposer, timestamp, tx_count, state_root
                     FROM block
@@ -155,13 +153,13 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
                     (clean_hash.lower(),),
                 )
 
-                result = cursor.fetchone()
+                result = await cursor.fetchone()
 
                 if result:
                     height, block_hash, proposer, timestamp, tx_count, state_root = result
 
                     # Get transactions for this block
-                    cursor.execute(
+                    await cursor.execute(
                         """
                         SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
                         FROM "transaction"
@@ -172,7 +170,8 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
                     )
 
                     transactions = []
-                    for row in cursor.fetchall():
+                    rows = await cursor.fetchall()
+                    for row in rows:
                         tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = row
                         transactions.append(
                             {
@@ -245,9 +244,6 @@ async def api_blocks_by_address(
 ) -> dict[str, Any]:
     """Get all blocks that contain transactions referencing a given address"""
     try:
-        import sqlite3
-        from pathlib import Path
-
         chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
@@ -255,11 +251,11 @@ async def api_blocks_by_address(
         if not chain_db_path.exists():
             return {"blocks": []}
 
-        with closing(sqlite3.connect(str(chain_db_path))) as conn:
-            cursor = conn.cursor()
+        async with aiosqlite.connect(str(chain_db_path)) as conn:
+            cursor = await conn.cursor()
 
             search_term = like_pattern(address)
-            cursor.execute(
+            await cursor.execute(
                 """
                 SELECT DISTINCT b.height, b.hash, b.proposer, b.timestamp, b.tx_count, b.state_root
                 FROM block b
@@ -274,7 +270,8 @@ async def api_blocks_by_address(
             )
 
             blocks = []
-            for row in cursor.fetchall():
+            rows = await cursor.fetchall()
+            for row in rows:
                 height, block_hash, proposer, timestamp, tx_count, state_root = row
                 blocks.append(
                     {
@@ -300,19 +297,16 @@ async def api_block(height: int, chain_id: str | None = DEFAULT_CHAIN) -> dict[s
 
     # Add transactions for this block
     try:
-        import sqlite3
-        from pathlib import Path
-
         chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
         if chain_db_path.exists():
-            with closing(sqlite3.connect(str(chain_db_path))) as conn:
-                cursor = conn.cursor()
+            async with aiosqlite.connect(str(chain_db_path)) as conn:
+                cursor = await conn.cursor()
 
                 # Get transactions for this block
-                cursor.execute(
+                await cursor.execute(
                     """
                     SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
                     FROM "transaction"
@@ -323,7 +317,8 @@ async def api_block(height: int, chain_id: str | None = DEFAULT_CHAIN) -> dict[s
                 )
 
                 transactions = []
-                for row in cursor.fetchall():
+                rows = await cursor.fetchall()
+                for row in rows:
                     tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = row
                     transactions.append(
                         {

@@ -2,6 +2,9 @@
 
 import os
 import urllib.parse
+from decimal import Decimal
+
+from aitbc.utils.decimal import to_decimal as _to_decimal
 
 
 class BridgeMixin:
@@ -75,16 +78,23 @@ class BridgeMixin:
             from aitbc.oracles.price_oracle import get_price_oracle
 
             body = self._read_json_body()  # type: ignore[attr-defined]
-            eth_amount = float(body.get("eth_amount", 0))
+            try:
+                eth_amount = _to_decimal(body.get("eth_amount", 0))
+            except Exception:
+                self.send_json_response({"error": "eth_amount must be a valid number"}, status=400)  # type: ignore[attr-defined]
+                return
             ait_address = body.get("ait_address", "")
 
-            if not eth_amount or not ait_address:
+            if eth_amount <= 0 or not ait_address:
                 self.send_json_response({"error": "eth_amount and ait_address required"}, status=400)  # type: ignore[attr-defined]
                 return
 
             # Get bridge configuration
             bridge_eth_address = os.getenv("BRIDGE_ETH_ADDRESS")
-            min_eth_deposit = float(os.getenv("MIN_ETH_DEPOSIT", "0.001"))
+            try:
+                min_eth_deposit = _to_decimal(os.getenv("MIN_ETH_DEPOSIT", "0.001"))
+            except Exception:
+                min_eth_deposit = Decimal("0.001")
             eth_network = os.getenv("ETH_NETWORK", "sepolia")
 
             if not bridge_eth_address:
@@ -94,7 +104,7 @@ class BridgeMixin:
             # Validate minimum deposit
             if eth_amount < min_eth_deposit:
                 self.send_json_response(  # type: ignore[attr-defined]
-                    {"error": f"Minimum deposit is {min_eth_deposit} ETH", "min_deposit": min_eth_deposit}, status=400
+                    {"error": f"Minimum deposit is {min_eth_deposit} ETH", "min_deposit": str(min_eth_deposit)}, status=400
                 )
                 return
 
@@ -109,7 +119,7 @@ class BridgeMixin:
                 ait_amount = (eth_amount * eth_usd.price) / ait_usd.price
 
             # Calculate fee (0.5%)
-            fee_eth = eth_amount * 0.005
+            fee_eth = eth_amount * Decimal("0.005")
             net_eth = eth_amount - fee_eth
 
             # Hex-encode the AIT address as UTF-8 for the tx data field
@@ -123,18 +133,18 @@ class BridgeMixin:
                     "instructions": {
                         "send_eth_to": bridge_eth_address,
                         "network": eth_network,
-                        "amount_eth": eth_amount,
+                        "amount_eth": str(eth_amount),
                         "transaction_data": ait_address,
                         "transaction_data_hex": transaction_data_hex,
-                        "min_deposit": min_eth_deposit,
+                        "min_deposit": str(min_eth_deposit),
                     },
                     "estimate": {
-                        "eth_amount": eth_amount,
-                        "fee_eth": round(fee_eth, 8),
-                        "net_eth": round(net_eth, 8),
-                        "estimated_ait_amount": round(ait_amount, 6) if ait_amount else None,
-                        "eth_usd_price": eth_usd.price if eth_usd else None,
-                        "ait_usd_price": ait_usd.price if ait_usd else None,
+                        "eth_amount": str(eth_amount),
+                        "fee_eth": str(round(fee_eth, 8)),
+                        "net_eth": str(round(net_eth, 8)),
+                        "estimated_ait_amount": str(round(ait_amount, 6)) if ait_amount else None,
+                        "eth_usd_price": str(eth_usd.price) if eth_usd else None,
+                        "ait_usd_price": str(ait_usd.price) if ait_usd else None,
                         "ait_recipient": ait_address,
                     },
                 },
@@ -153,10 +163,14 @@ class BridgeMixin:
             sys.path.insert(0, "/opt/aitbc")
 
             body = self._read_json_body()  # type: ignore[attr-defined]
-            ait_amount = float(body.get("ait_amount", 0))
+            try:
+                ait_amount = _to_decimal(body.get("ait_amount", 0))
+            except Exception:
+                self.send_json_response({"error": "ait_amount must be a valid number"}, status=400)  # type: ignore[attr-defined]
+                return
             eth_address = body.get("eth_address", "")
 
-            if not ait_amount or not eth_address:
+            if ait_amount <= 0 or not eth_address:
                 self.send_json_response({"error": "ait_amount and eth_address required"}, status=400)  # type: ignore[attr-defined]
                 return
 
@@ -243,7 +257,11 @@ class BridgeMixin:
             return
         try:
             body = self._read_json_body()  # type: ignore[attr-defined]
-            eth_amount = float(body.get("eth_amount", 0))
+            try:
+                eth_amount = _to_decimal(body.get("eth_amount", 0))
+            except Exception:
+                self.send_json_response({"error": "eth_amount must be a valid number"}, status=400)  # type: ignore[attr-defined]
+                return
 
             if eth_amount <= 0:
                 self.send_json_response({"error": "eth_amount must be positive"}, status=400)  # type: ignore[attr-defined]
@@ -265,7 +283,7 @@ class BridgeMixin:
             eth_usd = eth_usd_result.price
             ait_usd = ait_usd_result.price
 
-            if ait_usd == 0:
+            if ait_usd <= 0:
                 self.send_json_response({"error": "AIT/USD price is zero"}, status=503)  # type: ignore[attr-defined]
                 return
 
@@ -273,11 +291,11 @@ class BridgeMixin:
 
             self.send_json_response(  # type: ignore[attr-defined]
                 {
-                    "eth_amount": eth_amount,
-                    "eth_usd_price": eth_usd,
-                    "ait_usd_price": ait_usd,
-                    "ait_amount": round(ait_amount, 6),
-                    "exchange_rate": round(ait_amount / eth_amount, 2),
+                    "eth_amount": str(eth_amount),
+                    "eth_usd_price": str(eth_usd),
+                    "ait_usd_price": str(ait_usd),
+                    "ait_amount": str(round(ait_amount, 6)),
+                    "exchange_rate": str(round(ait_amount / eth_amount, 2)),
                 }
             )
         except Exception as e:
