@@ -45,7 +45,7 @@ contract ContractRegistry is IContractRegistry, Ownable, ReentrancyGuard, Pausab
     }
 
     modifier onlyAuthorized() {
-        if (msg.sender != owner() && !isContract(msg.sender)) revert NotAuthorized();
+        if (msg.sender != owner()) revert NotAuthorized();
         _;
     }
 
