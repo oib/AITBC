@@ -4,6 +4,7 @@ Security validators for input validation and sanitization
 
 import html
 import re
+from decimal import Decimal
 from typing import Any
 
 
@@ -245,7 +246,7 @@ class SecurityValidator:
             return False
 
     @staticmethod
-    def validate_amount(amount: str | int | float) -> bool:
+    def validate_amount(amount: str | int | float | Decimal) -> bool:
         """
         Validate transaction amount (positive numbers only)
 
@@ -256,7 +257,7 @@ class SecurityValidator:
             True if valid, False otherwise
         """
         try:
-            amount_float = float(amount)
-            return amount_float >= 0
-        except (ValueError, TypeError):
+            amount_dec = Decimal(str(amount))
+            return amount_dec >= 0
+        except (ValueError, TypeError, ArithmeticError):
             return False
