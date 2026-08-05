@@ -1,9 +1,88 @@
 # v0.22 Release Log
 
-Baseline: v0.21.0 (747046277, branch `main`)
+Baseline: v0.21.0 (747046277)
+Tag: **v0.22.0** = `a5d84956f`
 Type: pre-release codebase audit — bugs, issues, gaps, suggestions
-Date: 2026-08-04
+Audit date: 2026-08-04 · Status last updated: 2026-08-05
 Scope: full monorepo — `aitbc/`, `apps/` (21 services), `cli/`, `packages/`, `contracts/`, `scripts/`, `tests/`, `docs/`
+
+---
+
+## Status: audit NOT closed
+
+v0.22.0 is tagged, but the audit below is only partly remediated. This section is the
+ledger; the findings themselves follow unchanged from the original audit.
+
+### Correction: the 2026-08-05 "verification" pass was wrong
+
+An earlier revision of this file claimed 15 of the highest-severity findings were
+**fabricated** — that they cited code which did not exist. That claim was false and has
+been withdrawn.
+
+The verification ran at ~15:00 on 2026-08-05 against a working tree that already
+contained the AITBC-72/74/76 remediation landed between 2026-08-04 23:45 and
+2026-08-05 12:14. It read the *fixed* code, found the defect absent, and concluded the
+finding had been invented. Every one of the 15 has a matching remediation commit that
+predates the check:
+
+| Finding | Declared "fabricated" | Actually fixed by |
+|---|---|---|
+| SC-01 `ContractRegistry.onlyAuthorized` | ✗ wrong | `restrict ContractRegistry onlyAuthorized to owner` 08-05 09:22 |
+| SC-02 unguarded `initialize()` | ✗ wrong | `guard initialize functions with onlyOwner` 08-05 09:52 |
+| SC-03/SC-04 emergency withdraw, DAO quorum | ✗ wrong | `add DAO quorum and use stored emergency-withdraw hash` 08-05 10:33 |
+| APP-01 payment IDOR | ✗ wrong | `enforce client ownership on all payment endpoints` 08-05 10:15 |
+| APP-17 wallet endpoints unauthenticated | ✗ wrong | `require admin API key on fund-moving endpoints` 08-05 10:03 |
+| APP-24 pool-hub never commits | ✗ wrong | `commit after flush in repositories` 08-05 09:21 |
+| APP-25/26 pool-hub missing `await` | ✗ wrong | `await AsyncSession operations` 08-05 09:56 / 10:01 |
+| APP-30 `decrypt_message` returns plaintext | ✗ wrong | `do not return plaintext when message signature fails` 08-05 00:17 |
+| APP-31 AI approval substring match | ✗ wrong | `require explicit APPROVE prefix` 08-05 00:17 |
+| APP-50 exchange auth fails open | ✗ wrong | `fail-closed API key and guard marketplace mutations` 08-05 00:15 |
+| APP-59 trading migration no-op | ✗ wrong | `use real snake_case table names` 08-05 10:40 |
+| CORE-05/CORE-06 QueuePool, closed cursor | ✗ wrong | `use AsyncAdaptedQueuePool and return open cursor` 08-04 23:45 |
+| OPS-01 secret scanner blind to `contracts/` | ✗ wrong | `scan contracts, workflow, multi-node for secrets` 08-05 00:20 |
+| OPS-02 migration reports false success | ✗ wrong | `abort migration when state root cannot be recalculated` 08-05 10:02 |
+
+**Zero findings were fabricated.** Verifying a finding requires checking the code as it
+stood when the finding was written, or reading the history — not only the current tree.
+
+### Closed
+
+Remediated on `main` and verified present in the tagged code:
+
+- **Auth fail-open** (theme 1) — exchange, pool-hub, wallet, trading, and the
+  `security_matrix` default-DENY, via AITBC-72.
+- **pool-hub runtime breakage** (theme 2) — commit-after-flush and the async/await
+  migration, via AITBC-72.
+- **Decimal-for-money** (theme 3) — coordinator-api, trading, exchange, oracles,
+  Ethereum RPC, staking, plus a `no-float-money` lint guard, via AITBC-74/76.
+- **Contracts** — SC-01, SC-02, SC-03, SC-04, via AITBC-72/74.
+- **CORE-01, CORE-14, CORE-17, CORE-23, CORE-24** — redis import, production CSP
+  `unsafe-eval`, multisig signer casing, fail-open proof defaults, and the fabricated
+  agent-bridge compliance pass, via AITBC-87.
+- **ZK proving keys** — restored after `a5d84956f` untracked every `*.zkey`/`*.wasm`
+  and silently disabled `ZKProofService`, via AITBC-87.
+
+### Open
+
+Confirmed still present on `main` at the time of writing:
+
+| ID | Finding | Evidence |
+|---|---|---|
+| APP-X1 | Tuple error responses serialize as HTTP 200 | 41 `return ({"error": ...}, code)` sites in marketplace/governance/gpu |
+| APP-X2 | Frozen `datetime.now()` column defaults | 11 in `poolhub/models.py`, 3 in `persistent_spending_tracker.py` |
+| APP-47 | api-gateway rate limiter never invoked | 0 call sites for `rate_limit()` |
+| APP-62 | ai-engine generates trading signals with `np.random` | 12 uses in `ai_service.py` |
+| APP-44 | gpu `poll_jobs`/`submit_job_result` are no-ops returning `"ok"` | — |
+| APP-08 | `/rpc/staking/stake` raises ValueError on most days | fix pending in PR #85 |
+| CLI-01 | CLI writes fabricated private keys, marked encrypted | fix pending in PR #85 |
+| OPS-05 | Secret-rotation scripts take the secret via argv | fix pending in PR #85 |
+| TEST-01 | `apps/wallet` has zero tests | fix pending in PR #85 |
+
+PR #85 (`AITBC-70-v022-audit-fixes`) carries the last four and needs a rebase onto
+`a5d84956f`.
+
+Everything else in this log is **unassessed** — neither confirmed fixed nor confirmed
+open. Do not read absence from the two lists above as either.
 
 ---
 
