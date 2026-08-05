@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+from decimal import Decimal
 from typing import Any
 
 from aitbc.blockchain.rpc_client import BlockchainClient as BaseBlockchainClient
@@ -41,7 +42,7 @@ class BlockchainClient(BaseBlockchainClient):
     signing (secp256k1) and voting power queries.
     """
 
-    async def get_voting_power(self, address: str, chain_id: str | None = None) -> float:
+    async def get_voting_power(self, address: str, chain_id: str | None = None) -> Decimal:
         """Get on-chain voting power (balance) for an address.
 
         This is the on-chain balance snapshot used for vote weight.

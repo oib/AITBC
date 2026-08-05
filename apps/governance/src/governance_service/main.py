@@ -5,6 +5,7 @@ Manages governance operations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI
@@ -254,10 +255,14 @@ async def submit_transaction(
             executor_address = transaction_data.get("executor_address", "")
             if not proposal_id:
                 return JSONResponse(status_code=400, content={"error": "proposal_id is required for execute"})
-            proposal = await svc.execute_proposal(proposal_id, executor_address)
-            if proposal is None:
+            executed_proposal = await svc.execute_proposal(proposal_id, executor_address)
+            if executed_proposal is None:
                 return JSONResponse(status_code=404, content={"error": "Proposal not found"})
-            return {"status": "success", "transaction_id": proposal.proposal_id, "tx_hash": proposal.execution_tx_hash}
+            return {
+                "status": "success",
+                "transaction_id": executed_proposal.proposal_id,
+                "tx_hash": executed_proposal.execution_tx_hash,
+            }
         return JSONResponse(
             status_code=400,
             content={"error": f"Invalid action: {action}. Only 'propose', 'vote', and 'execute' are supported"},
@@ -324,7 +329,10 @@ async def get_transactions(
 
 @app.post("/v1/governance/stake")
 async def stake_tokens(
-    staker_address: str, amount: int, lock_period_days: int, svc: Annotated[GovernanceService, Depends(get_governance_service)]
+    staker_address: str,
+    amount: Decimal,
+    lock_period_days: int,
+    svc: Annotated[GovernanceService, Depends(get_governance_service)],
 ):
     """Stake tokens for enhanced voting power"""
     try:
@@ -357,7 +365,7 @@ async def get_voting_power_v2(address: str, svc: Annotated[GovernanceService, De
 async def delegate_voting_power(
     delegator_address: str,
     delegate_address: str,
-    amount: int,
+    amount: Decimal,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
 ):
     """Delegate voting power to another address"""
