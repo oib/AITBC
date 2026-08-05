@@ -4,6 +4,7 @@ Governance service for managing governance operations
 
 import time
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -117,7 +118,7 @@ class GovernanceService:
             proposal.voting_ends = now + timedelta(
                 seconds=settings.emergency_voting_period_blocks * 2  # ~2s block time
             )
-            proposal.quorum_required = settings.emergency_quorum_percent
+            proposal.quorum_required = Decimal(str(settings.emergency_quorum_percent))
             proposal.passing_threshold = settings.emergency_approval_percent / 100.0
             # Store emergency metadata
             proposal.proposal_metadata = {
@@ -204,7 +205,7 @@ class GovernanceService:
                     proposal_id=vote.proposal_id,
                     voter=voter_address,
                     vote_type=str(vote.vote_type),
-                    voting_power=voting_power,
+                    voting_power=float(voting_power),
                     reason=vote.reason or "",
                     chain_id=vote.chain_id,
                 )
@@ -301,11 +302,11 @@ class GovernanceService:
         return int(time.time())
 
     # Token Staking Methods
-    async def stake_tokens(self, staker_address: str, amount: int, lock_period_days: int) -> TokenStake:
+    async def stake_tokens(self, staker_address: str, amount: Decimal, lock_period_days: int) -> TokenStake:
         """Stake tokens for enhanced voting power"""
         stake = TokenStake(
             staker_address=staker_address,
-            amount_staked=amount,
+            amount_staked=Decimal(str(amount)),
             lock_period_days=lock_period_days,
             unstakes_at=datetime.now(UTC) + timedelta(days=lock_period_days),
             is_active=True,
@@ -320,22 +321,27 @@ class GovernanceService:
         await self.session.commit()
         return stake
 
-    async def calculate_voting_power(self, address: str) -> int:
+    async def calculate_voting_power(self, address: str) -> Decimal:
         """Calculate total voting power for address"""
         token_record = await self._get_token_record(address)
         if not token_record:
-            return 0
+            return Decimal("0")
 
         # Formula: balance + (staked * 2)
         base_power = token_record.token_balance
         staking_bonus = token_record.staked_tokens * 2
-        return int(base_power + staking_bonus)
+        return Decimal(base_power + staking_bonus)
 
     async def _get_or_create_token_record(self, address: str) -> GovernanceToken:
         """Get or create governance token record for address"""
         token_record = await self._get_token_record(address)
         if not token_record:
-            token_record = GovernanceToken(holder_address=address, token_balance=0.0, staked_tokens=0.0, voting_power=0.0)
+            token_record = GovernanceToken(
+                holder_address=address,
+                token_balance=Decimal("0"),
+                staked_tokens=Decimal("0"),
+                voting_power=Decimal("0"),
+            )
             self.session.add(token_record)
             await self.session.commit()
             await self.session.refresh(token_record)
@@ -348,15 +354,19 @@ class GovernanceService:
         return result.scalars().first()
 
     # Delegation Methods
-    async def delegate_voting_power(self, delegator_address: str, delegate_address: str, amount: int) -> Delegation:
+    async def delegate_voting_power(self, delegator_address: str, delegate_address: str, amount: Decimal) -> Delegation:
         """Delegate voting power to another address"""
         # Verify delegator has enough power
         delegator_power = await self.calculate_voting_power(delegator_address)
-        if delegator_power < amount:
-            raise ValueError(f"Insufficient voting power: {delegator_power} < {amount}")
+        amount_dec = Decimal(str(amount))
+        if delegator_power < amount_dec:
+            raise ValueError(f"Insufficient voting power: {delegator_power} < {amount_dec}")
 
         delegation = Delegation(
-            delegator_address=delegator_address, delegate_address=delegate_address, voting_power=amount, is_active=True
+            delegator_address=delegator_address,
+            delegate_address=delegate_address,
+            voting_power=amount_dec,
+            is_active=True,
         )
         self.session.add(delegation)
         await self.session.commit()
