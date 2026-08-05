@@ -412,6 +412,7 @@ def set_secret(ctx, key: str, value: str):
 
     config_dir = Path.home() / ".config" / "aitbc"
     config_dir.mkdir(parents=True, exist_ok=True)
+    config_dir.chmod(0o700)
     secrets_file = config_dir / "secrets.json"
 
     secrets = {}
@@ -421,10 +422,16 @@ def set_secret(ctx, key: str, value: str):
 
     secrets[key] = encrypt_value(value)
 
-    with open(secrets_file, "w") as f:
+    # Create with 0600 already set rather than writing first and chmod'ing after.
+    # open(..., "w") applies the process umask (commonly 0644), so the previous order
+    # left the file group/world-readable for the duration of the write -- a window any
+    # local user could read. os.open with the mode argument closes it.
+    fd = os.open(secrets_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
         json.dump(secrets, f, indent=2)
 
-    # Restrict file permissions
+    # Re-assert for a pre-existing file: the mode argument to os.open only applies on
+    # creation, so an already-present file keeps whatever permissions it had.
     secrets_file.chmod(0o600)
 
     if ctx.obj["output"] == "table":
