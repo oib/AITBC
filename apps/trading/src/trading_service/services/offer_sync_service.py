@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -96,7 +97,7 @@ class OfferSyncService:
                     chain_id=chain_id,
                     provider=str(offer_data.get("provider", offer_data.get("owner", ""))),
                     service_type="gpu_marketplace",
-                    price=float(offer_data.get("price", 0.0)),
+                    price=Decimal(str(offer_data.get("price", 0.0))),
                     quantity=int(offer_data.get("capacity", offer_data.get("quantity", 1))),
                     status=str(offer_data.get("status", "available")),
                     attributes={

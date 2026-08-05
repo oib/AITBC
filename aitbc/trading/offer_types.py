@@ -15,6 +15,7 @@ lifecycle states (AVAILABLE, RESERVED, IN_USE, DELISTED, EXPIRED).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -94,7 +95,7 @@ class SyncedOffer:
     chain_id: str
     provider: str
     service_type: str  # "gpu_marketplace", "compute", etc.
-    price: float
+    price: Decimal
     quantity: int
     status: str  # OfferFSM status: available, reserved, in_use, delisted, expired
     attributes: dict[str, Any] = field(default_factory=dict)
@@ -109,7 +110,7 @@ class SyncedOffer:
             "chain_id": self.chain_id,
             "provider": self.provider,
             "service_type": self.service_type,
-            "price": self.price,
+            "price": str(self.price),
             "quantity": self.quantity,
             "status": self.status,
             "attributes": self.attributes,
@@ -126,7 +127,7 @@ class SyncedOffer:
             chain_id=data.get("chain_id", ""),
             provider=data.get("provider", ""),
             service_type=data.get("service_type", ""),
-            price=float(data.get("price", 0.0)),
+            price=Decimal(str(data.get("price", 0.0))),
             quantity=int(data.get("quantity", 0)),
             status=data.get("status", "available"),
             attributes=data.get("attributes", {}),
@@ -148,8 +149,8 @@ class OfferDiscoveryRequest:
     source_chain: str | None = None
     dest_chain: str | None = None
     service_type: str | None = None
-    min_price: float | None = None
-    max_price: float | None = None
+    min_price: Decimal | None = None
+    max_price: Decimal | None = None
     region: str | None = None
     gpu_model: str | None = None
     limit: int = 100
@@ -165,9 +166,9 @@ class OfferDiscoveryRequest:
         if self.service_type:
             params["service_type"] = self.service_type
         if self.min_price is not None:
-            params["min_price"] = self.min_price
+            params["min_price"] = str(self.min_price)
         if self.max_price is not None:
-            params["max_price"] = self.max_price
+            params["max_price"] = str(self.max_price)
         if self.region:
             params["region"] = self.region
         if self.gpu_model:
