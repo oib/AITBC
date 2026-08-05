@@ -74,29 +74,34 @@ present in the tagged artifact.
   via AITBC-88; api-gateway rate limiter is now applied to the catch-all proxy route;
   per-row datetime defaults, staking lock-period arithmetic, real CLI wallet key material,
   stdin-based secret rotation, and wallet tests.
-- **APP-26, APP-27, APP-34, APP-36, APP-37, APP-38, APP-44, APP-47, APP-48, APP-49,
-  APP-51, APP-52, APP-53, APP-56, APP-61, APP-62, APP-63, APP-65, APP-66, APP-67, APP-68,
-  APP-69, APP-70, APP-71, APP-X3** — consensus no longer simulates random votes at
-  proposal creation, so real ``cast_vote`` calls determine outcomes; governance
-  voting-power endpoint is no longer shadowed by a hardcoded duplicate and returns
-  service-calculated power; ``/v1/transactions`` routes ``propose``/``vote``/``execute``
-  through ``GovernanceService`` so on-chain GOVERNANCE_* transactions are built and
-  signed; votes overwrite client-supplied ``voting_power_used`` with the on-chain balance
-  snapshot; pool-hub SLA/billing services `await` async SQLAlchemy calls and use proper
-  async transactions; GPU no-op job endpoints return 501 instead of fake success; the
-  api-gateway rate-limiter enforces `API_GATEWAY_RATE_LIMIT` on the catch-all proxy and
-  no longer routes non-existent paths to the coordinator; exchange order positivity/
-  validation and unique nonce; bridge deposit/estimate/withdraw use `Decimal` for money
-  amounts; marketplace deletes require wallet ownership; trading analytics use real
-  agreement volume; exchange-compat auth on the three unauthenticated endpoints; AI engine
-  simulation is opt-in, labelled, and `/api/ai/trade` is authenticated; miner `MINER_ID`
-  split from the auth token; memory service salted PBKDF2 key derivation;
-  blockchain-explorer moves SQLite calls to `aiosqlite`, escapes LIKE wildcards, sanitizes
-  CSV exports, and closes DB/HTTP clients; bridge-monitor storage closes connections
-  reliably; edge clients and bridge handlers close on shutdown; wallet and trading API-key
-  auth now share `aitbc.auth.APIKeyAuthenticator`; committed artifacts purged; missing
-  tests added for miner reinvestment, edge clients, and `aitbc-agent-core` branding;
-  `apps/zk-circuits` gets a `.gitignore` for generated build artifacts.
+- **APP-26, APP-27, APP-29, APP-34, APP-36, APP-37, APP-38, APP-43, APP-44, APP-45,
+  APP-46, APP-47, APP-48, APP-49, APP-51, APP-52, APP-53, APP-56, APP-61, APP-62, APP-63,
+  APP-65, APP-66, APP-67, APP-68, APP-69, APP-70, APP-71, APP-X3** — pool-hub
+  `distribute_rewards` now checks and persists ``RewardPayout`` records when a DB session
+  is supplied, closing the double-payment risk across restarts/replicas; consensus no
+  longer simulates random votes at proposal creation, so real ``cast_vote`` calls
+  determine outcomes; governance voting-power endpoint is no longer shadowed by a
+  hardcoded duplicate and returns service-calculated power; ``/v1/transactions`` routes
+  ``propose``/``vote``/``execute`` through ``GovernanceService`` so on-chain GOVERNANCE_*
+  transactions are built and signed; votes overwrite client-supplied ``voting_power_used``
+  with the on-chain balance snapshot; GPU ``register_miner`` now commits status changes;
+  GPU ``get_next_queued_job`` uses ``SELECT ... FOR UPDATE`` to prevent double claims;
+  GPU state-changing endpoints now require an API key; GPU no-op job endpoints return 501
+  instead of fake success; pool-hub SLA/billing services `await` async SQLAlchemy calls
+  and use proper async transactions; the api-gateway rate-limiter enforces
+  `API_GATEWAY_RATE_LIMIT` on the catch-all proxy and no longer routes non-existent paths
+  to the coordinator; exchange order positivity/validation and unique nonce; bridge
+  deposit/estimate/withdraw use `Decimal` for money amounts; marketplace deletes require
+  wallet ownership; trading analytics use real agreement volume; exchange-compat auth on
+  the three unauthenticated endpoints; AI engine simulation is opt-in, labelled, and
+  `/api/ai/trade` is authenticated; miner `MINER_ID` split from the auth token; memory
+  service salted PBKDF2 key derivation; blockchain-explorer moves SQLite calls to
+  `aiosqlite`, escapes LIKE wildcards, sanitizes CSV exports, and closes DB/HTTP clients;
+  bridge-monitor storage closes connections reliably; edge clients and bridge handlers
+  close on shutdown; wallet and trading API-key auth now share
+  `aitbc.auth.APIKeyAuthenticator`; committed artifacts purged; missing tests added for
+  miner reinvestment, edge clients, and `aitbc-agent-core` branding; `apps/zk-circuits`
+  gets a `.gitignore` for generated build artifacts.
 
 ### Partially remediated
 
@@ -104,11 +109,10 @@ present in the tagged artifact.
   but the guard covers a fixed file allowlist rather than the whole repo. CORE-21 still has
   float defaults (`0.1`, `0.001`) in a blockchain trade-submission path, so the systemic
   theme is not closed.
-- **pool-hub runtime breakage** — APP-24/25/26/27/29b/29c and the repository/router `await`
-  migration are now fixed. APP-28 (`_compose_explain` reads from the `fastapi.status`
-  module import instead of the `miner_status` parameter) could not be located; the
-  referenced `match.py` appears to have been renamed or merged. APP-29 (`reward_payouts`
-  table not created, no inserts) remains a double-payment risk.
+- **pool-hub runtime breakage** — APP-24/25/26/27/29/29b/29c and the repository/router
+  `await` migration are now fixed. APP-28 (`_compose_explain` reads from the
+  `fastapi.status` module import instead of the `miner_status` parameter) could not be
+  located; the referenced `match.py` appears to have been renamed or merged.
 - **SC-07 / SC-13** — SafeERC20 adoption and proposal-creation stake enforcement remain
   incomplete.
 - **OPS-13 / OPS-19, CLI-04 / CLI-12** — documentation/safety and duplicate-tree/address
@@ -121,7 +125,6 @@ Confirmed still present on current `main`:
 | ID / area | Finding | Evidence |
 |---|---|---|
 | APP-28 | agent-coordinator `_compose_explain` or equivalent uses `fastapi.status` instead of status parameter | Could not locate the referenced `match.py`; likely renamed/merged |
-| APP-29 | pool-hub `reward_payouts` table never created/persisted; `distribute_rewards` uses in-process state | `models.py:214-230`, `clients/blockchain.py:142-185` |
 | APP-32 | agent-coordinator island members via `journalctl` regex | `services/island_members.py:12-49` |
 | APP-33 | agent-coordinator workflow steps sleep 0.1s and fabricate success | `workflow/orchestrator.py:313-373` |
 | APP-35 | agent-coordinator routing/load_balancer races and websocket leak | `routing/agent_discovery.py`, `load_balancer.py:429-438`, `websocket/agent_stream.py:334-356` |
@@ -129,9 +132,6 @@ Confirmed still present on current `main`:
 | APP-40 | marketplace offer stuck on submission failure | `services/matching_service.py:155-190` |
 | APP-41 | marketplace `book_offer` status not changed and `_create_bid` object not persisted | `services/marketplace_service.py:123-149` |
 | APP-42 | marketplace unauthenticated live-settings mutation | `main.py:770-823` |
-| APP-43 | gpu `register_miner` status not committed | `main.py:576-596` |
-| APP-45 | gpu SELECT-then-UPDATE job claim race | `services/edge_gpu_service.py:229-245` |
-| APP-46 | gpu unauthenticated delete/reprice, float pricing, orphan profiles | Multiple files |
 | APP-62 | ai-engine generates trading signals with `np.random` | 12 uses in `ai_service.py` |
 | CORE | CORE-02/04/08/09/10/11/12/13/15/16/18/19/20/21/22/25/26/28/29 | Reverified against current source; CORE-16/18 are partial but not closed |
 | Contracts | SC-05/06/08/09/10/11/12/14 | Unbounded loops, no-op upgrades, unsafe deployment paths, and compiled stub remain |
@@ -157,7 +157,7 @@ Verification commands (run on this branch):
 - `apps/bridge-monitor/tests`: 8 passed, 0 failed (connection context managers).
 - `apps/edge/tests`: 2 passed, 0 failed (client context manager close).
 - `apps/exchange/tests`: 14 passed, 0 failed (positivity, nonce, exception narrowing, marketplace ownership, bridge Decimal).
-- `apps/gpu/tests`: 17 passed, 0 failed (no-op job endpoints return 501).
+- `apps/gpu/tests`: 17 passed, 0 failed (no-op job endpoints return 501; `register_miner` commits; state-changing endpoints require API key).
 - `apps/memory/tests`: 1 passed, 0 failed (PBKDF2 key derivation).
 - `apps/miner/tests`: 25 passed, 0 failed (reinvestment engine tests plus existing suite).
 - `apps/packages/py/aitbc-agent-core/tests`: 3 passed, 0 failed (branding from env/overrides).
@@ -184,7 +184,7 @@ partial:
 | Area | Confirmed fixed | Confirmed open/partial | Notes |
 |---|---|---|---|
 | Shared core (`aitbc/`) | CORE-01, CORE-03, CORE-05, CORE-06, CORE-07, CORE-14, CORE-17, CORE-21, CORE-23, CORE-24, CORE-27 | CORE-02, CORE-04, CORE-08, CORE-09, CORE-10, CORE-11, CORE-12, CORE-13, CORE-15, CORE-16 (partial), CORE-18 (partial), CORE-19, CORE-20, CORE-22, CORE-25, CORE-26, CORE-28, CORE-29 | CORE-16/18 improved but not closed. |
-| Applications | APP-01, APP-08, APP-17, APP-24, APP-25, APP-29c, APP-30, APP-31, APP-34, APP-36, APP-37, APP-38, APP-44, APP-47, APP-48, APP-49, APP-50, APP-51, APP-52, APP-53, APP-55, APP-56, APP-57, APP-59, APP-61, APP-62, APP-63, APP-65, APP-66, APP-67, APP-68, APP-69, APP-70, APP-71, APP-X1, APP-X2, APP-X4 (partial) | APP-X3 (partial), APP-28, APP-29, APP-29b (partial), APP-32–APP-33, APP-35, APP-39–APP-46, APP-54, APP-60, APP-64 | APP-X1/26/27/34/36/37/38/44/47/48/49/51/52/53/56/61/62/63/65/66/67/68/69/70/71 now closed. APP-X3 partially closed (wallet/trading unified, pool-hub still custom). APP-X4 partially closed (shared-core/shared-domain packages populated and re-exported; services still need migration off duplicated boilerplate). Many stubs, float money, missing auth, and no-op endpoints remain. |
+| Applications | APP-01, APP-08, APP-17, APP-24, APP-25, APP-29, APP-29c, APP-30, APP-31, APP-34, APP-36, APP-37, APP-38, APP-43, APP-44, APP-45, APP-46, APP-47, APP-48, APP-49, APP-50, APP-51, APP-52, APP-53, APP-55, APP-56, APP-57, APP-59, APP-61, APP-62, APP-63, APP-65, APP-66, APP-67, APP-68, APP-69, APP-70, APP-71, APP-X1, APP-X2, APP-X4 (partial) | APP-X3 (partial), APP-28, APP-29b (partial), APP-32–APP-33, APP-35, APP-39–APP-42, APP-54, APP-60, APP-64 | APP-X1/26/27/29/34/36/37/38/43/44/45/46/47/48/49/51/52/53/56/61/62/63/65/66/67/68/69/70/71 now closed. APP-X3 partially closed (wallet/trading unified, pool-hub still custom). APP-X4 partially closed (shared-core/shared-domain packages populated and re-exported; services still need migration off duplicated boilerplate). Many stubs, float money, missing auth, and no-op endpoints remain. |
 | Smart contracts | SC-01, SC-02, SC-03, SC-04 | SC-05–SC-14 (with SC-07/13 partial) | Unbounded loops, no-op upgrades, unsafe deployment scripts, missing validations. |
 | Ops/Scripts | OPS-01, OPS-02, OPS-05 | OPS-03, OPS-04, OPS-06–OPS-18 (with OPS-13/19 partial) | Destructive rollback, secret handling, supply-chain install, maintenance scripts remain. |
 | CLI | CLI-01, CLI-12 (partial) | CLI-02–CLI-13 (with CLI-04 partial) | Placeholder results, in-memory state, TOCTOU, stub groups remain. |

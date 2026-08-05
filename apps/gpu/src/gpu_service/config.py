@@ -18,6 +18,10 @@ class Settings(ServiceSettings):
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
 
+    # API key for state-changing GPU marketplace endpoints
+    auth_enabled: bool = True
+    api_key: str | None = None
+
     # Blockchain integration
     blockchain_rpc_url: str = BLOCKCHAIN_RPC_URL
     default_chain_id: str = "ait-hub"

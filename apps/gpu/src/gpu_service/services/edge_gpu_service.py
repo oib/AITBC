@@ -227,7 +227,10 @@ class EdgeGPUService:
         return job
 
     async def get_next_queued_job(self, gpu_id: str) -> GPUJobQueue | None:
-        """Return the highest-priority queued job for a GPU and mark it running."""
+        """Return the highest-priority queued job for a GPU and mark it running.
+
+        Uses SELECT ... FOR UPDATE so concurrent workers cannot claim the same job.
+        """
         from datetime import UTC, datetime
 
         stmt = (
@@ -235,6 +238,7 @@ class EdgeGPUService:
             .where(GPUJobQueue.gpu_id == gpu_id, GPUJobQueue.status == GPUJobStatus.QUEUED)
             .order_by(GPUJobQueue.priority.desc(), GPUJobQueue.created_at.asc())  # type: ignore[attr-defined]
             .limit(1)
+            .with_for_update()
         )
         result = await self.session.execute(stmt)
         job = result.scalar_one_or_none()
