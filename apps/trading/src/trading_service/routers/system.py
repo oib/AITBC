@@ -11,7 +11,7 @@ from aitbc.health_checks import create_simple_health_response
 
 from ..storage import get_session
 
-router = APIRouter(tags=["system"])
+router = APIRouter(tags=["system"], dependencies=[])
 logger = get_logger(__name__)
 
 
