@@ -17,6 +17,10 @@ from .utils import get_chain_id, validate_chain_id, verify_request_signature
 
 _logger = get_logger(__name__)
 
+# Upper bound on the stake lock period. Bounds `timedelta(days=lock_days)` so a caller
+# cannot push `locked_until` past datetime.max and turn the request into a 500.
+MAX_LOCK_DAYS = 3650
+
 
 @rate_limit(rate=20, per=60)
 async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str, Any]:
@@ -34,6 +38,8 @@ async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str
         raise HTTPException(status_code=400, detail="address is required")
     if amount <= 0:
         raise HTTPException(status_code=400, detail="amount must be positive")
+    if not isinstance(lock_days, int) or isinstance(lock_days, bool) or not 1 <= lock_days <= MAX_LOCK_DAYS:
+        raise HTTPException(status_code=400, detail=f"lock_days must be an integer between 1 and {MAX_LOCK_DAYS}")
     address = address.lower().strip()
     if not address.startswith("0x"):
         address = "0x" + address
@@ -59,8 +65,7 @@ async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str
             raise HTTPException(status_code=400, detail=f"Insufficient balance: {account.balance} < {amount}")
         account.balance -= amount
         session.add(account)
-        locked_until = datetime.now(UTC)
-        locked_until = locked_until.replace(day=locked_until.day + lock_days)
+        locked_until = datetime.now(UTC) + timedelta(days=lock_days)
         stake = Stake(chain_id=chain_id, address=address, amount=amount, locked_until=locked_until, status="active")
         session.add(stake)
         session.commit()
