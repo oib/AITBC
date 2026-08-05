@@ -1,6 +1,7 @@
 """Tests for aitbc.oracles.price_oracle"""
 
 import os
+from decimal import Decimal
 from unittest.mock import patch
 
 from aitbc.oracles.price_oracle import (
@@ -14,12 +15,12 @@ from aitbc.oracles.price_oracle import (
 
 class TestPriceResult:
     def test_creation(self):
-        pr = PriceResult(base="ETH", quote="USD", price=3000.0, source="test")
+        pr = PriceResult(base="ETH", quote="USD", price=Decimal("3000"), source="test")
         assert pr.base == "ETH"
-        assert pr.price == 3000.0
+        assert pr.price == Decimal("3000")
 
     def test_age_seconds(self):
-        pr = PriceResult(base="ETH", quote="USD", price=3000.0, source="test")
+        pr = PriceResult(base="ETH", quote="USD", price=Decimal("3000"), source="test")
         assert pr.age_seconds() >= 0
 
 
@@ -50,7 +51,7 @@ class TestCoinGeckoOracle:
 
     def test_cache_hit(self):
         oracle = CoinGeckoOracle()
-        pr = PriceResult(base="ETH", quote="USD", price=3000.0, source="test")
+        pr = PriceResult(base="ETH", quote="USD", price=Decimal("3000"), source="test")
         oracle._cache["ETH/USD"] = pr
         result = oracle.get_price("ETH", "USD")
         assert result is pr
@@ -62,7 +63,7 @@ class TestPriceOracle:
         with patch.dict(os.environ, {"AIT_USD_FIXED_PRICE": "1.5"}):
             result = oracle.get_price("AIT", "USD")
         assert result is not None
-        assert result.price == 1.5
+        assert result.price == Decimal("1.5")
         assert result.source == "fixed"
 
     def test_get_price_invalid_fixed_ait(self):
@@ -80,17 +81,17 @@ class TestPriceOracle:
 
     def test_get_price_or_raise_success(self):
         oracle = PriceOracle()
-        pr = PriceResult(base="ETH", quote="USD", price=3000.0, source="test")
+        pr = PriceResult(base="ETH", quote="USD", price=Decimal("3000"), source="test")
         with patch.object(oracle, "get_price", return_value=pr):
             result = oracle.get_price_or_raise("ETH", "USD")
         assert result == pr
 
     def test_get_ait_price(self):
         oracle = PriceOracle()
-        pr = PriceResult(base="AIT", quote="USD", price=1.0, source="test")
+        pr = PriceResult(base="AIT", quote="USD", price=Decimal("1"), source="test")
         with patch.object(oracle._coingecko, "get_price", return_value=pr):
             result = oracle.get_ait_price()
-        assert result == 1.0
+        assert result == Decimal("1")
 
     def test_get_ait_price_none(self):
         oracle = PriceOracle()
