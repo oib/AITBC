@@ -76,11 +76,33 @@ def migrate_service_file(service_file: Path) -> dict[str, any]:
         lines.insert(insert_pos, env_file_line)
         result["changes"].append(f"Added {env_file_line}")
 
-    # Write back
+    # Write back, keeping a copy first. This rewrote systemd units in place with no
+    # backup: if the parsing regex above mis-handled a line, the original was
+    # unrecoverable outside git -- and these files are frequently not in git.
+    backup_path = service_file.with_suffix(service_file.suffix + ".bak")
+    if not backup_path.exists():
+        backup_path.write_text(service_file.read_text())
+        result["changes"].append(f"Backed up original to {backup_path}")
+
     new_content = "\n".join(lines)
     service_file.write_text(new_content)
 
     return result
+
+
+# Credentials do not always live behind an obviously-named variable. Matching on the
+# name alone wrote values like DATABASE_URL=postgres://user:password@host straight into
+# the generated template in plaintext, which is the opposite of what this script is for.
+_SECRET_NAME_HINTS = ("password", "secret", "token", "key", "auth", "credential", "passwd", "pwd")
+# A URL carrying inline credentials: scheme://user:pass@host
+_URL_WITH_CREDENTIALS = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://[^/\s:@]+:[^/\s@]+@")
+
+
+def _is_sensitive(var_name: str, var_value: str) -> bool:
+    """True if the variable name *or* the shape of its value suggests a secret."""
+    if any(hint in var_name.lower() for hint in _SECRET_NAME_HINTS):
+        return True
+    return bool(_URL_WITH_CREDENTIALS.match(var_value.strip()))
 
 
 def create_env_template(service_name: str, env_vars: list[tuple[str, str]]) -> str:
@@ -94,8 +116,7 @@ def create_env_template(service_name: str, env_vars: list[tuple[str, str]]) -> s
     ]
 
     for var_name, var_value in env_vars:
-        # Check if value looks like a secret
-        if any(keyword in var_name.lower() for keyword in ["password", "secret", "token", "key", "auth"]):
+        if _is_sensitive(var_name, var_value):
             lines.append(f"{var_name}=REPLACE_WITH_SECRET")
         else:
             lines.append(f"{var_name}={var_value}")
