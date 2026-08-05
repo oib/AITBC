@@ -30,11 +30,11 @@ _MONEY_COLUMNS: list[tuple[str, list[tuple[str, sa.Numeric, str]]]] = [
         [("price", sa.Numeric(20, 8), "0")],
     ),
     (
-        "tradeagreement",
+        "trade_agreements",
         [("total_price", sa.Numeric(20, 8), "0")],
     ),
     (
-        "tradesettlement",
+        "trade_settlements",
         [
             ("total_amount", sa.Numeric(20, 8), "0"),
             ("platform_fee", sa.Numeric(20, 8), "0"),
@@ -44,7 +44,7 @@ _MONEY_COLUMNS: list[tuple[str, list[tuple[str, sa.Numeric, str]]]] = [
         ],
     ),
     (
-        "tradinganalytics",
+        "trading_analytics",
         [
             ("total_trade_volume", sa.Numeric(20, 8), "0"),
             ("average_trade_value", sa.Numeric(20, 8), "0"),
