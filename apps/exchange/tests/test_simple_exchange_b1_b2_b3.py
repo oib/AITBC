@@ -429,6 +429,7 @@ class TestB2MarketplaceDecimal:
         from apps.exchange.simple_exchange.handlers.marketplace import MarketplaceMixin
 
         handler = MagicMock(spec=MarketplaceMixin)
+        handler._require_api_key = MagicMock(return_value=True)
         handler._read_json_body = MagicMock(
             return_value={
                 "item": "gpu-a100",
