@@ -22,6 +22,7 @@ The timelock ordering is critical:
 from __future__ import annotations
 
 import hashlib
+import hmac
 import secrets
 
 from .types import HTLCState
@@ -68,7 +69,10 @@ def verify_secret(secret: str, hashlock: str) -> bool:
     Returns:
         True if SHA256(secret) == hashlock, False otherwise
     """
-    return compute_hashlock(secret) == hashlock
+    derived = compute_hashlock(secret)
+    if len(derived) != len(hashlock):
+        return False
+    return hmac.compare_digest(derived, hashlock)
 
 
 def calculate_source_timelock(

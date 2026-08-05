@@ -71,18 +71,17 @@ BRIDGE_BATCH_SIZE = 10  # max transfers per batch operation
 BRIDGE_MONITOR_INTERVAL = 60  # seconds between health checks
 BRIDGE_STUCK_TRANSFER_TIMEOUT = 3600  # 1 hour — transfers pending longer are flagged
 
-# Bridge multi-sig defaults (v0.7.1)
+# Bridge multi-sig defaults
 BRIDGE_MULTISIG_DEFAULT_THRESHOLD = 3  # M-of-N: minimum signatures required
 BRIDGE_MULTISIG_DEFAULT_VALIDATORS = 5  # N: total validators in set
 BRIDGE_MULTISIG_TIMEOUT = 3600  # seconds to collect signatures
-BRIDGE_VALIDATOR_SET_GRACE_PERIOD = 7200  # seconds — old epoch valid during rotation
+BRIDGE_VALIDATOR_SET_GRACE_PERIOD = 3600  # seconds for validator set transition
 BRIDGE_BLOCK_SIGNATURE_REQUIRED = True  # require block header signatures
 
-# Bridge verification config (v0.7.2)
+# Bridge verification config
 BRIDGE_VERIFICATION_MODE = "in_process"  # "in_process" | "oracle"
 BRIDGE_MIN_CONFIRMATIONS = 3  # minimum confirmations for any transfer
 BRIDGE_FINALITY_BLOCKS = 6  # full finality threshold
-BRIDGE_VALIDATOR_SET_GRACE_PERIOD = 3600  # seconds for validator set transition
 BRIDGE_LARGE_TRANSFER_THRESHOLD = 10000  # transfers above this require full finality
 
 # Package version
