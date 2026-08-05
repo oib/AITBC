@@ -11,7 +11,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.middleware import (
@@ -22,6 +22,7 @@ from aitbc.middleware import (
 )
 
 from .config import settings
+from .dependencies import require_trading_api_key
 from .routers import (
     exchange_compat_router,
     inter_chain_router,
@@ -87,14 +88,15 @@ app.add_middleware(RequestValidationMiddleware, max_request_size=10 * 1024 * 102
 app.add_middleware(ErrorHandlerMiddleware)
 
 # Register feature routers in order of route specificity (static paths first).
-app.include_router(system_router)
-app.include_router(legacy_trading_router)
-app.include_router(transactions_router)
-app.include_router(exchange_compat_router)
-app.include_router(inter_chain_router)
-app.include_router(offers_router)
-app.include_router(subscriptions_router)
-app.include_router(settlement_router)
+# System/health endpoints remain public; all other trading routers require the API key.
+app.include_router(system_router, dependencies=[])
+app.include_router(legacy_trading_router, dependencies=[Depends(require_trading_api_key)])
+app.include_router(transactions_router, dependencies=[Depends(require_trading_api_key)])
+app.include_router(exchange_compat_router, dependencies=[Depends(require_trading_api_key)])
+app.include_router(inter_chain_router, dependencies=[Depends(require_trading_api_key)])
+app.include_router(offers_router, dependencies=[Depends(require_trading_api_key)])
+app.include_router(subscriptions_router, dependencies=[Depends(require_trading_api_key)])
+app.include_router(settlement_router, dependencies=[Depends(require_trading_api_key)])
 
 
 if __name__ == "__main__":
