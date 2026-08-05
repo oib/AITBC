@@ -2,13 +2,15 @@
 Trading service for managing trading operations
 """
 
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from ..domain.trading import TradeAgreement, TradeMatch, TradeRequest
+from ..domain.trading import TradeAgreement, TradeMatch, TradeRequest, TradeStatus
 
 
 class TradingService:
@@ -104,30 +106,45 @@ class TradingService:
 
     async def get_analytics(self, period_type: str = "daily") -> dict[str, Any]:
         """Get trading analytics"""
-        from sqlalchemy import func, select
-
-        # Count requests
+        # Counts
         req_count_stmt = select(func.count()).select_from(TradeRequest)
         req_count_result = await self.session.execute(req_count_stmt)
         total_requests = req_count_result.scalar() or 0
 
-        # Count matches
         match_count_stmt = select(func.count()).select_from(TradeMatch)
         match_count_result = await self.session.execute(match_count_stmt)
         total_matches = match_count_result.scalar() or 0
 
-        # Count agreements
         agree_count_stmt = select(func.count()).select_from(TradeAgreement)
         agree_count_result = await self.session.execute(agree_count_stmt)
         total_agreements = agree_count_result.scalar() or 0
+
+        # Real trade volume from completed agreements
+        completed_volume_stmt = (
+            select(func.coalesce(func.sum(TradeAgreement.total_price), Decimal("0")))
+            .select_from(TradeAgreement)
+            .where(TradeAgreement.status == TradeStatus.COMPLETED)
+        )
+        completed_volume_result = await self.session.execute(completed_volume_stmt)
+        completed_volume = completed_volume_result.scalar() or Decimal("0")
+
+        completed_count_stmt = (
+            select(func.count()).select_from(TradeAgreement).where(TradeAgreement.status == TradeStatus.COMPLETED)
+        )
+        completed_count_result = await self.session.execute(completed_count_stmt)
+        completed_count = completed_count_result.scalar() or 0
+
+        average_trade_value = Decimal("0")
+        if completed_count:
+            average_trade_value = completed_volume / completed_count
 
         return {
             "period_type": period_type,
             "total_requests": total_requests,
             "total_matches": total_matches,
             "total_agreements": total_agreements,
-            "total_trades": total_requests,
-            "completed_trades": total_agreements,
-            "total_trade_volume": 0.0,
-            "average_trade_value": 0.0,
+            "total_trades": total_matches,
+            "completed_trades": completed_count,
+            "total_trade_volume": float(completed_volume),
+            "average_trade_value": float(average_trade_value),
         }

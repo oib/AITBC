@@ -86,9 +86,9 @@ class ExchangeAPIHandler(BaseHandler, MarketplaceMixin, ExchangeMixin, BridgeMix
         path = parsed.path
 
         if path.startswith("/v1/marketplace/orders/"):
-            self.handle_marketplace_delete_order(path)
+            self.handle_marketplace_delete_order(parsed)
         elif path.startswith("/v1/marketplace/offers/"):
-            self.handle_marketplace_delete_offer(path)
+            self.handle_marketplace_delete_offer(parsed)
         else:
             self.send_error(404, "Not Found")
 

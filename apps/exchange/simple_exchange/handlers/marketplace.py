@@ -215,28 +215,50 @@ class MarketplaceMixin:
             conn.close()
         self.send_json_response({"orders": orders})  # type: ignore[attr-defined]
 
-    def handle_marketplace_delete_order(self, path):
+    def handle_marketplace_delete_order(self, parsed):
         if not self._require_api_key():  # type: ignore[attr-defined]
             return
-        order_id = urllib.parse.unquote(path.rsplit("/", 1)[-1])
+        order_id = urllib.parse.unquote(parsed.path.rsplit("/", 1)[-1])
+        query = urllib.parse.parse_qs(parsed.query)
+        wallet = query.get("wallet", [None])[0]
+        if not wallet:
+            self.send_json_response({"success": False, "error": "wallet query parameter is required"}, status=400)  # type: ignore[attr-defined]
+            return
         conn = sqlite3.connect(get_db_path())
         try:
             cursor = conn.cursor()
-            cursor.execute("UPDATE marketplace_orders SET status = 'cancelled' WHERE id = ?", (order_id,))
+            cursor.execute("SELECT id FROM marketplace_orders WHERE id = ? AND wallet = ?", (order_id, wallet))
+            if not cursor.fetchone():
+                self.send_json_response({"success": False, "error": "Order not found for this wallet"}, status=404)  # type: ignore[attr-defined]
+                return
+            cursor.execute(
+                "UPDATE marketplace_orders SET status = 'cancelled' WHERE id = ? AND wallet = ?", (order_id, wallet)
+            )
             conn.commit()
             deleted = cursor.rowcount
         finally:
             conn.close()
         self.send_json_response({"success": True, "order_id": order_id, "deleted": deleted})  # type: ignore[attr-defined]
 
-    def handle_marketplace_delete_offer(self, path):
+    def handle_marketplace_delete_offer(self, parsed):
         if not self._require_api_key():  # type: ignore[attr-defined]
             return
-        offer_id = urllib.parse.unquote(path.rsplit("/", 1)[-1])
+        offer_id = urllib.parse.unquote(parsed.path.rsplit("/", 1)[-1])
+        query = urllib.parse.parse_qs(parsed.query)
+        wallet = query.get("wallet", [None])[0]
+        if not wallet:
+            self.send_json_response({"success": False, "error": "wallet query parameter is required"}, status=400)  # type: ignore[attr-defined]
+            return
         conn = sqlite3.connect(get_db_path())
         try:
             cursor = conn.cursor()
-            cursor.execute("UPDATE marketplace_offers SET status = 'cancelled' WHERE id = ?", (offer_id,))
+            cursor.execute("SELECT id FROM marketplace_offers WHERE id = ? AND wallet = ?", (offer_id, wallet))
+            if not cursor.fetchone():
+                self.send_json_response({"success": False, "error": "Offer not found for this wallet"}, status=404)  # type: ignore[attr-defined]
+                return
+            cursor.execute(
+                "UPDATE marketplace_offers SET status = 'cancelled' WHERE id = ? AND wallet = ?", (offer_id, wallet)
+            )
             conn.commit()
             deleted = cursor.rowcount
         finally:
