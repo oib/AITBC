@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from ..models import Account
+if TYPE_CHECKING:
+    from ..models import Account
 
 
 @dataclass(frozen=True)
