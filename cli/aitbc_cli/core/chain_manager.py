@@ -435,34 +435,25 @@ class ChainManager:
     async def _create_migration_plan(
         self, chain_id: str, from_node: str, to_node: str, chain_info: ChainInfo
     ) -> ChainMigrationPlan:
-        """Create a migration plan"""
-        # This would analyze the migration and create a detailed plan
+        """Create a migration plan."""
+        # ponytail: real migration is not implemented yet; report infeasible rather
+        # than fabricate available_space_mb/blocks/transferred counts.
         return ChainMigrationPlan(
             chain_id=chain_id,
             source_node=from_node,
             target_node=to_node,
             size_mb=chain_info.size_mb,
-            estimated_minutes=int(chain_info.size_mb / 100),  # Rough estimate
-            required_space_mb=chain_info.size_mb * 1.5,  # 50% extra space
-            available_space_mb=10000,  # Placeholder
-            feasible=True,
-            issues=[],
+            estimated_minutes=0,
+            required_space_mb=chain_info.size_mb * 1.5,
+            available_space_mb=0.0,
+            feasible=False,
+            issues=["Real chain migration is not implemented; available space cannot be determined."],
         )
 
     async def _execute_migration(self, chain_id: str, from_node: str, to_node: str) -> ChainMigrationResult:
-        """Execute the actual migration"""
-        # This would actually execute the migration
-        logger.info("Migrating chain %s from %s to %s", chain_id, from_node, to_node)
-
-        return ChainMigrationResult(
-            chain_id=chain_id,
-            source_node=from_node,
-            target_node=to_node,
-            success=True,
-            blocks_transferred=1000,  # Placeholder
-            transfer_time_seconds=300,  # Placeholder
-            verification_passed=True,
-        )
+        """Execute the actual migration."""
+        # ponytail: real migration is not implemented; do not report fabricated success.
+        raise NotImplementedError("Real chain migration is not implemented yet.")
 
     async def _execute_backup(
         self, chain_id: str, node_id: str, backup_path: str, compress: bool, verify: bool
