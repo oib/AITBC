@@ -145,6 +145,10 @@ class Settings(ServiceSettings):
     agent_heartbeat_timeout_seconds: int = 120
     agent_cleanup_interval_seconds: int = 60
 
+    # v0.10.8: trusted island members are no longer inferred from journalctl log lines.
+    # Provide a comma-separated list via the ISLAND_MEMBERS env var (or leave empty).
+    island_members: list[str] = os.getenv("ISLAND_MEMBERS", "").split(",") if os.getenv("ISLAND_MEMBERS") else []
+
     @field_validator("secret_key")
     @classmethod
     def _validate_secret_key(cls, v: str) -> str:
