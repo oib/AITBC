@@ -159,6 +159,21 @@ class CoordinatorAPIClient:
         self.registry = RegistryClient(http)
         self._http = http
 
+    def close(self) -> None:
+        """Release the underlying HTTP connection pool.
+
+        The client owns an AITBCHTTPClient and hands it to the wallet and registry
+        sub-clients, but exposed no way to release it, so callers had no correct way to
+        shut one down.
+        """
+        self._http.close()
+
+    def __enter__(self) -> CoordinatorAPIClient:
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.close()
+
     def health(self) -> SDKResponse:
         """Check coordinator-api health."""
         try:
