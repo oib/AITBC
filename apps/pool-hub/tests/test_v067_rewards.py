@@ -148,7 +148,7 @@ class TestPoolHubBlockchainClient:
         assert result["gpu_id"] == "miner-1"
 
     @pytest.mark.asyncio
-    async def test_distribute_rewards_mock(self, signed_client):
+    async def test_distribute_rewards_mock(self, signed_client, payout_session):
         client = signed_client
         # Record contributions for two miners
         client.record_contribution("miner-1", score=90.0, shares=5000)
@@ -159,13 +159,13 @@ class TestPoolHubBlockchainClient:
             patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
             patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, return_value=mock_response),
         ):
-            payouts = await client.distribute_rewards(block_height=100)
+            payouts = await client.distribute_rewards(block_height=100, session=payout_session)
 
         assert len(payouts) == 2
         assert all(p["tx_hash"] == "tx-abc" for p in payouts)
 
     @pytest.mark.asyncio
-    async def test_distribute_rewards_skips_ineligible(self):
+    async def test_distribute_rewards_skips_ineligible(self, payout_session):
         from poolhub.clients.blockchain import PoolHubBlockchainClient
 
         client = PoolHubBlockchainClient()
@@ -177,13 +177,13 @@ class TestPoolHubBlockchainClient:
 
         mock_response = {"tx_hash": "tx-new", "status": "accepted"}
         with patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, return_value=mock_response):
-            payouts = await client.distribute_rewards(block_height=100)
+            payouts = await client.distribute_rewards(block_height=100, session=payout_session)
 
         # Miner-1 was already paid, so no new payouts
         assert len(payouts) == 0
 
     @pytest.mark.asyncio
-    async def test_distribute_rewards_handles_errors(self, signed_client):
+    async def test_distribute_rewards_handles_errors(self, signed_client, payout_session):
         client = signed_client
         client.record_contribution("miner-1", score=90.0, shares=5000)
 
@@ -191,7 +191,7 @@ class TestPoolHubBlockchainClient:
             patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
             patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, side_effect=Exception("Network error")),
         ):
-            payouts = await client.distribute_rewards(block_height=100)
+            payouts = await client.distribute_rewards(block_height=100, session=payout_session)
 
         # Should not crash — should record the error
         assert len(payouts) == 1
