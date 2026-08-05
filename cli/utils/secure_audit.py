@@ -4,6 +4,7 @@ Provides cryptographic integrity for audit logs
 """
 
 import json
+import os
 import secrets
 from datetime import UTC, datetime
 from pathlib import Path
@@ -21,11 +22,28 @@ class SecureAuditLogger:
     def __init__(self, log_dir: Path | None = None):
         self.log_dir = log_dir or Path.home() / ".aitbc" / "audit"
         self.log_dir.mkdir(parents=True, exist_ok=True)
+        # The audit trail records who did what with wallets and keys, and the integrity
+        # file is what makes it tamper-evident. mkdir and open() both apply the process
+        # umask (commonly 0755/0644), so without this both were world-readable: any local
+        # user could read the trail, and the hash chain offers no protection against
+        # someone who can also rewrite it.
+        self._restrict(self.log_dir, 0o700)
         self.log_file = self.log_dir / "audit_secure.jsonl"
         self.integrity_file = self.log_dir / "integrity.json"
 
         # Initialize integrity tracking
         self._init_integrity()
+        self._restrict(self.log_file, 0o600)
+        self._restrict(self.integrity_file, 0o600)
+
+    @staticmethod
+    def _restrict(path: Path, mode: int) -> None:
+        """Best-effort permission tightening; never block auditing on a chmod failure."""
+        try:
+            if path.exists():
+                path.chmod(mode)
+        except OSError:  # pragma: no cover - platform/filesystem dependent
+            pass
 
     def _init_integrity(self):
         """Initialize integrity tracking"""
@@ -37,7 +55,9 @@ class SecureAuditLogger:
                 "created_at": datetime.now(UTC).isoformat(),
                 "version": "1.0",
             }
-            with open(self.integrity_file, "w") as f:
+            # Created 0600 directly; a later chmod would leave a readable window.
+            fd = os.open(self.integrity_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as f:
                 json.dump(integrity_data, f, indent=2)
 
     def _get_integrity_data(self) -> dict[str, Any]:
@@ -111,8 +131,11 @@ class SecureAuditLogger:
         entry["entry_hash"] = entry_hash
         entry["previous_hash"] = previous_hash
 
-        # Write to log file
-        with open(self.log_file, "a") as f:
+        # Write to log file. os.open carries the mode so a first-write creation is 0600
+        # rather than umask-default; an existing file keeps its own permissions, which
+        # __init__ has already tightened.
+        fd = os.open(self.log_file, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        with os.fdopen(fd, "a") as f:
             f.write(json.dumps(entry) + "\n")
 
         # Update integrity tracking
