@@ -10,7 +10,66 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from ..domain.trading import TradeAgreement, TradeMatch, TradeRequest, TradeStatus
+from ..domain.trading import TradeAgreement, TradeMatch, TradeRequest, TradeSettlement, TradeStatus
+
+
+_REQUEST_SERVER_FIELDS = frozenset(
+    {
+        "id",
+        "request_id",
+        "status",
+        "match_count",
+        "negotiation_count",
+        "best_match_score",
+        "created_at",
+        "updated_at",
+        "last_activity",
+    }
+)
+
+_MATCH_SERVER_FIELDS = frozenset(
+    {
+        "id",
+        "match_id",
+        "status",
+        "created_at",
+        "updated_at",
+        "last_interaction",
+    }
+)
+
+_AGREEMENT_SERVER_FIELDS = frozenset(
+    {
+        "id",
+        "agreement_id",
+        "status",
+        "execution_status",
+        "completion_percentage",
+        "created_at",
+        "updated_at",
+        "signed_at",
+        "starts_at",
+        "ends_at",
+        "completed_at",
+    }
+)
+
+_SETTLEMENT_SERVER_FIELDS = frozenset(
+    {
+        "id",
+        "settlement_id",
+        "status",
+        "initiated_at",
+        "processed_at",
+        "completed_at",
+        "refunded_at",
+        "payment_status",
+        "transaction_id",
+        "transaction_hash",
+        "block_number",
+        "dispute_raised",
+    }
+)
 
 
 class TradingService:
@@ -42,9 +101,10 @@ class TradingService:
 
     async def create_request(self, request_data: dict[str, Any]) -> TradeRequest:
         """Create a new trade request"""
-        if "request_id" not in request_data:
-            request_data["request_id"] = f"req_{uuid4().hex[:8]}"
-        request = TradeRequest(**request_data)
+        data = {k: v for k, v in request_data.items() if k not in _REQUEST_SERVER_FIELDS}
+        data.setdefault("request_id", f"req_{uuid4().hex[:8]}")
+        request = TradeRequest(**data)
+        request.status = TradeStatus.OPEN
         self.session.add(request)
         await self.session.commit()
         await self.session.refresh(request)
@@ -69,9 +129,10 @@ class TradingService:
 
     async def create_match(self, match_data: dict[str, Any]) -> TradeMatch:
         """Create a new trade match"""
-        if "match_id" not in match_data:
-            match_data["match_id"] = f"match_{uuid4().hex[:8]}"
-        match = TradeMatch(**match_data)
+        data = {k: v for k, v in match_data.items() if k not in _MATCH_SERVER_FIELDS}
+        data.setdefault("match_id", f"match_{uuid4().hex[:8]}")
+        match = TradeMatch(**data)
+        match.status = TradeStatus.MATCHING
         self.session.add(match)
         await self.session.commit()
         await self.session.refresh(match)
@@ -96,13 +157,25 @@ class TradingService:
 
     async def create_agreement(self, agreement_data: dict[str, Any]) -> TradeAgreement:
         """Create a new trade agreement"""
-        if "agreement_id" not in agreement_data:
-            agreement_data["agreement_id"] = f"agree_{uuid4().hex[:8]}"
-        agreement = TradeAgreement(**agreement_data)
+        data = {k: v for k, v in agreement_data.items() if k not in _AGREEMENT_SERVER_FIELDS}
+        data.setdefault("agreement_id", f"agree_{uuid4().hex[:8]}")
+        agreement = TradeAgreement(**data)
+        agreement.status = TradeStatus.AGREED
         self.session.add(agreement)
         await self.session.commit()
         await self.session.refresh(agreement)
         return agreement
+
+    async def create_settlement(self, settlement_data: dict[str, Any]) -> TradeSettlement:
+        """Create a new trade settlement"""
+        data = {k: v for k, v in settlement_data.items() if k not in _SETTLEMENT_SERVER_FIELDS}
+        data.setdefault("settlement_id", f"settle_{uuid4().hex[:8]}")
+        settlement = TradeSettlement(**data)
+        settlement.status = TradeStatus.SETTLING
+        self.session.add(settlement)
+        await self.session.commit()
+        await self.session.refresh(settlement)
+        return settlement
 
     async def get_analytics(self, period_type: str = "daily") -> dict[str, Any]:
         """Get trading analytics"""
