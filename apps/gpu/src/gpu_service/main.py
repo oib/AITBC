@@ -9,7 +9,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -642,33 +642,39 @@ async def get_miner_gpus(miner_id: str, session: Annotated[AsyncSession, Depends
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+# The miner job-dispatch loop is not implemented. These three endpoints read their inputs
+# into nothing and discard them; submit_job_result previously answered
+# {"status": "ok", "result": "accepted"}, so a miner was told its completed work had been
+# accepted while the result was thrown away -- and would reasonably expect payment for it.
+# 501 is the honest answer until dispatch exists: the route is defined, the functionality
+# is not.
+_JOB_DISPATCH_NOT_IMPLEMENTED = (
+    "Miner job dispatch is not implemented in the GPU service. This endpoint accepted and "
+    "silently discarded its payload. Job assignment, result submission and failure "
+    "reporting are handled by the coordinator API."
+)
+
+
 @app.post("/v1/miners/poll")
 async def poll_jobs(poll_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
-    """Poll for next job"""
-    poll_data.get("miner_id")
-    poll_data.get("max_wait_seconds", 5)
-    return None
+    """Poll for next job. Not implemented -- see _JOB_DISPATCH_NOT_IMPLEMENTED."""
+    raise HTTPException(status_code=501, detail=_JOB_DISPATCH_NOT_IMPLEMENTED)
 
 
 @app.post("/v1/miners/{job_id}/result")
 async def submit_job_result(
     job_id: str, result_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]
 ):
-    """Submit job result"""
-    result_data.get("miner_id")
-    result_data.get("result")
-    result_data.get("metrics", {})
-    return {"status": "ok", "job_id": job_id, "result": "accepted"}
+    """Submit job result. Not implemented -- see _JOB_DISPATCH_NOT_IMPLEMENTED."""
+    raise HTTPException(status_code=501, detail=_JOB_DISPATCH_NOT_IMPLEMENTED)
 
 
 @app.post("/v1/miners/{job_id}/fail")
 async def submit_job_failure(
     job_id: str, fail_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]
 ):
-    """Submit job failure"""
-    fail_data.get("miner_id")
-    fail_data.get("error")
-    return {"status": "ok", "job_id": job_id, "error": "recorded"}
+    """Submit job failure. Not implemented -- see _JOB_DISPATCH_NOT_IMPLEMENTED."""
+    raise HTTPException(status_code=501, detail=_JOB_DISPATCH_NOT_IMPLEMENTED)
 
 
 @app.post("/v1/miners/{miner_id}/earnings")
