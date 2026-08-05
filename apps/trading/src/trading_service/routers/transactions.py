@@ -11,6 +11,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from ..dependencies import get_session_dep
+from ..services.trading_service import TradingService
 
 router = APIRouter(tags=["transactions"])
 logger = get_logger(__name__)
@@ -19,34 +20,27 @@ logger = get_logger(__name__)
 @router.post("/v1/transactions")
 async def submit_transaction(transaction_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Submit trading transaction."""
-    from ..domain.trading import TradeAgreement, TradeMatch, TradeRequest, TradeSettlement
-
     transaction_type = transaction_data.get("type")
     action = transaction_data.get("action")
     if transaction_type != "trading":
         return JSONResponse(status_code=400, content={"error": "Invalid transaction type for Trading service"})
     try:
+        svc = TradingService(session)
         if action == "request":
-            request = TradeRequest(**transaction_data)
-            session.add(request)
+            request = await svc.create_request(transaction_data)
+            transaction_id = request.request_id
         elif action == "match":
-            match = TradeMatch(**transaction_data)
-            session.add(match)
+            match = await svc.create_match(transaction_data)
+            transaction_id = match.match_id
         elif action == "agreement":
-            agreement = TradeAgreement(**transaction_data)
-            session.add(agreement)
+            agreement = await svc.create_agreement(transaction_data)
+            transaction_id = agreement.agreement_id
         elif action == "settlement":
-            settlement = TradeSettlement(**transaction_data)
-            session.add(settlement)
+            settlement = await svc.create_settlement(transaction_data)
+            transaction_id = settlement.settlement_id
         else:
             return JSONResponse(status_code=400, content={"error": f"Invalid action: {action}"})
-        await session.commit()
-        return {
-            "status": "success",
-            "transaction_id": transaction_data.get("request_id")
-            or transaction_data.get("match_id")
-            or transaction_data.get("agreement_id"),
-        }
+        return {"status": "success", "transaction_id": transaction_id}
     except Exception as e:
         await session.rollback()
         logger.error("Transaction submission error: %s", e)
