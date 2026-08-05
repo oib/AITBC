@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -327,9 +328,9 @@ class TestOfferSubscription:
         assert sub.matches(_sample_event(offer=offer)) is False
 
     def test_to_filters_dict_includes_only_set_filters(self) -> None:
-        sub = OfferSubscription(chain_id="ait-hub", min_price=1.0)
+        sub = OfferSubscription(chain_id="ait-hub", min_price=Decimal("1.0"))
         filters = sub.to_filters_dict()
-        assert filters == {"chain_id": "ait-hub", "min_price": 1.0}
+        assert filters == {"chain_id": "ait-hub", "min_price": "1.0"}
 
     def test_to_filters_dict_empty_when_no_filters(self) -> None:
         sub = OfferSubscription()
