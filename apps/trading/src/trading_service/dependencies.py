@@ -1,9 +1,11 @@
 """Shared FastAPI dependencies for the Trading Service."""
 
+import hmac
+import os
 from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .clients.blockchain import BlockchainClient
@@ -55,3 +57,12 @@ async def get_offer_sync_service(
 ) -> OfferSyncService:
     """Get offer sync service instance."""
     return OfferSyncService(session)
+
+
+async def require_trading_api_key(
+    x_trading_api_key: str | None = Header(default=None, alias="X-Trading-Api-Key"),
+) -> None:
+    """Validate the trading API key header."""
+    expected = os.environ.get("TRADING_API_KEY")
+    if not x_trading_api_key or not expected or not hmac.compare_digest(x_trading_api_key, expected):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or missing API key")
