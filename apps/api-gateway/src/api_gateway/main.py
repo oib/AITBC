@@ -216,11 +216,12 @@ async def proxy_request(path: str, request: Request, authenticated: Annotated[bo
     """
     service_name: str | None = None
     for name, config in SERVICES.items():
-        if path.startswith(config["prefix"].lstrip("/")):  # type: ignore
+        prefix = config["prefix"].lstrip("/")  # type: ignore
+        if path == prefix or path.startswith(prefix + "/"):
             service_name = name
             break
     if not service_name:
-        service_name = "coordinator"
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"error": "Not found"})
     if not check_circuit_breaker(service_name):
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
