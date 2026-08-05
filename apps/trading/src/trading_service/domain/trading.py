@@ -75,7 +75,7 @@ class TradeRequest(SQLModel, table=True):
     specifications: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     constraints: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
-    budget_range: dict[str, Decimal] = Field(default={}, sa_column=Column(JSON))
+    budget_range: dict[str, str] = Field(default={}, sa_column=Column(JSON))  # Decimal values stored as strings
     preferred_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     negotiation_flexible: bool = Field(default=True)
 
@@ -167,7 +167,7 @@ class TradeNegotiation(SQLModel, table=True):
     initial_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     final_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
-    price_range: dict[str, Decimal] = Field(default={}, sa_column=Column(JSON))
+    price_range: dict[str, str] = Field(default={}, sa_column=Column(JSON))  # Decimal values stored as strings
     service_level_agreements: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     delivery_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     payment_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
