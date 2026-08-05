@@ -13,6 +13,7 @@ Usage:
 from __future__ import annotations
 
 import json
+from decimal import Decimal, InvalidOperation
 import os
 import time
 from dataclasses import dataclass, field
@@ -73,7 +74,7 @@ _COINGECKO_BASE = "https://api.coingecko.com/api/v3"
 class PriceResult:
     base: str
     quote: str
-    price: float
+    price: Decimal
     source: str
     timestamp: float = field(default_factory=time.time)
     raw: dict[str, Any] = field(default_factory=dict)
@@ -102,7 +103,7 @@ class ChainlinkOracle:
             round_data = client.call_contract(feed_addr, _CHAINLINK_ABI, "latestRoundData")
             answer = round_data[1]
             updated_at = round_data[3]
-            price = answer / (10**decimals)
+            price = Decimal(answer) / (Decimal(10) ** decimals)
             return PriceResult(
                 base=base,
                 quote=quote,
@@ -156,7 +157,7 @@ class CoinGeckoOracle:
         return PriceResult(
             base=entry.get("base", ""),
             quote=entry.get("quote", ""),
-            price=float(entry.get("price", 0)),
+            price=Decimal(str(entry.get("price", 0))),
             source="cached",
             timestamp=cached_ts,
             raw={"cached_at": entry.get("cached_at", "")},
@@ -168,7 +169,7 @@ class CoinGeckoOracle:
         cache[cache_key] = {
             "base": result.base,
             "quote": result.quote,
-            "price": result.price,
+            "price": str(result.price),
             "timestamp": result.timestamp,
             "cached_at": time.time(),
         }
@@ -205,7 +206,7 @@ class CoinGeckoOracle:
             result = PriceResult(
                 base=base.upper(),
                 quote=quote.upper(),
-                price=float(price),
+                price=Decimal(str(price)),
                 source="coingecko",
                 timestamp=float(entry.get("last_updated_at", time.time())),
                 raw=entry,
@@ -245,7 +246,7 @@ class PriceOracle:
 
             if eur_fixed:
                 try:
-                    ait_eur = float(eur_fixed)
+                    ait_eur = Decimal(eur_fixed)
                     if quote.upper() == "EUR":
                         return PriceResult(base, quote, ait_eur, "fixed", time.time(), {"source": "fixed_eur"})
                     # Derive from ETH oracle prices
@@ -278,15 +279,15 @@ class PriceOracle:
                                 {"source": "fixed_eur", "ait_eur": ait_eur, "eth_eur": eth_eur.price},
                             )
                     logger.warning("AIT_EUR_FIXED_PRICE set but cannot derive %s — ETH oracle unavailable", quote)
-                except ValueError:
+                except (ValueError, InvalidOperation):
                     logger.warning("Invalid AIT_EUR_FIXED_PRICE: %s", eur_fixed)
 
             if usd_fixed and quote.upper() == "USD":
                 try:
-                    price = float(usd_fixed)
+                    price = Decimal(usd_fixed)
                     logger.debug("Using fixed AIT/USD price: %s", price)
                     return PriceResult(base, quote, price, "fixed", time.time(), {"source": "fixed_price"})
-                except ValueError:
+                except (ValueError, InvalidOperation):
                     logger.warning("Invalid AIT_USD_FIXED_PRICE: %s", usd_fixed)
 
         result = self._chainlink.get_price(base, quote)
@@ -308,7 +309,7 @@ class PriceOracle:
             raise ValueError(f"No price feed available for {base}/{quote}")
         return result
 
-    def get_ait_price(self) -> float | None:
+    def get_ait_price(self) -> Decimal | None:
         """Get AIT/USD price (CoinGecko only — not on Chainlink mainnet feeds)."""
         result = self._coingecko.get_price("AIT", "USD")
         return result.price if result else None
