@@ -61,6 +61,9 @@ def rate_limit(limit: str) -> object:
 security = HTTPBearer(auto_error=False)
 API_KEY = os.getenv("API_GATEWAY_KEY", "")
 REQUIRE_AUTH = os.getenv("API_GATEWAY_REQUIRE_AUTH", "true").lower() == "true"
+# Applied to the catch-all proxy route below, which fronts every backend service.
+# slowapi syntax, e.g. "100/minute", "20/second".
+RATE_LIMIT = os.getenv("API_GATEWAY_RATE_LIMIT", "100/minute")
 SERVICES: dict[str, dict[str, object]] = {
     "gpu": {"base_url": os.getenv("GPU_SERVICE_URL", "http://localhost:8101"), "prefix": "/v1/gpu"},
     "marketplace": {"base_url": os.getenv("COORDINATOR_API_URL", "http://localhost:8203"), "prefix": "/v1/marketplace"},
@@ -202,8 +205,15 @@ async def proxy_with_retry(client: httpx.AsyncClient, method: str, url: str, **k
 
 
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+@rate_limit(RATE_LIMIT)  # type: ignore[misc]
 async def proxy_request(path: str, request: Request, authenticated: Annotated[bool, Depends(verify_auth)]) -> Response:
-    """Proxy request to appropriate microservice with rate limiting and circuit breaker."""
+    """Proxy request to appropriate microservice with rate limiting and circuit breaker.
+
+    The rate_limit decorator must sit below @app.api_route so slowapi wraps the handler
+    before FastAPI registers it. It was previously defined but applied to nothing, so the
+    limiter, its 429 handler and app.state.limiter were all wired up while every request
+    passed unthrottled.
+    """
     service_name: str | None = None
     for name, config in SERVICES.items():
         if path.startswith(config["prefix"].lstrip("/")):  # type: ignore
