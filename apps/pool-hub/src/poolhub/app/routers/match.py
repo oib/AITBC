@@ -113,6 +113,14 @@ def _select_candidates(
 
 
 def _compose_explain(score: float, miner: Any, miner_status: Any) -> str:
-    load = status.queue_len if status else 0
-    latency = status.avg_latency_ms if status else "n/a"
+    """Human-readable explanation of a candidate's score.
+
+    Reads `miner_status`, the parameter. This previously read `status`, which resolves to
+    the module-level `fastapi.status` import -- always truthy, so it took the non-None
+    branch and raised AttributeError ('module has no attribute queue_len') on every
+    /v1/match call that reached candidate building. The surrounding broad except turned
+    that into a generic 500, which is why it read as a server fault rather than a typo.
+    """
+    load = miner_status.queue_len if miner_status else 0
+    latency = miner_status.avg_latency_ms if miner_status else "n/a"
     return f"score={score:.3f} load={load} latency={latency}"
