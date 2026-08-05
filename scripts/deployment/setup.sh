@@ -194,6 +194,46 @@ validate_hub_connection() {
 }
 
 # Check prerequisites
+# Fetch a remote installer, show what will run, and require confirmation before piping it
+# into a root shell.
+#
+# This was `curl -fsSL <url> | bash -` in three places: a remote script executed as root,
+# sight unseen, with no integrity check. A compromised or MITM'd endpoint owns the host.
+# NodeSource publishes no checksum for these setup scripts, so the honest control is to
+# download, show the operator its hash and size, and require confirmation -- not to
+# pretend a checksum exists.
+run_remote_installer() {
+    local url="$1"
+    local tmp
+    tmp="$(mktemp)"
+
+    if ! curl -fsSL --proto '=https' --tlsv1.2 "$url" -o "$tmp"; then
+        rm -f "$tmp"
+        error "Failed to download installer from $url"
+    fi
+
+    echo "Downloaded installer from $url"
+    echo "  lines:  $(wc -l < "$tmp")"
+    echo "  sha256: $(sha256sum "$tmp" | cut -d' ' -f1)"
+
+    if [[ "${SETUP_ASSUME_YES:-}" != "yes" ]]; then
+        if [[ ! -t 0 ]]; then
+            rm -f "$tmp"
+            error "Refusing to run a remote installer non-interactively; set SETUP_ASSUME_YES=yes to allow"
+        fi
+        read -r -p "Run this installer as root? [y/N] " _reply
+        if [[ "$_reply" != "y" && "$_reply" != "Y" ]]; then
+            rm -f "$tmp"
+            error "Installer execution declined"
+        fi
+    fi
+
+    bash "$tmp"
+    local status=$?
+    rm -f "$tmp"
+    return $status
+}
+
 check_prerequisites() {
     log "Checking prerequisites..."
 
@@ -232,12 +272,12 @@ check_prerequisites() {
                         ;;
                     node)
                         # Install Node.js 24.x from NodeSource
-                        curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+                        run_remote_installer "https://deb.nodesource.com/setup_24.x"
                         apt-get install -y nodejs
                         ;;
                     npm)
                         # npm comes with nodejs
-                        curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+                        run_remote_installer "https://deb.nodesource.com/setup_24.x"
                         apt-get install -y nodejs
                         ;;
                     postgresql)
@@ -263,7 +303,7 @@ check_prerequisites() {
         elif command -v yum >/dev/null 2>&1; then
             yum install -y python3 python3-pip python3-venv git systemd postgresql postgresql-server postgresql-contrib redis postgresql-devel
             # Install Node.js 24.x
-            curl -fsSL https://rpm.nodesource.com/setup_24.x | bash -
+            run_remote_installer "https://rpm.nodesource.com/setup_24.x"
             yum install -y nodejs
         else
             error "Unsupported package manager. Please install manually: ${missing[*]}"
