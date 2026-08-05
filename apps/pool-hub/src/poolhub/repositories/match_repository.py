@@ -39,6 +39,7 @@ class MatchRepository:
         )
         self._session.add(request)
         await self._session.flush()
+        await self._session.commit()
 
         if enqueue:
             payload = {
@@ -73,6 +74,7 @@ class MatchRepository:
             self._session.add(result)
             results.append(result)
         await self._session.flush()
+        await self._session.commit()
 
         if publish:
             request = await self._session.get(MatchRequest, request_id)
