@@ -1,162 +1,247 @@
 # v0.22 Open Tasks — Agent Split
 
-This document assigns the remaining open v0.22 findings to Agent A or Agent B.
+Remaining open v0.22 findings, assigned to Agent A or Agent B, each with a suggested fix.
 
-See [`release.log`](./release.log) for the full ledger, evidence, and verification
-commands.
+See [`release.log`](./release.log) for the full ledger and original evidence.
 
-> **Both lists have now been verified against the code (AITBC-91, AITBC-92).**
+> **Every item below was re-verified against the code on 2026-08-06**, at
+> `main` = `cb400eb9e`. Each carries what the check found, so the next person can repeat it
+> in seconds rather than trusting this file.
 >
-> Agent B's list was ~55% stale: four of nine CLI items were already closed and its single
-> APP item was half-closed and mis-described. Agent A's list, by contrast, was accurate —
-> every contract and ops finding checked was genuinely open. Both are updated below with
-> what was closed and what remains.
+> This document has been wrong in both directions before — real findings recorded as
+> fabricated after reading already-fixed code, and unfixed findings recorded as closed
+> without running anything. **Re-verify before starting.**
+
+**Open: 27** — Agent A 22, Agent B 2 (one partial), plus 3 unassessed noted at the end.
+
+Fix suggestions are starting points, not specifications. Pattern discovery and
+architectural validation still apply.
+
+---
 
 ## Agent A — Core / Shared / Bridge / Infrastructure
 
-Focus: `aitbc/`, `apps/blockchain-node`, `apps/blockchain-event-bridge`,
-`apps/blockchain-explorer`, `contracts/`, ops/scripts, shared packages, and
-infrastructure-wide findings.
+Scope: `aitbc/`, `apps/blockchain-node`, `apps/blockchain-event-bridge`,
+`apps/blockchain-explorer`, `contracts/`, `scripts/`, `packages/`, tests and docs.
 
-- **CORE** — none remaining
-- **Contracts** — SC-05, SC-06, SC-12 remain *(SC-08/09/10/11/14 closed, AITBC-92)*
-- **Ops** — OPS-03, OPS-08, OPS-16, OPS-17 remain *(OPS-04/06/07/09/10/12/14/15/18 closed, AITBC-92)*
-- **Packages** — PKG-03, PKG-05, PKG-08, PKG-09, PKG-10, PKG-14 remain
-  *(PKG-01/02/04/06/07/11/12/13 closed, AITBC-92)*
-- **Tests/docs** — TEST-03/04/06/07/08; DOC-02/03/05/07 remain
-  *(TEST-01/02/05, DOC-01/04/06 closed)*
+### Contracts — 3
 
-### What remains, and why it was not done in this pass
+All three are unbounded loops that become un-callable as data grows: denial of service
+arriving through ordinary use, not attack. They share a fix shape, so do them together.
 
-| ID | Why |
-|---|---|
-| SC-05, SC-06, SC-12 | Unbounded loops over stakers/stakes/bounties. Needs pull-based reward accounting and batched slashing — a redesign, not a patch. SC-05 also silently under-pays: the inner loop `break`s on the first matching stake. |
-| OPS-03, OPS-08 | `scale_balances_3600x.py` writes a hand-rolled sha256 as the genesis state root, which the real node will not agree with. Needs the chain's actual MPT implementation. Treat as release-blocking before any hard fork. |
-| OPS-16 | 37 `eval "$cmd"` sites take commands from `name:command` string arrays; converting to array invocation means restructuring that data format across 14 scripts that cannot be executed here. Currently file-local literals, so the risk is latent. |
-| OPS-17 | Consolidating four overlapping service-management scripts is a behavioural change to ops tooling with the same problem. |
-| PKG-03 | Plugin loader is arbitrary code execution by design (`importlib.import_module` from a manifest string). Needs an allowlist and manifest signature verification. |
-| PKG-05 | Removing `@ts-nocheck` from 5 files means fixing the underlying type errors, and the packages could not install their toolchain to reveal them until PKG-06 landed. Now unblocked. |
-| PKG-08/09/10/14 | Web hooks, `localStorage` divergence, placeholder visual-regression suite, SSR guard. |
-| TEST-03/04/06/07/08, DOC-02/03/05/07 | Test reorganisation and doc consolidation; mechanical but large. |
+**SC-05 — `distributeAgentEarnings`** · *verified: 4 `break` statements in `AgentStaking.sol`*
+Loops `pool.stakers` unbounded with a nested inner scan, and `break`s on the first ACTIVE
+stake per staker — so anyone holding several concurrent stakes on one agent is paid for
+only one of them.
+
+> **Fix:** move to **pull-based accounting**. Record an accumulator (`rewardPerShare`) on
+> the pool and let stakers call `claim()`, rather than iterating and pushing payments.
+> This removes the loop and the gas ceiling at once. Fix the under-payment in the same
+> pass: accumulate across *all* of a staker's active stakes instead of `break`ing on the
+> first match. Add a test with one staker holding three concurrent stakes — it should fail
+> before the fix.
+
+**SC-06 — `_slashAllStakesForAgent`** · *verified: 4 refs*
+Loops all historical stakes with an external token transfer per iteration, so slashing
+eventually cannot execute at all.
+
+> **Fix:** paginate — `slashStakes(agent, startIndex, count)` with a bounded batch, called
+> repeatedly until exhausted. Track progress on-chain so a partially-completed slash can
+> resume. Prefer crediting a claimable balance over transferring per stake.
+
+**SC-12 — `getBountyStats`** · *verified: `i < bountyCounter` loop*
+Walks every bounty ever created; it is a `view`, but another contract can call it on-chain.
+
+> **Fix:** maintain running counters (`activeCount`, `completedCount`, `totalValue`)
+> updated on each state transition, and have the getter read them. O(1) instead of O(n).
+
+### Ops — 4
+
+**OPS-03 / OPS-08 — `scale_balances_3600x.py`** · *verified: `"simplified implementation"` marker; production chain-id default present*
+**Release-blocking before any hard fork.** The script writes a hand-rolled sha256 as the
+genesis state root; the node computes a Merkle Patricia Trie root and will not agree, so
+the chain fails genesis validation *after* an irreversible ×3600 balance rewrite. It also
+defaults `--chain-id` to the production domain and `--data-path` to `/var/lib/aitbc/data`,
+so running it bare targets production.
+
+> **Fix:** import the chain's actual state-root implementation from
+> `apps/blockchain-node` rather than recomputing it — if that is not importable, that is
+> the real finding and should be raised as such. Remove the production defaults (require
+> both flags explicitly), and add a typed confirmation before the rewrite. Verify by
+> running the migration against a copy and booting a node on the result; a genesis the
+> node rejects is the failure this is meant to prevent.
+
+**OPS-16 — `eval "$cmd"`** · *verified: 24 files under `scripts/testing`, `scripts/workflow`*
+Latent injection surface. Currently safe only because the strings are file-local literals.
+
+> **Fix:** the blocker is the data format, not the `eval`. Commands are stored as
+> `"name:command"` strings in arrays; convert to parallel arrays or an associative array
+> of argv arrays, then invoke `"${cmd[@]}"`. Do one script end-to-end first and run it
+> before converting the rest — these scripts need to be executable to validate the change.
+
+**OPS-17 — service-management duplication** · *verified: 8 scripts*
+Four overlapping scripts with different service lists; a service added to one is easy to
+forget in the others.
+
+> **Fix:** one parameterised script (`manage-services.sh start|stop|status|restart`) with
+> the service list defined once at the top. Keep the old names as thin wrappers that
+> forward, so existing runbooks and systemd units keep working.
+
+### Packages — 6
+
+**Start with PKG-05: it is now unblocked** and will likely surface PKG-08/09/14 as real
+type errors rather than findings someone has to notice by reading.
+
+**PKG-05 — `@ts-nocheck`** · *verified: 5 files*
+Disables type checking file-wide while `lint` runs `tsc --noEmit`, so the gate reports zero
+errors regardless of correctness.
+
+> **Fix:** PKG-06 (closed) added the missing devDependencies, so `npm install && npx tsc
+> --noEmit` now works. Remove the pragmas one file at a time and fix what surfaces. If a
+> file genuinely cannot be typed yet, scope it out of `tsconfig`'s `include` with a comment
+> explaining why — a visible exclusion beats an invisible one.
+
+**PKG-03 — plugin loader** · *verified: 1 `import_module` call, no allowlist*
+Arbitrary code execution by design: `importlib.import_module` on a module path taken from a
+manifest, then called with `manifest.config`.
+
+> **Fix:** two layers. (1) An allowlist of importable module prefixes, checked before
+> import — this alone closes the common case. (2) Signature verification of manifests
+> before load, reusing `aitbc.crypto` rather than a new scheme. Until both exist, make
+> `load_plugin` refuse manifests from any untrusted source rather than documenting the
+> risk in a docstring. Largest package item.
+
+**PKG-08 — `useWalletTheme`** · *verified: `setTimeout` stub present*
+A stub whose name and return shape imply on-chain persistence; `setPreference` just
+`setTimeout`s and updates local state.
+
+> **Fix:** either wire it to `AgentIdentity.themePreference(address)` via ethers/viem, or
+> make the stub honest — return a `notImplemented` flag, or throw. Same class as CORE-24
+> and the gpu 501s: do not report success for work not done.
+
+**PKG-09 — duplicate `localStorage` owner** · *verified: 3 owners of the key*
+`usePreferences` and `ThemeProvider` independently own
+`localStorage["aitbc-theme-preference"]` with no cross-instance sync, so they silently
+diverge when both mount.
+
+> **Fix:** single source of truth — have `usePreferences` delegate to the
+> `ThemeProvider` context instead of re-reading storage. If both must remain, add a
+> `storage` event listener so they converge.
+
+**PKG-10 — placeholder visual regression** · *verified: placeholder marker present*
+The suite renders nothing; it sets a DOM attribute and asserts it was set, so it passes
+with the theming entirely broken.
+
+> **Fix:** either wire up a real Playwright screenshot diff, or rename it to what it is
+> (`test_theme_attribute.py`) and drop the "visual regression" claim. False confidence in
+> CI is worse than an acknowledged gap.
+
+**PKG-14 — unguarded `matchMedia`** · *verified: 3 calls*
+`readPreference` calls `window.matchMedia` with no SSR guard; safe today only because its
+sole call site is inside a `useEffect`.
+
+> **Fix:** apply the same `typeof window === "undefined"` guard `resolveMode` already uses
+> a few lines above. One line, and it removes a latent SSR crash.
+
+### Tests / Docs — 9
+
+**DOC-02 — diverged OpenAPI specs** · *verified: 4 specs in `docs/api/`, 3 in `docs/openapi/`*
+Two sets for the same services, diverged, with no indication which is canonical.
+
+> **Fix:** the one that actively misleads — do it first. `docs/api/` looks newer and more
+> complete. Pick it, delete or regenerate the other, and add a make target that emits specs
+> from the running apps so they cannot drift again.
+
+**TEST-03 — disabled property tests** · *verified: 1 module-level skip*
+> **Fix:** run them and see what breaks. The skip reason ("Skipping broken test file") does
+> not say. If the hypothesis strategies have drifted from the current validators, repair
+> them; if the tests encode obsolete behaviour, delete them. A permanently skipped file is
+> zero coverage either way.
+
+**TEST-04 — service-gated production suites** · *verified: 5 files*
+> **Fix:** either stand up the agent coordinator in CI (docker-compose service, or the app
+> in-process via TestClient), or convert to mocked integration tests. Whichever you pick,
+> make the skip *loud* — a suite that silently skips reads as passing.
+
+**TEST-06 / TEST-07 — shell tests in `tests/`** · *verified: 112 scripts; `test-orchestrator.sh` 5,440 lines*
+> **Fix:** move the 112 `test-*.sh` into `tests/orchestrator.d/` (already exists and is used
+> by `staged-suite.sh`) or a new `tests/tooling/`, so `pytest tests/` no longer walks them.
+> Split `test-orchestrator.sh` by topic in the same pass — it is unreviewable at 5,440 lines.
+
+**TEST-08 — stale test dirs** · *verified: 2 dirs*
+> **Fix:** delete `tests/staking/` (a README describing where tests should live, no tests)
+> and either delete `tests/archived_phase_tests/` or move it under `docs/archive/`. Check
+> CI collection first — neither has an `__init__.py`, so it is unclear whether they run.
+
+**DOC-03 / DOC-05 / DOC-07 — doc hygiene** · *verified: 6 loose release files; 32 agent-output entries; 3 `.orig` files*
+> **Fix:** standardise release docs on one layout (per-version directory) and migrate the 6
+> loose files; prune completed-ticket outputs from `docs/agent-outputs/` to an external log
+> store; delete `docs/meta/pre-boilerplate-backup/` now the migration has stabilised. All
+> three are mechanical — good first tasks, low risk.
+
+---
 
 ## Agent B — Apps / CLI / Service Layer
 
-Focus: `apps/*` (except core blockchain/bridge/explorer), `cli/`, and service-level
-auth/endpoint findings.
+Scope: `apps/*` (except blockchain-node, event-bridge, explorer), `cli/`.
 
-### Open
+### Open — 2
 
-- **APP-54** — `simple_exchange` runs on stdlib `http.server` (`server.py`, `db.py`)
-  rather than the `src/<pkg>/` FastAPI layout every sibling service uses. This is why it
-  cannot use shared `aitbc.auth` middleware and hand-rolls its own request handling. The
-  largest remaining Agent B item; it is a service migration, not a patch.
+**APP-54 — `simple_exchange` on stdlib `http.server`** · *verified: `http.server` in `server.py`, `db.py`*
+Runs on `BaseHTTPRequestHandler` rather than the `src/<pkg>/` FastAPI layout every sibling
+uses. This is *why* it cannot use shared `aitbc.auth` and hand-rolls its own request
+handling and API-key check. The largest single item in either list.
 
-### Closed under AITBC-91
+> **Fix:** migrate to `apps/exchange/src/exchange_api/` on FastAPI, one router at a time,
+> keeping the existing handlers callable so behaviour can be diffed as you go. Replace the
+> hand-rolled `_require_api_key` with the shared `aitbc.auth` dependency once routing is on
+> FastAPI. Take the existing tests in `apps/exchange/tests/` as the contract — they should
+> keep passing throughout, and pin the current HTTP responses before starting so a
+> behavioural change is visible rather than assumed.
 
-| ID | Finding | Fix |
+**APP-35 — unlocked registry mutation (partial)** · *verified: lock present in `load_balancer.py`, absent in `agent_discovery.py`*
+The load balancer now has an `asyncio.Lock`; `agent_discovery` still mutates its registry
+without one.
+
+> **Fix:** mirror what `load_balancer.py:128` already does — an `asyncio.Lock` on the
+> instance, taken around registry mutation and iteration. Check whether the hash ring is
+> rebuilt on membership change while you are there; that was the other half of this
+> finding.
+
+### Closed since the last revision — do not re-do
+
+| ID | Was | Now |
 |---|---|---|
-| CLI-03 | Credentials in a module-level dict — gone next invocation, while reporting "stored" | OS keyring when available, else a 0600 file store; the active backend is reported rather than silently chosen |
-| CLI-05 | Multisig challenges process-local; `created_at` was `secrets.token_hex(8)` | Persisted to a 0600 store with a real ISO timestamp and a 1-hour TTL; verified working across separate processes |
-| CLI-06 | Audit dir/files created with the process umask | Directory 0700, files created 0600 via `os.open` |
-| CLI-10 | `secrets.json` written then chmod'ed — readable window | Created 0600 via `os.open`; parent dir 0700 |
-| CLI-13 | `client.py` an unregistered 9-line stub with 0 commands | Removed, along with the four tests that existed only to assert it was empty |
+| APP-32 | Trusted-member status from `journalctl` regex | Replaced |
+| APP-33 | Workflow steps slept 0.1s and marked themselves COMPLETED | Raises `NotImplementedError` |
+| APP-50 | exchange API key failed open when unset | Fails closed with 401 |
+| APP-64 | Event-bridge checkpoint reset to chain head, no reorg handling | Persisted checkpoint + reorg window |
+| CLI-02/07/08/09 | Placeholder balance, weak redaction, dropped CLI context, fabricated stats | Closed before AITBC-91 |
+| CLI-03/05/06/10/13 | In-memory credentials, process-local challenges, umask audit log, secrets TOCTOU, stub group | Closed in AITBC-91 |
 
-### Already closed before this pass — do not re-do
-
-| ID | Finding | Evidence |
-|---|---|---|
-| CLI-02 | `get_wallet_balance_in_chain` returned a placeholder `0.0` | Makes a real HTTP call to `/v1/chains/{id}/wallets/{id}/balance` |
-| CLI-07 | Weak secret redaction in `env_validator` | `_looks_like_secret(key, value)` gates a `***REDACTED***` replacement |
-| CLI-08 | `aitbc list` alias dropped parent context | Uses `ctx.invoke(wallet, ...)`; comment records that global flags are preserved |
-| CLI-09 | `chain_manager` reported fabricated migration statistics | Hardcoded `10000`/`1000`/`300` replaced with `0` |
-| APP-50 | exchange `_require_api_key` failed open when `EXCHANGE_API_KEY` was unset | Now sends 401; docstring: "A missing EXCHANGE_API_KEY is treated as an auth failure" |
-
-The previous revision folded APP-50 into the APP-54 line as "`simple_exchange` on stdlib
-`http.server` **and fail-open API key**". They are separate findings in opposite states,
-and the combined wording would have sent someone to re-fix a closed one.
-
-## Notes
-
-- The previous claim that "APP-54 is the only remaining concrete application-level
-  finding" and that "all other APP findings are closed" was not accurate. It contradicted
-  `release.log`'s own Open table in the same directory, which listed APP-32, APP-33,
-  APP-35 and APP-64. On checking those: **APP-32 and APP-64 are genuinely fixed** (the
-  event bridge now has a persisted checkpoint and a reorg-tolerance buffer — the hardest
-  of the four; the ledger simply was not updated). **APP-33 and APP-35 could not be
-  confirmed closed** and should be treated as open.
-- Cross-area items (e.g. TEST-08) may require both agents to coordinate.
+---
 
 ## Convention
 
 A finding is closed when its failure mode has been reproduced as a test, or the absence of
-the defect demonstrated by executing the affected path — not when a plausible-looking
-change has been made nearby. Both directions of error have already occurred in this
-release: real findings recorded as fabricated after reading already-fixed code, and unfixed
-findings recorded as closed without running anything.
+the defect demonstrated by **executing the affected path** — not when a plausible-looking
+change has been made nearby.
 
-## Sequencing for what remains
+Both failure modes have occurred in this release. One pass declared 15 real findings
+"fabricated" after reading code that had been fixed hours earlier. A later pass recorded
+APP-29 and APP-71 as closed when one had no enforcing constraint and the other re-created
+the outage it was meant to fix.
 
-Not specifications; pattern discovery and architectural validation still apply. Everything
-listed here was verified open on 2026-08-05 — but verify again before starting, since this
-document has been wrong in both directions before.
+## Unassessed
 
-### Contracts — SC-05, SC-06, SC-12
+`release.log` marks everything not in its Closed or Open tables as **unassessed** — neither
+confirmed fixed nor confirmed open. Do not read absence from this file as either.
 
-All three are unbounded loops and share a fix shape. `distributeAgentEarnings` iterates
-`pool.stakers` with a nested scan, `_slashAllStakesForAgent` makes an external token
-transfer per iteration, and `getBountyStats` walks every bounty ever created. Each becomes
-un-callable as data grows, which is a denial of service arriving through normal use.
+## Adjacent findings, not yet ticketed
 
-Consider pull-based reward accounting (stakers claim rather than being paid in a loop) and
-batched, paginated slashing. Fix SC-05's under-payment at the same time: the inner loop
-`break`s on the first ACTIVE stake matching a staker, so anyone with multiple concurrent
-stakes on one agent is credited for only one of them.
-
-### Ops — OPS-03/08, OPS-16, OPS-17
-
-1. **OPS-03/08 first, and treat as release-blocking.** `scale_balances_3600x.py` writes a
-   hand-rolled sha256 as the genesis state root; the real node computes an MPT root and
-   will not agree, so the chain fails genesis validation after the migration. It also
-   defaults `--chain-id` to the production domain and `--data-path` to `/var/lib/aitbc/data`,
-   so running it with no arguments targets production. Needs the chain's actual state-root
-   implementation plus an explicit confirmation gate.
-2. **OPS-16** — replace `eval "$cmd"` with array invocation. The blocker is the data
-   format: commands are stored as `name:command` strings in arrays across 14 scripts, so
-   this is a restructure, and the scripts need to be runnable to validate it.
-3. **OPS-17** — consolidate the four service-management scripts into one parameterised
-   entry point. A service added to one is currently easy to forget in the others.
-
-### Packages — PKG-03, PKG-05, PKG-08/09/10/14
-
-1. **PKG-05 is now unblocked** — PKG-06 added the missing devDependencies, so `tsc` can
-   finally report the errors that `@ts-nocheck` is hiding on 5 files. Remove the pragmas
-   and fix what surfaces; until then the `lint` script's `tsc --noEmit` is a no-op.
-2. **PKG-03** — the plugin loader is arbitrary code execution by design:
-   `importlib.import_module` on a module path taken from a manifest, then called with
-   `manifest.config`. Needs an allowlist of importable modules and signature verification
-   of manifests before load. Largest package item.
-3. **PKG-08/09** — `useWalletTheme` is a stub whose name and return shape imply on-chain
-   persistence, and `usePreferences` / `ThemeProvider` independently own the same
-   `localStorage` key with no cross-instance sync, so they silently diverge.
-4. **PKG-10/14** — the "visual regression" suite renders nothing, and `readPreference`
-   calls `window.matchMedia` unguarded (safe only because its sole call site is inside a
-   `useEffect`).
-
-### Tests / Docs — TEST-03/04/06/07/08, DOC-02/03/05/07
-
-1. **DOC-02 is the one that can mislead** — `docs/api/` and `docs/openapi/` hold diverged
-   specs for the same services. Pick one canonical location and generate the other, or
-   delete it.
-2. **TEST-03/04** — unskip the property tests (currently `skip("Skipping broken test
-   file")`) and either containerise or mock the production suites, which skip entirely
-   without a live coordinator on `localhost:9001`.
-3. **TEST-06/07/08, DOC-03/05/07** — mechanical but large: relocate 112 shell scripts out
-   of `tests/`, split the 341KB `test-orchestrator.sh`, standardise release-doc layout,
-   prune `docs/agent-outputs/`, archive `pre-boilerplate-backup`.
-
-## Adjacent finding, not yet ticketed
-
-`cli/aitbc_cli/utils/__init__.py::encrypt_value` is base64, not encryption. `config.py
-set-secret` describes itself as "Set an encrypted configuration value" and reports
-"Secret saved (encrypted)". Anything relying on that wording is relying on obfuscation.
-Noticed while fixing CLI-10; out of scope there, and it needs its own ticket.
+- `cli/aitbc_cli/utils/__init__.py::encrypt_value` is base64, not encryption, while
+  `config.py set-secret` reports "saved (encrypted)". Either implement real encryption or
+  stop claiming it.
+- `v0.22.0` is tagged at `a5d84956f`, which has the ZK proving keys deleted and proving
+  silently disabled. Every fix since is post-tag — the tag needs moving or superseding
+  before anyone deploys from it.
