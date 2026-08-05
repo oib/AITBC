@@ -15,14 +15,12 @@ logger = get_logger(__name__)
 class GPUService:
     """Service for GPU operations"""
 
-    def __init__(self) -> None:
-        self.gpu_client = GPUServiceClient()
-
     async def list_gpus(
         self, architecture: str | None = None, edge_optimized: bool | None = None, min_memory_gb: int | None = None
     ) -> list[dict[str, Any]]:
         """List GPUs via GPU service"""
-        profiles = await self.gpu_client.get_gpu_profiles(architecture, edge_optimized, min_memory_gb)
+        async with GPUServiceClient() as gpu_client:
+            profiles = await gpu_client.get_gpu_profiles(architecture, edge_optimized, min_memory_gb)
 
         # Store GPU listings in edge-api database
         async with get_session() as session:
@@ -46,7 +44,8 @@ class GPUService:
         """Get GPU listing details"""
         # Get from GPU service
         try:
-            profiles = await self.gpu_client.get_gpu_profiles()
+            async with GPUServiceClient() as gpu_client:
+                profiles = await gpu_client.get_gpu_profiles()
             for profile in profiles:
                 if profile.get("id") == gpu_id:
                     return profile
@@ -82,12 +81,14 @@ class GPUService:
 
     async def scan_gpus(self, miner_id: str) -> dict[str, Any]:
         """Scan GPUs via GPU service"""
-        result = await self.gpu_client.scan_gpus(miner_id)
+        async with GPUServiceClient() as gpu_client:
+            result = await gpu_client.scan_gpus(miner_id)
         return result
 
     async def get_gpu_metrics(self, gpu_id: str, limit: int = 100) -> list[dict[str, Any]]:
         """Get GPU metrics via GPU service"""
-        metrics = await self.gpu_client.get_gpu_metrics(gpu_id, limit)
+        async with GPUServiceClient() as gpu_client:
+            metrics = await gpu_client.get_gpu_metrics(gpu_id, limit)
         return metrics
 
     async def advertise_to_marketplace(self) -> dict[str, Any]:
@@ -98,7 +99,8 @@ class GPUService:
         """
         import httpx
 
-        profiles = await self.gpu_client.get_gpu_profiles()
+        async with GPUServiceClient() as gpu_client:
+            profiles = await gpu_client.get_gpu_profiles()
         payload = {
             "node_type": "edge",
             "service": "aitbc-edge",

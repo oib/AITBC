@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from aitbc.aitbc_logging import get_logger
 
 from chain_client import get_latest_blocks
+from .common import sanitize_csv_value
 
 logger = get_logger(__name__)
 
@@ -33,13 +34,13 @@ async def export_search(format: str = "csv", type: str = "transactions", data: s
                 for tx in results:
                     writer.writerow(
                         [
-                            tx.get("hash", ""),
-                            tx.get("type", ""),
-                            tx.get("from", ""),
-                            tx.get("to", ""),
-                            tx.get("amount", ""),
-                            tx.get("fee", ""),
-                            tx.get("timestamp", ""),
+                            sanitize_csv_value(tx.get("hash", "")),
+                            sanitize_csv_value(tx.get("type", "")),
+                            sanitize_csv_value(tx.get("from", "")),
+                            sanitize_csv_value(tx.get("to", "")),
+                            sanitize_csv_value(tx.get("amount", "")),
+                            sanitize_csv_value(tx.get("fee", "")),
+                            sanitize_csv_value(tx.get("timestamp", "")),
                         ]
                     )
             else:  # blocks
@@ -48,11 +49,11 @@ async def export_search(format: str = "csv", type: str = "transactions", data: s
                 for block in results:
                     writer.writerow(
                         [
-                            block.get("height", ""),
-                            block.get("hash", ""),
-                            block.get("validator", ""),
-                            block.get("tx_count", ""),
-                            block.get("timestamp", ""),
+                            sanitize_csv_value(block.get("height", "")),
+                            sanitize_csv_value(block.get("hash", "")),
+                            sanitize_csv_value(block.get("validator", "")),
+                            sanitize_csv_value(block.get("tx_count", "")),
+                            sanitize_csv_value(block.get("timestamp", "")),
                         ]
                     )
 
@@ -93,11 +94,11 @@ async def export_blocks(format: str = "csv") -> StreamingResponse:
             for block in blocks:
                 writer.writerow(
                     [
-                        block.get("height", ""),
-                        block.get("hash", ""),
-                        block.get("validator", ""),
-                        block.get("tx_count", ""),
-                        block.get("timestamp", ""),
+                        sanitize_csv_value(block.get("height", "")),
+                        sanitize_csv_value(block.get("hash", "")),
+                        sanitize_csv_value(block.get("validator", "")),
+                        sanitize_csv_value(block.get("tx_count", "")),
+                        sanitize_csv_value(block.get("timestamp", "")),
                     ]
                 )
 
