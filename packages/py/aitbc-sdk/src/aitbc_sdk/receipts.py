@@ -85,13 +85,35 @@ class CoordinatorReceiptClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff_seconds = backoff_seconds
+        self._http: AITBCHTTPClient | None = None
 
     def _client(self) -> AITBCHTTPClient:
-        return AITBCHTTPClient(
-            base_url=self.base_url,
-            timeout=self.timeout,
-            headers={"X-Api-Key": self.api_key},
-        )
+        """Return this instance's HTTP client, creating it on first use.
+
+        This built a fresh client on every call and never closed any of them. Since
+        _request() calls it inside its retry loop, and iter_receipts() calls _request()
+        once per page, a paginated fetch leaked one client and connection pool per page
+        and per retry attempt.
+        """
+        if self._http is None:
+            self._http = AITBCHTTPClient(
+                base_url=self.base_url,
+                timeout=self.timeout,
+                headers={"X-Api-Key": self.api_key},
+            )
+        return self._http
+
+    def close(self) -> None:
+        """Release the underlying HTTP connection pool."""
+        if self._http is not None:
+            self._http.close()
+            self._http = None
+
+    def __enter__(self) -> CoordinatorReceiptClient:
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.close()
 
     def fetch_latest(self, job_id: str) -> dict[str, Any] | None:
         resp = self._request("GET", f"/v1/jobs/{job_id}/receipt", allow_404=True)
@@ -222,8 +244,13 @@ class ReceiptPage:
 
 def _verify_signature(payload: dict[str, Any], signature: dict[str, Any]) -> SignatureValidation:
     key_id = signature.get("key_id", "")
-    verifier = ReceiptVerifier(_decode_key(key_id))
     try:
+        # Constructing the verifier is inside the try. It used to sit above it, so an
+        # unsigned receipt -- signature {} -> key_id "" -> _decode_key("") -> b"" ->
+        # VerifyKey(b"") raising on the wrong key length -- propagated out of
+        # verify_receipt/verify_receipts/summarize_receipts and took down the whole batch
+        # instead of marking one receipt invalid.
+        verifier = ReceiptVerifier(_decode_key(key_id))
         valid = verifier.verify(payload, signature)
         reason: str | None = None if valid else "signature mismatch"
     except Exception as exc:  # pragma: no cover - verifier could raise on malformed payloads
