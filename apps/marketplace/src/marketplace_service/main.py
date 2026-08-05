@@ -11,7 +11,7 @@ from decimal import Decimal
 from typing import Annotated, Any
 
 import httpx
-from fastapi import BackgroundTasks, Depends, FastAPI
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from aitbc.middleware import setup_cors
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -283,7 +283,7 @@ async def get_offer_history(offer_id: str, svc: Annotated[MarketplaceService, De
     logger.info("GET /v1/marketplace/offers/%s/history called", offer_id)
     offer = await svc.get_offer(offer_id)
     if not offer:
-        return ({"error": "Offer not found"}, 404)
+        return JSONResponse(status_code=404, content={"error": "Offer not found"})
     history = {
         "offer_id": offer_id,
         "created_at": offer.created_at,
@@ -303,9 +303,9 @@ async def cancel_offer(
     logger.info("POST /v1/marketplace/offers/%s/cancel called", offer_id)
     offer = await svc.get_offer(offer_id)
     if not offer:
-        return ({"error": "Offer not found"}, 404)
+        return JSONResponse(status_code=404, content={"error": "Offer not found"})
     if offer.status == "cancelled":
-        return ({"error": "Offer already cancelled"}, 400)
+        return JSONResponse(status_code=400, content={"error": "Offer already cancelled"})
     await svc.update_offer_status(offer_id, "cancelled")
     cancelled_offer = {
         "offer_id": offer_id,
@@ -349,7 +349,7 @@ async def calculate_dynamic_pricing(
     logger.info("POST /v1/marketplace/dynamic-pricing called for offer %s", offer_id)
     offer = await svc.get_offer(offer_id)
     if not offer:
-        return ({"error": "Offer not found"}, 404)
+        return JSONResponse(status_code=404, content={"error": "Offer not found"})
     base_price = offer.price_per_hour or 0
     supply_demand_ratio = current_demand / max(current_supply, 1)
     if supply_demand_ratio > 1.5:
@@ -450,7 +450,7 @@ async def get_software_offer(plugin_id: str, svc: Annotated[MarketplaceService, 
         logger.info("GET /v1/marketplace/offer/%s called", plugin_id)
         result = await svc.get_software_service(plugin_id)
         if not result:
-            return ({"error": "Offer not found"}, 404)
+            return JSONResponse(status_code=404, content={"error": "Offer not found"})
         logger.info("GET /v1/marketplace/offer/%s returned offer", plugin_id)
         return result
     except Exception as e:
@@ -481,6 +481,10 @@ async def unregister_offer(plugin_id: str, svc: Annotated[MarketplaceService, De
         result = await svc.unregister_software_service(plugin_id)
         logger.info("DELETE /v1/marketplace/offer/%s completed", plugin_id)
         return result
+    except ValueError as e:
+        # The service signals "not found" with ValueError; without this it surfaced as a 500.
+        logger.info("DELETE /v1/marketplace/offer/%s not found: %s", plugin_id, e)
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.error("Error in DELETE /v1/marketplace/offer/%s: %s: %s", plugin_id, type(e).__name__, str(e))
         raise
@@ -576,7 +580,7 @@ async def rate_service(
         }
     except ValueError as e:
         logger.error("Validation error in rate_service: %s", str(e))
-        return ({"error": str(e)}, 400)
+        return JSONResponse(status_code=400, content={"error": str(e)})
     except Exception as e:
         logger.error("Error in POST /v1/marketplace/offer/%s/rate: %s: %s", service_id, type(e).__name__, str(e))
         raise
@@ -624,7 +628,7 @@ async def get_offer_by_id(offer_id: str, svc: Annotated[MarketplaceService, Depe
         logger.info("GET /v1/marketplace/offer-by-id/%s called", offer_id)
         service = await svc.get_service_by_offer_id(offer_id)
         if not service:
-            return ({"error": "Service not found"}, 404)
+            return JSONResponse(status_code=404, content={"error": "Service not found"})
         return service
     except Exception as e:
         logger.error("Error in GET /v1/marketplace/offer-by-id/%s: %s: %s", offer_id, type(e).__name__, str(e))
@@ -681,19 +685,19 @@ async def submit_transaction(
     transaction_type = transaction_data.get("type")
     action = transaction_data.get("action")
     if transaction_type != "marketplace":
-        return ({"error": "Invalid transaction type for marketplace service"}, 400)
+        return JSONResponse(status_code=400, content={"error": "Invalid transaction type for marketplace service"})
     try:
         if action == "offer":
             offer = MarketplaceOffer(**transaction_data)
             session.add(offer)
         else:
-            return ({"error": f"Invalid action: {action}. Only 'offer' is currently supported"}, 400)
+            return JSONResponse(status_code=400, content={"error": f"Invalid action: {action}. Only 'offer' is currently supported"})
         await session.commit()
         return {"status": "success"}
     except Exception as e:
         await session.rollback()
         logger.error("Transaction submission error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.get("/v1/transactions")
@@ -740,7 +744,7 @@ async def get_transactions(
         return transactions
     except Exception as e:
         logger.error("Transaction query error: %s", e)
-        return ({"error": str(e)}, 500)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 # ============================================================================

@@ -464,7 +464,10 @@ class MarketplaceService:
             result = await self.session.execute(query)
             service = result.scalar_one_or_none()
             if not service:
-                return ({"error": "Service not found"}, 404)
+                # Raise rather than return an HTTP-shaped tuple: this is the service layer,
+                # and the tuple was serialized by FastAPI as a 200 with the status buried in
+                # a JSON array. Matches list_offers/update_offer_status above.
+                raise ValueError(f"Service not found: {plugin_id}")
             await self.session.delete(service)
             await self.session.commit()
             logger.info("Unregistered software service: %s", plugin_id)
