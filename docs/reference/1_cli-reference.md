@@ -253,15 +253,26 @@ aitbc security scan
 ```
 
 ### 17. compliance
-Compliance checking and reporting.
+Compliance policy, classification, and audit commands.
 
 ```bash
-# Check compliance
-aitbc compliance check
+# Check whether a data classification is permitted by a framework's policy
+aitbc compliance check --framework hipaa --classification phi
 
-# Generate report
-aitbc compliance report
+# Normalize a data classification label
+aitbc compliance classify PHI
+
+# Export the compliance audit trail to a JSON file
+aitbc compliance export-audit --output-file audit-export.json
 ```
+
+Frameworks: `hipaa`, `soc2`, `glba`, `pci_dss`, `manufacturing`, `education`, `retail`,
+`generic`. Classifications: `public`, `internal`, `restricted`, `confidential`, `pii`,
+`phi`, `pci`.
+
+> `aitbc compliance report` was removed in v0.15.2, which replaced the placeholder
+> `check`/`report` pair with real policy evaluation. Use `export-audit` to produce a
+> compliance artifact.
 
 ### 18. simulate
 Simulation utilities and testing.
