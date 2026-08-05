@@ -1,8 +1,11 @@
 """Analytics routes — activity timeline, network stats, top addresses, provider reputation, overview."""
 
 import json
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 
+import aiosqlite
 import httpx
 from fastapi import APIRouter, HTTPException
 
@@ -15,6 +18,14 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
+def _chain_db_path() -> Path | None:
+    """Return the configured on-disk chain database, or None if it does not exist."""
+    chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+    if not chain_db_path.exists():
+        chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+    return chain_db_path if chain_db_path.exists() else None
+
+
 @router.get("/api/analytics/activity")
 async def api_activity_timeline(
     chain_id: str | None = DEFAULT_CHAIN,
@@ -22,42 +33,35 @@ async def api_activity_timeline(
 ) -> dict[str, Any]:
     """Get daily transaction counts for activity timeline chart"""
     try:
-        import sqlite3
-        from pathlib import Path
-
-        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
-        if not chain_db_path.exists():
-            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
-
-        if not chain_db_path.exists():
+        chain_db_path = _chain_db_path()
+        if chain_db_path is None:
             return {"labels": [], "datasets": []}
 
-        conn = sqlite3.connect(str(chain_db_path))
-        cursor = conn.cursor()
+        async with aiosqlite.connect(str(chain_db_path)) as conn:
+            cursor = await conn.cursor()
 
-        # Get daily transaction counts for the last N days
-        cursor.execute(
-            """
-            SELECT DATE(created_at) as day, type, COUNT(*) as count
-            FROM "transaction"
-            WHERE created_at >= datetime('now', ?)
-            GROUP BY DATE(created_at), type
-            ORDER BY day
-            """,
-            (f"-{int(days)} days",),
-        )
+            # Get daily transaction counts for the last N days
+            await cursor.execute(
+                """
+                SELECT DATE(created_at) as day, type, COUNT(*) as count
+                FROM "transaction"
+                WHERE created_at >= datetime('now', ?)
+                GROUP BY DATE(created_at), type
+                ORDER BY day
+                """,
+                (f"-{int(days)} days",),
+            )
 
-        # Organize by day and type
-        data: dict[str, dict[str, int]] = {}
-        tx_types: set[str] = set()
-        for row in cursor.fetchall():
-            day, tx_type, count = row
-            if day not in data:
-                data[day] = {}
-            data[day][tx_type] = count
-            tx_types.add(tx_type)
-
-        conn.close()
+            # Organize by day and type
+            data: dict[str, dict[str, int]] = {}
+            tx_types: set[str] = set()
+            rows = await cursor.fetchall()
+            for row in rows:
+                day, tx_type, count = row
+                if day not in data:
+                    data[day] = {}
+                data[day][tx_type] = count
+                tx_types.add(tx_type)
 
         labels = sorted(data.keys())
         type_colors = {
@@ -88,59 +92,57 @@ async def api_activity_timeline(
 async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
     """Get aggregate network stats: total AIT, active offers, unique nodes/providers"""
     try:
-        import sqlite3
-        from pathlib import Path
-
-        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
-        if not chain_db_path.exists():
-            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
-
-        if not chain_db_path.exists():
+        chain_db_path = _chain_db_path()
+        if chain_db_path is None:
             return {"total_ait": 0, "active_offers": 0, "unique_nodes": 0, "unique_providers": 0, "total_transactions": 0}
 
-        conn = sqlite3.connect(str(chain_db_path))
-        cursor = conn.cursor()
+        async with aiosqlite.connect(str(chain_db_path)) as conn:
+            cursor = await conn.cursor()
 
-        # Total AIT from TRANSFER + GPU_MARKETPLACE transactions (sum of values)
-        cursor.execute("""
-            SELECT COALESCE(SUM(CAST(value AS REAL)), 0)
-            FROM "transaction"
-            WHERE type IN ('TRANSFER', 'GPU_MARKETPLACE')
-        """)
-        total_ait = cursor.fetchone()[0] or 0
+            # Total AIT from TRANSFER + GPU_MARKETPLACE transactions (sum of values)
+            await cursor.execute("""
+                SELECT COALESCE(SUM(CAST(value AS REAL)), 0)
+                FROM "transaction"
+                WHERE type IN ('TRANSFER', 'GPU_MARKETPLACE')
+            """)
+            row = await cursor.fetchone()
+            total_ait = row[0] or 0
 
-        # Active offers (GPU_MARKETPLACE transactions)
-        cursor.execute("""
-            SELECT COUNT(DISTINCT tx_hash) FROM "transaction" WHERE type = 'GPU_MARKETPLACE'
-        """)
-        active_offers = cursor.fetchone()[0] or 0
+            # Active offers (GPU_MARKETPLACE transactions)
+            await cursor.execute("""
+                SELECT COUNT(DISTINCT tx_hash) FROM "transaction" WHERE type = 'GPU_MARKETPLACE'
+            """)
+            row = await cursor.fetchone()
+            active_offers = row[0] or 0
 
-        # Unique nodes (distinct senders)
-        cursor.execute("""
-            SELECT COUNT(DISTINCT sender) FROM "transaction"
-        """)
-        unique_nodes = cursor.fetchone()[0] or 0
+            # Unique nodes (distinct senders)
+            await cursor.execute("""
+                SELECT COUNT(DISTINCT sender) FROM "transaction"
+            """)
+            row = await cursor.fetchone()
+            unique_nodes = row[0] or 0
 
-        # Unique providers from GPU_MARKETPLACE payload
-        cursor.execute("""
-            SELECT payload FROM "transaction" WHERE type = 'GPU_MARKETPLACE'
-        """)
-        providers = set()
-        for row in cursor.fetchall():
-            try:
-                payload = json.loads(row[0]) if row[0] else {}
-                pid = payload.get("provider_node_id") or payload.get("node_id")
-                if pid:
-                    providers.add(pid)
-            except Exception:
-                pass
-        unique_providers = len(providers)
+            # Unique providers from GPU_MARKETPLACE payload
+            await cursor.execute("""
+                SELECT payload FROM "transaction" WHERE type = 'GPU_MARKETPLACE'
+            """)
+            providers = set()
+            rows = await cursor.fetchall()
+            for row in rows:
+                try:
+                    payload = json.loads(row[0]) if row[0] else {}
+                    pid = payload.get("provider_node_id") or payload.get("node_id")
+                    if pid:
+                        providers.add(pid)
+                except Exception:
+                    pass
+            unique_providers = len(providers)
 
-        # Total transactions
-        cursor.execute('SELECT COUNT(*) FROM "transaction"')
-        total_transactions = cursor.fetchone()[0] or 0
+            # Total transactions
+            await cursor.execute('SELECT COUNT(*) FROM "transaction"')
+            row = await cursor.fetchone()
+            total_transactions = row[0] or 0
 
-        conn.close()
         return {
             "total_ait": round(total_ait, 2),
             "active_offers": active_offers,
@@ -160,46 +162,40 @@ async def api_top_addresses(
 ) -> dict[str, Any]:
     """Get top addresses by transaction count and AIT volume"""
     try:
-        import sqlite3
-        from pathlib import Path
-
-        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
-        if not chain_db_path.exists():
-            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
-
-        if not chain_db_path.exists():
+        chain_db_path = _chain_db_path()
+        if chain_db_path is None:
             return {"addresses": []}
 
-        conn = sqlite3.connect(str(chain_db_path))
-        cursor = conn.cursor()
+        async with aiosqlite.connect(str(chain_db_path)) as conn:
+            cursor = await conn.cursor()
 
-        cursor.execute(
-            """
-            SELECT
-                CASE WHEN sender = 'faucet' OR sender = '0x0000000000000000000000000000000000000000' THEN recipient ELSE sender END as addr,
-                COUNT(*) as tx_count,
-                COALESCE(SUM(CAST(value AS REAL)), 0) as volume
-            FROM "transaction"
-            WHERE sender != 'faucet' AND sender != '0x0000000000000000000000000000000000000000'
-            GROUP BY addr
-            ORDER BY tx_count DESC
-            LIMIT ?
-        """,
-            (limit,),
-        )
-
-        addresses = []
-        for row in cursor.fetchall():
-            addr, tx_count, volume = row
-            addresses.append(
-                {
-                    "address": addr,
-                    "transaction_count": tx_count,
-                    "volume": round(volume, 2),
-                }
+            await cursor.execute(
+                """
+                SELECT
+                    CASE WHEN sender = 'faucet' OR sender = '0x0000000000000000000000000000000000000000' THEN recipient ELSE sender END as addr,
+                    COUNT(*) as tx_count,
+                    COALESCE(SUM(CAST(value AS REAL)), 0) as volume
+                FROM "transaction"
+                WHERE sender != 'faucet' AND sender != '0x0000000000000000000000000000000000000000'
+                GROUP BY addr
+                ORDER BY tx_count DESC
+                LIMIT ?
+            """,
+                (limit,),
             )
 
-        conn.close()
+            addresses = []
+            rows = await cursor.fetchall()
+            for row in rows:
+                addr, tx_count, volume = row
+                addresses.append(
+                    {
+                        "address": addr,
+                        "transaction_count": tx_count,
+                        "volume": round(volume, 2),
+                    }
+                )
+
         return {"addresses": addresses}
     except Exception:
         logger.exception("Error getting top addresses")
@@ -210,33 +206,25 @@ async def api_top_addresses(
 async def api_provider_reputation(provider_id: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
     """Compute provider reputation score from blockchain history"""
     try:
-        import sqlite3
-        from pathlib import Path
-        from datetime import datetime
-
-        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
-        if not chain_db_path.exists():
-            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
-
-        if not chain_db_path.exists():
+        chain_db_path = _chain_db_path()
+        if chain_db_path is None:
             return {"provider_id": provider_id, "score": 0, "level": "New", "transactions": 0, "days_active": 0}
 
-        conn = sqlite3.connect(str(chain_db_path))
-        cursor = conn.cursor()
+        async with aiosqlite.connect(str(chain_db_path)) as conn:
+            cursor = await conn.cursor()
 
-        # Find all transactions related to this provider
-        cursor.execute(
-            """
-            SELECT type, value, created_at, payload
-            FROM "transaction"
-            WHERE sender = ? OR recipient = ?
-            ORDER BY created_at ASC
-        """,
-            (provider_id, provider_id),
-        )
+            # Find all transactions related to this provider
+            await cursor.execute(
+                """
+                SELECT type, value, created_at, payload
+                FROM "transaction"
+                WHERE sender = ? OR recipient = ?
+                ORDER BY created_at ASC
+            """,
+                (provider_id, provider_id),
+            )
 
-        txs = cursor.fetchall()
-        conn.close()
+            txs = await cursor.fetchall()
 
         gpu_offers = 0
         total_volume = 0.0
