@@ -6,6 +6,7 @@ Supports public endpoints (Infura, Alchemy, Cloudflare) with automatic fallback.
 from __future__ import annotations
 
 import asyncio
+from decimal import Decimal
 import os
 import time
 from dataclasses import dataclass, field
@@ -128,7 +129,7 @@ class EthereumRPCClient:
         return {
             "address": checksum_addr,
             "wei": wei,
-            "ether": float(Web3.from_wei(wei, "ether")),
+            "ether": Decimal(Web3.from_wei(wei, "ether")),
             "network": self.config.network,
         }
 
@@ -157,7 +158,7 @@ class EthereumRPCClient:
                 "from": tx["from"],
                 "to": tx.to,
                 "value_wei": tx.value,
-                "value_ether": float(Web3.from_wei(tx.value, "ether")),
+                "value_ether": Decimal(Web3.from_wei(tx.value, "ether")),
                 "block_number": tx.blockNumber,
                 "nonce": tx.nonce,
                 "gas": tx.gas,
@@ -193,7 +194,7 @@ class EthereumRPCClient:
         wei = w3.eth.gas_price
         return {
             "wei": wei,
-            "gwei": float(Web3.from_wei(wei, "gwei")),
+            "gwei": Decimal(Web3.from_wei(wei, "gwei")),
         }
 
     def call_contract(

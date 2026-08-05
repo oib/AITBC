@@ -3,6 +3,7 @@ Tests for AITBC Ethereum RPC module (ethereum_rpc.py)
 This module has 0% coverage and 124 statements.
 """
 
+from decimal import Decimal
 from unittest.mock import Mock, patch
 
 import pytest
@@ -239,13 +240,13 @@ class TestEthereumRPCClient:
     def test_health_check_connected(self):
         client = ethereum_rpc.EthereumRPCClient()
         client.get_block_number = Mock(return_value=100)
-        client.get_gas_price = Mock(return_value={"gwei": 5.0})
+        client.get_gas_price = Mock(return_value={"gwei": Decimal("5")})
         client._connected_url = "https://test.rpc"
 
         result = client.health_check()
         assert result["status"] == "connected"
         assert result["latest_block"] == 100
-        assert result["gas_price_gwei"] == 5.0
+        assert result["gas_price_gwei"] == Decimal("5")
 
     def test_health_check_disconnected(self):
         client = ethereum_rpc.EthereumRPCClient()
