@@ -60,7 +60,7 @@ class BlockchainService:
         try:
             client.post(
                 f"{self.rpc_url}/staking/performance",
-                json={"agent_wallet": agent_wallet, "accuracy": float(accuracy), "successful": successful},
+                json={"agent_wallet": agent_wallet, "accuracy": str(accuracy), "successful": successful},
                 headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
             )
             logger.info("Agent performance updated on-chain for %s", agent_wallet)

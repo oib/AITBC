@@ -109,7 +109,7 @@ class ChainlinkOracle:
                 quote=quote,
                 price=price,
                 source="chainlink",
-                timestamp=float(updated_at),
+                timestamp=updated_at,
                 raw={"feed": feed_addr, "round_id": round_data[0], "answer": answer},
             )
         except Exception as e:
@@ -208,7 +208,7 @@ class CoinGeckoOracle:
                 quote=quote.upper(),
                 price=Decimal(str(price)),
                 source="coingecko",
-                timestamp=float(entry.get("last_updated_at", time.time())),
+                timestamp=entry.get("last_updated_at", time.time()),
                 raw=entry,
             )
             self._cache[cache_key] = result
