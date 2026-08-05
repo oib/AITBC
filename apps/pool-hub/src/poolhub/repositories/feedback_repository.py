@@ -44,6 +44,7 @@ class FeedbackRepository:
         )
         self._session.add(feedback)
         await self._session.flush()
+        await self._session.commit()
 
         payload = {
             "job_id": job_id,

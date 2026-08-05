@@ -74,6 +74,7 @@ class MinerRepository:
         miner.last_seen_at = dt.datetime.now(dt.UTC)
 
         await self._session.flush()
+        await self._session.commit()
         await self._sync_miner_to_redis(miner_id)
         return miner
 
@@ -111,6 +112,7 @@ class MinerRepository:
         if miner:
             miner.last_seen_at = dt.datetime.now(dt.UTC)
         await self._session.flush()
+        await self._session.commit()
         await self._sync_miner_to_redis(miner_id)
 
     async def touch_heartbeat(self, miner_id: str) -> None:
@@ -119,6 +121,7 @@ class MinerRepository:
             return
         miner.last_seen_at = dt.datetime.now(dt.UTC)
         await self._session.flush()
+        await self._session.commit()
         await self._sync_miner_to_redis(miner_id)
 
     async def get_miner(self, miner_id: str) -> Miner | None:
