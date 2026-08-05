@@ -30,6 +30,57 @@ error_exit() {
     exit 1
 }
 
+# Replace KEY=<anything> with KEY=<value> in a file, treating <value> literally.
+#
+# This was `sed -i "s/KEY=.*/KEY=$NEW_SECRET/"`. Base64 secrets commonly contain `/` and
+# `&`, which sed treats as the expression delimiter and "the matched text" respectively,
+# so a perfectly valid secret could corrupt the env file or write the wrong value.
+set_env_var() {
+    local key="$1" value="$2" file="$3"
+    KEY="$key" VALUE="$value" FILE="$file" python3 - <<'PY'
+import os
+import re
+
+key = os.environ["KEY"]
+value = os.environ["VALUE"]
+path = os.environ["FILE"]
+
+with open(path) as handle:
+    lines = handle.readlines()
+
+pattern = re.compile(rf"^{re.escape(key)}=")
+replaced = False
+for index, line in enumerate(lines):
+    if pattern.match(line):
+        lines[index] = f"{key}={value}\n"
+        replaced = True
+
+if not replaced:
+    lines.append(f"{key}={value}\n")
+
+with open(path, "w") as handle:
+    handle.writelines(lines)
+PY
+}
+
+# Remove a KEY=... line entirely.
+unset_env_var() {
+    local key="$1" file="$2"
+    KEY="$key" FILE="$file" python3 - <<'PY'
+import os
+import re
+
+key = os.environ["KEY"]
+path = os.environ["FILE"]
+pattern = re.compile(rf"^{re.escape(key)}=")
+
+with open(path) as handle:
+    lines = handle.readlines()
+with open(path, "w") as handle:
+    handle.writelines(line for line in lines if not pattern.match(line))
+PY
+}
+
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
     error_exit "This script must be run as root"
@@ -101,7 +152,7 @@ for service in "${SERVICES[@]}"; do
             log "Added JWT_SECRET_NEW to ${service}.env"
         else
             log "JWT_SECRET_NEW already exists in ${service}.env, updating..."
-            sed -i "s/JWT_SECRET_NEW=.*/JWT_SECRET_NEW=$NEW_SECRET/" "$env_file"
+            set_env_var "JWT_SECRET_NEW" "$NEW_SECRET" "$env_file"
         fi
     fi
 done
@@ -158,9 +209,9 @@ for service in "${SERVICES[@]}"; do
     env_file="/etc/aitbc/${service}.env"
     if [ -f "$env_file" ]; then
         # Replace JWT_SECRET with JWT_SECRET_NEW
-        sed -i "s/JWT_SECRET=.*/JWT_SECRET=$NEW_SECRET/" "$env_file"
+        set_env_var "JWT_SECRET" "$NEW_SECRET" "$env_file"
         # Remove JWT_SECRET_NEW
-        sed -i "/JWT_SECRET_NEW=/d" "$env_file"
+        unset_env_var "JWT_SECRET_NEW" "$env_file"
         log "Updated ${service}.env with new secret"
     fi
 done
@@ -206,7 +257,10 @@ done
 
 # Cleanup
 log "Cleaning up backup files..."
-find /etc/aitbc -name "*.env.backup_*" -mtime +7 -delete
+# Backups contain the OLD PLAINTEXT SECRET. Rotation has completed and every
+# service has been verified healthy, so they are removed now rather than left on
+# disk for a week (-mtime +7 never even matched the backups this run created).
+find /etc/aitbc -name "*.env.backup_*" -delete
 rm "$ROLLBACK_FILE"
 log "Rollback script removed"
 

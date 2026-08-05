@@ -18,10 +18,17 @@ SCOPE_CHECK=$(git diff --stat "$LAST_TAG" 2>/dev/null || echo "No diff available
 echo "Changed files: $SCOPE_CHECK"
 echo ""
 
+# Scan paths. This checked /opt/aitbc/apps only, so the identical
+# `PRIVATE_KEY=your_private_key_here` placeholder that
+# scripts/deployment/deploy-developer-ecosystem.sh writes into a .env template was
+# outside the gate entirely and could ship (OPS-14). Widened to the trees that hold
+# deployable config.
+SCAN_PATHS=(/opt/aitbc/apps /opt/aitbc/scripts /opt/aitbc/contracts /opt/aitbc/cli)
+
 # 2. Check for placeholder secrets
 echo "2. Checking for placeholder secrets..."
 # Exclude validation code that uses placeholders for checking
-if grep -r "change-me-in-production" /opt/aitbc/apps --include="*.service" --include="*.py" --exclude-dir=tests --exclude="config_pg.py" 2>/dev/null; then
+if grep -r "change-me-in-production" "${SCAN_PATHS[@]}" --include="*.service" --include="*.py" --include="*.env" --include="*.sh" --exclude-dir=tests --exclude="config_pg.py" 2>/dev/null; then
     echo "❌ FAILED: Found 'change-me-in-production' placeholder"
     exit 1
 else
@@ -32,7 +39,7 @@ echo ""
 # 3. Check for TODO placeholders
 echo "3. Checking for TODO placeholders..."
 # Exclude validation code that uses placeholders for checking
-if grep -r "your_.*_here" /opt/aitbc/apps --include="*.service" --include="*.py" --exclude-dir=tests --exclude="config.py" --exclude="settings.py" 2>/dev/null; then
+if grep -r "your_.*_here" "${SCAN_PATHS[@]}" --include="*.service" --include="*.py" --include="*.env" --include="*.sh" --exclude-dir=tests --exclude="config.py" --exclude="settings.py" --exclude="check-v0.5.0.sh" 2>/dev/null; then
     echo "❌ FAILED: Found 'your_*_here' placeholder"
     exit 1
 else
@@ -89,7 +96,7 @@ echo "7. Checking for placeholder secrets in service files..."
 PLACEHOLDER_PATTERNS=("change-me" "REPLACE_WITH_SECRET" "placeholder" "changeme" "TODO.*secret")
 FOUND_PLACEHOLDERS=false
 for pattern in "${PLACEHOLDER_PATTERNS[@]}"; do
-    if grep -r "$pattern" /opt/aitbc/apps --include="*.service" 2>/dev/null; then
+    if grep -r "$pattern" "${SCAN_PATHS[@]}" --include="*.service" --include="*.env" 2>/dev/null; then
         echo "❌ FAILED: Found placeholder pattern: $pattern"
         FOUND_PLACEHOLDERS=true
     fi
