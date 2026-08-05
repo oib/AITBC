@@ -68,6 +68,22 @@ class SoftwareService(SQLModel, table=True):
     block_timestamp: datetime | None = Field(default=None)
 
 
+class Bid(SQLModel, table=True):
+    """Bid/offer booking record."""
+
+    __tablename__ = "bids"
+    __table_args__ = {"extend_existing": True}
+
+    id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
+    offer_id: str = Field(index=True)
+    provider: str = Field(default="", index=True)
+    buyer: str = Field(default="", index=True)
+    capacity: float = Field(default=0.0)
+    price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
+    status: str = Field(default="pending", index=True)  # pending, active, cancelled
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+
+
 class ServiceRating(SQLModel, table=True):
     """Service-specific ratings for marketplace offers"""
 
