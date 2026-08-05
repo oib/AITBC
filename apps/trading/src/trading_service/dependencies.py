@@ -6,6 +6,7 @@ import os
 from collections.abc import AsyncIterator
 from typing import Annotated
 
+from aitbc.auth import APIKeyAuthenticator
 from fastapi import Depends, Header, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,13 +61,12 @@ async def get_offer_sync_service(
     return OfferSyncService(session)
 
 
-async def require_trading_api_key(
-    x_trading_api_key: str | None = Header(default=None, alias="X-Trading-Api-Key"),
-) -> None:
-    """Validate the trading API key header."""
-    expected = os.environ.get("TRADING_API_KEY")
-    if not x_trading_api_key or not expected or not hmac.compare_digest(x_trading_api_key, expected):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or missing API key")
+require_trading_api_key = APIKeyAuthenticator(
+    expected_key=os.environ.get("TRADING_API_KEY"),
+    auth_enabled=True,
+    header_name="X-Trading-Api-Key",
+    success_role="trading",
+)
 
 
 async def require_webhook_signature(
@@ -78,8 +78,6 @@ async def require_webhook_signature(
     secret = os.environ.get("EXCHANGE_WEBHOOK_SECRET")
     if not secret:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid webhook signature")
-    expected = hmac.new(
-        secret.encode(), f"{payment_id}:{tx_hash}".encode(), hashlib.sha256
-    ).hexdigest()
+    expected = hmac.new(secret.encode(), f"{payment_id}:{tx_hash}".encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(x_signature, expected):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid webhook signature")

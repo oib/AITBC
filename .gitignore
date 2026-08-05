@@ -77,6 +77,7 @@ dev/test-nodes/*/data/
 /var/lib/aitbc/
 /etc/aitbc/
 /var/log/aitbc/
+apps/edge/var/
 
 # ===================
 # Logs & Runtime
