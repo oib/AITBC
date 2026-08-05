@@ -5,12 +5,19 @@ Connects agent protocols to existing AITBC services
 """
 
 import logging
+import os
 from datetime import UTC, datetime
 from typing import Any
 
 import aiohttp
 
-from aitbc.constants import AGENT_COORDINATOR_PORT
+from aitbc.constants import (
+    AGENT_COORDINATOR_PORT,
+    BLOCKCHAIN_RPC_URL,
+    COORDINATOR_API_PORT,
+    EXCHANGE_PORT,
+    MARKETPLACE_PORT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +27,11 @@ class AITBCServiceIntegration:
 
     def __init__(self):
         self.service_endpoints = {
-            "coordinator_api": "http://localhost:8011",
-            "blockchain_rpc": "http://localhost:8202",
-            "exchange_service": "http://localhost:8001",
-            "marketplace": "http://localhost:8002",
-            "agent_coordinator": f"http://localhost:{AGENT_COORDINATOR_PORT}",
+            "coordinator_api": os.getenv("COORDINATOR_API_URL", f"http://localhost:{COORDINATOR_API_PORT}"),
+            "blockchain_rpc": os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL),
+            "exchange_service": os.getenv("EXCHANGE_SERVICE_URL", f"http://localhost:{EXCHANGE_PORT}"),
+            "marketplace": os.getenv("MARKETPLACE_SERVICE_URL", f"http://localhost:{MARKETPLACE_PORT}"),
+            "agent_coordinator": os.getenv("AGENT_COORDINATOR_URL", f"http://localhost:{AGENT_COORDINATOR_PORT}"),
         }
         self.session: aiohttp.ClientSession | None = None
 

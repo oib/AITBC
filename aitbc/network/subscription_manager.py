@@ -142,3 +142,8 @@ class SubscriptionManager:
                     await entry.task
                 except asyncio.CancelledError:
                     pass
+            if entry.client.is_connected:
+                try:
+                    await entry.client.stop()
+                except Exception as e:
+                    logger.warning("Error stopping subscription client for %s: %s", entry.client.chain_id, e)

@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 def setup_cors(
     app: FastAPI,
     allow_origins: list[str] | None = None,
-    allow_credentials: bool = True,
+    allow_credentials: bool = False,
     allow_methods: list[str] | None = None,
     allow_headers: list[str] | None = None,
 ) -> None:
@@ -22,7 +22,8 @@ def setup_cors(
     Args:
         app: FastAPI application instance.
         allow_origins: List of allowed origins. Defaults to ``["*"]`` (all origins).
-        allow_credentials: Whether to allow credentials. Defaults to True.
+        allow_credentials: Whether to allow credentials. Defaults to False to avoid
+            the wildcard-with-credentials conflict.
         allow_methods: List of allowed HTTP methods. Defaults to all standard methods.
         allow_headers: List of allowed headers. Defaults to all headers.
 
