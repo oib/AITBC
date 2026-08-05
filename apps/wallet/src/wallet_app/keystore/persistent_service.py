@@ -6,6 +6,7 @@ Replaces the in-memory-only keystore with database persistence
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import threading
 from collections.abc import Iterable
@@ -21,7 +22,10 @@ from nacl.signing import SigningKey
 from ..crypto.encryption import EncryptionError, EncryptionSuite
 from ..security import validate_password_rules, wipe_buffer
 from ..settings import settings
+from aitbc.aitbc_logging import get_logger
 from aitbc.utils.validation import validate_address
+
+logger = get_logger(__name__)
 
 _DEFAULT_DB = settings.ledger_db_path.parent / "keystore.db"
 
@@ -71,6 +75,13 @@ class PersistentKeystoreService:
         """Initialize database schema"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
+            # The keystore holds encrypted private keys; sqlite creates it with the
+            # process umask (commonly 0644), leaving it readable by every local user.
+            # Restrict to owner-only as soon as it exists.
+            try:
+                os.chmod(self.db_path, 0o600)
+            except OSError as exc:  # pragma: no cover - platform/filesystem dependent
+                logger.warning("Could not restrict keystore permissions on %s: %s", self.db_path, exc)
             try:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS wallets (
@@ -301,6 +312,9 @@ class PersistentKeystoreService:
 
     def delete_wallet(self, wallet_id: str) -> bool:
         """Delete a wallet and all its access logs"""
+        # Outside the lock: _ensure_initialized -> _init_database acquires it, and
+        # threading.Lock is not reentrant.
+        self._ensure_initialized()
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             try:
