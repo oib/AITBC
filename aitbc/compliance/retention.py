@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 from .audit import RetentionAction, RetentionPolicy, retention_expired
 from .policies import DataClassification, normalize_classification
@@ -70,7 +70,9 @@ class RetentionEngine:
             if isinstance(action, RetentionAction):
                 return action
             return RetentionAction(action)
-        return RetentionAction.ARCHIVE
+        return apply_retention(
+            policy, effective_created, now, default_action=cast(RetentionAction, self.schedule.default_action)
+        )
 
     def batch_evaluate(
         self,

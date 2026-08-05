@@ -84,10 +84,10 @@ def rate_limit(
     from typing import ParamSpec
 
     P = ParamSpec("P")
-    limiter_name = f"rl_{rate}_{per}_{id(key_func)}"
-    _limiter = get_rate_limiter(limiter_name, rate=rate, per=per)
 
     def decorator(func: Callable[P, Any]) -> Callable[P, Any]:
+        limiter_name = f"rl_{rate}_{per}_{id(key_func)}_{func.__name__}"
+        _limiter = get_rate_limiter(limiter_name, rate=rate, per=per)
         if asyncio.iscoroutinefunction(func):
 
             @wraps(func)
