@@ -76,9 +76,10 @@ present in the tagged artifact.
   stdin-based secret rotation, and wallet tests.
 - **APP-26, APP-27, APP-28, APP-29, APP-29b, APP-32, APP-33, APP-34, APP-35, APP-36,
   APP-37, APP-38, APP-39, APP-40, APP-41, APP-42, APP-43, APP-44, APP-45, APP-46, APP-47,
-  APP-48, APP-49, APP-51, APP-52, APP-53, APP-56, APP-60, APP-61, APP-62, APP-63, APP-65,
-  APP-66, APP-67, APP-68, APP-69, APP-70, APP-71, APP-X3** — trading
-  ``create_request``/``create_match``/``create_agreement``/``create_settlement`` strip
+  APP-48, APP-49, APP-51, APP-52, APP-53, APP-56, APP-60, APP-61, APP-62, APP-63, APP-64,
+  APP-65, APP-66, APP-67, APP-68, APP-69, APP-70, APP-71, APP-X3** — blockchain-event-bridge
+  contract event subscriber persists checkpoints, resumes from them on startup, and only scans
+  up to finality blocks; trading ``create_request``/``create_match``/``create_agreement``/
   server-controlled fields (``id``, ``status``, timestamps, derived counts/scores) before
   constructing SQLModel records, and ``/v1/transactions`` now routes through
   ``TradingService`` instead of direct ``**kwargs`` mass-assignment; pool-hub
@@ -130,7 +131,6 @@ Confirmed still present on current `main`:
 | ID / area | Finding | Evidence |
 |---|---|---|
 | APP-54 | simple_exchange on stdlib `http.server` and fail-open API key | `apps/exchange/simple_exchange/` |
-| APP-64 | blockchain-event-bridge block checkpoint reset / no reorg handling | `apps/blockchain-event-bridge/event_subscribers/contracts.py:73-116` |
 | CORE | CORE-02/04/08/09/10/11/12/13/15/16/18/19/20/21/22/25/26/28/29 | Reverified against current source; CORE-16/18 are partial but not closed |
 | Contracts | SC-05/06/08/09/10/11/12/14 | Unbounded loops, no-op upgrades, unsafe deployment paths, and compiled stub remain |
 | Ops | OPS-03/04/06/07/08/09/10/12/14/15/16/17/18 | Migration, destructive rollback, secret handling, supply-chain, and maintenance findings remain |
@@ -151,7 +151,7 @@ Verification commands (run on this branch):
 - `apps/api-gateway/tests`: 18 passed, 0 failed (rate limiting enforced; 404 for unmatched paths).
 - `apps/pool-hub/tests`: non-Postgres tests passed; Postgres-backed tests skipped (set `POOLHUB_TEST_POSTGRES_DSN` to run). APP-28/29b and pool-hub auth changes are ruff/mypy clean.
 - `apps/blockchain-explorer/tests`: 63 passed, 4 xfailed (LIKE escape, CSV sanitization, aiosqlite migration, test repairs).
-- `apps/blockchain-event-bridge/tests`: 27 passed, 0 failed (handler close on shutdown, polling code removed).
+- `apps/blockchain-event-bridge/tests`: 27 passed, 0 failed (handler close on shutdown, polling code removed; APP-64 checkpoint persistence and finality window).
 - `apps/bridge-monitor/tests`: 8 passed, 0 failed (connection context managers).
 - `apps/edge/tests`: 2 passed, 0 failed (client context manager close).
 - `apps/exchange/tests`: 14 passed, 0 failed (positivity, nonce, exception narrowing, marketplace ownership, bridge Decimal).
@@ -185,7 +185,7 @@ partial:
 | Area | Confirmed fixed | Confirmed open/partial | Notes |
 |---|---|---|---|
 | Shared core (`aitbc/`) | CORE-01, CORE-03, CORE-05, CORE-06, CORE-07, CORE-14, CORE-17, CORE-21, CORE-23, CORE-24, CORE-27 | CORE-02, CORE-04, CORE-08, CORE-09, CORE-10, CORE-11, CORE-12, CORE-13, CORE-15, CORE-16 (partial), CORE-18 (partial), CORE-19, CORE-20, CORE-22, CORE-25, CORE-26, CORE-28, CORE-29 | CORE-16/18 improved but not closed. |
-| Applications | APP-01, APP-08, APP-17, APP-24, APP-25, APP-28, APP-29, APP-29b, APP-29c, APP-30, APP-31, APP-32, APP-33, APP-34, APP-35, APP-36, APP-37, APP-38, APP-39, APP-40, APP-41, APP-42, APP-43, APP-44, APP-45, APP-46, APP-47, APP-48, APP-49, APP-50, APP-51, APP-52, APP-53, APP-55, APP-56, APP-57, APP-59, APP-60, APP-61, APP-62, APP-63, APP-65, APP-66, APP-67, APP-68, APP-69, APP-70, APP-71, APP-X1, APP-X2, APP-X3, APP-X4 (partial) | APP-54, APP-64 | APP-X1/26/27/28/29/29b/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46/47/48/49/51/52/53/56/61/62/63/65/66/67/68/69/70/71/X3 now closed. APP-X4 partially closed (shared-core/shared-domain packages populated and re-exported; services still need migration off duplicated boilerplate). Many stubs, missing auth, and no-op endpoints remain. |
+| Applications | APP-01, APP-08, APP-17, APP-24, APP-25, APP-28, APP-29, APP-29b, APP-29c, APP-30, APP-31, APP-32, APP-33, APP-34, APP-35, APP-36, APP-37, APP-38, APP-39, APP-40, APP-41, APP-42, APP-43, APP-44, APP-45, APP-46, APP-47, APP-48, APP-49, APP-50, APP-51, APP-52, APP-53, APP-55, APP-56, APP-57, APP-59, APP-60, APP-61, APP-62, APP-63, APP-64, APP-65, APP-66, APP-67, APP-68, APP-69, APP-70, APP-71, APP-X1, APP-X2, APP-X3, APP-X4 (partial) | APP-54 | APP-X1/26/27/28/29/29b/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46/47/48/49/51/52/53/56/61/62/63/65/66/67/68/69/70/71/X3 now closed. APP-X4 partially closed (shared-core/shared-domain packages populated and re-exported; services still need migration off duplicated boilerplate). Many stubs, missing auth, and no-op endpoints remain. |
 | Smart contracts | SC-01, SC-02, SC-03, SC-04 | SC-05–SC-14 (with SC-07/13 partial) | Unbounded loops, no-op upgrades, unsafe deployment scripts, missing validations. |
 | Ops/Scripts | OPS-01, OPS-02, OPS-05 | OPS-03, OPS-04, OPS-06–OPS-18 (with OPS-13/19 partial) | Destructive rollback, secret handling, supply-chain install, maintenance scripts remain. |
 | CLI | CLI-01, CLI-12 (partial) | CLI-02–CLI-13 (with CLI-04 partial) | Placeholder results, in-memory state, TOCTOU, stub groups remain. |
