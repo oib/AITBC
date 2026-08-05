@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -116,8 +117,8 @@ class OfferSubscription:
 
     chain_id: str | None = None  # None = all chains
     service_type: str | None = None
-    min_price: float | None = None
-    max_price: float | None = None
+    min_price: Decimal | None = None
+    max_price: Decimal | None = None
     region: str | None = None
     gpu_model: str | None = None
     debounce_ms: int = 1000  # batch notifications within this window
@@ -165,9 +166,9 @@ class OfferSubscription:
         if self.service_type is not None:
             filters["service_type"] = self.service_type
         if self.min_price is not None:
-            filters["min_price"] = self.min_price
+            filters["min_price"] = str(self.min_price)
         if self.max_price is not None:
-            filters["max_price"] = self.max_price
+            filters["max_price"] = str(self.max_price)
         if self.region is not None:
             filters["region"] = self.region
         if self.gpu_model is not None:
