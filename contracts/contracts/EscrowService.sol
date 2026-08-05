@@ -332,6 +332,13 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         address _aiPowerRental,
         address _paymentProcessor
     ) {
+        // Immutable contract: a zero address from a deploy-script typo cannot be corrected
+        // afterwards and silently breaks escrow funding and release.
+        // Note the arbiter *may* legitimately be zero (see createEscrow) -- these three
+        // dependencies may not.
+        require(_paymentToken != address(0), "payment token cannot be zero address");
+        require(_aiPowerRental != address(0), "AI power rental cannot be zero address");
+        require(_paymentProcessor != address(0), "payment processor cannot be zero address");
         paymentToken = IERC20(_paymentToken);
         aiPowerRental = AIPowerRental(_aiPowerRental);
         paymentProcessor = PaymentProcessor(_paymentProcessor);
