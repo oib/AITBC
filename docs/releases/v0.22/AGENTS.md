@@ -13,7 +13,7 @@ Focus: `aitbc/`, `apps/blockchain-node`, `apps/blockchain-event-bridge`,
 infrastructure-wide findings.
 
 - **CORE** — CORE-02/04/08/09/10/11/12/13/15/16/18/19/20/21/22/25/26/28/29
-- **APP-64** — `blockchain-event-bridge` checkpoint reset and reorg handling
+
 - **Contracts** — SC-05/06/08/09/10/11/12/14
 - **Ops** — OPS-03/04/06/07/08/09/10/12/14/15/16/17/18
 - **Packages** — PKG-01 through PKG-14
@@ -29,7 +29,7 @@ service-level auth/endpoint findings.
 
 ## Notes
 
-- APP-54 and APP-64 are the only remaining concrete application-level findings.
+- APP-54 is the only remaining concrete application-level finding.
 - All other APP findings tracked in `v0.22/release.log` are closed as of this
   re-verification pass.
 - Cross-area items (e.g. CLI-13, TEST-08) may require both agents to coordinate.
