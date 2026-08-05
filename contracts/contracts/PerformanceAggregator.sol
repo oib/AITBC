@@ -125,7 +125,7 @@ contract PerformanceAggregator is IPerformanceAggregator, Ownable, ReentrancyGua
     /**
      * @dev Initialize the performance aggregator (implements IModularContract)
      */
-    function initialize(address _registry) external override {
+    function initialize(address _registry) external override onlyOwner {
         require(address(registry) == address(0), "Already initialized");
         registry = ContractRegistry(_registry);
 
