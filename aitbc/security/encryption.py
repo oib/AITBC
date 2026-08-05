@@ -6,6 +6,7 @@ Consolidated from ``cli/utils/security.py`` and ``apps/coordinator-api/.../walle
 
 import base64
 import secrets
+from datetime import UTC, datetime
 from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -213,7 +214,7 @@ def migrate_legacy_wallet(legacy_data: dict[str, Any], new_password: str) -> dic
             **legacy_data,
             "private_key": encrypted_data,
             "encryption_version": "1.0",
-            "migration_timestamp": secrets.token_hex(16),
+            "migration_timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         raise ValueError(f"Migration failed: {str(e)}") from e
