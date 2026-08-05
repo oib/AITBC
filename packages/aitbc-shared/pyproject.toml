@@ -8,7 +8,10 @@ version = "0.1.0"
 description = "Shared ORM models and utilities for AITBC applications"
 authors = [{name = "AITBC Team"}]
 readme = "README.md"
-requires-python = ">=3.10"
+# Matches the rest of the monorepo. This was >=3.10 while every sibling package and the
+# repo's own toolchain target py313, which let this package accept syntax the rest of the
+# CI matrix would reject -- or miss syntax the rest already uses.
+requires-python = ">=3.13"
 dependencies = [
     "sqlmodel>=0.0.22",
     "sqlalchemy>=2.0.0",
