@@ -19,6 +19,7 @@ signing) should subclass ``BlockchainClient`` and add their specific methods.
 from __future__ import annotations
 
 from aitbc.constants import BLOCKCHAIN_RPC_URL
+from decimal import Decimal
 
 import logging
 from typing import Any, cast
@@ -86,7 +87,7 @@ class BlockchainClient:
         data = cast(dict[str, Any], resp.json())
         return int(data.get("height", 0))
 
-    async def get_balance(self, address: str, chain_id: str | None = None) -> float:
+    async def get_balance(self, address: str, chain_id: str | None = None) -> Decimal:
         """Get the on-chain balance for an address.
 
         Calls GET /rpc/account/{address}. Returns 0.0 if the account
@@ -98,10 +99,10 @@ class BlockchainClient:
         client = self._ensure_client()
         resp = await client.get(f"{self._rpc_url}/rpc/account/{address}", params=params)
         if resp.status_code == 404:
-            return 0.0
+            return Decimal("0.0")
         resp.raise_for_status()
         data = cast(dict[str, Any], resp.json())
-        return float(data.get("balance", 0.0))
+        return Decimal(str(data.get("balance", 0.0)))
 
     async def get_account_balance(self, address: str, chain_id: str | None = None) -> int:
         """Get the on-chain balance for an address as an integer.
