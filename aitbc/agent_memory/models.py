@@ -26,6 +26,10 @@ class LeaseStatus(StrEnum):
 class ReplicationStatus(StrEnum):
     """Status of a replication proof returned by a storage node."""
 
+    # Default state for a freshly constructed proof: nothing has checked it yet. Distinct
+    # from INVALID, which is a verdict. Without this the dataclass had to default to a
+    # trusting value, so an unchecked proof read as proven.
+    UNVERIFIED = "unverified"
     VALID = "valid"
     EXPIRED = "expired"
     INVALID = "invalid"
@@ -101,7 +105,7 @@ class ReplicationProof:
     proof_id: str
     content_address: str
     node_id: str
-    status: ReplicationStatus | str = ReplicationStatus.VALID
+    status: ReplicationStatus | str = ReplicationStatus.UNVERIFIED
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     challenge_nonce: str = ""
     signature: str = ""

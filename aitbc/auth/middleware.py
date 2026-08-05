@@ -162,8 +162,6 @@ class RateLimiter:
     def __init__(self, redis_url: str | None = None):
         from collections import deque
 
-        import redis
-
         self.redis_url: str = redis_url or os.getenv("REDIS_URL", "redis://localhost:6379/0") or "redis://localhost:6379/0"
         self.redis_client: Any | None = None
         self.memory_requests: dict[str, deque[float]] = {}
@@ -172,12 +170,18 @@ class RateLimiter:
             "admin": {"requests": 1000, "window": 3600},
             "api_key": {"requests": 10000, "window": 3600},
         }
+        # The import lives inside the try alongside the connection attempt: this module is
+        # instantiated at import time (see `rate_limiter` below), so neither a missing redis
+        # package nor an unreachable server may escape. Broad `except` is deliberate --
+        # redis.exceptions.ConnectionError does not subclass the builtin ConnectionError.
         try:
+            import redis
+
             self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
             self.redis_client.ping()
             logger.info("RateLimiter connected to Redis")
-        except (ImportError, ConnectionError, TypeError) as e:
-            logger.error("Failed to connect to Redis: %s", e)
+        except Exception as e:
+            logger.warning("Redis unavailable, falling back to in-memory rate limiting: %s", e)
             self.redis_client = None
 
     def is_allowed(self, user_id: str, user_role: str = "default") -> dict[str, Any]:

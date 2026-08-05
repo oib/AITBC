@@ -6,7 +6,7 @@ import sqlite3
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import DatabaseError
