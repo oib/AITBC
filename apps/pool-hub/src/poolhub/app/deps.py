@@ -9,7 +9,6 @@ from sqlalchemy import select
 from ..database import get_session
 from ..models import Miner
 from ..redis_cache import get_redis
-from ..settings import settings
 
 
 def get_db_session() -> AsyncGenerator[Any]:
@@ -24,9 +23,14 @@ def get_redis_client() -> AsyncGenerator[Any]:
     return get_redis()
 
 
-def get_miner_id() -> str:
-    """Return the configured miner ID for this pool-hub instance."""
-    return getattr(settings, "miner_id", "default")
+async def get_miner_id(miner: Annotated[Miner, Depends(get_miner_from_token)]) -> str:
+    """Return the authenticated miner's ID.
+
+    ponytail: Previously returned a static configured miner_id, leaving all service
+    config endpoints unauthenticated. It now resolves the real miner from the
+    Authorization header.
+    """
+    return miner.miner_id
 
 
 async def get_miner_from_token(
