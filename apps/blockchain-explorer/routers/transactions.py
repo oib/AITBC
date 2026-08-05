@@ -1,9 +1,10 @@
 """Transaction routes — transaction by hash, transaction search, transaction details."""
 
 import json
-from contextlib import closing
+from pathlib import Path
 from typing import Any
 
+import aiosqlite
 import httpx
 from fastapi import APIRouter
 
@@ -28,19 +29,16 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAI
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
         # First try blockchain database for direct lookup
-        import sqlite3
-        from pathlib import Path
-
         chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
         if chain_db_path.exists():
-            with closing(sqlite3.connect(str(chain_db_path))) as conn:
-                cursor = conn.cursor()
+            async with aiosqlite.connect(str(chain_db_path)) as conn:
+                cursor = await conn.cursor()
 
                 # Search for transaction by hash (case-insensitive, with or without 0x prefix)
-                cursor.execute(
+                await cursor.execute(
                     """
                     SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
                     FROM "transaction"
@@ -49,7 +47,7 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAI
                     (clean_hash.lower(),),
                 )
 
-                result = cursor.fetchone()
+                result = await cursor.fetchone()
 
             if result:
                 tx_hash, sender, recipient, payload, block_height, created_at, tx_type, status = result
@@ -85,21 +83,18 @@ async def api_search_transactions(
 ) -> dict[str, Any]:
     """Search transactions by address or node ID in blockchain database"""
     try:
-        import sqlite3
-        from pathlib import Path
-
         chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
         if chain_db_path.exists():
-            with closing(sqlite3.connect(str(chain_db_path))) as conn:
-                cursor = conn.cursor()
+            async with aiosqlite.connect(str(chain_db_path)) as conn:
+                cursor = await conn.cursor()
 
                 # Search for transactions where sender, recipient, or payload contains the address
                 # Using LIKE for partial matching (payload contains node IDs like provider_node_id)
                 search_term = like_pattern(address)
-                cursor.execute(
+                await cursor.execute(
                     """
                     SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
                     FROM "transaction"
@@ -113,7 +108,8 @@ async def api_search_transactions(
                 )
 
                 transactions = []
-                for row in cursor.fetchall():
+                rows = await cursor.fetchall()
+                for row in rows:
                     tx_hash, sender, recipient, payload, block_height, created_at, tx_type, status = row
                     transactions.append(
                         {
