@@ -6,6 +6,7 @@ Service for managing the developer ecosystem, bounties, certifications, and regi
 
 from __future__ import annotations
 from aitbc.constants import BLOCKCHAIN_RPC_URL
+from decimal import Decimal
 
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
@@ -319,10 +320,10 @@ class DeveloperPlatformService:
             raise HTTPException(status_code=404, detail="Regional hub not found")
         return self.session.execute(select(DeveloperProfile).where(DeveloperProfile.is_active)).all()  # type: ignore[return-value]
 
-    async def stake_on_developer(self, staker_address: str, developer_address: str, amount: float) -> dict:
+    async def stake_on_developer(self, staker_address: str, developer_address: str, amount: Decimal) -> dict:
         """Stake tokens on a developer"""
         balance = get_balance(staker_address)
-        if balance < amount:  # type: ignore[operator]
+        if balance is None or balance < amount:
             raise HTTPException(status_code=400, detail="Insufficient balance for staking")
         developer = await self.get_developer_profile(developer_address)
         if not developer:
