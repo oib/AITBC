@@ -70,7 +70,7 @@ class SLACollector:
         else:
             uptime_pct = 0.0
         miner_status.uptime_pct = uptime_pct
-        self.db.commit()
+        await self.db.commit()  # type: ignore[misc, func-returns-value]
         await self.record_sla_metric(miner_id, "uptime_pct", uptime_pct, {"method": "heartbeat_based"})
         return uptime_pct
 
@@ -152,7 +152,7 @@ class SLACollector:
         3. Fetch recent feedback for all miners in one query.
         Then aggregate in Python.
         """
-        miners = self.db.execute(select(Miner)).scalars().all()
+        miners = (await self.db.execute(select(Miner))).scalars().all()  # type: ignore[misc]
         miner_ids = [m.miner_id for m in miners]
         results: dict[str, Any] = {"miners_processed": 0, "metrics_collected": [], "violations_detected": 0}
         if not miner_ids:
@@ -251,7 +251,7 @@ class SLACollector:
             .where(SLAViolation.resolved_at.is_(None))
             .where(SLAViolation.created_at >= datetime.now(UTC) - timedelta(hours=1))
         )
-        results["violations_detected"] = self.db.execute(violation_stmt).scalar() or 0
+        results["violations_detected"] = (await self.db.execute(violation_stmt)).scalar() or 0  # type: ignore[misc]
         logger.info(
             "SLA collection complete: processed=%s, violations=%s", results["miners_processed"], results["violations_detected"]
         )
