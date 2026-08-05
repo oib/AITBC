@@ -439,18 +439,19 @@ class WalletDaemonClient:
             return None
 
     def get_wallet_balance_in_chain(self, chain_id: str, wallet_id: str) -> WalletBalance | None:
-        """Get wallet balance in a specific chain"""
+        """Get wallet balance in a specific chain."""
         try:
-            # For now, return a placeholder balance
-            # In a real implementation, this would call the chain-specific balance endpoint
-            wallet_info = self.get_wallet_info_in_chain(chain_id, wallet_id)
-            if wallet_info:
-                return WalletBalance(
-                    wallet_id=wallet_id,
-                    chain_id=chain_id,
-                    balance=0.0,  # Placeholder
-                    address=wallet_info.address,
-                )
+            client = self._get_http_client()
+            data = client.get(f"/v1/chains/{chain_id}/wallets/{wallet_id}/balance")
+            return WalletBalance(
+                wallet_id=wallet_id,
+                chain_id=chain_id,
+                balance=data["balance"],
+                address=data.get("address"),
+                last_updated=data.get("last_updated"),
+            )
+        except NetworkError as e:
+            error(f"Failed to get wallet balance in chain {chain_id}: {e}")
             return None
         except Exception as e:
             error(f"Error getting wallet balance in chain {chain_id}: {str(e)}")
