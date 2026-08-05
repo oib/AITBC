@@ -1,7 +1,9 @@
 #!/bin/bash
 # Secret Rotation Script for Rolling Release Environment
 # This script rotates JWT_SECRET with zero-downtime using dual-secret overlap
-# Usage: sudo ./rotate_jwt_secret.sh <new_secret>
+# Usage: sudo ./rotate_jwt_secret.sh < secret.txt
+#        (or: NEW_SECRET=... sudo -E ./rotate_jwt_secret.sh)
+# The secret is never passed as an argument -- argv is visible via ps and shell history.
 
 set -e
 
@@ -33,12 +35,28 @@ if [ "$EUID" -ne 0 ]; then
     error_exit "This script must be run as root"
 fi
 
-# Check if new secret is provided
-if [ -z "$1" ]; then
-    error_exit "Usage: $0 <new_secret>"
+# Read the new secret without exposing it in argv.
+#
+# Anything passed as a command-line argument is world-readable via `ps aux` and
+# /proc/<pid>/cmdline for the lifetime of the process, and is written to the invoking
+# shell's history file. Accept the secret on stdin, or via the NEW_SECRET environment
+# variable, instead.
+if [ -n "$1" ]; then
+    error_exit "Refusing to take the secret as an argument (visible in ps/shell history). Pipe it on stdin: $0 < secret.txt"
 fi
 
-NEW_SECRET="$1"
+if [ -n "${NEW_SECRET:-}" ]; then
+    log "Reading new secret from NEW_SECRET environment variable"
+elif [ ! -t 0 ]; then
+    log "Reading new secret from stdin"
+    IFS= read -r NEW_SECRET || true
+else
+    error_exit "Usage: $0 < secret.txt   (or set NEW_SECRET in the environment)"
+fi
+
+if [ -z "${NEW_SECRET:-}" ]; then
+    error_exit "New secret is empty"
+fi
 log "Starting JWT_SECRET rotation for rolling release"
 log "New secret length: ${#NEW_SECRET} characters"
 
