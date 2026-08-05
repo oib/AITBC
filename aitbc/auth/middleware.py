@@ -436,14 +436,10 @@ class InputValidator:
 
     @staticmethod
     def sanitize_input(input_string: str) -> str:
-        """Sanitize user input."""
+        """Sanitize user input by escaping HTML metacharacters."""
         import html
 
-        sanitized = html.escape(input_string)
-        dangerous_chars = ["<", ">", '"', "'", "&", "\x00", "\n", "\r", "\t"]
-        for char in dangerous_chars:
-            sanitized = sanitized.replace(char, "")
-        return sanitized.strip()
+        return html.escape(input_string).strip()
 
     @staticmethod
     def validate_json_structure(data: dict[str, Any], required_fields: list[str]) -> dict[str, Any]:
