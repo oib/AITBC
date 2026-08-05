@@ -272,10 +272,13 @@ def main():
     # Recalculate state root
     state_root = recalculate_state_root(db_path, chain_id)
     if not state_root:
-        print("⚠️  Could not recalculate state root, continuing...")
-    else:
-        # Update genesis.json with new state root
-        update_genesis_json_state_root(genesis_path, state_root)
+        print("❌ Could not recalculate state root; migration aborted.")
+        return 1
+
+    # Update genesis.json with new state root
+    if not update_genesis_json_state_root(genesis_path, state_root):
+        print("❌ Could not update genesis.json; migration aborted.")
+        return 1
 
     # Verify migration
     if not verify_migration(db_path, chain_id):
