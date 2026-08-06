@@ -8,14 +8,26 @@ const ETH_RPC_URL = process.env.ETH_RPC_URL || "";
 
 const config = {
   solidity: {
-    version: "0.8.19",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200
+    // Two compilers, not one. The config pinned 0.8.19 while AgentIdentity.sol declares
+    // ^0.8.20, so `hardhat compile` failed with HH606 and the project could not be built
+    // at all -- meaning no contract change has been compile-checked for some time.
+    // Hardhat picks the newest configured compiler satisfying each file's pragma.
+    compilers: [
+      {
+        version: "0.8.19",
+        settings: {
+          optimizer: { enabled: true, runs: 200 },
+          viaIR: true
+        }
       },
-      viaIR: true
-    }
+      {
+        version: "0.8.20",
+        settings: {
+          optimizer: { enabled: true, runs: 200 },
+          viaIR: true
+        }
+      }
+    ]
   },
   networks: {
     hardhat: {},
