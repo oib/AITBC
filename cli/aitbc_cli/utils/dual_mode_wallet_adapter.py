@@ -5,12 +5,10 @@ and daemon-based wallet operations, allowing seamless switching between modes.
 """
 
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, "/opt/aitbc/cli")
 from aitbc.crypto import derive_ethereum_address, generate_ethereum_private_key
 
 from aitbc_cli.utils import error, success
