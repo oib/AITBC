@@ -11,30 +11,15 @@ from datetime import datetime
 
 import click
 
-try:
-    from ..core.config import (
-        MultiChainConfig,  # noqa: F401
-        add_node_config,
-        get_default_node_config,
-        load_multichain_config,
-        remove_node_config,
-    )
-    from ..core.node_client import NodeClient
-    from ..utils.output import error, info, output, success, warning  # noqa: F401
-    from ..utils.http_client import get_logger
-except ImportError:
-    from aitbc_cli.core.config import (
-        add_node_config,
-        get_default_node_config,
-        load_multichain_config,
-        remove_node_config,
-    )
-    from aitbc_cli.core.node_client import NodeClient
-    from aitbc_cli.utils.http_client import get_logger
-    from utils import error, output, success
-
-    def info(message):
-        click.echo(message)
+from ..core.config import (
+    add_node_config,
+    get_default_node_config,
+    load_multichain_config,
+    remove_node_config,
+)
+from ..core.node_client import NodeClient
+from ..utils.http_client import get_logger
+from ..utils.output import error, info, output, success
 
 
 import uuid
