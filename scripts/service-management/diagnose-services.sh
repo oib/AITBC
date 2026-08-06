@@ -2,20 +2,23 @@
 
 # Diagnose AITBC services
 
+# Service list and ports come from lib/services.sh so all of these scripts agree.
+source "$(dirname "${BASH_SOURCE[0]}")/lib/services.sh"
+
 echo "🔍 Diagnosing AITBC Services"
 echo "=========================="
 echo ""
 
 # Check systemd services
 echo "📋 Systemd Services:"
-for svc in aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p aitbc-exchange aitbc-marketplace aitbc-trading aitbc-wallet; do
+for svc in "${AITBC_SERVICES[@]}" "$AITBC_SECRETS_UNIT"; do
     status=$(systemctl is-active "$svc" 2>/dev/null || echo "not-found")
     echo "  $svc: $status"
 done
 
 echo ""
 echo "🌐 Ports listening:"
-for port in 8106 8107 8108 8201 8202 8203; do
+for port in $(printf '%s\n' "${AITBC_SERVICE_PORTS[@]}" | sort -n); do
     echo -n "  Port $port: "
     if ss -ltnp 2>/dev/null | grep -q ":$port "; then
         echo "✅ listening"

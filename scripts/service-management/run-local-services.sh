@@ -5,6 +5,9 @@
 
 set -e
 
+# Service list and ports come from lib/services.sh so all of these scripts agree.
+source "$(dirname "${BASH_SOURCE[0]}")/lib/services.sh"
+
 echo "🚀 Starting AITBC Services for Domain Access"
 echo "=========================================="
 
@@ -20,27 +23,18 @@ mkdir -p logs
 echo ""
 echo "📦 Starting Services via systemd..."
 
-# Start all AITBC services via systemd
-echo "1. Starting Coordinator API (port 8203)..."
-sudo systemctl start aitbc-coordinator-api
-
-echo "2. Starting Blockchain RPC (port 8202)..."
-sudo systemctl start aitbc-blockchain-rpc
-
-echo "3. Starting Blockchain P2P..."
-sudo systemctl start aitbc-blockchain-p2p
-
-echo "4. Starting Exchange (port 8106)..."
-sudo systemctl start aitbc-exchange
-
-echo "5. Starting Marketplace (port 8107)..."
-sudo systemctl start aitbc-marketplace
-
-echo "6. Starting Trading (port 8201)..."
-sudo systemctl start aitbc-trading
-
-echo "7. Starting Wallet (port 8108)..."
-sudo systemctl start aitbc-wallet
+# Start all AITBC services via systemd, in the order lib/services.sh defines.
+step=1
+for svc in "${AITBC_SERVICES[@]}"; do
+    port="${AITBC_SERVICE_PORTS[$svc]:-}"
+    if [ -n "$port" ]; then
+        echo "$step. Starting $svc (port $port)..."
+    else
+        echo "$step. Starting $svc..."
+    fi
+    sudo systemctl start "$svc"
+    step=$((step + 1))
+done
 
 # Wait for services to start
 echo ""
