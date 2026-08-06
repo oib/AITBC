@@ -41,7 +41,7 @@ _pilot2_walk_to_merging() {
         tracker transition "$t" "$s" --actor agent --reason walk >/dev/null
     done
 }
-# The subshells below stub the forge seam exactly like tests/test-done-gate.sh:
+# The subshells below stub the forge seam exactly like tests/tooling/test-done-gate.sh:
 # story_pr_state calls `forge pr-state <ticket>`, so a `forge()` override + a
 # non-empty FORGE_CMD lets each case declare the PR merge state it exercises.
 
