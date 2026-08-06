@@ -13,7 +13,7 @@
 # handed to it via ORCH_CLAUDE_BIN and records the --agents JSON it was invoked
 # with. Assertions are made against that recorded JSON.
 #
-# Bash 3.2 / BSD-safe. Run from repo root: bash tests/test-agent-def-overlay.sh
+# Bash 3.2 / BSD-safe. Run from repo root: bash tests/tooling/test-agent-def-overlay.sh
 # =============================================================================
 set -u
 
@@ -27,7 +27,7 @@ set -u
 unset "${!ORCH_@}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SEAM="$REPO_ROOT/scripts/orchestrator-spawn-claude.sh"
 
 TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/agent-def-overlay-test.XXXXXX")

@@ -21,16 +21,16 @@
 #      (tests/fixtures/stub-spawn.sh) forced to fail (STUB_FAIL=1 models the
 #      seat's writes being denied), and assert the epic's end state.
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-enrichment-writelight.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-enrichment-writelight.sh
 # =============================================================================
 
 set -euo pipefail
 # PILOT-46: strip inherited backend/tracker env before any fixture runs (tests/sandbox-guard.sh).
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ORCH="$REPO_ROOT/scripts/orchestrator.sh"
 TRACKER="$REPO_ROOT/scripts/mock-tracker.sh"
 STUB="$REPO_ROOT/tests/fixtures/stub-spawn.sh"

@@ -14,12 +14,12 @@
 #
 # orchestrator.sh is source-guarded (main runs only when executed directly), so we
 # SOURCE it and drive ops_sweep_persist_report directly with fixture spawn stdout.
-# Run from repo root: bash tests/test-ops-sweep-report.sh
+# Run from repo root: bash tests/tooling/test-ops-sweep-report.sh
 # =============================================================================
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ORCH="$REPO_ROOT/scripts/orchestrator.sh"
 
 PASS=0; FAIL=0; TOTAL=0

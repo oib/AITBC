@@ -25,13 +25,13 @@
 # Auto-discovered by .github/workflows/tests.yml and scripts/pre-release-check.sh
 # (both glob tests/test-*.sh) — no CI change needed.
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-adr-id-uniqueness.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-adr-id-uniqueness.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ADR_DIR="$REPO_ROOT/adrs"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'

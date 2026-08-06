@@ -2,14 +2,14 @@
 # ABS-355 — seat provisioning: base-freshness guard + env isolation + state-dir
 #           self-heal (second live-state wipe, 2026-07-16)
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, no re-`set -e`, shared
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, no re-`set -e`, shared
 # assert helpers / counters — see docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # THE INCIDENT (fence-less v2.26.0 run, 2026-07-16 evening)
 #   1. Seat worktrees were provisioned from origin/main. origin (Bitbucket) was
 #      frozen at a stale tip during an outage while gitlab/main was current — so
 #      seats got PRE-RELEASE code, missing the ABS-335 live-state guard.
-#   2. Those guard-less checkouts ran tests/test-orchestrator.sh, which inherited
+#   2. Those guard-less checkouts ran tests/tooling/test-orchestrator.sh, which inherited
 #      the runner's live ORCH_STATE_DIR/ORCH_STOP_FILE/JIRA_TRACKER_STATE.
 #   3. Test teardown/EXIT traps rm -rf'd the LIVE state dir (second wipe of the
 #      day), and acquire_lock then fail-closed on the vanished lock parent.

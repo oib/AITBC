@@ -14,7 +14,7 @@
 # Reuse note: setup/teardown, the tracker()/orch() wrappers, baseline(), and
 # the assert_contains/assert_not_contains/assert_eq helpers are copied
 # verbatim from tests/e2e-orchestrator-dryrun.sh (same harness idiom used by
-# tests/test-orchestrator.sh's 210 v1-v3 assertions) rather than sourcing that
+# tests/tooling/test-orchestrator.sh's 210 v1-v3 assertions) rather than sourcing that
 # file, so this suite stays a single self-contained, independently-runnable
 # script -- sourcing would couple its exit code / trap / PASS-FAIL globals to
 # a file whose primary job is being its own standalone exit gate.
@@ -60,7 +60,7 @@ export TRACKER_CMD="$TRACKER"
 # ABS-111: this e2e asserts v3 WORKFLOW semantics under the deterministic
 # synchronous scheduler (fixed same-cycle spawn counts, same-ticket sequences).
 # The async scheduler + resume/gating features have their own section in
-# tests/test-orchestrator.sh ("ABS-111").
+# tests/tooling/test-orchestrator.sh ("ABS-111").
 export ORCH_ASYNC_SPAWNS=0
 export ORCH_DEPENDS_GATING=0
 export ORCH_SESSION_RESUME=0
@@ -69,7 +69,7 @@ export ORCH_WORKTREE_SPAWNS=0
 # declared target (HANDOFF-NOMOVE by construction), which the ADR-A-0018
 # escalation budget (default 3 rounds) would escalate to Blocked mid-walk —
 # a harness artifact, not the workflow under test. The budget mechanism has
-# its own coverage in tests/test-orchestrator.sh (ABS-199/ABS-75 sections).
+# its own coverage in tests/tooling/test-orchestrator.sh (ABS-199/ABS-75 sections).
 export ORCH_ESCALATION_BUDGET=999
 
 PASS=0; FAIL=0; SKIP=0; TOTAL=0

@@ -12,13 +12,13 @@
 #
 # Checksums the fixture tree before/after with BSD `md5` (macOS bash 3.2
 # safe — no md5sum/sha1sum dependency assumed).
-# Run from repo root: bash tests/test-adopt-analyze.sh
+# Run from repo root: bash tests/tooling/test-adopt-analyze.sh
 # =============================================================================
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ANALYZER="$REPO_ROOT/scripts/adopt-analyze.sh"
 FIXTURE="$REPO_ROOT/tests/fixtures/adoption/sample-project"
 

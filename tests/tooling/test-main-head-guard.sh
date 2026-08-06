@@ -17,13 +17,13 @@
 # provision_main_head_guard is exercised by SOURCING scripts/orchestrator.sh (main
 # is source-guarded). The hook itself is driven through real `git checkout`.
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-main-head-guard.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-main-head-guard.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HOOK="$REPO_ROOT/scripts/hooks/post-checkout-main-head-guard.sh"
 
 PASS=0; FAIL=0; TOTAL=0

@@ -5,7 +5,7 @@
 # Exercises scripts/lib/profile.sh (get_active_profile / get_capability_provider)
 # and the scripts/profile.sh CLI (show / set) against the real profiles/
 # directory shipped in this repo (neutral, evolver, jira-github-postgres,
-# saw-stack). Run from repo root: bash tests/test-profile-activation.sh
+# saw-stack). Run from repo root: bash tests/tooling/test-profile-activation.sh
 #
 # Cases:
 #   - precedence: ACTIVE_PROFILE env > .active-profile file > "neutral" default
@@ -20,7 +20,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 PROFILE_CLI="$REPO_ROOT/scripts/profile.sh"
 PROFILE_LIB="$REPO_ROOT/scripts/lib/profile.sh"
 

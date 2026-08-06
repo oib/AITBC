@@ -11,13 +11,13 @@
 #   - all markers stripped from every TS file        => exit 1 (anti-rot lock)
 #   - adr-lifecycle.yaml union supplies `Proposed`   => exit 0
 #
-# Run from repo root: bash tests/test-backend-status-literal-drift.sh
+# Run from repo root: bash tests/tooling/test-backend-status-literal-drift.sh
 # bash 3.2 + BSD tools only.
 # =============================================================================
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 GUARD="$REPO_ROOT/scripts/backend-status-literal-drift-guard.sh"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'

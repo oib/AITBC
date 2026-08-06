@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-337 — docs-story identifier checker (fabricated ORCH_*/scripts/* tokens)
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (shared assert helpers / counters).
+# Sourced by tests/tooling/test-orchestrator.sh (shared assert helpers / counters).
 #
 # scripts/docs-identifier-check.sh fails a docs-only change whose prose cites an
 # ORCH_* env token absent from scripts/ or a scripts/* path that does not exist —

@@ -15,13 +15,13 @@
 #      read verbs `search`/`get` may occur, and the script source passes no
 #      mutating verb to any adapter (AC 3).
 #
-# Run from repo root: bash tests/test-tracker-divergence.sh
+# Run from repo root: bash tests/tooling/test-tracker-divergence.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 REPORTER="$REPO_ROOT/scripts/tracker-divergence.sh"
 
 TEST_DIR=$(mktemp -d /tmp/tracker-divergence-test-XXXXXX)

@@ -9,13 +9,13 @@
 # and the real repo ledger stays GREEN. Auto-discovered by the CI /
 # pre-release tests/test-*.sh loops.
 #
-# Run from repo root: bash tests/test-rule-ledger.sh
+# Run from repo root: bash tests/tooling/test-rule-ledger.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 GUARD="$REPO_ROOT/scripts/rule-ledger-check.sh"
 
 PASS=0

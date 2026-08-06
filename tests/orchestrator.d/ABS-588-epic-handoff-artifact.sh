@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-588 — epic-handoff artifact contract (RTE) + marker↔sensor coherence
 # -----------------------------------------------------------------------------
-# `source`d by tests/test-orchestrator.sh (no shebang, no re-`set -e`). Shares the
+# `source`d by tests/tooling/test-orchestrator.sh (no shebang, no re-`set -e`). Shares the
 # harness: assert_contains / assert_not_contains / assert_eq, REPO_ROOT, counters.
 #
 # The gap (Pilot 7, epic PILOT-58): the RTE correctly closes epic integration and

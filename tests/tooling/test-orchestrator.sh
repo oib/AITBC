@@ -10,13 +10,13 @@
 #   §5.5 iteration-guard -> Blocked, §5.1 concurrency defer + reconciliation,
 #   §6 retry-once-then-escalate, and dry-run vs --live handoff posting.
 #
-# Run from repo root: bash tests/test-orchestrator.sh
+# Run from repo root: bash tests/tooling/test-orchestrator.sh
 # =============================================================================
 
 set -e
 # PILOT-46: strip inherited backend/tracker env before any fixture runs (tests/sandbox-guard.sh).
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 # ABS-335: LIVE-STATE REFUSAL GATE — runs BEFORE the ORCH_*/JIRA_* scrub below
 # (the scrub would erase the very evidence this gate reads). On 2026-07-16 a seat
@@ -69,7 +69,7 @@ unset "${!ORCH_@}"
 unset "${!JIRA_@}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ORCH="$REPO_ROOT/scripts/orchestrator.sh"
 TRACKER="$REPO_ROOT/scripts/mock-tracker.sh"
 STUB="$REPO_ROOT/tests/fixtures/stub-spawn.sh"
@@ -412,7 +412,7 @@ _shard_dispatch() {
 # near the top (`unset "${!ORCH_@}"`) would wipe it before we get here. SUITE_*
 # survives, like TEST_JOBS, and only selects WHICH tests run (not their behavior).
 if [ -n "${SUITE_INCLUDE_ONLY:-}" ]; then
-    _io_dir="$(cd "$(dirname "${_shard_self:-${BASH_SOURCE[0]}}")" && pwd)/orchestrator.d"
+    _io_dir="$(cd "$(dirname "${_shard_self:-${BASH_SOURCE[0]}}")/.." && pwd)/orchestrator.d"
     _io_file="$_io_dir/$SUITE_INCLUDE_ONLY"
     if [ ! -f "$_io_file" ]; then
         echo "SUITE_INCLUDE_ONLY: no such include: $SUITE_INCLUDE_ONLY" >&2; exit 2
@@ -5398,7 +5398,7 @@ cleanup_env
 # Use $_shard_self (captured at top-level BASH_SOURCE) rather than BASH_SOURCE
 # here: under TEST_JOBS>1 this block runs inside a `source <(...)` slice where
 # BASH_SOURCE[0] would resolve to the process-substitution fd, not this file.
-_ORCH_TEST_D="$(cd "$(dirname "${_shard_self:-${BASH_SOURCE[0]}}")" && pwd)/orchestrator.d"
+_ORCH_TEST_D="$(cd "$(dirname "${_shard_self:-${BASH_SOURCE[0]}}")/.." && pwd)/orchestrator.d"
 # ABS-370: several late body unit-blocks (ABS-199 line ~4638, ABS-210 line ~4777)
 # override the SHARED `tracker`/`ticket_still_in`/`epic_has_unprocessed_followups`
 # shell functions with local stubs — and bind them to temp dirs they later

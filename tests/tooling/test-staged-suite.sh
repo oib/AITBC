@@ -9,13 +9,13 @@
 #   AC4  a subset of stages must NOT pass the gate (skipped stage => gate RED).
 #        (AC5 — each REAL stage under the call limit — is a wall-clock property
 #         measured on-box and recorded on the ticket, not asserted here.)
-# Run from repo root: bash tests/test-staged-suite.sh
+# Run from repo root: bash tests/tooling/test-staged-suite.sh
 # =============================================================================
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-RUNNER="$SCRIPT_DIR/staged-suite.sh"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+RUNNER="$(cd "$SCRIPT_DIR/.." && pwd)/staged-suite.sh"
 
 TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/staged-suite-test-XXXXXX")
 trap 'rm -rf "$TEST_DIR"' EXIT

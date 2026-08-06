@@ -23,13 +23,13 @@
 #   - refresh is throttled to ~TTL/3
 #   - a peer never wins for a full >TTL spawn while the holder heartbeats (BSA AC)
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-claim.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-claim.sh
 # =============================================================================
 
 set -euo pipefail
 # PILOT-46: strip inherited backend/tracker env before any fixture runs (tests/sandbox-guard.sh).
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 # ABS-285: scrub ambient ORCH_* before driving the real seam/runner. A seat
 # exports ~37 of them; a non-empty one leaks into the code under test and makes
@@ -38,7 +38,7 @@ set -euo pipefail
 unset "${!ORCH_@}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 PASS=0; FAIL=0; TOTAL=0
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; NC='\033[0m'
