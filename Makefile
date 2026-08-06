@@ -1,0 +1,41 @@
+# AITBC developer tasks.
+#
+# These wrap the commands in CLAUDE.md and CONTRIBUTING.md so there is one place to look
+# and one spelling to keep working.
+
+# Prefer the repo's own venv; fall back to whatever python is on PATH so the targets still
+# work from a git worktree, which has no venv/ of its own. Override with `make PYTHON=...`.
+PYTHON ?= $(shell test -x ./venv/bin/python && echo ./venv/bin/python || command -v python3)
+
+.PHONY: help lint typecheck test openapi openapi-check
+
+help:
+	@echo "make lint          ruff over the repo"
+	@echo "make typecheck     mypy over aitbc/ (the mypy-clean scope)"
+	@echo "make test          unit tests"
+	@echo "make openapi       regenerate docs/api/*-openapi.json from the running apps"
+	@echo "make openapi-check fail if the committed specs differ from what the apps produce"
+
+lint:
+	$(PYTHON) -m ruff check .
+
+typecheck:
+	$(PYTHON) -m mypy --show-error-codes aitbc/
+
+test:
+	$(PYTHON) -m pytest tests/unit -q
+
+# docs/api/ is generated, not written. Regenerate rather than editing a spec by hand.
+openapi:
+	$(PYTHON) scripts/extract_openapi_specs.py
+
+# The drift guard. docs/api/ and docs/openapi/ used to hold two sets of specs for the same
+# services with nothing saying which was current -- the coordinator ones had diverged to
+# the point of sharing a single path out of 354. Regenerating and diffing means a spec
+# cannot silently fall behind the app again.
+openapi-check: openapi
+	@git diff --exit-code --stat -- docs/api/ \
+		|| (echo ""; \
+		    echo "docs/api/ is out of date with the applications."; \
+		    echo "Run 'make openapi' and commit the result."; \
+		    exit 1)

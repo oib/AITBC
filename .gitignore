@@ -238,6 +238,10 @@ temp/
 # Wallet Files (contain private keys)
 # ===================
 wallet*.json
+# The generated wallet API spec is not a wallet. scripts/extract_openapi_specs.py has been
+# emitting docs/api/wallet-openapi.json all along and the blanket pattern above swallowed
+# it, so the one service whose spec was never committed was the one nobody noticed missing.
+!docs/api/wallet-openapi.json
 
 # ===================
 # Project Specific
