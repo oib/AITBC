@@ -31,14 +31,14 @@
 - [ ] No merge conflict markers in any file: `grep -r '<<<<<<' . --include='*.sh' --include='*.md' --include='*.json' --include='*.toml' --include='*.yml'`
 - [ ] `shellcheck scripts/*.sh` — no new warnings (document pre-existing)
 - [ ] **E2E exit-gate suites** (manual — ABS-143). These are excluded from the
-  `tests/test-*.sh` glob (they are `tests/e2e-*.sh`) and from the CI pipeline;
+  `tests/tooling/test-*.sh` glob (they are `tests/e2e-*.sh`) and from the CI pipeline;
   the release owner runs them by hand and records pass/fail. They are the epic
   exit gate (ORCHESTRATOR_SOP §"epic exit gate", ABS-80) and drive the real
   `scripts/orchestrator.sh` against the mock tracker + stub spawn (no live model):
   - [ ] `bash tests/e2e-orchestrator-dryrun.sh` (v1/v2 lifecycle — ABS-55): ___ pass / ___ fail
   - [ ] `bash tests/e2e-workflow-v3.sh` (v3 full-team scenarios — ABS-80): ___ pass / ___ fail
   - [ ] Any failure investigated and either fixed or documented in Notes/Errata before tagging.
-- [ ] **Suite-budget re-measurement** (ABS-603 AC5). The tentpole `tests/test-orchestrator.sh`
+- [ ] **Suite-budget re-measurement** (ABS-603 AC5). The tentpole `tests/tooling/test-orchestrator.sh`
   grows with every epic that adds a `tests/orchestrator.d` fixture, shrinking its reserve against
   the per-suite budget. Re-measure it each release so the growth curve stays visible and the budget
   can be re-tuned before it red-lines:

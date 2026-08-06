@@ -23,7 +23,7 @@ runbook references it instead of duplicating it.
 | `scripts/backend-tracker.sh` | Backend adapter, conformance-proven drop-in (ABS-237) |
 | `scripts/shadow-tracker.sh` | Dual-write shim: Jira primary + backend mirror, mirror failures only logged (ABS-327) |
 | `scripts/tracker-divergence.sh` | Read-only Jira↔backend diff; Markdown+JSON report + gate exit code (ABS-328) |
-| `tests/test-backend-tracker.sh` | Conformance suite — the Shadow→Pilot gate's functional leg (ABS-237) |
+| `tests/tooling/test-backend-tracker.sh` | Conformance suite — the Shadow→Pilot gate's functional leg (ABS-237) |
 | `work/.shadow-mirror.log` | Replay-able log of mirror ops the backend missed |
 | `work/divergence/` | `report.md` / `report.json` / `history.log` (gate evidence stream) |
 
@@ -53,7 +53,7 @@ blast radius on the running lane. Jira remains the only source of truth.
 
 ### Preconditions
 
-- [ ] ABS-237 conformance suite green on the target backend build: `bash tests/test-backend-tracker.sh`
+- [ ] ABS-237 conformance suite green on the target backend build: `bash tests/tooling/test-backend-tracker.sh`
 - [ ] Backend reachable and provisioned (`BACKEND_URL`, registered `BACKEND_TOKEN`, project
       with **key parity** — the backend carries the ABS keys 1:1, no mapping)
 - [ ] Existing fenced tickets imported into the backend (SOP switching recipe, step 1) so

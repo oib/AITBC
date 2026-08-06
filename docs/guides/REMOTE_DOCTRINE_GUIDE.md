@@ -75,6 +75,6 @@ resolve the active `main` ref, ABS-493 — one pin, two consumers.)
 
 ## Related
 
-- `scripts/active-remote-guard.sh`, `scripts/release-mirror-push.sh`, `tests/test-remote-doctrine.sh`
+- `scripts/active-remote-guard.sh`, `scripts/release-mirror-push.sh`, `tests/tooling/test-remote-doctrine.sh`
 - `scripts/merge-target-guard.sh` (PILOT-10/ABS-513) — the sibling guard chokepoint.
 - ABS-538 (MR-target guard) — shares the guard-at-the-chokepoint pattern.

@@ -79,7 +79,7 @@ migration step. It produces `adoption-report.md` with:
 Review the report with the human owner before proceeding to Step 2. The
 analyzer never modifies the target repository or applies any part of the
 plan it proposes — see
-[`tests/test-adopt-analyze.sh`](../../tests/test-adopt-analyze.sh) for the
+[`tests/tooling/test-adopt-analyze.sh`](../../tests/tooling/test-adopt-analyze.sh) for the
 read-only conformance test and
 [`tests/fixtures/adoption/sample-project/`](../../tests/fixtures/adoption/sample-project/)
 for a worked example fixture.

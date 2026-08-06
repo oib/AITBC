@@ -14,7 +14,7 @@ on:
       - 'scripts/sync-claude-harness.sh'
       - '.harness-manifest.schema.json'
       - 'tests/fixtures/sync/**'
-      - 'tests/test-fork-sync.sh'
+      - 'tests/tooling/test-fork-sync.sh'
       - '.github/workflows/test-fork-sync.yml'
   pull_request:
     branches: [main]
@@ -22,7 +22,7 @@ on:
       - 'scripts/sync-claude-harness.sh'
       - '.harness-manifest.schema.json'
       - 'tests/fixtures/sync/**'
-      - 'tests/test-fork-sync.sh'
+      - 'tests/tooling/test-fork-sync.sh'
       - '.github/workflows/test-fork-sync.yml'
 
 jobs:
@@ -49,4 +49,4 @@ jobs:
         run: pip install pyyaml
 
       - name: Run fork sync compatibility tests
-        run: bash tests/test-fork-sync.sh
+        run: bash tests/tooling/test-fork-sync.sh

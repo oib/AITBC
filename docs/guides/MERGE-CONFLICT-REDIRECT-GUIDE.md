@@ -120,7 +120,7 @@ No new environment variables. The gate is always active when a story rests at
 
 ## Conformance tests
 
-`tests/test-merge-conflict-redirect.sh` — 42 assertions covering AC1 through
+`tests/tooling/test-merge-conflict-redirect.sh` — 42 assertions covering AC1 through
 AC4:
 
 - A conflicted open MR → transition to `Merging`, recipe reason, intent line

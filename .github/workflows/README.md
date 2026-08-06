@@ -14,7 +14,7 @@ substitutes the `{{PLACEHOLDER}}` tokens for the consumer's project.
 
 | File | Status | Rationale |
 |------|--------|-----------|
-| `tests.yml` | **Kept** | Fully functional, no placeholders. Runs the real `tests/test-*.sh` matrix on GitHub consumers. Mirrored by `bitbucket-pipelines.yml` for this repo. |
+| `tests.yml` | **Kept** | Fully functional, no placeholders. Runs the real `tests/tooling/test-*.sh` matrix on GitHub consumers. Mirrored by `bitbucket-pipelines.yml` for this repo. |
 | `pr-validation.yml` | **Kept** | Real repo-specific gates (rebase check, hook/skills parity, hooks wiring). The `AITBC` tokens in its commit/PR-title/ticket checks are **intentional** — they are substituted per consumer by `setup-template.sh`. This repo's enforcing commit-format gate (real `ABS` prefix) is in `bitbucket-pipelines.yml`. |
 | `test-fork-sync.yml` | **Kept** | Path-triggered fork-sync compatibility check for GitHub consumers. |
 
