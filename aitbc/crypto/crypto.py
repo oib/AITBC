@@ -13,6 +13,10 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
+#: Order of the secp256k1 group. A valid private key is a scalar in [1, n-1]; eth-account
+#: does not enforce this and will happily sign with 0.
+_SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+
 
 def derive_ethereum_address(private_key: str) -> str:
     """Derive Ethereum address from private key using eth-account"""
@@ -34,7 +38,18 @@ def derive_ethereum_address(private_key: str) -> str:
 
 
 def sign_transaction_hash(transaction_hash: str, private_key: str) -> str:
-    """Sign a transaction hash with private key using eth-account"""
+    """Sign an already-computed 32-byte hash with a private key.
+
+    Signs the digest directly, with no EIP-191 prefix -- the caller has already decided
+    what the hash covers. :func:`verify_signature` recovers the same way, and the two must
+    stay symmetric.
+
+    This called ``account.sign_hash``, which eth-account removed in 0.13; every call
+    raised ``'LocalAccount' object has no attribute 'sign_hash'``. The property test that
+    would have caught it was skipped with the reason "sign_transaction_hash API may have
+    changed in eth-account" -- it had, and the skip left consensus (poa.py) and the bridge
+    CLI calling a function that could not succeed.
+    """
     try:
         from eth_account import Account
 
@@ -44,8 +59,18 @@ def sign_transaction_hash(transaction_hash: str, private_key: str) -> str:
         if transaction_hash.startswith("0x"):
             transaction_hash = transaction_hash[2:]
 
+        # eth-account accepts a key of 0 (and other out-of-range scalars) and returns a
+        # signature that no one can recover from. Signing must fail loudly instead: in
+        # consensus a validator would otherwise produce blocks whose signatures silently
+        # do not verify.
+        key_int = int(private_key, 16)
+        if not 1 <= key_int < _SECP256K1_ORDER:
+            raise ValueError("private key is out of range for secp256k1")
+
         account = Account.from_key(private_key)
-        signed_message = account.sign_hash(bytes.fromhex(transaction_hash))
+        # "unsafe" here refers to signing a bare digest rather than a prefixed message;
+        # that is exactly this function's contract.
+        signed_message = account.unsafe_sign_hash(bytes.fromhex(transaction_hash))
         return str(signed_message.signature.hex())
     except ImportError:
         raise ImportError("eth-account is required for signing. Install with: pip install eth-account") from None
@@ -54,7 +79,13 @@ def sign_transaction_hash(transaction_hash: str, private_key: str) -> str:
 
 
 def verify_signature(message_hash: str, signature: str, address: str) -> bool:
-    """Verify a signature using eth-account"""
+    """Verify a signature produced by :func:`sign_transaction_hash`.
+
+    Recovers from the raw digest, matching how the signature was produced. This used
+    ``Account.recover_message``, which expects an EIP-191 ``SignableMessage`` rather than
+    a bare hash -- so it was both broken on its own terms and asymmetric with the signer.
+    Neither showed up while the round-trip property test was skipped.
+    """
     try:
         from eth_account import Account
         from eth_utils import to_bytes
@@ -64,13 +95,17 @@ def verify_signature(message_hash: str, signature: str, address: str) -> bool:
             message_hash = message_hash[2:]
         if signature.startswith("0x"):
             signature = signature[2:]
-        if address.startswith("0x"):
-            address = address[2:]
 
         message_bytes = to_bytes(hexstr=message_hash)
         signature_bytes = to_bytes(hexstr=signature)
 
-        recovered_address = Account.recover_message(message_bytes, signature_bytes)
+        recovered_address = Account._recover_hash(message_bytes, signature=signature_bytes)
+        # Compare on the 0x-prefixed form both sides normalise to, case-insensitively:
+        # recovery returns an EIP-55 checksummed address, and callers pass whatever they
+        # hold. Stripping "0x" from only one side, as this did, made every comparison
+        # false even once recovery worked.
+        if not address.startswith("0x"):
+            address = "0x" + address
         return bool(recovered_address.lower() == address.lower())
     except ImportError:
         raise ImportError(

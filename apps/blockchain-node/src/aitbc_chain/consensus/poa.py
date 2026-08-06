@@ -954,7 +954,18 @@ class PoAProposer:
             sig_bytes = bytes.fromhex(block.signature.removeprefix("0x"))
             if len(sig_bytes) != 65:
                 return False
-            sig = keys.Signature(sig_bytes)
+
+            # sign_block_hash produces an Ethereum-encoded signature, whose recovery id is
+            # 27 or 28. eth_keys.Signature requires the canonical 0 or 1 and raises
+            # BadSignature otherwise -- which the bare `except Exception: return False`
+            # below turned into a silent "signature invalid" for every correctly signed
+            # block. Normalise before constructing it.
+            recovery_id = sig_bytes[64]
+            if recovery_id >= 27:
+                recovery_id -= 27
+            if recovery_id not in (0, 1):
+                return False
+            sig = keys.Signature(sig_bytes[:64] + bytes([recovery_id]))
             pub_key = sig.recover_public_key_from_msg_hash(msg_hash)
             recovered = pub_key.to_checksum_address()
             return recovered.lower() == block.proposer.lower()
