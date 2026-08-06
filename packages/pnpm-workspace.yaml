@@ -1,0 +1,9 @@
+# @aitbc/web declares @aitbc/theme-provider as "workspace:*", but no workspace root
+# existed. The "workspace:" protocol is a pnpm/yarn feature -- npm rejects it outright
+# (EUNSUPPORTEDPROTOCOL), and running `npm install` in packages/web installed nothing and
+# exited 0, so its `lint` script (tsc --noEmit && eslint) never had a compiler to run.
+#
+# pnpm is what contracts/ already uses, so the workspace is declared its way.
+packages:
+  - theme-provider
+  - web
