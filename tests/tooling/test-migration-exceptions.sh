@@ -16,13 +16,13 @@
 # control run WITHOUT the exception list DOES overwrite the file (proving the
 # honoring is load-bearing).
 #
-# Bash 3.2 / BSD-safe. Run from repo root: bash tests/test-migration-exceptions.sh
+# Bash 3.2 / BSD-safe. Run from repo root: bash tests/tooling/test-migration-exceptions.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SYNC_SCRIPT="$REPO_ROOT/scripts/sync-claude-harness.sh"
 
 TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/migration-exceptions-test.XXXXXX")

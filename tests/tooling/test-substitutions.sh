@@ -3,7 +3,7 @@
 # Test: Placeholder Substitution Engine (SAW-10)
 # =============================================================================
 # Tests all AC items for the substitution engine feature.
-# Run from repo root: bash tests/test-substitutions.sh
+# Run from repo root: bash tests/tooling/test-substitutions.sh
 #
 # Strategy:
 #   - Unit tests source functions via a wrapper that strips the main
@@ -15,7 +15,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SYNC_SCRIPT="$REPO_ROOT/scripts/sync-claude-harness.sh"
 
 # Create a temporary project structure for testing
@@ -765,12 +765,12 @@ assert_exit_code "$syntax_ec" 0 "sync script has valid bash syntax"
 echo -e "\n${CYAN}=== Test 14: Existing tests still pass ===${NC}\n"
 # =============================================================================
 echo "  Running manifest loader tests..."
-ml_output=$(bash "$REPO_ROOT/tests/test-manifest-loader.sh" 2>&1)
+ml_output=$(bash "$REPO_ROOT/tests/tooling/test-manifest-loader.sh" 2>&1)
 ml_ec=$?
 assert_exit_code "$ml_ec" 0 "manifest loader tests (SAW-6) still pass"
 
 echo "  Running rename-diff tests..."
-rd_output=$(bash "$REPO_ROOT/tests/test-rename-diff.sh" 2>&1)
+rd_output=$(bash "$REPO_ROOT/tests/tooling/test-rename-diff.sh" 2>&1)
 rd_ec=$?
 assert_exit_code "$rd_ec" 0 "rename-diff tests (SAW-5) still pass"
 

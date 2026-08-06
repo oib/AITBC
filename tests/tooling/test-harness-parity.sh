@@ -30,13 +30,13 @@
 # generate(pin) drift model above.
 #
 # bash 3.2 / BSD safe: no `timeout`, no `grep -P`, no associative arrays.
-# Run from repo root: bash tests/test-harness-parity.sh
+# Run from repo root: bash tests/tooling/test-harness-parity.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 GENERATOR="$REPO_ROOT/scripts/generate-governor.sh"
 GOVERNOR_TAG_FILE="$REPO_ROOT/.governor-tag"

@@ -25,10 +25,10 @@
 set -u
 # PILOT-46: strip inherited backend/tracker env before any fixture runs.
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=scripts/lib/run-with-timeout.sh
 . "$REPO_ROOT/scripts/lib/run-with-timeout.sh"
 

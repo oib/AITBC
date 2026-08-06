@@ -7,13 +7,13 @@
 #   AC2: two sequential runs produce distinct run-IDs (artifact namespaces differ)
 #   AC3: ORCH_RUN_ID_SEPARATION=0 disables run-ID (legacy single-stream behavior)
 #
-# Run from repo root: bash tests/test-run-id.sh
+# Run from repo root: bash tests/tooling/test-run-id.sh
 # =============================================================================
 
 set -e
 # PILOT-46: strip inherited backend/tracker env before any fixture runs (tests/sandbox-guard.sh).
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 # ABS-335: LIVE-STATE REFUSAL GATE — reject if an ambient env still points at a
 # live orchestrator state dir. Same pattern as test-orchestrator.sh.
@@ -36,7 +36,7 @@ unset "${!ORCH_@}"
 unset "${!JIRA_@}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ORCH="$REPO_ROOT/scripts/orchestrator.sh"
 TRACKER="$REPO_ROOT/scripts/mock-tracker.sh"
 STUB="$REPO_ROOT/tests/fixtures/stub-spawn.sh"

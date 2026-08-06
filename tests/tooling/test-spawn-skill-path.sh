@@ -30,7 +30,7 @@
 # handed to it via ORCH_CLAUDE_BIN and records the --agents JSON plus the full
 # argv. No real Claude spawn. Same pattern as tests/test-agent-def-overlay.sh.
 #
-# Bash 3.2 / BSD-safe. Run from repo root: bash tests/test-spawn-skill-path.sh
+# Bash 3.2 / BSD-safe. Run from repo root: bash tests/tooling/test-spawn-skill-path.sh
 # =============================================================================
 set -u
 
@@ -39,7 +39,7 @@ set -u
 unset "${!ORCH_@}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SEAM="$REPO_ROOT/scripts/orchestrator-spawn-claude.sh"
 
 TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/spawn-skill-path-test.XXXXXX")

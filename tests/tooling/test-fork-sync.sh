@@ -9,13 +9,13 @@
 # Uses fixture data in tests/fixtures/sync/ with mock fork state + manifests.
 # Runs sync --dry-run and other commands against mock upstream directories.
 #
-# Run from repo root: bash tests/test-fork-sync.sh
+# Run from repo root: bash tests/tooling/test-fork-sync.sh
 # =============================================================================
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SYNC_SCRIPT="$REPO_ROOT/scripts/sync-claude-harness.sh"
 FIXTURES_DIR="$SCRIPT_DIR/fixtures/sync"
 

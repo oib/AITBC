@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-311 — escalation budget: a no-move round with VERIFIED work is not a stall
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md). In scope: assert_contains / assert_eq /
 # assert_not_contains, PASS/FAIL/TOTAL, ORCH / MOCK_TRACKER_STATUSES.
 #

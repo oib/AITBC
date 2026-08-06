@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-308 — phantom-event guard: no oscillating from_status / no-op spawn loop
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215): `source`d by tests/test-orchestrator.sh. In scope:
+# Per-story include (ABS-215): `source`d by tests/tooling/test-orchestrator.sh. In scope:
 # assert_*, REPO_ROOT / ORCH / TRACKER, PASS/FAIL/TOTAL.
 #
 # A resting ticket can re-surface from the adapter's events-snapshot diff as a

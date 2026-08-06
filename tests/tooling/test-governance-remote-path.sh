@@ -14,13 +14,13 @@
 # requests, and (c) the real ADR-id sensor the pipeline runs actually bites when a
 # duplicate ADR number is planted.
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-governance-remote-path.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-governance-remote-path.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CI="$REPO_ROOT/.gitlab-ci.yml"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -77,7 +77,7 @@ grep -q 'merge_request_event' "$CI" && pass "runs on merge requests (merge_reque
 # concurrently in this same checkout. The sensor resolves its ADR dir as
 # <script>/../adrs, so a copy at $tmp/tests/ scans $tmp/adrs/.
 echo -e "\n${CYAN}falsification: a duplicate ADR number makes the wired sensor exit non-zero${NC}"
-SENSOR="$REPO_ROOT/tests/test-adr-id-uniqueness.sh"
+SENSOR="$REPO_ROOT/tests/tooling/test-adr-id-uniqueness.sh"
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/tests" "$tmp/adrs"
 cp "$SENSOR" "$tmp/tests/test-adr-id-uniqueness.sh"

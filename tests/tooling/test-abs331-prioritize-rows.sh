@@ -11,7 +11,7 @@
 # `ticket_priority` that records every call to a file — the only way to prove the
 # get is GONE when the column is present and STILL taken when it is absent.
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-abs331-prioritize-rows.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-abs331-prioritize-rows.sh
 # =============================================================================
 
 set -euo pipefail
@@ -21,7 +21,7 @@ set -euo pipefail
 unset $(compgen -v | grep '^ORCH_') 2>/dev/null || true
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 PASS=0; FAIL=0; TOTAL=0
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; NC='\033[0m'

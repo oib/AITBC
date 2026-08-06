@@ -3,7 +3,7 @@
 #           back to their origin station when the runner's own crash record
 #           proves the seat is dead.
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # WHAT ABS-295 ADDS

@@ -11,17 +11,17 @@
 #   AC4  the proposal NEVER mutates lane (stays normal after recording)
 #   AC5  the annotation shape is machine-readable (stable `key: value` lines)
 #
-# Run from repo root: bash tests/test-fastlane-eligibility.sh
+# Run from repo root: bash tests/tooling/test-fastlane-eligibility.sh
 # bash 3.2 / BSD-tool safe.
 # =============================================================================
 
 set -u
 # PILOT-46: strip inherited backend/tracker env before any fixture runs (tests/sandbox-guard.sh).
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ELIG="$REPO_ROOT/scripts/fastlane-eligibility.sh"
 MOCK="$REPO_ROOT/scripts/mock-tracker.sh"
 

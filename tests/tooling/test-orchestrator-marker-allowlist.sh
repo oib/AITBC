@@ -11,16 +11,16 @@
 # allowlist below and the inventory doc (a deliberate, reviewed act).
 #
 # Fixture override: MARKER_SCRIPTS_DIR (dir whose *.sh are scanned).
-# Run from repo root: bash tests/test-orchestrator-marker-allowlist.sh
+# Run from repo root: bash tests/tooling/test-orchestrator-marker-allowlist.sh
 # =============================================================================
 
 set -u
 # PILOT-46: strip inherited backend/tracker env before any fixture runs (tests/sandbox-guard.sh).
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SCRIPTS="${MARKER_SCRIPTS_DIR:-$REPO_ROOT/scripts}"
 DOC="$REPO_ROOT/docs/sop/ORCHESTRATOR_STATE_MARKERS.md"
 

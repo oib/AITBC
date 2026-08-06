@@ -15,13 +15,13 @@
 #
 # bash 3.2 / BSD safe. jq is required (as it is for the hook itself); the suite
 # skips with a clear message if jq is absent.
-# Run from repo root: bash tests/test-rls-hook.sh
+# Run from repo root: bash tests/tooling/test-rls-hook.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HOOK="$REPO_ROOT/harness/claude/hooks/pre-bash-rls-validation.sh"
 MIRROR="$REPO_ROOT/agent_providers/claude_code/hooks/pre-bash-rls-validation.sh"
 SETTINGS="$REPO_ROOT/harness/claude/settings.template.json"

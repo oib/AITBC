@@ -29,7 +29,7 @@
 # its cwd + the composed seat material — no real model spawn. Same shape as
 # tests/test-spawn-skill-path.sh.
 #
-# Bash 3.2 / BSD-safe. Run from repo root: bash tests/test-seat-repo-path.sh
+# Bash 3.2 / BSD-safe. Run from repo root: bash tests/tooling/test-seat-repo-path.sh
 # =============================================================================
 set -u
 
@@ -38,7 +38,7 @@ set -u
 unset "${!ORCH_@}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SEAM="$REPO_ROOT/scripts/orchestrator-spawn-claude.sh"
 
 TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/seat-repo-path-test.XXXXXX")

@@ -15,12 +15,12 @@
 #   - graceful degradation on an empty state dir
 #   - the fixture tree is byte-for-byte unchanged (read-only guarantee)
 #
-# Run from repo root: bash tests/test-skill-mining.sh
+# Run from repo root: bash tests/tooling/test-skill-mining.sh
 # =============================================================================
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 MINER="$REPO_ROOT/scripts/skill-mining.sh"
 FIXTURE="$REPO_ROOT/tests/fixtures/skill-mining"
 STATE="$FIXTURE/state"

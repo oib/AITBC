@@ -14,13 +14,13 @@
 # release check. This file is auto-discovered by the CI / pre-release
 # tests/test-*.sh loops, which is the AC4 wiring (no config edit needed).
 #
-# Run from repo root: bash tests/test-status-source-drift.sh
+# Run from repo root: bash tests/tooling/test-status-source-drift.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 GUARD="$REPO_ROOT/scripts/status-source-drift-guard.sh"
 SOURCE="$REPO_ROOT/profiles/neutral/adapters/statuses.yaml"
 
