@@ -26,7 +26,7 @@
 #
 # ENFORCEMENT. scripts/sandbox-guard-check.sh fails CI if a tests/ entrypoint
 # that touches backend/tracker does not source this file. Regression coverage:
-# tests/test-sandbox-guard.sh.
+# tests/tooling/test-sandbox-guard.sh.
 # =============================================================================
 
 if [ "${ORCH_TEST_ALLOW_BACKEND:-}" = "1" ]; then

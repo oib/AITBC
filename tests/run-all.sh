@@ -9,7 +9,7 @@
 # nothing gets lost in the interleave.
 #
 #   TEST_JOBS   parallelism (default 4). TEST_JOBS=1 => strictly serial, in the
-#               same lexical order as `tests/test-*.sh`, i.e. deterministic.
+#               same lexical order as `tests/tooling/test-*.sh`, i.e. deterministic.
 #
 # Usage:
 #   bash tests/run-all.sh                 # every tests/tooling/test-*.sh
