@@ -12,11 +12,16 @@ See [`release.log`](./release.log) for the full ledger and original evidence.
 > fabricated after reading already-fixed code, and unfixed findings recorded as closed
 > without running anything. **Re-verify before starting.**
 
-**Open: 15** — Agent A 14, Agent B 1, plus 3 unassessed noted at the end.
+**Open: 3** — OPS-16 (partial), DOC-05, APP-54 (partial), plus 3 unassessed at the end.
 
-**12 closed on 2026-08-06** (APP-35, PKG-03/05/08/09/10/14, SC-05/06/12, OPS-03/08) — all
-with tests, listed in the table at the end. Full unit suite 1245 passing; contracts 115
-passing with 2 pre-existing `initialize()` failures unrelated to this work.
+**24 closed on 2026-08-06**: APP-35, PKG-03/05/08/09/10/14, SC-05/06/12, OPS-03/08/17,
+TEST-03/04/06/07/08, DOC-02/03/07 — all with tests or an executed check, listed in the
+table at the end.
+
+Full default `pytest` run: **2 failures, 0 errors**, down from 10 failures and 93 errors.
+Both remaining failures are `tests/integration/test_auth.py`, which needs a live
+coordinator and failed before this work. Contracts: 115 passing, 2 pre-existing
+`initialize()` failures.
 
 Fix suggestions are starting points, not specifications. Pattern discovery and
 architectural validation still apply.
@@ -32,23 +37,22 @@ Scope: `aitbc/`, `apps/blockchain-node`, `apps/blockchain-event-bridge`,
 
 SC-05, SC-06 and SC-12 are closed; see the table at the end of this document.
 
-### Ops — 2
+### Ops — 1 (partial)
 
-**OPS-16 — `eval "$cmd"`** · *verified: 24 files under `scripts/testing`, `scripts/workflow`*
-Latent injection surface. Currently safe only because the strings are file-local literals.
+**OPS-16 — `eval "$cmd"`** · *partial: 1 of 18 files converted*
+`scripts/testing/test_resource.sh` is done and verified — `run_test` takes argv, and the two
+call sites that piped input use a `run_test_with_input` helper. An argument containing
+`; echo INJECTED` is passed through literally instead of being executed.
 
-> **Fix:** the blocker is the data format, not the `eval`. Commands are stored as
-> `"name:command"` strings in arrays; convert to parallel arrays or an associative array
-> of argv arrays, then invoke `"${cmd[@]}"`. Do one script end-to-end first and run it
-> before converting the rest — these scripts need to be executable to validate the change.
-
-**OPS-17 — service-management duplication** · *verified: 8 scripts*
-Four overlapping scripts with different service lists; a service added to one is easy to
-forget in the others.
-
-> **Fix:** one parameterised script (`manage-services.sh start|stop|status|restart`) with
-> the service list defined once at the top. Keep the old names as thin wrappers that
-> forward, so existing runbooks and systemd units keep working.
+> **Remaining: 17 files.** An automated conversion was written and abandoned: it rewrites
+> the helper definitions cleanly, but the call sites in `scripts/workflow/` are not argv.
+> They are multi-line shell blocks with pipes, `ssh` with nested quoting, and `$VAR`
+> expansion — genuine shell programs passed as strings. Converting the definition without
+> the call sites leaves the script silently broken (the whole command string becomes
+> `argv[0]`), which is worse than the `eval`. **Do these per script, running each one**, and
+> expect some to need their call sites restructured rather than re-quoted. The variable
+> interpolation (`$TEST_PROFILE`, `$CHAIN_ID`) is why this is worth doing: the injection
+> surface is no longer only file-local literals.
 
 ### Packages — 0
 
@@ -56,41 +60,17 @@ All six are closed. PKG-05 turned out to be the load-bearing one: removing the p
 trivial, but none of the `lint` or `test` gates in `packages/` could run at all — no
 tsconfig, no workspace root, no ESLint config, no jest config. They run now.
 
-### Tests / Docs — 9
+### Tests / Docs — 1
 
-**DOC-02 — diverged OpenAPI specs** · *verified: 4 specs in `docs/api/`, 3 in `docs/openapi/`*
-Two sets for the same services, diverged, with no indication which is canonical.
+**DOC-05 — `docs/agent-outputs/`** · *verified: 357 tracked files*
+DOC-03 and DOC-07 are closed. DOC-05 is not, and is left deliberately.
 
-> **Fix:** the one that actively misleads — do it first. `docs/api/` looks newer and more
-> complete. Pick it, delete or regenerate the other, and add a make target that emits specs
-> from the running apps so they cannot drift again.
-
-**TEST-03 — disabled property tests** · *verified: 1 module-level skip*
-> **Fix:** run them and see what breaks. The skip reason ("Skipping broken test file") does
-> not say. If the hypothesis strategies have drifted from the current validators, repair
-> them; if the tests encode obsolete behaviour, delete them. A permanently skipped file is
-> zero coverage either way.
-
-**TEST-04 — service-gated production suites** · *verified: 5 files*
-> **Fix:** either stand up the agent coordinator in CI (docker-compose service, or the app
-> in-process via TestClient), or convert to mocked integration tests. Whichever you pick,
-> make the skip *loud* — a suite that silently skips reads as passing.
-
-**TEST-06 / TEST-07 — shell tests in `tests/`** · *verified: 112 scripts; `test-orchestrator.sh` 5,440 lines*
-> **Fix:** move the 112 `test-*.sh` into `tests/orchestrator.d/` (already exists and is used
-> by `staged-suite.sh`) or a new `tests/tooling/`, so `pytest tests/` no longer walks them.
-> Split `test-orchestrator.sh` by topic in the same pass — it is unreviewable at 5,440 lines.
-
-**TEST-08 — stale test dirs** · *verified: 2 dirs*
-> **Fix:** delete `tests/staking/` (a README describing where tests should live, no tests)
-> and either delete `tests/archived_phase_tests/` or move it under `docs/archive/`. Check
-> CI collection first — neither has an `__init__.py`, so it is unclear whether they run.
-
-**DOC-03 / DOC-05 / DOC-07 — doc hygiene** · *verified: 6 loose release files; 32 agent-output entries; 3 `.orig` files*
-> **Fix:** standardise release docs on one layout (per-version directory) and migrate the 6
-> loose files; prune completed-ticket outputs from `docs/agent-outputs/` to an external log
-> store; delete `docs/meta/pre-boilerplate-backup/` now the migration has stabilised. All
-> three are mechanical — good first tasks, low risk.
+> **Not done, needs a decision first.** The suggestion is to "prune completed-ticket outputs
+> to an external log store". No external log store exists, so following it means deleting
+> 357 files of historical record — QA validations, design notes, merge logs — several of
+> which are still linked from live documents. That is a call about what the project keeps,
+> not a hygiene fix. Decide the retention rule (and where pruned records go) before
+> deleting anything.
 
 ---
 
@@ -98,19 +78,29 @@ Two sets for the same services, diverged, with no indication which is canonical.
 
 Scope: `apps/*` (except blockchain-node, event-bridge, explorer), `cli/`.
 
-### Open — 1
+### Open — 1 (partial)
 
-**APP-54 — `simple_exchange` on stdlib `http.server`** · *verified: `http.server` in `server.py`, `db.py`*
+**APP-54 — `simple_exchange` on stdlib `http.server`** · *partial: HTTP surface now pinned*
 Runs on `BaseHTTPRequestHandler` rather than the `src/<pkg>/` FastAPI layout every sibling
 uses. This is *why* it cannot use shared `aitbc.auth` and hand-rolls its own request
 handling and API-key check. The largest single item in either list.
 
-> **Fix:** migrate to `apps/exchange/src/exchange_api/` on FastAPI, one router at a time,
-> keeping the existing handlers callable so behaviour can be diffed as you go. Replace the
-> hand-rolled `_require_api_key` with the shared `aitbc.auth` dependency once routing is on
-> FastAPI. Take the existing tests in `apps/exchange/tests/` as the contract — they should
-> keep passing throughout, and pin the current HTTP responses before starting so a
-> behavioural change is visible rather than assumed.
+> **Done: the prerequisite.** `apps/exchange/tests/test_http_contract.py` — 57
+> characterisation tests over a real socket, recording all 27 routes, which endpoints
+> require `X-Api-Key`, the CORS headers, and the malformed-request responses. The existing
+> suite could not serve as the contract the fix note assumed: it covers `db.py` and never
+> issues a request.
+>
+> Two things it corrected on the way. `/api/wallet/balance`, `/api/total-supply` and
+> `/api/treasury-balance` **require an API key** despite reading like public reads. And
+> `do_GET`'s guard tests for a leading `//` as well as `..`, but the path is normalised
+> before it runs — `//health` is served as `/health` with a 200, so the `//` and `\\` arms
+> are dead code. Do not carry that assumption into the rewrite.
+>
+> **Remaining: the migration itself.** Move to `apps/exchange/src/exchange_api/` on FastAPI,
+> one router at a time, and replace the hand-rolled `_require_api_key` with the shared
+> `aitbc.auth` dependency. `test_http_contract.py` should pass unchanged against the result;
+> any line that has to be edited is a behavioural change someone chose.
 
 ### Closed since the last revision — do not re-do
 
@@ -130,6 +120,14 @@ handling and API-key check. The largest single item in either list.
 | OPS-03/08 | Genesis state root was a sha256 of a concatenated string, not the node's MPT root; `--chain-id`/`--data-path` defaulted to production and nothing was confirmed | Root computed with the node's `StateManager` and byte-for-byte equal to it; both flags required; typed confirmation with `CONFIRM_BALANCE_MIGRATION` for automation |
 | PKG-05 | `@ts-nocheck` on 5 files — and no tsconfig, no workspace root, no ESLint config, no jest config, so *none* of `lint`/`test` could run | All gates run and pass; pragmas removed; `packages/pnpm-workspace.yaml` un-ignored from the blanket `*.yaml` rule |
 | PKG-03 | Plugin loader imported and called whatever a manifest named | Boundary-correct module allowlist (default `aitbc_plugins` only) + optional injected signature verifier, both checked before the import |
+| TEST-03 | Property tests skipped as "broken"; running them found `sign_transaction_hash` raising on every call since eth-account 0.13, `verify_signature` recovering the wrong way and comparing a stripped address, and signing accepting a zero private key | All fixed; `verify_block_signature` also widened to accept standard v=27/28 signatures; 36 property tests pass |
+| TEST-04 | Five production suites each skipped silently when no coordinator was running, so an empty run read as a pass | Gate defined once in `tests/production/conftest.py`; `AITBC_REQUIRE_PRODUCTION_SERVICES=1` makes a missing service fail the run; a skipped run says so in the summary |
+| TEST-06/07 | `pytest tests/` gave 23 collection errors from directories excluded from `testpaths` and left to rot | `tests/core` (365 tests), `tests/property_tests`, `tests/verification` recovered and added; orphaned suites deleted; `tests/` removed from `sys.path` where it shadowed the real `cli` package; `--import-mode=importlib` resolves the `tests` package collision (93 errors) |
+| TEST-08 | `tests/archived_phase_tests/` and `tests/staking/` | Deleted. The 53 "passing" archived tests asserted against their own inline mocks and imported nothing from the codebase |
+| DOC-02 | Two diverged spec sets; the coordinator pair shared 1 path out of 354 | `docs/api/` is the single generated set (now including wallet and agent-coordinator); `make openapi-check` fails on drift |
+| DOC-03 | Six version-prefixed files loose in `docs/releases/` | Moved into `docs/releases/<version>/` |
+| DOC-07 | Three `.orig` files in `docs/meta/pre-boilerplate-backup/` | Renamed to `.md` rather than deleted — CLAUDE.md cites one as live context. Surfaced and fixed 3 links that never resolved |
+| OPS-17 | Four scripts each spelled out the service list inline, already diverged | One `lib/services.sh`; shutdown reverses startup order explicitly |
 
 ---
 
