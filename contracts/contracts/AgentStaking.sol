@@ -135,6 +135,19 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     uint256 public appealWindow = 3 days;
     uint256 public slashReporterReward = 500; // 5% of slashed amount
 
+    // Slashing is bounded per call. Anyone can stake on an agent, so an agent that opened
+    // thousands of small stakes on itself could push _slashAllStakesForAgent past the block
+    // gas limit and become permanently un-slashable. Slashing now walks at most
+    // maxSlashBatch stakes per call and records how far it got, so it can always complete
+    // across several calls.
+    uint256 public maxSlashBatch = 100;
+
+    // Index into agentStakes[agent] of the first stake not yet considered for slashing.
+    // Forward-only: every stake below this index has already been slashed or was not
+    // eligible, and stakes only ever move ACTIVE -> SLASHED/WITHDRAWN, so they cannot
+    // become eligible again. New stakes are appended above it.
+    mapping(address => uint256) public slashProgress;
+
     // Oracle protection
     mapping(address => bool) public authorizedOracles;
     uint256 public oracleCount;
@@ -220,6 +233,8 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     );
     event SlashAppealApproved(uint256 indexed stakeId);
     event SlashAppealRejected(uint256 indexed stakeId);
+    event SlashingIncomplete(address indexed agentWallet, uint256 nextIndex, uint256 remaining);
+    event MaxSlashBatchUpdated(uint256 oldValue, uint256 newValue);
     event MaliciousAgentReported(
         address indexed agentWallet,
         address indexed reporter,
@@ -1012,19 +1027,36 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     }
 
     /**
-     * @dev Internal function to slash all stakes for an agent
+     * @dev Slash the agent's stakes, bounded to maxSlashBatch per call
      * @param _agentWallet Agent wallet address
      * @param _slashingPercentage Percentage to slash
      * @param _reason Reason for slashing
+     * @return slashedTotal Amount actually slashed by this call
+     *
+     * Two things changed here. The loop ran over every stake ever recorded for the agent
+     * with no bound, and made a token transfer inside each iteration -- so the cost grew
+     * without limit and an agent could make itself un-slashable simply by accumulating
+     * stakes. It now walks at most maxSlashBatch entries starting from slashProgress, and
+     * transfers the slashed total once at the end rather than once per stake.
+     *
+     * When stakes remain, SlashingIncomplete is emitted and continueSlashing finishes the
+     * job. Nothing is lost: slashProgress only advances over stakes this call handled.
      */
     function _slashAllStakesForAgent(
         address _agentWallet,
         uint256 _slashingPercentage,
         string memory _reason
-    ) internal {
+    ) internal returns (uint256 slashedTotal) {
         uint256[] storage stakesForAgent = agentStakes[_agentWallet];
+        uint256 total = stakesForAgent.length;
+        uint256 i = slashProgress[_agentWallet];
 
-        for (uint256 i = 0; i < stakesForAgent.length; i++) {
+        uint256 end = i + maxSlashBatch;
+        if (end > total) {
+            end = total;
+        }
+
+        for (; i < end; i++) {
             uint256 stakeId = stakesForAgent[i];
             Stake storage stake = stakes[stakeId];
 
@@ -1032,12 +1064,50 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
                 uint256 slashAmount = (stake.amount * _slashingPercentage) / 100;
                 stake.amount -= slashAmount;
                 stake.status = StakeStatus.SLASHED;
-
-                require(paymentToken.transfer(owner(), slashAmount), "Transfer failed");
+                slashedTotal += slashAmount;
 
                 emit StakeSlashed(stakeId, stake.staker, slashAmount, _reason);
             }
         }
+
+        slashProgress[_agentWallet] = i;
+
+        if (slashedTotal > 0) {
+            require(paymentToken.transfer(owner(), slashedTotal), "Transfer failed");
+        }
+
+        if (i < total) {
+            emit SlashingIncomplete(_agentWallet, i, total - i);
+        }
+    }
+
+    /**
+     * @dev Slash the next batch of an agent's stakes when one call was not enough
+     * @param _agentWallet Agent wallet address
+     * @return slashedTotal Amount slashed by this call
+     *
+     * Callable by anyone: leaving stakes unslashed favours the offending agent, so
+     * completing the work must not depend on a privileged caller being available.
+     */
+    function continueSlashing(address _agentWallet) external nonReentrant returns (uint256) {
+        require(slashProgress[_agentWallet] < agentStakes[_agentWallet].length, "Nothing left to slash");
+
+        uint256 slashPct = slashingConditions[_agentWallet].slashingPercentage;
+        if (slashPct == 0) {
+            slashPct = defaultSlashingPercentage;
+        }
+
+        return _slashAllStakesForAgent(_agentWallet, slashPct, "Continued slashing");
+    }
+
+    /**
+     * @dev Set how many stakes a single slashing call may walk
+     * @param _maxSlashBatch New batch size
+     */
+    function setMaxSlashBatch(uint256 _maxSlashBatch) external onlyOwner {
+        require(_maxSlashBatch > 0, "Batch size must be positive");
+        emit MaxSlashBatchUpdated(maxSlashBatch, _maxSlashBatch);
+        maxSlashBatch = _maxSlashBatch;
     }
 
     /**
@@ -1104,9 +1174,17 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         uint256 slashPct = conditions.slashingPercentage > 0 ? conditions.slashingPercentage : defaultSlashingPercentage;
 
         if (metrics.averageAccuracy < minAccuracy) {
-            _slashAllStakesForAgent(_agentWallet, slashPct, string(abi.encodePacked("Reporter: ", _evidence)));
-
-            uint256 totalSlashed = _calculateTotalSlashed(_agentWallet);
+            // The reward is a share of what this report actually caused to be slashed.
+            // It used to come from _calculateTotalSlashed, which re-derived a figure by
+            // walking every SLASHED stake the agent had ever accumulated and applying
+            // defaultSlashingPercentage to the already-reduced amounts -- so a reporter was
+            // paid on stakes slashed in earlier, unrelated incidents, at a rate unrelated
+            // to the one just applied.
+            uint256 totalSlashed = _slashAllStakesForAgent(
+                _agentWallet,
+                slashPct,
+                string(abi.encodePacked("Reporter: ", _evidence))
+            );
             uint256 reward = (totalSlashed * slashReporterReward) / 10000;
 
             if (reward > 0) {
@@ -1139,26 +1217,6 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
             maxMissedJobs: _maxMissedJobs,
             slashingPercentage: _slashingPercentage
         });
-    }
-
-    /**
-     * @dev Calculate total slashed amount for an agent
-     * @param _agentWallet Agent wallet address
-     */
-    function _calculateTotalSlashed(address _agentWallet) internal view returns (uint256) {
-        uint256[] storage stakesForAgent = agentStakes[_agentWallet];
-        uint256 totalSlashed = 0;
-
-        for (uint256 i = 0; i < stakesForAgent.length; i++) {
-            uint256 stakeId = stakesForAgent[i];
-            Stake storage stake = stakes[stakeId];
-
-            if (stake.status == StakeStatus.SLASHED) {
-                totalSlashed += (stake.amount * defaultSlashingPercentage) / 100;
-            }
-        }
-
-        return totalSlashed;
     }
 
     // =========================
