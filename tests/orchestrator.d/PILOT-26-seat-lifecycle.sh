@@ -22,7 +22,7 @@
 #      handoff. The offline/dry-run test path must stay byte-silent.
 #
 # The live POST round-trip (seat appears <2s, closes with exit_code) is covered
-# by the docker-backed suites (tests/test-backend-shipper.sh drives the same
+# by the docker-backed suites (tests/tooling/test-backend-shipper.sh drives the same
 # endpoint); here we pin the seam contract without a network.
 # =============================================================================
 
