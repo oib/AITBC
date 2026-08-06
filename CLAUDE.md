@@ -42,7 +42,7 @@ contributors.
 - [docs/onboarding/](docs/onboarding/) - Setup guides and daily workflows
 - [docs/guides/ROUND-TABLE-PHILOSOPHY.md](docs/guides/ROUND-TABLE-PHILOSOPHY.md) - Collaboration principles
 - [patterns_library/](patterns_library/) - Reusable code patterns
-- [docs/meta/pre-boilerplate-backup/AGENTS.md.orig](docs/meta/pre-boilerplate-backup/AGENTS.md.orig) - prior release-plan/ownership doc, kept for continuity of in-flight work
+- [docs/meta/pre-boilerplate-backup/AGENTS.md](docs/meta/pre-boilerplate-backup/AGENTS.md) - prior release-plan/ownership doc, kept for continuity of in-flight work
 
 ---
 
@@ -111,7 +111,7 @@ AITBC/
 
 **Multi-agent release model**: this repo was previously developed under a simpler two-agent
 ownership split (Agent A = `aitbc/` shared core, Agent B = `apps/`/`cli/`/constants/logging) —
-see `docs/meta/pre-boilerplate-backup/AGENTS.md.orig` for the ownership boundaries and
+see `docs/meta/pre-boilerplate-backup/AGENTS.md` for the ownership boundaries and
 coordination protocol that governed in-flight release work before this SAW adoption. Active
 release status still lives under `docs/releases/<version>/`.
 

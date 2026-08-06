@@ -128,7 +128,7 @@ python3 -c "import json; json.load(open('.claude/settings.template.json'))" && e
 test -f .claude/skills/team-coordination/SKILL.md && echo "team-coordination: EXISTS"
 test -f docs/onboarding/AGENT-TEAMS-GUIDE.md && echo "Agent Teams Guide: EXISTS"
 test -f docs/guides/OPTIONAL-FEATURES.md && echo "Optional Features: EXISTS"
-test -f docs/releases/v2.5.0-UPGRADE.md && echo "Upgrade Guide: EXISTS"
+test -f docs/releases/v2.5.0/UPGRADE.md && echo "Upgrade Guide: EXISTS"
 ```
 
 ## Related Tickets
@@ -154,4 +154,4 @@ test -f docs/releases/v2.5.0-UPGRADE.md && echo "Upgrade Guide: EXISTS"
 
 ---
 
-*This KT document is part of the [AITBC SAFe Agentic Workflow](https://github.com/oib/AITBC) harness. For upgrade instructions, see [v2.5.0-UPGRADE.md](../releases/v2.5.0-UPGRADE.md).*
+*This KT document is part of the [AITBC SAFe Agentic Workflow](https://github.com/oib/AITBC) harness. For upgrade instructions, see [v2.5.0/UPGRADE.md](../releases/v2.5.0/UPGRADE.md).*
