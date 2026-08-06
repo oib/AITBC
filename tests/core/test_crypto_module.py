@@ -75,7 +75,7 @@ class TestSignTransactionHash:
             mock_account_instance = Mock()
             mock_signed = Mock()
             mock_signed.signature.hex.return_value = "0xsig123"
-            mock_account_instance.sign_hash.return_value = mock_signed
+            mock_account_instance.unsafe_sign_hash.return_value = mock_signed
             MockAccount.from_key.return_value = mock_account_instance
 
             result = crypto.sign_transaction_hash("0x1234567890abcdef", "0x1234567890abcdef")
@@ -88,7 +88,7 @@ class TestSignTransactionHash:
             mock_account_instance = Mock()
             mock_signed = Mock()
             mock_signed.signature.hex.return_value = "0xsig123"
-            mock_account_instance.sign_hash.return_value = mock_signed
+            mock_account_instance.unsafe_sign_hash.return_value = mock_signed
             MockAccount.from_key.return_value = mock_account_instance
 
             result = crypto.sign_transaction_hash("1234567890abcdef", "1234567890abcdef")
@@ -122,7 +122,7 @@ class TestVerifySignature:
             from eth_account import Account as MockAccount
             from eth_utils import to_bytes
 
-            MockAccount.recover_message.return_value = "abc123"  # Return without 0x prefix
+            MockAccount._recover_hash.return_value = "0xABC123"  # recovery returns a checksummed 0x address
             to_bytes.side_effect = lambda hexstr: bytes.fromhex(hexstr) if hexstr else b""
 
             result = crypto.verify_signature("1234567890abcdef", "1234567890abcdef", "0xABC123")
@@ -133,7 +133,7 @@ class TestVerifySignature:
             from eth_account import Account as MockAccount
             from eth_utils import to_bytes
 
-            MockAccount.recover_message.return_value = "def456"  # Return without 0x prefix
+            MockAccount._recover_hash.return_value = "0xDEF456"  # a different address than the caller claims
             to_bytes.side_effect = lambda hexstr: bytes.fromhex(hexstr) if hexstr else b""
 
             result = crypto.verify_signature("1234567890abcdef", "1234567890abcdef", "0xABC123")
@@ -143,7 +143,7 @@ class TestVerifySignature:
         with patch.dict("sys.modules", {"eth_account": Mock(), "eth_utils": Mock()}):
             from eth_account import Account as MockAccount
 
-            MockAccount.recover_message.side_effect = Exception("Verify error")
+            MockAccount._recover_hash.side_effect = Exception("Verify error")
 
             with pytest.raises(ValueError, match="Failed to verify signature"):
                 crypto.verify_signature("1234567890abcdef", "1234567890abcdef", "0xABC123")

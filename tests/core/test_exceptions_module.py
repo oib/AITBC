@@ -17,7 +17,12 @@ def load_module_from_path(module_name, file_path):
     return module
 
 
-exceptions = load_module_from_path("aitbc.exceptions", Path("/opt/aitbc/aitbc/exceptions.py"))
+# Resolved from this file's location rather than hardcoded to /opt/aitbc, so the
+# tests read the tree they live in -- a worktree or a fresh clone, not whatever
+# happens to be installed at that absolute path.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+exceptions = load_module_from_path("aitbc.exceptions", REPO_ROOT / "aitbc/exceptions.py")
 
 
 # ============================================================================
