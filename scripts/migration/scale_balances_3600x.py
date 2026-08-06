@@ -6,7 +6,11 @@ This script multiplies all balances, amounts, and fees by 3600 to convert from
 raw AIT to compute-seconds (1 AIT = 3600 seconds).
 
 Usage:
-    python3 scripts/migration/scale_balances_3600x.py [--chain-id CHAIN_ID] [--data-path PATH]
+    python3 scripts/migration/scale_balances_3600x.py --chain-id CHAIN_ID --data-path PATH
+
+Both flags are required and have no defaults: this rewrite is irreversible, so the target
+chain must always be named explicitly. The run then asks for the chain id to be typed back
+before it proceeds. Set CONFIRM_BALANCE_MIGRATION=yes to skip that prompt in automation.
 
 The script:
 1. Backs up chain.db and genesis.json
@@ -20,14 +24,16 @@ The script:
 
 import argparse
 import json
+import os
 import shutil
 import sqlite3
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 
-def backup_file(file_path: Path) -> Path:
-    """Create a backup of a file"""
+def backup_file(file_path: Path) -> Path | None:
+    """Create a backup of a file. Returns None when there was nothing to back up."""
     if not file_path.exists():
         print(f"⚠️  File not found for backup: {file_path}")
         return None
@@ -124,38 +130,73 @@ def scale_genesis_json(genesis_path: Path) -> bool:
         return False
 
 
-def recalculate_state_root(db_path: Path, chain_id: str) -> str | None:
-    """
-    Recalculate state root from scaled balances.
+def _load_state_manager():
+    """Import the blockchain node's StateManager.
 
-    This is a simplified implementation - in production, you would use
-    the actual Merkle Patricia Trie implementation from the blockchain code.
+    The migration must produce the same root the node will compute at startup, so it uses
+    the node's own Merkle Patricia Trie rather than reimplementing one. Imported lazily and
+    by path because this script runs standalone, outside the node's package.
     """
+    import sys
+
+    node_src = Path(__file__).resolve().parents[2] / "apps" / "blockchain-node" / "src"
+    if not node_src.is_dir():
+        raise RuntimeError(
+            f"Cannot locate the blockchain node source at {node_src}. "
+            "The genesis state root must be computed with the chain's own trie."
+        )
+    if str(node_src) not in sys.path:
+        sys.path.insert(0, str(node_src))
+
+    from aitbc_chain.state.merkle_patricia_trie import StateManager  # noqa: PLC0415
+
+    return StateManager
+
+
+def recalculate_state_root(db_path: Path, chain_id: str) -> str | None:
+    """Recalculate the genesis state root from the scaled balances.
+
+    Uses aitbc_chain.state.merkle_patricia_trie.StateManager -- the same implementation
+    the node uses via state_root_utils.compute_state_root_full -- so the value written
+    here is the value the node will compute when it validates genesis.
+
+    This previously hashed a concatenated "address:balance:nonce;" string with sha256 and
+    wrote that as the state root. The node computes an MPT root, so the two could never
+    agree: after an irreversible x3600 balance rewrite, the chain would fail genesis
+    validation. The script also printed the root and reported success, so the mismatch was
+    invisible until a node was started.
+    """
+    try:
+        state_manager_cls = _load_state_manager()
+    except Exception as e:
+        print(f"❌ Cannot load the chain's state-root implementation: {e}")
+        print("   Refusing to write a state root the node will not accept.")
+        return None
+
     try:
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
 
-        print("\n🔐 Recalculating state root...")
+        print("\n🔐 Recalculating state root (Merkle Patricia Trie)...")
 
-        # Get all accounts
         cursor.execute("SELECT address, balance, nonce FROM account WHERE chain_id=?", (chain_id,))
         accounts = cursor.fetchall()
         if not accounts:
             print("❌ No accounts found for chain; cannot recalculate state root.")
             return None
 
-        # Simplified state root calculation (hash of all account states)
-        # In production, use the actual MPT implementation
-        import hashlib
-
-        state_data = f"{chain_id}:{len(accounts)}:"
+        state_manager = state_manager_cls()
+        # Sorted for determinism. The trie is order-independent, but a stable order keeps
+        # runs comparable when debugging a mismatch.
         for address, balance, nonce in sorted(accounts):
-            state_data += f"{address}:{balance}:{nonce};"
+            state_manager.update_account(address, int(balance), int(nonce))
 
-        state_root = hashlib.sha256(state_data.encode()).hexdigest()
+        # "0x"-prefixed to match compute_state_root_full; the node compares the stored
+        # value against that string, so the prefix is part of the format.
+        state_root: str = "0x" + state_manager.get_root().hex()
         print(f"  ✅ New state root: {state_root}")
+        print(f"     ({len(accounts)} accounts, computed with the node's trie)")
 
-        # Update genesis block state_root
         cursor.execute("UPDATE block SET state_root = ? WHERE height=0 AND chain_id=?", (state_root, chain_id))
         if cursor.rowcount == 0:
             print("❌ Genesis block not found; cannot update state root.")
@@ -168,6 +209,9 @@ def recalculate_state_root(db_path: Path, chain_id: str) -> str | None:
 
     except sqlite3.Error as e:
         print(f"❌ Error recalculating state root: {e}")
+        return None
+    except Exception as e:
+        print(f"❌ Error computing state root with the chain trie: {e}")
         return None
     finally:
         if "conn" in locals():
@@ -241,10 +285,38 @@ def verify_migration(db_path: Path, chain_id: str) -> bool:
             conn.close()
 
 
+def confirm_migration(chain_id: str, data_path: Path) -> bool:
+    """Require explicit confirmation before an irreversible balance rewrite.
+
+    Multiplying every balance by 3600 cannot be undone except by restoring the backup this
+    script takes moments earlier. It previously ran straight through with no prompt, on
+    defaults that pointed at production.
+    """
+    if os.environ.get("CONFIRM_BALANCE_MIGRATION") == "yes":
+        print("CONFIRM_BALANCE_MIGRATION=yes set; proceeding without an interactive prompt.")
+        return True
+
+    if not sys.stdin.isatty():
+        print("❌ Refusing to run non-interactively without CONFIRM_BALANCE_MIGRATION=yes.")
+        return False
+
+    print("\n⚠️  This multiplies EVERY balance on this chain by 3600. It cannot be undone")
+    print("   except by restoring the backup taken during this run.")
+    print(f"   Chain:     {chain_id}")
+    print(f"   Data path: {data_path}")
+    answer = input("\n   Type the chain id to continue: ").strip()
+    if answer != chain_id:
+        print("❌ Confirmation did not match the chain id; aborting.")
+        return False
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description="Scale on-chain balances by 3600x for v0.5.10 hard fork")
-    parser.add_argument("--chain-id", default="ait-hub.aitbc.bubuit.net", help="Chain ID")
-    parser.add_argument("--data-path", default="/var/lib/aitbc/data", help="Data directory path")
+    # No defaults. These pointed at the production chain and /var/lib/aitbc/data, so
+    # running the script bare rewrote production balances. Both are now required.
+    parser.add_argument("--chain-id", required=True, help="Chain ID (required; no default)")
+    parser.add_argument("--data-path", required=True, help="Data directory path (required; no default)")
     args = parser.parse_args()
 
     chain_id = args.chain_id
@@ -256,6 +328,9 @@ def main():
     # Check data path exists
     if not data_path.exists():
         print(f"❌ Data path does not exist: {data_path}")
+        return 1
+
+    if not confirm_migration(chain_id, data_path):
         return 1
 
     # File paths
