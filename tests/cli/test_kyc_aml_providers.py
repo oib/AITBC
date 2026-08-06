@@ -11,7 +11,7 @@ class TestKYCProvider:
 
     def test_kyc_provider_values(self):
         """Test KYCProvider enum values"""
-        from utils.kyc_aml_providers import KYCProvider
+        from cli.utils.kyc_aml_providers import KYCProvider
 
         assert KYCProvider.CHAINALYSIS.value == "chainalysis"
         assert KYCProvider.SUMSUB.value == "sumsub"
@@ -25,7 +25,7 @@ class TestKYCStatus:
 
     def test_kyc_status_values(self):
         """Test KYCStatus enum values"""
-        from utils.kyc_aml_providers import KYCStatus
+        from cli.utils.kyc_aml_providers import KYCStatus
 
         assert KYCStatus.PENDING.value == "pending"
         assert KYCStatus.APPROVED.value == "approved"
@@ -39,7 +39,7 @@ class TestAMLRiskLevel:
 
     def test_aml_risk_level_values(self):
         """Test AMLRiskLevel enum values"""
-        from utils.kyc_aml_providers import AMLRiskLevel
+        from cli.utils.kyc_aml_providers import AMLRiskLevel
 
         assert AMLRiskLevel.LOW.value == "low"
         assert AMLRiskLevel.MEDIUM.value == "medium"
@@ -52,7 +52,7 @@ class TestKYCRequest:
 
     def test_kyc_request_creation(self):
         """Test creating KYCRequest"""
-        from utils.kyc_aml_providers import KYCProvider, KYCRequest
+        from cli.utils.kyc_aml_providers import KYCProvider, KYCRequest
 
         request = KYCRequest(user_id="user123", provider=KYCProvider.CHAINALYSIS, customer_data={"name": "John Doe"})
 
@@ -69,7 +69,7 @@ class TestKYCResponse:
         """Test creating KYCResponse"""
         from datetime import datetime
 
-        from utils.kyc_aml_providers import KYCProvider, KYCResponse, KYCStatus
+        from cli.utils.kyc_aml_providers import KYCProvider, KYCResponse, KYCStatus
 
         response = KYCResponse(
             request_id="req123",
@@ -94,7 +94,7 @@ class TestAMLCheck:
         """Test creating AMLCheck"""
         from datetime import datetime
 
-        from utils.kyc_aml_providers import AMLCheck, AMLRiskLevel
+        from cli.utils.kyc_aml_providers import AMLCheck, AMLRiskLevel
 
         check = AMLCheck(
             check_id="check123",
@@ -118,7 +118,7 @@ class TestSimpleKYCProvider:
 
     def test_init(self):
         """Test SimpleKYCProvider initialization"""
-        from utils.kyc_aml_providers import KYCProvider, SimpleKYCProvider
+        from cli.utils.kyc_aml_providers import KYCProvider, SimpleKYCProvider
 
         provider = SimpleKYCProvider()
 
@@ -127,7 +127,7 @@ class TestSimpleKYCProvider:
 
     def test_set_api_key(self):
         """Test setting API key"""
-        from utils.kyc_aml_providers import KYCProvider, SimpleKYCProvider
+        from cli.utils.kyc_aml_providers import KYCProvider, SimpleKYCProvider
 
         provider = SimpleKYCProvider()
         provider.set_api_key(KYCProvider.CHAINALYSIS, "test_key")
@@ -136,7 +136,7 @@ class TestSimpleKYCProvider:
 
     def test_submit_kyc_verification_no_api_key(self):
         """Test submitting KYC without API key"""
-        from utils.kyc_aml_providers import KYCProvider, KYCRequest, SimpleKYCProvider
+        from cli.utils.kyc_aml_providers import KYCProvider, KYCRequest, SimpleKYCProvider
 
         provider = SimpleKYCProvider()
         request = KYCRequest(user_id="user123", provider=KYCProvider.CHAINALYSIS, customer_data={"name": "John Doe"})
@@ -146,7 +146,7 @@ class TestSimpleKYCProvider:
 
     def test_submit_kyc_verification_success(self):
         """Test successful KYC submission"""
-        from utils.kyc_aml_providers import KYCProvider, KYCRequest, SimpleKYCProvider
+        from cli.utils.kyc_aml_providers import KYCProvider, KYCRequest, SimpleKYCProvider
 
         provider = SimpleKYCProvider()
         provider.set_api_key(KYCProvider.CHAINALYSIS, "test_key")
@@ -160,7 +160,7 @@ class TestSimpleKYCProvider:
 
     def test_check_kyc_status(self):
         """Test checking KYC status"""
-        from utils.kyc_aml_providers import KYCProvider, SimpleKYCProvider
+        from cli.utils.kyc_aml_providers import KYCProvider, SimpleKYCProvider
 
         provider = SimpleKYCProvider()
 
@@ -177,7 +177,7 @@ class TestSimpleAMLProvider:
 
     def test_init(self):
         """Test SimpleAMLProvider initialization"""
-        from utils.kyc_aml_providers import SimpleAMLProvider
+        from cli.utils.kyc_aml_providers import SimpleAMLProvider
 
         provider = SimpleAMLProvider()
 
@@ -185,7 +185,7 @@ class TestSimpleAMLProvider:
 
     def test_set_api_key(self):
         """Test setting AML API key"""
-        from utils.kyc_aml_providers import SimpleAMLProvider
+        from cli.utils.kyc_aml_providers import SimpleAMLProvider
 
         provider = SimpleAMLProvider()
         provider.set_api_key("chainalysis", "test_key")
@@ -194,7 +194,7 @@ class TestSimpleAMLProvider:
 
     def test_screen_user(self):
         """Test screening user for AML"""
-        from utils.kyc_aml_providers import SimpleAMLProvider
+        from cli.utils.kyc_aml_providers import SimpleAMLProvider
 
         provider = SimpleAMLProvider()
 
@@ -211,7 +211,7 @@ class TestCLIInterfaceFunctions:
 
     def test_submit_kyc_verification(self):
         """Test submit_kyc_verification CLI function"""
-        from utils.kyc_aml_providers import submit_kyc_verification
+        from cli.utils.kyc_aml_providers import submit_kyc_verification
 
         result = submit_kyc_verification("user123", "chainalysis", {"name": "John Doe"})
 
@@ -224,7 +224,7 @@ class TestCLIInterfaceFunctions:
 
     def test_check_kyc_status(self):
         """Test check_kyc_status CLI function"""
-        from utils.kyc_aml_providers import check_kyc_status
+        from cli.utils.kyc_aml_providers import check_kyc_status
 
         # Use proper request_id format: provider_user_timestamp
         result = check_kyc_status("chainalysis_user123_1234567890", "chainalysis")
@@ -236,7 +236,7 @@ class TestCLIInterfaceFunctions:
 
     def test_perform_aml_screening(self):
         """Test perform_aml_screening CLI function"""
-        from utils.kyc_aml_providers import perform_aml_screening
+        from cli.utils.kyc_aml_providers import perform_aml_screening
 
         result = perform_aml_screening("user123", {"email": "test@example.com"})
 

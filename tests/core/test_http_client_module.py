@@ -19,7 +19,12 @@ def load_module_from_path(module_name, file_path):
     return module
 
 
-http_client = load_module_from_path("aitbc.network.client", Path("/opt/aitbc/aitbc/network/client.py"))
+# Resolved from this file's location rather than hardcoded to /opt/aitbc, so the
+# tests read the tree they live in -- a worktree or a fresh clone, not whatever
+# happens to be installed at that absolute path.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+http_client = load_module_from_path("aitbc.network.client", REPO_ROOT / "aitbc/network/client.py")
 
 
 # ============================================================================
