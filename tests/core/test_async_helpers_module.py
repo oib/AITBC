@@ -16,7 +16,12 @@ def load_module_from_path(module_name, file_path):
     return module
 
 
-async_helpers = load_module_from_path("aitbc.async_helpers", Path("/opt/aitbc/aitbc/async_helpers/async_helpers.py"))
+# Resolved from this file's location rather than hardcoded to /opt/aitbc, so the
+# tests read the tree they live in -- a worktree or a fresh clone, not whatever
+# happens to be installed at that absolute path.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+async_helpers = load_module_from_path("aitbc.async_helpers", REPO_ROOT / "aitbc/async_helpers/async_helpers.py")
 
 
 # ============================================================================

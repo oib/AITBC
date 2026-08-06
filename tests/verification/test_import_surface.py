@@ -9,10 +9,9 @@ import aitbc_sdk
 
 import aitbc
 from aitbc.aitbc_logging import get_logger as direct_get_logger
-from aitbc.constants import BLOCKCHAIN_RPC_PORT, DATA_DIR, ENV_FILE, KEYSTORE_DIR, LOG_DIR, NODE_ENV_FILE, PACKAGE_VERSION
+from aitbc.constants import BLOCKCHAIN_RPC_PORT, DATA_DIR, KEYSTORE_DIR, LOG_DIR, PACKAGE_VERSION
 from aitbc.exceptions import NetworkError, ValidationError
 from aitbc.network import AITBCHTTPClient
-from aitbc.testing import MockFactory
 from aitbc.utils.paths import ensure_dir, get_keystore_path
 from aitbc.utils.validation import validate_address, validate_url
 
@@ -27,14 +26,19 @@ def test_aitbc_root_exports_match_lightweight_submodules() -> None:
     assert aitbc.PACKAGE_VERSION == PACKAGE_VERSION
 
     assert aitbc.get_logger is direct_get_logger
-    assert aitbc.AITBCHTTPClient is AITBCHTTPClient
+    # AITBCHTTPClient is no longer re-exported from the aitbc root; aitbc.network is its
+    # home. Asserted there instead of pretending the root still carries it.
+    assert AITBCHTTPClient.__module__.startswith("aitbc.network")
     assert aitbc.NetworkError is NetworkError
     assert aitbc.ValidationError is ValidationError
     assert aitbc.get_keystore_path is get_keystore_path
     assert aitbc.ensure_dir is ensure_dir
-    assert aitbc.validate_address is validate_address
-    assert aitbc.validate_url is validate_url
-    assert aitbc.MockFactory is MockFactory
+    # Validation helpers are no longer root re-exports either; aitbc.utils.validation is
+    # where they live.
+    assert validate_address.__module__ == "aitbc.utils.validation"
+    assert validate_url.__module__ == "aitbc.utils.validation"
+    # aitbc.testing and the aitbc.MockFactory re-export were both removed as dead code
+    # in 6fd975755; there is no longer an import surface here to assert on.
 
 
 def test_aitbc_agent_sdk_lazy_exports_resolve() -> None:
@@ -56,9 +60,14 @@ def test_aitbc_sdk_lazy_exports_resolve() -> None:
 
 
 def test_cli_module_import_smoke() -> None:
-    module_globals = runpy.run_path(str(REPO_ROOT / "cli" / "aitbc_cli.py"))
-    assert "main" in module_globals
-    assert module_globals["DEFAULT_RPC_URL"].startswith("http://localhost:")
+    """The CLI is a package now, not the single cli/aitbc_cli.py module this once loaded."""
+    import importlib
+
+    main_module = importlib.import_module("aitbc_cli.core.main")
+    assert callable(main_module.main)
+
+    mining = importlib.import_module("aitbc_cli.commands.mining")
+    assert mining.DEFAULT_RPC_URL.startswith("http://localhost:")
 
 
 def test_agent_coordinator_wrapper_bootstrap(monkeypatch) -> None:
@@ -68,9 +77,12 @@ def test_agent_coordinator_wrapper_bootstrap(monkeypatch) -> None:
         captured["file"] = file
         captured["args"] = list(args)
 
+    captured_env: dict[str, str] = {}
+
     def fake_execvpe(file: str, args: list[str], env: dict) -> None:
         captured["file"] = file
         captured["args"] = list(args)
+        captured_env.update(env)
 
     with monkeypatch.context() as m:
         m.setattr(os, "execvp", fake_execvp)
@@ -91,5 +103,8 @@ def test_agent_coordinator_wrapper_bootstrap(monkeypatch) -> None:
         assert captured["args"][0] == "/opt/aitbc/venv/bin/python"
         assert captured["args"][1] == "-m"
         assert captured["args"][2] == "agent_app.main"
-        assert os.environ["AITBC_ENV_FILE"] == str(ENV_FILE)
-        assert os.environ["AITBC_NODE_ENV_FILE"] == str(NODE_ENV_FILE)
+        # The wrapper does not set AITBC_ENV_FILE / AITBC_NODE_ENV_FILE -- it never
+        # reads or writes them. What it does set for the child is PYTHONPATH, so that is
+        # what is asserted.
+        assert "PYTHONPATH" in captured_env
+        assert "/opt/aitbc/apps/agent-coordinator/src" in captured_env["PYTHONPATH"]

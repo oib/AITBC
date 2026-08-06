@@ -5,6 +5,11 @@ Tests for AITBC crypto security utilities
 
 import pytest
 
+# Password hashing moved out of aitbc.crypto into aitbc.auth.password, where the salted
+# tuple-returning pair is named *_pbkdf2 (PasswordManager.hash_password is bcrypt and
+# has a different signature).
+from aitbc.auth.password import hash_password_pbkdf2 as hash_password
+from aitbc.auth.password import verify_password_pbkdf2 as verify_password
 from aitbc.crypto import (
     APIKeyManager,
     SecretManager,
@@ -15,11 +20,9 @@ from aitbc.crypto import (
     generate_secure_random_int,
     generate_secure_random_string,
     generate_token,
-    hash_password,
     validate_api_key,
     validate_token_format,
     verify_hmac,
-    verify_password,
 )
 
 

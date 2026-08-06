@@ -31,14 +31,46 @@ log_warn() {
     echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
+# Run a command as argv rather than as a string through eval.
+#
+# This used to take the command as one string and run `eval "$test_command"`, so every
+# character in it was parsed by the shell a second time. The strings are file-local
+# literals today, which is the only reason that is safe; a name or argument that ever came
+# from a variable, a file, or command output would be executed. Passing argv removes the
+# second round of parsing entirely.
+#
+# Usage: run_test "description" command arg...
 run_test() {
     local test_name="$1"
-    local test_command="$2"
+    shift
 
     TESTS_RUN=$((TESTS_RUN + 1))
     log_info "Running: $test_name"
 
-    if eval "$test_command"; then
+    if "$@"; then
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+        log_info "PASSED: $test_name"
+    else
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+        log_error "FAILED: $test_name"
+        return 1
+    fi
+}
+
+# Same, for the cases that need something on stdin. Those were written as
+# "echo 'y' | aitbc ..." inside the eval'd string; the pipe is built here now instead of
+# being the reason eval had to stay.
+#
+# Usage: run_test_with_input "description" "input" command arg...
+run_test_with_input() {
+    local test_name="$1"
+    local test_input="$2"
+    shift 2
+
+    TESTS_RUN=$((TESTS_RUN + 1))
+    log_info "Running: $test_name"
+
+    if printf '%s\n' "$test_input" | "$@"; then
         TESTS_PASSED=$((TESTS_PASSED + 1))
         log_info "PASSED: $test_name"
     else
@@ -55,19 +87,19 @@ log_info "Starting resource CLI integration tests"
 log_info "Note: Some tests require coordinator-api running"
 
 # Test 1: Resource status (all resources)
-run_test "Resource status (all)" "aitbc resource status"
+run_test "Resource status (all)" aitbc resource status
 
 # Test 2: Resource status (specific resource)
-run_test "Resource status (specific)" "aitbc resource status --resource-id test_res_123"
+run_test "Resource status (specific)" aitbc resource status --resource-id test_res_123
 
 # Test 3: Resource deallocation (with confirmation)
-run_test "Resource deallocation (confirmed)" "echo 'y' | aitbc resource deallocate test_res_123"
+run_test_with_input "Resource deallocation (confirmed)" "y" aitbc resource deallocate test_res_123
 
 # Test 4: Resource deallocation (force)
-run_test "Resource deallocation (force)" "aitbc resource deallocate test_res_123 --force"
+run_test "Resource deallocation (force)" aitbc resource deallocate test_res_123 --force
 
 # Test 5: Resource deallocation (cancelled)
-run_test "Resource deallocation (cancelled)" "echo 'n' | aitbc resource deallocate test_res_123"
+run_test_with_input "Resource deallocation (cancelled)" "n" aitbc resource deallocate test_res_123
 
 # Test 6: Experimental commands require --mock flag
 log_warn "Testing experimental commands (should fail without --mock)"
@@ -120,15 +152,15 @@ TESTS_RUN=$((TESTS_RUN + 1))
 # Test 7: Mock mode for experimental commands
 log_info "Testing experimental commands with --mock flag"
 
-run_test "Allocate with --mock" "aitbc resource allocate --resource-type gpu --quantity 4 --mock"
+run_test "Allocate with --mock" aitbc resource allocate --resource-type gpu --quantity 4 --mock
 
-run_test "List with --mock" "aitbc resource list --mock"
+run_test "List with --mock" aitbc resource list --mock
 
-run_test "Release with --mock" "aitbc resource release test_res --mock"
+run_test "Release with --mock" aitbc resource release test_res --mock
 
-run_test "Utilization with --mock" "aitbc resource utilization --mock"
+run_test "Utilization with --mock" aitbc resource utilization --mock
 
-run_test "Optimize with --mock" "aitbc resource optimize --mock"
+run_test "Optimize with --mock" aitbc resource optimize --mock
 
 # Summary
 echo ""

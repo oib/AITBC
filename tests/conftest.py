@@ -23,10 +23,17 @@ _BLOCKCHAIN_SRC = str(Path(__file__).resolve().parent.parent / "apps" / "blockch
 if _BLOCKCHAIN_SRC not in sys.path:
     sys.path.insert(0, _BLOCKCHAIN_SRC)
 
-# Add tests dir to path so fixture modules are importable
-_TESTS_DIR = str(Path(__file__).resolve().parent)
-if _TESTS_DIR not in sys.path:
-    sys.path.insert(0, _TESTS_DIR)
+# NOTE: tests/ is deliberately NOT added to sys.path.
+#
+# It used to be, "so fixture modules are importable". The side effect was that every
+# package directly under tests/ became importable as a top-level name -- and tests/cli/
+# has an __init__.py, so `import cli` resolved to the test package rather than the repo's
+# cli/ package, for the entire run. Anything trying to import the real cli.utils or
+# cli.models got a ModuleNotFoundError that pointed nowhere near the cause.
+#
+# The fixtures are reachable without it: tests/cli/conftest.py puts tests/fixtures itself
+# on sys.path, which is what makes `from cli_mocks import ...` work. Nothing imports
+# `fixtures.<module>`.
 
 import pytest  # noqa: E402
 from click.testing import CliRunner  # noqa: E402
