@@ -36,24 +36,35 @@ function writePreference(pref: ThemePreference): void {
   }
 }
 
+// Media queries are only meaningful in a browser. resolveMode above already guards on
+// `typeof window`; readPreference did not, so its fallback branch would throw during any
+// server render. It is safe today only because its sole call site is inside a useEffect —
+// a latent crash waiting for the first non-effect caller (Next.js/RSC).
+function prefersMedia(query: string): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia(query).matches;
+}
+
 function readPreference(): ThemePreference {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        mode: parsed.mode ?? "system",
-        reducedMotion: Boolean(parsed.reducedMotion),
-        highContrast: Boolean(parsed.highContrast),
-      };
+    if (typeof localStorage !== "undefined") {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          mode: parsed.mode ?? "system",
+          reducedMotion: Boolean(parsed.reducedMotion),
+          highContrast: Boolean(parsed.highContrast),
+        };
+      }
     }
   } catch {
     // ignore parse errors
   }
   return {
     mode: "system",
-    reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-    highContrast: window.matchMedia("(prefers-contrast: more)").matches,
+    reducedMotion: prefersMedia("(prefers-reduced-motion: reduce)"),
+    highContrast: prefersMedia("(prefers-contrast: more)"),
   };
 }
 
