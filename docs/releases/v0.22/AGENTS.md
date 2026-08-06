@@ -12,7 +12,11 @@ See [`release.log`](./release.log) for the full ledger and original evidence.
 > fabricated after reading already-fixed code, and unfixed findings recorded as closed
 > without running anything. **Re-verify before starting.**
 
-**Open: 27** — Agent A 22, Agent B 2 (one partial), plus 3 unassessed noted at the end.
+**Open: 15** — Agent A 14, Agent B 1, plus 3 unassessed noted at the end.
+
+**12 closed on 2026-08-06** (APP-35, PKG-03/05/08/09/10/14, SC-05/06/12, OPS-03/08) — all
+with tests, listed in the table at the end. Full unit suite 1245 passing; contracts 115
+passing with 2 pre-existing `initialize()` failures unrelated to this work.
 
 Fix suggestions are starting points, not specifications. Pattern discovery and
 architectural validation still apply.
@@ -24,52 +28,11 @@ architectural validation still apply.
 Scope: `aitbc/`, `apps/blockchain-node`, `apps/blockchain-event-bridge`,
 `apps/blockchain-explorer`, `contracts/`, `scripts/`, `packages/`, tests and docs.
 
-### Contracts — 3
+### Contracts — 0
 
-All three are unbounded loops that become un-callable as data grows: denial of service
-arriving through ordinary use, not attack. They share a fix shape, so do them together.
+SC-05, SC-06 and SC-12 are closed; see the table at the end of this document.
 
-**SC-05 — `distributeAgentEarnings`** · *verified: 4 `break` statements in `AgentStaking.sol`*
-Loops `pool.stakers` unbounded with a nested inner scan, and `break`s on the first ACTIVE
-stake per staker — so anyone holding several concurrent stakes on one agent is paid for
-only one of them.
-
-> **Fix:** move to **pull-based accounting**. Record an accumulator (`rewardPerShare`) on
-> the pool and let stakers call `claim()`, rather than iterating and pushing payments.
-> This removes the loop and the gas ceiling at once. Fix the under-payment in the same
-> pass: accumulate across *all* of a staker's active stakes instead of `break`ing on the
-> first match. Add a test with one staker holding three concurrent stakes — it should fail
-> before the fix.
-
-**SC-06 — `_slashAllStakesForAgent`** · *verified: 4 refs*
-Loops all historical stakes with an external token transfer per iteration, so slashing
-eventually cannot execute at all.
-
-> **Fix:** paginate — `slashStakes(agent, startIndex, count)` with a bounded batch, called
-> repeatedly until exhausted. Track progress on-chain so a partially-completed slash can
-> resume. Prefer crediting a claimable balance over transferring per stake.
-
-**SC-12 — `getBountyStats`** · *verified: `i < bountyCounter` loop*
-Walks every bounty ever created; it is a `view`, but another contract can call it on-chain.
-
-> **Fix:** maintain running counters (`activeCount`, `completedCount`, `totalValue`)
-> updated on each state transition, and have the getter read them. O(1) instead of O(n).
-
-### Ops — 4
-
-**OPS-03 / OPS-08 — `scale_balances_3600x.py`** · *verified: `"simplified implementation"` marker; production chain-id default present*
-**Release-blocking before any hard fork.** The script writes a hand-rolled sha256 as the
-genesis state root; the node computes a Merkle Patricia Trie root and will not agree, so
-the chain fails genesis validation *after* an irreversible ×3600 balance rewrite. It also
-defaults `--chain-id` to the production domain and `--data-path` to `/var/lib/aitbc/data`,
-so running it bare targets production.
-
-> **Fix:** import the chain's actual state-root implementation from
-> `apps/blockchain-node` rather than recomputing it — if that is not importable, that is
-> the real finding and should be raised as such. Remove the production defaults (require
-> both flags explicitly), and add a typed confirmation before the rewrite. Verify by
-> running the migration against a copy and booting a node on the result; a genesis the
-> node rejects is the failure this is meant to prevent.
+### Ops — 2
 
 **OPS-16 — `eval "$cmd"`** · *verified: 24 files under `scripts/testing`, `scripts/workflow`*
 Latent injection surface. Currently safe only because the strings are file-local literals.
@@ -87,61 +50,11 @@ forget in the others.
 > the service list defined once at the top. Keep the old names as thin wrappers that
 > forward, so existing runbooks and systemd units keep working.
 
-### Packages — 6
+### Packages — 0
 
-**Start with PKG-05: it is now unblocked** and will likely surface PKG-08/09/14 as real
-type errors rather than findings someone has to notice by reading.
-
-**PKG-05 — `@ts-nocheck`** · *verified: 5 files*
-Disables type checking file-wide while `lint` runs `tsc --noEmit`, so the gate reports zero
-errors regardless of correctness.
-
-> **Fix:** PKG-06 (closed) added the missing devDependencies, so `npm install && npx tsc
-> --noEmit` now works. Remove the pragmas one file at a time and fix what surfaces. If a
-> file genuinely cannot be typed yet, scope it out of `tsconfig`'s `include` with a comment
-> explaining why — a visible exclusion beats an invisible one.
-
-**PKG-03 — plugin loader** · *verified: 1 `import_module` call, no allowlist*
-Arbitrary code execution by design: `importlib.import_module` on a module path taken from a
-manifest, then called with `manifest.config`.
-
-> **Fix:** two layers. (1) An allowlist of importable module prefixes, checked before
-> import — this alone closes the common case. (2) Signature verification of manifests
-> before load, reusing `aitbc.crypto` rather than a new scheme. Until both exist, make
-> `load_plugin` refuse manifests from any untrusted source rather than documenting the
-> risk in a docstring. Largest package item.
-
-**PKG-08 — `useWalletTheme`** · *verified: `setTimeout` stub present*
-A stub whose name and return shape imply on-chain persistence; `setPreference` just
-`setTimeout`s and updates local state.
-
-> **Fix:** either wire it to `AgentIdentity.themePreference(address)` via ethers/viem, or
-> make the stub honest — return a `notImplemented` flag, or throw. Same class as CORE-24
-> and the gpu 501s: do not report success for work not done.
-
-**PKG-09 — duplicate `localStorage` owner** · *verified: 3 owners of the key*
-`usePreferences` and `ThemeProvider` independently own
-`localStorage["aitbc-theme-preference"]` with no cross-instance sync, so they silently
-diverge when both mount.
-
-> **Fix:** single source of truth — have `usePreferences` delegate to the
-> `ThemeProvider` context instead of re-reading storage. If both must remain, add a
-> `storage` event listener so they converge.
-
-**PKG-10 — placeholder visual regression** · *verified: placeholder marker present*
-The suite renders nothing; it sets a DOM attribute and asserts it was set, so it passes
-with the theming entirely broken.
-
-> **Fix:** either wire up a real Playwright screenshot diff, or rename it to what it is
-> (`test_theme_attribute.py`) and drop the "visual regression" claim. False confidence in
-> CI is worse than an acknowledged gap.
-
-**PKG-14 — unguarded `matchMedia`** · *verified: 3 calls*
-`readPreference` calls `window.matchMedia` with no SSR guard; safe today only because its
-sole call site is inside a `useEffect`.
-
-> **Fix:** apply the same `typeof window === "undefined"` guard `resolveMode` already uses
-> a few lines above. One line, and it removes a latent SSR crash.
+All six are closed. PKG-05 turned out to be the load-bearing one: removing the pragmas was
+trivial, but none of the `lint` or `test` gates in `packages/` could run at all — no
+tsconfig, no workspace root, no ESLint config, no jest config. They run now.
 
 ### Tests / Docs — 9
 
@@ -185,7 +98,7 @@ Two sets for the same services, diverged, with no indication which is canonical.
 
 Scope: `apps/*` (except blockchain-node, event-bridge, explorer), `cli/`.
 
-### Open — 2
+### Open — 1
 
 **APP-54 — `simple_exchange` on stdlib `http.server`** · *verified: `http.server` in `server.py`, `db.py`*
 Runs on `BaseHTTPRequestHandler` rather than the `src/<pkg>/` FastAPI layout every sibling
@@ -199,15 +112,6 @@ handling and API-key check. The largest single item in either list.
 > keep passing throughout, and pin the current HTTP responses before starting so a
 > behavioural change is visible rather than assumed.
 
-**APP-35 — unlocked registry mutation (partial)** · *verified: lock present in `load_balancer.py`, absent in `agent_discovery.py`*
-The load balancer now has an `asyncio.Lock`; `agent_discovery` still mutates its registry
-without one.
-
-> **Fix:** mirror what `load_balancer.py:128` already does — an `asyncio.Lock` on the
-> instance, taken around registry mutation and iteration. Check whether the hash ring is
-> rebuilt on membership change while you are there; that was the other half of this
-> finding.
-
 ### Closed since the last revision — do not re-do
 
 | ID | Was | Now |
@@ -218,6 +122,14 @@ without one.
 | APP-64 | Event-bridge checkpoint reset to chain head, no reorg handling | Persisted checkpoint + reorg window |
 | CLI-02/07/08/09 | Placeholder balance, weak redaction, dropped CLI context, fabricated stats | Closed before AITBC-91 |
 | CLI-03/05/06/10/13 | In-memory credentials, process-local challenges, umask audit log, secrets TOCTOU, stub group | Closed in AITBC-91 |
+| APP-35 | `agent_discovery.py` mutated the registry without a lock | `asyncio.Lock` on all 5 mutation sites |
+| PKG-08/09/10/14 | `useWalletTheme` stub, three owners of the theme key, placeholder visual regression, unguarded `matchMedia` | Closed |
+| SC-12 | `getBountyStats` scanned `bountyCounter` | Maintained counters; `_setBountyStatus` the sole writer |
+| SC-05 | `distributeAgentEarnings` pushed in a loop and counted rewards it never credited | Pull-based `pendingRewards` + `claimPoolRewards` |
+| SC-06 | `_slashAllStakesForAgent` unbounded, one token transfer per stake; reporter paid from the agent's whole slashing history | Batched via `maxSlashBatch`/`slashProgress` + `continueSlashing`; one aggregated transfer; reward from what this report actually slashed |
+| OPS-03/08 | Genesis state root was a sha256 of a concatenated string, not the node's MPT root; `--chain-id`/`--data-path` defaulted to production and nothing was confirmed | Root computed with the node's `StateManager` and byte-for-byte equal to it; both flags required; typed confirmation with `CONFIRM_BALANCE_MIGRATION` for automation |
+| PKG-05 | `@ts-nocheck` on 5 files — and no tsconfig, no workspace root, no ESLint config, no jest config, so *none* of `lint`/`test` could run | All gates run and pass; pragmas removed; `packages/pnpm-workspace.yaml` un-ignored from the blanket `*.yaml` rule |
+| PKG-03 | Plugin loader imported and called whatever a manifest named | Boundary-correct module allowlist (default `aitbc_plugins` only) + optional injected signature verifier, both checked before the import |
 
 ---
 
@@ -243,5 +155,8 @@ confirmed fixed nor confirmed open. Do not read absence from this file as either
   `config.py set-secret` reports "saved (encrypted)". Either implement real encryption or
   stop claiming it.
 - `v0.22.0` is tagged at `a5d84956f`, which has the ZK proving keys deleted and proving
-  silently disabled. Every fix since is post-tag — the tag needs moving or superseding
-  before anyone deploys from it.
+  silently disabled. **Superseded by `v0.22.1` at `b2539661b`**, which restores the 21
+  artifacts and narrows the ignore rule to `*.ptau`. `v0.22.0` is left in place rather than
+  moved, since a tag that has been published should not change meaning — do not deploy from
+  it. Note that the fixes listed in the closed table are *later* than `v0.22.1` too, so a
+  further tag is needed before release.
