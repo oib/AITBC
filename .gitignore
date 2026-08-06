@@ -658,3 +658,6 @@ work/
 # witness calculators from apps/zk-circuits/ at import time (receipt_simple_0001.zkey,
 # receipt_simple_js/receipt_simple.wasm, and the ml_*/modular_* equivalents). Ignoring
 # them empties ZKProofService.available_circuits and silently disables proving.
+
+# Contract toolchain installed locally for compile/test verification
+contracts/node_modules/
