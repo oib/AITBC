@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from cli.models.chain import (
+from ..models.chain import (
     ChainBackupResult,
     ChainConfig,
     ChainInfo,
