@@ -12,7 +12,6 @@ GitHub and Git-related operations
 - `gitea-changes-review.md` - Gitea repository changes review
 - `github-push-ready-summary.md` - GitHub push readiness summary
 - `pr40-resolution-complete.md` - PR #40 resolution documentation
-- `solve-github-prs.sh` - GitHub PR resolution script
 - `solve-prs-with-poetry.sh` - PR resolution with Poetry dependency management
 
 ### 📁 sync/
@@ -123,7 +122,9 @@ Utility scripts and helpers
 ### Quick Reference
 ```bash
 # GitHub operations
-./scripts/github/solve-github-prs.sh
+# (solve-github-prs.sh removed in AITBC-92: it committed on main and instructed
+#  `git push origin main`, bypassing branch protection, and hardcoded PRs #28-#38.
+#  Use `gh pr create` / Dependabot instead.)
 
 # System monitoring
 ./scripts/monitoring/health_check.sh
