@@ -58,7 +58,10 @@ def test_plugin_loader_loads_dynamic_plugin() -> None:
             entry_point="myplugin.plugin:register",
             config={"value": 42},
         )
-        registry = loader.load_plugin(manifest)
+        # "myplugin" is outside DEFAULT_ALLOWED_MODULE_PREFIXES, so the caller has to say
+        # so explicitly. That is the point of the allowlist: loading from an arbitrary
+        # module is a decision someone makes, not the default.
+        registry = loader.load_plugin(manifest, allowed_module_prefixes=["myplugin"])
         results = registry.run("onProofGeneration")
         assert results == [42]
         sys.path.remove(tmpdir)
