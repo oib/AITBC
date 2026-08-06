@@ -14,14 +14,14 @@
 #   - --flip-list emits an operator line for the drifting ADR         (exit 1)
 #   - real repo tree: sensor runs, output well-formed, ADVISORY       (rc in {0,1})
 #
-# Run from repo root: bash tests/test-adr-enforced-status-drift.sh
+# Run from repo root: bash tests/tooling/test-adr-enforced-status-drift.sh
 # All fixtures live in a temp tree; the real adrs/ check is read-only.
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DETECTOR="$REPO_ROOT/scripts/adr-enforced-status-drift.sh"
 
 TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/adr-enforced-drift-test-XXXXXX")

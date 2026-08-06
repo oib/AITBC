@@ -24,7 +24,7 @@
 # story branch, and "the human merge" is a real merge pushed to that remote. Only
 # `tracker` / `ticket_still_in` are stubbed — no real adapter, model, or network.
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-docs-merge-wait-pilot.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-docs-merge-wait-pilot.sh
 # =============================================================================
 
 set -euo pipefail
@@ -33,7 +33,7 @@ set -euo pipefail
 unset "${!ORCH_@}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 PASS=0; FAIL=0; TOTAL=0
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; NC='\033[0m'

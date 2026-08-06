@@ -7,13 +7,13 @@
 # HARNESS_CHANGELOG.yml into an LLM context -- including a multi-version jump,
 # breaking-change extraction, and migration_notes extraction.
 #
-# Bash 3.2 / BSD-safe. Run from repo root: bash tests/test-changelog-slice.sh
+# Bash 3.2 / BSD-safe. Run from repo root: bash tests/tooling/test-changelog-slice.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SLICER="$REPO_ROOT/scripts/changelog-slice.sh"
 
 TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/changelog-slice-test.XXXXXX")

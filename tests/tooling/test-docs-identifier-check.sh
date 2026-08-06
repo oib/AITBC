@@ -11,13 +11,13 @@
 #   * fabricated identifiers still fail
 # Auto-discovered by the CI / pre-release tests/test-*.sh loops.
 #
-# Run from repo root: bash tests/test-docs-identifier-check.sh
+# Run from repo root: bash tests/tooling/test-docs-identifier-check.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CHECK="$REPO_ROOT/scripts/docs-identifier-check.sh"
 
 PASS=0

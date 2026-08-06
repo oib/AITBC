@@ -11,14 +11,14 @@
 #   - in-text ADR mention in an Accepted row      => NO false positive
 #   - real repo adrs/ tree                        => exit 0 (no live drift)
 #
-# Run from repo root: bash tests/test-adr-acceptance-closeout.sh
+# Run from repo root: bash tests/tooling/test-adr-acceptance-closeout.sh
 # All fixtures live in a temp tree; the real adrs/ check is read-only.
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DETECTOR="$REPO_ROOT/scripts/adr-acceptance-drift.sh"
 
 TEST_DIR=$(mktemp -d /tmp/adr-closeout-test-XXXXXX)

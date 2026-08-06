@@ -20,12 +20,12 @@
 #        present / count unknown).
 #
 # Self-contained: bash 3.2 + BSD/GNU tools. Run from repo root:
-#   bash tests/test-ci-capacity-probe.sh
+#   bash tests/tooling/test-ci-capacity-probe.sh
 # =============================================================================
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 PROBE="$REPO_ROOT/scripts/ci-capacity-probe.sh"
 SENSORS="$REPO_ROOT/scripts/ops-sweep-sensors.sh"
 

@@ -3,13 +3,13 @@
 # Test: Manifest Init Wizard (SAW-12)
 # =============================================================================
 # Tests all AC items for the manifest init command.
-# Run from repo root: bash tests/test-manifest-init.sh
+# Run from repo root: bash tests/tooling/test-manifest-init.sh
 # =============================================================================
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SYNC_SCRIPT="$REPO_ROOT/scripts/sync-claude-harness.sh"
 
 # Create a temporary project structure for testing

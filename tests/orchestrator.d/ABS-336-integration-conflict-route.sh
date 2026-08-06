@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-336 — INTEGRATION-CONFLICT forward-fix route (ADR-A-0014 amendment)
 # -----------------------------------------------------------------------------
-# `source`d by tests/test-orchestrator.sh into the live harness (no shebang, no
+# `source`d by tests/tooling/test-orchestrator.sh into the live harness (no shebang, no
 # re-`set -e`, no re-source of the harness). Shares assert_*, PASS/FAIL/TOTAL,
 # and REPO_ROOT / ORCH / STUB / TRACKER, plus new_env/baseline/orch/tracker.
 #

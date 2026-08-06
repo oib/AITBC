@@ -15,7 +15,7 @@
 #   - run-twice idempotency ("nothing to replace")                 [ABS-50]
 #   - --finalize deletes the wizard + TEMPLATE_SETUP.md            [ABS-50]
 #
-# Run from repo root: bash tests/test-setup-template.sh
+# Run from repo root: bash tests/tooling/test-setup-template.sh
 #
 # All fixtures copy the wizard INTO a temp tree and run the COPY -- never the
 # repo's own scripts/setup-template.sh.
@@ -24,7 +24,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 WIZARD_SRC="$REPO_ROOT/scripts/setup-template.sh"
 NEUTRAL_PROFILE_SRC="$REPO_ROOT/profiles/neutral/profile.yaml"
 

@@ -22,7 +22,7 @@
 #   AC4 — determinism: re-evaluating the same (guard,target) and (gate,state) yields
 #         the same verdict and does not double-transition.
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-stacked-mr-guard.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-stacked-mr-guard.sh
 # =============================================================================
 set -uo pipefail
 
@@ -30,7 +30,7 @@ set -uo pipefail
 unset "${!ORCH_@}" 2>/dev/null || true
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 GUARD="$REPO_ROOT/scripts/merge-target-guard.sh"
 
 PASS=0; FAIL=0; TOTAL=0

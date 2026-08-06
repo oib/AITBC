@@ -24,12 +24,12 @@
 # parent directories safe — nothing in-repo can — which is why `core.longpaths`
 # is documented as a Windows prerequisite in SETUP.md and the migration SOP.
 #
-# Run from repo root: bash tests/test-path-budget.sh
+# Run from repo root: bash tests/tooling/test-path-budget.sh
 # =============================================================================
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 PATH_BUDGET="${PATH_BUDGET:-100}"
 

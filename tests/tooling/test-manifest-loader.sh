@@ -3,13 +3,13 @@
 # Test: Manifest Loader & Validator (SAW-6)
 # =============================================================================
 # Tests all AC items for the manifest loading feature.
-# Run from repo root: bash tests/test-manifest-loader.sh
+# Run from repo root: bash tests/tooling/test-manifest-loader.sh
 # =============================================================================
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SYNC_SCRIPT="$REPO_ROOT/scripts/sync-claude-harness.sh"
 
 # Create a temporary project structure for testing

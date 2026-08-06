@@ -14,16 +14,16 @@
 #   AC3 — missing BACKEND_TOKEN / TRACKER_PROJECT exits non-zero + stderr.
 #   AC5 — scripts/backend-forge.sh named in this file's assertion text.
 #
-# Run from repo root: bash tests/test-backend-forge.sh
+# Run from repo root: bash tests/tooling/test-backend-forge.sh
 # =============================================================================
 
 set -u
 # PILOT-46: strip inherited backend/tracker env before any fixture runs (tests/sandbox-guard.sh).
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ADAPTER="$REPO_ROOT/scripts/backend-forge.sh"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'

@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-293 — follow-up-budget exhaustion gets a RECOVERY PATH
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # THE DEFECT THIS PINS (observed live on ABS-278, 2026-07-14)

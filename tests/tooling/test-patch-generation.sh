@@ -3,7 +3,7 @@
 # Test: Patch Generation Mode (SAW-4)
 # =============================================================================
 # Tests all AC items for the --generate-patches sync mode.
-# Run from repo root: bash tests/test-patch-generation.sh
+# Run from repo root: bash tests/tooling/test-patch-generation.sh
 #
 # Strategy:
 #   - Unit tests source functions via a wrapper that strips the main
@@ -15,7 +15,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SYNC_SCRIPT="$REPO_ROOT/scripts/sync-claude-harness.sh"
 
 # Create a temporary project structure for testing

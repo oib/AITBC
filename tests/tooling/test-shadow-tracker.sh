@@ -15,13 +15,13 @@
 #      the exact argv, including multi-line bodies (%q quoting),
 #   6. create key parity: a mirror key mismatch is logged, a match is not.
 #
-# Run from repo root: bash tests/test-shadow-tracker.sh
+# Run from repo root: bash tests/tooling/test-shadow-tracker.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SHIM="$REPO_ROOT/scripts/shadow-tracker.sh"
 
 TEST_DIR=$(mktemp -d /tmp/shadow-tracker-test-XXXXXX)

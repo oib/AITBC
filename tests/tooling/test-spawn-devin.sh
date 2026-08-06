@@ -27,7 +27,7 @@
 # ORCH_DEVIN_BIN records the argv and the composed prompt file. No real spawn.
 # Same harness/project split + recorder pattern as tests/test-spawn-tmpdir.sh.
 #
-# Bash 3.2 / BSD-safe. Run from repo root: bash tests/test-spawn-devin.sh
+# Bash 3.2 / BSD-safe. Run from repo root: bash tests/tooling/test-spawn-devin.sh
 # =============================================================================
 set -u
 
@@ -36,7 +36,7 @@ set -u
 unset "${!ORCH_@}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SEAM="$REPO_ROOT/scripts/orchestrator-spawn-devin.sh"
 
 TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/spawn-devin-test.XXXXXX")

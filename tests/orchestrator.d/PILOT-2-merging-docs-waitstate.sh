@@ -2,7 +2,7 @@
 # PILOT-2 — ready-for-Merge wait-state invariant: refuse/repair the UNMERGED
 #           Merging->Docs jump (merge-state-aware)
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md). In scope: assert_contains / assert_eq /
 # assert_not_contains, PASS/FAIL/TOTAL, new_env / cleanup_env / baseline /
 # tracker / orch, ORCH / TRACKER / ORCH_STATE_DIR.

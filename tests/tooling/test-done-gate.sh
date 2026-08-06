@@ -20,7 +20,7 @@
 # exercises the functions directly with a stubbed `forge`, `tracker`, and
 # `ticket_still_in` — no real adapter, forge platform, or model is touched.
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-done-gate.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-done-gate.sh
 # =============================================================================
 
 set -euo pipefail
@@ -32,7 +32,7 @@ set -euo pipefail
 unset "${!ORCH_@}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 PASS=0; FAIL=0; TOTAL=0
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; NC='\033[0m'

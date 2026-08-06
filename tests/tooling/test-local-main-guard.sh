@@ -22,13 +22,13 @@
 # check_claim_protocol) are exercised by SOURCING scripts/orchestrator.sh (main
 # is source-guarded). The hook itself is invoked directly and via real git.
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-local-main-guard.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-local-main-guard.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HOOK="$REPO_ROOT/scripts/hooks/pre-commit-local-main-guard.sh"
 
 PASS=0; FAIL=0; TOTAL=0
