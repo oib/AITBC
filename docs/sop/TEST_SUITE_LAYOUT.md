@@ -14,7 +14,7 @@ and your change will not re-create them.
 
 ## 1. Orchestrator tests → one file per story (never append to the monolith)
 
-`tests/test-orchestrator.sh` is a ~3.9k-line monolith. New tests used to be
+`tests/tooling/test-orchestrator.sh` is a ~3.9k-line monolith. New tests used to be
 **appended at the end**, so any two stories in flight edited the same trailing
 region and conflicted on rebase.
 
@@ -40,7 +40,7 @@ Rules for a per-story file:
 Run the whole suite exactly as before — the includes run automatically:
 
 ```bash
-bash tests/test-orchestrator.sh
+bash tests/tooling/test-orchestrator.sh
 ```
 
 Two concurrent stories now add two different files → **zero shared-file
@@ -75,7 +75,7 @@ The suite is fast now, but the **full suite stays mandatory at the QAS gate**.
 The tooling below is for the inner dev loop; it never replaces the pre-merge
 full run.
 
-**Sharded orchestrator suite.** `bash tests/test-orchestrator.sh` runs its
+**Sharded orchestrator suite.** `bash tests/tooling/test-orchestrator.sh` runs its
 scenario blocks across `TEST_JOBS` parallel shards (default **4**). Each shard
 is a child process running a contiguous range of the body (cut only at
 `cleanup_env` block boundaries, which fully tear down per-block state), with its
@@ -87,23 +87,23 @@ that dies before emitting its tally is counted as an aborted-shard failure, and
 the **lost-fail guard** cross-checks every shard log's visible `FAIL` verdict
 lines against its tallied count — a FAIL that prints but is not tallied (for
 any reason) still forces a non-green summary and exit 1. Slices are pre-cut at
-dispatch time, so editing or checking out `tests/test-orchestrator.sh` while a
+dispatch time, so editing or checking out `tests/tooling/test-orchestrator.sh` while a
 sharded run is in flight can no longer tear the shard slices. Corollary for
 test authors: a deliberately-induced-then-rolled-back FAIL must be
 print-suppressed (see the ABS-310/ABS-370 self-tests), or the guard will count
 it.
 
 ```bash
-bash tests/test-orchestrator.sh            # 4 shards (default)
-TEST_JOBS=8 bash tests/test-orchestrator.sh
-TEST_JOBS=1 bash tests/test-orchestrator.sh # exact legacy serial behaviour
+bash tests/tooling/test-orchestrator.sh            # 4 shards (default)
+TEST_JOBS=8 bash tests/tooling/test-orchestrator.sh
+TEST_JOBS=1 bash tests/tooling/test-orchestrator.sh # exact legacy serial behaviour
 ```
 
 `TEST_JOBS=1` reproduces the original serial path verbatim. Per-story
 `orchestrator.d/*.sh` includes (rule 1) work unchanged under sharding.
 
 **Parallel full-suite runner.** `bash tests/run-all.sh` runs every
-`tests/test-*.sh` concurrently (`TEST_JOBS`, default 4), aggregating exit codes.
+`tests/tooling/test-*.sh` concurrently (`TEST_JOBS`, default 4), aggregating exit codes.
 Pass explicit files to run a subset: `bash tests/run-all.sh test-claim.sh …`.
 
 **Changed-scope selection.** `bash tests/scoped-tests.sh` runs only the tests

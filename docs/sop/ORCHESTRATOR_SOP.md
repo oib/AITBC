@@ -89,7 +89,7 @@ scripts/orchestrator.sh --dry-run --once   # one poll pass, then exit — manual
 ```
 
 `--once` runs exactly one poll cycle (drain pending, reconcile-if-due, poll, dispatch) and exits.
-This is what `tests/test-orchestrator.sh` and `tests/e2e-orchestrator-dryrun.sh` use for
+This is what `tests/tooling/test-orchestrator.sh` and `tests/e2e-orchestrator-dryrun.sh` use for
 deterministic, non-looping assertions. `ORCH_MAX_CYCLES=N` (env-only, no flag) stops a
 non-`--once` run cleanly after N cycles — the hook the E2E concurrency-cap scenarios use to avoid
 racing a `sleep`-based poll interval.
@@ -358,7 +358,7 @@ comment-documented constant at the top of `scripts/orchestrator.sh`.
 ### Additional knobs (ABS-517 audit)
 
 The knob table above lists the day-to-day tuning surface. The ABS-517 audit
-(sensor: `scripts/orch-knob-doc-drift.sh`, test: `tests/test-orch-knob-drift.sh`)
+(sensor: `scripts/orch-knob-doc-drift.sh`, test: `tests/tooling/test-orch-knob-drift.sh`)
 found the knobs below read in `scripts/` but undocumented; they are recorded
 here name-by-name so the code→doc drift guard stays green. Defaults are the
 `${VAR:-default}` values at audit time; the defining script is authoritative.
@@ -834,7 +834,7 @@ remote that exceeds the ceiling counts as unreachable; the runner moves to the n
 
 The runner exports its live-state variables (`ORCH_STATE_DIR`, `ORCH_STOP_FILE`, `ORCH_RUN_LOG`,
 `ORCH_INSTANCE_ID_FILE`, `JIRA_TRACKER_STATE`) at launch; before ABS-355 these leaked into every
-seat. A seat whose worktree contained `tests/test-orchestrator.sh` inherited those paths, drove
+seat. A seat whose worktree contained `tests/tooling/test-orchestrator.sh` inherited those paths, drove
 tests against the runner's **live** state dir, and its `EXIT` trap (`rm -rf "$ORCH_STATE_DIR"`)
 wiped the live dir — the double wipe on 2026-07-16.
 
@@ -1294,10 +1294,10 @@ one budget.
 
 Two artifacts verify the exactly-one-winner property before and during fleet deployment.
 
-**CI test suite — `tests/test-claim-mutex.sh`** (auto-discovered by the `tests/test-*.sh` CI matrix):
+**CI test suite — `tests/tooling/test-claim-mutex.sh`** (auto-discovered by the `tests/tooling/test-*.sh` CI matrix):
 
 ```bash
-bash tests/test-claim-mutex.sh   # 22 checks; run locally or in CI
+bash tests/tooling/test-claim-mutex.sh   # 22 checks; run locally or in CI
 ```
 
 | Part | What it proves |
@@ -1391,7 +1391,7 @@ A token holder that fails repeatedly stalls its epic's remaining merges. This is
 ### Test suite
 
 ```bash
-bash tests/test-merge-token.sh   # 36 checks
+bash tests/tooling/test-merge-token.sh   # 36 checks
 ```
 
 | Section | What it proves |
@@ -1491,7 +1491,7 @@ handoffs.
 ### Test suite
 
 ```bash
-bash tests/test-orchestrator.sh   # includes 22 new ABS-255 assertions
+bash tests/tooling/test-orchestrator.sh   # includes 22 new ABS-255 assertions
 ```
 
 ABS-255 scenarios cover: fabricated hash refused, orphaned commit refused, valid commit accepted,
@@ -2179,7 +2179,7 @@ transition (transitions remain **also** allowed by seats — every runner move i
 
 **Default-on validation (ABS-175).** Both mechanisms ship **default-on** (`ORCH_HANDOFF_TRANSITION=1`
 since ABS-132). ABS-175 validated the behaviour with the transition-on-handoff cases in
-`tests/test-orchestrator.sh`, which drive a story seat through the full handoff→transition cycle: the
+`tests/tooling/test-orchestrator.sh`, which drive a story seat through the full handoff→transition cycle: the
 runner applies the declared target (`INTENT RUNNER-TRANSITION`, mirrored to `run.log`), is idempotent
 when the seat already moved the ticket, honours the `ORCH_HANDOFF_TRANSITION=0` kill-switch, and
 escalates to `Needs PO Decision` at `ORCH_RESPAWN_LIMIT` when handoffs parse but never move the status.
@@ -2234,7 +2234,7 @@ the human-readable audit trail — never parsed back, ADR-A-0018 §b):
   (`followup-budget-exhausted budget=N`), and emits a single naming operator NOTIFY (deduped by a
   `JOIN-BUDGET-DEADLOCK` marker comment) instead of waiting.
 
-Validated by the **ABS-199 section of `tests/test-orchestrator.sh`**: the taxonomy + precedence, the
+Validated by the **ABS-199 section of `tests/tooling/test-orchestrator.sh`**: the taxonomy + precedence, the
 2nd-visit auto-park with NOTIFY-once, the no-false-positive negative case (two distinct classes, and
 the same class at distinct seats), the escalation-budget park + reset-on-forward-progress + no-reset-
 on-bounce, and the JOIN budget dead-end naming NOTIFY.
@@ -2560,7 +2560,7 @@ scripts/orchestrator.sh --dry-run --once   # confirm wiring
 scripts/orchestrator.sh --live
 ```
 
-The conformance suite (`tests/test-backend-tracker.sh`) asserts that `scripts/backend-tracker.sh`
+The conformance suite (`tests/tooling/test-backend-tracker.sh`) asserts that `scripts/backend-tracker.sh`
 passes every mock-adapter assertion — any CLI divergence is a release blocker (ADR-A-0021 §d).
 
 For a **staged Jira → backend migration** (Shadow → Pilot → Cutover, with the dual-write shim
@@ -2627,7 +2627,7 @@ The API token is a **human-only** provisioning step (ADR-A-0004). Provision it o
 profile, secret manager, CI secret) — the adapter reads it from the environment only. It is passed
 to `curl` through a mode-600 `--config` file (never on the command line, so it never appears in
 `ps` or in curl's verbose trace), and all curl output is scrubbed before it can reach a log. A
-credential-leak test (`tests/test-jira-tracker.sh`, Test 10) asserts a known dummy token never
+credential-leak test (`tests/tooling/test-jira-tracker.sh`, Test 10) asserts a known dummy token never
 appears in any output.
 
 ### Fencing (do this before the first live run)
@@ -3098,7 +3098,7 @@ and the governor rolls forward only at **promotion = release** (`scripts/promote
 human-gated). The staged-file + human-install co-op below **survives only** for (a) legacy /
 non-self-hosted setups that still edit a live `.claude/` as their source, and (b) any direct edit
 to the live `.claude/` runtime tree — which the **drift guard now rejects mechanically**
-(`tests/test-harness-parity.sh` runs `generate-governor.sh --check`; CI fails a hand-edit), so the
+(`tests/tooling/test-harness-parity.sh` runs `generate-governor.sh --check`; CI fails a hand-edit), so the
 sanctioned path there is a promotion, not a hand-edit. The historical procedure is retained below
 for exactly those two cases; it is no longer the default for harness work.
 
@@ -3170,7 +3170,7 @@ one-run artifact.
 - [`specs/ABS-36-orchestrator-spec.md`](../../specs/ABS-36-orchestrator-spec.md) — full design spec (event mapping, spawn mechanics, packet format, safety model, test strategy)
 - [`scripts/orchestrator.sh`](../../scripts/orchestrator.sh) — the runner
 - [`scripts/orchestrator-spawn-claude.sh`](../../scripts/orchestrator-spawn-claude.sh) — the default (production) spawn seam binding
-- [`tests/test-orchestrator.sh`](../../tests/test-orchestrator.sh) — unit/scenario test suite
+- [`tests/tooling/test-orchestrator.sh`](../../tests/tooling/test-orchestrator.sh) — unit/scenario test suite
 - [`tests/e2e-orchestrator-dryrun.sh`](../../tests/e2e-orchestrator-dryrun.sh) — full-lifecycle E2E dry-run scenario
 - [`docs/agent-outputs/qa-validations/ABS-36-e2e-dry-run.md`](../agent-outputs/qa-validations/ABS-36-e2e-dry-run.md) — E2E gate evidence
 - [`adrs/agentic/ADR-A-0009-cost-approval-gate.md`](../../adrs/agentic/ADR-A-0009-cost-approval-gate.md) — cost-approval gate ADR
@@ -3182,7 +3182,7 @@ one-run artifact.
 - [`specs/ABS-69-workflow-v3-full-agent-team-spec.md`](../../specs/ABS-69-workflow-v3-full-agent-team-spec.md) — the v3 full-agent-team spec (both pipelines, seat charters, design decisions §3.1–§3.10)
 - [`docs/sop/DEFINITION_OF_READY.md`](DEFINITION_OF_READY.md) — the Ticket-Review DoR checklist, coverage-mapping rule, blind-spot catalog and verdicts (spec §3.10)
 - [`adrs/agentic/ADR-A-0025-per-epic-merge-token.md`](../../adrs/agentic/ADR-A-0025-per-epic-merge-token.md) — per-epic merge token decision: one merge seat per epic, token held across a bounce, narrows ADR-A-0014 §3 periodic sync-rebase to `Epic Integration` only (ABS-256)
-- [`tests/test-merge-token.sh`](../../tests/test-merge-token.sh) — 36-check suite for the per-epic merge token; drives the real runner against the mock tracker (AC2/AC3, ABS-256)
+- [`tests/tooling/test-merge-token.sh`](../../tests/tooling/test-merge-token.sh) — 36-check suite for the per-epic merge token; drives the real runner against the mock tracker (AC2/AC3, ABS-256)
 - [`adrs/agentic/ADR-A-0024-handoff-commit-verification.md`](../../adrs/agentic/ADR-A-0024-handoff-commit-verification.md) — handoff commit verification: runner verifies claimed hashes before accepting a handoff, `commits:` field contract, `In Progress → Ready for Development` status-machine edge (ABS-255)
 - [`tests/orchestrator.d/ABS-297-marker-duty.sh`](../../tests/orchestrator.d/ABS-297-marker-duty.sh) — 11-assertion marker-duty suite: JOIN-exempt refused without marker, bsa pile-empty refused with pending follow-up, happy path accepted, refusal comment names exact marker + target ticket (ABS-297)
 - `tests/e2e-workflow-v3.sh` — the workflow's executable definition (S1–S16 bash dry-runs; the epic's exit gate, ABS-80)

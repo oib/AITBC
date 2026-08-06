@@ -1179,7 +1179,7 @@ TRACKER_CMD=scripts/backend-tracker.sh bash .claude/skills/run-boilerplate/drive
 
 ### Conformance suite
 
-`tests/test-backend-tracker.sh` is the epic's acceptance gate (Epic-AC 1): it
+`tests/tooling/test-backend-tracker.sh` is the epic's acceptance gate (Epic-AC 1): it
 mirrors every `test-mock-tracker.sh` assertion against a live backend, proving
 the adapter is a true drop-in. Any assertion diff is a release blocker (ADR-Risiko 1).
 S6 (ABS-238) extended the suite with assertions for `packet`, `get --brief`, and
@@ -1190,12 +1190,12 @@ The suite is self-provisioning — it boots a throwaway docker-compose stack
 then tears the stack down on exit:
 
 ```bash
-bash tests/test-backend-tracker.sh   # boots backend, runs 122 assertions, tears down
+bash tests/tooling/test-backend-tracker.sh   # boots backend, runs 122 assertions, tears down
 ```
 
 Requires `docker` and `docker compose`. Exits `0` (SKIP) cleanly when Docker is
-unavailable. The suite is auto-discovered by CI (`tests/test-*.sh` glob) and
-registered in `tests/test-tracker-adapter-lint.sh`.
+unavailable. The suite is auto-discovered by CI (`tests/tooling/test-*.sh` glob) and
+registered in `tests/tooling/test-tracker-adapter-lint.sh`.
 
 ---
 
@@ -2535,12 +2535,12 @@ it in two places: the `orch_command.reason` column and the `event` row.
 - Packet selectors: `backend/packages/core/src/packet/selectors/` (four TypeScript modules)
 - Packet composer: `backend/packages/core/src/packet/compose.ts`
 - Packet DB interface: `backend/packages/core/src/packet/PacketDb.ts`
-- Packet cache tests: `tests/test-packet-cache.sh`
+- Packet cache tests: `tests/tooling/test-packet-cache.sh`
 - Operator guide: `backend/README.md` (install, import, export, backup, restore)
 - Compose lifecycle test: `backend/tests/compose-lifecycle.sh`
   (compose-up → import → export → restore → pg\_dump)
-- Conformance suite: `tests/test-backend-tracker.sh` (122 assertions; mirrors `test-mock-tracker.sh` + S6 ops)
-- Adapter lint: `tests/test-tracker-adapter-lint.sh`
+- Conformance suite: `tests/tooling/test-backend-tracker.sh` (122 assertions; mirrors `test-mock-tracker.sh` + S6 ops)
+- Adapter lint: `tests/tooling/test-tracker-adapter-lint.sh`
 - Board-monitor SPA: `backend/apps/web/` (source), `backend/apps/web/e2e/board.spec.ts` (Playwright E2E)
 - Board column derivation: `backend/packages/core/src/board.ts` (`boardColumns`, `boardTickets`)
 - Human write endpoints: `backend/apps/server/src/routes/dashboard.ts` (S9 — `escalationInbox`, transition, comment, labels)

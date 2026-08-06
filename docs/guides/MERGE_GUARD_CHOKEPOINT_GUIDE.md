@@ -114,7 +114,7 @@ The updated guidance in `docs/sop/rte-reference.md`:
 
 ```bash
 # Run from the repo root — must be 16/16.
-bash tests/test-merge-guard-chokepoint.sh
+bash tests/tooling/test-merge-guard-chokepoint.sh
 ```
 
 The suite injects `ORCH_MERGE_GUARD_TARGET_CMD` as a stub resolver; no live
@@ -126,7 +126,7 @@ allow; knob invariance (`ORCH_AUTOMERGE` 1/0/unset all refuse `main`); scope
 The PILOT-10 regression suite also remains in CI:
 
 ```bash
-bash tests/test-merge-target-guard.sh   # must be 15/15
+bash tests/tooling/test-merge-target-guard.sh   # must be 15/15
 ```
 
 ---
@@ -153,8 +153,8 @@ to orchestrator seats.
 
 - `scripts/merge-target-guard.sh` — the guard decision script (PILOT-10).
 - `harness/claude/hooks/pre-bash-merge-guard.sh` — this chokepoint (PILOT-11).
-- `tests/test-merge-guard-chokepoint.sh` — chokepoint conformance suite.
-- `tests/test-merge-target-guard.sh` — guard decision regression suite.
+- `tests/tooling/test-merge-guard-chokepoint.sh` — chokepoint conformance suite.
+- `tests/tooling/test-merge-target-guard.sh` — guard decision regression suite.
 - `docs/sop/rte-reference.md` — RTE duty-step 4 copy-paste templates.
 - `docs/sop/ORCHESTRATOR_SOP.md` — `ORCH_MERGE_GUARD` knob row.
 - ADR-A-0004, ADR-A-0005 (human-merge boundary); ADR-A-0014 (epic-branch
