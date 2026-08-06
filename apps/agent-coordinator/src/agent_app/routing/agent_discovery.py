@@ -115,6 +115,11 @@ class AgentRegistry:
     ) -> None:
         self.redis_url = redis_url
         self.redis_client: Any = None
+        # `agents` and the three indexes are one consistent unit: an index entry must
+        # never outlive its agent. Every mutator awaits Redis partway through, so without
+        # this lock a concurrent reader can walk a half-updated index, and two mutators
+        # can interleave. load_balancer.py guards its ring the same way.
+        self._lock = asyncio.Lock()
         self.agents: dict[str, AgentInfo] = {}
         self.service_index: dict[str, set[str]] = {}
         self.capability_index: dict[str, set[str]] = {}
@@ -145,8 +150,9 @@ class AgentRegistry:
     async def register_agent(self, agent_info: AgentInfo) -> bool:
         """Register a new agent"""
         try:
-            self.agents[agent_info.agent_id] = agent_info
-            self._update_indexes(agent_info)
+            async with self._lock:
+                self.agents[agent_info.agent_id] = agent_info
+                self._update_indexes(agent_info)
             await self._save_agent_to_redis(agent_info)
             await self._publish_agent_event("agent_registered", agent_info)
             logger.info("Agent %s registered successfully", agent_info.agent_id)
@@ -158,12 +164,13 @@ class AgentRegistry:
     async def unregister_agent(self, agent_id: str) -> bool:
         """Unregister an agent"""
         try:
-            if agent_id not in self.agents:
-                logger.warning("Agent %s not found for unregistration", agent_id)
-                return False
-            agent_info = self.agents[agent_id]
-            del self.agents[agent_id]
-            self._remove_from_indexes(agent_info)
+            async with self._lock:
+                if agent_id not in self.agents:
+                    logger.warning("Agent %s not found for unregistration", agent_id)
+                    return False
+                agent_info = self.agents[agent_id]
+                del self.agents[agent_id]
+                self._remove_from_indexes(agent_info)
             await self._remove_agent_from_redis(agent_id)
             await self._publish_agent_event("agent_unregistered", agent_info)
             logger.info("Agent %s unregistered successfully", agent_id)
@@ -177,15 +184,16 @@ class AgentRegistry:
     ) -> bool:
         """Update agent status and metrics"""
         try:
-            if agent_id not in self.agents:
-                logger.warning("Agent %s not found for status update", agent_id)
-                return False
-            agent_info = self.agents[agent_id]
-            agent_info.status = status
-            agent_info.last_heartbeat = datetime.now(UTC)
-            if load_metrics:
-                agent_info.load_metrics.update(load_metrics)
-            agent_info.health_score = self._calculate_health_score(agent_info)
+            async with self._lock:
+                if agent_id not in self.agents:
+                    logger.warning("Agent %s not found for status update", agent_id)
+                    return False
+                agent_info = self.agents[agent_id]
+                agent_info.status = status
+                agent_info.last_heartbeat = datetime.now(UTC)
+                if load_metrics:
+                    agent_info.load_metrics.update(load_metrics)
+                agent_info.health_score = self._calculate_health_score(agent_info)
             await self._save_agent_to_redis(agent_info)
             await self._publish_agent_event("agent_status_updated", agent_info)
             return True
@@ -196,12 +204,13 @@ class AgentRegistry:
     async def update_agent_heartbeat(self, agent_id: str) -> bool:
         """Update agent heartbeat"""
         try:
-            if agent_id not in self.agents:
-                logger.warning("Agent %s not found for heartbeat", agent_id)
-                return False
-            agent_info = self.agents[agent_id]
-            agent_info.last_heartbeat = datetime.now(UTC)
-            agent_info.health_score = self._calculate_health_score(agent_info)
+            async with self._lock:
+                if agent_id not in self.agents:
+                    logger.warning("Agent %s not found for heartbeat", agent_id)
+                    return False
+                agent_info = self.agents[agent_id]
+                agent_info.last_heartbeat = datetime.now(UTC)
+                agent_info.health_score = self._calculate_health_score(agent_info)
             await self._save_agent_to_redis(agent_info)
             return True
         except Exception as e:
@@ -212,7 +221,11 @@ class AgentRegistry:
         """Discover agents based on query criteria"""
         results = []
         try:
-            candidate_agents = list(self.agents.values())
+            # Snapshot under the lock, then filter outside it: the filtering below is
+            # pure and does not need to hold the lock, but reading the dict while a
+            # mutator is between its own await points can miss or double-count agents.
+            async with self._lock:
+                candidate_agents = list(self.agents.values())
             if "agent_type" in query:
                 agent_type = AgentType(query["agent_type"])
                 candidate_agents = [a for a in candidate_agents if a.agent_type == agent_type]
