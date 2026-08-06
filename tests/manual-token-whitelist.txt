@@ -8,7 +8,7 @@
 #   (b) listed below -- a documented manual-fill / runtime / doc-ad-hoc token
 #       the wizard deliberately does NOT touch.
 #
-# tests/test-token-registry.sh enforces this: any {{[A-Z_]+}} token found in a
+# tests/tooling/test-token-registry.sh enforces this: any {{[A-Z_]+}} token found in a
 # shipped path that is in NEITHER list FAILS the suite. This closes the gap that
 # let jira-mcp ship in an operational skill unregistered.
 #
