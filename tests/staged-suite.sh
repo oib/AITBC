@@ -94,7 +94,7 @@ run_stories() {
         td="$(mktemp -d "$work/t-XXXXXX")"
         env -u ORCH_STATE_DIR -u ORCH_TARGET_REPO \
             SUITE_INCLUDE_ONLY="$f" TMPDIR="$td" \
-            bash "$tests_dir/test-orchestrator.sh" >"$work/$f.out" 2>&1
+            bash "$tests_dir/tooling/test-orchestrator.sh" >"$work/$f.out" 2>&1
         echo "$?" >"$work/$f.rc"
         rm -rf "$td"
     ' _ {} "$work" "$TESTS_DIR"
