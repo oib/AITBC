@@ -3,6 +3,9 @@ set -euo pipefail
 
 # Stop all AITBC services
 
+# Service list and ports come from lib/services.sh so all of these scripts agree.
+source "$(dirname "${BASH_SOURCE[0]}")/lib/services.sh"
+
 DRY_RUN=false
 FORCE=false
 
@@ -64,12 +67,9 @@ fi
 echo "Cleaning up any remaining processes..."
 if [ "$DRY_RUN" = true ]; then
     echo "[DRY RUN] Would run: sudo systemctl stop aitbc-*"
-    echo "[DRY RUN] Would run: sudo fuser -k 8106/tcp"
-    echo "[DRY RUN] Would run: sudo fuser -k 8107/tcp"
-    echo "[DRY RUN] Would run: sudo fuser -k 8108/tcp"
-    echo "[DRY RUN] Would run: sudo fuser -k 8201/tcp"
-    echo "[DRY RUN] Would run: sudo fuser -k 8202/tcp"
-    echo "[DRY RUN] Would run: sudo fuser -k 8203/tcp"
+    for port in $(printf '%s\n' "${AITBC_SERVICE_PORTS[@]}" | sort -n); do
+        echo "[DRY RUN] Would run: sudo fuser -k $port/tcp"
+    done
 else
     if [ "$FORCE" = false ]; then
         echo "⚠️  This will stop all AITBC systemd services and kill processes on ports 8106-8203"
@@ -81,15 +81,12 @@ else
         fi
     fi
     # Stop systemd services (canonical method)
-    sudo systemctl stop aitbc-exchange aitbc-marketplace aitbc-trading aitbc-wallet 2>/dev/null || true
-    sudo systemctl stop aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p 2>/dev/null || true
+    # Reverse startup order: dependents before the chain they talk to.
+    sudo systemctl stop $(aitbc_services_reversed | tr '\n' ' ') 2>/dev/null || true
     # Kill any stray manual processes on service ports
-    sudo fuser -k 8106/tcp 2>/dev/null || true
-    sudo fuser -k 8107/tcp 2>/dev/null || true
-    sudo fuser -k 8108/tcp 2>/dev/null || true
-    sudo fuser -k 8201/tcp 2>/dev/null || true
-    sudo fuser -k 8202/tcp 2>/dev/null || true
-    sudo fuser -k 8203/tcp 2>/dev/null || true
+    for port in $(printf '%s\n' "${AITBC_SERVICE_PORTS[@]}" | sort -n); do
+        sudo fuser -k "$port"/tcp 2>/dev/null || true
+    done
 fi
 
 if [ "$DRY_RUN" = true ]; then
