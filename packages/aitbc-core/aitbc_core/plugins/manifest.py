@@ -20,6 +20,9 @@ class PluginManifest:
     entry_point: str = ""
     hooks: list[str] = field(default_factory=list)
     config: dict[str, Any] = field(default_factory=dict)
+    #: Signature over the manifest, checked by the loader when a deployment supplies a
+    #: verifier. Empty means unsigned, which a verifying deployment refuses.
+    signature: str = ""
 
 
 HookRegistry = dict[str, list[Callable[..., Any]]]
