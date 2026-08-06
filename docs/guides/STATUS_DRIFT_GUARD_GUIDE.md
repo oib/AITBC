@@ -9,7 +9,7 @@ subset for zero-dependency awk/bash reasons. Before ABS-404, adding a status to
 only at the release check, not before the merge (the `Canceled` status, ABS-338).
 
 `scripts/status-source-drift-guard.sh` checks all five copies against
-`statuses.yaml` in one pass. It is auto-discovered by the `tests/test-*.sh`
+`statuses.yaml` in one pass. It is auto-discovered by the `tests/tooling/test-*.sh`
 loops in `scripts/pre-release-check.sh`, `.github/workflows/tests.yml`, and
 `bitbucket-pipelines.yml`, so it fails on the PR — before merge.
 
@@ -93,15 +93,15 @@ status-source-drift-guard: FAIL — statuses.yaml has drifted from an embedded c
 Run the regression test to confirm your fix holds:
 
 ```bash
-bash tests/test-status-source-drift.sh   # must be 9/9
+bash tests/tooling/test-status-source-drift.sh   # must be 9/9
 ```
 
 ---
 
 ## CI wiring
 
-The test file `tests/test-status-source-drift.sh` is auto-discovered by the
-`tests/test-*.sh` glob in:
+The test file `tests/tooling/test-status-source-drift.sh` is auto-discovered by the
+`tests/tooling/test-*.sh` glob in:
 
 - `scripts/pre-release-check.sh` (line 98)
 - `.github/workflows/tests.yml` (line 60)

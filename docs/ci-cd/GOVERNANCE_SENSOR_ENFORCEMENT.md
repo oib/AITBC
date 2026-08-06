@@ -26,8 +26,8 @@ push and every merge request**, so the sensors now execute on the live remote.
 
 | Sensor | Backing script | GitHub Actions | GitLab CI (live remote) |
 |---|---|---|---|
-| ADR id uniqueness | `tests/test-adr-id-uniqueness.sh` | `tests.yml` (full suite) | `.gitlab-ci.yml` job `adr-id-uniqueness` |
-| ADR status truthfulness | `tests/test-adr-status.sh` | `tests.yml` (full suite) | `.gitlab-ci.yml` job `adr-status` |
+| ADR id uniqueness | `tests/tooling/test-adr-id-uniqueness.sh` | `tests.yml` (full suite) | `.gitlab-ci.yml` job `adr-id-uniqueness` |
+| ADR status truthfulness | `tests/tooling/test-adr-status.sh` | `tests.yml` (full suite) | `.gitlab-ci.yml` job `adr-status` |
 | Rule ledger completeness | `scripts/rule-ledger-check.sh` | `pr-validation.yml` | `.gitlab-ci.yml` job `rule-ledger` |
 | ORCH_* knob doc drift | `scripts/orch-knob-doc-drift.sh` | `tests.yml` (full suite) | `.gitlab-ci.yml` job `knob-doc-drift` |
 | Provider skills parity | `.github/scripts/check-skills-parity.sh` | `pr-validation.yml` | `.gitlab-ci.yml` job `skills-parity` |
@@ -63,7 +63,7 @@ A branch that introduces a duplicate ADR number turns the `adr-id-uniqueness`
 job red, so with "Pipelines must succeed" enabled the branch cannot merge. The
 sensor's bite is pinned two ways:
 
-- `tests/test-adr-id-uniqueness.sh` self-checks synthetic duplicate fixtures.
-- `tests/test-governance-remote-path.sh` asserts `.gitlab-ci.yml` actually wires
+- `tests/tooling/test-adr-id-uniqueness.sh` self-checks synthetic duplicate fixtures.
+- `tests/tooling/test-governance-remote-path.sh` asserts `.gitlab-ci.yml` actually wires
   every sensor above, and drives the real ADR-id sensor against a planted
   duplicate to prove the wired check exits non-zero.

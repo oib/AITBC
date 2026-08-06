@@ -2,7 +2,7 @@
 
 **Story**: ABS-263 — Windows/MSYS: tracker adapter request/write path over argv limit
 **Adapter affected**: `scripts/jira-tracker.sh`
-**Tests updated**: `tests/test-jira-tracker.sh`, `tests/test-tracker-adapter-lint.sh`,
+**Tests updated**: `tests/tooling/test-jira-tracker.sh`, `tests/tooling/test-tracker-adapter-lint.sh`,
 `tests/fixtures/jira-curl-shim.sh`, `tests/fixtures/jira-version-curl-shim.sh`
 
 ---
@@ -146,7 +146,7 @@ production.
 
 ### Lint guard
 
-`tests/test-tracker-adapter-lint.sh` asserts:
+`tests/tooling/test-tracker-adapter-lint.sh` asserts:
 
 ```
 PASS  no adapter payload on argv (no 'json.loads(sys.argv' in jira-tracker.sh)
@@ -225,8 +225,8 @@ rm -f "${TMPDIR:-/tmp}"/jira-body.*
 
 - `scripts/jira-tracker.sh` — Jira adapter implementation
 - `scripts/release-notes.sh:258` — source of the `--data-binary "@file"` pattern
-- `tests/test-jira-tracker.sh` — adapter test suite (128 tests; 9h/9i guard this fix)
-- `tests/test-tracker-adapter-lint.sh` — lint guard (`no json.loads(sys.argv`)
+- `tests/tooling/test-jira-tracker.sh` — adapter test suite (128 tests; 9h/9i guard this fix)
+- `tests/tooling/test-tracker-adapter-lint.sh` — lint guard (`no json.loads(sys.argv`)
 - `tests/fixtures/jira-curl-shim.sh`, `tests/fixtures/jira-version-curl-shim.sh`
 - `docs/guides/JIRA_TRACKER_STDIN_JSON_GUIDE.md` — read-path counterpart (ABS-250)
 - Epic ABS-245 — consumer feedback and de-fork epic; ABS-56 (Windows support)

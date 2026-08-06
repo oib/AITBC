@@ -122,7 +122,7 @@ Retro archive stays append-only; no permission or merge-gate change.
 
 ## Falsifying Eval
 
-`bash tests/test-skill-mining.sh` — a regression here refutes the mined-skill claim.
+`bash tests/tooling/test-skill-mining.sh` — a regression here refutes the mined-skill claim.
 
 ## Rollback
 

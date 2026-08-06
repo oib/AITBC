@@ -200,7 +200,7 @@ path or use your container runtime's volume backup tooling for automated snapsho
 | --- | --- |
 | Profile | `profiles/agentic-backend/profile.yaml` |
 | Adapter source | `scripts/backend-tracker.sh` |
-| Conformance suite | `tests/test-backend-tracker.sh` |
+| Conformance suite | `tests/tooling/test-backend-tracker.sh` |
 | API reference | `docs/guides/AGENTIC-BACKEND-API.md` |
 | Decision record | `adrs/agentic/ADR-A-0021-agentic-delivery-backend.md` |
 | Phase-1 spec | `specs/ABS-229-agentic-backend-phase1-spec.md` |

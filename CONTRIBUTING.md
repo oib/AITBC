@@ -129,7 +129,7 @@ built from it), keep two things mentally separate:
   materialized from the release tag recorded in `.governor-tag` (ABS-94, Phase 2b) via
   `scripts/generate-governor.sh`, so it equals `generated(pin)`, NOT a mirror of your edits.
   Mirroring is dead: do not hand-copy changes into `.claude/`. CI rejects direct edits to the
-  shipped items under `.claude/` (the drift guard `tests/test-harness-parity.sh` asserts
+  shipped items under `.claude/` (the drift guard `tests/tooling/test-harness-parity.sh` asserts
   `generate-governor.sh --check` passes). Your `harness/claude/` edits reach the live `.claude/`
   and consumers only at **promotion**, when the release commit bumps `.governor-tag` and
   regenerates (ABS-95 wires that step).
