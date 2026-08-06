@@ -113,7 +113,7 @@ Two ways this bites a migration:
    so the driver rewrites it — and the write fails again if the path still exceeds MAX_PATH.
 
 The boilerplate keeps its **own** paths within a 100-char repo-relative budget (enforced by
-`tests/test-path-budget.sh`; longest tracked path today is 89 chars). That budget cannot save a
+`tests/tooling/test-path-budget.sh`; longest tracked path today is 89 chars). That budget cannot save a
 deep clone parent (`C:\Users\...\projects\customer\...`) or the orchestrator's per-ticket worktrees
 (`.claude/worktrees/<TICKET>-auto/`, which check the whole tree out a second level down) — together
 those can still cross 260. `core.longpaths` is the only fix that covers those.
@@ -224,7 +224,7 @@ baseline and the `v<to>` replacement source — through the project's substituti
 
 After normalization, a file whose only local change is token substitution produces matching hashes
 and is classified `already_current`, not a conflict. A file with genuine local amendments differs
-after normalization and still conflicts (negative case verified in `tests/test-migrate-project.sh`).
+after normalization and still conflicts (negative case verified in `tests/tooling/test-migrate-project.sh`).
 
 **Write path.** The same substitution pipeline runs when the driver writes a file into the target
 (replace or add path). No literal `{{TOKEN}}` reaches the consumer; conflict hunks diff against
@@ -236,7 +236,7 @@ boilerplate-owned file excluded from normalization. Its source contains the `{{T
 `setup-template.sh:507` also excludes itself from its own sweep for the same reason. Substituting
 it would destroy the wizard; comparing it token-normalized would make it a permanent phantom
 conflict. The driver mirrors setup's sweep set exactly, including this exclusion. A parity test in
-`tests/test-migrate-project.sh` guards the two lists against divergence.
+`tests/tooling/test-migrate-project.sh` guards the two lists against divergence.
 
 **The invariant.** A boilerplate-owned file that setup sweeps must not carry a literal replacement
 key as data. `setup-template.sh` is the single sanctioned exception.

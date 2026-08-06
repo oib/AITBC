@@ -85,8 +85,8 @@ jobs:
             exit 1
           fi
 
-          bash tests/test-hooks-behavioral.sh
-          bash tests/test-hooks-config.sh
+          bash tests/tooling/test-hooks-behavioral.sh
+          bash tests/tooling/test-hooks-config.sh
           echo "✅ Claude Code hooks wiring validated"
 
       - name: Check provider skills parity

@@ -57,7 +57,7 @@ jobs:
 
           # Discover all test suites dynamically so suites added by future
           # PRs are picked up automatically (no hardcoded list to go stale)
-          TESTS=(tests/test-*.sh)
+          TESTS=(tests/tooling/test-*.sh)
 
           echo -e "${CYAN}=== Running Test Suite on ${{ matrix.os }} ===${NC}\n"
 
