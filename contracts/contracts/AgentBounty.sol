@@ -90,6 +90,17 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     uint256[] public activeBountyIds;
     address[] public authorizedCreators;
 
+    // Running statistics, maintained on every status transition (SC-12).
+    //
+    // getBountyStats used to derive these by looping over every bounty ever created. That
+    // loop grows without bound and eventually exceeds the block gas limit -- and since it
+    // is a `view`, another contract calling it on-chain fails with it. Counters make the
+    // getter O(1). _setBountyStatus below is the only writer, so they cannot drift from
+    // the bounty states they summarise.
+    uint256 public activeBountyCount;
+    uint256 public completedBountyCount;
+    uint256 public trackedBountyValue;
+
     // Events
     event BountyCreated(
         uint256 indexed bountyId,
@@ -254,7 +265,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         creatorBounties[msg.sender].push(bountyId);
 
         // Activate bounty
-        bounty.status = BountyStatus.ACTIVE;
+        _setBountyStatus(bounty, BountyStatus.ACTIVE);
 
         emit BountyCreated(bountyId, _title, _rewardAmount, msg.sender, _tier, _deadline);
 
@@ -377,7 +388,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
 
         submission.status = SubmissionStatus.DISPUTED;
         submission.disputeReason = _reason;
-        bounty.status = BountyStatus.DISPUTED;
+        _setBountyStatus(bounty, BountyStatus.DISPUTED);
 
         // Collect dispute fee
         uint256 disputeFee = (bounty.rewardAmount * disputeFeePercentage) / 10000;
@@ -408,7 +419,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         if (_upholdDispute) {
             // Reject the submission
             submission.status = SubmissionStatus.REJECTED;
-            bounty.status = BountyStatus.ACTIVE;
+            _setBountyStatus(bounty, BountyStatus.ACTIVE);
 
             // Return dispute fee
             uint256 disputeFee = (bounty.rewardAmount * disputeFeePercentage) / 10000;
@@ -432,7 +443,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         require(bounty.status == BountyStatus.ACTIVE, "Bounty not active");
         require(block.timestamp > bounty.deadline, "Deadline not passed");
 
-        bounty.status = BountyStatus.EXPIRED;
+        _setBountyStatus(bounty, BountyStatus.EXPIRED);
 
         // Return funds to creator
         uint256 refundAmount = bounty.rewardAmount;
@@ -602,31 +613,54 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     }
 
     /**
-     * @dev Gets bounty statistics
+     * @dev Transitions a bounty's status, keeping the running statistics in step.
+     *
+     * The single writer for activeBountyCount, completedBountyCount and
+     * trackedBountyValue. Every status change must go through here, or the counters and
+     * the bounty states they summarise drift apart.
      */
-    function getBountyStats() external view returns (BountyStats memory) {
-        uint256 totalValue = 0;
-        uint256 activeCount = 0;
-        uint256 completedCount = 0;
-
-        for (uint256 i = 0; i < bountyCounter; i++) {
-            if (bounties[i].status == BountyStatus.ACTIVE) {
-                activeCount++;
-                totalValue += bounties[i].rewardAmount;
-            } else if (bounties[i].status == BountyStatus.COMPLETED) {
-                completedCount++;
-                totalValue += bounties[i].rewardAmount;
-            }
+    function _setBountyStatus(Bounty storage _bounty, BountyStatus _newStatus) internal {
+        BountyStatus previous = _bounty.status;
+        if (previous == _newStatus) {
+            return;
         }
 
-        uint256 avgReward = bountyCounter > 0 ? totalValue / bountyCounter : 0;
-        uint256 successRate = completedCount > 0 ? (completedCount * 100) / bountyCounter : 0;
+        // Withdraw the bounty's contribution under its old status.
+        if (previous == BountyStatus.ACTIVE) {
+            activeBountyCount--;
+            trackedBountyValue -= _bounty.rewardAmount;
+        } else if (previous == BountyStatus.COMPLETED) {
+            completedBountyCount--;
+            trackedBountyValue -= _bounty.rewardAmount;
+        }
+
+        _bounty.status = _newStatus;
+
+        // Re-apply it under the new one.
+        if (_newStatus == BountyStatus.ACTIVE) {
+            activeBountyCount++;
+            trackedBountyValue += _bounty.rewardAmount;
+        } else if (_newStatus == BountyStatus.COMPLETED) {
+            completedBountyCount++;
+            trackedBountyValue += _bounty.rewardAmount;
+        }
+    }
+
+    /**
+     * @dev Gets bounty statistics
+     *
+     * O(1): reads the counters maintained by _setBountyStatus rather than scanning every
+     * bounty ever created.
+     */
+    function getBountyStats() external view returns (BountyStats memory) {
+        uint256 avgReward = bountyCounter > 0 ? trackedBountyValue / bountyCounter : 0;
+        uint256 successRate = bountyCounter > 0 ? (completedBountyCount * 100) / bountyCounter : 0;
 
         return BountyStats({
             totalBounties: bountyCounter,
-            activeBounties: activeCount,
-            completedBounties: completedCount,
-            totalValueLocked: totalValue,
+            activeBounties: activeBountyCount,
+            completedBounties: completedBountyCount,
+            totalValueLocked: trackedBountyValue,
             averageReward: avgReward,
             successRate: successRate
         });
@@ -670,7 +704,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
 
         require(bounty.status == BountyStatus.ACTIVE || bounty.status == BountyStatus.SUBMITTED, "Bounty not active");
 
-        bounty.status = BountyStatus.COMPLETED;
+        _setBountyStatus(bounty, BountyStatus.COMPLETED);
         bounty.winningSubmission = submission.submitter;
 
         // Calculate fees
