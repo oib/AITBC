@@ -1,6 +1,36 @@
 import hardhat from "hardhat";
 const { ethers } = hardhat;
 import fs from "fs";
+import readline from "readline";
+
+// Deploying to mainnet spends real funds and cannot be undone. This script previously
+// ran straight through with no confirmation, and the first thing it deploys is a token
+// it labels "(Mock)" with a 1B supply -- see the AIToken step below (SC-10).
+async function confirmMainnetDeploy(networkName) {
+    if (process.env.CONFIRM_MAINNET_DEPLOY === "yes") {
+        console.log("CONFIRM_MAINNET_DEPLOY=yes set; skipping interactive confirmation.");
+        return;
+    }
+    if (!process.stdin.isTTY) {
+        throw new Error(
+            "Refusing to deploy to " + networkName + " non-interactively. " +
+            "Set CONFIRM_MAINNET_DEPLOY=yes if this is intentional."
+        );
+    }
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await new Promise((resolve) =>
+        rl.question(
+            `\nAbout to deploy to '${networkName}' with real funds.\n` +
+            `Note: the AIToken step deploys a contract labelled "(Mock)" with a 1,000,000,000 supply.\n` +
+            `Type the network name to continue: `,
+            resolve
+        )
+    );
+    rl.close();
+    if (answer.trim() !== networkName) {
+        throw new Error("Confirmation did not match network name; aborting.");
+    }
+}
 
 async function main() {
     console.log("🚀 Deploying AITBC Smart Contracts to Mainnet");
@@ -15,6 +45,8 @@ async function main() {
     if (balance < ethers.parseEther("1")) {
         throw new Error("Insufficient ETH balance. Minimum 1 ETH recommended for deployment.");
     }
+
+    await confirmMainnetDeploy(hardhat.network.name);
 
     console.log("");
     console.log("Proceeding with contract deployment...");
