@@ -3,15 +3,17 @@ Property-based tests for AITBC validation functions using hypothesis.
 Tests ensure that validation functions maintain expected properties across random inputs.
 """
 
+import re
+
 import pytest
-from hypothesis import given, settings
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-pytestmark = pytest.mark.skip("Skipping broken test file")
 
-from aitbc.exceptions import ValidationError  # noqa: E402
-from aitbc.utils.validation import (  # noqa: E402
+from aitbc.exceptions import ValidationError
+from aitbc.utils.validation import (
     validate_address,
+    validate_address_strict,
     validate_chain_id,
     validate_email,
     validate_hash,
@@ -92,18 +94,35 @@ class TestValidationProperties:
         with pytest.raises(ValidationError):
             validate_email(text)
 
-    @given(st.just("ait" + "a" * 10))
-    @settings(max_examples=10)
-    def test_validate_valid_address(self, address):
-        """Test that valid AITBC addresses pass validation"""
-        assert validate_address(address)
+    # These two encoded an API that no longer exists, which is most of why the file was
+    # skipped. validate_address is non-raising now (validate_address_strict raises), and
+    # addresses moved to Ethereum-style 0x with legacy ait1/aitbc1 kept for back-compat --
+    # a bare "ait"-prefixed string is no longer valid.
 
-    @given(st.text(min_size=1, max_size=50).filter(lambda x: not x.startswith("ait")))
+    @given(st.text(alphabet="0123456789abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=30))
     @settings(max_examples=50)
-    def test_validate_invalid_address_format(self, text):
-        """Test that invalid address formats fail validation"""
+    def test_validate_legacy_address_accepted(self, suffix):
+        """Legacy ait1/aitbc1 addresses stay valid while migration is outstanding."""
+        assert validate_address(f"ait1{suffix}")
+        assert validate_address(f"aitbc1{suffix}")
+
+    @given(st.text(min_size=1, max_size=50).filter(lambda x: not re.match(r"^ait(bc)?1[a-z0-9]+$", x)))
+    @settings(max_examples=50)
+    def test_validate_rejects_non_addresses(self, text):
+        """Anything that is neither a 0x address nor a legacy one is rejected.
+
+        Non-raising: it returns False. The strict variant is what raises.
+        """
+        assume(not (text.startswith("0x") and len(text) == 42))
+        assert validate_address(text) is False
+
+    @given(st.text(min_size=1, max_size=50).filter(lambda x: not re.match(r"^ait(bc)?1[a-z0-9]+$", x)))
+    @settings(max_examples=50)
+    def test_validate_address_strict_raises_on_the_same_input(self, text):
+        """The strict variant must agree with the non-raising one, but by raising."""
+        assume(not (text.startswith("0x") and len(text) == 42))
         with pytest.raises(ValidationError):
-            validate_address(text)
+            validate_address_strict(text)
 
     @given(st.just("a" * 64))
     @settings(max_examples=10)
