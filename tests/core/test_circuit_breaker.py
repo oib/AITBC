@@ -21,7 +21,12 @@ def load_module_from_path(module_name, file_path):
     return module
 
 
-cb_module = load_module_from_path("aitbc.network.circuit_breaker", Path("/opt/aitbc/aitbc/network/circuit_breaker.py"))
+# Resolved from this file's location rather than hardcoded to /opt/aitbc, so the
+# tests read the tree they live in -- a worktree or a fresh clone, not whatever
+# happens to be installed at that absolute path.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+cb_module = load_module_from_path("aitbc.network.circuit_breaker", REPO_ROOT / "aitbc/network/circuit_breaker.py")
 CircuitBreaker = cb_module.CircuitBreaker
 CircuitBreakerOpenError = cb_module.CircuitBreakerOpenError
 

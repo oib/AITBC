@@ -1,8 +1,10 @@
 """Comprehensive tests for aitbc.caching"""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
+# Private helper; aitbc.caching does not re-export it, so import from its own module.
+from aitbc.caching.blockchain_decorator import _generate_blockchain_cache_key
 from aitbc.caching import (
     BlockchainCache,
     CacheEntry,
@@ -11,7 +13,6 @@ from aitbc.caching import (
     LRUCache,
     RedisCache,
     TTLCache,
-    _generate_blockchain_cache_key,
     _generate_cache_key,
     cached,
     cached_lru,
@@ -31,11 +32,11 @@ class TestCacheEntry:
         assert entry.is_expired() is False
 
     def test_is_expired_future(self):
-        entry = CacheEntry(value="test", expires_at=datetime.now() + timedelta(hours=1))
+        entry = CacheEntry(value="test", expires_at=datetime.now(UTC) + timedelta(hours=1))
         assert entry.is_expired() is False
 
     def test_is_expired_past(self):
-        entry = CacheEntry(value="test", expires_at=datetime.now() - timedelta(hours=1))
+        entry = CacheEntry(value="test", expires_at=datetime.now(UTC) - timedelta(hours=1))
         assert entry.is_expired() is True
 
     def test_update_access(self):
