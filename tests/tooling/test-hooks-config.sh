@@ -22,12 +22,12 @@
 # pre-promotion and guards the files developers actually edit.
 # (system-architect signed off the harness-targeting approach for ABS-149.)
 #
-# bash 3.2 / BSD safe. Run from repo root: bash tests/test-hooks-config.sh
+# bash 3.2 / BSD safe. Run from repo root: bash tests/tooling/test-hooks-config.sh
 # =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HARNESS="$REPO_ROOT/harness/claude"
 CONFIG="$HARNESS/hooks-config.json"
 SETTINGS="$HARNESS/settings.template.json"

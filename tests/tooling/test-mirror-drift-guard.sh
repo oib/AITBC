@@ -11,14 +11,14 @@
 #   - harness staged, regen output UNSTAGED   => exit 1
 #   - kill switch ORCH_MIRROR_GUARD=0         => exit 0 even on drift
 #
-# Run from repo root: bash tests/test-mirror-drift-guard.sh
+# Run from repo root: bash tests/tooling/test-mirror-drift-guard.sh
 # bash 3.2 + BSD tools only.
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 GUARD="$REPO_ROOT/scripts/hooks/pre-commit-mirror-drift-guard.sh"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'

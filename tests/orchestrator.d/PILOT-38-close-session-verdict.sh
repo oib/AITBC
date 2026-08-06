@@ -2,7 +2,7 @@
 # PILOT-38 — the CLOSE seat_spawn `session_stored` sources store_session's
 # AUTHORITATIVE drop/keep verdict, fixing the salvage+birth-denials undercount.
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215 pattern): `source`d by tests/test-orchestrator.sh
+# Per-story include (ABS-215 pattern): `source`d by tests/tooling/test-orchestrator.sh
 # into the live harness — no shebang, no `set -e` re-entry. Shares assert_eq /
 # assert_contains / assert_not_contains, PASS/FAIL/TOTAL, REPO_ROOT, ORCH.
 #

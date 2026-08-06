@@ -1,7 +1,7 @@
 # =============================================================================
 # Per-story orchestrator test (ABS-265) — retain crashed-spawn stdout as evidence
 # -----------------------------------------------------------------------------
-# `source`d by tests/test-orchestrator.sh into the live harness (no shebang, no
+# `source`d by tests/tooling/test-orchestrator.sh into the live harness (no shebang, no
 # re-`set -e`, no re-source of the harness). Shares assert_*, PASS/FAIL/TOTAL,
 # and REPO_ROOT / ORCH / STUB.
 #

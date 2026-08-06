@@ -28,16 +28,16 @@
 #      resolution form is wired, not that the operations were simply deleted).
 #
 # bash 3.2 / BSD safe: no `grep -P`, no associative arrays.
-# Run from repo root: bash tests/test-tracker-adapter-lint.sh
+# Run from repo root: bash tests/tooling/test-tracker-adapter-lint.sh
 # =============================================================================
 
 set -u
 # PILOT-46: strip inherited backend/tracker env before any fixture runs (tests/sandbox-guard.sh).
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 AGENTS_DIR="$REPO_ROOT/harness/claude/agents"
 
 PASS=0; FAIL=0; TOTAL=0
@@ -87,7 +87,7 @@ fi
 # The Agentic-Backend curl shim must be a drop-in for the mock: same canonical
 # subcommand surface, callable WITHOUT `help` (tracker-ops skill compat, ABS-222).
 BACKEND_ADAPTER="$REPO_ROOT/scripts/backend-tracker.sh"
-CONFORMANCE_SUITE="$REPO_ROOT/tests/test-backend-tracker.sh"
+CONFORMANCE_SUITE="$REPO_ROOT/tests/tooling/test-backend-tracker.sh"
 
 if [ -f "$BACKEND_ADAPTER" ]; then
     assert_true 0 "backend adapter present at scripts/backend-tracker.sh"
@@ -222,7 +222,7 @@ fi
 # dispatch the pr-state verb, and have its own conformance test wired here — the
 # same structural guarantees as the backend-tracker.sh adapter (§3 above).
 FORGE_ADAPTER="$REPO_ROOT/scripts/backend-forge.sh"
-FORGE_SUITE="$REPO_ROOT/tests/test-backend-forge.sh"
+FORGE_SUITE="$REPO_ROOT/tests/tooling/test-backend-forge.sh"
 
 echo -e "\n${CYAN}=== forge adapter lint (ABS-350: backend-forge.sh pr-state contract) ===${NC}\n"
 

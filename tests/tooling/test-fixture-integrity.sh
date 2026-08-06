@@ -27,20 +27,20 @@
 #        go inert).
 #   AC3  the failure message names the cause and the fix.
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-fixture-integrity.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-fixture-integrity.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 FIXTURE_DIR="tests/fixtures"
 
 cd "$REPO_ROOT" || exit 1
 # This entrypoint mentions the shipper (in the trap-hygiene note below), so the
 # mechanical sandbox-guard-check requires it to source the guard. Harmless here
 # (nothing is executed against the backend) — it only strips inherited env.
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 PASS=0; FAIL=0; TOTAL=0
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; NC='\033[0m'

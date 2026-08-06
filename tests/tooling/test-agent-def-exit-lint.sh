@@ -19,14 +19,14 @@
 #      key and never name `Done` as their transition target (ADR-A-0005:
 #      Done comes only from the human PR merge).
 #
-# bash 3.2 / BSD safe. Run from repo root: bash tests/test-agent-def-exit-lint.sh
+# bash 3.2 / BSD safe. Run from repo root: bash tests/tooling/test-agent-def-exit-lint.sh
 # =============================================================================
 
 set -u
 unset "${!ORCH_@}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 AGENTS_DIR="$REPO_ROOT/harness/claude/agents"
 STATUSES="$REPO_ROOT/profiles/neutral/adapters/statuses.yaml"
 

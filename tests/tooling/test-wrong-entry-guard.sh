@@ -17,13 +17,13 @@
 #   - cwd not the dev repo -> exit 0.
 #
 # bash 3.2 + BSD tools only (no grep -P, no timeout).
-# Run from repo root: bash tests/test-wrong-entry-guard.sh
+# Run from repo root: bash tests/tooling/test-wrong-entry-guard.sh
 # =============================================================================
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 GUARD_SRC="$REPO_ROOT/scripts/session-wrong-entry-guard.sh"
 
 PASS=0; FAIL=0; TOTAL=0

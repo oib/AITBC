@@ -12,13 +12,13 @@
 #   - two runs over changed boards produce a real, minimal progress diff
 # Auto-discovered by the CI / pre-release tests/test-*.sh loops.
 #
-# Run from repo root: bash tests/test-run-status-collector.sh
+# Run from repo root: bash tests/tooling/test-run-status-collector.sh
 # =============================================================================
 
 set -u
 # PILOT-46: strip inherited backend/tracker env before any fixture runs (tests/sandbox-guard.sh).
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 # ABS-285 / operator guardrail: scrub inherited backend/orchestrator env so the
 # collector cannot reach a live backend and the result is a function of the
@@ -30,7 +30,7 @@ unset TRACKER_CMD TRACKER_PROJECT ORCH_INSTANCE_ID RUN_STATUS_MR_CMD \
       RUN_STATUS_HUMAN_GATE_STATUSES RUN_STATUS_PROTECTED_BRANCHES 2>/dev/null || true
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 COLLECTOR="$REPO_ROOT/scripts/run-status-collector.sh"
 TRACKER="$REPO_ROOT/scripts/mock-tracker.sh"
 

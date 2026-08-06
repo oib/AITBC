@@ -2,7 +2,7 @@
 # ABS-518 — EPIC-REVIEW-WAIT: children of a PRE-FILLED epic rest until the
 #           epic clears its review stations (epic ABS-514, rule-ledger wave).
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # THE DEFECT THIS PINS (ABS-392 incident, 2026-07-18 improvement proposal)

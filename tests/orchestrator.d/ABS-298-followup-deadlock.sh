@@ -3,7 +3,7 @@
 #           decision repair. Both edits live in the same follow-up-watcher
 #           region of orchestrator.sh (bundled per the spec's #PATH_DECISION).
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # THE TWO DEADLOCKS THIS PINS (retro ABS-279, Befund 4 — 2026-07-13)

@@ -22,13 +22,13 @@
 # a drifted runner becomes a CONFLICT (never overwritten), and a project-added
 # script outside the manifest is never touched.
 #
-# Bash 3.2 / BSD-safe. Run from repo root: bash tests/test-migrate-project.sh
+# Bash 3.2 / BSD-safe. Run from repo root: bash tests/tooling/test-migrate-project.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DRIVER="$REPO_ROOT/scripts/migrate-project.sh"
 
 TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/migrate-project-test.XXXXXX")

@@ -16,12 +16,12 @@
 # (ui-ux-design, qas-design) use handoff-label semantics that are out of scope
 # here and deliberately not linted.
 #
-# Bash 3.2 / BSD-safe. Run from repo root: bash tests/test-agent-def-exit-state.sh
+# Bash 3.2 / BSD-safe. Run from repo root: bash tests/tooling/test-agent-def-exit-state.sh
 # =============================================================================
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 STATUSES="$REPO_ROOT/profiles/neutral/adapters/statuses.yaml"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'

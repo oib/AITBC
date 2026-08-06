@@ -25,13 +25,13 @@
 # directly, so the only shared state is the mock ticket file — exactly the real
 # cross-machine picture with one Jira ticket and N runners.
 #
-# Run from repo root: bash tests/test-claim-mutex.sh
+# Run from repo root: bash tests/tooling/test-claim-mutex.sh
 # =============================================================================
 
 set -euo pipefail
 # PILOT-46: strip inherited backend/tracker env before any fixture runs (tests/sandbox-guard.sh).
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 # ABS-285: scrub ambient ORCH_* before driving the real seam/runner. A seat
 # exports ~37 of them; a non-empty one leaks into the code under test and makes
@@ -40,7 +40,7 @@ set -euo pipefail
 unset "${!ORCH_@}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ORCH="$REPO_ROOT/scripts/orchestrator.sh"
 TRACKER="$REPO_ROOT/scripts/mock-tracker.sh"
 STUB="$REPO_ROOT/tests/fixtures/stub-spawn.sh"

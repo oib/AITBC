@@ -7,13 +7,13 @@
 # grandfathered pre-cutoff corpus stays GREEN. Auto-discovered by the CI /
 # pre-release tests/test-*.sh loops.
 #
-# Run from repo root: bash tests/test-proposal-contract-lint.sh
+# Run from repo root: bash tests/tooling/test-proposal-contract-lint.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LINT="$REPO_ROOT/scripts/proposal-contract-lint.sh"
 
 PASS=0

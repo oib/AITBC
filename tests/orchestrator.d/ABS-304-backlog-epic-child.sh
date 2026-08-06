@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-304 — Backlog PO sweep does not spawn on epic-pipeline children
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215): `source`d by tests/test-orchestrator.sh into the
+# Per-story include (ABS-215): `source`d by tests/tooling/test-orchestrator.sh into the
 # live harness. In scope from the parent: assert_*, orch / tracker / new_env /
 # cleanup_env / baseline, PASS/FAIL/TOTAL, REPO_ROOT / ORCH / TRACKER.
 #

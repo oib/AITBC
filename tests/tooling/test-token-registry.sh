@@ -19,13 +19,13 @@
 # tokens, which are not substitution placeholders.
 #
 # bash 3.2 / BSD safe: no associative arrays, no grep -P, no mapfile.
-# Run from repo root: bash tests/test-token-registry.sh
+# Run from repo root: bash tests/tooling/test-token-registry.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 SETUP_SCRIPT="$REPO_ROOT/scripts/setup-template.sh"
 WHITELIST="$REPO_ROOT/tests/manual-token-whitelist.txt"

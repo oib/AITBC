@@ -14,13 +14,13 @@
 #   - ownership is never read back:   a LOST claim never assigns (assign follows the
 #                                     claim, never the reverse); mode=off never assigns
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-claim-assign.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-claim-assign.sh
 # =============================================================================
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Isolated state dir: LOCKS_DIR / run.log / ledger are all derived from it at
 # source time, so it MUST be exported before sourcing.

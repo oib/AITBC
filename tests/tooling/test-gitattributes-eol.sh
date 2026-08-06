@@ -21,13 +21,13 @@
 # reordering or recommenting .gitattributes does not break the test. Only losing
 # the behaviour does.
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-gitattributes-eol.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-gitattributes-eol.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ATTR_FILE="$REPO_ROOT/.gitattributes"
 
 cd "$REPO_ROOT" || exit 1

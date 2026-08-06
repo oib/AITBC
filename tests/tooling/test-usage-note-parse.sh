@@ -28,12 +28,12 @@
 # same fixture — so the regression proof stays re-runnable instead of living in a
 # handoff note.
 #
-# Bash 3.2 / BSD-safe. Run from repo root: bash tests/test-usage-note-parse.sh
+# Bash 3.2 / BSD-safe. Run from repo root: bash tests/tooling/test-usage-note-parse.sh
 # =============================================================================
 set -u
 # PILOT-46: strip inherited backend/tracker env before any fixture runs (tests/sandbox-guard.sh).
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 # ABS-285: scrub ambient ORCH_* so the result is a function of the commit, not of
 # the seat that ran the suite. Also drop backend/tracker env — this suite sources
@@ -42,7 +42,7 @@ unset "${!ORCH_@}"
 unset BACKEND_URL BACKEND_TOKEN TRACKER_CMD 2>/dev/null || true
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/usage-note-parse-test.XXXXXX")
 trap 'rm -rf "$TEST_DIR"' EXIT
