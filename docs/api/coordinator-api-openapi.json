@@ -1193,6 +1193,59 @@
         }
       }
     },
+    "/v1/marketplace/providers/{provider_id}/capacity": {
+      "post": {
+        "tags": [
+          "marketplace"
+        ],
+        "summary": "Publish updated provider capacity",
+        "description": "Publish updated provider capacity after reinvestment.",
+        "operationId": "update_provider_capacity_v1_marketplace_providers__provider_id__capacity_post",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/_CapacityUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketplaceOfferView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/marketplace/gpu/register": {
       "post": {
         "tags": [
@@ -11367,7 +11420,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DeveloperCreate"
+                "$ref": "#/components/schemas/coordinator_api__contexts__developer_platform__schemas__developer_platform__DeveloperCreate"
               }
             }
           },
@@ -12386,7 +12439,7 @@
           "Developer Platform"
         ],
         "summary": "Stake On Developer",
-        "description": "Stake AITBC tokens on a developer.\n\nponytail: Disabled until real on-chain staking is implemented.",
+        "description": "Stake tokens on a developer.\n\nponytail: Disabled until real on-chain staking is implemented.",
         "operationId": "stake_on_developer_v1_developer_platform_stake_post",
         "parameters": [
           {
@@ -12704,6 +12757,211 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Platform Health V1 Developer Platform Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/developers": {
+      "post": {
+        "tags": [
+          "developer"
+        ],
+        "summary": "Register Developer",
+        "description": "Register a developer for the DAO grant program.",
+        "operationId": "register_developer_v1_developers_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/coordinator_api__contexts__developer__schemas__developer__DeveloperCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeveloperResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "developer"
+        ],
+        "summary": "List Developers",
+        "description": "List registered developers.",
+        "operationId": "list_developers_v1_developers_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "active_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Active Only"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeveloperResponse"
+                  },
+                  "title": "Response List Developers V1 Developers Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/developers/{wallet_address}": {
+      "get": {
+        "tags": [
+          "developer"
+        ],
+        "summary": "Get Developer",
+        "description": "Get a developer by wallet address.",
+        "operationId": "get_developer_v1_developers__wallet_address__get",
+        "parameters": [
+          {
+            "name": "wallet_address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Wallet Address"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeveloperResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "developer"
+        ],
+        "summary": "Update Developer",
+        "description": "Update a developer profile.",
+        "operationId": "update_developer_v1_developers__wallet_address__put",
+        "parameters": [
+          {
+            "name": "wallet_address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Wallet Address"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeveloperUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeveloperResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -13852,6 +14110,1324 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Governance Platform Status V1 Governance Enhanced Status Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/grants": {
+      "post": {
+        "tags": [
+          "grants"
+        ],
+        "summary": "Create Grant",
+        "description": "Create a new grant proposal.",
+        "operationId": "create_grant_v1_grants_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantProposalCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantProposalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "grants"
+        ],
+        "summary": "List Grants",
+        "description": "List grant proposals.",
+        "operationId": "list_grants_v1_grants_get",
+        "parameters": [
+          {
+            "name": "developer_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Developer Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GrantProposalResponse"
+                  },
+                  "title": "Response List Grants V1 Grants Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/grants/{grant_id}": {
+      "get": {
+        "tags": [
+          "grants"
+        ],
+        "summary": "Get Grant",
+        "description": "Get a grant proposal by ID.",
+        "operationId": "get_grant_v1_grants__grant_id__get",
+        "parameters": [
+          {
+            "name": "grant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Grant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantProposalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/grants/{grant_id}/milestones": {
+      "post": {
+        "tags": [
+          "grants"
+        ],
+        "summary": "Create Milestone",
+        "description": "Add a milestone to a grant proposal.",
+        "operationId": "create_milestone_v1_grants__grant_id__milestones_post",
+        "parameters": [
+          {
+            "name": "grant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Grant Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantMilestoneCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantMilestoneResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "grants"
+        ],
+        "summary": "List Milestones",
+        "description": "List milestones for a grant proposal.",
+        "operationId": "list_milestones_v1_grants__grant_id__milestones_get",
+        "parameters": [
+          {
+            "name": "grant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Grant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GrantMilestoneResponse"
+                  },
+                  "title": "Response List Milestones V1 Grants  Grant Id  Milestones Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/grants/{grant_id}/process": {
+      "post": {
+        "tags": [
+          "grants"
+        ],
+        "summary": "Process Grant",
+        "description": "Resolve a grant proposal after the voting period ends.",
+        "operationId": "process_grant_v1_grants__grant_id__process_post",
+        "parameters": [
+          {
+            "name": "grant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Grant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantProposalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/grants/{grant_id}/vote": {
+      "post": {
+        "tags": [
+          "grants"
+        ],
+        "summary": "Vote Grant",
+        "description": "Vote on a grant proposal.",
+        "operationId": "vote_grant_v1_grants__grant_id__vote_post",
+        "parameters": [
+          {
+            "name": "grant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Grant Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantVoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantProposalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/grants/{grant_id}/disburse": {
+      "post": {
+        "tags": [
+          "grants"
+        ],
+        "summary": "Disburse Grant",
+        "description": "Disburse funds for a grant or milestone.",
+        "operationId": "disburse_grant_v1_grants__grant_id__disburse_post",
+        "parameters": [
+          {
+            "name": "grant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Grant Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantDisburseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantProposalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/economic-proposals": {
+      "post": {
+        "tags": [
+          "governance",
+          "economics"
+        ],
+        "summary": "Create Proposal",
+        "description": "Create a new OpenClaw economic parameter proposal.",
+        "operationId": "create_proposal_v1_economic_proposals_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EconomicProposalCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EconomicProposalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "governance",
+          "economics"
+        ],
+        "summary": "List Proposals",
+        "description": "List economic parameter proposals with optional filters.",
+        "operationId": "list_proposals_v1_economic_proposals_get",
+        "parameters": [
+          {
+            "name": "proposer_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Proposer Id"
+            }
+          },
+          {
+            "name": "parameter_name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Parameter Name"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EconomicProposalResponse"
+                  },
+                  "title": "Response List Proposals V1 Economic Proposals Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/economic-proposals/{proposal_id}": {
+      "get": {
+        "tags": [
+          "governance",
+          "economics"
+        ],
+        "summary": "Get Proposal",
+        "description": "Get an economic parameter proposal by ID.",
+        "operationId": "get_proposal_v1_economic_proposals__proposal_id__get",
+        "parameters": [
+          {
+            "name": "proposal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Proposal Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EconomicProposalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/economic-proposals/{proposal_id}/votes": {
+      "post": {
+        "tags": [
+          "governance",
+          "economics"
+        ],
+        "summary": "Vote On Proposal",
+        "description": "Cast a vote on an economic parameter proposal.",
+        "operationId": "vote_on_proposal_v1_economic_proposals__proposal_id__votes_post",
+        "parameters": [
+          {
+            "name": "proposal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Proposal Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EconomicProposalVoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EconomicProposalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/economic-proposals/{proposal_id}/execute": {
+      "post": {
+        "tags": [
+          "governance",
+          "economics"
+        ],
+        "summary": "Execute Proposal",
+        "description": "Execute an economic parameter proposal after voting closes.",
+        "operationId": "execute_proposal_v1_economic_proposals__proposal_id__execute_post",
+        "parameters": [
+          {
+            "name": "proposal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Proposal Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EconomicProposalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tee/attestations": {
+      "post": {
+        "tags": [
+          "tee"
+        ],
+        "summary": "Submit Attestation",
+        "description": "Submit and verify a TEE attestation quote.",
+        "operationId": "submit_attestation_v1_tee_attestations_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttestationSubmit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TEEAttestation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tee/attestations/{attestation_id}": {
+      "get": {
+        "tags": [
+          "tee"
+        ],
+        "summary": "Get Attestation",
+        "description": "Retrieve a stored attestation result.",
+        "operationId": "get_attestation_v1_tee_attestations__attestation_id__get",
+        "parameters": [
+          {
+            "name": "attestation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Attestation Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TEEAttestation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tee/enclaves": {
+      "post": {
+        "tags": [
+          "tee"
+        ],
+        "summary": "Register Enclave",
+        "description": "Register or update an enclave identity.",
+        "operationId": "register_enclave_v1_tee_enclaves_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnclaveRegister"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnclaveIdentity"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tee/enclaves/{enclave_id}": {
+      "get": {
+        "tags": [
+          "tee"
+        ],
+        "summary": "Get Enclave",
+        "description": "Retrieve an enclave identity by enclave_id.",
+        "operationId": "get_enclave_v1_tee_enclaves__enclave_id__get",
+        "parameters": [
+          {
+            "name": "enclave_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Enclave Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnclaveIdentity"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/hipaa/consent": {
+      "post": {
+        "tags": [
+          "compliance",
+          "hipaa"
+        ],
+        "summary": "Grant Consent",
+        "description": "Record patient consent for a specific purpose.",
+        "operationId": "grant_consent_v1_hipaa_consent_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentGrant"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/hipaa/consent/{consent_id}/revoke": {
+      "post": {
+        "tags": [
+          "compliance",
+          "hipaa"
+        ],
+        "summary": "Revoke Consent",
+        "description": "Revoke an existing consent record.",
+        "operationId": "revoke_consent_v1_hipaa_consent__consent_id__revoke_post",
+        "parameters": [
+          {
+            "name": "consent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Consent Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/hipaa/phi/access": {
+      "post": {
+        "tags": [
+          "compliance",
+          "hipaa"
+        ],
+        "summary": "Access Phi",
+        "description": "Request access to PHI; denied if consent is missing or revoked.",
+        "operationId": "access_phi_v1_hipaa_phi_access_post",
+        "parameters": [
+          {
+            "name": "subject_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Subject Id"
+            }
+          },
+          {
+            "name": "actor_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Actor Id"
+            }
+          },
+          {
+            "name": "resource_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Resource Id"
+            }
+          },
+          {
+            "name": "purpose",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Purpose"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PHIAccessLog"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/hipaa/phi/delete": {
+      "post": {
+        "tags": [
+          "compliance",
+          "hipaa"
+        ],
+        "summary": "Right To Delete",
+        "description": "Process a patient right-to-delete request.",
+        "operationId": "right_to_delete_v1_hipaa_phi_delete_post",
+        "parameters": [
+          {
+            "name": "subject_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Subject Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RightToDelete"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PHIAccessLog"
+                  },
+                  "title": "Response Right To Delete V1 Hipaa Phi Delete Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -22682,6 +24258,30 @@
         ],
         "title": "AssignedJob"
       },
+      "AttestationSubmit": {
+        "properties": {
+          "enclave_id": {
+            "type": "string",
+            "title": "Enclave Id"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "measurement": {
+            "type": "string",
+            "title": "Measurement",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "enclave_id",
+          "quote"
+        ],
+        "title": "AttestationSubmit",
+        "description": "Request body for submitting a remote attestation quote."
+      },
       "AuditEventType": {
         "type": "string",
         "enum": [
@@ -23372,6 +24972,110 @@
         ],
         "title": "CompleteJobRequest"
       },
+      "ConsentGrant": {
+        "properties": {
+          "subject_id": {
+            "type": "string",
+            "title": "Subject Id"
+          },
+          "purpose": {
+            "type": "string",
+            "title": "Purpose"
+          },
+          "expires_in_days": {
+            "type": "integer",
+            "title": "Expires In Days",
+            "default": 365
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta",
+            "default": {}
+          }
+        },
+        "type": "object",
+        "required": [
+          "subject_id",
+          "purpose"
+        ],
+        "title": "ConsentGrant",
+        "description": "Request body for granting consent."
+      },
+      "ConsentRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 32,
+            "title": "Id"
+          },
+          "subject_id": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Subject Id",
+            "default": ""
+          },
+          "purpose": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Purpose",
+            "default": ""
+          },
+          "granted": {
+            "type": "boolean",
+            "title": "Granted",
+            "default": true
+          },
+          "status": {
+            "type": "string",
+            "maxLength": 20,
+            "title": "Status",
+            "default": "active"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "title": "ConsentRecord",
+        "description": "Stored patient consent record for HIPAA processing."
+      },
       "Constraints-Input": {
         "properties": {
           "gpu": {
@@ -23717,13 +25421,17 @@
         ],
         "title": "DelegationRequest"
       },
-      "DeveloperCreate": {
+      "DeveloperResponse": {
         "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
           "wallet_address": {
             "type": "string",
             "title": "Wallet Address"
           },
-          "github_handle": {
+          "name": {
             "anyOf": [
               {
                 "type": "string"
@@ -23732,7 +25440,7 @@
                 "type": "null"
               }
             ],
-            "title": "Github Handle"
+            "title": "Name"
           },
           "email": {
             "anyOf": [
@@ -23745,20 +25453,96 @@
             ],
             "title": "Email"
           },
-          "skills": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Skills",
-            "default": []
+          "github_handle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Handle"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
           }
         },
         "type": "object",
         "required": [
-          "wallet_address"
+          "id",
+          "wallet_address",
+          "name",
+          "email",
+          "github_handle",
+          "is_active",
+          "created_at",
+          "updated_at"
         ],
-        "title": "DeveloperCreate"
+        "title": "DeveloperResponse",
+        "description": "Developer registry response model."
+      },
+      "DeveloperUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "github_handle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Handle"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "title": "DeveloperUpdate",
+        "description": "Payload for updating a developer profile."
       },
       "EarningsDistributionRequest": {
         "properties": {
@@ -23792,6 +25576,298 @@
           "total_earnings"
         ],
         "title": "EarningsDistributionRequest"
+      },
+      "EconomicProposalCreate": {
+        "properties": {
+          "proposer_id": {
+            "type": "string",
+            "title": "Proposer Id"
+          },
+          "parameter_name": {
+            "type": "string",
+            "title": "Parameter Name"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "current_value": {
+            "type": "string",
+            "title": "Current Value",
+            "default": "0"
+          },
+          "proposed_value": {
+            "type": "string",
+            "title": "Proposed Value",
+            "default": "0"
+          },
+          "voting_days": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Voting Days",
+            "default": 7
+          }
+        },
+        "type": "object",
+        "required": [
+          "proposer_id",
+          "parameter_name"
+        ],
+        "title": "EconomicProposalCreate",
+        "description": "Payload for creating an economic parameter proposal."
+      },
+      "EconomicProposalResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "proposer_id": {
+            "type": "string",
+            "title": "Proposer Id"
+          },
+          "parameter_name": {
+            "type": "string",
+            "title": "Parameter Name"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "current_value": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Current Value"
+          },
+          "proposed_value": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Proposed Value"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EconomicProposalStatus"
+          },
+          "votes_for": {
+            "type": "number",
+            "title": "Votes For"
+          },
+          "votes_against": {
+            "type": "number",
+            "title": "Votes Against"
+          },
+          "votes_abstain": {
+            "type": "number",
+            "title": "Votes Abstain"
+          },
+          "quorum": {
+            "type": "number",
+            "title": "Quorum"
+          },
+          "passing_threshold": {
+            "type": "number",
+            "title": "Passing Threshold"
+          },
+          "voting_starts": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voting Starts"
+          },
+          "voting_ends": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voting Ends"
+          },
+          "executed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executed At"
+          },
+          "proposal_metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Proposal Metadata"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "proposer_id",
+          "parameter_name",
+          "unit",
+          "current_value",
+          "proposed_value",
+          "status",
+          "votes_for",
+          "votes_against",
+          "votes_abstain",
+          "quorum",
+          "passing_threshold",
+          "voting_starts",
+          "voting_ends",
+          "executed_at",
+          "proposal_metadata",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "EconomicProposalResponse",
+        "description": "Economic parameter proposal response model."
+      },
+      "EconomicProposalStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "submitted",
+          "active",
+          "passed",
+          "rejected",
+          "executed"
+        ],
+        "title": "EconomicProposalStatus",
+        "description": "Lifecycle status of an economic parameter proposal."
+      },
+      "EconomicProposalVoteRequest": {
+        "properties": {
+          "vote": {
+            "type": "string",
+            "title": "Vote"
+          },
+          "voting_power": {
+            "type": "number",
+            "title": "Voting Power",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "vote"
+        ],
+        "title": "EconomicProposalVoteRequest",
+        "description": "Payload for casting a vote on an economic proposal."
+      },
+      "EnclaveIdentity": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 32,
+            "title": "Id"
+          },
+          "enclave_id": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Enclave Id",
+            "default": ""
+          },
+          "public_key": {
+            "type": "string",
+            "maxLength": 1024,
+            "title": "Public Key",
+            "default": ""
+          },
+          "agent_id": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Agent Id",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "maxLength": 20,
+            "title": "Status",
+            "default": "pending"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "title": "EnclaveIdentity",
+        "description": "Registered identity for a TEE enclave."
+      },
+      "EnclaveRegister": {
+        "properties": {
+          "enclave_id": {
+            "type": "string",
+            "title": "Enclave Id"
+          },
+          "public_key": {
+            "type": "string",
+            "title": "Public Key"
+          },
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enclave_id",
+          "public_key"
+        ],
+        "title": "EnclaveRegister",
+        "description": "Request body for registering an enclave identity."
       },
       "EncryptRequest": {
         "properties": {
@@ -24542,6 +26618,376 @@
         ],
         "title": "GovernanceRole"
       },
+      "GrantDisburseRequest": {
+        "properties": {
+          "milestone_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Milestone Id"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "title": "GrantDisburseRequest",
+        "description": "Payload for disbursing grant funds."
+      },
+      "GrantMilestoneCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Amount",
+            "default": "0"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "GrantMilestoneCreate",
+        "description": "Payload for adding a milestone to a grant."
+      },
+      "GrantMilestoneResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "grant_id": {
+            "type": "string",
+            "title": "Grant Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MilestoneStatus"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "evidence": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Evidence"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "grant_id",
+          "title",
+          "description",
+          "amount",
+          "status",
+          "due_date",
+          "completed_at",
+          "evidence",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "GrantMilestoneResponse",
+        "description": "Grant milestone response model."
+      },
+      "GrantProposalCreate": {
+        "properties": {
+          "developer_id": {
+            "type": "string",
+            "title": "Developer Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "requested_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Requested Amount",
+            "default": "0"
+          },
+          "voting_days": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Voting Days",
+            "default": 7
+          }
+        },
+        "type": "object",
+        "required": [
+          "developer_id",
+          "title"
+        ],
+        "title": "GrantProposalCreate",
+        "description": "Payload for creating a grant proposal."
+      },
+      "GrantProposalResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "developer_id": {
+            "type": "string",
+            "title": "Developer Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "requested_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Requested Amount"
+          },
+          "approved_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Approved Amount"
+          },
+          "disbursed_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Disbursed Amount"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GrantStatus"
+          },
+          "votes_for": {
+            "type": "number",
+            "title": "Votes For"
+          },
+          "votes_against": {
+            "type": "number",
+            "title": "Votes Against"
+          },
+          "votes_abstain": {
+            "type": "number",
+            "title": "Votes Abstain"
+          },
+          "quorum": {
+            "type": "number",
+            "title": "Quorum"
+          },
+          "passing_threshold": {
+            "type": "number",
+            "title": "Passing Threshold"
+          },
+          "voting_starts": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voting Starts"
+          },
+          "voting_ends": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voting Ends"
+          },
+          "executed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executed At"
+          },
+          "proposal_metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Proposal Metadata"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "developer_id",
+          "title",
+          "description",
+          "requested_amount",
+          "approved_amount",
+          "disbursed_amount",
+          "status",
+          "votes_for",
+          "votes_against",
+          "votes_abstain",
+          "quorum",
+          "passing_threshold",
+          "voting_starts",
+          "voting_ends",
+          "executed_at",
+          "proposal_metadata",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "GrantProposalResponse",
+        "description": "Grant proposal response model."
+      },
+      "GrantStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "submitted",
+          "under_review",
+          "approved",
+          "rejected",
+          "active",
+          "completed",
+          "cancelled"
+        ],
+        "title": "GrantStatus",
+        "description": "Lifecycle status of a grant proposal."
+      },
+      "GrantVoteRequest": {
+        "properties": {
+          "vote": {
+            "type": "string",
+            "title": "Vote"
+          },
+          "voting_power": {
+            "type": "number",
+            "title": "Voting Power",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "vote"
+        ],
+        "title": "GrantVoteRequest",
+        "description": "Payload for casting a vote on a grant."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -24873,7 +27319,8 @@
             "title": "Payment Id"
           },
           "amount": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Amount"
           },
           "currency": {
@@ -25857,6 +28304,19 @@
         "title": "MilestoneResponse",
         "description": "Response model for milestone achievements"
       },
+      "MilestoneStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "in_progress",
+          "submitted",
+          "approved",
+          "rejected",
+          "paid"
+        ],
+        "title": "MilestoneStatus",
+        "description": "Lifecycle status of a grant milestone."
+      },
       "MinerHeartbeat": {
         "properties": {
           "inflight": {
@@ -26093,6 +28553,64 @@
         "title": "OptimizationTarget",
         "description": "Optimization target enumeration"
       },
+      "PHIAccessLog": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 32,
+            "title": "Id"
+          },
+          "subject_id": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Subject Id",
+            "default": ""
+          },
+          "actor_id": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Actor Id",
+            "default": ""
+          },
+          "action": {
+            "type": "string",
+            "maxLength": 20,
+            "title": "Action",
+            "default": "access"
+          },
+          "resource_id": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Resource Id",
+            "default": ""
+          },
+          "outcome": {
+            "type": "string",
+            "maxLength": 20,
+            "title": "Outcome",
+            "default": "allowed"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1024,
+            "title": "Reason",
+            "default": ""
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "title": "PHIAccessLog",
+        "description": "Immutable audit log for PHI access, delete, and share attempts."
+      },
       "PaymentReceipt": {
         "properties": {
           "payment_id": {
@@ -26104,7 +28622,8 @@
             "title": "Job Id"
           },
           "amount": {
-            "type": "number",
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Amount"
           },
           "currency": {
@@ -27553,6 +30072,20 @@
         "title": "RewardType",
         "description": "Reward type enumeration"
       },
+      "RightToDelete": {
+        "properties": {
+          "actor_id": {
+            "type": "string",
+            "title": "Actor Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "actor_id"
+        ],
+        "title": "RightToDelete",
+        "description": "Request body for a right-to-delete request."
+      },
       "RoutingStrategy": {
         "type": "string",
         "enum": [
@@ -28203,6 +30736,63 @@
         ],
         "title": "SubmitSolutionRequest",
         "description": "Request to submit a solution"
+      },
+      "TEEAttestation": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 32,
+            "title": "Id"
+          },
+          "enclave_id": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Enclave Id",
+            "default": ""
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote",
+            "default": ""
+          },
+          "measurement": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Measurement",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "maxLength": 20,
+            "title": "Status",
+            "default": "pending"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "title": "TEEAttestation",
+        "description": "Stored result of a remote attestation verification."
       },
       "TierProgressResponse": {
         "properties": {
@@ -29573,6 +32163,19 @@
         "title": "WhisperTask",
         "description": "Whisper task types"
       },
+      "_CapacityUpdate": {
+        "properties": {
+          "capacity": {
+            "type": "integer",
+            "title": "Capacity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "capacity"
+        ],
+        "title": "_CapacityUpdate"
+      },
       "coordinator_api__agent_identity__wallet_adapter_enhanced__SecurityLevel": {
         "type": "string",
         "enum": [
@@ -29594,6 +32197,96 @@
         ],
         "title": "SecurityLevel",
         "description": "Security classification levels for agent operations"
+      },
+      "coordinator_api__contexts__developer__schemas__developer__DeveloperCreate": {
+        "properties": {
+          "wallet_address": {
+            "type": "string",
+            "title": "Wallet Address"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "github_handle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Handle"
+          }
+        },
+        "type": "object",
+        "required": [
+          "wallet_address"
+        ],
+        "title": "DeveloperCreate",
+        "description": "Payload for registering a developer."
+      },
+      "coordinator_api__contexts__developer_platform__schemas__developer_platform__DeveloperCreate": {
+        "properties": {
+          "wallet_address": {
+            "type": "string",
+            "title": "Wallet Address"
+          },
+          "github_handle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Handle"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Skills",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "wallet_address"
+        ],
+        "title": "DeveloperCreate"
       },
       "coordinator_api__contexts__infrastructure__routers__inference__InferenceRequest": {
         "properties": {

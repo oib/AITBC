@@ -1,0 +1,5029 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AITBC Agent Coordinator",
+    "description": "Advanced multi-agent coordination and management system",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/v1/agents/register": {
+      "post": {
+        "summary": "Register Agent",
+        "description": "Register a new agent",
+        "operationId": "register_agent_v1_agents_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentRegistrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Register Agent V1 Agents Register Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/discover": {
+      "post": {
+        "summary": "Discover Agents",
+        "description": "Discover agents based on criteria",
+        "operationId": "discover_agents_v1_agents_discover_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Query"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Discover Agents V1 Agents Discover Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/{agent_id}": {
+      "get": {
+        "summary": "Get Agent",
+        "description": "Get agent information by ID",
+        "operationId": "get_agent_v1_agents__agent_id__get",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Agent V1 Agents  Agent Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/{agent_id}/status": {
+      "put": {
+        "summary": "Update Agent Status",
+        "description": "Update agent status",
+        "operationId": "update_agent_status_v1_agents__agent_id__status_put",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentStatusUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Agent Status V1 Agents  Agent Id  Status Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/{agent_id}/heartbeat": {
+      "post": {
+        "summary": "Agent Heartbeat",
+        "description": "Receive heartbeat from agent",
+        "operationId": "agent_heartbeat_v1_agents__agent_id__heartbeat_post",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Agent Heartbeat V1 Agents  Agent Id  Heartbeat Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/submit": {
+      "post": {
+        "summary": "Submit Task",
+        "description": "Submit a task for distribution",
+        "operationId": "submit_task_v1_tasks_submit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskSubmission"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Submit Task V1 Tasks Submit Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/status": {
+      "get": {
+        "summary": "Get Task Status",
+        "description": "Get task distribution statistics",
+        "operationId": "get_task_status_v1_tasks_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Task Status V1 Tasks Status Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/queues": {
+      "get": {
+        "summary": "Get Queue Sizes",
+        "description": "Get task queue sizes",
+        "operationId": "get_queue_sizes_v1_tasks_queues_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Queue Sizes V1 Tasks Queues Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/queues/{priority}/clear": {
+      "post": {
+        "summary": "Clear Queue",
+        "description": "Clear a priority queue",
+        "operationId": "clear_queue_v1_tasks_queues__priority__clear_post",
+        "parameters": [
+          {
+            "name": "priority",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Priority"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Clear Queue V1 Tasks Queues  Priority  Clear Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/queues/stats": {
+      "get": {
+        "summary": "Get Queue Stats",
+        "description": "Get detailed queue statistics",
+        "operationId": "get_queue_stats_v1_tasks_queues_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Queue Stats V1 Tasks Queues Stats Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/escrow/{escrow_id}": {
+      "get": {
+        "summary": "Get Escrow Status",
+        "description": "Get payment escrow status by escrow ID.",
+        "operationId": "get_escrow_status_v1_tasks_escrow__escrow_id__get",
+        "parameters": [
+          {
+            "name": "escrow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Escrow Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Escrow Status V1 Tasks Escrow  Escrow Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/{task_id}/complete": {
+      "post": {
+        "summary": "Complete Task",
+        "description": "Mark a task as complete \u2014 releases escrow payment to agent (v0.6.5).",
+        "operationId": "complete_task_v1_tasks__task_id__complete_post",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Complete Task V1 Tasks  Task Id  Complete Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/{task_id}/fail": {
+      "post": {
+        "summary": "Fail Task",
+        "description": "Mark a task as failed \u2014 refunds escrow payment to requester (v0.6.5).",
+        "operationId": "fail_task_v1_tasks__task_id__fail_post",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Fail Task V1 Tasks  Task Id  Fail Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/escrow/expire-stale": {
+      "post": {
+        "summary": "Expire Stale Escrows",
+        "description": "Expire and refund all stale escrows that have passed their timeout (v0.6.5).",
+        "operationId": "expire_stale_escrows_v1_tasks_escrow_expire_stale_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Expire Stale Escrows V1 Tasks Escrow Expire Stale Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/send": {
+      "post": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Send Encrypted Message",
+        "description": "Send encrypted message to agent",
+        "operationId": "send_encrypted_message_api_v1_agent_messages_send_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Send Encrypted Message Api V1 Agent Messages Send Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/inbox": {
+      "get": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Get Inbox",
+        "description": "Get agent's inbox",
+        "operationId": "get_inbox_api_v1_agent_messages_inbox_get",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Agent ID",
+              "title": "Agent Id"
+            },
+            "description": "Agent ID"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "description": "Maximum messages",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Maximum messages"
+          },
+          {
+            "name": "unread_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only unread messages",
+              "default": false,
+              "title": "Unread Only"
+            },
+            "description": "Only unread messages"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Inbox Api V1 Agent Messages Inbox Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/history": {
+      "get": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Get Message History",
+        "description": "Get message history with optional filters",
+        "operationId": "get_message_history_api_v1_agent_messages_history_get",
+        "parameters": [
+          {
+            "name": "sender_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by sender ID",
+              "title": "Sender Id"
+            },
+            "description": "Filter by sender ID"
+          },
+          {
+            "name": "receiver_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by receiver ID",
+              "title": "Receiver Id"
+            },
+            "description": "Filter by receiver ID"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "description": "Maximum number of messages",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Maximum number of messages"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "description": "Offset for pagination",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Offset for pagination"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Message History Api V1 Agent Messages History Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/{agent_id}": {
+      "get": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Get Messages For Agent Compatibility",
+        "description": "Get messages for agent - AgentDaemon compatibility route",
+        "operationId": "get_messages_for_agent_compatibility_api_v1_agent_messages__agent_id__get",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Messages For Agent Compatibility Api V1 Agent Messages  Agent Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/discover": {
+      "get": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Discover Agents",
+        "description": "Discover agents by criteria",
+        "operationId": "discover_agents_api_v1_agent_messages_discover_get",
+        "parameters": [
+          {
+            "name": "capability",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by capability",
+              "title": "Capability"
+            },
+            "description": "Filter by capability"
+          },
+          {
+            "name": "agent_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by agent type",
+              "title": "Agent Type"
+            },
+            "description": "Filter by agent type"
+          },
+          {
+            "name": "min_health_score",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "description": "Minimum health score",
+              "default": 0.0,
+              "title": "Min Health Score"
+            },
+            "description": "Minimum health score"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "description": "Maximum results",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Maximum results"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Discover Agents Api V1 Agent Messages Discover Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/subscribe": {
+      "post": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Subscribe To Topic",
+        "description": "Subscribe agent to topic",
+        "operationId": "subscribe_to_topic_api_v1_agent_messages_subscribe_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Subscribe To Topic Api V1 Agent Messages Subscribe Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/broadcast": {
+      "post": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Broadcast Message",
+        "description": "Broadcast message to multiple agents",
+        "operationId": "broadcast_message_api_v1_agent_messages_broadcast_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BroadcastRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Broadcast Message Api V1 Agent Messages Broadcast Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/id/{message_id}": {
+      "get": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Get Message",
+        "description": "Get a specific message by ID",
+        "operationId": "get_message_api_v1_agent_messages_id__message_id__get",
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Message Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Message Api V1 Agent Messages Id  Message Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/load-balancer/stats": {
+      "get": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Get Load Balancer Stats",
+        "description": "Get load balancer statistics",
+        "operationId": "get_load_balancer_stats_api_v1_agent_messages_load_balancer_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Load Balancer Stats Api V1 Agent Messages Load Balancer Stats Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/registry/stats": {
+      "get": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Get Registry Stats",
+        "description": "Get agent registry statistics",
+        "operationId": "get_registry_stats_api_v1_agent_messages_registry_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Registry Stats Api V1 Agent Messages Registry Stats Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/agents/service/{service}": {
+      "get": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Get Agents By Service",
+        "description": "Get agents that provide a specific service",
+        "operationId": "get_agents_by_service_api_v1_agent_messages_agents_service__service__get",
+        "parameters": [
+          {
+            "name": "service",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Agents By Service Api V1 Agent Messages Agents Service  Service  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/agents/capability/{capability}": {
+      "get": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Get Agents By Capability",
+        "description": "Get agents that have a specific capability",
+        "operationId": "get_agents_by_capability_api_v1_agent_messages_agents_capability__capability__get",
+        "parameters": [
+          {
+            "name": "capability",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Capability"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Agents By Capability Api V1 Agent Messages Agents Capability  Capability  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/load-balancer/strategy": {
+      "put": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Set Load Balancing Strategy",
+        "description": "Set load balancing strategy",
+        "operationId": "set_load_balancing_strategy_api_v1_agent_messages_load_balancer_strategy_put",
+        "parameters": [
+          {
+            "name": "strategy",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Load balancing strategy",
+              "title": "Strategy"
+            },
+            "description": "Load balancing strategy"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Set Load Balancing Strategy Api V1 Agent Messages Load Balancer Strategy Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/peers/add": {
+      "post": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Add Peer",
+        "description": "Add a peer connection for an agent",
+        "operationId": "add_peer_api_v1_agent_messages_peers_add_post",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Agent ID",
+              "title": "Agent Id"
+            },
+            "description": "Agent ID"
+          },
+          {
+            "name": "peer_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Peer agent ID",
+              "title": "Peer Id"
+            },
+            "description": "Peer agent ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Add Peer Api V1 Agent Messages Peers Add Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/peers/remove": {
+      "post": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Remove Peer",
+        "description": "Remove a peer connection for an agent",
+        "operationId": "remove_peer_api_v1_agent_messages_peers_remove_post",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Agent ID",
+              "title": "Agent Id"
+            },
+            "description": "Agent ID"
+          },
+          {
+            "name": "peer_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Peer agent ID",
+              "title": "Peer Id"
+            },
+            "description": "Peer agent ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Remove Peer Api V1 Agent Messages Peers Remove Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/peers/{agent_id}": {
+      "get": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Get Agent Peers",
+        "description": "Get all peers for a specific agent",
+        "operationId": "get_agent_peers_api_v1_agent_messages_peers__agent_id__get",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Agent Peers Api V1 Agent Messages Peers  Agent Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/messages/peers": {
+      "get": {
+        "tags": [
+          "agent-messaging"
+        ],
+        "summary": "Get All Peers",
+        "description": "Get all peer connections in the system",
+        "operationId": "get_all_peers_api_v1_agent_messages_peers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get All Peers Api V1 Agent Messages Peers Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ai/learning/experience": {
+      "post": {
+        "summary": "Record Learning Experience",
+        "description": "Record a learning experience for the AI system",
+        "operationId": "record_learning_experience_v1_ai_learning_experience_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Experience Data"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Record Learning Experience V1 Ai Learning Experience Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ai/learning/statistics": {
+      "get": {
+        "summary": "Get Learning Statistics",
+        "description": "Get learning system statistics",
+        "operationId": "get_learning_statistics_v1_ai_learning_statistics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Learning Statistics V1 Ai Learning Statistics Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ai/learning/predict": {
+      "post": {
+        "summary": "Predict Performance",
+        "description": "Predict performance for a given action",
+        "operationId": "predict_performance_v1_ai_learning_predict_post",
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Action"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Context"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Predict Performance V1 Ai Learning Predict Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ai/learning/recommend": {
+      "post": {
+        "summary": "Recommend Action",
+        "description": "Get AI-recommended action",
+        "operationId": "recommend_action_v1_ai_learning_recommend_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_recommend_action_v1_ai_learning_recommend_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Recommend Action V1 Ai Learning Recommend Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ai/neural-network/create": {
+      "post": {
+        "summary": "Create Neural Network",
+        "description": "Create a new neural network",
+        "operationId": "create_neural_network_v1_ai_neural_network_create_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Config"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Neural Network V1 Ai Neural Network Create Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ai/neural-network/{network_id}/train": {
+      "post": {
+        "summary": "Train Neural Network",
+        "description": "Train a neural network",
+        "operationId": "train_neural_network_v1_ai_neural_network__network_id__train_post",
+        "parameters": [
+          {
+            "name": "network_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Network Id"
+            }
+          },
+          {
+            "name": "epochs",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Epochs"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "title": "Training Data"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Train Neural Network V1 Ai Neural Network  Network Id  Train Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ai/neural-network/{network_id}/predict": {
+      "post": {
+        "summary": "Predict With Neural Network",
+        "description": "Make prediction with neural network",
+        "operationId": "predict_with_neural_network_v1_ai_neural_network__network_id__predict_post",
+        "parameters": [
+          {
+            "name": "network_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Network Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "title": "Features"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Predict With Neural Network V1 Ai Neural Network  Network Id  Predict Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ai/ml-model/create": {
+      "post": {
+        "summary": "Create Ml Model",
+        "description": "Create a new ML model",
+        "operationId": "create_ml_model_v1_ai_ml_model_create_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Config"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Ml Model V1 Ai Ml Model Create Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ai/ml-model/{model_id}/train": {
+      "post": {
+        "summary": "Train Ml Model",
+        "description": "Train an ML model",
+        "operationId": "train_ml_model_v1_ai_ml_model__model_id__train_post",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Model Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "title": "Training Data"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Train Ml Model V1 Ai Ml Model  Model Id  Train Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ai/ml-model/{model_id}/predict": {
+      "post": {
+        "summary": "Predict With Ml Model",
+        "description": "Make prediction with ML model",
+        "operationId": "predict_with_ml_model_v1_ai_ml_model__model_id__predict_post",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Model Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "title": "Features"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Predict With Ml Model V1 Ai Ml Model  Model Id  Predict Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ai/statistics": {
+      "get": {
+        "summary": "Get Ai Statistics",
+        "description": "Get comprehensive AI/ML statistics",
+        "operationId": "get_ai_statistics_v1_ai_statistics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Ai Statistics V1 Ai Statistics Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/consensus/node/register": {
+      "post": {
+        "summary": "Register Consensus Node",
+        "description": "Register a node in the consensus network",
+        "operationId": "register_consensus_node_v1_consensus_node_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Node Data"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Register Consensus Node V1 Consensus Node Register Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/consensus/proposal/create": {
+      "post": {
+        "summary": "Create Consensus Proposal",
+        "description": "Create a new consensus proposal",
+        "operationId": "create_consensus_proposal_v1_consensus_proposal_create_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Proposal Data"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Consensus Proposal V1 Consensus Proposal Create Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/consensus/proposal/{proposal_id}/vote": {
+      "post": {
+        "summary": "Cast Consensus Vote",
+        "description": "Cast a vote for a proposal",
+        "operationId": "cast_consensus_vote_v1_consensus_proposal__proposal_id__vote_post",
+        "parameters": [
+          {
+            "name": "proposal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Proposal Id"
+            }
+          },
+          {
+            "name": "node_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Node Id"
+            }
+          },
+          {
+            "name": "vote",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "boolean",
+              "title": "Vote"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Cast Consensus Vote V1 Consensus Proposal  Proposal Id  Vote Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/consensus/proposal/{proposal_id}": {
+      "get": {
+        "summary": "Get Proposal Status",
+        "description": "Get proposal status",
+        "operationId": "get_proposal_status_v1_consensus_proposal__proposal_id__get",
+        "parameters": [
+          {
+            "name": "proposal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Proposal Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Proposal Status V1 Consensus Proposal  Proposal Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/consensus/algorithm": {
+      "put": {
+        "summary": "Set Consensus Algorithm",
+        "description": "Set the consensus algorithm",
+        "operationId": "set_consensus_algorithm_v1_consensus_algorithm_put",
+        "parameters": [
+          {
+            "name": "algorithm",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Consensus algorithm",
+              "title": "Algorithm"
+            },
+            "description": "Consensus algorithm"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Set Consensus Algorithm V1 Consensus Algorithm Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/consensus/statistics": {
+      "get": {
+        "summary": "Get Consensus Statistics",
+        "description": "Get consensus statistics",
+        "operationId": "get_consensus_statistics_v1_consensus_statistics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Consensus Statistics V1 Consensus Statistics Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/consensus/node/{node_id}/status": {
+      "put": {
+        "summary": "Update Node Status",
+        "description": "Update node status",
+        "operationId": "update_node_status_v1_consensus_node__node_id__status_put",
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Node Id"
+            }
+          },
+          {
+            "name": "is_active",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "boolean",
+              "title": "Is Active"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Node Status V1 Consensus Node  Node Id  Status Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/advanced-features/status": {
+      "get": {
+        "summary": "Get Advanced Features Status",
+        "description": "Get status of all advanced features",
+        "operationId": "get_advanced_features_status_v1_advanced_features_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Advanced Features Status V1 Advanced Features Status Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Login",
+        "description": "User login with username and password",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object",
+                "title": "Login Data"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Login Api V1 Auth Login Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Refresh Token",
+        "description": "Refresh access token using refresh token",
+        "operationId": "refresh_token_api_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object",
+                "title": "Refresh Data"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Refresh Token Api V1 Auth Refresh Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/validate": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Validate Token",
+        "description": "Validate JWT token",
+        "operationId": "validate_token_api_v1_auth_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object",
+                "title": "Validate Data"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Validate Token Api V1 Auth Validate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/api-key/generate": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Generate Api Key",
+        "description": "Generate API key for user",
+        "operationId": "generate_api_key_api_v1_auth_api_key_generate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Permissions"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Generate Api Key Api V1 Auth Api Key Generate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/api-key/validate": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Validate Api Key",
+        "description": "Validate API key",
+        "operationId": "validate_api_key_api_v1_auth_api_key_validate_post",
+        "parameters": [
+          {
+            "name": "api_key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Api Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Validate Api Key Api V1 Auth Api Key Validate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/api-key/{api_key}": {
+      "delete": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Revoke Api Key",
+        "description": "Revoke API key",
+        "operationId": "revoke_api_key_api_v1_auth_api_key__api_key__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "api_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Api Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Revoke Api Key Api V1 Auth Api Key  Api Key  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/users/{user_id}/role": {
+      "post": {
+        "summary": "Assign User Role",
+        "description": "Assign role to user",
+        "operationId": "assign_user_role_v1_users__user_id__role_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Role"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Assign User Role V1 Users  User Id  Role Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Get User Role",
+        "description": "Get user's role",
+        "operationId": "get_user_role_v1_users__user_id__role_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get User Role V1 Users  User Id  Role Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/users/{user_id}/permissions": {
+      "get": {
+        "summary": "Get User Permissions",
+        "description": "Get user's permissions",
+        "operationId": "get_user_permissions_v1_users__user_id__permissions_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get User Permissions V1 Users  User Id  Permissions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/users/{user_id}/permissions/grant": {
+      "post": {
+        "summary": "Grant User Permission",
+        "description": "Grant custom permission to user",
+        "operationId": "grant_user_permission_v1_users__user_id__permissions_grant_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "permission",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Permission"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Grant User Permission V1 Users  User Id  Permissions Grant Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/users/{user_id}/permissions/{permission}": {
+      "delete": {
+        "summary": "Revoke User Permission",
+        "description": "Revoke custom permission from user",
+        "operationId": "revoke_user_permission_v1_users__user_id__permissions__permission__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "permission",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Permission"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Revoke User Permission V1 Users  User Id  Permissions  Permission  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/roles": {
+      "get": {
+        "summary": "List All Roles",
+        "description": "List all available roles and their permissions",
+        "operationId": "list_all_roles_v1_roles_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List All Roles V1 Roles Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/roles/{role}": {
+      "get": {
+        "summary": "Get Role Permissions",
+        "description": "Get all permissions for a specific role",
+        "operationId": "get_role_permissions_v1_roles__role__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Role"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Role Permissions V1 Roles  Role  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/stats": {
+      "get": {
+        "summary": "Get Permission Stats",
+        "description": "Get statistics about permissions and users",
+        "operationId": "get_permission_stats_v1_auth_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Permission Stats V1 Auth Stats Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/protected/admin": {
+      "get": {
+        "summary": "Protected Admin",
+        "description": "Protected admin endpoint",
+        "operationId": "protected_admin_v1_protected_admin_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Protected Admin V1 Protected Admin Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/protected/operator": {
+      "get": {
+        "summary": "Protected Operator",
+        "description": "Protected operator endpoint",
+        "operationId": "protected_operator_v1_protected_operator_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Protected Operator V1 Protected Operator Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/metrics": {
+      "get": {
+        "summary": "Get Prometheus Metrics",
+        "description": "Get metrics in Prometheus format",
+        "operationId": "get_prometheus_metrics_v1_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/metrics/summary": {
+      "get": {
+        "summary": "Get Metrics Summary",
+        "description": "Get metrics summary for dashboard",
+        "operationId": "get_metrics_summary_v1_metrics_summary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Metrics Summary V1 Metrics Summary Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/metrics/health": {
+      "get": {
+        "summary": "Get Health Metrics",
+        "description": "Get health metrics for monitoring",
+        "operationId": "get_health_metrics_v1_metrics_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Health Metrics V1 Metrics Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/system/status": {
+      "get": {
+        "summary": "Get System Status",
+        "description": "Get comprehensive system status",
+        "operationId": "get_system_status_v1_system_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get System Status V1 System Status Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/alerts": {
+      "get": {
+        "summary": "Get Alerts",
+        "description": "Get alerts with optional status filter",
+        "operationId": "get_alerts_v1_alerts_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Alerts V1 Alerts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/alerts/{alert_id}/resolve": {
+      "post": {
+        "summary": "Resolve Alert",
+        "description": "Resolve an alert",
+        "operationId": "resolve_alert_v1_alerts__alert_id__resolve_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Alert Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Resolve Alert V1 Alerts  Alert Id  Resolve Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/alerts/stats": {
+      "get": {
+        "summary": "Get Alert Stats",
+        "description": "Get alert statistics",
+        "operationId": "get_alert_stats_v1_alerts_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Alert Stats V1 Alerts Stats Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/alerts/rules": {
+      "get": {
+        "summary": "Get Alert Rules",
+        "description": "Get alert rules",
+        "operationId": "get_alert_rules_v1_alerts_rules_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Alert Rules V1 Alerts Rules Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/sla": {
+      "get": {
+        "summary": "Get Sla Status",
+        "description": "Get SLA status",
+        "operationId": "get_sla_status_v1_sla_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sla_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sla Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Sla Status V1 Sla Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sla/{sla_id}/record": {
+      "post": {
+        "summary": "Record Sla Metric",
+        "description": "Record SLA metric",
+        "operationId": "record_sla_metric_v1_sla__sla_id__record_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sla_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sla Id"
+            }
+          },
+          {
+            "name": "value",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "title": "Value"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Record Sla Metric V1 Sla  Sla Id  Record Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/swarm/list": {
+      "get": {
+        "tags": [
+          "Swarm"
+        ],
+        "summary": "List Swarms",
+        "description": "List active swarms.",
+        "operationId": "list_swarms_v1_swarm_list_get",
+        "parameters": [
+          {
+            "name": "swarm_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by swarm ID",
+              "title": "Swarm Id"
+            },
+            "description": "Filter by swarm ID"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by status",
+              "title": "Status"
+            },
+            "description": "Filter by status"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "description": "Number of swarms to list",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Number of swarms to list"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SwarmInfo"
+                  },
+                  "title": "Response List Swarms V1 Swarm List Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/swarm/join": {
+      "post": {
+        "tags": [
+          "Swarm"
+        ],
+        "summary": "Join Swarm",
+        "description": "Join agent swarm for collective optimization.",
+        "operationId": "join_swarm_v1_swarm_join_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Join Swarm V1 Swarm Join Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/swarm/coordinate": {
+      "post": {
+        "tags": [
+          "Swarm"
+        ],
+        "summary": "Coordinate Swarm",
+        "description": "Coordinate swarm task execution.",
+        "operationId": "coordinate_swarm_v1_swarm_coordinate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoordinateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Coordinate Swarm V1 Swarm Coordinate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/swarm/tasks/{task_id}/status": {
+      "get": {
+        "tags": [
+          "Swarm"
+        ],
+        "summary": "Get Task Status",
+        "description": "Get swarm task status.",
+        "operationId": "get_task_status_v1_swarm_tasks__task_id__status_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/swarm/{swarm_id}/leave": {
+      "post": {
+        "tags": [
+          "Swarm"
+        ],
+        "summary": "Leave Swarm",
+        "description": "Leave swarm.",
+        "operationId": "leave_swarm_v1_swarm__swarm_id__leave_post",
+        "parameters": [
+          {
+            "name": "swarm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Swarm Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Leave Swarm V1 Swarm  Swarm Id  Leave Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/swarm/tasks/{task_id}/consensus": {
+      "post": {
+        "tags": [
+          "Swarm"
+        ],
+        "summary": "Achieve Consensus",
+        "description": "Achieve swarm consensus on task result.",
+        "operationId": "achieve_consensus_v1_swarm_tasks__task_id__consensus_post",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsensusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Achieve Consensus V1 Swarm Tasks  Task Id  Consensus Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/swarm/api/v1/dashboard": {
+      "get": {
+        "tags": [
+          "Swarm"
+        ],
+        "summary": "Get Dashboard",
+        "description": "Get monitoring dashboard data.",
+        "operationId": "get_dashboard_v1_swarm_api_v1_dashboard_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Dashboard V1 Swarm Api V1 Dashboard Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/swarm/status": {
+      "get": {
+        "tags": [
+          "Swarm"
+        ],
+        "summary": "Get Status",
+        "description": "Get coordinator status.",
+        "operationId": "get_status_v1_swarm_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Status V1 Swarm Status Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/swarm/miners": {
+      "get": {
+        "tags": [
+          "Swarm"
+        ],
+        "summary": "Get Miners",
+        "description": "Get miners list.",
+        "operationId": "get_miners_v1_swarm_miners_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {},
+                  "type": "array",
+                  "title": "Response Get Miners V1 Swarm Miners Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/swarm/dashboard": {
+      "get": {
+        "tags": [
+          "Swarm"
+        ],
+        "summary": "Get History Dashboard",
+        "description": "Get historical dashboard data.",
+        "operationId": "get_history_dashboard_v1_swarm_dashboard_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {},
+                  "type": "array",
+                  "title": "Response Get History Dashboard V1 Swarm Dashboard Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/swarm/jobs": {
+      "get": {
+        "tags": [
+          "Swarm"
+        ],
+        "summary": "Get Jobs",
+        "description": "Get jobs list.",
+        "operationId": "get_jobs_v1_swarm_jobs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {},
+                  "type": "array",
+                  "title": "Response Get Jobs V1 Swarm Jobs Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/v1/dashboard": {
+      "get": {
+        "tags": [
+          "Monitor"
+        ],
+        "summary": "Get Dashboard",
+        "description": "Get monitoring dashboard data.",
+        "operationId": "get_dashboard_v1_api_v1_dashboard_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Dashboard V1 Api V1 Dashboard Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/status": {
+      "get": {
+        "tags": [
+          "Monitor"
+        ],
+        "summary": "Get Status",
+        "description": "Get coordinator status.",
+        "operationId": "get_status_v1_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Status V1 Status Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/miners": {
+      "get": {
+        "tags": [
+          "Monitor"
+        ],
+        "summary": "Get Miners",
+        "description": "Get miners list.",
+        "operationId": "get_miners_v1_miners_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response Get Miners V1 Miners Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/dashboard": {
+      "get": {
+        "tags": [
+          "Monitor"
+        ],
+        "summary": "Get History Dashboard",
+        "description": "Get historical dashboard data.",
+        "operationId": "get_history_dashboard_v1_dashboard_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response Get History Dashboard V1 Dashboard Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs": {
+      "get": {
+        "tags": [
+          "Monitor"
+        ],
+        "summary": "Get Jobs",
+        "description": "Get jobs list for history and metrics commands.",
+        "operationId": "get_jobs_v1_jobs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response Get Jobs V1 Jobs Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/workflows": {
+      "get": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "List workflows",
+        "description": "List all workflow definitions",
+        "operationId": "list_workflows_api_v1_agent_workflows_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List Workflows Api V1 Agent Workflows Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "Create workflow",
+        "description": "Create a new workflow definition",
+        "operationId": "create_workflow_api_v1_agent_workflows_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorkflowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/workflows/{workflow_id}/execute": {
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "Execute workflow",
+        "description": "Execute a workflow",
+        "operationId": "execute_workflow_api_v1_agent_workflows__workflow_id__execute_post",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workflow Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecuteWorkflowRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/workflows/{workflow_id}/status": {
+      "get": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "Get workflow status",
+        "description": "Get workflow execution status",
+        "operationId": "get_workflow_status_api_v1_agent_workflows__workflow_id__status_get",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workflow Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Workflow Status Api V1 Agent Workflows  Workflow Id  Status Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/workflows/executions": {
+      "get": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "List executions",
+        "description": "List workflow executions",
+        "operationId": "list_executions_api_v1_agent_workflows_executions_get",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workflow Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Executions Api V1 Agent Workflows Executions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/workflows/executions/{execution_id}/cancel": {
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "Cancel execution",
+        "description": "Cancel a workflow execution",
+        "operationId": "cancel_execution_api_v1_agent_workflows_executions__execution_id__cancel_post",
+        "parameters": [
+          {
+            "name": "execution_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Execution Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Cancel Execution Api V1 Agent Workflows Executions  Execution Id  Cancel Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/ws/status": {
+      "get": {
+        "tags": [
+          "websocket"
+        ],
+        "summary": "Websocket Status",
+        "description": "Get WebSocket listener status",
+        "operationId": "websocket_status_api_v1_agent_ws_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Websocket Status Api V1 Agent Ws Status Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/coin-requests/execute": {
+      "post": {
+        "tags": [
+          "coin-requests"
+        ],
+        "summary": "Remote Execute Coin Request",
+        "description": "Execute an approved coin request forwarded from a follower node.\nHub-only endpoint \u2014 requires COORDINATOR_API_KEY authentication.\nSigns and submits the transaction using the genesis wallet.",
+        "operationId": "remote_execute_coin_request_api_v1_agent_coin_requests_execute_post",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoteExecuteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Remote Execute Coin Request Api V1 Agent Coin Requests Execute Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Health check endpoint",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Check Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "Root",
+        "description": "Root endpoint with service information",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Root  Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AgentRegistrationRequest": {
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id",
+            "description": "Unique agent identifier"
+          },
+          "agent_type": {
+            "type": "string",
+            "title": "Agent Type",
+            "description": "Type of agent"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capabilities",
+            "description": "Agent capabilities"
+          },
+          "services": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Services",
+            "description": "Available services"
+          },
+          "endpoints": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Endpoints",
+            "description": "Service endpoints"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata",
+            "description": "Additional metadata"
+          },
+          "chain_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Id",
+            "description": "Chain ID this agent operates on"
+          },
+          "island_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Island Id",
+            "description": "Island ID this agent is on"
+          }
+        },
+        "type": "object",
+        "required": [
+          "agent_id",
+          "agent_type"
+        ],
+        "title": "AgentRegistrationRequest"
+      },
+      "AgentStatusUpdate": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Agent status"
+          },
+          "load_metrics": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Load Metrics",
+            "description": "Load metrics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "AgentStatusUpdate"
+      },
+      "Body_recommend_action_v1_ai_learning_recommend_post": {
+        "properties": {
+          "context": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Context"
+          },
+          "available_actions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Available Actions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "context",
+          "available_actions"
+        ],
+        "title": "Body_recommend_action_v1_ai_learning_recommend_post"
+      },
+      "BroadcastRequest": {
+        "properties": {
+          "message_type": {
+            "type": "string",
+            "title": "Message Type",
+            "description": "Message type"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload",
+            "description": "Message payload"
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority",
+            "description": "Message priority",
+            "default": "normal"
+          },
+          "agent_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Type",
+            "description": "Filter by agent type"
+          },
+          "capabilities": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capabilities",
+            "description": "Filter by capabilities"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message_type",
+          "payload"
+        ],
+        "title": "BroadcastRequest"
+      },
+      "ConsensusRequest": {
+        "properties": {
+          "consensus_threshold": {
+            "type": "number",
+            "title": "Consensus Threshold"
+          }
+        },
+        "type": "object",
+        "required": [
+          "consensus_threshold"
+        ],
+        "title": "ConsensusRequest",
+        "description": "Swarm consensus request model."
+      },
+      "CoordinateRequest": {
+        "properties": {
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "collaborators": {
+            "type": "integer",
+            "title": "Collaborators"
+          },
+          "strategy": {
+            "type": "string",
+            "title": "Strategy"
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "title": "Timeout Seconds"
+          },
+          "chain_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "task",
+          "collaborators",
+          "strategy",
+          "timeout_seconds"
+        ],
+        "title": "CoordinateRequest",
+        "description": "Swarm coordinate request model."
+      },
+      "CreateWorkflowRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Workflow name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Workflow description",
+            "default": ""
+          },
+          "steps": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Steps",
+            "description": "Workflow steps"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By",
+            "description": "Creator identifier",
+            "default": ""
+          },
+          "chain_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Id",
+            "description": "Chain ID for workflow execution"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "steps"
+        ],
+        "title": "CreateWorkflowRequest",
+        "description": "Request to create a workflow"
+      },
+      "ExecuteWorkflowRequest": {
+        "properties": {
+          "input_parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Input Parameters",
+            "description": "Input parameters for workflow"
+          },
+          "chain_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Id",
+            "description": "Chain ID to execute on"
+          }
+        },
+        "type": "object",
+        "title": "ExecuteWorkflowRequest",
+        "description": "Request to execute a workflow"
+      },
+      "ExecutionResponse": {
+        "properties": {
+          "execution_id": {
+            "type": "string",
+            "title": "Execution Id"
+          },
+          "workflow_id": {
+            "type": "string",
+            "title": "Workflow Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "current_step_index": {
+            "type": "integer",
+            "title": "Current Step Index"
+          },
+          "results": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Results"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "started_at": {
+            "type": "string",
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "steps": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Steps"
+          }
+        },
+        "type": "object",
+        "required": [
+          "execution_id",
+          "workflow_id",
+          "status",
+          "current_step_index",
+          "results",
+          "error",
+          "started_at",
+          "completed_at",
+          "steps"
+        ],
+        "title": "ExecutionResponse",
+        "description": "Workflow execution response"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "JoinRequest": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "capability": {
+            "type": "string",
+            "title": "Capability"
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "chain_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "capability",
+          "priority"
+        ],
+        "title": "JoinRequest",
+        "description": "Swarm join request model."
+      },
+      "RemoteExecuteRequest": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "sender": {
+            "type": "string",
+            "title": "Sender"
+          },
+          "amount": {
+            "type": "integer",
+            "title": "Amount"
+          },
+          "wallet_address": {
+            "type": "string",
+            "title": "Wallet Address"
+          },
+          "approved_by": {
+            "type": "string",
+            "title": "Approved By",
+            "default": "cli"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "sender",
+          "amount",
+          "wallet_address"
+        ],
+        "title": "RemoteExecuteRequest",
+        "description": "Request to execute an approved coin request forwarded from a follower node."
+      },
+      "SendMessageRequest": {
+        "properties": {
+          "sender": {
+            "type": "string",
+            "title": "Sender",
+            "description": "Sender agent ID"
+          },
+          "recipient": {
+            "type": "string",
+            "title": "Recipient",
+            "description": "Recipient agent ID"
+          },
+          "content": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Content",
+            "description": "Message content"
+          },
+          "message_type": {
+            "type": "string",
+            "title": "Message Type",
+            "description": "Message type",
+            "default": "direct"
+          },
+          "encrypt": {
+            "type": "boolean",
+            "title": "Encrypt",
+            "description": "Whether to encrypt message",
+            "default": true
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority",
+            "description": "Message priority",
+            "default": "normal"
+          },
+          "ttl": {
+            "type": "integer",
+            "title": "Ttl",
+            "description": "Time to live in seconds",
+            "default": 300
+          }
+        },
+        "type": "object",
+        "required": [
+          "sender",
+          "recipient",
+          "content"
+        ],
+        "title": "SendMessageRequest",
+        "description": "Request to send encrypted message"
+      },
+      "SubscribeRequest": {
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id",
+            "description": "Agent ID"
+          },
+          "topic": {
+            "type": "string",
+            "title": "Topic",
+            "description": "Topic to subscribe to"
+          },
+          "filter": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Filter",
+            "description": "Filter criteria"
+          }
+        },
+        "type": "object",
+        "required": [
+          "agent_id",
+          "topic"
+        ],
+        "title": "SubscribeRequest",
+        "description": "Request to subscribe to topic"
+      },
+      "SwarmInfo": {
+        "properties": {
+          "swarm_id": {
+            "type": "string",
+            "title": "Swarm Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "agent_count": {
+            "type": "integer",
+            "title": "Agent Count"
+          },
+          "task_count": {
+            "type": "integer",
+            "title": "Task Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "swarm_id",
+          "name",
+          "status",
+          "agent_count",
+          "task_count"
+        ],
+        "title": "SwarmInfo",
+        "description": "Swarm information model."
+      },
+      "TaskPayment": {
+        "properties": {
+          "amount": {
+            "type": "integer",
+            "title": "Amount",
+            "description": "Payment amount in smallest units"
+          },
+          "fee": {
+            "type": "integer",
+            "title": "Fee",
+            "description": "Transaction fee",
+            "default": 0
+          },
+          "requester": {
+            "type": "string",
+            "title": "Requester",
+            "description": "Requester address (pays for task)"
+          },
+          "agent": {
+            "type": "string",
+            "title": "Agent",
+            "description": "Agent address (receives payment)"
+          },
+          "timeout_seconds": {
+            "type": "number",
+            "title": "Timeout Seconds",
+            "description": "Escrow timeout",
+            "default": 3600.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount",
+          "requester",
+          "agent"
+        ],
+        "title": "TaskPayment",
+        "description": "Payment details for task execution escrow (v0.6.5)."
+      },
+      "TaskStatus": {
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "title": "Task Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "progress": {
+            "type": "integer",
+            "title": "Progress"
+          },
+          "active_collaborators": {
+            "type": "integer",
+            "title": "Active Collaborators"
+          },
+          "total_collaborators": {
+            "type": "integer",
+            "title": "Total Collaborators"
+          }
+        },
+        "type": "object",
+        "required": [
+          "task_id",
+          "status",
+          "progress",
+          "active_collaborators",
+          "total_collaborators"
+        ],
+        "title": "TaskStatus",
+        "description": "Swarm task status model."
+      },
+      "TaskSubmission": {
+        "properties": {
+          "task_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Task Data",
+            "description": "Task data"
+          },
+          "priority": {
+            "type": "string",
+            "title": "Priority",
+            "description": "Task priority",
+            "default": "normal"
+          },
+          "requirements": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirements",
+            "description": "Task requirements"
+          },
+          "chain_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Id",
+            "description": "Chain ID to execute task on"
+          },
+          "payment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskPayment"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Payment for task execution escrow"
+          }
+        },
+        "type": "object",
+        "required": [
+          "task_data"
+        ],
+        "title": "TaskSubmission"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WorkflowResponse": {
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "title": "Workflow Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "steps": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workflow_id",
+          "name",
+          "description",
+          "steps",
+          "created_at",
+          "created_by"
+        ],
+        "title": "WorkflowResponse",
+        "description": "Workflow response"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
