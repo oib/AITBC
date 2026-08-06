@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-525 — shard aggregation: a FAIL in any shard MUST fail the suite
 # -----------------------------------------------------------------------------
-# Per-story include (ABS-215): `source`d by tests/test-orchestrator.sh into the
+# Per-story include (ABS-215): `source`d by tests/tooling/test-orchestrator.sh into the
 # live harness — NO shebang, NO `set -e`, NO re-sourcing. In scope from the
 # parent: assert_contains / assert_eq, PASS/FAIL/TOTAL, REPO_ROOT, RED/NC.
 #
@@ -25,7 +25,7 @@
 # =============================================================================
 echo -e "\n${CYAN}=== ABS-525 shard lost-fail guard: a shard FAIL can never aggregate green ===${NC}"
 
-_525_suite="$REPO_ROOT/tests/test-orchestrator.sh"
+_525_suite="$REPO_ROOT/tests/tooling/test-orchestrator.sh"
 _525_dir="$(mktemp -d "${TMPDIR:-/tmp}/orch-525-XXXXXX")"
 
 # The synthetic assembly depends on the body markers; fail loudly if they move.

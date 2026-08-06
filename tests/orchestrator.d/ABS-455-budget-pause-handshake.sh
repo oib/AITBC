@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-455 — budget-pause ergonomics: operator push + restart handshake
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md). In scope: assert_*, orch / tracker / new_env /
 # baseline / cleanup_env, PASS/FAIL/TOTAL.
 #

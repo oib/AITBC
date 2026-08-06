@@ -15,12 +15,12 @@
 #
 # Self-contained: builds a throwaway git repo + bare mirror in a tmp dir. No fixed
 # paths, no network. bash 3.2 + BSD tools. Run from repo root:
-#   bash tests/test-remote-doctrine.sh
+#   bash tests/tooling/test-remote-doctrine.sh
 # =============================================================================
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 GUARD="$REPO_ROOT/scripts/active-remote-guard.sh"
 MIRROR="$REPO_ROOT/scripts/release-mirror-push.sh"
 

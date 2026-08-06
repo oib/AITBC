@@ -4,12 +4,12 @@
 # =============================================================================
 # Exercises scripts/check-devin-harness-drift.sh and reports PASS/FAIL counts.
 # Includes negative tests that inject drift to verify the guard detects it.
-# Run from repo root: bash tests/test-devin-harness-drift.sh
+# Run from repo root: bash tests/tooling/test-devin-harness-drift.sh
 # =============================================================================
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CHECK="$REPO_ROOT/scripts/check-devin-harness-drift.sh"
 MIRROR="$REPO_ROOT/scripts/mirror-claude-to-devin.py"
 

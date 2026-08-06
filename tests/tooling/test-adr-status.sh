@@ -16,13 +16,13 @@
 #      (the human-acceptance evidence a proposed ADR omits)
 # Plus a self-check on synthetic fixtures so the guard itself is proven to bite.
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-adr-status.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-adr-status.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ADR_DIR="$REPO_ROOT/adrs"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'

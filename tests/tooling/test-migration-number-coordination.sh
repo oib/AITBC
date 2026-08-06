@@ -12,12 +12,12 @@
 #      and the colliding files (AC1). Same family as the ABS-397/398 rebase-gate.
 #
 # Self-contained (own mktemp git repo, no fixed paths). bash 3.2 + BSD tools.
-# Run from repo root: bash tests/test-migration-number-coordination.sh
+# Run from repo root: bash tests/tooling/test-migration-number-coordination.sh
 # =============================================================================
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 NEXT="$REPO_ROOT/scripts/next-migration-number.sh"
 GATE="$REPO_ROOT/scripts/migration-number-collision-check.sh"
 

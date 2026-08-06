@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-335 — enforce live-state protection
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, no re-`set -e`, shared
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, no re-`set -e`, shared
 # assert helpers / counters — see docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # THE DEFECT THIS PINS (Incident 2026-07-16)
@@ -9,7 +9,7 @@
 # a LIVE orchestrator: mock intents (DEMO-2/3/4) landed in the live run.log and
 # the run took the real spawn path; only a worktree-provisioning failure and the
 # C9 fail-closed gate stopped a paid live seat. Two guards close it:
-#   (1) tests/test-orchestrator.sh refuses to start when the ambient env resolves
+#   (1) tests/tooling/test-orchestrator.sh refuses to start when the ambient env resolves
 #       to a state dir whose instance-id marker has a LIVE owner process, and
 #   (2) scripts/orchestrator.sh refuses to write run.log when its own
 #       ORCH_INSTANCE_ID differs from the persisted instance-id of the state dir.
@@ -17,7 +17,7 @@
 
 echo -e "\n${CYAN}ABS-335 live-state protection${NC}"
 
-_abs335_suite="$REPO_ROOT/tests/test-orchestrator.sh"
+_abs335_suite="$REPO_ROOT/tests/tooling/test-orchestrator.sh"
 _abs335_cksum() { cksum < "$1" 2>/dev/null; }
 
 # --- AC1/AC2: live-state refusal gate in the suite entry point ---------------

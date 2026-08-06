@@ -22,14 +22,14 @@
 # ambient ORCH_* env so an inherited ORCH_AGENTS_DIR / ORCH_PROMPT_SIZE_BUDGET
 # cannot change what the sensor measures. Each invocation sets exactly what it needs.
 #
-# Bash 3.2 / BSD safe. Run from repo root: bash tests/test-agent-prompt-size-budget.sh
+# Bash 3.2 / BSD safe. Run from repo root: bash tests/tooling/test-agent-prompt-size-budget.sh
 # =============================================================================
 set -u
 # shellcheck disable=SC2046  # deliberate word-split: unset every ORCH_* name.
 unset $(env | sed -n 's/^\(ORCH_[A-Za-z0-9_]*\)=.*/\1/p') 2>/dev/null || true
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SENSOR="$REPO_ROOT/scripts/agent-prompt-size.sh"
 
 # The known-debt ceiling: at PILOT-55 authoring, 13 of 17 roles exceed the 24000 B

@@ -11,16 +11,16 @@
 #   - the CI check FAILS a fixture entrypoint that touches backend but omits the
 #     guard, and always requires run-all.sh
 #
-# Run from repo root: bash tests/test-sandbox-guard.sh
+# Run from repo root: bash tests/tooling/test-sandbox-guard.sh
 # =============================================================================
 
 set -u
 # PILOT-46: strip inherited backend/tracker env before any fixture runs (tests/sandbox-guard.sh).
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 GUARD="$SCRIPT_DIR/sandbox-guard.sh"
 CHECK="$REPO_ROOT/scripts/sandbox-guard-check.sh"
 # Mirrors TOUCH_RE in sandbox-guard-check.sh — used only to pick a real
@@ -73,8 +73,8 @@ assert_contains "$out" "run-all.sh" "flags run-all.sh"
 assert_contains "$out" "test-leaky.sh" "flags backend-touching test"
 
 echo "== CI check passes once the fixture entrypoints source the guard =="
-printf '#!/usr/bin/env bash\nset -e\n. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"\necho hi\n' > "$FIX/run-all.sh"
-printf '#!/usr/bin/env bash\nset -e\n. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"\nexport BACKEND_URL=http://x\n' > "$FIX/test-leaky.sh"
+printf '#!/usr/bin/env bash\nset -e\n. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"\necho hi\n' > "$FIX/run-all.sh"
+printf '#!/usr/bin/env bash\nset -e\n. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"\nexport BACKEND_URL=http://x\n' > "$FIX/test-leaky.sh"
 out="$(SANDBOX_GUARD_TESTS_DIR="$FIX" bash "$CHECK" 2>&1)"; rc=$?
 assert_eq "$rc" "0" "check passes once the guard is sourced"
 

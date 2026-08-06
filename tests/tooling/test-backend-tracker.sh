@@ -18,16 +18,16 @@
 #   - a non-existent TARGET status maps to `illegal transition` (§4 error table),
 #     where the mock says `unknown status`; both reject with a non-zero exit.
 #
-# Run from repo root: bash tests/test-backend-tracker.sh
+# Run from repo root: bash tests/tooling/test-backend-tracker.sh
 # =============================================================================
 
 set -u
 # PILOT-46: strip inherited backend/tracker env before any fixture runs (tests/sandbox-guard.sh).
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ADAPTER="$REPO_ROOT/scripts/backend-tracker.sh"
 BACKEND_DIR="$REPO_ROOT/backend"
 PROJECT_NAME="betrack$$"

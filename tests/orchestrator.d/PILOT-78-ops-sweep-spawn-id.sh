@@ -1,7 +1,7 @@
 # =============================================================================
 # PILOT-78 — ops-sweep spawn_id uniqueness (ticket-less recurring seat).
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md). Shares assert_* / PASS/FAIL/TOTAL / ORCH / the
 # new_env|cleanup_env|orch fixtures.
 #

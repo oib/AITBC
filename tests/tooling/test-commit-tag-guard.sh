@@ -23,12 +23,12 @@
 #
 # The installer (provision_ticket_tag_guard) is exercised by SOURCING
 # scripts/orchestrator.sh (main is source-guarded). bash 3.2 + BSD tools only.
-# Run from repo root: bash tests/test-commit-tag-guard.sh
+# Run from repo root: bash tests/tooling/test-commit-tag-guard.sh
 # =============================================================================
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 GUARD="$REPO_ROOT/scripts/commit-tag-guard.sh"
 HOOK="$REPO_ROOT/scripts/hooks/commit-msg-ticket-tag-guard.sh"
 

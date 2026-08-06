@@ -11,12 +11,12 @@
 #        or =1 — a seat's claim about the knob never buys a main merge.
 #
 # Self-contained (no git repo, no fixed paths). bash 3.2 + BSD tools.
-# Run from repo root: bash tests/test-merge-target-guard.sh
+# Run from repo root: bash tests/tooling/test-merge-target-guard.sh
 # =============================================================================
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 GUARD="$REPO_ROOT/scripts/merge-target-guard.sh"
 
 PASS=0; FAIL=0; TOTAL=0

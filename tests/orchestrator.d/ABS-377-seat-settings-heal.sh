@@ -2,7 +2,7 @@
 # ABS-377 — ensure_worktree re-provisions .claude/settings.local.json into a
 #            REUSED seat worktree that predates the v2.26.1 provisioning fix
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, no re-`set -e`, shared
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, no re-`set -e`, shared
 # assert helpers / counters — see docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # THE DEFECT THIS PINS

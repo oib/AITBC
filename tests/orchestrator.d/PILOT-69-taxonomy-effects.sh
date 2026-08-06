@@ -1,7 +1,7 @@
 # =============================================================================
 # PILOT-69 — Taxonomien ohne Wirkung: give the ADR-A-0018 transient class an EFFECT
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md). In scope: assert_contains / assert_eq, ORCH.
 #
 # AC1(a): the transient class is BUDGET-NEUTRAL for the rework counter — a backward

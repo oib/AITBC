@@ -16,17 +16,17 @@
 #        (still awaiting the human merge gate)
 # plus guardrails: unknown action / missing reason / normal-lane / double-decide.
 #
-# Run from repo root: bash tests/test-fastlane-acceptance-batch.sh
+# Run from repo root: bash tests/tooling/test-fastlane-acceptance-batch.sh
 # bash 3.2 / BSD-tool safe.
 # =============================================================================
 
 set -u
 # PILOT-46: strip inherited backend/tracker env before any fixture runs (tests/sandbox-guard.sh).
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 BATCH="$REPO_ROOT/scripts/fastlane-acceptance-batch.sh"
 MOCK="$REPO_ROOT/scripts/mock-tracker.sh"
 

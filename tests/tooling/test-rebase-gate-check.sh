@@ -10,12 +10,12 @@
 #   clean -> ACCEPT ; rebase-needed (no doc) -> REJECT ; rebase-needed + doc -> ACCEPT.
 #
 # Self-contained (own mktemp git repo, no fixed paths). bash 3.2 + BSD tools.
-# Run from repo root: bash tests/test-rebase-gate-check.sh
+# Run from repo root: bash tests/tooling/test-rebase-gate-check.sh
 # =============================================================================
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 GATE="$REPO_ROOT/scripts/rebase-gate-check.sh"
 
 PASS=0; FAIL=0; TOTAL=0

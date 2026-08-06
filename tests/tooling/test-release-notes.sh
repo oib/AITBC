@@ -15,12 +15,12 @@
 #      the PUT body; asserts the description is stamped atomically with
 #      released:true, and that the no-flag path omits the description (AC1).
 #
-# Run from repo root:  bash tests/test-release-notes.sh
+# Run from repo root:  bash tests/tooling/test-release-notes.sh
 # =============================================================================
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 RN="$REPO_ROOT/scripts/release-notes.sh"
 JV="$REPO_ROOT/scripts/jira-version.sh"
 FIX_DIR="$SCRIPT_DIR/fixtures/release-notes"

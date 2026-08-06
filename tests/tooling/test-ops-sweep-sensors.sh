@@ -15,12 +15,12 @@
 #
 # Self-contained: builds throwaway git repos / state dirs / ticket dirs under a
 # temp path. bash 3.2 + BSD/GNU tools. Run from repo root:
-#   bash tests/test-ops-sweep-sensors.sh
+#   bash tests/tooling/test-ops-sweep-sensors.sh
 # =============================================================================
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SENSORS="$REPO_ROOT/scripts/ops-sweep-sensors.sh"
 
 PASS=0; FAIL=0; TOTAL=0

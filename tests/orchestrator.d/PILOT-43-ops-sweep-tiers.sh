@@ -1,7 +1,7 @@
 # =============================================================================
 # PILOT-43 — ops-sweep Tier A/B activation (the shadow phase is over).
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # WHAT PILOT-43 ADDS

@@ -1,7 +1,7 @@
 # =============================================================================
 # PILOT-63 — a failed admission must not cost a budget unit (AC1 + AC4)
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # THE DEFECT THIS PINS (quantified on the 2026-07-25 BUDGET-PAUSE)
