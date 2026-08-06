@@ -187,6 +187,32 @@ class TestHierarchicalConfig:
         assert loader._config_cache is None
 
 
+# These settings classes are pydantic BaseSettings, so they read os.environ. Tests that
+# assert default or explicitly-passed values must not depend on what else the process has
+# set: tests/integration/conftest.py does `os.environ.setdefault("DEBUG", "true")` at
+# import time so the coordinator app comes up in debug mode, and conftest imports happen at
+# collection for the whole session. Without this the module passed alone and failed in a
+# full run, which is the least useful way for a test to fail.
+_AMBIENT_SETTINGS_ENV = (
+    "APP_NAME",
+    "APP_VERSION",
+    "ENVIRONMENT",
+    "DEBUG",
+    "LOG_LEVEL",
+    "HOST",
+    "PORT",
+    "WORKERS",
+    "SECRET_KEY",
+    "JWT_SECRET",
+)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_from_ambient_env(monkeypatch):
+    for name in _AMBIENT_SETTINGS_ENV:
+        monkeypatch.delenv(name, raising=False)
+
+
 # ============================================================================
 # ValidatedAITBCConfig Tests
 # ============================================================================

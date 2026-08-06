@@ -333,12 +333,20 @@ convention = "google"
 add_ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]
 
 [tool.pytest.ini_options]
-pythonpath = ["apps/coordinator-api/src"]
+# "." is the repo root, so `cli.*` and `aitbc.*` resolve to the checkout under test.
+# importlib import mode does not put rootdir on sys.path the way prepend mode did, and
+# the editable install maps only `aitbc_cli` -> cli/aitbc_cli, not the `cli` package.
+pythonpath = [".", "apps/coordinator-api/src"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 consider_namespace_packages = true
 minversion = "8.0"
-addopts = "-ra -q --strict-markers --strict-config --reruns 2 --reruns-delay 1"
+# --import-mode=importlib: both tests/ and apps/blockchain-node/tests/ carry __init__.py,
+# so under the default "prepend" mode they compete for the top-level `tests` package name
+# and whichever is imported first wins. Collecting both then fails the other with
+# "No module named 'tests.consensus'". importlib mode imports each file by location and
+# does not put test packages on sys.path at all, so the two coexist.
+addopts = "-ra -q --strict-markers --strict-config --reruns 2 --reruns-delay 1 --import-mode=importlib"
 timeout = 60
 filterwarnings = [
     "ignore::sqlalchemy.exc.SAWarning",
@@ -357,6 +365,13 @@ testpaths = [
     "tests/services",
     "tests/production",
     "tests/ui-accessibility",
+    # Added: these hold real coverage that no run was picking up. tests/core alone is 365
+    # tests, and tests/property_tests is the hypothesis suite. Both sat outside testpaths
+    # long enough to rot against APIs that had moved -- which is exactly what being
+    # excluded from every run lets happen.
+    "tests/core",
+    "tests/property_tests",
+    "tests/verification",
     "apps/blockchain-node/tests",
 ]
 markers = [

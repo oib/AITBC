@@ -18,7 +18,14 @@ def load_module_from_path(module_name, file_path):
     return module
 
 
-security = load_module_from_path("aitbc.crypto", Path("/opt/aitbc/aitbc/crypto/__init__.py"))
+# Resolved from this file's location rather than hardcoded to /opt/aitbc, so the
+# tests read the tree they live in -- a worktree or a fresh clone, not whatever
+# happens to be installed at that absolute path.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+security = load_module_from_path("aitbc.crypto", REPO_ROOT / "aitbc/crypto/__init__.py")
+# Password hashing moved out of aitbc.crypto into aitbc.auth.password.
+auth_password = load_module_from_path("aitbc.auth.password", REPO_ROOT / "aitbc/auth/password.py")
 
 
 # ============================================================================
@@ -496,29 +503,51 @@ class TestGlobalSecretManager:
 
 
 class TestPasswordHashing:
-    """Test password hashing functions"""
+    """Test password hashing functions.
+
+    These called security.hash_password / verify_password, which no longer exist on
+    aitbc.crypto -- password handling moved to aitbc.auth.password, where the salted
+    tuple-returning pair these tests describe is now hash_password_pbkdf2 /
+    verify_password_pbkdf2. (PasswordManager.hash_password is the bcrypt API and has a
+    different shape: one argument, a dict result.)
+    """
 
     def test_hash_password(self):
-        hashed, salt = security.hash_password("test_password")
+        hashed, salt = auth_password.hash_password_pbkdf2("test_password")
         assert hashed is not None
         assert salt is not None
         assert len(salt) == 32  # 16 bytes as hex = 32 chars
 
     def test_hash_password_with_salt(self):
         salt = "a" * 32
-        hashed, returned_salt = security.hash_password("test_password", salt=salt)
+        hashed, returned_salt = auth_password.hash_password_pbkdf2("test_password", salt=salt)
         assert returned_salt == salt
+
+    def test_hash_password_is_deterministic_for_a_given_salt(self):
+        salt = "b" * 32
+        first, _ = auth_password.hash_password_pbkdf2("test_password", salt=salt)
+        second, _ = auth_password.hash_password_pbkdf2("test_password", salt=salt)
+        assert first == second
+
+    def test_hash_password_differs_across_salts(self):
+        first, _ = auth_password.hash_password_pbkdf2("test_password", salt="c" * 32)
+        second, _ = auth_password.hash_password_pbkdf2("test_password", salt="d" * 32)
+        assert first != second
 
     def test_verify_password_valid(self):
         password = "test_password"
-        hashed, salt = security.hash_password(password)
-        result = security.verify_password(password, hashed, salt)
+        hashed, salt = auth_password.hash_password_pbkdf2(password)
+        result = auth_password.verify_password_pbkdf2(password, hashed, salt)
         assert result is True
 
     def test_verify_password_invalid(self):
-        hashed, salt = security.hash_password("correct_password")
-        result = security.verify_password("wrong_password", hashed, salt)
+        hashed, salt = auth_password.hash_password_pbkdf2("correct_password")
+        result = auth_password.verify_password_pbkdf2("wrong_password", hashed, salt)
         assert result is False
+
+    def test_verify_password_rejects_the_wrong_salt(self):
+        hashed, _ = auth_password.hash_password_pbkdf2("test_password", salt="e" * 32)
+        assert auth_password.verify_password_pbkdf2("test_password", hashed, "f" * 32) is False
 
 
 # ============================================================================
