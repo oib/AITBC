@@ -4,7 +4,10 @@ Provides real signature verification for multisig operations
 """
 
 import json
+import os
 import secrets
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from eth_account import Account
 from eth_utils import keccak, to_checksum_address
@@ -147,11 +150,58 @@ def validate_multisig_transaction(tx_data: dict) -> tuple[bool, str]:
     return True, ""
 
 
-class MultisigSecurityManager:
-    """Security manager for multisig operations"""
+# Multisig signing spans CLI invocations: one process creates the challenge, another
+# verifies a signature against it. A dict on a module-level singleton cannot do that --
+# each invocation is a fresh process, so the store was always empty by the time
+# verify_and_add_signature ran, and every signature returned "Transaction not found or
+# expired". Challenges are persisted instead, with a real expiry.
+_CHALLENGE_TTL = timedelta(hours=1)
+_DEFAULT_CHALLENGE_STORE = Path.home() / ".aitbc" / "multisig_challenges.json"
 
-    def __init__(self):
-        self.pending_challenges: dict[str, dict] = {}
+
+class MultisigSecurityManager:
+    """Security manager for multisig operations.
+
+    Challenges persist across CLI invocations in a 0600 JSON store and expire after
+    ``_CHALLENGE_TTL``.
+    """
+
+    def __init__(self, store_path: Path | None = None):
+        self.store_path = store_path or _DEFAULT_CHALLENGE_STORE
+
+    @property
+    def pending_challenges(self) -> dict[str, dict]:
+        """Non-expired challenges, read from the store."""
+        return self._load()
+
+    def _load(self) -> dict[str, dict]:
+        try:
+            with open(self.store_path) as f:
+                stored = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
+
+        now = datetime.now(UTC)
+        live: dict[str, dict] = {}
+        for tx_id, entry in stored.items():
+            created_raw = entry.get("created_at")
+            if not created_raw:
+                continue
+            try:
+                created = datetime.fromisoformat(created_raw)
+            except ValueError:
+                continue
+            if now - created < _CHALLENGE_TTL:
+                live[tx_id] = entry
+        return live
+
+    def _save(self, challenges: dict[str, dict]) -> None:
+        self.store_path.parent.mkdir(parents=True, exist_ok=True)
+        # Challenge payloads carry transaction data; create 0600 rather than chmod'ing
+        # after, which would leave a readable window.
+        fd = os.open(self.store_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
+            json.dump(challenges, f, indent=2)
 
     def create_signing_request(self, tx_data: dict, multisig_wallet: str) -> dict[str, str]:
         """
@@ -173,14 +223,18 @@ class MultisigSecurityManager:
         nonce = generate_nonce()
         challenge = create_signature_challenge(tx_data, nonce)
 
-        # Store challenge for verification
-        self.pending_challenges[tx_data["tx_id"]] = {
+        # Store challenge for verification. created_at is a real timestamp: it was
+        # secrets.token_hex(8), random bytes in a field named and consumed as a time, so
+        # expiry could never be computed.
+        challenges = self._load()
+        challenges[tx_data["tx_id"]] = {
             "challenge": challenge,
             "tx_data": tx_data,
             "multisig_wallet": multisig_wallet,
             "nonce": nonce,
-            "created_at": secrets.token_hex(8),
+            "created_at": datetime.now(UTC).isoformat(),
         }
+        self._save(challenges)
 
         return {
             "tx_id": tx_data["tx_id"],
@@ -202,10 +256,11 @@ class MultisigSecurityManager:
         Returns:
             Tuple of (success, message)
         """
-        if tx_id not in self.pending_challenges:
+        challenges = self._load()
+        if tx_id not in challenges:
             return False, "Transaction not found or expired"
 
-        challenge_data = self.pending_challenges[tx_id]
+        challenge_data = challenges[tx_id]
         challenge = challenge_data["challenge"]
 
         # Verify signature
@@ -223,8 +278,10 @@ class MultisigSecurityManager:
 
     def cleanup_challenge(self, tx_id: str):
         """Clean up challenge after transaction completion"""
-        if tx_id in self.pending_challenges:
-            del self.pending_challenges[tx_id]
+        challenges = self._load()
+        if tx_id in challenges:
+            del challenges[tx_id]
+            self._save(challenges)
 
 
 def bech32_to_hex(bech32_address: str) -> str:

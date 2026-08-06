@@ -164,8 +164,12 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
      * @dev Upgrade the contract
      */
     function upgrade(address newImplementation) external override onlyOwner {
-        version++;
-        // Implementation upgrade logic would go here
+        // Not supported: this contract is deployed directly, not behind a proxy, so there
+        // is no implementation slot to repoint. The previous body incremented `version`
+        // and discarded newImplementation, so callers were told an upgrade had happened
+        // when nothing had changed. Required by IModularContracts, hence present.
+        newImplementation; // silence unused-parameter warning
+        revert("upgrade not supported: contract is not proxy-deployed; redeploy and update ContractRegistry");
     }
 
     /**
