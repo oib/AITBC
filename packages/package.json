@@ -1,0 +1,13 @@
+{
+  "name": "@aitbc/packages",
+  "private": true,
+  "version": "0.22.0",
+  "description": "Workspace root for the AITBC TypeScript packages",
+  "//": "Members are listed in pnpm-workspace.yaml. See that file for why this root exists.",
+  "scripts": {
+    "lint": "pnpm -r --if-present run lint",
+    "test": "pnpm -r --if-present run test",
+    "build": "pnpm -r --if-present run build"
+  },
+  "license": "MIT"
+}
