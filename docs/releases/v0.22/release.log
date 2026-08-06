@@ -879,10 +879,11 @@ no hardcoded credentials, no insecure `random` for security purposes anywhere in
   groups and 142 source files. No dedicated tests for `agent`, `bridge`, `chain`, `compliance`,
   `contract`, `deploy`, `governance`, `mining`, `node/*`, `pool_hub`, `security`, `tee`,
   `wallet/*`, or `workflow`.
-- **CLI-12** *(Low)* `aitbc_cli/utils/dual_mode_wallet_adapter.py:93,97` — generated addresses
-  (`aitbc1{wallet_name}_simple`) contain underscores and fail the codebase's own
-  `^ait(bc)?1[a-z0-9]+$` validator, so wallets created here are rejected by other commands.
-  `:13` — hardcoded `sys.path.insert(0, "/opt/aitbc/cli")` at import time.
+- **CLI-12** *(Low, closed)* `aitbc_cli/utils/dual_mode_wallet_adapter.py` no longer generates
+  underscore-containing `aitbc1...` addresses; it derives real `0x...` addresses. The hardcoded
+  `sys.path.insert(0, "/opt/aitbc/cli")` has been removed from `dual_mode_wallet_adapter.py` and
+  `wallet_daemon_client.py`; both now import through the `aitbc_cli.utils.output` helper instead of
+  the legacy top-level `utils` package.
 - **CLI-13** *(Low)* `aitbc_cli/commands/client.py` is an unregistered empty stub group; three
   differently-purposed "agent" groups (`agent_sdk.py`→`agent`, `agent.py`→`agent-msg`,
   `agent_comm.py`) are disambiguated only by import aliases.
