@@ -1,9 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "AITBC Coordinator-Api Service",
-    "version": "0.1.0",
-    "description": "API specification for AITBC coordinator-api service"
+    "title": "AITBC Wallet Daemon",
+    "version": "0.1.0"
   },
   "paths": {
     "/v1/receipts/{job_id}": {
@@ -693,7 +692,15 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "number",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
               "title": "Eth Amount"
             }
           }
@@ -1103,7 +1110,7 @@
           "fee": {
             "type": "integer",
             "title": "Fee",
-            "default": 1000
+            "default": 36
           },
           "nonce": {
             "anyOf": [
@@ -1234,36 +1241,6 @@
         ],
         "title": "WalletUnlockResponse"
       }
-    },
-    "securitySchemes": {
-      "BearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT"
-      },
-      "ApiKeyAuth": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "X-API-Key"
-      }
     }
-  },
-  "servers": [
-    {
-      "url": "http://localhost:8203",
-      "description": "Coordinator API (production)"
-    },
-    {
-      "url": "http://localhost:8102",
-      "description": "Marketplace (production)"
-    },
-    {
-      "url": "http://localhost:8108",
-      "description": "Wallet (production)"
-    },
-    {
-      "url": "http://localhost:8107",
-      "description": "Agent (production)"
-    }
-  ]
+  }
 }
