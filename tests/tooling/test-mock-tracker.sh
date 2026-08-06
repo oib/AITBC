@@ -5,7 +5,7 @@
 # Conformance test for scripts/mock-tracker.sh against the task-tracking
 # capability contract (profiles/neutral/adapters/task-tracking.md) and the
 # canonical status machine (profiles/neutral/adapters/statuses.yaml).
-# Run from repo root: bash tests/test-mock-tracker.sh
+# Run from repo root: bash tests/tooling/test-mock-tracker.sh
 #
 # Strategy: point the tracker at a temp ticket store via
 # MOCK_TRACKER_TICKETS_DIR and exercise all nine operations end to end —
@@ -16,10 +16,10 @@
 set -e
 # PILOT-46: strip inherited backend/tracker env before any fixture runs (tests/sandbox-guard.sh).
 # shellcheck source=tests/sandbox-guard.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sandbox-guard.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/sandbox-guard.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TRACKER="$REPO_ROOT/scripts/mock-tracker.sh"
 
 TEST_DIR=$(mktemp -d /tmp/mock-tracker-test-XXXXXX)

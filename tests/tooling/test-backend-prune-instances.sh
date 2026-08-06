@@ -10,13 +10,13 @@
 #     never concatenated into SQL
 #   - missing --pattern / missing database URL fail with a setup error (exit 2)
 #
-# Run from repo root: bash tests/test-backend-prune-instances.sh
+# Run from repo root: bash tests/tooling/test-backend-prune-instances.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 PRUNE="$REPO_ROOT/scripts/backend-prune-instances.sh"
 
 PASS=0; FAIL=0; TOTAL=0

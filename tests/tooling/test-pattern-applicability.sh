@@ -12,13 +12,13 @@
 #   AC3  FastAPI profile gets NO Next.js pattern recommendation
 #   +    back-compat: a profile without a `stack:` key is unfiltered
 #
-# bash 3.2 / BSD safe. Run from repo root: bash tests/test-pattern-applicability.sh
+# bash 3.2 / BSD safe. Run from repo root: bash tests/tooling/test-pattern-applicability.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 GUARD="$REPO_ROOT/scripts/pattern-applicability.sh"
 
 TEST_DIR=$(mktemp -d /tmp/pattern-applicability-test-XXXXXX)

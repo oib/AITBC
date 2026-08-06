@@ -1,7 +1,7 @@
 # =============================================================================
 # PILOT-42 — cadence-triggered TDM ops-sweep (time-driven, PHASE 0 / shadow).
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # WHAT PILOT-42 ADDS

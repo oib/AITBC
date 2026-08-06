@@ -10,14 +10,14 @@
 #   - placeholder prose (ADR-YYY / ADR-A-00NN)       => not matched, exit 0
 #   - real repo specs/ + adrs/ tree                  => exit 0 (no live dangler)
 #
-# Run from repo root: bash tests/test-adr-reference-lint.sh
+# Run from repo root: bash tests/tooling/test-adr-reference-lint.sh
 # All fixtures live in a temp tree; the real-tree check is read-only.
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LINT="$REPO_ROOT/scripts/adr-reference-lint.sh"
 
 TEST_DIR=$(mktemp -d /tmp/adr-reflint-test-XXXXXX)

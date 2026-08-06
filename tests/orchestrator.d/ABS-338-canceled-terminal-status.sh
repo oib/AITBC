@@ -1,7 +1,7 @@
 # =============================================================================
 # ABS-338 — `Canceled` is a canonical TERMINAL status (Epic ABS-326, Option A)
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md). In scope: assert_contains / assert_eq /
 # assert_not_contains, PASS/FAIL/TOTAL, new_env / cleanup_env / baseline /
 # tracker / orch, ORCH / TRACKER / MOCK_TRACKER_STATUSES / ORCH_STATE_DIR.

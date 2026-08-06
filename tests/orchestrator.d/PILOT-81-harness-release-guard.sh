@@ -4,7 +4,7 @@
 #            annotated release tag with a clean tree, and the resolved harness
 #            version (tag+SHA) is stamped into the run.log head.
 # -----------------------------------------------------------------------------
-# Sourced by tests/test-orchestrator.sh (no shebang, shared harness — see
+# Sourced by tests/tooling/test-orchestrator.sh (no shebang, shared harness — see
 # docs/sop/TEST_SUITE_LAYOUT.md).
 #
 # THE DEFECT THIS PINS (observed live: ABS-594, 2026-07-26)

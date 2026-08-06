@@ -7,13 +7,13 @@
 # script without an SOP mention turns the guard RED. Auto-discovered by the
 # CI / pre-release tests/test-*.sh loops.
 #
-# Run from repo root: bash tests/test-orch-knob-drift.sh
+# Run from repo root: bash tests/tooling/test-orch-knob-drift.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 GUARD="$REPO_ROOT/scripts/orch-knob-doc-drift.sh"
 
 PASS=0

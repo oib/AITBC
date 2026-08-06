@@ -3,7 +3,7 @@
 # Test: Preflight Safety Check + Provenance Tracking (SAW-2)
 # =============================================================================
 # Tests all AC items for the preflight safety check and provenance features.
-# Run from repo root: bash tests/test-preflight.sh
+# Run from repo root: bash tests/tooling/test-preflight.sh
 #
 # Strategy:
 #   - Unit tests source functions via a wrapper that strips the main
@@ -15,7 +15,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SYNC_SCRIPT="$REPO_ROOT/scripts/sync-claude-harness.sh"
 
 # Create a temporary project structure for testing

@@ -20,13 +20,13 @@
 #      test bites and that removing the fix would go red.
 #
 # bash 3.2 + BSD tools only. Run from repo root:
-#   bash tests/test-registry-id-parallel.sh
+#   bash tests/tooling/test-registry-id-parallel.sh
 # =============================================================================
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 GUARD="$REPO_ROOT/scripts/rule-ledger-check.sh"
 ALLOC="$REPO_ROOT/scripts/next-rule-ledger-id.sh"
 

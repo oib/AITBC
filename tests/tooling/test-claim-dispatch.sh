@@ -17,13 +17,13 @@
 #   - on + lost:     releases the local lock, consumes NO slot/budget, re-queues (rc 3)
 #   - on + over-cap: deferred for cap is NEVER claimed -> stays free for peers
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-claim-dispatch.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-claim-dispatch.sh
 # =============================================================================
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Isolated state dir: LOCKS_DIR / run.log / ledger are all derived from it at
 # source time, so it MUST be exported before sourcing.

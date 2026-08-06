@@ -26,7 +26,7 @@
 # name-pattern pkill (that would reap a live orchestrator); it only ever kills
 # the decoy by its explicit PID.
 #
-# bash 3.2 + BSD tools only. Run from repo root: bash tests/test-kill-guard.sh
+# bash 3.2 + BSD tools only. Run from repo root: bash tests/tooling/test-kill-guard.sh
 # =============================================================================
 
 set -u
@@ -38,7 +38,7 @@ set -u
 unset "${!ORCH_@}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HOOK="$REPO_ROOT/harness/claude/hooks/pre-bash-kill-guard.sh"
 
 PASS=0; FAIL=0; TOTAL=0
