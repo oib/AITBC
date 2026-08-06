@@ -846,13 +846,13 @@ no hardcoded credentials, no insecure `random` for security purposes anywhere in
   from the OS keyring (still used by the legacy `cli/auth/__init__.py`) to a module-level
   `_CREDENTIAL_STORE: dict[...] = {}` — plaintext, in-process only, and gone on the next CLI
   invocation since each call is a fresh process. Currently dead code, dangerous if wired up.
-- **CLI-04** *(Medium)* `cli/utils/`, `cli/auth/`, `cli/models/` — a duplicate legacy top-level
-  package tree shadowing `cli/aitbc_cli/*`. `cli/setup.py` uses
-  `find_packages(exclude=["aitbc"])`, so these install into site-packages under the dangerously
-  generic names `utils`, `auth`, `models`, `config_data`. The trees have diverged rather than
-  being re-export shims — e.g. `cli/utils/wallet_daemon_client.py` still leaks HTTP clients
-  (`sign_message`, `send_transaction`, `unlock_wallet`, `list_chains`) that the `aitbc_cli`
-  copy fixed with `with`.
+- **CLI-04** *(Medium, closed for the install shadowing)* `cli/setup.py` now uses
+  `find_packages(include=["aitbc_cli", "aitbc_cli.*"])`, so the legacy `cli/utils/`, `cli/auth/`,
+  and `cli/models/` directories are no longer installed into site-packages as the generic
+  top-level packages `utils`, `auth`, `models`, `config_data`. All `aitbc_cli` imports of these
+  modules now use package-relative paths (`..models`, `..utils.output`) instead of the
+  top-level names. The legacy source trees are still present on disk (used by `tests/cli`), but
+  the shadowing hazard for installed CLI users is gone.
 - **CLI-05** *(Medium)* `aitbc_cli/utils/crypto_utils.py:150-183` — multisig challenges live in
   a process-local dict on a module singleton, so a challenge from `create_signing_request` can
   never be found by a later `verify_and_add_signature` (separate processes). Line 182 also sets
