@@ -78,7 +78,7 @@ git fetch harness main
 # harness/template → harness/main
 ```
 
-See [v2.9.0 Upgrade Guide](v2.9.0-UPGRADE.md) for full migration instructions including rollback options.
+See [v2.9.0 Upgrade Guide](UPGRADE.md) for full migration instructions including rollback options.
 
 ---
 
