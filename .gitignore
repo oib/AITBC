@@ -382,6 +382,11 @@ api_keys.txt
 !profiles/*/profile.yaml
 !profiles/neutral/adapters/statuses.yaml
 !docs/rule-ledger.yaml
+# Same story again: the blanket *.yaml above hides the file that declares the TypeScript
+# workspace. Without it a fresh clone cannot resolve @aitbc/theme-provider's "workspace:*"
+# and packages/web has no compiler to lint with.
+!packages/pnpm-workspace.yaml
+!packages/pnpm-lock.yaml
 backups/*/config/
 backups/*/logs/
 
