@@ -266,6 +266,59 @@ class TestBlockHeaderSignature:
         )
         assert PoAProposer.verify_block_signature(block) is False
 
+    def test_verify_block_signature_accepts_ethereum_encoded_v(self, rpc_engine) -> None:
+        """A signature with recovery id 27/28 must verify.
+
+        The tests above sign with eth_keys, which emits the canonical v of 0 or 1 -- the
+        same encoding the verifier consumed, so the pair was self-consistent and the gap
+        stayed invisible. Every standard Ethereum signer, including
+        aitbc.crypto.sign_transaction_hash which the bridge CLI uses, emits 27 or 28
+        instead. eth_keys.Signature raises BadSignature on those, and the verifier's broad
+        `except Exception: return False` reported it as a bad signature rather than an
+        unsupported encoding.
+        """
+        from aitbc.crypto.crypto import sign_transaction_hash
+        from aitbc_chain.consensus.poa import PoAProposer
+
+        acct = EthAccount.create()
+        block_hash = "0x" + "cd" * 32
+        signature = sign_transaction_hash(block_hash, acct.key.hex())
+
+        # Precondition: this is genuinely the other encoding.
+        assert bytes.fromhex(signature.removeprefix("0x"))[64] in (27, 28)
+
+        block = Block(
+            chain_id="chain-a",
+            height=1,
+            hash=block_hash,
+            parent_hash="0x" + "00" * 32,
+            proposer=acct.address.lower(),
+            tx_count=0,
+            signature=signature,
+        )
+        assert PoAProposer.verify_block_signature(block) is True
+
+    def test_verify_block_signature_rejects_nonsense_recovery_id(self, rpc_engine) -> None:
+        """Normalising 27/28 must not turn into accepting any recovery id at all."""
+        from aitbc_chain.consensus.poa import PoAProposer
+
+        acct = EthAccount.create()
+        block_hash = "0x" + "cd" * 32
+        pk = keys.PrivateKey(bytes.fromhex(acct.key.hex().removeprefix("0x")))
+        sig = pk.sign_msg_hash(bytes.fromhex(block_hash.removeprefix("0x")))
+
+        mangled = bytes.fromhex(sig.to_hex().removeprefix("0x"))[:64] + bytes([99])
+        block = Block(
+            chain_id="chain-a",
+            height=1,
+            hash=block_hash,
+            parent_hash="0x" + "00" * 32,
+            proposer=acct.address.lower(),
+            tx_count=0,
+            signature="0x" + mangled.hex(),
+        )
+        assert PoAProposer.verify_block_signature(block) is False
+
     def test_verify_block_signature_corrupt(self, rpc_engine) -> None:
         """Corrupt signature is rejected."""
         from aitbc_chain.consensus.poa import PoAProposer
