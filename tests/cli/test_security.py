@@ -11,7 +11,7 @@ class TestDeriveSecureKey:
 
     def test_derive_secure_key_with_password(self):
         """Test key derivation with valid password"""
-        from utils.security import derive_secure_key
+        from cli.utils.security import derive_secure_key
 
         password = "test_password_123"
         fernet_key, salt = derive_secure_key(password)
@@ -23,7 +23,7 @@ class TestDeriveSecureKey:
 
     def test_derive_secure_key_with_salt(self):
         """Test key derivation with provided salt"""
-        from utils.security import derive_secure_key
+        from cli.utils.security import derive_secure_key
 
         password = "test_password_123"
         salt = b"test_salt_32_bytes_1234567890AB"
@@ -35,14 +35,14 @@ class TestDeriveSecureKey:
 
     def test_derive_secure_key_short_password(self):
         """Test key derivation with short password"""
-        from utils.security import derive_secure_key
+        from cli.utils.security import derive_secure_key
 
         with pytest.raises(ValueError, match="Password must be at least 8 characters"):
             derive_secure_key("short")
 
     def test_derive_secure_key_empty_password(self):
         """Test key derivation with empty password"""
-        from utils.security import derive_secure_key
+        from cli.utils.security import derive_secure_key
 
         with pytest.raises(ValueError, match="Password must be at least 8 characters"):
             derive_secure_key("")
@@ -53,7 +53,7 @@ class TestEncryptValue:
 
     def test_encrypt_value(self):
         """Test encrypting a value"""
-        from utils.security import encrypt_value
+        from cli.utils.security import encrypt_value
 
         value = "secret_data"
         password = "test_password_123"
@@ -68,14 +68,14 @@ class TestEncryptValue:
 
     def test_encrypt_value_empty(self):
         """Test encrypting empty value"""
-        from utils.security import encrypt_value
+        from cli.utils.security import encrypt_value
 
         with pytest.raises(ValueError, match="Cannot encrypt empty value"):
             encrypt_value("", "password")
 
     def test_encrypt_value_weak_password(self):
         """Test encrypting with weak password"""
-        from utils.security import encrypt_value
+        from cli.utils.security import encrypt_value
 
         with pytest.raises(ValueError, match="Password must be at least 8 characters"):
             encrypt_value("value", "short")
@@ -86,7 +86,7 @@ class TestDecryptValue:
 
     def test_decrypt_value(self):
         """Test decrypting a value"""
-        from utils.security import decrypt_value, encrypt_value
+        from cli.utils.security import decrypt_value, encrypt_value
 
         value = "secret_data"
         password = "test_password_123"
@@ -98,7 +98,7 @@ class TestDecryptValue:
 
     def test_decrypt_value_wrong_password(self):
         """Test decrypting with wrong password"""
-        from utils.security import decrypt_value, encrypt_value
+        from cli.utils.security import decrypt_value, encrypt_value
 
         value = "secret_data"
         password = "test_password_123"
@@ -110,7 +110,7 @@ class TestDecryptValue:
 
     def test_decrypt_value_legacy_format(self):
         """Test decrypting legacy format (should fail)"""
-        from utils.security import decrypt_value
+        from cli.utils.security import decrypt_value
 
         with pytest.raises(ValueError, match="Legacy encrypted format"):
             decrypt_value("legacy_string", "password")
@@ -121,7 +121,7 @@ class TestValidatePasswordStrength:
 
     def test_validate_weak_password(self):
         """Test weak password validation"""
-        from utils.security import validate_password_strength
+        from cli.utils.security import validate_password_strength
 
         result = validate_password_strength("short")
 
@@ -131,7 +131,7 @@ class TestValidatePasswordStrength:
 
     def test_validate_strong_password(self):
         """Test strong password validation"""
-        from utils.security import validate_password_strength
+        from cli.utils.security import validate_password_strength
 
         result = validate_password_strength("StrongP@ssw0rd123!")
 
@@ -141,7 +141,7 @@ class TestValidatePasswordStrength:
 
     def test_validate_common_password(self):
         """Test common password detection"""
-        from utils.security import validate_password_strength
+        from cli.utils.security import validate_password_strength
 
         result = validate_password_strength("password")
 
@@ -155,7 +155,7 @@ class TestGenerateSecurePassword:
 
     def test_generate_secure_password_default(self):
         """Test generating password with default length"""
-        from utils.security import generate_secure_password, validate_password_strength
+        from cli.utils.security import generate_secure_password, validate_password_strength
 
         password = generate_secure_password()
 
@@ -165,7 +165,7 @@ class TestGenerateSecurePassword:
 
     def test_generate_secure_password_custom_length(self):
         """Test generating password with custom length"""
-        from utils.security import generate_secure_password, validate_password_strength
+        from cli.utils.security import generate_secure_password, validate_password_strength
 
         password = generate_secure_password(length=24)
 
@@ -179,7 +179,7 @@ class TestMigrateLegacyWallet:
 
     def test_migrate_legacy_wallet_success(self):
         """Test successful wallet migration"""
-        from utils.security import migrate_legacy_wallet
+        from cli.utils.security import migrate_legacy_wallet
 
         legacy_data = {"encrypted": True, "private_key": "0x1234567890abcdef", "address": "0xabc"}
         new_password = "StrongP@ssw0rd123!"
@@ -193,7 +193,7 @@ class TestMigrateLegacyWallet:
 
     def test_migrate_legacy_wallet_not_encrypted(self):
         """Test migrating non-encrypted wallet"""
-        from utils.security import migrate_legacy_wallet
+        from cli.utils.security import migrate_legacy_wallet
 
         legacy_data = {"private_key": "0x1234567890abcdef"}
 
@@ -202,7 +202,7 @@ class TestMigrateLegacyWallet:
 
     def test_migrate_legacy_wallet_no_private_key(self):
         """Test migrating wallet without private key"""
-        from utils.security import migrate_legacy_wallet
+        from cli.utils.security import migrate_legacy_wallet
 
         legacy_data = {"encrypted": True}
 
@@ -211,7 +211,7 @@ class TestMigrateLegacyWallet:
 
     def test_migrate_legacy_wallet_mock(self):
         """Test migrating mock wallet"""
-        from utils.security import migrate_legacy_wallet
+        from cli.utils.security import migrate_legacy_wallet
 
         legacy_data = {"encrypted": True, "private_key": "[ENCRYPTED_MOCK]data"}
 
@@ -224,7 +224,7 @@ class TestEncryptionConfig:
 
     def test_encryption_config_constants(self):
         """Test encryption configuration constants"""
-        from utils.security import EncryptionConfig
+        from cli.utils.security import EncryptionConfig
 
         assert EncryptionConfig.PBKDF2_ITERATIONS == 600_000
         assert EncryptionConfig.SALT_LENGTH == 32
