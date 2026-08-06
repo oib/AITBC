@@ -106,6 +106,6 @@ The current in-flight plan is in `docs/releases/v0.10.16/AGENTS.md`. If your cha
 
 ## Questions?
 
-- Read the [Master Index](docs/MASTER_INDEX.md) for documentation navigation.
-- See [docs/releases/STATUS.md](docs/releases/STATUS.md) for what's currently in progress.
+- Read the [Master Index](../../MASTER_INDEX.md) for documentation navigation.
+- See [docs/releases/STATUS.md](../../releases/STATUS.md) for what's currently in progress.
 - For support, visit https://devin.ai/support.
