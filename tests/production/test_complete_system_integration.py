@@ -4,7 +4,6 @@ Tests integration of all 9 systems: Architecture, Services, Security, Agents, AP
 """
 
 import logging
-import socket
 import time
 
 import pytest
@@ -13,15 +12,9 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-def _service_available(host: str = "localhost", port: int = 9001) -> bool:
-    try:
-        with socket.create_connection((host, port), timeout=1):
-            return True
-    except OSError:
-        return False
+from .conftest import coordinator_gate
 
-
-pytestmark = pytest.mark.skipif(not _service_available(), reason="Agent coordinator service not running on localhost:9001")
+pytestmark = coordinator_gate()
 
 
 class TestCompleteSystemIntegration:
