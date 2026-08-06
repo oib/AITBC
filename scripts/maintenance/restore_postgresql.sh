@@ -155,14 +155,24 @@ perform_restore() {
     local remote_backup="/tmp/restore_$(date +%s).dump"
     kubectl cp "$BACKUP_FILE" "$NAMESPACE/$pod:$remote_backup"
 
-    # Drop existing database and recreate
+    # Validate the database name before interpolating it into SQL. It comes from a
+    # Kubernetes secret, so it is trusted-ish, but DROP DATABASE is not the statement to
+    # find out otherwise -- a malformed or tampered value would be executed verbatim.
+    # Postgres identifiers: letters, digits and underscore, not starting with a digit.
+    if [[ ! "$db_name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        error "Refusing to use database name from secret: '$db_name' is not a valid identifier"
+        exit 1
+    fi
+
+    # Drop existing database and recreate. Double-quoted as an identifier so the name is
+    # never parsed as SQL.
     log "Dropping existing database..."
     PGPASSWORD="$db_password" kubectl exec -n "$NAMESPACE" "$pod" -- \
-        psql -U "$db_user" -h localhost -d postgres -c "DROP DATABASE IF EXISTS $db_name;"
+        psql -U "$db_user" -h localhost -d postgres -c "DROP DATABASE IF EXISTS \"$db_name\";"
 
     log "Creating new database..."
     PGPASSWORD="$db_password" kubectl exec -n "$NAMESPACE" "$pod" -- \
-        psql -U "$db_user" -h localhost -d postgres -c "CREATE DATABASE $db_name;"
+        psql -U "$db_user" -h localhost -d postgres -c "CREATE DATABASE \"$db_name\";"
 
     # Restore database
     log "Restoring database from backup..."
