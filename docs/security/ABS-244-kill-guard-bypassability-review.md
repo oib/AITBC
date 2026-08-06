@@ -83,7 +83,7 @@ Reproduce the table below on any checkout:
 
 ```bash
 bash tests/probe-kill-guard-bypass.sh     # verdict per vector (evidence)
-bash tests/test-kill-guard.sh             # the enforced gates (48 assertions)
+bash tests/tooling/test-kill-guard.sh             # the enforced gates (48 assertions)
 ```
 
 ## Vector matrix (AC1)
@@ -139,7 +139,7 @@ guard allowed it. Position decides meaning, so the rule is positional: a `-1` to
 that is **not** the one directly after `kill` is a target, not a signal. `kill -1 1234`
 (SIGHUP to one PID) and `kill -9 -12345` (own process group) remain allowed.
 
-Both are covered by assertions in `tests/test-kill-guard.sh`, including an end-to-end
+Both are covered by assertions in `tests/tooling/test-kill-guard.sh`, including an end-to-end
 proof that a **decoy carrying the pattern survives** a blocked `ps|grep|kill`, plus
 false-positive controls for the legitimate forms above.
 
@@ -257,9 +257,9 @@ inherit its contract by construction — and this is asserted, not assumed:
 | **V0: the copy step exists and was skipped** | `harness/claude/SETUP.md:60-64` — "Claude Code **auto-loads** `.claude/settings.json`" + `cp .claude/settings.template.json .claude/settings.json` |
 | V0 reproducible | `bash tests/probe-kill-guard-bypass.sh` → prints `NOT WIRED` |
 | Vector verdicts (V1–V8) | `bash tests/probe-kill-guard-bypass.sh` |
-| Mitigations enforced, no regression | `bash tests/test-kill-guard.sh` → **48 passed, 0 failed** (was 31 before ABS-244) |
+| Mitigations enforced, no regression | `bash tests/tooling/test-kill-guard.sh` → **48 passed, 0 failed** (was 31 before ABS-244) |
 | ABS-243 behavior unchanged | Same suite: incident form, signal-flag variant, compound clause, `killall`, `xargs kill` all still BLOCKED; PID/`-P`/`-g`/`-s` kills still allowed |
-| Adjacent guard unaffected | `bash tests/test-local-main-guard.sh` → ALL TESTS PASSED |
+| Adjacent guard unaffected | `bash tests/tooling/test-local-main-guard.sh` → ALL TESTS PASSED |
 | No privilege separation exists | `git grep -nE '\b(setsid\|sudo -u\|runuser\|unshare)\b' -- scripts/ harness/` → no hits |
 | `setsid` unavailable | `command -v setsid` → not found (macOS/BSD) |
 | Guard file is seat-writable | `.claude/settings.local.json` allow-list contains `Write`, `Edit`, `Write(.claude/**)`, `Edit(.claude/**)` |
