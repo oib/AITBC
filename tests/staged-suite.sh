@@ -13,7 +13,7 @@
 #   Stage `orch-core` : the scenario blocks only (SUITE_SKIP_STORY_INCLUDES=1).
 #   Stage `stories`   : the ~48 orchestrator.d includes, fanned out
 #                       one-process-per-file in parallel (SUITE_INCLUDE_ONLY).
-#   Stage `pool`      : every OTHER tests/test-*.sh, via run-all.sh (parallel).
+#   Stage `pool`      : every OTHER tests/tooling/test-*.sh, via run-all.sh (parallel).
 #
 # The partition is fixed BY THIS SCRIPT — a seat never chooses which files run,
 # so file-selection cannot be used to make a red suite look green (the integrity
