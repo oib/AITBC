@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "coordinator-api"
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "blockchain-node" / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "marketplace" / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "wallet" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "agent-coordinator" / "src"))
 
 # Defaults for services that require environment variables to import
 os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
@@ -24,6 +25,11 @@ os.environ.setdefault("WALLET_DIR", "/tmp/test_wallet")
 os.environ.setdefault("KEYSTORE_PASSWORD", "test-password")
 os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
 os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+# agent-coordinator refuses to start without these; the values are irrelevant to the
+# generated schema and never leave this process.
+# Both must be at least 32 characters or the apps refuse to construct their settings.
+os.environ.setdefault("SECRET_KEY", "openapi-spec-extraction-placeholder-key")
+os.environ.setdefault("JWT_SECRET", "openapi-spec-extraction-placeholder-jwt")
 
 REPO_DIR = Path(__file__).parent.parent
 DOCS_DIR = REPO_DIR / "docs"
@@ -53,6 +59,13 @@ APPS = [
         "name": "wallet",
         "module": "wallet_app.main:app",
         "output": "wallet-openapi.json",
+    },
+    {
+        # Was only ever published by hand as docs/openapi/agent.json, which had drifted to
+        # 11 paths against the app's actual 100.
+        "name": "agent-coordinator",
+        "module": "agent_app.main:app",
+        "output": "agent-coordinator-openapi.json",
     },
 ]
 
@@ -87,6 +100,10 @@ def main():
             output_path = API_DOCS_DIR / app_config["output"]
             with open(output_path, "w") as f:
                 json.dump(spec, f, indent=2)
+                # Trailing newline: pre-commit's end-of-file-fixer adds one, so without it
+                # here every regeneration differs from what is committed and
+                # `make openapi-check` reports drift that is not there.
+                f.write("\n")
             print(f"    ✓ Saved to {output_path}")
         else:
             print(f"    ✗ Failed to extract {app_config['name']}")
