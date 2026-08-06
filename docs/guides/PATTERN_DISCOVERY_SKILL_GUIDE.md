@@ -83,7 +83,7 @@ from the release tag in `.governor-tag` (currently `v2.22.0`, per ABS-94/ABS-95)
 authoritative source of truth is `harness/.claude/`. ABS-168 changes land in
 `harness/.claude/agents/` and `harness/.claude/skills/pattern-discovery/SKILL.md`; the live
 `.claude/` catches up at the next governor promotion (`promote-release.sh`). Hand-editing
-`.claude/agents/` would break `tests/test-harness-parity.sh` (test 1: `.claude == generate(pin)`).
+`.claude/agents/` would break `tests/tooling/test-harness-parity.sh` (test 1: `.claude == generate(pin)`).
 
 ---
 

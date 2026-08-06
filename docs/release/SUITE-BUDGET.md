@@ -1,8 +1,8 @@
 # Test-Suite Budget & Reserve (ABS-603)
 
-The release gate (`scripts/pre-release-check.sh`) runs each `tests/test-*.sh` suite
+The release gate (`scripts/pre-release-check.sh`) runs each `tests/tooling/test-*.sh` suite
 under a per-suite wall-clock **budget** (`PRE_RELEASE_SUITE_TIMEOUT`, a watchdog
-from PILOT-60/ABS-573). The tentpole `tests/test-orchestrator.sh` dominates that
+from PILOT-60/ABS-573). The tentpole `tests/tooling/test-orchestrator.sh` dominates that
 budget, and — this is the ABS-603 finding — its runtime **grows with every epic**,
 so the reserve (budget − runtime) shrinks over time until a parallel seat is enough
 to push the gate red on green code.
@@ -14,7 +14,7 @@ visible. Re-measure at each release (`scripts/measure-suite-budget.sh --both
 
 ## The finding (Pilot 8, 2026-07-27)
 
-- `tests/test-orchestrator.sh` ran **790 s** isolated against a **900 s** budget →
+- `tests/tooling/test-orchestrator.sh` ran **790 s** isolated against a **900 s** budget →
   only **12 % reserve**. Result: 1455/1455 assertions, exit 0 — a fully green suite.
 - The same day, while the RTE ran the tentpole for epic integration, a concurrent
   operator verification of the *same* suite hit the watchdog: `test-orchestrator:
@@ -58,7 +58,7 @@ tentpole running against a fixed budget while growing every ticket.
    stays visible.
 
 The classification policy is a pure, unit-tested helper — `scripts/lib/suite-budget.sh`
-(`suite_reserve_pct`, `classify_suite`), covered by `tests/test-suite-budget.sh` — so
+(`suite_reserve_pct`, `classify_suite`), covered by `tests/tooling/test-suite-budget.sh` — so
 the gate and the tests agree by construction.
 
 ## Budget rationale

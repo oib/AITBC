@@ -4,7 +4,7 @@ Every file/dir class the runner writes under `$ORCH_STATE_DIR` (`work/.orchestra
 classified per [ADR-A-0026](../../adrs/agentic/ADR-A-0026-first-class-orchestration-state.md):
 filesystem markers are the prose-reconstruction substrate that ADR-A-0026 migrates into
 first-class typed backend state. This inventory FREEZES the surface — a NEW marker class
-in `scripts/` fails `tests/test-orchestrator-marker-allowlist.sh` until it is added here
+in `scripts/` fails `tests/tooling/test-orchestrator-marker-allowlist.sh` until it is added here
 (and classified) deliberately. The migration itself is owned by ABS-229 Phase 2; this
 document only pins what exists and where it should go.
 
