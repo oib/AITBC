@@ -206,7 +206,7 @@ partial:
 | Applications | APP-01, APP-08, APP-17, APP-24, APP-25, APP-28, APP-29, APP-29b, APP-29c, APP-30, APP-31, APP-32, APP-33, APP-34, APP-35, APP-36, APP-37, APP-38, APP-39, APP-40, APP-41, APP-42, APP-43, APP-44, APP-45, APP-46, APP-47, APP-48, APP-49, APP-50, APP-51, APP-52, APP-53, APP-54, APP-55, APP-56, APP-57, APP-59, APP-60, APP-61, APP-62, APP-63, APP-64, APP-65, APP-66, APP-67, APP-68, APP-69, APP-70, APP-71, APP-X1, APP-X2, APP-X3, APP-X4 (partial) | — | APP-X1/26/27/28/29/29b/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46/47/48/49/51/52/53/56/61/62/63/65/66/67/68/69/70/71/X3 now closed. APP-X4 partially closed (shared-core/shared-domain packages populated and re-exported; services still need migration off duplicated boilerplate). Many stubs, missing auth, and no-op endpoints remain. |
 | Smart contracts | SC-01, SC-02, SC-03, SC-04 | SC-05–SC-14 (with SC-07/13 partial) | Unbounded loops, no-op upgrades, unsafe deployment scripts, missing validations. |
 | Ops/Scripts | OPS-01, OPS-02, OPS-05 | OPS-03, OPS-04, OPS-06–OPS-18 (with OPS-13/19 partial) | Destructive rollback, secret handling, supply-chain install, maintenance scripts remain. |
-| CLI | CLI-01, CLI-12 (partial) | CLI-02–CLI-13 (with CLI-04 partial) | Placeholder results, in-memory state, TOCTOU, stub groups remain. |
+| CLI | CLI-01, CLI-04, CLI-12 | CLI-02–CLI-03, CLI-05–CLI-11, CLI-13 | Placeholder results, in-memory state, TOCTOU, stub groups remain. |
 | Packages | — | PKG-01–PKG-14 | No package source changed between the audit baseline and this verification. |
 | Tests/Docs | TEST-01, DOC-01 | TEST-02–TEST-08, DOC-02–DOC-07 | Stale status docs, skipped suites, duplicate doc trees remain. |
 
