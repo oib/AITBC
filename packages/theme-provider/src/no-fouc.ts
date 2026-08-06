@@ -53,7 +53,8 @@ function coerceMode(raw: string | null): ThemeMode | null {
 
 export function readStoredTheme(): ThemeMode | null {
   try {
-    const server = (window as any).__AITBC_THEME__ as ThemeMode | undefined;
+    // Set by the server-rendered inline script, so it is not on the standard Window type.
+    const server = (window as Window & { __AITBC_THEME__?: ThemeMode }).__AITBC_THEME__;
     if (server) return VALID_MODES.includes(server) ? server : null;
     return coerceMode(window.localStorage.getItem(STORAGE_KEY));
   } catch {
