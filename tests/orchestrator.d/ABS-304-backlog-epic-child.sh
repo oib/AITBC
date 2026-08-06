@@ -94,5 +94,5 @@ assert_contains "$_abs304_throttle" "intents=1" "ABS-304: the SKIP-EPIC-CHILD in
 assert_contains "$_abs304_throttle" "throttled=1" "ABS-304: the second sweep is throttled to a runlog line (no re-emit)"
 
 # Regression note: epic_join_rest_complete() (the EPIC-side of this class) is not
-# touched — its behaviour is guarded by tests/test-epic-join-resting.sh.
+# touched — its behaviour is guarded by tests/tooling/test-epic-join-resting.sh.
 unset E C P E2 C2 out out_off _abs304_throttle
