@@ -83,6 +83,11 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         uint256 poolAPY;
         uint256 lastDistributionTime;
         mapping(address => uint256) stakerShares;
+        // Earnings distributed to a staker but not yet withdrawn. Pull-based: the
+        // distributor credits, the staker claims. Previously the distributor tried to
+        // push the reward into one of the staker's stake records, which required an
+        // unbounded scan and silently dropped the reward when no ACTIVE stake was found.
+        mapping(address => uint256) pendingRewards;
         address[] stakers;
     }
 
@@ -232,6 +237,12 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         address indexed agentWallet,
         uint256 totalRewards,
         uint256 stakerCount
+    );
+
+    event PoolRewardsClaimed(
+        address indexed agentWallet,
+        address indexed staker,
+        uint256 amount
     );
 
     event PlatformFeeCollected(
@@ -504,7 +515,20 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         // Transfer distributable amount to contract
         require(paymentToken.transferFrom(msg.sender, address(this), distributableAmount), "Earnings transfer failed");
 
-        // Distribute to stakers proportionally
+        // Distribute to stakers proportionally.
+        //
+        // This used to scan agentStakes[_agentWallet] for each staker to find a stake to
+        // attach the reward to -- O(stakers x stakes), which grows without bound and
+        // eventually cannot be executed at all, permanently blocking distribution for
+        // that agent. It also credited `totalDistributed` whether or not the inner scan
+        // found an ACTIVE stake: a staker still listed in the pool with no active stake
+        // had their reward counted as distributed while it was written nowhere, so the
+        // contract reported paying out more than it credited and the tokens sat
+        // unassigned.
+        //
+        // Rewards now land in a per-staker balance, claimable via claimPoolRewards. One
+        // storage write per staker, no inner scan, and nothing can be counted as
+        // distributed without being credited.
         uint256 totalDistributed = 0;
         for (uint256 i = 0; i < pool.stakers.length; i++) {
             address staker = pool.stakers[i];
@@ -512,16 +536,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
             uint256 stakerReward = (distributableAmount * stakerShare) / pool.totalStaked;
 
             if (stakerReward > 0) {
-                // Find and update all stakes for this staker on this agent
-                uint256[] storage stakesForAgent = agentStakes[_agentWallet];
-                for (uint256 j = 0; j < stakesForAgent.length; j++) {
-                    uint256 stakeId = stakesForAgent[j];
-                    Stake storage stake = stakes[stakeId];
-                    if (stake.staker == staker && stake.status == StakeStatus.ACTIVE) {
-                        stake.accumulatedRewards += stakerReward;
-                        break;
-                    }
-                }
+                pool.pendingRewards[staker] += stakerReward;
                 totalDistributed += stakerReward;
             }
         }
@@ -530,6 +545,34 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         agentMetrics[_agentWallet].totalRewardsDistributed += totalDistributed;
 
         emit PoolRewardsDistributed(_agentWallet, totalDistributed, pool.stakers.length);
+    }
+
+    /**
+     * @dev Rewards distributed to a staker for an agent that have not yet been claimed.
+     * @param _agentWallet Agent whose pool to read
+     * @param _staker Staker to read
+     */
+    function pendingPoolRewards(address _agentWallet, address _staker) external view returns (uint256) {
+        return stakingPools[_agentWallet].pendingRewards[_staker];
+    }
+
+    /**
+     * @dev Withdraws the caller's distributed earnings for one agent's pool.
+     *
+     * The counterpart to distributeAgentEarnings: that credits, this pays out. Balance is
+     * zeroed before the transfer so a re-entrant call finds nothing to claim.
+     * @param _agentWallet Agent whose pool to claim from
+     */
+    function claimPoolRewards(address _agentWallet) external nonReentrant returns (uint256) {
+        StakingPool storage pool = stakingPools[_agentWallet];
+        uint256 amount = pool.pendingRewards[msg.sender];
+        require(amount > 0, "No rewards to claim");
+
+        pool.pendingRewards[msg.sender] = 0;
+        require(paymentToken.transfer(msg.sender, amount), "Reward transfer failed");
+
+        emit PoolRewardsClaimed(_agentWallet, msg.sender, amount);
+        return amount;
     }
 
     /**
