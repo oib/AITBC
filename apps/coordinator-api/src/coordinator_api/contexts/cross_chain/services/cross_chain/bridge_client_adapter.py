@@ -622,6 +622,7 @@ class BridgeClientAdapter:
                 calculate_source_timelock,
                 compute_hashlock,
                 generate_secret,
+                validate_timelocks,
             )
 
             # Generate a cryptographically random 32-byte secret and compute
@@ -631,23 +632,40 @@ class BridgeClientAdapter:
             bridge_request.secret_hash = secret_hash
             self.session.commit()
 
-            # Calculate timelocks (block heights). block_time_seconds=5 is the
-            # default AITBC block time; current_block_height defaults to 0
-            # (the wallet adapter / chain state supplies the real height at
-            # contract creation time).
+            # Timelocks are computed relative to a base height of 0, i.e. as
+            # offsets, because no wallet adapter here exposes a chain head --
+            # the real height is applied at contract creation time. Both chains
+            # therefore use the same base, which keeps the relative ordering
+            # meaningful. This is a known gap rather than a fix: if a real
+            # height is ever substituted into one leg and not the other, the
+            # ordering breaks silently. The validation below is what would
+            # catch that.
             block_time_seconds = 5
-            current_block_height = 0
+            base_height = 0
             timeout_seconds = 3600  # 1 hour default
             source_timelock = calculate_source_timelock(
-                current_block_height=current_block_height,
+                current_block_height=base_height,
                 timeout_seconds=timeout_seconds,
                 block_time_seconds=block_time_seconds,
             )
             dest_timelock = calculate_dest_timelock(
                 source_timelock=source_timelock,
+                source_current_height=base_height,
+                source_block_time=block_time_seconds,
+                dest_current_height=base_height,
+                dest_block_time=block_time_seconds,
+            )
+
+            timelock_errors = validate_timelocks(
+                source_timelock=source_timelock,
+                dest_timelock=dest_timelock,
+                source_current_height=base_height,
+                dest_current_height=base_height,
                 source_block_time=block_time_seconds,
                 dest_block_time=block_time_seconds,
             )
+            if timelock_errors:
+                raise ValueError(f"refusing to initiate HTLC swap with unsafe timelocks: {'; '.join(timelock_errors)}")
             logger.info(
                 "HTLC swap initiated for bridge request %s: hashlock=%s source_timelock=%d dest_timelock=%d timeout=%ds",
                 bridge_request.id,

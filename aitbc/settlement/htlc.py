@@ -107,43 +107,83 @@ def calculate_source_timelock(
 
 def calculate_dest_timelock(
     source_timelock: int,
+    source_current_height: int,
     source_block_time: int,
+    dest_current_height: int,
     dest_block_time: int,
-    margin_blocks: int = 20,
+    margin_seconds: int = 300,
 ) -> int:
     """Calculate the destination chain timelock (block height).
 
-    The dest timelock must be EARLIER than the source timelock (when
-    converted to the same time base) so that:
-    1. Seller must reveal secret on dest chain before dest timelock
-    2. Buyer has time to use the revealed secret on source chain before
-       source timelock expires
+    The dest timelock must expire EARLIER than the source timelock in
+    wall-clock terms, so that:
+    1. The seller must reveal the secret on the dest chain before dest_timelock
+    2. The buyer still has ``margin_seconds`` to use the revealed secret on the
+       source chain before source_timelock expires
 
-    The conversion accounts for different block times between chains.
-    The margin_blocks provides additional safety to ensure the dest
-    timelock expires well before the source timelock.
+    Block heights on two chains are independent quantities. A height on the
+    source chain says nothing about what height the dest chain will be at
+    when that moment arrives, so both current heights are required: the
+    remaining *duration* is what converts between chains, not the height.
 
     Formula:
-        dest_timelock = source_timelock * (dest_block_time / source_block_time) - margin_blocks
+        source_remaining = (source_timelock - source_current_height) * source_block_time
+        dest_remaining   = source_remaining - margin_seconds
+        dest_timelock    = dest_current_height + dest_remaining // dest_block_time
+
+    ``dest_remaining`` is floored into whole dest blocks, which can only move
+    the dest timelock earlier -- so the realised margin is always at least
+    ``margin_seconds``, never less.
 
     Args:
-        source_timelock: Source chain timelock (block height)
+        source_timelock: Source chain timelock (absolute block height)
+        source_current_height: Current block height on the source chain
         source_block_time: Block time on source chain (seconds per block)
+        dest_current_height: Current block height on the dest chain
         dest_block_time: Block time on dest chain (seconds per block)
-        margin_blocks: Extra blocks subtracted for safety margin
+        margin_seconds: Wall-clock safety margin between dest and source
+            expiry. Defaults to 300, matching ``validate_timelocks``.
 
     Returns:
-        Destination chain timelock as a block height
+        Destination chain timelock as an absolute block height
+
+    Raises:
+        ValueError: If a block time is not positive, if the source timelock is
+            not in the future, or if the source window is too short to leave
+            ``margin_seconds`` plus at least one dest block.
+
+    Note:
+        This previously took ``(source_timelock, source_block_time,
+        dest_block_time, margin_blocks)`` and computed
+        ``source_timelock * source_block_time // dest_block_time``, treating an
+        absolute height as a duration and never consulting the dest chain. The
+        same inputs produced a timelock weeks away or already expired depending
+        on the dest height it never saw. The signature changed rather than
+        gaining optional arguments because there is no correct value to default
+        the heights to, and a silently-wrong swap is worse than a broken build.
     """
     if source_block_time <= 0:
         raise ValueError("source_block_time must be positive")
     if dest_block_time <= 0:
         raise ValueError("dest_block_time must be positive")
-    # Convert source timelock to seconds, then to dest chain blocks
-    source_timeout_seconds = source_timelock * source_block_time
-    dest_timeout_blocks = source_timeout_seconds // dest_block_time
-    result = dest_timeout_blocks - margin_blocks
-    return max(result, 1)  # ensure at least 1 block
+    if margin_seconds < 0:
+        raise ValueError("margin_seconds must not be negative")
+
+    source_remaining_blocks = source_timelock - source_current_height
+    if source_remaining_blocks <= 0:
+        raise ValueError(f"source_timelock {source_timelock} is not above source_current_height {source_current_height}")
+
+    source_remaining_seconds = source_remaining_blocks * source_block_time
+    dest_remaining_seconds = source_remaining_seconds - margin_seconds
+    dest_remaining_blocks = dest_remaining_seconds // dest_block_time
+
+    if dest_remaining_blocks < 1:
+        raise ValueError(
+            f"source window of {source_remaining_seconds}s is too short to leave "
+            f"a {margin_seconds}s margin plus one {dest_block_time}s dest block"
+        )
+
+    return dest_current_height + dest_remaining_blocks
 
 
 def validate_timelocks(
