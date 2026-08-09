@@ -5,7 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from ..services.database_service import DatabaseService, SyncNotImplementedError
+from ..services.database_service import SYNC_NOT_IMPLEMENTED, DatabaseService, SyncNotImplementedError
 
 router = APIRouter()
 
@@ -69,4 +69,8 @@ async def sync_database(database_id: str, svc: Annotated[DatabaseService, Depend
     try:
         return await svc.sync_database(database_id)
     except SyncNotImplementedError as e:
-        raise HTTPException(status_code=501, detail=str(e)) from e
+        # The constant, not str(e). tests/security/test_http_exception_hardening.py forbids
+        # detail=str(...) on any 5xx: an exception's text is not vetted for what it reveals,
+        # and 501 is 5xx. Here the two strings happen to be identical, which is exactly why
+        # the blanket rule is the right one -- it does not depend on the reader checking.
+        raise HTTPException(status_code=501, detail=SYNC_NOT_IMPLEMENTED) from e
