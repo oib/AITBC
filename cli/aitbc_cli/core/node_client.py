@@ -308,7 +308,7 @@ class NodeClient:
         """Parse chain data from node response"""
         from datetime import datetime
 
-        from models.chain import PrivacyConfig
+        from ..models.chain import PrivacyConfig
 
         return ChainInfo(
             id=chain_data.get("chain_id", chain_data.get("id", "unknown")),
@@ -362,7 +362,7 @@ class NodeClient:
         """Get mock chains for development"""
         from datetime import datetime
 
-        from models.chain import PrivacyConfig
+        from ..models.chain import PrivacyConfig
 
         return [
             ChainInfo(
