@@ -90,21 +90,21 @@ def verify_signature(message_hash: str, signature: str, address: str) -> bool:
     ``Account.recover_message``, which expects an EIP-191 ``SignableMessage`` rather than
     a bare hash -- so it was both broken on its own terms and asymmetric with the signer.
     Neither showed up while the round-trip property test was skipped.
+
+    It then used ``Account._recover_hash``, which worked but was a second recovery
+    implementation reached through a different library, and so invisible to the
+    ``keys.Signature(`` grep that V23-05's centralisation check greps for. Being private,
+    it is also the same shape as the breakage that preceded it: eth-account 0.13 removed
+    ``sign_hash`` and left signing broken for a release. It now calls
+    :func:`_recover_address` like every other recovery path.
     """
     try:
-        from eth_account import Account
         from eth_utils import to_bytes
 
-        # Remove 0x prefixes if present
-        if message_hash.startswith("0x"):
-            message_hash = message_hash[2:]
-        if signature.startswith("0x"):
-            signature = signature[2:]
+        message_bytes = to_bytes(hexstr=message_hash.removeprefix("0x"))
+        signature_bytes = to_bytes(hexstr=signature.removeprefix("0x"))
 
-        message_bytes = to_bytes(hexstr=message_hash)
-        signature_bytes = to_bytes(hexstr=signature)
-
-        recovered_address = Account._recover_hash(message_bytes, signature=signature_bytes)
+        recovered_address = _recover_address(message_bytes, signature_bytes)
         # Compare on the 0x-prefixed form both sides normalise to, case-insensitively:
         # recovery returns an EIP-55 checksummed address, and callers pass whatever they
         # hold. Stripping "0x" from only one side, as this did, made every comparison
@@ -113,8 +113,11 @@ def verify_signature(message_hash: str, signature: str, address: str) -> bool:
             address = "0x" + address
         return bool(recovered_address.lower() == address.lower())
     except ImportError:
+        # eth-account is no longer reached from here; recovery uses eth-keys via
+        # _recover_address. Naming the packages actually required makes the error
+        # actionable rather than sending the reader after the wrong dependency.
         raise ImportError(
-            "eth-account and eth-utils are required for signature verification. Install with: pip install eth-account eth-utils"
+            "eth-keys and eth-utils are required for signature verification. Install with: pip install eth-keys eth-utils"
         ) from None
     except Exception as e:
         raise ValueError(f"Failed to verify signature: {e}") from e
