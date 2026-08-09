@@ -16,6 +16,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
+from types import SimpleNamespace
 
 # Ensure blockchain-node source is importable
 _SRC = Path(__file__).resolve().parent.parent / "src"
@@ -54,6 +55,10 @@ class MockSession:
         self.accounts: dict[tuple[str, str], Account] = {}
         self.swaps: dict[str, HTLCSwapState] = {}
         self.escrows: dict[str, CrossChainEscrowRecord] = {}
+        # Chain heads. The contract compares swap timelocks against the real
+        # head height; it used to derive one from time.time(), so these tests
+        # never had to model a chain with blocks in it.
+        self.block_heights: dict[str, int] = {"ait-hub": 10_000, "ait-island-1": 8_000}
         self.proofs: list[EscrowProofRecord] = []
         self._escrow_counter = 0
         self._proof_counter = 0
@@ -106,6 +111,10 @@ class MockSession:
                 rows = [r for r in rows if r.escrow_id == filters["escrow_id"]]
             if "status" in filters:
                 rows = [r for r in rows if r.status in filters["status"]]
+        elif table_name == "block":
+            chain_id = filters.get("chain_id")
+            height = self.block_heights.get(chain_id) if chain_id else None
+            rows = [SimpleNamespace(height=height, chain_id=chain_id)] if height is not None else []
         elif table_name == "escrow_proofs":
             rows = list(self.proofs)
             if "escrow_id" in filters:
