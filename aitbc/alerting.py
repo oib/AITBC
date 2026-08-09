@@ -211,6 +211,8 @@ class AlertManager:
         self.channels: list[AlertChannel] = []
         self.active_alerts: dict[str, Alert] = {}
         self.alert_history: list[Alert] = []
+        # Guards concurrent mutation of rules/channels/alerts/history.
+        self._lock = asyncio.Lock()
         self._running = False
         self._task: asyncio.Task | None = None
 
@@ -247,7 +249,9 @@ class AlertManager:
 
     async def check_rules(self) -> None:
         """Check all alert rules and fire if needed"""
-        for rule in self.rules.values():
+        async with self._lock:
+            rules = list(self.rules.values())
+        for rule in rules:
             try:
                 if rule.should_fire():
                     alert = rule.fire()
@@ -262,11 +266,13 @@ class AlertManager:
         Args:
             alert: Alert to send
         """
-        self.active_alerts[alert.id] = alert
-        self.alert_history.append(alert)
-        if len(self.alert_history) > 1000:
-            self.alert_history = self.alert_history[-1000:]
-        for channel in self.channels:
+        async with self._lock:
+            self.active_alerts[alert.id] = alert
+            self.alert_history.append(alert)
+            if len(self.alert_history) > 1000:
+                self.alert_history = self.alert_history[-1000:]
+            channels = list(self.channels)
+        for channel in channels:
             try:
                 await channel.send(alert)
             except Exception as e:
@@ -283,14 +289,15 @@ class AlertManager:
         Returns:
             True if acknowledged successfully
         """
-        if alert_id in self.active_alerts:
-            alert = self.active_alerts[alert_id]
-            alert.status = AlertStatus.ACKNOWLEDGED
-            alert.acknowledged_by = acknowledged_by
-            alert.acknowledged_at = datetime.now(UTC)
-            logger.info("Alert acknowledged: %s by %s", alert_id, acknowledged_by)
-            return True
-        return False
+        async with self._lock:
+            if alert_id in self.active_alerts:
+                alert = self.active_alerts[alert_id]
+                alert.status = AlertStatus.ACKNOWLEDGED
+                alert.acknowledged_by = acknowledged_by
+                alert.acknowledged_at = datetime.now(UTC)
+                logger.info("Alert acknowledged: %s by %s", alert_id, acknowledged_by)
+                return True
+            return False
 
     async def resolve_alert(self, alert_id: str) -> bool:
         """
@@ -302,14 +309,15 @@ class AlertManager:
         Returns:
             True if resolved successfully
         """
-        if alert_id in self.active_alerts:
-            alert = self.active_alerts[alert_id]
-            alert.status = AlertStatus.RESOLVED
-            alert.resolved_at = datetime.now(UTC)
-            del self.active_alerts[alert_id]
-            logger.info("Alert resolved: %s", alert_id)
-            return True
-        return False
+        async with self._lock:
+            if alert_id in self.active_alerts:
+                alert = self.active_alerts[alert_id]
+                alert.status = AlertStatus.RESOLVED
+                alert.resolved_at = datetime.now(UTC)
+                del self.active_alerts[alert_id]
+                logger.info("Alert resolved: %s", alert_id)
+                return True
+            return False
 
     def get_active_alerts(self) -> list[Alert]:
         """Get all active alerts"""
@@ -351,7 +359,9 @@ class AlertManager:
         while self._running:
             try:
                 await self.check_rules()
-                min_interval = min((rule.check_interval for rule in self.rules.values()), default=60)
+                async with self._lock:
+                    rules = list(self.rules.values())
+                min_interval = min((rule.check_interval for rule in rules), default=60)
                 await asyncio.sleep(min_interval)
             except asyncio.CancelledError:
                 break

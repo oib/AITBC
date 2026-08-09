@@ -30,6 +30,10 @@ class Settings(ServiceSettings):
     # Agent coordinator integration (v0.6.6 matching → task queue)
     agent_coordinator_url: str = "http://localhost:8107"
 
+    # Compute hub RPC endpoint published in marketplace offers.
+    # ponytail: default uses https per V23-13; override via HUB_RPC_URL env var.
+    hub_rpc_url: str = "https://hub.aitbc.bubuit.net/rpc"
+
     # Service binding (kept for backward compat with MARKETPLACE_BIND_HOST/PORT env vars;
     # ServiceSettings also provides app_host/app_port)
     marketplace_bind_host: str = "0.0.0.0"  # nosec B104

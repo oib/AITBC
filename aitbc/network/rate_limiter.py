@@ -13,6 +13,7 @@ purposes and are intentionally kept separate.
 """
 
 from datetime import UTC, datetime
+from threading import Lock
 from typing import Any
 
 from ..aitbc_logging import get_logger
@@ -33,29 +34,33 @@ class RateLimiter:
         self.rate_limit = rate_limit
         self.window_seconds = window_seconds
         self.request_times: list[datetime] = []
+        self._lock = Lock()
         self.logger = get_logger(__name__)
 
     def check(self) -> None:
         """Check if rate limit is exceeded and raise exception if so."""
         if not self.rate_limit:
             return
-        now = datetime.now(UTC)
-        self.request_times = [t for t in self.request_times if (now - t).total_seconds() < self.window_seconds]
-        if len(self.request_times) >= self.rate_limit:
-            raise RateLimitError(f"Rate limit exceeded: {self.rate_limit} requests per {self.window_seconds} seconds")
+        with self._lock:
+            now = datetime.now(UTC)
+            self.request_times = [t for t in self.request_times if (now - t).total_seconds() < self.window_seconds]
+            if len(self.request_times) >= self.rate_limit:
+                raise RateLimitError(f"Rate limit exceeded: {self.rate_limit} requests per {self.window_seconds} seconds")
 
     def record_request(self) -> None:
         """Record a request timestamp for rate limiting."""
         if self.rate_limit:
-            self.request_times.append(datetime.now(UTC))
+            with self._lock:
+                self.request_times.append(datetime.now(UTC))
 
     def get_state(self) -> dict[str, Any]:
         """Get current rate limiter state."""
-        now = datetime.now(UTC)
-        recent_requests = [t for t in self.request_times if (now - t).total_seconds() < self.window_seconds]
-        return {
-            "rate_limit": self.rate_limit,
-            "window_seconds": self.window_seconds,
-            "current_requests": len(recent_requests),
-            "request_times": [t.isoformat() for t in recent_requests],
-        }
+        with self._lock:
+            now = datetime.now(UTC)
+            recent_requests = [t for t in self.request_times if (now - t).total_seconds() < self.window_seconds]
+            return {
+                "rate_limit": self.rate_limit,
+                "window_seconds": self.window_seconds,
+                "current_requests": len(recent_requests),
+                "request_times": [t.isoformat() for t in recent_requests],
+            }

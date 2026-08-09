@@ -20,7 +20,7 @@ from aitbc.tee import (
     SessionState,
     TEEChannel,
     TEEError,
-    TEEMessage,
+    ChannelMessage,
     TEESession,
     seal,
     unseal,
@@ -148,7 +148,7 @@ def test_tee_session_replay_nonce() -> None:
     assert session.next_nonce() == 2
 
 
-def test_tee_channel_send_and_receive() -> None:
+def test_tee_channel_encode_and_decode() -> None:
     session = TEESession(
         session_id="s1",
         initiator_id="agent-a",
@@ -161,11 +161,11 @@ def test_tee_channel_send_and_receive() -> None:
     channel.open()
     assert channel.state == ChannelState.OPEN
 
-    message = channel.send(b"hello")
-    assert isinstance(message, TEEMessage)
+    message = channel.encode(b"hello")
+    assert isinstance(message, ChannelMessage)
     assert message.nonce == 1
 
-    received = channel.receive(message)
+    received = channel.decode(message)
     assert received == b"hello"
 
 

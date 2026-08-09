@@ -15,6 +15,7 @@ Provides:
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import Callable
 from functools import wraps
@@ -164,6 +165,8 @@ class RateLimiter:
 
         self.redis_url: str = redis_url or os.getenv("REDIS_URL", "redis://localhost:6379/0") or "redis://localhost:6379/0"
         self.redis_client: Any | None = None
+        # Guards concurrent mutation of the in-memory rate-limiting cache.
+        self._lock = asyncio.Lock()
         self.memory_requests: dict[str, deque[float]] = {}
         self.limits = {
             "default": {"requests": 100, "window": 3600},
@@ -184,7 +187,7 @@ class RateLimiter:
             logger.warning("Redis unavailable, falling back to in-memory rate limiting: %s", e)
             self.redis_client = None
 
-    def is_allowed(self, user_id: str, user_role: str = "default") -> dict[str, Any]:
+    async def is_allowed(self, user_id: str, user_role: str = "default") -> dict[str, Any]:
         """Check if user is allowed to make request."""
         import time
 
@@ -193,7 +196,7 @@ class RateLimiter:
         max_requests = limit_config["requests"]
         window_seconds = limit_config["window"]
         if self.redis_client is None:
-            return self._is_allowed_memory(user_id, user_role, current_time, max_requests, window_seconds)
+            return await self._is_allowed_memory(user_id, user_role, current_time, max_requests, window_seconds)
         try:
             key = f"ratelimit:{user_id}:{user_role}"
             self.redis_client.zremrangebyscore(key, 0, current_time - window_seconds)
@@ -215,30 +218,31 @@ class RateLimiter:
                 return {"allowed": False, "remaining": 0, "reset_time": reset_time}
         except Exception as e:
             logger.error("Redis rate limiting error, falling back to in-memory: %s", e)
-            return self._is_allowed_memory(user_id, user_role, current_time, max_requests, window_seconds)
+            return await self._is_allowed_memory(user_id, user_role, current_time, max_requests, window_seconds)
 
-    def _is_allowed_memory(
+    async def _is_allowed_memory(
         self, user_id: str, user_role: str, current_time: float, max_requests: int, window_seconds: int
     ) -> dict[str, Any]:
         """Fallback in-memory rate limiting."""
         from collections import deque
 
-        if user_id not in self.memory_requests:
-            self.memory_requests[user_id] = deque()
-        user_requests = self.memory_requests[user_id]
-        while user_requests and user_requests[0] < current_time - window_seconds:
-            user_requests.popleft()
-        if len(user_requests) < max_requests:
-            user_requests.append(current_time)
-            return {
-                "allowed": True,
-                "remaining": max_requests - len(user_requests),
-                "reset_time": current_time + window_seconds,
-            }
-        else:
-            oldest_request = user_requests[0]
-            reset_time = oldest_request + window_seconds
-            return {"allowed": False, "remaining": 0, "reset_time": reset_time}
+        async with self._lock:
+            if user_id not in self.memory_requests:
+                self.memory_requests[user_id] = deque()
+            user_requests = self.memory_requests[user_id]
+            while user_requests and user_requests[0] < current_time - window_seconds:
+                user_requests.popleft()
+            if len(user_requests) < max_requests:
+                user_requests.append(current_time)
+                return {
+                    "allowed": True,
+                    "remaining": max_requests - len(user_requests),
+                    "reset_time": current_time + window_seconds,
+                }
+            else:
+                oldest_request = user_requests[0]
+                reset_time = oldest_request + window_seconds
+                return {"allowed": False, "remaining": 0, "reset_time": reset_time}
 
 
 rate_limiter = RateLimiter()
@@ -249,7 +253,7 @@ rate_limiter = RateLimiter()
 # ---------------------------------------------------------------------------
 
 
-def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)]) -> dict[str, Any]:
+async def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)]) -> dict[str, Any]:
     """Get current user from JWT token or API key.
 
     This is the agent-coordinator compatible version that uses the dict-style
@@ -272,7 +276,7 @@ def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials | None,
                         detail="Invalid token",
                         headers={"WWW-Authenticate": "Bearer"},
                     )
-                rate_check = rate_limiter.is_allowed(user_id, payload.get("role", "default"))
+                rate_check = await rate_limiter.is_allowed(user_id, payload.get("role", "default"))
                 if not rate_check["allowed"]:
                     retry_after = max(0, int(rate_check["reset_time"] - time.time()))
                     raise HTTPException(
@@ -295,7 +299,7 @@ def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials | None,
             validation = api_key_manager.validate_api_key(api_key)
             if validation["valid"]:
                 user_id = validation["user_id"]
-                rate_check = rate_limiter.is_allowed(user_id, "api_key")
+                rate_check = await rate_limiter.is_allowed(user_id, "api_key")
                 if not rate_check["allowed"]:
                     retry_after = max(0, int(rate_check["reset_time"] - time.time()))
                     raise HTTPException(
