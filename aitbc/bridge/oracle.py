@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import time
 from abc import ABC, abstractmethod
+from threading import Lock
 from typing import Any, Protocol, cast, runtime_checkable
 
 import httpx
@@ -267,6 +268,7 @@ class ExternalOracleClient(OracleClient):
         self._unhealthy_cooldown = unhealthy_cooldown_seconds
         # endpoint -> earliest retry timestamp (epoch seconds).
         self._unhealthy_until: dict[str, float] = {}
+        self._lock = Lock()
         if not self._endpoints:
             logger.warning("ExternalOracleClient initialized with no endpoints")
 
@@ -281,11 +283,13 @@ class ExternalOracleClient(OracleClient):
 
     def _healthy_endpoints(self) -> list[str]:
         """Return endpoints not currently in unhealthy cooldown."""
-        now = time.time()
-        return [ep for ep in self._endpoints if self._unhealthy_until.get(ep, 0.0) <= now]
+        with self._lock:
+            now = time.time()
+            return [ep for ep in self._endpoints if self._unhealthy_until.get(ep, 0.0) <= now]
 
     def _mark_unhealthy(self, endpoint: str) -> None:
-        self._unhealthy_until[endpoint] = time.time() + self._unhealthy_cooldown
+        with self._lock:
+            self._unhealthy_until[endpoint] = time.time() + self._unhealthy_cooldown
         logger.warning("Oracle endpoint %s marked unhealthy for %ss", endpoint, self._unhealthy_cooldown)
 
     async def _post_json(self, endpoint: str, path: str, payload: dict[str, Any]) -> dict[str, Any] | None:

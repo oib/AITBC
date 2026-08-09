@@ -25,8 +25,8 @@ class ChannelState(StrEnum):
 
 
 @dataclass
-class TEEMessage:
-    """A single encrypted message on a TEE channel."""
+class ChannelMessage:
+    """A single encoded message on a channel."""
 
     message_id: str
     sender_id: str
@@ -37,13 +37,13 @@ class TEEMessage:
 
 @dataclass
 class TEEChannel:
-    """Encrypted channel bound to an established TEE session."""
+    """Channel bound to an established TEE session."""
 
     channel_id: str
     session: TEESession
     peer_id: str
     state: ChannelState | str = ChannelState.PENDING
-    messages: list[TEEMessage] = field(default_factory=list)
+    messages: list[ChannelMessage] = field(default_factory=list)
     meta: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -64,25 +64,25 @@ class TEEChannel:
         """Close the channel."""
         self.state = ChannelState.CLOSED
 
-    def send(self, payload: bytes | str) -> TEEMessage:
-        """Send an encrypted message on the channel."""
+    def encode(self, payload: bytes | str) -> ChannelMessage:
+        """Encode a payload for the channel."""
         if self.state != ChannelState.OPEN:
-            raise TEEError(f"cannot send on channel in state {self.state}")
+            raise TEEError(f"cannot encode on channel in state {self.state}")
         if isinstance(payload, str):
             payload = payload.encode("utf-8")
         # ponytail: base64 placeholder for enclave-side authenticated encryption.
-        ciphertext = base64.b64encode(payload)
-        message = TEEMessage(
+        encoded = base64.b64encode(payload)
+        message = ChannelMessage(
             message_id=f"{self.channel_id}-{len(self.messages)}",
             sender_id=self.session.initiator_id,
-            payload=ciphertext,
+            payload=encoded,
             nonce=self.session.next_nonce(),
         )
         self.messages.append(message)
         return message
 
-    def receive(self, message: TEEMessage) -> bytes:
-        """Decrypt and return a received message payload."""
+    def decode(self, message: ChannelMessage) -> bytes:
+        """Decode a received message payload."""
         if self.state != ChannelState.OPEN:
-            raise TEEError(f"cannot receive on channel in state {self.state}")
+            raise TEEError(f"cannot decode on channel in state {self.state}")
         return base64.b64decode(message.payload)

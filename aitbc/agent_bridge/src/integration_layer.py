@@ -4,6 +4,7 @@ AITBC Agent Integration Layer
 Connects agent protocols to existing AITBC services
 """
 
+import asyncio
 import logging
 import os
 from datetime import UTC, datetime
@@ -36,19 +37,22 @@ class AITBCServiceIntegration:
         }
         self.session: aiohttp.ClientSession | None = None
         self._session_ref: int = 0
+        self._session_lock = asyncio.Lock()
 
     async def __aenter__(self):
-        if self.session is None or self.session.closed:
-            self.session = aiohttp.ClientSession()
-        self._session_ref += 1
-        return self
+        async with self._session_lock:
+            if self.session is None or self.session.closed:
+                self.session = aiohttp.ClientSession()
+            self._session_ref += 1
+            return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        self._session_ref -= 1
-        if self._session_ref <= 0 and self.session:
-            await self.session.close()
-            self.session = None
-            self._session_ref = 0
+        async with self._session_lock:
+            self._session_ref -= 1
+            if self._session_ref <= 0 and self.session:
+                await self.session.close()
+                self.session = None
+                self._session_ref = 0
 
     async def get_blockchain_info(self) -> dict[str, Any]:
         """Get blockchain information"""
@@ -127,10 +131,15 @@ class AgentServiceBridge:
     def __init__(self):
         self.integration = AITBCServiceIntegration()
         self.active_agents = {}
+        self._lock = asyncio.Lock()
 
     async def start_agent(self, agent_id: str, agent_config: dict[str, Any]) -> bool:
         """Start an agent with service integration"""
         try:
+            # Determine the next local endpoint port under the bridge lock.
+            async with self._lock:
+                endpoint_port = 8000 + len(self.active_agents) + 10
+
             # Register agent with coordinator
             async with self.integration as integration:
                 registration_result = await integration.register_agent_with_coordinator(
@@ -141,7 +150,7 @@ class AgentServiceBridge:
                         "services": agent_config.get("services", []),
                         "endpoints": agent_config.get(
                             "endpoints",
-                            {"http": agent_config.get("endpoint", f"http://localhost:{8000 + len(self.active_agents) + 10}")},
+                            {"http": agent_config.get("endpoint", f"http://localhost:{endpoint_port}")},
                         ),
                         "metadata": agent_config.get("metadata", {}),
                         "chain_id": agent_config.get("chain_id", "ait-mainnet"),
@@ -151,11 +160,12 @@ class AgentServiceBridge:
 
             # The registry returns {"status": "success", "agent_id": ...} on success
             if registration_result and registration_result.get("agent_id") == agent_id:
-                self.active_agents[agent_id] = {
-                    "config": agent_config,
-                    "registration": registration_result,
-                    "started_at": datetime.now(UTC),
-                }
+                async with self._lock:
+                    self.active_agents[agent_id] = {
+                        "config": agent_config,
+                        "registration": registration_result,
+                        "started_at": datetime.now(UTC),
+                    }
                 return True
             else:
                 logger.warning("Registration failed: %s", registration_result)
@@ -166,17 +176,18 @@ class AgentServiceBridge:
 
     async def stop_agent(self, agent_id: str) -> bool:
         """Stop an agent"""
-        if agent_id in self.active_agents:
-            del self.active_agents[agent_id]
-            return True
-        return False
+        async with self._lock:
+            if agent_id in self.active_agents:
+                del self.active_agents[agent_id]
+                return True
+            return False
 
     async def get_agent_status(self, agent_id: str) -> dict[str, Any]:
         """Get agent status with service integration"""
-        if agent_id not in self.active_agents:
-            return {"status": "not_found"}
-
-        agent_info = self.active_agents[agent_id]
+        async with self._lock:
+            if agent_id not in self.active_agents:
+                return {"status": "not_found"}
+            agent_info = self.active_agents[agent_id]
 
         async with self.integration as integration:
             # Get service statuses
@@ -193,8 +204,9 @@ class AgentServiceBridge:
 
     async def execute_agent_task(self, agent_id: str, task_data: dict[str, Any]) -> dict[str, Any]:
         """Execute agent task with service integration"""
-        if agent_id not in self.active_agents:
-            return {"status": "error", "message": "Agent not found"}
+        async with self._lock:
+            if agent_id not in self.active_agents:
+                return {"status": "error", "message": "Agent not found"}
 
         task_type = task_data.get("type")
 

@@ -6,6 +6,7 @@ Used by coordinator-api, blockchain-node, agent, and other services.
 
 import asyncio
 from collections.abc import Callable
+from threading import Lock
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -21,6 +22,7 @@ class TaskRegistry:
 
     def __init__(self) -> None:
         self._tasks: dict[str, asyncio.Task[Any]] = {}
+        self._lock = Lock()
 
     def create_task(
         self,
@@ -42,9 +44,6 @@ class TaskRegistry:
         Returns:
             The created asyncio.Task
         """
-        if name in self._tasks and not self._tasks[name].done():
-            logger.warning("Task %s already running, skipping", name)
-            return self._tasks[name]
 
         async def _wrapped() -> Any:
             while True:
@@ -60,14 +59,20 @@ class TaskRegistry:
                     logger.info("Restarting task %s in %.1f seconds", name, restart_delay)
                     await asyncio.sleep(restart_delay)
 
-        task = asyncio.create_task(_wrapped(), name=name)
-        self._tasks[name] = task
-        logger.info("Started background task: %s", name)
-        return task
+        with self._lock:
+            if name in self._tasks and not self._tasks[name].done():
+                logger.warning("Task %s already running, skipping", name)
+                return self._tasks[name]
+
+            task = asyncio.create_task(_wrapped(), name=name)
+            self._tasks[name] = task
+            logger.info("Started background task: %s", name)
+            return task
 
     async def cancel(self, name: str, timeout: float = 5.0) -> None:
         """Cancel a specific task and wait for it to finish."""
-        task = self._tasks.get(name)
+        with self._lock:
+            task = self._tasks.get(name)
         if task is None or task.done():
             return
         task.cancel()
@@ -80,25 +85,29 @@ class TaskRegistry:
 
     async def cancel_all(self, timeout: float = 5.0) -> None:
         """Cancel all tracked tasks."""
-        for name in list(self._tasks.keys()):
+        with self._lock:
+            names = list(self._tasks.keys())
+        for name in names:
             await self.cancel(name, timeout)
-        self._tasks.clear()
+        with self._lock:
+            self._tasks.clear()
 
     def get_status(self) -> dict[str, str]:
         """Get status of all tracked tasks."""
-        status: dict[str, str] = {}
-        for name, task in self._tasks.items():
-            if task.done():
-                if task.cancelled():
-                    status[name] = "cancelled"
-                elif task.exception():
-                    exc = task.exception()
-                    status[name] = f"error: {type(exc).__name__}" if exc else "error"
+        with self._lock:
+            status: dict[str, str] = {}
+            for name, task in self._tasks.items():
+                if task.done():
+                    if task.cancelled():
+                        status[name] = "cancelled"
+                    elif task.exception():
+                        exc = task.exception()
+                        status[name] = f"error: {type(exc).__name__}" if exc else "error"
+                    else:
+                        status[name] = "completed"
                 else:
-                    status[name] = "completed"
-            else:
-                status[name] = "running"
-        return status
+                    status[name] = "running"
+            return status
 
 
 # Global registry for convenience (use per-module registry for isolation)

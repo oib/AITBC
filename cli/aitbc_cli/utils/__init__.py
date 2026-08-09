@@ -6,8 +6,8 @@ CLI utility functions for output formatting and error handling
 from . import blockchain, chain_id, island_credentials, wallet
 from .blockchain import get_blockchain_analytics, get_chain_info, get_network_status
 from .output import (
-    decrypt_value,
-    encrypt_value,
+    decode_value,
+    encode_value,
     error,
     info,
     output,
@@ -24,8 +24,8 @@ __all__ = [
     "success",
     "info",
     "warning",
-    "encrypt_value",
-    "decrypt_value",
+    "encode_value",
+    "decode_value",
     "setup_logging",
     "wallet",
     "blockchain",
