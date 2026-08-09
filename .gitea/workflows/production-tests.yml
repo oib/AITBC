@@ -152,4 +152,3 @@ jobs:
           fi
           pkill -f "uvicorn coordinator_api.main:app" 2>/dev/null || true
           redis-cli shutdown 2>/dev/null || true
-          rm -rf "${{ env.WORKSPACE }}"
