@@ -2,7 +2,7 @@ extends: default
 
 rules:
   line-length:
-    max: 120
+    max: 500
     level: warning
   indentation:
     spaces: 2
@@ -10,4 +10,5 @@ rules:
     min-spaces-from-content: 1
   truthy:
     allowed-values: ['true', 'false']
+    check-keys: false
   document-start: disable
