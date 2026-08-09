@@ -833,12 +833,11 @@ no hardcoded credentials, no insecure `random` for security purposes anywhere in
 
 ## CLI — `cli/`
 
-- **CLI-01** *(High)* `aitbc_cli/utils/dual_mode_wallet_adapter.py:92-97` — **fake, predictable
-  private keys.** `_create_wallet_file()` sets
-  `private_key = f"simple_key_{wallet_name}_{datetime.now().isoformat()}"` instead of
-  generating real key material, and marks the wallet `"encrypted": bool(password)` while
-  storing that fake key in plaintext. `aitbc_cli/commands/wallet/__init__.py:38-47` already
-  documents this as a known legacy defect — but this is still the live code path.
+- **CLI-01** *(High, closed)* `aitbc_cli/utils/dual_mode_wallet_adapter.py:92-97` —
+  `_create_wallet_file()` now calls `generate_ethereum_private_key()` and derives the address
+  from the resulting real secp256k1 key. The private key is encrypted with PBKDF2+Fernet when a
+  password is supplied (`_save_wallet` in `aitbc_cli/commands/wallet/__init__.py`). Verified by
+  `cli/tests/test_wallet_creation.py`; no predictable `simple_key_...` strings are written.
 - **CLI-02** *(High)* `aitbc_cli/utils/wallet_daemon_client.py:440-452` —
   `get_wallet_balance_in_chain` always returns `balance=0.0` ("For now, return a placeholder
   balance"), handing callers fabricated financial data instead of an error.
