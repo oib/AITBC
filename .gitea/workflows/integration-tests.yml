@@ -150,7 +150,7 @@ jobs:
           echo "=== Service Status ==="
 
           mapfile -t services < <(
-            find systemd -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
+            find apps scripts -type f -name 'aitbc-*.service' -printf '%f\n' |
             sed 's/\.service$//' |
             sort
           )
