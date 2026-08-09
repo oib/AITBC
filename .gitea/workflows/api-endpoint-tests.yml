@@ -186,4 +186,3 @@ jobs:
           done
 
           # Clean up workspace
-          rm -rf "${{ env.WORKSPACE }}"
