@@ -11,7 +11,6 @@ Also tests the settlement service integration with the HTLC contract.
 from __future__ import annotations
 
 import sys
-import time
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -27,6 +26,25 @@ from aitbc.settlement.htlc import compute_hashlock, generate_secret  # noqa: E40
 from aitbc_chain.base_models import Account, CrossChainEscrowRecord, EscrowProofRecord, HTLCSwapState  # noqa: E402
 from aitbc_chain.config import settings  # noqa: E402
 from aitbc_chain.contracts.htlc_contract import HTLC_CONTRACT_ADDRESS, HTLCContract, SwapStatus  # noqa: E402
+
+
+# ---------------------------------------------------------------------------
+# Chain heads and timelocks
+# ---------------------------------------------------------------------------
+#
+# A timelock is an absolute block height on a specific chain, so it only means
+# anything relative to that chain's current head. These tests used to write
+# ``int(time.time() // 5) + 720`` -- the Unix epoch over the block time, roughly
+# 357 million -- which is the same unit confusion that V23-29..31 were about.
+# They passed only because 357 million happens to clear a head of 10,000 by a
+# wide margin, so "far future" was true by accident rather than by construction.
+
+CHAIN_HEADS: dict[str, int] = {"ait-hub": 10_000, "ait-island-1": 8_000}
+HUB_HEAD = CHAIN_HEADS["ait-hub"]
+
+# 720 blocks either side of the head: ~1 hour at a 5-second block time.
+FUTURE_TIMELOCK = HUB_HEAD + 720
+EXPIRED_TIMELOCK = HUB_HEAD - 720
 
 
 # ---------------------------------------------------------------------------
@@ -58,7 +76,7 @@ class MockSession:
         # Chain heads. The contract compares swap timelocks against the real
         # head height; it used to derive one from time.time(), so these tests
         # never had to model a chain with blocks in it.
-        self.block_heights: dict[str, int] = {"ait-hub": 10_000, "ait-island-1": 8_000}
+        self.block_heights: dict[str, int] = CHAIN_HEADS.copy()
         self.proofs: list[EscrowProofRecord] = []
         self._escrow_counter = 0
         self._proof_counter = 0
@@ -188,7 +206,6 @@ class TestHTLCContract:
         initiator, participant = funded_accounts
         secret = generate_secret()
         hashlock = compute_hashlock(secret)
-        timelock = int(time.time() // 5) + 720  # far future
 
         swap = htlc.initiate_swap(
             session=mock_session,
@@ -196,7 +213,7 @@ class TestHTLCContract:
             participant="0xbob",
             amount=1000,
             hashlock=hashlock,
-            timelock=timelock,
+            timelock=FUTURE_TIMELOCK,
         )
 
         assert swap.status == SwapStatus.OPEN
@@ -218,7 +235,6 @@ class TestHTLCContract:
         initiator, participant = funded_accounts
         secret = generate_secret()
         hashlock = compute_hashlock(secret)
-        timelock = int(time.time() // 5) + 720
 
         htlc.initiate_swap(
             session=mock_session,
@@ -226,7 +242,7 @@ class TestHTLCContract:
             participant="0xbob",
             amount=1000,
             hashlock=hashlock,
-            timelock=timelock,
+            timelock=FUTURE_TIMELOCK,
             swap_id="swap_1",
         )
 
@@ -237,7 +253,7 @@ class TestHTLCContract:
                 participant="0xbob",
                 amount=500,
                 hashlock=hashlock,
-                timelock=timelock,
+                timelock=FUTURE_TIMELOCK,
                 swap_id="swap_1",
             )
 
@@ -251,7 +267,7 @@ class TestHTLCContract:
                 participant="0x0",
                 amount=100,
                 hashlock=compute_hashlock(secret),
-                timelock=720,
+                timelock=FUTURE_TIMELOCK,
             )
 
     def test_initiate_swap_rejects_insufficient_balance(self, htlc, mock_session, funded_accounts):
@@ -264,7 +280,7 @@ class TestHTLCContract:
                 participant="0xbob",
                 amount=999999,
                 hashlock=compute_hashlock(secret),
-                timelock=720,
+                timelock=FUTURE_TIMELOCK,
             )
 
     def test_complete_swap_releases_funds(self, htlc, mock_session, funded_accounts):
@@ -272,7 +288,6 @@ class TestHTLCContract:
         initiator, participant = funded_accounts
         secret = generate_secret()
         hashlock = compute_hashlock(secret)
-        timelock = int(time.time() // 5) + 720
 
         swap = htlc.initiate_swap(
             session=mock_session,
@@ -280,7 +295,7 @@ class TestHTLCContract:
             participant="0xbob",
             amount=1000,
             hashlock=hashlock,
-            timelock=timelock,
+            timelock=FUTURE_TIMELOCK,
         )
 
         result = htlc.complete_swap(
@@ -302,7 +317,6 @@ class TestHTLCContract:
         """complete_swap rejects an invalid secret."""
         secret = generate_secret()
         hashlock = compute_hashlock(secret)
-        timelock = int(time.time() // 5) + 720
 
         swap = htlc.initiate_swap(
             session=mock_session,
@@ -310,7 +324,7 @@ class TestHTLCContract:
             participant="0xbob",
             amount=1000,
             hashlock=hashlock,
-            timelock=timelock,
+            timelock=FUTURE_TIMELOCK,
         )
 
         wrong_secret = generate_secret()
@@ -325,16 +339,13 @@ class TestHTLCContract:
         """complete_swap rejects when timelock has expired."""
         secret = generate_secret()
         hashlock = compute_hashlock(secret)
-        # Set timelock in the past
-        timelock = 1
-
         swap = htlc.initiate_swap(
             session=mock_session,
             initiator="0xalice",
             participant="0xbob",
             amount=1000,
             hashlock=hashlock,
-            timelock=timelock,
+            timelock=EXPIRED_TIMELOCK,
         )
 
         with pytest.raises(ValueError, match="timelock expired"):
@@ -349,16 +360,14 @@ class TestHTLCContract:
         initiator, participant = funded_accounts
         secret = generate_secret()
         hashlock = compute_hashlock(secret)
-        # Set timelock in the past so refund is allowed
-        timelock = 1
-
+        # Timelock already behind the chain head, so refund is allowed
         swap = htlc.initiate_swap(
             session=mock_session,
             initiator="0xalice",
             participant="0xbob",
             amount=1000,
             hashlock=hashlock,
-            timelock=timelock,
+            timelock=EXPIRED_TIMELOCK,
         )
 
         result = htlc.refund_swap(
@@ -379,7 +388,6 @@ class TestHTLCContract:
         """refund_swap rejects when timelock hasn't expired yet."""
         secret = generate_secret()
         hashlock = compute_hashlock(secret)
-        timelock = int(time.time() // 5) + 720  # far future
 
         swap = htlc.initiate_swap(
             session=mock_session,
@@ -387,7 +395,7 @@ class TestHTLCContract:
             participant="0xbob",
             amount=1000,
             hashlock=hashlock,
-            timelock=timelock,
+            timelock=FUTURE_TIMELOCK,
         )
 
         with pytest.raises(ValueError, match="timelock not yet expired"):
@@ -400,7 +408,6 @@ class TestHTLCContract:
         """get_swap returns the current swap state."""
         secret = generate_secret()
         hashlock = compute_hashlock(secret)
-        timelock = int(time.time() // 5) + 720
 
         swap = htlc.initiate_swap(
             session=mock_session,
@@ -408,7 +415,7 @@ class TestHTLCContract:
             participant="0xbob",
             amount=1000,
             hashlock=hashlock,
-            timelock=timelock,
+            timelock=FUTURE_TIMELOCK,
         )
 
         result = htlc.get_swap(session=mock_session, swap_id=swap.swap_id)
