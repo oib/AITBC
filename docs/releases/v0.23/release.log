@@ -25,8 +25,16 @@ A finding is marked RESOLVED only after the fix is on `main`, never when a fix i
 written or in review. Everything else here is open. Re-verify before starting: this tree
 changes under multiple agents.
 
-**Totals**: 32 findings — 19 confirmed defects, 13 observed design gaps. **3 resolved**
-(V23-29, V23-30, V23-31); 29 open.
+**That last sentence is not boilerplate.** `6ce2c7405` closed V23-06, V23-07, V23-08 and
+V23-09 on `main` without marking them here, and a fix for V23-01..05 was written against a
+tree where they still read as open — duplicating work that had already landed. Each of the
+four is marked resolved below only after checking the current tree, not on the strength of
+that commit's message: it also claimed to move "the miner app to `src/` layout" (done, but
+V23-10 covers seven apps) and to fix "missing price handling" (V23-14's `or 0` defaults are
+still there). **Verify before starting, and mark what you fix.**
+
+**Totals**: 32 findings — 19 confirmed defects, 13 observed design gaps. **8 resolved**
+(V23-06..09, V23-22, V23-29..31); 24 open.
 Severity is about blast radius, not effort.
 
 Written in three passes, each starting from what the previous listed as uncovered.
@@ -151,7 +159,7 @@ next contributor free to write a tenth.
 
 ## High — things that are named for what they do not do
 
-### V23-06 — `TEEChannel.send` base64-encodes and calls it encryption · CONFIRMED
+### V23-06 — `TEEChannel.send` base64-encodes and calls it encryption · CONFIRMED → RESOLVED
 
 `aitbc/tee/channel.py:73`. The method is `send`, the docstring is *"Send an encrypted
 message on the channel"*, the local is `ciphertext`, the field is `payload` on a type called
@@ -167,7 +175,7 @@ Consumed by `apps/edge/src/edge_app/tee_proxy.py`.
 > fine; a placeholder that reads as a security control at every call site is not. Same class
 > as v0.22's APP-33 and CORE-24.
 
-### V23-07 — two functions named `encrypt_value`, opposite guarantees · CONFIRMED
+### V23-07 — two functions named `encrypt_value`, opposite guarantees · CONFIRMED → RESOLVED
 
 - `aitbc/security/encryption.py:49` — PBKDF2 + Fernet, requires a password, rejects weak ones.
 - `cli/aitbc_cli/utils/__init__.py:52` — `base64.b64encode`, password argument accepted and
@@ -192,7 +200,7 @@ This was raised in v0.22 as an adjacent finding and never ticketed. It is ticket
 
 ## High — structural hazards
 
-### V23-08 — two apps ship a package called `agent_app` · CONFIRMED
+### V23-08 — two apps ship a package called `agent_app` · CONFIRMED → RESOLVED
 
 `apps/agent-coordinator/src/agent_app/` (53 files, the real application) and
 `apps/coordinator-api/src/agent_app/` (7 files, no `__init__.py`). Both parent directories
@@ -207,7 +215,7 @@ ls apps/agent-coordinator/src/agent_app apps/coordinator-api/src/agent_app
 This is the same failure mode as v0.22's `tests/cli` shadowing the real `cli` package, which
 cost an afternoon to diagnose because the error pointed nowhere near the cause.
 
-### V23-09 — the shadowing package is dead test scaffolding in a `routers/` directory · CONFIRMED
+### V23-09 — the shadowing package is dead test scaffolding in a `routers/` directory · CONFIRMED → RESOLVED
 
 All seven files in `apps/coordinator-api/src/agent_app/routers/` are named
 `b{N}_self_check.py`, contain `def test_*` functions with asserts and a `__main__` block,
@@ -515,7 +523,7 @@ tool silently running against a version it does not support.
 
 ## High — a deploy script that defaults to destroying the local checkout
 
-### V23-22 — `deploy-to-server.sh` defaults to `root@127.0.0.1` and deletes its own source · CONFIRMED
+### V23-22 — `deploy-to-server.sh` defaults to `root@127.0.0.1` and deletes its own source · CONFIRMED → RESOLVED
 
 `scripts/deployment/deploy/deploy-to-server.sh`, lines 8-9 and 34-36:
 
@@ -545,6 +553,50 @@ git grep -n "AITBC_DEPLOY_SERVER" -- scripts/
 > **Fix**: no default. `SERVER="${AITBC_DEPLOY_SERVER:?set AITBC_DEPLOY_SERVER}"` fails
 > immediately with a usable message. Then reverse the order — copy first, swap second — so
 > a failed transfer cannot leave the target with nothing. Both scripts.
+
+**RESOLVED** — both scripts, as recommended, plus two things the finding did not ask for.
+
+```
+$ env -u AITBC_DEPLOY_SERVER bash scripts/deployment/deploy/deploy-to-server.sh
+deploy-to-server.sh: line 16: AITBC_DEPLOY_SERVER: set AITBC_DEPLOY_SERVER
+  (e.g. root@10.1.223.93) — there is no default target
+$ echo $?
+1
+```
+
+The copy now stages to `$PROJECT_DIR.incoming` and swaps, keeping the previous release as
+`$PROJECT_DIR.previous` rather than deleting it. A transfer that dies half-way leaves the
+target with a working tree instead of nothing, and the swap is two `mv`s rather than a
+delete-then-copy.
+
+**The source is no longer hardcoded.** `scp -r /opt/aitbc` copied whatever sat at that path
+on the machine running the script, which is what made "delete the target, then copy from the
+target" possible in the first place. It now derives from the script's own location, so it
+copies the checkout it belongs to.
+
+**An explicit refusal for the case the finding describes**, since removing the default is not
+quite sufficient — someone can still pass `root@127.0.0.1` by hand:
+
+```
+$ AITBC_DEPLOY_SERVER=root@127.0.0.1 AITBC_DEPLOY_SOURCE=/opt/aitbc \
+  AITBC_DEPLOY_PROJECT_DIR=/opt/aitbc bash scripts/deployment/deploy/deploy-to-server.sh
+❌ Refusing to deploy: the target is this machine and PROJECT_DIR (/opt/aitbc)
+   is the directory being deployed from. This would delete its own source.
+```
+
+#### A second hardcoded path, in the same pair of scripts
+
+`deploy-explorer.sh` built from `/home/oib/windsurf/aitbc/apps/explorer-web` — a path that
+exists on exactly one machine. Anywhere else the `cd` failed and `set -e` stopped the
+deploy, which is the least bad outcome available but not one to rely on: it is the same
+class as the `/opt/aitbc` assumption, and it survived because failing loudly on every other
+machine looks like the script simply not being used. It now builds from the repository root
+and says so if the directory is missing.
+
+Both scripts also moved from `set -e` to `set -euo pipefail` (V23-23's shape) — without
+`set -u`, `${AITBC_DEPLOY_SERVER:?}` is the only guard against an unset variable, and every
+other one in the script would still expand to empty. `$SERVER` is quoted at all 22 `ssh`
+call sites.
 
 ---
 
