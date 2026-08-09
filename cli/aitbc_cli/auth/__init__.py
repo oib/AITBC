@@ -12,8 +12,8 @@ only) is used instead. The active backend is reported by ``backend_name`` and su
 storing, because "which store holds my API key" is not something a user should have to
 guess.
 
-The file backend is deliberately not described as encrypted. The CLI's ``encrypt_value``
-helper is base64, and calling that encryption would repeat the mistake this module is
+The file backend is deliberately not described as encrypted. The CLI's ``encode_value``
+helper is base64, and calling that encoding would repeat the mistake this module is
 fixing.
 """
 
@@ -166,9 +166,7 @@ class AuthManager:
                 key = self._key(name, env)
                 try:
                     present = (
-                        self._keyring.get_password(self.SERVICE_NAME, key)
-                        if self._keyring is not None
-                        else file_data.get(key)
+                        self._keyring.get_password(self.SERVICE_NAME, key) if self._keyring is not None else file_data.get(key)
                     )
                 except Exception:  # pragma: no cover - backend-specific
                     continue

@@ -13,6 +13,11 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
+from aitbc.aitbc_logging import get_logger
+from eth_keys.exceptions import BadSignature, ValidationError
+
+_logger = get_logger(__name__)
+
 #: Order of the secp256k1 group. A valid private key is a scalar in [1, n-1]; eth-account
 #: does not enforce this and will happily sign with 0.
 _SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
@@ -115,6 +120,28 @@ def verify_signature(message_hash: str, signature: str, address: str) -> bool:
         raise ValueError(f"Failed to verify signature: {e}") from e
 
 
+def _recover_address(msg_hash: bytes, sig_bytes: bytes) -> str:
+    """Recover the Ethereum address from a 65-byte secp256k1 signature.
+
+    Normalizes an Ethereum-encoded recovery id (27/28) to the canonical 0/1
+    before constructing ``eth_keys.Signature``. Raises ``BadSignature`` (or
+    ``ValidationError``) for malformed signatures so callers can distinguish
+    parse errors from unexpected runtime errors.
+    """
+    from eth_keys import keys
+
+    if len(sig_bytes) != 65:
+        raise BadSignature("Invalid signature length")
+    recovery_id = sig_bytes[64]
+    if recovery_id >= 27:
+        recovery_id -= 27
+    if recovery_id not in (0, 1):
+        raise BadSignature("Invalid recovery id")
+    sig = keys.Signature(sig_bytes[:64] + bytes([recovery_id]))
+    pub_key = sig.recover_public_key_from_msg_hash(msg_hash)
+    return pub_key.to_checksum_address()
+
+
 def recover_signer(message_data: dict[str, Any], signature: str) -> str | None:
     """Recover the signer's checksum address from a canonical-JSON signature.
 
@@ -138,18 +165,17 @@ def recover_signer(message_data: dict[str, Any], signature: str) -> str | None:
     if not signature:
         return None
     try:
-        from eth_keys import keys
         from eth_utils import keccak
 
         message = json.dumps(message_data, sort_keys=True, separators=(",", ":")).encode()
         msg_hash = keccak(message)
         sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
-        if len(sig_bytes) != 65:
-            return None
-        sig = keys.Signature(sig_bytes)
-        pub_key = sig.recover_public_key_from_msg_hash(msg_hash)
-        return pub_key.to_checksum_address()
-    except Exception:
+        return _recover_address(msg_hash, sig_bytes)
+    except (BadSignature, ValidationError, ValueError) as e:
+        _logger.warning("Signature could not be parsed: %s", e)
+        return None
+    except Exception as e:
+        _logger.error("Unexpected error during signature recovery: %s", e)
         return None
 
 
