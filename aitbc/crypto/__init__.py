@@ -9,6 +9,16 @@ from .consensus_signing import (
     verify_block_signature,
     verify_consensus_message,
 )
+
+# V23-05: the canonical ECDSA recovery. ``verify_signature`` is deliberately not
+# re-exported from here — ``crypto.verify_signature`` already owns that name in this
+# package's namespace and now delegates to this module. Import it from
+# ``aitbc.crypto.signature_recovery`` directly when you want the raising variant.
+from .signature_recovery import (
+    SignatureMalformed,
+    normalize_signature,
+    recover_address,
+)
 from .crypto import (
     decrypt_private_key,
     derive_ethereum_address,
@@ -57,6 +67,10 @@ from .tokens import (
 from .transaction_service import TransactionService
 
 __all__ = [
+    # Canonical signature recovery (V23-01..05)
+    "SignatureMalformed",
+    "normalize_signature",
+    "recover_address",
     "APIKeyManager",
     # Secret management
     "SecretManager",
