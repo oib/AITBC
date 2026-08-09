@@ -160,44 +160,75 @@ class TestTimelockCalculation:
             calculate_source_timelock(100, 3600, 0)
 
     def test_dest_timelock_basic(self) -> None:
-        # source_timelock=830, source_block_time=5, dest_block_time=5, margin=20
-        # 830 * 5 = 4150 seconds / 5 = 830 - 20 = 810
+        # Both chains at their own heights, same 5s block time, 1h source window.
+        # source remaining = (830 - 100) * 5 = 3650s; minus the 300s margin
+        # leaves 3350s = 670 dest blocks, from the dest head of 40.
         result = calculate_dest_timelock(
             source_timelock=830,
+            source_current_height=100,
             source_block_time=5,
+            dest_current_height=40,
             dest_block_time=5,
-            margin_blocks=20,
         )
-        assert result == 810
+        assert result == 40 + 670
 
     def test_dest_timelock_different_block_times(self) -> None:
-        # source_timelock=1000, source_block_time=10, dest_block_time=2, margin=20
-        # 1000 * 10 = 10000 seconds / 2 = 5000 - 20 = 4980
+        # source remaining = (1000 - 200) * 10 = 8000s; minus 300 leaves 7700s,
+        # which is 3850 blocks on a 2s dest chain, from a dest head of 500.
         result = calculate_dest_timelock(
             source_timelock=1000,
+            source_current_height=200,
             source_block_time=10,
+            dest_current_height=500,
             dest_block_time=2,
-            margin_blocks=20,
         )
-        assert result == 4980
+        assert result == 500 + 3850
 
-    def test_dest_timelock_minimum_one_block(self) -> None:
-        # Very small source timelock with large margin should still be >= 1
-        result = calculate_dest_timelock(
-            source_timelock=5,
-            source_block_time=10,
-            dest_block_time=10,
-            margin_blocks=100,
-        )
-        assert result >= 1
+    def test_dest_timelock_is_relative_to_the_dest_head(self) -> None:
+        """The same source window must land the same distance ahead of any dest head."""
+        common = {
+            "source_timelock": 1000,
+            "source_current_height": 200,
+            "source_block_time": 10,
+            "dest_block_time": 2,
+        }
+        near = calculate_dest_timelock(dest_current_height=0, **common)
+        far = calculate_dest_timelock(dest_current_height=1_000_000, **common)
+        assert far - 1_000_000 == near - 0
+
+    def test_dest_timelock_rejects_a_window_too_short_for_the_margin(self) -> None:
+        """Previously this clamped to 1 block, silently discarding the margin.
+
+        Returning a timelock that does not honour the requested margin is worse
+        than refusing: the caller believes it has a safety window it does not.
+        """
+        with pytest.raises(ValueError, match="too short"):
+            calculate_dest_timelock(
+                source_timelock=5,
+                source_current_height=0,
+                source_block_time=10,
+                dest_current_height=0,
+                dest_block_time=10,
+                margin_seconds=1000,
+            )
+
+    def test_dest_timelock_rejects_a_source_timelock_in_the_past(self) -> None:
+        with pytest.raises(ValueError, match="not above source_current_height"):
+            calculate_dest_timelock(
+                source_timelock=100,
+                source_current_height=100,
+                source_block_time=5,
+                dest_current_height=0,
+                dest_block_time=5,
+            )
 
     def test_dest_timelock_invalid_source_block_time(self) -> None:
         with pytest.raises(ValueError, match="source_block_time must be positive"):
-            calculate_dest_timelock(100, 0, 5)
+            calculate_dest_timelock(100, 0, 0, 0, 5)
 
     def test_dest_timelock_invalid_dest_block_time(self) -> None:
         with pytest.raises(ValueError, match="dest_block_time must be positive"):
-            calculate_dest_timelock(100, 5, 0)
+            calculate_dest_timelock(100, 0, 5, 0, 0)
 
 
 # ---------------------------------------------------------------------------
