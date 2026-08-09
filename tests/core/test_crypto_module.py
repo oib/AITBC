@@ -112,41 +112,70 @@ class TestSignTransactionHash:
 class TestVerifySignature:
     """Test verify_signature function"""
 
-    def test_verify_signature_missing_dependency(self):
-        with patch.dict("sys.modules", {"eth_account": None}):
-            with pytest.raises(ImportError, match="eth-account and eth-utils are required"):
-                crypto.verify_signature("hash", "sig", "addr")
+    # These mocked eth_account.Account._recover_hash and asserted on what the mock
+    # returned, which pinned a private third-party API rather than any behaviour of
+    # verify_signature. They passed whether or not verification worked, and would break on
+    # any refactor that moved recovery -- as consolidating it onto _recover_address did,
+    # while nothing about verification changed. test_verify_signature_error was worse: it
+    # mocked a method the code no longer calls, so the ValueError it asserted came from
+    # somewhere else entirely and it passed by accident.
+    #
+    # They now sign with a real key and check the result, which is the only assertion that
+    # separates a working verifier from a broken one.
+
+    _PRIVATE_KEY = "0x" + "42" * 32
+
+    def _digest_and_signature(self):
+        import hashlib
+
+        from eth_account import Account
+
+        account = Account.from_key(self._PRIVATE_KEY)
+        digest = hashlib.sha256(b"a message").digest()
+        signature = "0x" + account.unsafe_sign_hash(digest).signature.hex()
+        return digest.hex(), signature, account.address
 
     def test_verify_signature_valid(self):
-        with patch.dict("sys.modules", {"eth_account": Mock(), "eth_utils": Mock()}):
-            from eth_account import Account as MockAccount
-            from eth_utils import to_bytes
+        digest_hex, signature, address = self._digest_and_signature()
 
-            MockAccount._recover_hash.return_value = "0xABC123"  # recovery returns a checksummed 0x address
-            to_bytes.side_effect = lambda hexstr: bytes.fromhex(hexstr) if hexstr else b""
+        assert crypto.verify_signature(digest_hex, signature, address) is True
 
-            result = crypto.verify_signature("1234567890abcdef", "1234567890abcdef", "0xABC123")
-            assert result is True
+    def test_verify_signature_accepts_a_standard_recovery_id(self):
+        """v is 27/28 from any standard signer; the verifier must take it (V23-01)."""
+        from eth_account import Account
+
+        raw = Account.from_key(self._PRIVATE_KEY).unsafe_sign_hash(bytes(32)).signature
+        assert raw[64] in (27, 28)
+
+        assert crypto.verify_signature(bytes(32).hex(), "0x" + raw.hex(), Account.from_key(self._PRIVATE_KEY).address)
+
+    def test_verify_signature_accepts_an_unprefixed_address(self):
+        digest_hex, signature, address = self._digest_and_signature()
+
+        assert crypto.verify_signature(digest_hex, signature, address.removeprefix("0x")) is True
 
     def test_verify_signature_invalid(self):
-        with patch.dict("sys.modules", {"eth_account": Mock(), "eth_utils": Mock()}):
-            from eth_account import Account as MockAccount
-            from eth_utils import to_bytes
+        from eth_account import Account
 
-            MockAccount._recover_hash.return_value = "0xDEF456"  # a different address than the caller claims
-            to_bytes.side_effect = lambda hexstr: bytes.fromhex(hexstr) if hexstr else b""
+        digest_hex, signature, _ = self._digest_and_signature()
+        other = Account.from_key("0x" + "43" * 32)
 
-            result = crypto.verify_signature("1234567890abcdef", "1234567890abcdef", "0xABC123")
-            assert result is False
+        assert crypto.verify_signature(digest_hex, signature, other.address) is False
+
+    def test_verify_signature_rejects_a_tampered_digest(self):
+        import hashlib
+
+        _, signature, address = self._digest_and_signature()
+        tampered = hashlib.sha256(b"a different message").digest().hex()
+
+        assert crypto.verify_signature(tampered, signature, address) is False
 
     def test_verify_signature_error(self):
-        with patch.dict("sys.modules", {"eth_account": Mock(), "eth_utils": Mock()}):
-            from eth_account import Account as MockAccount
+        """A signature that cannot be decoded is an error, not a quiet False."""
+        digest_hex, _, address = self._digest_and_signature()
 
-            MockAccount._recover_hash.side_effect = Exception("Verify error")
-
-            with pytest.raises(ValueError, match="Failed to verify signature"):
-                crypto.verify_signature("1234567890abcdef", "1234567890abcdef", "0xABC123")
+        with pytest.raises(ValueError, match="Failed to verify signature"):
+            crypto.verify_signature(digest_hex, "0xdeadbeef", address)
 
 
 # ============================================================================
