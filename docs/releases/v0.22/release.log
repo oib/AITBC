@@ -131,6 +131,9 @@ present in the tagged artifact.
   `--chain-id`/`--data-path` arguments are required with an interactive confirmation gate
   (or `--yes` for automation); no default target, and no production-by-default path, via
   AITBC-91.
+- **PKG-05** — removed `// @ts-nocheck` from the five `.ts`/`.tsx` files in `packages/web/src`
+  and `packages/theme-provider/src`; added `tsconfig.json` to both packages; `tsc --noEmit`
+  now passes and the type gate reports real type errors, via AITBC-91.
 
 ### Partially remediated
 
@@ -158,7 +161,7 @@ Confirmed still present on current `main`:
 | Contracts | SC-05/06/08/09/10/11/12/14 | Unbounded loops, no-op upgrades, unsafe deployment paths, and compiled stub remain |
 | Ops | OPS-04/06/07/09/10/12/14/15/16/17/18 | Migration, destructive rollback, secret handling, supply-chain, and maintenance findings remain |
 | CLI | CLI-02/03/05/06/07/08/09/10/13 | Placeholder results, in-memory/plaintext state, TOCTOU, and stub/alias findings remain |
-| Packages | PKG-01 through PKG-14 | No package source changed between the audit baseline and this verification |
+| Packages | PKG-03/05/08/09/10/14 | PKG-05 closed in AITBC-91; rest unassessed or unchanged since baseline |
 | Tests/docs | TEST-02 through TEST-08; DOC-02 through DOC-07 | Original gaps remain; DOC-01 and TEST-01 are closed |
 
 Other application findings not listed above remain **unassessed**. Do not read absence from
@@ -212,7 +215,7 @@ partial:
 | Smart contracts | SC-01, SC-02, SC-03, SC-04 | SC-05–SC-14 (with SC-07/13 partial) | Unbounded loops, no-op upgrades, unsafe deployment scripts, missing validations. |
 | Ops/Scripts | OPS-01, OPS-02, OPS-03, OPS-05, OPS-08 | OPS-04, OPS-06, OPS-07, OPS-09–OPS-18 (with OPS-13/19 partial) | Destructive rollback, secret handling, supply-chain install, maintenance scripts remain. |
 | CLI | CLI-01, CLI-04, CLI-12 | CLI-02–CLI-03, CLI-05–CLI-11, CLI-13 | Placeholder results, in-memory state, TOCTOU, stub groups remain. |
-| Packages | — | PKG-01–PKG-14 | No package source changed between the audit baseline and this verification. |
+| Packages | PKG-05 | PKG-01/02/03/04/06/07/08/09/10/11/12/13/14 | PKG-05 fixed (removed `@ts-nocheck`, added `tsconfig.json`); rest unassessed. |
 | Tests/Docs | TEST-01, DOC-01 | TEST-02–TEST-08, DOC-02–DOC-07 | Stale status docs, skipped suites, duplicate doc trees remain. |
 
 This means **v0.22.0 is still not ship-ready**, and even this branch (post `3f0582e1f`)
