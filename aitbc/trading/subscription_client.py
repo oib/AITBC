@@ -85,6 +85,8 @@ class OfferSubscriptionClient:
         self._http_timeout = http_timeout
         self._poll_interval = poll_interval_seconds
         self._http_client: httpx.AsyncClient | None = None
+        # Guards concurrent mutation of _lease_expiry, _status, and _subscriptions.
+        self._lock = asyncio.Lock()
         # Per-chain lease expiry timestamps (epoch seconds).
         self._lease_expiry: dict[str, float] = {}
         # Per-chain subscription status.
@@ -148,7 +150,8 @@ class OfferSubscriptionClient:
             resp = await self._ensure_http().post("/v1/trading/offers/subscribe", json=payload)
             resp.raise_for_status()
             data = resp.json()
-            self._lease_expiry[chain_id] = float(data.get("expiry", 0.0))
+            async with self._lock:
+                self._lease_expiry[chain_id] = float(data.get("expiry", 0.0))
             logger.info(
                 "Obtained offer subscription lease for chain %s (expiry=%s)",
                 chain_id,
@@ -171,7 +174,8 @@ class OfferSubscriptionClient:
             )
             resp.raise_for_status()
             data = resp.json()
-            self._lease_expiry[chain_id] = float(data.get("expiry", 0.0))
+            async with self._lock:
+                self._lease_expiry[chain_id] = float(data.get("expiry", 0.0))
             return True
         except Exception as e:
             logger.warning("Failed to renew offer subscription lease for %s: %s", chain_id, e)
@@ -179,8 +183,11 @@ class OfferSubscriptionClient:
 
     async def _heartbeat_loop(self, chain_id: str) -> None:
         """Background loop that renews the lease before it expires."""
-        while self._running and chain_id in self._subscriptions:
-            remaining = self.get_lease_remaining(chain_id)
+        while True:
+            async with self._lock:
+                if not (self._running and chain_id in self._subscriptions):
+                    break
+                remaining = self.get_lease_remaining(chain_id)
             if remaining < self._lease_renewal_threshold:
                 await self._renew_lease(chain_id)
             await asyncio.sleep(self._heartbeat_interval)
@@ -209,9 +216,10 @@ class OfferSubscriptionClient:
                 scoped to ``chain_id`` with no other filters is used.
         """
         sub = subscription or OfferSubscription(chain_id=chain_id)
-        self._subscriptions[chain_id] = sub
-        self._status[chain_id] = SubscriptionStatus.SUBSCRIBED
-        self._running = True
+        async with self._lock:
+            self._subscriptions[chain_id] = sub
+            self._status[chain_id] = SubscriptionStatus.SUBSCRIBED
+            self._running = True
 
         filters = sub.to_filters_dict()
         # Always include chain_id in the first message (defense-in-depth,
@@ -221,7 +229,8 @@ class OfferSubscriptionClient:
         obtained_lease = await self._register_lease(chain_id, filters)
         if not obtained_lease:
             # No lease — go straight to polling fallback if enabled.
-            self._status[chain_id] = SubscriptionStatus.POLLING_FALLBACK
+            async with self._lock:
+                self._status[chain_id] = SubscriptionStatus.POLLING_FALLBACK
 
         # Start lease renewal in the background.
         heartbeat_task = create_task_with_logging(self._heartbeat_loop(chain_id), name=f"subscription_heartbeat_{chain_id}")
@@ -239,7 +248,8 @@ class OfferSubscriptionClient:
                 await heartbeat_task
             except asyncio.CancelledError:
                 pass
-            self._status[chain_id] = SubscriptionStatus.DISCONNECTED
+            async with self._lock:
+                self._status[chain_id] = SubscriptionStatus.DISCONNECTED
 
     async def _ws_stream(self, chain_id: str, filters: dict[str, Any]) -> AsyncIterator[OfferEvent]:
         """Yield events from the WebSocket, reconnecting on disconnect."""
@@ -261,7 +271,8 @@ class OfferSubscriptionClient:
                     ping_timeout=30,
                 ) as websocket:
                     await websocket.send(first_message)
-                    self._status[chain_id] = SubscriptionStatus.SUBSCRIBED
+                    async with self._lock:
+                        self._status[chain_id] = SubscriptionStatus.SUBSCRIBED
                     reconnect_attempts = 0
                     logger.info("Offer subscription WebSocket connected for chain %s", chain_id)
                     async for raw in websocket:
@@ -273,14 +284,16 @@ class OfferSubscriptionClient:
                     "Offer subscription WebSocket closed for chain %s, reconnecting",
                     chain_id,
                 )
-                self._status[chain_id] = SubscriptionStatus.RECONNECTING
+                async with self._lock:
+                    self._status[chain_id] = SubscriptionStatus.RECONNECTING
                 reconnect_attempts += 1
                 if reconnect_attempts > self._max_reconnect_attempts:
                     logger.warning(
                         "Offer subscription for chain %s exceeded max reconnect attempts, falling back to polling",
                         chain_id,
                     )
-                    self._status[chain_id] = SubscriptionStatus.POLLING_FALLBACK
+                    async with self._lock:
+                        self._status[chain_id] = SubscriptionStatus.POLLING_FALLBACK
                     async for event in self._polling_fallback(chain_id, self._subscriptions[chain_id]):
                         yield event
                     return
@@ -291,7 +304,8 @@ class OfferSubscriptionClient:
                     chain_id,
                     e,
                 )
-                self._status[chain_id] = SubscriptionStatus.POLLING_FALLBACK
+                async with self._lock:
+                    self._status[chain_id] = SubscriptionStatus.POLLING_FALLBACK
                 async for event in self._polling_fallback(chain_id, self._subscriptions[chain_id]):
                     yield event
                 return
@@ -410,10 +424,11 @@ class OfferSubscriptionClient:
 
     async def close(self) -> None:
         """Close the client and release all resources."""
-        self._running = False
-        self._subscriptions.clear()
-        for cid in list(self._status):
-            self._status[cid] = SubscriptionStatus.DISCONNECTED
+        async with self._lock:
+            self._running = False
+            self._subscriptions.clear()
+            for cid in list(self._status):
+                self._status[cid] = SubscriptionStatus.DISCONNECTED
         if self._http_client is not None:
             await self._http_client.aclose()
             self._http_client = None

@@ -6,9 +6,11 @@ import json as _json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from eth_keys import keys
+from eth_keys.exceptions import BadSignature, ValidationError
 from eth_utils import keccak
 from sqlmodel import select
+
+from aitbc.crypto.crypto import _recover_address
 
 from aitbc.bridge import ValidatorInfo, ValidatorSet
 
@@ -161,13 +163,7 @@ class BridgeValidatorMixin(BridgeBase):
         try:
             msg_hash = keccak(message)
             sig_bytes = bytes.fromhex(proposer_signature.removeprefix("0x"))
-            if len(sig_bytes) != 65:
-                logger.warning("Invalid proposer signature length: %d bytes", len(sig_bytes))
-                return False
-
-            sig = keys.Signature(sig_bytes)
-            pub_key = sig.recover_public_key_from_msg_hash(msg_hash)
-            recovered = pub_key.to_checksum_address()
+            recovered = _recover_address(msg_hash, sig_bytes)
             logger.debug("Proof signed by: %s", recovered)
 
             # v0.10.16: Validator-set membership is required for production
@@ -220,8 +216,11 @@ class BridgeValidatorMixin(BridgeBase):
                     )
 
             return True
+        except (BadSignature, ValidationError, ValueError) as e:
+            logger.warning("Proposer signature could not be parsed: %s", e)
+            return False
         except Exception as e:
-            logger.warning("Proposer signature verification error: %s", e)
+            logger.error("Unexpected error during proposer signature verification: %s", e)
             return False
 
     def _verify_threshold_signatures(self, proof: dict[str, Any]) -> bool:

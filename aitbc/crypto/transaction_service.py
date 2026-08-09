@@ -144,7 +144,7 @@ class TransactionService:
 
             # Sign with secp256k1 over the canonical message (matches the node verifier).
             # eth_keys produces a 65-byte r||s||v signature with v in {0, 1}, which is
-            # exactly what verify_transaction_signature's keys.Signature(...) expects.
+            # exactly what the verifier's _recover_address(...) expects.
             signature = private_key.sign_msg_hash(keccak(_canonical_signing_message(transaction)))
             transaction["signature"] = signature.to_bytes().hex()
 

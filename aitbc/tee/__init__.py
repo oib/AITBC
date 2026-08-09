@@ -15,7 +15,7 @@ from .attestation import (
     verify_quote,
 )
 from .benchmark import TEEBenchmark, TEEBenchmarkResult
-from .channel import ChannelState, TEEChannel, TEEMessage
+from .channel import ChannelState, TEEChannel, ChannelMessage
 from .enclave import Enclave, EnclaveConfig, EnclaveStatus
 from .errors import TEEError
 from .identity import EnclaveIdentity, KeyProvisioningPolicy, SealedKeyBundle
@@ -49,7 +49,7 @@ __all__ = [
     "TEEBenchmarkResult",
     "TEEChannel",
     "TEEError",
-    "TEEMessage",
+    "ChannelMessage",
     "TEESession",
     "SessionState",
     "VerificationMode",

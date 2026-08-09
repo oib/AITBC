@@ -15,7 +15,7 @@ from ..config import get_config
 from ..utils import error, info, output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-from ..utils.wallet import decrypt_private_key
+from ..utils.wallet import decode_private_key
 
 logger = get_logger(__name__)
 
@@ -25,17 +25,17 @@ DEFAULT_KEYSTORE_DIR = Path.home() / ".aitbc" / "wallets"
 
 
 def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
-    """Load wallet and decrypt private key if needed"""
+    """Load wallet and decode private key if needed"""
     with open(wallet_path) as f:
         wallet_data: dict[str, Any] = json.load(f)
 
-    # Decrypt private key if encrypted
+    # Decode private key if encoded
     if wallet_data.get("encrypted") and "private_key" in wallet_data:
-        from ..utils import decrypt_value
+        from ..utils import decode_value
 
         password = _get_wallet_password(wallet_name)
         try:
-            wallet_data["private_key"] = decrypt_value(wallet_data["private_key"], password)
+            wallet_data["private_key"] = decode_value(wallet_data["private_key"], password)
         except Exception:
             abort(None, "Invalid password for wallet")
     return wallet_data
@@ -399,7 +399,7 @@ def message(agent: str, message: str, wallet: str, password: str | None, passwor
     try:
         # Decrypt wallet
         keystore_path = DEFAULT_KEYSTORE_DIR / f"{wallet}.json"
-        private_key_hex = decrypt_private_key(keystore_path, password)
+        private_key_hex = decode_private_key(keystore_path, password)
         private_key_bytes = bytes.fromhex(private_key_hex)
 
         # Get sender address
