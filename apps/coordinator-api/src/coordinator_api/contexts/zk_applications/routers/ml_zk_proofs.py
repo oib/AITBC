@@ -42,16 +42,20 @@ async def prove_ml_training(request: Request, proof_request: dict[str, Any]) -> 
 async def verify_ml_training(request: Request, verification_request: dict[str, Any]) -> dict[str, Any]:
     """Verify ZK proof for ML training"""
     try:
+        # The verification key is chosen server-side from the circuit. This endpoint used to
+        # require verification_request["verification_key"] — the caller supplied the key
+        # their proof would be checked against, which made the answer meaningless.
         verification_result = await zk_service.verify_proof(
             proof=verification_request["proof"],
             public_signals=verification_request["public_signals"],
-            verification_key=verification_request["verification_key"],
+            circuit_name="ml_training_verification",
         )
 
         return {
             "verified": verification_result.get("verified", False),
             "computation_correct": verification_result.get("computation_correct", False),
             "privacy_preserved": verification_result.get("privacy_preserved", False),
+            "reason": verification_result.get("error"),
         }
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
@@ -90,16 +94,18 @@ async def prove_modular_ml(request: Request, proof_request: dict[str, Any]) -> d
 async def verify_ml_inference(request: Request, verification_request: dict[str, Any]) -> dict[str, Any]:
     """Verify ZK proof for ML inference"""
     try:
+        # See verify_ml_training: the key is the service's, not the caller's.
         verification_result = await zk_service.verify_proof(
             proof=verification_request["proof"],
             public_signals=verification_request["public_signals"],
-            verification_key=verification_request["verification_key"],
+            circuit_name="ml_inference_verification",
         )
 
         return {
-            "verified": verification_result["verified"],
-            "computation_correct": verification_result["computation_correct"],
-            "privacy_preserved": verification_result["privacy_preserved"],
+            "verified": verification_result.get("verified", False),
+            "computation_correct": verification_result.get("computation_correct", False),
+            "privacy_preserved": verification_result.get("privacy_preserved", False),
+            "reason": verification_result.get("error"),
         }
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")

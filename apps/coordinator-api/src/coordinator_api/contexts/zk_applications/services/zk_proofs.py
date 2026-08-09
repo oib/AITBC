@@ -17,6 +17,67 @@ from ....schemas import JobResult, Receipt
 logger = get_logger(__name__)
 
 
+# V23-24/V23-32: verification is off unless a deployment turns it on, matching the
+# blockchain node, which answers "ZK proof verification is not enabled on this node" rather
+# than accepting a proof. The coordinator's /zk/*/verify endpoints previously had no such
+# gate, so the one subsystem that honestly declared the feature off was contradicted by
+# another serving it.
+#
+# feature_flags.json carries an `enable_zk_proof_verification` entry, but nothing reads it:
+# aitbc/feature_flags.py was removed in v0.10.9 and no loader replaced it. An env var is the
+# convention actually in use (AI_ENGINE_ALLOW_SIMULATION, EDGE_ALLOW_SIMULATED_SYNC), so
+# that is what this uses rather than pretending the JSON file is live.
+ENABLE_ZK_VERIFICATION = os.getenv("COORDINATOR_ENABLE_ZK_VERIFICATION", "false").lower() == "true"
+
+VERIFICATION_DISABLED = (
+    "ZK proof verification is not enabled on this coordinator. Set "
+    "COORDINATOR_ENABLE_ZK_VERIFICATION=true to enable it, and read the trusted-setup "
+    "record for these circuits first: a proving key with no phase-2 contribution lets "
+    "whoever holds the setup secret forge proofs that verify."
+)
+
+
+def _resolve_proving_key(circuits_dir: Path, circuit: str) -> Path | None:
+    """Return the highest-numbered contribution for ``circuit``, or None if unusable.
+
+    Groth16 ``*_0000.zkey`` is the key straight out of ``groth16 setup``, before any phase-2
+    contribution. Whoever holds the phase-2 secret for a key can forge proofs that verify
+    against it, so a zero-contribution key is not a weaker key — it is one with a known
+    forger. Two circuits were pinned to ``_0000`` while ``_0001`` sat unused in the same
+    directory (V23-24), inconsistently within a single config literal, which is what marked
+    it as an oversight rather than a decision.
+
+    Selecting by highest index rather than by a written-out filename means a new
+    contribution is picked up by adding the file, and a stale index cannot silently mean
+    "unsecured".
+    """
+    candidates: list[tuple[int, Path]] = []
+    for path in circuits_dir.glob(f"{circuit}_*.zkey"):
+        stem, _, suffix = path.stem.rpartition("_")
+        # The glob is a prefix match, so "ml_inference_verification_0001" would also be a
+        # candidate for a circuit named "ml". Require the stem to be the circuit exactly:
+        # picking up a neighbouring circuit's key is the same class of mistake as picking
+        # up a zero-contribution one.
+        if stem == circuit and suffix.isdigit():
+            candidates.append((int(suffix), path))
+
+    if not candidates:
+        return None
+
+    contribution, path = max(candidates)
+    if contribution == 0:
+        logger.error(
+            "Circuit '%s' has no phase-2 contribution: %s is the only proving key present. "
+            "Anyone holding the trusted-setup secret can forge proofs that verify against "
+            "it, so the circuit is not being loaded. Run a phase-2 contribution and ship "
+            "the resulting _0001.zkey (or later).",
+            circuit,
+            path.name,
+        )
+        return None
+    return path
+
+
 class ZKProofService:
     """Service for generating zero-knowledge proofs for receipts and ML operations"""
 
@@ -24,32 +85,38 @@ class ZKProofService:
         self.circuits_dir = Path(__file__).parent.parent / "zk-circuits"
         self.circuits = {
             "receipt_simple": {
-                "zkey_path": self.circuits_dir / "receipt_simple_0001.zkey",
+                "zkey_path": _resolve_proving_key(self.circuits_dir, "receipt_simple"),
                 "wasm_path": self.circuits_dir / "receipt_simple_js" / "receipt_simple.wasm",
                 "vkey_path": self.circuits_dir / "receipt_simple_js" / "verification_key.json",
             },
             "ml_inference_verification": {
-                "zkey_path": self.circuits_dir / "ml_inference_verification_0000.zkey",
+                "zkey_path": _resolve_proving_key(self.circuits_dir, "ml_inference_verification"),
                 "wasm_path": self.circuits_dir / "ml_inference_verification_js" / "ml_inference_verification.wasm",
                 "vkey_path": self.circuits_dir / "ml_inference_verification_js" / "verification_key.json",
             },
             "ml_training_verification": {
-                "zkey_path": self.circuits_dir / "ml_training_verification_0000.zkey",
+                "zkey_path": _resolve_proving_key(self.circuits_dir, "ml_training_verification"),
                 "wasm_path": self.circuits_dir / "ml_training_verification_js" / "ml_training_verification.wasm",
                 "vkey_path": self.circuits_dir / "ml_training_verification_js" / "verification_key.json",
             },
             "modular_ml_components": {
-                "zkey_path": self.circuits_dir / "modular_ml_components_0001.zkey",
+                "zkey_path": _resolve_proving_key(self.circuits_dir, "modular_ml_components"),
                 "wasm_path": self.circuits_dir / "modular_ml_components_js" / "modular_ml_components.wasm",
                 "vkey_path": self.circuits_dir / "verification_key.json",
             },
         }
         self.available_circuits = {}
         for circuit_name, paths in self.circuits.items():
+            if paths["zkey_path"] is None:
+                # _resolve_proving_key has already said why: either no key at all, or only
+                # a zero-contribution one. Either way the circuit stays unavailable rather
+                # than falling back to something forgeable.
+                logger.warning("❌ Circuit '%s' unavailable: no usable proving key", circuit_name)
+                continue
             missing = [str(p) for p in paths.values() if not p.exists()]
             if not missing:
                 self.available_circuits[circuit_name] = paths
-                logger.info("✅ Circuit '%s' available at %s", circuit_name, paths["zkey_path"].parent)
+                logger.info("✅ Circuit '%s' available, proving key %s", circuit_name, paths["zkey_path"].name)
             else:
                 # Name the absent files. A bare "missing files" warning let an over-broad
                 # .gitignore (*.zkey/*.wasm) silently untrack every proving key without
@@ -118,30 +185,51 @@ class ZKProofService:
         self,
         proof: dict[str, Any],
         public_signals: list[str],
-        verification_key: dict[str, Any] | None = None,
+        circuit_name: str | None = None,
     ) -> dict[str, Any]:
-        """Verify a ZK proof using Groth16 verification
+        """Verify a ZK proof against a verification key this service trusts.
+
+        The key is chosen by ``circuit_name`` from the circuits on disk. It is deliberately
+        **not** a parameter: this method used to accept a caller-supplied
+        ``verification_key`` and verify against it, which the ``/zk/verify`` and
+        ``/zk/ml/verify/*`` endpoints exposed straight through to the network. Anyone could
+        generate their own Groth16 keypair, prove any statement they liked, submit proof and
+        key together, and be told ``verified: true``. A verifier that accepts the verifier's
+        key from the party being verified is not checking anything.
 
         Args:
             proof: The ZK proof to verify
             public_signals: Public signals for the proof
-            verification_key: Optional verification key (uses default if not provided)
+            circuit_name: Which circuit's verification key to check against. Defaults to
+                the first available circuit, preserving prior behaviour for callers that
+                did not name one.
         """
         try:
+            if not ENABLE_ZK_VERIFICATION:
+                return {"verified": False, "error": VERIFICATION_DISABLED}
             if not self.enabled:
                 return {"verified": False, "error": "ZK proof service not enabled"}
-            if verification_key:
-                vkey = verification_key
+            if not self.available_circuits:
+                return {"verified": False, "error": "No circuits available for verification"}
+
+            if circuit_name is not None:
+                if circuit_name not in self.available_circuits:
+                    return {
+                        "verified": False,
+                        "error": (
+                            f"Unknown or unavailable circuit '{circuit_name}'. Available: {sorted(self.available_circuits)}"
+                        ),
+                    }
+                circuit = self.available_circuits[circuit_name]
             else:
-                if not self.available_circuits:
-                    return {"verified": False, "error": "No circuits available for verification"}
-                first_circuit = list(self.available_circuits.values())[0]
-                vkey_path = first_circuit["vkey_path"]
-                try:
-                    with open(vkey_path) as f:
-                        vkey = json.load(f)
-                except FileNotFoundError:
-                    return {"verified": False, "error": f"Verification key not found at {vkey_path}"}
+                circuit = list(self.available_circuits.values())[0]
+
+            vkey_path = circuit["vkey_path"]
+            try:
+                with open(vkey_path) as f:
+                    vkey = json.load(f)
+            except FileNotFoundError:
+                return {"verified": False, "error": f"Verification key not found at {vkey_path}"}
             script = f"\nconst snarkjs = require('snarkjs');\n\nasync function main() {{\n    try {{\n        const vKey = {json.dumps(vkey)};\n        const proof = {json.dumps(proof)};\n        const publicSignals = {json.dumps(public_signals)};\n\n        const verified = await snarkjs.groth16.verify(vKey, publicSignals, proof);\n        console.log(verified);\n    }} catch (error) {{\n        console.error('Error:', error.message);\n        process.exit(1);\n    }}\n}}\n\nmain();\n"
             with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
                 f.write(script)

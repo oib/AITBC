@@ -33,8 +33,12 @@ that commit's message: it also claimed to move "the miner app to `src/` layout" 
 V23-10 covers seven apps) and to fix "missing price handling" (V23-14's `or 0` defaults are
 still there). **Verify before starting, and mark what you fix.**
 
-**Totals**: 32 findings — 19 confirmed defects, 13 observed design gaps. **10 resolved**
-(V23-06..09, V23-17, V23-18, V23-22, V23-29..31); 22 open.
+**Totals**: 33 findings — 20 confirmed defects, 13 observed design gaps. **12 resolved**
+(V23-06..09, V23-17, V23-18, V23-22, V23-24, V23-24a, V23-29..31 — twelve entries, eleven
+numbered findings); 21 open.
+
+V23-24a was added while fixing V23-24, not during a pass. Fixing a finding keeps turning up
+a larger one next to it: see also the V23-30 note.
 Severity is about blast radius, not effort.
 
 Written in three passes, each starting from what the previous listed as uncovered.
@@ -725,12 +729,13 @@ Covering what the second pass left: JavaScript/Solidity dependencies, `zk-circui
 `api-gateway`.
 
 **Third-pass totals**: 5 findings — 4 confirmed, 1 observed. Two positives recorded.
+**V23-24 is resolved**, and V23-24a was added to this section afterwards.
 
 ---
 
-## Critical — proving keys with no phase-2 contribution are the ones loaded
+## Critical — proving keys with no phase-2 contribution are the ones loaded · RESOLVED
 
-### V23-24 — `zk_proofs.py` loads `_0000.zkey` for two circuits while `_0001` sits beside it · CONFIRMED
+### V23-24 — `zk_proofs.py` loads `_0000.zkey` for two circuits while `_0001` sits beside it · CONFIRMED → RESOLVED
 
 `apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/zk_proofs.py:24-46`.
 
@@ -767,6 +772,68 @@ literal* is the strongest evidence it was not deliberate.
 > `_0000`. Then make the selection impossible to get wrong — resolve the highest-numbered
 > contribution at load time, or name the files by content hash rather than by sequence, so
 > a stale index cannot silently mean "unsecured".
+
+**RESOLVED** — the second option. `_resolve_proving_key` picks the highest-numbered
+contribution on disk, so all four circuits now load `_0001` and a new contribution is picked
+up by adding the file rather than by editing a literal. A circuit whose highest key is
+`_0000` **does not load at all**: it logs an error naming the circuit and stays out of
+`available_circuits`, rather than proving with a key that has a known forger.
+
+Writing the resolver's tests found a bug in the resolver: `glob("c_*.zkey")` is a prefix
+match, so a circuit named `c` would happily adopt `c_extra_0009.zkey`. Fixed by requiring
+the stem to equal the circuit exactly. No two shipped circuit names collide today, so this
+was latent — but adopting a neighbouring circuit's key is the same class of mistake as
+adopting a zero-contribution one, and the audit's own wording ("a stale index cannot
+silently mean unsecured") is the reason to care.
+
+#### V23-24a — the verifier accepted the verification key from the caller · NEW, CONFIRMED
+
+Found while fixing the above, and larger than it.
+
+`ZKProofService.verify_proof` took a `verification_key` argument and, when given one,
+verified against it instead of any key on disk:
+
+```python
+if verification_key:
+    vkey = verification_key
+```
+
+Both routers passed one straight through from the request body.
+`POST /v1/zk/verify` had it as an optional field; **`POST /v1/ml-zk/verify/training` and
+`/verify/inference` required it** — `verification_request["verification_key"]`, a hard key
+lookup, so the caller always supplied the key their own proof was checked against.
+
+Generate a Groth16 keypair, prove any statement you like, submit the proof and your own
+verification key, and the endpoint answers `verified: true`. The routes are mounted under
+`/v1` in `main.py` with a rate limit and no authentication dependency.
+
+Which proving key sat on disk was therefore beside the point. V23-24 asked whether the
+*right* key was being used; this asks whether the disk was consulted at all, and it was not.
+A verifier that accepts the verifier's key from the party being verified is not checking
+anything.
+
+> **Fixed here.** `verify_proof(proof, public_signals, circuit_name=None)` — the key is
+> loaded server-side from the named circuit. A caller may say *which* circuit to check
+> against, never *what to check with*. `verification_key` is gone from `VerifyProofRequest`
+> rather than merely ignored, so a client still sending one gets a validation error instead
+> of silently having it dropped. An unknown circuit name is refused rather than defaulted.
+
+#### The coordinator now fails closed, like the node
+
+`COORDINATOR_ENABLE_ZK_VERIFICATION` (default **off**) gates verification, and the refusal
+is checked before circuit availability so a misconfigured deployment cannot verify by
+accident. This closes the coordinator half of V23-32: the blockchain node already answered
+*"ZK proof verification is not enabled on this node"*, while the coordinator served the same
+capability from unsecured keys.
+
+`feature_flags.json` has an `enable_zk_proof_verification` entry, and it is worth recording
+why it is not what gates this: **nothing reads that file.** `aitbc/feature_flags.py` was
+removed in v0.10.9 and no loader replaced it, which is also why the node's fail-closed path
+is a hardcoded comment mentioning the flag rather than a check of it. An env var is the
+convention actually in use (`AI_ENGINE_ALLOW_SIMULATION`, `EDGE_ALLOW_SIMULATED_SYNC`), so
+this uses one instead of pretending the JSON is live. That the file is orphaned deserves its
+own finding; V23-32's severity should be re-read in that light, since it rated flags that
+have no effect.
 
 ### V23-25 — the trusted setup is undocumented · OBSERVED
 
