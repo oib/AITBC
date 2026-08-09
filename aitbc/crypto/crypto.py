@@ -13,11 +13,6 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-from aitbc.aitbc_logging import get_logger
-from eth_keys.exceptions import BadSignature, ValidationError
-
-_logger = get_logger(__name__)
-
 #: Order of the secp256k1 group. A valid private key is a scalar in [1, n-1]; eth-account
 #: does not enforce this and will happily sign with 0.
 _SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
@@ -91,21 +86,20 @@ def verify_signature(message_hash: str, signature: str, address: str) -> bool:
     a bare hash -- so it was both broken on its own terms and asymmetric with the signer.
     Neither showed up while the round-trip property test was skipped.
 
-    It then used ``Account._recover_hash``, which worked but was a second recovery
-    implementation reached through a different library, and so invisible to the
-    ``keys.Signature(`` grep that V23-05's centralisation check greps for. Being private,
-    it is also the same shape as the breakage that preceded it: eth-account 0.13 removed
-    ``sign_hash`` and left signing broken for a release. It now calls
-    :func:`_recover_address` like every other recovery path.
+    It then used ``Account._recover_hash``, a private eth-account API. That worked, but it
+    was a tenth copy of the recovery logic reached through a different library, and the
+    private-API dependency is the same shape as the breakage that preceded it (eth-account
+    0.13 removed ``sign_hash``). Recovery now goes through
+    :mod:`aitbc.crypto.signature_recovery` like every other call site (V23-05).
     """
     try:
         from eth_utils import to_bytes
 
-        message_bytes = to_bytes(hexstr=message_hash.removeprefix("0x"))
-        signature_bytes = to_bytes(hexstr=signature.removeprefix("0x"))
+        from .signature_recovery import recover_address
 
-        recovered_address = _recover_address(message_bytes, signature_bytes)
-        # Compare on the 0x-prefixed form both sides normalise to, case-insensitively:
+        message_bytes = to_bytes(hexstr=message_hash.removeprefix("0x"))
+        recovered_address = recover_address(message_bytes, signature)
+        # Compare case-insensitively on the 0x-prefixed form both sides normalise to:
         # recovery returns an EIP-55 checksummed address, and callers pass whatever they
         # hold. Stripping "0x" from only one side, as this did, made every comparison
         # false even once recovery worked.
@@ -114,35 +108,13 @@ def verify_signature(message_hash: str, signature: str, address: str) -> bool:
         return bool(recovered_address.lower() == address.lower())
     except ImportError:
         # eth-account is no longer reached from here; recovery uses eth-keys via
-        # _recover_address. Naming the packages actually required makes the error
-        # actionable rather than sending the reader after the wrong dependency.
+        # signature_recovery. Naming the packages that are actually required makes the
+        # error actionable rather than sending the reader after the wrong dependency.
         raise ImportError(
             "eth-keys and eth-utils are required for signature verification. Install with: pip install eth-keys eth-utils"
         ) from None
     except Exception as e:
         raise ValueError(f"Failed to verify signature: {e}") from e
-
-
-def _recover_address(msg_hash: bytes, sig_bytes: bytes) -> str:
-    """Recover the Ethereum address from a 65-byte secp256k1 signature.
-
-    Normalizes an Ethereum-encoded recovery id (27/28) to the canonical 0/1
-    before constructing ``eth_keys.Signature``. Raises ``BadSignature`` (or
-    ``ValidationError``) for malformed signatures so callers can distinguish
-    parse errors from unexpected runtime errors.
-    """
-    from eth_keys import keys
-
-    if len(sig_bytes) != 65:
-        raise BadSignature("Invalid signature length")
-    recovery_id = sig_bytes[64]
-    if recovery_id >= 27:
-        recovery_id -= 27
-    if recovery_id not in (0, 1):
-        raise BadSignature("Invalid recovery id")
-    sig = keys.Signature(sig_bytes[:64] + bytes([recovery_id]))
-    pub_key = sig.recover_public_key_from_msg_hash(msg_hash)
-    return pub_key.to_checksum_address()
 
 
 def recover_signer(message_data: dict[str, Any], signature: str) -> str | None:
@@ -170,15 +142,14 @@ def recover_signer(message_data: dict[str, Any], signature: str) -> str | None:
     try:
         from eth_utils import keccak
 
+        from .signature_recovery import SignatureMalformed, recover_address
+
         message = json.dumps(message_data, sort_keys=True, separators=(",", ":")).encode()
-        msg_hash = keccak(message)
-        sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
-        return _recover_address(msg_hash, sig_bytes)
-    except (BadSignature, ValidationError, ValueError) as e:
-        _logger.warning("Signature could not be parsed: %s", e)
-        return None
-    except Exception as e:
-        _logger.error("Unexpected error during signature recovery: %s", e)
+        try:
+            return recover_address(keccak(message), signature)
+        except SignatureMalformed:
+            return None
+    except Exception:
         return None
 
 

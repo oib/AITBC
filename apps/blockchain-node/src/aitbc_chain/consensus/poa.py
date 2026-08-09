@@ -943,6 +943,22 @@ class PoAProposer:
         if not block.signature:
             # Legacy block (pre-v0.7.1) — no signature, skip verification
             return True
-        from aitbc.crypto.consensus_signing import verify_block_signature
+        try:
+            # The block hash is a sha256 hex string; sign_transaction_hash
+            # signs it as a raw hash. We recover by treating the block hash
+            # as the message hash.
+            block_hash_hex = block.hash.removeprefix("0x")
+            msg_hash = bytes.fromhex(block_hash_hex)
+            sig_bytes = bytes.fromhex(block.signature.removeprefix("0x"))
+            # This normalisation (recovery id 27/28 -> 0/1) was the v0.22 TEST-03 fix, and
+            # it lived only here while eight other call sites kept the defect. It now lives
+            # in aitbc.crypto.signature_recovery, which every site calls.
+            from aitbc.crypto.signature_recovery import SignatureMalformed, verify_signature
 
-        return verify_block_signature(block.hash, block.signature, block.proposer)
+            try:
+                return verify_signature(msg_hash, sig_bytes, block.proposer)
+            except SignatureMalformed as e:
+                logger.warning("Malformed block signature from %s (encoding fault): %s", block.proposer, e)
+                return False
+        except Exception:
+            return False
