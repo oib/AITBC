@@ -179,8 +179,23 @@ never `float` — this was a multi-release migration; don't reintroduce floats f
 
 ### Feature Flags
 
-`feature_flags.json` at repo root gates risky/incomplete behavior (rollout percentage,
-allow/blacklist). Check it before assuming a capability is actually live.
+**There is no feature-flag system.** `aitbc/feature_flags.py` was deleted in v0.10.9 and no
+loader replaced it; the orphaned `feature_flags.json` was removed in v0.23 (V23-32) because
+nothing read it and four of its six entries had stopped being true.
+
+Risky or incomplete behavior is gated by **environment variables, read at import time,
+defaulting to the safe value**:
+
+| Variable | Default | Gates |
+|---|---|---|
+| `COORDINATOR_ENABLE_ZK_VERIFICATION` | `false` | ZK proof verification in coordinator-api |
+| `EDGE_ALLOW_SIMULATED_SYNC` | `false` | Edge database sync placeholder |
+| `AI_ENGINE_ALLOW_SIMULATION` | `false` | ai-engine simulated inference |
+| `TRUST_X_WALLET_ADDRESS` | `false` | Accepting `X-Wallet-Address` without JWT (dev only) |
+
+Follow that pattern for new gates. To check whether a capability is live, read the code that
+implements it — there is no manifest to consult, and a manifest nobody reads is worse than
+none, which is what V23-32 was about.
 
 ---
 
