@@ -31,11 +31,18 @@ class GenerateProofRequest(BaseModel):
 
 
 class VerifyProofRequest(BaseModel):
-    """Request to verify a ZK proof"""
+    """Request to verify a ZK proof.
+
+    ``verification_key`` used to be a field here, passed straight to the verifier. A caller
+    could generate their own Groth16 keypair, prove any statement, and submit proof and key
+    together to be told ``verified: true``. The key is now chosen server-side from
+    ``circuit_name``; a caller may say *which* circuit to check against, never *what to
+    check with*.
+    """
 
     proof: dict[str, Any]
     public_signals: list[str]
-    verification_key: dict[str, Any] | None = None
+    circuit_name: str | None = None
 
 
 class ProofResponse(BaseModel):
@@ -94,9 +101,7 @@ async def generate_proof(request: Request, req: GenerateProofRequest) -> ProofRe
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error"
-        ) from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
 
 
 @router.post("/verify", response_model=VerificationResponse, summary="Verify ZK proof")
@@ -117,7 +122,7 @@ async def verify_proof(request: Request, req: VerifyProofRequest) -> Verificatio
         result = await zk_service.verify_proof(
             proof=req.proof,
             public_signals=req.public_signals,
-            verification_key=req.verification_key,
+            circuit_name=req.circuit_name,
         )
 
         return VerificationResponse(
@@ -147,9 +152,7 @@ async def get_circuit_info(request: Request) -> dict[str, Any]:
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error"
-        ) from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
 
 
 @router.get("/health", summary="ZK service health check")
