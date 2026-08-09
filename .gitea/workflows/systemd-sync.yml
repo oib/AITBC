@@ -4,7 +4,10 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - 'systemd/**'
+      - 'apps/**/aitbc-*.service'
+      - 'apps/**/aitbc-*.timer'
+      - 'scripts/**/aitbc-*.service'
+      - 'scripts/**/aitbc-*.timer'
       - '.gitea/workflows/systemd-sync.yml'
   pull_request:
     branches: [main, develop]
@@ -41,13 +44,17 @@ jobs:
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
-          if [[ ! -d "systemd" ]]; then
-            echo "⚠️ No systemd directory found"
+          mapfile -t service_files < <(
+            find apps scripts -type f -name 'aitbc-*.service' | sort
+          )
+
+          if [[ ${#service_files[@]} -eq 0 ]]; then
+            echo "⚠️ No aitbc service files found"
             exit 0
           fi
 
           errors=0
-          for f in systemd/*.service; do
+          for f in "${service_files[@]}"; do
             fname=$(basename "$f")
             echo -n "  $fname: "
 
@@ -60,7 +67,7 @@ jobs:
             fi
           done
 
-          echo "=== Found $(ls systemd/*.service 2>/dev/null | wc -l) service files, $errors errors ==="
+          echo "=== Found ${#service_files[@]} service files, $errors errors ==="
 
           if [[ $errors -gt 0 ]]; then
             exit 1
@@ -70,10 +77,6 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           cd /opt/aitbc
-
-          if [[ ! -d "systemd" ]]; then
-            exit 0
-          fi
 
           echo "=== Syncing systemd files ==="
           if [[ -x scripts/utils/link-systemd.sh ]]; then
@@ -87,11 +90,8 @@ jobs:
             exit 1
           fi
 
-          systemctl daemon-reload
-          echo "✅ Systemd daemon reloaded"
-
           mapfile -t services < <(
-            find systemd -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
+            find -L /etc/systemd/system -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
             sed 's/\.service$//' |
             sort
           )
@@ -128,7 +128,7 @@ jobs:
           echo "=== AITBC Service Status ==="
 
           mapfile -t services < <(
-            find systemd -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
+            find -L /etc/systemd/system -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
             sed 's/\.service$//' |
             sort
           )
