@@ -20,8 +20,15 @@ alone. Findings are marked:
 Nothing in this document is marked closed. Re-verify before starting: this tree changes
 under multiple agents.
 
-**Totals**: 16 findings — 5 confirmed defects, 11 observed design gaps.
+**Totals**: 32 findings — 19 confirmed defects, 13 observed design gaps.
 Severity is about blast radius, not effort.
+
+Written in three passes, each starting from what the previous listed as uncovered.
+First (V23-01..16): core library, blockchain node, marketplace, pool-hub,
+coordinator-api. Second (V23-17..23): the ten unread apps, `scripts/`, Python
+dependencies. Third (V23-24..28): JavaScript/Solidity dependencies, `zk-circuits`,
+`api-gateway`. Fourth (V23-29..32): whether the logic is correct, starting with
+cross-chain settlement.
 
 ---
 
@@ -318,20 +325,654 @@ predates the entire v0.22 remediation, now merged as `d6b6b9dda`.
 
 ---
 
+# Second pass — 2026-08-09
+
+Covering what the first pass listed as uncovered: the ten unread apps, `scripts/`, and
+dependencies. Baseline re-verified first — V23-01 and V23-09 both still reproduce on
+`main` at `a0c60b894`, so the findings above stand.
+
+**Second-pass totals**: 7 findings — 6 confirmed, 1 observed.
+
+---
+
+## Critical — a service that reports work it did not do
+
+### V23-17 — `POST /databases/{id}/sync` fabricates progress and persists it · CONFIRMED
+
+`apps/edge/src/aitbc_edge/services/database_service.py:86-94`, exposed at
+`apps/edge/src/aitbc_edge/routers/database.py:63`.
+
+```python
+# Simulate sync process (in production, this would actually sync data)
+db.sync_status = "idle"
+db.last_sync_at = datetime.now(UTC)
+db.records_synced = db.records_synced + 100  # Simulated
+await session.commit()
+return {"success": True, "message": f"Database {database_id} synced", ...}
+```
+
+No data is synced. The method commits a fresh `last_sync_at`, advances `records_synced` by a
+literal 100, and returns `success: True`. There is no flag in the response, no
+`"simulated": true`, and no environment gate.
+
+This is worse than a stub, because it writes the fiction to the database. Anything reading
+`last_sync_at` to decide whether a replica is current — monitoring, a scheduler, an operator
+— is told the sync happened. The counter climbs by 100 per call, so it also looks like
+progress.
+
+Repro:
+
+```
+sed -n '73,95p' apps/edge/src/aitbc_edge/services/database_service.py
+git grep -n "sync_database" -- apps/edge/   # one caller: the POST route
+```
+
+Note the contrast with `apps/ai-engine/src/ai_service.py` and
+`apps/gpu/src/gpu_service/main.py`, which handle exactly this situation correctly: the AI
+engine refuses unless `AI_ENGINE_ALLOW_SIMULATION=true` and stamps `"simulated": True` on
+every response; the GPU service returns 501 with an explanation. Those are the house
+pattern, and they came out of the v0.22 APP-33 remediation. This endpoint predates or
+missed it.
+
+> **Fix**: return 501 like the GPU service does, and write nothing. If a simulation mode is
+> wanted, gate it on an env var and mark the response, as ai-engine does. The one thing it
+> must not do is commit `last_sync_at`.
+
+---
+
+## Critical — governance timelock fails open
+
+### V23-18 — a failed on-chain submission removes the execution timelock · CONFIRMED
+
+`apps/governance/src/governance_service/services/governance_service.py:406`.
+
+```python
+if proposal.block_height is not None:
+    blocks_since_proposal = current_height - proposal.block_height
+    ...
+    if blocks_since_proposal < effective_timelock:
+        raise ValueError("Timelock not expired: ...")
+```
+
+When `block_height` is `None` the entire timelock check is skipped and execution proceeds.
+It is not a rare state:
+
+- `block_height: int | None = Field(default=None)` —
+  `apps/governance/src/governance_service/domain/governance.py:91,139`.
+- It is assigned only at line 154, `proposal.block_height = result.get("block_height")`,
+  inside `if settings.enable_onchain_submission and settings.proposer_private_key`.
+- That block is wrapped in `except Exception` whose comment reads *"Log but don't block
+  proposal creation — on-chain submission is best-effort"* (line 155-159).
+
+So an RPC hiccup during proposal creation produces a proposal that later executes with **no
+timelock at all**, and the only trace is a warning line at creation time. A best-effort
+operation is silently load-bearing for a safety control.
+
+The comment at line 404 also concedes the timelock is measured from *proposal creation*
+rather than *voting end* — *"In a full implementation, voting_ends_block would be stored
+explicitly"*. The timelock therefore overlaps the voting period instead of following it; if
+`timelock_blocks` is shorter than the voting window, it is already zero even on the happy
+path.
+
+Repro:
+
+```
+sed -n '396,416p' apps/governance/src/governance_service/services/governance_service.py
+sed -n '146,160p' apps/governance/src/governance_service/services/governance_service.py
+grep -n "block_height" apps/governance/src/governance_service/domain/governance.py
+```
+
+> **Fix**: invert the condition — a proposal with no `block_height` must be **refused**
+> execution, not exempted. `if proposal.block_height is None: raise ValueError("cannot
+> verify timelock: proposal has no recorded block height")`. Separately, store
+> `voting_ends_block` at creation and measure the timelock from it, so the safety window is
+> the one the parameter name promises.
+
+---
+
+## High — supply chain
+
+### V23-19 — 68 known vulnerabilities across 12 packages · CONFIRMED
+
+```
+./venv/bin/python -m pip_audit --progress-spinner off
+```
+
+`Found 68 known vulnerabilities in 12 packages`. The ones that matter most for this
+codebase:
+
+| Package | Installed | Note |
+|---|---|---|
+| `cryptography` | 48.0.1 | 3 advisories; this is the library behind all wallet/keystore crypto. Fixes in 49.0.0 / 50.0.0 |
+| `ecdsa` | 0.19.2 | PYSEC-2026-1325, **no fix version published** |
+| `gitpython` | 3.0.6 | 11 advisories — see V23-21 |
+| `aiohttp` | 3.14.1 | 3 advisories, fixed in 3.14.2 / 3.14.3 |
+| `torch`, `pillow`, `setuptools`, `pyasn1` | — | further advisories with fixes available |
+
+`ecdsa` having no upstream fix is the one that needs a decision rather than a bump: either
+accept it with a written rationale about which code paths reach it, or migrate those paths
+to `cryptography` / `eth_keys`.
+
+> **Fix**: bump what has fixes, in one PR, and run the suites. For `ecdsa`, establish what
+> still uses it — this repo has both `ecdsa` and `eth_keys` in play — and prefer removing
+> the dependency to carrying an unfixable advisory.
+
+### V23-20 — the installed environment does not match `pyproject.toml` · CONFIRMED
+
+| Package | Pinned | Installed |
+|---|---|---|
+| `starlette` | 1.3.1 | **1.2.1** |
+| `pydantic-settings` | 2.14.2 | **2.14.1** |
+
+Both gaps are security-relevant, and in an instructive direction: `starlette` 1.2.1 carries
+PYSEC-2026-248/249, fixed in 1.3.0/1.3.1 — exactly the pinned version. `pydantic-settings`
+2.14.1 carries GHSA-4xgf-cpjx-pc3j, fixed in 2.14.2 — again the pin.
+
+**Two of the 68 findings above are already fixed by the declarations and appear only
+because the environment is stale.** Which means the audit result is not a property of the
+repository, it is a property of one machine — and every test run, every CI gate and every
+local reproduction is happening against different versions than the ones declared.
+
+```
+grep -E "^(starlette|pydantic-settings) = " pyproject.toml
+./venv/bin/python -m pip list | grep -iE "^(starlette|pydantic-settings) "
+```
+
+> **Fix**: `poetry install --sync` (or recreate the venv), then add a CI step that fails
+> when the resolved environment drifts from the lock. Without that check, "the tests pass"
+> means less than it appears to.
+
+### V23-21 — an undeclared tool downgrades a shared dependency · CONFIRMED
+
+`gitpython` 3.0.6 is installed with 11 advisories against it. It is not in
+`pyproject.toml`. It is pulled in by `truffleHog`, which is also not in `pyproject.toml`:
+
+```
+./venv/bin/python -m pip show gitpython | grep Required-by     # truffleHog
+grep -in gitpython pyproject.toml                              # no match
+```
+
+Meanwhile `poetry.lock:584` records that `detect-secrets` — which *is* a declared dev
+dependency — wants `GitPython (>=3.1.30)`. The installed 3.0.6 is below that floor and
+roughly fifty patch releases behind current.
+
+Someone `pip install`ed a scanner into the Poetry-managed venv. The result is a security
+tool whose own dependency is the most-vulnerable package in the environment, and a declared
+tool silently running against a version it does not support.
+
+> **Fix**: decide whether `truffleHog` is wanted. If yes, declare it in the dev group and
+> let the resolver reconcile it with `detect-secrets`. If no, remove it. Either way, the
+> venv should not contain packages that no manifest mentions — which is the same check
+> V23-20 asks for.
+
+---
+
+## High — a deploy script that defaults to destroying the local checkout
+
+### V23-22 — `deploy-to-server.sh` defaults to `root@127.0.0.1` and deletes its own source · CONFIRMED
+
+`scripts/deployment/deploy/deploy-to-server.sh`, lines 8-9 and 34-36:
+
+```bash
+SERVER="${AITBC_DEPLOY_SERVER:-root@127.0.0.1}"
+PROJECT_DIR="/opt/aitbc"
+...
+ssh $SERVER "rm -rf $PROJECT_DIR 2>/dev/null || true"
+scp -r /opt/aitbc $SERVER:/opt/
+```
+
+Run without `AITBC_DEPLOY_SERVER` set, this sshes to **localhost as root**, `rm -rf`s
+`/opt/aitbc` — the working checkout — and then attempts to `scp` from that same, now
+deleted, path. The `2>/dev/null || true` suppresses any complaint.
+
+`scripts/deployment/deploy/deploy-explorer.sh:7` has the identical default.
+
+This is the shape of v0.22's OPS-08, where the balance-migration script defaulted to the
+production chain: a destructive operation with a default target. Here the default target is
+the developer's own repository.
+
+```
+sed -n '1,12p;33,37p' scripts/deployment/deploy/deploy-to-server.sh
+git grep -n "AITBC_DEPLOY_SERVER" -- scripts/
+```
+
+> **Fix**: no default. `SERVER="${AITBC_DEPLOY_SERVER:?set AITBC_DEPLOY_SERVER}"` fails
+> immediately with a usable message. Then reverse the order — copy first, swap second — so
+> a failed transfer cannot leave the target with nothing. Both scripts.
+
+---
+
+## Medium — shell safety is inconsistent across 266 scripts
+
+### V23-23 — `set -e` without `set -u` in about 166 scripts · OBSERVED
+
+```
+git ls-files 'scripts/**/*.sh' | wc -l                        # 266
+git grep -l "set -e"     -- 'scripts/**/*.sh' | wc -l         # 210
+git grep -lE "set -[a-z]*u" -- 'scripts/**/*.sh' | wc -l      #  44
+git grep -l "pipefail"   -- 'scripts/**/*.sh' | wc -l         #  44
+```
+
+210 scripts stop on error; only 44 stop on an unset variable, and only 44 catch a failure
+mid-pipeline. So a typo in a variable name expands to empty and the script continues
+confidently — which is precisely the mechanism that makes V23-22 dangerous rather than
+merely untidy.
+
+Unquoted expansions are still present alongside this, e.g.
+`scripts/deployment/build-release.sh:14` — `rm -rf ${BUILD_DIR}`, in a script with `set -e`
+and no `set -u`. `BUILD_DIR` is a literal two lines above, so that one is safe today; it is
+listed as the pattern, not as a live hazard.
+
+> **Fix**: `set -euo pipefail` as the standard preamble, applied when a script is touched
+> rather than in one sweep — turning it on wholesale will surface genuine latent failures,
+> and doing that across 166 scripts at once gives no way to tell which break was real. A
+> pre-commit check on new scripts stops the count growing.
+
+---
+
+# Third pass — 2026-08-09
+
+Covering what the second pass left: JavaScript/Solidity dependencies, `zk-circuits`, and
+`api-gateway`.
+
+**Third-pass totals**: 5 findings — 4 confirmed, 1 observed. Two positives recorded.
+
+---
+
+## Critical — proving keys with no phase-2 contribution are the ones loaded
+
+### V23-24 — `zk_proofs.py` loads `_0000.zkey` for two circuits while `_0001` sits beside it · CONFIRMED
+
+`apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/zk_proofs.py:24-46`.
+
+```python
+"receipt_simple":            "zkey_path": .../receipt_simple_0001.zkey
+"ml_inference_verification": "zkey_path": .../ml_inference_verification_0000.zkey
+"ml_training_verification":  "zkey_path": .../ml_training_verification_0000.zkey
+"modular_ml_components":     "zkey_path": .../modular_ml_components_0001.zkey
+```
+
+In a Groth16 setup, `_0000.zkey` is the key straight out of `groth16 setup` — before any
+phase-2 contribution. `_0001` is after the first contributor has added randomness and
+(ideally) destroyed their toxic waste. Whoever holds the phase-2 secret for a given key can
+forge proofs that verify against it; the entire point of the contribution is that no single
+party retains it.
+
+Two of the four circuits load the zero-contribution key. The contributed keys exist, in the
+same directory:
+
+```
+git ls-files apps/coordinator-api/src/coordinator_api/contexts/zk_applications/zk-circuits \
+  | grep '\.zkey$'
+# ml_inference_verification_0000.zkey
+# ml_inference_verification_0001.zkey    <- present, not used
+# ml_training_verification_0000.zkey
+# ml_training_verification_0001.zkey     <- present, not used
+```
+
+The other two entries in the same dict use `_0001`, so this reads as an oversight in a
+copy-pasted block rather than a decision. That it is inconsistent *within one config
+literal* is the strongest evidence it was not deliberate.
+
+> **Fix**: point both at `_0001`, and re-generate any proofs that were produced against
+> `_0000`. Then make the selection impossible to get wrong — resolve the highest-numbered
+> contribution at load time, or name the files by content hash rather than by sequence, so
+> a stale index cannot silently mean "unsecured".
+
+### V23-25 — the trusted setup is undocumented · OBSERVED
+
+`apps/zk-circuits/README.md` is 32 lines: status, description, node type, GPU required,
+service, source. There is no record of how the `.zkey` files were produced — no ceremony,
+no contributor list, no attestations, no reference to the powers-of-tau file used, and no
+statement about toxic-waste handling. `apps/zk-circuits/circuit_0000.zkey` is committed
+alongside `circuit_0001.zkey`, so the pre-contribution artifact is in version control too.
+
+Without that record there is no way to answer the only question that matters about a
+Groth16 deployment — *can any single party forge proofs?* — and V23-24 shows the question is
+live rather than theoretical.
+
+> **Fix**: document what was actually done, even if the honest answer is "single-contributor
+> development setup, not suitable for production". That sentence in the README is worth more
+> than the current silence, because it tells a reader what they are looking at. If these
+> circuits are meant to carry value, a real multi-party ceremony with published transcripts
+> is the prerequisite, not a follow-up.
+
+### V23-26 — two divergent copies of the circuit tree · CONFIRMED
+
+- `apps/zk-circuits/` — 75 tracked files, the app that builds the circuits.
+- `apps/coordinator-api/src/coordinator_api/contexts/zk_applications/zk-circuits/` — 49
+  tracked files, and the one `ZKProofService` actually reads
+  (`circuits_dir = Path(__file__).parent.parent / "zk-circuits"`).
+
+They have already diverged: `apps/zk-circuits/` carries `receipt_simple_0002.zkey`, a
+further contribution that the copy the service loads does not have. So the service is using
+an older key than the project has produced, and nothing connects the two directories.
+
+```
+git ls-files apps/zk-circuits | grep '\.zkey$'
+git ls-files apps/coordinator-api/src/coordinator_api/contexts/zk_applications/zk-circuits | grep '\.zkey$'
+```
+
+> **Fix**: one source of truth. Either the service reads from `apps/zk-circuits/` via a
+> configured path, or the build publishes artifacts to a location both agree on. Copying
+> binary keys between trees by hand is how V23-24 and this finding both happened.
+
+---
+
+## High — the contract toolchain's declared dependency tree
+
+### V23-27 — 38 advisories in `contracts/package-lock.json`, 19 high · CONFIRMED
+
+```
+cd contracts && npm audit
+# 38 vulnerabilities (15 low, 4 moderate, 19 high)
+```
+
+`contracts/node_modules` is empty in a fresh checkout, so this is a property of the
+**tracked lockfile** — what anyone gets on `npm ci` — not of one machine. That makes it
+strictly more actionable than V23-19/V23-20.
+
+The one worth attention beyond a routine bump is `elliptic`, flagged as *"Uses a
+Cryptographic Primitive with a Risky Implementation"* (GHSA-848j-6mx2-7j84), reached via
+`@ethersproject/signing-key`. That is the signing path of the contract tooling. `axios`
+(10 advisories), `ws`, `adm-zip` and `brace-expansion` account for most of the rest.
+
+`npm audit fix --force` reports it would install `@nomicfoundation/hardhat-verify@3.0.22`,
+a breaking change — which is why this has not happened by itself.
+
+By contrast `packages/` is clean: `pnpm audit` reports no known vulnerabilities.
+
+> **Fix**: take the non-breaking `npm audit fix` first and commit the lockfile, then handle
+> the hardhat-verify major separately against the contract suite (115 passing as of v0.22).
+> Splitting them keeps the breaking change reviewable.
+
+### V23-28 — `contracts/` is configured for pnpm and locked for npm · CONFIRMED
+
+`contracts/.npmrc` is tracked and contains only pnpm-specific keys:
+
+```
+auto-install-peers=false
+strict-peer-dependencies=true
+prefer-frozen-lockfile=true
+shamefully-hoist=true
+```
+
+npm does not understand any of them and says so on every invocation — `npm warn Unknown
+project config "auto-install-peers"`, and the same for the other three. Among the ignored
+settings is `prefer-frozen-lockfile`, the one that would make installs reproducible. The
+repository believes it has that guarantee and does not.
+
+Both lockfiles are present, and only one can be committed:
+
+```
+ls contracts/ | grep lock          # package-lock.json, pnpm-lock.yaml
+git ls-files contracts/ | grep lock # package-lock.json only
+git check-ignore -v contracts/pnpm-lock.yaml
+# .gitignore:376:*.yaml	contracts/pnpm-lock.yaml
+```
+
+This is the **fourth** thing the blanket `*.yaml` rule has swallowed: after `*.zkey`
+breaking the v0.22.0 tag, `*.yaml` hiding `pnpm-workspace.yaml` (v0.22 PKG-05) and
+`wallet*.json` hiding the generated wallet spec (v0.22 DOC-02), a pattern written for
+secrets is now hiding the dependency lockfile of the contract toolchain.
+
+> **Fix**: pick one package manager for `contracts/`. If pnpm — which the `.npmrc` and the
+> rest of the repo suggest — un-ignore `contracts/pnpm-lock.yaml`, commit it, and delete
+> `package-lock.json`. If npm, rewrite `.npmrc` in keys npm reads. Either way the audit in
+> V23-27 should be run against whichever lockfile is authoritative, because right now it is
+> auditing the one nobody installs from.
+>
+> Separately: `.gitignore` has now hidden four needed files by accident. The rule to change
+> is not any single pattern but the practice of writing bare globs — anchor them
+> (`/secrets/*.yaml`) rather than negating them one casualty at a time.
+
+---
+
+## Two things that are right
+
+Recorded because an audit that only lists faults gives a false picture of the codebase, and
+because both show earlier remediation propagating rather than being applied once.
+
+- **`api-gateway` authentication** (`apps/api-gateway/src/api_gateway/main.py:117-127`)
+  is correct on every axis that v0.22's APP-50 got wrong. `REQUIRE_AUTH` defaults to
+  `"true"`; a missing `API_KEY` raises 500 rather than admitting the request; and the
+  comparison is `hmac.compare_digest`, not `==`. This is the shape the exchange's
+  `_require_api_key` was fixed into, arrived at independently.
+- **`packages/` has no known vulnerabilities.** `pnpm audit` is clean, against a workspace
+  that only became installable at all in v0.22 PKG-05.
+
+---
+
+# Fourth pass — 2026-08-09
+
+The first three passes looked at structure, dependencies and honesty. This one looks at
+whether the logic is *right*, starting where the money moves: cross-chain settlement.
+
+**Fourth-pass totals**: 4 findings — all confirmed. One earlier finding qualified.
+
+---
+
+## Critical — the HTLC timelock calculation cannot be correct
+
+An HTLC atomic swap rests on one invariant, which `aitbc/settlement/htlc.py` states in its
+own module docstring:
+
+> *"dest_timelock must expire BEFORE source_timelock. This ensures: if seller reveals
+> secret, buyer has time to claim on source."*
+
+If that ordering inverts, the swap stops being atomic: the seller can claim on the
+destination chain while the buyer's window on the source chain has already closed. The
+buyer pays and receives nothing.
+
+### V23-29 — `calculate_dest_timelock` converts a height on one chain into a height on another · CONFIRMED
+
+`aitbc/settlement/htlc.py:108-146`.
+
+```python
+source_timeout_seconds = source_timelock * source_block_time
+dest_timeout_blocks     = source_timeout_seconds // dest_block_time
+result = dest_timeout_blocks - margin_blocks
+```
+
+`source_timelock` is an absolute block **height**, not a duration. Multiplying it by the
+block time yields time-since-that-chain's-genesis, and dividing by the destination's block
+time yields a height measured from the *destination's* genesis. The two chains have
+independent heights, and the function never receives `dest_current_height` — so the result
+is unrelated to when the destination chain will actually reach it.
+
+```
+./venv/bin/python -c "
+from aitbc.settlement.htlc import calculate_dest_timelock
+d = calculate_dest_timelock(1_000_720, source_block_time=5, dest_block_time=10)
+print(d)                    # 500340
+print(d - 100)              # dest at height 100  -> 500240 blocks ~ 58 days out
+print(d - 600_000)          # dest at height 600k -> -99660, already expired
+"
+```
+
+The same inputs produce a 58-day lock or an expired one depending only on a value the
+function never sees.
+
+The correct computation is in the same file. `validate_timelocks` (lines 199-213) converts
+each timelock to *remaining* blocks from that chain's current height before comparing:
+
+```python
+source_remaining_blocks = source_timelock - source_current_height
+dest_remaining_blocks   = dest_timelock   - dest_current_height
+```
+
+Run against the calculator's own output it rejects it immediately:
+
+```
+Dest timelock expires in 5002400s but must expire before source timelock (3600s)
+Margin between dest and source timelock expiry is -4998800s but must be at least 300s
+```
+
+> **Fix**: `calculate_dest_timelock` must take `source_current_height` and
+> `dest_current_height`, derive the remaining duration on the source chain, subtract the
+> safety margin **in seconds**, and convert that duration to destination blocks —
+> `dest_current_height + (remaining_seconds - margin_seconds) // dest_block_time`. The
+> existing signature cannot be made correct; it needs the two heights.
+
+### V23-30 — production callers skip the validator and feed it epoch-derived heights · CONFIRMED
+
+`apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:250-260`:
+
+```python
+source_current_height = int(time.time() // source_block_time)
+source_timelock = calculate_source_timelock(...)
+dest_timelock   = calculate_dest_timelock(...)
+```
+
+Two independent problems compound V23-29.
+
+First, `source_current_height` is not a block height. It is the Unix epoch divided by the
+block time — roughly 357 million for a 5-second chain, and it advances with wall-clock time
+whether or not the chain produces blocks. No chain in this system is at that height.
+
+Second, neither production caller validates. `validate_timelocks` exists, is exported from
+`aitbc.settlement`, and would reject these values — but:
+
+```
+grep -n validate_timelocks \
+  apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py \
+  apps/coordinator-api/.../cross_chain/bridge_client_adapter.py
+# no matches in either
+```
+
+The values go straight into `CrossChainEscrowRecord`. End to end:
+
+```
+source_current_height from time.time(): 357257894
+source_timelock: 357258624
+dest_timelock:   595431020
+```
+
+`dest_timelock` is **larger** than `source_timelock` — the module's stated invariant,
+inverted, in the default path.
+
+> **Fix**: three things, in order. Read the real height from each chain's RPC instead of
+> the clock. Call `validate_timelocks` before persisting the escrow and refuse to create it
+> on any error. Then fix V23-29, because the validator will otherwise reject every swap.
+> The escrow record should also store both current heights, so a dispute can be
+> reconstructed.
+
+### V23-31 — the test asserts the same misconception · CONFIRMED
+
+`apps/blockchain-node/tests/test_settlement.py:931-938`:
+
+```python
+source_tl = calculate_source_timelock(100, 3600, 5)
+dest_tl   = calculate_dest_timelock(source_tl, source_block_time=5, dest_block_time=3)
+source_seconds = source_tl * 5      # absolute height x block time
+dest_seconds   = dest_tl * 3
+assert dest_seconds < source_seconds
+```
+
+The test multiplies absolute heights by block times and compares the products — treating a
+height as a duration, exactly as the function under test does. It passes, and it establishes
+nothing: both sides of the assertion share the error. The property that matters is about
+remaining time from each chain's current height, and no test covers it.
+
+This is why V23-29 survived. The suite is green.
+
+> **Fix**: assert the real property, using both current heights — that the destination lock
+> expires at least `min_margin_seconds` before the source lock in wall-clock terms. The
+> cheapest version is to assert `validate_timelocks(...) == []` on the calculator's output,
+> which fails today and passes once V23-29 is fixed.
+
+---
+
+## Medium — what the feature flags say about the system
+
+### V23-32 — six flags, and the two that gate proof verification are off · CONFIRMED
+
+`feature_flags.json`, in full:
+
+| Flag | Enabled | Rollout |
+|---|---|---|
+| `use_shared_agent_integration_service` | False | 0% |
+| `use_structlog` | False | 0% |
+| `strict_cors_enforcement` | True | 100% |
+| `trust_x_wallet_address_header` | False | 0% |
+| `enable_zk_proof_verification` | **False** | 0% |
+| `enable_marketplace_rate_limiting` | True | 100% |
+
+Two observations, one reassuring and one not.
+
+`trust_x_wallet_address_header` is off, which is correct — a client-supplied header
+asserting wallet identity is an authentication bypass if trusted, and the flag defaulting
+off means it is not.
+
+`enable_zk_proof_verification` is off, and the blockchain node handles that honestly:
+`apps/blockchain-node/src/aitbc_chain/rpc/contracts.py:188-198` returns
+`{"valid": False, "reason": "ZK proof verification is not enabled on this node"}` rather
+than accepting the proof. That is the correct failure direction and worth recording as
+such.
+
+**But it does not cover the coordinator.** `apps/coordinator-api/.../zk_applications/routers/`
+exposes `POST /zk/membership/verify` and `POST /zk/computation/verify`, which go through
+`ZKProofService` — the service that loads the zero-contribution keys in V23-24. That path
+does not consult this flag.
+
+> **Fix**: decide whether ZK verification is a live capability. If it is, V23-24 must be
+> fixed first, because the coordinator's verify endpoints are reachable now. If it is not,
+> the coordinator endpoints should fail closed the way the node's does, referencing the same
+> flag. What should not persist is one subsystem honestly declaring the feature off while
+> another serves it from unsecured keys.
+
+### Qualification of V23-24
+
+The third pass rated V23-24 (`_0000.zkey` with zero phase-2 contributions) critical without
+knowing the flag state. That rating stands, but the reasoning needs correcting: it is *not*
+because the blockchain node verifies proofs — the node fails closed, as above. It is because
+the coordinator's `/zk/*/verify` endpoints are live and bypass the flag entirely. The node
+path is safe; the coordinator path is the exposure.
+
+---
+
+## What the fourth pass changes about the shape of this audit
+
+The first three passes found things that were *missing* — a normalisation step, a lock, a
+declared dependency, a ceremony record. This one found something different: a calculation
+that is confidently wrong, wrapped in a test that shares its confusion, with the correct
+version sitting twenty lines below it in the same file.
+
+That combination — right answer present, wrong answer used, test agreeing with the wrong
+answer — is not caught by any gate this repository has. Lint, mypy, the test suite and the
+doc-link checker all pass on `main` today. It is worth asking what else is in that
+category, and the honest answer is that only reading finds it.
+
+---
+
 ## What this audit did not cover
 
 Stating the gaps so the next pass does not assume they were cleared:
 
-- **`apps/` breadth.** Findings concentrate in `blockchain-node`, `marketplace`, `pool-hub`,
-  `coordinator-api` and `aitbc/`. `ai-engine`, `api-gateway`, `edge`, `governance`, `gpu`,
-  `memory`, `whisper`, `ffmpeg`, `zk-circuits` and `archive` were surveyed structurally
-  (V23-10) but not read.
-- **`docs/` (1452 files) and `scripts/` (398).** Only where a finding led there.
-- **Behavioural correctness.** This pass looked for defects and design gaps. Whether the
-  economics, consensus or settlement logic is *right* is a different exercise.
+*Closed by later passes*: the ten unread apps (V23-17, V23-18); `scripts/` (V23-22,
+V23-23); Python dependencies (V23-19..21); JavaScript/Solidity dependencies (V23-27,
+V23-28); `zk-circuits` (V23-24..26); `api-gateway` (clean, recorded above).
+
+*Partially closed*: the fabricated-progress pattern of V23-17 was searched for elsewhere —
+`git grep -B4 '"success": True'` across all app sources, cross-referenced against
+simulate/placeholder/TODO comments, returns nothing further. That is a bounded negative: a
+comment worded differently, or an endpoint with no comment at all, would not have matched.
+
+Still not covered:
+
+- **`memory`, `whisper`, `ffmpeg`, `archive`.** Small (3-6 files each), swept for stubs, not
+  read.
+- **`docs/` (1452 files).** Only where a finding led there.
+- **Behavioural correctness, beyond settlement.** The fourth pass took cross-chain
+  settlement (V23-29..31) and found the calculation wrong. The same question is unasked of
+  `aitbc/agent_economics/` (13 modules — bonds, liquidation, pricing, slashing, swaps,
+  yield venues), `aitbc/rewards/policy.py`, and the PoA/PBFT consensus rules. Given what one
+  module turned up, this is the highest-value remaining work in the audit.
 - **The 234 broad `except` handlers** outside the signature paths. V23-04 covers the ones
   that hide V23-01/02/03; the rest were not triaged.
-- **Dependencies.** No `pip-audit`/`npm audit` run.
+- **The circuits themselves.** V23-24..26 concern how the keys are produced, selected and
+  copied. Whether the Circom constraints are *sound* — that a proof implies what it claims
+  about the computation — was not examined and needs someone who does this work.
 
 ## Method
 
