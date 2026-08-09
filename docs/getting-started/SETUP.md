@@ -37,6 +37,25 @@ This guide has been split into topic-focused files for easier navigation:
 **For Troubleshooting:**
 - See [Reference](./setup-reference.md#troubleshooting) for common issues and solutions
 
+## Follower Node Quick Setup
+
+For a follower node joining an open island (e.g. `hub.aitbc.bubuit.net`):
+
+```bash
+sudo /opt/aitbc/scripts/deployment/setup.sh \
+  --open-island https://hub.aitbc.bubuit.net \
+  --node-id <unique-node-id>
+```
+
+Use the hub **base URL** (`https://...`) without a trailing `/rpc` path — the sync code appends `/rpc/head` at runtime. To re-run setup on an existing install, add `--force`.
+
+`setup.sh` now:
+- Sets `DEFAULT_PEER_RPC_URL` to the hub for follower profiles.
+- Creates missing `/etc/aitbc/<unit>.env` files required by `EnvironmentFile=/etc/aitbc/%N.env`.
+- Installs the `filelock` package if the selected profile omits it.
+
+See [setup-reference.md](./setup-reference.md) for troubleshooting.
+
 ---
 
 **Note**: This file has been split into topic-focused files for easier navigation. See the [Documentation Structure](#documentation-structure) section above for links to the individual topic files.

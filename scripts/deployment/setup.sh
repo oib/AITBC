@@ -731,6 +731,22 @@ setup_node_identities() {
         fi
     }
 
+    # Helper for /etc/aitbc/node.env (mirrors set_env for blockchain.env)
+    set_env_node() {
+        local key="$1"
+        local value="$2"
+
+        if [ ! -f /etc/aitbc/node.env ]; then
+            touch /etc/aitbc/node.env
+        fi
+
+        if grep -q "^${key}=" /etc/aitbc/node.env 2>/dev/null; then
+            sed -i "s|^${key}=.*|${key}=${value}|g" /etc/aitbc/node.env
+        else
+            echo "${key}=${value}" >> /etc/aitbc/node.env
+        fi
+    }
+
     # Generate unique IDs
     PROPOSER_ID="ait1$(generate_uuid | tr -d '-')"
     P2P_NODE_ID="node-$(generate_uuid | tr -d '-')"
@@ -769,7 +785,25 @@ EOF
     # Ensure blockchain gossip defaults exist
     set_env gossip_backend broadcast
     set_env gossip_broadcast_url redis://localhost:6379
-    set_env default_peer_rpc_url http://127.0.0.1:8202
+
+    # Set the default peer RPC URL. For a follower joining an open island,
+    # this is the hub base URL; for a hub it stays local.
+    if [ -n "$OPEN_ISLAND_HUB" ] && [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ]; then
+        DEFAULT_PEER_RPC="$OPEN_ISLAND_HUB"
+    else
+        DEFAULT_PEER_RPC="http://127.0.0.1:8202"
+    fi
+    set_env default_peer_rpc_url "$DEFAULT_PEER_RPC"
+
+    # Sync node.env with the same RPC URL and follower settings
+    set_env_node "default_peer_rpc_url" "$DEFAULT_PEER_RPC"
+    set_env_node "DEFAULT_PEER_RPC_URL" "$DEFAULT_PEER_RPC"
+    set_env_node "NODE_ID" "${NODE_ID:-aitbc}"
+    if [ -n "$OPEN_ISLAND_HUB" ] && [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ]; then
+        set_env_node "ENABLE_BLOCK_PRODUCTION" "false"
+        set_env_node "BLOCK_PRODUCTION_CHAINS" ""
+        set_env_node "AUTO_SYNC_ENABLED" "true"
+    fi
 
     # Use pre-configured node.env example if available AND no existing config
     if [ -f "/etc/aitbc/node.env" ]; then
@@ -1074,7 +1108,35 @@ setup_venvs() {
         warning "CLI directory not found at /opt/aitbc/cli"
     fi
 
+    # Ensure filelock is present — aitbc.auth.api_key imports it but some generated
+    # install profiles do not include it (ponytail: dependency should move to requirements)
+    if ! python3 -c "import filelock" >/dev/null 2>&1; then
+        log "Installing missing filelock dependency..."
+        pip install filelock >/dev/null 2>&1 || warning "Failed to install filelock"
+    fi
+
     success "Virtual environments setup completed"
+}
+
+# Ensure every linked aitbc-* unit has a matching /etc/aitbc/%N.env file.
+# systemd EnvironmentFile=/etc/aitbc/%N.env fails hard when the file is absent.
+ensure_service_env_files() {
+    log "Ensuring per-service environment files exist..."
+    mkdir -p /etc/aitbc
+    local unit base env_file
+    for unit in /etc/systemd/system/aitbc-*.service /etc/systemd/system/aitbc-*.timer; do
+        [ -e "$unit" ] || continue
+        base=$(basename "$unit")
+        base="${base%.service}"
+        base="${base%.timer}"
+        env_file="/etc/aitbc/${base}.env"
+        if [ ! -f "$env_file" ]; then
+            touch "$env_file"
+            chmod 644 "$env_file"
+            log "Created missing env file: $env_file"
+        fi
+    done
+    success "Per-service environment files verified"
 }
 
 # Install systemd services
@@ -1124,6 +1186,8 @@ install_services() {
 EOF
     chmod +x /usr/local/bin/aitbc
     log "aitbc CLI installed to /usr/local/bin/aitbc"
+
+    ensure_service_env_files
 
     success "Systemd services installed"
 }
