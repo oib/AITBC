@@ -94,6 +94,37 @@ class HTLCSwapRecord:
         self.refunded_at = refunded_at
 
 
+def _get_current_height(session: Session, chain_id: str) -> int:
+    """Return the current head height for a chain from the database.
+
+    Timelocks stored on a swap are absolute block heights. Comparing them
+    against ``int(time.time() // block_time)`` -- the Unix epoch over the block
+    time -- compares a height to a number in the hundreds of millions.
+
+    That went unnoticed because the code that *produced* the timelocks used the
+    same expression, so producer and checker were consistently wrong together
+    and the swaps behaved plausibly. Once the producer reads real heights (see
+    cross_chain/settlement.py), a checker still on epoch time treats every swap
+    as expired.
+
+    Raises:
+        ValueError: If the chain has no blocks. Refusing is the only safe
+            answer: treating "height unknown" as "not expired" would let a
+            claim through after the refund window, and the reverse would strand
+            funds.
+    """
+    from sqlalchemy import text
+    from sqlmodel import select
+
+    from ..base_models import Block
+
+    stmt = select(Block).where(Block.chain_id == chain_id).order_by(text("height DESC")).limit(1)
+    head = session.execute(stmt).scalars().first()
+    if head is None:
+        raise ValueError(f"cannot determine current height for chain {chain_id!r}: no blocks in database")
+    return int(head.height)
+
+
 def _compute_swap_id(
     initiator: str,
     participant: str,
@@ -291,7 +322,7 @@ class HTLCContract:
             raise ValueError(f"Swap is not open (status={swap_state.status})")
 
         # Check timelock (block height based)
-        current_height = int(time.time() // _get_chain_block_time_seconds(self.chain_id))
+        current_height = _get_current_height(session, self.chain_id)
         if current_height >= swap_state.timelock:
             raise ValueError("Swap timelock expired")
 
@@ -358,7 +389,7 @@ class HTLCContract:
             raise ValueError(f"Swap is not open (status={swap_state.status})")
 
         # Check timelock has expired
-        current_height = int(time.time() // _get_chain_block_time_seconds(self.chain_id))
+        current_height = _get_current_height(session, self.chain_id)
         if current_height < swap_state.timelock:
             raise ValueError("Swap timelock not yet expired")
 
