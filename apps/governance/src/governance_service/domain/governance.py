@@ -91,6 +91,14 @@ class Proposal(SQLModel, table=True):
     block_height: int | None = Field(default=None)
     tx_hash: str | None = Field(default=None)  # GOVERNANCE_PROPOSE tx hash
 
+    # V23-18: the block at which voting closes, recorded at creation. The execution
+    # timelock runs from here, not from ``block_height`` — measuring it from proposal
+    # creation makes the timelock overlap the voting period instead of following it, and
+    # a timelock shorter than the voting window would then already be spent when voting
+    # ends. Recorded rather than recomputed because the voting-period setting can change
+    # between a proposal's creation and its execution.
+    voting_ends_block: int | None = Field(default=None)
+
     # Legacy fields (kept for compatibility)
     execution_payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     votes_for: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))  # Legacy alias for yes_votes
