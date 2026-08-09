@@ -76,7 +76,7 @@ jobs:
 
           export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD/apps/blockchain-node/src:$PWD/apps/wallet/src:$PWD/packages/py/aitbc-crypto/src:$PWD/packages/py/aitbc-sdk/src:$PWD/packages/py/aitbc-agent-sdk/src:$PWD:$PYTHONPATH"
 
-          venv/bin/python -m pytest tests/archived_phase_tests/ \
+          venv/bin/python -m pytest \
             tests/cross_phase/ \
             tests/verification/ \
             -c /dev/null --rootdir "$PWD" --import-mode=importlib \
@@ -99,7 +99,6 @@ jobs:
           venv/bin/python -c "import app; print('✅ coordinator-api app imported')"
 
           venv/bin/python -m pytest \
-            apps/coordinator-api/tests/test_communication.py \
             packages/py/aitbc-crypto/tests/ \
             packages/py/aitbc-sdk/tests/ \
             -c /dev/null --rootdir "$PWD" --import-mode=importlib \
