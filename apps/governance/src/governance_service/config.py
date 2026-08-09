@@ -49,6 +49,16 @@ class Settings(ServiceSettings):
     # On-chain submission feature flag (disabled until blockchain integration is tested)
     enable_onchain_submission: bool = Field(default=False)
 
+    # V23-18: the execution timelock is a safety control, so it fails closed. A proposal
+    # is refused execution unless the service can prove the timelock elapsed — which needs
+    # the proposal's on-chain block height and a reachable chain to compare against.
+    #
+    # Setting this False disables that proof and lets proposals execute immediately. It
+    # exists for local development, where there is no chain to record a height on; every
+    # bypass is logged at WARNING with the proposal id. Do not set it False in an
+    # environment where governance decisions have effect.
+    require_execution_timelock: bool = Field(default=True)
+
     # Proposer signing key for on-chain tx submission (hex-encoded secp256k1 private key)
     # When empty, on-chain submission is skipped (local-only mode).
     proposer_private_key: str = Field(default="")
