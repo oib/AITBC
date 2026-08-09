@@ -364,6 +364,31 @@ class AsyncAITBCHTTPClient:
         self.logger = get_logger(__name__)
 
         # Initialize components
+        #
+        # V23-12 listed this module as needing a concurrency audit: several `async def`s and
+        # no lock. This is the result of that audit, recorded here because the next reader
+        # will ask the same question.
+        #
+        # This class holds no mutable shared state of its own. Everything set above is
+        # read-only after __init__ (base_url, headers, timeout, correlation_id,
+        # enable_logging), and every piece of state that *does* change across requests lives
+        # in the collaborators below, each of which locks it:
+        #
+        #   CircuitBreaker  — failure count and open/closed state
+        #   RateLimiter     — the request window
+        #   CacheLayer      — the response cache
+        #   RetryPolicy     — stateless; holds parameters only
+        #
+        # Those three use threading.Lock rather than asyncio.Lock, which is correct here:
+        # their critical sections are synchronous and contain no await, so they cannot be
+        # suspended while held. That makes them safe under the event loop and under threads,
+        # whereas an asyncio.Lock would only cover the former.
+        #
+        # So the absence of a lock here is a conclusion, not an omission. Adding one would
+        # serialise unrelated requests through a client that is already safe to share.
+        #
+        # If mutable state is ever added to this class, it needs its own lock: the
+        # collaborators' locks protect their state, not this object's.
         self.circuit_breaker = CircuitBreaker(threshold=circuit_breaker_threshold)
         self.rate_limiter = RateLimiter(rate_limit=rate_limit)
         self.retry_policy = RetryPolicy(max_retries=max_retries, enable_logging=enable_logging)
