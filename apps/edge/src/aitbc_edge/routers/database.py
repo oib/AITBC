@@ -5,7 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from ..services.database_service import DatabaseService
+from ..services.database_service import DatabaseService, SyncNotImplementedError
 
 router = APIRouter()
 
@@ -62,6 +62,11 @@ async def delete_database(database_id: str, svc: Annotated[DatabaseService, Depe
 
 @router.post("/{database_id}/sync")
 async def sync_database(database_id: str, svc: Annotated[DatabaseService, Depends(get_database_service)]) -> dict[str, Any]:
-    """Sync database from source"""
-    result = await svc.sync_database(database_id)
-    return result
+    """Sync database from source. Not implemented — see ``SYNC_NOT_IMPLEMENTED``.
+
+    501 is the honest answer: the route is defined, the functionality is not.
+    """
+    try:
+        return await svc.sync_database(database_id)
+    except SyncNotImplementedError as e:
+        raise HTTPException(status_code=501, detail=str(e)) from e
