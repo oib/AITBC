@@ -38,7 +38,7 @@ setup(
         "Repository": "https://github.com/aitbc/aitbc",
         "Documentation": "https://docs.aitbc.net",
     },
-    packages=find_packages(exclude=["aitbc"]),
+    packages=find_packages(include=["aitbc_cli", "aitbc_cli.*"], exclude=["aitbc"]),
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
