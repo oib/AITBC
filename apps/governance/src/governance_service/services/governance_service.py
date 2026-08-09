@@ -152,11 +152,27 @@ class GovernanceService:
                 )
                 proposal.tx_hash = result.get("tx_hash")
                 proposal.block_height = result.get("block_height")
+                # V23-18: record where voting closes, so the execution timelock can run
+                # from the end of voting rather than from proposal creation. Captured now
+                # because the voting-period setting may differ by the time this proposal
+                # is executed.
+                if proposal.block_height is not None:
+                    voting_period = settings.emergency_voting_period_blocks if is_emergency else settings.voting_period_blocks
+                    proposal.voting_ends_block = proposal.block_height + voting_period
             except Exception as e:
-                # Log but don't block proposal creation — on-chain submission is best-effort
+                # On-chain submission stays best-effort: a chain hiccup must not stop a
+                # proposal being recorded. It does, however, leave the proposal without a
+                # block height — and execute_proposal refuses to execute such a proposal,
+                # because the timelock cannot be verified without one. Warn accordingly.
                 import logging
 
-                logging.getLogger(__name__).warning("On-chain GOVERNANCE_PROPOSE submission failed: %s", e)
+                logging.getLogger(__name__).warning(
+                    "On-chain GOVERNANCE_PROPOSE submission failed for %s: %s — proposal has no "
+                    "recorded block height and will be refused execution while "
+                    "require_execution_timelock is set",
+                    proposal.proposal_id,
+                    e,
+                )
 
         self.session.add(proposal)
         await self.session.commit()
@@ -376,9 +392,18 @@ class GovernanceService:
     async def execute_proposal(self, proposal_id: str, executor_address: str = "") -> Proposal | None:
         """Execute a passed proposal and log the steps.
 
-        When on-chain submission is enabled, checks that the timelock has
-        expired (based on block height since voting ended) and submits a
-        GOVERNANCE_EXECUTE transaction. The tx_hash is stored on the proposal.
+        The execution timelock is always enforced first — see
+        :meth:`_enforce_execution_timelock`. It is checked whether or not this
+        deployment submits transactions on-chain, and a proposal whose timelock
+        cannot be verified is refused rather than exempted.
+
+        When on-chain submission is enabled, a GOVERNANCE_EXECUTE transaction is
+        then submitted and its tx_hash stored on the proposal.
+
+        Raises:
+            ValueError: If the proposal has not succeeded, or its timelock cannot
+                be verified or has not expired. The refusal is recorded in the
+                proposal's execution log.
         """
         proposal = await self.get_proposal(proposal_id)
         if not proposal:
@@ -395,25 +420,14 @@ class GovernanceService:
             tx_hash = None
             block_height = None
 
+            # V23-18: enforce the timelock before anything is written, and independently of
+            # whether this deployment submits transactions on-chain. This check used to live
+            # inside the on-chain branch below, which meant the default configuration
+            # (enable_onchain_submission=False) executed proposals with no timelock at all.
+            await self._enforce_execution_timelock(proposal)
+
             if settings.enable_onchain_submission and settings.proposer_private_key:
                 from aitbc.governance.onchain import build_execute_tx
-
-                # Check timelock: voting_ends block + timelock_blocks must be <= current block
-                current_height = await self._blockchain.get_block_height(proposal.chain_id)
-                # voting_ends is a datetime; we approximate block height from creation
-                # In a full implementation, voting_ends_block would be stored explicitly
-                # For v0.7.3, we check that enough blocks have passed since the proposal's block_height
-                if proposal.block_height is not None:
-                    blocks_since_proposal = current_height - proposal.block_height
-                    # v0.7.4: Emergency proposals use accelerated timelock
-                    is_emergency = proposal.proposal_type == "emergency"
-                    effective_timelock = settings.emergency_timelock_blocks if is_emergency else settings.timelock_blocks
-                    if blocks_since_proposal < effective_timelock:
-                        raise ValueError(
-                            f"Timelock not expired: {blocks_since_proposal} blocks since proposal, "
-                            f"need {effective_timelock}"
-                            f"{' (emergency fast-track)' if is_emergency else ''}"
-                        )
 
                 payload = build_execute_tx(proposal_id, executor_address, proposal.chain_id)
                 result = await self._blockchain.submit_governance_tx(
@@ -432,7 +446,14 @@ class GovernanceService:
             if tx_hash:
                 proposal.execution_tx_hash = tx_hash
             if block_height:
-                proposal.block_height = block_height
+                # V23-18: record the execution height alongside the creation height rather
+                # than overwriting it. proposal.block_height is the evidence the timelock
+                # check measures from; overwriting it at execution destroys the only record
+                # of whether the delay was actually honoured.
+                proposal.proposal_metadata = {
+                    **proposal.proposal_metadata,
+                    "execution_block_height": block_height,
+                }
 
             # v0.10.1: Parameter automation — apply parameter changes to the target service
             # after successful proposal execution. Only applies for parameter_change proposals.
@@ -457,6 +478,77 @@ class GovernanceService:
             execution_log.error_message = str(e)
             await self.session.commit()
             raise
+
+    async def _enforce_execution_timelock(self, proposal: Proposal) -> None:
+        """Refuse execution unless the timelock is provably expired (V23-18).
+
+        A timelock is a safety control, so every path that cannot *prove* the delay
+        elapsed refuses rather than proceeds. Three things can go missing, and each is
+        a refusal:
+
+        - the proposal has no recorded on-chain block height (its GOVERNANCE_PROPOSE
+          submission failed, or it predates on-chain governance);
+        - it has no recorded ``voting_ends_block``;
+        - the chain is unreachable, so there is no current height to compare against.
+
+        The previous implementation treated the first of these as "no timelock applies"
+        and executed, which turned a best-effort on-chain submission into a silent
+        load-bearing part of a safety control: one RPC hiccup at creation time produced a
+        proposal that later executed instantly.
+
+        Raises:
+            ValueError: If the timelock cannot be verified, or has not expired.
+        """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        if not settings.require_execution_timelock:
+            logger.warning(
+                "Execution timelock BYPASSED for proposal %s: require_execution_timelock is False. "
+                "This is a development-only setting.",
+                proposal.proposal_id,
+            )
+            return
+
+        if proposal.block_height is None:
+            raise ValueError(
+                f"Cannot verify timelock for proposal {proposal.proposal_id}: no on-chain block "
+                "height was recorded at creation, so there is no point to measure the delay from. "
+                "The GOVERNANCE_PROPOSE submission likely failed; re-submit the proposal."
+            )
+
+        is_emergency = proposal.proposal_type == "emergency"
+
+        # Proposals created before V23-18 have no voting_ends_block. Refuse rather than
+        # reconstruct one: deriving it from current settings would produce whatever answer
+        # the current configuration implies, which is not evidence of anything.
+        if proposal.voting_ends_block is None:
+            raise ValueError(
+                f"Cannot verify timelock for proposal {proposal.proposal_id}: no voting_ends_block "
+                "was recorded at creation. Proposals created before this field existed must be "
+                "re-submitted to be executed on-chain."
+            )
+
+        try:
+            current_height = await self._blockchain.get_block_height(proposal.chain_id)
+        except Exception as e:
+            # Unreachable chain means unknown height. Unknown height means the delay is
+            # unproven, and unproven means refused — an unreachable chain must not become
+            # a way to execute a proposal early.
+            raise ValueError(
+                f"Cannot verify timelock for proposal {proposal.proposal_id}: chain {proposal.chain_id} is unreachable ({e})"
+            ) from e
+
+        effective_timelock = settings.emergency_timelock_blocks if is_emergency else settings.timelock_blocks
+        blocks_since_voting_ended = current_height - proposal.voting_ends_block
+
+        if blocks_since_voting_ended < effective_timelock:
+            raise ValueError(
+                f"Timelock not expired: {blocks_since_voting_ended} blocks since voting ended, "
+                f"need {effective_timelock}"
+                f"{' (emergency fast-track)' if is_emergency else ''}"
+            )
 
     async def _apply_parameter_change(self, proposal: Proposal) -> dict[str, Any]:
         """Apply a governance-approved parameter change to the target service (v0.10.1).
