@@ -33,8 +33,8 @@ that commit's message: it also claimed to move "the miner app to `src/` layout" 
 V23-10 covers seven apps) and to fix "missing price handling" (V23-14's `or 0` defaults are
 still there). **Verify before starting, and mark what you fix.**
 
-**Totals**: 32 findings — 19 confirmed defects, 13 observed design gaps. **9 resolved**
-(V23-06..09, V23-18, V23-22, V23-29..31); 23 open.
+**Totals**: 32 findings — 19 confirmed defects, 13 observed design gaps. **10 resolved**
+(V23-06..09, V23-17, V23-18, V23-22, V23-29..31); 22 open.
 Severity is about blast radius, not effort.
 
 Written in three passes, each starting from what the previous listed as uncovered.
@@ -345,14 +345,18 @@ Covering what the first pass listed as uncovered: the ten unread apps, `scripts/
 dependencies. Baseline re-verified first — V23-01 and V23-09 both still reproduce on
 `main` at `a0c60b894`, so the findings above stand.
 
+<<<<<<< HEAD
 **Second-pass totals**: 7 findings — 6 confirmed, 1 observed. **V23-18 is resolved**; the
 rest are open.
+=======
+**Second-pass totals**: 7 findings — 6 confirmed, 1 observed. **V23-17 is resolved.**
+>>>>>>> f9d378797 (fix(edge): refuse database sync instead of fabricating progress (V23-17))
 
 ---
 
-## Critical — a service that reports work it did not do
+## Critical — a service that reports work it did not do · RESOLVED
 
-### V23-17 — `POST /databases/{id}/sync` fabricates progress and persists it · CONFIRMED
+### V23-17 — `POST /databases/{id}/sync` fabricates progress and persists it · CONFIRMED → RESOLVED
 
 `apps/edge/src/aitbc_edge/services/database_service.py:86-94`, exposed at
 `apps/edge/src/aitbc_edge/routers/database.py:63`.
@@ -392,6 +396,33 @@ missed it.
 > **Fix**: return 501 like the GPU service does, and write nothing. If a simulation mode is
 > wanted, gate it on an env var and mark the response, as ai-engine does. The one thing it
 > must not do is commit `last_sync_at`.
+
+**RESOLVED** — both house patterns, in the order the finding put them. `sync_database`
+raises `SyncNotImplementedError` and the route answers **501** with the explanation;
+`EDGE_ALLOW_SIMULATED_SYNC` (default off) returns a placeholder stamped `"simulated": True`
+instead.
+
+The flag re-enables a *response*, not the writes. **Nothing is committed in either mode** —
+no `last_sync_at`, no `records_synced`, no `sync_status`. A wrong response can be corrected
+by the next call; a fabricated `last_sync_at` in the database outlives the call that made
+it, and is what monitoring reads. Six of the nine tests assert absence: that the counter has
+not moved, that `commit()` was never reached, and that five repeated calls accumulate
+nothing.
+
+`{"success": False, "message": "... not found"}` is unchanged for a missing database — a
+specific answer beats a blanket 501.
+
+#### The label was being discarded one layer up
+
+`cli/aitbc_cli/commands/edge.py:369` calls this endpoint, and it took `result["success"]` as
+its cue to print *"Database X synced"*. That would have reported a simulated response as a
+completed sync — the same claim the fix removes from the service, restated by the client
+that reads it. It now prints the simulated message as a warning, and surfaces the 501 detail
+instead of letting `raise_for_status` reduce the server's explanation to a status line.
+
+This is the third finding in this audit where the defect had a consumer that repeated it
+(compare V23-30, V23-31). It seems to be the characteristic failure mode of this codebase
+rather than a coincidence: a value is produced wrongly, and whatever reads it agrees.
 
 ---
 
