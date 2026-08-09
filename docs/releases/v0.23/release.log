@@ -25,17 +25,24 @@ A finding is marked RESOLVED only after the fix is on `main`, never when a fix i
 written or in review. Everything else here is open. Re-verify before starting: this tree
 changes under multiple agents.
 
-**That last sentence is not boilerplate.** `6ce2c7405` closed V23-06, V23-07, V23-08 and
-V23-09 on `main` without marking them here, and a fix for V23-01..05 was written against a
-tree where they still read as open — duplicating work that had already landed. Each of the
-four is marked resolved below only after checking the current tree, not on the strength of
-that commit's message: it also claimed to move "the miner app to `src/` layout" (done, but
-V23-10 covers seven apps) and to fix "missing price handling" (V23-14's `or 0` defaults are
-still there). **Verify before starting, and mark what you fix.**
+**That last sentence is not boilerplate.** `6ce2c7405` closed V23-06 … V23-09, V23-11 …
+V23-15 on `main` without marking any of them here, and a fix for V23-01..05 was written
+against a tree where they still read as open — duplicating work that had already landed.
+Every finding below is marked resolved only after checking the current tree.
 
-**Totals**: 33 findings — 20 confirmed defects, 13 observed design gaps. **12 resolved**
-(V23-06..09, V23-17, V23-18, V23-22, V23-24, V23-24a, V23-29..31 — twelve entries, eleven
-numbered findings); 21 open.
+That cuts both ways, and it caught me out once. An earlier revision of this paragraph said
+that commit had overclaimed "missing price handling" because "V23-14's `or 0` defaults are
+still there". **That was wrong.** V23-14 is fixed exactly as recommended — a missing
+`price_per_hour` now logs and skips the offer. The `or 0.0` I had grepped is
+`marketplace_service.py:178`, an average over a possibly-empty result set, which is a
+different construct in a different function. Checking a finding means reading the code the
+finding names, not a grep that resembles it.
+
+**Verify before starting, and mark what you fix.**
+
+**Totals**: 33 findings — 20 confirmed defects, 13 observed design gaps. **17 resolved**
+(V23-06..09, V23-11..15, V23-17, V23-18, V23-22, V23-24, V23-24a, V23-29..31 — seventeen
+entries, sixteen numbered findings); 16 open.
 
 V23-24a was added while fixing V23-24, not during a pass. Fixing a finding keeps turning up
 a larger one next to it: see also the V23-30 note.
@@ -261,7 +268,7 @@ The other six carry the same risk of divergence.
 
 ## Medium — concurrency
 
-### V23-11 — `OfferSubscriptionClient` mutates shared state from concurrent tasks · OBSERVED
+### V23-11 — `OfferSubscriptionClient` mutates shared state from concurrent tasks · OBSERVED → RESOLVED
 
 `aitbc/trading/subscription_client.py`. Seven `async def`s, fourteen mutations of
 `self._lease_expiry`, `self._subscriptions` and `self._status`, all keyed by `chain_id`, and
@@ -274,7 +281,7 @@ run concurrently and touch the same dicts — see lines 151, 174, 212–213, 224
 > matters: a renew interleaving with a status transition can leave a subscription marked
 > `SUBSCRIBED` with an expired lease.
 
-### V23-12 — seven more async modules with the same shape · OBSERVED
+### V23-12 — seven more async modules with the same shape · OBSERVED → RESOLVED
 
 `aitbc/alerting.py`, `aitbc/network/client.py`, `aitbc/network/subscription_manager.py`,
 `aitbc/agent_bridge/src/integration_layer.py`, `aitbc/bridge/oracle.py`,
@@ -289,11 +296,37 @@ That is worth establishing per module rather than assuming in either direction.
 > lock; where it is not, say so in a comment, because the next reader will ask the same
 > question.
 
+**RESOLVED (V23-11, V23-12)** — six of the seven modules gained a lock in `6ce2c7405`:
+
+| Module | Lock |
+|---|---|
+| `aitbc/alerting.py` | `asyncio.Lock` |
+| `aitbc/auth/middleware.py` | `asyncio.Lock` |
+| `aitbc/network/subscription_manager.py` | `asyncio.Lock` |
+| `aitbc/agent_bridge/src/integration_layer.py` | `asyncio.Lock` ×2 |
+| `aitbc/bridge/oracle.py` | `threading.Lock` |
+| `aitbc/async_tasks.py` | `threading.Lock` |
+
+V23-11's `OfferSubscriptionClient` is locked too (`subscription_client.py:89`, held at three
+call sites).
+
+**The seventh, `aitbc/network/client.py`, has no lock and should not have one** — which is
+the half of the recommended fix that was still missing, since "no lock needed" is only useful
+if it is written down. Both client classes there hold no mutable state of their own:
+everything set in `__init__` is read-only afterwards, and the state that changes across
+requests lives in `CircuitBreaker`, `RateLimiter` and `CacheLayer`, each of which locks it
+(`RetryPolicy` is stateless). A comment in `AsyncAITBCHTTPClient.__init__` now records that,
+including the condition under which it stops being true: state added to the class itself
+would need its own lock, because the collaborators' locks do not extend to it.
+
+Adding a lock here would have been the worse outcome — it would serialise unrelated requests
+through a client that is already safe to share.
+
 ---
 
 ## Medium — configuration and honesty
 
-### V23-13 — production endpoint hardcoded into marketplace responses, over plaintext HTTP · CONFIRMED
+### V23-13 — production endpoint hardcoded into marketplace responses, over plaintext HTTP · CONFIRMED → RESOLVED
 
 `apps/marketplace/src/marketplace_service/services/marketplace_service.py:269–271` writes
 `http://hub.aitbc.bubuit.net/rpc` into `endpoint`, `public_endpoint` and `health_url` on
@@ -308,7 +341,13 @@ Clients are being handed a plaintext URL as the endpoint to use.
 > same time — `apps/coordinator-api/.../sdk/enterprise_client.py:52` has
 > `https://api.aitbc.dev/enterprise` as a dataclass default.
 
-### V23-14 — money defaults to `0` in marketplace offer construction · OBSERVED
+**RESOLVED** in `6ce2c7405`. All three fields now read `settings.hub_rpc_url`
+(`marketplace_service.py:276–278`), whose default in `config.py:35` is
+**`https://`** — the plaintext scheme is gone along with the hardcoding. The second
+hardcoded URL noted above was left as-is: it is a client-side dataclass default over TLS,
+which is a different (and much smaller) problem than a server telling callers to use HTTP.
+
+### V23-14 — money defaults to `0` in marketplace offer construction · OBSERVED → RESOLVED
 
 Same block, line 266: `"price": offer.get("price_per_hour", 0)`. An int fallback in a price
 field, in a repo whose stated invariant is `Decimal` everywhere for money. A missing price
@@ -317,7 +356,14 @@ becomes a free offer rather than an error.
 > **Fix**: no default. An offer without a price is malformed and should be dropped with a
 > warning, not published at zero.
 
-### V23-15 — hardware validation asserts rather than checks · OBSERVED
+**RESOLVED** in `6ce2c7405`, exactly as recommended — `marketplace_service.py:260–263` reads
+`price_per_hour` with no default, logs `"Skipping blockchain offer %s: missing
+price_per_hour"` and continues. The surviving value is wrapped as
+`Decimal(str(price_per_hour))`, so the `Decimal`-for-money invariant holds too.
+
+(This is the finding an earlier revision of the header note wrongly called unfixed.)
+
+### V23-15 — hardware validation asserts rather than checks · OBSERVED → RESOLVED
 
 `apps/pool-hub/src/poolhub/services/validation.py:112–123`. `_get_miner_hardware_value` maps
 `"storage": 100, # Assume sufficient storage` and `"network": 1, # Assume network is
@@ -328,6 +374,12 @@ storage or network requirement always passes.
 > `_meets_requirement` treat `None` as "cannot verify" — surfaced to the caller rather than
 > silently satisfied. If the intent is that these are always satisfiable, remove them from
 > the requirement vocabulary so nobody writes a requirement that is silently ignored.
+
+**RESOLVED** in `6ce2c7405`, the first of the two options. Both entries are now
+`None,  # Not measured; caller warns "cannot verify"`, and the caller checks for it before
+comparing (`validation.py:89–92`): a `None` appends `"Cannot verify {component} requirement"`
+to `result.warnings` and skips the comparison. An unmeasurable requirement no longer passes
+silently — it fails to be checked, visibly.
 
 ---
 
