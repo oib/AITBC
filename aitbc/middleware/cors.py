@@ -19,20 +19,30 @@ def setup_cors(
 ) -> None:
     """Add CORSMiddleware to a FastAPI app with sensible defaults.
 
+    ``allow_origins`` is required. It used to default to ``["*"]``, which meant a service
+    got permissive CORS by saying nothing — the one configuration nobody would write down as
+    a decision (V23-32a). Omitting it now fails at startup instead.
+
     Args:
         app: FastAPI application instance.
-        allow_origins: List of allowed origins. Defaults to ``["*"]`` (all origins).
+        allow_origins: List of allowed origins. Required; pass ``["*"]`` explicitly to opt
+            into a public API.
         allow_credentials: Whether to allow credentials. Defaults to False to avoid
             the wildcard-with-credentials conflict.
         allow_methods: List of allowed HTTP methods. Defaults to all standard methods.
         allow_headers: List of allowed headers. Defaults to all headers.
 
     Raises:
-        ValueError: If ``allow_origins`` contains ``"*"`` while ``allow_credentials``
-            is enabled, which is a security risk in browsers.
+        ValueError: If ``allow_origins`` is omitted, or if it contains ``"*"`` while
+            ``allow_credentials`` is enabled, which is a security risk in browsers.
     """
     if allow_origins is None:
-        allow_origins = ["*"]
+        raise ValueError(
+            "setup_cors() requires allow_origins. It previously defaulted to ['*'], so a "
+            "service that said nothing about CORS got the most permissive setting there is. "
+            "Pass the service's allowlist, or ['*'] explicitly if the API is meant to be "
+            "public."
+        )
     if allow_methods is None:
         allow_methods = ["*"]
     if allow_headers is None:
