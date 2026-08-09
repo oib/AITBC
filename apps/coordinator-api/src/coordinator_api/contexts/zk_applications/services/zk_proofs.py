@@ -23,10 +23,10 @@ logger = get_logger(__name__)
 # gate, so the one subsystem that honestly declared the feature off was contradicted by
 # another serving it.
 #
-# feature_flags.json carries an `enable_zk_proof_verification` entry, but nothing reads it:
-# aitbc/feature_flags.py was removed in v0.10.9 and no loader replaced it. An env var is the
-# convention actually in use (AI_ENGINE_ALLOW_SIMULATION, EDGE_ALLOW_SIMULATED_SYNC), so
-# that is what this uses rather than pretending the JSON file is live.
+# feature_flags.json used to carry an `enable_zk_proof_verification` entry, but nothing read
+# it: aitbc/feature_flags.py was removed in v0.10.9 and no loader replaced it. That file has
+# since been deleted (V23-32). An env var is the convention actually in use
+# (AI_ENGINE_ALLOW_SIMULATION, EDGE_ALLOW_SIMULATED_SYNC), so that is what this uses.
 ENABLE_ZK_VERIFICATION = os.getenv("COORDINATOR_ENABLE_ZK_VERIFICATION", "false").lower() == "true"
 
 VERIFICATION_DISABLED = (

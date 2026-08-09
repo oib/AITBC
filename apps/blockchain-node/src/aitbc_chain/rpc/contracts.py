@@ -184,9 +184,16 @@ async def verify_contract(request: Request, verify_data: dict[str, Any]) -> dict
                 },
             }
 
-        # ZK proof verification requires a real ZK verifier implementation.
-        # The enable_zk_proof_verification feature flag is currently disabled.
-        # Return an honest result indicating verification is not available.
+        # ZK proof verification requires a real ZK verifier implementation, which this node
+        # does not have. Return an honest result rather than accepting the proof.
+        #
+        # This refusal is unconditional. An earlier comment here said "the
+        # enable_zk_proof_verification feature flag is currently disabled", which read as
+        # though a flag governed it — nothing did: that flag lived in feature_flags.json,
+        # which no code has read since aitbc/feature_flags.py was deleted in v0.10.9. The
+        # file was removed in v0.23 (V23-32). Behaviour is unchanged; only the explanation
+        # was wrong, and a wrong explanation of correct behaviour is how the behaviour gets
+        # "restored" to something worse by someone who believes the flag is the real gate.
         return {
             "success": True,
             "result": {
