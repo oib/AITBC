@@ -20,12 +20,14 @@ alone. Findings are marked:
 Nothing in this document is marked closed. Re-verify before starting: this tree changes
 under multiple agents.
 
-**Totals**: 23 findings — 11 confirmed defects, 12 observed design gaps.
+**Totals**: 28 findings — 15 confirmed defects, 13 observed design gaps.
 Severity is about blast radius, not effort.
 
-Written in two passes. The first (V23-01..16) covered the core library, blockchain node,
-marketplace, pool-hub and coordinator-api. The second (V23-17..23) covered what the first
-pass listed as uncovered: the ten unread apps, `scripts/`, and dependencies.
+Written in three passes, each starting from what the previous listed as uncovered.
+First (V23-01..16): core library, blockchain node, marketplace, pool-hub,
+coordinator-api. Second (V23-17..23): the ten unread apps, `scripts/`, Python
+dependencies. Third (V23-24..28): JavaScript/Solidity dependencies, `zk-circuits`,
+`api-gateway`.
 
 ---
 
@@ -567,28 +569,205 @@ listed as the pattern, not as a live hazard.
 
 ---
 
+# Third pass — 2026-08-09
+
+Covering what the second pass left: JavaScript/Solidity dependencies, `zk-circuits`, and
+`api-gateway`.
+
+**Third-pass totals**: 5 findings — 4 confirmed, 1 observed. Two positives recorded.
+
+---
+
+## Critical — proving keys with no phase-2 contribution are the ones loaded
+
+### V23-24 — `zk_proofs.py` loads `_0000.zkey` for two circuits while `_0001` sits beside it · CONFIRMED
+
+`apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/zk_proofs.py:24-46`.
+
+```python
+"receipt_simple":            "zkey_path": .../receipt_simple_0001.zkey
+"ml_inference_verification": "zkey_path": .../ml_inference_verification_0000.zkey
+"ml_training_verification":  "zkey_path": .../ml_training_verification_0000.zkey
+"modular_ml_components":     "zkey_path": .../modular_ml_components_0001.zkey
+```
+
+In a Groth16 setup, `_0000.zkey` is the key straight out of `groth16 setup` — before any
+phase-2 contribution. `_0001` is after the first contributor has added randomness and
+(ideally) destroyed their toxic waste. Whoever holds the phase-2 secret for a given key can
+forge proofs that verify against it; the entire point of the contribution is that no single
+party retains it.
+
+Two of the four circuits load the zero-contribution key. The contributed keys exist, in the
+same directory:
+
+```
+git ls-files apps/coordinator-api/src/coordinator_api/contexts/zk_applications/zk-circuits \
+  | grep '\.zkey$'
+# ml_inference_verification_0000.zkey
+# ml_inference_verification_0001.zkey    <- present, not used
+# ml_training_verification_0000.zkey
+# ml_training_verification_0001.zkey     <- present, not used
+```
+
+The other two entries in the same dict use `_0001`, so this reads as an oversight in a
+copy-pasted block rather than a decision. That it is inconsistent *within one config
+literal* is the strongest evidence it was not deliberate.
+
+> **Fix**: point both at `_0001`, and re-generate any proofs that were produced against
+> `_0000`. Then make the selection impossible to get wrong — resolve the highest-numbered
+> contribution at load time, or name the files by content hash rather than by sequence, so
+> a stale index cannot silently mean "unsecured".
+
+### V23-25 — the trusted setup is undocumented · OBSERVED
+
+`apps/zk-circuits/README.md` is 32 lines: status, description, node type, GPU required,
+service, source. There is no record of how the `.zkey` files were produced — no ceremony,
+no contributor list, no attestations, no reference to the powers-of-tau file used, and no
+statement about toxic-waste handling. `apps/zk-circuits/circuit_0000.zkey` is committed
+alongside `circuit_0001.zkey`, so the pre-contribution artifact is in version control too.
+
+Without that record there is no way to answer the only question that matters about a
+Groth16 deployment — *can any single party forge proofs?* — and V23-24 shows the question is
+live rather than theoretical.
+
+> **Fix**: document what was actually done, even if the honest answer is "single-contributor
+> development setup, not suitable for production". That sentence in the README is worth more
+> than the current silence, because it tells a reader what they are looking at. If these
+> circuits are meant to carry value, a real multi-party ceremony with published transcripts
+> is the prerequisite, not a follow-up.
+
+### V23-26 — two divergent copies of the circuit tree · CONFIRMED
+
+- `apps/zk-circuits/` — 75 tracked files, the app that builds the circuits.
+- `apps/coordinator-api/src/coordinator_api/contexts/zk_applications/zk-circuits/` — 49
+  tracked files, and the one `ZKProofService` actually reads
+  (`circuits_dir = Path(__file__).parent.parent / "zk-circuits"`).
+
+They have already diverged: `apps/zk-circuits/` carries `receipt_simple_0002.zkey`, a
+further contribution that the copy the service loads does not have. So the service is using
+an older key than the project has produced, and nothing connects the two directories.
+
+```
+git ls-files apps/zk-circuits | grep '\.zkey$'
+git ls-files apps/coordinator-api/src/coordinator_api/contexts/zk_applications/zk-circuits | grep '\.zkey$'
+```
+
+> **Fix**: one source of truth. Either the service reads from `apps/zk-circuits/` via a
+> configured path, or the build publishes artifacts to a location both agree on. Copying
+> binary keys between trees by hand is how V23-24 and this finding both happened.
+
+---
+
+## High — the contract toolchain's declared dependency tree
+
+### V23-27 — 38 advisories in `contracts/package-lock.json`, 19 high · CONFIRMED
+
+```
+cd contracts && npm audit
+# 38 vulnerabilities (15 low, 4 moderate, 19 high)
+```
+
+`contracts/node_modules` is empty in a fresh checkout, so this is a property of the
+**tracked lockfile** — what anyone gets on `npm ci` — not of one machine. That makes it
+strictly more actionable than V23-19/V23-20.
+
+The one worth attention beyond a routine bump is `elliptic`, flagged as *"Uses a
+Cryptographic Primitive with a Risky Implementation"* (GHSA-848j-6mx2-7j84), reached via
+`@ethersproject/signing-key`. That is the signing path of the contract tooling. `axios`
+(10 advisories), `ws`, `adm-zip` and `brace-expansion` account for most of the rest.
+
+`npm audit fix --force` reports it would install `@nomicfoundation/hardhat-verify@3.0.22`,
+a breaking change — which is why this has not happened by itself.
+
+By contrast `packages/` is clean: `pnpm audit` reports no known vulnerabilities.
+
+> **Fix**: take the non-breaking `npm audit fix` first and commit the lockfile, then handle
+> the hardhat-verify major separately against the contract suite (115 passing as of v0.22).
+> Splitting them keeps the breaking change reviewable.
+
+### V23-28 — `contracts/` is configured for pnpm and locked for npm · CONFIRMED
+
+`contracts/.npmrc` is tracked and contains only pnpm-specific keys:
+
+```
+auto-install-peers=false
+strict-peer-dependencies=true
+prefer-frozen-lockfile=true
+shamefully-hoist=true
+```
+
+npm does not understand any of them and says so on every invocation — `npm warn Unknown
+project config "auto-install-peers"`, and the same for the other three. Among the ignored
+settings is `prefer-frozen-lockfile`, the one that would make installs reproducible. The
+repository believes it has that guarantee and does not.
+
+Both lockfiles are present, and only one can be committed:
+
+```
+ls contracts/ | grep lock          # package-lock.json, pnpm-lock.yaml
+git ls-files contracts/ | grep lock # package-lock.json only
+git check-ignore -v contracts/pnpm-lock.yaml
+# .gitignore:376:*.yaml	contracts/pnpm-lock.yaml
+```
+
+This is the **fourth** thing the blanket `*.yaml` rule has swallowed: after `*.zkey`
+breaking the v0.22.0 tag, `*.yaml` hiding `pnpm-workspace.yaml` (v0.22 PKG-05) and
+`wallet*.json` hiding the generated wallet spec (v0.22 DOC-02), a pattern written for
+secrets is now hiding the dependency lockfile of the contract toolchain.
+
+> **Fix**: pick one package manager for `contracts/`. If pnpm — which the `.npmrc` and the
+> rest of the repo suggest — un-ignore `contracts/pnpm-lock.yaml`, commit it, and delete
+> `package-lock.json`. If npm, rewrite `.npmrc` in keys npm reads. Either way the audit in
+> V23-27 should be run against whichever lockfile is authoritative, because right now it is
+> auditing the one nobody installs from.
+>
+> Separately: `.gitignore` has now hidden four needed files by accident. The rule to change
+> is not any single pattern but the practice of writing bare globs — anchor them
+> (`/secrets/*.yaml`) rather than negating them one casualty at a time.
+
+---
+
+## Two things that are right
+
+Recorded because an audit that only lists faults gives a false picture of the codebase, and
+because both show earlier remediation propagating rather than being applied once.
+
+- **`api-gateway` authentication** (`apps/api-gateway/src/api_gateway/main.py:117-127`)
+  is correct on every axis that v0.22's APP-50 got wrong. `REQUIRE_AUTH` defaults to
+  `"true"`; a missing `API_KEY` raises 500 rather than admitting the request; and the
+  comparison is `hmac.compare_digest`, not `==`. This is the shape the exchange's
+  `_require_api_key` was fixed into, arrived at independently.
+- **`packages/` has no known vulnerabilities.** `pnpm audit` is clean, against a workspace
+  that only became installable at all in v0.22 PKG-05.
+
+---
+
 ## What this audit did not cover
 
 Stating the gaps so the next pass does not assume they were cleared:
 
-*Closed by the second pass*: the ten unread apps (V23-17, V23-18 came out of `edge` and
-`governance`); `scripts/` (V23-22, V23-23); Python dependencies (V23-19, V23-20, V23-21).
+*Closed by later passes*: the ten unread apps (V23-17, V23-18); `scripts/` (V23-22,
+V23-23); Python dependencies (V23-19..21); JavaScript/Solidity dependencies (V23-27,
+V23-28); `zk-circuits` (V23-24..26); `api-gateway` (clean, recorded above).
+
+*Partially closed*: the fabricated-progress pattern of V23-17 was searched for elsewhere —
+`git grep -B4 '"success": True'` across all app sources, cross-referenced against
+simulate/placeholder/TODO comments, returns nothing further. That is a bounded negative: a
+comment worded differently, or an endpoint with no comment at all, would not have matched.
 
 Still not covered:
 
-- **`api-gateway`, `memory`, `whisper`, `ffmpeg`, `zk-circuits`, `archive`.** Swept for
-  stubs and placeholders, which is how V23-17 and V23-18 surfaced, but not read line by
-  line. `zk-circuits` (75 files) is the largest and least examined.
-- **JavaScript/Solidity dependencies.** `pip-audit` was run; `npm audit` in `contracts/`
-  and `packages/` was not.
+- **`memory`, `whisper`, `ffmpeg`, `archive`.** Small (3-6 files each), swept for stubs, not
+  read.
 - **`docs/` (1452 files).** Only where a finding led there.
-- **Behavioural correctness.** Both passes looked for defects and design gaps. Whether the
-  economics, consensus or settlement logic is *right* is a different exercise — and given
-  V23-18, the governance parameters would be the place to start.
+- **Behavioural correctness.** All three passes looked for defects and design gaps. Whether
+  the economics, consensus or settlement logic is *right* is a different exercise — and
+  given V23-18, the governance parameters are where it should start.
 - **The 234 broad `except` handlers** outside the signature paths. V23-04 covers the ones
   that hide V23-01/02/03; the rest were not triaged.
-- **Whether the fabricated-progress pattern in V23-17 appears elsewhere.** One instance was
-  found by grepping for "simulate"; a comment worded differently would not have matched.
+- **The circuits themselves.** V23-24..26 concern how the keys are produced, selected and
+  copied. Whether the Circom constraints are *sound* — that a proof implies what it claims
+  about the computation — was not examined and needs someone who does this work.
 
 ## Method
 
