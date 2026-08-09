@@ -25,6 +25,7 @@ import time
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import text
 from sqlmodel import select
 
 from aitbc.settlement.htlc import (
@@ -33,6 +34,7 @@ from aitbc.settlement.htlc import (
     calculate_source_timelock,
     compute_hashlock,
     generate_secret,
+    validate_timelocks,
     verify_secret,
 )
 from aitbc.settlement.proofs import (
@@ -64,6 +66,34 @@ def _get_chain_block_time_seconds(chain_id: str) -> int:
         if isinstance(block_time, int) and block_time > 0:
             return block_time
     return settings.block_time_seconds
+
+
+def _get_chain_height(chain_id: str) -> int:
+    """Return the current head height for a chain from the local database.
+
+    HTLC timelocks are absolute block heights on two independent chains, so
+    they can only be computed from what those chains are actually at. This
+    previously used ``int(time.time() // block_time)`` as a stand-in, which is
+    the Unix epoch over the block time -- a number in the hundreds of millions
+    that advances on wall-clock time whether or not the chain produces blocks,
+    and that no chain in this system is anywhere near.
+
+    Raises:
+        RuntimeError: If the chain has no blocks locally. An escrow whose
+            timelocks cannot be grounded in real heights must not be created;
+            guessing is what the old code did.
+    """
+    from ..base_models import Block
+
+    with session_scope(chain_id) as session:
+        # session.execute(...).scalars(), matching _get_last_proof_hash below --
+        # session.exec is the SQLModel-only spelling and is not what the
+        # sessions handed to this module provide.
+        stmt = select(Block).where(Block.chain_id == chain_id).order_by(text("height DESC")).limit(1)
+        head = session.execute(stmt).scalars().first()
+        if head is None:
+            raise RuntimeError(f"cannot determine current height for chain {chain_id!r}: no blocks in local database")
+        return int(head.height)
 
 
 def _escrow_to_dict(record: CrossChainEscrowRecord) -> dict:
@@ -243,11 +273,13 @@ class CrossChainSettlementService:
         # retried creates for the same trade can never collide.
         escrow_id = f"esc_{time.time_ns():x}{uuid.uuid4().hex[:8]}"
 
-        # Calculate timelocks. Use current time as a proxy for current block
-        # height on each chain (height = time // block_time).
+        # Calculate timelocks from the real head height of each chain. Heights on
+        # two chains are independent, so both are needed: the remaining duration
+        # is what converts between them.
         source_block_time = _get_chain_block_time_seconds(source_chain)
         dest_block_time = _get_chain_block_time_seconds(dest_chain)
-        source_current_height = int(time.time() // source_block_time)
+        source_current_height = _get_chain_height(source_chain)
+        dest_current_height = _get_chain_height(dest_chain)
         source_timelock = calculate_source_timelock(
             current_block_height=source_current_height,
             timeout_seconds=timeout_seconds,
@@ -255,9 +287,26 @@ class CrossChainSettlementService:
         )
         dest_timelock = calculate_dest_timelock(
             source_timelock=source_timelock,
+            source_current_height=source_current_height,
+            source_block_time=source_block_time,
+            dest_current_height=dest_current_height,
+            dest_block_time=dest_block_time,
+        )
+
+        # Refuse the escrow if the timelocks do not uphold the atomicity
+        # invariant. validate_timelocks has always existed and was never called;
+        # an escrow with an inverted ordering lets the seller claim on the dest
+        # chain after the buyer's source-chain window has closed.
+        timelock_errors = validate_timelocks(
+            source_timelock=source_timelock,
+            dest_timelock=dest_timelock,
+            source_current_height=source_current_height,
+            dest_current_height=dest_current_height,
             source_block_time=source_block_time,
             dest_block_time=dest_block_time,
         )
+        if timelock_errors:
+            raise ValueError(f"refusing to create escrow with unsafe timelocks: {'; '.join(timelock_errors)}")
 
         now = datetime.now(UTC)
         record = CrossChainEscrowRecord(
