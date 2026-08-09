@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from types import SimpleNamespace
 
 # Ensure blockchain-node source is importable
 _SRC = Path(__file__).resolve().parent.parent / "src"
@@ -79,6 +80,11 @@ class MockSession:
         self.proofs: list[EscrowProofRecord] = []
         self.accounts: dict[tuple[str, str], Account] = {}
         self.swaps: dict[str, HTLCSwapState] = {}
+        # Chain heads by chain_id. Escrow creation reads the real head of both
+        # chains to compute HTLC timelocks -- it used to invent one from
+        # time.time(), so these tests never had to model a chain that had
+        # produced blocks. Seeded with a plausible height for both islands.
+        self.block_heights: dict[str, int] = {"ait-hub": 10_000, "ait-island-1": 8_000}
         self._escrow_counter = 0
         self._proof_counter = 0
 
@@ -134,6 +140,10 @@ class MockSession:
                 rows = [r for r in rows if r.escrow_id == filters["escrow_id"]]
             if "status" in filters:
                 rows = [r for r in rows if r.status in filters["status"]]
+        elif table_name == "block":
+            chain_id = filters.get("chain_id")
+            height = self.block_heights.get(chain_id) if chain_id else None
+            rows = [SimpleNamespace(height=height, chain_id=chain_id)] if height is not None else []
         elif table_name == "escrow_proofs":
             rows = list(self.proofs)
             if "escrow_id" in filters:
@@ -929,13 +939,120 @@ class TestSettlementService:
         assert tl == 830
 
     def test_calculate_dest_timelock(self):
-        """Dest timelock is earlier than source (in time terms)."""
-        source_tl = calculate_source_timelock(100, 3600, 5)
-        dest_tl = calculate_dest_timelock(source_tl, source_block_time=5, dest_block_time=3)
-        # Dest timelock converted to seconds should be less than source
-        source_seconds = source_tl * 5
-        dest_seconds = dest_tl * 3
-        assert dest_seconds < source_seconds
+        """Dest timelock expires before source, measured from each chain's own head.
+
+        The previous version of this test multiplied both absolute heights by
+        their block times and compared the products -- treating a height as a
+        duration, the same error the function under test was making. Both sides
+        shared the mistake, so it passed while the calculation was wrong.
+
+        The property that matters is about *remaining* time from each chain's
+        current height, which is what validate_timelocks checks.
+        """
+        source_head, dest_head = 100, 5_000
+        source_tl = calculate_source_timelock(source_head, 3600, 5)
+        dest_tl = calculate_dest_timelock(
+            source_timelock=source_tl,
+            source_current_height=source_head,
+            source_block_time=5,
+            dest_current_height=dest_head,
+            dest_block_time=3,
+        )
+
+        source_remaining_s = (source_tl - source_head) * 5
+        dest_remaining_s = (dest_tl - dest_head) * 3
+        assert dest_remaining_s < source_remaining_s
+
+    def test_dest_timelock_satisfies_the_validator(self):
+        """The calculator's output must pass the validator in the same module.
+
+        This is the assertion that fails against the old implementation, which
+        produced a dest timelock the validator rejected outright.
+        """
+        source_head, dest_head = 1_000_000, 100
+        source_tl = calculate_source_timelock(source_head, 3600, 5)
+        dest_tl = calculate_dest_timelock(
+            source_timelock=source_tl,
+            source_current_height=source_head,
+            source_block_time=5,
+            dest_current_height=dest_head,
+            dest_block_time=10,
+        )
+
+        assert (
+            validate_timelocks(
+                source_timelock=source_tl,
+                dest_timelock=dest_tl,
+                source_current_height=source_head,
+                dest_current_height=dest_head,
+                source_block_time=5,
+                dest_block_time=10,
+            )
+            == []
+        )
+
+    def test_dest_timelock_tracks_the_dest_chain_head(self):
+        """A different dest head must move the dest timelock with it.
+
+        The old implementation ignored dest_current_height entirely, so the same
+        source timelock produced the same dest height whether the dest chain was
+        at block 100 or block 600,000 -- weeks away in one case, already expired
+        in the other.
+        """
+        source_head = 1_000_000
+        source_tl = calculate_source_timelock(source_head, 3600, 5)
+
+        def dest_for(dest_head: int) -> int:
+            return calculate_dest_timelock(
+                source_timelock=source_tl,
+                source_current_height=source_head,
+                source_block_time=5,
+                dest_current_height=dest_head,
+                dest_block_time=10,
+            )
+
+        low, high = dest_for(100), dest_for(600_000)
+        assert high - low == 600_000 - 100
+        # And both are the same distance ahead of their own chain's head.
+        assert low - 100 == high - 600_000
+
+    def test_dest_timelock_margin_is_never_less_than_requested(self):
+        """Flooring into whole dest blocks must only ever increase the margin."""
+        source_head, dest_head, margin = 1_000, 42, 300
+        for dest_block_time in (1, 3, 7, 11, 30):
+            source_tl = calculate_source_timelock(source_head, 3600, 5)
+            dest_tl = calculate_dest_timelock(
+                source_timelock=source_tl,
+                source_current_height=source_head,
+                source_block_time=5,
+                dest_current_height=dest_head,
+                dest_block_time=dest_block_time,
+                margin_seconds=margin,
+            )
+            source_remaining_s = (source_tl - source_head) * 5
+            dest_remaining_s = (dest_tl - dest_head) * dest_block_time
+            assert source_remaining_s - dest_remaining_s >= margin, f"dest_block_time={dest_block_time}"
+
+    def test_dest_timelock_refuses_an_expired_source(self):
+        with pytest.raises(ValueError, match="not above source_current_height"):
+            calculate_dest_timelock(
+                source_timelock=100,
+                source_current_height=100,
+                source_block_time=5,
+                dest_current_height=0,
+                dest_block_time=5,
+            )
+
+    def test_dest_timelock_refuses_a_window_too_short_for_the_margin(self):
+        # 2 blocks x 5s = 10s of source window, against a 300s margin.
+        with pytest.raises(ValueError, match="too short"):
+            calculate_dest_timelock(
+                source_timelock=102,
+                source_current_height=100,
+                source_block_time=5,
+                dest_current_height=0,
+                dest_block_time=5,
+            )
 
     def test_htlc_state_machine_valid_transitions(self):
         """HTLC state machine allows valid transitions."""
