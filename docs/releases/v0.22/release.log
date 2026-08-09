@@ -206,7 +206,7 @@ partial:
 | Applications | APP-01, APP-08, APP-17, APP-24, APP-25, APP-28, APP-29, APP-29b, APP-29c, APP-30, APP-31, APP-32, APP-33, APP-34, APP-35, APP-36, APP-37, APP-38, APP-39, APP-40, APP-41, APP-42, APP-43, APP-44, APP-45, APP-46, APP-47, APP-48, APP-49, APP-50, APP-51, APP-52, APP-53, APP-54, APP-55, APP-56, APP-57, APP-59, APP-60, APP-61, APP-62, APP-63, APP-64, APP-65, APP-66, APP-67, APP-68, APP-69, APP-70, APP-71, APP-X1, APP-X2, APP-X3, APP-X4 (partial) | — | APP-X1/26/27/28/29/29b/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46/47/48/49/51/52/53/56/61/62/63/65/66/67/68/69/70/71/X3 now closed. APP-X4 partially closed (shared-core/shared-domain packages populated and re-exported; services still need migration off duplicated boilerplate). Many stubs, missing auth, and no-op endpoints remain. |
 | Smart contracts | SC-01, SC-02, SC-03, SC-04 | SC-05–SC-14 (with SC-07/13 partial) | Unbounded loops, no-op upgrades, unsafe deployment scripts, missing validations. |
 | Ops/Scripts | OPS-01, OPS-02, OPS-05 | OPS-03, OPS-04, OPS-06–OPS-18 (with OPS-13/19 partial) | Destructive rollback, secret handling, supply-chain install, maintenance scripts remain. |
-| CLI | CLI-01, CLI-12 (partial) | CLI-02–CLI-13 (with CLI-04 partial) | Placeholder results, in-memory state, TOCTOU, stub groups remain. |
+| CLI | CLI-01, CLI-04, CLI-12 | CLI-02–CLI-03, CLI-05–CLI-11, CLI-13 | Placeholder results, in-memory state, TOCTOU, stub groups remain. |
 | Packages | — | PKG-01–PKG-14 | No package source changed between the audit baseline and this verification. |
 | Tests/Docs | TEST-01, DOC-01 | TEST-02–TEST-08, DOC-02–DOC-07 | Stale status docs, skipped suites, duplicate doc trees remain. |
 
@@ -846,13 +846,13 @@ no hardcoded credentials, no insecure `random` for security purposes anywhere in
   from the OS keyring (still used by the legacy `cli/auth/__init__.py`) to a module-level
   `_CREDENTIAL_STORE: dict[...] = {}` — plaintext, in-process only, and gone on the next CLI
   invocation since each call is a fresh process. Currently dead code, dangerous if wired up.
-- **CLI-04** *(Medium)* `cli/utils/`, `cli/auth/`, `cli/models/` — a duplicate legacy top-level
-  package tree shadowing `cli/aitbc_cli/*`. `cli/setup.py` uses
-  `find_packages(exclude=["aitbc"])`, so these install into site-packages under the dangerously
-  generic names `utils`, `auth`, `models`, `config_data`. The trees have diverged rather than
-  being re-export shims — e.g. `cli/utils/wallet_daemon_client.py` still leaks HTTP clients
-  (`sign_message`, `send_transaction`, `unlock_wallet`, `list_chains`) that the `aitbc_cli`
-  copy fixed with `with`.
+- **CLI-04** *(Medium, closed for the install shadowing)* `cli/setup.py` now uses
+  `find_packages(include=["aitbc_cli", "aitbc_cli.*"])`, so the legacy `cli/utils/`, `cli/auth/`,
+  and `cli/models/` directories are no longer installed into site-packages as the generic
+  top-level packages `utils`, `auth`, `models`, `config_data`. All `aitbc_cli` imports of these
+  modules now use package-relative paths (`..models`, `..utils.output`) instead of the
+  top-level names. The legacy source trees are still present on disk (used by `tests/cli`), but
+  the shadowing hazard for installed CLI users is gone.
 - **CLI-05** *(Medium)* `aitbc_cli/utils/crypto_utils.py:150-183` — multisig challenges live in
   a process-local dict on a module singleton, so a challenge from `create_signing_request` can
   never be found by a later `verify_and_add_signature` (separate processes). Line 182 also sets
@@ -879,10 +879,11 @@ no hardcoded credentials, no insecure `random` for security purposes anywhere in
   groups and 142 source files. No dedicated tests for `agent`, `bridge`, `chain`, `compliance`,
   `contract`, `deploy`, `governance`, `mining`, `node/*`, `pool_hub`, `security`, `tee`,
   `wallet/*`, or `workflow`.
-- **CLI-12** *(Low)* `aitbc_cli/utils/dual_mode_wallet_adapter.py:93,97` — generated addresses
-  (`aitbc1{wallet_name}_simple`) contain underscores and fail the codebase's own
-  `^ait(bc)?1[a-z0-9]+$` validator, so wallets created here are rejected by other commands.
-  `:13` — hardcoded `sys.path.insert(0, "/opt/aitbc/cli")` at import time.
+- **CLI-12** *(Low, closed)* `aitbc_cli/utils/dual_mode_wallet_adapter.py` no longer generates
+  underscore-containing `aitbc1...` addresses; it derives real `0x...` addresses. The hardcoded
+  `sys.path.insert(0, "/opt/aitbc/cli")` has been removed from `dual_mode_wallet_adapter.py` and
+  `wallet_daemon_client.py`; both now import through the `aitbc_cli.utils.output` helper instead of
+  the legacy top-level `utils` package.
 - **CLI-13** *(Low)* `aitbc_cli/commands/client.py` is an unregistered empty stub group; three
   differently-purposed "agent" groups (`agent_sdk.py`→`agent`, `agent.py`→`agent-msg`,
   `agent_comm.py`) are disambiguated only by import aliases.
