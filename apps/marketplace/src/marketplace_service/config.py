@@ -34,6 +34,13 @@ class Settings(ServiceSettings):
     # ponytail: default uses https per V23-13; override via HUB_RPC_URL env var.
     hub_rpc_url: str = "https://hub.aitbc.bubuit.net/rpc"
 
+    # Rate limiting (V23-32a). Applied per client IP by RateLimitMiddleware in main.py.
+    # 120/minute is roughly two requests a second sustained, which no legitimate UI or agent
+    # workflow against this service approaches, while still bounding a scripted client.
+    # AITBC_ENABLE_RATE_LIMITING=false disables it outside production; production cannot.
+    rate_limit_requests: int = 120
+    rate_limit_window_seconds: int = 60
+
     # Service binding (kept for backward compat with MARKETPLACE_BIND_HOST/PORT env vars;
     # ServiceSettings also provides app_host/app_port)
     marketplace_bind_host: str = "0.0.0.0"  # nosec B104
