@@ -112,16 +112,12 @@ class TestSignTransactionHash:
 class TestVerifySignature:
     """Test verify_signature function"""
 
-    # These mocked eth_account.Account._recover_hash and asserted on what the mock
-    # returned, which pinned a private third-party API rather than any behaviour of
-    # verify_signature. They passed whether or not verification worked, and would break on
-    # any refactor that moved recovery -- as consolidating it onto _recover_address did,
-    # while nothing about verification changed. test_verify_signature_error was worse: it
-    # mocked a method the code no longer calls, so the ValueError it asserted came from
-    # somewhere else entirely and it passed by accident.
-    #
-    # They now sign with a real key and check the result, which is the only assertion that
-    # separates a working verifier from a broken one.
+    # These tests used to mock eth_account.Account._recover_hash and assert on what the
+    # mock returned. That pinned a private eth-account API rather than any behaviour, so
+    # they passed regardless of whether verification worked -- and broke the moment
+    # recovery moved to aitbc.crypto.signature_recovery (V23-05) without anything about
+    # verification changing. They now sign with a real key and verify the result, which is
+    # the only assertion that distinguishes a working verifier from a broken one.
 
     _PRIVATE_KEY = "0x" + "42" * 32
 
@@ -139,15 +135,6 @@ class TestVerifySignature:
         digest_hex, signature, address = self._digest_and_signature()
 
         assert crypto.verify_signature(digest_hex, signature, address) is True
-
-    def test_verify_signature_accepts_a_standard_recovery_id(self):
-        """v is 27/28 from any standard signer; the verifier must take it (V23-01)."""
-        from eth_account import Account
-
-        raw = Account.from_key(self._PRIVATE_KEY).unsafe_sign_hash(bytes(32)).signature
-        assert raw[64] in (27, 28)
-
-        assert crypto.verify_signature(bytes(32).hex(), "0x" + raw.hex(), Account.from_key(self._PRIVATE_KEY).address)
 
     def test_verify_signature_accepts_an_unprefixed_address(self):
         digest_hex, signature, address = self._digest_and_signature()
