@@ -33,8 +33,8 @@ that commit's message: it also claimed to move "the miner app to `src/` layout" 
 V23-10 covers seven apps) and to fix "missing price handling" (V23-14's `or 0` defaults are
 still there). **Verify before starting, and mark what you fix.**
 
-**Totals**: 32 findings — 19 confirmed defects, 13 observed design gaps. **8 resolved**
-(V23-06..09, V23-22, V23-29..31); 24 open.
+**Totals**: 32 findings — 19 confirmed defects, 13 observed design gaps. **9 resolved**
+(V23-06..09, V23-18, V23-22, V23-29..31); 23 open.
 Severity is about blast radius, not effort.
 
 Written in three passes, each starting from what the previous listed as uncovered.
@@ -345,7 +345,8 @@ Covering what the first pass listed as uncovered: the ten unread apps, `scripts/
 dependencies. Baseline re-verified first — V23-01 and V23-09 both still reproduce on
 `main` at `a0c60b894`, so the findings above stand.
 
-**Second-pass totals**: 7 findings — 6 confirmed, 1 observed.
+**Second-pass totals**: 7 findings — 6 confirmed, 1 observed. **V23-18 is resolved**; the
+rest are open.
 
 ---
 
@@ -394,9 +395,9 @@ missed it.
 
 ---
 
-## Critical — governance timelock fails open
+## Critical — governance timelock fails open · RESOLVED
 
-### V23-18 — a failed on-chain submission removes the execution timelock · CONFIRMED
+### V23-18 — a failed on-chain submission removes the execution timelock · CONFIRMED → RESOLVED
 
 `apps/governance/src/governance_service/services/governance_service.py:406`.
 
@@ -441,6 +442,65 @@ grep -n "block_height" apps/governance/src/governance_service/domain/governance.
 > verify timelock: proposal has no recorded block height")`. Separately, store
 > `voting_ends_block` at creation and measure the timelock from it, so the safety window is
 > the one the parameter name promises.
+
+**RESOLVED** — the check moved into `_enforce_execution_timelock`, which refuses execution
+on every path that cannot *prove* the delay elapsed: no recorded `block_height`, no recorded
+`voting_ends_block`, or an unreachable chain. `voting_ends_block` is now a column, recorded
+at creation, and the timelock runs from it.
+
+#### The finding was one level too shallow
+
+The audit named the `if proposal.block_height is not None:` guard. The whole check sat
+inside a larger one:
+
+```python
+if settings.enable_onchain_submission and settings.proposer_private_key:
+    ...
+    if proposal.block_height is not None:
+        ...  # the timelock
+```
+
+`enable_onchain_submission` **defaults to False**. So the shipped configuration did not need
+an RPC hiccup to skip the timelock — it never ran one. Every proposal executed immediately,
+and `_apply_parameter_change` then pushed the approved parameter to the target service. The
+finding described the rare path into a fail-open; the common path was already there.
+
+This is the second time in this audit that a defect turned out to have a copy or an
+enclosing case that the pass did not name — see the V23-30 note. Reading found the
+instance; only changing the code found the class.
+
+The enforcement is now unconditional, with an explicit escape hatch:
+`require_execution_timelock` (default **True**). Setting it False logs a WARNING naming the
+proposal on every bypass. A development deployment with no chain needs that switch; the
+alternative — inferring "no chain configured" and silently skipping — is how this finding
+came to exist.
+
+#### Two adjacent problems fixed with it
+
+- **Execution overwrote its own evidence.** `proposal.block_height = block_height` at
+  execution time replaced the creation height with the execution height. That is the exact
+  value `_enforce_execution_timelock` measures from, so after a proposal executed there was
+  no way to check retrospectively whether the delay had been honoured. The execution height
+  now goes to `proposal_metadata["execution_block_height"]` and the creation height stays.
+- **The timelock overlapped the voting period**, as the audit noted. It now runs from
+  `voting_ends_block`. A test pins the difference: at a height where the delay has elapsed
+  measured from creation but not from the end of voting, execution is refused.
+
+#### Operational consequence, stated plainly
+
+Proposals already in the database have no `voting_ends_block`, and any whose on-chain
+submission failed have no `block_height`. **Those proposals can no longer be executed** and
+must be re-submitted. Migration `003` deliberately does not backfill: deriving a
+voting-end block from current settings would manufacture exactly the evidence this check
+exists to demand. An operator who needs to execute a pre-existing proposal has to set
+`require_execution_timelock=False` — consciously, and with a warning in the log — which is
+the point.
+
+Sixteen tests cover this in `apps/governance/tests/test_v023_execution_timelock.py`. Before
+this change the governance suite had **no test that executed a proposal at all**; the two
+tests named `test_execute_proposal` assert only that the endpoint returns one of
+`[200, 404, 500]`. That is why a safety control could be absent by default without anything
+going red.
 
 ---
 
