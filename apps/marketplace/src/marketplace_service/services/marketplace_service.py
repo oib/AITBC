@@ -257,18 +257,25 @@ class MarketplaceService:
                     status=status if status else None,
                 )
                 for offer in offers:
+                    price_per_hour = offer.get("price_per_hour")
+                    if price_per_hour is None:
+                        logger.warning(
+                            "Skipping blockchain offer %s: missing price_per_hour",
+                            offer.get("gpu_id", offer.get("id", "unknown")),
+                        )
+                        continue
                     try:
                         blockchain_offers.append(
                             {
                                 "plugin_id": offer.get("gpu_id", offer.get("id", "unknown")),
                                 "service_type": "gpu_marketplace",
                                 "model": offer.get("model", "unknown"),
-                                "price": offer.get("price_per_hour", 0),
+                                "price": Decimal(str(price_per_hour)),
                                 "price_unit": "per_hour",
                                 "offer_id": offer.get("gpu_id", "unknown"),
-                                "endpoint": "http://hub.aitbc.bubuit.net/rpc",
-                                "public_endpoint": "http://hub.aitbc.bubuit.net/rpc",
-                                "health_url": "http://hub.aitbc.bubuit.net/rpc/health",
+                                "endpoint": settings.hub_rpc_url,
+                                "public_endpoint": settings.hub_rpc_url,
+                                "health_url": f"{settings.hub_rpc_url}/health",
                                 "provider_address": offer.get("provider", offer.get("miner_id", "")),
                                 "node_id": offer.get("miner_id", "unknown"),
                                 "gpu_name": offer.get("model", "N/A"),

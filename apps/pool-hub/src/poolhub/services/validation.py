@@ -117,9 +117,9 @@ class HardwareValidator:
             "vram": miner.gpu_vram_gb,
             "cpu": miner.cpu_cores,
             "ram": miner.ram_gb,
-            "storage": 100,  # Assume sufficient storage
+            "storage": None,  # Not measured; caller warns "cannot verify"
             "cuda": self._get_cuda_version(miner),
-            "network": 1,  # Assume network is available
+            "network": None,  # Not measured; caller warns "cannot verify"
         }
         return mapping.get(component)
 

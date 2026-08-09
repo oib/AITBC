@@ -178,15 +178,16 @@ def verify_block_signature(
     if not signature:
         return False
     try:
-        from eth_keys import keys
+        from eth_keys.exceptions import BadSignature, ValidationError
+        from aitbc.crypto.crypto import _recover_address
 
         msg_hash = bytes.fromhex(block_hash.removeprefix("0x"))
         sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
-        if len(sig_bytes) != 65:
-            return False
-        sig = keys.Signature(sig_bytes)
-        pub_key = sig.recover_public_key_from_msg_hash(msg_hash)
-        recovered = pub_key.to_checksum_address()
+        recovered = _recover_address(msg_hash, sig_bytes)
         return recovered.lower() == expected_proposer.lower()
-    except Exception:
+    except (BadSignature, ValidationError, ValueError) as e:
+        logger.warning("Block signature could not be parsed: %s", e)
+        return False
+    except Exception as e:
+        logger.error("Unexpected error during block signature verification: %s", e)
         return False

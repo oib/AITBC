@@ -66,6 +66,7 @@ class SubscriptionManager:
         self._max_restarts = max_restarts
         self._restart_delay = restart_delay
         self._running = False
+        self._lock = asyncio.Lock()
 
     def add_subscription(self, chain_id: str, client: SubscriptionClientProtocol) -> None:
         """Register a subscription client for a chain_id.
@@ -94,8 +95,10 @@ class SubscriptionManager:
 
     async def start_all(self) -> None:
         """Start all registered subscriptions as background tasks."""
-        self._running = True
-        for chain_id, entry in self._subscriptions.items():
+        async with self._lock:
+            self._running = True
+            entries = list(self._subscriptions.items())
+        for chain_id, entry in entries:
             if entry.task is None or entry.task.done():
                 entry.task = create_task_with_logging(
                     self._run_subscription(chain_id),
@@ -104,7 +107,10 @@ class SubscriptionManager:
 
     async def _run_subscription(self, chain_id: str) -> None:
         """Run a subscription with restart-on-failure logic."""
-        entry = self._subscriptions[chain_id]
+        async with self._lock:
+            if chain_id not in self._subscriptions:
+                return
+            entry = self._subscriptions[chain_id]
         while self._running and entry.restart_count <= self._max_restarts:
             try:
                 await entry.client.start()
@@ -132,18 +138,19 @@ class SubscriptionManager:
 
     async def stop_all(self) -> None:
         """Stop all subscriptions and cancel tasks."""
-        self._running = False
-        for entry in self._subscriptions.values():
-            if entry.task and not entry.task.done():
-                entry.task.cancel()
-        for entry in self._subscriptions.values():
-            if entry.task:
+        async with self._lock:
+            self._running = False
+            for entry in self._subscriptions.values():
+                if entry.task and not entry.task.done():
+                    entry.task.cancel()
+            tasks = [(entry.task, entry.client) for entry in self._subscriptions.values() if entry.task]
+        for task, client in tasks:
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            if client.is_connected:
                 try:
-                    await entry.task
-                except asyncio.CancelledError:
-                    pass
-            if entry.client.is_connected:
-                try:
-                    await entry.client.stop()
+                    await client.stop()
                 except Exception as e:
-                    logger.warning("Error stopping subscription client for %s: %s", entry.client.chain_id, e)
+                    logger.warning("Error stopping subscription client for %s: %s", client.chain_id, e)

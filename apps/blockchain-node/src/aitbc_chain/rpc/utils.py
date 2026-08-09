@@ -5,8 +5,10 @@ Utility functions for blockchain RPC endpoints.
 import json
 from typing import Any
 
+from eth_keys.exceptions import BadSignature, ValidationError
 from fastapi import HTTPException
 
+from aitbc.crypto.crypto import _recover_address
 from ..config import settings
 from ..logger import get_logger
 
@@ -32,21 +34,17 @@ def verify_transaction_signature(tx_data: dict[str, Any], signature: str, sender
     message = json.dumps(tx_without_sig, sort_keys=True, separators=(",", ":")).encode()
 
     try:
-        from eth_keys import keys
         from eth_utils import keccak
 
         msg_hash = keccak(message)
         sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
-        if len(sig_bytes) != 65:
-            _logger.warning("Invalid signature length: %d bytes", len(sig_bytes))
-            return False
-
-        sig = keys.Signature(sig_bytes)
-        pub_key = sig.recover_public_key_from_msg_hash(msg_hash)
-        recovered_address = pub_key.to_checksum_address()
+        recovered_address = _recover_address(msg_hash, sig_bytes)
         return recovered_address.lower() == sender.lower()
+    except (BadSignature, ValidationError, ValueError) as e:
+        _logger.warning("Transaction signature could not be parsed: %s", e)
+        return False
     except Exception as e:
-        _logger.warning("Signature verification failed: %s", e)
+        _logger.error("Unexpected error during transaction signature verification: %s", e)
         return False
 
 
@@ -62,21 +60,17 @@ def verify_request_signature(sender: str, signature: str, message_data: dict[str
     message = json.dumps(message_data, sort_keys=True, separators=(",", ":")).encode()
 
     try:
-        from eth_keys import keys
         from eth_utils import keccak
 
         msg_hash = keccak(message)
         sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
-        if len(sig_bytes) != 65:
-            _logger.warning("Invalid signature length: %d bytes", len(sig_bytes))
-            return False
-
-        sig = keys.Signature(sig_bytes)
-        pub_key = sig.recover_public_key_from_msg_hash(msg_hash)
-        recovered_address = pub_key.to_checksum_address()
+        recovered_address = _recover_address(msg_hash, sig_bytes)
         return recovered_address.lower() == sender.lower()
+    except (BadSignature, ValidationError, ValueError) as e:
+        _logger.warning("Request signature could not be parsed: %s", e)
+        return False
     except Exception as e:
-        _logger.warning("Request signature verification failed: %s", e)
+        _logger.error("Unexpected error during request signature verification: %s", e)
         return False
 
 

@@ -407,8 +407,8 @@ def delete(ctx, name: str):
 @click.argument("value")
 @click.pass_context
 def set_secret(ctx, key: str, value: str):
-    """Set an encrypted configuration value"""
-    from ..utils import encrypt_value
+    """Set an encoded configuration value"""
+    from ..utils import encode_value
 
     config_dir = Path.home() / ".config" / "aitbc"
     config_dir.mkdir(parents=True, exist_ok=True)
@@ -420,7 +420,7 @@ def set_secret(ctx, key: str, value: str):
         with open(secrets_file) as f:
             secrets = json.load(f)
 
-    secrets[key] = encrypt_value(value)
+    secrets[key] = encode_value(value)
 
     # Create with 0600 already set rather than writing first and chmod'ing after.
     # open(..., "w") applies the process umask (commonly 0644), so the previous order
@@ -435,16 +435,16 @@ def set_secret(ctx, key: str, value: str):
     secrets_file.chmod(0o600)
 
     if ctx.obj["output"] == "table":
-        success(f"Secret '{key}' saved (encrypted)")
-    output({"key": key, "status": "encrypted"}, ctx.obj["output"])
+        success(f"Secret '{key}' saved (encoded)")
+    output({"key": key, "status": "encoded"}, ctx.obj["output"])
 
 
 @config.command(name="get-secret")
 @click.argument("key")
 @click.pass_context
 def get_secret(ctx, key: str):
-    """Get a decrypted configuration value"""
-    from ..utils import decrypt_value
+    """Get a decoded configuration value"""
+    from ..utils import decode_value
 
     secrets_file = Path.home() / ".config" / "aitbc" / "secrets.json"
 
@@ -461,8 +461,8 @@ def get_secret(ctx, key: str):
         ctx.exit(1)
         return
 
-    decrypted = decrypt_value(secrets[key])
-    output({"key": key, "value": decrypted}, ctx.obj["output"])
+    decoded = decode_value(secrets[key])
+    output({"key": key, "value": decoded}, ctx.obj["output"])
 
 
 @config.command()
