@@ -126,6 +126,11 @@ present in the tagged artifact.
   `aitbc.auth.APIKeyAuthenticator`; committed artifacts purged; missing tests added for miner
   reinvestment, edge clients, and `aitbc-agent-core` branding; `apps/zk-circuits` gets a
   `.gitignore` for generated build artifacts.
+- **OPS-03, OPS-08** — `scripts/migration/scale_balances_3600x.py` now computes the genesis
+  `state_root` with the same Merkle Patricia Trie implementation the node uses, and the
+  `--chain-id`/`--data-path` arguments are required with an interactive confirmation gate
+  (or `--yes` for automation); no default target, and no production-by-default path, via
+  AITBC-91.
 
 ### Partially remediated
 
@@ -151,7 +156,7 @@ Confirmed still present on current `main`:
 | APP-54 | simple_exchange on stdlib `http.server` and fail-open API key | `apps/exchange/simple_exchange/` |
 | CORE | — | All verified CORE findings in this release are now closed. |
 | Contracts | SC-05/06/08/09/10/11/12/14 | Unbounded loops, no-op upgrades, unsafe deployment paths, and compiled stub remain |
-| Ops | OPS-03/04/06/07/08/09/10/12/14/15/16/17/18 | Migration, destructive rollback, secret handling, supply-chain, and maintenance findings remain |
+| Ops | OPS-04/06/07/09/10/12/14/15/16/17/18 | Migration, destructive rollback, secret handling, supply-chain, and maintenance findings remain |
 | CLI | CLI-02/03/05/06/07/08/09/10/13 | Placeholder results, in-memory/plaintext state, TOCTOU, and stub/alias findings remain |
 | Packages | PKG-01 through PKG-14 | No package source changed between the audit baseline and this verification |
 | Tests/docs | TEST-02 through TEST-08; DOC-02 through DOC-07 | Original gaps remain; DOC-01 and TEST-01 are closed |
@@ -205,7 +210,7 @@ partial:
 || Shared core (`aitbc/`) | CORE-01, CORE-02, CORE-03, CORE-04, CORE-05, CORE-06, CORE-07, CORE-08, CORE-09, CORE-10, CORE-11, CORE-12, CORE-13, CORE-14, CORE-15, CORE-16, CORE-17, CORE-18, CORE-19, CORE-20, CORE-21, CORE-22, CORE-23, CORE-24, CORE-25, CORE-26, CORE-27, CORE-28, CORE-29 | — | All verified CORE findings in this release are closed. |
 | Applications | APP-01, APP-08, APP-17, APP-24, APP-25, APP-28, APP-29, APP-29b, APP-29c, APP-30, APP-31, APP-32, APP-33, APP-34, APP-35, APP-36, APP-37, APP-38, APP-39, APP-40, APP-41, APP-42, APP-43, APP-44, APP-45, APP-46, APP-47, APP-48, APP-49, APP-50, APP-51, APP-52, APP-53, APP-54, APP-55, APP-56, APP-57, APP-59, APP-60, APP-61, APP-62, APP-63, APP-64, APP-65, APP-66, APP-67, APP-68, APP-69, APP-70, APP-71, APP-X1, APP-X2, APP-X3, APP-X4 (partial) | — | APP-X1/26/27/28/29/29b/32/33/34/35/36/37/38/39/40/41/42/43/44/45/46/47/48/49/51/52/53/56/61/62/63/65/66/67/68/69/70/71/X3 now closed. APP-X4 partially closed (shared-core/shared-domain packages populated and re-exported; services still need migration off duplicated boilerplate). Many stubs, missing auth, and no-op endpoints remain. |
 | Smart contracts | SC-01, SC-02, SC-03, SC-04 | SC-05–SC-14 (with SC-07/13 partial) | Unbounded loops, no-op upgrades, unsafe deployment scripts, missing validations. |
-| Ops/Scripts | OPS-01, OPS-02, OPS-05 | OPS-03, OPS-04, OPS-06–OPS-18 (with OPS-13/19 partial) | Destructive rollback, secret handling, supply-chain install, maintenance scripts remain. |
+| Ops/Scripts | OPS-01, OPS-02, OPS-03, OPS-05, OPS-08 | OPS-04, OPS-06, OPS-07, OPS-09–OPS-18 (with OPS-13/19 partial) | Destructive rollback, secret handling, supply-chain install, maintenance scripts remain. |
 | CLI | CLI-01, CLI-04, CLI-12 | CLI-02–CLI-03, CLI-05–CLI-11, CLI-13 | Placeholder results, in-memory state, TOCTOU, stub groups remain. |
 | Packages | — | PKG-01–PKG-14 | No package source changed between the audit baseline and this verification. |
 | Tests/Docs | TEST-01, DOC-01 | TEST-02–TEST-08, DOC-02–DOC-07 | Stale status docs, skipped suites, duplicate doc trees remain. |
