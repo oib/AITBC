@@ -1,0 +1,350 @@
+# v0.23 — Design & Correctness Audit
+
+**Scope**: all subdirectories, focused on defects and design gaps rather than style.
+**Baseline**: `main` at `d6b6b9dda` (v0.22 remediation merged, PR #91).
+**Date**: 2026-08-09.
+
+---
+
+## How to read this
+
+Every finding below carries a **repro** you can paste. The v0.22 audit went wrong in both
+directions — real findings dismissed after reading already-fixed code, and unfixed findings
+recorded as closed without running anything — so nothing here is asserted from reading
+alone. Findings are marked:
+
+- **CONFIRMED** — reproduced by executing the code. The repro is the exact command run.
+- **OBSERVED** — established by inspection of the current tree (file counts, structure,
+  call graphs). Mechanically checkable, not executed.
+
+Nothing in this document is marked closed. Re-verify before starting: this tree changes
+under multiple agents.
+
+**Totals**: 16 findings — 5 confirmed defects, 11 observed design gaps.
+Severity is about blast radius, not effort.
+
+---
+
+## Critical — signature verification rejects standard signatures
+
+The single most consequential cluster. AITBC has **nine independent implementations of
+ECDSA signature recovery**. Eight of them construct `eth_keys.Signature(sig_bytes)`
+directly. That constructor requires a recovery id of 0 or 1; every standard Ethereum
+signer — including this repo's own `aitbc.crypto.sign_transaction_hash` — emits 27 or 28.
+`eth_keys` raises `BadSignature`, and in each case a broad `except Exception` converts that
+into "signature invalid".
+
+The result is not a bypass. It is the opposite: **correctly signed messages are rejected**,
+and the rejection is indistinguishable from a forgery attempt in the logs. Only
+`PoAProposer.verify_block_signature` normalises, because it was fixed under v0.22 TEST-03;
+that fix was applied to one call site and the other eight were not audited at the time.
+This document exists partly because that was the wrong scope.
+
+### V23-01 — `rpc/utils.py` rejects transactions signed by any standard wallet · CONFIRMED
+
+`apps/blockchain-node/src/aitbc_chain/rpc/utils.py:45` (`verify_transaction_signature`) and
+`:75` (`verify_request_signature`). These sit on the node's RPC request path; the second is
+documented as covering "bridge, staking, etc."
+
+```
+cd apps/blockchain-node && PYTHONPATH=src:../.. ../../venv/bin/python -c "
+import json
+from eth_account import Account
+from eth_utils import keccak
+from aitbc_chain.rpc.utils import verify_request_signature
+a = Account.from_key('0x'+'42'*32)
+m = {'action':'bridge','amount':'100'}
+d = keccak(json.dumps(m, sort_keys=True, separators=(',',':')).encode())
+s = a.unsafe_sign_hash(d).signature
+print('v =', s[64], '->', verify_request_signature(a.address, '0x'+s.hex(), m))"
+```
+
+Prints `v = 28 -> False`, with `Request signature verification failed: Value 28 is not less
+than or equal to 1` on the log.
+
+> **Fix**: normalise before constructing the signature — `v = sig_bytes[64]; v -= 27 if v >=
+> 27 else 0`, reject anything not then in `(0, 1)`. That is the shape already committed in
+> `poa.py`. But see V23-05: fixing this per-file is how you get nine copies.
+
+### V23-02 — the module documented as canonical has the same defect · CONFIRMED
+
+`aitbc/crypto/crypto.py:150` (`recover_signer`). Its docstring reads: *"This is the single
+canonical implementation that all AITBC services should use for request/proof signature
+verification. It replaces the duplicated `verify_transaction_signature` /
+`verify_request_signature` / `_verify_proposer_signature` copies in the blockchain node."*
+
+Both halves of that claim are false today. It has the v=27/28 defect itself, and the three
+copies it says it replaced are all still present and still called (V23-01, V23-03).
+
+```
+./venv/bin/python -c "
+import hashlib
+from aitbc.crypto.crypto import sign_transaction_hash, derive_ethereum_address
+from aitbc.crypto.consensus_signing import verify_block_signature
+pk='4c0883a69102937d6231471b5dbb6204fe512961708279fc6a0d1f2d3a0b1c2d'
+h='0x'+hashlib.sha256(b'blk').hexdigest()
+print(verify_block_signature(h, sign_transaction_hash(h,pk), derive_ethereum_address(pk)))"
+```
+
+Prints `False`.
+
+> **Fix**: make the claim true before relying on it. One implementation, in
+> `aitbc/crypto/`, with the normalisation and a test that signs with `eth_account` and
+> verifies with the recovery path — the round trip is the only assertion that matters.
+
+### V23-03 — the remaining six copies · OBSERVED
+
+Same construction, no normalisation:
+
+| File | Line | Used by |
+|---|---|---|
+| `aitbc/crypto/consensus_signing.py` | 188 | `multi_validator_poa`, `pbft`, `sync_validator`, settlement hooks |
+| `aitbc/crypto/crypto.py` | 150 | `recover_signer` (V23-02) |
+| `apps/blockchain-node/.../contracts/dispute_resolution.py` | 254 | dispute evidence |
+| `apps/blockchain-node/.../cross_chain/bridge_validator.py` | 169 | bridge validation |
+| `apps/blockchain-node/.../rpc/utils.py` | 45, 75 | RPC (V23-01) |
+
+Repro for the inventory:
+
+```
+git grep -n "recover_public_key_from_msg_hash" -- aitbc/ apps/ | grep -v test
+git grep -c "recovery_id\|- 27\|>= 27" -- <each file above>   # only poa.py matches
+```
+
+`aitbc/crypto/consensus_signing.py` is the one to worry about first: it is reached from
+multi-validator PoA, PBFT and the sync validator.
+
+### V23-04 — the failure is unobservable · OBSERVED
+
+Every site swallows `BadSignature` into `return False` (`aitbc/crypto/consensus_signing.py:191`,
+`crypto.py:152`, and the rest). A node rejecting every honestly-signed block and a node
+under attack produce the same log line and the same metric.
+
+> **Fix**: distinguish "signature did not verify" from "signature could not be parsed". The
+> second is an encoding mismatch or a bug and deserves a different log level and counter.
+> Catch `BadSignature`/`ValidationError` explicitly rather than `Exception`.
+
+### V23-05 — nine copies is the actual defect · OBSERVED
+
+V23-01 through V23-04 are one mistake made nine times. Fixing them individually leaves the
+next contributor free to write a tenth.
+
+> **Fix**: one verification module, everything else calls it, and a test that fails if a new
+> `keys.Signature(` appears outside it — a grep assertion in the test suite is enough and
+> costs nothing. The same applies to the signing side, which already has one good
+> implementation.
+
+---
+
+## High — things that are named for what they do not do
+
+### V23-06 — `TEEChannel.send` base64-encodes and calls it encryption · CONFIRMED
+
+`aitbc/tee/channel.py:73`. The method is `send`, the docstring is *"Send an encrypted
+message on the channel"*, the local is `ciphertext`, the field is `payload` on a type called
+`TEEMessage` — and the operation is `base64.b64encode`. `receive` is `b64decode`. The
+module docstring does say it is a simulator placeholder, at the top of the file, which is
+not where a caller looks.
+
+Consumed by `apps/edge/src/edge_app/tee_proxy.py`.
+
+> **Fix**: either implement it (the docstring names AES-GCM or ChaCha20-Poly1305 with the
+> session's shared secret — `cryptography` is already a dependency), or rename the methods
+> to `encode`/`decode` and the type to something that does not say TEE. A placeholder is
+> fine; a placeholder that reads as a security control at every call site is not. Same class
+> as v0.22's APP-33 and CORE-24.
+
+### V23-07 — two functions named `encrypt_value`, opposite guarantees · CONFIRMED
+
+- `aitbc/security/encryption.py:49` — PBKDF2 + Fernet, requires a password, rejects weak ones.
+- `cli/aitbc_cli/utils/__init__.py:52` — `base64.b64encode`, password argument accepted and
+  ignored.
+
+`cli/aitbc_cli/commands/config.py:423` calls the second, then reports
+`success("Secret '{key}' saved (encrypted)")` and emits `{"status": "encrypted"}` (lines
+438–439). `cli/aitbc_cli/commands/wallet/__init__.py:34` imports the first.
+
+```
+grep -n "def encrypt_value" -A3 aitbc/security/encryption.py cli/aitbc_cli/utils/__init__.py
+```
+
+This was raised in v0.22 as an adjacent finding and never ticketed. It is ticketed now.
+
+> **Fix**: rename the CLI one to `encode_value`/`decode_value` — its own docstring already
+> calls it "lightweight reversible encoding", so the name is the only thing lying — and stop
+> `config set-secret` reporting "encrypted". If secrets stored by `set-secret` are meant to
+> be encrypted, point it at `aitbc.security.encryption` and require the password.
+
+---
+
+## High — structural hazards
+
+### V23-08 — two apps ship a package called `agent_app` · CONFIRMED
+
+`apps/agent-coordinator/src/agent_app/` (53 files, the real application) and
+`apps/coordinator-api/src/agent_app/` (7 files, no `__init__.py`). Both parent directories
+are on `mypy_path` in `pyproject.toml` (lines 133–134), and pytest runs with
+`consider_namespace_packages = true`. Which one `import agent_app` resolves to depends on
+path order.
+
+```
+ls apps/agent-coordinator/src/agent_app apps/coordinator-api/src/agent_app
+```
+
+This is the same failure mode as v0.22's `tests/cli` shadowing the real `cli` package, which
+cost an afternoon to diagnose because the error pointed nowhere near the cause.
+
+### V23-09 — the shadowing package is dead test scaffolding in a `routers/` directory · CONFIRMED
+
+All seven files in `apps/coordinator-api/src/agent_app/routers/` are named
+`b{N}_self_check.py`, contain `def test_*` functions with asserts and a `__main__` block,
+and define no router. Nothing references them:
+
+```
+git grep -ln "_self_check" -- . | grep -v "src/agent_app/routers"    # no output
+```
+
+They are in application source, under a directory named for something they are not, and they
+create the namespace collision in V23-08. Because they match `test_*.py`, they are also
+collectable by pytest if `apps/coordinator-api/src` is ever added to `testpaths`.
+
+> **Fix for V23-08 and V23-09 together**: delete
+> `apps/coordinator-api/src/agent_app/`. Verify first that the b2–b8 checks are genuinely
+> superseded — they read as one-off release verification from a "B" workstream — and if any
+> still carry meaning, move them to `tests/` as real tests. That removes the collision and
+> the dead code in one step.
+
+### V23-10 — seven apps do not use the `src/` layout · OBSERVED
+
+`src/`-layout: 17. Flat: `archive`, `blockchain-explorer`, `exchange`, `ffmpeg`, `miner`,
+`whisper`, `zk-circuits`.
+
+```
+ls -d apps/*/src | sed 's|/src||'   # compare against ls apps/
+```
+
+v0.22's APP-54 covers `exchange` and found the concrete cost: the flat layout is why it
+cannot use shared `aitbc.auth` and hand-rolls its own request handling and API-key check.
+The other six carry the same risk of divergence.
+
+> **Fix**: not a batch job. Take them one at a time when there is a reason to touch them, and
+> treat "can it use `aitbc.auth`?" as the test of whether the migration is finished. Record
+> the intended layout somewhere enforceable — a CI check over `apps/*/` is a few lines — so
+> the count does not grow.
+
+---
+
+## Medium — concurrency
+
+### V23-11 — `OfferSubscriptionClient` mutates shared state from concurrent tasks · OBSERVED
+
+`aitbc/trading/subscription_client.py`. Seven `async def`s, fourteen mutations of
+`self._lease_expiry`, `self._subscriptions` and `self._status`, all keyed by `chain_id`, and
+no lock anywhere in the file. `subscribe`, `_heartbeat_loop` (one per chain) and `_ws_stream`
+run concurrently and touch the same dicts — see lines 151, 174, 212–213, 224, 229, 242.
+
+> **Fix**: the pattern already used in `apps/agent-coordinator/.../load_balancer.py` and, since
+> v0.22 APP-35, in `agent_discovery.py` — an `asyncio.Lock` on the instance, taken around
+> mutation and around any read-modify-write. The lease renewal at 151/174 is the one that
+> matters: a renew interleaving with a status transition can leave a subscription marked
+> `SUBSCRIBED` with an expired lease.
+
+### V23-12 — seven more async modules with the same shape · OBSERVED
+
+`aitbc/alerting.py`, `aitbc/network/client.py`, `aitbc/network/subscription_manager.py`,
+`aitbc/agent_bridge/src/integration_layer.py`, `aitbc/bridge/oracle.py`,
+`aitbc/auth/middleware.py`, `aitbc/async_tasks.py` — each has three or more `async def`s,
+mutates instance dicts or lists, and contains no lock.
+
+Lower confidence than V23-11: a module can be safe if only one task ever touches the state.
+That is worth establishing per module rather than assuming in either direction.
+`aitbc/auth/middleware.py` is the one to look at first, being on every request.
+
+> **Fix**: audit each for whether concurrent entry is actually possible. Where it is, add the
+> lock; where it is not, say so in a comment, because the next reader will ask the same
+> question.
+
+---
+
+## Medium — configuration and honesty
+
+### V23-13 — production endpoint hardcoded into marketplace responses, over plaintext HTTP · CONFIRMED
+
+`apps/marketplace/src/marketplace_service/services/marketplace_service.py:269–271` writes
+`http://hub.aitbc.bubuit.net/rpc` into `endpoint`, `public_endpoint` and `health_url` on
+every offer built from blockchain data. Not from config, and `http://` rather than `https://`
+— the CLI's own help text (`cli/aitbc_cli/commands/agent.py:183`) uses `https://` for the
+same host.
+
+Clients are being handed a plaintext URL as the endpoint to use.
+
+> **Fix**: read it from config with no default, the way the rest of the service layer does.
+> If a default is wanted, `https://`. Worth grepping for the other hardcoded hosts at the
+> same time — `apps/coordinator-api/.../sdk/enterprise_client.py:52` has
+> `https://api.aitbc.dev/enterprise` as a dataclass default.
+
+### V23-14 — money defaults to `0` in marketplace offer construction · OBSERVED
+
+Same block, line 266: `"price": offer.get("price_per_hour", 0)`. An int fallback in a price
+field, in a repo whose stated invariant is `Decimal` everywhere for money. A missing price
+becomes a free offer rather than an error.
+
+> **Fix**: no default. An offer without a price is malformed and should be dropped with a
+> warning, not published at zero.
+
+### V23-15 — hardware validation asserts rather than checks · OBSERVED
+
+`apps/pool-hub/src/poolhub/services/validation.py:112–123`. `_get_miner_hardware_value` maps
+`"storage": 100, # Assume sufficient storage` and `"network": 1, # Assume network is
+available`. `_meets_requirement` then compares those constants against the requirement, so a
+storage or network requirement always passes.
+
+> **Fix**: return `None` for components that are not actually measured and have
+> `_meets_requirement` treat `None` as "cannot verify" — surfaced to the caller rather than
+> silently satisfied. If the intent is that these are always satisfiable, remove them from
+> the requirement vocabulary so nobody writes a requirement that is silently ignored.
+
+---
+
+## Low — process
+
+### V23-16 — v0.22 tag still points at broken code · OBSERVED
+
+Carried forward from v0.22 and still true. `v0.22.0` is at `a5d84956f`, which has the ZK
+proving keys deleted and proving silently disabled. `v0.22.1` (`b2539661b`) restores them but
+predates the entire v0.22 remediation, now merged as `d6b6b9dda`.
+
+> **Fix**: tag `main`. Nothing should be released from either existing v0.22 tag.
+
+---
+
+## What this audit did not cover
+
+Stating the gaps so the next pass does not assume they were cleared:
+
+- **`apps/` breadth.** Findings concentrate in `blockchain-node`, `marketplace`, `pool-hub`,
+  `coordinator-api` and `aitbc/`. `ai-engine`, `api-gateway`, `edge`, `governance`, `gpu`,
+  `memory`, `whisper`, `ffmpeg`, `zk-circuits` and `archive` were surveyed structurally
+  (V23-10) but not read.
+- **`docs/` (1452 files) and `scripts/` (398).** Only where a finding led there.
+- **Behavioural correctness.** This pass looked for defects and design gaps. Whether the
+  economics, consensus or settlement logic is *right* is a different exercise.
+- **The 234 broad `except` handlers** outside the signature paths. V23-04 covers the ones
+  that hide V23-01/02/03; the rest were not triaged.
+- **Dependencies.** No `pip-audit`/`npm audit` run.
+
+## Method
+
+```
+git grep -nE "float\((amount|balance|price|total|fee|value|cost)" -- <money paths>
+git grep -n  "recover_public_key_from_msg_hash|_recover_hash|recover_message" -- aitbc/ apps/ cli/
+git grep -niE "placeholder|simplified|mock|fake" -- aitbc/settlement/ aitbc/compliance/ aitbc/tee/ ...
+ls -d apps/*/src ; ls apps/
+```
+
+plus a scan for async modules that mutate instance state with no lock in the file
+(V23-11/12), and direct execution for everything marked CONFIRMED.
+
+**One positive result worth recording**: the `Decimal`-for-money invariant holds. The only
+`float(...)` hit across `wallet`, `trading`, `marketplace`, `pool-hub` and `exchange` is
+`pool-hub/services/validation.py:133`, parsing a CUDA version string. That migration stuck.
