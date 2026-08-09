@@ -40,12 +40,15 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 33 findings — 20 confirmed defects, 13 observed design gaps. **17 resolved**
-(V23-06..09, V23-11..15, V23-17, V23-18, V23-22, V23-24, V23-24a, V23-29..31 — seventeen
-entries, sixteen numbered findings); 16 open.
+**Totals**: 34 findings — 21 confirmed defects, 13 observed design gaps. **18 resolved**
+(V23-06..09, V23-11..15, V23-17, V23-18, V23-22, V23-24, V23-24a, V23-29..32 — eighteen
+entries, seventeen numbered findings); 16 open.
 
-V23-24a was added while fixing V23-24, not during a pass. Fixing a finding keeps turning up
-a larger one next to it: see also the V23-30 note.
+V23-24a and V23-32a were both added while fixing the finding they hang off, not during a
+pass. Fixing a finding keeps turning up a larger one next to it: see also the V23-30 note.
+V23-32a is the sharpest instance so far — the fix for V23-32 was to delete a manifest that
+gated nothing, and doing so surfaced two security controls the manifest had been reporting
+as enabled at 100% rollout that were never implemented.
 Severity is about blast radius, not effort.
 
 Written in three passes, each starting from what the previous listed as uncovered.
@@ -1247,7 +1250,7 @@ closer to the thing.
 
 ## Medium — what the feature flags say about the system
 
-### V23-32 — six flags, and the two that gate proof verification are off · CONFIRMED
+### V23-32 — six flags, and the two that gate proof verification are off · CONFIRMED → RESOLVED
 
 `feature_flags.json`, in full:
 
@@ -1283,6 +1286,85 @@ does not consult this flag.
 > flag. What should not persist is one subsystem honestly declaring the feature off while
 > another serves it from unsecured keys.
 
+**RESOLVED** — but not the way the fix above proposes, because the premise under the whole
+finding is false. **Nothing reads `feature_flags.json`.** `aitbc/feature_flags.py` was
+deleted in v0.10.9 and no loader replaced it; a search of every tracked file for the string
+returns this audit, two comments, `CLAUDE.md`, and old change logs. Not one reader.
+
+So the table above is not a description of system state. It is a file, and the six entries
+have been drifting apart from the code for thirteen releases with nothing able to notice.
+
+**Four of the six had stopped being true:**
+
+| Flag | Claimed | Actual |
+|---|---|---|
+| `enable_zk_proof_verification` | off | Correct outcome, unrelated cause — the node's refusal is hardcoded, and the coordinator is now gated on `COORDINATOR_ENABLE_ZK_VERIFICATION` (V23-24) |
+| `trust_x_wallet_address_header` | off | Correct outcome, unrelated cause — see below |
+| `strict_cors_enforcement` | **on, 100%** | No such enforcement exists → V23-32a |
+| `enable_marketplace_rate_limiting` | **on, 100%** | The marketplace app has no rate limiting → V23-32a |
+| `use_structlog` | off | structlog is not a dependency of any app that would use it; the migration never started |
+| `use_shared_agent_integration_service` | off | Zero references in the tree |
+
+**The audit's own reading of this file was wrong too, in the direction that matters.** I
+recorded `trust_x_wallet_address_header` being off as "reassuring — the flag defaulting off
+means it is not [trusted]". It means nothing of the sort. The real gate is
+`apps/blockchain-node/src/aitbc_chain/rpc/auth.py:39`, `os.getenv("TRUST_X_WALLET_ADDRESS",
+"false")`, and had someone flipped the JSON entry to `true` the behaviour would not have
+changed by one line. I read a header-authentication bypass as safely disabled on the
+strength of a file that gates nothing. That is the finding, not a detail of it.
+
+**Fix applied**: `feature_flags.json` deleted. `CLAUDE.md`'s Feature Flags section — which
+said "Check it before assuming a capability is actually live", i.e. pointed every reader and
+every agent at exactly this — now states that no feature-flag system exists and tabulates the
+environment variables that do the gating (`COORDINATOR_ENABLE_ZK_VERIFICATION`,
+`EDGE_ALLOW_SIMULATED_SYNC`, `AI_ENGINE_ALLOW_SIMULATION`, `TRUST_X_WALLET_ADDRESS`), each
+read at import time and defaulting to the safe value.
+
+The comment in `contracts.py` that said "the `enable_zk_proof_verification` feature flag is
+currently disabled" is corrected to say the refusal is unconditional. The behaviour was
+right and the explanation was wrong, which is the more dangerous combination: it invites
+someone to "restore" the flag and get something worse.
+
+`tests/unit/test_v2332_feature_flags.py` guards the invariant rather than the deletion — *if*
+a flag manifest exists at the root, code must read it, checked by parsing to AST so a comment
+about the manifest cannot satisfy it. Deleting the file alone would have been temporary; the
+next person wanting a flag recreates it and it is inert again the same day.
+
+### V23-32a — two security controls reported enabled at 100% that do not exist · CONFIRMED
+
+Found while resolving V23-32. Split out because deleting the manifest removes the false
+claim, not the gap it was concealing.
+
+**`enable_marketplace_rate_limiting`** — `enabled: true`, `rollout_percentage: 100.0`, dated
+`2026-05-24`. `apps/marketplace/` contains no rate limiting: no limiter, no `slowapi`, no
+`@rate_limit`, nothing in `config.py`. `main.py` adds `RequestIDMiddleware`,
+`PerformanceLoggingMiddleware`, `RequestValidationMiddleware` and `ErrorHandlerMiddleware`,
+and that is the whole stack. The blockchain node does have `@rate_limit(rate=200, per=60)`
+decorators — so the mechanism exists in the repo and was simply never applied here.
+
+**`strict_cors_enforcement`** — `enabled: true`, `rollout_percentage: 100.0`, described as
+"Enforce strict CORS origin allowlists on all services." There is no all-services
+enforcement. `aitbc/middleware/cors.py:34` defaults `allow_origins` to `["*"]` when a caller
+omits it, four of roughly two dozen apps call `setup_cors` at all, two more configure
+`CORSMiddleware` directly, and `apps/exchange/simple_exchange/main.py:113` passes `["*"]`
+explicitly — the flag's own stated *disabled* behaviour, "falls back to permissive wildcard
+(dev only)", in a service shipping with the flag on. `create_strict_cors_config`
+(`aitbc/security_headers.py:222`) exists and has no callers outside its test.
+
+The wildcard-with-credentials combination is blocked (`cors.py:41` raises), so this is
+permissive CORS rather than a credential-leaking one. That is the reason it is CONFIRMED
+rather than critical.
+
+> **Fix**: two separate pieces of work, neither of them documentation. Apply the existing
+> `@rate_limit` decorator to the marketplace's write endpoints. For CORS, decide whether the
+> allowlist is per-service configuration or a repo-wide default — and change `setup_cors` to
+> require `allow_origins` rather than defaulting to `["*"]`, so omitting it is a failure at
+> startup instead of a wildcard nobody chose.
+
+> **Note on why this was invisible**: both entries were dated and marked 100% rolled out.
+> Anyone auditing controls by reading the manifest — which is what `CLAUDE.md` instructed —
+> would have ticked both off. The manifest did not merely fail to gate; it answered.
+
 ### Qualification of V23-24
 
 The third pass rated V23-24 (`_0000.zkey` with zero phase-2 contributions) critical without
@@ -1290,6 +1372,11 @@ knowing the flag state. That rating stands, but the reasoning needs correcting: 
 because the blockchain node verifies proofs — the node fails closed, as above. It is because
 the coordinator's `/zk/*/verify` endpoints are live and bypass the flag entirely. The node
 path is safe; the coordinator path is the exposure.
+
+Amended after V23-32: "bypass the flag" overstates what there was to bypass. No code path on
+either side consulted that flag. The node fails closed unconditionally; the coordinator did
+not fail closed at all. The difference between them was never the flag — which makes the
+critical rating stronger, not weaker. Both are now gated explicitly.
 
 ---
 
