@@ -145,6 +145,18 @@ class Settings(BaseAITBCConfig):
     @field_validator("allow_origins")
     @classmethod
     def validate_cors_origins(cls, v: list[str]) -> list[str]:
+        # V23-32a: both consumers of this setting (core/middleware.py, main.py) construct
+        # CORSMiddleware directly with allow_credentials=True, bypassing the guard in
+        # aitbc.middleware.setup_cors. Starlette resolves wildcard-plus-credentials by
+        # echoing the request's Origin header, so "*" here does not mean "any origin, no
+        # cookies" -- it means any origin *with* the caller's credentials. Reject it at
+        # config load, since ALLOW_ORIGINS is settable from the environment.
+        if "*" in v:
+            raise ValueError(
+                "CORS allow_origins cannot contain '*': coordinator-api sends credentials, and "
+                "wildcard-with-credentials lets any site make authenticated requests on a "
+                "user's behalf. List the origins explicitly."
+            )
         if _is_production():
             localhost_origins = [origin for origin in v if "localhost" in origin or "127.0.0.1" in origin]
             if localhost_origins:

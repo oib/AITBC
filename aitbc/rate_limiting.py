@@ -5,11 +5,12 @@ Provides decorators and middleware for API rate limiting
 
 import asyncio
 import os
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from functools import wraps
 from typing import Any
 
 from fastapi import HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
@@ -60,9 +61,26 @@ def _extract_request(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Request |
     return None
 
 
-def _get_rate_limit_key(request: Request | None, key_func: Callable[[Request], str] | None) -> str:
-    """Extract the rate limit key from the request."""
+_warned_unkeyed: set[str] = set()
+
+
+def _get_rate_limit_key(request: Request | None, key_func: Callable[[Request], str] | None, handler: str = "?") -> str:
+    """Extract the rate limit key from the request.
+
+    A handler that does not declare a ``request: Request`` parameter gives us nothing to key
+    on, and every caller then shares the single ``"unknown"`` bucket — so one client
+    exhausting the limit locks out everyone, which is a denial of service handed out by the
+    protection. That is silent otherwise, so warn once per handler.
+    """
     if request is None:
+        if handler not in _warned_unkeyed:
+            _warned_unkeyed.add(handler)
+            logger.warning(
+                "Rate limit on %s cannot identify the caller: the handler has no 'request: Request' "
+                "parameter, so all callers share one bucket and any one of them can lock out the "
+                "rest. Add the parameter, or pass an explicit key_func.",
+                handler,
+            )
         return "unknown"
     if key_func:
         return key_func(request)
@@ -97,7 +115,7 @@ def rate_limit(
                     return await func(*args, **kwargs)
 
                 request = _extract_request(args, kwargs)
-                key = _get_rate_limit_key(request, key_func)
+                key = _get_rate_limit_key(request, key_func, func.__qualname__)
                 if not _limiter.is_allowed(key):
                     logger.warning("Rate limit exceeded for %s on %s", key, request.url.path if request else "?", stacklevel=2)
                     raise HTTPException(
@@ -117,7 +135,7 @@ def rate_limit(
                     return func(*args, **kwargs)
 
                 request = _extract_request(args, kwargs)
-                key = _get_rate_limit_key(request, key_func)
+                key = _get_rate_limit_key(request, key_func, func.__qualname__)
                 if not _limiter.is_allowed(key):
                     logger.warning("Rate limit exceeded for %s on %s", key, request.url.path if request else "?", stacklevel=2)
                     raise HTTPException(
@@ -146,6 +164,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         per: int = 60,
         key_func: Callable[[Request], str] | None = None,
         error_message: str = "Rate limit exceeded",
+        exclude_paths: Sequence[str] | None = None,
     ) -> None:
         """
         Initialize rate limit middleware
@@ -156,12 +175,23 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             per: Time period in seconds
             key_func: Function to extract rate limit key from request
             error_message: Custom error message
+            exclude_paths: Exact paths that bypass the limit. Liveness, readiness and
+                metrics endpoints belong here: probes and scrapers poll on a fixed
+                interval from a fixed address, so counting them against a per-IP budget
+                means the orchestrator can exhaust it and then read the resulting 429 as
+                the service being unhealthy.
+
+        Note:
+            The limiter is in-process. Behind N workers the effective limit is N x rate,
+            because each worker keeps its own counts. That is a ceiling on abuse, not an
+            exact quota; a precise one needs shared state.
         """
         super().__init__(app)
         self.rate = rate
         self.per = per
         self.key_func = key_func
         self.error_message = error_message
+        self.exclude_paths = frozenset(exclude_paths or ())
         self._limiter = RateLimiter(rate=rate, per=per)
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
@@ -175,13 +205,24 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         Returns:
             Response
         """
+        # The decorator consulted this and the middleware did not, so AITBC_ENABLE_RATE_LIMITING
+        # worked or was ignored depending on which mechanism a service happened to use. Both
+        # honour it now, and neither can be disabled in production.
+        if not _is_rate_limiting_enabled():
+            return await call_next(request)
+
+        if request.url.path in self.exclude_paths:
+            return await call_next(request)
+
         key = self.key_func(request) if self.key_func else request.client.host if request.client else "unknown"
         if not self._limiter.is_allowed(key):
             logger.warning("Rate limit exceeded for %s on %s", key, request.url.path, stacklevel=2)
-            return Response(
-                content=f'{{"detail": "{self.error_message}"}}',
+            # JSONResponse rather than hand-built JSON: error_message is caller-supplied, and
+            # an f-string into a JSON literal produces malformed output the moment it
+            # contains a quote or a backslash.
+            return JSONResponse(
+                content={"detail": self.error_message},
                 status_code=429,
-                media_type="application/json",
                 headers={"Retry-After": str(self.per)},
             )
         response = await call_next(request)

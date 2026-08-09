@@ -28,6 +28,7 @@ from aitbc.middleware import (  # noqa: E402
     RequestIDMiddleware,
     RequestValidationMiddleware,
 )
+from aitbc.rate_limiting import RateLimitMiddleware  # noqa: E402
 
 from .config import settings  # noqa: E402
 from .services.marketplace_service import MarketplaceService  # noqa: E402
@@ -57,6 +58,20 @@ setup_cors(app, allow_origins=["http://localhost:3000", "http://localhost:8080"]
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(PerformanceLoggingMiddleware)
 app.add_middleware(RequestValidationMiddleware, max_request_size=10 * 1024 * 1024)
+# V23-32a: this service had no rate limiting at all, while feature_flags.json reported
+# `enable_marketplace_rate_limiting` as on at 100% rollout since 2026-05-24.
+#
+# Middleware rather than the @rate_limit decorator: none of the 38 handlers here declare a
+# `request: Request` parameter, so the decorator would find nothing to key on and put every
+# caller in one shared bucket -- one client could then lock out the rest. The middleware
+# always has the request and keys by client IP.
+app.add_middleware(
+    RateLimitMiddleware,
+    rate=settings.rate_limit_requests,
+    per=settings.rate_limit_window_seconds,
+    exclude_paths=["/health", "/ready", "/live", "/metrics"],
+    error_message="Marketplace rate limit exceeded",
+)
 app.add_middleware(ErrorHandlerMiddleware)
 get_session_dep = get_session
 
