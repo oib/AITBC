@@ -943,31 +943,6 @@ class PoAProposer:
         if not block.signature:
             # Legacy block (pre-v0.7.1) — no signature, skip verification
             return True
-        try:
-            from eth_keys import keys
+        from aitbc.crypto.consensus_signing import verify_block_signature
 
-            # The block hash is a sha256 hex string; sign_transaction_hash
-            # signs it as a raw hash. We recover by treating the block hash
-            # as the message hash.
-            block_hash_hex = block.hash.removeprefix("0x")
-            msg_hash = bytes.fromhex(block_hash_hex)
-            sig_bytes = bytes.fromhex(block.signature.removeprefix("0x"))
-            if len(sig_bytes) != 65:
-                return False
-
-            # sign_block_hash produces an Ethereum-encoded signature, whose recovery id is
-            # 27 or 28. eth_keys.Signature requires the canonical 0 or 1 and raises
-            # BadSignature otherwise -- which the bare `except Exception: return False`
-            # below turned into a silent "signature invalid" for every correctly signed
-            # block. Normalise before constructing it.
-            recovery_id = sig_bytes[64]
-            if recovery_id >= 27:
-                recovery_id -= 27
-            if recovery_id not in (0, 1):
-                return False
-            sig = keys.Signature(sig_bytes[:64] + bytes([recovery_id]))
-            pub_key = sig.recover_public_key_from_msg_hash(msg_hash)
-            recovered = pub_key.to_checksum_address()
-            return recovered.lower() == block.proposer.lower()
-        except Exception:
-            return False
+        return verify_block_signature(block.hash, block.signature, block.proposer)

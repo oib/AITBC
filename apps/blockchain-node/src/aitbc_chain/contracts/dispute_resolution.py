@@ -9,6 +9,7 @@ from enum import Enum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.crypto.crypto import _recover_address
 
 logger = get_logger(__name__)
 
@@ -243,19 +244,18 @@ class DisputeResolutionContract:
 
         message = json.dumps(sign_data, sort_keys=True, separators=(",", ":")).encode()
         try:
-            from eth_keys import keys
+            from eth_keys.exceptions import BadSignature, ValidationError
             from eth_utils import keccak
 
             msg_hash = keccak(message)
             sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
-            if len(sig_bytes) != 65:
-                return False
-            sig = keys.Signature(sig_bytes)
-            pub_key = sig.recover_public_key_from_msg_hash(msg_hash)
-            recovered = pub_key.to_checksum_address()
+            recovered = _recover_address(msg_hash, sig_bytes)
             return recovered.lower() == owner_address.lower()
+        except (BadSignature, ValidationError, ValueError) as e:
+            logger.warning("Owner signature could not be parsed: %s", e)
+            return False
         except Exception as e:
-            logger.warning("Owner signature verification failed: %s", e)
+            logger.error("Unexpected error during owner signature verification: %s", e)
             return False
 
     def get_dispute(self, dispute_id: int) -> dict[str, Any]:
