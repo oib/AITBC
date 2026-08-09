@@ -20,8 +20,12 @@ alone. Findings are marked:
 Nothing in this document is marked closed. Re-verify before starting: this tree changes
 under multiple agents.
 
-**Totals**: 16 findings — 5 confirmed defects, 11 observed design gaps.
+**Totals**: 23 findings — 11 confirmed defects, 12 observed design gaps.
 Severity is about blast radius, not effort.
+
+Written in two passes. The first (V23-01..16) covered the core library, blockchain node,
+marketplace, pool-hub and coordinator-api. The second (V23-17..23) covered what the first
+pass listed as uncovered: the ten unread apps, `scripts/`, and dependencies.
 
 ---
 
@@ -318,20 +322,273 @@ predates the entire v0.22 remediation, now merged as `d6b6b9dda`.
 
 ---
 
+# Second pass — 2026-08-09
+
+Covering what the first pass listed as uncovered: the ten unread apps, `scripts/`, and
+dependencies. Baseline re-verified first — V23-01 and V23-09 both still reproduce on
+`main` at `a0c60b894`, so the findings above stand.
+
+**Second-pass totals**: 7 findings — 6 confirmed, 1 observed.
+
+---
+
+## Critical — a service that reports work it did not do
+
+### V23-17 — `POST /databases/{id}/sync` fabricates progress and persists it · CONFIRMED
+
+`apps/edge/src/aitbc_edge/services/database_service.py:86-94`, exposed at
+`apps/edge/src/aitbc_edge/routers/database.py:63`.
+
+```python
+# Simulate sync process (in production, this would actually sync data)
+db.sync_status = "idle"
+db.last_sync_at = datetime.now(UTC)
+db.records_synced = db.records_synced + 100  # Simulated
+await session.commit()
+return {"success": True, "message": f"Database {database_id} synced", ...}
+```
+
+No data is synced. The method commits a fresh `last_sync_at`, advances `records_synced` by a
+literal 100, and returns `success: True`. There is no flag in the response, no
+`"simulated": true`, and no environment gate.
+
+This is worse than a stub, because it writes the fiction to the database. Anything reading
+`last_sync_at` to decide whether a replica is current — monitoring, a scheduler, an operator
+— is told the sync happened. The counter climbs by 100 per call, so it also looks like
+progress.
+
+Repro:
+
+```
+sed -n '73,95p' apps/edge/src/aitbc_edge/services/database_service.py
+git grep -n "sync_database" -- apps/edge/   # one caller: the POST route
+```
+
+Note the contrast with `apps/ai-engine/src/ai_service.py` and
+`apps/gpu/src/gpu_service/main.py`, which handle exactly this situation correctly: the AI
+engine refuses unless `AI_ENGINE_ALLOW_SIMULATION=true` and stamps `"simulated": True` on
+every response; the GPU service returns 501 with an explanation. Those are the house
+pattern, and they came out of the v0.22 APP-33 remediation. This endpoint predates or
+missed it.
+
+> **Fix**: return 501 like the GPU service does, and write nothing. If a simulation mode is
+> wanted, gate it on an env var and mark the response, as ai-engine does. The one thing it
+> must not do is commit `last_sync_at`.
+
+---
+
+## Critical — governance timelock fails open
+
+### V23-18 — a failed on-chain submission removes the execution timelock · CONFIRMED
+
+`apps/governance/src/governance_service/services/governance_service.py:406`.
+
+```python
+if proposal.block_height is not None:
+    blocks_since_proposal = current_height - proposal.block_height
+    ...
+    if blocks_since_proposal < effective_timelock:
+        raise ValueError("Timelock not expired: ...")
+```
+
+When `block_height` is `None` the entire timelock check is skipped and execution proceeds.
+It is not a rare state:
+
+- `block_height: int | None = Field(default=None)` —
+  `apps/governance/src/governance_service/domain/governance.py:91,139`.
+- It is assigned only at line 154, `proposal.block_height = result.get("block_height")`,
+  inside `if settings.enable_onchain_submission and settings.proposer_private_key`.
+- That block is wrapped in `except Exception` whose comment reads *"Log but don't block
+  proposal creation — on-chain submission is best-effort"* (line 155-159).
+
+So an RPC hiccup during proposal creation produces a proposal that later executes with **no
+timelock at all**, and the only trace is a warning line at creation time. A best-effort
+operation is silently load-bearing for a safety control.
+
+The comment at line 404 also concedes the timelock is measured from *proposal creation*
+rather than *voting end* — *"In a full implementation, voting_ends_block would be stored
+explicitly"*. The timelock therefore overlaps the voting period instead of following it; if
+`timelock_blocks` is shorter than the voting window, it is already zero even on the happy
+path.
+
+Repro:
+
+```
+sed -n '396,416p' apps/governance/src/governance_service/services/governance_service.py
+sed -n '146,160p' apps/governance/src/governance_service/services/governance_service.py
+grep -n "block_height" apps/governance/src/governance_service/domain/governance.py
+```
+
+> **Fix**: invert the condition — a proposal with no `block_height` must be **refused**
+> execution, not exempted. `if proposal.block_height is None: raise ValueError("cannot
+> verify timelock: proposal has no recorded block height")`. Separately, store
+> `voting_ends_block` at creation and measure the timelock from it, so the safety window is
+> the one the parameter name promises.
+
+---
+
+## High — supply chain
+
+### V23-19 — 68 known vulnerabilities across 12 packages · CONFIRMED
+
+```
+./venv/bin/python -m pip_audit --progress-spinner off
+```
+
+`Found 68 known vulnerabilities in 12 packages`. The ones that matter most for this
+codebase:
+
+| Package | Installed | Note |
+|---|---|---|
+| `cryptography` | 48.0.1 | 3 advisories; this is the library behind all wallet/keystore crypto. Fixes in 49.0.0 / 50.0.0 |
+| `ecdsa` | 0.19.2 | PYSEC-2026-1325, **no fix version published** |
+| `gitpython` | 3.0.6 | 11 advisories — see V23-21 |
+| `aiohttp` | 3.14.1 | 3 advisories, fixed in 3.14.2 / 3.14.3 |
+| `torch`, `pillow`, `setuptools`, `pyasn1` | — | further advisories with fixes available |
+
+`ecdsa` having no upstream fix is the one that needs a decision rather than a bump: either
+accept it with a written rationale about which code paths reach it, or migrate those paths
+to `cryptography` / `eth_keys`.
+
+> **Fix**: bump what has fixes, in one PR, and run the suites. For `ecdsa`, establish what
+> still uses it — this repo has both `ecdsa` and `eth_keys` in play — and prefer removing
+> the dependency to carrying an unfixable advisory.
+
+### V23-20 — the installed environment does not match `pyproject.toml` · CONFIRMED
+
+| Package | Pinned | Installed |
+|---|---|---|
+| `starlette` | 1.3.1 | **1.2.1** |
+| `pydantic-settings` | 2.14.2 | **2.14.1** |
+
+Both gaps are security-relevant, and in an instructive direction: `starlette` 1.2.1 carries
+PYSEC-2026-248/249, fixed in 1.3.0/1.3.1 — exactly the pinned version. `pydantic-settings`
+2.14.1 carries GHSA-4xgf-cpjx-pc3j, fixed in 2.14.2 — again the pin.
+
+**Two of the 68 findings above are already fixed by the declarations and appear only
+because the environment is stale.** Which means the audit result is not a property of the
+repository, it is a property of one machine — and every test run, every CI gate and every
+local reproduction is happening against different versions than the ones declared.
+
+```
+grep -E "^(starlette|pydantic-settings) = " pyproject.toml
+./venv/bin/python -m pip list | grep -iE "^(starlette|pydantic-settings) "
+```
+
+> **Fix**: `poetry install --sync` (or recreate the venv), then add a CI step that fails
+> when the resolved environment drifts from the lock. Without that check, "the tests pass"
+> means less than it appears to.
+
+### V23-21 — an undeclared tool downgrades a shared dependency · CONFIRMED
+
+`gitpython` 3.0.6 is installed with 11 advisories against it. It is not in
+`pyproject.toml`. It is pulled in by `truffleHog`, which is also not in `pyproject.toml`:
+
+```
+./venv/bin/python -m pip show gitpython | grep Required-by     # truffleHog
+grep -in gitpython pyproject.toml                              # no match
+```
+
+Meanwhile `poetry.lock:584` records that `detect-secrets` — which *is* a declared dev
+dependency — wants `GitPython (>=3.1.30)`. The installed 3.0.6 is below that floor and
+roughly fifty patch releases behind current.
+
+Someone `pip install`ed a scanner into the Poetry-managed venv. The result is a security
+tool whose own dependency is the most-vulnerable package in the environment, and a declared
+tool silently running against a version it does not support.
+
+> **Fix**: decide whether `truffleHog` is wanted. If yes, declare it in the dev group and
+> let the resolver reconcile it with `detect-secrets`. If no, remove it. Either way, the
+> venv should not contain packages that no manifest mentions — which is the same check
+> V23-20 asks for.
+
+---
+
+## High — a deploy script that defaults to destroying the local checkout
+
+### V23-22 — `deploy-to-server.sh` defaults to `root@127.0.0.1` and deletes its own source · CONFIRMED
+
+`scripts/deployment/deploy/deploy-to-server.sh`, lines 8-9 and 34-36:
+
+```bash
+SERVER="${AITBC_DEPLOY_SERVER:-root@127.0.0.1}"
+PROJECT_DIR="/opt/aitbc"
+...
+ssh $SERVER "rm -rf $PROJECT_DIR 2>/dev/null || true"
+scp -r /opt/aitbc $SERVER:/opt/
+```
+
+Run without `AITBC_DEPLOY_SERVER` set, this sshes to **localhost as root**, `rm -rf`s
+`/opt/aitbc` — the working checkout — and then attempts to `scp` from that same, now
+deleted, path. The `2>/dev/null || true` suppresses any complaint.
+
+`scripts/deployment/deploy/deploy-explorer.sh:7` has the identical default.
+
+This is the shape of v0.22's OPS-08, where the balance-migration script defaulted to the
+production chain: a destructive operation with a default target. Here the default target is
+the developer's own repository.
+
+```
+sed -n '1,12p;33,37p' scripts/deployment/deploy/deploy-to-server.sh
+git grep -n "AITBC_DEPLOY_SERVER" -- scripts/
+```
+
+> **Fix**: no default. `SERVER="${AITBC_DEPLOY_SERVER:?set AITBC_DEPLOY_SERVER}"` fails
+> immediately with a usable message. Then reverse the order — copy first, swap second — so
+> a failed transfer cannot leave the target with nothing. Both scripts.
+
+---
+
+## Medium — shell safety is inconsistent across 266 scripts
+
+### V23-23 — `set -e` without `set -u` in about 166 scripts · OBSERVED
+
+```
+git ls-files 'scripts/**/*.sh' | wc -l                        # 266
+git grep -l "set -e"     -- 'scripts/**/*.sh' | wc -l         # 210
+git grep -lE "set -[a-z]*u" -- 'scripts/**/*.sh' | wc -l      #  44
+git grep -l "pipefail"   -- 'scripts/**/*.sh' | wc -l         #  44
+```
+
+210 scripts stop on error; only 44 stop on an unset variable, and only 44 catch a failure
+mid-pipeline. So a typo in a variable name expands to empty and the script continues
+confidently — which is precisely the mechanism that makes V23-22 dangerous rather than
+merely untidy.
+
+Unquoted expansions are still present alongside this, e.g.
+`scripts/deployment/build-release.sh:14` — `rm -rf ${BUILD_DIR}`, in a script with `set -e`
+and no `set -u`. `BUILD_DIR` is a literal two lines above, so that one is safe today; it is
+listed as the pattern, not as a live hazard.
+
+> **Fix**: `set -euo pipefail` as the standard preamble, applied when a script is touched
+> rather than in one sweep — turning it on wholesale will surface genuine latent failures,
+> and doing that across 166 scripts at once gives no way to tell which break was real. A
+> pre-commit check on new scripts stops the count growing.
+
+---
+
 ## What this audit did not cover
 
 Stating the gaps so the next pass does not assume they were cleared:
 
-- **`apps/` breadth.** Findings concentrate in `blockchain-node`, `marketplace`, `pool-hub`,
-  `coordinator-api` and `aitbc/`. `ai-engine`, `api-gateway`, `edge`, `governance`, `gpu`,
-  `memory`, `whisper`, `ffmpeg`, `zk-circuits` and `archive` were surveyed structurally
-  (V23-10) but not read.
-- **`docs/` (1452 files) and `scripts/` (398).** Only where a finding led there.
-- **Behavioural correctness.** This pass looked for defects and design gaps. Whether the
-  economics, consensus or settlement logic is *right* is a different exercise.
+*Closed by the second pass*: the ten unread apps (V23-17, V23-18 came out of `edge` and
+`governance`); `scripts/` (V23-22, V23-23); Python dependencies (V23-19, V23-20, V23-21).
+
+Still not covered:
+
+- **`api-gateway`, `memory`, `whisper`, `ffmpeg`, `zk-circuits`, `archive`.** Swept for
+  stubs and placeholders, which is how V23-17 and V23-18 surfaced, but not read line by
+  line. `zk-circuits` (75 files) is the largest and least examined.
+- **JavaScript/Solidity dependencies.** `pip-audit` was run; `npm audit` in `contracts/`
+  and `packages/` was not.
+- **`docs/` (1452 files).** Only where a finding led there.
+- **Behavioural correctness.** Both passes looked for defects and design gaps. Whether the
+  economics, consensus or settlement logic is *right* is a different exercise — and given
+  V23-18, the governance parameters would be the place to start.
 - **The 234 broad `except` handlers** outside the signature paths. V23-04 covers the ones
   that hide V23-01/02/03; the rest were not triaged.
-- **Dependencies.** No `pip-audit`/`npm audit` run.
+- **Whether the fabricated-progress pattern in V23-17 appears elsewhere.** One instance was
+  found by grepping for "simulate"; a comment worded differently would not have matched.
 
 ## Method
 
