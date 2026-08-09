@@ -7,7 +7,7 @@ import click
 import httpx
 
 from ..config import get_config
-from ..utils import error, info, output, success
+from ..utils import error, info, output, success, warning
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 # Initialize logger
@@ -367,14 +367,27 @@ def sync_db(database_id: str):
     try:
         client = get_edge_client()
         response = client.post(f"/v1/database/{database_id}/sync")
+
+        # V23-17: edge sync is not implemented and answers 501. Surface the server's
+        # explanation rather than letting raise_for_status turn it into a bare status line.
+        if response.status_code == 501:
+            error(response.json().get("detail", "Edge database sync is not implemented"))
+            return
+
         response.raise_for_status()
         result = response.json()
 
-        if result.get("success"):
-            success(f"Database {database_id} synced")
-            output(result)
-        else:
+        if not result.get("success"):
             error(f"Failed to sync database: {result.get('message', 'Unknown error')}")
+            return
+
+        # A simulated response must not be reported as a completed sync. The service
+        # labels it; repeating "synced" here would discard the label one layer up.
+        if result.get("simulated"):
+            warning(f"Database {database_id}: {result.get('message', 'simulated sync, no data transferred')}")
+        else:
+            success(f"Database {database_id} synced")
+        output(result)
     except Exception as e:
         error(f"Error syncing database: {str(e)}")
 
