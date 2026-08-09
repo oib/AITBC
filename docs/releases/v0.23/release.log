@@ -40,9 +40,9 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 34 findings — 21 confirmed defects, 13 observed design gaps. **18 resolved**
-(V23-06..09, V23-11..15, V23-17, V23-18, V23-22, V23-24, V23-24a, V23-29..32 — eighteen
-entries, seventeen numbered findings); 16 open.
+**Totals**: 34 findings — 21 confirmed defects, 13 observed design gaps. **19 resolved**
+(V23-06..09, V23-11..15, V23-17, V23-18, V23-22, V23-24, V23-24a, V23-29..32, V23-32a —
+nineteen entries, seventeen numbered findings); 15 open.
 
 V23-24a and V23-32a were both added while fixing the finding they hang off, not during a
 pass. Fixing a finding keeps turning up a larger one next to it: see also the V23-30 note.
@@ -1330,7 +1330,7 @@ a flag manifest exists at the root, code must read it, checked by parsing to AST
 about the manifest cannot satisfy it. Deleting the file alone would have been temporary; the
 next person wanting a flag recreates it and it is inert again the same day.
 
-### V23-32a — two security controls reported enabled at 100% that do not exist · CONFIRMED
+### V23-32a — two security controls reported enabled at 100% that do not exist · CONFIRMED → RESOLVED
 
 Found while resolving V23-32. Split out because deleting the manifest removes the false
 claim, not the gap it was concealing.
@@ -1364,6 +1364,59 @@ rather than critical.
 > **Note on why this was invisible**: both entries were dated and marked 100% rolled out.
 > Anyone auditing controls by reading the manifest — which is what `CLAUDE.md` instructed —
 > would have ticked both off. The manifest did not merely fail to gate; it answered.
+
+**RESOLVED.** Both controls now exist, and both are covered by tests rather than by a
+manifest entry.
+
+**Rate limiting.** `RateLimitMiddleware` is applied in
+`apps/marketplace/.../main.py`, keyed by client IP, 120 requests per 60 seconds
+(`rate_limit_requests` / `rate_limit_window_seconds` in `config.py`), with `/health`,
+`/ready`, `/live` and `/metrics` excluded.
+
+Middleware rather than the `@rate_limit` decorator the fix note suggested, and the reason is
+worth recording: **not one of the 38 handlers in that file declares a `request: Request`
+parameter.** `_extract_request` would have returned `None` for every one of them,
+`_get_rate_limit_key` would have returned the literal `"unknown"`, and all callers would
+have shared a single bucket — so any one client could have locked out every other by
+exhausting it. Applying the decorator as recommended would have installed a denial of
+service in the shape of a protection, silently, with the tests passing.
+
+Three defects in the shared rate-limiting code were fixed on the way, all found by using it
+rather than by reading it:
+
+| Defect | Consequence |
+|---|---|
+| `_get_rate_limit_key` returned `"unknown"` silently | The trap above, invisible at every call site. Now warns once per handler, naming it. |
+| `RateLimitMiddleware` never consulted `_is_rate_limiting_enabled()` | `AITBC_ENABLE_RATE_LIMITING=false` worked or was ignored depending on which of the two mechanisms a service happened to use. Both honour it now; neither can be disabled in production. |
+| The 429 body was built by f-string into a JSON literal | A quote or backslash in `error_message` produced malformed JSON. Now `JSONResponse`. |
+
+The limiter is in-process, so behind N workers the effective limit is N × rate. That is a
+ceiling on abuse rather than an exact quota, and it is now written down in the docstring
+instead of being discovered later.
+
+**CORS.** `setup_cors` no longer defaults `allow_origins` to `["*"]` — omitting it raises.
+The old default meant a service got the most permissive setting there is *by saying nothing*,
+which is the one configuration nobody would ever write down as a decision. All four existing
+callers already passed an allowlist, so nothing changed at runtime; what changed is that the
+next service cannot get a wildcard by omission. `simple_exchange` keeps its explicit `["*"]`
+with credentials off — a deliberate public API, and now legible as one.
+
+The guard in `setup_cors` was also being bypassed. `coordinator-api` builds `CORSMiddleware`
+directly at two sites with `allow_credentials=True`, reading `settings.allow_origins`, which
+is environment-settable and whose validator checked only for localhost-in-production.
+Starlette resolves wildcard-plus-credentials by echoing the request's `Origin` header, so
+`ALLOW_ORIGINS='["*"]'` there would not have meant "public, no cookies" — it would have meant
+*any site can make authenticated requests as the user*. The validator now rejects `"*"`.
+
+`tests/security/test_v2332a_controls.py` covers all of it: over-limit requests get 429 with
+`Retry-After`, excluded paths are not counted, the 429 body survives a message containing a
+quote and a backslash, the disable switch is honoured outside production and ignored inside
+it, `setup_cors()` without origins raises, no app calls it without an allowlist (AST scan),
+and the coordinator config rejects `"*"`.
+
+> **Not addressed**: the ~18 apps that configure no CORS at all. That is not a gap — absent
+> `CORSMiddleware`, browsers apply the same-origin policy, which is the safe end. The
+> finding was about a claim of *enforcement* that did not exist, not about missing headers.
 
 ### Qualification of V23-24
 
