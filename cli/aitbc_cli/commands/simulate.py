@@ -5,33 +5,14 @@ Simulate blockchain scenarios and test environments
 """
 
 import json
-import os
 import random
-import sys
 import time
 from typing import Any
 
 import click
 
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-try:
-    from config import get_config
-    from utils import error, output, setup_logging, success
-except ImportError:
-
-    def output(msg, format_type):  # type: ignore[misc]
-        click.echo(msg)
-
-    def error(msg):  # type: ignore[misc]
-        click.echo(f"Error: {msg}")
-
-    def setup_logging(verbose, debug):  # type: ignore[misc]
-        return "INFO"
-
-    def get_config(config_file=None, role=None):
-        return {}
+from ..config import get_config
+from ..utils.output import error, output, success
 
 
 from ..utils.error_handling import abort
