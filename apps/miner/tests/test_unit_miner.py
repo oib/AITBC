@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 
 import production_miner
 import pytest
+from aitbc.exceptions import NetworkError
 
 
 @pytest.mark.unit
@@ -107,10 +108,13 @@ def test_build_gpu_capabilities(mock_arch, mock_cuda, mock_gpu):
 
     result = production_miner.build_gpu_capabilities()
     assert result is not None
-    assert "gpu" in result
-    assert result["gpu"]["model"] == "RTX 4090"
-    assert result["gpu"]["architecture"] == "ada_lovelace"
-    assert result["gpu"]["edge_optimized"] is True
+    assert "gpus" in result, "the coordinator reads capabilities['gpus']"
+    assert len(result["gpus"]) == 1
+    gpu = result["gpus"][0]
+    assert gpu["name"] == "RTX 4090"
+    assert gpu["architecture"] == "ada_lovelace"
+    assert gpu["edge_optimized"] is True
+    assert result["cuda"] == "12.0"
 
 
 @pytest.mark.unit
@@ -121,8 +125,9 @@ def test_build_gpu_capabilities_no_gpu(mock_gpu):
 
     result = production_miner.build_gpu_capabilities()
     assert result is not None
-    assert result["gpu"]["model"] == "Unknown GPU"
-    assert result["gpu"]["architecture"] == "unknown"
+    # No GPU means an empty list, not an entry describing a GPU that is not there.
+    assert result["gpus"] == []
+    assert result["platform"] == "CPU"
 
 
 @pytest.mark.unit
@@ -136,7 +141,7 @@ def test_build_gpu_capabilities_edge_optimized(mock_arch):
         mock_cuda.return_value = "12.0"
 
         result = production_miner.build_gpu_capabilities()
-        assert result["gpu"]["edge_optimized"] is True
+        assert result["gpus"][0]["edge_optimized"] is True
 
 
 @pytest.mark.unit
@@ -150,22 +155,18 @@ def test_build_gpu_capabilities_not_edge_optimized(mock_arch):
         mock_cuda.return_value = "11.0"
 
         result = production_miner.build_gpu_capabilities()
-        assert result["gpu"]["edge_optimized"] is False
+        assert result["gpus"][0]["edge_optimized"] is False
 
 
 @pytest.mark.unit
-@patch("production_miner.httpx.get")
-def test_measure_coordinator_latency_success(mock_get):
-    """Test coordinator latency measurement success"""
-    mock_get.return_value = Mock(status_code=200)
-    result = production_miner.measure_coordinator_latency()
-    assert result >= 0
+def test_measure_coordinator_latency_success(mock_http):
+    """A reachable coordinator yields a non-negative round trip in milliseconds."""
+    with mock_http(get={"status": "healthy"}):
+        assert production_miner.measure_coordinator_latency() >= 0
 
 
 @pytest.mark.unit
-@patch("production_miner.httpx.get")
-def test_measure_coordinator_latency_failure(mock_get):
-    """Test coordinator latency measurement failure"""
-    mock_get.side_effect = Exception("Connection error")
-    result = production_miner.measure_coordinator_latency()
-    assert result == -1.0
+def test_measure_coordinator_latency_failure(mock_http):
+    """-1.0 is the sentinel for unreachable, and NetworkError is what the client raises."""
+    with mock_http(get=NetworkError("Connection error")):
+        assert production_miner.measure_coordinator_latency() == -1.0

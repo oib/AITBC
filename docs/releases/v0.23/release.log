@@ -40,12 +40,9 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 36 findings — 23 confirmed defects, 13 observed design gaps. **23 resolved**
-(V23-06..15, V23-17, V23-18, V23-22, V23-24, V23-24a, V23-25, V23-26, V23-26a, V23-29..32,
-V23-32a — twenty-three entries, twenty numbered findings); 13 open.
-
-V23-10a is resolved for `agent-coordinator` and open for `miner`, which now collects and
-fails 33 tests rather than collecting nothing. It is counted among the 13 open.
+**Totals**: 36 findings — 23 confirmed defects, 13 observed design gaps. **24 resolved**
+(V23-06..15, V23-10a, V23-17, V23-18, V23-22, V23-24, V23-24a, V23-25, V23-26, V23-26a,
+V23-29..32, V23-32a — twenty-four entries, twenty numbered findings); 12 open.
 
 V23-24a, V23-32a and V23-26a were all added while fixing the finding they hang off, not
 during a pass. Fixing a finding keeps turning up a larger one next to it: see also the
@@ -284,7 +281,7 @@ The remaining five are `blockchain-explorer`, `exchange`, `ffmpeg`, `whisper`,
 `zk-circuits`. The guard pins that set: a new flat-layout app fails, and a migration fails
 until the name is removed from the list, so the count can only fall.
 
-### V23-10a — whole app test suites have been dark for a month, and nothing reports it · CONFIRMED → RESOLVED (agent-coordinator) / OPEN (miner)
+### V23-10a — whole app test suites have been dark for a month, and nothing reports it · CONFIRMED → RESOLVED
 
 Found while writing V23-10's check. The layout question is cosmetic next to what it was
 hiding.
@@ -320,12 +317,30 @@ are worth recording because they fail in opposite directions:
 **Fixed here — miner's collection**: `pythonpath = ["src", "."]` and the two markers
 registered. The suite collects again.
 
-> **Left open deliberately**: miner now collects and **33 of its 60 tests fail**. Sampling
-> them, they are stale in the same way — `test_build_gpu_capabilities` asserts `"gpu" in
-> result` against a payload whose key is `"gpus"`. Deciding per test whether the test or the
-> code is wrong is real work, and doing it quickly risks rewriting assertions to match code
-> that is itself wrong. Collecting-and-failing is strictly better than dark: the failures are
-> now visible. **`apps/miner` has 33 failing tests.**
+**Miner's 33 failures, now fixed.** Left open in the first pass on the grounds that deciding
+per test whether the test or the code is wrong is real work. Done properly, every one was a
+stale test — but establishing that meant checking each against a consumer, not against
+plausibility:
+
+| Failure class | Count | Which side was wrong, and how it was decided |
+|---|---|---|
+| Mocked `production_miner.httpx.get/post` | 25 | The module goes through `AITBCHTTPClient`, whose `get`/`post` return **parsed JSON** and raise `NetworkError` — it never sees a status code. The mocks described an interface the code does not touch. |
+| Asserted `result["gpu"]["model"]` | 6 | The code emits `"gpus"`, a list. Settled by the consumer: `apps/coordinator-api/.../services/jobs.py:152` reads `capabilities.get("gpus", [])`. |
+| `poll_for_jobs` returning `{}` | 1 | Asserted `result is not None`; the code returns `None`. The code is right — handing a job-shaped empty object to the mining loop is the bug. |
+| `wait_for_coordinator` | 2 | Called without `await` and asserted the coroutine object was `True`. The app's own pytest config lacked `asyncio_mode`, so the root setting did not apply. |
+
+Two tests were asserting on mocks so far from the real interface that they would have passed
+whatever the module did — `test_register_miner_failure` drove a `Mock(status_code=400)` past
+code that never inspects a status code. Rewritten to assert the actual contract: a
+registration that returns no `session_token` is a failure.
+
+One product change: `poll_for_jobs` had `import requests` **inside the function** — the only
+call site in the module not on `AITBCHTTPClient`, with its dependency invisible at the top of
+the file and unpatchable at `production_miner.requests`. Hoisted to module scope. It is still
+the one unmigrated function, which is now at least legible.
+
+**60 passing, 0 failing.** Verified non-vacuous: renaming `"gpus"` to `"gpu_list"` in the
+production code fails 6 tests, so the suite detects the regression class it exists for.
 
 > **The larger gap**: no CI job runs the other ~22 app suites. The import guard added here
 > catches only the cheapest class of breakage. Running them is the actual fix.
