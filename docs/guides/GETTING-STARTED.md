@@ -309,7 +309,6 @@ See [dark-factory/README.md](../../dark-factory/README.md) for the full guide.
 | [Skill Authoring Guide](SKILL_AUTHORING_GUIDE.md) | Creating custom skills |
 | [Gemini CLI Guide](GEMINI_CLI_AUTHORING_GUIDE.md) | Using Gemini CLI harness |
 | [Codex CLI Setup](../../.codex/README.md) | Using Codex CLI harness |
-| [Cursor Rules](../../.cursor/rules/README.md) | Cursor IDE rules and background agents |
 | [Round Table Philosophy](ROUND-TABLE-PHILOSOPHY.md) | Collaboration principles |
 | [Agent Teams Guide](../onboarding/AGENT-TEAMS-GUIDE.md) | Multi-agent orchestration |
 | [Dark Factory Guide](../../dark-factory/docs/DARK-FACTORY-GUIDE.md) | Persistent agent sessions |
