@@ -33,7 +33,6 @@ is how the previous file came to exist:
 
 from __future__ import annotations
 
-import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 
@@ -68,12 +67,11 @@ SENSITIVE = {"amount": "1000000", "asset": "AIT", "settlement_details": {"iban":
 
 
 @pytest.fixture
-def key_manager(tmp_path):
+async def key_manager(tmp_path):
     """A KeyManager over a real temporary keystore, with alice and bob enrolled."""
     manager = KeyManager(FileKeyStorage(str(tmp_path / "keys")))
-    asyncio.get_event_loop_policy().new_event_loop()
     for participant in ("alice", "bob"):
-        asyncio.run(manager.generate_key_pair(participant))
+        await manager.generate_key_pair(participant)
     return manager
 
 
@@ -96,7 +94,7 @@ def audit_secret(monkeypatch):
 # --------------------------------------------------------------------------------------
 
 
-def test_ciphertext_does_not_contain_the_plaintext(service):
+async def test_ciphertext_does_not_contain_the_plaintext(service):
     encrypted = service.encrypt(SENSITIVE, participants=["alice"])
     blob = encrypted.ciphertext + encrypted.tag + encrypted.nonce
     assert b"1000000" not in blob
@@ -104,26 +102,26 @@ def test_ciphertext_does_not_contain_the_plaintext(service):
     assert b"AIT" not in blob
 
 
-def test_participant_round_trip(service):
+async def test_participant_round_trip(service):
     encrypted = service.encrypt(SENSITIVE, participants=["alice"])
     assert service.decrypt(encrypted, "alice") == SENSITIVE
 
 
-def test_each_participant_decrypts_independently(service):
+async def test_each_participant_decrypts_independently(service):
     encrypted = service.encrypt(SENSITIVE, participants=["alice", "bob"])
     assert service.decrypt(encrypted, "alice") == SENSITIVE
     assert service.decrypt(encrypted, "bob") == SENSITIVE
     assert encrypted.encrypted_keys["alice"] != encrypted.encrypted_keys["bob"]
 
 
-def test_non_participant_is_refused(service, key_manager):
+async def test_non_participant_is_refused(service, key_manager):
     encrypted = service.encrypt(SENSITIVE, participants=["alice"])
-    asyncio.run(key_manager.generate_key_pair("mallory"))
+    await key_manager.generate_key_pair("mallory")
     with pytest.raises(DecryptionError):
         service.decrypt(encrypted, "mallory")
 
 
-def test_two_encryptions_of_the_same_data_differ(service):
+async def test_two_encryptions_of_the_same_data_differ(service):
     """A fresh DEK and nonce per call, so identical plaintext is not recognisable."""
     a = service.encrypt(SENSITIVE, participants=["alice"])
     b = service.encrypt(SENSITIVE, participants=["alice"])
@@ -131,7 +129,7 @@ def test_two_encryptions_of_the_same_data_differ(service):
     assert a.nonce != b.nonce
 
 
-def test_tampered_ciphertext_is_rejected(service):
+async def test_tampered_ciphertext_is_rejected(service):
     """AES-GCM is authenticated; a flipped byte must fail rather than decrypt to garbage."""
     encrypted = service.encrypt(SENSITIVE, participants=["alice"])
     flipped = bytearray(encrypted.ciphertext)
@@ -141,7 +139,7 @@ def test_tampered_ciphertext_is_rejected(service):
         service.decrypt(encrypted, "alice")
 
 
-def test_tampered_tag_is_rejected(service):
+async def test_tampered_tag_is_rejected(service):
     encrypted = service.encrypt(SENSITIVE, participants=["alice"])
     flipped = bytearray(encrypted.tag)
     flipped[-1] ^= 0xFF
@@ -150,12 +148,12 @@ def test_tampered_tag_is_rejected(service):
         service.decrypt(encrypted, "alice")
 
 
-def test_encrypting_for_nobody_is_refused(service):
+async def test_encrypting_for_nobody_is_refused(service):
     with pytest.raises(EncryptionError):
         service.encrypt(SENSITIVE, participants=[])
 
 
-def test_unknown_participant_is_refused_rather_than_silently_dropped(service):
+async def test_unknown_participant_is_refused_rather_than_silently_dropped(service):
     """Regression: this used to succeed.
 
     ``encrypt`` caught the missing-key error per participant, logged it and continued, so a
@@ -166,7 +164,7 @@ def test_unknown_participant_is_refused_rather_than_silently_dropped(service):
         service.encrypt(SENSITIVE, participants=["nobody"])
 
 
-def test_one_unknown_participant_fails_the_whole_call(service):
+async def test_one_unknown_participant_fails_the_whole_call(service):
     with pytest.raises(EncryptionError, match="nobody"):
         service.encrypt(SENSITIVE, participants=["alice", "nobody"])
 
@@ -176,33 +174,35 @@ def test_one_unknown_participant_fails_the_whole_call(service):
 # --------------------------------------------------------------------------------------
 
 
-def test_audit_key_is_included_by_default(service):
+async def test_audit_key_is_included_by_default(service):
     encrypted = service.encrypt(SENSITIVE, participants=["alice"])
     assert "audit" in encrypted.encrypted_keys
 
 
-def test_audit_key_can_be_omitted(service):
+async def test_audit_key_can_be_omitted(service):
     encrypted = service.encrypt(SENSITIVE, participants=["alice"], include_audit=False)
     assert "audit" not in encrypted.encrypted_keys
     assert sorted(encrypted.encrypted_keys) == ["alice"]
 
 
-def test_audit_decrypt_with_valid_authorization(service, key_manager, audit_secret):
+async def test_audit_decrypt_with_valid_authorization(service, key_manager, audit_secret):
     encrypted = service.encrypt(SENSITIVE, participants=["alice"])
-    auth = asyncio.run(key_manager.create_audit_authorization(issuer="regulator-1", purpose="audit"))
+    auth = await key_manager.create_audit_authorization(issuer="regulator-1", purpose="audit")
     assert service.audit_decrypt(encrypted, auth) == SENSITIVE
 
 
-def test_audit_decrypt_rejects_a_forged_authorization(service, audit_secret):
+async def test_audit_decrypt_rejects_a_forged_authorization(service, audit_secret):
     encrypted = service.encrypt(SENSITIVE, participants=["alice"])
     with pytest.raises(Exception):  # noqa: B017 - service raises DecryptionError or KeyManagementError
         service.audit_decrypt(encrypted, "bm90LWEtcmVhbC10b2tlbg==")
 
 
-def test_audit_decrypt_rejects_an_authorization_signed_with_another_secret(service, key_manager, audit_secret, monkeypatch):
+async def test_audit_decrypt_rejects_an_authorization_signed_with_another_secret(
+    service, key_manager, audit_secret, monkeypatch
+):
     """Re-signing the payload under a different secret must not be accepted."""
     encrypted = service.encrypt(SENSITIVE, participants=["alice"])
-    auth = asyncio.run(key_manager.create_audit_authorization(issuer="regulator-1", purpose="audit"))
+    auth = await key_manager.create_audit_authorization(issuer="regulator-1", purpose="audit")
 
     import base64
     import hmac
@@ -217,13 +217,13 @@ def test_audit_decrypt_rejects_an_authorization_signed_with_another_secret(servi
         service.audit_decrypt(encrypted, forged)
 
 
-def test_audit_authorization_requires_a_configured_secret(key_manager, monkeypatch):
+async def test_audit_authorization_requires_a_configured_secret(key_manager, monkeypatch):
     from coordinator_api.contexts.security.services import key_management
 
     monkeypatch.setattr(key_management.settings, "hmac_secret", "", raising=False)
     monkeypatch.setattr(key_management.settings, "jwt_secret", "", raising=False)
     with pytest.raises(KeyManagementError):
-        asyncio.run(key_manager.create_audit_authorization(issuer="regulator-1", purpose="audit"))
+        await key_manager.create_audit_authorization(issuer="regulator-1", purpose="audit")
 
 
 # --------------------------------------------------------------------------------------
@@ -231,11 +231,11 @@ def test_audit_authorization_requires_a_configured_secret(key_manager, monkeypat
 # --------------------------------------------------------------------------------------
 
 
-def test_generated_keys_are_distinct_per_participant(key_manager):
+async def test_generated_keys_are_distinct_per_participant(key_manager):
     assert key_manager.get_public_key("alice").public_bytes_raw() != key_manager.get_public_key("bob").public_bytes_raw()
 
 
-def test_rotation_raises_not_implemented(key_manager):
+async def test_rotation_raises_not_implemented(key_manager):
     """Rotation cannot currently succeed, and the test says so rather than assuming.
 
     ``_reencrypt_transactions`` raises ``NotImplementedError``. That now propagates: the
@@ -244,10 +244,10 @@ def test_rotation_raises_not_implemented(key_manager):
     put the internal message in ``detail``.
     """
     with pytest.raises(NotImplementedError):
-        asyncio.run(key_manager.rotate_keys("alice"))
+        await key_manager.rotate_keys("alice")
 
 
-def test_failed_rotation_leaves_the_key_intact(service, key_manager):
+async def test_failed_rotation_leaves_the_key_intact(service, key_manager):
     """Regression: a failed rotation used to destroy the key anyway.
 
     The rollback restored ``new_key_pair.version`` and then stored ``new_key_pair`` -- the
@@ -260,21 +260,21 @@ def test_failed_rotation_leaves_the_key_intact(service, key_manager):
     before = key_manager.get_public_key("alice").public_bytes_raw()
 
     with pytest.raises(NotImplementedError):
-        asyncio.run(key_manager.rotate_keys("alice"))
+        await key_manager.rotate_keys("alice")
 
     assert key_manager.get_public_key("alice").public_bytes_raw() == before
     assert service.decrypt(encrypted, "alice") == SENSITIVE
 
 
-def test_revocation_removes_access(service, key_manager):
+async def test_revocation_removes_access(service, key_manager):
     encrypted = service.encrypt(SENSITIVE, participants=["alice"])
-    assert asyncio.run(key_manager.revoke_keys("alice", reason="compromised")) is True
+    assert await key_manager.revoke_keys("alice", reason="compromised") is True
     with pytest.raises(DecryptionError):
         service.decrypt(encrypted, "alice")
 
 
-def test_list_participants_reports_enrolled_keys(key_manager):
-    assert set(asyncio.run(key_manager.list_participants())) >= {"alice", "bob"}
+async def test_list_participants_reports_enrolled_keys(key_manager):
+    assert set(await key_manager.list_participants()) >= {"alice", "bob"}
 
 
 # --------------------------------------------------------------------------------------
@@ -282,13 +282,13 @@ def test_list_participants_reports_enrolled_keys(key_manager):
 # --------------------------------------------------------------------------------------
 
 
-def test_encrypted_data_survives_a_dict_round_trip(service):
+async def test_encrypted_data_survives_a_dict_round_trip(service):
     encrypted = service.encrypt(SENSITIVE, participants=["alice"])
     restored = EncryptedData.from_dict(encrypted.to_dict())
     assert service.decrypt(restored, "alice") == SENSITIVE
 
 
-def test_to_dict_does_not_leak_plaintext(service):
+async def test_to_dict_does_not_leak_plaintext(service):
     encrypted = service.encrypt(SENSITIVE, participants=["alice"])
     blob = json.dumps(encrypted.to_dict())
     assert "1000000" not in blob
@@ -309,40 +309,40 @@ def _request(requester: str, transaction_id: str = "tx-1", purpose: str = "settl
     return ConfidentialAccessRequest(transaction_id=transaction_id, requester=requester, purpose=purpose)
 
 
-def test_client_may_read_its_own_transaction(controller):
+async def test_client_may_read_its_own_transaction(controller):
     assert controller.verify_access(_request("client-456")) is True
 
 
-def test_unknown_requester_is_denied(controller):
+async def test_unknown_requester_is_denied(controller):
     """Participant roles are resolved from the id prefix; anything else has no role."""
     assert controller.verify_access(_request("somebody-else")) is False
 
 
-def test_unknown_transaction_is_denied(controller):
+async def test_unknown_transaction_is_denied(controller):
     assert controller.verify_access(_request("client-456", transaction_id="nope-1")) is False
 
 
-def test_miner_is_denied_a_purpose_its_role_does_not_grant(controller):
+async def test_miner_is_denied_a_purpose_its_role_does_not_grant(controller):
     assert controller.verify_access(_request("miner-789", purpose="audit")) is False
 
 
-def test_policy_store_exposes_the_default_policies(controller):
+async def test_policy_store_exposes_the_default_policies(controller):
     policies = controller.policy_store.list_policies()
     assert {"client_own_data", "miner_assigned_data", "coordinator_full", "auditor_compliance"} <= set(policies)
 
 
-def test_roles_have_distinct_permission_sets(controller):
+async def test_roles_have_distinct_permission_sets(controller):
     client = controller.policy_store.get_role_permissions(ParticipantRole.CLIENT)
     auditor = controller.policy_store.get_role_permissions(ParticipantRole.AUDITOR)
     assert client != auditor
 
 
-def test_auditor_compliance_policy_carries_a_retention_window(controller):
+async def test_auditor_compliance_policy_carries_a_retention_window(controller):
     policy = controller.policy_store.get_policy("auditor_compliance")
     assert policy["time_restrictions"]["retention_days"] == 2555
 
 
-def test_retention_window_is_actually_enforced(controller):
+async def test_retention_window_is_actually_enforced(controller):
     """Regression: this check could not fail.
 
     It read ``transaction["timestamp"]``, a key ``_get_transaction`` never sets, so the
@@ -358,7 +358,7 @@ def test_retention_window_is_actually_enforced(controller):
     assert controller._check_retention_period(stale, "coordinator") is True  # 3650-day window
 
 
-def test_retention_window_differs_by_role(controller):
+async def test_retention_window_differs_by_role(controller):
     two_years_ago = {"created_at": (datetime.now(UTC) - timedelta(days=730)).isoformat()}
     assert controller._check_retention_period(two_years_ago, "auditor") is True
     assert controller._check_retention_period(two_years_ago, None) is False  # 365-day default
