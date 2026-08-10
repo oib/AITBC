@@ -137,9 +137,9 @@ Get paid to contribute to AITBC! Check open bounties on GitHub.
 
 ### Tools & SDKs
 
-- [CLI Quick Start](../apps/clients/1_quick-start.md)
-- Python SDK — `packages/py/aitbc-sdk`
-- Python Agent SDK — `packages/py/aitbc-agent-sdk`
+- [Python SDK](../builders/sdk-reference.md) — `packages/py/aitbc-sdk`
+- [Python Agent SDK](../agent-sdk/README.md) — `packages/py/aitbc-agent-sdk`
+- [Client Quick Start](../apps/clients/1_quick-start.md)
 
 ### Development Environment
 
