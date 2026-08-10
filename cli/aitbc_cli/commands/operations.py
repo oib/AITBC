@@ -15,7 +15,7 @@ from ..config import get_config
 from ..utils import error, info, output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-from ..utils.wallet import decode_private_key
+from ..utils.wallet import decrypt_private_key
 
 logger = get_logger(__name__)
 
@@ -399,7 +399,7 @@ def message(agent: str, message: str, wallet: str, password: str | None, passwor
     try:
         # Decrypt wallet
         keystore_path = DEFAULT_KEYSTORE_DIR / f"{wallet}.json"
-        private_key_hex = decode_private_key(keystore_path, password)
+        private_key_hex = decrypt_private_key(keystore_path, password)
         private_key_bytes = bytes.fromhex(private_key_hex)
 
         # Get sender address
