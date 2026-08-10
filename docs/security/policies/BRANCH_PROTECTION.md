@@ -111,7 +111,6 @@ Navigate to: `Settings > Branches > Branch protection rules`
 For feature branches, consider requiring:
 
 - `comprehensive-tests / unit-tests`
-- `comprehensive-tests / integration-tests`
 - `comprehensive-tests / api-tests`
 - `comprehensive-tests / blockchain-tests`
 
