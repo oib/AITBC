@@ -70,11 +70,17 @@ jobs:
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv venv-build
 
+          grep -v '^-e ' "$GITHUB_WORKSPACE/requirements.txt" > /tmp/requirements-ci.txt
+
           bash "$GITHUB_WORKSPACE/scripts/ci/setup-python-venv.sh" \
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
+            --requirements-file /tmp/requirements-ci.txt \
             --mode copy \
-            --extra-packages "pytest mypy black pydantic-settings fastapi uvicorn httpx requests prometheus-client cryptography"
+            --extra-packages "pytest mypy black pydantic-settings fastapi uvicorn httpx requests filelock"
+
+          venv/bin/python -m pip install -q -e "$GITHUB_WORKSPACE/packages/aitbc-shared"
+          venv/bin/python -m pip install -q -e "$GITHUB_WORKSPACE/packages/py/aitbc-agent-core"
 
           if [[ "${{ matrix.package.name }}" == "aitbc-sdk" ]]; then
             venv/bin/python -m pip install -q -e "$GITHUB_WORKSPACE/packages/py/aitbc-crypto"
