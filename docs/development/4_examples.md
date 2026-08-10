@@ -48,51 +48,6 @@ async def process_images(image_paths):
     return results
 ```
 
-## JavaScript Examples
-
-### React Component
-```jsx
-import React, { useState, useEffect } from 'react';
-import { AITBCClient } from '@aitbc/client';
-
-function JobList() {
-    const [jobs, setJobs] = useState([]);
-    const client = new AITBCClient({ apiKey: 'your_key' });
-
-    useEffect(() => {
-        async function fetchJobs() {
-            const jobList = await client.jobs.list();
-            setJobs(jobList);
-        }
-        fetchJobs();
-    }, []);
-
-    return (
-        <div>
-            {jobs.map(job => (
-                <div key={job.jobId}>
-                    <h3>{job.name}</h3>
-                    <p>Status: {job.status}</p>
-                </div>
-            ))}
-        </div>
-    );
-}
-```
-
-### WebSocket Integration
-```javascript
-const client = new AITBCClient({ apiKey: 'your_key' });
-const ws = client.websocket.connect();
-
-ws.on('jobUpdate', (data) => {
-    console.log(`Job ${data.jobId} updated to ${data.status}`);
-});
-
-ws.subscribe('jobs');
-ws.start();
-```
-
 ## CLI Examples
 
 ### Job Management
@@ -124,8 +79,5 @@ aitbc marketplace accept <offer_id> --job-id <job_id>
 
 ## Complete Examples
 
-Find full working examples in our GitHub repositories:
-- [Python SDK Examples](https://github.com/aitbc/python-sdk/tree/main/examples)
-- [JavaScript SDK Examples](https://github.com/aitbc/js-sdk/tree/main/examples)
-- [CLI Examples](https://github.com/aitbc/cli/tree/main/examples)
-- [Smart Contract Examples](https://github.com/aitbc/contracts/tree/main/examples)
+Find full working examples in this repository:
+- [cURL Examples](../api/examples/curl-examples.md) — direct HTTP calls against the coordinator and blockchain node APIs
