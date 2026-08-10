@@ -24,8 +24,8 @@ jobs:
     strategy:
       matrix:
         project:
-          - name: "aitbc-token"
-            path: "packages/solidity/aitbc-token"
+          # packages/solidity/aitbc-token was deleted in 6f4c4779d; the matrix entry
+          # outlived it and `cd` into the missing path failed the job on every run.
           - name: "aitbc-contracts"
             path: "contracts"
 
@@ -45,7 +45,14 @@ jobs:
 
       - name: Setup and test
         run: |
-          cd "/opt/aitbc/${{ matrix.project.path }}"
+          set -euo pipefail
+
+          PROJECT_DIR="/opt/aitbc/${{ matrix.project.path }}"
+          if [[ ! -d "$PROJECT_DIR" ]]; then
+            echo "❌ ${{ matrix.project.path }} does not exist in this checkout"
+            exit 1
+          fi
+          cd "$PROJECT_DIR"
           echo "=== Testing ${{ matrix.project.name }} ==="
 
           # Ensure standard directories exist
@@ -56,21 +63,19 @@ jobs:
             exit 0
           fi
 
-          echo "Node: $(node --version), pnpm: $(pnpm --version)"
+          echo "Node: $(node --version), npm: $(npm --version)"
 
-          # Install pnpm if not available
-          if ! command -v pnpm &> /dev/null; then
-            npm install -g pnpm
-          fi
-
-          # Install
-          pnpm install
+          # npm, not pnpm (V23-28). package.json declares packageManager: npm, which makes
+          # corepack refuse pnpm here; and only package-lock.json is tracked, so `pnpm
+          # install` resolved fresh every run and installed something no lockfile described.
+          # `npm ci` installs exactly the tree that `npm audit` in V23-27 measures.
+          npm ci --no-audit --no-fund
 
           # Compile
           if [[ -f "hardhat.config.js" ]] || [[ -f "hardhat.config.ts" ]]; then
-            pnpm hardhat compile
+            npx hardhat compile
             echo "✅ Compiled"
-            pnpm hardhat test
+            npx hardhat test
             echo "✅ Tests passed"
           elif [[ -f "foundry.toml" ]]; then
             forge build
@@ -79,10 +84,10 @@ jobs:
             echo "✅ Tests passed"
           else
             if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.compile ? 0 : 1)"; then
-              pnpm run compile
+              npm run compile
               echo "✅ Compiled"
             elif node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.build ? 0 : 1)"; then
-              pnpm run build
+              npm run build
               echo "✅ Compiled"
             else
               echo "❌ No compile or build script found"
@@ -90,7 +95,7 @@ jobs:
             fi
 
             if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.test ? 0 : 1)"; then
-              pnpm test
+              npm test
               echo "✅ Tests passed"
             else
               echo "❌ No test script found"
@@ -175,24 +180,23 @@ jobs:
 
       - name: Lint contracts
         run: |
+          set -euo pipefail
           cd /opt/aitbc
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
-          for project in packages/solidity/aitbc-token contracts; do
+          # packages/solidity/aitbc-token was deleted in 6f4c4779d; the -d guard meant this
+          # loop skipped it silently rather than reporting the dead entry.
+          for project in contracts; do
             if [[ -d "$project" ]] && [[ -f "$project/package.json" ]]; then
               echo "=== Linting $project ==="
               cd "$project"
 
-              # Install pnpm if not available
-              if ! command -v pnpm &> /dev/null; then
-                npm install -g pnpm
-              fi
-              pnpm install
+              npm ci --no-audit --no-fund
 
               if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.lint ? 0 : 1)"; then
-                pnpm run lint
+                npm run lint
                 echo "✅ Lint passed"
               else
                 echo "⚠️ No lint script for $project, skipping"
@@ -224,6 +228,7 @@ jobs:
 
       - name: Deploy contracts to localhost
         run: |
+          set -euo pipefail
           cd "/opt/aitbc/contracts"
 
           # Ensure standard directories exist
@@ -231,28 +236,23 @@ jobs:
 
           echo "=== Deploying Contracts to Localhost ==="
 
-          # Install pnpm if not available
-          if ! command -v pnpm &> /dev/null; then
-            npm install -g pnpm
-          fi
-
-          # Install dependencies
-          pnpm install
+          # npm, not pnpm -- see the note in test-solidity above (V23-28).
+          npm ci --no-audit --no-fund
 
           # Compile contracts
-          pnpm hardhat compile
+          npx hardhat compile
 
           # Start local node in background
-          pnpm hardhat node &
+          npx hardhat node &
           NODE_PID=$!
           sleep 10
 
           # Deploy contracts
-          pnpm hardhat run scripts/deploy-automation.js --network localhost
+          npx hardhat run scripts/deploy-automation.js --network localhost
           echo "✅ Contracts deployed successfully"
 
           # Verify deployment
-          DEPLOYMENT_FILE="deployments-localhost.json" pnpm hardhat run scripts/verify-deployment.js --network localhost
+          DEPLOYMENT_FILE="deployments-localhost.json" npx hardhat run scripts/verify-deployment.js --network localhost
           echo "✅ Deployment verified"
 
           # Cleanup
