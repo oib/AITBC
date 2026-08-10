@@ -43,6 +43,17 @@ jobs:
           cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
+      # Runs before the install, because the thing it catches makes the install meaningless
+      # (V23-27a). These are self-hosted runners with a persistent /opt/aitbc checkout, and
+      # `git checkout --detach` leaves untracked files alone -- so a pnpm-lock.yaml dropped
+      # by some other workflow stays on the runner indefinitely, invisible to git and to the
+      # audit that reads package-lock.json.
+      - name: Check package-manager artifacts
+        run: |
+          set -euo pipefail
+          cd /opt/aitbc
+          python3 scripts/ci/check-package-managers.py
+
       - name: Setup and test
         run: |
           set -euo pipefail
