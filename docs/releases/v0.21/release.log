@@ -1,6 +1,6 @@
 # v0.21 Release Log
 
-Series: v0.21.0 -> v0.21.1 (baseline: v0.20.4)
+Series: v0.21.0 -> v0.21.1 (baseline: v0.20.4); v0.21.2 interim log is in `docs/releases/v0.21.2/release.log`
 
 17eec11a2 docs(release): add v0.21 release log [AITBC-69]
 a3f66a3f7 fix(type): resolve mypy errors, raise coverage floor to 60%, and align session handling [AITBC-69]
