@@ -61,21 +61,37 @@ def run_cli_test():
         print(f"❌ CLI list command error: {e}")
         return False
 
-    # Test 3: CLI chain command (optional - skip if no blockchain node)
-    print("\n3. Testing CLI chain command...")
+    # Test 3: CLI blockchain command (optional - skip if no blockchain node)
+    print("\n3. Testing CLI blockchain command...")
     try:
-        result = run_command("chain", "status")
+        result = run_command("blockchain", "status")
 
-        if result.returncode == 0:
-            print("✅ CLI chain command working")
-        elif "Connection refused" in result.stderr or "Failed to establish" in result.stderr:
-            print("⚠️ CLI chain command skipped (no blockchain node available)")
+        if result.returncode == 0 and "No such command" not in (result.stdout + result.stderr):
+            print("✅ CLI blockchain command working")
+        elif "No such command" in (result.stdout + result.stderr):
+            print(f"❌ CLI blockchain command failed: {result.stderr or result.stdout}")
+            return False
+        elif any(
+            phrase in (result.stdout + result.stderr)
+            for phrase in (
+                "Connection refused",
+                "Failed to establish",
+                "Network error",
+                "Cannot connect",
+                "timeout",
+                "No chains found",
+            )
+        ):
+            print("⚠️ CLI blockchain command skipped (no blockchain node available)")
             print("   This is expected in CI environments without a running blockchain node")
         else:
-            print(f"❌ CLI chain command failed: {result.stderr or result.stdout}")
+            print(f"❌ CLI blockchain command failed: {result.stderr or result.stdout}")
             return False
+    except subprocess.TimeoutExpired:
+        print("⚠️ CLI blockchain command timed out (no blockchain node available)")
+        print("   This is expected in CI environments without a running blockchain node")
     except Exception as e:
-        print(f"❌ CLI chain command error: {e}")
+        print(f"❌ CLI blockchain command error: {e}")
         return False
 
     # Test 4: CLI invalid command handling
