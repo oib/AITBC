@@ -11,6 +11,12 @@ on:
       - '.gitea/workflows/api-endpoint-tests.yml'
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'apps/coordinator-api/**'
+      - 'apps/exchange/**'
+      - 'apps/wallet/**'
+      - 'scripts/ci/test_api_endpoints.py'
+      - '.gitea/workflows/api-endpoint-tests.yml'
   workflow_dispatch:
 
 concurrency:
