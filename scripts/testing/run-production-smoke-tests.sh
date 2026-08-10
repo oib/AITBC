@@ -9,7 +9,7 @@ set -euo pipefail
 
 NETWORK="${1:-mainnet}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-VENV_DIR="${VENV_DIR:-/opt/aitbc/venv}"
+VENV_DIR="${VENV_DIR:-$REPO_ROOT/venv}"
 PYTHON="${PYTHON:-$VENV_DIR/bin/python}"
 
 # Service health endpoints (overridable via environment)
