@@ -12,7 +12,7 @@ def run_cli_test():
 
     # Set up environment
     cli_dir = Path(__file__).resolve().parent.parent
-    cli_bin = cli_dir.parent / "aitbc-cli"
+    cli_bin = cli_dir.parent / "aitbc"
 
     def run_command(*args):
         return subprocess.run(
