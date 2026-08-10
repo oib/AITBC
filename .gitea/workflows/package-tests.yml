@@ -10,6 +10,11 @@ on:
       - '.gitea/workflows/package-tests.yml'
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'packages/**'
+      - 'pyproject.toml'
+      - 'poetry.lock'
+      - '.gitea/workflows/package-tests.yml'
   workflow_dispatch:
 
 concurrency:
