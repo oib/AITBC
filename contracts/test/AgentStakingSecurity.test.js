@@ -1,6 +1,6 @@
 import { expect } from "chai";
-import hardhat from "hardhat";
-const { ethers } = hardhat;
+import { network } from "hardhat";
+const { ethers } = await network.getOrCreate();
 
 describe("AgentStaking Security Tests", function () {
   let agentStaking;
@@ -445,7 +445,7 @@ describe("AgentStaking Security Tests", function () {
           85,
           true
         )
-      ).to.not.be.reverted;
+      ).to.not.revert(ethers);
     });
 
     it("should allow oracle rotation after period", async function () {
@@ -473,7 +473,7 @@ describe("AgentStaking Security Tests", function () {
     it("should allow owner to report disputed oracle", async function () {
       await expect(
         agentStaking.reportDisputedOracle(oracle.address, "Evidence")
-      ).to.not.be.reverted;
+      ).to.not.revert(ethers);
 
       const reputation = await agentStaking.oracleReputations(oracle.address);
       expect(reputation.disputedUpdates).to.equal(1);

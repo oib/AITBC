@@ -3,8 +3,8 @@
  * Monitors contract health, balances, and key metrics
  */
 
-import hardhat from "hardhat";
-const { ethers } = hardhat;
+import { network } from "hardhat";
+const { ethers } = await network.getOrCreate();
 import fs from "fs";
 
 async function main() {

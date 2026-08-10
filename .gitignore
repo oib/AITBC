@@ -420,8 +420,12 @@ codeql-db/
 apps/coordinator-api/poetry.lock
 contracts/governance/lib/
 
-# Generated cache files
-contracts/cache/solidity-files-cache.json
+# Generated cache files. Hardhat 2 wrote a single solidity-files-cache.json here; Hardhat 3
+# writes compile-cache.json and a build-info/ tree, so the rule covers the directory rather
+# than being extended one filename at a time.
+contracts/cache/
+# Typechain bindings, generated on every build by @nomicfoundation/hardhat-typechain.
+contracts/types/
 
 # Package manager generated files
 pyproject.toml.new

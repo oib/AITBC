@@ -1,6 +1,6 @@
 import { expect } from "chai";
-import pkg from "hardhat";
-const { ethers } = pkg;
+import { network } from "hardhat";
+const { ethers } = await network.getOrCreate();
 
 describe("Phase 4 Modular Smart Contracts", function () {
   let deployer, user1, user2, user3;
@@ -385,7 +385,7 @@ describe("Phase 4 Modular Smart Contracts", function () {
 
       await expect(
         contractRegistry.connect(user1).registerContract(testContractId, user1.address)
-      ).to.be.reverted;
+      ).to.revert(ethers);
     });
 
     it("Should prevent invalid budget allocations", async function () {
@@ -393,7 +393,7 @@ describe("Phase 4 Modular Smart Contracts", function () {
 
       await expect(
         treasuryManager.allocateFunds("development", user1.address, BUDGET_AMOUNT.add(1))
-      ).to.be.reverted;
+      ).to.revert(ethers);
     });
 
     it("Should prevent invalid voting", async function () {
@@ -409,7 +409,7 @@ describe("Phase 4 Modular Smart Contracts", function () {
 
       await expect(
         daoGovernanceEnhanced.castVote(proposalId, 3) // Invalid vote type
-      ).to.be.reverted;
+      ).to.revert(ethers);
     });
   });
 
