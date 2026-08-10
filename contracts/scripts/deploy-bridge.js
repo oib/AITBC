@@ -12,8 +12,9 @@
  *   ALCHEMY_API_KEY    - Alchemy API key
  */
 
-import { network } from "hardhat";
-const { ethers } = await network.getOrCreate();
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
 
 async function main() {
   const [deployer] = await ethers.getSigners();
