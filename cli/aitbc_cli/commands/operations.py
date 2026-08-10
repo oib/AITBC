@@ -25,11 +25,11 @@ DEFAULT_KEYSTORE_DIR = Path.home() / ".aitbc" / "wallets"
 
 
 def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
-    """Load wallet and decode private key if needed"""
+    """Load wallet and decrypt private key if needed"""
     with open(wallet_path) as f:
         wallet_data: dict[str, Any] = json.load(f)
 
-    # Decode private key if encoded
+    # Decrypt private key if encrypted
     if wallet_data.get("encrypted") and "private_key" in wallet_data:
         from ..utils import decode_value
 
