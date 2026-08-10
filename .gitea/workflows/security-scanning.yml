@@ -11,6 +11,12 @@ on:
       - '.gitea/workflows/security-scanning.yml'
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'cli/**'
+      - 'contracts/**'
+      - '.gitea/workflows/security-scanning.yml'
   workflow_dispatch:
 
 concurrency:

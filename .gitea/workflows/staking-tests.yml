@@ -7,11 +7,18 @@ on:
       - 'tests/services/test_staking_service.py'
       - 'tests/integration/test_staking_lifecycle.py'
       - 'contracts/test/AgentStaking.test.js'
-      - 'apps/coordinator-api/src/app/services/staking_service.py'
-      - 'apps/coordinator-api/src/app/domain/bounty.py'
+      - 'apps/coordinator-api/src/coordinator_api/contexts/staking/**'
+      - 'apps/coordinator-api/src/coordinator_api/contexts/bounty/**'
       - '.gitea/workflows/staking-tests.yml'
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'tests/services/test_staking_service.py'
+      - 'tests/integration/test_staking_lifecycle.py'
+      - 'contracts/test/AgentStaking.test.js'
+      - 'apps/coordinator-api/src/coordinator_api/contexts/staking/**'
+      - 'apps/coordinator-api/src/coordinator_api/contexts/bounty/**'
+      - '.gitea/workflows/staking-tests.yml'
   workflow_dispatch:
 
 concurrency:
