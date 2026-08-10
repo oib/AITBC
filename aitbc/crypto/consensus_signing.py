@@ -175,7 +175,11 @@ def verify_block_signature(
         ``expected_proposer``. False if the signature is empty, invalid,
         wrong length, or recovers to a different address.
     """
+    from aitbc.crypto.signature_metrics import ERROR, MISMATCH, UNPARSEABLE, record_attempt, record_failure
+
+    record_attempt("block")
     if not signature:
+        record_failure("block", UNPARSEABLE)
         return False
     try:
         from eth_keys.exceptions import BadSignature, ValidationError
@@ -184,10 +188,17 @@ def verify_block_signature(
         msg_hash = bytes.fromhex(block_hash.removeprefix("0x"))
         sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
         recovered = _recover_address(msg_hash, sig_bytes)
-        return recovered.lower() == expected_proposer.lower()
+        if recovered.lower() == expected_proposer.lower():
+            return True
+        # Parsed cleanly and recovered to someone else. Distinct from the branch below:
+        # this is a wrong signer, that is an unreadable signature (V23-04).
+        record_failure("block", MISMATCH)
+        return False
     except (BadSignature, ValidationError, ValueError) as e:
+        record_failure("block", UNPARSEABLE)
         logger.warning("Block signature could not be parsed: %s", e)
         return False
     except Exception as e:
+        record_failure("block", ERROR)
         logger.error("Unexpected error during block signature verification: %s", e)
         return False
