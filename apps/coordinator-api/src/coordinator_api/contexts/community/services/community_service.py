@@ -60,8 +60,11 @@ class DeveloperEcosystemService:
         return {
             "latest_version": "v1.2.0",
             "release_date": datetime.now(UTC).isoformat(),
-            "supported_languages": ["python", "typescript", "rust"],
-            "download_urls": {"python": "pip install aitbc-agent-sdk", "typescript": "npm install @aitbc/agent-sdk"},
+            # Python is the only language with a published agent SDK. The TypeScript entry
+            # pointed at @aitbc/agent-sdk, which has never existed -- packages/py/aitbc-agent-sdk
+            # is Python, and the JS SDK was deleted in 6f4c4779d. Rust had no SDK either.
+            "supported_languages": ["python"],
+            "download_urls": {"python": "pip install aitbc-agent-sdk"},
             "features": [
                 "Advanced Meta-Learning Integration",
                 "Cross-Domain Capability Synthesizer",
