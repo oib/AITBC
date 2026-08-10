@@ -46,7 +46,7 @@ jobs:
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --requirements-file "$PWD/requirements.txt" \
-            --extra-packages "PyYAML requests cryptography pydantic pydantic-settings fastapi httpx"
+            --extra-packages "PyYAML requests cryptography pydantic pydantic-settings fastapi httpx prometheus-client"
 
           # Install local packages in editable mode so the CLI entry point works
           venv/bin/pip install -e cli
