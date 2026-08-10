@@ -93,6 +93,7 @@ jobs:
         run: |
           cd "$GITHUB_WORKSPACE"
           source venv/bin/activate
+          export PYTHONPATH="cli:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:packages/py/aitbc-agent-core/src:."
 
           if [[ -f "tests/cli-test-commands.sh" ]]; then
             bash tests/cli-test-commands.sh
