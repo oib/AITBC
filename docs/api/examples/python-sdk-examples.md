@@ -74,29 +74,51 @@ else:
 
 ## Wallet Operations
 
+> **These endpoints are served by the wallet daemon (`apps/wallet`), not coordinator-api.**
+> Point the client at the daemon's base URL to use `.wallet` — a coordinator-api base URL
+> has no `/v1/wallets` routes at all. See [Which service to point at](#which-service-to-point-at).
+
 ```python
 balance = client.wallet.get_balance("wallet-123")   # GET /v1/wallets/{wallet_id}/balance
 
 print(balance.wallet_id)
 print(balance.address)
 print(balance.balance)      # Decimal, not float
-print(balance.asset)
+print(balance.asset)        # "" — the daemon reports chain_id, not an asset
 ```
 
 Balances are `Decimal`. Keep them that way — do not convert to `float` for arithmetic on
 money.
 
 ```python
-from decimal import Decimal
-
-result = client.wallet.send_payment(       # POST /v1/wallets/{wallet_id}/payments
+result = client.wallet.send_payment(       # POST /v1/wallets/{wallet_id}/send
     wallet_id="wallet-123",
-    recipient_id="wallet-456",
-    amount=str(Decimal("10.50")),          # amount is a str
-    asset="AITBC",
+    recipient="wallet-456",
+    amount=1000,                           # integer base units, not a decimal string
+    password="<WALLET_PASSWORD>",          # unlocks the stored key; required
+    fee=36,
+    chain_id="ait-mainnet",                # optional; daemon default if omitted
 )
-print(result)                              # raw response dict
+print(result["tx_hash"], result["status"])
 ```
+
+`amount` and `fee` are integer base units. There is no `asset` parameter — the daemon picks
+the chain via `chain_id`.
+
+This endpoint is admin-guarded, so the `api_key` you construct the client with must be the
+daemon's `WALLET_API_KEY`.
+
+## Which service to point at
+
+`AITBCClient` bundles two groups of endpoints that are served by **different** services, and
+a single `base_url` reaches only one of them:
+
+| Attribute | Served by | Base URL to use |
+|---|---|---|
+| `.wallet` | wallet daemon (`apps/wallet`) | the wallet daemon |
+| `.registry`, `get_grant_summary()`, `health()` | coordinator-api | `http://localhost:8203` |
+
+Construct one client per service if you need both.
 
 ## Registry Operations
 
