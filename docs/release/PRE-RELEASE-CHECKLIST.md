@@ -67,7 +67,6 @@
   bumps `.governor-tag` to the new tag and re-runs `scripts/generate-governor.sh` so the live
   `.claude/` (and CLAUDE.md banner) roll forward to the release just cut — ABS-95 wires that step.
 - [ ] `.codex/README.md` — Codex CLI setup guide current (if applicable)
-- [ ] `.cursor/rules/README.md` — Cursor rules index current (if applicable)
 - [ ] `.gemini/README.md` — Gemini CLI docs current (if applicable)
 - [ ] No stale references to removed files: `grep -r 'CODEX.md\|\.codex/settings\.json\|\.codex/commands' docs/ README.md harness/claude/ .claude/ .codex/ .cursor/ .gemini/ 2>/dev/null`
 - [ ] `HARNESS_CHANGELOG.yml` updated for this release (or generated via `generate-changelog.sh`)
