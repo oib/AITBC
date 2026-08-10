@@ -1,5 +1,5 @@
-import hardhat from "hardhat";
-const { ethers } = hardhat;
+import { network } from "hardhat";
+const { ethers } = await network.getOrCreate();
 import fs from "fs";
 import readline from "readline";
 

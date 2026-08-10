@@ -1,4 +1,5 @@
-import { ethers } from "hardhat";
+import { network } from "hardhat";
+const { ethers } = await network.getOrCreate();
 import { Contract } from "ethers";
 
 async function main() {

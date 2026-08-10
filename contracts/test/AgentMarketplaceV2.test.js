@@ -1,6 +1,6 @@
 import { expect } from "chai";
-import hardhat from "hardhat";
-const { ethers } = hardhat;
+import { network } from "hardhat";
+const { ethers } = await network.getOrCreate();
 
 describe("AgentMarketplaceV2", function () {
   let marketplace, paymentToken;
@@ -315,7 +315,7 @@ describe("AgentMarketplaceV2", function () {
     it("Should revert if non-owner updates fee", async function () {
       await expect(
         marketplace.connect(consumer).updatePlatformFee(300)
-      ).to.be.reverted;
+      ).to.revert(ethers);
     });
   });
 
@@ -347,7 +347,7 @@ describe("AgentMarketplaceV2", function () {
     it("Should revert if non-owner updates reputation", async function () {
       await expect(
         marketplace.connect(consumer).updateCapabilityReputation(capabilityId, 100)
-      ).to.be.reverted;
+      ).to.revert(ethers);
     });
   });
 
@@ -381,7 +381,7 @@ describe("AgentMarketplaceV2", function () {
     it("Should revert if non-owner withdraws fees", async function () {
       await expect(
         marketplace.connect(consumer).withdrawPlatformFees()
-      ).to.be.reverted;
+      ).to.revert(ethers);
     });
   });
 });
