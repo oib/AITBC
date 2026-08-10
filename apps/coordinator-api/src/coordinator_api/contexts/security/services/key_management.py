@@ -79,14 +79,24 @@ class KeyManager:
             try:
                 await self._reencrypt_transactions(participant_id, current_key, new_key_pair)
             except Exception:
-                # Roll back key version if re-encryption fails
-                new_key_pair.version = current_key.version
-                await self.storage.store_key_pair(new_key_pair)
+                # Roll back to the *original* key pair, not to the new one carrying the old
+                # version number. The previous code did the latter -- it restored
+                # `new_key_pair.version` and stored `new_key_pair`, so a rotation that
+                # reported failure had still replaced the participant's key material and
+                # permanently destroyed access to everything encrypted under the old key.
+                # Re-encryption is unimplemented, so this path is the only one rotation takes.
+                await self.storage.store_key_pair(current_key)
                 self._key_cache.pop(participant_id, None)
                 raise
             logger.info("Rotated keys for participant: %s", participant_id)
             return new_key_pair
-        except KeyManagementError:
+        except (KeyManagementError, NotImplementedError):
+            # NotImplementedError passes through rather than being wrapped. The router has
+            # an `except NotImplementedError -> 501` arm that could never fire while this
+            # wrapped it as KeyManagementError, so the endpoint answered 400 -- and with
+            # `detail=str(e)`, meaning the internal message reached the client where every
+            # sibling handler returns "Internal server error". 501 is also the honest status
+            # for a feature that is documented as unimplemented.
             raise
         except Exception as e:
             logger.error("Failed to rotate keys for %s: %s", participant_id, e)
