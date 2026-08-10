@@ -11,6 +11,8 @@ from uuid import uuid4
 
 from sqlmodel import JSON, Column, Field, SQLModel
 
+from ...reputation.domain.reputation import AgentReputation  # noqa: F401
+
 
 class RewardTier(StrEnum):
     """Reward tier enumeration"""
