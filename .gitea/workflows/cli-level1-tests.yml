@@ -58,7 +58,7 @@ jobs:
           source venv/bin/activate
           export PYTHONPATH="cli:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:."
 
-          python3 -c "from core.main import cli; print('✅ CLI imports OK')"
+          python3 -c "from aitbc_cli.core.main import cli; print('✅ CLI imports OK')"
 
       - name: Run CLI tests
         run: |
