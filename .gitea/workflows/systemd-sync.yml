@@ -11,6 +11,12 @@ on:
       - '.gitea/workflows/systemd-sync.yml'
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'apps/**/aitbc-*.service'
+      - 'apps/**/aitbc-*.timer'
+      - 'scripts/**/aitbc-*.service'
+      - 'scripts/**/aitbc-*.timer'
+      - '.gitea/workflows/systemd-sync.yml'
   workflow_dispatch:
 
 concurrency:
