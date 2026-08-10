@@ -6,6 +6,8 @@ import json
 from typing import Any
 
 from eth_keys.exceptions import BadSignature, ValidationError
+
+from aitbc.crypto.signature_metrics import ERROR, MISMATCH, UNPARSEABLE, record_attempt, record_failure
 from fastapi import HTTPException
 
 from aitbc.crypto.crypto import _recover_address
@@ -26,7 +28,9 @@ def verify_transaction_signature(tx_data: dict[str, Any], signature: str, sender
     The signed message is the keccak256 hash of the canonical JSON encoding
     of the transaction fields (excluding the signature field itself).
     """
+    record_attempt("transaction")
     if not signature or not sender:
+        record_failure("transaction", UNPARSEABLE)
         return False
 
     # Build the message that was signed: canonical JSON of tx fields without signature
@@ -39,11 +43,18 @@ def verify_transaction_signature(tx_data: dict[str, Any], signature: str, sender
         msg_hash = keccak(message)
         sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
         recovered_address = _recover_address(msg_hash, sig_bytes)
-        return recovered_address.lower() == sender.lower()
+        if recovered_address.lower() == sender.lower():
+            return True
+        # Parsed cleanly, recovered to someone else -- a wrong signer, not an unreadable
+        # signature. V23-04: these two were the same metric.
+        record_failure("transaction", MISMATCH)
+        return False
     except (BadSignature, ValidationError, ValueError) as e:
+        record_failure("transaction", UNPARSEABLE)
         _logger.warning("Transaction signature could not be parsed: %s", e)
         return False
     except Exception as e:
+        record_failure("transaction", ERROR)
         _logger.error("Unexpected error during transaction signature verification: %s", e)
         return False
 
@@ -54,7 +65,9 @@ def verify_request_signature(sender: str, signature: str, message_data: dict[str
     The signed message is the keccak256 hash of the canonical JSON encoding
     of the provided message_data dict.
     """
+    record_attempt("request")
     if not signature or not sender:
+        record_failure("request", UNPARSEABLE)
         return False
 
     message = json.dumps(message_data, sort_keys=True, separators=(",", ":")).encode()
@@ -65,11 +78,18 @@ def verify_request_signature(sender: str, signature: str, message_data: dict[str
         msg_hash = keccak(message)
         sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
         recovered_address = _recover_address(msg_hash, sig_bytes)
-        return recovered_address.lower() == sender.lower()
+        if recovered_address.lower() == sender.lower():
+            return True
+        # Parsed cleanly, recovered to someone else -- a wrong signer, not an unreadable
+        # signature. V23-04: these two were the same metric.
+        record_failure("request", MISMATCH)
+        return False
     except (BadSignature, ValidationError, ValueError) as e:
+        record_failure("request", UNPARSEABLE)
         _logger.warning("Request signature could not be parsed: %s", e)
         return False
     except Exception as e:
+        record_failure("request", ERROR)
         _logger.error("Unexpected error during request signature verification: %s", e)
         return False
 

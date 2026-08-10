@@ -40,9 +40,14 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 37 findings — 24 confirmed defects, 13 observed design gaps. **28 resolved**
-(V23-06..15, V23-10a, V23-17..22, V23-24, V23-24a, V23-25, V23-26, V23-26a, V23-28,
-V23-29..32, V23-32a — twenty-eight entries, twenty-four numbered findings); 9 open.
+**Totals**: 37 findings — 24 confirmed defects, 13 observed design gaps. **33 resolved**
+(V23-01..15, V23-10a, V23-17..22, V23-24, V23-24a, V23-25, V23-26, V23-26a, V23-28,
+V23-29..32, V23-32a — thirty-three entries, twenty-nine numbered findings); 4 open.
+
+Still open: **V23-16** (the v0.22 tag), **V23-19a** (confidential transactions that carry the
+amount and blinding factor in the clear), **V23-23** (`set -e` without `set -u`), and
+**V23-27**, partly resolved — the non-breaking npm fixes are on `main` and the remainder is a
+single Hardhat 2 → 3 migration, two of whose dependencies have no fix at any version.
 
 V23-27 is **partly resolved**: the non-breaking half is on `main` (38 advisories → 32), and
 the remainder is a single Hardhat 2 → 3 migration, two of whose dependencies have no fix at
@@ -81,7 +86,7 @@ and the rejection is indistinguishable from a forgery attempt in the logs. Only
 that fix was applied to one call site and the other eight were not audited at the time.
 This document exists partly because that was the wrong scope.
 
-### V23-01 — `rpc/utils.py` rejects transactions signed by any standard wallet · CONFIRMED
+### V23-01 — `rpc/utils.py` rejects transactions signed by any standard wallet · CONFIRMED → RESOLVED
 
 `apps/blockchain-node/src/aitbc_chain/rpc/utils.py:45` (`verify_transaction_signature`) and
 `:75` (`verify_request_signature`). These sit on the node's RPC request path; the second is
@@ -107,7 +112,7 @@ than or equal to 1` on the log.
 > 27 else 0`, reject anything not then in `(0, 1)`. That is the shape already committed in
 > `poa.py`. But see V23-05: fixing this per-file is how you get nine copies.
 
-### V23-02 — the module documented as canonical has the same defect · CONFIRMED
+### V23-02 — the module documented as canonical has the same defect · CONFIRMED → RESOLVED
 
 `aitbc/crypto/crypto.py:150` (`recover_signer`). Its docstring reads: *"This is the single
 canonical implementation that all AITBC services should use for request/proof signature
@@ -133,7 +138,7 @@ Prints `False`.
 > `aitbc/crypto/`, with the normalisation and a test that signs with `eth_account` and
 > verifies with the recovery path — the round trip is the only assertion that matters.
 
-### V23-03 — the remaining six copies · OBSERVED
+### V23-03 — the remaining six copies · OBSERVED → RESOLVED
 
 Same construction, no normalisation:
 
@@ -155,7 +160,7 @@ git grep -c "recovery_id\|- 27\|>= 27" -- <each file above>   # only poa.py matc
 `aitbc/crypto/consensus_signing.py` is the one to worry about first: it is reached from
 multi-validator PoA, PBFT and the sync validator.
 
-### V23-04 — the failure is unobservable · OBSERVED
+### V23-04 — the failure is unobservable · OBSERVED → RESOLVED
 
 Every site swallows `BadSignature` into `return False` (`aitbc/crypto/consensus_signing.py:191`,
 `crypto.py:152`, and the rest). A node rejecting every honestly-signed block and a node
@@ -165,7 +170,7 @@ under attack produce the same log line and the same metric.
 > second is an encoding mismatch or a bug and deserves a different log level and counter.
 > Catch `BadSignature`/`ValidationError` explicitly rather than `Exception`.
 
-### V23-05 — nine copies is the actual defect · OBSERVED
+### V23-05 — nine copies is the actual defect · OBSERVED → RESOLVED
 
 V23-01 through V23-04 are one mistake made nine times. Fixing them individually leaves the
 next contributor free to write a tenth.
@@ -174,6 +179,47 @@ next contributor free to write a tenth.
 > `keys.Signature(` appears outside it — a grep assertion in the test suite is enough and
 > costs nothing. The same applies to the signing side, which already has one good
 > implementation.
+
+**RESOLVED (V23-01 … V23-05).** Most of this landed across `6ce2c7405` and PR #113 and was
+never marked here — the same bookkeeping failure the header note warns about, on the
+cluster the audit opens with. Re-verified by running the finding's own repros against
+`main`:
+
+| Repro | Audit | Now |
+|---|---|---|
+| `verify_request_signature` with `v = 28` | `False` | **`True`** |
+| `verify_block_signature` round trip | `False` | **`True`** |
+
+**V23-03/V23-05 — one construction site.** `git grep "keys.Signature("` returns
+`aitbc/crypto/crypto.py:143` and nothing else; `_recover_address` normalises 27/28 → 0/1 and
+raises `BadSignature` for anything outside `(0, 1)`. Every path the finding listed —
+`consensus_signing.py`, `dispute_resolution.py`, `bridge_validator.py`, `rpc/utils.py` —
+delegates to it. `tests/unit/test_signature_centralization.py` is the grep assertion, and it
+passes with a two-entry allowlist.
+
+**V23-04 was only half done, and that half is finished here.** The log lines had been
+separated — "could not be parsed" at `warning`, "unexpected error" at `error`. The finding
+asks for "a different log level **and counter**", and its complaint names both: *"the same
+log line and the same metric"*. There was no metric.
+
+`aitbc/crypto/signature_metrics.py` adds
+`signature_verification_failures_total{context,outcome}` with `outcome` in
+`mismatch` / `unparseable` / `error`, plus `signature_verifications_total{context}` — because
+"unparseable is 3% of attempts" is actionable and "there were 40 unparseable signatures" is
+not. Wired into the block, transaction and request paths. They land in the default registry,
+so any service already exposing `/metrics` publishes them.
+
+The distinction is the whole point, and V23-01 is the worked example: it rejected
+transactions from **every standard wallet**, and that is a pure `unparseable` spike with no
+`mismatch` movement — a deployment fault, not an attack. Nothing would have shown it.
+`tests/unit/test_v2304_signature_metrics.py` asserts the two move independently, including
+that scenario.
+
+> One thing the tests caught in themselves: an early version drove the "unparseable" case
+> with byte patterns `0x00…` and `0x01…`, which are *valid* recovery ids — so two of ten
+> counted as mismatches and the assertion failed. The fixture claimed to be ten encoding
+> failures and was eight. Worth recording because it is the same error class as the finding:
+> a check whose inputs do not mean what the check says they mean.
 
 ---
 
