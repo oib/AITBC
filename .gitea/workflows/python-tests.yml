@@ -4,6 +4,7 @@ on:
   push:
     branches: [main, develop]
     paths:
+      - 'aitbc/**'
       - 'apps/**/*.py'
       - 'packages/py/**'
       - 'tests/**'
@@ -12,6 +13,14 @@ on:
       - '.gitea/workflows/python-tests.yml'
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'aitbc/**'
+      - 'apps/**/*.py'
+      - 'packages/py/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'poetry.lock'
+      - '.gitea/workflows/python-tests.yml'
   workflow_dispatch:
 
 concurrency:
