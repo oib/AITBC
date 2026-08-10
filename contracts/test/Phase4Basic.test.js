@@ -1,6 +1,6 @@
 import { expect } from "chai";
-import pkg from "hardhat";
-const { ethers } = pkg;
+import { network } from "hardhat";
+const { ethers } = await network.getOrCreate();
 
 describe("Phase 4 Modular Smart Contracts - Basic Tests", function () {
   let deployer, user1;
