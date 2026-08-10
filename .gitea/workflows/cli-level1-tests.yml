@@ -47,13 +47,18 @@ jobs:
             --venv-dir "$PWD/venv" \
             --requirements-file "$PWD/requirements.txt" \
             --extra-packages "PyYAML requests cryptography pydantic pydantic-settings fastapi httpx"
+
+          # Install local packages in editable mode so the CLI entry point works
+          venv/bin/pip install -e cli
+          venv/bin/pip install -e .
+          venv/bin/pip install -e packages/py/aitbc-agent-core
           echo "✅ Python environment ready"
 
       - name: Verify CLI imports
         run: |
           cd "$GITHUB_WORKSPACE"
           source venv/bin/activate
-          export PYTHONPATH="cli:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:."
+          export PYTHONPATH="cli:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:packages/py/aitbc-agent-core/src:."
 
           python3 -c "from aitbc_cli.core.main import cli; print('✅ CLI imports OK')"
 
@@ -61,7 +66,7 @@ jobs:
         run: |
           cd "$GITHUB_WORKSPACE"
           source venv/bin/activate
-          export PYTHONPATH="cli:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:."
+          export PYTHONPATH="cli:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:packages/py/aitbc-agent-core/src:."
 
           # Test both chains for blockchain commands
           export CHAINS="ait-mainnet,ait-testnet"
