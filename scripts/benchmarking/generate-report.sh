@@ -1,7 +1,10 @@
 #!/bin/bash
 # Generate comprehensive benchmark report
 
-set -e
+set -euo pipefail
+
+# Resolved from this script rather than hardcoded (AITBC-138).
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 BENCHMARK_DIR="/var/lib/aitbc/benchmarks"
 REPORT_DIR="/var/lib/aitbc/benchmarks/reports"
@@ -17,7 +20,7 @@ cat > "$REPORT_FILE" << EOF
 # Contract Performance Benchmark Report
 
 **Generated:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
-**Commit:** $(cd /opt/aitbc && git rev-parse --short HEAD)
+**Commit:** $(git -C "$REPO_ROOT" rev-parse --short HEAD)
 
 ## Summary
 
