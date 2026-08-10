@@ -40,25 +40,28 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 37 findings — 24 confirmed defects, 13 observed design gaps. **35 resolved**
-(V23-01..15, V23-10a, V23-17..23, V23-24, V23-24a, V23-25, V23-26, V23-26a, V23-28,
-V23-29..32, V23-32a, V23-19a — thirty-five entries, thirty numbered findings); 2 open.
+**Totals**: 38 findings — 25 confirmed defects, 13 observed design gaps. **36 resolved**
+(V23-01..15, V23-10a, V23-17..23, V23-24, V23-24a, V23-25, V23-26, V23-26a, V23-27a, V23-28,
+V23-29..32, V23-32a, V23-19a — thirty-six entries, thirty numbered findings); 2 open.
 
 Still open:
 
 - **V23-16** — the v0.22 tag. The fix is `git tag` on `main`, which is a release decision
   rather than a code change; left for a human to make deliberately.
-- **V23-27**, partly resolved — the non-breaking npm fixes are on `main`; the remainder is a
-  single Hardhat 2 → 3 migration, two of whose dependencies have no fix at any version.
+- **V23-27**, partly resolved — **38 → 27 advisories, 19 high → 1**. What is left is a single
+  Hardhat 2 → 3 migration, now scoped against the registry: 33 files, and two dependencies
+  (`@typechain/hardhat`, `solidity-coverage`) that must be dropped rather than upgraded
+  because Hardhat 3 subsumes both.
 
 V23-27 is **partly resolved**: the non-breaking half is on `main` (38 advisories → 32), and
 the remainder is a single Hardhat 2 → 3 migration, two of whose dependencies have no fix at
 any version. It is counted among the 2 open.
 
-V23-24a, V23-32a and V23-26a were all added while fixing the finding they hang off, not
-during a pass. Fixing a finding keeps turning up a larger one next to it: see also the
+V23-24a, V23-32a, V23-26a and V23-27a were all added while fixing the finding they hang off,
+not during a pass. Fixing a finding keeps turning up a larger one next to it: see also the
 V23-30 note and V23-19a, where the finding as filed was the mildest of four defects in the
-same file. Two are sharper than their parents. V23-32's fix was to delete a manifest that
+same file. Several are sharper than their parents — V23-27a is the clearest case, because it
+means V23-27's advisory counts were measuring a lockfile CI never installed from. V23-32's fix was to delete a manifest that
 gated nothing, which surfaced two security controls it had reported as enabled at 100%
 rollout that were never implemented. V23-26 was filed as "two divergent copies of a
 directory"; checking how they diverged surfaced one verification key installed for four
@@ -1507,6 +1510,112 @@ fixed lockfile, identical, with the same two failures (`Phase 4 Modular Smart Co
 > v0.22" was accurate and incomplete — and **no CI workflow references `contracts/` at
 > all**. Nothing builds, tests or audits the contract toolchain automatically, which is the
 > same gap V23-10a found for app suites.
+
+> **Correction to that second point. It is wrong.** Seven workflows reference `contracts/`,
+> and six jobs across two of them build and test it: `smart-contract-tests.yml`
+> (`test-solidity`, `test-foundry`, `lint-solidity`, `deploy-contracts`) and
+> `contract-benchmarks.yml` (three benchmark jobs). I had grepped `.github/workflows/`. This
+> repository runs on Gitea Actions and its CI lives in **`.gitea/workflows/`** — the
+> directory whose job names were visible in the PR checks I had been reading all along.
+> Checking one plausible location and reporting the absence as a fact is the same error as
+> V23-14, where a grep that resembled the finding stood in for the code the finding named.
+> The real defect is worse than the one I reported, and is written up below.
+
+**Second pass on the remainder — 32 → 27, and high 13 → 1.** The finding said the rest was a
+Hardhat 2 → 3 migration. Most of it is. Some of it was not, and the part that was not is
+reachable through `overrides`, which `contracts/package.json` already uses.
+
+| Override | Was | Now | Clears |
+|---|---|---|---|
+| `serialize-javascript` | `^6.0.2` | `^7.1.0` | 2 high |
+| `ws` | *(none)* | `^8.21.3` | 2 high |
+| `adm-zip` | *(none)* | `^0.6.0` | 1 high |
+
+**`serialize-javascript` was already overridden — to a vulnerable version.** The advisory range
+is `<=7.0.4`; the override pinned `^6.0.2`, squarely inside it. An override added to fix a
+vulnerability was holding the package at a vulnerable version, and because the entry existed
+it read as handled. Clearing it also cleared `mocha` and `hardhat-gas-reporter`, which the
+finding lists as *"no fix published at any version"* — true of an advisory against the package
+itself, and not the reason they were flagged.
+
+**`undici` — 12 of the 32 advisories — cannot be fixed without the migration, and this was
+verified rather than assumed.** The vulnerable range is `<=6.27.0`, so any 7.x or 8.x clears
+it, and with `undici@8.10.0` the audit reported **zero high and zero moderate** while the test
+suite stayed at exactly 115/87/2. It would have shipped a broken toolchain:
+
+```
+$ rm -rf ~/.cache/hardhat-nodejs && npx hardhat compile
+Error HH502: Couldn't download compiler version list.
+  Caused by: InvalidArgumentError: maxRedirections is not supported, use the redirect interceptor
+```
+
+undici removed `maxRedirections` in 7.0; Hardhat 2.29 still passes it. **The suite passed
+because solc was already cached, so the download path never ran.** `undici@7.29.0` fails the
+same way, so there is no version above the vulnerable range that Hardhat 2 can use. That is
+the difference between "the tests pass" and "it works", and it is the second time in this
+audit that a green result came from a code path that never executed.
+
+**On `elliptic`**, two corrections to the finding. It is **low**, not high. And its vulnerable
+range is `*` — *no published version is unaffected* — so the existing `elliptic: ^6.5.4`
+override cannot do anything and never could.
+
+**On `solidity-coverage`**, `npm audit fix --force` proposes `0.7.22` against an installed
+`0.8.17`. That is a **downgrade**, presented in the same column as the upgrades. Taking it
+would move backwards to reach a version predating the advisory. The finding quoted the
+proposal without noting it goes the wrong way; it should not be taken.
+
+**Remaining: 27 (18 low, 8 moderate, 1 high).** Every one traces to Hardhat 2.x, and the one
+high is `undici`. Verified with `npm ci` from an empty `node_modules` and a cleared compiler
+cache: 51 contracts compile, suite at 115/87/2 — the baseline, unchanged.
+
+**The migration, now scoped against the registry rather than guessed at.** Hardhat 3.12.0 is
+stable and the plugin line has shipped: `hardhat-toolbox-mocha-ethers@3.0.7` keeps mocha and
+ethers, so the test *framework* need not change; `hardhat-verify@3.0.22`,
+`hardhat-ethers@4.0.15`, `hardhat-chai-matchers@3.0.0`, `hardhat-network-helpers@3.0.11` all
+exist for it. Two do not and must be dropped, not upgraded: **`@typechain/hardhat` stops at
+9.1.0** (Hardhat 3 generates types itself) and **`solidity-coverage` stops at 0.8.17**
+(Hardhat 3 has built-in coverage). The work is 33 files that import `hardhat`, 16 test files
+and 20 scripts, plus the config: Hardhat 3 removes the injected global `ethers` in favour of
+`await network.connect()`, and `solidity.compilers` becomes `solidity.profiles`. That is a
+project, and it stays split out — but it is now a scoped one.
+
+### V23-27a — CI installs `contracts/` with a package manager the repository forbids · CONFIRMED → RESOLVED
+
+Found while checking whether anything runs the contract suite, and it is why V23-27's numbers
+described something nobody installed.
+
+Six CI jobs run `pnpm install` in `contracts/`. Only `package-lock.json` is tracked, and
+`pnpm-lock.yaml` is gitignored — so **pnpm resolved the dependency tree fresh on every run**.
+Measured: `pnpm install` there resolves 560 packages with no lockfile consulted. The
+`package-lock.json` that V23-27 audits, and that V23-28 established as authoritative, is not
+what CI installed. Fixing advisories in it changed nothing about what CI ran.
+
+**And V23-28's own fix was about to break all six.** Declaring `packageManager: npm@11.16.0`
+makes pnpm refuse the directory outright:
+
+```
+$ pnpm install
+[ERROR] This project is configured to use npm
+```
+
+Verified in both directions — removing the field lets pnpm install, restoring it refuses. So
+the V23-28 fix, sitting unmerged in the stack, would have taken six green jobs red on the
+commit it landed. It was caught only because fixing V23-27 meant asking what CI actually
+does, which the earlier "no CI references `contracts/`" claim had foreclosed. **A wrong
+observation does not just fail to help; it stops the question being asked again.**
+
+Both workflows now use `npm ci`, so CI installs exactly the tree `npm audit` measures.
+
+Two dead entries removed alongside: `test-solidity` had a matrix entry for
+`packages/solidity/aitbc-token`, a path **deleted in `6f4c4779d`**, and the step `cd`s into it
+before the `if [[ ! -f package.json ]]` guard can skip — that job failed on every run. The
+`lint-solidity` loop named the same path behind an `if [[ -d ]]`, so it skipped silently
+instead. `.gitignore:260-261` still ignores the directory too.
+
+And `contracts/cache/solidity-files-cache.json` is a build cache that is **both tracked and
+listed in `.gitignore:424`** — the V23-29 rule again, that ignore patterns do not apply to
+files already in the index. It churned on every build. Untracked here, which makes the
+existing rule effective.
 
 ### V23-28 — `contracts/` is configured for pnpm and locked for npm · CONFIRMED → RESOLVED
 
