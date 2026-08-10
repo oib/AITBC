@@ -35,9 +35,8 @@ Welcome to the AITBC developer documentation! This guide will help you understan
 graph TB
     subgraph "Developer Tools"
         A[Python SDK] --> E[Coordinator API]
-        B[JS SDK] --> E
-        C[CLI Tools] --> E
-        D[Smart Contracts] --> F[Blockchain]
+        B[CLI Tools] --> E
+        C[Smart Contracts] --> F[Blockchain]
     end
 
     subgraph "AITBC Platform"
