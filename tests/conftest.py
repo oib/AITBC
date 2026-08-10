@@ -23,6 +23,22 @@ _BLOCKCHAIN_SRC = str(Path(__file__).resolve().parent.parent / "apps" / "blockch
 if _BLOCKCHAIN_SRC not in sys.path:
     sys.path.insert(0, _BLOCKCHAIN_SRC)
 
+# Add miner src to path for tests that import miner_app. The v0.23 remediation commit moved
+# this app to a src/ layout and updated apps/miner/pyproject.toml, but not this file, so the
+# root suite's tests lost the module while the app's own suite kept it.
+_MINER_SRC = str(Path(__file__).resolve().parent.parent / "apps" / "miner" / "src")
+if _MINER_SRC not in sys.path:
+    sys.path.insert(0, _MINER_SRC)
+
+# Add cli/ to path for tests that import aitbc_cli, for the same reason as the two above --
+# and it matters more here. Without it `aitbc_cli` resolves through the editable install,
+# which points at the primary checkout, so CLI tests run from a git worktree silently
+# exercised a *different tree* than the one under test: edits appeared to have no effect,
+# and failures belonged to somebody else's working copy.
+_CLI_SRC = str(Path(__file__).resolve().parent.parent / "cli")
+if _CLI_SRC not in sys.path:
+    sys.path.insert(0, _CLI_SRC)
+
 # NOTE: tests/ is deliberately NOT added to sys.path.
 #
 # It used to be, "so fixture modules are importable". The side effect was that every
