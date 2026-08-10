@@ -1,5 +1,7 @@
-import { network } from "hardhat";
-const { ethers } = await network.getOrCreate();
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
+import fs from "fs";
 import { Contract } from "ethers";
 
 async function main() {
@@ -7,7 +9,7 @@ async function main() {
 
   try {
     // Read deployment addresses
-    const fs = require('fs');
+
     const deploymentAddresses = JSON.parse(fs.readFileSync('./deployment-addresses-phase4.json', 'utf8'));
 
     console.log("📋 Deployment addresses loaded:");
@@ -32,11 +34,11 @@ async function main() {
     // Test 1: Contract Registry Integration
     console.log("\n1️⃣ Testing Contract Registry Integration...");
 
-    const treasuryAddress = await contractRegistry.getContract(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("TreasuryManager")));
-    const rewardAddress = await contractRegistry.getContract(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("RewardDistributor")));
-    const performanceAddress = await contractRegistry.getContract(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("PerformanceAggregator")));
-    const stakingAddress = await contractRegistry.getContract(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("StakingPoolFactory")));
-    const daoAddress = await contractRegistry.getContract(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("DAOGovernanceEnhanced")));
+    const treasuryAddress = await contractRegistry.getContract(ethers.keccak256(ethers.toUtf8Bytes("TreasuryManager")));
+    const rewardAddress = await contractRegistry.getContract(ethers.keccak256(ethers.toUtf8Bytes("RewardDistributor")));
+    const performanceAddress = await contractRegistry.getContract(ethers.keccak256(ethers.toUtf8Bytes("PerformanceAggregator")));
+    const stakingAddress = await contractRegistry.getContract(ethers.keccak256(ethers.toUtf8Bytes("StakingPoolFactory")));
+    const daoAddress = await contractRegistry.getContract(ethers.keccak256(ethers.toUtf8Bytes("DAOGovernanceEnhanced")));
 
     console.log("✅ TreasuryManager registry lookup:", treasuryAddress === deploymentAddresses.TreasuryManager ? "PASS" : "FAIL");
     console.log("✅ RewardDistributor registry lookup:", rewardAddress === deploymentAddresses.RewardDistributor ? "PASS" : "FAIL");
@@ -52,15 +54,15 @@ async function main() {
     const operationsBudget = await treasuryManager.getBudgetBalance("operations");
     const rewardsBudget = await treasuryManager.getBudgetBalance("rewards");
 
-    console.log("✅ Development budget:", ethers.utils.formatEther(devBudget), "AITBC");
-    console.log("✅ Marketing budget:", ethers.utils.formatEther(marketingBudget), "AITBC");
-    console.log("✅ Operations budget:", ethers.utils.formatEther(operationsBudget), "AITBC");
-    console.log("✅ Rewards budget:", ethers.utils.formatEther(rewardsBudget), "AITBC");
+    console.log("✅ Development budget:", ethers.formatEther(devBudget), "AITBC");
+    console.log("✅ Marketing budget:", ethers.formatEther(marketingBudget), "AITBC");
+    console.log("✅ Operations budget:", ethers.formatEther(operationsBudget), "AITBC");
+    console.log("✅ Rewards budget:", ethers.formatEther(rewardsBudget), "AITBC");
 
     const treasuryStats = await treasuryManager.getTreasuryStats();
-    console.log("✅ Treasury total budget:", ethers.utils.formatEther(treasuryStats.totalBudget), "AITBC");
-    console.log("✅ Treasury allocated amount:", ethers.utils.formatEther(treasuryStats.allocatedAmount), "AITBC");
-    console.log("✅ Treasury available balance:", ethers.utils.formatEther(treasuryStats.availableBalance), "AITBC");
+    console.log("✅ Treasury total budget:", ethers.formatEther(treasuryStats.totalBudget), "AITBC");
+    console.log("✅ Treasury allocated amount:", ethers.formatEther(treasuryStats.allocatedAmount), "AITBC");
+    console.log("✅ Treasury available balance:", ethers.formatEther(treasuryStats.availableBalance), "AITBC");
 
     // Test 3: RewardDistributor Functionality
     console.log("\n3️⃣ Testing RewardDistributor Functionality...");
@@ -69,14 +71,14 @@ async function main() {
     console.log("✅ Total reward pools:", rewardStats.totalPools.toString());
     console.log("✅ Active reward pools:", rewardStats.activePools.toString());
     console.log("✅ Total claims:", rewardStats.totalClaims.toString());
-    console.log("✅ Total distributed:", ethers.utils.formatEther(rewardStats.totalDistributed), "AITBC");
+    console.log("✅ Total distributed:", ethers.formatEther(rewardStats.totalDistributed), "AITBC");
 
     const activePoolIds = await rewardDistributor.getActivePoolIds();
     console.log("✅ Active pool IDs:", activePoolIds.map(id => id.toString()));
 
     if (activePoolIds.length > 0) {
       const poolBalance = await rewardDistributor.getPoolBalance(activePoolIds[0]);
-      console.log("✅ First pool balance:", ethers.utils.formatEther(poolBalance), "AITBC");
+      console.log("✅ First pool balance:", ethers.formatEther(poolBalance), "AITBC");
     }
 
     // Test 4: PerformanceAggregator Functionality
@@ -97,7 +99,7 @@ async function main() {
     const factoryStats = await stakingPoolFactory.getFactoryStats();
     console.log("✅ Total pools:", factoryStats.totalPools.toString());
     console.log("✅ Active pools:", factoryStats.activePools.toString());
-    console.log("✅ Total staked:", ethers.utils.formatEther(factoryStats.totalStaked), "AITBC");
+    console.log("✅ Total staked:", ethers.formatEther(factoryStats.totalStaked), "AITBC");
     console.log("✅ Total stakers:", factoryStats.totalStakers.toString());
     console.log("✅ Total positions:", factoryStats.totalPositions.toString());
 
@@ -118,10 +120,10 @@ async function main() {
     console.log("✅ DAO version:", daoVersion.toString());
 
     const minStake = await daoGovernanceEnhanced.minStakeAmount();
-    console.log("✅ Minimum stake:", ethers.utils.formatEther(minStake), "AITBC");
+    console.log("✅ Minimum stake:", ethers.formatEther(minStake), "AITBC");
 
     const totalStaked = await daoGovernanceEnhanced.totalStaked();
-    console.log("✅ Total staked:", ethers.utils.formatEther(totalStaked), "AITBC");
+    console.log("✅ Total staked:", ethers.formatEther(totalStaked), "AITBC");
 
     const activeProposals = await daoGovernanceEnhanced.getActiveProposals();
     console.log("✅ Active proposals:", activeProposals.length);
@@ -149,13 +151,13 @@ async function main() {
     console.log("\n8️⃣ Testing Gas Optimization...");
 
     // Estimate gas for key operations
-    const registryLookupGas = await contractRegistry.estimateGas.getContract(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("TreasuryManager")));
+    const registryLookupGas = await contractRegistry.getContract.estimateGas(ethers.keccak256(ethers.toUtf8Bytes("TreasuryManager")));
     console.log("✅ Registry lookup gas:", registryLookupGas.toString());
 
-    const budgetLookupGas = await treasuryManager.estimateGas.getBudgetBalance("development");
+    const budgetLookupGas = await treasuryManager.getBudgetBalance.estimateGas("development");
     console.log("✅ Budget lookup gas:", budgetLookupGas.toString());
 
-    const performanceLookupGas = await performanceAggregator.estimateGas.getReputationScore("0x0000000000000000000000000000000000000000");
+    const performanceLookupGas = await performanceAggregator.getReputationScore.estimateGas("0x0000000000000000000000000000000000000000");
     console.log("✅ Performance lookup gas:", performanceLookupGas.toString());
 
     // Test 9: Security Checks
@@ -185,7 +187,7 @@ async function main() {
 
     // Batch registry lookups
     for (let i = 0; i < 10; i++) {
-      await contractRegistry.getContract(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("TreasuryManager")));
+      await contractRegistry.getContract(ethers.keccak256(ethers.toUtf8Bytes("TreasuryManager")));
     }
 
     const registryTime = Date.now() - startTime;
