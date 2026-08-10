@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from src.app.protocols.communication import (
+from agent_app.protocols.communication import (
     AgentMessage,
     BroadcastProtocol,
     CommunicationManager,
