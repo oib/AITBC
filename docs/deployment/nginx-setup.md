@@ -23,7 +23,7 @@ nginx -v
 
 ```bash
 # Copy the AITBC nginx configuration
-sudo cp /opt/aitbc/deployment/nginx-aitbc.conf /etc/nginx/sites-available/aitbc
+sudo cp /opt/aitbc/examples/nginx/nginx-aitbc.conf.example /etc/nginx/sites-available/aitbc
 
 # Edit server_name to match your hostname
 sudo vim /etc/nginx/sites-available/aitbc
