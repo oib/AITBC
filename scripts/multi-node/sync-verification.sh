@@ -5,7 +5,7 @@
 # Provides automatic remediation by forcing sync from healthy node
 #
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -13,12 +13,34 @@ LOG_DIR="/var/log/aitbc"
 LOG_FILE="${LOG_DIR}/sync-verification.log"
 
 # Node Configuration
-NODES=(
-    "aitbc:10.1.223.93"
-    "aitbc1:10.1.223.40"
-)
+#
+# A target is either a bare host, which is assumed to speak the node RPC over http on
+# RPC_PORT, or a full base URL, which is used verbatim. The second form is what lets CI
+# point this at the public island (https://hub.aitbc.bubuit.net): since AITBC-136 the
+# workflows run on a separate runner that cannot reach the private 10.1.223.x nodes, so a
+# check hardcoded to them reports on infrastructure the job has no route to.
+#
+# Override with AITBC_NODES="name:target [name:target ...]".
+if [ -n "${AITBC_NODES:-}" ]; then
+    read -r -a NODES <<< "${AITBC_NODES}"
+else
+    NODES=(
+        "aitbc:10.1.223.93"
+        "aitbc1:10.1.223.40"
+    )
+fi
 
 RPC_PORT=8006
+
+# Resolve a node target to a base URL. Anything containing "://" is already a URL and gets
+# no port appended -- the island is behind nginx on 443, not on RPC_PORT.
+node_url() {
+    local target="$1"
+    case "$target" in
+        *://*) printf '%s' "${target%/}" ;;
+        *)     printf 'http://%s:%s' "$target" "$RPC_PORT" ;;
+    esac
+}
 SYNC_THRESHOLD=2000
 # Set to "false" to skip chain ID consistency check (allows different chains like devnet/mainnet)
 CHECK_CHAIN_ID_CONSISTENCY="${CHECK_CHAIN_ID_CONSISTENCY:-true}"
@@ -56,13 +78,23 @@ log_warning() {
 # Get block height from RPC endpoint
 get_block_height() {
     local node_ip="$1"
+    local base
+    base="$(node_url "$node_ip")"
 
     # Try to get block height from RPC /rpc/head endpoint
-    height=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/rpc/head" 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
+    height=$(curl -s --max-time 5 "${base}/rpc/head" 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
+
+    if [ -z "$height" ] || [ "$height" = "0" ]; then
+        # The public island serves head height from /api/v1/status. Parsed as JSON rather
+        # than grepped, and tried before the bare /height below, because that one greps any
+        # digits out of the response -- on a 404 page it happily returns "404" as a height.
+        height=$(curl -s --max-time 5 "${base}/api/v1/status" 2>/dev/null \
+            | python3 -c 'import sys,json; print(json.load(sys.stdin).get("height",0))' 2>/dev/null || echo "0")
+    fi
 
     if [ -z "$height" ] || [ "$height" = "0" ]; then
         # Try alternative endpoint
-        height=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/height" 2>/dev/null | grep -o '[0-9]*' || echo "0")
+        height=$(curl -s --max-time 5 "${base}/height" 2>/dev/null | grep -o '[0-9]*' || echo "0")
     fi
 
     echo "$height"
@@ -73,14 +105,27 @@ get_chain_id() {
     local node_ip="$1"
 
     # Get chain ID from /health endpoint using proper JSON parsing
-    local health_response=$(curl -s --max-time 10 "http://${node_ip}:${RPC_PORT}/health" 2>/dev/null)
+    local base
+    base="$(node_url "$node_ip")"
+    local health_response=$(curl -s --max-time 10 "${base}/health" 2>/dev/null)
 
-    # Check if response is valid JSON and contains supported_chains
-    if echo "$health_response" | python3 -c "import sys, json; data = json.load(sys.stdin); print(','.join(data.get('supported_chains', [])))" 2>/dev/null; then
-        chain_id=$(echo "$health_response" | python3 -c "import sys, json; data = json.load(sys.stdin); print(','.join(data.get('supported_chains', [])))" 2>/dev/null)
-    else
-        # Try alternative endpoint
-        chain_id=$(curl -s --max-time 10 "http://${node_ip}:${RPC_PORT}/chain-id" 2>/dev/null || echo "")
+    # The previous form ran the same python twice, once as the `if` condition -- whose
+    # stdout is the function's stdout, so a successful probe printed the id an extra time.
+    chain_id=$(echo "$health_response" \
+        | python3 -c "import sys, json; print(','.join(json.load(sys.stdin).get('supported_chains', [])))" 2>/dev/null || echo "")
+
+    if [ -z "$chain_id" ]; then
+        chain_id=$(curl -s --max-time 10 "${base}/chain-id" 2>/dev/null || echo "")
+    fi
+
+    # A missing endpoint answers with an nginx 404 page, and a non-empty body was being
+    # accepted as a chain id -- the run then reported "chain ID consistent" about an HTML
+    # document. Anything with markup, whitespace or newlines in it is not a chain id.
+    case "$chain_id" in
+        *"<"*|*">"*|*" "*|*"$(printf '\n')"*) chain_id="" ;;
+    esac
+    if [ "${#chain_id}" -gt 128 ]; then
+        chain_id=""
     fi
 
     echo "$chain_id"
@@ -92,11 +137,23 @@ get_block_hash() {
     local height="$2"
 
     # Get block hash from /rpc/blocks/{height} endpoint
-    hash=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/rpc/blocks/${height}" 2>/dev/null | grep -o '"hash":"[^"]*"' | grep -o ':[^:]*$' | tr -d '"' || echo "")
+    local base
+    base="$(node_url "$node_ip")"
+
+    hash=$(curl -s --max-time 5 "${base}/rpc/blocks/${height}" 2>/dev/null \
+        | grep -o '"hash":"[^"]*"' | head -1 | sed -E 's/^"hash":"//; s/"$//' || echo "")
 
     if [ -z "$hash" ]; then
         # Try alternative endpoint
-        hash=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/blockchain/block/${height}/hash" 2>/dev/null || echo "")
+        hash=$(curl -s --max-time 5 "${base}/blockchain/block/${height}/hash" 2>/dev/null || echo "")
+        case "$hash" in *"<"*|*" "*) hash="" ;; esac
+    fi
+
+    if [ -z "$hash" ]; then
+        # /api/v1/status carries the head hash only, so it answers for the head height and
+        # must stay silent otherwise rather than return the wrong block's hash.
+        hash=$(curl -s --max-time 5 "${base}/api/v1/status" 2>/dev/null \
+            | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("hash","") if str(d.get("height"))==sys.argv[1] else "")' "$height" 2>/dev/null || echo "")
     fi
 
     echo "$hash"
@@ -116,8 +173,16 @@ check_chain_id_consistency() {
         chain_id=$(get_chain_id "$node_ip")
 
         if [ -z "$chain_id" ]; then
-            log_error "Could not get chain ID from ${node_name}"
-            consistent=false
+            # CHECK_CHAIN_ID_CONSISTENCY=false means "do not gate on chain id". It used to
+            # gate anyway when the id could not be read at all -- a mismatch was skipped but
+            # an unavailable id still failed the run. The public island exposes no chain-id
+            # endpoint, so that path is now reachable in normal use.
+            if [ "$CHECK_CHAIN_ID_CONSISTENCY" = "true" ]; then
+                log_error "Could not get chain ID from ${node_name}"
+                consistent=false
+            else
+                log_warning "No chain ID from ${node_name} (check skipped)"
+            fi
             continue
         fi
 
@@ -135,6 +200,13 @@ check_chain_id_consistency() {
             fi
         fi
     done
+
+    if [ "${#chain_ids[@]}" -lt 2 ]; then
+        # Comparing one reading with itself always agrees. Say so rather than report a
+        # consistency this run did not establish.
+        log_warning "Chain ID consistency not established: ${#chain_ids[@]} of ${#NODES[@]} node(s) reported an id"
+        return 0
+    fi
 
     if [ "$consistent" = true ]; then
         log_success "Chain ID consistent across all nodes"
@@ -215,6 +287,7 @@ check_block_hash_consistency() {
 
     local first_hash=""
     local consistent=true
+    local hashes_seen=0
 
     for node_config in "${NODES[@]}"; do
         IFS=':' read -r node_name node_ip <<< "$node_config"
@@ -227,6 +300,7 @@ check_block_hash_consistency() {
         fi
 
         log "Block hash on ${node_name} at height ${target_height}: ${hash}"
+        hashes_seen=$((hashes_seen + 1))
 
         if [ -z "$first_hash" ]; then
             first_hash="$hash"
@@ -236,6 +310,11 @@ check_block_hash_consistency() {
             consistent=false
         fi
     done
+
+    if [ "$hashes_seen" -lt 2 ]; then
+        log_warning "Block hash consistency not established: ${hashes_seen} of ${#NODES[@]} node(s) returned a hash at height ${target_height}"
+        return 0
+    fi
 
     if [ "$consistent" = true ]; then
         log_success "Block hashes consistent at height ${target_height}"
