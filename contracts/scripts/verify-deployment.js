@@ -3,8 +3,9 @@
  * Verifies contract deployments and performs basic health checks
  */
 
-import { network } from "hardhat";
-const { ethers } = await network.getOrCreate();
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
 import fs from "fs";
 
 async function main() {

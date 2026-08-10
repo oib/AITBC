@@ -1,18 +1,19 @@
-const { ethers } = require("hardhat");
-const fs = require("fs");
-const path = require("path");
-
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
+import fs from "fs";
+import path from "path";
 async function main() {
     console.log("🚀 Deploying Agent Autonomous Economics Contracts");
     console.log("==============================================");
 
     const [deployer] = await ethers.getSigners();
-    const balance = await deployer.getBalance();
+    const balance = await ethers.provider.getBalance(deployer.address);
 
     console.log(`Deployer: ${deployer.address}`);
-    console.log(`Balance: ${ethers.utils.formatEther(balance)} ETH`);
+    console.log(`Balance: ${ethers.formatEther(balance)} ETH`);
 
-    if (balance.lt(ethers.utils.parseEther("1"))) {
+    if (balance < ethers.parseEther("1")) {
         throw new Error("Insufficient ETH balance. Minimum 1 ETH recommended for deployment.");
     }
 
@@ -21,7 +22,7 @@ async function main() {
 
     // Deployment configuration
     const deployedContracts = {
-        network: hre.network.name,
+        network: connection.networkName,
         deployer: deployer.address,
         timestamp: new Date().toISOString(),
         contracts: {}
@@ -32,7 +33,7 @@ async function main() {
         let paymentTokenAddress, paymentProcessorAddress, aiPowerRentalAddress;
 
         try {
-            const existingContractsFile = `deployed-contracts-${hre.network.name}.json`;
+            const existingContractsFile = `deployed-contracts-${connection.networkName}.json`;
             if (fs.existsSync(existingContractsFile)) {
                 const existingContracts = JSON.parse(fs.readFileSync(existingContractsFile, 'utf8'));
                 paymentTokenAddress = existingContracts.contracts.AITBCToken?.address;
@@ -50,9 +51,9 @@ async function main() {
             const paymentToken = await MockERC20.deploy(
                 "AITBC Token",
                 "AITBC",
-                ethers.utils.parseEther("1000000")
+                ethers.parseEther("1000000")
             );
-            await paymentToken.deployed();
+            await paymentToken.waitForDeployment();
             paymentTokenAddress = paymentToken.address;
 
             deployedContracts.contracts.AITBCToken = {
@@ -69,7 +70,7 @@ async function main() {
             console.log("📦 Deploying mock AITBC Payment Processor...");
             const MockPaymentProcessor = await ethers.getContractFactory("PaymentProcessor");
             const paymentProcessor = await MockPaymentProcessor.deploy(paymentTokenAddress);
-            await paymentProcessor.deployed();
+            await paymentProcessor.waitForDeployment();
             paymentProcessorAddress = paymentProcessor.address;
 
             deployedContracts.contracts.PaymentProcessor = {
@@ -88,7 +89,7 @@ async function main() {
             paymentTokenAddress,
             paymentProcessorAddress
         );
-        await agentWallet.deployed();
+        await agentWallet.waitForDeployment();
 
         deployedContracts.contracts.AgentWallet = {
             address: agentWallet.address,
@@ -102,7 +103,7 @@ async function main() {
         console.log("📦 Deploying AgentOrchestration contract...");
         const AgentOrchestration = await ethers.getContractFactory("AgentOrchestration");
         const agentOrchestration = await AgentOrchestration.deploy();
-        await agentOrchestration.deployed();
+        await agentOrchestration.waitForDeployment();
 
         deployedContracts.contracts.AgentOrchestration = {
             address: agentOrchestration.address,
@@ -119,7 +120,7 @@ async function main() {
             const aiPowerRental = await AIPowerRental.deploy(
                 paymentTokenAddress
             );
-            await aiPowerRental.deployed();
+            await aiPowerRental.waitForDeployment();
             aiPowerRentalAddress = aiPowerRental.address;
 
             deployedContracts.contracts.AIPowerRental = {
@@ -158,7 +159,7 @@ async function main() {
         console.log("✅ Authorized provider for AIPowerRental");
 
         // Save deployment information
-        const deploymentFile = `deployed-contracts-${hre.network.name}.json`;
+        const deploymentFile = `deployed-contracts-${connection.networkName}.json`;
 
         // Load existing contracts if file exists
         let existingContracts = {};
@@ -179,7 +180,7 @@ async function main() {
 
         // Generate environment variables for frontend
         const envVars = `
-# AITBC Agent Autonomous Economics - ${hre.network.name.toUpperCase()}
+# AITBC Agent Autonomous Economics - ${connection.networkName.toUpperCase()}
 # Generated on ${new Date().toISOString()}
 
 # Contract Addresses
@@ -190,9 +191,9 @@ VITE_AITBC_TOKEN_ADDRESS=${paymentTokenAddress}
 VITE_PAYMENT_PROCESSOR_ADDRESS=${paymentProcessorAddress}
 
 # Network Configuration
-VITE_NETWORK_NAME=${hre.network.name}
-VITE_CHAIN_ID=${hre.network.config.chainId || 1}
-VITE_RPC_URL=${hre.network.config.url || 'http://localhost:8545'}
+VITE_NETWORK_NAME=${connection.networkName}
+VITE_CHAIN_ID=${connection.networkConfig.chainId || 1}
+VITE_RPC_URL=${await connection.networkConfig.url?.get?.() ?? 'http://localhost:8545'}
 
 # Agent Configuration
 VITE_DEFAULT_SPENDING_LIMIT=1000

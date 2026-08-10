@@ -1,16 +1,17 @@
-const { ethers } = require("hardhat");
-const fs = require("fs");
-const path = require("path");
-
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
+import fs from "fs";
+import path from "path";
 async function main() {
     console.log("🚀 Deploying AITBC Developer Ecosystem Contracts");
     console.log("==============================================");
 
-    const network = network.name;
+    const network = connection.networkName;
     const [deployer] = await ethers.getSigners();
 
     console.log(`Deploying contracts to ${network} with account: ${deployer.address}`);
-    console.log(`Account balance: ${ethers.utils.formatEther(await deployer.getBalance())} ETH`);
+    console.log(`Account balance: ${ethers.formatEther(await ethers.provider.getBalance(deployer.address))} ETH`);
     console.log("");
 
     // Deployed contracts storage
@@ -25,8 +26,8 @@ async function main() {
         // Step 1: Deploy Mock AITBC Token (if not already deployed)
         console.log("📦 Step 1: Deploying AITBC Token...");
         const AITBCToken = await ethers.getContractFactory("MockERC20");
-        const paymentToken = await AITBCToken.deploy("AITBC Token", "AITBC", ethers.utils.parseEther("1000000"));
-        await paymentToken.deployed();
+        const paymentToken = await AITBCToken.deploy("AITBC Token", "AITBC", ethers.parseEther("1000000"));
+        await paymentToken.waitForDeployment();
 
         deployedContracts.contracts.AITBCToken = {
             address: paymentToken.address,
@@ -42,7 +43,7 @@ async function main() {
         // Deploy Mock ZK Verifier
         const MockZKVerifier = await ethers.getContractFactory("MockZKVerifier");
         const zkVerifier = await MockZKVerifier.deploy();
-        await zkVerifier.deployed();
+        await zkVerifier.waitForDeployment();
 
         deployedContracts.contracts.ZKVerifier = {
             address: zkVerifier.address,
@@ -54,7 +55,7 @@ async function main() {
         // Deploy Mock Groth16 Verifier
         const MockGroth16Verifier = await ethers.getContractFactory("MockGroth16Verifier");
         const groth16Verifier = await MockGroth16Verifier.deploy();
-        await groth16Verifier.deployed();
+        await groth16Verifier.waitForDeployment();
 
         deployedContracts.contracts.Groth16Verifier = {
             address: groth16Verifier.address,
@@ -74,7 +75,7 @@ async function main() {
             zkVerifier.address,
             groth16Verifier.address
         );
-        await agentBounty.deployed();
+        await agentBounty.waitForDeployment();
 
         deployedContracts.contracts.AgentBounty = {
             address: agentBounty.address,
@@ -86,7 +87,7 @@ async function main() {
         // Deploy AgentStaking
         const AgentStaking = await ethers.getContractFactory("AgentStaking");
         const agentStaking = await AgentStaking.deploy(paymentToken.address);
-        await agentStaking.deployed();
+        await agentStaking.waitForDeployment();
 
         deployedContracts.contracts.AgentStaking = {
             address: agentStaking.address,
@@ -106,7 +107,7 @@ async function main() {
             groth16Verifier.address,
             agentBounty.address
         );
-        await performanceVerifier.deployed();
+        await performanceVerifier.waitForDeployment();
 
         deployedContracts.contracts.PerformanceVerifier = {
             address: performanceVerifier.address,
@@ -122,7 +123,7 @@ async function main() {
             paymentToken.address,
             performanceVerifier.address
         );
-        await disputeResolution.deployed();
+        await disputeResolution.waitForDeployment();
 
         deployedContracts.contracts.DisputeResolution = {
             address: disputeResolution.address,
@@ -138,7 +139,7 @@ async function main() {
             agentBounty.address,
             agentStaking.address
         );
-        await escrowService.deployed();
+        await escrowService.waitForDeployment();
 
         deployedContracts.contracts.EscrowService = {
             address: escrowService.address,
@@ -175,7 +176,7 @@ async function main() {
         console.log("🔗 Step 6: Setting up Contract Interactions...");
 
         // Transfer some tokens to the contracts for testing
-        const initialTokenAmount = ethers.utils.parseEther("10000");
+        const initialTokenAmount = ethers.parseEther("10000");
         await paymentToken.transfer(agentBounty.address, initialTokenAmount);
         await paymentToken.transfer(escrowService.address, initialTokenAmount);
 

@@ -1,5 +1,7 @@
-import { network } from "hardhat";
-const { ethers } = await network.getOrCreate();
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
+import fs from "fs";
 import { ContractFactory } from "ethers";
 
 async function main() {
@@ -9,15 +11,15 @@ async function main() {
   console.log("📝 Deploying contracts with account:", deployer.address);
 
   // Get initial balance
-  const initialBalance = await deployer.getBalance();
-  console.log("💰 Initial balance:", ethers.utils.formatEther(initialBalance), "ETH");
+  const initialBalance = await ethers.provider.getBalance(deployer.address);
+  console.log("💰 Initial balance:", ethers.formatEther(initialBalance), "ETH");
 
   try {
     // 1. Deploy ContractRegistry first (central registry)
     console.log("\n📋 1. Deploying ContractRegistry...");
     const ContractRegistry = await ethers.getContractFactory("ContractRegistry");
     const contractRegistry = await ContractRegistry.deploy();
-    await contractRegistry.deployed();
+    await contractRegistry.waitForDeployment();
     console.log("✅ ContractRegistry deployed to:", contractRegistry.address);
 
     // 2. Deploy TreasuryManager
@@ -26,35 +28,35 @@ async function main() {
     const aiTokenAddress = "0x5FbDB2315673af4b26B5cC2F9E0c8E0E0b0b0b0b"; // Replace with actual AIToken address
     const TreasuryManager = await ethers.getContractFactory("TreasuryManager");
     const treasuryManager = await TreasuryManager.deploy(aiTokenAddress);
-    await treasuryManager.deployed();
+    await treasuryManager.waitForDeployment();
     console.log("✅ TreasuryManager deployed to:", treasuryManager.address);
 
     // 3. Deploy RewardDistributor
     console.log("\n🎁 3. Deploying RewardDistributor...");
     const RewardDistributor = await ethers.getContractFactory("RewardDistributor");
     const rewardDistributor = await RewardDistributor.deploy();
-    await rewardDistributor.deployed();
+    await rewardDistributor.waitForDeployment();
     console.log("✅ RewardDistributor deployed to:", rewardDistributor.address);
 
     // 4. Deploy PerformanceAggregator
     console.log("\n📊 4. Deploying PerformanceAggregator...");
     const PerformanceAggregator = await ethers.getContractFactory("PerformanceAggregator");
     const performanceAggregator = await PerformanceAggregator.deploy();
-    await performanceAggregator.deployed();
+    await performanceAggregator.waitForDeployment();
     console.log("✅ PerformanceAggregator deployed to:", performanceAggregator.address);
 
     // 5. Deploy StakingPoolFactory
     console.log("\n🏊 5. Deploying StakingPoolFactory...");
     const StakingPoolFactory = await ethers.getContractFactory("StakingPoolFactory");
     const stakingPoolFactory = await StakingPoolFactory.deploy(aiTokenAddress);
-    await stakingPoolFactory.deployed();
+    await stakingPoolFactory.waitForDeployment();
     console.log("✅ StakingPoolFactory deployed to:", stakingPoolFactory.address);
 
     // 6. Deploy DAOGovernanceEnhanced
     console.log("\n🏛️ 6. Deploying DAOGovernanceEnhanced...");
     const DAOGovernanceEnhanced = await ethers.getContractFactory("DAOGovernanceEnhanced");
-    const daoGovernanceEnhanced = await DAOGovernanceEnhanced.deploy(aiTokenAddress, ethers.utils.parseEther("100"));
-    await daoGovernanceEnhanced.deployed();
+    const daoGovernanceEnhanced = await DAOGovernanceEnhanced.deploy(aiTokenAddress, ethers.parseEther("100"));
+    await daoGovernanceEnhanced.waitForDeployment();
     console.log("✅ DAOGovernanceEnhanced deployed to:", daoGovernanceEnhanced.address);
 
     // Initialize all contracts with registry
@@ -85,35 +87,35 @@ async function main() {
 
     // Register TreasuryManager
     await contractRegistry.registerContract(
-      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("TreasuryManager")),
+      ethers.keccak256(ethers.toUtf8Bytes("TreasuryManager")),
       treasuryManager.address
     );
     console.log("✅ TreasuryManager registered");
 
     // Register RewardDistributor
     await contractRegistry.registerContract(
-      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("RewardDistributor")),
+      ethers.keccak256(ethers.toUtf8Bytes("RewardDistributor")),
       rewardDistributor.address
     );
     console.log("✅ RewardDistributor registered");
 
     // Register PerformanceAggregator
     await contractRegistry.registerContract(
-      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("PerformanceAggregator")),
+      ethers.keccak256(ethers.toUtf8Bytes("PerformanceAggregator")),
       performanceAggregator.address
     );
     console.log("✅ PerformanceAggregator registered");
 
     // Register StakingPoolFactory
     await contractRegistry.registerContract(
-      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("StakingPoolFactory")),
+      ethers.keccak256(ethers.toUtf8Bytes("StakingPoolFactory")),
       stakingPoolFactory.address
     );
     console.log("✅ StakingPoolFactory registered");
 
     // Register DAOGovernanceEnhanced
     await contractRegistry.registerContract(
-      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("DAOGovernanceEnhanced")),
+      ethers.keccak256(ethers.toUtf8Bytes("DAOGovernanceEnhanced")),
       daoGovernanceEnhanced.address
     );
     console.log("✅ DAOGovernanceEnhanced registered");
@@ -122,10 +124,10 @@ async function main() {
     console.log("\n⚙️ Setting up initial configuration...");
 
     // Create initial budget categories in TreasuryManager
-    await treasuryManager.createBudgetCategory("development", ethers.utils.parseEther("100000"));
-    await treasuryManager.createBudgetCategory("marketing", ethers.utils.parseEther("50000"));
-    await treasuryManager.createBudgetCategory("operations", ethers.utils.parseEther("30000"));
-    await treasuryManager.createBudgetCategory("rewards", ethers.utils.parseEther("20000"));
+    await treasuryManager.createBudgetCategory("development", ethers.parseEther("100000"));
+    await treasuryManager.createBudgetCategory("marketing", ethers.parseEther("50000"));
+    await treasuryManager.createBudgetCategory("operations", ethers.parseEther("30000"));
+    await treasuryManager.createBudgetCategory("rewards", ethers.parseEther("20000"));
     console.log("✅ Budget categories created");
 
     // Create initial staking pools
@@ -133,8 +135,8 @@ async function main() {
       "Basic Staking",
       500, // 5% APY
       30 * 24 * 60 * 60, // 30 days
-      ethers.utils.parseEther("100"), // Min stake
-      ethers.utils.parseEther("1000000"), // Max stake
+      ethers.parseEther("100"), // Min stake
+      ethers.parseEther("1000000"), // Max stake
       "Basic staking pool with 5% APY"
     );
     console.log("✅ Basic staking pool created");
@@ -143,8 +145,8 @@ async function main() {
       "Premium Staking",
       1000, // 10% APY
       90 * 24 * 60 * 60, // 90 days
-      ethers.utils.parseEther("500"), // Min stake
-      ethers.utils.parseEther("500000"), // Max stake
+      ethers.parseEther("500"), // Min stake
+      ethers.parseEther("500000"), // Max stake
       "Premium staking pool with 10% APY"
     );
     console.log("✅ Premium staking pool created");
@@ -153,8 +155,8 @@ async function main() {
       "VIP Staking",
       2000, // 20% APY
       180 * 24 * 60 * 60, // 180 days
-      ethers.utils.parseEther("1000"), // Min stake
-      ethers.utils.parseEther("100000"), // Max stake
+      ethers.parseEther("1000"), // Min stake
+      ethers.parseEther("100000"), // Max stake
       "VIP staking pool with 20% APY"
     );
     console.log("✅ VIP staking pool created");
@@ -162,7 +164,7 @@ async function main() {
     // Create initial reward pool
     await rewardDistributor.createRewardPoolWithDescription(
       aiTokenAddress,
-      ethers.utils.parseEther("50000"),
+      ethers.parseEther("50000"),
       "Initial reward pool for staking rewards"
     );
     console.log("✅ Initial reward pool created");
@@ -174,12 +176,12 @@ async function main() {
     console.log("✅ Regional council members set");
 
     // Get final balance
-    const finalBalance = await deployer.getBalance();
+    const finalBalance = await ethers.provider.getBalance(deployer.address);
     const gasUsed = initialBalance.sub(finalBalance);
 
     console.log("\n🎉 Deployment Complete!");
-    console.log("⛽ Gas used:", ethers.utils.formatEther(gasUsed), "ETH");
-    console.log("💰 Final balance:", ethers.utils.formatEther(finalBalance), "ETH");
+    console.log("⛽ Gas used:", ethers.formatEther(gasUsed), "ETH");
+    console.log("💰 Final balance:", ethers.formatEther(finalBalance), "ETH");
 
     // Save deployment addresses
     const deploymentAddresses = {
@@ -191,13 +193,13 @@ async function main() {
       DAOGovernanceEnhanced: daoGovernanceEnhanced.address,
       AIToken: aiTokenAddress,
       Deployer: deployer.address,
-      GasUsed: ethers.utils.formatEther(gasUsed),
+      GasUsed: ethers.formatEther(gasUsed),
       Network: network.name,
       Timestamp: new Date().toISOString()
     };
 
     // Write deployment info to file
-    const fs = require('fs');
+
     fs.writeFileSync(
       './deployment-addresses-phase4.json',
       JSON.stringify(deploymentAddresses, null, 2)
@@ -210,13 +212,13 @@ async function main() {
 
     // Test registry lookup
     const treasuryAddress = await contractRegistry.getContract(
-      ethers.utils.keccak256(ethers.utils.toUtf8Bytes("TreasuryManager"))
+      ethers.keccak256(ethers.toUtf8Bytes("TreasuryManager"))
     );
     console.log("✅ TreasuryManager lookup:", treasuryAddress === treasuryManager.address ? "PASS" : "FAIL");
 
     // Test treasury budget
     const devBudget = await treasuryManager.getBudgetBalance("development");
-    console.log("✅ Development budget:", ethers.utils.formatEther(devBudget), "AITBC");
+    console.log("✅ Development budget:", ethers.formatEther(devBudget), "AITBC");
 
     // Test staking pools
     const basicPoolId = await stakingPoolFactory.getPoolByName("Basic Staking");

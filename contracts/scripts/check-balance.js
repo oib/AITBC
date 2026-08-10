@@ -1,10 +1,11 @@
-const { ethers } = require("hardhat");
-
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
 async function main() {
     try {
         const [deployer] = await ethers.getSigners();
-        const balance = await deployer.getBalance();
-        const balanceEth = ethers.utils.formatEther(balance);
+        const balance = await ethers.provider.getBalance(deployer.address);
+        const balanceEth = ethers.formatEther(balance);
 
         console.log("💰 Deployer Account Balance");
         console.log("==========================");
