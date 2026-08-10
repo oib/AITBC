@@ -66,6 +66,19 @@ repos:
         types: [shell]
         stages: [pre-commit]
 
+  # A directory installing with one package manager while another's lockfile sits next to it
+  # (V23-27a). Scans the working tree, not the index: the lockfile that caused V23-27a was
+  # untracked and .gitignore'd, so a tracked-files check would never have seen it.
+  - repo: local
+    hooks:
+      - id: check-package-managers
+        name: check-package-manager-artifacts
+        entry: python3 scripts/ci/check-package-managers.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
   # Documentation validation
   - repo: local
     hooks:
