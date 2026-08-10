@@ -165,7 +165,5 @@ def test_5xx_error_paths_log_and_return_generic_detail(service_name: str) -> Non
             if handler is None:
                 continue
             if not _has_prior_exception_log_in_handler(handler, raise_node):
-                failures.append(
-                    f"{py_file}:{raise_node.lineno}: hardened 5xx raise lacks preceding logging.exception call"
-                )
+                failures.append(f"{py_file}:{raise_node.lineno}: hardened 5xx raise lacks preceding logging.exception call")
     assert not failures, "\n".join(failures)
