@@ -40,9 +40,9 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 36 findings — 23 confirmed defects, 13 observed design gaps. **24 resolved**
-(V23-06..15, V23-10a, V23-17, V23-18, V23-22, V23-24, V23-24a, V23-25, V23-26, V23-26a,
-V23-29..32, V23-32a — twenty-four entries, twenty numbered findings); 12 open.
+**Totals**: 37 findings — 24 confirmed defects, 13 observed design gaps. **27 resolved**
+(V23-06..15, V23-10a, V23-17..22, V23-24, V23-24a, V23-25, V23-26, V23-26a, V23-29..32,
+V23-32a — twenty-seven entries, twenty-three numbered findings); 10 open.
 
 V23-24a, V23-32a and V23-26a were all added while fixing the finding they hang off, not
 during a pass. Fixing a finding keeps turning up a larger one next to it: see also the
@@ -674,7 +674,7 @@ going red.
 
 ## High — supply chain
 
-### V23-19 — 68 known vulnerabilities across 12 packages · CONFIRMED
+### V23-19 — 68 known vulnerabilities across 12 packages · CONFIRMED → RESOLVED
 
 ```
 ./venv/bin/python -m pip_audit --progress-spinner off
@@ -699,7 +699,75 @@ to `cryptography` / `eth_keys`.
 > still uses it — this repo has both `ecdsa` and `eth_keys` in play — and prefer removing
 > the dependency to carrying an unfixable advisory.
 
-### V23-20 — the installed environment does not match `pyproject.toml` · CONFIRMED
+**RESOLVED.** The headline number was not a property of this repository. Taking each of the
+68 to its source:
+
+| Origin | Vulns | Packages |
+|---|---|---|
+| **Not in `poetry.lock` at all** | **31** | `gitpython` 24 (via `truffleHog`), `pyasn1` 4 (via `python-jose`/`rsa`), `mcp` 3 (orphaned) |
+| **Declared correctly, installed stale** | **5** | `starlette` 3, `pydantic-settings` 1, `msgpack` 1 — the pinned version already carried every fix |
+| Genuinely the project's, fixed here | 27 | `pillow` 20, `aiohttp` 3, `cryptography` 3, `torch` 1 |
+| Transitive, resolved upward by re-locking | 4 | `setuptools` 75.8.0 → 81.0.0 |
+| Unfixable upstream | 1 | `ecdsa` — see below |
+
+**36 of 68 were properties of one machine.** `python-jose`, `rsa`, `truffleHog`, `semgrep`
+and `mcp` appear nowhere in the lock; they were `pip install`ed into the Poetry venv. V23-20
+said "two of the 68 findings are already fixed by the declarations". The true figure is
+eighteen times that.
+
+**Bumped** in `pyproject.toml`, lock regenerated: `cryptography` 48.0.1 → 50.0.0, `aiohttp`
+3.14.1 → 3.14.3, `pillow` 12.2.0 → 12.3.0, `torch` 2.12.0 → 2.13.0. The torch bump forced
+`torchvision` 0.27.0 → 0.28.0, which pins `torch` exactly — worth noting because it is the
+kind of coupling that turns a one-line security bump into a resolution failure.
+
+**`ecdsa` stays**, with the rationale the finding asked for, written where the dependency
+lives (`aitbc/wallet/confidential.py`) rather than here where nobody editing that file will
+see it. In short: it is the sole consumer, only curve arithmetic is used,
+`cryptography` deliberately exposes no raw point arithmetic so there is no drop-in
+replacement, and the timing side channel has nothing to recover — because the blinding
+factor is already in the envelope in the clear. See V23-19a.
+
+### V23-19a — "confidential" transactions carry the amount and the blinding factor in the clear · CONFIRMED
+
+Found while establishing which code paths reach `ecdsa` (V23-19). Not fixed here — fixing it
+means implementing real commitments.
+
+`ConfidentialTransaction` (`aitbc/wallet/confidential.py`) stores `amount_commitment`
+**and** `amount_label` (the amount) **and** `blinding` (the secret that hides it) in the same
+envelope. `verify_commitment()` recomputes the commitment from the amount and blinding
+sitting next to it and compares.
+
+So the check establishes that a sender's three fields are mutually consistent. It proves
+nothing to a verifier, because anyone constructing the envelope controls all three — and
+there is no confidentiality, because the amount is right there.
+
+The module docstring is honest that the commitments are "a pedagogical stand-in for
+production range proofs / Bulletproofs". What is not disclosed is where it is wired:
+
+```
+cli/aitbc_cli/commands/confidential.py  →  validate_payment()
+    aitbc/agent_economics/confidential_payments.py:29
+    "Validate a confidential payment inside the TEE trust boundary"
+        →  ConfidentialTransaction.verify_commitment()
+```
+
+`validate_payment` raises `TEEError("confidential transaction commitment is invalid")` on
+failure, which reads as a cryptographic validation inside a trust boundary. The CLI's offline
+branch labels its output `"status": "simulated"`; the branch that POSTs to
+`/v1/confidential/payments` does not.
+
+This is the audit's recurring shape at its purest: **a check that agrees for a reason
+unconnected to what it is supposed to establish.** It is the same defect as the shared
+verification key (V23-26a) and the hardcoded `"trusted_setup": "completed"` — the difference
+is that here the mechanism is sound and the *inputs* make it vacuous.
+
+> **Fix**: real Pedersen commitments — the blinding factor must not travel with the
+> commitment, and `amount_label` must not exist in the envelope at all. Until then, every
+> path that presents this as confidential should say "simulated", including the coordinator
+> POST, and `validate_payment` should not raise `TEEError` in language that implies it
+> verified something.
+
+### V23-20 — the installed environment does not match `pyproject.toml` · CONFIRMED → RESOLVED
 
 | Package | Pinned | Installed |
 |---|---|---|
@@ -724,7 +792,25 @@ grep -E "^(starlette|pydantic-settings) = " pyproject.toml
 > when the resolved environment drifts from the lock. Without that check, "the tests pass"
 > means less than it appears to.
 
-### V23-21 — an undeclared tool downgrades a shared dependency · CONFIRMED
+**RESOLVED** — the check exists, and running it showed the drift is an order of magnitude
+larger than the two packages the finding names. `scripts/ci/check-env-matches-lock.py`
+reports **39 packages at a different version than the lock** and **83 installed that the
+lock does not contain at all**, on the machine this audit was run on.
+
+Wired into CI twice, deliberately: in `quality-gates`, so every PR establishes that the
+declared dependency set is what was tested; and in `security` immediately after the scanner
+install, which is where V23-21's contamination happens.
+
+`--strict` is opt-in. Without it the script reports and exits 0, because a developer who has
+deliberately installed a tool should not be blocked by a local check — the enforcement point
+is CI, where the environment is built from the lock and nothing else.
+
+> **Not done here**: syncing this machine's venv. `poetry install --sync` would remove the
+> 83 undeclared packages, and this venv is shared with the main checkout and other concurrent
+> sessions — pulling packages out from under a running process is not a change to make
+> unannounced. The command is `poetry install --sync`, and the check will confirm it worked.
+
+### V23-21 — an undeclared tool downgrades a shared dependency · CONFIRMED → RESOLVED
 
 `gitpython` 3.0.6 is installed with 11 advisories against it. It is not in
 `pyproject.toml`. It is pulled in by `truffleHog`, which is also not in `pyproject.toml`:
@@ -746,6 +832,35 @@ tool silently running against a version it does not support.
 > let the resolver reconcile it with `detect-secrets`. If no, remove it. Either way, the
 > venv should not contain packages that no manifest mentions — which is the same check
 > V23-20 asks for.
+
+**RESOLVED**, and the finding understates it: this is not one developer's mistake, **CI
+reproduces it on every run.** `.github/workflows/ci.yml` had
+
+```yaml
+- run: poetry install --no-interaction --locked
+- run: pip install "semgrep==1.170.0" "trufflehog==2.2.1"
+```
+
+back to back in the same job. The second line installs into the environment the first line
+just built from the lock, so every `poetry run` step *after* it — `bandit`, and the audit
+itself — executed against a mutated environment. The security job was downgrading a security
+tool's dependency as a matter of routine.
+
+Answering the finding's question: **truffleHog is wanted** — it is a CI scanner, and the
+third option it did not list is the right one. Declaring it in the dev group would force the
+resolver to reconcile `truffleHog`'s `GitPython` against `detect-secrets`' `>=3.1.30`, which
+either fails or drags the whole project's lock toward a decade-old scanner's constraints.
+These are CLIs; nothing in this repo imports them. They belong in their own environments.
+
+`pipx install` per tool, followed immediately by
+`check-env-matches-lock.py --strict` so the isolation is asserted rather than assumed. That
+step is the one that fails if someone reintroduces a bare `pip install` here.
+
+> Two inconsistencies noticed and left alone, since neither is this finding: the CI
+> invocation uses truffleHog v2 syntax (`--regex --entropy False`) while
+> `docs/security/1_security-cleanup-guide.md:176` documents v3 syntax
+> (`trufflehog filesystem --directory`), and v2.2.1 is a 2019 release of a tool whose
+> maintained successor is a different program in a different language.
 
 ---
 
