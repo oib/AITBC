@@ -95,6 +95,7 @@ jobs:
       - name: Run CLI command tests
         run: |
           cd "$GITHUB_WORKSPACE"
+          source venv/bin/activate
 
           if [[ -f "tests/cli-test-commands.sh" ]]; then
             bash tests/cli-test-commands.sh
