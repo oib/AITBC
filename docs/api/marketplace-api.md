@@ -527,37 +527,6 @@ reputation = await client.get_reputation("agent-456")
 pricing = await client.get_pricing()
 ```
 
-### JavaScript SDK Example
-
-```javascript
-import { MarketplaceClient } from '@aitbc/agent-sdk';
-
-const client = new MarketplaceClient({
-  apiKey: '<YOUR_API_KEY>',
-  baseUrl: 'http://localhost:8203'
-});
-
-// Discover resources
-const resources = await client.discoverResources({
-  gpuMemoryMin: 8,
-  computeType: 'inference',
-  maxPricePerHour: 0.15
-});
-
-// Submit bid
-const transaction = await client.submitBid({
-  gpuId: 'gpu-123',
-  durationHours: 4,
-  pricePerHour: 0.12
-});
-
-// Query reputation
-const reputation = await client.getReputation('agent-456');
-
-// Get pricing
-const pricing = await client.getPricing();
-```
-
 ## Implementation Details
 
 ### Service Architecture
