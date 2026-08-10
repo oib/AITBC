@@ -1,6 +1,10 @@
 # AITBC SDK
 
-Python client SDK for interacting with AITBC coordinator services, blockchain nodes, and marketplace components.
+Synchronous Python client for the AITBC coordinator API: health, wallet, registry, grants,
+and signed receipts.
+
+**This package has no job-submission API.** To submit and track jobs, call `POST /v1/jobs`
+directly or use the async `ComputeConsumer` from `aitbc-agent-sdk`.
 
 ## Installation
 
@@ -30,40 +34,20 @@ pip install aitbc-sdk
 ## Quick Start
 
 ```python
-import asyncio
 from aitbc_sdk import AITBCClient
 
-async def main():
-    # Initialize client
-    client = AITBCClient(base_url="https://aitbc.bubuit.net")
-
-    # Submit a job
-    job = await client.submit_job({
-        "service_type": "llm_inference",
-        "model": "llama3.2",
-        "prompt": "Hello, world!"
-    })
-
-    # Check job status
-    status = await client.get_job_status(job.id)
-    print(f"Job status: {status.status}")
-
-    # Get results when complete
-    if status.status == "completed":
-        result = await client.get_job_result(job.id)
-        print(f"Result: {result.output}")
-
-if __name__ == "__main__":
-    asyncio.run(main())
+with AITBCClient(base_url="https://aitbc.bubuit.net", api_key="your-api-key") as client:
+    print(client.health().status)
+    print(client.wallet.get_balance("wallet-123").balance)   # Decimal
 ```
 
 ## Features
 
-- **Job Management**: Submit, monitor, and retrieve computation jobs
-- **Receipt Verification**: Cryptographically verify job completion receipts
-- **Marketplace Integration**: Browse and participate in GPU marketplace
-- **Blockchain Integration**: Interact with AITBC blockchain for settlement
-- **Zero-Knowledge Support**: Private computation with ZK proof verification
+- **Wallet**: balance lookups and payment submission, with `Decimal` amounts
+- **Registry**: developer and provider registry lookups
+- **Grants**: list grant proposals and fetch summaries
+- **Receipt Verification**: fetch signed receipts and verify Ed25519 signatures locally
+- **Retries**: retry policy, circuit breaker, and exponential backoff helpers
 
 ## API Reference
 
@@ -74,72 +58,87 @@ from aitbc_sdk import AITBCClient
 
 client = AITBCClient(
     base_url="https://aitbc.bubuit.net",
-    api_key="your-api-key",
-    timeout=30
+    api_key="your-api-key",   # sent as X-Api-Key; omit to send no auth header
+    timeout=30.0,
+    max_retries=3,
 )
 ```
 
-### Job Operations
+`AITBCClient` is an alias of `CoordinatorAPIClient`. The client owns an HTTP connection
+pool — use it as a context manager, or call `client.close()` when done.
+
+### Coordinator Operations
 
 ```python
-# Submit a job
-job = await client.submit_job({
-    "service_type": "llm_inference",
-    "model": "llama3.2",
-    "parameters": {
-        "prompt": "Explain quantum computing",
-        "max_tokens": 500
-    }
-})
+response = client.health()                       # SDKResponse; does not raise
+print(response.status, response.data, response.error)
 
-# Get job status
-status = await client.get_job_status(job.id)
+summary = client.get_grant_summary("grant-123")  # GrantSummary
+```
 
-# Get job result
-result = await client.get_job_result(job.id)
+### Wallet Operations
 
-# Cancel a job
-await client.cancel_job(job.id)
+```python
+balance = client.wallet.get_balance("wallet-123")          # WalletBalance
+print(balance.address, balance.balance, balance.asset)     # balance is Decimal
+
+client.wallet.send_payment(
+    wallet_id="wallet-123",
+    recipient_id="wallet-456",
+    amount="10.50",        # str, not float
+    asset="AITBC",
+)
+```
+
+### Registry Operations
+
+```python
+entry = client.registry.get_developer("0xabc...")            # RegistryEntry
+entries = client.registry.list_registry(role="provider", limit=50)
+grants = client.registry.list_grants()                       # list[GrantSummary]
 ```
 
 ### Receipt Operations
 
-```python
-# Get job receipts
-receipts = await client.get_job_receipts(job.id)
-
-# Verify receipt authenticity
-is_valid = await client.verify_receipt(receipt)
-```
-
-### Marketplace Operations
+Receipts use a separate client:
 
 ```python
-# List available services
-services = await client.list_services()
+from aitbc_sdk import CoordinatorReceiptClient, verify_receipt
 
-# Get service details
-service = await client.get_service(service_id)
+with CoordinatorReceiptClient(base_url="https://aitbc.bubuit.net", api_key="your-api-key") as rc:
+    latest = rc.fetch_latest("job-123")          # None if there is no receipt yet
+    history = rc.fetch_history("job-123")
+    status = rc.summarize_receipts("job-123")    # ReceiptStatus
 
-# Place bid for computation
-bid = await client.place_bid({
-    "service_id": service_id,
-    "max_price": 0.1,
-    "requirements": {
-        "gpu_memory": "8GB",
-        "compute_capability": "7.5"
-    }
-})
+    print(status.verified_count, "of", status.total, "verified")
+
+if latest is not None:
+    print(verify_receipt(latest).verified)       # local Ed25519 check, no network call
 ```
+
+### Errors
+
+```python
+from aitbc_sdk import AITBCError, AITBCConnectionError, AITBCRateLimitError
+```
+
+Both specific errors subclass `AITBCError`. They live in `aitbc_sdk.errors`; there is no
+`aitbc_sdk.exceptions` module.
 
 ## Configuration
 
-The SDK can be configured via environment variables:
+The SDK reads no environment variables — pass `base_url` and `api_key` to the constructor.
+To drive them from the environment, do it in your own code:
 
-```bash
-export AITBC_BASE_URL="https://aitbc.bubuit.net"
-export AITBC_API_KEY="your-api-key"
-export AITBC_TIMEOUT=30
+```python
+import os
+
+from aitbc_sdk import AITBCClient
+
+client = AITBCClient(
+    base_url=os.getenv("AITBC_BASE_URL", "http://localhost:8203"),
+    api_key=os.getenv("AITBC_API_KEY", ""),
+)
 ```
 
 ## Development
