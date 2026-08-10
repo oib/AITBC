@@ -135,7 +135,7 @@ jobs:
           master_index_markers=(
             "### 🏠 Core Documentation"
             "### 📦 **Applications Documentation**"
-            "### � **API Documentation**"
+            "**API Documentation**"
             "### ⛓️ Blockchain Documentation"
           )
 
