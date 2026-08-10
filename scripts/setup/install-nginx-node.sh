@@ -7,7 +7,7 @@
 set -euo pipefail
 
 AITBC_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
-NGINX_CONF_SRC="$AITBC_DIR/deployment/nginx-aitbc.conf"
+NGINX_CONF_SRC="$AITBC_DIR/examples/nginx/nginx-aitbc.conf.example"
 NGINX_SITES_AVAILABLE="/etc/nginx/sites-available/aitbc"
 NGINX_SITES_ENABLED="/etc/nginx/sites-enabled/aitbc"
 NGINX_OVERRIDE="/etc/nginx/conf.d/aitbc-hostname.conf"
