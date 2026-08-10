@@ -1,14 +1,15 @@
-const { ethers } = require("hardhat");
-
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
 async function main() {
     try {
         // Get current gas price
-        const gasPrice = await ethers.provider.getGasPrice();
-        const gasPriceGwei = ethers.utils.formatUnits(gasPrice, "gwei");
+        const gasPrice = (await ethers.provider.getFeeData()).gasPrice;
+        const gasPriceGwei = ethers.formatUnits(gasPrice, "gwei");
 
         // Get gas limit estimates
         const block = await ethers.provider.getBlock("latest");
-        const baseFeePerGas = block.baseFeePerGas ? ethers.utils.formatUnits(block.baseFeePerGas, "gwei") : "N/A";
+        const baseFeePerGas = block.baseFeePerGas ? ethers.formatUnits(block.baseFeePerGas, "gwei") : "N/A";
 
         // Calculate estimated deployment costs
         const estimatedGasLimit = 8000000; // Estimated total gas for all contracts

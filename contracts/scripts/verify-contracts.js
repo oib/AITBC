@@ -1,12 +1,13 @@
-const { ethers } = require("hardhat");
-const fs = require("fs");
-const path = require("path");
-
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
+import fs from "fs";
+import path from "path";
 async function main() {
     console.log("🔍 Verifying AITBC Developer Ecosystem Contracts");
     console.log("==============================================");
 
-    const network = network.name;
+    const network = connection.networkName;
 
     if (network === "localhost" || network === "hardhat") {
         console.log("⏭️ Skipping verification for local network");
@@ -37,7 +38,7 @@ async function main() {
     // Verification configurations for each contract
     const verificationConfigs = {
         AITBCToken: {
-            constructorArguments: ["AITBC Token", "AITBC", ethers.utils.parseEther("1000000")]
+            constructorArguments: ["AITBC Token", "AITBC", ethers.parseEther("1000000")]
         },
         ZKVerifier: {
             constructorArguments: []
@@ -95,7 +96,7 @@ async function main() {
             await ethers.provider.waitForTransaction(contractInfo.deploymentHash, 3);
 
             // Verify contract
-            await hre.run("verify:verify", {
+            await connection.run("verify:verify", {
                 address: contractInfo.address,
                 constructorArguments: config.constructorArguments
             });
