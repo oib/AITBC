@@ -22,22 +22,19 @@ jobs:
     timeout-minutes: 10
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv
@@ -54,7 +51,7 @@ jobs:
 
       - name: Verify CLI imports
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           source venv/bin/activate
           export PYTHONPATH="cli:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:."
 
@@ -62,7 +59,7 @@ jobs:
 
       - name: Run CLI tests
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           source venv/bin/activate
           export PYTHONPATH="cli:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:."
 
@@ -81,7 +78,7 @@ jobs:
 
       - name: Run /v1 prefix verification
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           if [[ -f "tests/cli-test-v1-prefix.sh" ]]; then
             bash tests/cli-test-v1-prefix.sh
@@ -92,7 +89,7 @@ jobs:
 
       - name: Run CLI command tests
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           if [[ -f "tests/cli-test-commands.sh" ]]; then
             bash tests/cli-test-commands.sh

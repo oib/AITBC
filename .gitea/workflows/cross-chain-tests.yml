@@ -31,22 +31,19 @@ jobs:
     timeout-minutes: 20
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           rm -rf venv
 
           bash scripts/ci/setup-python-venv.sh \
@@ -58,7 +55,7 @@ jobs:
 
       - name: Test cross-chain block synchronization
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           CHAINS="${{ inputs.chains || 'ait-mainnet,ait-testnet' }}"
 
@@ -83,22 +80,19 @@ jobs:
     timeout-minutes: 20
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           rm -rf venv
 
           bash scripts/ci/setup-python-venv.sh \
@@ -110,7 +104,7 @@ jobs:
 
       - name: Test cross-chain transactions
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           echo "🧪 Testing cross-chain transactions"
 
@@ -137,22 +131,19 @@ jobs:
     timeout-minutes: 25
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           rm -rf venv
 
           bash scripts/ci/setup-python-venv.sh \
@@ -164,7 +155,7 @@ jobs:
 
       - name: Test multi-chain consensus
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           echo "🧪 Testing multi-chain consensus"
 
@@ -186,22 +177,19 @@ jobs:
     needs: [test-cross-chain-sync, test-cross-chain-transactions, test-multi-chain-consensus]
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Aggregate test results
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           echo "📊 Aggregating cross-chain test results"
 

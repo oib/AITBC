@@ -30,35 +30,36 @@ jobs:
             path: "contracts"
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       # Runs before the install, because the thing it catches makes the install meaningless
-      # (V23-27a). These are self-hosted runners with a persistent /opt/aitbc checkout, and
-      # `git checkout --detach` leaves untracked files alone -- so a pnpm-lock.yaml dropped
-      # by some other workflow stays on the runner indefinitely, invisible to git and to the
-      # audit that reads package-lock.json.
+      # (V23-27a): a second lockfile means `npm audit` and the installed tree describe
+      # different things.
+      #
+      # This note used to say the runner keeps a persistent checkout where a stray
+      # pnpm-lock.yaml survives between jobs. That was true of the /opt/aitbc model and is
+      # not true now -- AITBC-136 moved to actions/checkout, so every job starts clean and
+      # that particular route is closed. What remains is a lockfile committed to the tree,
+      # or one a build step writes during the job, and both are worth failing on.
       - name: Check package-manager artifacts
         run: |
           set -euo pipefail
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           python3 scripts/ci/check-package-managers.py
 
       - name: Setup and test
         run: |
           set -euo pipefail
 
-          PROJECT_DIR="/opt/aitbc/${{ matrix.project.path }}"
+          PROJECT_DIR="$GITHUB_WORKSPACE/${{ matrix.project.path }}"
           if [[ ! -d "$PROJECT_DIR" ]]; then
             echo "❌ ${{ matrix.project.path }} does not exist in this checkout"
             exit 1
@@ -121,17 +122,14 @@ jobs:
     timeout-minutes: 20
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Install Foundry
@@ -147,7 +145,7 @@ jobs:
       - name: Test contracts with Foundry
         run: |
           export PATH="$HOME/.foundry/bin:$PATH"
-          cd "/opt/aitbc/contracts"
+          cd "$GITHUB_WORKSPACE/contracts"
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -176,23 +174,20 @@ jobs:
     timeout-minutes: 10
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Lint contracts
         run: |
           set -euo pipefail
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -212,7 +207,7 @@ jobs:
               else
                 echo "⚠️ No lint script for $project, skipping"
               fi
-              cd /opt/aitbc
+              cd "$GITHUB_WORKSPACE"
             fi
           done
 
@@ -224,23 +219,20 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Deploy contracts to localhost
         run: |
           set -euo pipefail
-          cd "/opt/aitbc/contracts"
+          cd "$GITHUB_WORKSPACE/contracts"
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
