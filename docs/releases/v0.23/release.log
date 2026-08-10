@@ -40,9 +40,12 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 35 findings — 22 confirmed defects, 13 observed design gaps. **22 resolved**
-(V23-06..09, V23-11..15, V23-17, V23-18, V23-22, V23-24, V23-24a, V23-25, V23-26, V23-26a,
-V23-29..32, V23-32a — twenty-two entries, nineteen numbered findings); 13 open.
+**Totals**: 36 findings — 23 confirmed defects, 13 observed design gaps. **23 resolved**
+(V23-06..15, V23-17, V23-18, V23-22, V23-24, V23-24a, V23-25, V23-26, V23-26a, V23-29..32,
+V23-32a — twenty-three entries, twenty numbered findings); 13 open.
+
+V23-10a is resolved for `agent-coordinator` and open for `miner`, which now collects and
+fails 33 tests rather than collecting nothing. It is counted among the 13 open.
 
 V23-24a, V23-32a and V23-26a were all added while fixing the finding they hang off, not
 during a pass. Fixing a finding keeps turning up a larger one next to it: see also the
@@ -251,7 +254,7 @@ collectable by pytest if `apps/coordinator-api/src` is ever added to `testpaths`
 > still carry meaning, move them to `tests/` as real tests. That removes the collision and
 > the dead code in one step.
 
-### V23-10 — seven apps do not use the `src/` layout · OBSERVED
+### V23-10 — seven apps do not use the `src/` layout · OBSERVED → RESOLVED
 
 `src/`-layout: 17. Flat: `archive`, `blockchain-explorer`, `exchange`, `ffmpeg`, `miner`,
 `whisper`, `zk-circuits`.
@@ -268,6 +271,64 @@ The other six carry the same risk of divergence.
 > treat "can it use `aitbc.auth`?" as the test of whether the migration is finished. Record
 > the intended layout somewhere enforceable — a CI check over `apps/*/` is a few lines — so
 > the count does not grow.
+
+**RESOLVED** — the enforceable check exists (`tests/unit/test_v2310_app_test_imports.py`),
+and writing it corrected the count. **It is five, not seven:**
+
+- **`archive` is not an app.** Three tracked files under `peertube-transcoder/`, one of them
+  `DEPRECATED.md`. A deprecation graveyard was counted as a flat-layout service.
+- **`miner` is half-migrated**, not flat: `src/miner_app/` exists *and*
+  `production_miner.py` is still at the root. Which turned out to matter — see V23-10a.
+
+The remaining five are `blockchain-explorer`, `exchange`, `ffmpeg`, `whisper`,
+`zk-circuits`. The guard pins that set: a new flat-layout app fails, and a migration fails
+until the name is removed from the list, so the count can only fall.
+
+### V23-10a — whole app test suites have been dark for a month, and nothing reports it · CONFIRMED → RESOLVED (agent-coordinator) / OPEN (miner)
+
+Found while writing V23-10's check. The layout question is cosmetic next to what it was
+hiding.
+
+**`apps/agent-coordinator`**: `3fc1333fe` (2026-07-07) renamed `src/app` → `src/agent_app`
+and did not update the tests, which import `from src.app...`. **All three modules failed at
+collection from that day on**, including `test_security_agent_coordinator.py`. Thirty-four
+days.
+
+**`apps/miner`**: `apps/miner/pyproject.toml` sets `pythonpath = ["src"]`, but the tests
+import `production_miner`, which is at the app root — the half-migration above. All three
+modules failed to collect. Separately, the mere presence of that file makes it pytest's
+config for anything under `apps/miner`, so the root `pyproject.toml`'s marker registrations
+do not apply and every `@pytest.mark.unit` became an unknown mark.
+
+**Why nothing noticed**: CI runs exactly two app suites — `coordinator-api` and
+`blockchain-node` (`.github/workflows/ci.yml`). No other app's tests are executed by any job.
+A suite that stops collecting is indistinguishable from one that passes.
+
+**Fixed here — agent-coordinator**: imports repointed at `agent_app`; the suite runs, **76
+passing**. The two failures that surfaced were both stale tests, not product bugs, and both
+are worth recording because they fail in opposite directions:
+
+- `test_assign_task_accepts_chain_id` built its subject with `LoadBalancer.__new__` and set
+  attributes by hand. `__init__` later gained `self._lock`, the hand-built object did not,
+  and the test raised `AttributeError` against correct code. All five `__new__` call sites
+  now use the real constructor, so the object cannot drift out from under them again.
+- `test_agent_stream_default_rpc_url_is_8202` asserted `"8202" in inspect.getsource(...)`.
+  It broke when the literal was replaced by `aitbc.constants.BLOCKCHAIN_RPC_URL` — **the
+  port was still 8202; the test failed because the code improved.** It now asserts where the
+  request actually goes.
+
+**Fixed here — miner's collection**: `pythonpath = ["src", "."]` and the two markers
+registered. The suite collects again.
+
+> **Left open deliberately**: miner now collects and **33 of its 60 tests fail**. Sampling
+> them, they are stale in the same way — `test_build_gpu_capabilities` asserts `"gpu" in
+> result` against a payload whose key is `"gpus"`. Deciding per test whether the test or the
+> code is wrong is real work, and doing it quickly risks rewriting assertions to match code
+> that is itself wrong. Collecting-and-failing is strictly better than dark: the failures are
+> now visible. **`apps/miner` has 33 failing tests.**
+
+> **The larger gap**: no CI job runs the other ~22 app suites. The import guard added here
+> catches only the cheapest class of breakage. Running them is the actual fix.
 
 ---
 
