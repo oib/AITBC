@@ -48,7 +48,7 @@ jobs:
             --venv-dir "$PWD/venv" \
             --requirements-file /tmp/requirements-ci.txt \
             --mode copy \
-            --extra-packages "pytest pytest-cov pytest-mock pytest-timeout pytest-asyncio locust pydantic-settings fastapi uvicorn aiohttp>=3.12.14 sqlmodel>=0.0.38 PyJWT filelock"
+            --extra-packages "pytest pytest-cov pytest-mock pytest-timeout pytest-asyncio locust pydantic-settings fastapi uvicorn aiohttp>=3.12.14 sqlmodel>=0.0.38 PyJWT filelock fakeredis"
 
           venv/bin/python -m pip install -q -e packages/aitbc-shared
           venv/bin/python -m pip install -q -e packages/py/aitbc-crypto
