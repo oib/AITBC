@@ -12,20 +12,21 @@ Escrow-related tests (B3) are skipped until Agent A delivers PaymentEscrow (A1).
 from __future__ import annotations
 
 import os
+import sys
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 
 import pytest
 
-from src.app.config import settings
-from src.app.models import AgentRegistrationRequest, TaskPayment, TaskSubmission
-from src.app.routing.agent_discovery import (
+from agent_app.config import settings
+from agent_app.models import AgentRegistrationRequest, TaskPayment, TaskSubmission
+from agent_app.routing.agent_discovery import (
     AgentInfo,
     AgentRegistry,
     create_agent_info,
 )
-from src.app.routers.swarm import CoordinateRequest, JoinRequest
-from src.app.routers.workflow import CreateWorkflowRequest, ExecuteWorkflowRequest
+from agent_app.routers.swarm import CoordinateRequest, JoinRequest
+from agent_app.routers.workflow import CreateWorkflowRequest, ExecuteWorkflowRequest
 
 from aitbc.crypto import EscrowStatus, PaymentEscrow
 
@@ -518,14 +519,11 @@ class TestChainAwareTaskDistribution:
         """TaskDistributor.submit_task accepts chain_id and stores it in task_info."""
         import asyncio
 
-        from src.app.routing.load_balancer import LoadBalancer, TaskDistributor, TaskPriority
+        from agent_app.routing.load_balancer import LoadBalancer, TaskDistributor, TaskPriority
 
-        lb = LoadBalancer.__new__(LoadBalancer)
-        td = TaskDistributor.__new__(TaskDistributor)
-        td.load_balancer = lb
-        td.task_queue = asyncio.Queue()
-        td.priority_queues = {p: asyncio.Queue() for p in TaskPriority}
-        td.distribution_stats = {"tasks_distributed": 0, "tasks_completed": 0, "tasks_failed": 0, "avg_distribution_time": 0.0}
+        from unittest.mock import AsyncMock
+
+        td = TaskDistributor(LoadBalancer(registry=AsyncMock()))
 
         asyncio.run(td.submit_task({"action": "process"}, TaskPriority.NORMAL, chain_id="ait-hub"))
         task_info = asyncio.run(td.priority_queues[TaskPriority.NORMAL].get())
@@ -535,13 +533,11 @@ class TestChainAwareTaskDistribution:
         """TaskDistributor.submit_task without chain_id stores None."""
         import asyncio
 
-        from src.app.routing.load_balancer import LoadBalancer, TaskDistributor, TaskPriority
+        from agent_app.routing.load_balancer import LoadBalancer, TaskDistributor, TaskPriority
 
-        td = TaskDistributor.__new__(TaskDistributor)
-        td.load_balancer = LoadBalancer.__new__(LoadBalancer)
-        td.task_queue = asyncio.Queue()
-        td.priority_queues = {p: asyncio.Queue() for p in TaskPriority}
-        td.distribution_stats = {"tasks_distributed": 0, "tasks_completed": 0, "tasks_failed": 0, "avg_distribution_time": 0.0}
+        from unittest.mock import AsyncMock
+
+        td = TaskDistributor(LoadBalancer(registry=AsyncMock()))
 
         asyncio.run(td.submit_task({"action": "process"}, TaskPriority.NORMAL))
         task_info = asyncio.run(td.priority_queues[TaskPriority.NORMAL].get())
@@ -551,17 +547,9 @@ class TestChainAwareTaskDistribution:
         """LoadBalancer.assign_task accepts chain_id parameter without error."""
         from unittest.mock import AsyncMock, patch
 
-        from src.app.routing.load_balancer import LoadBalancer
+        from agent_app.routing.load_balancer import LoadBalancer
 
-        lb = LoadBalancer.__new__(LoadBalancer)
-        lb.registry = AsyncMock()
-        lb.agent_weights = {}
-        lb.agent_metrics = {}
-        lb.task_assignments = {}
-        lb.assignment_history = []
-        lb.total_assignments = 0
-        lb.failed_assignments = 0
-        lb.strategy = None
+        lb = LoadBalancer(registry=AsyncMock())
 
         with patch.object(lb, "_find_eligible_agents", new_callable=AsyncMock) as mock_find:
             mock_find.return_value = []
@@ -576,12 +564,9 @@ class TestChainAwareTaskDistribution:
         """_find_eligible_agents adds chain_id to discovery query when provided."""
         from unittest.mock import AsyncMock
 
-        from src.app.routing.load_balancer import LoadBalancer
+        from agent_app.routing.load_balancer import LoadBalancer
 
-        lb = LoadBalancer.__new__(LoadBalancer)
-        lb.registry = AsyncMock()
-        lb.agent_weights = {}
-        lb.agent_metrics = {}
+        lb = LoadBalancer(registry=AsyncMock())
 
         # Registry returns empty list — we just verify the query includes chain_id
         lb.registry.discover_agents = AsyncMock(return_value=[])
@@ -596,12 +581,9 @@ class TestChainAwareTaskDistribution:
         """_find_eligible_agents does not add chain_id to query when not provided."""
         from unittest.mock import AsyncMock
 
-        from src.app.routing.load_balancer import LoadBalancer
+        from agent_app.routing.load_balancer import LoadBalancer
 
-        lb = LoadBalancer.__new__(LoadBalancer)
-        lb.registry = AsyncMock()
-        lb.agent_weights = {}
-        lb.agent_metrics = {}
+        lb = LoadBalancer(registry=AsyncMock())
         lb.registry.discover_agents = AsyncMock(return_value=[])
         import asyncio
 
@@ -621,7 +603,7 @@ class TestWebSocketAuth:
 
     def test_authenticate_websocket_with_valid_api_key(self):
         """_authenticate_websocket accepts valid COORDINATOR_API_KEY."""
-        from src.app.routers.websocket import _authenticate_websocket
+        from agent_app.routers.websocket import _authenticate_websocket
 
         os.environ["COORDINATOR_API_KEY"] = "test-coordinator-key"
         try:
@@ -631,26 +613,26 @@ class TestWebSocketAuth:
 
     def test_authenticate_websocket_with_valid_secret_key(self):
         """_authenticate_websocket accepts valid SECRET_KEY."""
-        from src.app.routers.websocket import _authenticate_websocket
+        from agent_app.routers.websocket import _authenticate_websocket
 
         # SECRET_KEY is already set to "test-secret-key" at module load
         assert _authenticate_websocket(websocket=None, token="test-secret-key") is True
 
     def test_authenticate_websocket_rejects_no_token(self):
         """_authenticate_websocket rejects None token."""
-        from src.app.routers.websocket import _authenticate_websocket
+        from agent_app.routers.websocket import _authenticate_websocket
 
         assert _authenticate_websocket(websocket=None, token=None) is False
 
     def test_authenticate_websocket_rejects_empty_token(self):
         """_authenticate_websocket rejects empty string token."""
-        from src.app.routers.websocket import _authenticate_websocket
+        from agent_app.routers.websocket import _authenticate_websocket
 
         assert _authenticate_websocket(websocket=None, token="") is False
 
     def test_authenticate_websocket_rejects_wrong_token(self):
         """_authenticate_websocket rejects invalid token."""
-        from src.app.routers.websocket import _authenticate_websocket
+        from agent_app.routers.websocket import _authenticate_websocket
 
         assert _authenticate_websocket(websocket=None, token="wrong-key") is False
 
@@ -658,12 +640,33 @@ class TestWebSocketAuth:
 class TestPortFix:
     """Test that agent_stream.py uses correct port 8202 (not stale 8006)."""
 
-    def test_agent_stream_default_rpc_url_is_8202(self):
-        """_submit_transaction defaults to port 8202, not stale 8006."""
-        import inspect
+    def test_agent_stream_default_rpc_url_is_8202(self, monkeypatch):
+        """_submit_transaction posts to port 8202 by default, not the stale 8006.
 
-        from src.app.websocket import agent_stream
+        This asserted ``"8202" in inspect.getsource(...)`` and started failing when the
+        literal was replaced by ``aitbc.constants.BLOCKCHAIN_RPC_URL`` -- the port was still
+        8202, so the test broke because the code improved. Assert where the request actually
+        goes; the source is free to say it however it likes.
+        """
+        from unittest.mock import MagicMock
 
-        source = inspect.getsource(agent_stream._submit_transaction)
-        assert "8202" in source
-        assert "8006" not in source
+        from agent_app.websocket import agent_stream
+
+        monkeypatch.delenv("BLOCKCHAIN_RPC_URL", raising=False)
+
+        posted: dict[str, str] = {}
+
+        class _FakeHTTPX:
+            @staticmethod
+            def post(url, **kwargs):
+                posted["url"] = url
+                response = MagicMock()
+                response.json.return_value = {"success": True}
+                return response
+
+        monkeypatch.setitem(sys.modules, "httpx", _FakeHTTPX)
+
+        agent_stream._submit_transaction({"chain_id": "ait-hub"})
+
+        assert ":8202/" in posted["url"], posted
+        assert "8006" not in posted["url"]
