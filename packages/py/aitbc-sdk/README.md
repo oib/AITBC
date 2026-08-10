@@ -78,17 +78,24 @@ summary = client.get_grant_summary("grant-123")  # GrantSummary
 
 ### Wallet Operations
 
+**Served by the wallet daemon (`apps/wallet`), not coordinator-api.** Point the client at
+the daemon's base URL for these; a coordinator-api base URL has no `/v1/wallets` routes.
+
 ```python
 balance = client.wallet.get_balance("wallet-123")          # WalletBalance
 print(balance.address, balance.balance, balance.asset)     # balance is Decimal
 
 client.wallet.send_payment(
     wallet_id="wallet-123",
-    recipient_id="wallet-456",
-    amount="10.50",        # str, not float
-    asset="AITBC",
+    recipient="wallet-456",
+    amount=1000,                    # integer base units, not a decimal string
+    password="<WALLET_PASSWORD>",   # unlocks the stored key; required
+    fee=36,
+    chain_id="ait-mainnet",         # optional
 )
 ```
+
+`send_payment` is admin-guarded — construct the client with the daemon's `WALLET_API_KEY`.
 
 ### Registry Operations
 
