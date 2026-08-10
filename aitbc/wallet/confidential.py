@@ -5,6 +5,28 @@ signature scheme uses Ed25519 with a 32-byte private key derived from the
 caller-provided ``signing_key`` material via SHA-256. Amount commitments are
 simulated Pedersen commitments on NIST256p using the ``ecdsa`` library; this is
 a pedagogical stand-in for production range proofs / Bulletproofs.
+
+Why ``ecdsa`` is still a dependency (V23-19)
+--------------------------------------------
+This module is the only consumer of ``ecdsa`` in the repository, and ``ecdsa`` 0.19.2
+carries PYSEC-2026-1325 with **no upstream fix published** — the library is pure Python and
+does not defend against timing side channels. The audit asked for either removal or a
+written rationale. The rationale:
+
+* Only the *curve arithmetic* is used — ``NIST256p`` point addition and scalar
+  multiplication, for the commitment construction. ``cryptography`` deliberately exposes no
+  raw point arithmetic, so it is not a drop-in replacement; swapping would mean hand-writing
+  curve operations, which is worse than the advisory.
+* The side channel needs a secret to leak. The blinding factor is the only secret here, and
+  ``ConfidentialTransaction`` **carries it in the clear** (``blinding``) alongside the
+  amount (``amount_label``) — see V23-19a. There is nothing for a timing attack to recover
+  that is not already in the envelope.
+
+That second point is the actual reason this is tolerable, and it is not a comfortable one:
+the advisory is survivable because the construction provides no confidentiality to begin
+with. **Removing ``ecdsa`` is the wrong first move; making these commitments real is, and
+that removes ``ecdsa`` as a side effect** — a production Pedersen/Bulletproof implementation
+would not be built on this library.
 """
 
 from __future__ import annotations

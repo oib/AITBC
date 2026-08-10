@@ -147,6 +147,13 @@ jobs:
         run: poetry run python scripts/check_no_assert_print.py
       - name: Check version consistency
         run: poetry run python scripts/check_version_consistency.py
+      # V23-20: pip-audit reported 68 vulnerabilities for v0.23; 36 of them were properties
+      # of one developer's venv rather than of this repository -- packages installed outside
+      # Poetry, and declared packages whose installed version was older than the pin that
+      # already carried the fix. Without this, "the tests pass" does not establish that the
+      # declared dependency set passes.
+      - name: Check the environment matches the lock
+        run: poetry run python scripts/ci/check-env-matches-lock.py --strict
 
   security:
     name: Security Scan
@@ -162,7 +169,20 @@ jobs:
         run: pip install poetry==2.4.1
       - name: Install project dependencies
         run: poetry install --no-interaction --locked
-      - run: pip install "semgrep==1.170.0" "trufflehog==2.2.1"
+      # V23-21: these used to be `pip install`ed into the environment `poetry install
+      # --locked` had just built. truffleHog 2.2.1 depends on GitPython and resolves it to
+      # 3.0.6 -- 24 advisories, and below the >=3.1.30 that detect-secrets declares. So the
+      # security job was downgrading a security tool's dependency, and every `poetry run`
+      # step after this line ran against an environment that no longer matched the lock.
+      #
+      # pipx gives each tool its own venv. They are CLIs; nothing here imports them.
+      - name: Install scanners in isolated environments
+        run: |
+          pip install pipx
+          pipx install "semgrep==1.170.0"
+          pipx install "trufflehog==2.2.1"
+      - name: Verify the locked environment survived
+        run: poetry run python scripts/ci/check-env-matches-lock.py --strict
       - run: poetry run bandit -r aitbc/ apps/ cli/ -f json -o bandit-report.json
       - run: semgrep --config=auto aitbc/ apps/ cli/ --json --output=semgrep-report.json
       - run: trufflehog --json --regex --entropy False . > trufflehog-report.json || true
