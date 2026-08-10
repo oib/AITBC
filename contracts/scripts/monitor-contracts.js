@@ -3,8 +3,9 @@
  * Monitors contract health, balances, and key metrics
  */
 
-import { network } from "hardhat";
-const { ethers } = await network.getOrCreate();
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
 import fs from "fs";
 
 async function main() {
@@ -54,24 +55,25 @@ async function main() {
     // Monitor TreasuryManager
     if (deployments.TreasuryManager) {
       console.log("\n--- TreasuryManager Monitoring ---");
-      const TreasuryManager = await ethers.getContractFactory("TreasuryManager");
-      const treasuryManager = TreasuryManager.attach(deployments.TreasuryManager);
 
-      const treasuryBalance = deployments.AIToken
-        ? await treasuryManager.getTreasuryBalance()
-        : 0;
-      const totalAllocated = await treasuryManager.getTotalAllocated();
-      const totalSpent = await treasuryManager.getTotalSpent();
+      // This block used to call getTreasuryBalance(), getTotalAllocated() and
+      // getTotalSpent(). TreasuryManager.sol declares none of them -- its only balance
+      // accessor is getBudgetBalance(category). The script had been unrunnable since
+      // `contracts/package.json` gained "type": "module", so the calls were never made and
+      // the mismatch never surfaced. The treasury's holding is measured the way
+      // verify-deployment.js measures it: the token balance at the treasury's address.
+      let treasuryBalance = 0n;
+      if (deployments.AIToken) {
+        const AIToken = await ethers.getContractFactory("AIToken");
+        const aiToken = AIToken.attach(deployments.AIToken);
+        treasuryBalance = await aiToken.balanceOf(deployments.TreasuryManager);
+      }
 
-      console.log(`Treasury Balance: ${ethers.formatEther(treasuryBalance)}`);
-      console.log(`Total Allocated: ${ethers.formatEther(totalAllocated)}`);
-      console.log(`Total Spent: ${ethers.formatEther(totalSpent)}`);
+      console.log(`Treasury Balance: ${ethers.formatEther(treasuryBalance)} AIT`);
 
       healthReport.TreasuryManager = {
         balance: ethers.formatEther(treasuryBalance),
-        totalAllocated: ethers.formatEther(totalAllocated),
-        totalSpent: ethers.formatEther(totalSpent),
-        healthy: treasuryBalance > 0
+        healthy: treasuryBalance > 0n
       };
     }
 
@@ -81,20 +83,24 @@ async function main() {
       const AgentMarketplaceV2 = await ethers.getContractFactory("AgentMarketplaceV2");
       const marketplace = AgentMarketplaceV2.attach(deployments.AgentMarketplaceV2);
 
-      const stats = await marketplace.getMarketplaceStats();
-      const activeListings = await marketplace.getActiveListings();
+      // This block used to call getMarketplaceStats() and getActiveListings() and report
+      // totalListings / completedTransactions / totalVolume. AgentMarketplaceV2.sol has
+      // none of that -- it has no listings concept at all. What it exposes is
+      // capabilityCounter, subscriptionCounter and platformFeePercentage. Reported here
+      // instead of inventing a stats struct the contract does not have.
+      const capabilities = await marketplace.capabilityCounter();
+      const subscriptions = await marketplace.subscriptionCounter();
+      const feeBasisPoints = await marketplace.platformFeePercentage();
 
-      console.log(`Total Listings: ${stats.totalListings}`);
-      console.log(`Active Listings: ${stats.activeListings}`);
-      console.log(`Completed Transactions: ${stats.completedTransactions}`);
-      console.log(`Total Volume: ${ethers.formatEther(stats.totalVolume)}`);
+      console.log(`Capabilities: ${capabilities}`);
+      console.log(`Subscriptions: ${subscriptions}`);
+      console.log(`Platform Fee: ${Number(feeBasisPoints) / 100}%`);
 
       healthReport.AgentMarketplaceV2 = {
-        totalListings: stats.totalListings.toString(),
-        activeListings: stats.activeListings.toString(),
-        completedTransactions: stats.completedTransactions.toString(),
-        totalVolume: ethers.formatEther(stats.totalVolume),
-        healthy: stats.activeListings >= 0
+        capabilities: capabilities.toString(),
+        subscriptions: subscriptions.toString(),
+        platformFeePercentage: Number(feeBasisPoints) / 100,
+        healthy: feeBasisPoints > 0n
       };
     }
 
@@ -104,16 +110,19 @@ async function main() {
       const ContractRegistry = await ethers.getContractFactory("ContractRegistry");
       const registry = ContractRegistry.attach(deployments.ContractRegistry);
 
-      const totalContracts = await registry.totalContracts();
-      const contractIds = await registry.getAllContractIds();
+      // totalContracts() and getAllContractIds() do not exist; the contract exposes
+      // getRegistryStats(), which returns (totalContracts, version, isPaused, owner).
+      const [totalContracts, registryVersion, isPaused] = await registry.getRegistryStats();
 
       console.log(`Total Registered Contracts: ${totalContracts}`);
-      console.log(`Registered Contracts: ${contractIds.length}`);
+      console.log(`Registry Version: ${registryVersion}`);
+      console.log(`Paused: ${isPaused}`);
 
       healthReport.ContractRegistry = {
         totalContracts: totalContracts.toString(),
-        registeredCount: contractIds.length,
-        healthy: totalContracts > 0
+        version: registryVersion.toString(),
+        paused: isPaused,
+        healthy: totalContracts > 0n && !isPaused
       };
     }
 
@@ -123,16 +132,18 @@ async function main() {
       const DAOGovernanceEnhanced = await ethers.getContractFactory("DAOGovernanceEnhanced");
       const dao = DAOGovernanceEnhanced.attach(deployments.DAOGovernanceEnhanced);
 
-      const minStake = await dao.minStake();
-      const activeProposals = await dao.activeProposals();
+      // minStake() and activeProposals() do not exist. The contract declares
+      // minStakeAmount and proposalCount.
+      const minStake = await dao.minStakeAmount();
+      const proposalCount = await dao.proposalCount();
 
       console.log(`Minimum Stake: ${ethers.formatEther(minStake)}`);
-      console.log(`Active Proposals: ${activeProposals}`);
+      console.log(`Proposals Created: ${proposalCount}`);
 
       healthReport.DAOGovernanceEnhanced = {
         minStake: ethers.formatEther(minStake),
-        activeProposals: activeProposals.toString(),
-        healthy: minStake > 0
+        proposalCount: proposalCount.toString(),
+        healthy: minStake > 0n
       };
     }
 

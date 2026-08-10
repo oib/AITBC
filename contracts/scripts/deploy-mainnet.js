@@ -1,5 +1,6 @@
-import { network } from "hardhat";
-const { ethers } = await network.getOrCreate();
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
 import fs from "fs";
 import readline from "readline";
 
@@ -46,14 +47,14 @@ async function main() {
         throw new Error("Insufficient ETH balance. Minimum 1 ETH recommended for deployment.");
     }
 
-    await confirmMainnetDeploy(hardhat.network.name);
+    await confirmMainnetDeploy(connection.networkName);
 
     console.log("");
     console.log("Proceeding with contract deployment...");
 
     // Deployment configuration
     const deployedContracts = {
-        network: hardhat.network.name,
+        network: connection.networkName,
         deployer: deployer.address,
         timestamp: new Date().toISOString(),
         contracts: {}
