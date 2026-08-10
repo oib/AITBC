@@ -267,7 +267,11 @@ async def get_zk_status() -> dict[str, Any]:
             "stealth_addresses": "demo",
             "receipt_attestation": "active",
             "circuits_compiled": zk_service.enabled,
-            "trusted_setup": "completed",
+            # Not "completed". The phase-2 contributions on these keys carry the placeholder
+            # names from the npm scripts ("1st Contributor Name", "2nd Contributor Name"),
+            # there are no published transcripts, and no attestations. See
+            # apps/zk-circuits/README.md (V23-25).
+            "trusted_setup": "development-only",
         },
         "supported_proof_types": ["membership", "bid_range", "computation", "identity", "receipt"],
         "privacy_levels": [
@@ -275,7 +279,13 @@ async def get_zk_status() -> dict[str, Any]:
             "medium",  # Simple ZK proofs
             "maximum",  # Full ZK-SNARKs (when circuits are compiled)
         ],
-        "circuit_status": {"receipt": "compiled", "membership": "not_compiled", "bid": "not_compiled"},
+        # V23-26a: these were hardcoded to "compiled" and "available". They now report what
+        # the service actually loaded, because a status endpoint that answers from a literal
+        # cannot tell you the thing it exists to tell you -- and it read "available" for a
+        # verification key that belonged to a different circuit.
+        "circuit_status": {
+            name: ("loaded" if name in zk_service.available_circuits else "unavailable") for name in zk_service.circuits
+        },
         "next_steps": [
             "Compile additional circuits (membership, bid)",
             "Deploy verification contracts",
@@ -283,8 +293,6 @@ async def get_zk_status() -> dict[str, Any]:
             "Enable recursive proofs",
         ],
         "zkey_files": {
-            "receipt_simple_0001.zkey": "available",
-            "receipt_simple.wasm": "available",
-            "verification_key.json": "available",
+            paths["zkey_path"].name: "loaded" for paths in zk_service.available_circuits.values() if paths["zkey_path"]
         },
     }
