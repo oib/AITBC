@@ -9,6 +9,10 @@ on:
       - '.gitea/workflows/contract-benchmarks.yml'
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'contracts/**'
+      - 'scripts/benchmarking/**'
+      - '.gitea/workflows/contract-benchmarks.yml'
   workflow_dispatch:
     inputs:
       benchmark_type:
