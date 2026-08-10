@@ -224,14 +224,17 @@ class KeyManager:
             try:
                 store = getattr(self.storage, "store_audit_key", None)
                 if store:
-                    maybe_coro = store(audit_key_pair)
-                    if hasattr(maybe_coro, "__await__"):
+                    if asyncio.iscoroutinefunction(store):
                         try:
-                            loop = asyncio.get_running_loop()
-                            if not loop.is_running():
-                                loop.run_until_complete(maybe_coro)
+                            # Only run the coroutine if no event loop is already
+                            # active (sync route / worker thread); otherwise the
+                            # audit key stays in memory and will be persisted on
+                            # the next async path that awaits it.
+                            asyncio.get_running_loop()
                         except RuntimeError:
-                            asyncio.run(maybe_coro)
+                            asyncio.run(store(audit_key_pair))
+                    else:
+                        store(audit_key_pair)
             except Exception:
                 pass
             self._audit_key = audit_public  # type: ignore[assignment]
