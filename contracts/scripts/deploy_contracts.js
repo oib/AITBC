@@ -1,12 +1,14 @@
-const { ethers } = require("hardhat");
-
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
+import fs from "fs";
 async function main() {
     console.log("=== AITBC Smart Contract Deployment ===");
 
     // Get deployer account
     const [deployer] = await ethers.getSigners();
     console.log("Deploying contracts with the account:", deployer.address);
-    console.log("Account balance:", (await deployer.getBalance()).toString());
+    console.log("Account balance:", (await ethers.provider.getBalance(deployer.address)).toString());
 
     // Deployment addresses (to be replaced with actual addresses)
     const AITBC_TOKEN_ADDRESS = process.env.AITBC_TOKEN_ADDRESS || "0x0000000000000000000000000000000000000000";
@@ -22,7 +24,7 @@ async function main() {
             ZK_VERIFIER_ADDRESS,
             GROTH16_VERIFIER_ADDRESS
         );
-        await aiPowerRental.deployed();
+        await aiPowerRental.waitForDeployment();
         console.log("AIPowerRental deployed to:", aiPowerRental.address);
 
         // 2. Deploy AITBC Payment Processor
@@ -32,7 +34,7 @@ async function main() {
             AITBC_TOKEN_ADDRESS,
             aiPowerRental.address
         );
-        await paymentProcessor.deployed();
+        await paymentProcessor.waitForDeployment();
         console.log("PaymentProcessor deployed to:", paymentProcessor.address);
 
         // 3. Deploy Performance Verifier
@@ -43,7 +45,7 @@ async function main() {
             GROTH16_VERIFIER_ADDRESS,
             aiPowerRental.address
         );
-        await performanceVerifier.deployed();
+        await performanceVerifier.waitForDeployment();
         console.log("PerformanceVerifier deployed to:", performanceVerifier.address);
 
         // 4. Deploy Dispute Resolution
@@ -54,7 +56,7 @@ async function main() {
             paymentProcessor.address,
             performanceVerifier.address
         );
-        await disputeResolution.deployed();
+        await disputeResolution.waitForDeployment();
         console.log("DisputeResolution deployed to:", disputeResolution.address);
 
         // 5. Deploy Escrow Service
@@ -65,7 +67,7 @@ async function main() {
             aiPowerRental.address,
             paymentProcessor.address
         );
-        await escrowService.deployed();
+        await escrowService.waitForDeployment();
         console.log("EscrowService deployed to:", escrowService.address);
 
         // 6. Deploy Dynamic Pricing
@@ -76,7 +78,7 @@ async function main() {
             performanceVerifier.address,
             AITBC_TOKEN_ADDRESS
         );
-        await dynamicPricing.deployed();
+        await dynamicPricing.waitForDeployment();
         console.log("DynamicPricing deployed to:", dynamicPricing.address);
 
         // Initialize contracts with cross-references
@@ -136,7 +138,7 @@ async function main() {
         };
 
         // Write deployment info to file
-        const fs = require('fs');
+
         fs.writeFileSync(
             `deployment-${network.name}-${Date.now()}.json`,
             JSON.stringify(deploymentInfo, null, 2)
