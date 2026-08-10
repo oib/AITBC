@@ -6,13 +6,14 @@ by real submissions.
 """
 
 import logging
-import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import select
+
+from aitbc.utils import ait_to_seconds
 
 from ..base_models import Transaction
 from ..database import session_scope
@@ -21,6 +22,17 @@ from ..metrics import metrics_registry
 from .router import router
 
 _logger = get_logger(__name__)
+
+# An AI job is a payment to the AI service account, so it is submitted as an
+# ordinary chain transaction and the PoA proposer includes it in a block.
+AI_SERVICE_RECIPIENT = "ai_service"
+
+# The proposer upper-cases tx["type"] when it writes the confirmed Transaction
+# row (see consensus/poa.py), so mined jobs are stored as "AI_JOB". Rows written
+# before AI jobs reached the mempool carry the lowercase spelling; both are
+# matched so pre-existing jobs stay visible.
+AI_JOB_TX_TYPE = "AI_JOB"
+AI_JOB_TX_TYPES = (AI_JOB_TX_TYPE, "ai_job")
 
 
 class AIJobRequest(BaseModel):
@@ -31,6 +43,9 @@ class AIJobRequest(BaseModel):
     prompt: str = Field(..., description="AI prompt or task description")
     payment: float = Field(..., ge=0, description="Payment in AIT")
     parameters: dict[str, Any] | None = Field(default=None, description="Additional job parameters")
+    nonce: int = Field(default=0, ge=0, description="Sender account nonce")
+    fee: int = Field(default=36, ge=0, description="Transaction fee in compute-seconds (1 AIT = 3600)")
+    signature: str = Field(..., description="secp256k1 signature over the job transaction, signed by wallet_address")
 
 
 class AIJobResponse(BaseModel):
@@ -67,53 +82,75 @@ def _job_from_tx(tx: Transaction) -> dict[str, Any]:
 
 @router.post("/ai/submit", summary="Submit AI job", tags=["ai"])
 async def ai_submit_job(request: AIJobRequest) -> dict[str, Any]:
-    """Submit a new AI job for processing"""
+    """Submit a new AI job to the mempool.
+
+    The job is an ordinary chain transaction paying ``AI_SERVICE_RECIPIENT``, so
+    the PoA proposer includes it in a block like any other. It appears in the job
+    endpoints once mined; until then it is pending in the mempool and visible via
+    ``/mempool``. Its ``job_id`` is the transaction hash.
+    """
+    from ..mempool import get_mempool
+    from .transactions import _validate_transaction_admission
+    from .utils import get_chain_id, normalize_transaction_data, verify_transaction_signature
+
     try:
         metrics_registry.increment("rpc_ai_submit_total")
 
-        # Generate unique job ID
-        job_id = f"job_{uuid.uuid4().hex[:8]}"
+        chain_id = get_chain_id()
+        mempool = get_mempool()
 
-        # Calculate estimated completion time
-        estimated_completion = datetime.now(UTC) + timedelta(minutes=30)
+        # Every field here is client-supplied: the signature covers the whole
+        # transaction, so nothing the server invents can be part of it. chain_id
+        # is included so a job signed for one chain cannot be replayed on
+        # another (same rule as submit_transaction).
+        tx_data: dict[str, Any] = {
+            "from": request.wallet_address,
+            "to": AI_SERVICE_RECIPIENT,
+            "amount": ait_to_seconds(request.payment),
+            "fee": request.fee,
+            "nonce": request.nonce,
+            "type": AI_JOB_TX_TYPE,
+            "payload": {
+                "job_type": request.job_type,
+                "prompt": request.prompt,
+                "payment": request.payment,
+                "parameters": request.parameters or {},
+            },
+            "chain_id": chain_id,
+            "signature": request.signature,
+        }
 
-        # Store as a transaction in the database
-        tx_hash = "0x" + uuid.uuid4().hex
-        chain_id = ""  # default chain
+        # The job debits the sender's balance, so it has to be signed by them.
+        if not verify_transaction_signature(tx_data, request.signature, request.wallet_address):
+            raise HTTPException(status_code=403, detail="Invalid transaction signature")
 
-        with session_scope(chain_id) as session:
-            tx = Transaction(
-                chain_id=chain_id,
-                tx_hash=tx_hash,
-                sender=request.wallet_address,
-                recipient="ai_service",
-                payload={
-                    "job_id": job_id,
-                    "job_type": request.job_type,
-                    "prompt": request.prompt,
-                    "payment": request.payment,
-                    "parameters": request.parameters or {},
-                    "estimated_completion": estimated_completion.isoformat(),
-                },
-                type="ai_job",
-                status="queued",
-            )
-            session.add(tx)
-            session.commit()
+        tx_data = normalize_transaction_data(tx_data, chain_id)
+        _validate_transaction_admission(tx_data, mempool)
 
-        _logger.info("AI job submitted: %s by %s", job_id, request.wallet_address)
+        tx_hash = mempool.add(tx_data, chain_id=chain_id)
+
+        _logger.info("AI job submitted to mempool: tx %s by %s", tx_hash, request.wallet_address)
 
         return {
-            "job_id": job_id,
-            "status": "queued",
-            "message": "AI job submitted successfully",
-            "estimated_completion": estimated_completion.isoformat(),
+            "job_id": tx_hash,
+            "status": "pending",
+            "message": "AI job submitted to mempool, pending inclusion in a block",
             "wallet_address": request.wallet_address,
             "payment": request.payment,
             "job_type": request.job_type,
             "tx_hash": tx_hash,
         }
 
+    except HTTPException:
+        raise
+    except ValueError as e:
+        # Rejected before admission: malformed amount/fee/nonce, unknown sender,
+        # insufficient balance, wrong nonce, or unsupported chain. These are
+        # client errors, and failing here is the point — the previous version
+        # accepted everything and dropped it silently.
+        metrics_registry.increment("rpc_ai_submit_errors_total")
+        _logger.warning("AI job rejected: %s", e)
+        raise HTTPException(status_code=400, detail=f"Failed to submit AI job: {e}") from e
     except Exception as e:
         metrics_registry.increment("rpc_ai_submit_errors_total")
         logging.getLogger(__name__).exception("Unhandled exception")
@@ -128,7 +165,7 @@ async def ai_list_jobs(wallet_address: str | None = None, status: str | None = N
         metrics_registry.increment("rpc_ai_list_total")
 
         with session_scope("") as session:
-            stmt = select(Transaction).where(Transaction.type == "ai_job")
+            stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
             if wallet_address:
                 stmt = stmt.where(Transaction.sender == wallet_address)
             if status:
@@ -161,12 +198,15 @@ async def ai_get_job(job_id: str) -> dict[str, Any]:
         with session_scope("") as session:
             # Search by job_id in payload — since job_id is stored in JSON payload,
             # we filter in Python after fetching ai_job transactions
-            stmt = select(Transaction).where(Transaction.type == "ai_job")
+            stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
             txs = session.exec(stmt).all()
 
             for tx in txs:
                 payload = tx.payload or {}
-                if payload.get("job_id") == job_id:
+                # Jobs submitted through the mempool are identified by their tx
+                # hash; older rows carry an explicit job_id in the payload. Match
+                # the same identity _job_from_tx reports.
+                if payload.get("job_id", tx.tx_hash) == job_id:
                     return {"job": _job_from_tx(tx), "found": True}
 
         raise HTTPException(status_code=404, detail="Job not found")
@@ -187,12 +227,15 @@ async def ai_cancel_job(job_id: str) -> dict[str, Any]:
         metrics_registry.increment("rpc_ai_cancel_total")
 
         with session_scope("") as session:
-            stmt = select(Transaction).where(Transaction.type == "ai_job")
+            stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
             txs = session.exec(stmt).all()
 
             for tx in txs:
                 payload = tx.payload or {}
-                if payload.get("job_id") == job_id:
+                # Jobs submitted through the mempool are identified by their tx
+                # hash; older rows carry an explicit job_id in the payload. Match
+                # the same identity _job_from_tx reports.
+                if payload.get("job_id", tx.tx_hash) == job_id:
                     current_status = tx.status
                     if current_status in ["completed", "cancelled"]:
                         raise HTTPException(status_code=400, detail=f"Cannot cancel job with status: {current_status}")
@@ -222,7 +265,7 @@ async def ai_stats() -> dict[str, Any]:
         metrics_registry.increment("rpc_ai_stats_total")
 
         with session_scope("") as session:
-            stmt = select(Transaction).where(Transaction.type == "ai_job")
+            stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
             txs = session.exec(stmt).all()
 
             total_jobs = len(txs)
