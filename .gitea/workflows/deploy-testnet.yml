@@ -50,25 +50,25 @@ jobs:
         run: |
           cd "/opt/aitbc/contracts"
 
-          # Install pnpm if not available
-          if ! command -v pnpm &> /dev/null; then
-            npm install -g pnpm
-          fi
-
-          pnpm install
+          # npm, not pnpm (V23-27a). package.json declares packageManager: npm and only
+          # package-lock.json is tracked, so `pnpm install` ignored it, resolved fresh every
+          # run, and installed a tree no lockfile described -- while `npm audit` reported on
+          # the lockfile nobody installed from. `npm ci` installs exactly the audited tree,
+          # and leaves no pnpm-lock.yaml behind in contracts/.
+          npm ci --no-audit --no-fund
           echo "✅ Node.js environment ready"
 
       - name: Compile contracts
         run: |
           cd "/opt/aitbc/contracts"
-          pnpm hardhat compile
+          npx hardhat compile
           echo "✅ Contracts compiled"
 
       - name: Run contract tests
         continue-on-error: true
         run: |
           cd "/opt/aitbc/contracts"
-          pnpm hardhat test || echo "⚠️ Some contract tests failed - continuing with deployment"
+          npx hardhat test || echo "⚠️ Some contract tests failed - continuing with deployment"
           echo "✅ Contract tests completed"
 
       - name: Deploy contracts to testnet
@@ -91,7 +91,7 @@ jobs:
           export TESTNET_EXPLORER_URL=${{ secrets.TESTNET_EXPLORER_URL }}
 
           # Verify deployed contracts
-          pnpm hardhat verify --network testnet DEPLOYED_CONTRACT_ADDRESS CONSTRUCTOR_ARGS
+          npx hardhat verify --network testnet DEPLOYED_CONTRACT_ADDRESS CONSTRUCTOR_ARGS
 
           echo "✅ Contracts verified on block explorer"
 

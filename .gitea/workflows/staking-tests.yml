@@ -131,12 +131,12 @@ jobs:
         run: |
           cd "/opt/aitbc/contracts"
 
-          # Install pnpm if not available
-          if ! command -v pnpm &> /dev/null; then
-            npm install -g pnpm
-          fi
-
-          pnpm install
+          # npm, not pnpm (V23-27a). package.json declares packageManager: npm and only
+          # package-lock.json is tracked, so `pnpm install` ignored it, resolved fresh every
+          # run, and installed a tree no lockfile described -- while `npm audit` reported on
+          # the lockfile nobody installed from. `npm ci` installs exactly the audited tree,
+          # and leaves no pnpm-lock.yaml behind in contracts/.
+          npm ci --no-audit --no-fund
           echo "✅ Node.js environment ready"
 
       - name: Run staking contract tests
@@ -144,8 +144,8 @@ jobs:
           cd "/opt/aitbc/contracts"
 
           echo "🧪 Running staking contract tests..."
-          pnpm hardhat compile
-          pnpm hardhat test test/AgentStaking.test.js
+          npx hardhat compile
+          npx hardhat test test/AgentStaking.test.js
           echo "✅ Contract tests completed"
 
   run-staking-test-runner:
