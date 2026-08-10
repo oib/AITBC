@@ -1,2 +1,13 @@
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+# "." as well as "src": the migration to the src/ layout is half-done (V23-10). The app
+# package lives in src/miner_app, but production_miner.py is still at the app root and is
+# what the tests import. With only "src" here, all three test modules fail to collect.
+pythonpath = ["src", "."]
+
+# This file being present at all makes it pytest's config for anything under apps/miner,
+# which means the root pyproject's marker registrations do not apply and every
+# @pytest.mark.unit becomes an unknown mark. Registering the two the tests use.
+markers = [
+    "unit: marks tests as unit tests",
+    "integration: marks tests as integration tests",
+]
