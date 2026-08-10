@@ -44,21 +44,6 @@ client = aitbc_sdk.Client(api_key="<YOUR_API_KEY>", base_url="http://localhost:8
 job = client.submit_job(payload={"model": "llama2", "prompt": "Hello world"})
 ```
 
-### Using JavaScript SDK
-
-```javascript
-import { AITBCClient } from '@aitbc/aitbc-sdk';
-
-const client = new AITBCClient({
-  apiKey: '<YOUR_API_KEY>',
-  baseUrl: 'http://localhost:8203'
-});
-
-const job = await client.submitJob({
-  payload: { model: 'llama2', prompt: 'Hello world' }
-});
-```
-
 ## Rate Limiting
 
 API endpoints may have rate limits enforced. Check the response headers for rate limit information:
