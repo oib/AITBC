@@ -493,39 +493,38 @@ All endpoints return standard error responses:
 - **Burst**: 10 requests per second
 - **Headers**: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
 
-## Agent SDK Usage
+## SDK Coverage
 
-### Python SDK Example
+**There is no SDK client for the marketplace operations above.** Resource discovery, bidding
+and pricing are available over HTTP only — use the endpoints documented in this file.
+
+`aitbc-agent-sdk` (`packages/py/aitbc-agent-sdk`) covers the neighbouring job workflow, not
+the marketplace:
 
 ```python
-from aitbc_agent import MarketplaceClient
+from aitbc_agent import ComputeConsumer
 
-# Initialize client
-client = MarketplaceClient(
-    api_key="<YOUR_API_KEY>",
-    base_url="http://localhost:8203"
+consumer = ComputeConsumer.create(
+    name="my-consumer",
+    agent_type="consumer",
+    capabilities={"compute_type": "inference"},
 )
 
-# Discover resources
-resources = await client.discover_resources(
-    gpu_memory_min=8,
-    compute_type="inference",
-    max_price_per_hour=0.15
+job_id = await consumer.submit_job(
+    job_type="llm_inference",
+    input_data={"model": "llama2", "prompt": "Hello"},
+    requirements={"gpu_memory": 8},
+    max_price=0.15,
 )
-
-# Submit bid
-transaction = await client.submit_bid(
-    gpu_id="gpu-123",
-    duration_hours=4,
-    price_per_hour=0.12
-)
-
-# Query reputation
-reputation = await client.get_reputation("agent-456")
-
-# Get pricing
-pricing = await client.get_pricing()
+status = await consumer.get_job_status(job_id)
 ```
+
+`Agent.get_reputation()` returns the calling agent's own reputation and takes no arguments;
+it cannot query another agent. Use the [Reputation System](#reputation-system) endpoints for
+that.
+
+See [Python SDK Examples](./examples/python-sdk-examples.md) for the full agent and client
+SDK surface.
 
 ## Implementation Details
 
