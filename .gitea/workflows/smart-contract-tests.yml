@@ -153,8 +153,7 @@ jobs:
           echo "=== Running Foundry Tests ==="
 
           # Install OpenZeppelin dependencies (v4.9.6 for compatibility with existing imports)
-          forge install OpenZeppelin/openzeppelin-contracts
-          cd lib/openzeppelin-contracts && git checkout v4.9.6 && cd ../..
+          forge install --no-commit OpenZeppelin/openzeppelin-contracts@v4.9.6
           echo "✅ OpenZeppelin dependencies installed (v4.9.6)"
 
           # Build contracts
