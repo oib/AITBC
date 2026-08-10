@@ -25,8 +25,11 @@ jobs:
     strategy:
       matrix:
         package:
+          # aitbc-core is at packages/aitbc-core, not under packages/py/. There is no delete
+          # commit for packages/py/aitbc-core because it never existed -- the path was wrong
+          # when written, so `cd` failed and this leg has been red on every run since.
           - name: "aitbc-core"
-            path: "packages/py/aitbc-core"
+            path: "packages/aitbc-core"
           - name: "aitbc-crypto"
             path: "packages/py/aitbc-crypto"
           - name: "aitbc-sdk"
@@ -50,7 +53,16 @@ jobs:
 
       - name: Setup and test package
         run: |
-          cd "/opt/aitbc/${{ matrix.package.path }}"
+          # Report a missing matrix path by name rather than letting `cd` fail with
+          # "No such file or directory" and no indication of which entry is stale.
+          # Not `set -euo pipefail`: the steps below read $PYTHONPATH, which is often unset,
+          # and `set -u` would abort on it.
+          PACKAGE_DIR="/opt/aitbc/${{ matrix.package.path }}"
+          if [[ ! -d "$PACKAGE_DIR" ]]; then
+            echo "❌ ${{ matrix.package.path }} does not exist in this checkout"
+            exit 1
+          fi
+          cd "$PACKAGE_DIR"
           echo "=== Testing ${{ matrix.package.name }} ==="
           echo "Directory: $(pwd)"
           ls -la
@@ -134,18 +146,9 @@ jobs:
           fi
 
   test-javascript-packages:
-    name: JavaScript package - ${{ matrix.package.name }}
+    name: JavaScript packages (pnpm workspace)
     runs-on: debian
     timeout-minutes: 30
-
-    strategy:
-      max-parallel: 1
-      matrix:
-        package:
-          - name: "aitbc-sdk-js"
-            path: "packages/js/aitbc-sdk"
-          - name: "aitbc-token"
-            path: "packages/solidity/aitbc-token"
 
     env:
       WORKSPACE: /opt/aitbc
@@ -161,39 +164,47 @@ jobs:
           cd /opt/aitbc
           bash scripts/ci/setup-job-logging.sh
 
-      - name: Setup and test package
+      - name: Setup and test workspace
         run: |
-          cd "/opt/aitbc/${{ matrix.package.path }}"
-          echo "=== Testing ${{ matrix.package.name }} ==="
+          set -euo pipefail
 
-          if [[ ! -f "package.json" ]]; then
-            echo "⚠️ No package.json found, skipping"
-            exit 0
-          fi
+          # This job used to iterate a matrix of packages/js/aitbc-sdk and
+          # packages/solidity/aitbc-token, both deleted in 6f4c4779d. The step opened with
+          # `if [[ ! -f package.json ]]; then echo skipping; exit 0; fi`, so both legs
+          # skipped and the job was green while testing nothing -- the same defect the
+          # matrix in smart-contract-tests.yml was fixed for, in the workflow next to it.
+          #
+          # The surviving JS packages are not standalone directories: they are members of
+          # the pnpm workspace rooted at packages/, where @aitbc/web depends on
+          # @aitbc/theme-provider by "workspace:*". So drive them through the root once
+          # rather than cd-ing into each.
+          cd /opt/aitbc/packages
 
-          node --version
-          pnpm --version
+          # Membership is the thing that can silently rot here, so assert it rather than
+          # discovering a member has vanished by testing nothing.
+          for member in theme-provider web; do
+            if [[ ! -f "$member/package.json" ]]; then
+              echo "❌ packages/$member/package.json is missing -- workspace member gone?"
+              exit 1
+            fi
+          done
 
-          # Install pnpm if not available
-          if ! command -v pnpm &> /dev/null; then
-            npm install -g pnpm
-          fi
+          echo "Node: $(node --version), pnpm: $(pnpm --version)"
 
-          pnpm install
+          # pnpm, not npm: npm rejects the "workspace:*" protocol outright
+          # (EUNSUPPORTEDPROTOCOL). --frozen-lockfile so the installed tree is the one
+          # pnpm-lock.yaml describes, rather than a fresh resolution nothing has audited
+          # (V23-27a). Note contracts/ is the opposite case and uses npm ci.
+          pnpm install --frozen-lockfile
 
-          # Build
-          pnpm run build
+          # -r excludes the workspace root, so the root's own `pnpm -r` scripts do not recurse.
+          pnpm -r --if-present run build
           echo "✅ Build passed"
 
-          # Lint
-          pnpm run lint 2>/dev/null && echo "✅ Lint passed" || echo "⚠️ Lint skipped"
+          pnpm -r --if-present run lint
+          echo "✅ Lint passed"
 
-          # Test
-          if [[ "${{ matrix.package.name }}" == "aitbc-token" ]]; then
-            pnpm hardhat test --no-compile
-          else
-            pnpm test
-          fi
+          pnpm -r --if-present run test
           echo "✅ Tests passed"
 
-          echo "✅ ${{ matrix.package.name }} completed"
+          echo "✅ JavaScript workspace completed"
