@@ -49,12 +49,10 @@ jobs:
         run: |
           cd "/opt/aitbc/contracts"
 
-          # Install pnpm if not available
-          if ! command -v pnpm &> /dev/null; then
-            npm install -g pnpm
-          fi
-
-          pnpm install
+          # npm, not pnpm (V23-28): package.json declares packageManager: npm, only
+          # package-lock.json is tracked, and `npm ci` installs exactly the tree that
+          # `npm audit` in V23-27 measures.
+          npm ci --no-audit --no-fund
           echo "✅ Node.js environment ready"
 
       - name: Run gas usage benchmarks
@@ -64,7 +62,7 @@ jobs:
           echo "🧪 Running gas usage benchmarks"
 
           # Run benchmarks (gas reporting will be added when tests are implemented)
-          pnpm hardhat test test/benchmarks/gas-usage.test.js
+          npx hardhat test test/benchmarks/gas-usage.test.js
 
           echo "✅ Gas usage benchmarks completed"
 
@@ -102,12 +100,10 @@ jobs:
         run: |
           cd "/opt/aitbc/contracts"
 
-          # Install pnpm if not available
-          if ! command -v pnpm &> /dev/null; then
-            npm install -g pnpm
-          fi
-
-          pnpm install
+          # npm, not pnpm (V23-28): package.json declares packageManager: npm, only
+          # package-lock.json is tracked, and `npm ci` installs exactly the tree that
+          # `npm audit` in V23-27 measures.
+          npm ci --no-audit --no-fund
           echo "✅ Node.js environment ready"
 
       - name: Run execution time benchmarks
@@ -116,7 +112,7 @@ jobs:
 
           echo "🧪 Running execution time benchmarks"
 
-          pnpm hardhat test test/benchmarks/execution-time.test.js
+          npx hardhat test test/benchmarks/execution-time.test.js
 
           echo "✅ Execution time benchmarks completed"
 
@@ -153,12 +149,10 @@ jobs:
         run: |
           cd "/opt/aitbc/contracts"
 
-          # Install pnpm if not available
-          if ! command -v pnpm &> /dev/null; then
-            npm install -g pnpm
-          fi
-
-          pnpm install
+          # npm, not pnpm (V23-28): package.json declares packageManager: npm, only
+          # package-lock.json is tracked, and `npm ci` installs exactly the tree that
+          # `npm audit` in V23-27 measures.
+          npm ci --no-audit --no-fund
           echo "✅ Node.js environment ready"
 
       - name: Run throughput benchmarks
@@ -167,7 +161,7 @@ jobs:
 
           echo "🧪 Running throughput benchmarks"
 
-          pnpm hardhat test test/benchmarks/throughput.test.js
+          npx hardhat test test/benchmarks/throughput.test.js
 
           echo "✅ Throughput benchmarks completed"
 
