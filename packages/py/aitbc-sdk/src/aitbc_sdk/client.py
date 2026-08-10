@@ -53,7 +53,13 @@ class _BaseClient:
 
 
 class WalletClient(_BaseClient):
-    """Client for coordinator-api wallet operations."""
+    """Client for wallet-daemon wallet operations.
+
+    These endpoints are served by apps/wallet, not by coordinator-api: the daemon mounts
+    them under /v1, giving /v1/wallets/{wallet_id}/balance and /v1/wallets/{wallet_id}/send.
+    Point the owning client at the wallet daemon to use them; a coordinator-api base URL has
+    no /v1/wallets routes at all.
+    """
 
     def get_balance(self, wallet_id: str) -> WalletBalance:
         """Fetch the balance for a wallet."""
@@ -68,19 +74,43 @@ class WalletClient(_BaseClient):
     def send_payment(
         self,
         wallet_id: str,
-        recipient_id: str,
-        amount: str,
-        asset: str = "",
+        recipient: str,
+        amount: int,
+        password: str,
+        *,
+        fee: int = 36,
+        nonce: int | None = None,
+        chain_id: str | None = None,
+        payload: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Submit a payment request."""
-        return self._post(
-            f"/v1/wallets/{wallet_id}/payments",
-            json={
-                "recipient_id": recipient_id,
-                "amount": amount,
-                "asset": asset,
-            },
-        )
+        """Sign and submit a transaction from a wallet.
+
+        Posts to /v1/wallets/{wallet_id}/send. This used to post to
+        /v1/wallets/{wallet_id}/payments, a path no service in this repo has ever served,
+        with a body of {recipient_id, amount, asset} that no endpoint accepts -- so every
+        call raised rather than transferring anything.
+
+        ``amount`` and ``fee`` are integer base units, not decimal strings, matching the
+        daemon's WalletTransactionRequest. ``password`` unlocks the stored key and is
+        required. There is no asset parameter: the daemon selects the chain via
+        ``chain_id``.
+
+        The endpoint is admin-guarded, so the client's api_key must be the wallet daemon's
+        WALLET_API_KEY.
+        """
+        body: dict[str, Any] = {
+            "password": password,
+            "recipient": recipient,
+            "amount": amount,
+            "fee": fee,
+        }
+        if nonce is not None:
+            body["nonce"] = nonce
+        if chain_id is not None:
+            body["chain_id"] = chain_id
+        if payload is not None:
+            body["payload"] = payload
+        return self._post(f"/v1/wallets/{wallet_id}/send", json=body)
 
 
 class RegistryClient(_BaseClient):
