@@ -7,7 +7,10 @@ import os
 import subprocess
 import sys
 import time
+
 from datetime import UTC, datetime
+
+import requests
 
 from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.exceptions import NetworkError
@@ -315,8 +318,6 @@ def poll_for_jobs():
     poll_data = {"max_wait_seconds": 5}
     headers = {"X-Api-Key": AUTH_TOKEN, "X-Miner-ID": MINER_ID, "Content-Type": "application/json"}
     try:
-        import requests
-
         url = f"{COORDINATOR_URL}/v1/miners/poll"
         response = requests.post(url, json=poll_data, headers=headers, timeout=10)
         if response.status_code == 204:
