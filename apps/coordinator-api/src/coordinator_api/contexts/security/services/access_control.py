@@ -191,7 +191,18 @@ class AccessController:
 
     def _check_retention_period(self, transaction: dict, role: str | None) -> bool:
         """Check if data is within retention period for role"""
-        transaction_date = transaction.get("timestamp", datetime.now(UTC))
+        # `_get_transaction` supplies `created_at`, never `timestamp`. Reading the wrong key
+        # meant the default fired every time, the expiry was always `now + retention`, and
+        # this check returned True for every role and every transaction -- a retention
+        # window that could not be exceeded. `created_at` is an ISO string, so it also has
+        # to be parsed: adding a timedelta to a str raises.
+        transaction_date = transaction.get("created_at") or transaction.get("timestamp")
+        if isinstance(transaction_date, str):
+            transaction_date = datetime.fromisoformat(transaction_date)
+        if transaction_date is None:
+            transaction_date = datetime.now(UTC)
+        if transaction_date.tzinfo is None:
+            transaction_date = transaction_date.replace(tzinfo=UTC)
         if role == "regulator":
             retention_days = 2555
         elif role == "auditor":
