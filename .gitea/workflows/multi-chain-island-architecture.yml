@@ -43,17 +43,14 @@ jobs:
     timeout-minutes: 15
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Check Redis connectivity
@@ -71,7 +68,7 @@ jobs:
 
       - name: Run multi-chain island architecture test
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           TEST_DURATION="${{ inputs.test_duration || '120' }}"
           SKIP_WAIT="${{ inputs.skip_wait || 'false' }}"
