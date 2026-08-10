@@ -1,12 +1,13 @@
-const { ethers } = require("hardhat");
-const fs = require("fs");
-const path = require("path");
-
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
+import fs from "fs";
+import path from "path";
 async function main() {
     console.log("🔍 Verifying Decentralized Memory & Storage Contracts");
     console.log("==============================================");
 
-    const networkName = hre.network.name;
+    const networkName = connection.networkName;
     const deploymentFile = `deployed-contracts-${networkName}.json`;
 
     // Check if deployment file exists
@@ -98,7 +99,7 @@ async function main() {
             await new Promise(resolve => setTimeout(resolve, 5000));
 
             // Verify the contract
-            await hre.run("verify:verify", {
+            await connection.run("verify:verify", {
                 address: contract.address,
                 constructorArgs: contract.constructorArgs
             });

@@ -426,6 +426,13 @@ contracts/governance/lib/
 contracts/cache/
 # Typechain bindings, generated on every build by @nomicfoundation/hardhat-typechain.
 contracts/types/
+# Ephemeral output from contracts/scripts/. Named exactly rather than as
+# `deployments-*.json`, because deployments-{aitbc,aitbc1}-cascade.json and
+# deployments-bridge-sepolia.json are deliberately tracked deployment records and a bare
+# glob would swallow them -- the mistake V23-28/V23-29 found four times over.
+contracts/deployments-localhost.json
+contracts/deployments-bridge-localhost.json
+contracts/health-report-*.json
 
 # Package manager generated files
 pyproject.toml.new
