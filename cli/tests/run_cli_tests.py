@@ -37,16 +37,26 @@ def run_cli_test():
         print(f"❌ CLI help command error: {e}")
         return False
 
-    # Test 2: CLI list command
+    # Test 2: CLI list command (optional - skip if no blockchain node)
     print("\n2. Testing CLI list command...")
     try:
         result = run_command("wallet", "list")
 
         if result.returncode == 0:
             print("✅ CLI list command working")
+        elif (
+            "Connection refused" in result.stderr
+            or "Failed to establish" in result.stderr
+            or "timeout" in str(result.stderr).lower()
+        ):
+            print("⚠️ CLI list command skipped (no blockchain node available)")
+            print("   This is expected in CI environments without a running blockchain node")
         else:
             print(f"❌ CLI list command failed: {result.stderr}")
             return False
+    except subprocess.TimeoutExpired:
+        print("⚠️ CLI list command timed out (no blockchain node available)")
+        print("   This is expected in CI environments without a running blockchain node")
     except Exception as e:
         print(f"❌ CLI list command error: {e}")
         return False
