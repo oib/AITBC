@@ -25,8 +25,79 @@ A finding is marked RESOLVED only after the fix is on `main`, never when a fix i
 written or in review. Everything else here is open. Re-verify before starting: this tree
 changes under multiple agents.
 
-**Totals**: 32 findings — 19 confirmed defects, 13 observed design gaps. **8 resolved**
-(V23-01..05, V23-29, V23-30, V23-31); 24 open.
+**That last sentence is not boilerplate.** `6ce2c7405` closed V23-06 … V23-09, V23-11 …
+V23-15 on `main` without marking any of them here, and a fix for V23-01..05 was written
+against a tree where they still read as open — duplicating work that had already landed.
+Every finding below is marked resolved only after checking the current tree.
+
+That cuts both ways, and it caught me out once. An earlier revision of this paragraph said
+that commit had overclaimed "missing price handling" because "V23-14's `or 0` defaults are
+still there". **That was wrong.** V23-14 is fixed exactly as recommended — a missing
+`price_per_hour` now logs and skips the offer. The `or 0.0` I had grepped is
+`marketplace_service.py:178`, an average over a possibly-empty result set, which is a
+different construct in a different function. Checking a finding means reading the code the
+finding names, not a grep that resembles it.
+
+**Verify before starting, and mark what you fix.**
+
+**Totals**: 41 findings — 28 confirmed defects, 13 observed design gaps. **All 41 resolved**
+(V23-01..32, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
+V23-32a — forty-one entries, thirty-two numbered findings); **0 open**.
+
+Nothing open.
+
+V23-16 was the last to close, and it closed differently from the other forty: it asked for a
+release tag, not a code change, so the decision — which tag to move, and which remote to push
+it to — was the repo owner's to make, and was made explicitly before anything was run. That
+is why this log carried it as the one finding an agent should not close on its own. See its
+entry below for what was decided.
+
+(An earlier revision of this line said "thirty numbered findings" for the thirty-nine
+resolved entries. The count was off by one either way: V23-01 … V23-32 with no gaps is
+thirty-two numbered findings, and the nine suffixed entries bring the total to forty-one.)
+
+`contracts/` went from **38 advisories with 19 high to 11 with none above `low`**, and from
+~880 installed packages to 266, via the Hardhat 2 → 3 migration in V23-27b. The eleven that
+remain are the `@ethersproject/*` v5 family and `elliptic`, reached through `hardhat-verify`,
+none with a published fix.
+
+V23-27 was **partly resolved** for a stretch: the non-breaking half landed first (38
+advisories → 32), leaving a single Hardhat 2 → 3 migration, two of whose dependencies have no
+fix at any version. That migration landed as V23-27b (`7d0be4e57`), so V23-27 is closed and
+the paragraph above is where the counts ended up. This sentence used to read "it is counted
+among the 2 open" — stale from the moment V23-27b merged, and left standing long enough to
+contradict the totals four lines up.
+
+V23-24a, V23-32a, V23-26a, V23-27a and V23-19b were all added while fixing the finding they
+hang off, not during a pass. Fixing a finding keeps turning up a larger one next to it: see
+also the V23-30 note and V23-19a, where the finding as filed was the mildest of four defects
+in the same file. Several are sharper than their parents — V23-27a is the clearest case,
+because it means V23-27's advisory counts were measuring a lockfile CI never installed from;
+V23-19b is the costliest, because a security suite that had never executed is what let four
+cryptographic defects and three more in the service beneath it accumulate unnoticed.
+
+**The recurring shape, stated once.** Fourteen of these findings are the same defect wearing
+different clothes: *something that agrees for a reason unconnected to what it was supposed to
+establish.* A commitment that opens to any amount (V23-19a). A verification key shared by four
+circuits (V23-26a). A status endpoint answering from a literal (V23-26a). A flag manifest
+nothing read (V23-32). A `pipefail` check that matched almost nothing (V23-23). A merge-marker
+hook that only looks mid-merge (V23-23). A retention window whose clock always read *now*
+(V23-19b). A test suite skipped in its entirety (V23-19b). Thirteen scripts whose contract
+calls had drifted out of correspondence with the contracts, behind a `ReferenceError` that
+fired first (V23-27c). None of these fail. That is the problem: **a check that cannot fail is
+indistinguishable from a check that passes**, and the only way to tell them apart is to make
+them fail on purpose. Every fix above that added a guard was confirmed by breaking the thing
+it guards and watching it go red.
+
+I committed the same error twice and both are corrected in place: a merged claim that V23-14's
+`or 0` defaults survived, from a grep that resembled the finding rather than the code it named;
+and "migrated 7" in V23-27b, where only two of the seven were run and one of the other five had
+been broken by the migration itself. **Converting without running, and grepping without
+reading, are the same mistake as shipping a check that cannot fail.** V23-32's fix was to delete a manifest that
+gated nothing, which surfaced two security controls it had reported as enabled at 100%
+rollout that were never implemented. V23-26 was filed as "two divergent copies of a
+directory"; checking how they diverged surfaced one verification key installed for four
+different circuits.
 Severity is about blast radius, not effort.
 
 Written in three passes, each starting from what the previous listed as uncovered.
@@ -38,12 +109,7 @@ cross-chain settlement.
 
 ---
 
-## Critical — signature verification rejects standard signatures · RESOLVED
-
-> **Resolved.** All five findings in this section are fixed together, because V23-05 is the
-> point: fixing them one at a time is what produced nine copies. `aitbc/crypto/
-> signature_recovery.py` is now the only implementation, and a test fails if a tenth
-> appears. Both of the section's repros, which printed `False`, now print `True`.
+## Critical — signature verification rejects standard signatures
 
 The single most consequential cluster. AITBC has **nine independent implementations of
 ECDSA signature recovery**. Eight of them construct `eth_keys.Signature(sig_bytes)`
@@ -152,72 +218,52 @@ next contributor free to write a tenth.
 > costs nothing. The same applies to the signing side, which already has one good
 > implementation.
 
-**RESOLVED (V23-01 … V23-05)** — `aitbc/crypto/signature_recovery.py`, with
-`normalize_signature`, `recover_address` and `verify_signature`. Every site listed in V23-03
-calls it, `poa.py` included: its normalisation was the v0.22 TEST-03 fix, and moving it into
-the shared module is what stops it being the only place that has it.
+**RESOLVED (V23-01 … V23-05).** Most of this landed across `6ce2c7405` and PR #113 and was
+never marked here — the same bookkeeping failure the header note warns about, on the
+cluster the audit opens with. Re-verified by running the finding's own repros against
+`main`:
 
-Both repros in this section invert:
+| Repro | Audit | Now |
+|---|---|---|
+| `verify_request_signature` with `v = 28` | `False` | **`True`** |
+| `verify_block_signature` round trip | `False` | **`True`** |
 
-```
-V23-01: v = 28 -> True     (was False)
-V23-02: True               (was False)
-```
+**V23-03/V23-05 — one construction site.** `git grep "keys.Signature("` returns
+`aitbc/crypto/crypto.py:143` and nothing else; `_recover_address` normalises 27/28 → 0/1 and
+raises `BadSignature` for anything outside `(0, 1)`. Every path the finding listed —
+`consensus_signing.py`, `dispute_resolution.py`, `bridge_validator.py`, `rpc/utils.py` —
+delegates to it. `tests/unit/test_signature_centralization.py` is the grep assertion, and it
+passes with a two-entry allowlist.
 
-**V23-04** is addressed by the type, not by a log line. `SignatureMalformed` is raised for a
-signature that cannot be decoded — wrong length, bad hex, a recovery id that is neither 0/1
-nor 27/28 — while a signature that decodes and recovers to the wrong address returns `False`.
-Callers log the two differently, so a node rejecting every honest block no longer looks
-identical to a node under attack.
+**V23-04 was only half done, and that half is finished here.** The log lines had been
+separated — "could not be parsed" at `warning`, "unexpected error" at `error`. The finding
+asks for "a different log level **and counter**", and its complaint names both: *"the same
+log line and the same metric"*. There was no metric.
 
-**V23-05** is the grep assertion, in
-`tests/security/test_signature_recovery_is_canonical.py`. It fails if `keys.Signature(`
-appears anywhere under `aitbc/`, `apps/`, `cli/` or `packages/` outside the canonical module.
+`aitbc/crypto/signature_metrics.py` adds
+`signature_verification_failures_total{context,outcome}` with `outcome` in
+`mismatch` / `unparseable` / `error`, plus `signature_verifications_total{context}` — because
+"unparseable is 3% of attempts" is actionable and "there were 40 unparseable signatures" is
+not. Wired into the block, transaction and request paths. They land in the default registry,
+so any service already exposing `/metrics` publishes them.
 
-#### The count was ten, not nine
+The distinction is the whole point, and V23-01 is the worked example: it rejected
+transactions from **every standard wallet**, and that is a pure `unparseable` spike with no
+`mismatch` movement — a deployment fault, not an attack. Nothing would have shown it.
+`tests/unit/test_v2304_signature_metrics.py` asserts the two move independently, including
+that scenario.
 
-Two corrections to the finding, both found by writing the fix rather than by reading.
-
-The grep assertion failed on its first run against `aitbc/crypto/transaction_service.py`,
-which the audit's inventory had missed because it greps for
-`recover_public_key_from_msg_hash` and that file mentions `keys.Signature(` only in a
-comment. The comment read: *"eth_keys produces a 65-byte r‖s‖v signature with v in {0, 1},
-which is exactly what verify_transaction_signature's keys.Signature(...) expects."* True,
-and precisely the misconception — a verifier that accepts only v ∈ {0,1} rejects every
-standard Ethereum signature. The comment is rewritten; the assertion now ignores commented
-lines, because flagging prose as an implementation would teach people to delete the
-explanation.
-
-`crypto.verify_signature` was a genuine tenth implementation, reached through a different
-library — `eth_account.Account._recover_hash`. It was correct, having been fixed under v0.22
-TEST-03, so the audit's grep did not surface it. It also depended on a **private** eth-account
-API, which is the same shape as the breakage that preceded it: eth-account 0.13 removed
-`sign_hash`, and that is what left signing broken for a release. It now delegates like
-everything else, and the `ImportError` it raises names eth-keys rather than eth-account,
-which it no longer uses.
-
-#### Three tests were pinning the private API rather than the behaviour
-
-Consolidating `crypto.verify_signature` broke `tests/core/test_crypto_module.py::
-TestVerifySignature`. The tests mocked `Account._recover_hash` and asserted on what the mock
-returned, so they verified nothing about verification and broke the moment recovery moved,
-though nothing about verification had changed. A fourth, `test_verify_signature_error`, kept
-passing by accident: it mocked a method the code no longer calls, and the `ValueError` it
-expected came from somewhere else entirely.
-
-They now sign with a real key and check the result, which is the only assertion that
-separates a working verifier from a broken one — and is what the V23-02 fix recommendation
-asked for.
-
-**Verification**: `tests/unit`, `tests/security` and `tests/core` — 1712 tests, 17 failures;
-the same 17 fail on a clean `origin/main` checkout of 1687 tests (CLI command tests unrelated
-to signing). blockchain-node 692 passed. mypy clean across 205 files.
+> One thing the tests caught in themselves: an early version drove the "unparseable" case
+> with byte patterns `0x00…` and `0x01…`, which are *valid* recovery ids — so two of ten
+> counted as mismatches and the assertion failed. The fixture claimed to be ten encoding
+> failures and was eight. Worth recording because it is the same error class as the finding:
+> a check whose inputs do not mean what the check says they mean.
 
 ---
 
 ## High — things that are named for what they do not do
 
-### V23-06 — `TEEChannel.send` base64-encodes and calls it encryption · CONFIRMED
+### V23-06 — `TEEChannel.send` base64-encodes and calls it encryption · CONFIRMED → RESOLVED
 
 `aitbc/tee/channel.py:73`. The method is `send`, the docstring is *"Send an encrypted
 message on the channel"*, the local is `ciphertext`, the field is `payload` on a type called
@@ -233,7 +279,7 @@ Consumed by `apps/edge/src/edge_app/tee_proxy.py`.
 > fine; a placeholder that reads as a security control at every call site is not. Same class
 > as v0.22's APP-33 and CORE-24.
 
-### V23-07 — two functions named `encrypt_value`, opposite guarantees · CONFIRMED
+### V23-07 — two functions named `encrypt_value`, opposite guarantees · CONFIRMED → RESOLVED
 
 - `aitbc/security/encryption.py:49` — PBKDF2 + Fernet, requires a password, rejects weak ones.
 - `cli/aitbc_cli/utils/__init__.py:52` — `base64.b64encode`, password argument accepted and
@@ -258,7 +304,7 @@ This was raised in v0.22 as an adjacent finding and never ticketed. It is ticket
 
 ## High — structural hazards
 
-### V23-08 — two apps ship a package called `agent_app` · CONFIRMED
+### V23-08 — two apps ship a package called `agent_app` · CONFIRMED → RESOLVED
 
 `apps/agent-coordinator/src/agent_app/` (53 files, the real application) and
 `apps/coordinator-api/src/agent_app/` (7 files, no `__init__.py`). Both parent directories
@@ -273,7 +319,7 @@ ls apps/agent-coordinator/src/agent_app apps/coordinator-api/src/agent_app
 This is the same failure mode as v0.22's `tests/cli` shadowing the real `cli` package, which
 cost an afternoon to diagnose because the error pointed nowhere near the cause.
 
-### V23-09 — the shadowing package is dead test scaffolding in a `routers/` directory · CONFIRMED
+### V23-09 — the shadowing package is dead test scaffolding in a `routers/` directory · CONFIRMED → RESOLVED
 
 All seven files in `apps/coordinator-api/src/agent_app/routers/` are named
 `b{N}_self_check.py`, contain `def test_*` functions with asserts and a `__main__` block,
@@ -293,7 +339,7 @@ collectable by pytest if `apps/coordinator-api/src` is ever added to `testpaths`
 > still carry meaning, move them to `tests/` as real tests. That removes the collision and
 > the dead code in one step.
 
-### V23-10 — seven apps do not use the `src/` layout · OBSERVED
+### V23-10 — seven apps do not use the `src/` layout · OBSERVED → RESOLVED
 
 `src/`-layout: 17. Flat: `archive`, `blockchain-explorer`, `exchange`, `ffmpeg`, `miner`,
 `whisper`, `zk-circuits`.
@@ -311,11 +357,87 @@ The other six carry the same risk of divergence.
 > the intended layout somewhere enforceable — a CI check over `apps/*/` is a few lines — so
 > the count does not grow.
 
+**RESOLVED** — the enforceable check exists (`tests/unit/test_v2310_app_test_imports.py`),
+and writing it corrected the count. **It is five, not seven:**
+
+- **`archive` is not an app.** Three tracked files under `peertube-transcoder/`, one of them
+  `DEPRECATED.md`. A deprecation graveyard was counted as a flat-layout service.
+- **`miner` is half-migrated**, not flat: `src/miner_app/` exists *and*
+  `production_miner.py` is still at the root. Which turned out to matter — see V23-10a.
+
+The remaining five are `blockchain-explorer`, `exchange`, `ffmpeg`, `whisper`,
+`zk-circuits`. The guard pins that set: a new flat-layout app fails, and a migration fails
+until the name is removed from the list, so the count can only fall.
+
+### V23-10a — whole app test suites have been dark for a month, and nothing reports it · CONFIRMED → RESOLVED
+
+Found while writing V23-10's check. The layout question is cosmetic next to what it was
+hiding.
+
+**`apps/agent-coordinator`**: `3fc1333fe` (2026-07-07) renamed `src/app` → `src/agent_app`
+and did not update the tests, which import `from src.app...`. **All three modules failed at
+collection from that day on**, including `test_security_agent_coordinator.py`. Thirty-four
+days.
+
+**`apps/miner`**: `apps/miner/pyproject.toml` sets `pythonpath = ["src"]`, but the tests
+import `production_miner`, which is at the app root — the half-migration above. All three
+modules failed to collect. Separately, the mere presence of that file makes it pytest's
+config for anything under `apps/miner`, so the root `pyproject.toml`'s marker registrations
+do not apply and every `@pytest.mark.unit` became an unknown mark.
+
+**Why nothing noticed**: CI runs exactly two app suites — `coordinator-api` and
+`blockchain-node` (`.github/workflows/ci.yml`). No other app's tests are executed by any job.
+A suite that stops collecting is indistinguishable from one that passes.
+
+**Fixed here — agent-coordinator**: imports repointed at `agent_app`; the suite runs, **76
+passing**. The two failures that surfaced were both stale tests, not product bugs, and both
+are worth recording because they fail in opposite directions:
+
+- `test_assign_task_accepts_chain_id` built its subject with `LoadBalancer.__new__` and set
+  attributes by hand. `__init__` later gained `self._lock`, the hand-built object did not,
+  and the test raised `AttributeError` against correct code. All five `__new__` call sites
+  now use the real constructor, so the object cannot drift out from under them again.
+- `test_agent_stream_default_rpc_url_is_8202` asserted `"8202" in inspect.getsource(...)`.
+  It broke when the literal was replaced by `aitbc.constants.BLOCKCHAIN_RPC_URL` — **the
+  port was still 8202; the test failed because the code improved.** It now asserts where the
+  request actually goes.
+
+**Fixed here — miner's collection**: `pythonpath = ["src", "."]` and the two markers
+registered. The suite collects again.
+
+**Miner's 33 failures, now fixed.** Left open in the first pass on the grounds that deciding
+per test whether the test or the code is wrong is real work. Done properly, every one was a
+stale test — but establishing that meant checking each against a consumer, not against
+plausibility:
+
+| Failure class | Count | Which side was wrong, and how it was decided |
+|---|---|---|
+| Mocked `production_miner.httpx.get/post` | 25 | The module goes through `AITBCHTTPClient`, whose `get`/`post` return **parsed JSON** and raise `NetworkError` — it never sees a status code. The mocks described an interface the code does not touch. |
+| Asserted `result["gpu"]["model"]` | 6 | The code emits `"gpus"`, a list. Settled by the consumer: `apps/coordinator-api/.../services/jobs.py:152` reads `capabilities.get("gpus", [])`. |
+| `poll_for_jobs` returning `{}` | 1 | Asserted `result is not None`; the code returns `None`. The code is right — handing a job-shaped empty object to the mining loop is the bug. |
+| `wait_for_coordinator` | 2 | Called without `await` and asserted the coroutine object was `True`. The app's own pytest config lacked `asyncio_mode`, so the root setting did not apply. |
+
+Two tests were asserting on mocks so far from the real interface that they would have passed
+whatever the module did — `test_register_miner_failure` drove a `Mock(status_code=400)` past
+code that never inspects a status code. Rewritten to assert the actual contract: a
+registration that returns no `session_token` is a failure.
+
+One product change: `poll_for_jobs` had `import requests` **inside the function** — the only
+call site in the module not on `AITBCHTTPClient`, with its dependency invisible at the top of
+the file and unpatchable at `production_miner.requests`. Hoisted to module scope. It is still
+the one unmigrated function, which is now at least legible.
+
+**60 passing, 0 failing.** Verified non-vacuous: renaming `"gpus"` to `"gpu_list"` in the
+production code fails 6 tests, so the suite detects the regression class it exists for.
+
+> **The larger gap**: no CI job runs the other ~22 app suites. The import guard added here
+> catches only the cheapest class of breakage. Running them is the actual fix.
+
 ---
 
 ## Medium — concurrency
 
-### V23-11 — `OfferSubscriptionClient` mutates shared state from concurrent tasks · OBSERVED
+### V23-11 — `OfferSubscriptionClient` mutates shared state from concurrent tasks · OBSERVED → RESOLVED
 
 `aitbc/trading/subscription_client.py`. Seven `async def`s, fourteen mutations of
 `self._lease_expiry`, `self._subscriptions` and `self._status`, all keyed by `chain_id`, and
@@ -328,7 +450,7 @@ run concurrently and touch the same dicts — see lines 151, 174, 212–213, 224
 > matters: a renew interleaving with a status transition can leave a subscription marked
 > `SUBSCRIBED` with an expired lease.
 
-### V23-12 — seven more async modules with the same shape · OBSERVED
+### V23-12 — seven more async modules with the same shape · OBSERVED → RESOLVED
 
 `aitbc/alerting.py`, `aitbc/network/client.py`, `aitbc/network/subscription_manager.py`,
 `aitbc/agent_bridge/src/integration_layer.py`, `aitbc/bridge/oracle.py`,
@@ -343,11 +465,37 @@ That is worth establishing per module rather than assuming in either direction.
 > lock; where it is not, say so in a comment, because the next reader will ask the same
 > question.
 
+**RESOLVED (V23-11, V23-12)** — six of the seven modules gained a lock in `6ce2c7405`:
+
+| Module | Lock |
+|---|---|
+| `aitbc/alerting.py` | `asyncio.Lock` |
+| `aitbc/auth/middleware.py` | `asyncio.Lock` |
+| `aitbc/network/subscription_manager.py` | `asyncio.Lock` |
+| `aitbc/agent_bridge/src/integration_layer.py` | `asyncio.Lock` ×2 |
+| `aitbc/bridge/oracle.py` | `threading.Lock` |
+| `aitbc/async_tasks.py` | `threading.Lock` |
+
+V23-11's `OfferSubscriptionClient` is locked too (`subscription_client.py:89`, held at three
+call sites).
+
+**The seventh, `aitbc/network/client.py`, has no lock and should not have one** — which is
+the half of the recommended fix that was still missing, since "no lock needed" is only useful
+if it is written down. Both client classes there hold no mutable state of their own:
+everything set in `__init__` is read-only afterwards, and the state that changes across
+requests lives in `CircuitBreaker`, `RateLimiter` and `CacheLayer`, each of which locks it
+(`RetryPolicy` is stateless). A comment in `AsyncAITBCHTTPClient.__init__` now records that,
+including the condition under which it stops being true: state added to the class itself
+would need its own lock, because the collaborators' locks do not extend to it.
+
+Adding a lock here would have been the worse outcome — it would serialise unrelated requests
+through a client that is already safe to share.
+
 ---
 
 ## Medium — configuration and honesty
 
-### V23-13 — production endpoint hardcoded into marketplace responses, over plaintext HTTP · CONFIRMED
+### V23-13 — production endpoint hardcoded into marketplace responses, over plaintext HTTP · CONFIRMED → RESOLVED
 
 `apps/marketplace/src/marketplace_service/services/marketplace_service.py:269–271` writes
 `http://hub.aitbc.bubuit.net/rpc` into `endpoint`, `public_endpoint` and `health_url` on
@@ -362,7 +510,13 @@ Clients are being handed a plaintext URL as the endpoint to use.
 > same time — `apps/coordinator-api/.../sdk/enterprise_client.py:52` has
 > `https://api.aitbc.dev/enterprise` as a dataclass default.
 
-### V23-14 — money defaults to `0` in marketplace offer construction · OBSERVED
+**RESOLVED** in `6ce2c7405`. All three fields now read `settings.hub_rpc_url`
+(`marketplace_service.py:276–278`), whose default in `config.py:35` is
+**`https://`** — the plaintext scheme is gone along with the hardcoding. The second
+hardcoded URL noted above was left as-is: it is a client-side dataclass default over TLS,
+which is a different (and much smaller) problem than a server telling callers to use HTTP.
+
+### V23-14 — money defaults to `0` in marketplace offer construction · OBSERVED → RESOLVED
 
 Same block, line 266: `"price": offer.get("price_per_hour", 0)`. An int fallback in a price
 field, in a repo whose stated invariant is `Decimal` everywhere for money. A missing price
@@ -371,7 +525,14 @@ becomes a free offer rather than an error.
 > **Fix**: no default. An offer without a price is malformed and should be dropped with a
 > warning, not published at zero.
 
-### V23-15 — hardware validation asserts rather than checks · OBSERVED
+**RESOLVED** in `6ce2c7405`, exactly as recommended — `marketplace_service.py:260–263` reads
+`price_per_hour` with no default, logs `"Skipping blockchain offer %s: missing
+price_per_hour"` and continues. The surviving value is wrapped as
+`Decimal(str(price_per_hour))`, so the `Decimal`-for-money invariant holds too.
+
+(This is the finding an earlier revision of the header note wrongly called unfixed.)
+
+### V23-15 — hardware validation asserts rather than checks · OBSERVED → RESOLVED
 
 `apps/pool-hub/src/poolhub/services/validation.py:112–123`. `_get_miner_hardware_value` maps
 `"storage": 100, # Assume sufficient storage` and `"network": 1, # Assume network is
@@ -383,17 +544,62 @@ storage or network requirement always passes.
 > silently satisfied. If the intent is that these are always satisfiable, remove them from
 > the requirement vocabulary so nobody writes a requirement that is silently ignored.
 
+**RESOLVED** in `6ce2c7405`, the first of the two options. Both entries are now
+`None,  # Not measured; caller warns "cannot verify"`, and the caller checks for it before
+comparing (`validation.py:89–92`): a `None` appends `"Cannot verify {component} requirement"`
+to `result.warnings` and skips the comparison. An unmeasurable requirement no longer passes
+silently — it fails to be checked, visibly.
+
 ---
 
 ## Low — process
 
-### V23-16 — v0.22 tag still points at broken code · OBSERVED
+### V23-16 — v0.22 tag still points at broken code · OBSERVED → RESOLVED
 
 Carried forward from v0.22 and still true. `v0.22.0` is at `a5d84956f`, which has the ZK
 proving keys deleted and proving silently disabled. `v0.22.1` (`b2539661b`) restores them but
 predates the entire v0.22 remediation, now merged as `d6b6b9dda`.
 
 > **Fix**: tag `main`. Nothing should be released from either existing v0.22 tag.
+
+**RESOLVED** on 2026-08-10. `v0.23.0` is now an annotated tag at `d69f56e0b` — `main`, in
+sync with `origin/main` — and is pushed to `origin` (`3cffc514d`, dereferencing to
+`d69f56e0b`). Its message names both superseded tags and why neither should be deployed.
+
+Verified before tagging, because the finding is about a tag that pointed somewhere nobody had
+checked:
+
+```
+git rev-list -n1 v0.22.0                       # a5d84956f — 7 .zkey files
+git rev-list -n1 v0.22.1                       # b2539661b — 16 .zkey files
+git merge-base --is-ancestor d6b6b9dda main    # 0 — remediation is in
+git ls-remote --tags origin | grep v0.23.0     # 3cffc514d / d69f56e0b^{}
+```
+
+Three things this turned up that the finding as filed did not say:
+
+1. **`v0.23.0` already existed, and was wrong too.** It was a local-only annotated tag at
+   `ae12c7417` with the message "v0.23.0 release baseline" — a marker dropped mid-audit, 38
+   commits behind `main`, predating V23-24…V23-32, V23-19a/b and the Hardhat 3 migration.
+   Publishing it would have reproduced this very finding one minor version later: a release
+   tag pointing at a tree whose known defects are not yet fixed. It was never pushed, so it
+   was deleted and recreated at `main` rather than left to be found again.
+2. **The bad v0.22 tags are on `origin`, and only there.** `github` (the mirror) carries no
+   v0.2x tags at all — its newest is `v0.10.13` — so `origin` is where the finding actually
+   bites and where the fix was pushed. Pushing to `github` would have jumped it from v0.10 to
+   v0.23 and was deliberately not done.
+3. **`main` has 14 `.zkey` files to `ae12c7417`'s 16, and that is correct.** The two absent
+   are `apps/zk-circuits/modular_ml_components_000{0,1}.zkey`, removed by `cc503dc89` — the
+   V23-26a fix that stopped stale duplicate circuits being served. The key actually served,
+   under `apps/coordinator-api/.../zk-circuits/`, is present. Worth stating explicitly: a
+   lower `.zkey` count is the exact signature of what made `v0.22.0` unreleasable, so it had
+   to be shown to be a different thing before tagging on top of it.
+
+The decision itself — retag `v0.23.0` rather than cut `v0.23.1`, and push to `origin` only —
+was the repo owner's, taken deliberately, which is what the header note above asked for. The
+two v0.22 tags are left in place, untouched: they are published, and rewriting them would
+break anyone who has already fetched them. They are superseded by name in the `v0.23.0` tag
+message instead.
 
 ---
 
@@ -403,13 +609,20 @@ Covering what the first pass listed as uncovered: the ten unread apps, `scripts/
 dependencies. Baseline re-verified first — V23-01 and V23-09 both still reproduce on
 `main` at `a0c60b894`, so the findings above stand.
 
-**Second-pass totals**: 7 findings — 6 confirmed, 1 observed.
+**Second-pass totals**: 7 findings — 6 confirmed, 1 observed. **Six of the seven are now
+resolved** (V23-17 … V23-22); **V23-23 is open**.
+
+> This paragraph sat as an unresolved conflict block — `<<<<<<< HEAD` / `=======` /
+> `>>>>>>> f9d378797` — from the V23-17 merge until it was found while working V23-23. One
+> side claimed V23-17 was resolved, the other V23-18; both were true and both were stale.
+> See V23-23's note: pre-commit's `check-merge-conflict` was passing on every commit that
+> touched this file, because it only inspects files while git is mid-merge.
 
 ---
 
-## Critical — a service that reports work it did not do
+## Critical — a service that reports work it did not do · RESOLVED
 
-### V23-17 — `POST /databases/{id}/sync` fabricates progress and persists it · CONFIRMED
+### V23-17 — `POST /databases/{id}/sync` fabricates progress and persists it · CONFIRMED → RESOLVED
 
 `apps/edge/src/aitbc_edge/services/database_service.py:86-94`, exposed at
 `apps/edge/src/aitbc_edge/routers/database.py:63`.
@@ -450,11 +663,38 @@ missed it.
 > wanted, gate it on an env var and mark the response, as ai-engine does. The one thing it
 > must not do is commit `last_sync_at`.
 
+**RESOLVED** — both house patterns, in the order the finding put them. `sync_database`
+raises `SyncNotImplementedError` and the route answers **501** with the explanation;
+`EDGE_ALLOW_SIMULATED_SYNC` (default off) returns a placeholder stamped `"simulated": True`
+instead.
+
+The flag re-enables a *response*, not the writes. **Nothing is committed in either mode** —
+no `last_sync_at`, no `records_synced`, no `sync_status`. A wrong response can be corrected
+by the next call; a fabricated `last_sync_at` in the database outlives the call that made
+it, and is what monitoring reads. Six of the nine tests assert absence: that the counter has
+not moved, that `commit()` was never reached, and that five repeated calls accumulate
+nothing.
+
+`{"success": False, "message": "... not found"}` is unchanged for a missing database — a
+specific answer beats a blanket 501.
+
+#### The label was being discarded one layer up
+
+`cli/aitbc_cli/commands/edge.py:369` calls this endpoint, and it took `result["success"]` as
+its cue to print *"Database X synced"*. That would have reported a simulated response as a
+completed sync — the same claim the fix removes from the service, restated by the client
+that reads it. It now prints the simulated message as a warning, and surfaces the 501 detail
+instead of letting `raise_for_status` reduce the server's explanation to a status line.
+
+This is the third finding in this audit where the defect had a consumer that repeated it
+(compare V23-30, V23-31). It seems to be the characteristic failure mode of this codebase
+rather than a coincidence: a value is produced wrongly, and whatever reads it agrees.
+
 ---
 
-## Critical — governance timelock fails open
+## Critical — governance timelock fails open · RESOLVED
 
-### V23-18 — a failed on-chain submission removes the execution timelock · CONFIRMED
+### V23-18 — a failed on-chain submission removes the execution timelock · CONFIRMED → RESOLVED
 
 `apps/governance/src/governance_service/services/governance_service.py:406`.
 
@@ -500,11 +740,70 @@ grep -n "block_height" apps/governance/src/governance_service/domain/governance.
 > `voting_ends_block` at creation and measure the timelock from it, so the safety window is
 > the one the parameter name promises.
 
+**RESOLVED** — the check moved into `_enforce_execution_timelock`, which refuses execution
+on every path that cannot *prove* the delay elapsed: no recorded `block_height`, no recorded
+`voting_ends_block`, or an unreachable chain. `voting_ends_block` is now a column, recorded
+at creation, and the timelock runs from it.
+
+#### The finding was one level too shallow
+
+The audit named the `if proposal.block_height is not None:` guard. The whole check sat
+inside a larger one:
+
+```python
+if settings.enable_onchain_submission and settings.proposer_private_key:
+    ...
+    if proposal.block_height is not None:
+        ...  # the timelock
+```
+
+`enable_onchain_submission` **defaults to False**. So the shipped configuration did not need
+an RPC hiccup to skip the timelock — it never ran one. Every proposal executed immediately,
+and `_apply_parameter_change` then pushed the approved parameter to the target service. The
+finding described the rare path into a fail-open; the common path was already there.
+
+This is the second time in this audit that a defect turned out to have a copy or an
+enclosing case that the pass did not name — see the V23-30 note. Reading found the
+instance; only changing the code found the class.
+
+The enforcement is now unconditional, with an explicit escape hatch:
+`require_execution_timelock` (default **True**). Setting it False logs a WARNING naming the
+proposal on every bypass. A development deployment with no chain needs that switch; the
+alternative — inferring "no chain configured" and silently skipping — is how this finding
+came to exist.
+
+#### Two adjacent problems fixed with it
+
+- **Execution overwrote its own evidence.** `proposal.block_height = block_height` at
+  execution time replaced the creation height with the execution height. That is the exact
+  value `_enforce_execution_timelock` measures from, so after a proposal executed there was
+  no way to check retrospectively whether the delay had been honoured. The execution height
+  now goes to `proposal_metadata["execution_block_height"]` and the creation height stays.
+- **The timelock overlapped the voting period**, as the audit noted. It now runs from
+  `voting_ends_block`. A test pins the difference: at a height where the delay has elapsed
+  measured from creation but not from the end of voting, execution is refused.
+
+#### Operational consequence, stated plainly
+
+Proposals already in the database have no `voting_ends_block`, and any whose on-chain
+submission failed have no `block_height`. **Those proposals can no longer be executed** and
+must be re-submitted. Migration `003` deliberately does not backfill: deriving a
+voting-end block from current settings would manufacture exactly the evidence this check
+exists to demand. An operator who needs to execute a pre-existing proposal has to set
+`require_execution_timelock=False` — consciously, and with a warning in the log — which is
+the point.
+
+Sixteen tests cover this in `apps/governance/tests/test_v023_execution_timelock.py`. Before
+this change the governance suite had **no test that executed a proposal at all**; the two
+tests named `test_execute_proposal` assert only that the endpoint returns one of
+`[200, 404, 500]`. That is why a safety control could be absent by default without anything
+going red.
+
 ---
 
 ## High — supply chain
 
-### V23-19 — 68 known vulnerabilities across 12 packages · CONFIRMED
+### V23-19 — 68 known vulnerabilities across 12 packages · CONFIRMED → RESOLVED
 
 ```
 ./venv/bin/python -m pip_audit --progress-spinner off
@@ -529,7 +828,260 @@ to `cryptography` / `eth_keys`.
 > still uses it — this repo has both `ecdsa` and `eth_keys` in play — and prefer removing
 > the dependency to carrying an unfixable advisory.
 
-### V23-20 — the installed environment does not match `pyproject.toml` · CONFIRMED
+**RESOLVED.** The headline number was not a property of this repository. Taking each of the
+68 to its source:
+
+| Origin | Vulns | Packages |
+|---|---|---|
+| **Not in `poetry.lock` at all** | **31** | `gitpython` 24 (via `truffleHog`), `pyasn1` 4 (via `python-jose`/`rsa`), `mcp` 3 (orphaned) |
+| **Declared correctly, installed stale** | **5** | `starlette` 3, `pydantic-settings` 1, `msgpack` 1 — the pinned version already carried every fix |
+| Genuinely the project's, fixed here | 27 | `pillow` 20, `aiohttp` 3, `cryptography` 3, `torch` 1 |
+| Transitive, resolved upward by re-locking | 4 | `setuptools` 75.8.0 → 81.0.0 |
+| Unfixable upstream | 1 | `ecdsa` — see below |
+
+**36 of 68 were properties of one machine.** `python-jose`, `rsa`, `truffleHog`, `semgrep`
+and `mcp` appear nowhere in the lock; they were `pip install`ed into the Poetry venv. V23-20
+said "two of the 68 findings are already fixed by the declarations". The true figure is
+eighteen times that.
+
+**Bumped** in `pyproject.toml`, lock regenerated: `cryptography` 48.0.1 → 50.0.0, `aiohttp`
+3.14.1 → 3.14.3, `pillow` 12.2.0 → 12.3.0, `torch` 2.12.0 → 2.13.0. The torch bump forced
+`torchvision` 0.27.0 → 0.28.0, which pins `torch` exactly — worth noting because it is the
+kind of coupling that turns a one-line security bump into a resolution failure.
+
+**`ecdsa` stays**, with the rationale the finding asked for, written where the dependency
+lives (`aitbc/wallet/confidential.py`) rather than here where nobody editing that file will
+see it. In short: it is the sole consumer, only curve arithmetic is used, and
+`cryptography` deliberately exposes no raw point arithmetic so there is no drop-in
+replacement.
+
+> **Correction, made when V23-19a was fixed.** This rationale originally carried a second
+> argument: that the timing side channel had nothing to recover, because the blinding factor
+> was already in the envelope in the clear. That was true of the broken construction and is
+> **false now** — the blinding is a real secret held by the wallet, so PYSEC-2026-1325
+> describes a live exposure rather than a theoretical one. The conclusion is unchanged (the
+> dependency is still not removable) but it now rests on the first argument alone, and the
+> risk is higher than this entry originally claimed. A rationale that depended on the system
+> being broken stopped being valid when it was fixed. See V23-19a.
+
+### V23-19a — "confidential" transactions carry the amount and the blinding factor in the clear · CONFIRMED → RESOLVED
+
+Found while establishing which code paths reach `ecdsa` (V23-19). Not fixed here — fixing it
+means implementing real commitments.
+
+`ConfidentialTransaction` (`aitbc/wallet/confidential.py`) stores `amount_commitment`
+**and** `amount_label` (the amount) **and** `blinding` (the secret that hides it) in the same
+envelope. `verify_commitment()` recomputes the commitment from the amount and blinding
+sitting next to it and compares.
+
+So the check establishes that a sender's three fields are mutually consistent. It proves
+nothing to a verifier, because anyone constructing the envelope controls all three — and
+there is no confidentiality, because the amount is right there.
+
+The module docstring is honest that the commitments are "a pedagogical stand-in for
+production range proofs / Bulletproofs". What is not disclosed is where it is wired:
+
+```
+cli/aitbc_cli/commands/confidential.py  →  validate_payment()
+    aitbc/agent_economics/confidential_payments.py:29
+    "Validate a confidential payment inside the TEE trust boundary"
+        →  ConfidentialTransaction.verify_commitment()
+```
+
+`validate_payment` raises `TEEError("confidential transaction commitment is invalid")` on
+failure, which reads as a cryptographic validation inside a trust boundary. The CLI's offline
+branch labels its output `"status": "simulated"`; the branch that POSTs to
+`/v1/confidential/payments` does not.
+
+This is the audit's recurring shape at its purest: **a check that agrees for a reason
+unconnected to what it is supposed to establish.** It is the same defect as the shared
+verification key (V23-26a) and the hardcoded `"trusted_setup": "completed"` — the difference
+is that here the mechanism is sound and the *inputs* make it vacuous.
+
+> **Fix**: real Pedersen commitments — the blinding factor must not travel with the
+> commitment, and `amount_label` must not exist in the envelope at all. Until then, every
+> path that presents this as confidential should say "simulated", including the coordinator
+> POST, and `validate_payment` should not raise `TEEError` in language that implies it
+> verified something.
+
+**RESOLVED** — and the finding as filed was the mildest of four defects in the same file.
+Going in to remove `amount_label` meant reading the commitment construction, which did not
+survive the reading. Each was demonstrated by running it, not by inspection; the
+demonstrations are now `tests/security/test_v2319a_pedersen.py` (24 tests).
+
+**1. The commitments were not binding.** `_H` was built as
+
+```python
+_H = SigningKey.from_string(hashlib.sha256(b"aitbc-pedersen-h").digest(),
+                            curve=NIST256p).get_verifying_key().pubkey.point
+```
+
+which is `h*G` for `h = int(sha256(b"aitbc-pedersen-h"))` — a number anybody can compute in
+one line. A Pedersen commitment is binding *only* while nobody knows `log_G(H)`. Knowing `h`
+collapses `C = v*G + r*H` to `(v + r*h)*G`, so for any target `v'` the blinding
+`r' = (v + r*h - v')·h⁻¹` opens the same commitment to `v'`. Executed against the shipped
+code:
+
+```
+commit('100')     = 02ba08d765f0f7a7496fb9619d5dac1c...
+  opens to '100'? True
+  opens to '1'?   True      # same commitment, forged blinding
+```
+
+**A commitment that opens to every amount commits to none.** The construction's whole
+security property was absent, and the "pedagogical stand-in" disclaimer in the docstring
+covers the *range proof*, not this.
+
+**2. The commitments were not additively homomorphic**, which is the other half of what
+Pedersen is for. `v` was `sha256(amount) mod n`, and `sha256("2") + sha256("3")` is not
+`sha256("5")`. So `add_commitments` and `subtract_commitments` returned points that opened to
+nothing at all — and `ConfidentialWallet.balance_commitment` is built entirely from them.
+
+**3. Nothing retained the blinding factors.** `deposit` and `send` generated `os.urandom(32)`,
+committed with it, and dropped it. `balance_commitment` could therefore never be opened by
+anyone, including its owner. `balance_proof()` returned it under that name.
+
+**4. Amounts were never numbers.** Because the amount was hashed, any string was a valid
+amount. The unit tests passed `"commitment-100"`; the CLI took an argument it called
+`amount-commitment` and passed it straight through as the amount. `"1"`, `"1.0"` and `"01"`
+committed to three different values.
+
+Fixed: `_H` now comes from try-and-increment hash-to-curve on a domain-separated seed, so no
+discrete log relative to `G` is known to anyone; `v` is the amount in fixed-point minor units,
+so the homomorphism holds and `Commit(a) + Commit(b)` opens to `a + b` under the summed
+blinding; the wallet retains openings, so `balance_commitment` opens to `open_balance()`;
+amounts are parsed as `Decimal` and rejected — not rounded — beyond 8 places, negative, or
+past a `2**64` unit bound.
+
+The finding's own request is also done: `ConfidentialTransaction` no longer has
+`amount_label` or `blinding` fields, the zero-argument `verify_commitment()` is gone in favour
+of `opens_to(amount, blinding)` requiring the secret from the caller, and `validate_payment`
+no longer raises `TEEError("...commitment is invalid")`. That check was not replaced with
+something that resembles it — it was **removed**, and the docstring now states plainly that
+validation establishes the parties and the signature and nothing about the amount. An
+`opening` parameter is available for callers that hold the secret out of band.
+
+> **Still missing, and stated in the module rather than hidden.** There is no range proof, so
+> a verifier cannot conclude a transfer created no value — the `2**64` bound constrains an
+> honest sender and proves nothing about a hostile one, who constructs the point directly.
+> And there is no opening transport: the recipient needs `(amount, blinding)` to open what it
+> was sent, and putting that in the envelope is the defect this finding is about. Closing
+> both is Bulletproofs plus an encrypted channel. **The commitments are now real; the system
+> built on them is still incomplete, and must not be presented as production
+> confidentiality.**
+
+Two things found alongside:
+
+* **`/v1/confidential/payments` does not exist.** The CLI's non-simulated branch POSTs there;
+  `git grep` finds the string in exactly one place in the repository, the CLI itself. The
+  audit noted that this branch does not label its output "simulated" — the sharper problem is
+  that it cannot succeed against any service in this tree. Both branches now say "simulated",
+  and the branch is retained for out-of-tree coordinators with a note saying so.
+* **`tests/security/test_confidential_transactions.py` is skipped in its entirety.** It
+  imports `ViewingKey` from `coordinator_api.models.confidential`, which has no such name,
+  and `coordinator_api.services.confidential_service`, which does not exist; the `ImportError`
+  sets `CONFIDENTIAL_AVAILABLE = False` and every class is `skipif`-ed. 700 lines of security
+  tests that have never run. The two unit tests named for the confidential CLI commands fail
+  too, at `from aitbc_cli.utils.wallet import decode_private_key` — an unrelated pre-existing
+  break in `commands/operations.py`, and one of the baseline 18. So **no test anywhere
+  exercised this code path**, which is the answer to why four defects of this size sat in it.
+  The new file is the first coverage it has had; repairing the skipped suite is separate work.
+  **Done — see V23-19b.**
+
+### V23-19b — the confidential security suite had never executed, and three defects were sitting under it · CONFIRMED → RESOLVED
+
+`tests/security/test_confidential_transactions.py`: 21 test functions, ~700 lines, **zero of
+them ever run**. The module-level `ImportError` set `CONFIDENTIAL_AVAILABLE = False` and every
+one of its three classes was `skipif`-ed away.
+
+**The imports could not be repaired, because the file tested a system that was never built.**
+Of the ten methods it called on `ConfidentialTransactionService`, **nine do not exist anywhere
+in the repository** — and neither does the service. It also patched
+`apps.coordinator_api.src.app.services.{hsm,mpc,pqc,aml,deniable,retention}_service`, a
+package path this repository has never had. HSM integration, multi-party computation, deniable
+encryption, post-quantum signatures, viewing keys, regulatory reporting, retention policies:
+designed, tested against, not implemented.
+
+So the file was replaced rather than fixed, with **32 tests against what does exist** — the
+X25519 + AES-256-GCM envelope encryption in `coordinator_api.contexts.security.services`,
+driven against real keys on a real temporary keystore rather than mocks.
+
+Writing them found three defects, each of which the old suite existed to catch:
+
+**1. `EncryptionService.encrypt` silently dropped participants it could not encrypt for.** The
+per-participant `except` logged and `continue`d, so naming an unregistered participant
+returned a payload whose only usable key was the audit escrow's — **reported as success, and
+unreadable by the person it was addressed to.** Measured before the fix:
+`encrypt(data, participants=["nobody"])` returned `encrypted_keys: ['audit']`. It now raises.
+
+**2. A *failed* key rotation destroyed the key anyway.** This is the serious one. The rollback
+read:
+
+```python
+except Exception:
+    new_key_pair.version = current_key.version   # restores the version number
+    await self.storage.store_key_pair(new_key_pair)   # ...stores the NEW key material
+```
+
+The version number went back; the key did not. Since `_reencrypt_transactions` raises
+`NotImplementedError`, **this was the only path rotation ever took** — so every call to
+`rotate_keys` reported `KeyManagementError` to its caller while having already replaced the
+participant's key and permanently orphaned everything encrypted under the old one. Verified by
+running it: after a "failed" rotation the stored private key had changed and previously
+readable ciphertext raised `DecryptionError`. The rollback now restores `current_key`.
+
+**An operation that says "failed" must not have consumed anything**, and in a confidential
+system the thing consumed was the only means of reading the data.
+
+**3. The retention check could not fail.** `_check_retention_period` read
+`transaction["timestamp"]`, a key `_get_transaction` never sets — it supplies `created_at`. The
+`datetime.now(UTC)` default therefore fired on every call, making the expiry always
+`now + retention`, so **every role passed for every transaction regardless of age**. Had the
+key been present it would have been an ISO string, and `str + timedelta` raises, so the
+default was also the only path that worked at all. Now reads `created_at` and parses it; the
+1825/2555/3650/365-day windows per role are actually applied.
+
+Same shape as V23-26a and V23-32: a check that exists, passes, and cannot fail.
+
+Also fixed while here: `rotate_keys` wrapped `NotImplementedError` as `KeyManagementError`, so
+the router's `except NotImplementedError -> 501` arm could never fire. The endpoint answered
+**400**, with `detail=str(e)` putting the internal message in the response body where every
+sibling handler returns `"Internal server error"`. `_reencrypt_transactions`'s own docstring
+says "the route returns 501". It does now.
+
+**Each of the three regression tests was confirmed to fail when its defect is reintroduced**,
+by reverting the fix in place and re-running — not by assuming a test that passes would have
+caught anything.
+
+Two things the replacement deliberately does *not* assert, because they are not true and
+pretending otherwise is how the original file came to exist. **There is no forward secrecy** —
+participant keys are long-lived X25519 keys in the keystore, so a compromised private key
+reads every past payload addressed to it; the old `test_forward_secrecy` generated its own
+ephemeral keys inline and asserted they round-tripped, which tests `cryptography`, not this
+service. And **timing side channels are not covered** — the old file had three tests
+asserting wall-clock correlations below a threshold, which under load measure the CI runner.
+
+Verified: 32 tests pass; root suite 1772 tests at the **same 18 baseline failures**, with
+skips falling **34 → 13** — the 21 that used to skip now run. `coordinator-api`'s own suite is
+unchanged at 32 failed / 271 passed / 16 errors, confirmed by running it with and without
+these changes. `ruff`, `mypy aitbc/` and the clean-apps mypy gate all pass.
+
+**The V23-19 rationale for keeping `ecdsa` no longer holds as written.** Its second bullet
+argued the PYSEC-2026-1325 timing side channel was tolerable because "the side channel needs
+a secret to leak" and the blinding factor travelled in the envelope anyway. That was true of
+the broken construction and is false now — the blinding is a real secret held by the wallet.
+The advisory now describes a live exposure rather than a theoretical one. The dependency is
+still not removable (only curve arithmetic is used, and `cryptography` exposes none), so the
+conclusion stands, but the reasoning has been corrected in place in both the module docstring
+and V23-19's entry. **A rationale that depended on the system being broken stops being valid
+when you fix it.**
+
+Verified: `ruff` clean, `mypy aitbc/` clean (205 files), `tests/unit + tests/security +
+tests/core` 1761 tests with the same 18 baseline failures, and both CLI commands exercised
+directly — `send` returns a commitment and `status: simulated`, `commitment-100` is now
+rejected with `amount is not a decimal number`.
+
+### V23-20 — the installed environment does not match `pyproject.toml` · CONFIRMED → RESOLVED
 
 | Package | Pinned | Installed |
 |---|---|---|
@@ -554,7 +1106,25 @@ grep -E "^(starlette|pydantic-settings) = " pyproject.toml
 > when the resolved environment drifts from the lock. Without that check, "the tests pass"
 > means less than it appears to.
 
-### V23-21 — an undeclared tool downgrades a shared dependency · CONFIRMED
+**RESOLVED** — the check exists, and running it showed the drift is an order of magnitude
+larger than the two packages the finding names. `scripts/ci/check-env-matches-lock.py`
+reports **39 packages at a different version than the lock** and **83 installed that the
+lock does not contain at all**, on the machine this audit was run on.
+
+Wired into CI twice, deliberately: in `quality-gates`, so every PR establishes that the
+declared dependency set is what was tested; and in `security` immediately after the scanner
+install, which is where V23-21's contamination happens.
+
+`--strict` is opt-in. Without it the script reports and exits 0, because a developer who has
+deliberately installed a tool should not be blocked by a local check — the enforcement point
+is CI, where the environment is built from the lock and nothing else.
+
+> **Not done here**: syncing this machine's venv. `poetry install --sync` would remove the
+> 83 undeclared packages, and this venv is shared with the main checkout and other concurrent
+> sessions — pulling packages out from under a running process is not a change to make
+> unannounced. The command is `poetry install --sync`, and the check will confirm it worked.
+
+### V23-21 — an undeclared tool downgrades a shared dependency · CONFIRMED → RESOLVED
 
 `gitpython` 3.0.6 is installed with 11 advisories against it. It is not in
 `pyproject.toml`. It is pulled in by `truffleHog`, which is also not in `pyproject.toml`:
@@ -577,11 +1147,40 @@ tool silently running against a version it does not support.
 > venv should not contain packages that no manifest mentions — which is the same check
 > V23-20 asks for.
 
+**RESOLVED**, and the finding understates it: this is not one developer's mistake, **CI
+reproduces it on every run.** `.github/workflows/ci.yml` had
+
+```yaml
+- run: poetry install --no-interaction --locked
+- run: pip install "semgrep==1.170.0" "trufflehog==2.2.1"
+```
+
+back to back in the same job. The second line installs into the environment the first line
+just built from the lock, so every `poetry run` step *after* it — `bandit`, and the audit
+itself — executed against a mutated environment. The security job was downgrading a security
+tool's dependency as a matter of routine.
+
+Answering the finding's question: **truffleHog is wanted** — it is a CI scanner, and the
+third option it did not list is the right one. Declaring it in the dev group would force the
+resolver to reconcile `truffleHog`'s `GitPython` against `detect-secrets`' `>=3.1.30`, which
+either fails or drags the whole project's lock toward a decade-old scanner's constraints.
+These are CLIs; nothing in this repo imports them. They belong in their own environments.
+
+`pipx install` per tool, followed immediately by
+`check-env-matches-lock.py --strict` so the isolation is asserted rather than assumed. That
+step is the one that fails if someone reintroduces a bare `pip install` here.
+
+> Two inconsistencies noticed and left alone, since neither is this finding: the CI
+> invocation uses truffleHog v2 syntax (`--regex --entropy False`) while
+> `docs/security/1_security-cleanup-guide.md:176` documents v3 syntax
+> (`trufflehog filesystem --directory`), and v2.2.1 is a 2019 release of a tool whose
+> maintained successor is a different program in a different language.
+
 ---
 
 ## High — a deploy script that defaults to destroying the local checkout
 
-### V23-22 — `deploy-to-server.sh` defaults to `root@127.0.0.1` and deletes its own source · CONFIRMED
+### V23-22 — `deploy-to-server.sh` defaults to `root@127.0.0.1` and deletes its own source · CONFIRMED → RESOLVED
 
 `scripts/deployment/deploy/deploy-to-server.sh`, lines 8-9 and 34-36:
 
@@ -612,11 +1211,55 @@ git grep -n "AITBC_DEPLOY_SERVER" -- scripts/
 > immediately with a usable message. Then reverse the order — copy first, swap second — so
 > a failed transfer cannot leave the target with nothing. Both scripts.
 
+**RESOLVED** — both scripts, as recommended, plus two things the finding did not ask for.
+
+```
+$ env -u AITBC_DEPLOY_SERVER bash scripts/deployment/deploy/deploy-to-server.sh
+deploy-to-server.sh: line 16: AITBC_DEPLOY_SERVER: set AITBC_DEPLOY_SERVER
+  (e.g. root@10.1.223.93) — there is no default target
+$ echo $?
+1
+```
+
+The copy now stages to `$PROJECT_DIR.incoming` and swaps, keeping the previous release as
+`$PROJECT_DIR.previous` rather than deleting it. A transfer that dies half-way leaves the
+target with a working tree instead of nothing, and the swap is two `mv`s rather than a
+delete-then-copy.
+
+**The source is no longer hardcoded.** `scp -r /opt/aitbc` copied whatever sat at that path
+on the machine running the script, which is what made "delete the target, then copy from the
+target" possible in the first place. It now derives from the script's own location, so it
+copies the checkout it belongs to.
+
+**An explicit refusal for the case the finding describes**, since removing the default is not
+quite sufficient — someone can still pass `root@127.0.0.1` by hand:
+
+```
+$ AITBC_DEPLOY_SERVER=root@127.0.0.1 AITBC_DEPLOY_SOURCE=/opt/aitbc \
+  AITBC_DEPLOY_PROJECT_DIR=/opt/aitbc bash scripts/deployment/deploy/deploy-to-server.sh
+❌ Refusing to deploy: the target is this machine and PROJECT_DIR (/opt/aitbc)
+   is the directory being deployed from. This would delete its own source.
+```
+
+#### A second hardcoded path, in the same pair of scripts
+
+`deploy-explorer.sh` built from `/home/oib/windsurf/aitbc/apps/explorer-web` — a path that
+exists on exactly one machine. Anywhere else the `cd` failed and `set -e` stopped the
+deploy, which is the least bad outcome available but not one to rely on: it is the same
+class as the `/opt/aitbc` assumption, and it survived because failing loudly on every other
+machine looks like the script simply not being used. It now builds from the repository root
+and says so if the directory is missing.
+
+Both scripts also moved from `set -e` to `set -euo pipefail` (V23-23's shape) — without
+`set -u`, `${AITBC_DEPLOY_SERVER:?}` is the only guard against an unset variable, and every
+other one in the script would still expand to empty. `$SERVER` is quoted at all 22 `ssh`
+call sites.
+
 ---
 
 ## Medium — shell safety is inconsistent across 266 scripts
 
-### V23-23 — `set -e` without `set -u` in about 166 scripts · OBSERVED
+### V23-23 — `set -e` without `set -u` in about 166 scripts · OBSERVED → RESOLVED
 
 ```
 git ls-files 'scripts/**/*.sh' | wc -l                        # 266
@@ -640,6 +1283,56 @@ listed as the pattern, not as a live hazard.
 > and doing that across 166 scripts at once gives no way to tell which break was real. A
 > pre-commit check on new scripts stops the count growing.
 
+**RESOLVED** — as a ratchet, which is what the fix note asks for. Deliberately **not** a
+sweep: `scripts/ci/check-shell-strict-mode.py` runs from pre-commit on the scripts in the
+current commit, so touching a script means bringing it up to standard and the count can only
+fall. `--all` audits the tree and never fails, for seeing where the number stands.
+
+Measured across the whole tree rather than `scripts/**/*.sh` alone: **501 shell scripts, 77
+with all three settings.** Restricted to the audit's scope, `scripts/*.sh` is 269 files with
+47 compliant — close to its 266/44, and the difference is that this counts shebang scripts
+without a `.sh` suffix too.
+
+> **The checker had the defect it was written to catch.** The first `pipefail` pattern
+> required `-o\s+pipefail`, which does not match `set -euo pipefail` — the canonical
+> spelling, where the `o` belongs to the `-euo` bundle. It reported 501 scripts with **1**
+> compliant, including the two deploy scripts hardened under V23-22. A checker that says
+> "one out of five hundred" is one nobody believes, and it would have been deleted rather
+> than fixed. Caught by disbelieving the number and testing against a script known to be
+> right.
+
+#### A committed merge conflict, and the hook that could not see it
+
+Found while working this finding. `docs/releases/v0.23/release.log:535` carried a full
+conflict block — `<<<<<<< HEAD` / `=======` / `>>>>>>> f9d378797` — sitting in the
+second-pass totals since the V23-17 merge. One side said V23-17 was resolved, the other
+V23-18. Both were true; both were stale.
+
+`.pre-commit-config.yaml` runs `check-merge-conflict`, and it **passed on every commit that
+touched this file**, including a dozen of mine. Its source says why:
+
+```python
+if not is_in_merge() and not args.assume_in_merge:
+    return 0
+```
+
+It inspects files only while git is *mid-merge*. Once a bad resolution is committed the
+markers are ordinary text and it never looks again — so it catches the mistake you are about
+to make and is blind to the one already in the tree. The second is the one that matters,
+because nobody is looking at it.
+
+`--assume-in-merge` would make it always run, but it flags a bare `=======`, and
+`docs/scenarios/07_ai_job_submission.md:110` has one inside a fenced code block as a heading
+underline. A check that cries wolf on documentation gets switched off.
+
+`scripts/ci/check-merge-markers.py` requires the **pair**: `<<<<<<< ` or `>>>>>>> ` is
+unambiguous, and a lone `=======` is reported only when the file also carries one of those.
+Zero false positives on this tree, runs on every commit. The upstream hook is kept — between
+them, one catches the conflict being resolved and the other the one already committed.
+
+This is the same shape as V23-32 (a flag manifest nothing read) and V23-26a (a status
+endpoint answering from a literal): **a check that exists, passes, and cannot fail.**
+
 ---
 
 # Third pass — 2026-08-09
@@ -648,12 +1341,13 @@ Covering what the second pass left: JavaScript/Solidity dependencies, `zk-circui
 `api-gateway`.
 
 **Third-pass totals**: 5 findings — 4 confirmed, 1 observed. Two positives recorded.
+**V23-24 is resolved**, and V23-24a was added to this section afterwards.
 
 ---
 
-## Critical — proving keys with no phase-2 contribution are the ones loaded
+## Critical — proving keys with no phase-2 contribution are the ones loaded · RESOLVED
 
-### V23-24 — `zk_proofs.py` loads `_0000.zkey` for two circuits while `_0001` sits beside it · CONFIRMED
+### V23-24 — `zk_proofs.py` loads `_0000.zkey` for two circuits while `_0001` sits beside it · CONFIRMED → RESOLVED
 
 `apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/zk_proofs.py:24-46`.
 
@@ -691,7 +1385,69 @@ literal* is the strongest evidence it was not deliberate.
 > contribution at load time, or name the files by content hash rather than by sequence, so
 > a stale index cannot silently mean "unsecured".
 
-### V23-25 — the trusted setup is undocumented · OBSERVED
+**RESOLVED** — the second option. `_resolve_proving_key` picks the highest-numbered
+contribution on disk, so all four circuits now load `_0001` and a new contribution is picked
+up by adding the file rather than by editing a literal. A circuit whose highest key is
+`_0000` **does not load at all**: it logs an error naming the circuit and stays out of
+`available_circuits`, rather than proving with a key that has a known forger.
+
+Writing the resolver's tests found a bug in the resolver: `glob("c_*.zkey")` is a prefix
+match, so a circuit named `c` would happily adopt `c_extra_0009.zkey`. Fixed by requiring
+the stem to equal the circuit exactly. No two shipped circuit names collide today, so this
+was latent — but adopting a neighbouring circuit's key is the same class of mistake as
+adopting a zero-contribution one, and the audit's own wording ("a stale index cannot
+silently mean unsecured") is the reason to care.
+
+#### V23-24a — the verifier accepted the verification key from the caller · NEW, CONFIRMED → RESOLVED
+
+Found while fixing the above, and larger than it.
+
+`ZKProofService.verify_proof` took a `verification_key` argument and, when given one,
+verified against it instead of any key on disk:
+
+```python
+if verification_key:
+    vkey = verification_key
+```
+
+Both routers passed one straight through from the request body.
+`POST /v1/zk/verify` had it as an optional field; **`POST /v1/ml-zk/verify/training` and
+`/verify/inference` required it** — `verification_request["verification_key"]`, a hard key
+lookup, so the caller always supplied the key their own proof was checked against.
+
+Generate a Groth16 keypair, prove any statement you like, submit the proof and your own
+verification key, and the endpoint answers `verified: true`. The routes are mounted under
+`/v1` in `main.py` with a rate limit and no authentication dependency.
+
+Which proving key sat on disk was therefore beside the point. V23-24 asked whether the
+*right* key was being used; this asks whether the disk was consulted at all, and it was not.
+A verifier that accepts the verifier's key from the party being verified is not checking
+anything.
+
+> **Fixed here.** `verify_proof(proof, public_signals, circuit_name=None)` — the key is
+> loaded server-side from the named circuit. A caller may say *which* circuit to check
+> against, never *what to check with*. `verification_key` is gone from `VerifyProofRequest`
+> rather than merely ignored, so a client still sending one gets a validation error instead
+> of silently having it dropped. An unknown circuit name is refused rather than defaulted.
+
+#### The coordinator now fails closed, like the node
+
+`COORDINATOR_ENABLE_ZK_VERIFICATION` (default **off**) gates verification, and the refusal
+is checked before circuit availability so a misconfigured deployment cannot verify by
+accident. This closes the coordinator half of V23-32: the blockchain node already answered
+*"ZK proof verification is not enabled on this node"*, while the coordinator served the same
+capability from unsecured keys.
+
+`feature_flags.json` has an `enable_zk_proof_verification` entry, and it is worth recording
+why it is not what gates this: **nothing reads that file.** `aitbc/feature_flags.py` was
+removed in v0.10.9 and no loader replaced it, which is also why the node's fail-closed path
+is a hardcoded comment mentioning the flag rather than a check of it. An env var is the
+convention actually in use (`AI_ENGINE_ALLOW_SIMULATION`, `EDGE_ALLOW_SIMULATED_SYNC`), so
+this uses one instead of pretending the JSON is live. That the file is orphaned deserves its
+own finding; V23-32's severity should be re-read in that light, since it rated flags that
+have no effect.
+
+### V23-25 — the trusted setup is undocumented · OBSERVED → RESOLVED
 
 `apps/zk-circuits/README.md` is 32 lines: status, description, node type, GPU required,
 service, source. There is no record of how the `.zkey` files were produced — no ceremony,
@@ -709,7 +1465,29 @@ live rather than theoretical.
 > circuits are meant to carry value, a real multi-party ceremony with published transcripts
 > is the prerequisite, not a follow-up.
 
-### V23-26 — two divergent copies of the circuit tree · CONFIRMED
+**RESOLVED** — and the honest answer turned out to be readable, not merely guessable. snarkjs
+stores phase-2 contribution names inside the `.zkey`, so the setup record could be read out
+of the artifacts:
+
+| `.zkey` | Contributor name recorded |
+|---|---|
+| `receipt_simple_0001` (build tree) | **`1st Contributor Name`** |
+| `receipt_simple_0002` (build tree) | `1st Contributor Name`, `2nd Contributor Name` |
+| `test_final_v2_0001` | `Test Contributor` |
+| `circuit_0001` | `AITBC Phase1` |
+| `receipt_simple_0001` (service tree) | none recorded |
+| `ml_inference_verification_0001`, `ml_training_verification_0001` | none recorded |
+
+Those are the literal defaults in `package.json`'s `contribute-zkey` script. Nobody edited
+the command. That is not a gap to be filled with a careful guess — it *is* the record, and it
+says the setup was run once, locally, by an unidentified party, with no transcript.
+
+`apps/zk-circuits/README.md` now carries a Trusted setup section stating exactly that, with
+the operative consequence spelled out: **assume the setup secret still exists, and that
+whoever holds it can forge proofs that verify.** The status endpoint's
+`"trusted_setup": "completed"` — a bare claim in a literal — now reads `"development-only"`.
+
+### V23-26 — two divergent copies of the circuit tree · CONFIRMED → RESOLVED
 
 - `apps/zk-circuits/` — 75 tracked files, the app that builds the circuits.
 - `apps/coordinator-api/src/coordinator_api/contexts/zk_applications/zk-circuits/` — 49
@@ -729,11 +1507,100 @@ git ls-files apps/coordinator-api/src/coordinator_api/contexts/zk_applications/z
 > configured path, or the build publishes artifacts to a location both agree on. Copying
 > binary keys between trees by hand is how V23-24 and this finding both happened.
 
+**RESOLVED**, and the divergence is worse than a missing `receipt_simple_0002.zkey`. Reading
+the binary headers rather than the filenames:
+
+| Circuit | `.circom` / `.r1cs` / `.wasm` | `.zkey` |
+|---|---|---|
+| `receipt_simple` | **identical** in both trees | **different key material under identical filenames** |
+| `modular_ml_components` | **different circuits** — 527 wires here, 19 there | `_0001` **byte-identical** in both trees |
+
+Both rows are broken, in opposite directions.
+
+The first is two independent `groth16 setup` runs on the same constraint system. Structurally
+interchangeable, cryptographically not: a proof made with one tree's key does not verify
+against the other's verification key. Nothing in the filenames says which is which.
+
+The second is worse. `apps/zk-circuits/modular_ml_components_000*.zkey` were keys for a
+19-variable circuit sitting next to a 527-wire `.r1cs` — copied in from the service tree
+without the constraint system they belong to. **A proving key is bound to one constraint
+system**, so those keys could not prove that circuit at all. They have been deleted; that
+tree now has no `modular_ml_components` key until setup is re-run against its own `.r1cs`,
+which is the accurate state rather than a plausible-looking one.
+
+The `.gitignore` in `apps/zk-circuits/` — written to stop a repeat of the v0.22 incident
+where `*.zkey` was ignored and proving silently died — asserts that "coordinator-api's
+ZKProofService loads them from this directory". It does not; it loads from the in-package
+copy. A protective comment naming the wrong consumer is the same failure as a status
+endpoint answering from a literal: correct-looking, and not connected to what runs.
+
+**Fix applied**: `ZKProofService.__init__` takes an optional `circuits_dir` and honours
+`COORDINATOR_ZK_CIRCUITS_DIR`, defaulting to today's in-package path so deployments are
+unchanged — the hardcoded path was why nothing could be pointed at the other tree to
+compare in the first place. `apps/zk-circuits/README.md` now states which tree runs, how
+they diverged, and how to regenerate. `tests/security/test_v2326_zk_artifacts.py` reads the
+headers and fails on either class of mismatch.
+
+### V23-26a — one verification key, copied into four places, for four different circuits · CONFIRMED → RESOLVED
+
+Found while resolving V23-26, by checking key agreement instead of file presence.
+
+`verification_key.json` appeared four times in the service tree — at the root and in
+`receipt_simple_js/`, `ml_inference_verification_js/`, `ml_training_verification_js/`. **All
+four were byte-identical.** The circuits they served are not:
+
+| Circuit | Public signals in its proving key | The installed verification key |
+|---|---|---|
+| `receipt_simple` | 0 | 1 → **mismatch** |
+| `ml_inference_verification` | 1 | 1 → consistent |
+| `ml_training_verification` | 5 | 1 → **mismatch** |
+| `modular_ml_components` | 5 | 1 → **mismatch** |
+
+A verification key belongs to exactly one proving key. Three of the four circuits were wired
+to a key that cannot verify their proofs, and the wiring was invisible because every file
+existed and was named correctly. `available_circuits` checked `path.exists()` — the one
+question these files were guaranteed to pass.
+
+The failure direction is safe: proofs would fail to verify, not verify falsely. But
+"receipts are being attested" was not true, and nothing said so.
+
+**Two further defects surfaced from the same spot:**
+
+`_generate_proof`, the receipt path, read `list(self.available_circuits.values())[0]` —
+whichever circuit happened to sort first. Withholding `receipt_simple` would have silently
+repointed receipt proving at `ml_inference_verification`: a valid proof of an entirely
+different statement, returned as a receipt attestation. It now names `RECEIPT_CIRCUIT` and
+raises if it is unavailable.
+
+The `/zk/status` endpoint reported `circuit_status: {"receipt": "compiled"}` and
+`zkey_files: {...: "available"}` from hardcoded literals, and `"trusted_setup": "completed"`.
+It now reports what the service actually loaded.
+
+**Fix applied**: `_verification_key_mismatch` compares the proving key's public-signal count
+against the verification key's `nPublic` and withholds the circuit on disagreement, with the
+`snarkjs zkey export verificationkey` command in the message. The three mismatched files are
+deleted rather than left to mislead.
+
+> **Operational consequence**: the coordinator now loads **one** circuit,
+> `ml_inference_verification`. `receipt_simple`, `ml_training_verification` and
+> `modular_ml_components` are withheld pending real verification keys. Receipt proving is
+> therefore off — but it was producing proofs that could not be verified with the installed
+> key, so this discloses the state rather than causing it. One `snarkjs zkey export
+> verificationkey` per circuit restores them.
+
+> **Note on the method**: this was found by comparing artifacts to each other rather than
+> checking each existed. Every one of these files passed the existence check, which is the
+> only check anything performed. The recurring shape in this audit — a value produced wrongly
+> and a consumer that agrees for the same wrong reason — reaches its clearest form here: the
+> wrong verification key, a status endpoint hardcoded to call it available, and a
+> `.gitignore` comment protecting the wrong directory for a reason that names the wrong
+> consumer.
+
 ---
 
 ## High — the contract toolchain's declared dependency tree
 
-### V23-27 — 38 advisories in `contracts/package-lock.json`, 19 high · CONFIRMED
+### V23-27 — 38 advisories in `contracts/package-lock.json`, 19 high · CONFIRMED → RESOLVED
 
 ```
 cd contracts && npm audit
@@ -758,7 +1625,306 @@ By contrast `packages/` is clean: `pnpm audit` reports no known vulnerabilities.
 > the hardhat-verify major separately against the contract suite (115 passing as of v0.22).
 > Splitting them keeps the breaking change reviewable.
 
-### V23-28 — `contracts/` is configured for pnpm and locked for npm · CONFIRMED
+**PARTLY RESOLVED — 38 → 32 (19 high → 13).** The non-breaking half is done and the lockfile
+committed. Unlike V23-19, this count *is* a property of the repository: it comes from the
+tracked lockfile, so it is what anyone gets on `npm ci`.
+
+**The remaining 32 are one migration, not thirty-two problems.** Every one traces to the
+Hardhat 2.x toolchain:
+
+| | |
+|---|---|
+| `@nomicfoundation/hardhat-toolbox` → 7.0.0 | pulls `adm-zip`, `undici`, `hardhat` |
+| `@nomicfoundation/hardhat-verify` → 3.0.22 | pulls the twelve `@ethersproject/*`, including `elliptic` |
+| `solidity-coverage` → 0.7.22 | pulls `serialize-javascript`, `mocha` |
+| `@typechain/hardhat`, `hardhat-gas-reporter` | **no fix published at any version** |
+
+All five are direct dev dependencies and all five are semver-major. Two have no fix at all,
+so even taking every breaking bump does not reach zero — this is a Hardhat 2 → 3 migration
+with two dependencies that must be replaced or dropped. That is a project, and splitting it
+out is what the finding asked for.
+
+**On `elliptic`**, which the finding singled out: it is reached through
+`@ethersproject/signing-key` in `hardhat-verify`, which is **contract tooling, not deployed
+code**. The exposure is a developer or CI machine running verification, not anything
+on-chain. Worth stating because "risky cryptographic primitive in the signing path" reads
+much worse than it is here.
+
+**Verified against the contract suite**, with a baseline rather than an assumption: on the
+*original* lockfile, `npx hardhat test` gives **115 passing / 87 pending / 2 failing**; on the
+fixed lockfile, identical, with the same two failures (`Phase 4 Modular Smart Contracts`,
+`TreasuryManager`). The lockfile change is neutral.
+
+> **Two things the audit did not record, found while establishing that baseline**: the
+> contract suite has **2 pre-existing failures and 87 pending** tests — "115 passing as of
+> v0.22" was accurate and incomplete — and **no CI workflow references `contracts/` at
+> all**. Nothing builds, tests or audits the contract toolchain automatically, which is the
+> same gap V23-10a found for app suites.
+
+> **Correction to that second point. It is wrong.** Seven workflows reference `contracts/`,
+> and six jobs across two of them build and test it: `smart-contract-tests.yml`
+> (`test-solidity`, `test-foundry`, `lint-solidity`, `deploy-contracts`) and
+> `contract-benchmarks.yml` (three benchmark jobs). I had grepped `.github/workflows/`. This
+> repository runs on Gitea Actions and its CI lives in **`.gitea/workflows/`** — the
+> directory whose job names were visible in the PR checks I had been reading all along.
+> Checking one plausible location and reporting the absence as a fact is the same error as
+> V23-14, where a grep that resembled the finding stood in for the code the finding named.
+> The real defect is worse than the one I reported, and is written up below.
+
+**Second pass on the remainder — 32 → 27, and high 13 → 1.** The finding said the rest was a
+Hardhat 2 → 3 migration. Most of it is. Some of it was not, and the part that was not is
+reachable through `overrides`, which `contracts/package.json` already uses.
+
+| Override | Was | Now | Clears |
+|---|---|---|---|
+| `serialize-javascript` | `^6.0.2` | `^7.1.0` | 2 high |
+| `ws` | *(none)* | `^8.21.3` | 2 high |
+| `adm-zip` | *(none)* | `^0.6.0` | 1 high |
+
+**`serialize-javascript` was already overridden — to a vulnerable version.** The advisory range
+is `<=7.0.4`; the override pinned `^6.0.2`, squarely inside it. An override added to fix a
+vulnerability was holding the package at a vulnerable version, and because the entry existed
+it read as handled. Clearing it also cleared `mocha` and `hardhat-gas-reporter`, which the
+finding lists as *"no fix published at any version"* — true of an advisory against the package
+itself, and not the reason they were flagged.
+
+**`undici` — 12 of the 32 advisories — cannot be fixed without the migration, and this was
+verified rather than assumed.** The vulnerable range is `<=6.27.0`, so any 7.x or 8.x clears
+it, and with `undici@8.10.0` the audit reported **zero high and zero moderate** while the test
+suite stayed at exactly 115/87/2. It would have shipped a broken toolchain:
+
+```
+$ rm -rf ~/.cache/hardhat-nodejs && npx hardhat compile
+Error HH502: Couldn't download compiler version list.
+  Caused by: InvalidArgumentError: maxRedirections is not supported, use the redirect interceptor
+```
+
+undici removed `maxRedirections` in 7.0; Hardhat 2.29 still passes it. **The suite passed
+because solc was already cached, so the download path never ran.** `undici@7.29.0` fails the
+same way, so there is no version above the vulnerable range that Hardhat 2 can use. That is
+the difference between "the tests pass" and "it works", and it is the second time in this
+audit that a green result came from a code path that never executed.
+
+**On `elliptic`**, two corrections to the finding. It is **low**, not high. And its vulnerable
+range is `*` — *no published version is unaffected* — so the existing `elliptic: ^6.5.4`
+override cannot do anything and never could.
+
+**On `solidity-coverage`**, `npm audit fix --force` proposes `0.7.22` against an installed
+`0.8.17`. That is a **downgrade**, presented in the same column as the upgrades. Taking it
+would move backwards to reach a version predating the advisory. The finding quoted the
+proposal without noting it goes the wrong way; it should not be taken.
+
+**Remaining: 27 (18 low, 8 moderate, 1 high).** Every one traces to Hardhat 2.x, and the one
+high is `undici`. Verified with `npm ci` from an empty `node_modules` and a cleared compiler
+cache: 51 contracts compile, suite at 115/87/2 — the baseline, unchanged.
+
+**The migration, now scoped against the registry rather than guessed at.** Hardhat 3.12.0 is
+stable and the plugin line has shipped: `hardhat-toolbox-mocha-ethers@3.0.7` keeps mocha and
+ethers, so the test *framework* need not change; `hardhat-verify@3.0.22`,
+`hardhat-ethers@4.0.15`, `hardhat-chai-matchers@3.0.0`, `hardhat-network-helpers@3.0.11` all
+exist for it. Two do not and must be dropped, not upgraded: **`@typechain/hardhat` stops at
+9.1.0** and **`solidity-coverage` stops at 0.8.17** (Hardhat 3 has built-in coverage). The
+work is 33 files that import `hardhat`, 16 test files and 20 scripts, plus the config:
+Hardhat 3 removes the injected global `ethers` in favour of `await network.connect()`, and
+`solidity.compilers` becomes `solidity.profiles`.
+
+**DONE — 27 → 11, and every remaining advisory is `low`.** The migration was carried out;
+see V23-27b. One correction to the scoping above: typechain was not dropped, it **moved** —
+`@typechain/hardhat` is dead but `@nomicfoundation/hardhat-typechain@3` is bundled in the
+toolbox, so bindings are still generated. And Hardhat 3 removed `undici` from its dependency
+tree entirely, which is why the 12 advisories that had no reachable fix disappear rather than
+being suppressed.
+
+### V23-27b — the Hardhat 2 → 3 migration · RESOLVED
+
+Carried out against the 115 passing / 87 pending / 2 failing baseline, which the migrated
+suite reproduces exactly, with the same two pre-existing failures (`Phase 4 Modular Smart
+Contracts`, `TreasuryManager`).
+
+**Advisories: 27 → 11, and 0 high, 0 moderate.** The eleven that remain are the
+`@ethersproject/*` v5 family plus `elliptic`, reached through `hardhat-verify`, all `low` and
+all with no fix published. `elliptic`'s vulnerable range is `*`, so it stays until
+`hardhat-verify` stops using ethers v5 internally. **The dependency tree drops from ~880
+packages to 266.**
+
+The `ws` / `serialize-javascript` / `adm-zip` overrides from V23-27 are **kept, and still
+earn their place**: removing them under Hardhat 3 puts the count back to 14 with 1 high and 3
+moderate. Hardhat 3 itself already depends on `ws ^8.21.1` and `adm-zip ^0.6.0` — the same
+versions those overrides force — so they now agree with the toolchain rather than fighting it.
+
+What actually had to change, in order of how much thought it needed:
+
+**The EVM target moved, silently.** Hardhat 2 built this project for `paris`, because solc
+0.8.19 defaults to it and Hardhat 2 was selecting 0.8.19 for most files. Hardhat 3 picks the
+newest compiler each pragma allows — 0.8.20 — which defaults to **`shanghai`**, and shanghai
+emits `PUSH0`. A chain that has not adopted Shanghai rejects that opcode. Nothing in the test
+suite would have caught it: the tests run against an EDR chain that supports it. `evmVersion:
+"paris"` is now pinned explicitly in the compiler settings. **A toolchain upgrade must not
+change the bytecode that gets deployed**, and this one would have.
+
+**The `.reverted` matcher became a method.** Twenty assertions across eight files:
+`expect(tx).to.be.reverted` is now `expect(tx).to.revert(ethers)`. Hardhat 3 ships a shim that
+fails with the replacement in the message rather than a missing-property error, which is why
+this took minutes rather than an afternoon. `.revertedWith(reason)` and
+`.revertedWithCustomError(contract, name)` keep their signatures and were left alone. Before
+this, the suite ran at 108/87/9 — the seven extra failures were all this one change.
+
+**Hardhat 3 compiles Solidity tests natively, and its default test path is Foundry's.**
+`foundry.toml` declares `test = "test"`, so `hardhat compile` tried to resolve `forge-std`
+from `test/fuzz/*.t.sol` and failed with HHE902. `paths.tests` now separates them: mocha keeps
+`./test`, Hardhat's Solidity test discovery points at `./test/solidity`, and the fuzz suite
+stays with `forge test`, which is what the `test-foundry` job runs.
+
+**The runtime lost its injected globals.** `import hardhat from "hardhat"; const { ethers } =
+hardhat;` becomes `import { network } from "hardhat"; const { ethers } = await
+network.getOrCreate();` — 13 test files and 8 scripts. `network.connect()` also exists and is
+what the migration guide shows, but it is already deprecated in 3.12 in favour of
+`getOrCreate()`, so the code went straight to the latter rather than landing on a warning.
+
+Verified beyond the test suite, because the test suite is not the whole toolchain: `npm ci`
+from an empty `node_modules`, `hardhat compile` from a cleared compiler cache (33 sources,
+`evm target: paris`), and both scripts the `deploy-contracts` CI job runs — `deploy-automation.js`
+then `verify-deployment.js` — executed against a live `hardhat node`, deploying four contracts
+and passing all seven verification checks.
+
+> **Found while migrating: 11 of the 20 scripts in `contracts/scripts/` cannot run at all,
+> and could not before this.** They use `require("hardhat")` inside a package that declares
+> `"type": "module"`:
+>
+> ```
+> $ npx hardhat run scripts/check-balance.js
+> ReferenceError: require is not defined in ES module scope
+> ```
+>
+> That is a property of `package.json`, not of the Hardhat version — they were broken under
+> Hardhat 2 in exactly the same way. They are left alone rather than converted blind:
+> mechanically rewriting eleven untested deployment scripts is a worse risk than leaving them
+> visibly broken, and no CI job invokes any of them. The two that CI does invoke were ESM
+> already and are migrated and verified above.
+>
+> **Two corrections, both established by V23-27c when the scripts were actually run.** The
+> count was **13**, not 11 — `verify-phase4-modular-contracts.js` and `validate_contracts.js`
+> also carry `require` and were missed by the grep behind that sentence. And **"migrated and
+> verified" was true of two scripts, not seven.** The pass reported "migrated 7"; only
+> `deploy-automation.js` and `verify-deployment.js` were executed. Of the other five,
+> `deploy-mainnet.js` was **broken by that migration** — the regex removed the `hardhat`
+> binding while lines 49 and 56 still read `hardhat.network.name`. A mainnet deployment
+> script, reported as migrated, that could not start. Converting without running is the same
+> error as the audit's recurring shape, committed by me: **a change that looks right and was
+> never made to prove it.**
+
+Also: Hardhat 3 writes `cache/compile-cache.json` and `cache/build-info/` where Hardhat 2
+wrote one `solidity-files-cache.json`, and the typechain plugin generates `types/`.
+`.gitignore` now covers `contracts/cache/` as a directory rather than being extended one
+filename at a time — which is how the entry it replaces came to name a single file.
+
+### V23-27c — every script in `contracts/scripts/` was dead or unverified · CONFIRMED → RESOLVED
+
+The follow-up V23-27b deferred, done properly: each of the 20 scripts is now **executed**
+against a local `hardhat node` and its outcome recorded, rather than converted and assumed.
+
+Doing that immediately produced two corrections to V23-27b, noted above: the dead count was
+**13, not 11**, and of the seven scripts that pass reported as "migrated", only two had been
+run. `deploy-mainnet.js` — a mainnet deployment script — **was broken by that migration** and
+shipped that way.
+
+**Result: 13 dead → 0.** Ten scripts now run to completion; the other ten execute their own
+logic and stop on a domain condition rather than a wiring error:
+
+| Outcome | Count | Examples |
+|---|---|---|
+| Runs to completion | 10 | `monitor-contracts`, `deploy-automation`, `validate_contracts`, `verify-contracts` |
+| Stops on its own guard | 4 | `deploy-mainnet` (refuses non-interactive), three `verify-*` (no deployment file) |
+| Stops on missing contract/data | 6 | `MockERC20` artifact absent (×3), constructor arity, address checksum, VM revert |
+
+Four classes of breakage, all pre-existing except where noted:
+
+**1. `require` in an ESM package** (13 scripts). Nothing subtle: `contracts/package.json`
+declares `"type": "module"`, so `ReferenceError: require is not defined in ES module scope`
+fires before a line of the script's own logic. Converting these needed more care than the
+first attempt gave them — `import` must be top level (several files `require("fs")` inside a
+function body), a shebang must stay on line 1, and `network` is a common local name, so the
+hardhat import is aliased to `hardhatNetwork`.
+
+**2. ethers v5 calls on an ethers v6 install.** `contract.deployed()` (36 sites),
+`signer.getBalance()` (7), `provider.getGasPrice()`, `ethers.utils.*`, `contract.estimateGas.f()`
+and BigNumber `.lt()` were all removed in v6. **These scripts had never run against the
+dependency set the repository declares.**
+
+**3. `const network = network.name;`** — a self-referential declaration that throws a TDZ
+error. The file never had a `network` binding to read from, so the line could not have worked
+in any version. Present in two scripts.
+
+**4. Calls to contract methods that do not exist.** This is the one worth attention, because
+it is what being dead concealed. `monitor-contracts.js` alone called **eight** methods no
+contract declares:
+
+| Called | Contract actually has |
+|---|---|
+| `treasuryManager.getTreasuryBalance()`, `.getTotalAllocated()`, `.getTotalSpent()` | only `getBudgetBalance(category)` |
+| `marketplace.getMarketplaceStats()`, `.getActiveListings()` | `capabilityCounter`, `subscriptionCounter`, `platformFeePercentage` — **no listings concept at all** |
+| `registry.totalContracts()`, `.getAllContractIds()` | `getRegistryStats()` |
+| `dao.minStake()`, `.activeProposals()` | `minStakeAmount`, `proposalCount` |
+
+Rewritten against the real interfaces rather than guessed at: the treasury's holding is now
+measured the way `verify-deployment.js` already measures it — `aiToken.balanceOf(treasury)` —
+which is the repository's own answer to that question, not an invented one. The script now
+reports all four deployed contracts healthy, with a treasury balance of 100000.0 AIT matching
+what `deploy-automation.js` funds.
+
+> **A script that cannot start cannot be wrong.** Thirteen of these had been unrunnable long
+> enough for their contract calls to drift entirely out of correspondence with the contracts,
+> and nothing reported it, because the `ReferenceError` fired first. This is the audit's
+> recurring shape once more, in its most literal form: the failure that masks the failure.
+
+Also ignored here: `contracts/health-report-*.json` and the two `deployments-*-localhost.json`
+files these scripts emit. Named exactly rather than as `deployments-*.json`, because
+`deployments-{aitbc,aitbc1}-cascade.json` and `deployments-bridge-sepolia.json` are tracked
+deployment records and a bare glob would swallow them — the mistake V23-28/V23-29 found four
+times over. Until now these files could not be generated, so nothing had to ignore them.
+
+Verified: all 20 scripts executed and categorised; contract suite unchanged at 115 passing /
+87 pending / 2 failing; `npm audit` still 11 low; `ruff` and the docs validator pass.
+
+### V23-27a — CI installs `contracts/` with a package manager the repository forbids · CONFIRMED → RESOLVED
+
+Found while checking whether anything runs the contract suite, and it is why V23-27's numbers
+described something nobody installed.
+
+Six CI jobs run `pnpm install` in `contracts/`. Only `package-lock.json` is tracked, and
+`pnpm-lock.yaml` is gitignored — so **pnpm resolved the dependency tree fresh on every run**.
+Measured: `pnpm install` there resolves 560 packages with no lockfile consulted. The
+`package-lock.json` that V23-27 audits, and that V23-28 established as authoritative, is not
+what CI installed. Fixing advisories in it changed nothing about what CI ran.
+
+**And V23-28's own fix was about to break all six.** Declaring `packageManager: npm@11.16.0`
+makes pnpm refuse the directory outright:
+
+```
+$ pnpm install
+[ERROR] This project is configured to use npm
+```
+
+Verified in both directions — removing the field lets pnpm install, restoring it refuses. So
+the V23-28 fix, sitting unmerged in the stack, would have taken six green jobs red on the
+commit it landed. It was caught only because fixing V23-27 meant asking what CI actually
+does, which the earlier "no CI references `contracts/`" claim had foreclosed. **A wrong
+observation does not just fail to help; it stops the question being asked again.**
+
+Both workflows now use `npm ci`, so CI installs exactly the tree `npm audit` measures.
+
+Two dead entries removed alongside: `test-solidity` had a matrix entry for
+`packages/solidity/aitbc-token`, a path **deleted in `6f4c4779d`**, and the step `cd`s into it
+before the `if [[ ! -f package.json ]]` guard can skip — that job failed on every run. The
+`lint-solidity` loop named the same path behind an `if [[ -d ]]`, so it skipped silently
+instead. `.gitignore:260-261` still ignores the directory too.
+
+And `contracts/cache/solidity-files-cache.json` is a build cache that is **both tracked and
+listed in `.gitignore:424`** — the V23-29 rule again, that ignore patterns do not apply to
+files already in the index. It churned on every build. Untracked here, which makes the
+existing rule effective.
+
+### V23-28 — `contracts/` is configured for pnpm and locked for npm · CONFIRMED → RESOLVED
 
 `contracts/.npmrc` is tracked and contains only pnpm-specific keys:
 
@@ -797,6 +1963,53 @@ secrets is now hiding the dependency lockfile of the contract toolchain.
 > Separately: `.gitignore` has now hidden four needed files by accident. The rule to change
 > is not any single pattern but the practice of writing bare globs — anchor them
 > (`/secrets/*.yaml`) rather than negating them one casualty at a time.
+
+**RESOLVED — npm.** One correction to the finding first: **`contracts/pnpm-lock.yaml` does
+not exist.** It was present on the machine the audit ran on, untracked and ignored, so "both
+lockfiles are present" was true there and is not true of the repository. In a fresh checkout
+there is one lockfile, `package-lock.json`, and it is tracked.
+
+That makes the decision straightforward rather than a judgement call: the tracked lockfile is
+npm's, `package.json` declares no pnpm section, and pnpm belongs to `packages/`, which has
+its own workspace. **The `.npmrc` was the odd file out** — four pnpm-only keys, on which npm
+warns *"Unknown project config ... This will stop working in the next major version"*. They
+already did nothing.
+
+`contracts/.npmrc` is rewritten in keys npm reads, and the choice is now **machine-enforced
+rather than documented**: `package.json` declares `packageManager: npm@11.16.0`, so corepack
+refuses `pnpm install` here.
+
+One trap avoided while doing it. The natural `.npmrc` content is `engine-strict=true` — which
+does nothing unless `package.json` has an `engines` field, and it did not. Shipping that
+would have replaced four settings that do nothing with a fifth. `engines` is declared
+alongside it.
+
+`npm config list` now reports **zero** unknown-config warnings, down from four.
+
+#### The `.gitignore` practice — the actual fix
+
+The finding is right that the rule to change is the practice. `*.yaml` had accumulated
+**five** negations, each added after it had already swallowed something needed, and V23-28
+found `contracts/pnpm-lock.yaml` as the sixth.
+
+Two facts settled it:
+
+- **The rule ignores zero files** outside vendored trees. It was protecting nothing.
+- It only affects *new* files. The 61 YAML files already tracked were unaffected — which is
+  precisely why it stayed invisible until it ate something, every few releases.
+
+Replaced with patterns anchored to where secrets live and to names that mean "secret":
+`/secrets/`, `.wallets/*.yaml`, `.agent_data/*.yaml`, `**/*secret*.yaml`,
+`**/*credential*.yaml`. Verified in both directions rather than assumed:
+
+| Path | Result |
+|---|---|
+| `secrets/anything.yaml`, `config/db-secret.yaml`, `.wallets/keys.yaml`, `apps/x/credentials.yml` | ignored |
+| `apps/x/config.yaml`, `.github/workflows/new.yml`, **`contracts/pnpm-lock.yaml`** | visible |
+
+And the check that matters for a `.gitignore` change: **no currently-tracked YAML became
+ignored, and no previously-hidden file became newly visible.** The blast radius is future
+files only, which is where the damage was.
 
 ---
 
@@ -1051,7 +2264,7 @@ closer to the thing.
 
 ## Medium — what the feature flags say about the system
 
-### V23-32 — six flags, and the two that gate proof verification are off · CONFIRMED
+### V23-32 — six flags, and the two that gate proof verification are off · CONFIRMED → RESOLVED
 
 `feature_flags.json`, in full:
 
@@ -1087,6 +2300,138 @@ does not consult this flag.
 > flag. What should not persist is one subsystem honestly declaring the feature off while
 > another serves it from unsecured keys.
 
+**RESOLVED** — but not the way the fix above proposes, because the premise under the whole
+finding is false. **Nothing reads `feature_flags.json`.** `aitbc/feature_flags.py` was
+deleted in v0.10.9 and no loader replaced it; a search of every tracked file for the string
+returns this audit, two comments, `CLAUDE.md`, and old change logs. Not one reader.
+
+So the table above is not a description of system state. It is a file, and the six entries
+have been drifting apart from the code for thirteen releases with nothing able to notice.
+
+**Four of the six had stopped being true:**
+
+| Flag | Claimed | Actual |
+|---|---|---|
+| `enable_zk_proof_verification` | off | Correct outcome, unrelated cause — the node's refusal is hardcoded, and the coordinator is now gated on `COORDINATOR_ENABLE_ZK_VERIFICATION` (V23-24) |
+| `trust_x_wallet_address_header` | off | Correct outcome, unrelated cause — see below |
+| `strict_cors_enforcement` | **on, 100%** | No such enforcement exists → V23-32a |
+| `enable_marketplace_rate_limiting` | **on, 100%** | The marketplace app has no rate limiting → V23-32a |
+| `use_structlog` | off | structlog is not a dependency of any app that would use it; the migration never started |
+| `use_shared_agent_integration_service` | off | Zero references in the tree |
+
+**The audit's own reading of this file was wrong too, in the direction that matters.** I
+recorded `trust_x_wallet_address_header` being off as "reassuring — the flag defaulting off
+means it is not [trusted]". It means nothing of the sort. The real gate is
+`apps/blockchain-node/src/aitbc_chain/rpc/auth.py:39`, `os.getenv("TRUST_X_WALLET_ADDRESS",
+"false")`, and had someone flipped the JSON entry to `true` the behaviour would not have
+changed by one line. I read a header-authentication bypass as safely disabled on the
+strength of a file that gates nothing. That is the finding, not a detail of it.
+
+**Fix applied**: `feature_flags.json` deleted. `CLAUDE.md`'s Feature Flags section — which
+said "Check it before assuming a capability is actually live", i.e. pointed every reader and
+every agent at exactly this — now states that no feature-flag system exists and tabulates the
+environment variables that do the gating (`COORDINATOR_ENABLE_ZK_VERIFICATION`,
+`EDGE_ALLOW_SIMULATED_SYNC`, `AI_ENGINE_ALLOW_SIMULATION`, `TRUST_X_WALLET_ADDRESS`), each
+read at import time and defaulting to the safe value.
+
+The comment in `contracts.py` that said "the `enable_zk_proof_verification` feature flag is
+currently disabled" is corrected to say the refusal is unconditional. The behaviour was
+right and the explanation was wrong, which is the more dangerous combination: it invites
+someone to "restore" the flag and get something worse.
+
+`tests/unit/test_v2332_feature_flags.py` guards the invariant rather than the deletion — *if*
+a flag manifest exists at the root, code must read it, checked by parsing to AST so a comment
+about the manifest cannot satisfy it. Deleting the file alone would have been temporary; the
+next person wanting a flag recreates it and it is inert again the same day.
+
+### V23-32a — two security controls reported enabled at 100% that do not exist · CONFIRMED → RESOLVED
+
+Found while resolving V23-32. Split out because deleting the manifest removes the false
+claim, not the gap it was concealing.
+
+**`enable_marketplace_rate_limiting`** — `enabled: true`, `rollout_percentage: 100.0`, dated
+`2026-05-24`. `apps/marketplace/` contains no rate limiting: no limiter, no `slowapi`, no
+`@rate_limit`, nothing in `config.py`. `main.py` adds `RequestIDMiddleware`,
+`PerformanceLoggingMiddleware`, `RequestValidationMiddleware` and `ErrorHandlerMiddleware`,
+and that is the whole stack. The blockchain node does have `@rate_limit(rate=200, per=60)`
+decorators — so the mechanism exists in the repo and was simply never applied here.
+
+**`strict_cors_enforcement`** — `enabled: true`, `rollout_percentage: 100.0`, described as
+"Enforce strict CORS origin allowlists on all services." There is no all-services
+enforcement. `aitbc/middleware/cors.py:34` defaults `allow_origins` to `["*"]` when a caller
+omits it, four of roughly two dozen apps call `setup_cors` at all, two more configure
+`CORSMiddleware` directly, and `apps/exchange/simple_exchange/main.py:113` passes `["*"]`
+explicitly — the flag's own stated *disabled* behaviour, "falls back to permissive wildcard
+(dev only)", in a service shipping with the flag on. `create_strict_cors_config`
+(`aitbc/security_headers.py:222`) exists and has no callers outside its test.
+
+The wildcard-with-credentials combination is blocked (`cors.py:41` raises), so this is
+permissive CORS rather than a credential-leaking one. That is the reason it is CONFIRMED
+rather than critical.
+
+> **Fix**: two separate pieces of work, neither of them documentation. Apply the existing
+> `@rate_limit` decorator to the marketplace's write endpoints. For CORS, decide whether the
+> allowlist is per-service configuration or a repo-wide default — and change `setup_cors` to
+> require `allow_origins` rather than defaulting to `["*"]`, so omitting it is a failure at
+> startup instead of a wildcard nobody chose.
+
+> **Note on why this was invisible**: both entries were dated and marked 100% rolled out.
+> Anyone auditing controls by reading the manifest — which is what `CLAUDE.md` instructed —
+> would have ticked both off. The manifest did not merely fail to gate; it answered.
+
+**RESOLVED.** Both controls now exist, and both are covered by tests rather than by a
+manifest entry.
+
+**Rate limiting.** `RateLimitMiddleware` is applied in
+`apps/marketplace/.../main.py`, keyed by client IP, 120 requests per 60 seconds
+(`rate_limit_requests` / `rate_limit_window_seconds` in `config.py`), with `/health`,
+`/ready`, `/live` and `/metrics` excluded.
+
+Middleware rather than the `@rate_limit` decorator the fix note suggested, and the reason is
+worth recording: **not one of the 38 handlers in that file declares a `request: Request`
+parameter.** `_extract_request` would have returned `None` for every one of them,
+`_get_rate_limit_key` would have returned the literal `"unknown"`, and all callers would
+have shared a single bucket — so any one client could have locked out every other by
+exhausting it. Applying the decorator as recommended would have installed a denial of
+service in the shape of a protection, silently, with the tests passing.
+
+Three defects in the shared rate-limiting code were fixed on the way, all found by using it
+rather than by reading it:
+
+| Defect | Consequence |
+|---|---|
+| `_get_rate_limit_key` returned `"unknown"` silently | The trap above, invisible at every call site. Now warns once per handler, naming it. |
+| `RateLimitMiddleware` never consulted `_is_rate_limiting_enabled()` | `AITBC_ENABLE_RATE_LIMITING=false` worked or was ignored depending on which of the two mechanisms a service happened to use. Both honour it now; neither can be disabled in production. |
+| The 429 body was built by f-string into a JSON literal | A quote or backslash in `error_message` produced malformed JSON. Now `JSONResponse`. |
+
+The limiter is in-process, so behind N workers the effective limit is N × rate. That is a
+ceiling on abuse rather than an exact quota, and it is now written down in the docstring
+instead of being discovered later.
+
+**CORS.** `setup_cors` no longer defaults `allow_origins` to `["*"]` — omitting it raises.
+The old default meant a service got the most permissive setting there is *by saying nothing*,
+which is the one configuration nobody would ever write down as a decision. All four existing
+callers already passed an allowlist, so nothing changed at runtime; what changed is that the
+next service cannot get a wildcard by omission. `simple_exchange` keeps its explicit `["*"]`
+with credentials off — a deliberate public API, and now legible as one.
+
+The guard in `setup_cors` was also being bypassed. `coordinator-api` builds `CORSMiddleware`
+directly at two sites with `allow_credentials=True`, reading `settings.allow_origins`, which
+is environment-settable and whose validator checked only for localhost-in-production.
+Starlette resolves wildcard-plus-credentials by echoing the request's `Origin` header, so
+`ALLOW_ORIGINS='["*"]'` there would not have meant "public, no cookies" — it would have meant
+*any site can make authenticated requests as the user*. The validator now rejects `"*"`.
+
+`tests/security/test_v2332a_controls.py` covers all of it: over-limit requests get 429 with
+`Retry-After`, excluded paths are not counted, the 429 body survives a message containing a
+quote and a backslash, the disable switch is honoured outside production and ignored inside
+it, `setup_cors()` without origins raises, no app calls it without an allowlist (AST scan),
+and the coordinator config rejects `"*"`.
+
+> **Not addressed**: the ~18 apps that configure no CORS at all. That is not a gap — absent
+> `CORSMiddleware`, browsers apply the same-origin policy, which is the safe end. The
+> finding was about a claim of *enforcement* that did not exist, not about missing headers.
+
 ### Qualification of V23-24
 
 The third pass rated V23-24 (`_0000.zkey` with zero phase-2 contributions) critical without
@@ -1094,6 +2439,11 @@ knowing the flag state. That rating stands, but the reasoning needs correcting: 
 because the blockchain node verifies proofs — the node fails closed, as above. It is because
 the coordinator's `/zk/*/verify` endpoints are live and bypass the flag entirely. The node
 path is safe; the coordinator path is the exposure.
+
+Amended after V23-32: "bypass the flag" overstates what there was to bypass. No code path on
+either side consulted that flag. The node fails closed unconditionally; the coordinator did
+not fail closed at all. The difference between them was never the flag — which makes the
+critical rating stronger, not weaker. Both are now gated explicitly.
 
 ---
 
