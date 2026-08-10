@@ -9,8 +9,8 @@
 // summarise. These tests drive real status transitions and check the counters after each.
 
 import { expect } from "chai";
-import hardhat from "hardhat";
-const { ethers } = hardhat;
+import { network } from "hardhat";
+const { ethers } = await network.getOrCreate();
 
 describe("AgentBounty statistics (SC-12)", function () {
   let token, bounty, owner, creator;

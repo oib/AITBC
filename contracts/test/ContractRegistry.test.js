@@ -1,6 +1,6 @@
 import { expect } from "chai";
-import hardhat from "hardhat";
-const { ethers } = hardhat;
+import { network } from "hardhat";
+const { ethers } = await network.getOrCreate();
 
 describe("ContractRegistry", function () {
   let contractRegistry;

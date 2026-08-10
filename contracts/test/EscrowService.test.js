@@ -1,6 +1,6 @@
 import { expect } from "chai";
-import hardhat from "hardhat";
-const { ethers } = hardhat;
+import { network } from "hardhat";
+const { ethers } = await network.getOrCreate();
 
 describe.skip("EscrowService", function () {
   let escrowService, paymentToken, aiPowerRental, paymentProcessor;
@@ -121,7 +121,7 @@ describe.skip("EscrowService", function () {
           0,
           "Test escrow"
         )
-      ).to.be.reverted;
+      ).to.revert(ethers);
     });
 
     it("Should revert if amount is above maximum", async function () {
@@ -135,7 +135,7 @@ describe.skip("EscrowService", function () {
           0,
           "Test escrow"
         )
-      ).to.be.reverted;
+      ).to.revert(ethers);
     });
   });
 
@@ -263,7 +263,7 @@ describe.skip("EscrowService", function () {
     it("Should revert if not authorized arbiter", async function () {
       await expect(
         escrowService.connect(beneficiary).refundEscrow(escrowId, "Service not provided")
-      ).to.be.reverted;
+      ).to.revert(ethers);
     });
   });
 
@@ -284,7 +284,7 @@ describe.skip("EscrowService", function () {
     it("Should revert if non-owner authorizes arbiter", async function () {
       await expect(
         escrowService.connect(depositor).authorizeArbiter(beneficiary.address)
-      ).to.be.reverted;
+      ).to.revert(ethers);
     });
   });
 
