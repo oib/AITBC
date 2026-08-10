@@ -111,21 +111,24 @@ def test_tee_benchmark_runs_and_summarizes() -> None:
 def test_confidential_wallet_signs_and_verifies() -> None:
     wallet = ConfidentialWallet(wallet_id="w-1", owner_id="owner-1")
     key = b"secret-key"
-    tx = wallet.send("recipient-1", "commitment-100", key)
+    wallet.deposit("100")
+    tx = wallet.send("recipient-1", "100", key)
     assert tx.verify() is True
     assert tx.sender_id == "owner-1"
 
 
 def test_confidential_transaction_tampering_fails_verification() -> None:
     wallet = ConfidentialWallet(wallet_id="w-1", owner_id="owner-1")
-    tx = wallet.send("recipient-1", "commitment-100", b"secret-key")
+    wallet.deposit("100")
+    tx = wallet.send("recipient-1", "100", b"secret-key")
     tx.amount_commitment = b"tampered"
     assert tx.verify() is False
 
 
 def test_confidential_payment_validates_and_settles() -> None:
     wallet = ConfidentialWallet(wallet_id="w-1", owner_id="owner-1")
-    tx = wallet.send("recipient-1", "commitment-100", b"secret-key")
+    wallet.deposit("100")
+    tx = wallet.send("recipient-1", "100", b"secret-key")
     payment = ConfidentialPayment(
         payment_id=tx.tx_id,
         sender_id=tx.sender_id,
@@ -140,7 +143,8 @@ def test_confidential_payment_validates_and_settles() -> None:
 
 def test_confidential_payment_invalid_signature_fails() -> None:
     wallet = ConfidentialWallet(wallet_id="w-1", owner_id="owner-1")
-    tx = wallet.send("recipient-1", "commitment-100", b"secret-key")
+    wallet.deposit("100")
+    tx = wallet.send("recipient-1", "100", b"secret-key")
     tx.signature = b"invalid"
     payment = ConfidentialPayment(
         payment_id=tx.tx_id,
@@ -251,13 +255,18 @@ def test_tee_benchmark_summary_includes_throughput_and_memory() -> None:
 
 def test_confidential_commitment_opens_correctly() -> None:
     wallet = ConfidentialWallet(wallet_id="w-1", owner_id="owner-1")
-    tx = wallet.send("recipient-1", "commitment-100", b"secret-key")
-    assert tx.verify_commitment() is True
+    wallet.deposit("100")
+    tx = wallet.send("recipient-1", "100", b"secret-key")
+    # The opening comes from the wallet, not from the envelope -- see V23-19a.
+    opening = wallet.opening_for(tx.tx_id)
+    assert opening is not None
+    assert tx.opens_to(opening.amount, opening.blinding) is True
 
 
 def test_confidential_payment_wrong_commitment_fails() -> None:
     wallet = ConfidentialWallet(wallet_id="w-1", owner_id="owner-1")
-    tx = wallet.send("recipient-1", "commitment-100", b"secret-key")
+    wallet.deposit("100")
+    tx = wallet.send("recipient-1", "100", b"secret-key")
     payment = ConfidentialPayment(
         payment_id=tx.tx_id,
         sender_id=tx.sender_id,
@@ -274,7 +283,7 @@ def test_confidential_payment_wrong_commitment_fails() -> None:
 
 def test_confidential_wallet_balance_commitment_changes() -> None:
     wallet = ConfidentialWallet(wallet_id="w-1", owner_id="owner-1")
-    wallet.deposit("commitment-100")
+    wallet.deposit("100")
     balance_before = wallet.balance_commitment
-    wallet.send("recipient-1", "commitment-50", b"secret-key")
+    wallet.send("recipient-1", "50", b"secret-key")
     assert wallet.balance_commitment != balance_before
