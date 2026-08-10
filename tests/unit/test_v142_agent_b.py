@@ -54,14 +54,28 @@ def test_tee_verify_command() -> None:
 
 
 def test_confidential_send_command() -> None:
+    # The third argument is an amount. It used to be given as "commitment-100", which the
+    # old Pedersen code accepted because it hashed the string -- see V23-19a. This test could
+    # not report that, because the CLI module has been failing to import since the v0.23
+    # remediation commit renamed decrypt_private_key at its call sites only.
+    runner, cli = _runner_and_cli()
+    result = runner.invoke(
+        cli,
+        ["confidential", "send", "wallet-1", "recipient-1", "100"],
+    )
+    assert result.exit_code == 0
+    assert "wallet-1" in result.output
+    assert "recipient-1" in result.output
+
+
+def test_confidential_send_rejects_a_non_numeric_amount() -> None:
     runner, cli = _runner_and_cli()
     result = runner.invoke(
         cli,
         ["confidential", "send", "wallet-1", "recipient-1", "commitment-100"],
     )
-    assert result.exit_code == 0
-    assert "wallet-1" in result.output
-    assert "recipient-1" in result.output
+    assert result.exit_code != 0
+    assert "not a decimal number" in result.output
 
 
 def test_confidential_balance_command() -> None:
