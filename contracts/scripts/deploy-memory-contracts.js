@@ -1,18 +1,19 @@
-const { ethers } = require("hardhat");
-const fs = require("fs");
-const path = require("path");
-
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
+import fs from "fs";
+import path from "path";
 async function main() {
     console.log("🚀 Deploying Decentralized Memory & Storage Contracts");
     console.log("==============================================");
 
     const [deployer] = await ethers.getSigners();
-    const balance = await deployer.getBalance();
+    const balance = await ethers.provider.getBalance(deployer.address);
 
     console.log(`Deployer: ${deployer.address}`);
-    console.log(`Balance: ${ethers.utils.formatEther(balance)} ETH`);
+    console.log(`Balance: ${ethers.formatEther(balance)} ETH`);
 
-    if (balance.lt(ethers.utils.parseEther("1"))) {
+    if (balance < ethers.parseEther("1")) {
         throw new Error("Insufficient ETH balance. Minimum 1 ETH recommended for deployment.");
     }
 
@@ -21,7 +22,7 @@ async function main() {
 
     // Deployment configuration
     const deployedContracts = {
-        network: hre.network.name,
+        network: connection.networkName,
         deployer: deployer.address,
         timestamp: new Date().toISOString(),
         contracts: {}
@@ -32,7 +33,7 @@ async function main() {
         console.log("📦 Deploying AgentMemory contract...");
         const AgentMemory = await ethers.getContractFactory("AgentMemory");
         const agentMemory = await AgentMemory.deploy();
-        await agentMemory.deployed();
+        await agentMemory.waitForDeployment();
 
         deployedContracts.contracts.AgentMemory = {
             address: agentMemory.address,
@@ -46,7 +47,7 @@ async function main() {
         console.log("📦 Deploying MemoryVerifier contract...");
         const ZKReceiptVerifier = await ethers.getContractFactory("ZKReceiptVerifier");
         const zkVerifier = await ZKReceiptVerifier.deploy();
-        await zkVerifier.deployed();
+        await zkVerifier.waitForDeployment();
 
         const MemoryVerifier = await ethers.getContractFactory("MemoryVerifier", {
             libraries: {
@@ -54,7 +55,7 @@ async function main() {
             }
         });
         const memoryVerifier = await MemoryVerifier.deploy(zkVerifier.address);
-        await memoryVerifier.deployed();
+        await memoryVerifier.waitForDeployment();
 
         deployedContracts.contracts.MemoryVerifier = {
             address: memoryVerifier.address,
@@ -73,7 +74,7 @@ async function main() {
 
         try {
             // Try to get existing payment processor
-            const paymentProcessorFile = `deployed-contracts-${hre.network.name}.json`;
+            const paymentProcessorFile = `deployed-contracts-${connection.networkName}.json`;
             if (fs.existsSync(paymentProcessorFile)) {
                 const existingContracts = JSON.parse(fs.readFileSync(paymentProcessorFile, 'utf8'));
                 paymentProcessorAddress = existingContracts.contracts.PaymentProcessor?.address;
@@ -90,9 +91,9 @@ async function main() {
             const paymentToken = await MockERC20.deploy(
                 "AITBC Token",
                 "AITBC",
-                ethers.utils.parseEther("1000000")
+                ethers.parseEther("1000000")
             );
-            await paymentToken.deployed();
+            await paymentToken.waitForDeployment();
             paymentTokenAddress = paymentToken.address;
 
             deployedContracts.contracts.AITBCToken = {
@@ -109,7 +110,7 @@ async function main() {
             console.log("📦 Deploying mock AITBC Payment Processor...");
             const MockPaymentProcessor = await ethers.getContractFactory("PaymentProcessor");
             const paymentProcessor = await MockPaymentProcessor.deploy(paymentTokenAddress);
-            await paymentProcessor.deployed();
+            await paymentProcessor.waitForDeployment();
             paymentProcessorAddress = paymentProcessor.address;
 
             deployedContracts.contracts.PaymentProcessor = {
@@ -127,7 +128,7 @@ async function main() {
             paymentProcessorAddress,
             paymentTokenAddress
         );
-        await knowledgeGraphMarket.deployed();
+        await knowledgeGraphMarket.waitForDeployment();
 
         deployedContracts.contracts.KnowledgeGraphMarket = {
             address: knowledgeGraphMarket.address,
@@ -145,7 +146,7 @@ async function main() {
         console.log("✅ Authorized deployer as memory verifier");
 
         // Save deployment information
-        const deploymentFile = `deployed-contracts-${hre.network.name}.json`;
+        const deploymentFile = `deployed-contracts-${connection.networkName}.json`;
         fs.writeFileSync(
             path.join(__dirname, "..", deploymentFile),
             JSON.stringify(deployedContracts, null, 2)
@@ -153,7 +154,7 @@ async function main() {
 
         // Generate environment variables for frontend
         const envVars = `
-# AITBC Decentralized Memory & Storage - ${hre.network.name.toUpperCase()}
+# AITBC Decentralized Memory & Storage - ${connection.networkName.toUpperCase()}
 # Generated on ${new Date().toISOString()}
 
 # Contract Addresses
@@ -164,9 +165,9 @@ VITE_AITBC_TOKEN_ADDRESS=${paymentTokenAddress}
 VITE_PAYMENT_PROCESSOR_ADDRESS=${paymentProcessorAddress}
 
 # Network Configuration
-VITE_NETWORK_NAME=${hre.network.name}
-VITE_CHAIN_ID=${hre.network.config.chainId || 1}
-VITE_RPC_URL=${hre.network.config.url || 'http://localhost:8545'}
+VITE_NETWORK_NAME=${connection.networkName}
+VITE_CHAIN_ID=${connection.networkConfig.chainId || 1}
+VITE_RPC_URL=${await connection.networkConfig.url?.get?.() ?? 'http://localhost:8545'}
 
 # IPFS Configuration
 VITE_IPFS_URL=http://localhost:5001
