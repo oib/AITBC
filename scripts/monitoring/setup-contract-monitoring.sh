@@ -1,10 +1,12 @@
 #!/bin/bash
 # Setup contract monitoring for deployed contracts
 
-set -e
+set -euo pipefail
 
 NETWORK="${1:-testnet}"
-REPO_DIR="/opt/aitbc"
+# Resolved from this script rather than hardcoded (AITBC-138).
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_DIR="$REPO_ROOT"
 MONITORING_DIR="${REPO_DIR}/scripts/monitoring"
 
 echo "=== Setting up contract monitoring for ${NETWORK} ==="
@@ -62,3 +64,4 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
     metrics_path: '/metrics/contracts'
+EOF
