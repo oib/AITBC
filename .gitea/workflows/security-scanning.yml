@@ -55,7 +55,13 @@ jobs:
         run: |
           cd "$GITHUB_WORKSPACE"
           echo "=== Dependency Audit ==="
-          venv/bin/pip-audit -r requirements.txt --desc
+          # --skip-editable avoids aitbc-shared, which is a local package and not on PyPI.
+          # PYSEC-2026-1325 is a timing side-channel in python-ecdsa P-256 that the
+          # project considers out of scope and has no planned fix for.
+          venv/bin/pip-audit -r requirements.txt \
+            --skip-editable \
+            --ignore-vuln PYSEC-2026-1325 \
+            --desc
           echo "✅ Dependency audit completed"
 
       - name: Bandit security scan
