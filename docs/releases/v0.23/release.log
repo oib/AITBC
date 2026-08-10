@@ -40,9 +40,9 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 39 findings — 26 confirmed defects, 13 observed design gaps. **38 resolved**
+**Totals**: 40 findings — 27 confirmed defects, 13 observed design gaps. **39 resolved**
 (V23-01..15, V23-10a, V23-17..23, V23-24, V23-24a, V23-25, V23-26, V23-26a, V23-27,
-V23-27a, V23-27b, V23-28, V23-29..32, V23-32a, V23-19a — thirty-eight entries, thirty
+V23-27a, V23-27b, V23-28, V23-29..32, V23-32a, V23-19a, V23-19b — thirty-nine entries, thirty
 numbered findings); **1 open**.
 
 Still open:
@@ -60,11 +60,24 @@ V23-27 is **partly resolved**: the non-breaking half is on `main` (38 advisories
 the remainder is a single Hardhat 2 → 3 migration, two of whose dependencies have no fix at
 any version. It is counted among the 2 open.
 
-V23-24a, V23-32a, V23-26a and V23-27a were all added while fixing the finding they hang off,
-not during a pass. Fixing a finding keeps turning up a larger one next to it: see also the
-V23-30 note and V23-19a, where the finding as filed was the mildest of four defects in the
-same file. Several are sharper than their parents — V23-27a is the clearest case, because it
-means V23-27's advisory counts were measuring a lockfile CI never installed from. V23-32's fix was to delete a manifest that
+V23-24a, V23-32a, V23-26a, V23-27a and V23-19b were all added while fixing the finding they
+hang off, not during a pass. Fixing a finding keeps turning up a larger one next to it: see
+also the V23-30 note and V23-19a, where the finding as filed was the mildest of four defects
+in the same file. Several are sharper than their parents — V23-27a is the clearest case,
+because it means V23-27's advisory counts were measuring a lockfile CI never installed from;
+V23-19b is the costliest, because a security suite that had never executed is what let four
+cryptographic defects and three more in the service beneath it accumulate unnoticed.
+
+**The recurring shape, stated once.** Fourteen of these findings are the same defect wearing
+different clothes: *something that agrees for a reason unconnected to what it was supposed to
+establish.* A commitment that opens to any amount (V23-19a). A verification key shared by four
+circuits (V23-26a). A status endpoint answering from a literal (V23-26a). A flag manifest
+nothing read (V23-32). A `pipefail` check that matched almost nothing (V23-23). A merge-marker
+hook that only looks mid-merge (V23-23). A retention window whose clock always read *now*
+(V23-19b). A test suite skipped in its entirety (V23-19b). None of these fail. That is the
+problem: **a check that cannot fail is indistinguishable from a check that passes**, and the
+only way to tell them apart is to make them fail on purpose. Every fix above that added a
+guard was confirmed by breaking the thing it guards and watching it go red. V23-32's fix was to delete a manifest that
 gated nothing, which surfaced two security controls it had reported as enabled at 100%
 rollout that were never implemented. V23-26 was filed as "two divergent copies of a
 directory"; checking how they diverged surfaced one verification key installed for four
@@ -918,6 +931,85 @@ Two things found alongside:
   break in `commands/operations.py`, and one of the baseline 18. So **no test anywhere
   exercised this code path**, which is the answer to why four defects of this size sat in it.
   The new file is the first coverage it has had; repairing the skipped suite is separate work.
+  **Done — see V23-19b.**
+
+### V23-19b — the confidential security suite had never executed, and three defects were sitting under it · CONFIRMED → RESOLVED
+
+`tests/security/test_confidential_transactions.py`: 21 test functions, ~700 lines, **zero of
+them ever run**. The module-level `ImportError` set `CONFIDENTIAL_AVAILABLE = False` and every
+one of its three classes was `skipif`-ed away.
+
+**The imports could not be repaired, because the file tested a system that was never built.**
+Of the ten methods it called on `ConfidentialTransactionService`, **nine do not exist anywhere
+in the repository** — and neither does the service. It also patched
+`apps.coordinator_api.src.app.services.{hsm,mpc,pqc,aml,deniable,retention}_service`, a
+package path this repository has never had. HSM integration, multi-party computation, deniable
+encryption, post-quantum signatures, viewing keys, regulatory reporting, retention policies:
+designed, tested against, not implemented.
+
+So the file was replaced rather than fixed, with **32 tests against what does exist** — the
+X25519 + AES-256-GCM envelope encryption in `coordinator_api.contexts.security.services`,
+driven against real keys on a real temporary keystore rather than mocks.
+
+Writing them found three defects, each of which the old suite existed to catch:
+
+**1. `EncryptionService.encrypt` silently dropped participants it could not encrypt for.** The
+per-participant `except` logged and `continue`d, so naming an unregistered participant
+returned a payload whose only usable key was the audit escrow's — **reported as success, and
+unreadable by the person it was addressed to.** Measured before the fix:
+`encrypt(data, participants=["nobody"])` returned `encrypted_keys: ['audit']`. It now raises.
+
+**2. A *failed* key rotation destroyed the key anyway.** This is the serious one. The rollback
+read:
+
+```python
+except Exception:
+    new_key_pair.version = current_key.version   # restores the version number
+    await self.storage.store_key_pair(new_key_pair)   # ...stores the NEW key material
+```
+
+The version number went back; the key did not. Since `_reencrypt_transactions` raises
+`NotImplementedError`, **this was the only path rotation ever took** — so every call to
+`rotate_keys` reported `KeyManagementError` to its caller while having already replaced the
+participant's key and permanently orphaned everything encrypted under the old one. Verified by
+running it: after a "failed" rotation the stored private key had changed and previously
+readable ciphertext raised `DecryptionError`. The rollback now restores `current_key`.
+
+**An operation that says "failed" must not have consumed anything**, and in a confidential
+system the thing consumed was the only means of reading the data.
+
+**3. The retention check could not fail.** `_check_retention_period` read
+`transaction["timestamp"]`, a key `_get_transaction` never sets — it supplies `created_at`. The
+`datetime.now(UTC)` default therefore fired on every call, making the expiry always
+`now + retention`, so **every role passed for every transaction regardless of age**. Had the
+key been present it would have been an ISO string, and `str + timedelta` raises, so the
+default was also the only path that worked at all. Now reads `created_at` and parses it; the
+1825/2555/3650/365-day windows per role are actually applied.
+
+Same shape as V23-26a and V23-32: a check that exists, passes, and cannot fail.
+
+Also fixed while here: `rotate_keys` wrapped `NotImplementedError` as `KeyManagementError`, so
+the router's `except NotImplementedError -> 501` arm could never fire. The endpoint answered
+**400**, with `detail=str(e)` putting the internal message in the response body where every
+sibling handler returns `"Internal server error"`. `_reencrypt_transactions`'s own docstring
+says "the route returns 501". It does now.
+
+**Each of the three regression tests was confirmed to fail when its defect is reintroduced**,
+by reverting the fix in place and re-running — not by assuming a test that passes would have
+caught anything.
+
+Two things the replacement deliberately does *not* assert, because they are not true and
+pretending otherwise is how the original file came to exist. **There is no forward secrecy** —
+participant keys are long-lived X25519 keys in the keystore, so a compromised private key
+reads every past payload addressed to it; the old `test_forward_secrecy` generated its own
+ephemeral keys inline and asserted they round-tripped, which tests `cryptography`, not this
+service. And **timing side channels are not covered** — the old file had three tests
+asserting wall-clock correlations below a threshold, which under load measure the CI runner.
+
+Verified: 32 tests pass; root suite 1772 tests at the **same 18 baseline failures**, with
+skips falling **34 → 13** — the 21 that used to skip now run. `coordinator-api`'s own suite is
+unchanged at 32 failed / 271 passed / 16 errors, confirmed by running it with and without
+these changes. `ruff`, `mypy aitbc/` and the clean-apps mypy gate all pass.
 
 **The V23-19 rationale for keeping `ecdsa` no longer holds as written.** Its second bullet
 argued the PYSEC-2026-1325 timing side channel was tolerable because "the side channel needs
