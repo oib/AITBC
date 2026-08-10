@@ -3,7 +3,15 @@
 # (EUNSUPPORTEDPROTOCOL), and running `npm install` in packages/web installed nothing and
 # exited 0, so its `lint` script (tsc --noEmit && eslint) never had a compiler to run.
 #
-# pnpm is what contracts/ already uses, so the workspace is declared its way.
+# So the workspace is declared pnpm's way. The original note here justified that by saying
+# pnpm is what contracts/ already uses. V23-28 has since moved contracts/ to npm -- it
+# declares packageManager: npm and locks with package-lock.json, and corepack now refuses
+# pnpm there outright. The choice here is unaffected, because "workspace:*" is the reason
+# and npm cannot resolve it either way; only the stated justification had gone stale.
+#
+# packages/ and contracts/ now deliberately use different package managers, and CI matches
+# each: package-tests.yml installs this workspace with `pnpm install --frozen-lockfile`,
+# smart-contract-tests.yml and contract-benchmarks.yml install contracts/ with `npm ci`.
 packages:
   - theme-provider
   - web
