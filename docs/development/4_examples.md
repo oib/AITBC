@@ -9,88 +9,82 @@ This section provides practical examples for common tasks on the AITBC platform.
 
 ## Python Examples
 
+Two packages are involved, and which one you need depends on the task:
+
+- **`aitbc-sdk`** (`packages/py/aitbc-sdk`) — synchronous. Health, wallet, registry, grants,
+  signed receipts. No job-submission API.
+- **`aitbc-agent-sdk`** (`packages/py/aitbc-agent-sdk`) — async. Job submission and status,
+  via `ComputeConsumer`.
+
 ### Basic Job Submission
+
 ```python
-from aitbc import AITBCClient
+import asyncio
 
-client = AITBCClient(api_key="your_key")
+from aitbc_agent import ComputeConsumer
 
-job = client.jobs.create({
-    "name": "image-classification",
-    "type": "ai-inference",
-    "model": {
-        "type": "python",
-        "entrypoint": "model.py",
-        "requirements": ["torch", "pillow"]
-    }
-})
 
-result = client.jobs.wait_for_completion(job["job_id"])
+async def main() -> None:
+    consumer = ComputeConsumer.create(
+        name="image-classifier",
+        agent_type="consumer",
+        capabilities={"compute_type": "inference"},
+    )
+
+    job_id = await consumer.submit_job(
+        job_type="ai-inference",
+        input_data={"model": "resnet50", "image_url": "https://example.com/cat.jpg"},
+        requirements={"gpu_memory": 8},
+        max_price=0.15,
+    )
+
+    status = await consumer.get_job_status(job_id)
+    print(job_id, status)
+
+
+asyncio.run(main())
 ```
 
 ### Batch Job Processing
+
 ```python
 import asyncio
-from aitbc import AsyncAITBCClient
 
-async def process_images(image_paths):
-    client = AsyncAITBCClient(api_key="your_key")
+from aitbc_agent import ComputeConsumer
 
-    tasks = []
-    for path in image_paths:
-        job = await client.jobs.create({
-            "name": f"process-{path}",
-            "type": "image-analysis"
-        })
-        tasks.append(client.jobs.wait_for_completion(job["job_id"]))
 
-    results = await asyncio.gather(*tasks)
-    return results
+async def process_images(image_paths: list[str]) -> list[str]:
+    consumer = ComputeConsumer.create(
+        name="batch-processor",
+        agent_type="consumer",
+        capabilities={"compute_type": "inference"},
+    )
+
+    job_ids = await asyncio.gather(
+        *(
+            consumer.submit_job(
+                job_type="image-analysis",
+                input_data={"path": path},
+            )
+            for path in image_paths
+        )
+    )
+    return list(job_ids)
 ```
 
-## JavaScript Examples
+`submit_job` returns a job id, not a result. There is no `wait_for_completion` helper — poll
+`get_job_status(job_id)` until the status is terminal.
 
-### React Component
-```jsx
-import React, { useState, useEffect } from 'react';
-import { AITBCClient } from '@aitbc/client';
+### Checking Receipts
 
-function JobList() {
-    const [jobs, setJobs] = useState([]);
-    const client = new AITBCClient({ apiKey: 'your_key' });
+```python
+from aitbc_sdk import CoordinatorReceiptClient
 
-    useEffect(() => {
-        async function fetchJobs() {
-            const jobList = await client.jobs.list();
-            setJobs(jobList);
-        }
-        fetchJobs();
-    }, []);
-
-    return (
-        <div>
-            {jobs.map(job => (
-                <div key={job.jobId}>
-                    <h3>{job.name}</h3>
-                    <p>Status: {job.status}</p>
-                </div>
-            ))}
-        </div>
-    );
-}
-```
-
-### WebSocket Integration
-```javascript
-const client = new AITBCClient({ apiKey: 'your_key' });
-const ws = client.websocket.connect();
-
-ws.on('jobUpdate', (data) => {
-    console.log(`Job ${data.jobId} updated to ${data.status}`);
-});
-
-ws.subscribe('jobs');
-ws.start();
+with CoordinatorReceiptClient(base_url="http://localhost:8203", api_key="your_key") as rc:
+    status = rc.summarize_receipts("job-123")
+    print(status.verified_count, "of", status.total, "receipts verified")
+    if status.has_failures:
+        print(status.failure_reasons)
 ```
 
 ## CLI Examples
@@ -124,8 +118,5 @@ aitbc marketplace accept <offer_id> --job-id <job_id>
 
 ## Complete Examples
 
-Find full working examples in our GitHub repositories:
-- [Python SDK Examples](https://github.com/aitbc/python-sdk/tree/main/examples)
-- [JavaScript SDK Examples](https://github.com/aitbc/js-sdk/tree/main/examples)
-- [CLI Examples](https://github.com/aitbc/cli/tree/main/examples)
-- [Smart Contract Examples](https://github.com/aitbc/contracts/tree/main/examples)
+Find full working examples in this repository:
+- [cURL Examples](../api/examples/curl-examples.md) — direct HTTP calls against the coordinator and blockchain node APIs
