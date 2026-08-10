@@ -101,8 +101,13 @@ class EncryptionService:
                     encrypted_dek = self._encrypt_dek(dek, public_key)
                     encrypted_keys[participant] = encrypted_dek
                 except Exception as e:
+                    # Previously this logged and continued, so encrypting for a participant
+                    # with no registered key produced a payload that participant could never
+                    # decrypt -- and reported success. With a single unknown participant the
+                    # result was ciphertext whose only key was the audit escrow's. Failing
+                    # here is the point of the call: the caller asked for these recipients.
                     logger.error("Failed to encrypt DEK for participant %s: %s", participant, e)
-                    continue
+                    raise EncryptionError(f"No usable encryption key for participant {participant}") from e
             if include_audit:
                 try:
                     audit_public_key = self.key_manager.get_audit_key()  # type: ignore[attr-defined]
