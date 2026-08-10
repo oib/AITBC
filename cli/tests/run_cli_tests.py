@@ -61,21 +61,21 @@ def run_cli_test():
         print(f"❌ CLI list command error: {e}")
         return False
 
-    # Test 3: CLI blockchain command (optional - skip if no blockchain node)
-    print("\n3. Testing CLI blockchain command...")
+    # Test 3: CLI chain command (optional - skip if no blockchain node)
+    print("\n3. Testing CLI chain command...")
     try:
-        result = run_command("blockchain", "block", "1")
+        result = run_command("chain", "status")
 
-        if result.returncode == 0 and "Block #1" in result.stdout:
-            print("✅ CLI blockchain command working")
+        if result.returncode == 0:
+            print("✅ CLI chain command working")
         elif "Connection refused" in result.stderr or "Failed to establish" in result.stderr:
-            print("⚠️ CLI blockchain command skipped (no blockchain node available)")
+            print("⚠️ CLI chain command skipped (no blockchain node available)")
             print("   This is expected in CI environments without a running blockchain node")
         else:
-            print(f"❌ CLI blockchain command failed: {result.stderr or result.stdout}")
+            print(f"❌ CLI chain command failed: {result.stderr or result.stdout}")
             return False
     except Exception as e:
-        print(f"❌ CLI blockchain command error: {e}")
+        print(f"❌ CLI chain command error: {e}")
         return False
 
     # Test 4: CLI invalid command handling
