@@ -101,9 +101,12 @@ def test_wallet_client_send_payment() -> None:
         instance = _mock_http_client(mock_class, {"payment_id": "p1", "status": "submitted"})
         client = WalletClient(Mock())
         client._http = instance  # type: ignore[method-assign]
-        result = client.send_payment("w-1", "recipient", "10", asset="AITBC")
+        result = client.send_payment("w-1", "recipient", 10, "wallet-password")
         assert result["payment_id"] == "p1"
         instance.post.assert_called_once()
+        # Pin the route. This asserted only the call count, so it stayed green while the
+        # client posted to /v1/wallets/{id}/payments, which no service has ever served.
+        assert instance.post.call_args.args[0] == "/v1/wallets/w-1/send"
 
 
 def test_registry_client_get_developer() -> None:
