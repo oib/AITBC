@@ -40,9 +40,13 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 37 findings — 24 confirmed defects, 13 observed design gaps. **27 resolved**
-(V23-06..15, V23-10a, V23-17..22, V23-24, V23-24a, V23-25, V23-26, V23-26a, V23-29..32,
-V23-32a — twenty-seven entries, twenty-three numbered findings); 10 open.
+**Totals**: 37 findings — 24 confirmed defects, 13 observed design gaps. **28 resolved**
+(V23-06..15, V23-10a, V23-17..22, V23-24, V23-24a, V23-25, V23-26, V23-26a, V23-28,
+V23-29..32, V23-32a — twenty-eight entries, twenty-four numbered findings); 9 open.
+
+V23-27 is **partly resolved**: the non-breaking half is on `main` (38 advisories → 32), and
+the remainder is a single Hardhat 2 → 3 migration, two of whose dependencies have no fix at
+any version. It is counted among the 9 open.
 
 V23-24a, V23-32a and V23-26a were all added while fixing the finding they hang off, not
 during a pass. Fixing a finding keeps turning up a larger one next to it: see also the
@@ -1236,7 +1240,7 @@ deleted rather than left to mislead.
 
 ## High — the contract toolchain's declared dependency tree
 
-### V23-27 — 38 advisories in `contracts/package-lock.json`, 19 high · CONFIRMED
+### V23-27 — 38 advisories in `contracts/package-lock.json`, 19 high · CONFIRMED → PARTLY RESOLVED
 
 ```
 cd contracts && npm audit
@@ -1261,7 +1265,43 @@ By contrast `packages/` is clean: `pnpm audit` reports no known vulnerabilities.
 > the hardhat-verify major separately against the contract suite (115 passing as of v0.22).
 > Splitting them keeps the breaking change reviewable.
 
-### V23-28 — `contracts/` is configured for pnpm and locked for npm · CONFIRMED
+**PARTLY RESOLVED — 38 → 32 (19 high → 13).** The non-breaking half is done and the lockfile
+committed. Unlike V23-19, this count *is* a property of the repository: it comes from the
+tracked lockfile, so it is what anyone gets on `npm ci`.
+
+**The remaining 32 are one migration, not thirty-two problems.** Every one traces to the
+Hardhat 2.x toolchain:
+
+| | |
+|---|---|
+| `@nomicfoundation/hardhat-toolbox` → 7.0.0 | pulls `adm-zip`, `undici`, `hardhat` |
+| `@nomicfoundation/hardhat-verify` → 3.0.22 | pulls the twelve `@ethersproject/*`, including `elliptic` |
+| `solidity-coverage` → 0.7.22 | pulls `serialize-javascript`, `mocha` |
+| `@typechain/hardhat`, `hardhat-gas-reporter` | **no fix published at any version** |
+
+All five are direct dev dependencies and all five are semver-major. Two have no fix at all,
+so even taking every breaking bump does not reach zero — this is a Hardhat 2 → 3 migration
+with two dependencies that must be replaced or dropped. That is a project, and splitting it
+out is what the finding asked for.
+
+**On `elliptic`**, which the finding singled out: it is reached through
+`@ethersproject/signing-key` in `hardhat-verify`, which is **contract tooling, not deployed
+code**. The exposure is a developer or CI machine running verification, not anything
+on-chain. Worth stating because "risky cryptographic primitive in the signing path" reads
+much worse than it is here.
+
+**Verified against the contract suite**, with a baseline rather than an assumption: on the
+*original* lockfile, `npx hardhat test` gives **115 passing / 87 pending / 2 failing**; on the
+fixed lockfile, identical, with the same two failures (`Phase 4 Modular Smart Contracts`,
+`TreasuryManager`). The lockfile change is neutral.
+
+> **Two things the audit did not record, found while establishing that baseline**: the
+> contract suite has **2 pre-existing failures and 87 pending** tests — "115 passing as of
+> v0.22" was accurate and incomplete — and **no CI workflow references `contracts/` at
+> all**. Nothing builds, tests or audits the contract toolchain automatically, which is the
+> same gap V23-10a found for app suites.
+
+### V23-28 — `contracts/` is configured for pnpm and locked for npm · CONFIRMED → RESOLVED
 
 `contracts/.npmrc` is tracked and contains only pnpm-specific keys:
 
@@ -1300,6 +1340,53 @@ secrets is now hiding the dependency lockfile of the contract toolchain.
 > Separately: `.gitignore` has now hidden four needed files by accident. The rule to change
 > is not any single pattern but the practice of writing bare globs — anchor them
 > (`/secrets/*.yaml`) rather than negating them one casualty at a time.
+
+**RESOLVED — npm.** One correction to the finding first: **`contracts/pnpm-lock.yaml` does
+not exist.** It was present on the machine the audit ran on, untracked and ignored, so "both
+lockfiles are present" was true there and is not true of the repository. In a fresh checkout
+there is one lockfile, `package-lock.json`, and it is tracked.
+
+That makes the decision straightforward rather than a judgement call: the tracked lockfile is
+npm's, `package.json` declares no pnpm section, and pnpm belongs to `packages/`, which has
+its own workspace. **The `.npmrc` was the odd file out** — four pnpm-only keys, on which npm
+warns *"Unknown project config ... This will stop working in the next major version"*. They
+already did nothing.
+
+`contracts/.npmrc` is rewritten in keys npm reads, and the choice is now **machine-enforced
+rather than documented**: `package.json` declares `packageManager: npm@11.16.0`, so corepack
+refuses `pnpm install` here.
+
+One trap avoided while doing it. The natural `.npmrc` content is `engine-strict=true` — which
+does nothing unless `package.json` has an `engines` field, and it did not. Shipping that
+would have replaced four settings that do nothing with a fifth. `engines` is declared
+alongside it.
+
+`npm config list` now reports **zero** unknown-config warnings, down from four.
+
+#### The `.gitignore` practice — the actual fix
+
+The finding is right that the rule to change is the practice. `*.yaml` had accumulated
+**five** negations, each added after it had already swallowed something needed, and V23-28
+found `contracts/pnpm-lock.yaml` as the sixth.
+
+Two facts settled it:
+
+- **The rule ignores zero files** outside vendored trees. It was protecting nothing.
+- It only affects *new* files. The 61 YAML files already tracked were unaffected — which is
+  precisely why it stayed invisible until it ate something, every few releases.
+
+Replaced with patterns anchored to where secrets live and to names that mean "secret":
+`/secrets/`, `.wallets/*.yaml`, `.agent_data/*.yaml`, `**/*secret*.yaml`,
+`**/*credential*.yaml`. Verified in both directions rather than assumed:
+
+| Path | Result |
+|---|---|
+| `secrets/anything.yaml`, `config/db-secret.yaml`, `.wallets/keys.yaml`, `apps/x/credentials.yml` | ignored |
+| `apps/x/config.yaml`, `.github/workflows/new.yml`, **`contracts/pnpm-lock.yaml`** | visible |
+
+And the check that matters for a `.gitignore` change: **no currently-tracked YAML became
+ignored, and no previously-hidden file became newly visible.** The blast radius is future
+files only, which is where the damage was.
 
 ---
 
