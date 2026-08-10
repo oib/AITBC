@@ -1,18 +1,19 @@
-const { ethers } = require("hardhat");
-const fs = require("fs");
-const path = require("path");
-
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
+import fs from "fs";
+import path from "path";
 async function main() {
     console.log("🚀 Deploying Advanced Agent Features Contracts");
     console.log("=============================================");
 
     const [deployer] = await ethers.getSigners();
-    const balance = await deployer.getBalance();
+    const balance = await ethers.provider.getBalance(deployer.address);
 
     console.log(`Deployer: ${deployer.address}`);
-    console.log(`Balance: ${ethers.utils.formatEther(balance)} ETH`);
+    console.log(`Balance: ${ethers.formatEther(balance)} ETH`);
 
-    if (balance.lt(ethers.utils.parseEther("1"))) {
+    if (balance < ethers.parseEther("1")) {
         throw new Error("Insufficient ETH balance. Minimum 1 ETH recommended for deployment.");
     }
 
@@ -21,7 +22,7 @@ async function main() {
 
     // Deployment configuration
     const deployedContracts = {
-        network: hre.network.name,
+        network: connection.networkName,
         deployer: deployer.address,
         timestamp: new Date().toISOString(),
         contracts: {}
@@ -32,7 +33,7 @@ async function main() {
         let paymentTokenAddress, paymentProcessorAddress, agentWalletAddress, aiPowerRentalAddress;
 
         try {
-            const existingContractsFile = `deployed-contracts-${hre.network.name}.json`;
+            const existingContractsFile = `deployed-contracts-${connection.networkName}.json`;
             if (fs.existsSync(existingContractsFile)) {
                 const existingContracts = JSON.parse(fs.readFileSync(existingContractsFile, 'utf8'));
                 paymentTokenAddress = existingContracts.contracts.AITBCToken?.address;
@@ -51,9 +52,9 @@ async function main() {
             const paymentToken = await MockERC20.deploy(
                 "AITBC Token",
                 "AITBC",
-                ethers.utils.parseEther("1000000")
+                ethers.parseEther("1000000")
             );
-            await paymentToken.deployed();
+            await paymentToken.waitForDeployment();
             paymentTokenAddress = paymentToken.address;
 
             deployedContracts.contracts.AITBCToken = {
@@ -70,7 +71,7 @@ async function main() {
             console.log("📦 Deploying mock AITBC Payment Processor...");
             const MockPaymentProcessor = await ethers.getContractFactory("PaymentProcessor");
             const paymentProcessor = await MockPaymentProcessor.deploy(paymentTokenAddress);
-            await paymentProcessor.deployed();
+            await paymentProcessor.waitForDeployment();
             paymentProcessorAddress = paymentProcessor.address;
 
             deployedContracts.contracts.PaymentProcessor = {
@@ -86,7 +87,7 @@ async function main() {
         console.log("📦 Deploying CrossChainReputation contract...");
         const CrossChainReputation = await ethers.getContractFactory("CrossChainReputation");
         const crossChainReputation = await CrossChainReputation.deploy();
-        await crossChainReputation.deployed();
+        await crossChainReputation.waitForDeployment();
 
         deployedContracts.contracts.CrossChainReputation = {
             address: crossChainReputation.address,
@@ -100,7 +101,7 @@ async function main() {
         console.log("📦 Deploying AgentCommunication contract...");
         const AgentCommunication = await ethers.getContractFactory("AgentCommunication");
         const agentCommunication = await AgentCommunication.deploy(crossChainReputation.address);
-        await agentCommunication.deployed();
+        await agentCommunication.waitForDeployment();
 
         deployedContracts.contracts.AgentCommunication = {
             address: agentCommunication.address,
@@ -118,7 +119,7 @@ async function main() {
             crossChainReputation.address,
             agentCommunication.address
         );
-        await agentCollaboration.deployed();
+        await agentCollaboration.waitForDeployment();
 
         deployedContracts.contracts.AgentCollaboration = {
             address: agentCollaboration.address,
@@ -135,7 +136,7 @@ async function main() {
             crossChainReputation.address,
             agentCollaboration.address
         );
-        await agentLearning.deployed();
+        await agentLearning.waitForDeployment();
 
         deployedContracts.contracts.AgentLearning = {
             address: agentLearning.address,
@@ -156,7 +157,7 @@ async function main() {
             agentCollaboration.address,
             agentLearning.address
         );
-        await agentMarketplaceV2.deployed();
+        await agentMarketplaceV2.waitForDeployment();
 
         deployedContracts.contracts.AgentMarketplaceV2 = {
             address: agentMarketplaceV2.address,
@@ -174,7 +175,7 @@ async function main() {
             "AITBC-RNFT",
             crossChainReputation.address
         );
-        await reputationNFT.deployed();
+        await reputationNFT.waitForDeployment();
 
         deployedContracts.contracts.ReputationNFT = {
             address: reputationNFT.address,
@@ -192,7 +193,7 @@ async function main() {
             1000, // baseReputationScore
             100,  // successBonus
             50,   // failurePenalty
-            ethers.utils.parseEther("100"), // minStakeAmount
+            ethers.parseEther("100"), // minStakeAmount
             10000, // maxDelegationRatio (100%)
             3600   // syncCooldown (1 hour)
         );
@@ -201,7 +202,7 @@ async function main() {
         // Initialize AgentCommunication
         await agentCommunication.updateGlobalSettings(
             1000, // minReputationScore
-            ethers.utils.parseEther("0.001"), // baseMessagePrice
+            ethers.parseEther("0.001"), // baseMessagePrice
             100000, // maxMessageSize (100KB)
             86400,  // messageTimeout (24 hours)
             2592000 // channelTimeout (30 days)
@@ -223,7 +224,7 @@ async function main() {
         console.log("✅ Supported chains added to CrossChainReputation");
 
         // Save deployment information
-        const deploymentFile = `deployed-contracts-${hre.network.name}.json`;
+        const deploymentFile = `deployed-contracts-${connection.networkName}.json`;
 
         // Load existing contracts if file exists
         let existingContracts = {};
@@ -244,7 +245,7 @@ async function main() {
 
         // Generate environment variables for frontend
         const envVars = `
-# AITBC Advanced Agent Features - ${hre.network.name.toUpperCase()}
+# AITBC Advanced Agent Features - ${connection.networkName.toUpperCase()}
 # Generated on ${new Date().toISOString()}
 
 # Advanced Contract Addresses
@@ -256,9 +257,9 @@ VITE_AGENT_MARKETPLACE_V2_ADDRESS=${agentMarketplaceV2.address}
 VITE_REPUTATION_NFT_ADDRESS=${reputationNFT.address}
 
 # Network Configuration
-VITE_NETWORK_NAME=${hre.network.name}
-VITE_CHAIN_ID=${hre.network.config.chainId || 1}
-VITE_RPC_URL=${hre.network.config.url || 'http://localhost:8545'}
+VITE_NETWORK_NAME=${connection.networkName}
+VITE_CHAIN_ID=${connection.networkConfig.chainId || 1}
+VITE_RPC_URL=${await connection.networkConfig.url?.get?.() ?? 'http://localhost:8545'}
 
 # Advanced Features Configuration
 VITE_MIN_REPUTATION_SCORE=1000

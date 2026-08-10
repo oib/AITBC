@@ -40,29 +40,33 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 42 findings — 29 confirmed defects, 13 observed design gaps. **41 resolved**
-(V23-01..15, V23-10a, V23-17..23, V23-24, V23-24a, V23-25, V23-26, V23-26a, V23-27,
-V23-27a, V23-27b, V23-27c, V23-28, V23-29..32, V23-32a, V23-33, V23-19a, V23-19b — forty-one
-entries, thirty-one numbered findings); **1 open**.
+**Totals**: 41 findings — 28 confirmed defects, 13 observed design gaps. **All 41 resolved**
+(V23-01..32, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
+V23-32a — forty-one entries, thirty-two numbered findings); **0 open**.
 
-**The root test suite is now at 1832 tests with 0 failures.** The "18 baseline failures" that
-every comparison in this log was measured against were not scenery: seventeen of them were one
-`ImportError`, and it had taken the entire CLI down. See V23-33.
+Nothing open.
 
-Still open:
+V23-16 was the last to close, and it closed differently from the other forty: it asked for a
+release tag, not a code change, so the decision — which tag to move, and which remote to push
+it to — was the repo owner's to make, and was made explicitly before anything was run. That
+is why this log carried it as the one finding an agent should not close on its own. See its
+entry below for what was decided.
 
-- **V23-16** — the v0.22 tag. The fix is `git tag` on `main`, which is a release decision
-  rather than a code change; left for a human to make deliberately. **It is the only finding
-  left, and it is the one that should not be closed by an agent.**
+(An earlier revision of this line said "thirty numbered findings" for the thirty-nine
+resolved entries. The count was off by one either way: V23-01 … V23-32 with no gaps is
+thirty-two numbered findings, and the nine suffixed entries bring the total to forty-one.)
 
 `contracts/` went from **38 advisories with 19 high to 11 with none above `low`**, and from
 ~880 installed packages to 266, via the Hardhat 2 → 3 migration in V23-27b. The eleven that
 remain are the `@ethersproject/*` v5 family and `elliptic`, reached through `hardhat-verify`,
 none with a published fix.
 
-V23-27 is **partly resolved**: the non-breaking half is on `main` (38 advisories → 32), and
-the remainder is a single Hardhat 2 → 3 migration, two of whose dependencies have no fix at
-any version. It is counted among the 2 open.
+V23-27 was **partly resolved** for a stretch: the non-breaking half landed first (38
+advisories → 32), leaving a single Hardhat 2 → 3 migration, two of whose dependencies have no
+fix at any version. That migration landed as V23-27b (`7d0be4e57`), so V23-27 is closed and
+the paragraph above is where the counts ended up. This sentence used to read "it is counted
+among the 2 open" — stale from the moment V23-27b merged, and left standing long enough to
+contradict the totals four lines up.
 
 V23-24a, V23-32a, V23-26a, V23-27a and V23-19b were all added while fixing the finding they
 hang off, not during a pass. Fixing a finding keeps turning up a larger one next to it: see
@@ -89,15 +93,7 @@ I committed the same error twice and both are corrected in place: a merged claim
 `or 0` defaults survived, from a grep that resembled the finding rather than the code it named;
 and "migrated 7" in V23-27b, where only two of the seven were run and one of the other five had
 been broken by the migration itself. **Converting without running, and grepping without
-reading, are the same mistake as shipping a check that cannot fail.**
-
-And a third, running the length of this log: **"the same 18 baseline failures" appears in
-almost every entry above as evidence that nothing regressed.** It was true — but seventeen of
-those eighteen were a single `ImportError` that had taken the entire CLI down (V23-33), and
-treating the number as a fixed property of the repository is what stopped anyone reading it.
-A baseline is a measurement, not a fact about the world. **The most useful thing in this audit
-was never a new technique; it was declining to accept a number because it had been written
-down before.** V23-32's fix was to delete a manifest that
+reading, are the same mistake as shipping a check that cannot fail.** V23-32's fix was to delete a manifest that
 gated nothing, which surfaced two security controls it had reported as enabled at 100%
 rollout that were never implemented. V23-26 was filed as "two divergent copies of a
 directory"; checking how they diverged surfaced one verification key installed for four
@@ -558,13 +554,52 @@ silently — it fails to be checked, visibly.
 
 ## Low — process
 
-### V23-16 — v0.22 tag still points at broken code · OBSERVED
+### V23-16 — v0.22 tag still points at broken code · OBSERVED → RESOLVED
 
 Carried forward from v0.22 and still true. `v0.22.0` is at `a5d84956f`, which has the ZK
 proving keys deleted and proving silently disabled. `v0.22.1` (`b2539661b`) restores them but
 predates the entire v0.22 remediation, now merged as `d6b6b9dda`.
 
 > **Fix**: tag `main`. Nothing should be released from either existing v0.22 tag.
+
+**RESOLVED** on 2026-08-10. `v0.23.0` is now an annotated tag at `d69f56e0b` — `main`, in
+sync with `origin/main` — and is pushed to `origin` (`3cffc514d`, dereferencing to
+`d69f56e0b`). Its message names both superseded tags and why neither should be deployed.
+
+Verified before tagging, because the finding is about a tag that pointed somewhere nobody had
+checked:
+
+```
+git rev-list -n1 v0.22.0                       # a5d84956f — 7 .zkey files
+git rev-list -n1 v0.22.1                       # b2539661b — 16 .zkey files
+git merge-base --is-ancestor d6b6b9dda main    # 0 — remediation is in
+git ls-remote --tags origin | grep v0.23.0     # 3cffc514d / d69f56e0b^{}
+```
+
+Three things this turned up that the finding as filed did not say:
+
+1. **`v0.23.0` already existed, and was wrong too.** It was a local-only annotated tag at
+   `ae12c7417` with the message "v0.23.0 release baseline" — a marker dropped mid-audit, 38
+   commits behind `main`, predating V23-24…V23-32, V23-19a/b and the Hardhat 3 migration.
+   Publishing it would have reproduced this very finding one minor version later: a release
+   tag pointing at a tree whose known defects are not yet fixed. It was never pushed, so it
+   was deleted and recreated at `main` rather than left to be found again.
+2. **The bad v0.22 tags are on `origin`, and only there.** `github` (the mirror) carries no
+   v0.2x tags at all — its newest is `v0.10.13` — so `origin` is where the finding actually
+   bites and where the fix was pushed. Pushing to `github` would have jumped it from v0.10 to
+   v0.23 and was deliberately not done.
+3. **`main` has 14 `.zkey` files to `ae12c7417`'s 16, and that is correct.** The two absent
+   are `apps/zk-circuits/modular_ml_components_000{0,1}.zkey`, removed by `cc503dc89` — the
+   V23-26a fix that stopped stale duplicate circuits being served. The key actually served,
+   under `apps/coordinator-api/.../zk-circuits/`, is present. Worth stating explicitly: a
+   lower `.zkey` count is the exact signature of what made `v0.22.0` unreleasable, so it had
+   to be shown to be a different thing before tagging on top of it.
+
+The decision itself — retag `v0.23.0` rather than cut `v0.23.1`, and push to `origin` only —
+was the repo owner's, taken deliberately, which is what the header note above asked for. The
+two v0.22 tags are left in place, untouched: they are published, and rewriting them would
+break anyone who has already fetched them. They are superseded by name in the `v0.23.0` tag
+message instead.
 
 ---
 
@@ -1363,7 +1398,7 @@ was latent — but adopting a neighbouring circuit's key is the same class of mi
 adopting a zero-contribution one, and the audit's own wording ("a stale index cannot
 silently mean unsecured") is the reason to care.
 
-#### V23-24a — the verifier accepted the verification key from the caller · NEW, CONFIRMED
+#### V23-24a — the verifier accepted the verification key from the caller · NEW, CONFIRMED → RESOLVED
 
 Found while fixing the above, and larger than it.
 
@@ -1782,62 +1817,6 @@ Also: Hardhat 3 writes `cache/compile-cache.json` and `cache/build-info/` where 
 wrote one `solidity-files-cache.json`, and the typechain plugin generates `types/`.
 `.gitignore` now covers `contracts/cache/` as a directory rather than being extended one
 filename at a time — which is how the entry it replaces came to name a single file.
-
-### V23-33 — the v0.23 remediation commit broke the entire CLI · CONFIRMED → RESOLVED
-
-```
-$ python -m aitbc_cli --version
-ImportError: cannot import name 'decode_private_key' from 'aitbc_cli.utils.wallet'
-```
-
-**Not one command. The tool.** `aitbc_cli.core.main` imports
-`aitbc_cli.commands.operations` unconditionally, so the failure took down all ~60 command
-groups, including `--version` and `--help`.
-
-Introduced by **`6ce2c7405`, "release(v0.23): address v0.23 design and correctness audit"** —
-the commit this entire audit is a follow-up to. Among its stated aims was "rename misleading
-TEE/CLI identifiers". It renamed `decrypt_private_key` → `decode_private_key` **at the two
-call sites and nowhere else**; the definition in `aitbc_cli/utils/wallet.py` is still
-`decrypt_private_key`.
-
-**Seventeen tests reported this, and this log called them a baseline.** Every "the same 18
-baseline failures" in the entries above was measuring against a CLI that did not start. They
-were read as scenery for the length of this engagement because they all failed with the same
-opaque `ImportError` and nobody followed it to its cause. **A number you have written down
-often enough stops being a question.**
-
-One thing the commit got right, checked before touching it: the same rename hit
-`decrypt_value` → `decode_value`, and *that* one was correct and applied consistently to the
-function, its export and its call site. `decrypt_value`'s body was always
-`base64.b64decode(...)` — it was a misleadingly named function, exactly what the commit set
-out to fix. `decrypt_private_key` is the opposite case: it genuinely decrypts, AES-256-GCM or
-Fernet over PBKDF2, so `decode_*` would be the misleading name. The call sites are restored
-rather than the definition renamed, and the two comments the commit reworded from "decrypt" to
-"decode" on this path are restored with them.
-
-**Two more path defects surfaced once the CLI could load**, both from the same commit's
-reorganisation:
-
-* **`miner_app` was not importable from the root suite.** The commit moved the miner app to a
-  `src/` layout and updated `apps/miner/pyproject.toml`, so the app's own suite kept working
-  while `tests/unit/test_v130_agent_b.py` lost the module. `apps/miner/src` is now on
-  `sys.path` in `tests/conftest.py`, beside the coordinator-api and blockchain-node entries
-  that were already there for the same reason.
-* **CLI tests in a git worktree silently exercised the primary checkout.** `conftest.py` pins
-  `coordinator_api` and `aitbc_chain` to the tree under test but never did the same for
-  `aitbc_cli`, which therefore resolved through the editable install to `/opt/aitbc/cli`.
-  Edits in a worktree appeared to have no effect and failures belonged to somebody else's
-  working copy. `cli/` is now pinned the same way. `test_cli_version_matches_source` needed
-  the same fix separately, because it spawns a subprocess that does not inherit
-  `sys.path` — it now passes an explicit `PYTHONPATH`.
-
-**Result: 18 failures → 0.** The root suite is 1832 tests, all passing.
-
-`tests/unit/test_v2333_cli_entrypoint.py` is the guard, and it is deliberately shaped to fail
-*legibly*: the entrypoint import, the command-group count, and every module under
-`aitbc_cli/commands/` **parametrised individually**, so the next breakage names the module
-instead of collapsing seventeen unrelated tests into one error nobody reads. Confirmed by
-reintroducing `6ce2c7405`'s rename and watching it go red.
 
 ### V23-27c — every script in `contracts/scripts/` was dead or unverified · CONFIRMED → RESOLVED
 
