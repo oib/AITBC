@@ -48,8 +48,8 @@ jobs:
           bash scripts/ci/setup-python-venv.sh \
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
-            --requirements-file "$PWD/cli/requirements-cli.txt" \
-            --extra-packages "PyYAML requests cryptography pydantic pydantic-settings fastapi httpx prometheus-client"
+            --requirements-file "$PWD/requirements.txt" \
+            --extra-packages "PyYAML requests cryptography pydantic pydantic-settings fastapi httpx"
           echo "✅ Python environment ready"
 
       - name: Verify CLI imports
