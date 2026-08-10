@@ -1,5 +1,6 @@
-import { network } from "hardhat";
-const { ethers } = await network.getOrCreate();
+import { network as hardhatNetwork } from "hardhat";
+const connection = await hardhatNetwork.getOrCreate();
+const { ethers } = connection;
 
 async function main() {
   console.log("Deploying AIToken to testnet...");
