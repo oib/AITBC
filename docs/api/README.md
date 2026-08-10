@@ -35,29 +35,32 @@ curl -X POST http://localhost:8203/v1/jobs \
   }'
 ```
 
-### Using Python SDK
+### Using the Python SDK
+
+`aitbc-sdk` covers health, wallet, registry, grants and signed receipts. It is synchronous
+and has **no job-submission API** — submit jobs over HTTP as above, or with the async
+`aitbc_agent.ComputeConsumer` from `aitbc-agent-sdk`.
 
 ```python
-import aitbc_sdk
+from aitbc_sdk import AITBCClient
 
-client = aitbc_sdk.Client(api_key="<YOUR_API_KEY>", base_url="http://localhost:8203")
-job = client.submit_job(payload={"model": "llama2", "prompt": "Hello world"})
+with AITBCClient(base_url="http://localhost:8203", api_key="<YOUR_API_KEY>") as client:
+    print(client.health().status)
+    print(client.wallet.get_balance("wallet-123").balance)   # Decimal
 ```
 
-### Using JavaScript SDK
+Fetch and verify the receipt a job produced:
 
-```javascript
-import { AITBCClient } from '@aitbc/aitbc-sdk';
+```python
+from aitbc_sdk import CoordinatorReceiptClient, verify_receipt
 
-const client = new AITBCClient({
-  apiKey: '<YOUR_API_KEY>',
-  baseUrl: 'http://localhost:8203'
-});
-
-const job = await client.submitJob({
-  payload: { model: 'llama2', prompt: 'Hello world' }
-});
+with CoordinatorReceiptClient(base_url="http://localhost:8203", api_key="<YOUR_API_KEY>") as rc:
+    receipt = rc.fetch_latest("job-123")
+    if receipt is not None:
+        print(verify_receipt(receipt).verified)
 ```
+
+See [Python SDK Examples](./examples/python-sdk-examples.md) for the full surface.
 
 ## Rate Limiting
 

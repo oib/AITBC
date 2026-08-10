@@ -1,6 +1,19 @@
 # Python SDK Examples
 
-This document provides comprehensive examples for using the AITBC Python SDK.
+Examples for `aitbc-sdk`, the Python client in `packages/py/aitbc-sdk`.
+
+## Scope: what this SDK does and does not cover
+
+`aitbc-sdk` is a **synchronous** client covering health, grants, wallet, registry, and
+signed receipts. It is deliberately narrow.
+
+**It has no job-submission API.** There is no `submit_job`, no `get_job`, and no `jobs`
+attribute on any client in this package. To submit and track jobs, use one of:
+
+- the HTTP endpoints directly — see [curl-examples.md](./curl-examples.md), which covers
+  `POST /v1/jobs` and job status
+- `aitbc_agent.ComputeConsumer` from `packages/py/aitbc-agent-sdk`, which is async — see
+  [Job submission via the agent SDK](#job-submission-via-the-agent-sdk) below
 
 ## Installation
 
@@ -8,308 +21,338 @@ This document provides comprehensive examples for using the AITBC Python SDK.
 pip install aitbc-sdk
 ```
 
+Requires Python 3.13.5+.
+
 ## Basic Setup
 
 ```python
-import aitbc_sdk
+from aitbc_sdk import AITBCClient
 
-# Initialize client
-client = aitbc_sdk.Client(
+client = AITBCClient(
+    base_url="http://localhost:8203",
+    api_key="<YOUR_API_KEY>",   # sent as the X-Api-Key header; omit for unauthenticated calls
+    timeout=30.0,
+    max_retries=3,
+)
+```
+
+`AITBCClient` is an alias of `CoordinatorAPIClient`; `CoordinatorClient` is a third name for
+the same class. All three are interchangeable.
+
+The client owns an HTTP connection pool, so close it when you are done. It is a context
+manager, which is the easiest way:
+
+```python
+from aitbc_sdk import AITBCClient
+
+with AITBCClient(base_url="http://localhost:8203", api_key="<YOUR_API_KEY>") as client:
+    response = client.health()
+    print(response.status, response.data)
+
+# or explicitly
+client = AITBCClient(base_url="http://localhost:8203")
+try:
+    ...
+finally:
+    client.close()
+```
+
+## Health Check
+
+`health()` never raises — it reports transport failures as a status instead.
+
+```python
+response = client.health()      # SDKResponse
+
+if response.status == 200:
+    print("coordinator healthy:", response.data)
+else:
+    print("coordinator unreachable:", response.error)
+```
+
+`SDKResponse` has `status: int`, `data: dict`, and `error: str | None`.
+
+## Wallet Operations
+
+```python
+balance = client.wallet.get_balance("wallet-123")   # GET /v1/wallets/{wallet_id}/balance
+
+print(balance.wallet_id)
+print(balance.address)
+print(balance.balance)      # Decimal, not float
+print(balance.asset)
+```
+
+Balances are `Decimal`. Keep them that way — do not convert to `float` for arithmetic on
+money.
+
+```python
+from decimal import Decimal
+
+result = client.wallet.send_payment(       # POST /v1/wallets/{wallet_id}/payments
+    wallet_id="wallet-123",
+    recipient_id="wallet-456",
+    amount=str(Decimal("10.50")),          # amount is a str
+    asset="AITBC",
+)
+print(result)                              # raw response dict
+```
+
+## Registry Operations
+
+```python
+entry = client.registry.get_developer("0xabc...")    # GET /v1/developers/{address}
+
+print(entry.id, entry.name, entry.wallet_address)
+print(entry.metadata)                                # dict
+
+entries = client.registry.list_registry(             # GET /v1/registry
+    role="provider",
+    limit=50,
+    cursor=None,
+)
+for entry in entries:
+    print(entry.id, entry.name)
+```
+
+`list_registry` returns an empty list if the response is not a list — it does not raise.
+
+## Grants
+
+```python
+grants = client.registry.list_grants()               # GET /v1/grants
+
+for grant in grants:
+    print(grant.grant_id, grant.title, grant.status)
+    print(grant.requested_amount, grant.approved_amount)   # both Decimal
+
+summary = client.get_grant_summary("grant-123")      # GET /v1/grants/{id}/summary
+print(summary.title, summary.status)
+```
+
+Unlike `list_registry`, `list_grants` raises `AITBCError` if the response is not a list.
+
+## Signed Receipts
+
+Receipts are the SDK's most complete area. `CoordinatorReceiptClient` is separate from
+`AITBCClient` and takes its own connection settings.
+
+```python
+from aitbc_sdk import CoordinatorReceiptClient
+
+receipts = CoordinatorReceiptClient(
+    base_url="http://localhost:8203",
     api_key="<YOUR_API_KEY>",
-    base_url="http://localhost:8203"
+    timeout=10.0,
+    max_retries=3,
+    backoff_seconds=0.5,
 )
 ```
 
-## Job Submission
+It is also a context manager, and should be closed for the same reason.
 
-### Simple Job Submission
+### Fetch receipts
 
 ```python
-# Submit a simple job
-job = client.submit_job(
-    payload={
-        "model": "llama2",
-        "prompt": "Hello, world!"
-    },
-    ttl_seconds=900
-)
+with CoordinatorReceiptClient(base_url="http://localhost:8203", api_key="<YOUR_API_KEY>") as rc:
+    # Latest receipt; returns None on 404 rather than raising
+    latest = rc.fetch_latest("job-123")          # GET /v1/jobs/{job_id}/receipt
+    if latest is None:
+        print("no receipt yet")
 
-print(f"Job ID: {job.job_id}")
-print(f"State: {job.state}")
+    # Every receipt for a job, following pagination
+    history = rc.fetch_history("job-123")        # GET /v1/jobs/{job_id}/receipts
+
+    # Same, but streamed rather than accumulated
+    for receipt in rc.iter_receipts("job-123", page_size=100):
+        print(receipt["receipt_id"])
 ```
 
-### Job with Constraints
+### Page through receipts manually
 
 ```python
-# Submit job with GPU constraints
-from aitbc_sdk import Constraints
-
-job = client.submit_job(
-    payload={
-        "model": "llama2",
-        "prompt": "Hello, world!"
-    },
-    constraints=Constraints(
-        min_gpu_memory=8,
-        gpu_type="nvidia-rtx-3090"
-    ),
-    ttl_seconds=900
-)
-```
-
-### Job with Payment
-
-```python
-# Submit job with payment
-job = client.submit_job(
-    payload={
-        "model": "llama2",
-        "prompt": "Hello, world!"
-    },
-    payment_amount=100.0,
-    payment_currency="AITBC",
-    ttl_seconds=900
-)
-
-print(f"Payment ID: {job.payment_id}")
-```
-
-## Job Status Monitoring
-
-### Get Job Status
-
-```python
-# Get current job status
-status = client.get_job(job_id="your-job-id")
-print(f"State: {status.state}")
-print(f"Assigned Miner: {status.assigned_miner_id}")
-print(f"Error: {status.error}")
-```
-
-### Poll for Completion
-
-```python
-import time
-
-job_id = "your-job-id"
-
+cursor = None
 while True:
-    status = client.get_job(job_id)
-    print(f"State: {status.state}")
-
-    if status.state in ["COMPLETED", "FAILED", "CANCELLED", "EXPIRED"]:
+    page = rc.fetch_receipts_page(job_id="job-123", cursor=cursor, limit=100)
+    for receipt in page.items:
+        print(receipt["receipt_id"])
+    if not page.next_cursor:
         break
-
-    time.sleep(5)
+    cursor = page.next_cursor
 ```
 
-### WebSocket for Real-time Updates
+`ReceiptPage` has `items: list[dict]`, `next_cursor: str | None`, and `raw: dict`.
+
+### Verify receipt signatures
+
+Verification is local — it checks Ed25519 signatures and needs no network call.
 
 ```python
-# Monitor job status via WebSocket
-def on_status_update(update):
-    print(f"Status update: {update}")
+from aitbc_sdk import verify_receipt, verify_receipts
 
-client.watch_job(job_id="your-job-id", callback=on_status_update)
+verification = verify_receipt(receipt)       # ReceiptVerification
+
+if verification.verified:
+    print("receipt is valid")
+else:
+    print("invalid:", verification.failure_reasons())
+    # e.g. ["miner_signature_invalid:key-1", "coordinator_attestation_invalid:key-2"]
+
+print(verification.miner_signature.key_id, verification.miner_signature.valid)
+for attestation in verification.coordinator_attestations:
+    print(attestation.key_id, attestation.valid, attestation.algorithm, attestation.reason)
+
+# Verify a batch
+verifications = verify_receipts(history)
 ```
 
-## Job Results
+`verified` is true only when the miner signature is valid **and** every coordinator
+attestation is valid. A malformed or unsigned receipt marks that one receipt invalid rather
+than raising, so a bad receipt does not take down a whole batch.
 
-### Get Job Result
-
-```python
-# Get job result
-result = client.get_job_result(job_id="your-job-id")
-print(f"Output: {result.result}")
-print(f"Receipt: {result.receipt}")
-```
-
-### Get Receipts
+### Summarize verification across a job
 
 ```python
-# Get latest receipt
-receipt = client.get_receipt(job_id="your-job-id")
-print(f"Signature: {receipt.signature}")
+status = rc.summarize_receipts("job-123", page_size=100)     # ReceiptStatus
 
-# Get all receipts
-receipts = client.list_receipts(job_id="your-job-id")
-for receipt in receipts:
-    print(f"Receipt: {receipt.signature}")
-```
+print(status.total, status.verified_count)
+print(status.all_verified)          # True only if total > 0 and all verified
+print(status.has_failures)
+print(status.failure_reasons)       # {"miner_signature_invalid:key-1": 2, ...}
 
-## Job Cancellation
+for failure in status.failures:
+    print(failure.receipt_id, failure.reasons)
 
-```python
-# Cancel a job
-cancelled_job = client.cancel_job(job_id="your-job-id")
-print(f"State: {cancelled_job.state}")
-```
-
-## Payment Operations
-
-### Get Payment Status
-
-```python
-# Get payment information
-payment = client.get_payment(job_id="your-job-id")
-print(f"Status: {payment.status}")
-print(f"Amount: {payment.amount}")
-```
-
-## Blockchain Operations
-
-### Initialize Blockchain Client
-
-```python
-blockchain = aitbc_sdk.BlockchainClient(
-    base_url="http://localhost:8202"
-)
-```
-
-### Get Block Information
-
-```python
-# Get head block
-head_block = blockchain.get_head_block()
-print(f"Current height: {head_block.height}")
-
-# Get block by height
-block = blockchain.get_block(height=12345)
-print(f"Block hash: {block.hash}")
-```
-
-### Network Status
-
-```python
-# Get network information
-network = blockchain.get_network_info()
-print(f"Peer count: {network.peer_count}")
-print(f"Chain ID: {network.chain_id}")
-
-# Get peers
-peers = blockchain.get_peers()
-for peer in peers:
-    print(f"Peer: {peer.address}")
-```
-
-### Transaction Operations
-
-```python
-# Get transaction
-tx = blockchain.get_transaction(tx_hash="0x...")
-print(f"From: {tx.from}")
-print(f"To: {tx.to}")
-print(f"Value: {tx.value}")
+if status.latest_verified is not None:
+    print("most recent verified receipt:", status.latest_verified.receipt)
 ```
 
 ## Error Handling
 
+Exceptions live in `aitbc_sdk.errors` and are re-exported from the package root. There is no
+`aitbc_sdk.exceptions` module.
+
 ```python
-from aitbc_sdk.exceptions import APIError, AuthenticationError
+from aitbc_sdk import AITBCError, AITBCConnectionError, AITBCRateLimitError
 
 try:
-    job = client.submit_job(
-        payload={"model": "llama2", "prompt": "Hello"}
-    )
-except AuthenticationError:
-    print("Invalid API key")
-except APIError as e:
-    print(f"API error: {e}")
-except Exception as e:
-    print(f"Unexpected error: {e}")
+    balance = client.wallet.get_balance("wallet-123")
+except AITBCRateLimitError as exc:
+    print("rate limited:", exc)
+except AITBCConnectionError as exc:
+    print("could not reach coordinator:", exc)
+except AITBCError as exc:
+    print("SDK error:", exc)
 ```
 
-## Advanced Examples
+Both `AITBCConnectionError` and `AITBCRateLimitError` subclass `AITBCError`, so catching
+`AITBCError` alone catches everything this SDK raises. Order the handlers most-specific
+first, as above.
 
-### Batch Job Submission
+Note that `health()` is the exception to this: it returns a non-200 `SDKResponse` instead of
+raising.
 
-```python
-# Submit multiple jobs
-jobs = []
-for prompt in ["Hello", "World", "Test"]:
-    job = client.submit_job(
-        payload={"model": "llama2", "prompt": prompt},
-        ttl_seconds=900
-    )
-    jobs.append(job)
+## Retries and Circuit Breaking
 
-print(f"Submitted {len(jobs)} jobs")
-```
-
-### Job History
+The clients already retry internally via `max_retries`. These helpers are for wrapping your
+own calls.
 
 ```python
-# Get job history
-history = client.get_job_history(limit=10)
-for job in history:
-    print(f"Job {job.job_id}: {job.state}")
-```
+from aitbc_sdk import SDKRetryPolicy, SDKCircuitBreaker, with_backoff
 
-### Custom Headers
+policy = SDKRetryPolicy(max_retries=3, enable_logging=False)
+result = policy.execute(client.health)
 
-```python
-# Use custom headers
-client = aitbc_sdk.Client(
-    api_key="<YOUR_API_KEY>",
-    base_url="http://localhost:8203",
-    headers={"X-Custom-Header": "value"}
+# async variant
+result = await policy.execute_async(some_async_callable)
+
+breaker = SDKCircuitBreaker(threshold=5, timeout=60)
+result = breaker.call(client.health)
+print(breaker.is_open(), breaker.get_state())
+
+# one-shot retry with exponential backoff
+result = with_backoff(
+    lambda: client.wallet.get_balance("wallet-123"),
+    max_retries=3,
+    backoff_seconds=0.5,
+    exceptions=(AITBCConnectionError,),
 )
 ```
 
-## Testing
+`RetryConfig(max_retries=3, enable_logging=False)` is a plain dataclass for carrying these
+settings around.
 
-```python
-# Mock client for testing
-from unittest.mock import Mock
-
-mock_client = Mock()
-mock_client.submit_job.return_value = Mock(job_id="test-id", state="QUEUED")
-
-job = mock_client.submit_job(payload={"model": "test"})
-assert job.job_id == "test-id"
-```
-
-## Configuration
-
-### Environment Variables
+## Configuration from the Environment
 
 ```python
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+from aitbc_sdk import AITBCClient
 
-client = aitbc_sdk.Client(
-    api_key=os.getenv("AITBC_API_KEY"),
-    base_url=os.getenv("AITBC_BASE_URL", "http://localhost:8203")
+client = AITBCClient(
+    base_url=os.getenv("AITBC_BASE_URL", "http://localhost:8203"),
+    api_key=os.getenv("AITBC_API_KEY", ""),
 )
 ```
 
-### Timeout Configuration
+`api_key` defaults to `""`, in which case no `X-Api-Key` header is sent at all.
+
+## Job submission via the agent SDK
+
+Job submission lives in `aitbc-agent-sdk` (`packages/py/aitbc-agent-sdk`), which is a
+separate package and is **async**.
+
+```bash
+pip install aitbc-agent-sdk
+```
 
 ```python
-client = aitbc_sdk.Client(
-    api_key="<YOUR_API_KEY>",
-    base_url="http://localhost:8203",
-    timeout=30  # 30 second timeout
-)
+import asyncio
+
+from aitbc_agent import ComputeConsumer
+
+
+async def main() -> None:
+    consumer = ComputeConsumer.create(
+        name="my-consumer",
+        agent_type="consumer",
+        capabilities={"compute_type": "inference"},
+    )
+
+    job_id = await consumer.submit_job(        # POST /v1/jobs
+        job_type="llm_inference",
+        input_data={"model": "llama2", "prompt": "Hello, world!"},
+        requirements={"gpu_memory": 8},
+        max_price=0.15,
+    )
+    print("job id:", job_id)
+
+    status = await consumer.get_job_status(job_id)    # GET /v1/jobs/{job_id}
+    print("status:", status)
+
+    print(consumer.get_spending_summary())
+
+
+asyncio.run(main())
 ```
 
-## Receipt Verification
+`ComputeConsumer.create()` does not take a coordinator URL and falls back to the `Agent`
+default, `http://localhost:8107`. To point it elsewhere, construct it directly:
 
 ```python
-import aitbc_crypto
+from aitbc_agent import AgentCapabilities, AgentIdentity, ComputeConsumer
 
-# Verify receipt signature
-receipt = client.get_receipt(job_id="your-job-id")
-is_valid = aitbc_crypto.verify_receipt(
-    receipt.signature,
-    receipt.data,
-    public_key="miner-public-key"
+consumer = ComputeConsumer(
+    identity=identity,              # AgentIdentity
+    capabilities=capabilities,      # AgentCapabilities
+    coordinator_url="http://localhost:8203",
 )
-
-if is_valid:
-    print("Receipt is valid")
-else:
-    print("Receipt is invalid")
 ```
+
+`submit_job` returns a locally-generated placeholder id if the coordinator does not answer
+with `201`, so check `get_job_status` rather than assuming the id is server-assigned.
+
+## Related
+
+- [cURL Examples](./curl-examples.md) — the HTTP endpoints, including job submission
+- [API Reference](../README.md)
