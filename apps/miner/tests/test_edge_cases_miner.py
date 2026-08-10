@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 import production_miner
 import pytest
+from aitbc.exceptions import NetworkError
 
 
 @pytest.mark.unit
@@ -61,7 +62,9 @@ def test_build_gpu_capabilities_negative_memory(mock_gpu):
         mock_arch.return_value = "ada_lovelace"
 
         result = production_miner.build_gpu_capabilities()
-        assert result["gpu"]["memory_gb"] == -24576
+        # memory_mb, and the value is passed through unvalidated -- recording that rather
+        # than asserting a "memory_gb" key this function has never produced.
+        assert result["gpus"][0]["memory_mb"] == -24576
 
 
 @pytest.mark.unit
@@ -77,39 +80,43 @@ def test_build_gpu_capabilities_zero_memory(mock_gpu):
         mock_arch.return_value = "ada_lovelace"
 
         result = production_miner.build_gpu_capabilities()
-        assert result["gpu"]["memory_gb"] == 0
+        assert result["gpus"][0]["memory_mb"] == 0
 
 
 @pytest.mark.integration
-@patch("production_miner.httpx.get")
-def test_check_ollama_empty_models(mock_get):
-    """Test Ollama check with empty models list"""
-    mock_get.return_value = Mock(status_code=200, json=lambda: {"models": []})
-    available, models = production_miner.check_ollama()
+def test_check_ollama_empty_models(mock_http):
+    """Ollama running with nothing installed: available, no models."""
+    with mock_http(get={"models": []}):
+        available, models = production_miner.check_ollama()
+
     assert available is True
-    assert len(models) == 0
+    assert models == []
 
 
 @pytest.mark.integration
-@patch("production_miner.httpx.get")
-def test_check_ollama_malformed_response(mock_get):
-    """Test Ollama check with malformed response"""
-    mock_get.return_value = Mock(status_code=200, json=lambda: {})
-    available, models = production_miner.check_ollama()
+def test_check_ollama_malformed_response(mock_http):
+    """A response with no "models" key is treated as no models, not as a crash.
+
+    Note the boundary this sits next to: an *empty* dict is falsy, so it takes the "not
+    responding" branch and reports unavailable. A non-empty response missing "models" is
+    reachable-but-empty, which is what this covers.
+    """
+    with mock_http(get={"unexpected": "shape"}):
+        available, models = production_miner.check_ollama()
+
     assert available is True
-    assert len(models) == 0
+    assert models == []
 
 
 @pytest.mark.integration
 @patch("production_miner.submit_result")
-@patch("production_miner.httpx.post")
-def test_execute_job_empty_payload(mock_post, mock_submit):
-    """Test executing job with empty payload"""
-    mock_post.return_value = Mock(status_code=200, json=lambda: {"response": "test"})
+def test_execute_job_empty_payload(mock_submit, mock_http):
+    """No job type at all is unsupported, and is reported rather than guessed at."""
+    with mock_http(post={"response": "test"}):
+        job = {"job_id": "job_123", "payload": {}}
+        assert production_miner.execute_job(job, ["llama3.2:latest"]) is False
 
-    job = {"job_id": "job_123", "payload": {}}
-    result = production_miner.execute_job(job, ["llama3.2:latest"])
-    assert result is False
+    assert mock_submit.call_args.args[1]["result"]["status"] == "failed"
 
 
 @pytest.mark.integration
@@ -123,41 +130,45 @@ def test_execute_job_missing_job_id(mock_submit):
 
 @pytest.mark.integration
 @patch("production_miner.submit_result")
-@patch("production_miner.httpx.post")
-def test_execute_job_model_fallback(mock_post, mock_submit):
-    """Test executing job with model fallback to first available"""
-    mock_post.return_value = Mock(status_code=200, json=lambda: {"response": "test"})
+def test_execute_job_model_fallback(mock_submit, mock_http):
+    """An unavailable model falls back to the first installed one, and says which it used."""
+    with mock_http(post={"response": "test"}):
+        job = {"job_id": "job_123", "payload": {"type": "inference", "prompt": "test", "model": "nonexistent"}}
+        assert production_miner.execute_job(job, ["llama3.2:latest"]) is True
 
-    job = {"job_id": "job_123", "payload": {"type": "inference", "prompt": "test", "model": "nonexistent"}}
-    result = production_miner.execute_job(job, ["llama3.2:latest"])
-    assert result is True
+    assert mock_submit.call_args.args[1]["result"]["model"] == "llama3.2:latest"
 
 
 @pytest.mark.integration
 @patch("production_miner.submit_result")
-def test_execute_job_timeout(mock_submit):
-    """Test executing job with timeout"""
+def test_execute_job_timeout(mock_submit, mock_http):
+    """A timeout fails the job and reports the reason, rather than propagating."""
     job = {"job_id": "job_123", "payload": {"type": "inference", "prompt": "test", "model": "llama3.2:latest"}}
 
-    with patch("production_miner.httpx.post") as mock_post:
-        mock_post.side_effect = Exception("Timeout")
-        result = production_miner.execute_job(job, ["llama3.2:latest"])
-        assert result is False
+    with mock_http(post=NetworkError("Timeout")):
+        assert production_miner.execute_job(job, ["llama3.2:latest"]) is False
+
+    assert "Timeout" in mock_submit.call_args.args[1]["result"]["error"]
 
 
 @pytest.mark.integration
-@patch("production_miner.httpx.post")
+@patch("production_miner.requests.post")
 def test_poll_for_jobs_malformed_response(mock_post):
-    """Test polling for jobs with malformed response"""
+    """A 200 with an empty body is "no job", not a job.
+
+    The old test asserted ``result is not None``. The code returns None -- ``if job and
+    job.get("job_id")`` is false for ``{}`` -- and returning a job-shaped None-ish object to
+    the mining loop would be the bug, so the code is right.
+    """
     mock_post.return_value = Mock(status_code=200, json=lambda: {})
-    result = production_miner.poll_for_jobs()
-    assert result is not None
+
+    assert production_miner.poll_for_jobs() is None
 
 
 @pytest.mark.integration
-@patch("production_miner.httpx.post")
-def test_submit_result_malformed_response(mock_post):
-    """Test submitting result with malformed response"""
-    mock_post.return_value = Mock(status_code=500, text="Error")
-    production_miner.submit_result("job_123", {"result": {"status": "completed"}})
-    assert mock_post.called
+def test_submit_result_malformed_response(mock_http):
+    """An empty response body is logged as a failure and does not raise."""
+    with mock_http(post=None) as client:
+        production_miner.submit_result("job_123", {"result": {"status": "completed"}})
+
+    assert client.instance.post.called

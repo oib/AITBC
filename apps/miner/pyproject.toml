@@ -4,6 +4,10 @@
 # what the tests import. With only "src" here, all three test modules fail to collect.
 pythonpath = ["src", "."]
 
+# The root pyproject sets this, but this file supersedes it for anything under apps/miner,
+# so the async tests here were collected and never awaited.
+asyncio_mode = "auto"
+
 # This file being present at all makes it pytest's config for anything under apps/miner,
 # which means the root pyproject's marker registrations do not apply and every
 # @pytest.mark.unit becomes an unknown mark. Registering the two the tests use.
