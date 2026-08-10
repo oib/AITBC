@@ -37,13 +37,9 @@ def load_island_credentials() -> dict[str, Any]:
 
     file_stat = credentials_path.stat()
     if file_stat.st_uid != os.geteuid():
-        raise PermissionError(
-            f"Island credentials file {CREDENTIALS_PATH} must be owned by the current user"
-        )
+        raise PermissionError(f"Island credentials file {CREDENTIALS_PATH} must be owned by the current user")
     if file_stat.st_mode & 0o777 > 0o600:
-        raise PermissionError(
-            f"Island credentials file {CREDENTIALS_PATH} has overly permissive mode; set it to 0o600"
-        )
+        raise PermissionError(f"Island credentials file {CREDENTIALS_PATH} has overly permissive mode; set it to 0o600")
 
     with open(credentials_path) as f:
         credentials: dict[str, Any] = json.load(f)
