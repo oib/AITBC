@@ -13,6 +13,7 @@ from typing import Any
 from aitbc.aitbc_logging import get_logger
 
 from ....schemas import JobResult, Receipt
+from .zkey_header import ZKeyFormatError, read_zkey_header
 
 logger = get_logger(__name__)
 
@@ -28,6 +29,10 @@ logger = get_logger(__name__)
 # since been deleted (V23-32). An env var is the convention actually in use
 # (AI_ENGINE_ALLOW_SIMULATION, EDGE_ALLOW_SIMULATED_SYNC), so that is what this uses.
 ENABLE_ZK_VERIFICATION = os.getenv("COORDINATOR_ENABLE_ZK_VERIFICATION", "false").lower() == "true"
+
+# The circuit that proves receipts. Named, because _generate_proof used to take whichever
+# circuit sorted first in available_circuits (V23-26a).
+RECEIPT_CIRCUIT = "receipt_simple"
 
 VERIFICATION_DISABLED = (
     "ZK proof verification is not enabled on this coordinator. Set "
@@ -78,11 +83,56 @@ def _resolve_proving_key(circuits_dir: Path, circuit: str) -> Path | None:
     return path
 
 
+def _verification_key_mismatch(zkey_path: Path, vkey_path: Path) -> str | None:
+    """Return why ``vkey_path`` cannot belong to ``zkey_path``, or None if it may.
+
+    A single ``verification_key.json`` had been copied into four locations and served four
+    circuits with 0, 1, 5 and 5 public signals (V23-26a). Comparing the public-signal count
+    catches that: a verification key for a different circuit cannot verify this one's
+    proofs, so the circuit must not be offered.
+
+    This is necessary, not sufficient — two circuits can agree on the count and still be
+    different circuits. Matching counts mean "not obviously wrong", and that is all this
+    claims.
+    """
+    try:
+        header = read_zkey_header(zkey_path)
+    except (ZKeyFormatError, OSError) as e:
+        return f"proving key {zkey_path.name} could not be read: {e}"
+
+    if not header.is_groth16:
+        return f"proving key {zkey_path.name} is not a Groth16 key (protocol id {header.protocol})"
+
+    try:
+        vkey = json.loads(vkey_path.read_text())
+    except (OSError, json.JSONDecodeError) as e:
+        return f"verification key {vkey_path.name} could not be read: {e}"
+
+    declared = vkey.get("nPublic")
+    if declared is None:
+        return f"verification key {vkey_path.name} declares no nPublic"
+
+    if declared != header.n_public:
+        return (
+            f"verification key {vkey_path.name} is for a different circuit: it declares "
+            f"nPublic={declared}, but proving key {zkey_path.name} has nPublic={header.n_public}. "
+            f"Export the verification key from that proving key "
+            f"(snarkjs zkey export verificationkey {zkey_path.name} {vkey_path.name})."
+        )
+
+    return None
+
+
 class ZKProofService:
     """Service for generating zero-knowledge proofs for receipts and ML operations"""
 
-    def __init__(self) -> None:
-        self.circuits_dir = Path(__file__).parent.parent / "zk-circuits"
+    def __init__(self, circuits_dir: Path | None = None) -> None:
+        # V23-26: the artifacts exist in two trees — this in-package copy and
+        # apps/zk-circuits/, which is where they are built. They have diverged, and the
+        # path being hardcoded is why nothing could be pointed at the other one to compare.
+        # The in-package copy stays the default so deployments are unaffected.
+        configured = os.getenv("COORDINATOR_ZK_CIRCUITS_DIR")
+        self.circuits_dir = circuits_dir or (Path(configured) if configured else Path(__file__).parent.parent / "zk-circuits")
         self.circuits = {
             "receipt_simple": {
                 "zkey_path": _resolve_proving_key(self.circuits_dir, "receipt_simple"),
@@ -115,6 +165,10 @@ class ZKProofService:
                 continue
             missing = [str(p) for p in paths.values() if not p.exists()]
             if not missing:
+                mismatch = _verification_key_mismatch(paths["zkey_path"], paths["vkey_path"])
+                if mismatch:
+                    logger.error("❌ Circuit '%s' unavailable: %s", circuit_name, mismatch)
+                    continue
                 self.available_circuits[circuit_name] = paths
                 logger.info("✅ Circuit '%s' available, proving key %s", circuit_name, paths["zkey_path"].name)
             else:
@@ -309,12 +363,27 @@ class ZKProofService:
         ]
 
     async def _generate_proof(self, inputs: dict[str, Any]) -> dict[str, Any]:
-        """Generate proof using snarkjs"""
+        """Generate a receipt proof using snarkjs.
+
+        Named explicitly rather than taken from ``available_circuits`` by position. This
+        used to read ``list(self.available_circuits.values())[0]``, so which circuit proved
+        a receipt depended on which circuits happened to load: withhold ``receipt_simple``
+        and receipts would have been proven against ``ml_inference_verification`` instead,
+        producing a valid proof of the wrong statement (V23-26a).
+        """
+        circuit = self.available_circuits.get(RECEIPT_CIRCUIT)
+        if circuit is None:
+            raise RuntimeError(
+                f"Circuit '{RECEIPT_CIRCUIT}' is not available, so receipt proofs cannot be generated. "
+                f"Loaded circuits: {list(self.available_circuits)}. See the startup log for why it was "
+                f"withheld."
+            )
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(inputs, f)
             inputs_file = f.name
         try:
-            script = f"\nconst snarkjs = require('snarkjs');\nconst fs = require('fs');\n\nasync function main() {{\n    try {{\n        // Load inputs\n        const inputs = JSON.parse(fs.readFileSync('{inputs_file}', 'utf8'));\n\n        // Load circuit\n        const wasm = fs.readFileSync('{list(self.available_circuits.values())[0]['wasm_path']}');\n        const zkey = fs.readFileSync('{list(self.available_circuits.values())[0]['zkey_path']}');\n\n        // Calculate witness\n        const {{ witness }} = await snarkjs.wtns.calculate(inputs, wasm, wasm);\n\n        // Generate proof\n        const {{ proof, publicSignals }} = await snarkjs.groth16.prove(zkey, witness);\n\n        // Output result\n        console.log(JSON.stringify({{ proof, publicSignals }}));\n    }} catch (error) {{\n        console.error('Error:', error);\n        process.exit(1);\n    }}\n}}\n\nmain();\n"
+            script = f"\nconst snarkjs = require('snarkjs');\nconst fs = require('fs');\n\nasync function main() {{\n    try {{\n        // Load inputs\n        const inputs = JSON.parse(fs.readFileSync('{inputs_file}', 'utf8'));\n\n        // Load circuit\n        const wasm = fs.readFileSync('{circuit['wasm_path']}');\n        const zkey = fs.readFileSync('{circuit['zkey_path']}');\n\n        // Calculate witness\n        const {{ witness }} = await snarkjs.wtns.calculate(inputs, wasm, wasm);\n\n        // Generate proof\n        const {{ proof, publicSignals }} = await snarkjs.groth16.prove(zkey, witness);\n\n        // Output result\n        console.log(JSON.stringify({{ proof, publicSignals }}));\n    }} catch (error) {{\n        console.error('Error:', error);\n        process.exit(1);\n    }}\n}}\n\nmain();\n"
             with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
                 f.write(script)
                 script_file = f.name
