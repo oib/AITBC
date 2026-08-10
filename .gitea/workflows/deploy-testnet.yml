@@ -33,22 +33,19 @@ jobs:
       url: https://testnet.aitbc.network
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd "/opt/aitbc/contracts"
+          cd "$GITHUB_WORKSPACE/contracts"
 
           # npm, not pnpm (V23-27a). package.json declares packageManager: npm and only
           # package-lock.json is tracked, so `pnpm install` ignored it, resolved fresh every
@@ -60,20 +57,20 @@ jobs:
 
       - name: Compile contracts
         run: |
-          cd "/opt/aitbc/contracts"
+          cd "$GITHUB_WORKSPACE/contracts"
           npx hardhat compile
           echo "✅ Contracts compiled"
 
       - name: Run contract tests
         continue-on-error: true
         run: |
-          cd "/opt/aitbc/contracts"
+          cd "$GITHUB_WORKSPACE/contracts"
           npx hardhat test || echo "⚠️ Some contract tests failed - continuing with deployment"
           echo "✅ Contract tests completed"
 
       - name: Deploy contracts to testnet
         run: |
-          cd "/opt/aitbc/contracts"
+          cd "$GITHUB_WORKSPACE/contracts"
 
           # Skip deployment - no Ethereum-compatible testnet endpoint available
           # AITBC blockchain uses custom RPC protocol, not standard Ethereum JSON-RPC
@@ -84,7 +81,7 @@ jobs:
       - name: Verify contracts on block explorer
         if: inputs.verify_contracts != false
         run: |
-          cd "/opt/aitbc/contracts"
+          cd "$GITHUB_WORKSPACE/contracts"
 
           # Load verification configuration
           export ETHERSCAN_API_KEY=${{ secrets.TESTNET_EXPLORER_API_KEY }}
@@ -97,7 +94,7 @@ jobs:
 
       - name: Record deployment metadata
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           # Save deployment information
           cat > deployment-info.json << EOF
@@ -118,7 +115,7 @@ jobs:
 
       - name: Setup monitoring alerts
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           # Configure monitoring for deployed contracts
           bash scripts/monitoring/setup-contract-monitoring.sh testnet
@@ -127,7 +124,7 @@ jobs:
 
       - name: Run smoke tests
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           # Run post-deployment smoke tests (migrations, health, auth, contracts)
           bash scripts/testing/run-production-smoke-tests.sh testnet

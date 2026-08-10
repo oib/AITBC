@@ -32,22 +32,19 @@ jobs:
     timeout-minutes: 30
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd "/opt/aitbc/contracts"
+          cd "$GITHUB_WORKSPACE/contracts"
 
           # npm, not pnpm (V23-28): package.json declares packageManager: npm, only
           # package-lock.json is tracked, and `npm ci` installs exactly the tree that
@@ -57,7 +54,7 @@ jobs:
 
       - name: Run gas usage benchmarks
         run: |
-          cd "/opt/aitbc/contracts"
+          cd "$GITHUB_WORKSPACE/contracts"
 
           echo "🧪 Running gas usage benchmarks"
 
@@ -68,7 +65,7 @@ jobs:
 
       - name: Upload gas report
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           echo "📊 Gas report upload skipped (reports will be added when tests are implemented)"
 
@@ -83,22 +80,19 @@ jobs:
     timeout-minutes: 30
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd "/opt/aitbc/contracts"
+          cd "$GITHUB_WORKSPACE/contracts"
 
           # npm, not pnpm (V23-28): package.json declares packageManager: npm, only
           # package-lock.json is tracked, and `npm ci` installs exactly the tree that
@@ -108,7 +102,7 @@ jobs:
 
       - name: Run execution time benchmarks
         run: |
-          cd "/opt/aitbc/contracts"
+          cd "$GITHUB_WORKSPACE/contracts"
 
           echo "🧪 Running execution time benchmarks"
 
@@ -118,7 +112,7 @@ jobs:
 
       - name: Upload execution time report
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           echo "📊 Execution time report upload skipped (reports will be added when tests are implemented)"
 
@@ -132,22 +126,19 @@ jobs:
     timeout-minutes: 30
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd "/opt/aitbc/contracts"
+          cd "$GITHUB_WORKSPACE/contracts"
 
           # npm, not pnpm (V23-28): package.json declares packageManager: npm, only
           # package-lock.json is tracked, and `npm ci` installs exactly the tree that
@@ -157,7 +148,7 @@ jobs:
 
       - name: Run throughput benchmarks
         run: |
-          cd "/opt/aitbc/contracts"
+          cd "$GITHUB_WORKSPACE/contracts"
 
           echo "🧪 Running throughput benchmarks"
 
@@ -167,7 +158,7 @@ jobs:
 
       - name: Upload throughput report
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           echo "📊 Throughput report upload skipped (reports will be added when tests are implemented)"
 
@@ -182,22 +173,19 @@ jobs:
     needs: [benchmark-gas-usage, benchmark-execution-time, benchmark-throughput]
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Compare with previous benchmarks
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           echo "📊 Comparing benchmark results"
 
@@ -208,7 +196,7 @@ jobs:
 
       - name: Generate benchmark report
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           echo "📝 Generating benchmark report"
 

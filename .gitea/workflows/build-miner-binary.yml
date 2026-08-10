@@ -12,22 +12,19 @@ jobs:
     timeout-minutes: 30
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Install dependencies
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           apt update
           apt install -y \
             python3 \
@@ -42,7 +39,7 @@ jobs:
 
       - name: Setup Python environment
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           rm -rf venv
           python3 -m venv venv
           venv/bin/pip install --upgrade pip
@@ -50,12 +47,12 @@ jobs:
 
       - name: Build binary
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           venv/bin/pyinstaller scripts/gpu/miner.spec
 
       - name: Package distribution
         run: |
-          cd "/opt/aitbc/scripts/gpu"
+          cd "$GITHUB_WORKSPACE/scripts/gpu"
           cp dist/aitbc-miner-debian .
           sha256sum aitbc-miner-debian > SHA256SUMS
           tar -czf aitbc-miner-debian-package.tar.gz \
@@ -70,14 +67,14 @@ jobs:
       - name: Get version
         id: version
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           VERSION=${GITHUB_REF#refs/tags/v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "version=$VERSION"
 
       - name: Create Gitea release
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           VERSION=${GITHUB_REF#refs/tags/v}
 
           # Create release using Gitea API
@@ -96,7 +93,7 @@ jobs:
 
       - name: Upload binary to Gitea release
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           VERSION=${GITHUB_REF#refs/tags/v}
 
           # Upload binary
@@ -107,7 +104,7 @@ jobs:
 
       - name: Upload package to Gitea release
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           VERSION=${GITHUB_REF#refs/tags/v}
 
           # Upload package
@@ -118,7 +115,7 @@ jobs:
 
       - name: Upload checksums to Gitea release
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           VERSION=${GITHUB_REF#refs/tags/v}
 
           # Upload checksums

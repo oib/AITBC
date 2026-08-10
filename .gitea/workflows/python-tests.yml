@@ -24,22 +24,19 @@ jobs:
     timeout-minutes: 15
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv
@@ -57,7 +54,7 @@ jobs:
 
       - name: Run linting
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           if venv/bin/python -m ruff --version >/dev/null 2>&1; then
             venv/bin/python -m ruff check apps/ packages/py/ --select E,F --ignore E501 -q || echo "⚠️ Ruff warnings"
@@ -67,7 +64,7 @@ jobs:
 
       - name: Run repository tests with coverage
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           # Install packages in development mode
           venv/bin/python -m pip install -e packages/py/aitbc-crypto/
@@ -88,7 +85,7 @@ jobs:
 
       - name: Run app and package tests with coverage
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           export PYTHONPATH="$PWD/apps/coordinator-api:$PWD/apps/coordinator-api/src:$PWD/packages/py/aitbc-crypto/src:$PWD/packages/py/aitbc-sdk/src:$PWD:$PYTHONPATH"
 
@@ -112,7 +109,7 @@ jobs:
 
       - name: Run additional pytest suites
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD/apps/blockchain-node/src:$PWD/apps/wallet/src:$PWD/packages/py/aitbc-crypto/src:$PWD/packages/py/aitbc-sdk/src:$PWD/packages/py/aitbc-agent-sdk/src:$PWD/cli:$PWD:$PYTHONPATH"
 

@@ -24,22 +24,19 @@ jobs:
     timeout-minutes: 15
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv
@@ -53,7 +50,7 @@ jobs:
 
       - name: Run staking service tests
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD:$PYTHONPATH"
 
           echo "🧪 Running staking service tests..."
@@ -62,7 +59,7 @@ jobs:
 
       - name: Generate test data
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           echo "🔧 Generating test data..."
           venv/bin/python scripts/testing/generate_staking_test_data.py
@@ -74,22 +71,19 @@ jobs:
     needs: test-staking-service
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           rm -rf venv
 
           bash scripts/ci/setup-python-venv.sh \
@@ -101,7 +95,7 @@ jobs:
 
       - name: Run staking integration tests
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD:$PYTHONPATH"
 
           echo "🧪 Running staking integration tests..."
@@ -114,22 +108,19 @@ jobs:
     needs: test-staking-service
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd "/opt/aitbc/contracts"
+          cd "$GITHUB_WORKSPACE/contracts"
 
           # npm, not pnpm (V23-27a). package.json declares packageManager: npm and only
           # package-lock.json is tracked, so `pnpm install` ignored it, resolved fresh every
@@ -141,7 +132,7 @@ jobs:
 
       - name: Run staking contract tests
         run: |
-          cd "/opt/aitbc/contracts"
+          cd "$GITHUB_WORKSPACE/contracts"
 
           echo "🧪 Running staking contract tests..."
           npx hardhat compile
@@ -154,22 +145,19 @@ jobs:
     needs: [test-staking-service, test-staking-integration, test-staking-contract]
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           rm -rf venv
 
           bash scripts/ci/setup-python-venv.sh \
@@ -179,7 +167,7 @@ jobs:
 
       - name: Run staking test runner
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           chmod +x scripts/testing/run_staking_tests.sh
           bash scripts/testing/run_staking_tests.sh
           echo "✅ Staking test runner completed"

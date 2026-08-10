@@ -38,17 +38,14 @@ jobs:
             path: "packages/py/aitbc-agent-sdk"
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup and test package
@@ -57,7 +54,7 @@ jobs:
           # "No such file or directory" and no indication of which entry is stale.
           # Not `set -euo pipefail`: the steps below read $PYTHONPATH, which is often unset,
           # and `set -u` would abort on it.
-          PACKAGE_DIR="/opt/aitbc/${{ matrix.package.path }}"
+          PACKAGE_DIR="$GITHUB_WORKSPACE/${{ matrix.package.path }}"
           if [[ ! -d "$PACKAGE_DIR" ]]; then
             echo "❌ ${{ matrix.package.path }} does not exist in this checkout"
             exit 1
@@ -73,14 +70,14 @@ jobs:
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv venv-build
 
-          bash "/opt/aitbc/scripts/ci/setup-python-venv.sh" \
+          bash "$GITHUB_WORKSPACE/scripts/ci/setup-python-venv.sh" \
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --mode copy \
             --extra-packages "pytest mypy black pydantic-settings fastapi uvicorn httpx requests"
 
           if [[ "${{ matrix.package.name }}" == "aitbc-sdk" ]]; then
-            venv/bin/python -m pip install -q -e "/opt/aitbc/packages/py/aitbc-crypto"
+            venv/bin/python -m pip install -q -e "$GITHUB_WORKSPACE/packages/py/aitbc-crypto"
           fi
 
           # Install dependencies
@@ -107,7 +104,7 @@ jobs:
           if [[ -d "tests" ]]; then
             # Make package src first, then repo root for shared imports (e.g. `from aitbc import ...`)
             # Combined with `-c /dev/null`, this avoids monorepo pytest.ini path conflicts.
-            export PYTHONPATH="$PWD/src:/opt/aitbc:$PYTHONPATH"
+            export PYTHONPATH="$PWD/src:$GITHUB_WORKSPACE:$PYTHONPATH"
             echo "=== Debug Info ==="
             echo "PWD: $PWD"
             echo "PYTHONPATH: $PYTHONPATH"
@@ -132,10 +129,10 @@ jobs:
 
       - name: Build package
         run: |
-          cd "/opt/aitbc/${{ matrix.package.path }}"
+          cd "$GITHUB_WORKSPACE/${{ matrix.package.path }}"
 
           if [[ -f "pyproject.toml" ]]; then
-            bash "/opt/aitbc/scripts/ci/setup-python-venv.sh" \
+            bash "$GITHUB_WORKSPACE/scripts/ci/setup-python-venv.sh" \
               --repo-dir "$PWD" \
               --venv-dir "$PWD/venv-build" \
               --skip-requirements \
@@ -151,17 +148,14 @@ jobs:
     timeout-minutes: 30
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup and test workspace
@@ -178,7 +172,7 @@ jobs:
           # the pnpm workspace rooted at packages/, where @aitbc/web depends on
           # @aitbc/theme-provider by "workspace:*". So drive them through the root once
           # rather than cd-ing into each.
-          cd /opt/aitbc/packages
+          cd "$GITHUB_WORKSPACE"/packages
 
           # Membership is the thing that can silently rot here, so assert it rather than
           # discovering a member has vanished by testing nothing.

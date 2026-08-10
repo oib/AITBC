@@ -20,22 +20,19 @@ jobs:
     timeout-minutes: 15
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Rust environment
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -60,7 +57,7 @@ jobs:
           export HOME=/root
           export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
-          cd "/opt/aitbc/dev/gpu/gpu_zk_research"
+          cd "$GITHUB_WORKSPACE/dev/gpu/gpu_zk_research"
           cargo fmt --all -- --check
           echo "✅ Formatting OK"
 
@@ -69,7 +66,7 @@ jobs:
           export HOME=/root
           export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
-          cd "/opt/aitbc/dev/gpu/gpu_zk_research"
+          cd "$GITHUB_WORKSPACE/dev/gpu/gpu_zk_research"
           cargo clippy --all-targets -- -D warnings
           echo "✅ Clippy OK"
 
@@ -78,7 +75,7 @@ jobs:
           export HOME=/root
           export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
-          cd "/opt/aitbc/dev/gpu/gpu_zk_research"
+          cd "$GITHUB_WORKSPACE/dev/gpu/gpu_zk_research"
           cargo build --release
           echo "✅ Build completed"
 
@@ -87,6 +84,6 @@ jobs:
           export HOME=/root
           export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
-          cd "/opt/aitbc/dev/gpu/gpu_zk_research"
+          cd "$GITHUB_WORKSPACE/dev/gpu/gpu_zk_research"
           cargo test --all-targets
           echo "✅ Tests passed"
