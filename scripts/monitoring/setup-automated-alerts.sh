@@ -1,10 +1,12 @@
 #!/bin/bash
 # Setup automated monitoring alerts for deployed contracts
 
-set -e
+set -euo pipefail
 
 NETWORK="${1:-mainnet}"
-REPO_DIR="/opt/aitbc"
+# Resolved from this script rather than hardcoded (AITBC-138).
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_DIR="$REPO_ROOT"
 MONITORING_DIR="${REPO_DIR}/scripts/monitoring"
 
 echo "=== Setting up automated alerts for ${NETWORK} ==="
@@ -25,7 +27,7 @@ groups:
           contract: PaymentProcessor
         annotations:
           summary: "High failed transaction rate on PaymentProcessor"
-          description: "Failed transaction rate is {{ $value }} per second"
+          description: "Failed transaction rate is {{ \$value }} per second"
 
       - alert: PaymentProcessorDown
         expr: up{job="aitbc-contracts-${NETWORK}", contract="PaymentProcessor"} == 0
@@ -48,7 +50,7 @@ groups:
           contract: AgentMarketplace
         annotations:
           summary: "High failed agent registration rate"
-          description: "Failed registration rate is {{ $value }} per second"
+          description: "Failed registration rate is {{ \$value }} per second"
 
       - alert: MarketplaceLowActivity
         expr: rate(contract_jobs_posted_total[1h]) < 0.001
@@ -71,7 +73,7 @@ groups:
           contract: StakingContract
         annotations:
           summary: "Unusual withdrawal activity detected"
-          description: "Withdrawal rate is {{ $value }} per second"
+          description: "Withdrawal rate is {{ \$value }} per second"
 
       - alert: RewardDistributionDelay
         expr: time() - contract_last_reward_distribution_timestamp > 3600
@@ -93,7 +95,7 @@ groups:
           network: ${NETWORK}
         annotations:
           summary: "Gas price spike detected"
-          description: "Gas price is {{ $value }} wei"
+          description: "Gas price is {{ \$value }} wei"
 
       - alert: ContractBalanceLow
         expr: contract_balance < 0.1
@@ -103,7 +105,7 @@ groups:
           network: ${NETWORK}
         annotations:
           summary: "Contract balance critically low"
-          description: "Contract balance is {{ $value }} ETH"
+          description: "Contract balance is {{ \$value }} ETH"
 EOF
 
 echo "✅ Alert rules created for ${NETWORK}"
