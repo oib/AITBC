@@ -1,10 +1,12 @@
 #!/bin/bash
 # Verify monitoring setup is working correctly
 
-set -e
+set -euo pipefail
 
 NETWORK="${1:-mainnet}"
-REPO_DIR="/opt/aitbc"
+# Resolved from this script rather than hardcoded (AITBC-138).
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_DIR="$REPO_ROOT"
 MONITORING_DIR="${REPO_DIR}/scripts/monitoring"
 
 echo "=== Verifying monitoring setup for ${NETWORK} ==="

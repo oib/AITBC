@@ -3,7 +3,7 @@
 # AITBC Staking Test Runner
 # Runs all staking-related tests and generates combined report
 
-set -e
+set -euo pipefail
 
 echo "🧪 AITBC STAKING TEST SUITE"
 echo "Timestamp: $(date)"
@@ -17,7 +17,9 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-PROJECT_ROOT="/opt/aitbc"
+# Resolved from this script rather than hardcoded (AITBC-138).
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+PROJECT_ROOT="$REPO_ROOT"
 SERVICE_TEST_FILE="$PROJECT_ROOT/tests/services/test_staking_service.py"
 INTEGRATION_TEST_FILE="$PROJECT_ROOT/tests/integration/test_staking_lifecycle.py"
 CONTRACT_TEST_FILE="$PROJECT_ROOT/contracts/test/AgentStaking.test.js"
@@ -201,12 +203,12 @@ EOF
 
 # Count warnings from logs
 if [ -f "$SERVICE_LOG" ]; then
-    SERVICE_WARNINGS=$(grep -i "warning" "$SERVICE_LOG" | wc -l || echo "0")
+    SERVICE_WARNINGS=$(grep -ci "warning" "$SERVICE_LOG" || true)
     echo "Service Tests: $SERVICE_WARNINGS warnings" >> "$COMBINED_REPORT"
 fi
 
 if [ -f "$INTEGRATION_LOG" ]; then
-    INTEGRATION_WARNINGS=$(grep -i "warning" "$INTEGRATION_LOG" | wc -l || echo "0")
+    INTEGRATION_WARNINGS=$(grep -ci "warning" "$INTEGRATION_LOG" || true)
     echo "Integration Tests: $INTEGRATION_WARNINGS warnings" >> "$COMBINED_REPORT"
 fi
 

@@ -5,12 +5,25 @@
 # Keeps active systemd always in sync with repository
 # Role-aware: only links services appropriate for this node's role
 
-# set -e  # Disabled to allow script to continue even if some operations fail
+# nounset and pipefail are on; errexit is deliberately not (V23-23 ratchet).
+# This script links dozens of unit files and is written to continue past an individual
+# failure, counting them in $error_count and reporting at the end -- one bad symlink must
+# not abort the remaining services. That is why `set -e` was disabled here originally. The
+# other two are what V23-23 was actually about (a mistyped name expanding to empty) and
+# they are kept on.
+set -euo pipefail
+set +e
 
-REPO_APPS_DIR="/opt/aitbc/apps"
-REPO_SCRIPTS_DIR="/opt/aitbc/scripts"
+# Resolved from this script's own location rather than hardcoded to /opt/aitbc, which only
+# existed on the node hosts. Since AITBC-136 CI checks the repository out into the runner
+# workspace, and the hardcoded path made this fail with "Repository apps directory not
+# found" before it could link anything.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+REPO_APPS_DIR="$REPO_ROOT/apps"
+REPO_SCRIPTS_DIR="$REPO_ROOT/scripts"
 ACTIVE_SYSTEMD_DIR="/etc/systemd/system"
-REPO_CONFIG_DIR="/opt/aitbc/scripts/config"
+REPO_CONFIG_DIR="$REPO_ROOT/scripts/config"
 ACTIVE_TMPFILES_DIR="/etc/tmpfiles.d"
 
 echo "=== AITBC SYSTEMD LINKING ==="
@@ -49,15 +62,15 @@ get_node_role() {
     local blockchain_mode="" market_role="" hardware_profile=""
     if [ -f "/etc/aitbc/blockchain.env" ]; then
         source /etc/aitbc/blockchain.env 2>/dev/null
-        blockchain_mode="$BLOCKCHAIN_MODE"
-        market_role="$MARKET_ROLE"
-        hardware_profile="$HARDWARE_PROFILE"
+        blockchain_mode="${BLOCKCHAIN_MODE:-}"
+        market_role="${MARKET_ROLE:-}"
+        hardware_profile="${HARDWARE_PROFILE:-}"
     fi
     if [ -f "/etc/aitbc/node.env" ]; then
         source /etc/aitbc/node.env 2>/dev/null
-        blockchain_mode="${blockchain_mode:-$BLOCKCHAIN_MODE}"
-        market_role="${market_role:-$MARKET_ROLE}"
-        hardware_profile="${hardware_profile:-$HARDWARE_PROFILE}"
+        blockchain_mode="${blockchain_mode:-${BLOCKCHAIN_MODE:-}}"
+        market_role="${market_role:-${MARKET_ROLE:-}}"
+        hardware_profile="${hardware_profile:-${HARDWARE_PROFILE:-}}"
     fi
 
     # Output both axes so get_allowed_services can combine them
