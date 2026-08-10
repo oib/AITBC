@@ -23,22 +23,19 @@ jobs:
     timeout-minutes: 15
 
     env:
-      WORKSPACE: /opt/aitbc
+      WORKSPACE: ${{ github.workspace }}
 
     steps:
-      - name: Update repository
-        run: |
-          cd /opt/aitbc
-          git fetch origin "${{ github.ref }}"
-          git checkout --detach FETCH_HEAD
+      - name: Check out the commit under test
+        uses: actions/checkout@v4
       - name: Initialize job logging
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup tools
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -56,14 +53,14 @@ jobs:
 
       - name: Python dependency audit
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           echo "=== Dependency Audit ==="
           venv/bin/pip-audit -r requirements.txt --desc
           echo "✅ Dependency audit completed"
 
       - name: Bandit security scan
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           echo "=== Bandit Security Scan ==="
           if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             venv/bin/bandit -r apps/ packages/py/ cli/ \
@@ -89,7 +86,7 @@ jobs:
 
       - name: Check for secrets
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           echo "=== Secret Detection ==="
           # Simple pattern check for leaked secrets
           secret_matches=$(mktemp)
@@ -130,7 +127,7 @@ jobs:
 
       - name: Smart contract security scan
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           echo "=== Smart Contract Security Scan ==="
 
           if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -184,7 +181,7 @@ jobs:
 
       - name: Circom circuit security check
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           echo "=== Circom Circuit Security Check ==="
 
           if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -227,7 +224,7 @@ jobs:
 
       - name: ZK proof implementation security check
         run: |
-          cd /opt/aitbc
+          cd "$GITHUB_WORKSPACE"
           echo "=== ZK Proof Implementation Security Check ==="
 
           if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
