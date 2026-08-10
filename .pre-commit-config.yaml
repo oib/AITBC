@@ -11,6 +11,9 @@ repos:
       - id: check-added-large-files
         args: ['--maxkb=1000']
       - id: check-json
+      # Kept, but it only inspects files while git is mid-merge -- see
+      # scripts/ci/check-merge-markers.py, which runs on every commit. This one catches the
+      # conflict you are resolving; that one catches the one already committed.
       - id: check-merge-conflict
       - id: debug-statements
         exclude: cli/templates/.*|tests/cli/.*
@@ -41,6 +44,26 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+        stages: [pre-commit]
+
+  # Conflict markers that survived a bad resolution (V23-23 note)
+  - repo: local
+    hooks:
+      - id: check-merge-markers
+        name: check-committed-merge-markers
+        entry: python3 scripts/ci/check-merge-markers.py
+        language: system
+        types: [text]
+        stages: [pre-commit]
+
+  # Shell strict mode, as a ratchet on scripts being touched (V23-23)
+  - repo: local
+    hooks:
+      - id: shell-strict-mode
+        name: require-set-euo-pipefail-in-touched-scripts
+        entry: python3 scripts/ci/check-shell-strict-mode.py
+        language: system
+        types: [shell]
         stages: [pre-commit]
 
   # Documentation validation
