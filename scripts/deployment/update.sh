@@ -332,6 +332,18 @@ sync_venv() {
             && success "CLI reinstalled" \
             || warning "CLI reinstall failed (continuing)"
     fi
+
+    # Refresh editable local packages so imports like aitbc_agent_core resolve
+    # even when install-profiles.sh falls back to requirements.txt.
+    if [ -d "$AITBC_ROOT/packages/py" ]; then
+        log "Installing local packages from packages/py..."
+        for pkg in "$AITBC_ROOT/packages/py"/*/; do
+            [ -f "$pkg/pyproject.toml" ] || continue
+            pip install -e "$pkg" --quiet 2>/dev/null \
+                && success "Installed $(basename "$pkg")" \
+                || warning "Failed to install $(basename "$pkg") (continuing)"
+        done
+    fi
 }
 
 fallback_pip_install() {
