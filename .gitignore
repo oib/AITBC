@@ -373,24 +373,39 @@ guardian_contracts/
 results/
 tools/
 api_keys.txt
-*.yaml
+# Secret-bearing YAML, anchored to where secrets actually live (V23-28).
+#
+# This was a blanket `*.yaml` with five negations bolted on underneath, each added after
+# the rule had already swallowed a file the repository needed:
+#
+#   profiles/*/profile.yaml            the profile/capability-binding system
+#   profiles/neutral/.../statuses.yaml the tracker adapter's status machine -- discovered
+#                                      only when scripts/gitea-tracker.sh was added and a
+#                                      fresh clone turned out never to have had the file
+#   docs/rule-ledger.yaml
+#   packages/pnpm-workspace.yaml       without it a fresh clone cannot resolve
+#   packages/pnpm-lock.yaml            @aitbc/theme-provider's "workspace:*"
+#
+# and V23-28 found it hiding contracts/pnpm-lock.yaml as the sixth. The same practice cost
+# the v0.22.0 tag its proving keys (`*.zkey`) and hid the generated wallet spec
+# (`wallet*.json`).
+#
+# A blanket extension rule cannot distinguish a secret from a manifest, and it only affects
+# *new* files -- the 61 YAML files already tracked here were unaffected, so the rule was
+# invisible until it ate something. Auditing it: it currently ignores **zero** files outside
+# vendored trees. It was protecting nothing and costing a file every few releases.
+#
+# Anchor to locations and to names that mean "secret", not to a file extension.
+/secrets/
+.wallets/*.yaml
+.wallets/*.yml
+.agent_data/*.yaml
+.agent_data/*.yml
+**/*secret*.yaml
+**/*secret*.yml
+**/*credential*.yaml
+**/*credential*.yml
 !*.example
-!.pre-commit-config.yaml
-!.yamllint.yaml
-# Harness/profile config -- not secrets, actively read at runtime by every
-# tracker adapter (statuses.yaml) and the profile/capability-binding system
-# (profile.yaml). Blanket *.yaml above silently swallowed these on the initial
-# SAW harness adoption; discovered when scripts/gitea-tracker.sh (which reads
-# statuses.yaml as its status-machine source of truth) was added and this repo
-# had never actually committed the file a fresh clone would need.
-!profiles/*/profile.yaml
-!profiles/neutral/adapters/statuses.yaml
-!docs/rule-ledger.yaml
-# Same story again: the blanket *.yaml above hides the file that declares the TypeScript
-# workspace. Without it a fresh clone cannot resolve @aitbc/theme-provider's "workspace:*"
-# and packages/web has no compiler to lint with.
-!packages/pnpm-workspace.yaml
-!packages/pnpm-lock.yaml
 backups/*/config/
 backups/*/logs/
 
