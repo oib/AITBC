@@ -60,13 +60,13 @@ jobs:
         run: |
           cd "/opt/aitbc/contracts"
 
-          # Install pnpm if not available
-          if ! command -v pnpm &> /dev/null; then
-            npm install -g pnpm
-          fi
-
-          pnpm install
-          pnpm hardhat test
+          # npm, not pnpm (V23-27a). package.json declares packageManager: npm and only
+          # package-lock.json is tracked, so `pnpm install` ignored it, resolved fresh every
+          # run, and installed a tree no lockfile described -- while `npm audit` reported on
+          # the lockfile nobody installed from. `npm ci` installs exactly the audited tree,
+          # and leaves no pnpm-lock.yaml behind in contracts/.
+          npm ci --no-audit --no-fund
+          npx hardhat test
           echo "✅ Contract tests passed"
 
       - name: Verify deployment readiness
@@ -104,18 +104,14 @@ jobs:
         run: |
           cd "/opt/aitbc/contracts"
 
-          # Install pnpm if not available
-          if ! command -v pnpm &> /dev/null; then
-            npm install -g pnpm
-          fi
-
-          pnpm install
+          # npm, not pnpm -- see the note in "Run contract tests" above (V23-27a).
+          npm ci --no-audit --no-fund
           echo "✅ Node.js environment ready"
 
       - name: Compile contracts
         run: |
           cd "/opt/aitbc/contracts"
-          pnpm hardhat compile
+          npx hardhat compile
           echo "✅ Contracts compiled"
 
       - name: Deploy contracts to mainnet
@@ -128,7 +124,7 @@ jobs:
           export MAINNET_RPC_URL=${{ secrets.MAINNET_RPC_URL }}
 
           # Deploy contracts with gas optimization
-          pnpm hardhat run scripts/deploy-mainnet.js --network mainnet
+          npx hardhat run scripts/deploy-mainnet.js --network mainnet
 
           echo "✅ Contracts deployed to mainnet"
 
@@ -144,16 +140,16 @@ jobs:
           echo "🔍 Verifying contracts on Etherscan..."
 
           # Verify PaymentProcessor
-          pnpm hardhat verify --network mainnet $PAYMENT_PROCESSOR_ADDRESS --constructor-args scripts/deployment/args/payment-processor-args.js
+          npx hardhat verify --network mainnet $PAYMENT_PROCESSOR_ADDRESS --constructor-args scripts/deployment/args/payment-processor-args.js
 
           # Verify AgentMarketplace
-          pnpm hardhat verify --network mainnet $AGENT_MARKETPLACE_ADDRESS --constructor-args scripts/deployment/args/agent-marketplace-args.js
+          npx hardhat verify --network mainnet $AGENT_MARKETPLACE_ADDRESS --constructor-args scripts/deployment/args/agent-marketplace-args.js
 
           # Verify StakingContract
-          pnpm hardhat verify --network mainnet $STAKING_CONTRACT_ADDRESS --constructor-args scripts/deployment/args/staking-contract-args.js
+          npx hardhat verify --network mainnet $STAKING_CONTRACT_ADDRESS --constructor-args scripts/deployment/args/staking-contract-args.js
 
           # Verify TreasuryManager
-          pnpm hardhat verify --network mainnet $TREASURY_MANAGER_ADDRESS --constructor-args scripts/deployment/args/treasury-manager-args.js
+          npx hardhat verify --network mainnet $TREASURY_MANAGER_ADDRESS --constructor-args scripts/deployment/args/treasury-manager-args.js
 
           echo "✅ All contracts verified on Etherscan"
 
