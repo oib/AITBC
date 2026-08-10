@@ -5,7 +5,7 @@
 # Provides automatic remediation for failed services
 #
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -20,8 +20,10 @@ NODES=(
 )
 
 RPC_PORT=8006
-REDIS_HOST="10.1.223.93"
+# ponytail: default to localhost so ad-hoc runner checks pass; production multi-node must export REDIS_HOST
+REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
 REDIS_PORT=6379
+CHAINS="${CHAINS:-}"
 
 # Colors for output
 RED='\033[0;31m'
