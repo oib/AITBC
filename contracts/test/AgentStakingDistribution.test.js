@@ -13,8 +13,8 @@
 // Rewards now go to a per-staker pending balance, claimed via claimPoolRewards.
 
 import { expect } from "chai";
-import hardhat from "hardhat";
-const { ethers } = hardhat;
+import { network } from "hardhat";
+const { ethers } = await network.getOrCreate();
 
 describe("AgentStaking earnings distribution (SC-05)", function () {
   let token, staking, owner, agent, stakerA, stakerB, distributor;

@@ -13,8 +13,8 @@
 // paid on stakes slashed in earlier, unrelated incidents.
 
 import { expect } from "chai";
-import hardhat from "hardhat";
-const { ethers } = hardhat;
+import { network } from "hardhat";
+const { ethers } = await network.getOrCreate();
 
 describe("AgentStaking slashing (SC-06)", function () {
   let token, staking, owner, agent, staker, reporter;
@@ -130,7 +130,7 @@ describe("AgentStaking slashing (SC-06)", function () {
       await makeStakes(2);
       await staking.checkAndSlashAgent(agent.address);
 
-      await expect(staking.connect(reporter).continueSlashing(agent.address)).to.not.be.reverted;
+      await expect(staking.connect(reporter).continueSlashing(agent.address)).to.not.revert(ethers);
     });
 
     it("does not grow un-slashable as stakes accumulate", async function () {
@@ -219,7 +219,7 @@ describe("AgentStaking slashing (SC-06)", function () {
 
   describe("batch size control", function () {
     it("is owner-only", async function () {
-      await expect(staking.connect(reporter).setMaxSlashBatch(5)).to.be.reverted;
+      await expect(staking.connect(reporter).setMaxSlashBatch(5)).to.revert(ethers);
     });
 
     it("rejects zero, which would stall slashing entirely", async function () {

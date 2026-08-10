@@ -1,6 +1,6 @@
 import { expect } from "chai";
-import hardhat from "hardhat";
-const { ethers } = hardhat;
+import { network } from "hardhat";
+const { ethers } = await network.getOrCreate();
 
 describe.skip("PaymentProcessor", function () {
   let paymentProcessor, paymentToken;
@@ -61,7 +61,7 @@ describe.skip("PaymentProcessor", function () {
       const PaymentProcessor = await ethers.getContractFactory("PaymentProcessor");
       await expect(
         PaymentProcessor.deploy(await paymentToken.getAddress(), await aiPowerRental.getAddress())
-      ).to.not.be.reverted;
+      ).to.not.revert(ethers);
     });
   });
 
@@ -104,7 +104,7 @@ describe.skip("PaymentProcessor", function () {
           ethers.keccak256(ethers.toUtf8Bytes("job-123")),
           "test payment"
         )
-      ).to.be.reverted;
+      ).to.revert(ethers);
     });
 
     it("Should revert if insufficient allowance", async function () {
@@ -157,7 +157,7 @@ describe.skip("PaymentProcessor", function () {
     it("Should revert if non-owner tries to set fee", async function () {
       await expect(
         paymentProcessor.connect(payer).updatePlatformFee(300)
-      ).to.be.reverted;
+      ).to.revert(ethers);
     });
 
     it("Should revert if fee percentage is invalid", async function () {

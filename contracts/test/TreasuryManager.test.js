@@ -1,6 +1,6 @@
 import { expect } from "chai";
-import hardhat from "hardhat";
-const { ethers } = hardhat;
+import { network } from "hardhat";
+const { ethers } = await network.getOrCreate();
 
 describe("TreasuryManager", function () {
   let treasuryManager, paymentToken, contractRegistry;
@@ -143,13 +143,13 @@ describe("TreasuryManager", function () {
     it("Should revert if non-owner withdraws", async function () {
       await expect(
         treasuryManager.connect(user1).emergencyWithdraw(await paymentToken.getAddress(), ethers.parseEther("1000"))
-      ).to.be.reverted;
+      ).to.revert(ethers);
     });
 
     it("Should revert if insufficient balance", async function () {
       await expect(
         treasuryManager.emergencyWithdraw(await paymentToken.getAddress(), INITIAL_BALANCE + ethers.parseEther("1"))
-      ).to.be.reverted;
+      ).to.revert(ethers);
     });
   });
 

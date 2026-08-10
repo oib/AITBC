@@ -1,6 +1,6 @@
 import { expect } from "chai";
-import hardhat from "hardhat";
-const { ethers } = hardhat;
+import { network } from "hardhat";
+const { ethers } = await network.getOrCreate();
 
 describe.skip("DynamicPricing", function () {
   let dynamicPricing, paymentToken, aiPowerRental, performanceVerifier;
@@ -111,7 +111,7 @@ describe.skip("DynamicPricing", function () {
         dynamicPricing.connect(provider).updateMarketData(
           1000, 800, 50, 100, BASE_PRICE, 1000, 80, 1000, 50, 200, 95, 75
         )
-      ).to.be.reverted;
+      ).to.revert(ethers);
     });
   });
 

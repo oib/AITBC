@@ -40,18 +40,21 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 38 findings — 25 confirmed defects, 13 observed design gaps. **36 resolved**
-(V23-01..15, V23-10a, V23-17..23, V23-24, V23-24a, V23-25, V23-26, V23-26a, V23-27a, V23-28,
-V23-29..32, V23-32a, V23-19a — thirty-six entries, thirty numbered findings); 2 open.
+**Totals**: 39 findings — 26 confirmed defects, 13 observed design gaps. **38 resolved**
+(V23-01..15, V23-10a, V23-17..23, V23-24, V23-24a, V23-25, V23-26, V23-26a, V23-27,
+V23-27a, V23-27b, V23-28, V23-29..32, V23-32a, V23-19a — thirty-eight entries, thirty
+numbered findings); **1 open**.
 
 Still open:
 
 - **V23-16** — the v0.22 tag. The fix is `git tag` on `main`, which is a release decision
-  rather than a code change; left for a human to make deliberately.
-- **V23-27**, partly resolved — **38 → 27 advisories, 19 high → 1**. What is left is a single
-  Hardhat 2 → 3 migration, now scoped against the registry: 33 files, and two dependencies
-  (`@typechain/hardhat`, `solidity-coverage`) that must be dropped rather than upgraded
-  because Hardhat 3 subsumes both.
+  rather than a code change; left for a human to make deliberately. **It is the only finding
+  left, and it is the one that should not be closed by an agent.**
+
+`contracts/` went from **38 advisories with 19 high to 11 with none above `low`**, and from
+~880 installed packages to 266, via the Hardhat 2 → 3 migration in V23-27b. The eleven that
+remain are the `@ethersproject/*` v5 family and `elliptic`, reached through `hardhat-verify`,
+none with a published fix.
 
 V23-27 is **partly resolved**: the non-breaking half is on `main` (38 advisories → 32), and
 the remainder is a single Hardhat 2 → 3 migration, two of whose dependencies have no fix at
@@ -1450,7 +1453,7 @@ deleted rather than left to mislead.
 
 ## High — the contract toolchain's declared dependency tree
 
-### V23-27 — 38 advisories in `contracts/package-lock.json`, 19 high · CONFIRMED → PARTLY RESOLVED
+### V23-27 — 38 advisories in `contracts/package-lock.json`, 19 high · CONFIRMED → RESOLVED
 
 ```
 cd contracts && npm audit
@@ -1573,11 +1576,89 @@ stable and the plugin line has shipped: `hardhat-toolbox-mocha-ethers@3.0.7` kee
 ethers, so the test *framework* need not change; `hardhat-verify@3.0.22`,
 `hardhat-ethers@4.0.15`, `hardhat-chai-matchers@3.0.0`, `hardhat-network-helpers@3.0.11` all
 exist for it. Two do not and must be dropped, not upgraded: **`@typechain/hardhat` stops at
-9.1.0** (Hardhat 3 generates types itself) and **`solidity-coverage` stops at 0.8.17**
-(Hardhat 3 has built-in coverage). The work is 33 files that import `hardhat`, 16 test files
-and 20 scripts, plus the config: Hardhat 3 removes the injected global `ethers` in favour of
-`await network.connect()`, and `solidity.compilers` becomes `solidity.profiles`. That is a
-project, and it stays split out — but it is now a scoped one.
+9.1.0** and **`solidity-coverage` stops at 0.8.17** (Hardhat 3 has built-in coverage). The
+work is 33 files that import `hardhat`, 16 test files and 20 scripts, plus the config:
+Hardhat 3 removes the injected global `ethers` in favour of `await network.connect()`, and
+`solidity.compilers` becomes `solidity.profiles`.
+
+**DONE — 27 → 11, and every remaining advisory is `low`.** The migration was carried out;
+see V23-27b. One correction to the scoping above: typechain was not dropped, it **moved** —
+`@typechain/hardhat` is dead but `@nomicfoundation/hardhat-typechain@3` is bundled in the
+toolbox, so bindings are still generated. And Hardhat 3 removed `undici` from its dependency
+tree entirely, which is why the 12 advisories that had no reachable fix disappear rather than
+being suppressed.
+
+### V23-27b — the Hardhat 2 → 3 migration · RESOLVED
+
+Carried out against the 115 passing / 87 pending / 2 failing baseline, which the migrated
+suite reproduces exactly, with the same two pre-existing failures (`Phase 4 Modular Smart
+Contracts`, `TreasuryManager`).
+
+**Advisories: 27 → 11, and 0 high, 0 moderate.** The eleven that remain are the
+`@ethersproject/*` v5 family plus `elliptic`, reached through `hardhat-verify`, all `low` and
+all with no fix published. `elliptic`'s vulnerable range is `*`, so it stays until
+`hardhat-verify` stops using ethers v5 internally. **The dependency tree drops from ~880
+packages to 266.**
+
+The `ws` / `serialize-javascript` / `adm-zip` overrides from V23-27 are **kept, and still
+earn their place**: removing them under Hardhat 3 puts the count back to 14 with 1 high and 3
+moderate. Hardhat 3 itself already depends on `ws ^8.21.1` and `adm-zip ^0.6.0` — the same
+versions those overrides force — so they now agree with the toolchain rather than fighting it.
+
+What actually had to change, in order of how much thought it needed:
+
+**The EVM target moved, silently.** Hardhat 2 built this project for `paris`, because solc
+0.8.19 defaults to it and Hardhat 2 was selecting 0.8.19 for most files. Hardhat 3 picks the
+newest compiler each pragma allows — 0.8.20 — which defaults to **`shanghai`**, and shanghai
+emits `PUSH0`. A chain that has not adopted Shanghai rejects that opcode. Nothing in the test
+suite would have caught it: the tests run against an EDR chain that supports it. `evmVersion:
+"paris"` is now pinned explicitly in the compiler settings. **A toolchain upgrade must not
+change the bytecode that gets deployed**, and this one would have.
+
+**The `.reverted` matcher became a method.** Twenty assertions across eight files:
+`expect(tx).to.be.reverted` is now `expect(tx).to.revert(ethers)`. Hardhat 3 ships a shim that
+fails with the replacement in the message rather than a missing-property error, which is why
+this took minutes rather than an afternoon. `.revertedWith(reason)` and
+`.revertedWithCustomError(contract, name)` keep their signatures and were left alone. Before
+this, the suite ran at 108/87/9 — the seven extra failures were all this one change.
+
+**Hardhat 3 compiles Solidity tests natively, and its default test path is Foundry's.**
+`foundry.toml` declares `test = "test"`, so `hardhat compile` tried to resolve `forge-std`
+from `test/fuzz/*.t.sol` and failed with HHE902. `paths.tests` now separates them: mocha keeps
+`./test`, Hardhat's Solidity test discovery points at `./test/solidity`, and the fuzz suite
+stays with `forge test`, which is what the `test-foundry` job runs.
+
+**The runtime lost its injected globals.** `import hardhat from "hardhat"; const { ethers } =
+hardhat;` becomes `import { network } from "hardhat"; const { ethers } = await
+network.getOrCreate();` — 13 test files and 8 scripts. `network.connect()` also exists and is
+what the migration guide shows, but it is already deprecated in 3.12 in favour of
+`getOrCreate()`, so the code went straight to the latter rather than landing on a warning.
+
+Verified beyond the test suite, because the test suite is not the whole toolchain: `npm ci`
+from an empty `node_modules`, `hardhat compile` from a cleared compiler cache (33 sources,
+`evm target: paris`), and both scripts the `deploy-contracts` CI job runs — `deploy-automation.js`
+then `verify-deployment.js` — executed against a live `hardhat node`, deploying four contracts
+and passing all seven verification checks.
+
+> **Found while migrating: 11 of the 20 scripts in `contracts/scripts/` cannot run at all,
+> and could not before this.** They use `require("hardhat")` inside a package that declares
+> `"type": "module"`:
+>
+> ```
+> $ npx hardhat run scripts/check-balance.js
+> ReferenceError: require is not defined in ES module scope
+> ```
+>
+> That is a property of `package.json`, not of the Hardhat version — they were broken under
+> Hardhat 2 in exactly the same way. They are left alone rather than converted blind:
+> mechanically rewriting eleven untested deployment scripts is a worse risk than leaving them
+> visibly broken, and no CI job invokes any of them. The two that CI does invoke were ESM
+> already and are migrated and verified above.
+
+Also: Hardhat 3 writes `cache/compile-cache.json` and `cache/build-info/` where Hardhat 2
+wrote one `solidity-files-cache.json`, and the typechain plugin generates `types/`.
+`.gitignore` now covers `contracts/cache/` as a directory rather than being extended one
+filename at a time — which is how the entry it replaces came to name a single file.
 
 ### V23-27a — CI installs `contracts/` with a package manager the repository forbids · CONFIRMED → RESOLVED
 
