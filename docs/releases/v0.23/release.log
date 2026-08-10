@@ -40,26 +40,25 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 37 findings — 24 confirmed defects, 13 observed design gaps. **34 resolved**
+**Totals**: 37 findings — 24 confirmed defects, 13 observed design gaps. **35 resolved**
 (V23-01..15, V23-10a, V23-17..23, V23-24, V23-24a, V23-25, V23-26, V23-26a, V23-28,
-V23-29..32, V23-32a — thirty-four entries, thirty numbered findings); 3 open.
+V23-29..32, V23-32a, V23-19a — thirty-five entries, thirty numbered findings); 2 open.
 
 Still open:
 
 - **V23-16** — the v0.22 tag. The fix is `git tag` on `main`, which is a release decision
   rather than a code change; left for a human to make deliberately.
-- **V23-19a** — confidential transactions carrying the amount and blinding factor in the
-  clear. Needs real Pedersen commitments.
 - **V23-27**, partly resolved — the non-breaking npm fixes are on `main`; the remainder is a
   single Hardhat 2 → 3 migration, two of whose dependencies have no fix at any version.
 
 V23-27 is **partly resolved**: the non-breaking half is on `main` (38 advisories → 32), and
 the remainder is a single Hardhat 2 → 3 migration, two of whose dependencies have no fix at
-any version. It is counted among the 9 open.
+any version. It is counted among the 2 open.
 
 V23-24a, V23-32a and V23-26a were all added while fixing the finding they hang off, not
 during a pass. Fixing a finding keeps turning up a larger one next to it: see also the
-V23-30 note. Two are sharper than their parents. V23-32's fix was to delete a manifest that
+V23-30 note and V23-19a, where the finding as filed was the mildest of four defects in the
+same file. Two are sharper than their parents. V23-32's fix was to delete a manifest that
 gated nothing, which surfaced two security controls it had reported as enabled at 100%
 rollout that were never implemented. V23-26 was filed as "two divergent copies of a
 directory"; checking how they diverged surfaced one verification key installed for four
@@ -778,12 +777,20 @@ kind of coupling that turns a one-line security bump into a resolution failure.
 
 **`ecdsa` stays**, with the rationale the finding asked for, written where the dependency
 lives (`aitbc/wallet/confidential.py`) rather than here where nobody editing that file will
-see it. In short: it is the sole consumer, only curve arithmetic is used,
+see it. In short: it is the sole consumer, only curve arithmetic is used, and
 `cryptography` deliberately exposes no raw point arithmetic so there is no drop-in
-replacement, and the timing side channel has nothing to recover — because the blinding
-factor is already in the envelope in the clear. See V23-19a.
+replacement.
 
-### V23-19a — "confidential" transactions carry the amount and the blinding factor in the clear · CONFIRMED
+> **Correction, made when V23-19a was fixed.** This rationale originally carried a second
+> argument: that the timing side channel had nothing to recover, because the blinding factor
+> was already in the envelope in the clear. That was true of the broken construction and is
+> **false now** — the blinding is a real secret held by the wallet, so PYSEC-2026-1325
+> describes a live exposure rather than a theoretical one. The conclusion is unchanged (the
+> dependency is still not removable) but it now rests on the first argument alone, and the
+> risk is higher than this entry originally claimed. A rationale that depended on the system
+> being broken stopped being valid when it was fixed. See V23-19a.
+
+### V23-19a — "confidential" transactions carry the amount and the blinding factor in the clear · CONFIRMED → RESOLVED
 
 Found while establishing which code paths reach `ecdsa` (V23-19). Not fixed here — fixing it
 means implementing real commitments.
@@ -822,6 +829,104 @@ is that here the mechanism is sound and the *inputs* make it vacuous.
 > path that presents this as confidential should say "simulated", including the coordinator
 > POST, and `validate_payment` should not raise `TEEError` in language that implies it
 > verified something.
+
+**RESOLVED** — and the finding as filed was the mildest of four defects in the same file.
+Going in to remove `amount_label` meant reading the commitment construction, which did not
+survive the reading. Each was demonstrated by running it, not by inspection; the
+demonstrations are now `tests/security/test_v2319a_pedersen.py` (24 tests).
+
+**1. The commitments were not binding.** `_H` was built as
+
+```python
+_H = SigningKey.from_string(hashlib.sha256(b"aitbc-pedersen-h").digest(),
+                            curve=NIST256p).get_verifying_key().pubkey.point
+```
+
+which is `h*G` for `h = int(sha256(b"aitbc-pedersen-h"))` — a number anybody can compute in
+one line. A Pedersen commitment is binding *only* while nobody knows `log_G(H)`. Knowing `h`
+collapses `C = v*G + r*H` to `(v + r*h)*G`, so for any target `v'` the blinding
+`r' = (v + r*h - v')·h⁻¹` opens the same commitment to `v'`. Executed against the shipped
+code:
+
+```
+commit('100')     = 02ba08d765f0f7a7496fb9619d5dac1c...
+  opens to '100'? True
+  opens to '1'?   True      # same commitment, forged blinding
+```
+
+**A commitment that opens to every amount commits to none.** The construction's whole
+security property was absent, and the "pedagogical stand-in" disclaimer in the docstring
+covers the *range proof*, not this.
+
+**2. The commitments were not additively homomorphic**, which is the other half of what
+Pedersen is for. `v` was `sha256(amount) mod n`, and `sha256("2") + sha256("3")` is not
+`sha256("5")`. So `add_commitments` and `subtract_commitments` returned points that opened to
+nothing at all — and `ConfidentialWallet.balance_commitment` is built entirely from them.
+
+**3. Nothing retained the blinding factors.** `deposit` and `send` generated `os.urandom(32)`,
+committed with it, and dropped it. `balance_commitment` could therefore never be opened by
+anyone, including its owner. `balance_proof()` returned it under that name.
+
+**4. Amounts were never numbers.** Because the amount was hashed, any string was a valid
+amount. The unit tests passed `"commitment-100"`; the CLI took an argument it called
+`amount-commitment` and passed it straight through as the amount. `"1"`, `"1.0"` and `"01"`
+committed to three different values.
+
+Fixed: `_H` now comes from try-and-increment hash-to-curve on a domain-separated seed, so no
+discrete log relative to `G` is known to anyone; `v` is the amount in fixed-point minor units,
+so the homomorphism holds and `Commit(a) + Commit(b)` opens to `a + b` under the summed
+blinding; the wallet retains openings, so `balance_commitment` opens to `open_balance()`;
+amounts are parsed as `Decimal` and rejected — not rounded — beyond 8 places, negative, or
+past a `2**64` unit bound.
+
+The finding's own request is also done: `ConfidentialTransaction` no longer has
+`amount_label` or `blinding` fields, the zero-argument `verify_commitment()` is gone in favour
+of `opens_to(amount, blinding)` requiring the secret from the caller, and `validate_payment`
+no longer raises `TEEError("...commitment is invalid")`. That check was not replaced with
+something that resembles it — it was **removed**, and the docstring now states plainly that
+validation establishes the parties and the signature and nothing about the amount. An
+`opening` parameter is available for callers that hold the secret out of band.
+
+> **Still missing, and stated in the module rather than hidden.** There is no range proof, so
+> a verifier cannot conclude a transfer created no value — the `2**64` bound constrains an
+> honest sender and proves nothing about a hostile one, who constructs the point directly.
+> And there is no opening transport: the recipient needs `(amount, blinding)` to open what it
+> was sent, and putting that in the envelope is the defect this finding is about. Closing
+> both is Bulletproofs plus an encrypted channel. **The commitments are now real; the system
+> built on them is still incomplete, and must not be presented as production
+> confidentiality.**
+
+Two things found alongside:
+
+* **`/v1/confidential/payments` does not exist.** The CLI's non-simulated branch POSTs there;
+  `git grep` finds the string in exactly one place in the repository, the CLI itself. The
+  audit noted that this branch does not label its output "simulated" — the sharper problem is
+  that it cannot succeed against any service in this tree. Both branches now say "simulated",
+  and the branch is retained for out-of-tree coordinators with a note saying so.
+* **`tests/security/test_confidential_transactions.py` is skipped in its entirety.** It
+  imports `ViewingKey` from `coordinator_api.models.confidential`, which has no such name,
+  and `coordinator_api.services.confidential_service`, which does not exist; the `ImportError`
+  sets `CONFIDENTIAL_AVAILABLE = False` and every class is `skipif`-ed. 700 lines of security
+  tests that have never run. The two unit tests named for the confidential CLI commands fail
+  too, at `from aitbc_cli.utils.wallet import decode_private_key` — an unrelated pre-existing
+  break in `commands/operations.py`, and one of the baseline 18. So **no test anywhere
+  exercised this code path**, which is the answer to why four defects of this size sat in it.
+  The new file is the first coverage it has had; repairing the skipped suite is separate work.
+
+**The V23-19 rationale for keeping `ecdsa` no longer holds as written.** Its second bullet
+argued the PYSEC-2026-1325 timing side channel was tolerable because "the side channel needs
+a secret to leak" and the blinding factor travelled in the envelope anyway. That was true of
+the broken construction and is false now — the blinding is a real secret held by the wallet.
+The advisory now describes a live exposure rather than a theoretical one. The dependency is
+still not removable (only curve arithmetic is used, and `cryptography` exposes none), so the
+conclusion stands, but the reasoning has been corrected in place in both the module docstring
+and V23-19's entry. **A rationale that depended on the system being broken stops being valid
+when you fix it.**
+
+Verified: `ruff` clean, `mypy aitbc/` clean (205 files), `tests/unit + tests/security +
+tests/core` 1761 tests with the same 18 baseline failures, and both CLI commands exercised
+directly — `send` returns a commitment and `status: simulated`, `commitment-100` is now
+rejected with `amount is not a decimal number`.
 
 ### V23-20 — the installed environment does not match `pyproject.toml` · CONFIRMED → RESOLVED
 

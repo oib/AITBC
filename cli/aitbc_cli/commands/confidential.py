@@ -1,4 +1,13 @@
-"""Confidential transaction commands for the AITBC CLI."""
+"""Confidential transaction commands for the AITBC CLI.
+
+These commands are a demonstration of envelope construction, not a wallet. There is no
+persistence: each invocation builds a fresh in-memory ``ConfidentialWallet``, so ``send``
+seeds the balance it is about to spend and ``balance`` always reports zero. Both are labelled
+``"status": "simulated"`` for that reason (V23-19a — previously only the offline branch was).
+
+The remote branch POSTs to ``/v1/confidential/payments``, which no service in this repository
+serves; it is retained for out-of-tree coordinators that do.
+"""
 
 from __future__ import annotations
 
@@ -38,14 +47,22 @@ def confidential():
 @confidential.command()
 @click.argument("wallet-id")
 @click.argument("recipient-id")
-@click.argument("amount-commitment")
+@click.argument("amount")
 @click.pass_context
-def send(ctx, wallet_id: str, recipient_id: str, amount_commitment: str):
-    """Send a confidential amount commitment to a recipient."""
+def send(ctx, wallet_id: str, recipient_id: str, amount: str):
+    """Send a confidential AMOUNT to a recipient.
+
+    AMOUNT is a decimal number, not a commitment -- the argument was named
+    ``amount-commitment`` and passed straight through as the amount, which went unnoticed
+    because the old code hashed the string and so accepted anything (V23-19a).
+    """
     try:
         wallet = ConfidentialWallet(wallet_id=wallet_id, owner_id=wallet_id)
         key = _signing_key()
-        tx = wallet.send(recipient_id, amount_commitment, key)
+        # No persistence, so there is no balance to spend from. Seed it explicitly rather
+        # than letting the wallet's own check pass by accident.
+        wallet.deposit(amount)
+        tx = wallet.send(recipient_id, amount, key)
         payment = ConfidentialPayment(
             payment_id=tx.tx_id,
             sender_id=tx.sender_id,
@@ -76,6 +93,10 @@ def send(ctx, wallet_id: str, recipient_id: str, amount_commitment: str):
                     "amount_commitment": tx.amount_commitment.hex() if tx.amount_commitment else "",
                 },
             )
+            # The envelope was still built by an unpersisted local wallet, and no range proof
+            # accompanies the commitment. Saying so on this branch too is the V23-19a fix.
+            if isinstance(result, dict):
+                result.setdefault("status", "simulated")
         output(result, ctx.obj.get("output_format", "table"), title="Confidential Send")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
