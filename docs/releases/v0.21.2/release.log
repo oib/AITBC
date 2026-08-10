@@ -1,0 +1,70 @@
+# v0.21.2 Release Log
+
+Series: v0.21.1 -> v0.22.0 (interim integration log, no release tag)
+Baseline: v0.21.1 (3a0464cb)
+
+These commits sit between v0.21.1 and the v0.22.0 tag and were not recorded in a v0.21.x log.
+
+---
+
+dddcb95f19e6f98b9f1eb4039cadf8dca3ac1df4 docs(security): add AITBC-AUDIT-2 shared core audit findings [no-ticket]
+a5386de9c8791123dd6b0bfde2db0b36387f07a3 docs(qas): add QA validation report for AITBC-AUDIT-3 [no-ticket]
+a54cc553771eff5ed6fc91cf7bdf02b5fcfa6616 docs(qa): re-verify QA validation report for AITBC-AUDIT-3 [no-ticket]
+94cea5328b1e6a68df249615a64701704fdd553d docs(security): add cli/aitbc_cli audit findings [AITBC-AUDIT-4]
+cd5da9736ad5c31d3d4a95410484005ba069f377 docs(qa): add validation report for tests suite audit [AITBC-5]
+88ea3639c0ccc8456609f3bd8c8b8c0d5af1c76f chore(audit): merge AITBC-AUDIT-2-audit-findings
+287d7097d741b37a04625b594f124fca4a041900 chore(audit): merge AITBC-AUDIT-3-auto (v0.20.4.3)
+a1827d515ecd1118a147bc7e7da4b24743608caa chore(audit): merge AITBC-AUDIT-4-cli-audit-docs
+905ab2838a13ce3ad5a4c94db51c40b36dd49d9b chore(audit): merge AITBC-AUDIT-5-auto
+844e47d4960fa4400a573d9270866c1b390bd466 refactor(harness): remove remaining boilerplate dirs
+6288569b12bcf972b8ae0a11c3058a948b0fa30b chore(harness): remove boilerplate directory and broken drift guard
+da033b62c145017c899ee5df272b503b93a9c64b fix(db): replace B311 pseudo-random with secrets in replica routing [AITBC-1]
+ca2dfd3fe6f47d5ad44deb2f7249cb84eb1b48a8 fix(security): replace random with secrets in marketplace id generation [AITBC-2]
+828d32daed1b90d3dc7ef56e06c6b0ce247baa6e fix(security): add nosec justification for fixed subprocess calls in training setup [AITBC-3]
+ee20337aa14d527bf145250e95b2d3b9fa962598 chore(security): verify training_setup passes bandit and ruff [AITBC-1]
+9422a9d5b540dc4c3791d4d6e7e243de0ee1471a fix(security): suppress false-positive B311 in agent selection [AITBC-1]
+7727577a07d0fae51f6690306e6e6191c404f06e fix(agent-coordinator): suppress B311 for non-cryptographic consensus simulation random [AITBC-1]
+6267860671906111d00a8d117077df185685b70f fix(security): suppress B311 in blockchain-node ws load test [AITBC-1]
+e83c0acb6f8f4de5467b5cbbb2b4fc7ebcb23ffb fix(security): add nosec justification for random usage in load balancer [AITBC-1]
+dbb1c07a3ad9d7b368840448d11e1308ee369f95 fix(security): add nosec justification for hardcoded password in mock adapter [AITBC-1]
+6a9e94dc850d46f4da9ec0dfb88733bd5ac85c87 fix(security): add nosec B311 justifications for random usage in synthetic data generation [AITBC-1]
+8ebb7cb8211ece3602f180b599ef13d384f3cdf8 fix(security): add nosec justification for B105 Bearer token constant [AITBC-1]
+dc6015e7de4733558821cd1815256aa1c9aff278 fix(security): add nosec comments for non-cryptographic random usage [AITBC-1]
+569893067e65ac493ad0fb5096d67d292c4526c3 fix(security): add nosec justification for TOKEN enum value [AITBC-1]
+33bc0319b1a0a6f06cccdb1046a09859e5219693 fix(security): add nosec justification for default secret validation [AITBC-1]
+af1a8eaa9672eecfaafd4ae1b95d4cb6af6f18c7 fix(security): add nosec justification for empty string validation [AITBC-1]
+a3f66a3f72fb7fa673f4d70b38792917a4dfb88c fix(type): resolve mypy errors, raise coverage floor to 60%, and align session handling [AITBC-69]
+17eec11a2a6a15688524b97d214bc4ee18c8e516 docs(release): add v0.21 release log [AITBC-69]
+7470462779c433e6b7e3009101bbe9c09f43be3a docs(release): track v0.21 release log and complete v0.21.0 audit entries [AITBC-69]
+9cb674948f32a651b9328ddfb566b99e5bfb9a29 fix(database): use AsyncAdaptedQueuePool for async engine and return open cursor [AITBC-72]
+30a2fee7356760364e916f024b60ab91e4149abb fix(auth): default unregistered routes to DENY [AITBC-72]
+34c6e224b3ff9f53bf4d3b7e435a307e6aeed2e3 fix(exchange): fail-closed API key and guard marketplace mutations [AITBC-72]
+a97d864f65019d334fd5fb5a1bdceb7e23a88a47 fix(pool-hub): require valid miner token, no fallback to default or stub [AITBC-72]
+31a7c3c34e06529de19d7c96f556225397e133b7 fix(pool-hub): require X-PoolHub-Key for governance parameter apply [AITBC-72]
+99ecbc5349da2ceeb9a8b66ee7d2afab5ea7a952 fix(agent-coordinator): do not return plaintext when message signature fails [AITBC-72]
+2b33a228f1620ead24904dfadd7c4f14a5d874fa fix(agent-coordinator): require explicit APPROVE prefix, not substring match [AITBC-72]
+ce12ec5431f2d49d1f29fc55ba08a630db510a20 fix(scripts): scan contracts, workflow, multi-node for secrets and exclude work/ scratch [AITBC-72]
+3a9418341bc76e0db8b9248a2e0b815ac2eba3dc fix(pool-hub): commit after flush in repositories to prevent silent data loss [AITBC-72]
+9e517d4bde29ce23c79cbe511160853e9c9770a4 fix(contracts): restrict ContractRegistry onlyAuthorized to owner [AITBC-72]
+a9afe759ac05077422f1344af87d20b336b18d0f fix(contracts): guard initialize functions with onlyOwner [AITBC-72]
+13f30df9c187210713812da044c79c5425a3b97d fix(pool-hub): await AsyncSession operations in services router [AITBC-72]
+0aebfc02c539926f2efbcc9d3e5f3388f4e3de36 fix(pool-hub): await AsyncSession in parameters and sla routers [AITBC-72]
+81c51d4001e686c03cb084143e49077efa3a848c fix(migration): abort scale_balances migration when state root cannot be recalculated [AITBC-72]
+a6f3230c6a57b77257cbfbaef44da9a9c5b1f7fc fix(migration): validate account data and genesis block before state root update [AITBC-72]
+27eeeb9ab81ceb751e5023e415ce675739f4bacc fix(wallet): require admin API key on fund-moving endpoints [AITBC-72]
+e3370f4fdc48be8fdba6502698e992663a0881d1 fix(trading): require X-Trading-Api-Key on all non-system routers [AITBC-72]
+b129a87d86eed6091a1fd8c9e8ac24e3434974a1 fix(payments): enforce client ownership on all payment endpoints [AITBC-72]
+5fb63d9db1dc94e36ade7894fd6dfcabf7ca2b8d fix(contracts): add DAO quorum and use stored emergency-withdraw hash [AITBC-74]
+0f6de43d62b9edb9da63f112502adfc0f2f3fdfb fix(trading): add HMAC webhook signature to exchange payment confirmation [AITBC-74]
+3c832acdbad65f67eec99976558ad6e2c45243a6 fix(trading): use Decimal for exchange amounts and persist payment state to JSON [AITBC-74]
+b31a90eb293463cc8787f057bc029bb4c5aa4255 fix(trading): use real snake_case table names in decimal money migration [AITBC-74]
+7b5cd58d38394792b02dff376f0a6df91d781337 fix(trading): store budget/price ranges as string JSON to avoid Decimal serialization errors [AITBC-74]
+0e1b5442686f601edc2f9385d2d84744c2b736cc fix(trading): use Decimal strings for exchange payment amounts and market stats [AITBC-76]
+b0ed10ce3078a4bf24e17bfde026a27b5e46a7f3 fix(aitbc, trading): use Decimal for SyncedOffer/SubscriptionFilter prices [AITBC-76]
+5824dadd7f205dc3a43de0868e54f61e918bbe10 fix(coordinator-api): use Decimal for payment amounts in views and receipts [AITBC-76]
+a8f08cc0e94c347d23df904d1489285c847e5ad3 fix(security): validate amounts with Decimal instead of float [AITBC-76]
+46441366dacae0ea8d599d83f4f5339b50c1b6d4 fix(aitbc, coordinator-api): return gas price as Decimal [AITBC-76]
+29d2b6f2f533ac1f57bdc6f24b3247c31f54dce8 fix(aitbc, coordinator-api): use Decimal for get_balance and staking [AITBC-76]
+af0ae99dbaffb25367a4fe1ab7af7d83734503eb fix(aitbc): use Decimal for Ethereum RPC and price oracle values [AITBC-76]
+bfa1add256970b01dd4bf465c466211db9786002 fix(aitbc, scripts): add no-float-money lint guard and remove leftover float() [AITBC-76]
+a5d84956f900ce2fdd9c77546732278fd7524b5c chore(release): untrack ZK build artifacts and update README badge [AITBC-86]
