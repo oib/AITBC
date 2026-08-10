@@ -1,0 +1,314 @@
+
+upstream api_gateway {
+    server 127.0.0.1:8201;
+}
+
+upstream blockchain_rpc {
+    server 127.0.0.1:8202;
+}
+
+upstream coordinator_api {
+    server 127.0.0.1:8203;
+}
+
+upstream wallet_service {
+    server 127.0.0.1:8108;
+}
+
+upstream blockchain_explorer {
+    server 127.0.0.1:8100;
+}
+
+upstream agent_coordinator {
+    server 127.0.0.1:8107;
+}
+
+upstream marketplace_service {
+    server 127.0.0.1:8102;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+
+    # Get real client IP from proxy headers
+    set_real_ip_from 192.168.100.1;
+    real_ip_header X-Real-IP;
+    real_ip_recursive on;
+    server_name _;
+    root /opt/aitbc/website;
+    index index.html;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+
+    # ── Agent API (Machine-readable for autonomous agents) ───
+
+    location /health {
+        proxy_pass http://agent_coordinator/health;
+        proxy_set_header Host $host;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+
+    location /openapi.json {
+        proxy_pass http://agent_coordinator/openapi.json;
+        proxy_set_header Host $host;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+
+    location /agent/openapi.json {
+        proxy_pass http://agent_coordinator/openapi.json;
+        proxy_set_header Host $host;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+
+    location /v1/ {
+        proxy_pass http://agent_coordinator/v1/;
+        proxy_set_header Host $host;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+
+    # Serve blockchain.env from /etc/aitbc
+    location = /agent/blockchain.env {
+        alias /etc/aitbc/blockchain.env;
+        add_header Content-Type "text/plain; charset=utf-8";
+        add_header Access-Control-Allow-Origin * always;
+    }
+
+    # Serve blockchain-secrets.env from /etc/aitbc
+    location = /agent/blockchain-secrets.env {
+        alias /etc/aitbc/blockchain-secrets.env;
+        add_header Content-Type "text/plain; charset=utf-8";
+        add_header Access-Control-Allow-Origin * always;
+    }
+
+    # Redirect /agent/ to main site
+    location = /agent/ {
+        return 301 /;
+    }
+
+    # ── Agent Coordinator WebSocket ───────────────────────────
+    # Real-time agent messaging (PING/PONG) and presence tracking
+    # Public: wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream
+    location /agent/api/v1/agent/messages/stream {
+        proxy_pass http://agent_coordinator/api/v1/agent/messages/stream;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    location /agent/api/v1/agent/presence/stream {
+        proxy_pass http://agent_coordinator/api/v1/agent/presence/stream;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # ── API Gateway Reverse Proxy ─────────────────────────────
+
+    location /api/ {
+        proxy_pass http://api_gateway/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    # ── Blockchain RPC Reverse Proxy ────────────────────────
+
+    # ── Blockchain RPC Reverse Proxy ────────────────────────
+
+    # WebSocket routes for real-time block/transaction push
+    # Used by follower SubscriptionClient and event streaming
+    location ~ ^/rpc/(subscribe/ws|blocks|transactions)$ {
+        proxy_pass http://127.0.0.1:8202;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # HTTP RPC routes (subscribe, heartbeat, blocks, head, etc.)
+    location /rpc/ {
+        proxy_pass http://blockchain_rpc/rpc/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    # ── Coordinator API (Legacy Failover) ─────────────────────
+
+    location /c/ {
+        proxy_pass http://coordinator_api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+    
+    # ── Wallet Service Exchange API ─────────────────────────────
+
+    location /v1/exchange/ {
+        proxy_pass http://wallet_service/v1/exchange/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    # ── Blockchain Explorer API ────────────────────────────────
+
+    location /explorer-api/ {
+        proxy_pass http://blockchain_explorer/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    # ── Marketplace Service Ports (GPU Services) ─────────────────────
+
+    # Ollama service (AI inference)
+    location /ollama/ {
+        proxy_pass http://127.0.0.1:11434/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    # Whisper service (speech recognition)
+    location /whisper/ {
+        proxy_pass http://127.0.0.1:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    # FFmpeg service (video transcoding)
+    location /ffmpeg/ {
+        proxy_pass http://127.0.0.1:9000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    # PeerTube Pruner service
+    location /peertube-pruner/ {
+        proxy_pass http://127.0.0.1:9500/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    # ── Marketplace API ───────────────────────────────────────
+
+    location /v1/marketplace/ {
+        proxy_pass http://marketplace_service/v1/marketplace/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    # ── Exchange API (Bridge, Price, History) ─────────────────────
+
+    location /v1/bridge/ {
+        proxy_pass http://127.0.0.1:8106/v1/bridge/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    location /v1/exchange/history {
+        proxy_pass http://127.0.0.1:8106/v1/exchange/history;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    location /exchange/price.json {
+        proxy_pass http://127.0.0.1:8106/exchange/price.json;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+
+    
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
