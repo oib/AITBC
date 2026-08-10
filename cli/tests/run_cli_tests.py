@@ -12,11 +12,11 @@ def run_cli_test():
 
     # Set up environment
     cli_dir = Path(__file__).resolve().parent.parent
-    cli_bin = cli_dir.parent / "aitbc"
+    cli_bin = "aitbc"  # Will be in PATH from virtual environment
 
     def run_command(*args):
         return subprocess.run(
-            [str(cli_bin), *args],
+            [cli_bin, *args],
             capture_output=True,
             text=True,
             timeout=10,
