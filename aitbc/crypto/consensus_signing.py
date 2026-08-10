@@ -175,30 +175,22 @@ def verify_block_signature(
         ``expected_proposer``. False if the signature is empty, invalid,
         wrong length, or recovers to a different address.
     """
-    from aitbc.crypto.signature_metrics import ERROR, MISMATCH, UNPARSEABLE, record_attempt, record_failure
-
-    record_attempt("block")
     if not signature:
-        record_failure("block", UNPARSEABLE)
         return False
-    try:
-        from eth_keys.exceptions import BadSignature, ValidationError
-        from aitbc.crypto.crypto import _recover_address
 
+    from .signature_recovery import SignatureMalformed, verify_signature
+
+    try:
         msg_hash = bytes.fromhex(block_hash.removeprefix("0x"))
-        sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
-        recovered = _recover_address(msg_hash, sig_bytes)
-        if recovered.lower() == expected_proposer.lower():
-            return True
-        # Parsed cleanly and recovered to someone else. Distinct from the branch below:
-        # this is a wrong signer, that is an unreadable signature (V23-04).
-        record_failure("block", MISMATCH)
+    except ValueError:
+        logger.warning("Block hash is not valid hex, cannot verify signature")
         return False
-    except (BadSignature, ValidationError, ValueError) as e:
-        record_failure("block", UNPARSEABLE)
-        logger.warning("Block signature could not be parsed: %s", e)
-        return False
-    except Exception as e:
-        record_failure("block", ERROR)
-        logger.error("Unexpected error during block signature verification: %s", e)
+
+    try:
+        return verify_signature(msg_hash, signature, expected_proposer)
+    except SignatureMalformed as e:
+        # V23-04: a signature that cannot be parsed is an encoding fault or a bug, not a
+        # failed check. This path used to be indistinguishable from "recovered a different
+        # proposer", which is what let every correctly signed block be rejected in silence.
+        logger.warning("Malformed block signature (encoding fault, not a failed check): %s", e)
         return False

@@ -144,11 +144,11 @@ class TransactionService:
 
             # Sign with secp256k1 over the canonical message (matches the node verifier).
             # eth_keys produces a 65-byte r||s||v signature with v in {0, 1}. This used to
-            # add that the verifier expects exactly that -- which was true, and was the bug
-            # (V23-01): a verifier accepting only v in {0, 1} rejects every standard
-            # Ethereum signature, which carries 27 or 28. _recover_address now normalises
-            # either encoding, so this signer is no longer coupled to the verifier's
-            # tolerance and neither side needs to know what the other emits.
+            # note that the node's verifier expected exactly that -- which was true, and was
+            # the bug (V23-01): a verifier that only accepts v in {0, 1} rejects every
+            # standard Ethereum signature, which carries 27 or 28. Verification now goes
+            # through aitbc.crypto.signature_recovery, which accepts either encoding, so
+            # this signer is no longer coupled to the verifier's tolerance.
             signature = private_key.sign_msg_hash(keccak(_canonical_signing_message(transaction)))
             transaction["signature"] = signature.to_bytes().hex()
 
