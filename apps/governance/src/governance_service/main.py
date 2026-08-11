@@ -115,7 +115,9 @@ async def get_governance_service(session: Annotated[AsyncSession, Depends(get_se
 
 @app.get("/v1/governance/profiles")
 async def get_profiles(
-    role: str | None, user_id: str | None, svc: Annotated[GovernanceService, Depends(get_governance_service)]
+    svc: Annotated[GovernanceService, Depends(get_governance_service)],
+    role: str | None = None,
+    user_id: str | None = None,
 ):
     """Get governance profiles"""
     return await svc.list_profiles(role=role, user_id=user_id)
@@ -135,10 +137,10 @@ async def create_profile(profile_data: dict[str, Any], svc: Annotated[Governance
 
 @app.get("/v1/governance/proposals")
 async def get_proposals(
-    status: str | None,
-    category: str | None,
-    proposer_id: str | None,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
+    status: str | None = None,
+    category: str | None = None,
+    proposer_id: str | None = None,
 ):
     """Get governance proposals"""
     return await svc.list_proposals(status=status, category=category, proposer_id=proposer_id)
@@ -158,9 +160,9 @@ async def create_proposal(proposal_data: dict[str, Any], svc: Annotated[Governan
 
 @app.get("/v1/governance/votes")
 async def get_votes(
-    proposal_id: str | None,
-    voter_id: str | None,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
+    proposal_id: str | None = None,
+    voter_id: str | None = None,
 ):
     """Get votes"""
     return await svc.list_votes(proposal_id=proposal_id, voter_id=voter_id)
@@ -174,12 +176,24 @@ async def create_vote(vote_data: dict[str, Any], svc: Annotated[GovernanceServic
 
 @app.get("/v1/governance/treasury")
 async def get_treasury(svc: Annotated[GovernanceService, Depends(get_governance_service)]):
-    """Get DAO treasury"""
-    return await svc.get_treasury()
+    """Get DAO treasury.
+
+    404s when the ``main_treasury`` row does not exist. This used to answer ``200`` with
+    a body of ``null``, which tells a caller "here is the treasury: nothing" — a
+    successful response carrying no resource. The documented contract
+    (docs/governance/04-API_ENDPOINTS.md) describes an object and no empty case.
+    """
+    treasury = await svc.get_treasury()
+    if treasury is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "DAO treasury has not been initialised"},
+        )
+    return treasury
 
 
 @app.get("/v1/governance/analytics")
-async def get_analytics(period: str | None, svc: Annotated[GovernanceService, Depends(get_governance_service)]):
+async def get_analytics(svc: Annotated[GovernanceService, Depends(get_governance_service)], period: str | None = None):
     """Get governance analytics"""
     return await svc.get_analytics(period=period or "monthly")
 
@@ -274,11 +288,11 @@ async def submit_transaction(
 
 @app.get("/v1/transactions")
 async def get_transactions(
-    transaction_type: str | None,
-    action: str | None,
-    status: str | None,
-    island_id: str | None,
     session: Annotated[AsyncSession, Depends(get_session_dep)],
+    transaction_type: str | None = None,
+    action: str | None = None,
+    status: str | None = None,
+    island_id: str | None = None,
 ):
     """Query governance transactions"""
     from sqlalchemy import select
@@ -327,14 +341,29 @@ async def get_transactions(
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+class StakeRequest(BaseModel):
+    """Request body for token staking.
+
+    Declared as a body model rather than bare scalars: FastAPI reads scalar
+    parameters as *query* parameters, so this endpoint required its payload in the
+    query string while its only caller — ``aitbc governance stake`` — posts JSON.
+    Every invocation got a 422.
+    """
+
+    staker_address: str
+    amount: Decimal
+    lock_period_days: int
+
+
 @app.post("/v1/governance/stake")
 async def stake_tokens(
-    staker_address: str,
-    amount: Decimal,
-    lock_period_days: int,
+    request: StakeRequest,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
 ):
     """Stake tokens for enhanced voting power"""
+    staker_address = request.staker_address
+    amount = request.amount
+    lock_period_days = request.lock_period_days
     try:
         stake = await svc.stake_tokens(staker_address, amount, lock_period_days)
         return {
@@ -361,14 +390,23 @@ async def get_voting_power_v2(address: str, svc: Annotated[GovernanceService, De
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+class DelegateRequest(BaseModel):
+    """Request body for voting-power delegation. See ``StakeRequest`` for why this is a model."""
+
+    delegator_address: str
+    delegate_address: str
+    amount: Decimal
+
+
 @app.post("/v1/governance/delegate")
 async def delegate_voting_power(
-    delegator_address: str,
-    delegate_address: str,
-    amount: Decimal,
+    request: DelegateRequest,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
 ):
     """Delegate voting power to another address"""
+    delegator_address = request.delegator_address
+    delegate_address = request.delegate_address
+    amount = request.amount
     try:
         delegation = await svc.delegate_voting_power(delegator_address, delegate_address, amount)
         return {
