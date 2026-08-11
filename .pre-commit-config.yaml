@@ -101,6 +101,19 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+  # Money must be Decimal (CLAUDE.md). Fails only on violations not already in
+  # scripts/lint/no_float_money_baseline.json, so the existing backlog does not block
+  # commits while new float money does. ~2s over the whole tree.
+  - repo: local
+    hooks:
+      - id: no-float-money
+        name: no-float-money
+        entry: python3 scripts/lint/no_float_money.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
   # Security checks with Bandit (only on pre-push to save time)
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.3
