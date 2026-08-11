@@ -23,7 +23,15 @@ class Settings(ServiceSettings):
     api_prefix: str = "/v1"
 
     # Database — uses shared adapter logic with edge-specific filename.
-    # Set DATABASE_ADAPTER=postgresql and DATABASE_URL=... in production.
+    #
+    # V23-47: the environment variables are ADAPTER and URL, not DATABASE_ADAPTER and
+    # DATABASE_URL as this comment used to say. DatabaseConfig is a BaseSettings with no
+    # env_prefix, so its fields map to the bare names. Setting DATABASE_URL has no effect at
+    # all and the service silently keeps its default file, which is how an Alembic run aimed
+    # at a scratch copy landed on the deployed database instead. `URL` is a dangerously
+    # generic name for this; renaming it means an env_prefix on the shared DatabaseConfig and
+    # a coordinated change across every service that uses it, so it is documented here rather
+    # than changed unilaterally.
     database: EdgeDatabaseConfig = EdgeDatabaseConfig()
 
     # Blockchain node RPC settings
