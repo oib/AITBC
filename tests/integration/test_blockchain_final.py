@@ -45,7 +45,7 @@ def test_nodes():
                 # Test faucet
                 try:
                     response = httpx.post(
-                        f"{node['url']}/rpc/admin/mintFaucet",
+                        f"{node['url']}/rpc/faucet",
                         json={"address": "aitbc1test000000000000000000000000000000000000", "amount": 100},
                         timeout=5,
                     )

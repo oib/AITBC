@@ -85,10 +85,11 @@ def get_chain_head(node_name: str, node_config: dict[str, str]) -> dict[str, Any
 def get_balance(node_name: str, node_config: dict[str, str], address: str) -> int | None:
     """Get balance for an address"""
     try:
-        response = httpx.get(f"{node_config['url']}/rpc/getBalance/{address}", timeout=5)
+        response = httpx.get(f"{node_config['url']}/rpc/balance/{address}", timeout=5)
         if response.status_code == 200:
             data = response.json()
-            return data.get("balance", 0)
+            # the node returns a breakdown, not a single "balance" key
+            return data.get("available_balance", 0)
         else:
             print_error(f"Failed to get balance from {node_config['name']}: {response.status_code}")
             return None
@@ -100,9 +101,7 @@ def get_balance(node_name: str, node_config: dict[str, str], address: str) -> in
 def mint_faucet(node_name: str, node_config: dict[str, str], address: str, amount: int) -> bool:
     """Mint tokens to an address (devnet only)"""
     try:
-        response = httpx.post(
-            f"{node_config['url']}/rpc/admin/mintFaucet", json={"address": address, "amount": amount}, timeout=5
-        )
+        response = httpx.post(f"{node_config['url']}/rpc/faucet", json={"address": address, "amount": amount}, timeout=5)
         if response.status_code == 200:
             print_success(f"Minted {amount} tokens to {address} on {node_config['name']}")
             return True
