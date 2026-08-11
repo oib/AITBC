@@ -114,7 +114,9 @@ class ValidatorRotation:
 
         # Calculate hybrid score
         for validator in validators:
-            validator.hybrid_score = validator.stake * validator.reputation
+            # not-money: a ranking weight, not a quantity. float() narrows the Decimal stake
+            # deliberately -- the product orders validators, it is never settled.
+            validator.hybrid_score = float(validator.stake) * validator.reputation
 
         # Sort by hybrid score (address tiebreaker keeps rotation
         # deterministic across nodes when scores tie)
