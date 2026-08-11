@@ -40,9 +40,13 @@ finding names, not a grep that resembles it.
 
 **Verify before starting, and mark what you fix.**
 
-**Totals**: 56 findings — 41 confirmed defects, 15 observed design gaps. **All 56 resolved**
-(V23-01..40, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
-V23-32a — forty-nine entries, forty numbered findings); **0 open**.
+**Totals**: 57 findings — 42 confirmed defects, 15 observed design gaps. **All 57 resolved**
+(V23-01..48, plus V23-10a, V23-19a, V23-19b, V23-24a, V23-26a, V23-27a, V23-27b, V23-27c,
+V23-32a — fifty-seven entries, forty-eight numbered findings); **0 open**.
+
+(The enumeration in that parenthetical had gone stale: it still read "V23-01..40 — forty-nine
+entries, forty numbered findings" long after V23-41 onward had landed. The count was being
+bumped on every entry and the list under it was not, which is how a ledger stops being one.)
 
 Two things V23-36 and V23-37 surfaced are recorded rather than fixed, because both are
 decisions someone else has to make: money is `float` inside signed transaction payloads
@@ -3672,3 +3676,75 @@ alembic: target database -> sqlite:////var/lib/aitbc/data/gpu_service.db
 The two apps resolve the URL differently — gpu from `DATABASE_URL`, edge through its settings
 object — and that difference is exactly why both echo it. **A migration should never be the
 first thing that tells you which database it chose.**
+
+---
+
+## Medium — a penalty the chain levied and never wrote down
+
+### V23-48 — the slashing penalty nobody could add up · CONFIRMED → RESOLVED
+
+`SlashingEvent.slash_amount` was not an amount. It held a **rate** — 0.05 to 0.5, straight
+from `slash_rates` — and `apply_slashing` multiplied it by `validator.stake` to get the
+quantity actually deducted, which was then **discarded**. Nothing recorded how much a
+validator lost.
+
+So `calculate_total_slashed` summed rates and returned them as "total amount slashed". Three
+double-signs on a 1000 stake take 500, then 250, then 125 — 875 in total. It reported `1.5`.
+
+The function could not be fixed where it stood: the number it needed had never been stored.
+The record had to change first.
+
+    slash_rate       the fraction, set at detection      (0.05 - 0.5)
+    stake_before     the stake at the moment of slashing (None until applied)
+    slashed_amount   what was actually deducted          (None until applied)
+
+`stake_before` is what makes the record auditable rather than merely correct. With the rate
+and the pre-slash stake, `slashed_amount` can be re-derived and checked, and a validator can
+be shown *why* it lost what it lost. `is_applied` distinguishes a detected event from a levied
+one — `should_slash` gates the threshold conditions, so events that cost nothing exist and
+must not be counted as if they had.
+
+#### Two more defects behind the first
+
+**`Validator.stake` was a float.** The slash is a multiplication whose product is now the
+reported figure, so it has to be exact. A 5% penalty on a 0.1 stake is `0.005000000000000001`
+in binary float. It is a `Decimal` across all nine sites now — construction, rotation's
+`hybrid_score` (marked `# not-money:`, it is a ranking scalar), serialisation as a decimal
+string, and the `MIN_ACTIVE_STAKE` demotion threshold.
+
+**The persisted history was write-only.** `save_state` wrote `slashing_events_json` and
+`load_state` never read it back. The comment claimed "slashing history is loaded for
+read-only inspection; the SlashingManager rebuilds its internal state lazily" — neither half
+was true. There is no lazy rebuild. Penalties were forgotten on restart, and with them
+`get_validator_slash_count`, which is what drives `should_slash`: a validator three missed
+blocks into a 3-strike threshold went back to zero strikes on every node restart.
+
+#### The old rows say what they can and no more
+
+Pre-V23-48 records carry `slash_amount` holding the rate. `_parse_slashing_events` reads it as
+one — correct, not a fallback, because that key never held an amount. The deducted quantity
+stays `None`: it was never written down, and it cannot be re-derived because the stake at the
+time was not recorded either. `calculate_total_slashed` skips those events rather than
+guessing, so a total spanning old history is a lower bound and says so by omission. A
+fabricated number would have been worse than an absent one.
+
+#### What the tests caught
+
+16 new tests, plus two existing ones corrected. `test_slashing_reduces_stake` asserted
+`abs(actual - expected) < 0.01` against a float; with an exact deduction it asserts equality,
+and now also checks the event recorded what it took.
+
+`test_state_persistence_save_load` was the more interesting one. It hand-rolled its own copy
+of the persisted row rather than using what `save_state` writes, and asserted only
+`len(validators) == 3` after loading. So it verified that three validators came back, never
+that their stakes did, and its stand-in writer was free to drift from the real one — which it
+had. It now feeds `load_state` exactly what `save_state` produced and compares the stakes.
+
+A test that writes its own version of the format under test is only testing itself.
+
+#### Not changed
+
+`RotationConfig.min_stake` is set and never compared against anything — dead config, left
+alone. `MultiValidatorPoA` remains gated behind `multi_validator_consensus_enabled` (default
+`false`), so none of this is live; the defects were latent, which is why summing rates into a
+headline "total slashed" survived this long.
