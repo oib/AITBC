@@ -3,6 +3,7 @@ Agent Identity Core Implementation
 Provides unified agent identification and cross-chain compatibility
 """
 
+from decimal import Decimal
 import hashlib
 import json
 from datetime import UTC, datetime, timedelta
@@ -259,7 +260,9 @@ class AgentIdentityCore:
         logger.info("Activated agent identity: %s", identity_id)
         return True
 
-    async def update_reputation(self, identity_id: str, transaction_success: bool, amount: float = 0.0) -> AgentIdentity:
+    async def update_reputation(
+        self, identity_id: str, transaction_success: bool, amount: Decimal | float = Decimal("0")
+    ) -> AgentIdentity:
         """Update agent reputation based on transaction outcome"""
         identity = await self.get_identity(identity_id)
         if not identity:
@@ -269,7 +272,9 @@ class AgentIdentityCore:
             identity.successful_transactions += 1
         success_rate = identity.successful_transactions / identity.total_transactions
         base_score = success_rate * 100
-        volume_factor = min(amount / 1000.0, 1.0)
+        # the amount only ever becomes a dimensionless score input here, never a stored
+        # quantity -- but the parameter must still accept the Decimal callers hold
+        volume_factor = min(float(amount) / 1000.0, 1.0)
         identity.reputation_score = base_score * (0.7 + 0.3 * volume_factor)
         identity.last_activity = datetime.now(UTC)
         identity.updated_at = datetime.now(UTC)

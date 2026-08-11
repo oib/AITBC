@@ -1,5 +1,6 @@
 """Offer sync and discovery endpoints for the Trading Service."""
 
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -19,8 +20,8 @@ async def discover_offers(
     source_chain: str | None = None,
     dest_chain: str | None = None,
     service_type: str | None = None,
-    min_price: float | None = None,
-    max_price: float | None = None,
+    min_price: Decimal | None = None,
+    max_price: Decimal | None = None,
     region: str | None = None,
     gpu_model: str | None = None,
     limit: int = 100,

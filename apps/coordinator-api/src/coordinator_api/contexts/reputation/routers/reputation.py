@@ -4,6 +4,7 @@ REST API for agent reputation, trust scores, and economic profiles
 """
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -15,13 +16,13 @@ from sqlmodel import select
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
+from ....storage import get_session
 from ..domain.reputation import (
     AgentReputation,
     CommunityFeedback,
     ReputationEvent,
     ReputationLevel,
 )
-from ....storage import get_session
 from ..services.reputation_service import ReputationService
 
 logger = get_logger(__name__)
@@ -42,7 +43,7 @@ class ReputationProfileResponse(BaseModel):
     performance_rating: float
     reliability_score: float
     community_rating: float
-    total_earnings: float
+    total_earnings: Decimal
     transaction_count: int
     success_rate: float
     jobs_completed: int
@@ -90,7 +91,7 @@ class JobCompletionRequest(BaseModel):
     job_id: str
     success: bool
     response_time: float = Field(..., gt=0, description="Response time in milliseconds")
-    earnings: float = Field(..., ge=0, description="Earnings in AITBC")
+    earnings: Decimal = Field(..., ge=0, description="Earnings in AITBC")
 
 
 class TrustScoreResponse(BaseModel):
@@ -117,7 +118,7 @@ class LeaderboardEntry(BaseModel):
     performance_rating: float
     reliability_score: float
     community_rating: float
-    total_earnings: float
+    total_earnings: Decimal
     transaction_count: int
     geographic_region: str
     specialization_tags: list[str]

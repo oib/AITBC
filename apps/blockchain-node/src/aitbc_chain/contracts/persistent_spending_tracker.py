@@ -5,10 +5,11 @@ Fixes the critical vulnerability where spending limits were lost on restart
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from eth_utils import to_checksum_address
-from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, String, create_engine
+from sqlalchemy import Boolean, Column, DateTime, Index, Integer, Numeric, String, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -36,7 +37,7 @@ class SpendingRecord(Base):
     agent_address = Column(String, index=True)
     period_type = Column(String, index=True)
     period_key = Column(String, index=True)
-    amount = Column(Float)
+    amount = Column(Numeric(20, 8))
     transaction_hash = Column(String)
     timestamp = Column(DateTime, default=_utcnow)
     __table_args__ = (
@@ -50,11 +51,11 @@ class SpendingLimit(Base):
 
     __tablename__ = "spending_limits"
     agent_address = Column(String, primary_key=True)
-    per_transaction = Column(Float)
-    per_hour = Column(Float)
-    per_day = Column(Float)
-    per_week = Column(Float)
-    time_lock_threshold = Column(Float)
+    per_transaction = Column(Numeric(20, 8))
+    per_hour = Column(Numeric(20, 8))
+    per_day = Column(Numeric(20, 8))
+    per_week = Column(Numeric(20, 8))
+    time_lock_threshold = Column(Numeric(20, 8))
     time_lock_delay_hours = Column(Integer)
     updated_at = Column(DateTime, default=_utcnow)
     updated_by = Column(String)
@@ -78,8 +79,8 @@ class SpendingCheckResult:
 
     allowed: bool
     reason: str
-    current_spent: dict[str, float]
-    remaining: dict[str, float]
+    current_spent: dict[str, Decimal]
+    remaining: dict[str, Decimal]
     requires_time_lock: bool
     time_lock_until: datetime | None = None
 
@@ -110,7 +111,7 @@ class PersistentSpendingTracker:
         else:
             raise ValueError(f"Invalid period: {period}")
 
-    def get_spent_in_period(self, agent_address: str, period: str, timestamp: datetime | None = None) -> float:
+    def get_spent_in_period(self, agent_address: str, period: str, timestamp: datetime | None = None) -> Decimal:
         """
         Get total spent in given period from database
 
@@ -137,10 +138,10 @@ class PersistentSpendingTracker:
                 .with_entities(SpendingRecord.amount)
                 .all()
             )
-            return float(sum(record.amount for record in total if record.amount is not None))
+            return sum((record.amount for record in total if record.amount is not None), Decimal("0"))
 
     def record_spending(
-        self, agent_address: str, amount: float, transaction_hash: str, timestamp: datetime | None = None
+        self, agent_address: str, amount: Decimal, transaction_hash: str, timestamp: datetime | None = None
     ) -> bool:
         """
         Record a spending transaction in the database
@@ -167,7 +168,7 @@ class PersistentSpendingTracker:
                         agent_address=agent_address,
                         period_type=period,
                         period_key=period_key,
-                        amount=float(amount),  # type: ignore[arg-type]
+                        amount=amount,  # type: ignore[arg-type]  # Numeric column, untyped declarative Base
                         transaction_hash=transaction_hash,
                         timestamp=timestamp,
                     )
@@ -179,7 +180,7 @@ class PersistentSpendingTracker:
             return False
 
     def check_spending_limits(
-        self, agent_address: str, amount: float, timestamp: datetime | None = None
+        self, agent_address: str, amount: Decimal, timestamp: datetime | None = None
     ) -> SpendingCheckResult:
         """
         Check if amount exceeds spending limits using persistent data
@@ -209,8 +210,8 @@ class PersistentSpendingTracker:
                 )
                 session.add(limits)
                 session.commit()
-        current_spent: dict[str, float] = {}
-        remaining: dict[str, float] = {}
+        current_spent: dict[str, Decimal] = {}
+        remaining: dict[str, Decimal] = {}
         per_transaction = limits.per_transaction if limits.per_transaction is not None else 0.0
         per_hour = limits.per_hour if limits.per_hour is not None else 0.0
         per_day = limits.per_day if limits.per_day is not None else 0.0
@@ -410,9 +411,9 @@ class PersistentSpendingTracker:
             limits = session.query(SpendingLimit).filter(SpendingLimit.agent_address == agent_address).first()
             if not limits:
                 return {"error": "No spending limits set"}
-        per_hour_limit = float(limits.per_hour) if limits.per_hour is not None else 0.0
-        per_day_limit = float(limits.per_day) if limits.per_day is not None else 0.0
-        per_week_limit = float(limits.per_week) if limits.per_week is not None else 0.0
+        per_hour_limit = Decimal(limits.per_hour) if limits.per_hour is not None else Decimal("0")
+        per_day_limit = Decimal(limits.per_day) if limits.per_day is not None else Decimal("0")
+        per_week_limit = Decimal(limits.per_week) if limits.per_week is not None else Decimal("0")
         remaining = {
             "hour": per_hour_limit - current_spent["hour"],
             "day": per_day_limit - current_spent["day"],

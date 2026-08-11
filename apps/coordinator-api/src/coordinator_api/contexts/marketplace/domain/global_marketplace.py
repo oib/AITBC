@@ -213,7 +213,7 @@ class GlobalMarketplaceAnalytics(SQLModel, table=True):
     total_offers: int = Field(default=0)
     total_transactions: int = Field(default=0)
     total_volume: float = Field(default=0.0)
-    average_price: float = Field(default=0.0)
+    average_price: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     # Performance metrics
     average_response_time: float = Field(default=0.0)
@@ -288,7 +288,7 @@ class GlobalMarketplaceOfferRequest(SQLModel):
     agent_id: str
     service_type: str
     resource_specification: dict[str, Any]
-    base_price: float
+    base_price: Decimal
     currency: str = "USD"
     total_capacity: int
     regions_available: list[str] = []
@@ -330,9 +330,9 @@ class GlobalMarketplaceOfferResponse(SQLModel):
     agent_id: str
     service_type: str
     resource_specification: dict[str, Any]
-    base_price: float
+    base_price: Decimal
     currency: str
-    price_per_region: dict[str, float]
+    price_per_region: dict[str, Decimal]
     total_capacity: int
     available_capacity: int
     regions_available: list[str]
@@ -357,12 +357,12 @@ class GlobalMarketplaceTransactionResponse(SQLModel):
     offer_id: str
     service_type: str
     quantity: int
-    unit_price: float
-    total_amount: float
+    unit_price: Decimal
+    total_amount: Decimal
     currency: str
     source_chain: int | None
     target_chain: int | None
-    cross_chain_fee: float
+    cross_chain_fee: Decimal
     source_region: str
     target_region: str
     status: str
@@ -384,7 +384,7 @@ class GlobalMarketplaceAnalyticsResponse(SQLModel):
     total_offers: int
     total_transactions: int
     total_volume: float
-    average_price: float
+    average_price: Decimal
     average_response_time: float
     success_rate: float
     active_buyers: int

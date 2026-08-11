@@ -3,15 +3,17 @@ Badge System - Achievement and recognition badge system
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
-from ...domain.certification import AchievementBadge, AgentBadge, BadgeType
-from ....reputation.services.reputation_service import ReputationService
 from aitbc_shared.models import ReputationDTO
 from sqlmodel import Session, and_, select
 
 from aitbc.aitbc_logging import get_logger
+
+from ....reputation.services.reputation_service import ReputationService
+from ...domain.certification import AchievementBadge, AgentBadge, BadgeType
 
 logger = get_logger(__name__)
 
@@ -161,7 +163,7 @@ class BadgeSystem:
 
     def get_metric_value(self, reputation: ReputationDTO, metric: str) -> float:
         """Get metric value from reputation data"""
-        metric_map = {
+        metric_map: dict[str, float | Decimal] = {
             "jobs_completed": float(reputation.jobs_completed),
             "successful_transactions": float(reputation.jobs_completed * (reputation.success_rate / 100)),
             "total_earnings": reputation.total_earnings,
@@ -171,6 +173,8 @@ class BadgeSystem:
             "performance_rating": reputation.performance_rating,
             "transaction_count": float(reputation.transaction_count),
         }
+        # Badge thresholds are compared as floats; this is the one place the money value
+        # is deliberately narrowed, and it decides an award, not an amount.
         return float(metric_map.get(metric, 0.0))
 
     async def check_and_award_automatic_badges(self, session: Session, agent_id: str) -> list[dict[str, Any]]:

@@ -7,6 +7,7 @@ Domain models for managing the developer ecosystem, bounties, certifications, an
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from uuid import uuid4
 
@@ -40,7 +41,7 @@ class DeveloperProfile(SQLModel, table=True):
     email: str | None = Field(default=None)
 
     reputation_score: float = Field(default=0.0)
-    total_earned_aitbc: float = Field(default=0.0)
+    total_earned_aitbc: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     skills: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
@@ -87,8 +88,8 @@ class RegionalHub(SQLModel, table=True):
     lead_wallet_address: str = Field()  # Hub lead
     member_count: int = Field(default=0)
 
-    budget_allocation: float = Field(default=0.0)
-    spent_budget: float = Field(default=0.0)
+    budget_allocation: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=8)
+    spent_budget: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=8)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -105,7 +106,7 @@ class BountyTask(SQLModel, table=True):
     required_skills: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     difficulty_level: CertificationLevel = Field(default=CertificationLevel.INTERMEDIATE)
 
-    reward_amount: float = Field()
+    reward_amount: Decimal = Field(max_digits=20, decimal_places=8)
     reward_token: str = Field(default="AITBC")
 
     status: BountyStatus = Field(default=BountyStatus.OPEN, index=True)

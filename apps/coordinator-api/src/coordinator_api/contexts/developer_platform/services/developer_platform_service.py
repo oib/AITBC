@@ -350,11 +350,11 @@ class DeveloperPlatformService:
             "apy_average": 7.5,
         }
 
-    async def unstake_tokens(self, staking_id: str, amount: float) -> dict:
+    async def unstake_tokens(self, staking_id: str, amount: Decimal) -> dict:
         """Unstake tokens from a developer"""
         unstake_info = {
             "staking_id": staking_id,
-            "amount_unstaked": amount,
+            "amount_unstaked": str(amount),
             "rewards_earned": 25.5,
             "tx_hash": "0xmock_unstake_tx_hash",
             "completed_at": datetime.now(UTC).isoformat(),

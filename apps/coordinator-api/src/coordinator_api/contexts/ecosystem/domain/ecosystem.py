@@ -8,6 +8,7 @@ This model tracks ecosystem-wide metrics for dashboards. Table name unchanged
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlmodel import JSON, Column, Field, SQLModel
@@ -28,8 +29,8 @@ class EcosystemMetrics(SQLModel, table=True):
     # Developer metrics
     active_developers: int = Field(default=0)
     new_developers: int = Field(default=0)
-    developer_earnings_total: float = Field(default=0.0)
-    developer_earnings_average: float = Field(default=0.0)
+    developer_earnings_total: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    developer_earnings_average: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     # Agent metrics
     total_agents: int = Field(default=0)
@@ -41,19 +42,19 @@ class EcosystemMetrics(SQLModel, table=True):
     total_staked: float = Field(default=0.0)
     total_stakers: int = Field(default=0)
     average_apy: float = Field(default=0.0)
-    staking_rewards_total: float = Field(default=0.0)
+    staking_rewards_total: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     # Bounty metrics
     active_bounties: int = Field(default=0)
     bounty_completion_rate: float = Field(default=0.0)
-    average_bounty_reward: float = Field(default=0.0)
+    average_bounty_reward: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
     bounty_volume_total: float = Field(default=0.0)
 
     # Treasury metrics
-    treasury_balance: float = Field(default=0.0)
-    treasury_inflow: float = Field(default=0.0)
-    treasury_outflow: float = Field(default=0.0)
-    dao_revenue: float = Field(default=0.0)
+    treasury_balance: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    treasury_inflow: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    treasury_outflow: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    dao_revenue: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
 
     # Token metrics
     token_circulating_supply: float = Field(default=0.0)

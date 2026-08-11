@@ -1,10 +1,12 @@
 """Cross-chain trading commands for AITBC CLI"""
 
+from decimal import Decimal
+
 import click
 import requests
 from tabulate import tabulate
 
-from ..utils import error, output, success
+from ..utils import DECIMAL, error, output, success
 
 # Import shared modules
 from ..utils.http_client import AITBCHTTPClient, get_logger
@@ -64,8 +66,8 @@ def rates(ctx, from_chain: str | None, to_chain: str | None, from_token: str | N
 @click.option("--to-chain", required=True, help="Target chain ID")
 @click.option("--from-token", required=True, help="Source token symbol")
 @click.option("--to-token", required=True, help="Target token symbol")
-@click.option("--amount", type=float, required=True, help="Amount to swap")
-@click.option("--min-amount", type=float, help="Minimum amount to receive")
+@click.option("--amount", type=DECIMAL, required=True, help="Amount to swap")
+@click.option("--min-amount", type=DECIMAL, help="Minimum amount to receive")
 @click.option("--slippage", type=float, default=0.01, help="Slippage tolerance (0-0.1)")
 @click.option("--address", help="User wallet address")
 @click.pass_context
@@ -75,8 +77,8 @@ def swap(
     to_chain: str,
     from_token: str,
     to_token: str,
-    amount: float,
-    min_amount: float | None,
+    amount: Decimal,
+    min_amount: Decimal | None,
     slippage: float,
     address: str | None,
 ):
@@ -113,8 +115,8 @@ def swap(
         "to_chain": to_chain,
         "from_token": from_token,
         "to_token": to_token,
-        "amount": amount,
-        "min_amount": min_amount,
+        "amount": str(amount),
+        "min_amount": str(min_amount) if min_amount is not None else None,
         "user_address": address,
         "slippage_tolerance": slippage,
     }
@@ -241,10 +243,10 @@ def swaps(ctx, user_address: str | None, status: str | None, limit: int):
 @click.option("--source-chain", required=True, help="Source chain ID")
 @click.option("--target-chain", required=True, help="Target chain ID")
 @click.option("--token", required=True, help="Token to bridge")
-@click.option("--amount", type=float, required=True, help="Amount to bridge")
+@click.option("--amount", type=DECIMAL, required=True, help="Amount to bridge")
 @click.option("--recipient", help="Recipient address")
 @click.pass_context
-def bridge(ctx, source_chain: str, target_chain: str, token: str, amount: float, recipient: str | None):
+def bridge(ctx, source_chain: str, target_chain: str, token: str, amount: Decimal, recipient: str | None):
     """Create cross-chain bridge transaction"""
     config = ctx.obj["config"]
 
@@ -265,7 +267,7 @@ def bridge(ctx, source_chain: str, target_chain: str, token: str, amount: float,
         "source_chain": source_chain,
         "target_chain": target_chain,
         "token": token,
-        "amount": amount,
+        "amount": str(amount),
         "recipient_address": recipient,
     }
 

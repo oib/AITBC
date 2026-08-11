@@ -27,6 +27,19 @@ The baseline can shrink and never grow: that is the whole point, and ``--update-
 is how you record a reduction after fixing something.
 
 A baselined violation is not an accepted one. It is a debt with a number attached.
+
+**That debt is now paid.** 210 -> 60 -> 48 -> 24 -> 13 -> 0 over five passes, so the
+baseline is empty and this is an ordinary gate: anything it reports is a regression.
+
+Worth reading before adding a rule, because the pattern held every single time: each of
+the six widenings found real defects in code the previous pass had reported as clean.
+``per`` and ``target`` in ``DERIVED_TOKENS`` were hiding ``price_per_hour`` and
+``target_amount``; ``ast.IfExp`` was hiding four coordinator-api violations one pass after
+that app reached zero; reading only ``ast.Name`` annotation targets was hiding
+``self.earnings`` and ``self.total_spent`` in the agent SDK; and parameter annotations were
+hiding ``ait_to_seconds(ait: float)``, which is the function that turns a user's
+``--amount`` into the integer the chain settles. **"Zero violations" only ever means zero of
+what the checker can currently see.**
 """
 
 from __future__ import annotations
@@ -34,6 +47,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import re
 import subprocess  # nosec B404 - used only to list tracked files via git
 import sys
 
@@ -50,6 +64,8 @@ MONEY_TOKENS = frozenset(
         "amounts",
         "balance",
         "balances",
+        "budget",
+        "budgets",
         "price",
         "prices",
         "fee",
@@ -63,8 +79,12 @@ MONEY_TOKENS = frozenset(
         "payouts",
         "payment",
         "payments",
+        "funding",
         "funds",
         "revenue",
+        "spend",
+        "spending",
+        "spent",
         "subtotal",
         "deposit",
         "deposits",
@@ -78,6 +98,21 @@ MONEY_TOKENS = frozenset(
 # Quantities *derived* from money that are legitimately float: ratios, rates, scores,
 # percentages, and statistical measures. `fee_percentage` is a proportion; `fee_amount`
 # is money. Without this split the guard reports 62 false positives and gets ignored.
+#
+# The test for membership here is **dimensionless or non-numeric**, not "sounds
+# adjacent to money". Two entries failed that test and were removed after the
+# coordinator-api migration ran into what they were hiding:
+#
+# * ``per`` excluded ``price_per_hour`` -- the single most common money field name in this
+#   repo, and already ``Numeric(20, 8)`` on the ``marketplaceoffer`` table. The API view
+#   that re-declared it ``float`` narrowed a Decimal column back to binary floating point,
+#   which is the exact defect this guard exists to catch.
+# * ``target`` excluded ``target_amount``, which sat beside a flagged ``source_amount`` in
+#   the same ``AtomicSwapOrder`` row -- one side of a swap guarded, the other not.
+#
+# ``margin``, ``change``, ``savings`` and ``discount`` are the same shape of risk
+# (``cost_savings`` and ``discount_amount`` are money) and are kept only because nothing in
+# this tree currently proves them wrong. Prefer naming a proportion ``_percentage``.
 DERIVED_TOKENS = frozenset(
     {
         "rate",
@@ -102,13 +137,11 @@ DERIVED_TOKENS = frozenset(
         "trend",
         "trends",
         "history",
-        "target",
         "margin",
         "change",
         "discount",
         "savings",
         "estimate",
-        "per",
         "data",
         "distribution",
     }
@@ -151,9 +184,21 @@ STRICT_FILES = frozenset(
 )
 
 
+def _tokenize(name: str) -> set[str]:
+    """Split an identifier into lowercase word tokens.
+
+    Both conventions, because this tree uses both: ``total_amount`` is snake_case and
+    ``averagePrice`` (in ``schemas/__init__.py``) is camelCase. Splitting on ``_`` alone
+    made every camelCase money field invisible.
+
+    Tokens, never substrings -- an early draft matched ``wei`` inside ``weight``.
+    """
+    return set(re.findall(r"[a-z]+|[0-9]+", re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", name).lower()))
+
+
 def _is_money_name(name: str) -> bool:
     """True when ``name`` denotes an amount of money rather than something derived from one."""
-    tokens = set(name.lower().split("_"))
+    tokens = _tokenize(name)
     if not tokens & MONEY_TOKENS:
         return False
     return not (tokens & DERIVED_TOKENS)
@@ -196,8 +241,102 @@ def _target_names(node: ast.AST) -> list[str]:
     return []
 
 
+def _is_narrowed_float(annotation: ast.AST) -> bool:
+    """True when an annotation says float *without* also admitting Decimal.
+
+    ``amount: float`` narrows -- the caller cannot hand this function an exact value at all.
+    ``amount: Decimal | float | str`` does not: it is a coercion boundary, and this repo has
+    a dozen of them on purpose (``money.to_atomic_units``, ``grant_service.create_grant``,
+    ``capacity_publisher.publish_capacity``), each normalising to Decimal on the first line.
+    Reporting those would be telling the code to stop accepting the type it exists to accept.
+
+    Whether such a boundary then *keeps* the value exact is a separate question, and one the
+    body rules already answer: a ``float(amount)`` inside it is still ``float-call:amount``.
+    """
+    rendered = ast.unparse(annotation)
+    return "float" in rendered and "Decimal" not in rendered
+
+
+def _annotated_name(target: ast.AST) -> str | None:
+    """The name being declared by an annotated assignment, or None.
+
+    ``x: float`` is an ``ast.Name``, but ``self.x: float = 0.0`` is an ``ast.Attribute``.
+    Both are declarations of the same thing, and this rule read only the first for four
+    PRs -- which is how ``ComputeProvider.earnings`` and ``ComputeConsumer.total_spent``
+    stayed float in a tree the guard reported as clean.
+    """
+    if isinstance(target, ast.Name):
+        return target.id
+    if isinstance(target, ast.Attribute):
+        return target.attr
+    return None
+
+
 def _is_float_call(node: ast.AST) -> bool:
+    """True for ``float(x)``, including inside a conditional expression.
+
+    ``{"amount": float(amount) if amount else 0}`` is an ``IfExp``, not a ``Call``, so
+    checking the node type alone walked straight past it. That exact line was sending a
+    narrowed escrow amount to a node that parses it back with ``Decimal(str(amount))`` --
+    a rounding step whose result the receiver then preserved faithfully.
+    """
+    if isinstance(node, ast.IfExp):
+        return _is_float_call(node.body) or _is_float_call(node.orelse)
     return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "float"
+
+
+SUPPRESSION = "# not-money:"
+
+
+def _suppressed_lines(source: str) -> frozenset[int]:
+    """Line numbers carrying a ``# not-money: <reason>`` marker.
+
+    A name-driven guard has false positives, and there is exactly one honest place to
+    record them: the declaration itself. ``price_difference`` on ``arbitrage_opportunity``
+    is a percentage whose name says "price"; parking it in the baseline would file it as
+    debt to be repaid, which is the wrong claim about it, and would leave the next reader
+    of that line no wiser. The reason is mandatory -- a bare marker is not accepted.
+    """
+    return frozenset(
+        number
+        for number, line in enumerate(source.splitlines(), start=1)
+        if (index := line.find(SUPPRESSION)) != -1 and line[index + len(SUPPRESSION) :].strip()
+    )
+
+
+def _is_suppressed(node: ast.AST, skip: frozenset[int], comment_lines: frozenset[int]) -> bool:
+    """True when a marker sits in the node's line span or in the comment block above it.
+
+    Three things forced this shape, each found by the marker silently not working:
+
+    * The **span**, not just ``lineno``: appending the marker to a long declaration pushes
+      it past the line limit, and ruff-format then wraps the call so the comment lands on
+      the last line while the node still starts on the first.
+    * The line **above**: putting it on its own line avoids that wrapping entirely, and
+      reads better than trailing a declaration.
+    * The whole **comment block** above, not just one line: the cases that most need a
+      marker are the ones that need a paragraph to justify -- ``payment`` in
+      ``rpc/ai_services.py`` needs four lines to say why converting it is a hard fork.
+      Requiring the marker to be the last of those lines is a trap that springs quietly.
+
+    What it deliberately does **not** do is cover a run of statements. A comment block
+    suppresses the statement directly beneath it and nothing further, so a stanza of three
+    float conversions under one paragraph needs a short marker on each of the other two.
+    That is noisier, and it is the right trade: the alternative silently exempts whatever
+    someone appends to the stanza later.
+    """
+    start = getattr(node, "lineno", None)
+    if start is None:
+        return False
+    end = getattr(node, "end_lineno", None) or start
+    if any(line in skip for line in range(start, end + 1)):
+        return True
+    line = start - 1
+    while line in comment_lines:
+        if line in skip:
+            return True
+        line -= 1
+    return False
 
 
 def _violations_in(path: Path) -> list[str]:
@@ -212,21 +351,42 @@ def _violations_in(path: Path) -> list[str]:
       assignment, attribute, dict key or keyword argument.
 
     Keys are identifier-based, not line-based, so moving code does not churn the baseline.
+
+    * ``param:<name>`` -- a money parameter declared ``float``. Measured at 131 sites when
+      the rule was added; ``_is_narrowed_float`` took that to 119 by exempting unions that
+      also admit ``Decimal``, and the rest were converted or marked in one pass.
+
+    Keys are per **name**, not per site, so one entry can cover several declarations of the
+    same field in a file. That keeps the baseline stable when code moves, at the cost of the
+    entry count understating the work -- ``aitbc/trading/types.py`` was one entry and four
+    dataclasses.
     """
     try:
-        tree = ast.parse((REPO_ROOT / path).read_text(encoding="utf-8"))
+        source = (REPO_ROOT / path).read_text(encoding="utf-8")
+        tree = ast.parse(source)
     except (SyntaxError, UnicodeDecodeError):
         return []
 
     keys: list[str] = []
     strict = path.as_posix() in STRICT_FILES
+    skip = _suppressed_lines(source)
+    comments = frozenset(number for number, line in enumerate(source.splitlines(), start=1) if line.lstrip().startswith("#"))
 
     for node in ast.walk(tree):
-        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            if "float" in ast.unparse(node.annotation) and _is_money_name(node.target.id):
-                keys.append(f"annotation:{node.target.id}")
-            if node.value is not None and _is_float_call(node.value) and _is_money_name(node.target.id):
-                keys.append(f"float-call:{node.target.id}")
+        if _is_suppressed(node, skip, comments):
+            continue
+
+        if isinstance(node, ast.AnnAssign) and (declared := _annotated_name(node.target)):
+            if "float" in ast.unparse(node.annotation) and _is_money_name(declared):
+                keys.append(f"annotation:{declared}")
+            if node.value is not None and _is_float_call(node.value) and _is_money_name(declared):
+                keys.append(f"float-call:{declared}")
+
+        elif isinstance(node, ast.arg) and node.annotation is not None:
+            # ``def pay(amount: float)``. Every parameter kind -- positional, keyword-only,
+            # ``*args``, ``**kwargs`` -- is an ``ast.arg``, so one branch covers them all.
+            if _is_narrowed_float(node.annotation) and _is_money_name(node.arg):
+                keys.append(f"param:{node.arg}")
 
         elif isinstance(node, ast.Assign) and _is_float_call(node.value):
             for target in node.targets:
@@ -252,7 +412,7 @@ def _violations_in(path: Path) -> list[str]:
     if strict:
         # Any float() at all, bound to a money name or not.
         for node in ast.walk(tree):
-            if _is_float_call(node):
+            if _is_float_call(node) and not _is_suppressed(node, skip, comments):
                 keys.append(f"float-call:<strict-file>:{getattr(node, 'lineno', 0)}")
 
     # A name can legitimately appear more than once in a file; keep one key per distinct
@@ -282,7 +442,9 @@ def _write_baseline(found: dict[str, list[str]]) -> None:
         "_comment": (
             "Known float-money violations, recorded so the guard fails only on new ones. "
             "This list may shrink and must never grow. Regenerate after fixing something "
-            "with: python scripts/lint/no_float_money.py --update-baseline"
+            "with: python scripts/lint/no_float_money.py --update-baseline. "
+            "It started at 210 and is now empty, so the guard is a plain gate again -- "
+            "any entry appearing here is a regression, not inherited debt."
         ),
         "total": sum(len(v) for v in found.values()),
         "violations": {k: sorted(v) for k, v in sorted(found.items())},

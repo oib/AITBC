@@ -4,12 +4,13 @@ Implements reputation management, trust score calculations, and economic profili
 """
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
+from aitbc_shared.models import ReputationDTO
 from sqlmodel import Session, and_, desc, func, select
 
 from aitbc.aitbc_logging import get_logger
-from aitbc_shared.models import ReputationDTO
 
 from ..domain.reputation import (
     AgentReputation,
@@ -123,14 +124,14 @@ class TrustScoreCalculator:
             return 500.0
         if reputation.total_earnings > 0 and reputation.transaction_count > 0:
             avg_earning_per_transaction = reputation.total_earnings / reputation.transaction_count
-            earning_modifier = min(2.0, avg_earning_per_transaction / 0.1)
+            earning_modifier = min(2.0, float(avg_earning_per_transaction / Decimal("0.1")))
             base_score = 500.0 * earning_modifier
         else:
             base_score = 500.0
         if reputation.success_rate > 0:
             success_modifier = reputation.success_rate / 100.0
             base_score *= success_modifier
-        return min(1000.0, max(0.0, base_score))  # type: ignore[no-any-return]
+        return min(1000.0, max(0.0, base_score))
 
     def calculate_composite_trust_score(
         self, agent_id: str, session: Session, time_window: timedelta = timedelta(days=30)
@@ -260,7 +261,7 @@ class ReputationService:
         return reputation
 
     async def record_job_completion(
-        self, agent_id: str, job_id: str, success: bool, response_time: float, earnings: float
+        self, agent_id: str, job_id: str, success: bool, response_time: float, earnings: Decimal
     ) -> AgentReputation:
         """Record job completion and update reputation"""
         reputation = await self.create_reputation_profile(agent_id)

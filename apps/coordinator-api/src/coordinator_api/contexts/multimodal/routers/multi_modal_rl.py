@@ -3,6 +3,7 @@ Multi-modal RL Router
 Handles multi-modal reinforcement learning endpoints by proxying to AI service
 """
 
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -22,7 +23,7 @@ class JobCreate(BaseModel):
 
     task_type: str
     task_data: dict = {}
-    payment_amount: float = 0.0
+    payment_amount: Decimal = Decimal("0.0")
     payment_currency: str = "aitbc_token"
     priority: int = 0
 

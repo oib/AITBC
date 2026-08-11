@@ -1,5 +1,6 @@
 """Data oracle operations using CLI commands"""
 
+from decimal import Decimal
 import asyncio
 from collections.abc import Callable
 
@@ -16,7 +17,7 @@ class DataOracleOperations:
     def __init__(self, cli_path: str = "/opt/aitbc/aitbc-click"):
         self.executor = CommandExecutor(cli_path)
 
-    def announce_data_availability(self, cid: str, price: float, description: str = "") -> str:
+    def announce_data_availability(self, cid: str, price: Decimal, description: str = "") -> str:
         """Announce data availability"""
         try:
             args = ["store", "--cid", cid, "--price", str(price)]
@@ -62,7 +63,7 @@ class DataOracleOperations:
             logger.error("listen_for_requests failed: %s", e)
             raise
 
-    async def announce_data_availability_async(self, cid: str, price: float, description: str = "") -> str:
+    async def announce_data_availability_async(self, cid: str, price: Decimal, description: str = "") -> str:
         """Async version of announce_data_availability"""
         args = ["store", "--cid", cid, "--price", str(price)]
         if description:

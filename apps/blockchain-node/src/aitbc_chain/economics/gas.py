@@ -50,7 +50,7 @@ class TransactionGas:
 class GasManager:
     """Manages gas fees and pricing"""
 
-    def __init__(self, base_gas_price: float = 0.001):
+    def __init__(self, base_gas_price: Decimal | float | int | str = Decimal("0.001")):
         self.base_gas_price = Decimal(str(base_gas_price))
         self.current_gas_price = self.base_gas_price
         self.gas_schedules: dict[GasType, GasSchedule] = {}
@@ -199,9 +199,9 @@ class GasManager:
         """Get gas system statistics"""
         if not self.price_history:
             return {
-                "current_price": float(self.current_gas_price),
+                "current_price": str(self.current_gas_price),
                 "price_history_length": 0,
-                "average_price": float(self.current_gas_price),
+                "average_price": str(self.current_gas_price),
                 "price_volatility": 0.0,
             }
 
@@ -216,12 +216,13 @@ class GasManager:
             volatility = 0.0
 
         return {
-            "current_price": float(self.current_gas_price),
+            "current_price": str(self.current_gas_price),
             "price_history_length": len(self.price_history),
-            "average_price": float(avg_price),
+            "average_price": str(avg_price),
+            # volatility is a dimensionless ratio, unlike the prices around it
             "price_volatility": float(volatility),
-            "min_price": float(min(prices)),
-            "max_price": float(max(prices)),
+            "min_price": str(min(prices)),
+            "max_price": str(max(prices)),
             "congestion_history_length": len(self.congestion_history),
             "average_congestion": sum(self.congestion_history) / len(self.congestion_history)
             if self.congestion_history
@@ -269,7 +270,7 @@ class GasOptimizer:
                 optimizations.append(
                     {
                         "type": "timing_optimization",
-                        "potential_savings": float(savings),
+                        "potential_savings": str(savings),
                         "description": "Use slower priority for lower fees",
                     }
                 )
@@ -289,8 +290,8 @@ class GasOptimizer:
             "gas_type": gas_type.value,
             "data_size": data_size,
             "base_gas": base_gas,
-            "optimal_price": float(optimal_price),
-            "estimated_fee": float(base_gas * optimal_price),
+            "optimal_price": str(optimal_price),
+            "estimated_fee": str(base_gas * optimal_price),
             "optimizations": optimizations,
             "timestamp": time.time(),
         }
@@ -334,7 +335,7 @@ def get_gas_manager() -> GasManager | None:
     return gas_manager
 
 
-def create_gas_manager(base_gas_price: float = 0.001) -> GasManager:
+def create_gas_manager(base_gas_price: Decimal | float | int | str = Decimal("0.001")) -> GasManager:
     """Create and set global gas manager"""
     global gas_manager
     gas_manager = GasManager(base_gas_price)

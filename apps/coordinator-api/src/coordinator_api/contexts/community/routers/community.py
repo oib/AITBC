@@ -3,6 +3,7 @@ Community and Developer Ecosystem API Endpoints
 REST API for managing agent developer profiles, SDKs, solutions, and hackathons
 """
 
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
@@ -12,6 +13,7 @@ from sqlalchemy.orm import Session
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
+from ....storage import get_session
 from ..domain.community import AgentSolution, CommunityPost, DeveloperProfile, Hackathon, InnovationLab
 from ..services.community_service import (
     CommunityPlatformService,
@@ -19,7 +21,6 @@ from ..services.community_service import (
     InnovationLabService,
     ThirdPartySolutionService,
 )
-from ....storage import get_session
 
 logger = get_logger(__name__)
 
@@ -41,7 +42,7 @@ class SolutionPublishRequest(BaseModel):
     capabilities: list[str] = Field(default_factory=list)
     frameworks: list[str] = Field(default_factory=list)
     price_model: str = "free"
-    price_amount: float = 0.0
+    price_amount: Decimal = Decimal("0.0")
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -49,7 +50,7 @@ class LabProposalRequest(BaseModel):
     title: str
     description: str
     research_area: str
-    funding_goal: float = 0.0
+    funding_goal: Decimal = Decimal("0")
     milestones: list[dict[str, Any]] = Field(default_factory=list)
 
 
@@ -203,7 +204,7 @@ async def fund_innovation_lab(
     lab_id: str,
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    amount: Annotated[float, Body(embed=True)],
+    amount: Annotated[Decimal, Body(embed=True)],
 ) -> InnovationLab:
     """Provide funding to a proposed innovation lab"""
     service = InnovationLabService(session)  # type: ignore[arg-type]

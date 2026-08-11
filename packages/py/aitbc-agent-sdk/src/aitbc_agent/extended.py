@@ -1,5 +1,6 @@
 """Extended Agent SDK operations using CLI commands"""
 
+from decimal import Decimal
 from aitbc.aitbc_logging import get_logger
 
 from .command_executor import CommandExecutor
@@ -58,7 +59,7 @@ class ExtendedOperations:
             logger.error("create_swarm failed: %s", e)
             raise
 
-    def add_stake(self, amount: float, validator_id: str | None = None) -> str:
+    def add_stake(self, amount: Decimal, validator_id: str | None = None) -> str:
         """Add stake to validator"""
         try:
             args = ["manage", "--action", "add-stake", "--amount", str(amount)]
@@ -88,7 +89,7 @@ class ExtendedOperations:
             logger.error("create_island_bridge failed: %s", e)
             raise
 
-    def execute_bridge_transfer(self, bridge_id: str, amount: float, token: str) -> str:
+    def execute_bridge_transfer(self, bridge_id: str, amount: Decimal, token: str) -> str:
         """Execute bridge transfer"""
         try:
             args = ["transfer", "--bridge-id", bridge_id, "--amount", str(amount), "--token", token]

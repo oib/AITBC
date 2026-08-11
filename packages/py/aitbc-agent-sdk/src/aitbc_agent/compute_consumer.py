@@ -4,6 +4,7 @@ Compute Consumer Agent - for agents that consume computational resources
 
 import uuid
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any
 
 import httpx
@@ -26,7 +27,7 @@ class JobRequest:
     model_id: str | None = None
     input_data: dict[str, Any] | None = None
     requirements: dict[str, Any] | None = None
-    max_price_per_hour: float = 0.0
+    max_price_per_hour: Decimal = Decimal("0")
     priority: str = "normal"
     deadline: str | None = None
 
@@ -40,7 +41,7 @@ class JobResult:
     status: str  # "completed", "failed", "timeout"
     output: dict[str, Any] | None = None
     execution_time: float = 0.0
-    cost: float = 0.0
+    cost: Decimal = Decimal("0")
     quality_score: float | None = None
 
 
@@ -56,7 +57,7 @@ class ComputeConsumer(Agent):
         super().__init__(identity, capabilities, coordinator_url)
         self.pending_jobs: list[JobRequest] = []
         self.completed_jobs: list[JobResult] = []
-        self.total_spent: float = 0.0
+        self.total_spent: Decimal = Decimal("0")
 
     @classmethod
     def create(cls, name: str, agent_type: str, capabilities: dict[str, Any]) -> "ComputeConsumer":
@@ -102,7 +103,7 @@ class ComputeConsumer(Agent):
         job_type: str,
         input_data: dict[str, Any],
         requirements: dict[str, Any] | None = None,
-        max_price: float = 0.0,
+        max_price: Decimal = Decimal("0"),
     ) -> str:
         """Submit a compute job to the network via coordinator API"""
         job = JobRequest(
@@ -125,7 +126,7 @@ class ComputeConsumer(Agent):
                         "job_type": job.job_type,
                         "input_data": job.input_data,
                         "requirements": job.requirements,
-                        "max_price_per_hour": job.max_price_per_hour,
+                        "max_price_per_hour": str(job.max_price_per_hour),
                         "priority": job.priority,
                     },
                     timeout=10,
@@ -161,7 +162,7 @@ class ComputeConsumer(Agent):
     def get_spending_summary(self) -> dict[str, Any]:
         """Get spending summary"""
         return {
-            "total_spent": self.total_spent,
+            "total_spent": str(self.total_spent),
             "completed_jobs": len(self.completed_jobs),
             "pending_jobs": len(self.pending_jobs),
         }

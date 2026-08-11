@@ -6,12 +6,13 @@ import hashlib
 import json
 import socket
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 import click
 
 from ...config import get_config
-from ...utils import error, info, output, success, warning
+from ...utils import DECIMAL, error, info, output, success, warning
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 # Initialize logger
@@ -382,7 +383,7 @@ def providers(ctx):
 @market.command(name="offer")
 @click.argument("service_type", type=click.Choice(["ollama", "whisper", "peertube_pruner", "ffmpeg"]))
 @click.argument("model_or_variant")
-@click.argument("price", type=float)
+@click.argument("price", type=DECIMAL)
 @click.option(
     "--unit",
     default="per_1k_tokens",
@@ -399,7 +400,7 @@ def offer(
     ctx,
     service_type: str,
     model_or_variant: str,
-    price: float,
+    price: Decimal,
     unit: str,
     description: str | None,
     context_window: int,
@@ -541,6 +542,10 @@ def offer(
                 "provider_address": wallet_address,
                 "service_type": service_type,
                 "model": model_or_variant,
+                # not-money: wire format. This is the payload of a GPU_MARKETPLACE
+                # transaction; the node hashes it for the tx id and reads "price" back
+                # as a JSON number. Decimal is not JSON-serializable and a string would
+                # change the hash, so this stays float until the protocol changes.
                 "price": float(price),
                 "price_unit": unit,
                 "context_window": context_window if service_type == "ollama" else None,
@@ -578,6 +583,10 @@ def offer(
                 json={
                     "service_type": service_type,
                     "model": model_or_variant,
+                    # not-money: wire format. This is the payload of a GPU_MARKETPLACE
+                    # transaction; the node hashes it for the tx id and reads "price" back
+                    # as a JSON number. Decimal is not JSON-serializable and a string would
+                    # change the hash, so this stays float until the protocol changes.
                     "price": float(price),
                     "price_unit": unit,
                     "offer_id": offer_id,

@@ -9,11 +9,11 @@ from typing import Annotated, Any
 from uuid import uuid4
 
 import numpy as np
-from coordinator_api.storage import get_session
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
+from coordinator_api.storage import get_session
 
 logger = get_logger(__name__)
 
@@ -223,8 +223,14 @@ class ReinforcementLearningAgent:
         action_probs = exp_logits / np.sum(exp_logits)
         return action_probs.tolist()  # type: ignore[no-any-return]
 
+    # not-money: `reward` here is a reinforcement-learning return, not currency
     def update_policy(
-        self, state: dict[str, Any], action: dict[str, Any], reward: float, next_state: dict[str, Any], done: bool
+        self,
+        state: dict[str, Any],
+        action: dict[str, Any],
+        reward: float,  # not-money: reinforcement-learning return
+        next_state: dict[str, Any],
+        done: bool,
     ) -> None:
         """Update policy based on experience"""
         if self.algorithm == LearningAlgorithm.Q_LEARNING:
@@ -236,8 +242,14 @@ class ReinforcementLearningAgent:
         self.exploration_rate *= self.exploration_decay
         self.exploration_rate = max(0.01, self.exploration_rate)
 
+    # not-money: reinforcement-learning return
     def _update_q_learning(
-        self, state: dict[str, Any], action: dict[str, Any], reward: float, next_state: dict[str, Any], done: bool
+        self,
+        state: dict[str, Any],
+        action: dict[str, Any],
+        reward: float,  # not-money: reinforcement-learning return
+        next_state: dict[str, Any],
+        done: bool,
     ) -> None:
         """Update Q-learning table"""
         state_key = self._state_to_key(state)
@@ -255,15 +267,27 @@ class ReinforcementLearningAgent:
         new_q = current_q + self.learning_rate * (reward + self.discount_factor * max_next_q - current_q)
         self.q_table[state_key][action_type] = new_q
 
+    # not-money: reinforcement-learning return
     def _update_dqn(
-        self, state: dict[str, Any], action: dict[str, Any], reward: float, next_state: dict[str, Any], done: bool
+        self,
+        state: dict[str, Any],
+        action: dict[str, Any],
+        reward: float,  # not-money: reinforcement-learning return
+        next_state: dict[str, Any],
+        done: bool,
     ) -> None:
         """Update Deep Q-Network"""
         experience = {"state": state, "action": action, "reward": reward, "next_state": next_state, "done": done}
         self._simulate_network_update(experience)
 
+    # not-money: reinforcement-learning return
     def _update_actor_critic(
-        self, state: dict[str, Any], action: dict[str, Any], reward: float, next_state: dict[str, Any], done: bool
+        self,
+        state: dict[str, Any],
+        action: dict[str, Any],
+        reward: float,  # not-money: reinforcement-learning return
+        next_state: dict[str, Any],
+        done: bool,
     ) -> None:
         """Update Actor-Critic networks"""
         experience = {"state": state, "action": action, "reward": reward, "next_state": next_state, "done": done}
@@ -405,6 +429,7 @@ class AdaptiveLearningService:
             {
                 "total_episodes": len(episode_rewards),
                 "total_steps": sum(episode_lengths),
+                # not-money: reinforcement-learning episode returns, not currency
                 "average_reward": float(np.mean(episode_rewards)),
                 "convergence_episode": convergence_episode,
                 "best_performance": max(episode_rewards) if episode_rewards else 0.0,
@@ -413,6 +438,7 @@ class AdaptiveLearningService:
         return {
             "episodes_completed": len(episode_rewards),
             "total_steps": sum(episode_lengths),
+            # not-money: reinforcement-learning episode returns, not currency
             "average_reward": float(np.mean(episode_rewards)),
             "best_episode_reward": float(max(episode_rewards)) if episode_rewards else 0.0,
             "convergence_episode": convergence_episode,
@@ -461,6 +487,7 @@ class AdaptiveLearningService:
         """Get safe default state"""
         return {"position": 0.0, "velocity": 0.0, "task_progress": 0.0, "resource_level": 0.5, "error_count": 0}
 
+    # not-money: reinforcement-learning returns per episode
     def _calculate_training_efficiency(self, episode_rewards: list[float], convergence_episode: int | None) -> float:
         """Calculate training efficiency metric"""
         if not episode_rewards:
@@ -520,6 +547,7 @@ class AdaptiveLearningService:
             "agent_id": agent_id,
             "environment_id": environment_id,
             "evaluation_episodes": num_episodes,
+            # not-money: reinforcement-learning episode returns, not currency
             "average_reward": float(np.mean(evaluation_rewards)),
             "reward_std": float(np.std(evaluation_rewards)),
             "max_reward": float(max(evaluation_rewards)),

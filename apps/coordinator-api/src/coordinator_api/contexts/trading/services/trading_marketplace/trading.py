@@ -8,6 +8,10 @@ from decimal import Decimal
 from typing import Any, TypedDict
 from uuid import uuid4
 
+from sqlmodel import Session, or_, select
+
+from aitbc.aitbc_logging import get_logger
+
 from ...domain.trading import (
     NegotiationStatus,
     SettlementType,
@@ -18,9 +22,6 @@ from ...domain.trading import (
     TradeStatus,
     TradeType,
 )
-from sqlmodel import Session, or_, select
-
-from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -44,9 +45,12 @@ class MatchingEngine:
 
     def calculate_price_compatibility(self, buyer_budget: dict[str, Any], seller_price: float | Decimal) -> float:
         """Calculate price compatibility score (0-100)"""
+        # not-money: all three are narrowed to score budget fit, not to settle anything.
+        # The return is a 0-100 compatibility weighted at 0.25 into a match score, and
+        # float("inf") is the unbounded-budget sentinel.
         min_budget = float(buyer_budget.get("min", 0))
-        max_budget = float(buyer_budget.get("max", float("inf")))
-        seller_price = float(seller_price)
+        max_budget = float(buyer_budget.get("max", float("inf")))  # not-money: scoring, see above
+        seller_price = float(seller_price)  # not-money: scoring, see above
         if seller_price < min_budget:
             return 0.0
         elif seller_price > max_budget:
@@ -225,10 +229,12 @@ class NegotiationSystem:
 
     def generate_initial_offer(self, buyer_request: TradeRequest, seller_offer: dict[str, Any]) -> dict[str, Any]:
         """Generate initial negotiation offer"""
-        buyer_min = float(buyer_request.budget_range.get("min", 0))
-        buyer_max = float(buyer_request.budget_range.get("max", float("inf")))
-        seller_price = float(seller_offer.get("price", 0))
-        if buyer_max == float("inf"):
+        # initial_price is an amount that goes out as an offer, unlike the budget-fit score
+        # above, so the whole calculation stays in Decimal.
+        buyer_min = Decimal(str(buyer_request.budget_range.get("min", 0)))
+        buyer_max = Decimal(str(buyer_request.budget_range.get("max", "Infinity")))
+        seller_price = Decimal(str(seller_offer.get("price", 0)))
+        if buyer_max.is_infinite():
             initial_price = (buyer_min + seller_price) / 2
         else:
             initial_price = (buyer_min + buyer_max + seller_price) / 3
@@ -333,8 +339,11 @@ class NegotiationSystem:
         strategy_config = self.strategies.get(strategy, self.strategies["balanced"])
         price_tolerance = strategy_config["price_tolerance"]
         if "price" in offer and "budget_range" in requirements:
+            # not-money: a negotiation heuristic producing an accept/reject recommendation
+            # rather than an amount, over untyped offer dicts; float("inf") is the
+            # unbounded-budget sentinel. It has no callers.
             budget_min = float(requirements["budget_range"].get("min", 0))
-            budget_max = float(requirements["budget_range"].get("max", float("inf")))
+            budget_max = float(requirements["budget_range"].get("max", float("inf")))  # not-money: see above
             if offer["price"] < budget_min:
                 return {"should_accept": False, "reason": "price_below_minimum"}
             elif budget_max != float("inf") and offer["price"] > budget_max:

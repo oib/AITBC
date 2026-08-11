@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from uuid import uuid4
 
@@ -35,8 +36,8 @@ class ProviderBond(SQLModel, table=True):
     provider_id: str = Field(default="", max_length=255, index=True)
     bond_id: str = Field(default="", max_length=255, index=True)
     status: str = Field(default=ProviderBondStatus.PENDING.value, max_length=20, index=True)
-    amount: float = Field(default=0.0)
-    required_amount: float = Field(default=0.0)
+    amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    required_amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
     meta: dict = Field(
         default_factory=dict,
         sa_column=Column(JSON, nullable=False, server_default=text("'{}'")),
@@ -58,8 +59,8 @@ def set_provider_bond_status(
     session: Session,
     provider_id: str,
     status: ProviderBondStatus,
-    amount: float = 0.0,
-    required_amount: float = 0.0,
+    amount: Decimal = Decimal("0.0"),
+    required_amount: Decimal = Decimal("0.0"),
     bond_id: str = "",
 ) -> ProviderBond:
     """Upsert the bond status for a provider."""

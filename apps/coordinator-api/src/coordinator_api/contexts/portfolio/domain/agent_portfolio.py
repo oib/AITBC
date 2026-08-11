@@ -7,6 +7,7 @@ Domain models for agent portfolio management, trading strategies, and risk asses
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from enum import StrEnum
 
 from sqlalchemy import JSON, Column
@@ -88,11 +89,11 @@ class PortfolioAsset(SQLModel, table=True):
     portfolio_id: int = Field(foreign_key="agent_portfolio.id", index=True)
     token_symbol: str = Field(index=True)
     token_address: str = Field(index=True)
-    balance: float = Field(default=0.0)
+    balance: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
     target_allocation: float = Field(default=0.0)  # Target allocation percentage
     current_allocation: float = Field(default=0.0)  # Current allocation percentage
-    average_cost: float = Field(default=0.0)  # Average cost basis
-    unrealized_pnl: float = Field(default=0.0)  # Unrealized profit/loss
+    average_cost: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Average cost basis
+    unrealized_pnl: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Unrealized profit/loss
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -109,10 +110,10 @@ class PortfolioTrade(SQLModel, table=True):
     portfolio_id: int = Field(foreign_key="agent_portfolio.id", index=True)
     sell_token: str = Field(index=True)
     buy_token: str = Field(index=True)
-    sell_amount: float = Field(default=0.0)
-    buy_amount: float = Field(default=0.0)
-    price: float = Field(default=0.0)
-    fee_amount: float = Field(default=0.0)
+    sell_amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    buy_amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    price: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
+    fee_amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
     status: TradeStatus = Field(default=TradeStatus.PENDING, index=True)
     transaction_hash: str | None = Field(default=None, index=True)
     executed_at: datetime | None = Field(default=None, index=True)
@@ -157,7 +158,7 @@ class RebalanceHistory(SQLModel, table=True):
     pre_rebalance_value: float = Field(default=0.0)
     post_rebalance_value: float = Field(default=0.0)
     trades_executed: int = Field(default=0)
-    rebalance_cost: float = Field(default=0.0)  # Cost of rebalancing
+    rebalance_cost: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Cost of rebalancing
     execution_time_ms: int = Field(default=0)  # Execution time in milliseconds
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
 
@@ -216,7 +217,7 @@ class StrategySignal(SQLModel, table=True):
     signal_type: str = Field(index=True)  # BUY, SELL, HOLD
     token_symbol: str = Field(index=True)
     confidence: float = Field(default=0.0)  # Confidence level (0-1)
-    price_target: float = Field(default=0.0)  # Target price
+    price_target: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)  # Target price
     stop_loss: float = Field(default=0.0)  # Stop loss price
     time_horizon: str = Field(default="1d")  # Time horizon
     reasoning: str = Field(default="")  # Signal reasoning
@@ -236,7 +237,7 @@ class PortfolioSnapshot(SQLModel, table=True):
     portfolio_id: int = Field(foreign_key="agent_portfolio.id", index=True)
     snapshot_date: datetime = Field(index=True)
     total_value: float = Field(default=0.0)
-    cash_balance: float = Field(default=0.0)
+    cash_balance: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
     asset_count: int = Field(default=0)
     top_holdings: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     sector_allocation: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))

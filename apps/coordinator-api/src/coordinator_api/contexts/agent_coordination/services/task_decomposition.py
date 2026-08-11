@@ -5,6 +5,7 @@ Implements intelligent task splitting and sub-task management
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 
 from aitbc.aitbc_logging import get_logger
@@ -69,7 +70,7 @@ class TaskRequirement:
     data_size: int
     priority: int
     deadline: datetime | None = None
-    max_cost: float | None = None
+    max_cost: Decimal | None = None
 
 
 @dataclass
@@ -103,7 +104,7 @@ class TaskDecomposition:
     dependency_graph: dict[str, list[str]]
     execution_plan: list[list[str]]
     estimated_total_duration: float
-    estimated_total_cost: float
+    estimated_total_cost: Decimal
     confidence_score: float
     decomposition_strategy: str
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
