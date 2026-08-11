@@ -212,7 +212,7 @@ class AccessController:
         else:
             retention_days = 365
         expiry_date = transaction_date + timedelta(days=retention_days)
-        return datetime.now(UTC) <= expiry_date  # type: ignore[no-any-return]
+        return datetime.now(UTC) <= expiry_date
 
     def _get_participant_info(self, participant_id: str) -> dict | None:
         """Get participant information"""
